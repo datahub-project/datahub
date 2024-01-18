@@ -5,10 +5,11 @@ from functools import lru_cache
 from typing import Dict, List, Optional, Tuple
 
 from pydantic.fields import Field
+from tableauserverclient import Server
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigModel
-from datahub.ingestion.source import tableau_constant as tc
+from datahub.ingestion.source import tableau_constant as c
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     DatasetLineageType,
     FineGrainedLineage,
@@ -591,12 +592,12 @@ class TableauUpstreamReference:
         cls, d: dict, default_schema_map: Optional[Dict[str, str]] = None
     ) -> "TableauUpstreamReference":
         # Values directly from `table` object from Tableau
-        database = t_database = d.get(tc.DATABASE, {}).get(tc.NAME)
-        schema = t_schema = d.get(tc.SCHEMA)
-        table = t_table = d.get(tc.NAME) or ""
-        t_full_name = d.get(tc.FULL_NAME)
-        t_connection_type = d[tc.CONNECTION_TYPE]  # required to generate urn
-        t_id = d[tc.ID]
+        database = t_database = d.get(c.DATABASE, {}).get(c.NAME)
+        schema = t_schema = d.get(c.SCHEMA)
+        table = t_table = d.get(c.NAME) or ""
+        t_full_name = d.get(c.FULL_NAME)
+        t_connection_type = d[c.CONNECTION_TYPE]  # required to generate urn
+        t_id = d[c.ID]
 
         parsed_full_name = cls.parse_full_name(t_full_name)
         if parsed_full_name and len(parsed_full_name) == 3:
@@ -699,7 +700,6 @@ def get_overridden_info(
     platform_instance_map: Optional[Dict[str, str]],
     lineage_overrides: Optional[TableauLineageOverrides] = None,
 ) -> Tuple[Optional[str], Optional[str], str, str]:
-
     original_platform = platform = get_platform(connection_type)
     if (
         lineage_overrides is not None
@@ -824,7 +824,14 @@ def clean_query(query: str) -> str:
     return query
 
 
-def query_metadata(server, main_query, connection_name, first, offset, qry_filter=""):
+def query_metadata(
+    server: Server,
+    main_query: str,
+    connection_name: str,
+    first: int,
+    offset: int,
+    qry_filter: str = "",
+) -> dict:
     query = """{{
         {connection_name} (first:{first}, offset:{offset}, filter:{{{filter}}})
         {{

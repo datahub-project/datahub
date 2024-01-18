@@ -92,7 +92,7 @@ class SqlParsingBuilder:
     def __post_init__(self) -> None:
         if self.usage_config:
             self._usage_aggregator = UsageAggregator(self.usage_config)
-        else:
+        elif self.generate_usage_statistics:
             logger.info("No usage config provided, not generating usage statistics")
             self.generate_usage_statistics = False
 
@@ -194,6 +194,9 @@ class SqlParsingBuilder:
             for edge in self._lineage_map[downstream_urn].values():
                 upstreams.append(edge.gen_upstream_aspect())
                 fine_upstreams.extend(edge.gen_fine_grained_lineage_aspects())
+
+            if not upstreams:
+                continue
 
             upstream_lineage = UpstreamLineageClass(
                 upstreams=sorted(upstreams, key=lambda x: x.dataset),

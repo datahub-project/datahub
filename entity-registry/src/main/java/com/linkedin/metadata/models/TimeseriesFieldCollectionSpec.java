@@ -7,7 +7,6 @@ import java.util.Map;
 import lombok.Data;
 import lombok.NonNull;
 
-
 @Data
 public class TimeseriesFieldCollectionSpec implements FieldSpec {
   @NonNull PathSpec path;

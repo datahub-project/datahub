@@ -33,11 +33,11 @@ echo "Quickstarting DataHub: version ${DATAHUB_VERSION}"
 if docker volume ls | grep -c -q datahub_neo4jdata
 then
   echo "Datahub Neo4j volume found, starting with neo4j as graph service"
-  cd $DIR && docker-compose pull && docker-compose -p datahub up
+  cd $DIR && docker compose pull && docker compose -p datahub up
 else
   echo "No Datahub Neo4j volume found, starting with elasticsearch as graph service"
   cd $DIR && \
-  DOCKER_DEFAULT_PLATFORM="$(uname -m)" docker-compose -p datahub \
+  DOCKER_DEFAULT_PLATFORM="$(uname -m)" docker compose -p datahub \
     -f quickstart/docker-compose-without-neo4j.quickstart.yml \
     $MONITORING_COMPOSE $CONSUMERS_COMPOSE $M1_COMPOSE up $@
 fi

@@ -4,12 +4,14 @@ on:
     branches:
       - master
     paths-ignore:
+      - "docs-website/**"
       - "docs/**"
       - "**.md"
   pull_request:
     branches:
       - "**"
     paths-ignore:
+      - "docs-website/**"
       - "docs/**"
       - "**.md"
   release:
@@ -46,6 +48,9 @@ jobs:
       unique_full_tag: ${{ steps.tag.outputs.unique_full_tag }}
       publish: ${{ steps.publish.outputs.publish }}
       python_release_version: ${{ steps.tag.outputs.python_release_version }}
+      short_sha: ${{ steps.tag.outputs.short_sha }}
+      branch_name: ${{ steps.tag.outputs.branch_name }}
+      repository_name: ${{ steps.tag.outputs.repository_name }}
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -53,6 +58,7 @@ jobs:
         id: tag
         run: |
           source .github/scripts/docker_helpers.sh
+          echo "short_sha=${SHORT_SHA}" >> $GITHUB_OUTPUT
           echo "tag=$(get_tag)" >> $GITHUB_OUTPUT
           echo "slim_tag=$(get_tag_slim)" >> $GITHUB_OUTPUT
           echo "full_tag=$(get_tag_full)" >> $GITHUB_OUTPUT
@@ -60,6 +66,8 @@ jobs:
           echo "unique_slim_tag=$(get_unique_tag_slim)" >> $GITHUB_OUTPUT
           echo "unique_full_tag=$(get_unique_tag_full)" >> $GITHUB_OUTPUT
           echo "python_release_version=$(get_python_docker_release_v)" >> $GITHUB_OUTPUT
+          echo "branch_name=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" >> $GITHUB_OUTPUT
+          echo "repository_name=${GITHUB_REPOSITORY#*/}" >> $GITHUB_OUTPUT
       - name: Check whether publishing enabled
         id: publish
         env:
@@ -73,10 +81,14 @@ jobs:
     runs-on: ubuntu-latest
     needs: setup
     steps:
-      - name: Check out the repo
-        uses: actions/checkout@v3
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
         with:
-          fetch-depth: 800
+          distribution: "zulu"
+          java-version: 17
+      - uses: gradle/gradle-build-action@v2
+      - name: Check out the repo
+        uses: hsheth2/sane-checkout-action@v1
       - name: Pre-build artifacts for docker image
         run: |
           ./gradlew :metadata-service:war:build -x test --parallel
@@ -131,10 +143,14 @@ jobs:
     runs-on: ubuntu-latest
     needs: setup
     steps:
-      - name: Check out the repo
-        uses: actions/checkout@v3
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
         with:
-          fetch-depth: 800
+          distribution: "zulu"
+          java-version: 17
+      - uses: gradle/gradle-build-action@v2
+      - name: Check out the repo
+        uses: hsheth2/sane-checkout-action@v1
       - name: Pre-build artifacts for docker image
         run: |
           ./gradlew :metadata-jobs:mae-consumer-job:build -x test --parallel
@@ -189,10 +205,14 @@ jobs:
     runs-on: ubuntu-latest
     needs: setup
     steps:
-      - name: Check out the repo
-        uses: actions/checkout@v3
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
         with:
-          fetch-depth: 800
+          distribution: "zulu"
+          java-version: 17
+      - uses: gradle/gradle-build-action@v2
+      - name: Check out the repo
+        uses: hsheth2/sane-checkout-action@v1
       - name: Pre-build artifacts for docker image
         run: |
           ./gradlew :metadata-jobs:mce-consumer-job:build -x test --parallel
@@ -247,10 +267,14 @@ jobs:
     runs-on: ubuntu-latest
     needs: setup
     steps:
-      - name: Check out the repo
-        uses: actions/checkout@v3
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
         with:
-          fetch-depth: 800
+          distribution: "zulu"
+          java-version: 17
+      - uses: gradle/gradle-build-action@v2
+      - name: Check out the repo
+        uses: hsheth2/sane-checkout-action@v1
       - name: Pre-build artifacts for docker image
         run: |
           ./gradlew :datahub-upgrade:build -x test --parallel
@@ -305,10 +329,14 @@ jobs:
     runs-on: ubuntu-latest
     needs: setup
     steps:
-      - name: Check out the repo
-        uses: actions/checkout@v3
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
         with:
-          fetch-depth: 800
+          distribution: "zulu"
+          java-version: 17
+      - uses: gradle/gradle-build-action@v2
+      - name: Check out the repo
+        uses: hsheth2/sane-checkout-action@v1
       - name: Pre-build artifacts for docker image
         run: |
           ./gradlew :datahub-frontend:dist -x test -x yarnTest -x yarnLint --parallel
@@ -366,9 +394,7 @@ jobs:
     needs: setup
     steps:
       - name: Check out the repo
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 800
+        uses: hsheth2/sane-checkout-action@v1
       - name: Build and push
         uses: ./.github/actions/docker-custom-build-and-push
         with:
@@ -388,9 +414,7 @@ jobs:
     needs: setup
     steps:
       - name: Check out the repo
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 800
+        uses: hsheth2/sane-checkout-action@v1
       - name: Build and push
         uses: ./.github/actions/docker-custom-build-and-push
         with:
@@ -410,9 +434,7 @@ jobs:
     needs: setup
     steps:
       - name: Check out the repo
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 800
+        uses: hsheth2/sane-checkout-action@v1
       - name: Build and push
         uses: ./.github/actions/docker-custom-build-and-push
         with:
@@ -434,9 +456,7 @@ jobs:
     needs: setup
     steps:
       - name: Check out the repo
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 800
+        uses: hsheth2/sane-checkout-action@v1
       - uses: dorny/paths-filter@v2
         id: filter
         with:
@@ -468,9 +488,7 @@ jobs:
     needs: [setup, datahub_ingestion_base_build]
     steps:
       - name: Check out the repo
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 800
+        uses: hsheth2/sane-checkout-action@v1
       - uses: dorny/paths-filter@v2
         id: filter
         with:
@@ -510,9 +528,7 @@ jobs:
     needs: [setup, datahub_ingestion_base_build]
     steps:
       - name: Check out the repo
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 800
+        uses: hsheth2/sane-checkout-action@v1
       - uses: dorny/paths-filter@v2
         id: filter
         with:
@@ -553,10 +569,14 @@ jobs:
       needs_artifact_download: ${{ (steps.filter.outputs.datahub-ingestion-base == 'true' || steps.filter.outputs.datahub-ingestion == 'true') && needs.setup.outputs.publish != 'true' }}
     needs: [setup, datahub_ingestion_base_slim_build]
     steps:
-      - name: Check out the repo
-        uses: actions/checkout@v3
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
         with:
-          fetch-depth: 800
+          distribution: "zulu"
+          java-version: 17
+      - uses: gradle/gradle-build-action@v2
+      - name: Check out the repo
+        uses: hsheth2/sane-checkout-action@v1
       - uses: dorny/paths-filter@v2
         id: filter
         with:
@@ -636,10 +656,14 @@ jobs:
       needs_artifact_download: ${{ (steps.filter.outputs.datahub-ingestion-base == 'true' || steps.filter.outputs.datahub-ingestion == 'true') && needs.setup.outputs.publish != 'true' }}
     needs: [setup, datahub_ingestion_base_full_build]
     steps:
-      - name: Check out the repo
-        uses: actions/checkout@v3
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
         with:
-          fetch-depth: 800
+          distribution: "zulu"
+          java-version: 17
+      - uses: gradle/gradle-build-action@v2
+      - name: Check out the repo
+        uses: hsheth2/sane-checkout-action@v1
       - uses: dorny/paths-filter@v2
         id: filter
         with:
@@ -716,7 +740,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        test_strategy: ["no_cypress", "cypress_suite1", "cypress_rest"]
+        test_strategy:
+          [
+            "no_cypress_suite0",
+            "no_cypress_suite1",
+            "cypress_suite1",
+            "cypress_rest",
+          ]
     needs:
       [
         setup,
@@ -735,11 +765,12 @@ jobs:
         run: df -h . && docker images
       - name: Check out the repo
         uses: actions/checkout@v3
-      - name: Set up JDK 11
+      - name: Set up JDK 17
         uses: actions/setup-java@v3
         with:
           distribution: "zulu"
-          java-version: 11
+          java-version: 17
+      - uses: gradle/gradle-build-action@v2
       - uses: actions/setup-python@v4
         with:
           python-version: "3.10"
@@ -812,11 +843,6 @@ jobs:
           ACTIONS_CONFIG: "https://raw.githubusercontent.com/acryldata/datahub-actions/main/docker/config/executor.yaml"
         run: |
           ./smoke-test/run-quickstart.sh
-      - name: sleep 60s
-        run: |
-          # we are doing this because gms takes time to get ready
-          # and we don't have a better readiness check when bootstrap is done
-          sleep 60s
       - name: Disk Check
         run: df -h . && docker images
       - name: Disable ES Disk Threshold
@@ -879,10 +905,20 @@ jobs:
             **/build/reports/tests/test/**
             **/build/test-results/test/**
             **/junit.*.xml
-      - name: Slack failure notification
-        if: failure() && github.event_name == 'push'
-        uses: kpritam/slack-job-status-action@v1
+            !**/binary/**
+  deploy_datahub_head:
+    name: Deploy to Datahub HEAD
+    runs-on: ubuntu-latest
+    needs: [setup, smoke_test]
+    steps:
+      - uses: aws-actions/configure-aws-credentials@v1
+        if: ${{ needs.setup.outputs.publish != 'false' && github.repository_owner == 'datahub-project' && needs.setup.outputs.repository_name == 'datahub' }}
         with:
-          job-status: ${{ job.status }}
-          slack-bot-token: ${{ secrets.SLACK_BOT_TOKEN }}
-          channel: github-activities
+          aws-access-key-id: ${{ secrets.AWS_SQS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SQS_ACCESS_KEY }}
+          aws-region: us-west-2
+      - uses: isbang/sqs-action@v0.2.0
+        if: ${{ needs.setup.outputs.publish != 'false' && github.repository_owner == 'datahub-project' && needs.setup.outputs.repository_name == 'datahub' }}
+        with:
+          sqs-url: ${{ secrets.DATAHUB_HEAD_SYNC_QUEUE }}
+          message: '{ "command": "git-sync", "args" : {"repoName": "${{ needs.setup.outputs.repository_name }}", "repoOrg": "${{ github.repository_owner }}", "repoBranch": "${{ needs.setup.outputs.branch_name }}", "repoShaShort": "${{ needs.setup.outputs.short_sha }}" }}'

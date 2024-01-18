@@ -126,7 +126,7 @@ class NifiSourceConfig(EnvConfigMixin):
         description="Path to PEM file containing certs for the root CA(s) for the NiFi",
     )
 
-    @root_validator
+    @root_validator(skip_on_failure=True)
     def validate_auth_params(cla, values):
         if values.get("auth") is NifiAuthType.CLIENT_CERT and not values.get(
             "client_cert_file"
@@ -143,7 +143,7 @@ class NifiSourceConfig(EnvConfigMixin):
             )
         return values
 
-    @root_validator(pre=False)
+    @root_validator(skip_on_failure=True)
     def validator_site_url_to_site_name(cls, values):
         site_url_to_site_name = values.get("site_url_to_site_name")
         site_url = values.get("site_url")
@@ -247,9 +247,10 @@ class NifiProcessorProvenanceEventAnalyzer:
 
         s3_url = f"s3://{s3_bucket}/{s3_key}"
         s3_url = s3_url[: s3_url.rindex("/")]
-        dataset_name = s3_url.replace("s3://", "").replace("/", ".")
+        s3_path = s3_url[len("s3://") :]
+        dataset_name = s3_path.replace("/", ".")
         platform = "s3"
-        dataset_urn = builder.make_dataset_urn(platform, dataset_name, self.env)
+        dataset_urn = builder.make_dataset_urn(platform, s3_path, self.env)
         return ExternalDataset(
             platform,
             dataset_name,

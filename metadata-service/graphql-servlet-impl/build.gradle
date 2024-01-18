@@ -1,4 +1,6 @@
-apply plugin: 'java'
+plugins {
+  id 'java'
+}
 
 dependencies {
   implementation project(':datahub-graphql-core')
@@ -20,7 +22,7 @@ dependencies {
 
   implementation externalDependency.charle
   implementation externalDependency.jetbrains
-
+  implementation externalDependency.opentelemetryApi
 }
 
 configurations.all{

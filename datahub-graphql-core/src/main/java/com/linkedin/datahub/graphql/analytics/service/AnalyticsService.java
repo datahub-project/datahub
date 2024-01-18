@@ -40,7 +40,6 @@ import org.opensearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
 import org.opensearch.search.aggregations.metrics.Cardinality;
 import org.opensearch.search.builder.SearchSourceBuilder;
 
-
 @Slf4j
 @RequiredArgsConstructor
 public class AnalyticsService {
@@ -72,25 +71,35 @@ public class AnalyticsService {
     return _indexConvention.getIndexName(DATAHUB_USAGE_EVENT_INDEX);
   }
 
-  public List<NamedLine> getTimeseriesChart(String indexName, DateRange dateRange, DateInterval granularity,
+  public List<NamedLine> getTimeseriesChart(
+      String indexName,
+      DateRange dateRange,
+      DateInterval granularity,
       Optional<String> dimension, // Length 1 for now
-      Map<String, List<String>> filters, Map<String, List<String>> mustNotFilters, Optional<String> uniqueOn) {
+      Map<String, List<String>> filters,
+      Map<String, List<String>> mustNotFilters,
+      Optional<String> uniqueOn) {
 
     log.debug(
-        String.format("Invoked getTimeseriesChart with indexName: %s, dateRange: %s to %s, granularity: %s, dimension: %s,",
-            indexName, dateRange.getStart(), dateRange.getEnd(), granularity, dimension) + String.format("filters: %s, uniqueOn: %s", filters,
-            uniqueOn));
+        String.format(
+                "Invoked getTimeseriesChart with indexName: %s, dateRange: %s to %s, granularity: %s, dimension: %s,",
+                indexName, dateRange.getStart(), dateRange.getEnd(), granularity, dimension)
+            + String.format("filters: %s, uniqueOn: %s", filters, uniqueOn));
 
-    AggregationBuilder filteredAgg = getFilteredAggregation(filters, mustNotFilters, Optional.of(dateRange));
+    AggregationBuilder filteredAgg =
+        getFilteredAggregation(filters, mustNotFilters, Optional.of(dateRange));
 
-    AggregationBuilder dateHistogram = AggregationBuilders.dateHistogram(DATE_HISTOGRAM)
-        .field("timestamp")
-        .calendarInterval(new DateHistogramInterval(granularity.name().toLowerCase()));
+    AggregationBuilder dateHistogram =
+        AggregationBuilders.dateHistogram(DATE_HISTOGRAM)
+            .field("timestamp")
+            .calendarInterval(new DateHistogramInterval(granularity.name().toLowerCase()));
     uniqueOn.ifPresent(s -> dateHistogram.subAggregation(getUniqueQuery(s)));
 
     if (dimension.isPresent()) {
       filteredAgg.subAggregation(
-          AggregationBuilders.terms(DIMENSION).field(dimension.get()).subAggregation(dateHistogram));
+          AggregationBuilders.terms(DIMENSION)
+              .field(dimension.get())
+              .subAggregation(dateHistogram));
     } else {
       filteredAgg.subAggregation(dateHistogram);
     }
@@ -99,39 +108,55 @@ public class AnalyticsService {
     Aggregations aggregationResult = executeAndExtract(searchRequest).getAggregations();
     try {
       if (dimension.isPresent()) {
-        return aggregationResult.<Terms>get(DIMENSION).getBuckets()
-            .stream()
-            .map(bucket -> new NamedLine(bucket.getKeyAsString(),
-                extractPointsFromAggregations(bucket.getAggregations(), uniqueOn.isPresent())))
+        return aggregationResult.<Terms>get(DIMENSION).getBuckets().stream()
+            .map(
+                bucket ->
+                    new NamedLine(
+                        bucket.getKeyAsString(),
+                        extractPointsFromAggregations(
+                            bucket.getAggregations(), uniqueOn.isPresent())))
             .collect(Collectors.toList());
       } else {
         return ImmutableList.of(
-            new NamedLine("total", extractPointsFromAggregations(aggregationResult, uniqueOn.isPresent())));
+            new NamedLine(
+                "total", extractPointsFromAggregations(aggregationResult, uniqueOn.isPresent())));
       }
     } catch (Exception e) {
-      log.error(String.format("Caught exception while getting time series chart: %s", e.getMessage()));
+      log.error(
+          String.format("Caught exception while getting time series chart: %s", e.getMessage()));
       return ImmutableList.of();
     }
   }
 
   private int extractCount(MultiBucketsAggregation.Bucket bucket, boolean didUnique) {
-    return didUnique ? (int) bucket.getAggregations().<Cardinality>get(UNIQUE).getValue() : (int) bucket.getDocCount();
+    return didUnique
+        ? (int) bucket.getAggregations().<Cardinality>get(UNIQUE).getValue()
+        : (int) bucket.getDocCount();
   }
 
-  private List<NumericDataPoint> extractPointsFromAggregations(Aggregations aggregations, boolean didUnique) {
-    return aggregations.<Histogram>get(DATE_HISTOGRAM).getBuckets()
-        .stream()
-        .map(bucket -> new NumericDataPoint(bucket.getKeyAsString(), extractCount(bucket, didUnique)))
+  private List<NumericDataPoint> extractPointsFromAggregations(
+      Aggregations aggregations, boolean didUnique) {
+    return aggregations.<Histogram>get(DATE_HISTOGRAM).getBuckets().stream()
+        .map(
+            bucket ->
+                new NumericDataPoint(bucket.getKeyAsString(), extractCount(bucket, didUnique)))
         .collect(Collectors.toList());
   }
 
-  public List<NamedBar> getBarChart(String indexName, Optional<DateRange> dateRange, List<String> dimensions,
+  public List<NamedBar> getBarChart(
+      String indexName,
+      Optional<DateRange> dateRange,
+      List<String> dimensions,
       // Length 1 or 2
-      Map<String, List<String>> filters, Map<String, List<String>> mustNotFilters, Optional<String> uniqueOn,
+      Map<String, List<String>> filters,
+      Map<String, List<String>> mustNotFilters,
+      Optional<String> uniqueOn,
       boolean showMissing) {
     log.debug(
-        String.format("Invoked getBarChart with indexName: %s, dateRange: %s, dimensions: %s,", indexName, dateRange,
-            dimensions) + String.format("filters: %s, uniqueOn: %s", filters, uniqueOn));
+        String.format(
+                "Invoked getBarChart with indexName: %s, dateRange: %s, dimensions: %s,",
+                indexName, dateRange, dimensions)
+            + String.format("filters: %s, uniqueOn: %s", filters, uniqueOn));
 
     assert (dimensions.size() == 1 || dimensions.size() == 2);
     AggregationBuilder filteredAgg = getFilteredAggregation(filters, mustNotFilters, dateRange);
@@ -142,7 +167,8 @@ public class AnalyticsService {
     }
 
     if (dimensions.size() == 2) {
-      TermsAggregationBuilder secondTermAgg = AggregationBuilders.terms(SECOND_DIMENSION).field(dimensions.get(1));
+      TermsAggregationBuilder secondTermAgg =
+          AggregationBuilders.terms(SECOND_DIMENSION).field(dimensions.get(1));
       if (showMissing) {
         secondTermAgg.missing(NA);
       }
@@ -161,14 +187,24 @@ public class AnalyticsService {
         List<BarSegment> barSegments =
             extractBarSegmentsFromAggregations(aggregationResult, DIMENSION, uniqueOn.isPresent());
         return barSegments.stream()
-            .map(segment -> new NamedBar(segment.getLabel(),
-                ImmutableList.of(BarSegment.builder().setLabel("Count").setValue(segment.getValue()).build())))
+            .map(
+                segment ->
+                    new NamedBar(
+                        segment.getLabel(),
+                        ImmutableList.of(
+                            BarSegment.builder()
+                                .setLabel("Count")
+                                .setValue(segment.getValue())
+                                .build())))
             .collect(Collectors.toList());
       } else {
-        return aggregationResult.<Terms>get(DIMENSION).getBuckets()
-            .stream()
-            .map(bucket -> new NamedBar(bucket.getKeyAsString(),
-                extractBarSegmentsFromAggregations(bucket.getAggregations(), SECOND_DIMENSION, uniqueOn.isPresent())))
+        return aggregationResult.<Terms>get(DIMENSION).getBuckets().stream()
+            .map(
+                bucket ->
+                    new NamedBar(
+                        bucket.getKeyAsString(),
+                        extractBarSegmentsFromAggregations(
+                            bucket.getAggregations(), SECOND_DIMENSION, uniqueOn.isPresent())))
             .collect(Collectors.toList());
       }
     } catch (Exception e) {
@@ -177,31 +213,41 @@ public class AnalyticsService {
     }
   }
 
-  private List<BarSegment> extractBarSegmentsFromAggregations(Aggregations aggregations, String aggregationKey,
-      boolean didUnique) {
-    return aggregations.<Terms>get(aggregationKey).getBuckets()
-        .stream()
+  private List<BarSegment> extractBarSegmentsFromAggregations(
+      Aggregations aggregations, String aggregationKey, boolean didUnique) {
+    return aggregations.<Terms>get(aggregationKey).getBuckets().stream()
         .map(bucket -> new BarSegment(bucket.getKeyAsString(), extractCount(bucket, didUnique)))
         .collect(Collectors.toList());
   }
 
   public Row buildRow(String groupByValue, Function<String, Cell> groupByValueToCell, int count) {
     List<String> values = ImmutableList.of(groupByValue, String.valueOf(count));
-    List<Cell> cells = ImmutableList.of(groupByValueToCell.apply(groupByValue),
-        Cell.builder().setValue(String.valueOf(count)).build());
+    List<Cell> cells =
+        ImmutableList.of(
+            groupByValueToCell.apply(groupByValue),
+            Cell.builder().setValue(String.valueOf(count)).build());
     return new Row(values, cells);
   }
 
-  public List<Row> getTopNTableChart(String indexName, Optional<DateRange> dateRange, String groupBy,
-      Map<String, List<String>> filters, Map<String, List<String>> mustNotFilters, Optional<String> uniqueOn,
-      int maxRows, Function<String, Cell> groupByValueToCell) {
+  public List<Row> getTopNTableChart(
+      String indexName,
+      Optional<DateRange> dateRange,
+      String groupBy,
+      Map<String, List<String>> filters,
+      Map<String, List<String>> mustNotFilters,
+      Optional<String> uniqueOn,
+      int maxRows,
+      Function<String, Cell> groupByValueToCell) {
     log.debug(
-        String.format("Invoked getTopNTableChart with indexName: %s, dateRange: %s, groupBy: %s", indexName, dateRange,
-            groupBy) + String.format("filters: %s, uniqueOn: %s", filters, uniqueOn));
+        String.format(
+                "Invoked getTopNTableChart with indexName: %s, dateRange: %s, groupBy: %s",
+                indexName, dateRange, groupBy)
+            + String.format("filters: %s, uniqueOn: %s", filters, uniqueOn));
 
     AggregationBuilder filteredAgg = getFilteredAggregation(filters, mustNotFilters, dateRange);
 
-    TermsAggregationBuilder termAgg = AggregationBuilders.terms(DIMENSION).field(groupBy).size(maxRows);
+    TermsAggregationBuilder termAgg =
+        AggregationBuilders.terms(DIMENSION).field(groupBy).size(maxRows);
     if (uniqueOn.isPresent()) {
       termAgg.order(BucketOrder.aggregation(UNIQUE, false));
       termAgg.subAggregation(getUniqueQuery(uniqueOn.get()));
@@ -212,10 +258,13 @@ public class AnalyticsService {
     Aggregations aggregationResult = executeAndExtract(searchRequest).getAggregations();
 
     try {
-      return aggregationResult.<Terms>get(DIMENSION).getBuckets()
-          .stream()
-          .map(bucket -> buildRow(bucket.getKeyAsString(), groupByValueToCell,
-              extractCount(bucket, uniqueOn.isPresent())))
+      return aggregationResult.<Terms>get(DIMENSION).getBuckets().stream()
+          .map(
+              bucket ->
+                  buildRow(
+                      bucket.getKeyAsString(),
+                      groupByValueToCell,
+                      extractCount(bucket, uniqueOn.isPresent())))
           .collect(Collectors.toList());
     } catch (Exception e) {
       log.error(String.format("Caught exception while getting top n chart: %s", e.getMessage()));
@@ -223,11 +272,16 @@ public class AnalyticsService {
     }
   }
 
-  public int getHighlights(String indexName, Optional<DateRange> dateRange, Map<String, List<String>> filters,
-      Map<String, List<String>> mustNotFilters, Optional<String> uniqueOn) {
+  public int getHighlights(
+      String indexName,
+      Optional<DateRange> dateRange,
+      Map<String, List<String>> filters,
+      Map<String, List<String>> mustNotFilters,
+      Optional<String> uniqueOn) {
     log.debug(
-        String.format("Invoked getHighlights with indexName: %s, dateRange: %s", indexName, dateRange) + String.format(
-            "filters: %s, uniqueOn: %s", filters, uniqueOn));
+        String.format(
+                "Invoked getHighlights with indexName: %s, dateRange: %s", indexName, dateRange)
+            + String.format("filters: %s, uniqueOn: %s", filters, uniqueOn));
 
     AggregationBuilder filteredAgg = getFilteredAggregation(filters, mustNotFilters, dateRange);
     uniqueOn.ifPresent(s -> filteredAgg.subAggregation(getUniqueQuery(s)));
@@ -246,7 +300,8 @@ public class AnalyticsService {
     }
   }
 
-  private SearchRequest constructSearchRequest(String indexName, AggregationBuilder aggregationBuilder) {
+  private SearchRequest constructSearchRequest(
+      String indexName, AggregationBuilder aggregationBuilder) {
     SearchRequest searchRequest = new SearchRequest(indexName);
     SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
     searchSourceBuilder.size(0);
@@ -257,7 +312,8 @@ public class AnalyticsService {
 
   private Filter executeAndExtract(SearchRequest searchRequest) {
     try {
-      final SearchResponse searchResponse = _elasticClient.search(searchRequest, RequestOptions.DEFAULT);
+      final SearchResponse searchResponse =
+          _elasticClient.search(searchRequest, RequestOptions.DEFAULT);
       // extract results, validated against document model as well
       return searchResponse.getAggregations().<Filter>get(FILTERED);
     } catch (Exception e) {
@@ -266,11 +322,14 @@ public class AnalyticsService {
     }
   }
 
-  private AggregationBuilder getFilteredAggregation(Map<String, List<String>> mustFilters,
-      Map<String, List<String>> mustNotFilters, Optional<DateRange> dateRange) {
+  private AggregationBuilder getFilteredAggregation(
+      Map<String, List<String>> mustFilters,
+      Map<String, List<String>> mustNotFilters,
+      Optional<DateRange> dateRange) {
     BoolQueryBuilder filteredQuery = QueryBuilders.boolQuery();
     mustFilters.forEach((key, values) -> filteredQuery.must(QueryBuilders.termsQuery(key, values)));
-    mustNotFilters.forEach((key, values) -> filteredQuery.mustNot(QueryBuilders.termsQuery(key, values)));
+    mustNotFilters.forEach(
+        (key, values) -> filteredQuery.mustNot(QueryBuilders.termsQuery(key, values)));
     dateRange.ifPresent(range -> filteredQuery.must(dateRangeQuery(range)));
     return AggregationBuilders.filter(FILTERED, filteredQuery);
   }

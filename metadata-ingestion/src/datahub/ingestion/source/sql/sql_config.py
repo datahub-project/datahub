@@ -11,7 +11,7 @@ from datahub.configuration.source_common import (
     DatasetSourceConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
 )
-from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
+from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
@@ -107,12 +107,18 @@ class SQLCommonConfig(
             values["view_pattern"] = table_pattern
         return values
 
-    @pydantic.root_validator()
+    @pydantic.root_validator(skip_on_failure=True)
     def ensure_profiling_pattern_is_passed_to_profiling(
         cls, values: Dict[str, Any]
     ) -> Dict[str, Any]:
         profiling: Optional[GEProfilingConfig] = values.get("profiling")
-        if profiling is not None and profiling.enabled:
+        # Note: isinstance() check is required here as unity-catalog source reuses
+        # SQLCommonConfig with different profiling config than GEProfilingConfig
+        if (
+            profiling is not None
+            and isinstance(profiling, GEProfilingConfig)
+            and profiling.enabled
+        ):
             profiling._allow_deny_patterns = values["profile_pattern"]
         return values
 
@@ -129,10 +135,6 @@ class SQLAlchemyConnectionConfig(ConfigModel):
     host_port: str = Field(description="host URL")
     database: Optional[str] = Field(default=None, description="database (catalog)")
 
-    database_alias: Optional[str] = Field(
-        default=None,
-        description="[Deprecated] Alias to apply to database when ingesting.",
-    )
     scheme: str = Field(description="scheme")
     sqlalchemy_uri: Optional[str] = Field(
         default=None,
@@ -149,10 +151,7 @@ class SQLAlchemyConnectionConfig(ConfigModel):
         ),
     )
 
-    _database_alias_deprecation = pydantic_field_deprecated(
-        "database_alias",
-        message="database_alias is deprecated. Use platform_instance instead.",
-    )
+    _database_alias_removed = pydantic_removed_field("database_alias")
 
     def get_sql_alchemy_url(
         self, uri_opts: Optional[Dict[str, Any]] = None, database: Optional[str] = None

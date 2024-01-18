@@ -96,6 +96,8 @@ class SupersetConfig(StatefulIngestionConfigBase, ConfigModel):
         default=DEFAULT_ENV,
         description="Environment to use in namespace when constructing URNs",
     )
+    # TODO: Check and remove this if no longer needed.
+    # Config database_alias is removed from sql sources.
     database_alias: Dict[str, str] = Field(
         default={},
         description="Can be used to change mapping for database names in superset to what you have in datahub",
@@ -105,7 +107,7 @@ class SupersetConfig(StatefulIngestionConfigBase, ConfigModel):
     def remove_trailing_slash(cls, v):
         return config_clean.remove_trailing_slashes(v)
 
-    @root_validator
+    @root_validator(skip_on_failure=True)
     def default_display_uri_to_connect_uri(cls, values):
         base = values.get("display_uri")
         if base is None:

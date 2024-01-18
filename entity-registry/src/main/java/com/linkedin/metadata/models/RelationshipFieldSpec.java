@@ -8,7 +8,6 @@ import javax.annotation.Nonnull;
 import lombok.NonNull;
 import lombok.Value;
 
-
 @Value
 public class RelationshipFieldSpec implements FieldSpec {
 
@@ -16,17 +15,13 @@ public class RelationshipFieldSpec implements FieldSpec {
   @NonNull RelationshipAnnotation relationshipAnnotation;
   @NonNull DataSchema pegasusSchema;
 
-  /**
-   * Returns the name of the outbound relationship extending from the field.
-   */
+  /** Returns the name of the outbound relationship extending from the field. */
   @Nonnull
   public String getRelationshipName() {
     return relationshipAnnotation.getName();
   }
 
-  /**
-   * Returns a list of entity names representing the destination node type of the relationship.
-   */
+  /** Returns a list of entity names representing the destination node type of the relationship. */
   @Nonnull
   public List<String> getValidDestinationTypes() {
     return relationshipAnnotation.getValidDestinationTypes();

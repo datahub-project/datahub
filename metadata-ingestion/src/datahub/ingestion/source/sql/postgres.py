@@ -98,8 +98,10 @@ class ViewLineageEntry(BaseModel):
 
 
 class BasePostgresConfig(BasicSQLAlchemyConfig):
-    scheme = Field(default="postgresql+psycopg2", description="database scheme")
-    schema_pattern = Field(default=AllowDenyPattern(deny=["information_schema"]))
+    scheme: str = Field(default="postgresql+psycopg2", description="database scheme")
+    schema_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern(deny=["information_schema"])
+    )
 
 
 class PostgresConfig(BasePostgresConfig):
@@ -137,7 +139,6 @@ class PostgresSource(SQLAlchemySource):
     - Metadata for databases, schemas, views, and tables
     - Column types associated with each table
     - Also supports PostGIS extensions
-    - database_alias (optional) can be used to change the name of database to be ingested
     - Table, row, and column statistics via optional SQL profiling
     """
 
@@ -269,8 +270,6 @@ class PostgresSource(SQLAlchemySource):
     ) -> str:
         regular = f"{schema}.{entity}"
         if self.config.database:
-            if self.config.database_alias:
-                return f"{self.config.database_alias}.{regular}"
             return f"{self.config.database}.{regular}"
         current_database = self.get_db_name(inspector)
         return f"{current_database}.{regular}"

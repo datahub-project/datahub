@@ -583,6 +583,11 @@ type Mutation {
     createPost(input: CreatePostInput!): Boolean
 
     """
+    Update or edit a post
+    """
+    updatePost(input: UpdatePostInput!): Boolean
+
+    """
     Delete a post
     """
     deletePost(urn: String!): Boolean
@@ -1789,12 +1794,13 @@ type DatasetProperties {
     """
     Last Modified timestamp millis associated with the Dataset
     """
-    lastModified: Long
+    lastModified: AuditStamp!
 
     """
-    Actor associated with the Dataset's lastModified timestamp
+    Actor associated with the Dataset's lastModified timestamp.
+    Deprecated - Use lastModified.actor instead.
     """
-    lastModifiedActor: String
+    lastModifiedActor: String @deprecated
 }
 
 
@@ -2891,6 +2897,11 @@ type SchemaField {
     Whether the field is part of a partitioning key schema
     """
     isPartitioningKey: Boolean
+
+    """
+    For schema fields that have other properties that are not modeled explicitly, represented as a JSON string.
+    """
+    jsonProps: String
 }
 
 """
@@ -5249,6 +5260,11 @@ type Chart implements EntityWithRelationships & Entity & BrowsableEntity {
     Whether or not this entity exists on DataHub
     """
     exists: Boolean
+
+    """
+    Sub Types that this entity implements
+    """
+    subTypes: SubTypes
 }
 
 """
@@ -5683,6 +5699,11 @@ type DataJob implements EntityWithRelationships & Entity & BrowsableEntity {
     A standard Entity Type
     """
     type: EntityType!
+
+    """
+    Sub Types that this entity implements
+    """
+    subTypes: SubTypes
 
     """
     The timestamp for the last time this entity was ingested
@@ -10201,6 +10222,26 @@ input CreatePostInput {
 }
 
 """
+Input provided when creating a Post
+"""
+input UpdatePostInput {
+    """
+    The urn of the post to edit or update
+    """
+    urn: String!,
+
+    """
+    The type of post
+    """
+    postType: PostType!
+
+    """
+    The content of the post
+    """
+    content: UpdatePostContentInput!
+}
+
+"""
 Input provided for filling in a post content
 """
 input UpdatePostContentInput {
@@ -11044,6 +11085,10 @@ input CreateDataProductInput {
     The primary key of the Domain
     """
     domainUrn: String!
+    """
+    An optional id for the new data product
+    """
+    id: String
 }
 
 """

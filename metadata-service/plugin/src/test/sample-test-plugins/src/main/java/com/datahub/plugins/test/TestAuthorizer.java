@@ -21,7 +21,6 @@ import java.util.Optional;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
-
 @Slf4j
 public class TestAuthorizer implements Authorizer {
   private AuthorizerContext _authorizerContext;
@@ -45,9 +44,12 @@ public class TestAuthorizer implements Authorizer {
     URL url = this.getClass().getClassLoader().getResource("foo_bar.json");
     assert url != null;
 
-    // Try to create a file on PLUGIN_DIRECTORY to test plugin should have permission to read/write on plugin directory
+    // Try to create a file on PLUGIN_DIRECTORY to test plugin should have permission to read/write
+    // on plugin directory
     Path pluginDirectory =
-        Paths.get((String) this._authorizerContext.data().get(PluginConstant.PLUGIN_HOME), "tmp_file1.txt");
+        Paths.get(
+            (String) this._authorizerContext.data().get(PluginConstant.PLUGIN_HOME),
+            "tmp_file1.txt");
     try {
 
       try (BufferedWriter writer = new BufferedWriter(new FileWriter(pluginDirectory.toString()))) {
@@ -62,7 +64,8 @@ public class TestAuthorizer implements Authorizer {
     }
 
     // Test resource as stream is working
-    try (InputStream inputStream = this.getClass().getClassLoader().getResourceAsStream("foo_bar.json")) {
+    try (InputStream inputStream =
+        this.getClass().getClassLoader().getResourceAsStream("foo_bar.json")) {
       assert inputStream != null;
       BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
       assert reader.readLine() != null;
@@ -75,7 +78,6 @@ public class TestAuthorizer implements Authorizer {
 
   @Override
   public AuthorizedActors authorizedActors(String privilege, Optional<EntitySpec> resourceSpec) {
-    return new AuthorizedActors("ALL", null, null, true, true);
+    return new AuthorizedActors("ALL", null, null, null, true, true);
   }
 }
-

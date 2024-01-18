@@ -1,5 +1,8 @@
 package com.linkedin.datahub.graphql.resolvers.role;
 
+import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
+import static com.linkedin.metadata.Constants.*;
+
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.DataHubRole;
@@ -24,10 +27,6 @@ import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
-import static com.linkedin.metadata.Constants.*;
-
-
 @Slf4j
 @RequiredArgsConstructor
 public class ListRolesResolver implements DataFetcher<CompletableFuture<ListRolesResult>> {
@@ -38,36 +37,51 @@ public class ListRolesResolver implements DataFetcher<CompletableFuture<ListRole
   private final EntityClient _entityClient;
 
   @Override
-  public CompletableFuture<ListRolesResult> get(final DataFetchingEnvironment environment) throws Exception {
+  public CompletableFuture<ListRolesResult> get(final DataFetchingEnvironment environment)
+      throws Exception {
     final QueryContext context = environment.getContext();
 
-    final ListRolesInput input = bindArgument(environment.getArgument("input"), ListRolesInput.class);
+    final ListRolesInput input =
+        bindArgument(environment.getArgument("input"), ListRolesInput.class);
     final Integer start = input.getStart() == null ? DEFAULT_START : input.getStart();
     final Integer count = input.getCount() == null ? DEFAULT_COUNT : input.getCount();
     final String query = input.getQuery() == null ? DEFAULT_QUERY : input.getQuery();
 
-    return CompletableFuture.supplyAsync(() -> {
-      try {
-        // First, get all role Urns.
-        final SearchResult gmsResult =
-            _entityClient.search(DATAHUB_ROLE_ENTITY_NAME, query, Collections.emptyMap(), start, count,
-                context.getAuthentication(), new SearchFlags().setFulltext(true));
+    return CompletableFuture.supplyAsync(
+        () -> {
+          try {
+            // First, get all role Urns.
+            final SearchResult gmsResult =
+                _entityClient.search(
+                    DATAHUB_ROLE_ENTITY_NAME,
+                    query,
+                    Collections.emptyMap(),
+                    start,
+                    count,
+                    context.getAuthentication(),
+                    new SearchFlags().setFulltext(true));
 
-        // Then, get and hydrate all users.
-        final Map<Urn, EntityResponse> entities = _entityClient.batchGetV2(DATAHUB_ROLE_ENTITY_NAME,
-            new HashSet<>(gmsResult.getEntities().stream().map(SearchEntity::getEntity).collect(Collectors.toList())),
-            null, context.getAuthentication());
+            // Then, get and hydrate all users.
+            final Map<Urn, EntityResponse> entities =
+                _entityClient.batchGetV2(
+                    DATAHUB_ROLE_ENTITY_NAME,
+                    new HashSet<>(
+                        gmsResult.getEntities().stream()
+                            .map(SearchEntity::getEntity)
+                            .collect(Collectors.toList())),
+                    null,
+                    context.getAuthentication());
 
-        final ListRolesResult result = new ListRolesResult();
-        result.setStart(gmsResult.getFrom());
-        result.setCount(gmsResult.getPageSize());
-        result.setTotal(gmsResult.getNumEntities());
-        result.setRoles(mapEntitiesToRoles(entities.values()));
-        return result;
-      } catch (Exception e) {
-        throw new RuntimeException("Failed to list roles", e);
-      }
-    });
+            final ListRolesResult result = new ListRolesResult();
+            result.setStart(gmsResult.getFrom());
+            result.setCount(gmsResult.getPageSize());
+            result.setTotal(gmsResult.getNumEntities());
+            result.setRoles(mapEntitiesToRoles(entities.values()));
+            return result;
+          } catch (Exception e) {
+            throw new RuntimeException("Failed to list roles", e);
+          }
+        });
   }
 
   private List<DataHubRole> mapEntitiesToRoles(final Collection<EntityResponse> entities) {

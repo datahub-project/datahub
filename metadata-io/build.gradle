@@ -22,13 +22,18 @@ dependencies {
   implementation externalDependency.guava
   implementation externalDependency.reflections
   implementation externalDependency.jsonPatch
-  api externalDependency.dgraph4j exclude group: 'com.google.guava', module: 'guava'
+  api(externalDependency.dgraph4j) {
+    exclude group: 'com.google.guava', module: 'guava'
+    exclude group: 'io.grpc', module: 'grpc-protobuf'
+  }
   implementation externalDependency.slf4jApi
   runtimeOnly externalDependency.logbackClassic
   compileOnly externalDependency.lombok
   implementation externalDependency.commonsCollections
   api externalDependency.datastaxOssNativeProtocol
-  api externalDependency.datastaxOssCore
+  api(externalDependency.datastaxOssCore) {
+    exclude group: 'com.fasterxml.jackson.core'
+  }
   api externalDependency.datastaxOssQueryBuilder
   api externalDependency.elasticSearchRest
   api externalDependency.elasticSearchJava
@@ -57,6 +62,12 @@ dependencies {
   testImplementation externalDependency.h2
   testImplementation externalDependency.mysqlConnector
   testImplementation externalDependency.neo4jHarness
+  testImplementation (externalDependency.neo4jApocCore) {
+    exclude group: 'org.yaml', module: 'snakeyaml'
+  }
+  testImplementation (externalDependency.neo4jApocCommon) {
+    exclude group: 'org.yaml', module: 'snakeyaml'
+  }
   testImplementation externalDependency.mockito
   testImplementation externalDependency.mockitoInline
   testImplementation externalDependency.iStackCommons
@@ -97,6 +108,9 @@ dependencies {
     }
     implementation(externalDependency.snappy) {
       because("previous versions are vulnerable to CVE-2023-34453 through CVE-2023-34455")
+    }
+    implementation(externalDependency.grpcProtobuf) {
+      because("CVE-2023-1428, CVE-2023-32731")
     }
   }
 }

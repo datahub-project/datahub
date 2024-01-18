@@ -5,12 +5,11 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
 
-import clickhouse_driver  # noqa: F401
+import clickhouse_driver
 import clickhouse_sqlalchemy.types as custom_types
 import pydantic
 from clickhouse_sqlalchemy.drivers import base
 from clickhouse_sqlalchemy.drivers.base import ClickHouseDialect
-from pydantic.class_validators import root_validator
 from pydantic.fields import Field
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import reflection
@@ -58,6 +57,8 @@ from datahub.metadata.schema_classes import (
     DatasetSnapshotClass,
     UpstreamClass,
 )
+
+assert clickhouse_driver
 
 # adding extra types not handled by clickhouse-sqlalchemy 0.1.8
 base.ischema_names["DateTime64(0)"] = DATETIME
@@ -126,8 +127,8 @@ class ClickHouseConfig(
     TwoTierSQLAlchemyConfig, BaseTimeWindowConfig, DatasetLineageProviderConfigBase
 ):
     # defaults
-    host_port = Field(default="localhost:8123", description="ClickHouse host URL.")
-    scheme = Field(default="clickhouse", description="", hidden_from_docs=True)
+    host_port: str = Field(default="localhost:8123", description="ClickHouse host URL.")
+    scheme: str = Field(default="clickhouse", description="", hidden_from_docs=True)
     password: pydantic.SecretStr = Field(
         default=pydantic.SecretStr(""), description="password"
     )
@@ -165,7 +166,7 @@ class ClickHouseConfig(
         return str(url)
 
     # pre = True because we want to take some decision before pydantic initialize the configuration to default values
-    @root_validator(pre=True)
+    @pydantic.root_validator(pre=True)
     def projects_backward_compatibility(cls, values: Dict) -> Dict:
         secure = values.get("secure")
         protocol = values.get("protocol")
@@ -500,15 +501,17 @@ class ClickHouseSource(TwoTierSQLAlchemySource):
 
         try:
             for db_row in engine.execute(text(query)):
-                if not self.config.schema_pattern.allowed(
+                dataset_name = f'{db_row["target_schema"]}.{db_row["target_table"]}'
+                if not self.config.database_pattern.allowed(
                     db_row["target_schema"]
-                ) or not self.config.table_pattern.allowed(db_row["target_table"]):
+                ) or not self.config.table_pattern.allowed(dataset_name):
+                    self.report.report_dropped(dataset_name)
                     continue
 
                 # Target
                 target_path = (
                     f'{self.config.platform_instance+"." if self.config.platform_instance else ""}'
-                    f'{db_row["target_schema"]}.{db_row["target_table"]}'
+                    f"{dataset_name}"
                 )
                 target = LineageItem(
                     dataset=LineageDataset(
