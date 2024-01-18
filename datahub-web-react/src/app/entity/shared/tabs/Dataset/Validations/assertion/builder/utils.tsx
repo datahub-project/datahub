@@ -202,6 +202,7 @@ const PLATFORM_ASSERTION_CONFIGS = {
                 DatasetFreshnessSourceType.AuditLog,
                 DatasetFreshnessSourceType.InformationSchema,
                 DatasetFreshnessSourceType.FieldValue,
+                DatasetFreshnessSourceType.FileMetadata,
                 DatasetFreshnessSourceType.DatahubOperation,
             ],
             sourceTypeDetails: {
@@ -219,7 +220,7 @@ const PLATFORM_ASSERTION_CONFIGS = {
                                 </a>
                             </b>{' '}
                             to determine whether a Table has changed.{' '}
-                            <b>
+                            <br /> <b>
                                 Note that this is only supported for tables stored in delta format.
                             </b>{' '}
                             Refer `data_source_format` in properties to verify table&apos;s format.
@@ -243,7 +244,7 @@ const PLATFORM_ASSERTION_CONFIGS = {
                                 </a>
                             </b>{' '}
                             query to determine whether the Table has changed.{' '}
-                            <b>
+                            <br /> <b>
                                 Note that this is only supported for tables stored in delta format.
                             </b>{' '}
                             Refer `data_source_format` in properties to verify table&apos;s format.
@@ -256,6 +257,37 @@ const PLATFORM_ASSERTION_CONFIGS = {
                             We&apos;ll query a specific column of the Databricks Table or View to determine whether it
                             has changed.
                             <br /> This requires that the configured service principal (token) has read access to the asset.
+                        </>
+                    ),
+                },
+                [DatasetFreshnessSourceType.FileMetadata]: {
+                    description: (
+                        <>
+                            We&apos;ll use Databricks{' '}
+                            <b>
+                                <a
+                                    href="https://docs.databricks.com/en/ingestion/file-metadata-column.html"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                >
+                                    File metadata column
+                                </a>
+                            </b>{' '}
+                            to determine whether the Table has changed.
+                            This requires that the configured service principal (token) has read access to the asset.
+                            This is supported for managed as well as external tables in Unity Catalog and 
+                            Hive Metastore. <br /> 
+                            <b>
+                                As of now, this is not supported for tables created with {' '}
+                                <a
+                                    href="https://docs.databricks.com/en/sql/language-manual/sql-ref-syntax-ddl-create-table-hiveformat.html"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                >
+                                    hive format
+                                </a>
+                            </b>.{' '}
+                            Refer `data_source_format` in properties to verify table&apos;s format.
                         </>
                     ),
                 },
@@ -276,6 +308,12 @@ const allSourceOptions: SourceOption[] = [
         type: DatasetFreshnessSourceType.InformationSchema,
         name: 'Information Schema',
         description: 'Use the information schema or system metadata tables to determine whether the asset has changed',
+        allowedScheduleTypes: [FreshnessAssertionScheduleType.FixedInterval, FreshnessAssertionScheduleType.Cron],
+    },
+    {
+        type: DatasetFreshnessSourceType.FileMetadata,
+        name: 'File Metadata',
+        description: 'Use the underlying file system\'s metadata to determine whether the asset has changed',
         allowedScheduleTypes: [FreshnessAssertionScheduleType.FixedInterval, FreshnessAssertionScheduleType.Cron],
     },
     {

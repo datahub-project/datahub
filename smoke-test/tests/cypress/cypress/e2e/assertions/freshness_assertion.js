@@ -27,7 +27,7 @@ describe("create and manage freshness assertion", () => {
       cy.goToDataset(datasetUrn, datasetName);
       cy.openEntityTab("Validation");
       cy.waitTextVisible("No assertions have run");
-      cy.clickOptionWithText("Create Assertion");
+      cy.contains("Create Assertion").click();
       cy.waitTextVisible("New Assertion Monitor");
       cy.clickOptionWithText("Freshness");
       cy.waitTextVisible("Check for table changes");

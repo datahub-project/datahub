@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import Typography from 'antd/lib/typography';
 import styled from 'styled-components';
-import useFormInstance from 'antd/lib/form/hooks/useFormInstance';
+import { Form } from 'antd';
 import { AssertionMonitorBuilderState } from '../../types';
 import { useGetDatasetSchemaQuery } from '../../../../../../../../../../graphql/dataset.generated';
 import { SchemaField } from '../../../../../../../../../../types.generated';
@@ -19,7 +19,7 @@ type Props = {
 };
 
 export const FieldColumnBuilder = ({ value, onChange, disabled }: Props) => {
-    const form = useFormInstance();
+    const form = Form.useFormInstance();
     const fieldAssertionType = value.assertion?.fieldAssertion?.type;
     const fieldAssertionTypeKey = getFieldAssertionTypeKey(fieldAssertionType);
     const fieldColumn = value.assertion?.fieldAssertion?.[fieldAssertionTypeKey]?.field?.path;

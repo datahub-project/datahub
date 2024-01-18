@@ -1,7 +1,6 @@
 import React, { useEffect } from 'react';
 import { Form, Select, Typography } from 'antd';
 import styled from 'styled-components';
-import useFormInstance from 'antd/lib/form/hooks/useFormInstance';
 import { AssertionMonitorBuilderState } from '../../types';
 import { getFieldMetricOperatorOptions, getSelectedFieldMetricOperatorOption } from './utils';
 import { AssertionStdOperator } from '../../../../../../../../../../types.generated';
@@ -30,7 +29,7 @@ type Props = {
 };
 
 export const FieldMetricParameterBuilder = ({ value, onChange, disabled }: Props) => {
-    const form = useFormInstance();
+    const form = Form.useFormInstance();
     const operator = value.assertion?.fieldAssertion?.fieldMetricAssertion?.operator;
     const options = getFieldMetricOperatorOptions();
     const selectedOption = getSelectedFieldMetricOperatorOption(operator);

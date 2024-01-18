@@ -156,6 +156,9 @@ class DatasetFreshnessSourceType(Enum):
     # The freshness signal from a dataset / table last updated statistic, e.g. provided by the catalog.
     INFORMATION_SCHEMA = "INFORMATION_SCHEMA"
 
+    # The freshness signal from underlying file system, e.g. file modification time.
+    FILE_METADATA = "FILE_METADATA"
+
     # The freshness signal from the audit log.
     AUDIT_LOG = "AUDIT_LOG"
 
@@ -182,6 +185,9 @@ class EntityEventType(Enum):
 
     # An update has been performed to the table, based on a dataset last updated statistic maintained by the source system
     INFORMATION_SCHEMA_UPDATE = "INFORMATION_SCHEMA_UPDATE"
+
+    # An update has been performed to the table, based on update in underlying file system's metadata
+    FILE_METADATA_UPDATE = "FILE_METADATA_UPDATE"
 
     # An update has been performed on a particular entity, as per an audit log.
     AUDIT_LOG_OPERATION = "AUDIT_LOG_OPERATION"

@@ -26,6 +26,11 @@ record DatasetFreshnessAssertionParameters {
     AUDIT_LOG
 
     /**
+    * Determine that a change has occurred by inspecting underlying file system.
+    */
+    FILE_METADATA
+
+    /**
     * Determine whether the table has changed using an Operation aspect
     */
     DATAHUB_OPERATION

@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { message, Modal, Button, Form, Input, Typography, Select } from 'antd';
+import { useApolloClient } from '@apollo/client';
 import analytics, { EventType, EntityActionType } from '../../../../../analytics';
 import { useEntityData, useRefetch } from '../../../EntityContext';
 import { IncidentType } from '../../../../../../types.generated';
-import { INCIDENT_DISPLAY_TYPES } from '../incidentUtils';
+import { INCIDENT_DISPLAY_TYPES, PAGE_SIZE, updateListIncidentsCache } from '../incidentUtils';
 import { useRaiseIncidentMutation } from '../../../../../../graphql/mutations.generated';
 
 type AddIncidentProps = {
@@ -20,6 +21,7 @@ export const AddIncidentModal = ({ visible, onClose, refetch }: AddIncidentProps
     const [isOtherTypeSelected, setIsOtherTypeSelected] = useState<boolean>(false);
     const [raiseIncidentMutation] = useRaiseIncidentMutation();
 
+    const client = useApolloClient();
     const [form] = Form.useForm();
 
     const handleClose = () => {
@@ -50,25 +52,36 @@ export const AddIncidentModal = ({ visible, onClose, refetch }: AddIncidentProps
                         customType: formData.customType,
                     },
                 },
-            });
-            message.success({ content: 'Incident Added', duration: 2 });
-            analytics.event({
-                type: EventType.EntityActionEvent,
-                entityType,
-                entityUrn: urn,
-                actionType: EntityActionType.AddIncident,
-            });
+            }).then(({data})=>{
+                const newIncident = {
+                    urn: data?.raiseIncident,
+                    type: selectedIncidentType,
+                    title: formData.title,
+                    description: formData.description,
+                    resourceUrn: urn,
+                    customType: formData.customType,
+                }
+                message.success({ content: 'Incident Added', duration: 2 });
+                analytics.event({
+                    type: EventType.EntityActionEvent,
+                    entityType,
+                    entityUrn: urn,
+                    actionType: EntityActionType.AddIncident,
+                });
+                updateListIncidentsCache(client,newIncident,PAGE_SIZE)
+                setTimeout(() => {
+                    refetch?.();
+                    refetchEntity?.();
+                }, 1000);
+                handleClose();
+            })
         } catch (e: unknown) {
             message.destroy();
             if (e instanceof Error) {
                 message.error({ content: `Failed to add incident: \n ${e.message || ''}`, duration: 3 });
             }
         }
-        handleClose();
-        setTimeout(() => {
-            refetch?.();
-            refetchEntity?.();
-        }, 2000);
+        
     };
 
     return (

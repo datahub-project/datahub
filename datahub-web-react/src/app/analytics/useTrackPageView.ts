@@ -12,7 +12,9 @@ export const useTrackPageView = () => {
     const location = useLocation();
 
     return useEffect(() => {
-        analytics.page({ prevPathname });
-        prevPathname = location.pathname;
+        if (prevPathname !== location.pathname) {
+            analytics.page({ prevPathname });
+            prevPathname = location.pathname;
+        }
     }, [location]);
 };

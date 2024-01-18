@@ -63,6 +63,7 @@ export const AcrylAssertionResultsChartTimeline = ({ results, platform, timeRang
                 const resultUrl = result.externalUrl;
                 const isInitializing = result.type === AssertionResultType.Init;
                 const errorMessage = getResultErrorMessage(result);
+                const customMessage = result?.error?.properties?.find((property) => property.key === 'message');
                 const platformName =
                     (platform && entityRegistry.getDisplayName(EntityType.DataPlatform, platform)) || undefined;
 
@@ -90,9 +91,13 @@ export const AcrylAssertionResultsChartTimeline = ({ results, platform, timeRang
                                         Collecting the information required to evaluate this assertion.
                                     </AssertionResultInitializingMessage>
                                 )}
-                                {errorMessage && (
-                                    <AssertionResultErrorMessage>{errorMessage}</AssertionResultErrorMessage>
-                                )}
+                                {errorMessage && 
+                                    (<AssertionResultErrorMessage>
+                                            <b>Reason: </b>
+                                            {customMessage ? customMessage.value: errorMessage}
+                                        </AssertionResultErrorMessage>
+                                    )
+                                }
                                 <div>
                                     <Tooltip title={`${gmtTime}`}>
                                         <Typography.Text type="secondary">{localTime}</Typography.Text>
