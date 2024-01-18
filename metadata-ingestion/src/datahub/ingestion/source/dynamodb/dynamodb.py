@@ -13,8 +13,10 @@ from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataplatform_instance_urn,
     make_dataset_urn_with_platform_instance,
+    make_domain_urn
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.mcp_builder import add_domain_to_entity_wu
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -67,6 +69,11 @@ class DynamoDBConfig(DatasetSourceConfigMixin, StatefulIngestionConfigBase):
     # in the class to provide optional region name input
     aws_access_key_id: str = Field(description="AWS Access Key ID.")
     aws_secret_access_key: pydantic.SecretStr = Field(description="AWS Secret Key.")
+
+    domain: Dict[str, AllowDenyPattern] = Field(
+        default=dict(),
+        description="regex patterns for tables to filter to assign domain_key. ",
+    )
 
     # This config option allows user to include a list of items from a table when we scan and construct the schema,
     # the key of this dict is table name and the value is the list of item primary keys in dynamodb format,
@@ -233,6 +240,11 @@ class DynamoDBSource(StatefulIngestionSourceBase):
                     entityUrn=dataset_urn,
                     aspect=dataset_properties,
                 ).as_workunit()
+
+                yield from self._get_domain_wu(
+                    dataset_name=table_name,
+                    entity_urn=dataset_urn,
+                )
 
                 platform_instance_aspect = DataPlatformInstanceClass(
                     platform=make_data_platform_urn(self.platform),
@@ -480,3 +492,20 @@ class DynamoDBSource(StatefulIngestionSourceBase):
 
     def get_report(self) -> DynamoDBSourceReport:
         return self.report
+
+    def _gen_domain_urn(self, dataset_name: str) -> Optional[str]:
+        for domain, pattern in self.config.domain.items():
+            if pattern.allowed(dataset_name):
+                return make_domain_urn(domain)
+
+        return None
+
+    def _get_domain_wu(
+        self, dataset_name: str, entity_urn: str
+    ) -> Iterable[MetadataWorkUnit]:
+        domain_urn = self._gen_domain_urn(dataset_name)
+        if domain_urn:
+            yield from add_domain_to_entity_wu(
+                entity_urn=entity_urn,
+                domain_urn=domain_urn,
+            )
