@@ -258,7 +258,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "INTEGER()",
+                                "nativeDataType": "NUMBER(asdecimal=False)",
                                 "recursive": false,
                                 "isPartOfKey": true
                             }
@@ -380,7 +380,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "INTEGER()",
+                                "nativeDataType": "NUMBER(asdecimal=False)",
                                 "recursive": false,
                                 "isPartOfKey": true
                             }
@@ -505,7 +505,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "INTEGER()",
+                                "nativeDataType": "NUMBER(asdecimal=False)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             }
@@ -754,7 +754,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "INTEGER()",
+                                "nativeDataType": "NUMBER(asdecimal=False)",
                                 "recursive": false,
                                 "isPartOfKey": true
                             }
@@ -876,7 +876,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "INTEGER()",
+                                "nativeDataType": "NUMBER(asdecimal=False)",
                                 "recursive": false,
                                 "isPartOfKey": true
                             }
@@ -1001,7 +1001,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "INTEGER()",
+                                "nativeDataType": "NUMBER(asdecimal=False)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             }
@@ -1080,55 +1080,6 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,oradoc.schema1.mock_view,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "upstreamLineage",
-    "aspect": {
-        "json": {
-            "upstreams": [
-                {
-                    "auditStamp": {
-                        "time": 0,
-                        "actor": "urn:li:corpuser:unknown"
-                    },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:oracle,oradoc.schema1.mock_table,PROD)",
-                    "type": "VIEW"
-                }
-            ],
-            "fineGrainedLineages": [
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,oradoc.schema1.mock_table,PROD),mock_column1)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,oradoc.schema1.mock_view,PROD),mock_column1)"
-                    ],
-                    "confidenceScore": 1.0
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,oradoc.schema1.mock_table,PROD),mock_column2)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,oradoc.schema1.mock_view,PROD),mock_column2)"
-                    ],
-                    "confidenceScore": 1.0
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "oracle-2022_02_03-07_00_00",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,oradoc.schema2.mock_view,PROD)",
     "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
@@ -1148,22 +1099,71 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,oradoc.schema2.mock_table,PROD),mock_column1)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,oradoc.schema2.mock_table,PROD),MOCK_COLUMN1)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,oradoc.schema2.mock_view,PROD),mock_column1)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,oradoc.schema2.mock_view,PROD),MOCK_COLUMN1)"
                     ],
                     "confidenceScore": 1.0
                 },
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,oradoc.schema2.mock_table,PROD),mock_column2)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,oradoc.schema2.mock_table,PROD),MOCK_COLUMN2)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,oradoc.schema2.mock_view,PROD),mock_column2)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,oradoc.schema2.mock_view,PROD),MOCK_COLUMN2)"
+                    ],
+                    "confidenceScore": 1.0
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "oracle-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,oradoc.schema1.mock_view,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:oracle,oradoc.schema1.mock_table,PROD)",
+                    "type": "VIEW"
+                }
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,oradoc.schema1.mock_table,PROD),MOCK_COLUMN1)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,oradoc.schema1.mock_view,PROD),MOCK_COLUMN1)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,oradoc.schema1.mock_table,PROD),MOCK_COLUMN2)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,oradoc.schema1.mock_view,PROD),MOCK_COLUMN2)"
                     ],
                     "confidenceScore": 1.0
                 }

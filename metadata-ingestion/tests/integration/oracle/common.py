@@ -40,8 +40,8 @@ class MockConstraints:
     remote_table: str = "test1"
     remote_column: str = "mock column name 2"
     remote_owner: str = "schema1"
-    loc_pos: str = "mock loc position"
-    rem_pos: str = "mock rem position"
+    loc_pos: int = 1
+    rem_pos: int = 1
     search_condition: str = "mock search condition"
     delete_rule: str = "mock delete rule"
 
@@ -66,14 +66,14 @@ class MockConstraints:
 class MockColumns:
     colname: str = "mock column name"
     coltype: str = "NUMBER"
-    length: str = "mock length"
+    length: int = 0
     precision: Optional[str] = None
-    scale: int = 0
+    scale: Optional[int] = None
     nullable: str = "Y"
     default: str = "mock default"
     comment: str = "mock comment for column"
     generated: str = "mock generated"
-    default_on_nul: str = "mock default on null"
+    default_on_nul: Optional[str] = None
     identity_options: Optional[str] = None
 
     def execute(self):
@@ -111,7 +111,6 @@ class OracleSourceMockDataBase:
     }
 
     def get_data(self, *arg: Any, **kwargs: Any) -> Any:
-        # import pdb; pdb.set_trace()
         assert arg or kwargs
         key: Optional[str] = None
 

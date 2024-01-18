@@ -258,7 +258,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "INTEGER()",
+                                "nativeDataType": "NUMBER(asdecimal=False)",
                                 "recursive": false,
                                 "isPartOfKey": true
                             }
@@ -380,7 +380,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "INTEGER()",
+                                "nativeDataType": "NUMBER(asdecimal=False)",
                                 "recursive": false,
                                 "isPartOfKey": true
                             }
@@ -505,7 +505,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "INTEGER()",
+                                "nativeDataType": "NUMBER(asdecimal=False)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             }
@@ -754,7 +754,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "INTEGER()",
+                                "nativeDataType": "NUMBER(asdecimal=False)",
                                 "recursive": false,
                                 "isPartOfKey": true
                             }
@@ -876,7 +876,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "INTEGER()",
+                                "nativeDataType": "NUMBER(asdecimal=False)",
                                 "recursive": false,
                                 "isPartOfKey": true
                             }
@@ -1001,7 +1001,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "INTEGER()",
+                                "nativeDataType": "NUMBER(asdecimal=False)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             }

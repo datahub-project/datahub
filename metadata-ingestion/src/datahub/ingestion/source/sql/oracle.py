@@ -130,39 +130,6 @@ class OracleInspectorObjectWrapper:
         # tables that we don't want to ingest into the DataHub
         self.exclude_tablespaces: Tuple[str, str] = ("SYSTEM", "SYSAUX")
 
-    def parse_identity_options(self, identity_options, default_on_nul):
-        # identity_options is a string that starts with 'ALWAYS,' or
-        # 'BY DEFAULT,' and continues with
-        # START WITH: 1, INCREMENT BY: 1, MAX_VALUE: 123, MIN_VALUE: 1,
-        # CYCLE_FLAG: N, CACHE_SIZE: 1, ORDER_FLAG: N, SCALE_FLAG: N,
-        # EXTEND_FLAG: N, SESSION_FLAG: N, KEEP_VALUE: N
-
-        parts = [p.strip() for p in identity_options.split(",")]
-        identity = {
-            "always": parts[0] == "ALWAYS",
-            "on_null": default_on_nul == "YES",
-        }
-
-        for part in parts[1:]:
-            option, value = part.split(":")
-            value = value.strip()
-
-            if "START WITH" in option:
-                identity["start"] = compat.long_type(value)
-            elif "INCREMENT BY" in option:
-                identity["increment"] = compat.long_type(value)
-            elif "MAX_VALUE" in option:
-                identity["maxvalue"] = compat.long_type(value)
-            elif "MIN_VALUE" in option:
-                identity["minvalue"] = compat.long_type(value)
-            elif "CYCLE_FLAG" in option:
-                identity["cycle"] = value == "Y"
-            elif "CACHE_SIZE" in option:
-                identity["cache"] = compat.long_type(value)
-            elif "ORDER_FLAG" in option:
-                identity["order"] = value == "Y"
-        return identity
-
     def get_schema_names(self) -> List[str]:
         cursor = self._inspector_instance.bind.execute(
             sql.text("SELECT username FROM dba_users ORDER BY username")
@@ -193,7 +160,7 @@ class OracleInspectorObjectWrapper:
             )
 
         sql_str += "OWNER = :owner AND IOT_NAME IS NULL "
-        logger.debug(f"SQL = {sql_str}")
+
         cursor = self._inspector_instance.bind.execute(sql.text(sql_str), owner=schema)
 
         return [
@@ -340,7 +307,7 @@ class OracleInspectorObjectWrapper:
                 computed = None
 
             if identity_options is not None:
-                identity = self.parse_identity_options(identity_options, default_on_nul)
+                identity = self._inspector_instance.dialect._parse_identity_options(identity_options, default_on_nul)
                 default = None
             else:
                 identity = None
