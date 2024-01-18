@@ -88,6 +88,15 @@ class TempTableRow:
     start_time: datetime
 
 
+@dataclass
+class AlterTableRow:
+    # TODO unify this type with TempTableRow
+    transaction_id: int
+    session_id: str
+    query_text: str
+    start_time: datetime
+
+
 # this is a class to be a proxy to query Redshift
 class RedshiftDataDictionary:
     @staticmethod
@@ -397,17 +406,22 @@ class RedshiftDataDictionary:
             rows = cursor.fetchmany()
 
     @staticmethod
-    def is_empty(
+    def get_alter_table_commands(
         conn: redshift_connector.Connection,
         query: str,
-    ) -> bool:
-        cursor = conn.cursor()
+    ) -> Iterable[AlterTableRow]:
+        # TODO: unify this with get_temporary_rows
+        cursor = RedshiftDataDictionary.get_query_result(conn, query)
 
-        cursor.execute(query)
+        field_names = [i[0] for i in cursor.description]
 
-        row = cursor.fetchone()
-
-        if row[0] == 0:
-            return True
-
-        return False
+        rows = cursor.fetchmany()
+        while rows:
+            for row in rows:
+                yield AlterTableRow(
+                    transaction_id=row[field_names.index("transaction_id")],
+                    session_id=row[field_names.index("session_id")],
+                    query_text=row[field_names.index("query_text")],
+                    start_time=row[field_names.index("start_time")],
+                )
+            rows = cursor.fetchmany()
