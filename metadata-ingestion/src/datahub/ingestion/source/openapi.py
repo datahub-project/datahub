@@ -1,6 +1,8 @@
 import logging
 import time
 import warnings
+import json
+import yaml
 from abc import ABC
 from typing import Dict, Iterable, Optional, Tuple
 
@@ -62,6 +64,7 @@ class OpenApiConfig(ConfigModel):
     forced_examples: dict = Field(default={}, description="")
     token: Optional[str] = Field(default=None, description="")
     get_token: dict = Field(default={}, description="")
+    swagger_embedded: bool = Field(default=False, description="")
 
     def get_swagger(self) -> Dict:
         if self.get_token or self.token is not None:
@@ -227,7 +230,45 @@ class APISource(Source, ABC):
     def get_workunits_internal(self) -> Iterable[ApiWorkUnit]:  # noqa: C901
         config = self.config
 
-        sw_dict = self.config.get_swagger()
+        swagger_file = config.swagger_file
+        # determine if the ingestion comes from backstage ingestion
+        if config.swagger_embedded:
+            try:
+                sw_dict = json.loads(swagger_file)
+            except json.JSONDecodeError:  # it's not a JSON!
+                sw_dict = yaml.safe_load(swagger_file)
+        else:
+            sw_dict = self.config.get_swagger()
+        # log and command line info
+        if "info" in sw_dict:
+            info = sw_dict["info"]
+            if "title" in info:
+                print("API name ok")
+            else:
+                ctx = self.__getattribute__("ctx")
+                source_config_name = ctx.pipeline_config.source.config["name"]
+                print(
+                    "API name "
+                    + source_config_name
+                    + " is not stated in swagger structure info - title"
+                )
+                logger.warning(
+                    "API name "
+                    + source_config_name
+                    + " is not stated in swagger structure info - title"
+                )
+        else:
+            ctx = self.__getattribute__("ctx")
+            source_config_name = ctx.pipeline_config.source.config["name"]
+            print(
+                "API name "
+                + source_config_name
+                + " is not stated in swagger structure info - title, this is required parameter")
+            logger.error(
+                "API name "
+                + source_config_name
+                + " is not stated in swagger structure info - title, this is required parameter"
+            )
 
         self.url_basepath = get_url_basepath(sw_dict)
 

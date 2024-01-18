@@ -3,7 +3,7 @@ source:
   config:
     name: test_endpoint # this name will appear in DatHub
     url: https://test_endpoint.com/
-    swagger_file: classicapi/doc/swagger.json  # where to search for the OpenApi definitions
+    swagger_file: classicapi/doc/swagger.json  # where to search for the OpenApi definitions (or swagger content in JSON format - see description of parameter swagger_embedded)
     get_token:  # optional, if you need to get an authentication token beforehand
         request_type: get
         url: api/authentication/login?username={username}&password={password}
@@ -13,6 +13,7 @@ source:
       /accounts/groupname/{name}: ['test']
       /accounts/username/{name}: ['test']
     ignore_endpoints: [/ignore/this, /ignore/that, /also/that_other]  # optional, the endpoints to ignore
+    swagger_embedded: false # optional, if true, ingestion expects the swagger_file parameter to contain swagger content in JSON format directly instead of swagger file reference
 
 sink:
   type: "datahub-rest"

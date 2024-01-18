@@ -608,6 +608,7 @@ entry_points = {
         "superset = datahub.ingestion.source.superset:SupersetSource",
         "tableau = datahub.ingestion.source.tableau:TableauSource",
         "openapi = datahub.ingestion.source.openapi:OpenApiSource",
+        "backstage = datahub.ingestion.source.backstage.backstage.MyBackstageSource",
         "metabase = datahub.ingestion.source.metabase:MetabaseSource",
         "teradata = datahub.ingestion.source.sql.teradata:TeradataSource",
         "trino = datahub.ingestion.source.sql.trino:TrinoSource",
