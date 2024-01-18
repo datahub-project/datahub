@@ -103,10 +103,7 @@ class SupersetConfig(
 
     provider: str = Field(default="db", description="Superset provider.")
     options: Dict = Field(default={}, description="")
-    env: str = Field(
-        default=DEFAULT_ENV,
-        description="Environment to use in namespace when constructing URNs",
-    )
+
     # TODO: Check and remove this if no longer needed.
     # Config database_alias is removed from sql sources.
     database_alias: Dict[str, str] = Field(
