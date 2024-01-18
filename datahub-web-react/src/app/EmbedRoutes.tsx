@@ -4,12 +4,14 @@ import { PageRoutes } from '../conf/Global';
 import EmbeddedPage from './embed/EmbeddedPage';
 import { useEntityRegistry } from './useEntityRegistry';
 import EmbedLookup from './embed/lookup';
+import EmbeddedHealthIcon from './entity/shared/embed/EmbeddedHealthIcon';
 
 export default function EmbedRoutes() {
     const entityRegistry = useEntityRegistry();
 
     return (
         <>
+            <Route path={`${PageRoutes.EMBED_HEALTH}/:urn`} render={() => <EmbeddedHealthIcon />} />
             <Route exact path={PageRoutes.EMBED_LOOKUP} render={() => <EmbedLookup />} />
             {entityRegistry.getEntities().map((entity) => (
                 <Route
