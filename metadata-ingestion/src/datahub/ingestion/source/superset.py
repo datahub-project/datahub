@@ -8,8 +8,11 @@ import requests
 from pydantic.class_validators import root_validator, validator
 from pydantic.fields import Field
 
-from datahub.configuration import ConfigModel
 from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.source_common import (
+    EnvConfigMixin,
+    PlatformInstanceConfigMixin,
+)
 from datahub.emitter.mce_builder import DEFAULT_ENV, make_domain_urn
 from datahub.emitter.mcp_builder import add_domain_to_entity_wu
 from datahub.ingestion.api.common import PipelineContext
@@ -74,7 +77,9 @@ chart_type_from_viz_type = {
 }
 
 
-class SupersetConfig(StatefulIngestionConfigBase, ConfigModel):
+class SupersetConfig(
+    StatefulIngestionConfigBase, EnvConfigMixin, PlatformInstanceConfigMixin
+):
     # See the Superset /security/login endpoint for details
     # https://superset.apache.org/docs/rest-api
     connect_uri: str = Field(
@@ -194,6 +199,10 @@ class SupersetSource(StatefulIngestionSourceBase):
             }
         )
 
+        self.platform_instance = (
+            self.config.platform_instance + "." if self.config.platform_instance else ""
+        )
+
         # Test the connection
         test_response = self.session.get(f"{self.config.connect_uri}/api/v1/dashboard/")
         if test_response.status_code == 200:
@@ -241,7 +250,7 @@ class SupersetSource(StatefulIngestionSourceBase):
         return None
 
     def construct_dashboard_from_api_data(self, dashboard_data):
-        dashboard_urn = f"urn:li:dashboard:({self.platform},{dashboard_data['id']})"
+        dashboard_urn = f"urn:li:dashboard:({self.platform},{self.platform_instance}{dashboard_data['id']})"
         dashboard_snapshot = DashboardSnapshot(
             urn=dashboard_urn,
             aspects=[Status(removed=False)],
@@ -270,7 +279,7 @@ class SupersetSource(StatefulIngestionSourceBase):
             if not key.startswith("CHART-"):
                 continue
             chart_urns.append(
-                f"urn:li:chart:({self.platform},{value.get('meta', {}).get('chartId', 'unknown')})"
+                f"urn:li:chart:({self.platform},{self.platform_instance}{value.get('meta', {}).get('chartId', 'unknown')})"
             )
 
         dashboard_info = DashboardInfoClass(
@@ -317,7 +326,9 @@ class SupersetSource(StatefulIngestionSourceBase):
                 )
 
     def construct_chart_from_chart_data(self, chart_data):
-        chart_urn = f"urn:li:chart:({self.platform},{chart_data['id']})"
+        chart_urn = (
+            f"urn:li:chart:({self.platform},{self.platform_instance}{chart_data['id']})"
+        )
         chart_snapshot = ChartSnapshot(
             urn=chart_urn,
             aspects=[Status(removed=False)],
