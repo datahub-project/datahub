@@ -806,6 +806,10 @@ class RedshiftLineageExtractor:
         transitive_temp_tables: List[TempTableRow] = []
 
         for temp_table in temp_table_rows:
+            logger.debug(
+                f"Processing temp table with transaction id: {temp_table.transaction_id} and query text {temp_table.query_text}"
+            )
+
             intermediate_l_datasets, _ = self._get_sources_from_query(
                 db_name=db_name,
                 query=temp_table.query_text,
