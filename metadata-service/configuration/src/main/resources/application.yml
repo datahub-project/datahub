@@ -237,6 +237,7 @@ kafka:
   consumer:
     maxPartitionFetchBytes: ${KAFKA_CONSUMER_MAX_PARTITION_FETCH_BYTES:5242880} # the max bytes consumed per partition
     stopOnDeserializationError: ${KAFKA_CONSUMER_STOP_ON_DESERIALIZATION_ERROR:true} # Stops kafka listener container on deserialization error, allows user to fix problems before moving past problematic offset. If false will log and move forward past the offset
+    restartOnFailure: ${KAFKA_CONSUMER_RESTART_ON_FAILURE:true} # Sets the health indicator to down when a message listener container has stopped due to a deserialization failure, forcing the consumer apps to restart
   schemaRegistry:
     type: ${SCHEMA_REGISTRY_TYPE:KAFKA} # INTERNAL or KAFKA or AWS_GLUE
     url: ${KAFKA_SCHEMAREGISTRY_URL:http://localhost:8081}

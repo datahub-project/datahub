@@ -1,5 +1,6 @@
 package io.datahubproject.metadata.jobs.common.health.kafka;
 
+import com.linkedin.gms.factory.config.ConfigurationProvider;
 import java.util.Collection;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -19,9 +20,12 @@ import org.springframework.stereotype.Component;
 public class KafkaHealthIndicator extends AbstractHealthIndicator {
 
   private final KafkaListenerEndpointRegistry listenerRegistry;
+  private final ConfigurationProvider configurationProvider;
 
-  public KafkaHealthIndicator(KafkaListenerEndpointRegistry listenerRegistry) {
+  public KafkaHealthIndicator(
+      KafkaListenerEndpointRegistry listenerRegistry, ConfigurationProvider configurationProvider) {
     this.listenerRegistry = listenerRegistry;
+    this.configurationProvider = configurationProvider;
   }
 
   @Override
@@ -35,7 +39,7 @@ public class KafkaHealthIndicator extends AbstractHealthIndicator {
             .collect(
                 Collectors.toMap(
                     MessageListenerContainer::getListenerId, this::buildConsumerDetails));
-    if (isContainerDown) {
+    if (isContainerDown && configurationProvider.getKafka().getConsumer().isRestartOnFailure()) {
       kafkaStatus = Status.DOWN;
     }
     builder.status(kafkaStatus).withDetails(details).build();
