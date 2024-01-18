@@ -680,14 +680,12 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
         assert profile.rowCount is not None
         row_count: int  # used for null counts calculation
         if profile.partitionSpec and "SAMPLE" in profile.partitionSpec.partition:
-            # We can alternatively use `self._get_dataset_rows(profile)` to get
-            # exact count of rows in sample, as actual rows involved in sample
-            # may be slightly different (more or less) than configured `sample_size`.
-            # However not doing so to start with, as that adds another query overhead
-            # plus approximate metrics should work for sampling based profiling.
-            row_count = self.config.sample_size
-        else:
-            row_count = profile.rowCount
+            # Querying exact row count of sample using `_get_dataset_rows`.
+            # We are not using `self.config.sample_size` directly as actual row count
+            # in sample may be slightly different (more or less) than configured `sample_size`.
+            self._get_dataset_rows(profile)
+
+        row_count = profile.rowCount
 
         for column_spec in columns_profiling_queue:
             column = column_spec.column
@@ -1283,9 +1281,13 @@ def create_bigquery_temp_table(
         # temporary table dance. However, that would require either a) upgrading to
         # use GE's batch v3 API or b) bypassing GE altogether.
 
-        query_job: Optional[
-            "google.cloud.bigquery.job.query.QueryJob"
-        ] = cursor._query_job
+        query_job: Optional["google.cloud.bigquery.job.query.QueryJob"] = (
+            # In google-cloud-bigquery 3.15.0, the _query_job attribute was
+            # made public and renamed to query_job.
+            cursor.query_job
+            if hasattr(cursor, "query_job")
+            else cursor._query_job  # type: ignore[attr-defined]
+        )
         assert query_job
         temp_destination_table = query_job.destination
         bigquery_temp_table = f"{temp_destination_table.project}.{temp_destination_table.dataset_id}.{temp_destination_table.table_id}"

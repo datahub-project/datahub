@@ -11,6 +11,8 @@ dependencies {
   implementation project(':metadata-service:openapi-servlet')
   implementation project(':metadata-models')
 
+  implementation externalDependency.servletApi
+  implementation externalDependency.springBootStarterValidation
   implementation externalDependency.springBoot
   implementation externalDependency.springCore
   implementation externalDependency.springDocUI

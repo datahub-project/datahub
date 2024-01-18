@@ -1,18 +1,18 @@
 
 x-datahub-frontend-service: &datahub-frontend-service
   hostname: datahub-frontend-react
-  image: ${DATAHUB_FRONTEND_IMAGE:-linkedin/datahub-frontend-react}:${DATAHUB_VERSION:-head}
+  image: ${DATAHUB_FRONTEND_IMAGE:-${DATAHUB_REPO:-linkedin}/datahub-frontend-react}:${DATAHUB_VERSION:-head}
   ports:
     - ${DATAHUB_MAPPED_FRONTEND_PORT:-9002}:9002
   env_file: datahub-frontend/env/docker.env
   environment: &datahub-frontend-service-env
-    KAFKA_BOOTSTRAP_SERVER: kafka-broker:29092
+    KAFKA_BOOTSTRAP_SERVER: broker:29092
   volumes:
     - ${HOME}/.datahub/plugins:/etc/datahub/plugins
 
 x-datahub-frontend-service-dev: &datahub-frontend-service-dev
   <<: *datahub-frontend-service
-  image: linkedin/datahub-frontend-react:debug
+  image: ${DATAHUB_FRONTEND_IMAGE:-${DATAHUB_REPO:-linkedin}/datahub-frontend-react}:debug
   ports:
     - ${DATAHUB_MAPPED_FRONTEND_DEBUG_PORT:-5002}:5002
     - ${DATAHUB_MAPPED_FRONTEND_PORT:-9002}:9002

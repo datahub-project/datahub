@@ -1,4 +1,3 @@
-import concurrent.futures
 import datetime
 import json
 import logging
@@ -91,6 +90,7 @@ from datahub.metadata.schema_classes import (
     OwnershipClass,
     OwnershipTypeClass,
 )
+from datahub.utilities.advanced_thread_executor import BackpressureAwareExecutor
 
 logger = logging.getLogger(__name__)
 
@@ -700,28 +700,19 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             explores_to_fetch = list(self.list_all_explores())
         explores_to_fetch.sort()
 
-        with concurrent.futures.ThreadPoolExecutor(
-            max_workers=self.source_config.max_threads
-        ) as async_executor:
-            self.reporter.total_explores = len(explores_to_fetch)
-
-            explore_futures = {
-                async_executor.submit(self.fetch_one_explore, model, explore): (
-                    model,
-                    explore,
-                )
-                for (model, explore) in explores_to_fetch
-            }
-
-            for future in concurrent.futures.wait(explore_futures).done:
-                events, explore_id, start_time, end_time = future.result()
-                del explore_futures[future]
-                self.reporter.explores_scanned += 1
-                yield from events
-                self.reporter.report_upstream_latency(start_time, end_time)
-                logger.debug(
-                    f"Running time of fetch_one_explore for {explore_id}: {(end_time - start_time).total_seconds()}"
-                )
+        self.reporter.total_explores = len(explores_to_fetch)
+        for future in BackpressureAwareExecutor.map(
+            self.fetch_one_explore,
+            ((model, explore) for (model, explore) in explores_to_fetch),
+            max_workers=self.source_config.max_threads,
+        ):
+            events, explore_id, start_time, end_time = future.result()
+            self.reporter.explores_scanned += 1
+            yield from events
+            self.reporter.report_upstream_latency(start_time, end_time)
+            logger.debug(
+                f"Running time of fetch_one_explore for {explore_id}: {(end_time - start_time).total_seconds()}"
+            )
 
     def list_all_explores(self) -> Iterable[Tuple[str, str]]:
         # returns a list of (model, explore) tuples
@@ -1044,7 +1035,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         self, dashboard_id: str, fields: List[str]
     ) -> Tuple[
         List[MetadataWorkUnit],
-        Optional[Dashboard],
+        Optional[looker_usage.LookerDashboardForUsage],
         str,
         datetime.datetime,
         datetime.datetime,
@@ -1095,9 +1086,15 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         )
         workunits.extend(metric_dim_workunits)
         self.reporter.report_dashboards_scanned()
+
+        # generate usage tracking object
+        dashboard_usage = looker_usage.LookerDashboardForUsage.from_dashboard(
+            dashboard_object
+        )
+
         return (
             workunits,
-            dashboard_object,
+            dashboard_usage,
             dashboard_id,
             start_time,
             datetime.datetime.now(),
@@ -1271,42 +1268,32 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             ]
 
         looker_dashboards_for_usage: List[looker_usage.LookerDashboardForUsage] = []
-        self.reporter.report_stage_start("dashboard_chart_metadata")
 
-        with concurrent.futures.ThreadPoolExecutor(
-            max_workers=self.source_config.max_threads
-        ) as async_executor:
-            async_workunits = {}
-            for dashboard_id in dashboard_ids:
-                if dashboard_id is not None:
-                    job = async_executor.submit(
-                        self.process_dashboard, dashboard_id, fields
-                    )
-                    async_workunits[job] = dashboard_id
-
-            for job in concurrent.futures.as_completed(async_workunits):
+        with self.reporter.report_stage("dashboard_chart_metadata"):
+            for job in BackpressureAwareExecutor.map(
+                self.process_dashboard,
+                (
+                    (dashboard_id, fields)
+                    for dashboard_id in dashboard_ids
+                    if dashboard_id is not None
+                ),
+                max_workers=self.source_config.max_threads,
+            ):
                 (
                     work_units,
-                    dashboard_object,
+                    dashboard_usage,
                     dashboard_id,
                     start_time,
                     end_time,
                 ) = job.result()
-                del async_workunits[job]
                 logger.debug(
                     f"Running time of process_dashboard for {dashboard_id} = {(end_time - start_time).total_seconds()}"
                 )
                 self.reporter.report_upstream_latency(start_time, end_time)
 
                 yield from work_units
-                if dashboard_object is not None:
-                    looker_dashboards_for_usage.append(
-                        looker_usage.LookerDashboardForUsage.from_dashboard(
-                            dashboard_object
-                        )
-                    )
-
-        self.reporter.report_stage_end("dashboard_chart_metadata")
+                if dashboard_usage is not None:
+                    looker_dashboards_for_usage.append(dashboard_usage)
 
         if (
             self.source_config.extract_owners

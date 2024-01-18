@@ -13,7 +13,6 @@ from snowflake.connector import SnowflakeConnection
 from datahub.configuration.pattern_utils import is_schema_allowed
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
-    make_dataset_urn,
     make_dataset_urn_with_platform_instance,
     make_schema_field_urn,
     make_tag_urn,
@@ -1237,12 +1236,13 @@ class SnowflakeV2Source(
     ) -> List[ForeignKeyConstraint]:
         foreign_keys = []
         for fk in table.foreign_keys:
-            foreign_dataset = make_dataset_urn(
-                self.platform,
-                self.get_dataset_identifier(
+            foreign_dataset = make_dataset_urn_with_platform_instance(
+                platform=self.platform,
+                name=self.get_dataset_identifier(
                     fk.referred_table, fk.referred_schema, fk.referred_database
                 ),
-                self.config.env,
+                env=self.config.env,
+                platform_instance=self.config.platform_instance,
             )
             foreign_keys.append(
                 ForeignKeyConstraint(

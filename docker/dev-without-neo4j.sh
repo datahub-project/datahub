@@ -23,13 +23,13 @@ fi
 # Launches dev instances of DataHub images. See documentation for more details.
 # YOU MUST BUILD VIA GRADLE BEFORE RUNNING THIS.
 cd "${DIR}/../.." && \
-  COMPOSE_DOCKER_CLI_BUILD=1 DOCKER_BUILDKIT=1 DOCKER_DEFAULT_PLATFORM="$(uname -m)" docker-compose \
+  COMPOSE_DOCKER_CLI_BUILD=1 DOCKER_BUILDKIT=1 DOCKER_DEFAULT_PLATFORM="$(uname -m)" docker compose \
     -f "${DIR}/docker-compose-without-neo4j.yml" \
     -f "${DIR}/docker-compose-without-neo4j.override.yml" \
     -f "${DIR}/docker-compose.dev.yml" \
     $CONSUMERS_COMPOSE $MONITORING_COMPOSE $M1_COMPOSE pull \
 && \
-  COMPOSE_DOCKER_CLI_BUILD=1 DOCKER_BUILDKIT=1 DOCKER_DEFAULT_PLATFORM="$(uname -m)" docker-compose -p datahub \
+  COMPOSE_DOCKER_CLI_BUILD=1 DOCKER_BUILDKIT=1 DOCKER_DEFAULT_PLATFORM="$(uname -m)" docker compose -p datahub \
     -f "${DIR}/docker-compose-without-neo4j.yml" \
     -f "${DIR}/docker-compose-without-neo4j.override.yml" \
     -f "${DIR}/docker-compose.dev.yml" \
