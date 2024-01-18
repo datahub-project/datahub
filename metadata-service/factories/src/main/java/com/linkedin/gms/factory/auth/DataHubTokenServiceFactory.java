@@ -1,8 +1,8 @@
 package com.linkedin.gms.factory.auth;
 
 import com.datahub.authentication.token.StatefulTokenService;
-import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -22,18 +22,13 @@ public class DataHubTokenServiceFactory {
   @Value("${authentication.tokenService.salt:}")
   private String saltingKey;
 
-  @Value("${elasticsearch.tokenService.signingAlgorithm:HS256}")
+  @Value("${authentication.tokenService.signingAlgorithm:HS256}")
   private String signingAlgorithm;
 
-  @Value("${elasticsearch.tokenService.issuer:datahub-metadata-service}")
+  @Value("${authentication.tokenService.issuer:datahub-metadata-service}")
   private String issuer;
 
-  /**
-   * +  @Inject
-   * +  @Named("entityService")
-   * +  private EntityService _entityService;
-   * +
-   */
+  /** + @Inject + @Named("entityService") + private EntityService _entityService; + */
   @Autowired
   @Qualifier("entityService")
   private EntityService _entityService;
@@ -43,11 +38,6 @@ public class DataHubTokenServiceFactory {
   @Nonnull
   protected StatefulTokenService getInstance() {
     return new StatefulTokenService(
-        this.signingKey,
-        this.signingAlgorithm,
-        this.issuer,
-        this._entityService,
-        this.saltingKey
-    );
+        this.signingKey, this.signingAlgorithm, this.issuer, this._entityService, this.saltingKey);
   }
 }

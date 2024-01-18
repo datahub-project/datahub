@@ -12,7 +12,7 @@ from snowflake.connector.network import (
     OAUTH_AUTHENTICATOR,
 )
 
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.oauth import OAuthConfiguration, OAuthIdentityProvider
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
@@ -42,8 +42,13 @@ VALID_AUTH_TYPES: Dict[str, str] = {
 SNOWFLAKE_HOST_SUFFIX = ".snowflakecomputing.com"
 
 
-class BaseSnowflakeConfig(BaseTimeWindowConfig):
+class BaseSnowflakeConfig(ConfigModel):
     # Note: this config model is also used by the snowflake-usage source.
+
+    options: dict = pydantic.Field(
+        default_factory=dict,
+        description="Any options specified here will be passed to [SQLAlchemy.create_engine](https://docs.sqlalchemy.org/en/14/core/engines.html#sqlalchemy.create_engine) as kwargs.",
+    )
 
     scheme: str = "snowflake"
     username: Optional[str] = pydantic.Field(
@@ -54,7 +59,7 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
     )
     private_key: Optional[str] = pydantic.Field(
         default=None,
-        description="Private key in a form of '-----BEGIN PRIVATE KEY-----\\nprivate-key\\n-----END PRIVATE KEY-----\\n' if using key pair authentication. Encrypted version of private key will be in a form of '-----BEGIN ENCRYPTED PRIVATE KEY-----\\nencrypted-private-key\\n-----END ECNCRYPTED PRIVATE KEY-----\\n' See: https://docs.snowflake.com/en/user-guide/key-pair-auth.html",
+        description="Private key in a form of '-----BEGIN PRIVATE KEY-----\\nprivate-key\\n-----END PRIVATE KEY-----\\n' if using key pair authentication. Encrypted version of private key will be in a form of '-----BEGIN ENCRYPTED PRIVATE KEY-----\\nencrypted-private-key\\n-----END ENCRYPTED PRIVATE KEY-----\\n' See: https://docs.snowflake.com/en/user-guide/key-pair-auth.html",
     )
 
     private_key_path: Optional[str] = pydantic.Field(
@@ -82,14 +87,6 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
         default=None, description="Snowflake warehouse."
     )
     role: Optional[str] = pydantic.Field(default=None, description="Snowflake role.")
-    include_table_lineage: bool = pydantic.Field(
-        default=True,
-        description="If enabled, populates the snowflake table-to-table and s3-to-snowflake table lineage. Requires appropriate grants given to the role and Snowflake Enterprise Edition or above.",
-    )
-    include_view_lineage: bool = pydantic.Field(
-        default=True,
-        description="If enabled, populates the snowflake view->table and table->view lineages. Requires appropriate grants given to the role, and include_table_lineage to be True. view->table lineage requires Snowflake Enterprise Edition or above.",
-    )
     connect_args: Optional[Dict[str, Any]] = pydantic.Field(
         default=None,
         description="Connect args to pass to Snowflake SqlAlchemy driver",
@@ -110,7 +107,7 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
         return account_id
 
     @pydantic.validator("authentication_type", always=True)
-    def authenticator_type_is_valid(cls, v, values, field):
+    def authenticator_type_is_valid(cls, v, values):
         if v not in VALID_AUTH_TYPES.keys():
             raise ValueError(
                 f"unsupported authenticator type '{v}' was provided,"
@@ -146,7 +143,7 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
                 "'oauth_config' is none but should be set when using OAUTH_AUTHENTICATOR authentication"
             )
         if oauth_config.use_certificate is True:
-            if oauth_config.provider == OAuthIdentityProvider.OKTA.value:
+            if oauth_config.provider == OAuthIdentityProvider.OKTA:
                 raise ValueError(
                     "Certificate authentication is not supported for Okta."
                 )
@@ -165,14 +162,6 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
                 "'oauth_config.client_secret' was none "
                 "but should be set when using use_certificate false for oauth_config"
             )
-
-    @pydantic.validator("include_view_lineage")
-    def validate_include_view_lineage(cls, v, values):
-        if not values.get("include_table_lineage") and v:
-            raise ValueError(
-                "include_table_lineage must be True for include_view_lineage to be set."
-            )
-        return v
 
     def get_sql_alchemy_url(
         self,
@@ -257,28 +246,8 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
         self._computed_connect_args = connect_args
         return connect_args
 
-
-class SnowflakeConfig(BaseSnowflakeConfig, SQLCommonConfig):
-    database_pattern: AllowDenyPattern = AllowDenyPattern(
-        deny=[r"^UTIL_DB$", r"^SNOWFLAKE$", r"^SNOWFLAKE_SAMPLE_DATA$"]
-    )
-
-    ignore_start_time_lineage: bool = False
-    upstream_lineage_in_report: bool = False
-
-    def get_sql_alchemy_url(
-        self,
-        database: Optional[str] = None,
-        username: Optional[str] = None,
-        password: Optional[pydantic.SecretStr] = None,
-        role: Optional[str] = None,
-    ) -> str:
-        return super().get_sql_alchemy_url(
-            database=database, username=username, password=password, role=role
-        )
-
     def get_options(self) -> dict:
-        options_connect_args: Dict = super().get_connect_args()
+        options_connect_args: Dict = self.get_connect_args()
         options_connect_args.update(self.options.get("connect_args", {}))
         self.options["connect_args"] = options_connect_args
         return self.options
@@ -368,3 +337,33 @@ class SnowflakeConfig(BaseSnowflakeConfig, SQLCommonConfig):
         else:
             # not expected to be here
             raise Exception("Not expected to be here.")
+
+
+class SnowflakeConfig(BaseSnowflakeConfig, BaseTimeWindowConfig, SQLCommonConfig):
+    include_table_lineage: bool = pydantic.Field(
+        default=True,
+        description="If enabled, populates the snowflake table-to-table and s3-to-snowflake table lineage. Requires appropriate grants given to the role and Snowflake Enterprise Edition or above.",
+    )
+    include_view_lineage: bool = pydantic.Field(
+        default=True,
+        description="If enabled, populates the snowflake view->table and table->view lineages. Requires appropriate grants given to the role, and include_table_lineage to be True. view->table lineage requires Snowflake Enterprise Edition or above.",
+    )
+
+    database_pattern: AllowDenyPattern = AllowDenyPattern(
+        deny=[r"^UTIL_DB$", r"^SNOWFLAKE$", r"^SNOWFLAKE_SAMPLE_DATA$"]
+    )
+
+    ignore_start_time_lineage: bool = False
+    upstream_lineage_in_report: bool = False
+
+    @pydantic.root_validator(skip_on_failure=True)
+    def validate_include_view_lineage(cls, values):
+        if (
+            "include_table_lineage" in values
+            and not values.get("include_table_lineage")
+            and values.get("include_view_lineage")
+        ):
+            raise ValueError(
+                "include_table_lineage must be True for include_view_lineage to be set."
+            )
+        return values

@@ -1,5 +1,7 @@
-apply plugin: 'distribution'
-apply plugin: 'com.github.node-gradle.node'
+plugins {
+  id 'distribution'
+  id 'com.github.node-gradle.node'
+}
 
 node {
 
@@ -12,10 +14,10 @@ node {
   }
 
   // Version of node to use.
-  version = '16.16.0'
+  version = '21.2.0'
 
   // Version of Yarn to use.
-  yarnVersion = '1.22.0'
+  yarnVersion = '1.22.1'
 
   // Base URL for fetching node distributions (set nodeDistBaseUrl if you have a mirror).
   if (project.hasProperty('nodeDistBaseUrl')) {
@@ -31,7 +33,7 @@ node {
   yarnWorkDir = file("${project.projectDir}/.gradle/yarn")
 
   // Set the work directory where node_modules should be located
-  nodeModulesDir = file("${project.projectDir}")
+  nodeProjectDir = file("${project.projectDir}")
 
 }
 /*
@@ -89,7 +91,7 @@ task fastReload(type: YarnTask) {
   args = ['run', 'generate-rsync']
 }
 
-task yarnLint(type: YarnTask, dependsOn: [yarnInstall]) {
+task yarnLint(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
   inputs.files(projectMdFiles)
   args = ['run', 'lint-check']
   outputs.dir("dist")
@@ -119,6 +121,14 @@ task yarnBuild(type: YarnTask, dependsOn: [yarnLint, yarnGenerate, downloadHisto
   outputs.dir("dist")
   // tell gradle to apply the build cache
   outputs.cacheIf { true }
+  // See https://stackoverflow.com/questions/53230823/fatal-error-ineffective-mark-compacts-near-heap-limit-allocation-failed-java
+  // and https://github.com/facebook/docusaurus/issues/8329.
+  // TODO: As suggested in https://github.com/facebook/docusaurus/issues/4765, try switching to swc-loader.
+  if (project.hasProperty('useSystemNode') && project.getProperty('useSystemNode').toBoolean()) {
+    environment = ['NODE_OPTIONS': '--max-old-space-size=10248']
+  } else {
+    environment = ['NODE_OPTIONS': '--max-old-space-size=10248 --openssl-legacy-provider']
+  }
   args = ['run', 'build']
 
 }

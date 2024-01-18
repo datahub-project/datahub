@@ -3,7 +3,7 @@ plugins {
 }
 
 apply plugin: 'com.github.johnrengelman.shadow'
-apply plugin: 'java'
+apply plugin: 'java-library'
 apply plugin: 'signing'
 apply plugin: 'maven-publish'
 apply plugin: 'io.codearte.nexus-staging'
@@ -15,36 +15,35 @@ test {
 }
 
 jar {
-  archiveName = "$project.name-lib.jar"
+  archiveClassifier = "lib"
 }
 
 shadowJar {
   zip64 true
-  classifier = null
-  archiveName = "$project.name-${version}.jar"
+  archiveClassifier = ""
   exclude "META-INF/*.RSA", "META-INF/*.SF","META-INF/*.DSA"
 }
 
 dependencies() {
   implementation spec.product.pegasus.data
   implementation project(path: ':li-utils')
-  implementation project(path: ':metadata-utils')
+  api project(path: ':metadata-utils')
  
-  compile externalDependency.guava
-  compile externalDependency.lombok
+  implementation externalDependency.guava
+  compileOnly externalDependency.lombok
 
   annotationProcessor externalDependency.lombok
-  
-  testCompile externalDependency.testng
+
+  testImplementation externalDependency.testng
 }
 
 task sourcesJar(type: Jar) {
-  classifier 'sources'
+  archiveClassifier = 'sources'
   from sourceSets.main.allJava
 }
 
 task javadocJar(type: Jar, dependsOn: javadoc) {
-  classifier 'javadoc'
+  archiveClassifier = 'javadoc'
   from javadoc.destinationDir
 }
 

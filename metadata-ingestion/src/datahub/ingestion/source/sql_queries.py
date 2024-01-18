@@ -20,11 +20,17 @@ from datahub.emitter.sql_parsing_builder import SqlParsingBuilder
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
+    capability,
     config_class,
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import MetadataWorkUnitProcessor, Source, SourceReport
+from datahub.ingestion.api.source import (
+    MetadataWorkUnitProcessor,
+    Source,
+    SourceCapability,
+    SourceReport,
+)
 from datahub.ingestion.api.source_helpers import auto_workunit_reporter
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
@@ -82,9 +88,26 @@ class SqlQueriesSourceReport(SourceReport):
 
 @platform_name("SQL Queries")
 @config_class(SqlQueriesSourceConfig)
-@support_status(SupportStatus.TESTING)
+@support_status(SupportStatus.INCUBATING)
+@capability(SourceCapability.LINEAGE_COARSE, "Parsed from SQL queries")
+@capability(SourceCapability.LINEAGE_FINE, "Parsed from SQL queries")
 class SqlQueriesSource(Source):
-    # TODO: Documentation
+    """
+    This source reads a newline-delimited JSON file containing SQL queries and parses them to generate lineage.
+
+    ### Query File Format
+    This file should contain one JSON object per line, with the following fields:
+    - query: string - The SQL query to parse.
+    - timestamp (optional): number - The timestamp of the query, in seconds since the epoch.
+    - user (optional): string - The user who ran the query.
+    This user value will be directly converted into a DataHub user urn.
+    - operation_type (optional): string - Platform-specific operation type, used if the operation type can't be parsed.
+    - downstream_tables (optional): string[] - Fallback list of tables that the query writes to,
+     used if the query can't be parsed.
+    - upstream_tables (optional): string[] - Fallback list of tables the query reads from,
+     used if the query can't be parsed.
+    """
+
     urns: Optional[Set[str]]
     schema_resolver: SchemaResolver
     builder: SqlParsingBuilder
@@ -103,13 +126,12 @@ class SqlQueriesSource(Source):
         self.builder = SqlParsingBuilder(usage_config=self.config.usage)
 
         if self.config.use_schema_resolver:
-            schema_resolver, urns = self.graph.initialize_schema_resolver_from_datahub(
+            self.schema_resolver = self.graph.initialize_schema_resolver_from_datahub(
                 platform=self.config.platform,
                 platform_instance=self.config.platform_instance,
                 env=self.config.env,
             )
-            self.schema_resolver = schema_resolver
-            self.urns = urns
+            self.urns = self.schema_resolver.get_urns()
         else:
             self.schema_resolver = self.graph._make_schema_resolver(
                 platform=self.config.platform,

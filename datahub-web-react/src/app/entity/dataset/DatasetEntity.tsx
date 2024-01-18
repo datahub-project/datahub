@@ -2,6 +2,7 @@ import * as React from 'react';
 import { DatabaseFilled, DatabaseOutlined } from '@ant-design/icons';
 import { Dataset, DatasetProperties, EntityType, OwnershipType, SearchResult } from '../../../types.generated';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
+import { useAppConfig } from '../../useAppConfig';
 import { Preview } from './preview/Preview';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
 import { GetDatasetQuery, useGetDatasetQuery, useUpdateDatasetMutation } from '../../../graphql/dataset.generated';
@@ -30,7 +31,9 @@ import { EmbedTab } from '../shared/tabs/Embed/EmbedTab';
 import EmbeddedProfile from '../shared/embed/EmbeddedProfile';
 import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
 import { getDataProduct } from '../shared/utils';
+import AccessManagement from '../shared/tabs/Dataset/AccessManagement/AccessManagement';
 import { matchedFieldPathsRenderer } from '../../search/matches/matchedFieldPathsRenderer';
+import { getLastUpdatedMs } from './shared/utils';
 
 const SUBTYPES = {
     VIEW: 'view',
@@ -68,6 +71,8 @@ export class DatasetEntity implements Entity<Dataset> {
     };
 
     isSearchEnabled = () => true;
+
+    appconfig = useAppConfig;
 
     isBrowseEnabled = () => true;
 
@@ -174,6 +179,14 @@ export class DatasetEntity implements Entity<Dataset> {
                                 (dataset?.dataset?.readRuns?.total || 0) + (dataset?.dataset?.writeRuns?.total || 0) > 0
                             );
                         },
+                    },
+                },
+                {
+                    name: 'Access Management',
+                    component: AccessManagement,
+                    display: {
+                        visible: (_, _1) => this.appconfig().config.featureFlags.showAccessManagement,
+                        enabled: (_, _2) => true,
                     },
                 },
             ]}
@@ -298,9 +311,7 @@ export class DatasetEntity implements Entity<Dataset> {
                 rowCount={(data as any).lastProfile?.length && (data as any).lastProfile[0].rowCount}
                 columnCount={(data as any).lastProfile?.length && (data as any).lastProfile[0].columnCount}
                 sizeInBytes={(data as any).lastProfile?.length && (data as any).lastProfile[0].sizeInBytes}
-                lastUpdatedMs={
-                    (data as any).lastOperation?.length && (data as any).lastOperation[0].lastUpdatedTimestamp
-                }
+                lastUpdatedMs={getLastUpdatedMs(data.properties, (data as any)?.lastOperation)}
                 health={data.health}
                 degree={(result as any).degree}
                 paths={(result as any).paths}
@@ -317,6 +328,7 @@ export class DatasetEntity implements Entity<Dataset> {
             subtype: entity?.subTypes?.typeNames?.[0] || undefined,
             icon: entity?.platform?.properties?.logoUrl || undefined,
             platform: entity?.platform,
+            health: entity?.health || undefined,
         };
     };
 

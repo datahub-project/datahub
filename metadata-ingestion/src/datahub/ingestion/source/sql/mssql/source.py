@@ -46,12 +46,20 @@ from datahub.ingestion.source.sql.sql_config import (
     BasicSQLAlchemyConfig,
     make_sqlalchemy_uri,
 )
-from datahub.metadata.schema_classes import BooleanTypeClass, UnionTypeClass
+from datahub.metadata.schema_classes import (
+    BooleanTypeClass,
+    NumberTypeClass,
+    StringTypeClass,
+    UnionTypeClass,
+)
 
 logger: logging.Logger = logging.getLogger(__name__)
 
 register_custom_type(sqlalchemy.dialects.mssql.BIT, BooleanTypeClass)
+register_custom_type(sqlalchemy.dialects.mssql.MONEY, NumberTypeClass)
+register_custom_type(sqlalchemy.dialects.mssql.SMALLMONEY, NumberTypeClass)
 register_custom_type(sqlalchemy.dialects.mssql.SQL_VARIANT, UnionTypeClass)
+register_custom_type(sqlalchemy.dialects.mssql.UNIQUEIDENTIFIER, StringTypeClass)
 
 
 class SQLServerConfig(BasicSQLAlchemyConfig):
@@ -130,7 +138,7 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
 
     @property
     def db(self):
-        return self.database_alias or self.database
+        return self.database
 
 
 @platform_name("Microsoft SQL Server", id="mssql")
@@ -147,7 +155,7 @@ class SQLServerSource(SQLAlchemySource):
     - Metadata for databases, schemas, views and tables
     - Column types associated with each table/view
     - Table, row, and column statistics via optional SQL profiling
-    We have two options for the underlying library used to connect to SQL Server: (1) [python-tds](https://github.com/denisenkom/pytds) and (2) [pyodbc](https://github.com/mkleehammer/pyodbc). The TDS library is pure Python and hence easier to install, but only PyODBC supports encrypted connections.
+    We have two options for the underlying library used to connect to SQL Server: (1) [python-tds](https://github.com/denisenkom/pytds) and (2) [pyodbc](https://github.com/mkleehammer/pyodbc). The TDS library is pure Python and hence easier to install.
     """
 
     def __init__(self, config: SQLServerConfig, ctx: PipelineContext):
@@ -525,7 +533,7 @@ class SQLServerSource(SQLAlchemySource):
     def _get_procedure_code(
         conn: Connection, procedure: StoredProcedure
     ) -> Tuple[Optional[str], Optional[str]]:
-        query = f"EXEC [{procedure.db}].dbo.sp_helptext '{procedure.full_name}'"
+        query = f"EXEC [{procedure.db}].dbo.sp_helptext '{procedure.escape_full_name}'"
         try:
             code_data = conn.execute(query)
         except ProgrammingError:
@@ -562,7 +570,7 @@ class SQLServerSource(SQLAlchemySource):
                 create_date as date_created,
                 modify_date as date_modified
             FROM sys.procedures
-            WHERE object_id = object_id('{procedure.full_name}')
+            WHERE object_id = object_id('{procedure.escape_full_name}')
             """
         )
         properties = {}
@@ -652,10 +660,7 @@ class SQLServerSource(SQLAlchemySource):
         regular = f"{schema}.{entity}"
         qualified_table_name = regular
         if self.config.database:
-            if self.config.database_alias:
-                qualified_table_name = f"{self.config.database_alias}.{regular}"
-            else:
-                qualified_table_name = f"{self.config.database}.{regular}"
+            qualified_table_name = f"{self.config.database}.{regular}"
         if self.current_database:
             qualified_table_name = f"{self.current_database}.{regular}"
         return (

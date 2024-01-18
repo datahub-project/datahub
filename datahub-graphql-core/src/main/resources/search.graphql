@@ -458,6 +458,26 @@ enum FilterOperator {
   Represents the relation: The field exists. If the field is an array, the field is either not present or empty.
   """
   EXISTS
+
+  """
+  Represent the relation greater than, e.g. ownerCount > 5
+  """
+  GREATER_THAN
+
+  """
+   Represent the relation greater than or equal to, e.g. ownerCount >= 5
+  """
+  GREATER_THAN_OR_EQUAL_TO
+
+  """
+  Represent the relation less than, e.g. ownerCount < 3
+  """
+  LESS_THAN
+
+  """
+  Represent the relation less than or equal to, e.g. ownerCount <= 3
+  """
+  LESS_THAN_OR_EQUAL_TO
 }
 
 """
@@ -1156,9 +1176,14 @@ Input required for browse queries
 """
 input BrowseV2Input {
   """
-  The browse entity type
+  The browse entity type - deprecated use types instead
   """
-  type: EntityType!
+  type: EntityType
+
+  """
+  The browse entity type - deprecated use types instead. If not provided, all types will be used.
+  """
+  types: [EntityType!]
 
   """
   The browse path V2 - a list with each entry being part of the browse path V2

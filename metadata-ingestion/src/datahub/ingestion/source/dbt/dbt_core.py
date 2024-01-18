@@ -18,7 +18,12 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import SourceCapability
+from datahub.ingestion.api.source import (
+    CapabilityReport,
+    SourceCapability,
+    TestableSource,
+    TestConnectionReport,
+)
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
 from datahub.ingestion.source.dbt.dbt_common import (
     DBTColumn,
@@ -26,9 +31,8 @@ from datahub.ingestion.source.dbt.dbt_common import (
     DBTNode,
     DBTSourceBase,
     DBTSourceReport,
-    DBTTest,
-    DBTTestResult,
 )
+from datahub.ingestion.source.dbt.dbt_tests import DBTTest, DBTTestResult
 
 logger = logging.getLogger(__name__)
 
@@ -60,11 +64,6 @@ class DBTCoreConfig(DBTCommonConfig):
     )
 
     _github_info_deprecated = pydantic_renamed_field("github_info", "git_info")
-
-    @property
-    def s3_client(self):
-        assert self.aws_connection
-        return self.aws_connection.get_s3_client()
 
     @validator("aws_connection")
     def aws_connection_needed_if_s3_uris_present(
@@ -172,7 +171,8 @@ def extract_dbt_entities(
         catalog_type = None
 
         if catalog_node is None:
-            if materialization != "test":
+            if materialization not in {"test", "ephemeral"}:
+                # Test and ephemeral nodes will never show up in the catalog.
                 report.report_warning(
                     key,
                     f"Entity {key} ({name}) is in manifest but missing from catalog",
@@ -363,7 +363,7 @@ def load_test_results(
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
 @capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
-class DBTCoreSource(DBTSourceBase):
+class DBTCoreSource(DBTSourceBase, TestableSource):
     """
     The artifacts used by this source are:
     - [dbt manifest file](https://docs.getdbt.com/reference/artifacts/manifest-json)
@@ -387,12 +387,34 @@ class DBTCoreSource(DBTSourceBase):
         config = DBTCoreConfig.parse_obj(config_dict)
         return cls(config, ctx, "dbt")
 
-    def load_file_as_json(self, uri: str) -> Any:
+    @staticmethod
+    def test_connection(config_dict: dict) -> TestConnectionReport:
+        test_report = TestConnectionReport()
+        try:
+            source_config = DBTCoreConfig.parse_obj_allow_extras(config_dict)
+            DBTCoreSource.load_file_as_json(
+                source_config.manifest_path, source_config.aws_connection
+            )
+            DBTCoreSource.load_file_as_json(
+                source_config.catalog_path, source_config.aws_connection
+            )
+            test_report.basic_connectivity = CapabilityReport(capable=True)
+        except Exception as e:
+            test_report.basic_connectivity = CapabilityReport(
+                capable=False, failure_reason=str(e)
+            )
+        return test_report
+
+    @staticmethod
+    def load_file_as_json(
+        uri: str, aws_connection: Optional[AwsConnectionConfig]
+    ) -> Dict:
         if re.match("^https?://", uri):
             return json.loads(requests.get(uri).text)
         elif re.match("^s3://", uri):
             u = urlparse(uri)
-            response = self.config.s3_client.get_object(
+            assert aws_connection
+            response = aws_connection.get_s3_client().get_object(
                 Bucket=u.netloc, Key=u.path.lstrip("/")
             )
             return json.loads(response["Body"].read().decode("utf-8"))
@@ -410,12 +432,18 @@ class DBTCoreSource(DBTSourceBase):
         Optional[str],
         Optional[str],
     ]:
-        dbt_manifest_json = self.load_file_as_json(self.config.manifest_path)
+        dbt_manifest_json = self.load_file_as_json(
+            self.config.manifest_path, self.config.aws_connection
+        )
 
-        dbt_catalog_json = self.load_file_as_json(self.config.catalog_path)
+        dbt_catalog_json = self.load_file_as_json(
+            self.config.catalog_path, self.config.aws_connection
+        )
 
         if self.config.sources_path is not None:
-            dbt_sources_json = self.load_file_as_json(self.config.sources_path)
+            dbt_sources_json = self.load_file_as_json(
+                self.config.sources_path, self.config.aws_connection
+            )
             sources_results = dbt_sources_json["results"]
         else:
             sources_results = {}
@@ -466,6 +494,19 @@ class DBTCoreSource(DBTSourceBase):
             catalog_version,
         ) = self.loadManifestAndCatalog()
 
+        # If catalog_version is between 1.7.0 and 1.7.2, report a warning.
+        if (
+            catalog_version
+            and catalog_version.startswith("1.7.")
+            and catalog_version < "1.7.3"
+        ):
+            self.report.report_warning(
+                "dbt_catalog_version",
+                f"Due to a bug in dbt, dbt version {catalog_version} will have incomplete metadata on sources. "
+                "Please upgrade to dbt version 1.7.3 or later. "
+                "See https://github.com/dbt-labs/dbt-core/issues/9119 for details on the bug.",
+            )
+
         additional_custom_props = {
             "manifest_schema": manifest_schema,
             "manifest_version": manifest_version,
@@ -478,7 +519,9 @@ class DBTCoreSource(DBTSourceBase):
             # This will populate the test_results field on each test node.
             all_nodes = load_test_results(
                 self.config,
-                self.load_file_as_json(self.config.test_results_path),
+                self.load_file_as_json(
+                    self.config.test_results_path, self.config.aws_connection
+                ),
                 all_nodes,
             )
 

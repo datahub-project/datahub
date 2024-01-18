@@ -7,10 +7,10 @@ from pydantic.fields import Field
 
 from datahub.configuration import ConfigModel
 from datahub.configuration.common import AllowDenyPattern
-from datahub.configuration.pydantic_field_deprecation import pydantic_field_deprecated
 from datahub.configuration.source_common import DatasetLineageProviderConfigBase
+from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
-from datahub.ingestion.source.sql.postgres import BasePostgresConfig
+from datahub.ingestion.source.sql.sql_config import BasicSQLAlchemyConfig
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulLineageConfigMixin,
     StatefulProfilingConfigMixin,
@@ -64,7 +64,7 @@ class RedshiftUsageConfig(BaseUsageConfig, StatefulUsageConfigMixin):
 
 
 class RedshiftConfig(
-    BasePostgresConfig,
+    BasicSQLAlchemyConfig,
     DatasetLineageProviderConfigBase,
     S3DatasetLineageProviderConfigBase,
     RedshiftUsageConfig,
@@ -81,16 +81,13 @@ class RedshiftConfig(
     # Because of this behavior, it uses dramatically fewer round trips for
     # large Redshift warehouses. As an example, see this query for the columns:
     # https://github.com/sqlalchemy-redshift/sqlalchemy-redshift/blob/60b4db04c1d26071c291aeea52f1dcb5dd8b0eb0/sqlalchemy_redshift/dialect.py#L745.
-    scheme = Field(
-        default="redshift+psycopg2",
+    scheme: str = Field(
+        default="redshift+redshift_connector",
         description="",
         hidden_from_schema=True,
     )
 
-    _database_alias_deprecation = pydantic_field_deprecated(
-        "database_alias",
-        message="database_alias is deprecated. Use platform_instance instead.",
-    )
+    _database_alias_removed = pydantic_removed_field("database_alias")
 
     default_schema: str = Field(
         default="public",
@@ -132,6 +129,16 @@ class RedshiftConfig(
         description="Whether `schema_pattern` is matched against fully qualified schema name `<database>.<schema>`.",
     )
 
+    extract_column_level_lineage: bool = Field(
+        default=True,
+        description="Whether to extract column level lineage. This config works with rest-sink only.",
+    )
+
+    incremental_lineage: bool = Field(
+        default=False,
+        description="When enabled, emits lineage as incremental to existing lineage already in DataHub. When disabled, re-states lineage on each run.  This config works with rest-sink only.",
+    )
+
     @root_validator(pre=True)
     def check_email_is_set_on_usage(cls, values):
         if values.get("include_usage_statistics"):
@@ -140,14 +147,12 @@ class RedshiftConfig(
             ), "email_domain needs to be set if usage is enabled"
         return values
 
-    @root_validator()
-    def check_database_or_database_alias_set(cls, values):
-        assert values.get("database") or values.get(
-            "database_alias"
-        ), "either database or database_alias must be set"
+    @root_validator(skip_on_failure=True)
+    def check_database_is_set(cls, values):
+        assert values.get("database"), "database must be set"
         return values
 
-    @root_validator(pre=False)
+    @root_validator(skip_on_failure=True)
     def backward_compatibility_configs_set(cls, values: Dict) -> Dict:
         match_fully_qualified_names = values.get("match_fully_qualified_names")
 
@@ -164,4 +169,25 @@ class RedshiftConfig(
                 "Current default `match_fully_qualified_names: False` is only to maintain backward compatibility. "
                 "The config option `match_fully_qualified_names` will be deprecated in future and the default behavior will assume `match_fully_qualified_names: True`."
             )
+        return values
+
+    @root_validator(skip_on_failure=True)
+    def connection_config_compatibility_set(cls, values: Dict) -> Dict:
+        if (
+            ("options" in values and "connect_args" in values["options"])
+            and "extra_client_options" in values
+            and len(values["extra_client_options"]) > 0
+        ):
+            raise ValueError(
+                "Cannot set both `connect_args` and `extra_client_options` in the config. Please use `extra_client_options` only."
+            )
+
+        if "options" in values and "connect_args" in values["options"]:
+            values["extra_client_options"] = values["options"]["connect_args"]
+
+        if values["extra_client_options"]:
+            if values["options"]:
+                values["options"]["connect_args"] = values["extra_client_options"]
+            else:
+                values["options"] = {"connect_args": values["extra_client_options"]}
         return values

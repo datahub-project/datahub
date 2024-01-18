@@ -54,6 +54,8 @@ class MetabaseConfig(DatasetLineageProviderConfigBase):
     password: Optional[pydantic.SecretStr] = Field(
         default=None, description="Metabase password."
     )
+    # TODO: Check and remove this if no longer needed.
+    # Config database_alias is removed from sql sources.
     database_alias_map: Optional[dict] = Field(
         default=None,
         description="Database name map to use when constructing dataset URN.",
@@ -80,6 +82,7 @@ class MetabaseConfig(DatasetLineageProviderConfigBase):
 @config_class(MetabaseConfig)
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
+@capability(SourceCapability.LINEAGE_COARSE, "Supported by default")
 class MetabaseSource(Source):
     """
     This plugin extracts Charts, dashboards, and associated metadata. This plugin is in beta and has only been tested

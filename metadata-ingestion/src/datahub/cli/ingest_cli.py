@@ -10,7 +10,6 @@ from typing import Optional
 
 import click
 import click_spinner
-import tzlocal
 from click_default_group import DefaultGroup
 from tabulate import tabulate
 
@@ -28,7 +27,6 @@ from datahub.ingestion.run.connection import ConnectionManager
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.telemetry import telemetry
 from datahub.upgrade import upgrade
-from datahub.utilities import memory_leak_detector
 
 logger = logging.getLogger(__name__)
 
@@ -99,7 +97,13 @@ def ingest() -> None:
 @click.option(
     "--no-spinner", type=bool, is_flag=True, default=False, help="Turn off spinner"
 )
-@click.pass_context
+@click.option(
+    "--no-progress",
+    type=bool,
+    is_flag=True,
+    default=False,
+    help="If enabled, mute intermediate progress ingestion reports",
+)
 @telemetry.with_telemetry(
     capture_kwargs=[
         "dry_run",
@@ -108,11 +112,10 @@ def ingest() -> None:
         "test_source_connection",
         "no_default_report",
         "no_spinner",
+        "no_progress",
     ]
 )
-@memory_leak_detector.with_leak_detection
 def run(
-    ctx: click.Context,
     config: str,
     dry_run: bool,
     preview: bool,
@@ -122,6 +125,7 @@ def run(
     report_to: str,
     no_default_report: bool,
     no_spinner: bool,
+    no_progress: bool,
 ) -> None:
     """Ingest metadata into DataHub."""
 
@@ -152,6 +156,9 @@ def run(
         squirrel_original_config=True,
         squirrel_field="__raw_config",
         allow_stdin=True,
+        allow_remote=True,
+        process_directives=True,
+        resolve_env_vars=True,
     )
     raw_pipeline_config = pipeline_config.pop("__raw_config")
 
@@ -172,6 +179,7 @@ def run(
             preview_workunits,
             report_to,
             no_default_report,
+            no_progress,
             raw_pipeline_config,
         )
 
@@ -248,17 +256,17 @@ def run(
 @click.option(
     "--time-zone",
     type=str,
-    help=f"Timezone for the schedule. By default uses the timezone of the current system: {tzlocal.get_localzone_name()}.",
+    help="Timezone for the schedule in 'America/New_York' format. Uses UTC by default.",
     required=False,
-    default=tzlocal.get_localzone_name(),
+    default="UTC",
 )
 def deploy(
     name: str,
     config: str,
-    urn: str,
+    urn: Optional[str],
     executor_id: str,
-    cli_version: str,
-    schedule: str,
+    cli_version: Optional[str],
+    schedule: Optional[str],
     time_zone: str,
 ) -> None:
     """
@@ -273,20 +281,21 @@ def deploy(
     pipeline_config = load_config_file(
         config,
         allow_stdin=True,
+        allow_remote=True,
         resolve_env_vars=False,
     )
-
-    graphql_query: str
 
     variables: dict = {
         "urn": urn,
         "name": name,
         "type": pipeline_config["source"]["type"],
-        "schedule": {"interval": schedule, "timezone": time_zone},
         "recipe": json.dumps(pipeline_config),
         "executorId": executor_id,
         "version": cli_version,
     }
+
+    if schedule is not None:
+        variables["schedule"] = {"interval": schedule, "timezone": time_zone}
 
     if urn:
         if not datahub_graph.exists(urn):
@@ -294,7 +303,7 @@ def deploy(
             exit()
         logger.info("Found recipe URN, will update recipe.")
 
-        graphql_query = textwrap.dedent(
+        graphql_query: str = textwrap.dedent(
             """
             mutation updateIngestionSource(
                 $urn: String!,
@@ -331,6 +340,7 @@ def deploy(
                 $version: String) {
 
                 createIngestionSource(input: {
+                    name: $name,
                     type: $type,
                     schedule: $schedule,
                     config: {

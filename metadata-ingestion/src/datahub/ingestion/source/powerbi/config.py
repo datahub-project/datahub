@@ -9,8 +9,8 @@ from pydantic.class_validators import root_validator
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
-from datahub.configuration.pydantic_field_deprecation import pydantic_field_deprecated
 from datahub.configuration.source_common import DEFAULT_ENV, DatasetSourceConfigMixin
+from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
 from datahub.ingestion.source.common.subtypes import BIAssetSubTypes
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
@@ -95,6 +95,7 @@ class Constant:
     TITLE = "title"
     EMBED_URL = "embedUrl"
     ACCESS_TOKEN = "access_token"
+    ACCESS_TOKEN_EXPIRY = "expires_in"
     IS_READ_ONLY = "isReadOnly"
     WEB_URL = "webUrl"
     ODATA_COUNT = "@odata.count"
@@ -314,6 +315,7 @@ class PowerBiDashboardSourceConfig(
         description="Configure how is ownership ingested",
     )
     modified_since: Optional[str] = pydantic.Field(
+        default=None,
         description="Get only recently modified workspaces based on modified_since datetime '2023-02-10T00:00:00.0000000Z', excludePersonalWorkspaces and excludeInActiveWorkspaces limit to last 30 days",
     )
     extract_dashboards: bool = pydantic.Field(
@@ -397,6 +399,41 @@ class PowerBiDashboardSourceConfig(
         "as this option generates the upstream datasets URN in lowercase.",
     )
 
+    # Enable CLL extraction
+    extract_column_level_lineage: bool = pydantic.Field(
+        default=False,
+        description="Whether to extract column level lineage. "
+        "Works only if configs `native_query_parsing`, `enable_advance_lineage_sql_construct` & `extract_lineage` are enabled.  "
+        "Works for M-Query where native SQL is used for transformation.",
+    )
+
+    @root_validator(skip_on_failure=True)
+    def validate_extract_column_level_lineage(cls, values: Dict) -> Dict:
+        flags = [
+            "native_query_parsing",
+            "enable_advance_lineage_sql_construct",
+            "extract_lineage",
+        ]
+
+        if (
+            "extract_column_level_lineage" in values
+            and values["extract_column_level_lineage"] is False
+        ):
+            # Flag is not set. skip validation
+            return values
+
+        logger.debug(f"Validating additional flags: {flags}")
+
+        is_flag_enabled: bool = True
+        for flag in flags:
+            if flag not in values or values[flag] is False:
+                is_flag_enabled = False
+
+        if not is_flag_enabled:
+            raise ValueError(f"Enable all these flags in recipe: {flags} ")
+
+        return values
+
     @validator("dataset_type_mapping")
     @classmethod
     def map_data_platform(cls, value):
@@ -409,7 +446,7 @@ class PowerBiDashboardSourceConfig(
 
         return value
 
-    @root_validator(pre=False)
+    @root_validator(skip_on_failure=True)
     def workspace_id_backward_compatibility(cls, values: Dict) -> Dict:
         workspace_id = values.get("workspace_id")
         workspace_id_pattern = values.get("workspace_id_pattern")

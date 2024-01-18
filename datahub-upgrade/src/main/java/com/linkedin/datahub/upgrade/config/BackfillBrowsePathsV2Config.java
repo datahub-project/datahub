@@ -6,12 +6,12 @@ import com.linkedin.metadata.search.SearchService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-
 @Configuration
 public class BackfillBrowsePathsV2Config {
 
   @Bean
-  public BackfillBrowsePathsV2 backfillBrowsePathsV2(EntityService entityService, SearchService searchService) {
+  public BackfillBrowsePathsV2 backfillBrowsePathsV2(
+      EntityService entityService, SearchService searchService) {
     return new BackfillBrowsePathsV2(entityService, searchService);
   }
 }

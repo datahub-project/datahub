@@ -1,6 +1,6 @@
 :::caution
 
-This feature is currently unmaintained. As of 0.10.0 the container described is not published alongside the DataHub CLI. If you'd like to use it, please reach out to us on the [community slack.](docs/slack.md)
+This guide is currently unmaintained. As of 0.10.0 the container described is not published alongside the DataHub CLI. If you'd like to use it, please reach out to us on the [community slack.](docs/slack.md)
 
 :::
 
@@ -54,7 +54,7 @@ curl -L 'https://raw.githubusercontent.com/datahub-project/datahub/master/metada
 First you need to initialize airflow in order to create initial database tables and the initial airflow user.
 
 ```
-docker-compose up airflow-init
+docker compose up airflow-init
 ```
 
 You should see the following final initialization message
@@ -66,10 +66,10 @@ airflow_install_airflow-init_1 exited with code 0
 
 ```
 
-Afterwards you need to start the airflow docker-compose
+Afterwards you need to start the airflow docker compose
 
 ```
-docker-compose up
+docker compose up
 ```
 
 You should see a host of messages as Airflow starts up.

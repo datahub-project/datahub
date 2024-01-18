@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.ownership;
 
+import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
+
 import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -17,17 +19,16 @@ import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
-
-
 @Slf4j
 @RequiredArgsConstructor
-public class UpdateOwnershipTypeResolver implements DataFetcher<CompletableFuture<OwnershipTypeEntity>> {
+public class UpdateOwnershipTypeResolver
+    implements DataFetcher<CompletableFuture<OwnershipTypeEntity>> {
 
   private final OwnershipTypeService _ownershipTypeService;
 
   @Override
-  public CompletableFuture<OwnershipTypeEntity> get(DataFetchingEnvironment environment) throws Exception {
+  public CompletableFuture<OwnershipTypeEntity> get(DataFetchingEnvironment environment)
+      throws Exception {
     final QueryContext context = environment.getContext();
     final String urnStr = environment.getArgument("urn");
     final UpdateOwnershipTypeInput input =
@@ -39,27 +40,35 @@ public class UpdateOwnershipTypeResolver implements DataFetcher<CompletableFutur
           "Unauthorized to perform this action. Please contact your DataHub administrator.");
     }
 
-    return CompletableFuture.supplyAsync(() -> {
-      try {
-        _ownershipTypeService.updateOwnershipType(urn, input.getName(), input.getDescription(),
-            context.getAuthentication(), System.currentTimeMillis());
-        log.info(String.format("Successfully updated Ownership Type %s with urn", urn));
-        return getOwnershipType(urn, context.getAuthentication());
-      } catch (AuthorizationException e) {
-        throw e;
-      } catch (Exception e) {
-        throw new RuntimeException(String.format("Failed to perform update against View with urn %s", urn), e);
-      }
-    });
+    return CompletableFuture.supplyAsync(
+        () -> {
+          try {
+            _ownershipTypeService.updateOwnershipType(
+                urn,
+                input.getName(),
+                input.getDescription(),
+                context.getAuthentication(),
+                System.currentTimeMillis());
+            log.info(String.format("Successfully updated Ownership Type %s with urn", urn));
+            return getOwnershipType(urn, context.getAuthentication());
+          } catch (AuthorizationException e) {
+            throw e;
+          } catch (Exception e) {
+            throw new RuntimeException(
+                String.format("Failed to perform update against View with urn %s", urn), e);
+          }
+        });
   }
 
-  private OwnershipTypeEntity getOwnershipType(@Nonnull final Urn urn,
-      @Nonnull final Authentication authentication) {
-    final EntityResponse maybeResponse = _ownershipTypeService.getOwnershipTypeEntityResponse(urn, authentication);
+  private OwnershipTypeEntity getOwnershipType(
+      @Nonnull final Urn urn, @Nonnull final Authentication authentication) {
+    final EntityResponse maybeResponse =
+        _ownershipTypeService.getOwnershipTypeEntityResponse(urn, authentication);
     // If there is no response, there is a problem.
     if (maybeResponse == null) {
       throw new RuntimeException(
-          String.format("Failed to perform update to Ownership Type with urn %s. Failed to find Ownership Type in GMS.",
+          String.format(
+              "Failed to perform update to Ownership Type with urn %s. Failed to find Ownership Type in GMS.",
               urn));
     }
     return OwnershipTypeMapper.map(maybeResponse);

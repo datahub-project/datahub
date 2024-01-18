@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Form, Select, Tag, Tooltip, Typography } from 'antd';
 import styled from 'styled-components/macro';
@@ -9,7 +9,7 @@ import {
     useGetSearchResultsForMultipleLazyQuery,
     useGetSearchResultsLazyQuery,
 } from '../../../graphql/search.generated';
-import { ResourceFilter, PolicyType, EntityType } from '../../../types.generated';
+import { ResourceFilter, PolicyType, EntityType, Domain } from '../../../types.generated';
 import {
     convertLegacyResourceFilter,
     createCriterionValue,
@@ -21,6 +21,9 @@ import {
     mapResourceTypeToPrivileges,
     setFieldValues,
 } from './policyUtils';
+import DomainNavigator from '../../domain/nestedDomains/domainNavigator/DomainNavigator';
+import { BrowserWrapper } from '../../shared/tags/AddTagsTermsModal';
+import ClickOutside from '../../shared/ClickOutside';
 
 type Props = {
     policyType: PolicyType;
@@ -55,6 +58,8 @@ export default function PolicyPrivilegeForm({
     setPrivileges,
 }: Props) {
     const entityRegistry = useEntityRegistry();
+    const [domainInputValue, setDomainInputValue] = useState('');
+    const [isFocusedOnInput, setIsFocusedOnInput] = useState(false);
 
     // Configuration used for displaying options
     const {
@@ -62,8 +67,8 @@ export default function PolicyPrivilegeForm({
     } = useAppConfig();
 
     const resources: ResourceFilter = convertLegacyResourceFilter(maybeResources) || EMPTY_POLICY.resources;
-    const resourceTypes = getFieldValues(resources.filter, 'RESOURCE_TYPE') || [];
-    const resourceEntities = getFieldValues(resources.filter, 'RESOURCE_URN') || [];
+    const resourceTypes = getFieldValues(resources.filter, 'TYPE') || [];
+    const resourceEntities = getFieldValues(resources.filter, 'URN') || [];
 
     const getDisplayName = (entity) => {
         if (!entity) {
@@ -98,6 +103,7 @@ export default function PolicyPrivilegeForm({
     const resourceSelectValue = resourceEntities.map((criterionValue) => criterionValue.value);
     const domainSelectValue = getFieldValues(resources.filter, 'DOMAIN').map((criterionValue) => criterionValue.value);
     const privilegesSelectValue = privileges;
+    const isShowingDomainNavigator = !domainInputValue && isFocusedOnInput;
 
     // Construct privilege options for dropdown
     const platformPrivileges = policiesConfig?.platformPrivileges || [];
@@ -139,10 +145,7 @@ export default function PolicyPrivilegeForm({
         };
         setResources({
             ...resources,
-            filter: setFieldValues(filter, 'RESOURCE_TYPE', [
-                ...resourceTypes,
-                createCriterionValue(selectedResourceType),
-            ]),
+            filter: setFieldValues(filter, 'TYPE', [...resourceTypes, createCriterionValue(selectedResourceType)]),
         });
     };
 
@@ -154,7 +157,7 @@ export default function PolicyPrivilegeForm({
             ...resources,
             filter: setFieldValues(
                 filter,
-                'RESOURCE_TYPE',
+                'TYPE',
                 resourceTypes?.filter((criterionValue) => criterionValue.value !== deselectedResourceType),
             ),
         });
@@ -167,7 +170,7 @@ export default function PolicyPrivilegeForm({
         };
         setResources({
             ...resources,
-            filter: setFieldValues(filter, 'RESOURCE_URN', [
+            filter: setFieldValues(filter, 'URN', [
                 ...resourceEntities,
                 createCriterionValueWithEntity(
                     resource,
@@ -186,26 +189,32 @@ export default function PolicyPrivilegeForm({
             ...resources,
             filter: setFieldValues(
                 filter,
-                'RESOURCE_URN',
+                'URN',
                 resourceEntities?.filter((criterionValue) => criterionValue.value !== resource),
             ),
         });
     };
 
     // When a domain is selected, add its urn to the list of domains
-    const onSelectDomain = (domain) => {
+    const onSelectDomain = (domainUrn, domainObj?: Domain) => {
         const filter = resources.filter || {
             criteria: [],
         };
+        const domainEntity = domainObj || getEntityFromSearchResults(domainSearchResults, domainUrn);
         const updatedFilter = setFieldValues(filter, 'DOMAIN', [
             ...domains,
-            createCriterionValueWithEntity(domain, getEntityFromSearchResults(domainSearchResults, domain) || null),
+            createCriterionValueWithEntity(domainUrn, domainEntity || null),
         ]);
         setResources({
             ...resources,
             filter: updatedFilter,
         });
     };
+
+    function selectDomainFromBrowser(domain: Domain) {
+        onSelectDomain(domain.urn, domain);
+        setIsFocusedOnInput(false);
+    }
 
     // When a domain is deselected, remove its urn from the list of domains
     const onDeselectDomain = (domain) => {
@@ -243,6 +252,7 @@ export default function PolicyPrivilegeForm({
     // Handle domain search, if the domain type has an associated EntityType mapping.
     const handleDomainSearch = (text: string) => {
         const trimmedText: string = text.trim();
+        setDomainInputValue(trimmedText);
         searchDomains({
             variables: {
                 input: {
@@ -276,6 +286,15 @@ export default function PolicyPrivilegeForm({
             : displayStr;
     };
 
+    function handleCLickOutside() {
+        // delay closing the domain navigator so we don't get a UI "flash" between showing search results and navigator
+        setTimeout(() => setIsFocusedOnInput(false), 0);
+    }
+
+    function handleBlur() {
+        setDomainInputValue('');
+    }
+
     return (
         <PrivilegesForm layout="vertical">
             {showResourceFilterInput && (
@@ -300,7 +319,7 @@ export default function PolicyPrivilegeForm({
                             .filter((privs) => privs.resourceType !== 'all')
                             .map((resPrivs) => {
                                 return (
-                                    <Select.Option value={resPrivs.resourceType}>
+                                    <Select.Option key={resPrivs.resourceType} value={resPrivs.resourceType}>
                                         {resPrivs.resourceTypeDisplayName}
                                     </Select.Option>
                                 );
@@ -336,39 +355,51 @@ export default function PolicyPrivilegeForm({
                         )}
                     >
                         {resourceSearchResults?.map((result) => (
-                            <Select.Option value={result.entity.urn}>{renderSearchResult(result)}</Select.Option>
+                            <Select.Option key={result.entity.urn} value={result.entity.urn}>
+                                {renderSearchResult(result)}
+                            </Select.Option>
                         ))}
                     </Select>
                 </Form.Item>
             )}
             {showResourceFilterInput && (
-                <Form.Item label={<Typography.Text strong>Domain</Typography.Text>}>
+                <Form.Item label={<Typography.Text strong>Select Domains</Typography.Text>}>
                     <Typography.Paragraph>
-                        Search for domains the policy should apply to. If <b>none</b> is selected, policy is applied to{' '}
-                        <b>all</b> resources in all domains.
+                        The policy will apply to any chosen domains and all their nested domains. If <b>none</b> are
+                        selected, the policy is applied to <b>all</b> resources of in all domains.
                     </Typography.Paragraph>
-                    <Select
-                        notFoundContent="No search results found"
-                        value={domainSelectValue}
-                        mode="multiple"
-                        filterOption={false}
-                        placeholder="Apply to ALL domains by default. Select domains to apply to specific domains."
-                        onSelect={onSelectDomain}
-                        onDeselect={onDeselectDomain}
-                        onSearch={handleDomainSearch}
-                        tagRender={(tagProps) => (
-                            <Tag closable={tagProps.closable} onClose={tagProps.onClose}>
-                                {displayStringWithMaxLength(
-                                    domainUrnToDisplayName[tagProps.value.toString()] || tagProps.value.toString(),
-                                    75,
-                                )}
-                            </Tag>
-                        )}
-                    >
-                        {domainSearchResults?.map((result) => (
-                            <Select.Option value={result.entity.urn}>{renderSearchResult(result)}</Select.Option>
-                        ))}
-                    </Select>
+                    <ClickOutside onClickOutside={handleCLickOutside}>
+                        <Select
+                            showSearch
+                            value={domainSelectValue}
+                            mode="multiple"
+                            filterOption={false}
+                            placeholder="Apply to ALL domains by default. Select domains to apply to specific domains."
+                            onSelect={(value) => onSelectDomain(value)}
+                            onDeselect={onDeselectDomain}
+                            onSearch={handleDomainSearch}
+                            onFocus={() => setIsFocusedOnInput(true)}
+                            onBlur={handleBlur}
+                            tagRender={(tagProps) => (
+                                <Tag closable={tagProps.closable} onClose={tagProps.onClose}>
+                                    {displayStringWithMaxLength(
+                                        domainUrnToDisplayName[tagProps.value.toString()] || tagProps.value.toString(),
+                                        75,
+                                    )}
+                                </Tag>
+                            )}
+                            dropdownStyle={isShowingDomainNavigator ? { display: 'none' } : {}}
+                        >
+                            {domainSearchResults?.map((result) => (
+                                <Select.Option key={result.entity.urn} value={result.entity.urn}>
+                                    {renderSearchResult(result)}
+                                </Select.Option>
+                            ))}
+                        </Select>
+                        <BrowserWrapper isHidden={!isShowingDomainNavigator} width="100%" maxHeight={300}>
+                            <DomainNavigator selectDomainOverride={selectDomainFromBrowser} />
+                        </BrowserWrapper>
+                    </ClickOutside>
                 </Form.Item>
             )}
             <Form.Item label={<Typography.Text strong>Privileges</Typography.Text>}>
@@ -385,9 +416,14 @@ export default function PolicyPrivilegeForm({
                         </Tag>
                     )}
                 >
-                    {privilegeOptions.map((priv) => (
-                        <Select.Option value={priv.type}>{priv.displayName}</Select.Option>
-                    ))}
+                    {privilegeOptions.map((priv, index) => {
+                        const key = `${priv.type}-${index}`;
+                        return (
+                            <Select.Option key={key} value={priv.type}>
+                                {priv.displayName}
+                            </Select.Option>
+                        );
+                    })}
                     <Select.Option value="All">All Privileges</Select.Option>
                 </Select>
             </Form.Item>

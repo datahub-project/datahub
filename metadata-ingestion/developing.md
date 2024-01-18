@@ -11,8 +11,7 @@ Also take a look at the guide to [adding a source](./adding-source.md).
 
 1. Python 3.7+ must be installed in your host environment.
 2. Java8 (gradle won't work with newer versions)
-3. On MacOS: `brew install librdkafka`
-4. On Debian/Ubuntu: `sudo apt install librdkafka-dev python3-dev python3-venv`
+4. On Debian/Ubuntu: `sudo apt install python3-dev python3-venv`
 5. On Fedora (if using LDAP source integration): `sudo yum install openldap-devel`
 
 ### Set up your Python environment
@@ -22,6 +21,17 @@ From the repository root:
 ```shell
 cd metadata-ingestion
 ../gradlew :metadata-ingestion:installDev
+source venv/bin/activate
+datahub version  # should print "DataHub CLI version: unavailable (installed in develop mode)"
+```
+
+### (Optional) Set up your Python environment for developing on Airflow Plugin
+
+From the repository root:
+
+```shell
+cd metadata-ingestion-modules/airflow-plugin
+../../gradlew :metadata-ingestion-modules:airflow-plugin:installDev
 source venv/bin/activate
 datahub version  # should print "DataHub CLI version: unavailable (installed in develop mode)"
 ```
@@ -101,6 +111,7 @@ mypy src/ tests/
 ```
 
 or you can run from root of the repository
+
 ```shell
 ./gradlew :metadata-ingestion:lintFix
 ```
@@ -168,13 +179,10 @@ pip install -e '.[integration-tests]'
 pytest -vv
 
 # Run unit tests.
-pytest -m 'not integration and not slow_integration'
+pytest -m 'not integration'
 
 # Run Docker-based integration tests.
 pytest -m 'integration'
-
-# Run Docker-based slow integration tests.
-pytest -m 'slow_integration'
 
 # You can also run these steps via the gradle build:
 ../gradlew :metadata-ingestion:lint
@@ -183,7 +191,7 @@ pytest -m 'slow_integration'
 ../gradlew :metadata-ingestion:testFull
 ../gradlew :metadata-ingestion:check
 # Run all tests in a single file
-../gradlew :metadata-ingestion:testSingle -PtestFile=tests/unit/test_airflow.py
+../gradlew :metadata-ingestion:testSingle -PtestFile=tests/unit/test_bigquery_source.py
 # Run all tests under tests/unit
 ../gradlew :metadata-ingestion:testSingle -PtestFile=tests/unit
 ```

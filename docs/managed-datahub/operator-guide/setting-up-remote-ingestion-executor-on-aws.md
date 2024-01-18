@@ -19,7 +19,7 @@ For example, if an ingestion source is not publicly accessible via the internet,
 
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/image-(12).png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/image-(12).png"/>
 </p>
 
 
@@ -27,7 +27,7 @@ To accommodate these cases, Acryl supports configuring a remote ingestion execut
 
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/image-(6).png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/image-(6).png"/>
 </p>
 
 
@@ -50,13 +50,13 @@ To accommodate these cases, Acryl supports configuring a remote ingestion execut
 
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/Screen-Shot-2023-01-19-at-5.12.47-PM.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/Screen-Shot-2023-01-19-at-5.12.47-PM.png"/>
 </p>
 
 
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/Screen-Shot-2023-01-19-at-5.12.56-PM.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/Screen-Shot-2023-01-19-at-5.12.56-PM.png"/>
 </p>
 
 
@@ -67,7 +67,7 @@ To accommodate these cases, Acryl supports configuring a remote ingestion execut
 
         
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/Screen-Shot-2023-01-19-at-4.16.52-PM.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/Screen-Shot-2023-01-19-at-4.16.52-PM.png"/>
 </p>
 
     3. In the 'Finish Up' step, click '**Advanced'**.
@@ -78,7 +78,7 @@ To accommodate these cases, Acryl supports configuring a remote ingestion execut
 
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/Screen-Shot-2022-03-07-at-10.23.31-AM.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/Screen-Shot-2022-03-07-at-10.23.31-AM.png"/>
 </p>
 
 ## Updating a Remote Ingestion Executor
@@ -92,7 +92,7 @@ In order to update the executor, ie. to deploy a new container version, you'll n
 6. Upload a copy of the Acryl Remote Executor [CloudFormation Template](https://raw.githubusercontent.com/acryldata/datahub-cloudformation/master/Ingestion/templates/python.ecs.template.yaml)
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/Screen-Shot-2023-01-19-at-4.23.32-PM.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/Screen-Shot-2023-01-19-at-4.23.32-PM.png"/>
 </p>
 
 7. Click **Next**

@@ -126,12 +126,23 @@ def metadata_diff(
     default=False,
     help="Include extra information for each plugin.",
 )
+@click.option(
+    "--source",
+    type=str,
+    default=None,
+)
 @telemetry.with_telemetry()
-def plugins(verbose: bool) -> None:
+def plugins(source: Optional[str], verbose: bool) -> None:
     """List the enabled ingestion plugins."""
 
+    if source:
+        # Quick helper for one-off checks with full stack traces.
+        source_registry.get(source)
+        click.echo(f"Source {source} is enabled.")
+        return
+
     click.secho("Sources:", bold=True)
-    click.echo(source_registry.summary(verbose=verbose))
+    click.echo(source_registry.summary(verbose=verbose, col_width=25))
     click.echo()
     click.secho("Sinks:", bold=True)
     click.echo(sink_registry.summary(verbose=verbose))

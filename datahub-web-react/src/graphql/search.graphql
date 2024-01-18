@@ -13,6 +13,10 @@ fragment autoCompleteFields on Entity {
         properties {
             name
             qualifiedName
+            lastModified {
+                time
+                actor
+            }
         }
         parentContainers {
             ...parentContainersFields
@@ -39,11 +43,25 @@ fragment autoCompleteFields on Entity {
                         description
                         qualifiedName
                         externalUrl
+                        lastModified {
+                            time
+                            actor
+                        }
                     }
                 }
             }
         }
         ...datasetStatsFields
+        access {
+            ...getAccess
+        }
+    }
+    ... on Role {
+        id
+        properties {
+            name
+            description
+        }
     }
     ... on CorpUser {
         username
@@ -95,6 +113,9 @@ fragment autoCompleteFields on Entity {
         parentContainers {
             ...parentContainersFields
         }
+        subTypes {
+            typeNames
+        }
     }
     ... on DataFlow {
         orchestrator
@@ -144,6 +165,9 @@ fragment autoCompleteFields on Entity {
     ... on Domain {
         properties {
             name
+        }
+        parentDomains {
+            ...parentDomainsFields
         }
     }
     ... on DataProduct {
@@ -242,6 +266,25 @@ query getAutoCompleteMultipleResults($input: AutoCompleteMultipleInput!) {
     }
 }
 
+fragment getAccess on Access {
+    roles {
+        role {
+            ...getRolesName
+        }
+    }
+}
+
+fragment getRolesName on Role {
+    urn
+    type
+    id
+    properties {
+        name
+        description
+        type
+    }
+}
+
 fragment datasetStatsFields on Dataset {
     lastProfile: datasetProfiles(limit: 1) {
         rowCount
@@ -288,6 +331,9 @@ fragment nonSiblingsDatasetSearchFields on Dataset {
     editableProperties {
         description
     }
+    access {
+        ...getAccess
+    }
     platformNativeType
     properties {
         name
@@ -298,6 +344,10 @@ fragment nonSiblingsDatasetSearchFields on Dataset {
             value
         }
         externalUrl
+        lastModified {
+            time
+            actor
+        }
     }
     ownership {
         ...ownershipFields
@@ -344,6 +394,13 @@ fragment searchResultFields on Entity {
                     ...nonSiblingsDatasetSearchFields
                 }
             }
+        }
+    }
+    ... on Role {
+        id
+        properties {
+            name
+            description
         }
     }
     ... on CorpUser {
@@ -508,6 +565,9 @@ fragment searchResultFields on Entity {
                 }
             }
         }
+        subTypes {
+            typeNames
+        }
     }
     ... on DataFlow {
         flowId
@@ -579,6 +639,9 @@ fragment searchResultFields on Entity {
         dataPlatformInstance {
             ...dataPlatformInstanceFields
         }
+        subTypes {
+            typeNames
+        }
         lastRun: runs(start: 0, count: 1) {
             count
             start
@@ -632,6 +695,10 @@ fragment searchResultFields on Entity {
         ownership {
             ...ownershipFields
         }
+        parentDomains {
+            ...parentDomainsFields
+        }
+        ...domainEntitiesFields
     }
     ... on Container {
         properties {
@@ -785,6 +852,9 @@ fragment facetFields on FacetMetadata {
             ... on Domain {
                 properties {
                     name
+                }
+                parentDomains {
+                    ...parentDomainsFields
                 }
             }
             ... on Container {

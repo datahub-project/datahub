@@ -1,16 +1,16 @@
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Callable, Dict, Iterable, List, Optional, Set, Union
+from typing import Callable, Dict, Iterable, List, Optional, Set
 
 import datahub.emitter.mce_builder as builder
+from datahub.emitter.generic_emitter import Emitter
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     AzkabanJobTypeClass,
     DataJobInfoClass,
     DataJobInputOutputClass,
-    DataJobSnapshotClass,
+    FineGrainedLineageClass,
     GlobalTagsClass,
-    MetadataChangeEventClass,
     OwnerClass,
     OwnershipClass,
     OwnershipSourceClass,
@@ -22,10 +22,6 @@ from datahub.metadata.schema_classes import (
 from datahub.utilities.urns.data_flow_urn import DataFlowUrn
 from datahub.utilities.urns.data_job_urn import DataJobUrn
 from datahub.utilities.urns.dataset_urn import DatasetUrn
-
-if TYPE_CHECKING:
-    from datahub.emitter.kafka_emitter import DatahubKafkaEmitter
-    from datahub.emitter.rest_emitter import DatahubRestEmitter
 
 
 @dataclass
@@ -44,7 +40,8 @@ class DataJob:
         group_owners Set[str]): A list of group ids that own this job.
         inlets (List[str]): List of urns the DataProcessInstance consumes
         outlets (List[str]): List of urns the DataProcessInstance produces
-        input_datajob_urns: List[DataJobUrn] = field(default_factory=list)
+        fine_grained_lineages: Column lineage for the inlets and outlets
+        upstream_urns: List[DataJobUrn] = field(default_factory=list)
     """
 
     id: str
@@ -59,6 +56,7 @@ class DataJob:
     group_owners: Set[str] = field(default_factory=set)
     inlets: List[DatasetUrn] = field(default_factory=list)
     outlets: List[DatasetUrn] = field(default_factory=list)
+    fine_grained_lineages: List[FineGrainedLineageClass] = field(default_factory=list)
     upstream_urns: List[DataJobUrn] = field(default_factory=list)
 
     def __post_init__(self):
@@ -103,32 +101,9 @@ class DataJob:
         )
         return [tags]
 
-    def generate_mce(self) -> MetadataChangeEventClass:
-        job_mce = MetadataChangeEventClass(
-            proposedSnapshot=DataJobSnapshotClass(
-                urn=str(self.urn),
-                aspects=[
-                    DataJobInfoClass(
-                        name=self.name if self.name is not None else self.id,
-                        type=AzkabanJobTypeClass.COMMAND,
-                        description=self.description,
-                        customProperties=self.properties,
-                        externalUrl=self.url,
-                    ),
-                    DataJobInputOutputClass(
-                        inputDatasets=[str(urn) for urn in self.inlets],
-                        outputDatasets=[str(urn) for urn in self.outlets],
-                        inputDatajobs=[str(urn) for urn in self.upstream_urns],
-                    ),
-                    *self.generate_ownership_aspect(),
-                    *self.generate_tags_aspect(),
-                ],
-            )
-        )
-
-        return job_mce
-
-    def generate_mcp(self) -> Iterable[MetadataChangeProposalWrapper]:
+    def generate_mcp(
+        self, materialize_iolets: bool = True
+    ) -> Iterable[MetadataChangeProposalWrapper]:
         mcp = MetadataChangeProposalWrapper(
             entityUrn=str(self.urn),
             aspect=DataJobInfoClass(
@@ -141,7 +116,9 @@ class DataJob:
         )
         yield mcp
 
-        yield from self.generate_data_input_output_mcp()
+        yield from self.generate_data_input_output_mcp(
+            materialize_iolets=materialize_iolets
+        )
 
         for owner in self.generate_ownership_aspect():
             mcp = MetadataChangeProposalWrapper(
@@ -159,7 +136,7 @@ class DataJob:
 
     def emit(
         self,
-        emitter: Union["DatahubRestEmitter", "DatahubKafkaEmitter"],
+        emitter: Emitter,
         callback: Optional[Callable[[Exception, str], None]] = None,
     ) -> None:
         """
@@ -172,22 +149,24 @@ class DataJob:
         for mcp in self.generate_mcp():
             emitter.emit(mcp, callback)
 
-    def generate_data_input_output_mcp(self) -> Iterable[MetadataChangeProposalWrapper]:
+    def generate_data_input_output_mcp(
+        self, materialize_iolets: bool
+    ) -> Iterable[MetadataChangeProposalWrapper]:
         mcp = MetadataChangeProposalWrapper(
             entityUrn=str(self.urn),
             aspect=DataJobInputOutputClass(
                 inputDatasets=[str(urn) for urn in self.inlets],
                 outputDatasets=[str(urn) for urn in self.outlets],
                 inputDatajobs=[str(urn) for urn in self.upstream_urns],
+                fineGrainedLineages=self.fine_grained_lineages,
             ),
         )
         yield mcp
 
         # Force entity materialization
-        for iolet in self.inlets + self.outlets:
-            mcp = MetadataChangeProposalWrapper(
-                entityUrn=str(iolet),
-                aspect=StatusClass(removed=False),
-            )
-
-            yield mcp
+        if materialize_iolets:
+            for iolet in self.inlets + self.outlets:
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=str(iolet),
+                    aspect=StatusClass(removed=False),
+                )

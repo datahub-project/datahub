@@ -49,4 +49,6 @@ def pydantic_renamed_field(
     # validator with pre=True gets all the values that were passed in.
     # Given that a renamed field doesn't show up in the fields list, we can't use
     # the field-level validator, even with a different field name.
-    return pydantic.root_validator(pre=True, allow_reuse=True)(_validate_field_rename)
+    return pydantic.root_validator(pre=True, skip_on_failure=True, allow_reuse=True)(
+        _validate_field_rename
+    )

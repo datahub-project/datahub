@@ -5,7 +5,6 @@ import com.linkedin.data.template.DirectCoercer;
 import com.linkedin.data.template.TemplateOutputCastException;
 import java.net.URISyntaxException;
 
-
 public final class DataFlowUrn extends Urn {
 
   public static final String ENTITY_TYPE = "dataFlow";
@@ -48,7 +47,9 @@ public final class DataFlowUrn extends Urn {
         throw new URISyntaxException(urn.toString(), "Invalid number of keys.");
       } else {
         try {
-          return new DataFlowUrn((String) key.getAs(0, String.class), (String) key.getAs(1, String.class),
+          return new DataFlowUrn(
+              (String) key.getAs(0, String.class),
+              (String) key.getAs(1, String.class),
               (String) key.getAs(2, String.class));
         } catch (Exception e) {
           throw new URISyntaxException(urn.toString(), "Invalid URN Parameter: '" + e.getMessage());
@@ -62,18 +63,20 @@ public final class DataFlowUrn extends Urn {
   }
 
   static {
-    Custom.registerCoercer(new DirectCoercer<DataFlowUrn>() {
-      public Object coerceInput(DataFlowUrn object) throws ClassCastException {
-        return object.toString();
-      }
+    Custom.registerCoercer(
+        new DirectCoercer<DataFlowUrn>() {
+          public Object coerceInput(DataFlowUrn object) throws ClassCastException {
+            return object.toString();
+          }
 
-      public DataFlowUrn coerceOutput(Object object) throws TemplateOutputCastException {
-        try {
-          return DataFlowUrn.createFromString((String) object);
-        } catch (URISyntaxException e) {
-          throw new TemplateOutputCastException("Invalid URN syntax: " + e.getMessage(), e);
-        }
-      }
-    }, DataFlowUrn.class);
+          public DataFlowUrn coerceOutput(Object object) throws TemplateOutputCastException {
+            try {
+              return DataFlowUrn.createFromString((String) object);
+            } catch (URISyntaxException e) {
+              throw new TemplateOutputCastException("Invalid URN syntax: " + e.getMessage(), e);
+            }
+          }
+        },
+        DataFlowUrn.class);
   }
 }

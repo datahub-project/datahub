@@ -7,9 +7,9 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 
-
 /**
- * This class is for mapping between friendly GraphQL EntityType Enum to the Metadata Service Storage Entities
+ * This class is for mapping between friendly GraphQL EntityType Enum to the Metadata Service
+ * Storage Entities
  */
 public class EntityTypeMapper {
 
@@ -17,6 +17,7 @@ public class EntityTypeMapper {
       ImmutableMap.<EntityType, String>builder()
           .put(EntityType.DATASET, "dataset")
           .put(EntityType.ROLE, "role")
+          .put(EntityType.ASSERTION, Constants.ASSERTION_ENTITY_NAME)
           .put(EntityType.CORP_USER, "corpuser")
           .put(EntityType.CORP_GROUP, "corpGroup")
           .put(EntityType.DATA_PLATFORM, "dataPlatform")
@@ -25,6 +26,7 @@ public class EntityTypeMapper {
           .put(EntityType.TAG, "tag")
           .put(EntityType.DATA_FLOW, "dataFlow")
           .put(EntityType.DATA_JOB, "dataJob")
+          .put(EntityType.DATA_PROCESS_INSTANCE, Constants.DATA_PROCESS_INSTANCE_ENTITY_NAME)
           .put(EntityType.GLOSSARY_TERM, "glossaryTerm")
           .put(EntityType.GLOSSARY_NODE, "glossaryNode")
           .put(EntityType.MLMODEL, "mlModel")
@@ -42,10 +44,10 @@ public class EntityTypeMapper {
           .build();
 
   private static final Map<String, EntityType> ENTITY_NAME_TO_TYPE =
-      ENTITY_TYPE_TO_NAME.entrySet().stream().collect(Collectors.toMap(e -> e.getValue().toLowerCase(), Map.Entry::getKey));
+      ENTITY_TYPE_TO_NAME.entrySet().stream()
+          .collect(Collectors.toMap(e -> e.getValue().toLowerCase(), Map.Entry::getKey));
 
-  private EntityTypeMapper() {
-  }
+  private EntityTypeMapper() {}
 
   public static EntityType getType(String name) {
     String lowercaseName = name.toLowerCase();

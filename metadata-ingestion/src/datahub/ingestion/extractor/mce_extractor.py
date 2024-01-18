@@ -26,8 +26,11 @@ def _try_reformat_with_black(code: str) -> str:
 
 
 class WorkUnitRecordExtractorConfig(ConfigModel):
-    set_system_metadata = True
-    unpack_mces_into_mcps = False
+    set_system_metadata: bool = True
+    set_system_metadata_pipeline_name: bool = (
+        False  # false for now until the models are available in OSS
+    )
+    unpack_mces_into_mcps: bool = False
 
 
 class WorkUnitRecordExtractor(
@@ -66,6 +69,10 @@ class WorkUnitRecordExtractor(
                     workunit.metadata.systemMetadata = SystemMetadata(
                         lastObserved=get_sys_time(), runId=self.ctx.run_id
                     )
+                    if self.config.set_system_metadata_pipeline_name:
+                        workunit.metadata.systemMetadata.pipelineName = (
+                            self.ctx.pipeline_name
+                        )
                 if (
                     isinstance(workunit.metadata, MetadataChangeEvent)
                     and len(workunit.metadata.proposedSnapshot.aspects) == 0

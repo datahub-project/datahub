@@ -68,7 +68,7 @@ In the request body, select the `GraphQL` option and enter your GraphQL query in
 </p>
 
 
-Please refer to [Querying with GraphQL](https://learning.postman.com/docs/sending-requests/graphql/graphql/) in the Postman documentation for more information.
+Please refer to [Querying with GraphQL](https://learning.postman.com/docs/sending-requests/graphql/graphql-overview/) in the Postman documentation for more information.
 
 ### Authentication + Authorization
 

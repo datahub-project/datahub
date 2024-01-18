@@ -1,6 +1,6 @@
 import logging
 import pathlib
-from typing import Any, Dict, List, cast
+from typing import Any, List
 from unittest import mock
 
 import pydantic
@@ -17,17 +17,13 @@ from datahub.ingestion.source.looker.lookml_source import (
     LookerRefinementResolver,
     LookMLSourceConfig,
 )
-from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from datahub.metadata.schema_classes import (
     DatasetSnapshotClass,
     MetadataChangeEventClass,
     UpstreamLineageClass,
 )
 from tests.test_helpers import mce_helpers
-from tests.test_helpers.state_helpers import (
-    get_current_checkpoint_from_pipeline,
-    validate_all_providers_have_committed_successfully,
-)
+from tests.test_helpers.state_helpers import get_current_checkpoint_from_pipeline
 
 logging.getLogger("lkml").setLevel(logging.INFO)
 
@@ -99,6 +95,15 @@ def test_lookml_refinement_ingest(pytestconfig, tmp_path, mock_time):
         f"{tmp_path}/{mce_out_file}", f"{test_resources_dir}/lkml_samples"
     )
     new_recipe["source"]["config"]["process_refinements"] = True
+
+    new_recipe["source"]["config"][
+        "view_naming_pattern"
+    ] = "{project}.{file_path}.view.{name}"
+
+    new_recipe["source"]["config"][
+        "view_browse_pattern"
+    ] = "/{env}/{platform}/{project}/{file_path}/views"
+
     pipeline = Pipeline.create(new_recipe)
     pipeline.run()
     pipeline.pretty_print_summary()
@@ -719,11 +724,10 @@ def test_hive_platform_drops_ids(pytestconfig, tmp_path, mock_time):
 
 
 @freeze_time(FROZEN_TIME)
-def test_lookml_ingest_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
+def test_lookml_stateful_ingestion(pytestconfig, tmp_path, mock_time):
     output_file_name: str = "lookml_mces.json"
-    golden_file_name: str = "expected_output.json"
-    output_file_deleted_name: str = "lookml_mces_deleted_stateful.json"
-    golden_file_deleted_name: str = "lookml_mces_golden_deleted_stateful.json"
+    state_file_name: str = "lookml_state_mces.json"
+    golden_file_name: str = "golden_test_state.json"
 
     test_resources_dir = pytestconfig.rootpath / "tests/integration/lookml"
 
@@ -745,105 +749,36 @@ def test_lookml_ingest_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_
                     "remove_stale_metadata": True,
                     "fail_safe_threshold": 100.0,
                     "state_provider": {
-                        "type": "datahub",
-                        "config": {"datahub_api": {"server": GMS_SERVER}},
+                        "type": "file",
+                        "config": {
+                            "filename": f"{tmp_path}/{state_file_name}",
+                        },
                     },
                 },
             },
         },
         "sink": {
             "type": "file",
-            "config": {},
+            "config": {
+                "filename": f"{tmp_path}/{output_file_name}",
+            },
         },
     }
 
-    pipeline_run1 = None
-    with mock.patch(
-        "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
-        mock_datahub_graph,
-    ) as mock_checkpoint:
-        mock_checkpoint.return_value = mock_datahub_graph
-        pipeline_run1_config: Dict[str, Dict[str, Dict[str, Any]]] = dict(  # type: ignore
-            base_pipeline_config  # type: ignore
-        )
-        # Set the special properties for this run
-        pipeline_run1_config["source"]["config"]["emit_reachable_views_only"] = False
-        pipeline_run1_config["sink"]["config"][
-            "filename"
-        ] = f"{tmp_path}/{output_file_name}"
-        pipeline_run1 = Pipeline.create(pipeline_run1_config)
-        pipeline_run1.run()
-        pipeline_run1.raise_from_status()
-        pipeline_run1.pretty_print_summary()
+    pipeline_run1 = Pipeline.create(base_pipeline_config)
+    pipeline_run1.run()
+    pipeline_run1.raise_from_status()
+    pipeline_run1.pretty_print_summary()
 
-        mce_helpers.check_golden_file(
-            pytestconfig,
-            output_path=tmp_path / output_file_name,
-            golden_path=f"{test_resources_dir}/{golden_file_name}",
-        )
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=f"{tmp_path}/{state_file_name}",
+        golden_path=f"{test_resources_dir}/{golden_file_name}",
+    )
 
     checkpoint1 = get_current_checkpoint_from_pipeline(pipeline_run1)
     assert checkpoint1
     assert checkpoint1.state
-
-    pipeline_run2 = None
-    with mock.patch(
-        "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
-        mock_datahub_graph,
-    ) as mock_checkpoint:
-        mock_checkpoint.return_value = mock_datahub_graph
-        pipeline_run2_config: Dict[str, Dict[str, Dict[str, Any]]] = dict(base_pipeline_config)  # type: ignore
-        # Set the special properties for this run
-        pipeline_run2_config["source"]["config"]["emit_reachable_views_only"] = True
-        pipeline_run2_config["sink"]["config"][
-            "filename"
-        ] = f"{tmp_path}/{output_file_deleted_name}"
-        pipeline_run2 = Pipeline.create(pipeline_run2_config)
-        pipeline_run2.run()
-        pipeline_run2.raise_from_status()
-        pipeline_run2.pretty_print_summary()
-
-        mce_helpers.check_golden_file(
-            pytestconfig,
-            output_path=tmp_path / output_file_deleted_name,
-            golden_path=f"{test_resources_dir}/{golden_file_deleted_name}",
-        )
-    checkpoint2 = get_current_checkpoint_from_pipeline(pipeline_run2)
-    assert checkpoint2
-    assert checkpoint2.state
-
-    # Validate that all providers have committed successfully.
-    validate_all_providers_have_committed_successfully(
-        pipeline=pipeline_run1, expected_providers=1
-    )
-    validate_all_providers_have_committed_successfully(
-        pipeline=pipeline_run2, expected_providers=1
-    )
-
-    # Perform all assertions on the states. The deleted table should not be
-    # part of the second state
-    state1 = cast(GenericCheckpointState, checkpoint1.state)
-    state2 = cast(GenericCheckpointState, checkpoint2.state)
-
-    difference_dataset_urns = list(
-        state1.get_urns_not_in(type="dataset", other_checkpoint_state=state2)
-    )
-    # the difference in dataset urns are all the views that are not reachable from the model file
-    assert len(difference_dataset_urns) == 11
-    deleted_dataset_urns: List[str] = [
-        "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.fragment_derived_view,PROD)",
-        "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.my_derived_view,PROD)",
-        "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.test_include_external_view,PROD)",
-        "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.extending_looker_events,PROD)",
-        "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.customer_facts,PROD)",
-        "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.include_able_view,PROD)",
-        "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.autodetect_sql_name_based_on_view_name,PROD)",
-        "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.ability,PROD)",
-        "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.looker_events,PROD)",
-        "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.view_derived_explore,PROD)",
-        "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.flights,PROD)",
-    ]
-    assert sorted(deleted_dataset_urns) == sorted(difference_dataset_urns)
 
 
 def test_lookml_base_folder():
@@ -864,6 +799,56 @@ def test_lookml_base_folder():
     )
 
     with pytest.raises(
-        pydantic.ValidationError, match=r"base_folder.+not provided.+deploy_key"
+        pydantic.ValidationError, match=r"base_folder.+nor.+git_info.+provided"
     ):
         LookMLSourceConfig.parse_obj({"api": fake_api})
+
+
+@freeze_time(FROZEN_TIME)
+def test_same_name_views_different_file_path(pytestconfig, tmp_path, mock_time):
+    """Test for reachable views"""
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/lookml"
+    mce_out = "lookml_same_name_views_different_file_path.json"
+    pipeline = Pipeline.create(
+        {
+            "run_id": "lookml-test",
+            "source": {
+                "type": "lookml",
+                "config": {
+                    "base_folder": str(
+                        test_resources_dir
+                        / "lkml_same_name_views_different_file_path_samples"
+                    ),
+                    "connection_to_platform_map": {
+                        "my_connection": {
+                            "platform": "snowflake",
+                            "platform_instance": "warehouse",
+                            "platform_env": "dev",
+                            "default_db": "default_db",
+                            "default_schema": "default_schema",
+                        },
+                    },
+                    "parse_table_names_from_sql": True,
+                    "project_name": "lkml_samples",
+                    "process_refinements": False,
+                    "view_naming_pattern": "{project}.{file_path}.view.{name}",
+                    "view_browse_pattern": "/{env}/{platform}/{project}/{file_path}/views",
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {
+                    "filename": f"{tmp_path}/{mce_out}",
+                },
+            },
+        }
+    )
+    pipeline.run()
+    pipeline.pretty_print_summary()
+    pipeline.raise_from_status(raise_warnings=True)
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=tmp_path / mce_out,
+        golden_path=test_resources_dir / mce_out,
+    )

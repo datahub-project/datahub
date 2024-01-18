@@ -7,7 +7,9 @@ from freezegun import freeze_time
 
 from datahub.ingestion.run.pipeline import Pipeline
 from tests.test_helpers import fs_helpers, mce_helpers
-from tests.test_helpers.docker_helpers import wait_for_port
+from tests.test_helpers.docker_helpers import cleanup_image, wait_for_port
+
+pytestmark = pytest.mark.integration_batch_2
 
 FROZEN_TIME = "2021-12-03 12:00:00"
 
@@ -48,9 +50,11 @@ def loaded_nifi(docker_compose_runner, test_resources_dir):
         )
         yield docker_services
 
+    # The nifi image is pretty large, so we remove it after the test.
+    cleanup_image("apache/nifi")
+
 
 @freeze_time(FROZEN_TIME)
-@pytest.mark.slow_integration
 def test_nifi_ingest_standalone(
     loaded_nifi, pytestconfig, tmp_path, test_resources_dir
 ):
@@ -106,7 +110,6 @@ def test_nifi_ingest_standalone(
 
 
 @freeze_time(FROZEN_TIME)
-@pytest.mark.slow_integration
 def test_nifi_ingest_cluster(loaded_nifi, pytestconfig, tmp_path, test_resources_dir):
     # Wait for nifi cluster to execute all lineage processors, max wait time 120 seconds
     url = "http://localhost:9080/nifi-api/flow/process-groups/root"

@@ -14,10 +14,12 @@ import {
     AggregationMetadata,
     DataPlatform,
     DataPlatformInstance,
+    Domain,
     Entity,
     EntityType,
     FacetFilterInput,
     FacetMetadata,
+    GlossaryTerm,
 } from '../../../types.generated';
 import { IconStyleType } from '../../entity/Entity';
 import {
@@ -37,7 +39,7 @@ import {
 } from '../utils/constants';
 import EntityRegistry from '../../entity/EntityRegistry';
 import { ANTD_GRAY } from '../../entity/shared/constants';
-import { ReactComponent as DomainsIcon } from '../../../images/domain.svg';
+import DomainsIcon from '../../../images/domain.svg?react';
 import { GetAutoCompleteMultipleResultsQuery } from '../../../graphql/search.generated';
 import { FACETS_TO_ENTITY_TYPES } from './constants';
 import { FilterOptionType } from './types';
@@ -330,4 +332,17 @@ export function canCreateViewFromFilters(activeFilters: FacetFilterInput[]) {
         }
     }
     return true;
+}
+
+export function getParentEntities(entity: Entity): Entity[] | null {
+    if (!entity) {
+        return null;
+    }
+    if (entity.type === EntityType.GlossaryTerm) {
+        return (entity as GlossaryTerm).parentNodes?.nodes || [];
+    }
+    if (entity.type === EntityType.Domain) {
+        return (entity as Domain).parentDomains?.domains || [];
+    }
+    return null;
 }

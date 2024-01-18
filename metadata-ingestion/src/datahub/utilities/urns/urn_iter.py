@@ -3,7 +3,11 @@ from typing import Callable, List, Tuple, Union
 from avro.schema import Field, RecordSchema
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.metadata.schema_classes import DictWrapper
+from datahub.metadata.schema_classes import (
+    DictWrapper,
+    MetadataChangeEventClass,
+    MetadataChangeProposalClass,
+)
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 from datahub.utilities.urns.urn import Urn, guess_entity_type
 
@@ -32,7 +36,7 @@ def list_urns_with_path(
 
     if isinstance(model, MetadataChangeProposalWrapper):
         if model.entityUrn:
-            urns.append((model.entityUrn, ["urn"]))
+            urns.append((model.entityUrn, ["entityUrn"]))
         if model.entityKeyAspect:
             urns.extend(
                 _add_prefix_to_paths(
@@ -83,7 +87,15 @@ def list_urns(model: Union[DictWrapper, MetadataChangeProposalWrapper]) -> List[
     return [urn for urn, _ in list_urns_with_path(model)]
 
 
-def transform_urns(model: DictWrapper, func: Callable[[str], str]) -> None:
+def transform_urns(
+    model: Union[
+        DictWrapper,
+        MetadataChangeEventClass,
+        MetadataChangeProposalClass,
+        MetadataChangeProposalWrapper,
+    ],
+    func: Callable[[str], str],
+) -> None:
     """
     Rewrites all URNs in the given object according to the given function.
     """
@@ -95,7 +107,9 @@ def transform_urns(model: DictWrapper, func: Callable[[str], str]) -> None:
 
 
 def _modify_at_path(
-    model: Union[DictWrapper, list], path: _Path, new_value: str
+    model: Union[DictWrapper, MetadataChangeProposalWrapper, list],
+    path: _Path,
+    new_value: str,
 ) -> None:
     assert len(path) > 0
 
@@ -103,30 +117,41 @@ def _modify_at_path(
         if isinstance(path[0], int):
             assert isinstance(model, list)
             model[path[0]] = new_value
-        else:
-            assert isinstance(model, DictWrapper)
+        elif isinstance(model, DictWrapper):
             model._inner_dict[path[0]] = new_value
+        else:  # MCPW
+            setattr(model, path[0], new_value)
     elif isinstance(path[0], int):
         assert isinstance(model, list)
-        return _modify_at_path(model[path[0]], path[1:], new_value)
-    else:
-        assert isinstance(model, DictWrapper)
-        return _modify_at_path(model._inner_dict[path[0]], path[1:], new_value)
+        _modify_at_path(model[path[0]], path[1:], new_value)
+    elif isinstance(model, DictWrapper):
+        _modify_at_path(model._inner_dict[path[0]], path[1:], new_value)
+    else:  # MCPW
+        _modify_at_path(getattr(model, path[0]), path[1:], new_value)
 
 
 def _lowercase_dataset_urn(dataset_urn: str) -> str:
-    cur_urn = DatasetUrn.create_from_string(dataset_urn)
-    cur_urn._entity_id[1] = cur_urn._entity_id[1].lower()
-    return str(cur_urn)
+    cur_urn = DatasetUrn.from_string(dataset_urn)
+    new_urn = DatasetUrn(
+        platform=cur_urn.platform, name=cur_urn.name.lower(), env=cur_urn.env
+    )
+    return str(new_urn)
 
 
-def lowercase_dataset_urns(model: DictWrapper) -> None:
+def lowercase_dataset_urns(
+    model: Union[
+        DictWrapper,
+        MetadataChangeEventClass,
+        MetadataChangeProposalClass,
+        MetadataChangeProposalWrapper,
+    ]
+) -> None:
     def modify_urn(urn: str) -> str:
         if guess_entity_type(urn) == "dataset":
             return _lowercase_dataset_urn(urn)
         elif guess_entity_type(urn) == "schemaField":
-            cur_urn = Urn.create_from_string(urn)
-            cur_urn._entity_id[0] = _lowercase_dataset_urn(cur_urn._entity_id[0])
+            cur_urn = Urn.from_string(urn)
+            cur_urn._entity_ids[0] = _lowercase_dataset_urn(cur_urn._entity_ids[0])
             return str(cur_urn)
         return urn
 

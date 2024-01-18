@@ -1,11 +1,11 @@
 import logging
 from collections import defaultdict
+from functools import partial
 from typing import Dict, Iterable, List, Optional, Type, Union
 
 import humanfriendly
 
 # These imports verify that the dependencies are available.
-import psycopg2  # noqa: F401
 import pydantic
 import redshift_connector
 
@@ -25,6 +25,7 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
+from datahub.ingestion.api.incremental_lineage_helper import auto_incremental_lineage
 from datahub.ingestion.api.source import (
     CapabilityReport,
     MetadataWorkUnitProcessor,
@@ -36,7 +37,6 @@ from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
 )
-from datahub.ingestion.source.redshift.common import get_db_name
 from datahub.ingestion.source.redshift.config import RedshiftConfig
 from datahub.ingestion.source.redshift.lineage import RedshiftLineageExtractor
 from datahub.ingestion.source.redshift.profile import RedshiftProfiler
@@ -114,6 +114,10 @@ logger: logging.Logger = logging.getLogger(__name__)
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
 @capability(SourceCapability.LINEAGE_COARSE, "Optionally enabled via configuration")
 @capability(
+    SourceCapability.LINEAGE_FINE,
+    "Optionally enabled via configuration (`mixed` or `sql_based` lineage needs to be enabled)",
+)
+@capability(
     SourceCapability.USAGE_STATS,
     "Enabled by default, can be disabled via configuration `include_usage_statistics`",
 )
@@ -161,7 +165,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
 
     #### sql_based
     The sql_based based collector uses Redshift's [stl_insert](https://docs.aws.amazon.com/redshift/latest/dg/r_STL_INSERT.html) to discover all the insert queries
-    and uses sql parsing to discover the dependecies.
+    and uses sql parsing to discover the dependencies.
 
     Pros:
     - Works with Spectrum tables
@@ -185,7 +189,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
 
     :::note
 
-    The redshift stl redshift tables which are used for getting data lineage only retain approximately two to five days of log history. This means you cannot extract lineage from queries issued outside that window.
+    The redshift stl redshift tables which are used for getting data lineage retain at most seven days of log history, and sometimes closer to 2-5 days. This means you cannot extract lineage from queries issued outside that window.
 
     :::
 
@@ -216,6 +220,9 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
     ] = {
         "BYTES": BytesType,
         "BOOL": BooleanType,
+        "BOOLEAN": BooleanType,
+        "DOUBLE": NumberType,
+        "DOUBLE PRECISION": NumberType,
         "DECIMAL": NumberType,
         "NUMERIC": NumberType,
         "BIGNUMERIC": NumberType,
@@ -242,6 +249,13 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         "CHARACTER": StringType,
         "CHAR": StringType,
         "TIMESTAMP WITHOUT TIME ZONE": TimeType,
+        "REAL": NumberType,
+        "VARCHAR": StringType,
+        "TIMESTAMPTZ": TimeType,
+        "GEOMETRY": NullType,
+        "HLLSKETCH": NullType,
+        "TIMETZ": TimeType,
+        "VARBYTE": StringType,
     }
 
     def get_platform_instance_id(self) -> str:
@@ -337,7 +351,6 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
     def get_redshift_connection(
         config: RedshiftConfig,
     ) -> redshift_connector.Connection:
-        client_options = config.extra_client_options
         host, port = config.host_port.split(":")
         conn = redshift_connector.connect(
             host=host,
@@ -345,7 +358,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             user=config.username,
             database=config.database,
             password=config.password.get_secret_value() if config.password else None,
-            **client_options,
+            **config.extra_client_options,
         )
 
         conn.autocommit = True
@@ -369,6 +382,11 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         return [
             *super().get_workunit_processors(),
+            partial(
+                auto_incremental_lineage,
+                self.ctx.graph,
+                self.config.incremental_lineage,
+            ),
             StaleEntityRemovalHandler.create(
                 self, self.config, self.ctx
             ).workunit_processor,
@@ -376,8 +394,8 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
 
     def get_workunits_internal(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
         connection = RedshiftSource.get_redshift_connection(self.config)
-        database = get_db_name(self.config)
-        logger.info(f"Processing db {self.config.database} with name {database}")
+        database = self.config.database
+        logger.info(f"Processing db {database}")
         self.report.report_ingestion_stage_start(METADATA_EXTRACTION)
         self.db_tables[database] = defaultdict()
         self.db_views[database] = defaultdict()
@@ -574,6 +592,9 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
     ) -> Iterable[MetadataWorkUnit]:
         custom_properties = {}
 
+        if table.type:
+            custom_properties["table_type"] = table.type
+
         if table.location:
             custom_properties["location"] = table.location
 
@@ -611,7 +632,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
     ) -> Iterable[MetadataWorkUnit]:
         yield from self.gen_dataset_workunits(
             table=view,
-            database=get_db_name(self.config),
+            database=self.config.database,
             schema=schema,
             sub_type=DatasetSubTypes.VIEW,
             custom_properties={},
@@ -621,7 +642,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         dataset_urn = self.gen_dataset_urn(datahub_dataset_name)
         if view.ddl:
             view_properties_aspect = ViewProperties(
-                materialized=view.type == "VIEW_MATERIALIZED",
+                materialized=view.materialized,
                 viewLanguage="SQL",
                 viewLogic=view.ddl,
             )
@@ -881,6 +902,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         self.lineage_extractor = RedshiftLineageExtractor(
             config=self.config,
             report=self.report,
+            context=self.ctx,
             redundant_run_skip_handler=self.redundant_lineage_run_skip_handler,
         )
 
@@ -941,7 +963,9 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                 )
                 if lineage_info:
                     yield from gen_lineage(
-                        dataset_urn, lineage_info, self.config.incremental_lineage
+                        dataset_urn,
+                        lineage_info,
+                        incremental_lineage=False,  # incremental lineage generation is taken care by auto_incremental_lineage
                     )
 
         for schema in self.db_views[database]:
@@ -955,7 +979,9 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                 )
                 if lineage_info:
                     yield from gen_lineage(
-                        dataset_urn, lineage_info, self.config.incremental_lineage
+                        dataset_urn,
+                        lineage_info,
+                        incremental_lineage=False,  # incremental lineage generation is taken care by auto_incremental_lineage
                     )
 
     def add_config_to_report(self):

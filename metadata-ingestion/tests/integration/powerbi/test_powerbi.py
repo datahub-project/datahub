@@ -1,7 +1,10 @@
+import datetime
 import logging
+import re
 import sys
 from typing import Any, Dict, List, cast
 from unittest import mock
+from unittest.mock import MagicMock
 
 import pytest
 from freezegun import freeze_time
@@ -18,8 +21,9 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     Report,
     Workspace,
 )
-from tests.test_helpers import mce_helpers
+from tests.test_helpers import mce_helpers, test_connection_helpers
 
+pytestmark = pytest.mark.integration_batch_2
 FROZEN_TIME = "2022-02-03 07:00:00"
 
 
@@ -29,13 +33,23 @@ def enable_logging():
     logging.getLogger().setLevel(logging.DEBUG)
 
 
-def mock_msal_cca(*args, **kwargs):
-    class MsalClient:
-        def acquire_token_for_client(self, *args, **kwargs):
-            return {
-                "access_token": "dummy",
-            }
+class MsalClient:
+    call_num = 0
+    token: Dict[str, Any] = {
+        "access_token": "dummy",
+    }
 
+    @staticmethod
+    def acquire_token_for_client(*args, **kwargs):
+        MsalClient.call_num += 1
+        return MsalClient.token
+
+    @staticmethod
+    def reset():
+        MsalClient.call_num = 0
+
+
+def mock_msal_cca(*args, **kwargs):
     return MsalClient()
 
 
@@ -625,7 +639,13 @@ def default_source_config():
 @freeze_time(FROZEN_TIME)
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
 @pytest.mark.integration
-def test_powerbi_ingest(mock_msal, pytestconfig, tmp_path, mock_time, requests_mock):
+def test_powerbi_ingest(
+    mock_msal: MagicMock,
+    pytestconfig: pytest.Config,
+    tmp_path: str,
+    mock_time: datetime.datetime,
+    requests_mock: Any,
+) -> None:
     enable_logging()
 
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
@@ -656,7 +676,7 @@ def test_powerbi_ingest(mock_msal, pytestconfig, tmp_path, mock_time, requests_m
 
     mce_helpers.check_golden_file(
         pytestconfig,
-        output_path=tmp_path / "powerbi_mces.json",
+        output_path=f"{tmp_path}/powerbi_mces.json",
         golden_path=f"{test_resources_dir}/{golden_file}",
     )
 
@@ -664,9 +684,34 @@ def test_powerbi_ingest(mock_msal, pytestconfig, tmp_path, mock_time, requests_m
 @freeze_time(FROZEN_TIME)
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
 @pytest.mark.integration
+def test_powerbi_test_connection_success(mock_msal):
+    report = test_connection_helpers.run_test_connection(
+        PowerBiDashboardSource, default_source_config()
+    )
+    test_connection_helpers.assert_basic_connectivity_success(report)
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration
+def test_powerbi_test_connection_failure():
+    report = test_connection_helpers.run_test_connection(
+        PowerBiDashboardSource, default_source_config()
+    )
+    test_connection_helpers.assert_basic_connectivity_failure(
+        report, "Unable to get authority configuration"
+    )
+
+
+@freeze_time(FROZEN_TIME)
+@mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
+@pytest.mark.integration
 def test_powerbi_platform_instance_ingest(
-    mock_msal, pytestconfig, tmp_path, mock_time, requests_mock
-):
+    mock_msal: MagicMock,
+    pytestconfig: pytest.Config,
+    tmp_path: str,
+    mock_time: datetime.datetime,
+    requests_mock: Any,
+) -> None:
     enable_logging()
 
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
@@ -709,8 +754,12 @@ def test_powerbi_platform_instance_ingest(
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
 @pytest.mark.integration
 def test_powerbi_ingest_urn_lower_case(
-    mock_msal, pytestconfig, tmp_path, mock_time, requests_mock
-):
+    mock_msal: MagicMock,
+    pytestconfig: pytest.Config,
+    tmp_path: str,
+    mock_time: datetime.datetime,
+    requests_mock: Any,
+) -> None:
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
 
     register_mock_api(request_mock=requests_mock)
@@ -750,8 +799,12 @@ def test_powerbi_ingest_urn_lower_case(
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
 @pytest.mark.integration
 def test_override_ownership(
-    mock_msal, pytestconfig, tmp_path, mock_time, requests_mock
-):
+    mock_msal: MagicMock,
+    pytestconfig: pytest.Config,
+    tmp_path: str,
+    mock_time: datetime.datetime,
+    requests_mock: Any,
+) -> None:
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
 
     register_mock_api(request_mock=requests_mock)
@@ -781,7 +834,7 @@ def test_override_ownership(
 
     mce_helpers.check_golden_file(
         pytestconfig,
-        output_path=tmp_path / "powerbi_mces_disabled_ownership.json",
+        output_path=f"{tmp_path}/powerbi_mces_disabled_ownership.json",
         golden_path=f"{test_resources_dir}/{mce_out_file}",
     )
 
@@ -790,8 +843,13 @@ def test_override_ownership(
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
 @pytest.mark.integration
 def test_scan_all_workspaces(
-    mock_msal, pytestconfig, tmp_path, mock_time, requests_mock
-):
+    mock_msal: MagicMock,
+    pytestconfig: pytest.Config,
+    tmp_path: str,
+    mock_time: datetime.datetime,
+    requests_mock: Any,
+) -> None:
+
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
 
     register_mock_api(request_mock=requests_mock)
@@ -826,7 +884,7 @@ def test_scan_all_workspaces(
 
     mce_helpers.check_golden_file(
         pytestconfig,
-        output_path=tmp_path / "powerbi_mces_scan_all_workspaces.json",
+        output_path=f"{tmp_path}/powerbi_mces_scan_all_workspaces.json",
         golden_path=f"{test_resources_dir}/{golden_file}",
     )
 
@@ -834,7 +892,14 @@ def test_scan_all_workspaces(
 @freeze_time(FROZEN_TIME)
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
 @pytest.mark.integration
-def test_extract_reports(mock_msal, pytestconfig, tmp_path, mock_time, requests_mock):
+def test_extract_reports(
+    mock_msal: MagicMock,
+    pytestconfig: pytest.Config,
+    tmp_path: str,
+    mock_time: datetime.datetime,
+    requests_mock: Any,
+) -> None:
+
     enable_logging()
 
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
@@ -866,7 +931,7 @@ def test_extract_reports(mock_msal, pytestconfig, tmp_path, mock_time, requests_
 
     mce_helpers.check_golden_file(
         pytestconfig,
-        output_path=tmp_path / "powerbi_report_mces.json",
+        output_path=f"{tmp_path}/powerbi_report_mces.json",
         golden_path=f"{test_resources_dir}/{golden_file}",
     )
 
@@ -874,7 +939,13 @@ def test_extract_reports(mock_msal, pytestconfig, tmp_path, mock_time, requests_
 @freeze_time(FROZEN_TIME)
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
 @pytest.mark.integration
-def test_extract_lineage(mock_msal, pytestconfig, tmp_path, mock_time, requests_mock):
+def test_extract_lineage(
+    mock_msal: MagicMock,
+    pytestconfig: pytest.Config,
+    tmp_path: str,
+    mock_time: datetime.datetime,
+    requests_mock: Any,
+) -> None:
     enable_logging()
 
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
@@ -923,8 +994,12 @@ def test_extract_lineage(mock_msal, pytestconfig, tmp_path, mock_time, requests_
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
 @pytest.mark.integration
 def test_extract_endorsements(
-    mock_msal, pytestconfig, tmp_path, mock_time, requests_mock
-):
+    mock_msal: MagicMock,
+    pytestconfig: pytest.Config,
+    tmp_path: str,
+    mock_time: datetime.datetime,
+    requests_mock: Any,
+) -> None:
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
 
     register_mock_api(request_mock=requests_mock)
@@ -955,7 +1030,7 @@ def test_extract_endorsements(
 
     mce_helpers.check_golden_file(
         pytestconfig,
-        output_path=tmp_path / "powerbi_endorsement_mces.json",
+        output_path=f"{tmp_path}/powerbi_endorsement_mces.json",
         golden_path=f"{test_resources_dir}/{mce_out_file}",
     )
 
@@ -964,8 +1039,12 @@ def test_extract_endorsements(
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
 @pytest.mark.integration
 def test_admin_access_is_not_allowed(
-    mock_msal, pytestconfig, tmp_path, mock_time, requests_mock
-):
+    mock_msal: MagicMock,
+    pytestconfig: pytest.Config,
+    tmp_path: str,
+    mock_time: datetime.datetime,
+    requests_mock: Any,
+) -> None:
     enable_logging()
 
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
@@ -1022,8 +1101,12 @@ def test_admin_access_is_not_allowed(
 @freeze_time(FROZEN_TIME)
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
 def test_workspace_container(
-    mock_msal, pytestconfig, tmp_path, mock_time, requests_mock
-):
+    mock_msal: MagicMock,
+    pytestconfig: pytest.Config,
+    tmp_path: str,
+    mock_time: datetime.datetime,
+    requests_mock: Any,
+) -> None:
     enable_logging()
 
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
@@ -1037,7 +1120,11 @@ def test_workspace_container(
                 "type": "powerbi",
                 "config": {
                     **default_source_config(),
+                    "workspace_id_pattern": {
+                        "deny": ["64ED5CAD-7322-4684-8180-826122881108"],
+                    },
                     "extract_workspaces_to_containers": True,
+                    "extract_datasets_to_containers": True,
                     "extract_reports": True,
                 },
             },
@@ -1056,9 +1143,90 @@ def test_workspace_container(
 
     mce_helpers.check_golden_file(
         pytestconfig,
-        output_path=tmp_path / "powerbi_container_mces.json",
+        output_path=f"{tmp_path}/powerbi_container_mces.json",
         golden_path=f"{test_resources_dir}/{mce_out_file}",
     )
+
+
+@mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
+def test_access_token_expiry_with_long_expiry(
+    mock_msal: MagicMock,
+    pytestconfig: pytest.Config,
+    tmp_path: str,
+    mock_time: datetime.datetime,
+    requests_mock: Any,
+) -> None:
+    enable_logging()
+
+    register_mock_api(request_mock=requests_mock)
+
+    pipeline = Pipeline.create(
+        {
+            "run_id": "powerbi-test",
+            "source": {
+                "type": "powerbi",
+                "config": {
+                    **default_source_config(),
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {
+                    "filename": f"{tmp_path}/powerbi_access_token_mces.json",
+                },
+            },
+        }
+    )
+
+    # for long expiry, the token should only be requested once.
+    MsalClient.token = {
+        "access_token": "dummy2",
+        "expires_in": 3600,
+    }
+
+    MsalClient.reset()
+    pipeline.run()
+    # We expect the token to be requested twice (once for AdminApiResolver and one for RegularApiResolver)
+    assert MsalClient.call_num == 2
+
+
+@mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
+def test_access_token_expiry_with_short_expiry(
+    mock_msal: MagicMock,
+    pytestconfig: pytest.Config,
+    tmp_path: str,
+    mock_time: datetime.datetime,
+    requests_mock: Any,
+) -> None:
+    enable_logging()
+
+    register_mock_api(request_mock=requests_mock)
+
+    pipeline = Pipeline.create(
+        {
+            "run_id": "powerbi-test",
+            "source": {
+                "type": "powerbi",
+                "config": {
+                    **default_source_config(),
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {
+                    "filename": f"{tmp_path}/powerbi_access_token_mces.json",
+                },
+            },
+        }
+    )
+
+    # for short expiry, the token should be requested when expires.
+    MsalClient.token = {
+        "access_token": "dummy",
+        "expires_in": 0,
+    }
+    pipeline.run()
+    assert MsalClient.call_num > 2
 
 
 def dataset_type_mapping_set_to_all_platform(pipeline: Pipeline) -> None:
@@ -1126,7 +1294,7 @@ def test_dataset_type_mapping_error(
     """
     register_mock_api(request_mock=requests_mock)
 
-    try:
+    with pytest.raises(Exception, match=r"dataset_type_mapping is deprecated"):
         Pipeline.create(
             {
                 "run_id": "powerbi-test",
@@ -1148,11 +1316,6 @@ def test_dataset_type_mapping_error(
                     },
                 },
             }
-        )
-    except Exception as e:
-        assert (
-            "dataset_type_mapping is deprecated. Use server_to_platform_instance only."
-            in str(e)
         )
 
 
@@ -1305,8 +1468,12 @@ def validate_pipeline(pipeline: Pipeline) -> None:
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
 @pytest.mark.integration
 def test_reports_with_failed_page_request(
-    mock_msal, pytestconfig, tmp_path, mock_time, requests_mock
-):
+    mock_msal: MagicMock,
+    pytestconfig: pytest.Config,
+    tmp_path: str,
+    mock_time: datetime.datetime,
+    requests_mock: Any,
+) -> None:
     """
     Test that all reports are fetched even if a single page request fails
     """
@@ -1418,8 +1585,12 @@ def test_reports_with_failed_page_request(
 @freeze_time(FROZEN_TIME)
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
 def test_independent_datasets_extraction(
-    mock_msal, pytestconfig, tmp_path, mock_time, requests_mock
-):
+    mock_msal: MagicMock,
+    pytestconfig: pytest.Config,
+    tmp_path: str,
+    mock_time: datetime.datetime,
+    requests_mock: Any,
+) -> None:
 
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
 
@@ -1502,6 +1673,103 @@ def test_independent_datasets_extraction(
 
     mce_helpers.check_golden_file(
         pytestconfig,
-        output_path=tmp_path / "powerbi_independent_mces.json",
+        output_path=f"{tmp_path}/powerbi_independent_mces.json",
         golden_path=f"{test_resources_dir}/{golden_file}",
     )
+
+
+@freeze_time(FROZEN_TIME)
+@mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
+def test_cll_extraction(
+    mock_msal: MagicMock,
+    pytestconfig: pytest.Config,
+    tmp_path: str,
+    mock_time: datetime.datetime,
+    requests_mock: Any,
+) -> None:
+
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
+
+    register_mock_api(
+        request_mock=requests_mock,
+    )
+
+    default_conf: dict = default_source_config()
+
+    del default_conf[
+        "dataset_type_mapping"
+    ]  # delete this key so that connector set it to default (all dataplatform)
+
+    pipeline = Pipeline.create(
+        {
+            "run_id": "powerbi-test",
+            "source": {
+                "type": "powerbi",
+                "config": {
+                    **default_conf,
+                    "extract_lineage": True,
+                    "extract_column_level_lineage": True,
+                    "enable_advance_lineage_sql_construct": True,
+                    "native_query_parsing": True,
+                    "extract_independent_datasets": True,
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {
+                    "filename": f"{tmp_path}/powerbi_cll_mces.json",
+                },
+            },
+        }
+    )
+
+    pipeline.run()
+    pipeline.raise_from_status()
+    golden_file = "golden_test_cll.json"
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=f"{tmp_path}/powerbi_cll_mces.json",
+        golden_path=f"{test_resources_dir}/{golden_file}",
+    )
+
+
+@freeze_time(FROZEN_TIME)
+@mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
+def test_cll_extraction_flags(
+    mock_msal: MagicMock,
+    pytestconfig: pytest.Config,
+    tmp_path: str,
+    mock_time: datetime.datetime,
+    requests_mock: Any,
+) -> None:
+
+    register_mock_api(
+        request_mock=requests_mock,
+    )
+
+    default_conf: dict = default_source_config()
+    pattern: str = re.escape(
+        "Enable all these flags in recipe: ['native_query_parsing', 'enable_advance_lineage_sql_construct', 'extract_lineage']"
+    )
+
+    with pytest.raises(Exception, match=pattern):
+
+        Pipeline.create(
+            {
+                "run_id": "powerbi-test",
+                "source": {
+                    "type": "powerbi",
+                    "config": {
+                        **default_conf,
+                        "extract_column_level_lineage": True,
+                    },
+                },
+                "sink": {
+                    "type": "file",
+                    "config": {
+                        "filename": f"{tmp_path}/powerbi_cll_mces.json",
+                    },
+                },
+            }
+        )

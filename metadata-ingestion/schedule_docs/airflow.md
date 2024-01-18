@@ -4,9 +4,9 @@ If you are using Apache Airflow for your scheduling then you might want to also 
 
 We've provided a few examples of how to configure your DAG:
 
-- [`mysql_sample_dag`](../src/datahub_provider/example_dags/mysql_sample_dag.py) embeds the full MySQL ingestion configuration inside the DAG.
+- [`mysql_sample_dag`](../../metadata-ingestion-modules/airflow-plugin/src/datahub_airflow_plugin/example_dags/mysql_sample_dag.py) embeds the full MySQL ingestion configuration inside the DAG.
 
-- [`snowflake_sample_dag`](../src/datahub_provider/example_dags/snowflake_sample_dag.py) avoids embedding credentials inside the recipe, and instead fetches them from Airflow's [Connections](https://airflow.apache.org/docs/apache-airflow/stable/howto/connection/index.html) feature. You must configure your connections in Airflow to use this approach.
+- [`snowflake_sample_dag`](../../metadata-ingestion-modules/airflow-plugin/src/datahub_airflow_plugin/example_dags/snowflake_sample_dag.py) avoids embedding credentials inside the recipe, and instead fetches them from Airflow's [Connections](https://airflow.apache.org/docs/apache-airflow/stable/howto/connection/index.html) feature. You must configure your connections in Airflow to use this approach.
 
 :::tip
 
@@ -37,6 +37,6 @@ In more advanced cases, you might want to store your ingestion recipe in a file 
 - Create a DAG task to read your DataHub ingestion recipe file and run it. See the example below for reference.
 - Deploy the DAG file into airflow for scheduling. Typically this involves checking in the DAG file into your dags folder which is accessible to your Airflow instance.
 
-Example: [`generic_recipe_sample_dag`](../src/datahub_provider/example_dags/generic_recipe_sample_dag.py)
+Example: [`generic_recipe_sample_dag`](../../metadata-ingestion-modules/airflow-plugin/src/datahub_airflow_plugin/example_dags/generic_recipe_sample_dag.py)
 
 </details>

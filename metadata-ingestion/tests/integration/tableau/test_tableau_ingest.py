@@ -20,7 +20,7 @@ from datahub.ingestion.run.pipeline import Pipeline, PipelineContext
 from datahub.ingestion.source.tableau import TableauConfig, TableauSource
 from datahub.ingestion.source.tableau_common import (
     TableauLineageOverrides,
-    make_table_urn,
+    TableauUpstreamReference,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     DatasetLineageType,
@@ -28,7 +28,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
 )
 from datahub.metadata.schema_classes import MetadataChangeProposalClass, UpstreamClass
 from datahub.utilities.sqlglot_lineage import SqlParsingResult
-from tests.test_helpers import mce_helpers
+from tests.test_helpers import mce_helpers, test_connection_helpers
 from tests.test_helpers.state_helpers import (
     get_current_checkpoint_from_pipeline,
     validate_all_providers_have_committed_successfully,
@@ -292,6 +292,25 @@ def test_tableau_ingest(pytestconfig, tmp_path, mock_datahub_graph):
 
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
+def test_tableau_test_connection_success():
+    with mock.patch("datahub.ingestion.source.tableau.Server"):
+        report = test_connection_helpers.run_test_connection(
+            TableauSource, config_source_default
+        )
+        test_connection_helpers.assert_basic_connectivity_success(report)
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration
+def test_tableau_test_connection_failure():
+    report = test_connection_helpers.run_test_connection(
+        TableauSource, config_source_default
+    )
+    test_connection_helpers.assert_basic_connectivity_failure(report, "Unable to login")
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration
 def test_tableau_cll_ingest(pytestconfig, tmp_path, mock_datahub_graph):
     enable_logging()
     output_file_name: str = "tableau_mces_cll.json"
@@ -546,13 +565,13 @@ def test_lineage_overrides():
     enable_logging()
     # Simple - specify platform instance to presto table
     assert (
-        make_table_urn(
-            DEFAULT_ENV,
+        TableauUpstreamReference(
             "presto_catalog",
-            "presto",
             "test-schema",
-            "presto_catalog.test-schema.test-table",
-            platform_instance_map={"presto": "my_presto_instance"},
+            "test-table",
+            "presto",
+        ).make_dataset_urn(
+            env=DEFAULT_ENV, platform_instance_map={"presto": "my_presto_instance"}
         )
         == "urn:li:dataset:(urn:li:dataPlatform:presto,my_presto_instance.presto_catalog.test-schema.test-table,PROD)"
     )
@@ -560,12 +579,13 @@ def test_lineage_overrides():
     # Transform presto urn to hive urn
     # resulting platform instance for hive = mapped platform instance + presto_catalog
     assert (
-        make_table_urn(
-            DEFAULT_ENV,
+        TableauUpstreamReference(
             "presto_catalog",
-            "presto",
             "test-schema",
-            "presto_catalog.test-schema.test-table",
+            "test-table",
+            "presto",
+        ).make_dataset_urn(
+            env=DEFAULT_ENV,
             platform_instance_map={"presto": "my_instance"},
             lineage_overrides=TableauLineageOverrides(
                 platform_override_map={"presto": "hive"},
@@ -574,14 +594,15 @@ def test_lineage_overrides():
         == "urn:li:dataset:(urn:li:dataPlatform:hive,my_instance.presto_catalog.test-schema.test-table,PROD)"
     )
 
-    # tranform hive urn to presto urn
+    # transform hive urn to presto urn
     assert (
-        make_table_urn(
-            DEFAULT_ENV,
-            "",
-            "hive",
+        TableauUpstreamReference(
+            None,
             "test-schema",
-            "test-schema.test-table",
+            "test-table",
+            "hive",
+        ).make_dataset_urn(
+            env=DEFAULT_ENV,
             platform_instance_map={"hive": "my_presto_instance.presto_catalog"},
             lineage_overrides=TableauLineageOverrides(
                 platform_override_map={"hive": "presto"},
@@ -757,7 +778,7 @@ def test_tableau_no_verify():
 
 
 @freeze_time(FROZEN_TIME)
-@pytest.mark.slow_unit
+@pytest.mark.integration_batch_2
 def test_tableau_signout_timeout(pytestconfig, tmp_path, mock_datahub_graph):
     enable_logging()
     output_file_name: str = "tableau_signout_timeout_mces.json"

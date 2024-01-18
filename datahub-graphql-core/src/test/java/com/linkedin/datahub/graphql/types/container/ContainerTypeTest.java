@@ -1,5 +1,6 @@
-
 package com.linkedin.datahub.graphql.types.container;
+
+import static org.testng.Assert.*;
 
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
@@ -26,12 +27,12 @@ import com.linkedin.common.url.Url;
 import com.linkedin.common.urn.GlossaryTermUrn;
 import com.linkedin.common.urn.TagUrn;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.container.ContainerProperties;
 import com.linkedin.container.EditableContainerProperties;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Container;
 import com.linkedin.datahub.graphql.generated.EntityType;
-import com.linkedin.container.ContainerProperties;
 import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
@@ -46,46 +47,55 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import org.mockito.Mockito;
-
 import org.testng.annotations.Test;
-
-import static org.testng.Assert.*;
 
 public class ContainerTypeTest {
 
   private static final String TEST_CONTAINER_1_URN = "urn:li:container:guid-1";
-  private static final ContainerKey TEST_CONTAINER_1_KEY = new ContainerKey()
-      .setGuid("guid-1");
-  private static final ContainerProperties TEST_CONTAINER_1_PROPERTIES = new ContainerProperties()
-      .setDescription("test description")
-      .setName("Test Container");
-  private static final EditableContainerProperties TEST_CONTAINER_1_EDITABLE_PROPERTIES = new EditableContainerProperties()
-      .setDescription("test editable description");
-  private static final Ownership TEST_CONTAINER_1_OWNERSHIP = new Ownership()
-      .setOwners(
-          new OwnerArray(ImmutableList.of(
-              new Owner()
-                  .setType(OwnershipType.DATAOWNER)
-                  .setOwner(Urn.createFromTuple("corpuser", "test")))));
-  private static final InstitutionalMemory TEST_CONTAINER_1_INSTITUTIONAL_MEMORY = new InstitutionalMemory()
-      .setElements(
-          new InstitutionalMemoryMetadataArray(ImmutableList.of(
-              new InstitutionalMemoryMetadata()
-                  .setUrl(new Url("https://www.test.com"))
-                  .setDescription("test description")
-                  .setCreateStamp(new AuditStamp().setTime(0L).setActor(Urn.createFromTuple("corpuser", "test"))))));
-  private static final DataPlatformInstance TEST_CONTAINER_1_DATA_PLATFORM_INSTANCE = new DataPlatformInstance()
-      .setPlatform(Urn.createFromTuple("dataPlatform", "mysql"));
-  private static final Status TEST_CONTAINER_1_STATUS = new Status()
-      .setRemoved(false);
-  private static final SubTypes TEST_CONTAINER_1_SUB_TYPES = new SubTypes()
-      .setTypeNames(new StringArray(ImmutableList.of("Database")));
-  private static final GlobalTags TEST_CONTAINER_1_TAGS = new GlobalTags()
-      .setTags(new TagAssociationArray(ImmutableList.of(new TagAssociation().setTag(new TagUrn("test")))));
-  private static final GlossaryTerms TEST_CONTAINER_1_GLOSSARY_TERMS = new GlossaryTerms()
-      .setTerms(new GlossaryTermAssociationArray(ImmutableList.of(new GlossaryTermAssociation().setUrn(new GlossaryTermUrn("term")))));
-  private static final com.linkedin.container.Container TEST_CONTAINER_1_CONTAINER = new com.linkedin.container.Container()
-      .setContainer(Urn.createFromTuple(Constants.CONTAINER_ENTITY_NAME, "parent-container"));
+  private static final ContainerKey TEST_CONTAINER_1_KEY = new ContainerKey().setGuid("guid-1");
+  private static final ContainerProperties TEST_CONTAINER_1_PROPERTIES =
+      new ContainerProperties().setDescription("test description").setName("Test Container");
+  private static final EditableContainerProperties TEST_CONTAINER_1_EDITABLE_PROPERTIES =
+      new EditableContainerProperties().setDescription("test editable description");
+  private static final Ownership TEST_CONTAINER_1_OWNERSHIP =
+      new Ownership()
+          .setOwners(
+              new OwnerArray(
+                  ImmutableList.of(
+                      new Owner()
+                          .setType(OwnershipType.DATAOWNER)
+                          .setOwner(Urn.createFromTuple("corpuser", "test")))));
+  private static final InstitutionalMemory TEST_CONTAINER_1_INSTITUTIONAL_MEMORY =
+      new InstitutionalMemory()
+          .setElements(
+              new InstitutionalMemoryMetadataArray(
+                  ImmutableList.of(
+                      new InstitutionalMemoryMetadata()
+                          .setUrl(new Url("https://www.test.com"))
+                          .setDescription("test description")
+                          .setCreateStamp(
+                              new AuditStamp()
+                                  .setTime(0L)
+                                  .setActor(Urn.createFromTuple("corpuser", "test"))))));
+  private static final DataPlatformInstance TEST_CONTAINER_1_DATA_PLATFORM_INSTANCE =
+      new DataPlatformInstance().setPlatform(Urn.createFromTuple("dataPlatform", "mysql"));
+  private static final Status TEST_CONTAINER_1_STATUS = new Status().setRemoved(false);
+  private static final SubTypes TEST_CONTAINER_1_SUB_TYPES =
+      new SubTypes().setTypeNames(new StringArray(ImmutableList.of("Database")));
+  private static final GlobalTags TEST_CONTAINER_1_TAGS =
+      new GlobalTags()
+          .setTags(
+              new TagAssociationArray(
+                  ImmutableList.of(new TagAssociation().setTag(new TagUrn("test")))));
+  private static final GlossaryTerms TEST_CONTAINER_1_GLOSSARY_TERMS =
+      new GlossaryTerms()
+          .setTerms(
+              new GlossaryTermAssociationArray(
+                  ImmutableList.of(
+                      new GlossaryTermAssociation().setUrn(new GlossaryTermUrn("term")))));
+  private static final com.linkedin.container.Container TEST_CONTAINER_1_CONTAINER =
+      new com.linkedin.container.Container()
+          .setContainer(Urn.createFromTuple(Constants.CONTAINER_ENTITY_NAME, "parent-container"));
 
   private static final String TEST_CONTAINER_2_URN = "urn:li:container:guid-2";
 
@@ -100,73 +110,65 @@ public class ContainerTypeTest {
     Map<String, EnvelopedAspect> container1Aspects = new HashMap<>();
     container1Aspects.put(
         Constants.CONTAINER_KEY_ASPECT_NAME,
-        new EnvelopedAspect().setValue(new Aspect(TEST_CONTAINER_1_KEY.data()))
-    );
+        new EnvelopedAspect().setValue(new Aspect(TEST_CONTAINER_1_KEY.data())));
     container1Aspects.put(
         Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME,
-        new EnvelopedAspect().setValue(new Aspect(TEST_CONTAINER_1_DATA_PLATFORM_INSTANCE.data()))
-    );
+        new EnvelopedAspect().setValue(new Aspect(TEST_CONTAINER_1_DATA_PLATFORM_INSTANCE.data())));
     container1Aspects.put(
         Constants.CONTAINER_PROPERTIES_ASPECT_NAME,
-        new EnvelopedAspect().setValue(new Aspect(TEST_CONTAINER_1_PROPERTIES.data()))
-    );
+        new EnvelopedAspect().setValue(new Aspect(TEST_CONTAINER_1_PROPERTIES.data())));
     container1Aspects.put(
         Constants.CONTAINER_EDITABLE_PROPERTIES_ASPECT_NAME,
-        new EnvelopedAspect().setValue(new Aspect(TEST_CONTAINER_1_EDITABLE_PROPERTIES.data()))
-    );
+        new EnvelopedAspect().setValue(new Aspect(TEST_CONTAINER_1_EDITABLE_PROPERTIES.data())));
     container1Aspects.put(
         Constants.OWNERSHIP_ASPECT_NAME,
-        new EnvelopedAspect().setValue(new Aspect(TEST_CONTAINER_1_OWNERSHIP.data()))
-    );
+        new EnvelopedAspect().setValue(new Aspect(TEST_CONTAINER_1_OWNERSHIP.data())));
     container1Aspects.put(
         Constants.INSTITUTIONAL_MEMORY_ASPECT_NAME,
-        new EnvelopedAspect().setValue(new Aspect(TEST_CONTAINER_1_INSTITUTIONAL_MEMORY.data()))
-    );
+        new EnvelopedAspect().setValue(new Aspect(TEST_CONTAINER_1_INSTITUTIONAL_MEMORY.data())));
     container1Aspects.put(
         Constants.SUB_TYPES_ASPECT_NAME,
-        new EnvelopedAspect().setValue(new Aspect(TEST_CONTAINER_1_SUB_TYPES.data()))
-    );
+        new EnvelopedAspect().setValue(new Aspect(TEST_CONTAINER_1_SUB_TYPES.data())));
     container1Aspects.put(
         Constants.STATUS_ASPECT_NAME,
-        new EnvelopedAspect().setValue(new Aspect(TEST_CONTAINER_1_STATUS.data()))
-    );
+        new EnvelopedAspect().setValue(new Aspect(TEST_CONTAINER_1_STATUS.data())));
     container1Aspects.put(
         Constants.GLOBAL_TAGS_ASPECT_NAME,
-        new EnvelopedAspect().setValue(new Aspect(TEST_CONTAINER_1_TAGS.data()))
-    );
+        new EnvelopedAspect().setValue(new Aspect(TEST_CONTAINER_1_TAGS.data())));
     container1Aspects.put(
         Constants.GLOSSARY_TERMS_ASPECT_NAME,
-        new EnvelopedAspect().setValue(new Aspect(TEST_CONTAINER_1_GLOSSARY_TERMS.data()))
-    );
+        new EnvelopedAspect().setValue(new Aspect(TEST_CONTAINER_1_GLOSSARY_TERMS.data())));
     container1Aspects.put(
         Constants.CONTAINER_ASPECT_NAME,
-        new EnvelopedAspect().setValue(new Aspect(TEST_CONTAINER_1_CONTAINER.data()))
-    );
-    Mockito.when(client.batchGetV2(
-        Mockito.eq(Constants.CONTAINER_ENTITY_NAME),
-        Mockito.eq(new HashSet<>(ImmutableSet.of(containerUrn1, containerUrn2))),
-        Mockito.eq(ContainerType.ASPECTS_TO_FETCH),
-        Mockito.any(Authentication.class)))
-        .thenReturn(ImmutableMap.of(
-            containerUrn1,
-            new EntityResponse()
-                .setEntityName(Constants.CONTAINER_ENTITY_NAME)
-                .setUrn(containerUrn1)
-                .setAspects(new EnvelopedAspectMap(container1Aspects))));
+        new EnvelopedAspect().setValue(new Aspect(TEST_CONTAINER_1_CONTAINER.data())));
+    Mockito.when(
+            client.batchGetV2(
+                Mockito.eq(Constants.CONTAINER_ENTITY_NAME),
+                Mockito.eq(new HashSet<>(ImmutableSet.of(containerUrn1, containerUrn2))),
+                Mockito.eq(ContainerType.ASPECTS_TO_FETCH),
+                Mockito.any(Authentication.class)))
+        .thenReturn(
+            ImmutableMap.of(
+                containerUrn1,
+                new EntityResponse()
+                    .setEntityName(Constants.CONTAINER_ENTITY_NAME)
+                    .setUrn(containerUrn1)
+                    .setAspects(new EnvelopedAspectMap(container1Aspects))));
 
     ContainerType type = new ContainerType(client);
 
     QueryContext mockContext = Mockito.mock(QueryContext.class);
     Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
-    List<DataFetcherResult<Container>> result = type.batchLoad(ImmutableList.of(TEST_CONTAINER_1_URN, TEST_CONTAINER_2_URN), mockContext);
+    List<DataFetcherResult<Container>> result =
+        type.batchLoad(ImmutableList.of(TEST_CONTAINER_1_URN, TEST_CONTAINER_2_URN), mockContext);
 
     // Verify response
-    Mockito.verify(client, Mockito.times(1)).batchGetV2(
-        Mockito.eq(Constants.CONTAINER_ENTITY_NAME),
-        Mockito.eq(ImmutableSet.of(containerUrn1, containerUrn2)),
-        Mockito.eq(ContainerType.ASPECTS_TO_FETCH),
-        Mockito.any(Authentication.class)
-    );
+    Mockito.verify(client, Mockito.times(1))
+        .batchGetV2(
+            Mockito.eq(Constants.CONTAINER_ENTITY_NAME),
+            Mockito.eq(ImmutableSet.of(containerUrn1, containerUrn2)),
+            Mockito.eq(ContainerType.ASPECTS_TO_FETCH),
+            Mockito.any(Authentication.class));
 
     assertEquals(result.size(), 2);
 
@@ -177,8 +179,12 @@ public class ContainerTypeTest {
     assertEquals(container1.getProperties().getDescription(), "test description");
     assertEquals(container1.getProperties().getName(), "Test Container");
     assertEquals(container1.getInstitutionalMemory().getElements().size(), 1);
-    assertEquals(container1.getSubTypes().getTypeNames().get(0), TEST_CONTAINER_1_SUB_TYPES.getTypeNames().get(0));
-    assertEquals(container1.getEditableProperties().getDescription(), TEST_CONTAINER_1_EDITABLE_PROPERTIES.getDescription());
+    assertEquals(
+        container1.getSubTypes().getTypeNames().get(0),
+        TEST_CONTAINER_1_SUB_TYPES.getTypeNames().get(0));
+    assertEquals(
+        container1.getEditableProperties().getDescription(),
+        TEST_CONTAINER_1_EDITABLE_PROPERTIES.getDescription());
     assertEquals(
         container1.getGlossaryTerms().getTerms().get(0).getTerm().getUrn(),
         TEST_CONTAINER_1_GLOSSARY_TERMS.getTerms().get(0).getUrn().toString());
@@ -186,8 +192,7 @@ public class ContainerTypeTest {
         container1.getTags().getTags().get(0).getTag().getUrn(),
         TEST_CONTAINER_1_TAGS.getTags().get(0).getTag().toString());
     assertEquals(
-        container1.getContainer().getUrn(),
-        TEST_CONTAINER_1_CONTAINER.getContainer().toString());
+        container1.getContainer().getUrn(), TEST_CONTAINER_1_CONTAINER.getContainer().toString());
 
     // Assert second element is null.
     assertNull(result.get(1));
@@ -196,17 +201,21 @@ public class ContainerTypeTest {
   @Test
   public void testBatchLoadClientException() throws Exception {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
-    Mockito.doThrow(RemoteInvocationException.class).when(mockClient).batchGetV2(
-        Mockito.anyString(),
-        Mockito.anySet(),
-        Mockito.anySet(),
-        Mockito.any(Authentication.class));
+    Mockito.doThrow(RemoteInvocationException.class)
+        .when(mockClient)
+        .batchGetV2(
+            Mockito.anyString(),
+            Mockito.anySet(),
+            Mockito.anySet(),
+            Mockito.any(Authentication.class));
     ContainerType type = new ContainerType(mockClient);
 
     // Execute Batch load
     QueryContext context = Mockito.mock(QueryContext.class);
     Mockito.when(context.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
-    assertThrows(RuntimeException.class, () -> type.batchLoad(ImmutableList.of(TEST_CONTAINER_1_URN, TEST_CONTAINER_2_URN),
-        context));
+    assertThrows(
+        RuntimeException.class,
+        () ->
+            type.batchLoad(ImmutableList.of(TEST_CONTAINER_1_URN, TEST_CONTAINER_2_URN), context));
   }
 }
