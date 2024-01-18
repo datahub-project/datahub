@@ -84,6 +84,11 @@ Cypress.Commands.add("goToOwnershipTypesSettings", () => {
   cy.waitTextVisible("Manage Ownership");
 });
 
+Cypress.Commands.add("goToHomePagePostSettings", () => {
+  cy.visit("/settings/posts");
+  cy.waitTextVisible("Home Page Posts");
+});
+
 Cypress.Commands.add("goToAccessTokenSettings", () => {
   cy.visit("/settings/tokens");
   cy.waitTextVisible("Manage Access Tokens");
