@@ -25,11 +25,11 @@ import java.net.URI;
 import java.util.BitSet;
 import java.util.Enumeration;
 import java.util.Formatter;
-import javax.servlet.ServletException;
-import javax.servlet.http.Cookie;
-import javax.servlet.http.HttpServlet;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.apache.http.Header;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpEntityEnclosingRequest;
@@ -277,7 +277,7 @@ public class ProxyServlet extends HttpServlet {
   }
 
   /**
-   * Called from {@link #init(javax.servlet.ServletConfig)}. HttpClient offers many opportunities
+   * Called from {@link #init(jakarta.servlet.ServletConfig)}. HttpClient offers many opportunities
    * for customization. In any case, it should be thread-safe.
    */
   protected HttpClient createHttpClient() {
@@ -382,11 +382,8 @@ public class ProxyServlet extends HttpServlet {
 
       // Process the response:
 
-      // Pass the response code. This method with the "reason phrase" is deprecated but it's the
-      //   only way to pass the reason along too.
       int statusCode = proxyResponse.getStatusLine().getStatusCode();
-      //noinspection deprecation
-      servletResponse.setStatus(statusCode, proxyResponse.getStatusLine().getReasonPhrase());
+      servletResponse.setStatus(statusCode);
 
       // Copying response headers to make sure SESSIONID or other Cookie which comes from the remote
       // server will be saved in client when the proxied url was redirected to another one.
@@ -638,11 +635,9 @@ public class ProxyServlet extends HttpServlet {
             ? cookie.getPath() // preserve original cookie path
             : buildProxyCookiePath(servletRequest) // set to the path of the proxy servlet
         );
-    servletCookie.setComment(cookie.getComment());
     servletCookie.setMaxAge((int) cookie.getMaxAge());
     // don't set cookie domain
     servletCookie.setSecure(servletRequest.isSecure() && cookie.getSecure());
-    servletCookie.setVersion(cookie.getVersion());
     servletCookie.setHttpOnly(cookie.isHttpOnly());
     return servletCookie;
   }
