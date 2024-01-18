@@ -35,7 +35,7 @@ public class DataHubUpgradeKafkaListener implements ConsumerSeekAware, Bootstrap
 
   private final KafkaListenerEndpointRegistry registry;
 
-  private static final String CONSUMER_GROUP =
+  public static final String CONSUMER_GROUP =
       "${DATAHUB_UPGRADE_HISTORY_KAFKA_CONSUMER_GROUP_ID:generic-duhe-consumer-job-client}";
   private static final String SUFFIX = "temp";
   public static final String TOPIC_NAME =
