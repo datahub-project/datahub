@@ -84,6 +84,11 @@ Cypress.Commands.add("goToOwnershipTypesSettings", () => {
   cy.waitTextVisible("Manage Ownership");
 });
 
+Cypress.Commands.add("goToHomePagePostSettings", () => {
+  cy.visit("/settings/posts");
+  cy.waitTextVisible("Home Page Posts");
+});
+
 Cypress.Commands.add("goToAccessTokenSettings", () => {
   cy.visit("/settings/tokens");
   cy.waitTextVisible("Manage Access Tokens");
@@ -178,11 +183,11 @@ Cypress.Commands.add("addViaFormModal", (text, modelHeader) => {
   cy.get(".ant-modal-footer > button:nth-child(2)").click();
 });
 
-Cypress.Commands.add("addViaModal", (text, modelHeader,verifyMessage) => {
+Cypress.Commands.add("addViaModal", (text, modelHeader,value) => {
   cy.waitTextVisible(modelHeader);
   cy.get(".ant-input-affix-wrapper > input[type='text']").first().type(text);
   cy.get(".ant-modal-footer > button:nth-child(2)").click();
-  cy.contains(verifyMessage).should('be.visible');
+  cy.contains(value).should('be.visible');
 });
 
 Cypress.Commands.add("ensureTextNotPresent", (text) => {
