@@ -467,7 +467,6 @@ SELECT  schemaname as schema_name,
 
     @staticmethod
     def temp_table_ddl_query(start_time: datetime, end_time: datetime) -> str:
-
         start_time_str: str = start_time.strftime(redshift_datetime_format)
 
         end_time_str: str = end_time.strftime(redshift_datetime_format)
@@ -478,9 +477,30 @@ SELECT  schemaname as schema_name,
                     start_time,
                     query_text
             FROM       sys_query_history SYS
-            where      SYS.status = 'success'
+            WHERE      SYS.status = 'success'
             AND        SYS.query_type in ('DDL', 'CTAS')
             AND        SYS.start_time >= '{start_time_str}'
             AND        SYS.end_time < '{end_time_str}'
             AND        SYS.query_text ILIKE 'create temp table %' OR SYS.query_text ILIKE 'create temporary table %' or SYS.query_text ilike 'create table #%'
+        """
+
+    @staticmethod
+    def alter_table_rename_query(
+        db_name: str, start_time: datetime, end_time: datetime
+    ) -> str:
+        start_time_str: str = start_time.strftime(redshift_datetime_format)
+        end_time_str: str = end_time.strftime(redshift_datetime_format)
+
+        return f"""
+            SELECT  transaction_id,
+                    session_id,
+                    start_time,
+                    query_text
+            FROM       sys_query_history SYS
+            WHERE      SYS.status = 'success'
+            AND        SYS.query_type = 'DDL'
+            AND        SYS.database_name = '{db_name}'
+            AND        SYS.start_time >= '{start_time_str}'
+            AND        SYS.end_time < '{end_time_str}'
+            AND        SYS.query_text ILIKE 'alter table % rename to %'
         """

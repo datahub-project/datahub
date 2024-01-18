@@ -1,6 +1,9 @@
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.redshift.config import RedshiftConfig
-from datahub.ingestion.source.redshift.lineage import RedshiftLineageExtractor
+from datahub.ingestion.source.redshift.lineage import (
+    RedshiftLineageExtractor,
+    parse_alter_table_rename,
+)
 from datahub.ingestion.source.redshift.report import RedshiftReport
 from datahub.utilities.sqlglot_lineage import ColumnLineageInfo, DownstreamColumnRef
 
@@ -117,6 +120,21 @@ def test_get_sources_from_query_with_only_table():
     assert (
         lineage.urn
         == "urn:li:dataset:(urn:li:dataPlatform:redshift,test.public.my_table,PROD)"
+    )
+
+
+def test_parse_alter_table_rename():
+    assert parse_alter_table_rename("public", "alter table foo rename to bar") == (
+        "public",
+        "foo",
+        "bar",
+    )
+    assert parse_alter_table_rename(
+        "public", "alter table second_schema.storage_v2_stg rename to storage_v2; "
+    ) == (
+        "second_schema",
+        "storage_v2_stg",
+        "storage_v2",
     )
 
 
