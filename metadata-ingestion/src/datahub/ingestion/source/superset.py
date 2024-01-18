@@ -71,6 +71,8 @@ chart_type_from_viz_type = {
     "box_plot": ChartTypeClass.BAR,
 }
 
+RESERVED_CHARACTERS = set([","])
+
 
 class SupersetConfig(StatefulIngestionConfigBase, ConfigModel):
     # See the Superset /security/login endpoint for details
@@ -216,6 +218,11 @@ class SupersetSource(StatefulIngestionSourceBase):
         ).json()
         schema_name = dataset_response.get("result", {}).get("schema")
         table_name = dataset_response.get("result", {}).get("table_name")
+        if RESERVED_CHARACTERS.intersection(table_name):
+            logger.warning(
+                f"Failed to ingest following dataset due to a reserved character {RESERVED_CHARACTERS} in table name: {schema_name}.{table_name}"
+            )
+            return None
         database_id = dataset_response.get("result", {}).get("database", {}).get("id")
         database_name = (
             dataset_response.get("result", {}).get("database", {}).get("database_name")
