@@ -88,6 +88,8 @@ public class SearchRequestHandler {
   private static final Map<List<EntitySpec>, SearchRequestHandler> REQUEST_HANDLER_BY_ENTITY_NAME =
       new ConcurrentHashMap<>();
   private static final String URN_FILTER = "urn";
+  private static final String[] FIELDS_TO_FETCH = new String[] {"urn", "usageCountLast30Days"};
+  private static final String[] URN_FIELD = new String[] {"urn"};
   private final List<EntitySpec> _entitySpecs;
   private final Set<String> _defaultQueryFieldNames;
   private final HighlightBuilder _highlights;

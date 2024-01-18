@@ -11,7 +11,7 @@ import com.linkedin.gms.factory.entity.RestliEntityClientFactory;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
 import com.linkedin.gms.factory.notifications.SettingsProviderFactory;
 import com.linkedin.gms.factory.notifications.recipient.SlackNotificationRecipientBuilderFactory;
-import com.linkedin.gms.factory.timeline.EntityChangeEventGeneratorRegistryFactory;
+import com.linkedin.gms.factory.timeline.eventgenerator.EntityChangeEventGeneratorRegistryFactory;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.kafka.hook.notification.change.EntityChangeNotificationGenerator;
