@@ -8,6 +8,7 @@ import com.linkedin.metadata.client.JavaEntityClient;
 import com.linkedin.metadata.client.SystemJavaEntityClient;
 import com.linkedin.metadata.entity.DeleteEntityService;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.ebean.batch.MCPUpsertBatchItem;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.LineageSearchService;
@@ -28,7 +29,7 @@ public class JavaEntityClientFactory {
 
   @Autowired
   @Qualifier("entityService")
-  private EntityService _entityService;
+  private EntityService<MCPUpsertBatchItem> _entityService;
 
   @Autowired
   @Qualifier("deleteEntityService")

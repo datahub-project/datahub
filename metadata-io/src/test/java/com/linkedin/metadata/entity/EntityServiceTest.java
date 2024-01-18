@@ -36,8 +36,8 @@ import com.linkedin.metadata.aspect.Aspect;
 import com.linkedin.metadata.aspect.CorpUserAspect;
 import com.linkedin.metadata.aspect.CorpUserAspectArray;
 import com.linkedin.metadata.aspect.VersionedAspect;
-import com.linkedin.metadata.entity.ebean.transactions.AspectsBatchImpl;
-import com.linkedin.metadata.entity.ebean.transactions.UpsertBatchItem;
+import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
+import com.linkedin.metadata.entity.ebean.batch.MCPUpsertBatchItem;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.key.CorpUserKey;
@@ -59,6 +59,7 @@ import com.linkedin.retention.DataHubRetentionConfig;
 import com.linkedin.retention.Retention;
 import com.linkedin.retention.VersionBasedRetention;
 import com.linkedin.util.Pair;
+import jakarta.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -66,7 +67,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import javax.annotation.Nonnull;
 import org.junit.Assert;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
@@ -525,9 +525,8 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
 
     _entityServiceImpl.ingestAspects(entityUrn, pairToIngest, TEST_AUDIT_STAMP, metadata1);
 
-    verify(_mockProducer, times(1))
-        .produceMetadataChangeLog(
-            Mockito.eq(entityUrn), Mockito.any(), Mockito.eq(restateChangeLog));
+    verify(_mockProducer, times(0))
+        .produceMetadataChangeLog(Mockito.any(), Mockito.any(), Mockito.any());
 
     verifyNoMoreInteractions(_mockProducer);
   }
@@ -840,34 +839,37 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     CorpUserInfo writeAspect1Overwrite =
         AspectGenerationUtils.createCorpUserInfo("email1.overwrite@test.com");
 
-    List<UpsertBatchItem> items =
+    List<MCPUpsertBatchItem> items =
         List.of(
-            UpsertBatchItem.builder()
+            MCPUpsertBatchItem.builder()
                 .urn(entityUrn1)
                 .aspectName(aspectName)
                 .aspect(writeAspect1)
                 .systemMetadata(metadata1)
-                .build(_testEntityRegistry),
-            UpsertBatchItem.builder()
+                .auditStamp(TEST_AUDIT_STAMP)
+                .build(_testEntityRegistry, _entityServiceImpl.getSystemEntityClient()),
+            MCPUpsertBatchItem.builder()
                 .urn(entityUrn2)
                 .aspectName(aspectName)
                 .aspect(writeAspect2)
+                .auditStamp(TEST_AUDIT_STAMP)
                 .systemMetadata(metadata1)
-                .build(_testEntityRegistry),
-            UpsertBatchItem.builder()
+                .build(_testEntityRegistry, _entityServiceImpl.getSystemEntityClient()),
+            MCPUpsertBatchItem.builder()
                 .urn(entityUrn3)
                 .aspectName(aspectName)
                 .aspect(writeAspect3)
+                .auditStamp(TEST_AUDIT_STAMP)
                 .systemMetadata(metadata1)
-                .build(_testEntityRegistry),
-            UpsertBatchItem.builder()
+                .build(_testEntityRegistry, _entityServiceImpl.getSystemEntityClient()),
+            MCPUpsertBatchItem.builder()
                 .urn(entityUrn1)
                 .aspectName(aspectName)
                 .aspect(writeAspect1Overwrite)
                 .systemMetadata(metadata2)
-                .build(_testEntityRegistry));
-    _entityServiceImpl.ingestAspects(
-        AspectsBatchImpl.builder().items(items).build(), TEST_AUDIT_STAMP, true, true);
+                .auditStamp(TEST_AUDIT_STAMP)
+                .build(_testEntityRegistry, _entityServiceImpl.getSystemEntityClient()));
+    _entityServiceImpl.ingestAspects(AspectsBatchImpl.builder().items(items).build(), true, true);
 
     // this should no-op since this run has been overwritten
     AspectRowSummary rollbackOverwrittenAspect = new AspectRowSummary();
@@ -916,28 +918,30 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     CorpUserInfo writeAspect1Overwrite =
         AspectGenerationUtils.createCorpUserInfo("email1.overwrite@test.com");
 
-    List<UpsertBatchItem> items =
+    List<MCPUpsertBatchItem> items =
         List.of(
-            UpsertBatchItem.builder()
+            MCPUpsertBatchItem.builder()
                 .urn(entityUrn1)
                 .aspectName(aspectName)
                 .aspect(writeAspect1)
                 .systemMetadata(metadata1)
-                .build(_testEntityRegistry),
-            UpsertBatchItem.builder()
+                .auditStamp(TEST_AUDIT_STAMP)
+                .build(_testEntityRegistry, _entityServiceImpl.getSystemEntityClient()),
+            MCPUpsertBatchItem.builder()
                 .urn(entityUrn1)
                 .aspectName(keyAspectName)
                 .aspect(writeKey1)
                 .systemMetadata(metadata1)
-                .build(_testEntityRegistry),
-            UpsertBatchItem.builder()
+                .auditStamp(TEST_AUDIT_STAMP)
+                .build(_testEntityRegistry, _entityServiceImpl.getSystemEntityClient()),
+            MCPUpsertBatchItem.builder()
                 .urn(entityUrn1)
                 .aspectName(aspectName)
                 .aspect(writeAspect1Overwrite)
                 .systemMetadata(metadata2)
-                .build(_testEntityRegistry));
-    _entityServiceImpl.ingestAspects(
-        AspectsBatchImpl.builder().items(items).build(), TEST_AUDIT_STAMP, true, true);
+                .auditStamp(TEST_AUDIT_STAMP)
+                .build(_testEntityRegistry, _entityServiceImpl.getSystemEntityClient()));
+    _entityServiceImpl.ingestAspects(AspectsBatchImpl.builder().items(items).build(), true, true);
 
     // this should no-op since the key should have been written in the furst run
     AspectRowSummary rollbackKeyWithWrongRunId = new AspectRowSummary();
@@ -994,40 +998,44 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     CorpUserInfo writeAspect1Overwrite =
         AspectGenerationUtils.createCorpUserInfo("email1.overwrite@test.com");
 
-    List<UpsertBatchItem> items =
+    List<MCPUpsertBatchItem> items =
         List.of(
-            UpsertBatchItem.builder()
+            MCPUpsertBatchItem.builder()
                 .urn(entityUrn1)
                 .aspectName(aspectName)
                 .aspect(writeAspect1)
                 .systemMetadata(metadata1)
-                .build(_testEntityRegistry),
-            UpsertBatchItem.builder()
+                .auditStamp(TEST_AUDIT_STAMP)
+                .build(_testEntityRegistry, _entityServiceImpl.getSystemEntityClient()),
+            MCPUpsertBatchItem.builder()
                 .urn(entityUrn1)
                 .aspectName(keyAspectName)
                 .aspect(writeKey1)
+                .auditStamp(TEST_AUDIT_STAMP)
                 .systemMetadata(metadata1)
-                .build(_testEntityRegistry),
-            UpsertBatchItem.builder()
+                .build(_testEntityRegistry, _entityServiceImpl.getSystemEntityClient()),
+            MCPUpsertBatchItem.builder()
                 .urn(entityUrn2)
                 .aspectName(aspectName)
                 .aspect(writeAspect2)
+                .auditStamp(TEST_AUDIT_STAMP)
                 .systemMetadata(metadata1)
-                .build(_testEntityRegistry),
-            UpsertBatchItem.builder()
+                .build(_testEntityRegistry, _entityServiceImpl.getSystemEntityClient()),
+            MCPUpsertBatchItem.builder()
                 .urn(entityUrn3)
                 .aspectName(aspectName)
                 .aspect(writeAspect3)
                 .systemMetadata(metadata1)
-                .build(_testEntityRegistry),
-            UpsertBatchItem.builder()
+                .auditStamp(TEST_AUDIT_STAMP)
+                .build(_testEntityRegistry, _entityServiceImpl.getSystemEntityClient()),
+            MCPUpsertBatchItem.builder()
                 .urn(entityUrn1)
                 .aspectName(aspectName)
                 .aspect(writeAspect1Overwrite)
                 .systemMetadata(metadata2)
-                .build(_testEntityRegistry));
-    _entityServiceImpl.ingestAspects(
-        AspectsBatchImpl.builder().items(items).build(), TEST_AUDIT_STAMP, true, true);
+                .auditStamp(TEST_AUDIT_STAMP)
+                .build(_testEntityRegistry, _entityServiceImpl.getSystemEntityClient()));
+    _entityServiceImpl.ingestAspects(AspectsBatchImpl.builder().items(items).build(), true, true);
 
     // this should no-op since the key should have been written in the furst run
     AspectRowSummary rollbackKeyWithWrongRunId = new AspectRowSummary();
@@ -1057,16 +1065,16 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     SystemMetadata metadata1 = AspectGenerationUtils.createSystemMetadata(1625792689, "run-123");
     SystemMetadata metadata2 = AspectGenerationUtils.createSystemMetadata(1635792689, "run-456");
 
-    List<UpsertBatchItem> items =
+    List<MCPUpsertBatchItem> items =
         List.of(
-            UpsertBatchItem.builder()
+            MCPUpsertBatchItem.builder()
                 .urn(entityUrn)
                 .aspectName(aspectName)
                 .aspect(writeAspect1)
+                .auditStamp(TEST_AUDIT_STAMP)
                 .systemMetadata(metadata1)
-                .build(_testEntityRegistry));
-    _entityServiceImpl.ingestAspects(
-        AspectsBatchImpl.builder().items(items).build(), TEST_AUDIT_STAMP, true, true);
+                .build(_testEntityRegistry, _entityServiceImpl.getSystemEntityClient()));
+    _entityServiceImpl.ingestAspects(AspectsBatchImpl.builder().items(items).build(), true, true);
 
     // Validate retrieval of CorpUserInfo Aspect #1
     RecordTemplate readAspect1 = _entityServiceImpl.getLatestAspect(entityUrn, aspectName);
@@ -1090,14 +1098,14 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
 
     items =
         List.of(
-            UpsertBatchItem.builder()
+            MCPUpsertBatchItem.builder()
                 .urn(entityUrn)
                 .aspectName(aspectName)
                 .aspect(writeAspect2)
+                .auditStamp(TEST_AUDIT_STAMP)
                 .systemMetadata(metadata2)
-                .build(_testEntityRegistry));
-    _entityServiceImpl.ingestAspects(
-        AspectsBatchImpl.builder().items(items).build(), TEST_AUDIT_STAMP, true, true);
+                .build(_testEntityRegistry, _entityServiceImpl.getSystemEntityClient()));
+    _entityServiceImpl.ingestAspects(AspectsBatchImpl.builder().items(items).build(), true, true);
 
     // Validate retrieval of CorpUserInfo Aspect #2
     RecordTemplate readAspect2 = _entityServiceImpl.getLatestAspect(entityUrn, aspectName);
@@ -1134,16 +1142,16 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     SystemMetadata metadata1 = AspectGenerationUtils.createSystemMetadata(1625792689, "run-123");
     SystemMetadata metadata2 = AspectGenerationUtils.createSystemMetadata(1635792689, "run-456");
 
-    List<UpsertBatchItem> items =
+    List<MCPUpsertBatchItem> items =
         List.of(
-            UpsertBatchItem.builder()
+            MCPUpsertBatchItem.builder()
                 .urn(entityUrn)
                 .aspectName(aspectName)
                 .aspect(writeAspect1)
+                .auditStamp(TEST_AUDIT_STAMP)
                 .systemMetadata(metadata1)
-                .build(_testEntityRegistry));
-    _entityServiceImpl.ingestAspects(
-        AspectsBatchImpl.builder().items(items).build(), TEST_AUDIT_STAMP, true, true);
+                .build(_testEntityRegistry, _entityServiceImpl.getSystemEntityClient()));
+    _entityServiceImpl.ingestAspects(AspectsBatchImpl.builder().items(items).build(), true, true);
 
     // Validate retrieval of CorpUserInfo Aspect #1
     EnvelopedAspect readAspect1 =
@@ -1156,14 +1164,14 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
 
     items =
         List.of(
-            UpsertBatchItem.builder()
+            MCPUpsertBatchItem.builder()
                 .urn(entityUrn)
                 .aspectName(aspectName)
                 .aspect(writeAspect2)
                 .systemMetadata(metadata2)
-                .build(_testEntityRegistry));
-    _entityServiceImpl.ingestAspects(
-        AspectsBatchImpl.builder().items(items).build(), TEST_AUDIT_STAMP, true, true);
+                .auditStamp(TEST_AUDIT_STAMP)
+                .build(_testEntityRegistry, _entityServiceImpl.getSystemEntityClient()));
+    _entityServiceImpl.ingestAspects(AspectsBatchImpl.builder().items(items).build(), true, true);
 
     // Validate retrieval of CorpUserInfo Aspect #2
     EnvelopedAspect readAspect2 =
@@ -1199,16 +1207,16 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     SystemMetadata metadata3 =
         AspectGenerationUtils.createSystemMetadata(1635792689, "run-123", "run-456");
 
-    List<UpsertBatchItem> items =
+    List<MCPUpsertBatchItem> items =
         List.of(
-            UpsertBatchItem.builder()
+            MCPUpsertBatchItem.builder()
                 .urn(entityUrn)
                 .aspectName(aspectName)
                 .aspect(writeAspect1)
                 .systemMetadata(metadata1)
-                .build(_testEntityRegistry));
-    _entityServiceImpl.ingestAspects(
-        AspectsBatchImpl.builder().items(items).build(), TEST_AUDIT_STAMP, true, true);
+                .auditStamp(TEST_AUDIT_STAMP)
+                .build(_testEntityRegistry, _entityServiceImpl.getSystemEntityClient()));
+    _entityServiceImpl.ingestAspects(AspectsBatchImpl.builder().items(items).build(), true, true);
 
     // Validate retrieval of CorpUserInfo Aspect #1
     RecordTemplate readAspect1 = _entityServiceImpl.getLatestAspect(entityUrn, aspectName);
@@ -1232,14 +1240,14 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
 
     items =
         List.of(
-            UpsertBatchItem.builder()
+            MCPUpsertBatchItem.builder()
                 .urn(entityUrn)
                 .aspectName(aspectName)
                 .aspect(writeAspect2)
                 .systemMetadata(metadata2)
-                .build(_testEntityRegistry));
-    _entityServiceImpl.ingestAspects(
-        AspectsBatchImpl.builder().items(items).build(), TEST_AUDIT_STAMP, true, true);
+                .auditStamp(TEST_AUDIT_STAMP)
+                .build(_testEntityRegistry, _entityServiceImpl.getSystemEntityClient()));
+    _entityServiceImpl.ingestAspects(AspectsBatchImpl.builder().items(items).build(), true, true);
 
     // Validate retrieval of CorpUserInfo Aspect #2
     RecordTemplate readAspect2 = _entityServiceImpl.getLatestAspect(entityUrn, aspectName);
@@ -1258,8 +1266,8 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         DataTemplateUtil.areEqual(
             EntityUtils.parseSystemMetadata(readAspectDao2.getSystemMetadata()), metadata3));
 
-    verify(_mockProducer, times(1))
-        .produceMetadataChangeLog(Mockito.eq(entityUrn), Mockito.any(), mclCaptor.capture());
+    verify(_mockProducer, times(0))
+        .produceMetadataChangeLog(Mockito.any(), Mockito.any(), Mockito.any());
 
     verifyNoMoreInteractions(_mockProducer);
   }
@@ -1283,46 +1291,51 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     Status writeAspect2a = new Status().setRemoved(false);
     Status writeAspect2b = new Status().setRemoved(true);
 
-    List<UpsertBatchItem> items =
+    List<MCPUpsertBatchItem> items =
         List.of(
-            UpsertBatchItem.builder()
+            MCPUpsertBatchItem.builder()
                 .urn(entityUrn)
                 .aspectName(aspectName)
                 .aspect(writeAspect1)
                 .systemMetadata(metadata1)
-                .build(_testEntityRegistry),
-            UpsertBatchItem.builder()
+                .auditStamp(TEST_AUDIT_STAMP)
+                .build(_testEntityRegistry, _entityServiceImpl.getSystemEntityClient()),
+            MCPUpsertBatchItem.builder()
                 .urn(entityUrn)
                 .aspectName(aspectName)
                 .aspect(writeAspect1a)
                 .systemMetadata(metadata1)
-                .build(_testEntityRegistry),
-            UpsertBatchItem.builder()
+                .auditStamp(TEST_AUDIT_STAMP)
+                .build(_testEntityRegistry, _entityServiceImpl.getSystemEntityClient()),
+            MCPUpsertBatchItem.builder()
                 .urn(entityUrn)
                 .aspectName(aspectName)
                 .aspect(writeAspect1b)
                 .systemMetadata(metadata1)
-                .build(_testEntityRegistry),
-            UpsertBatchItem.builder()
+                .auditStamp(TEST_AUDIT_STAMP)
+                .build(_testEntityRegistry, _entityServiceImpl.getSystemEntityClient()),
+            MCPUpsertBatchItem.builder()
                 .urn(entityUrn)
                 .aspectName(aspectName2)
                 .aspect(writeAspect2)
                 .systemMetadata(metadata1)
-                .build(_testEntityRegistry),
-            UpsertBatchItem.builder()
+                .auditStamp(TEST_AUDIT_STAMP)
+                .build(_testEntityRegistry, _entityServiceImpl.getSystemEntityClient()),
+            MCPUpsertBatchItem.builder()
                 .urn(entityUrn)
                 .aspectName(aspectName2)
                 .aspect(writeAspect2a)
                 .systemMetadata(metadata1)
-                .build(_testEntityRegistry),
-            UpsertBatchItem.builder()
+                .auditStamp(TEST_AUDIT_STAMP)
+                .build(_testEntityRegistry, _entityServiceImpl.getSystemEntityClient()),
+            MCPUpsertBatchItem.builder()
                 .urn(entityUrn)
                 .aspectName(aspectName2)
                 .aspect(writeAspect2b)
                 .systemMetadata(metadata1)
-                .build(_testEntityRegistry));
-    _entityServiceImpl.ingestAspects(
-        AspectsBatchImpl.builder().items(items).build(), TEST_AUDIT_STAMP, true, true);
+                .auditStamp(TEST_AUDIT_STAMP)
+                .build(_testEntityRegistry, _entityServiceImpl.getSystemEntityClient()));
+    _entityServiceImpl.ingestAspects(AspectsBatchImpl.builder().items(items).build(), true, true);
 
     assertEquals(_entityServiceImpl.getAspect(entityUrn, aspectName, 1), writeAspect1);
     assertEquals(_entityServiceImpl.getAspect(entityUrn, aspectName2, 1), writeAspect2);
@@ -1347,20 +1360,21 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
 
     items =
         List.of(
-            UpsertBatchItem.builder()
+            MCPUpsertBatchItem.builder()
                 .urn(entityUrn)
                 .aspectName(aspectName)
                 .aspect(writeAspect1c)
                 .systemMetadata(metadata1)
-                .build(_testEntityRegistry),
-            UpsertBatchItem.builder()
+                .auditStamp(TEST_AUDIT_STAMP)
+                .build(_testEntityRegistry, _entityServiceImpl.getSystemEntityClient()),
+            MCPUpsertBatchItem.builder()
                 .urn(entityUrn)
                 .aspectName(aspectName2)
                 .aspect(writeAspect2c)
                 .systemMetadata(metadata1)
-                .build(_testEntityRegistry));
-    _entityServiceImpl.ingestAspects(
-        AspectsBatchImpl.builder().items(items).build(), TEST_AUDIT_STAMP, true, true);
+                .auditStamp(TEST_AUDIT_STAMP)
+                .build(_testEntityRegistry, _entityServiceImpl.getSystemEntityClient()));
+    _entityServiceImpl.ingestAspects(AspectsBatchImpl.builder().items(items).build(), true, true);
 
     assertNull(_entityServiceImpl.getAspect(entityUrn, aspectName, 1));
     assertEquals(_entityServiceImpl.getAspect(entityUrn, aspectName2, 1), writeAspect2);

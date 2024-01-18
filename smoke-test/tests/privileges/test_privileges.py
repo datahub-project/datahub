@@ -63,7 +63,7 @@ def _ensure_cant_perform_action(session, json,assertion_key):
     action_response.raise_for_status()
     action_data = action_response.json()
 
-    assert action_data["errors"][0]["extensions"]["code"] == 403
+    assert action_data["errors"][0]["extensions"]["code"] == 403, action_data["errors"][0]
     assert action_data["errors"][0]["extensions"]["type"] == "UNAUTHORIZED"
     assert action_data["data"][assertion_key] == None
 
@@ -367,8 +367,9 @@ def test_privilege_to_create_and_manage_policies():
 
     # Verify new user can't create a policy
     create_policy = {
-        "query": """mutation createPolicy($input: PolicyUpdateInput!) {\n
-            createPolicy(input: $input) }""",
+        "query": """mutation createPolicy($input: PolicyUpdateInput!) {
+            createPolicy(input: $input) 
+        }""",
         "variables": {
             "input": {
                 "type": "PLATFORM",

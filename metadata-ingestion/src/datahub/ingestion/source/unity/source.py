@@ -58,6 +58,10 @@ from datahub.ingestion.source.unity.config import (
 )
 from datahub.ingestion.source.unity.connection_test import UnityCatalogConnectionTest
 from datahub.ingestion.source.unity.ge_profiler import UnityCatalogGEProfiler
+from datahub.ingestion.source.unity.hive_metastore_proxy import (
+    HIVE_METASTORE,
+    HiveMetastoreProxy,
+)
 from datahub.ingestion.source.unity.proxy import UnityCatalogApiProxy
 from datahub.ingestion.source.unity.proxy_types import (
     DATA_TYPE_REGISTRY,
@@ -142,12 +146,17 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
         self.config = config
         self.report: UnityCatalogReport = UnityCatalogReport()
+
+        self.init_hive_metastore_proxy()
+
         self.unity_catalog_api_proxy = UnityCatalogApiProxy(
             config.workspace_url,
             config.token,
-            config.profiling.warehouse_id,
+            config.warehouse_id,
             report=self.report,
+            hive_metastore_proxy=self.hive_metastore_proxy,
         )
+
         self.external_url_base = urljoin(self.config.workspace_url, "/explore/data")
 
         # Determine the platform_instance_name
@@ -174,6 +183,23 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         # Global map of tables, for profiling
         self.tables: FileBackedDict[Table] = FileBackedDict()
 
+    def init_hive_metastore_proxy(self):
+        self.hive_metastore_proxy: Optional[HiveMetastoreProxy] = None
+        if self.config.include_hive_metastore:
+            try:
+                self.hive_metastore_proxy = HiveMetastoreProxy(
+                    self.config.get_sql_alchemy_url(HIVE_METASTORE), self.config.options
+                )
+                self.report.hive_metastore_catalog_found = True
+            except Exception as e:
+                logger.debug("Exception", exc_info=True)
+                self.warn(
+                    logger,
+                    HIVE_METASTORE,
+                    f"Failed to connect to hive_metastore due to {e}",
+                )
+                self.report.hive_metastore_catalog_found = False
+
     @staticmethod
     def test_connection(config_dict: dict) -> TestConnectionReport:
         return UnityCatalogConnectionTest(config_dict).get_connection_test()
@@ -194,7 +220,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         self.report.report_ingestion_stage_start("Ingestion Setup")
         wait_on_warehouse = None
-        if self.config.is_profiling_enabled():
+        if self.config.is_profiling_enabled() or self.config.include_hive_metastore:
             self.report.report_ingestion_stage_start("Start warehouse")
             # Can take several minutes, so start now and wait later
             wait_on_warehouse = self.unity_catalog_api_proxy.start_warehouse()
@@ -204,6 +230,9 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                     f"SQL warehouse {self.config.profiling.warehouse_id} not found",
                 )
                 return
+            else:
+                # wait until warehouse is started
+                wait_on_warehouse.result()
 
         if self.config.include_ownership:
             self.report.report_ingestion_stage_start("Ingest service principals")
@@ -275,22 +304,28 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             yield from self._gen_notebook_workunits(notebook)
 
     def _gen_notebook_workunits(self, notebook: Notebook) -> Iterable[MetadataWorkUnit]:
+
+        properties = {"path": notebook.path}
+        if notebook.language:
+            properties["language"] = notebook.language.value
+
         mcps = MetadataChangeProposalWrapper.construct_many(
             entityUrn=self.gen_notebook_urn(notebook),
             aspects=[
                 DatasetPropertiesClass(
                     name=notebook.path.rsplit("/", 1)[-1],
-                    customProperties={
-                        "path": notebook.path,
-                        "language": notebook.language.value,
-                    },
+                    customProperties=properties,
                     externalUrl=urljoin(
                         self.config.workspace_url, f"#notebook/{notebook.id}"
                     ),
-                    created=TimeStampClass(int(notebook.created_at.timestamp() * 1000)),
+                    created=TimeStampClass(int(notebook.created_at.timestamp() * 1000))
+                    if notebook.created_at
+                    else None,
                     lastModified=TimeStampClass(
                         int(notebook.modified_at.timestamp() * 1000)
-                    ),
+                    )
+                    if notebook.modified_at
+                    else None,
                 ),
                 SubTypesClass(typeNames=[DatasetSubTypes.NOTEBOOK]),
                 BrowsePathsClass(paths=notebook.path.split("/")),
@@ -323,6 +358,9 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         metastore: Optional[Metastore] = None
         if self.config.include_metastore:
             metastore = self.unity_catalog_api_proxy.assigned_metastore()
+            if not metastore:
+                self.report.report_failure("Metastore", "Not found")
+                return
             yield from self.gen_metastore_containers(metastore)
         yield from self.process_catalogs(metastore)
         if metastore and self.config.include_metastore:
@@ -676,20 +714,29 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         if table.generation is not None:
             custom_properties["generation"] = str(table.generation)
 
-        custom_properties["table_type"] = table.table_type.value
+        if table.table_type:
+            custom_properties["table_type"] = table.table_type.value
 
-        custom_properties["created_by"] = table.created_by
-        custom_properties["created_at"] = str(table.created_at)
+        if table.created_by:
+            custom_properties["created_by"] = table.created_by
         if table.properties:
             custom_properties.update({k: str(v) for k, v in table.properties.items()})
-        custom_properties["table_id"] = table.table_id
-        custom_properties["owner"] = table.owner
-        custom_properties["updated_by"] = table.updated_by
-        custom_properties["updated_at"] = str(table.updated_at)
+        if table.table_id:
+            custom_properties["table_id"] = table.table_id
+        if table.owner:
+            custom_properties["owner"] = table.owner
+        if table.updated_by:
+            custom_properties["updated_by"] = table.updated_by
+        if table.updated_at:
+            custom_properties["updated_at"] = str(table.updated_at)
 
-        created = TimeStampClass(
-            int(table.created_at.timestamp() * 1000), make_user_urn(table.created_by)
-        )
+        created: Optional[TimeStampClass] = None
+        if table.created_at:
+            custom_properties["created_at"] = str(table.created_at)
+            created = TimeStampClass(
+                int(table.created_at.timestamp() * 1000),
+                make_user_urn(table.created_by) if table.created_by else None,
+            )
         last_modified = created
         if table.updated_at:
             last_modified = TimeStampClass(
@@ -780,3 +827,9 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                     description=column.comment,
                 )
             ]
+
+    def close(self):
+        if self.hive_metastore_proxy:
+            self.hive_metastore_proxy.close()
+
+        super().close()

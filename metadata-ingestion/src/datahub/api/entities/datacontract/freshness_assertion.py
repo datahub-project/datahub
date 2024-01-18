@@ -3,11 +3,10 @@ from __future__ import annotations
 from datetime import timedelta
 from typing import List, Union
 
-import pydantic
 from typing_extensions import Literal
 
 from datahub.api.entities.datacontract.assertion import BaseAssertion
-from datahub.configuration.common import ConfigModel
+from datahub.configuration.pydantic_migration_helpers import v1_ConfigModel, v1_Field
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.schema_classes import (
     AssertionInfoClass,
@@ -25,10 +24,10 @@ from datahub.metadata.schema_classes import (
 class CronFreshnessAssertion(BaseAssertion):
     type: Literal["cron"]
 
-    cron: str = pydantic.Field(
+    cron: str = v1_Field(
         description="The cron expression to use. See https://crontab.guru/ for help."
     )
-    timezone: str = pydantic.Field(
+    timezone: str = v1_Field(
         "UTC",
         description="The timezone to use for the cron schedule. Defaults to UTC.",
     )
@@ -58,10 +57,10 @@ class FixedIntervalFreshnessAssertion(BaseAssertion):
         )
 
 
-class FreshnessAssertion(ConfigModel):
-    __root__: Union[
-        CronFreshnessAssertion, FixedIntervalFreshnessAssertion
-    ] = pydantic.Field(discriminator="type")
+class FreshnessAssertion(v1_ConfigModel):
+    __root__: Union[CronFreshnessAssertion, FixedIntervalFreshnessAssertion] = v1_Field(
+        discriminator="type"
+    )
 
     @property
     def id(self):

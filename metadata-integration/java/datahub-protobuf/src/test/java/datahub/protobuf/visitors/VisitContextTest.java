@@ -2,7 +2,7 @@ package datahub.protobuf.visitors;
 
 import static datahub.protobuf.TestFixtures.getTestProtobufFileSet;
 import static datahub.protobuf.TestFixtures.getTestProtobufGraph;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.testng.Assert.assertNotEquals;
 
 import com.google.protobuf.DescriptorProtos.FileDescriptorSet;
 import datahub.protobuf.model.FieldTypeEdge;
@@ -13,7 +13,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.jgrapht.GraphPath;
-import org.junit.jupiter.api.Test;
+import org.testng.annotations.Test;
 
 public class VisitContextTest {
 

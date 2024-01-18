@@ -34,7 +34,7 @@ public class Utils {
       @Nullable Integer start,
       @Nullable Integer batchSize,
       @Nonnull Authorizer authorizer,
-      @Nonnull EntityService entityService) {
+      @Nonnull EntityService<?> entityService) {
     Authentication authentication = AuthenticationContext.getAuthentication();
     EntitySpec resourceSpec = null;
     if (StringUtils.isNotBlank(urn)) {

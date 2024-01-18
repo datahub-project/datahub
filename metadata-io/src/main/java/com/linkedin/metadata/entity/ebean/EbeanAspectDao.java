@@ -7,13 +7,13 @@ import com.datahub.util.exception.ModelConversionException;
 import com.datahub.util.exception.RetryLimitReached;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.AspectMigrationsDao;
 import com.linkedin.metadata.entity.EntityAspect;
 import com.linkedin.metadata.entity.EntityAspectIdentifier;
 import com.linkedin.metadata.entity.ListResult;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
-import com.linkedin.metadata.entity.transactions.AspectsBatch;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.query.ExtraInfo;
@@ -477,11 +477,31 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
     if (args.urnLike != null) {
       exp = exp.like(EbeanAspectV2.URN_COLUMN, args.urnLike);
     }
+
+    int start = args.start;
+    if (args.urnBasedPagination) {
+      start = 0;
+      if (args.lastUrn != null && !args.lastUrn.isEmpty()) {
+        exp = exp.where().ge(EbeanAspectV2.URN_COLUMN, args.lastUrn);
+
+        // To prevent processing the same aspect multiple times in a restore, it compares against
+        // the last aspect if the urn matches the last urn
+        if (args.lastAspect != null && !args.lastAspect.isEmpty()) {
+          exp =
+              exp.where()
+                  .and()
+                  .or()
+                  .ne(EbeanAspectV2.URN_COLUMN, args.lastUrn)
+                  .gt(EbeanAspectV2.ASPECT_COLUMN, args.lastAspect);
+        }
+      }
+    }
+
     return exp.orderBy()
         .asc(EbeanAspectV2.URN_COLUMN)
         .orderBy()
         .asc(EbeanAspectV2.ASPECT_COLUMN)
-        .setFirstRow(args.start)
+        .setFirstRow(start)
         .setMaxRows(args.batchSize)
         .findPagedList();
   }

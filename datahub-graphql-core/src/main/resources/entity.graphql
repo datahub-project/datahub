@@ -583,6 +583,11 @@ type Mutation {
     createPost(input: CreatePostInput!): Boolean
 
     """
+    Update or edit a post
+    """
+    updatePost(input: UpdatePostInput!): Boolean
+
+    """
     Delete a post
     """
     deletePost(urn: String!): Boolean
@@ -2892,6 +2897,11 @@ type SchemaField {
     Whether the field is part of a partitioning key schema
     """
     isPartitioningKey: Boolean
+
+    """
+    For schema fields that have other properties that are not modeled explicitly, represented as a JSON string.
+    """
+    jsonProps: String
 }
 
 """
@@ -10212,6 +10222,26 @@ input CreatePostInput {
 }
 
 """
+Input provided when creating a Post
+"""
+input UpdatePostInput {
+    """
+    The urn of the post to edit or update
+    """
+    urn: String!,
+
+    """
+    The type of post
+    """
+    postType: PostType!
+
+    """
+    The content of the post
+    """
+    content: UpdatePostContentInput!
+}
+
+"""
 Input provided for filling in a post content
 """
 input UpdatePostContentInput {
@@ -11055,6 +11085,10 @@ input CreateDataProductInput {
     The primary key of the Domain
     """
     domainUrn: String!
+    """
+    An optional id for the new data product
+    """
+    id: String
 }
 
 """

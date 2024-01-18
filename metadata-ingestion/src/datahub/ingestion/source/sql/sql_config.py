@@ -112,7 +112,13 @@ class SQLCommonConfig(
         cls, values: Dict[str, Any]
     ) -> Dict[str, Any]:
         profiling: Optional[GEProfilingConfig] = values.get("profiling")
-        if profiling is not None and profiling.enabled:
+        # Note: isinstance() check is required here as unity-catalog source reuses
+        # SQLCommonConfig with different profiling config than GEProfilingConfig
+        if (
+            profiling is not None
+            and isinstance(profiling, GEProfilingConfig)
+            and profiling.enabled
+        ):
             profiling._allow_deny_patterns = values["profile_pattern"]
         return values
 

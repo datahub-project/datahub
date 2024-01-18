@@ -86,7 +86,7 @@ Depending on your issue, you may be interested to view both debug and normal inf
 Since log files are named based on the current date, you'll need to use "ls" to see which files currently exist. To do so, you can use the `kubectl exec` command, using the pod name recorded in step one:
 
 ```
-kubectl exec datahub-frontend-1231ead-6767 -n default -- ls -la /tmp/datahub/logs/gms
+kubectl exec datahub-gms-c578b47cd-7676 -n default -- ls -la /tmp/datahub/logs/gms
 
 total 36388
 drwxr-xr-x    2 datahub  datahub       4096 Jul 29 07:45 .
@@ -131,5 +131,5 @@ Now you should be able to view the logs locally.
 There are a few ways to get files out of the pod and into a local file. You can either use `kubectl cp` or simply `cat` and pipe the file of interest. We'll show an example using the latter approach:
 
 ```
-kubectl exec datahub-frontend-1231ead-6767 -n default -- cat /tmp/datahub/logs/gms/gms.log > my-local-gms.log
+kubectl exec datahub-gms-c578b47cd-7676 -n default -- cat /tmp/datahub/logs/gms/gms.log > my-local-gms.log
 ```
