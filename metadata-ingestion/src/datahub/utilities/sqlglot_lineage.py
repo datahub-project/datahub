@@ -1042,7 +1042,9 @@ def _sqlglot_lineage_inner(
         # is public, and "current schema" is the one at the front of the search path.
         # See https://docs.aws.amazon.com/redshift/latest/dg/r_search_path.html
         # and https://stackoverflow.com/questions/9067335/how-does-the-search-path-influence-identifier-resolution-and-the-current-schema?noredirect=1&lq=1
-        default_schema = "public"
+        # default_schema = "public"
+        # TODO: Re-enable this.
+        pass
 
     logger.debug("Parsing lineage from sql statement: %s", sql)
     statement = _parse_statement(sql, dialect=dialect)
