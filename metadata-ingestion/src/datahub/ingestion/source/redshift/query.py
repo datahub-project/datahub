@@ -384,7 +384,8 @@ SELECT  schemaname as schema_name,
                     target_schema,
                     target_table,
                     username,
-                    querytxt as ddl
+                    query as query_id,
+                    LISTAGG(CASE WHEN LEN(RTRIM(querytxt)) = 0 THEN querytxt ELSE RTRIM(querytxt) END) WITHIN GROUP (ORDER BY sequence) as ddl
                 from
                         (
                     select
@@ -393,7 +394,9 @@ SELECT  schemaname as schema_name,
                         sti.table as target_table,
                         sti.database as cluster,
                         usename as username,
-                        querytxt,
+                        text as querytxt,
+                        sq.query,
+                        sequence,
                         si.starttime as starttime
                     from
                         stl_insert as si
@@ -401,19 +404,20 @@ SELECT  schemaname as schema_name,
                         sti.table_id = tbl
                     left join svl_user_info sui on
                         si.userid = sui.usesysid
-                    left join stl_query sq on
+                    left join STL_QUERYTEXT sq on
                         si.query = sq.query
                     left join stl_load_commits slc on
                         slc.query = si.query
                     where
                         sui.usename <> 'rdsdb'
-                        and sq.aborted = 0
                         and slc.query IS NULL
                         and cluster = '{db_name}'
                         and si.starttime >= '{start_time}'
                         and si.starttime < '{end_time}'
+                        and cluster = 'dev'
                     ) as target_tables
-                    order by cluster, target_schema, target_table, starttime asc
+                    group by cluster, query_id, target_schema, target_table, username, starttime
+                    order by cluster, query_id, target_schema, target_table, starttime asc
                 """.format(
             # We need the original database name for filtering
             db_name=db_name,

@@ -367,7 +367,9 @@ class RedshiftDataDictionary:
                     target_table=row[field_names.index("target_table")]
                     if "target_table" in field_names
                     else None,
-                    ddl=row[field_names.index("ddl")] if "ddl" in field_names else None,
+                    ddl=row[field_names.index("ddl")].replace("\\n", "")
+                    if "ddl" in field_names
+                    else None,
                     filename=row[field_names.index("filename")]
                     if "filename" in field_names
                     else None,
