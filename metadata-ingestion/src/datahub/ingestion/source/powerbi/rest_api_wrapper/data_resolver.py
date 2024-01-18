@@ -11,7 +11,7 @@ from requests import Response
 from requests.adapters import HTTPAdapter
 from urllib3 import Retry
 
-from datahub.configuration.common import ConfigurationError, AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, ConfigurationError
 from datahub.ingestion.source.powerbi.config import Constant
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     Column,
