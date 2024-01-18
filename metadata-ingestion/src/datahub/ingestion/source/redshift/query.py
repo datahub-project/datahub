@@ -414,7 +414,6 @@ SELECT  schemaname as schema_name,
                         and cluster = '{db_name}'
                         and si.starttime >= '{start_time}'
                         and si.starttime < '{end_time}'
-                        and cluster = 'dev'
                     ) as target_tables
                     group by cluster, query_id, target_schema, target_table, username, starttime
                     order by cluster, query_id, target_schema, target_table, starttime asc

@@ -376,7 +376,9 @@ class RedshiftDataDictionary:
                     target_table=row[field_names.index("target_table")]
                     if "target_table" in field_names
                     else None,
-                    ddl=row[field_names.index("ddl")].replace("\\n", "")
+                    # See https://docs.aws.amazon.com/redshift/latest/dg/r_STL_QUERYTEXT.html
+                    # for why we need to remove the \\n.
+                    ddl=row[field_names.index("ddl")].replace("\\n", "\n")
                     if "ddl" in field_names
                     else None,
                     filename=row[field_names.index("filename")]
