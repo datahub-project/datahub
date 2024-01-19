@@ -1,5 +1,6 @@
 name: datahub-integrations-service docker
 on:
+  workflow_dispatch:
   push:
     branches:
       - acryl-main
@@ -8,7 +9,7 @@ on:
       - "**.md"
   pull_request:
     branches:
-      - acryl-main
+      - "**"
     paths-ignore:
       - "docs/**"
       - "**.md"
