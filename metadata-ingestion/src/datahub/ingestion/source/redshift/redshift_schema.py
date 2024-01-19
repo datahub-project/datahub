@@ -85,6 +85,7 @@ class TempTableRow:
     transaction_id: int
     session_id: str
     query_text: str
+    create_command: str
     start_time: datetime
 
 
@@ -405,6 +406,7 @@ class RedshiftDataDictionary:
                     transaction_id=row[field_names.index("transaction_id")],
                     session_id=row[field_names.index("session_id")],
                     query_text=row[field_names.index("query_text")],
+                    create_command=row[field_names.index("create_command")],
                     start_time=row[field_names.index("start_time")],
                 )
             rows = cursor.fetchmany()

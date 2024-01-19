@@ -470,22 +470,85 @@ SELECT  schemaname as schema_name,
 
         end_time_str: str = end_time.strftime(redshift_datetime_format)
 
+        # return f"""
+        #    SELECT * from (
+        #        SELECT  transaction_id,
+        #                session_id,
+        #                start_time,
+        #                query_text,
+        #                row_number() over (partition by query_text order by start_time desc) rn
+        #        FROM       sys_query_history SYS
+        #        WHERE      SYS.status = 'success'
+        #        AND        SYS.query_type in ('DDL', 'CTAS')
+        #        AND        SYS.start_time >= '{start_time_str}'
+        #        AND        SYS.end_time < '{end_time_str}'
+        #        AND        SYS.query_text ILIKE 'create temp table %' OR SYS.query_text ILIKE 'create temporary table %' or SYS.query_text ilike 'create table #%'
+        #        )
+        #    WHERE rn = 1
+        # """
+
         return f"""
-            SELECT * from (
-                SELECT  transaction_id,
-                        session_id,
+            select
+                *
+            from
+                (
+                select
+                    session_id,
+                    transaction_id,
+                    start_time,
+                    userid,
+                    REGEXP_REPLACE(REGEXP_SUBSTR(REGEXP_REPLACE(query_text,
+                    '\\\\\\\\n',
+                    '\\\\n'),
+                    'create([\\\\n\\\\s\\\\t]+)?(temp)?[\\\\n\\\\s\\\\t]+table([\\\\n\\\\s\\\\t]+)([#a-zA-Z0-9_-]+)',
+                    0,
+                    1,
+                    'ip'),
+                    '[\\\\n\\\\s\\\\t]+',
+                    ' ',
+                    1,
+                    'p') as create_command,
+                    query_text,
+                    row_number() over (partition by TRIM(query_text)
+                order by
+                    start_time desc) rn
+                from
+                    (
+                    select
+                        pid as session_id,
+                        xid as transaction_id,
+                        starttime as start_time,
+                        type,
+                        userid,
+                        LISTAGG(case
+                            when LEN(RTRIM(text)) = 0 then text
+                            else RTRIM(text)
+                        end) within group (
+                    order by
+                        sequence) as query_text
+                    from
+                        SVL_STATEMENTTEXT
+                    where
+                        type in ('DDL', 'QUERY')
+                        AND        start_time >= '{start_time_str}'
+                        AND        start_time < '{end_time_str}'
+                    group by
+                        pid,
+                        xid,
                         start_time,
-                        query_text,
-                        row_number() over (partition by query_text order by start_time desc) rn
-                FROM       sys_query_history SYS
-                WHERE      SYS.status = 'success'
-                AND        SYS.query_type in ('DDL', 'CTAS')
-                AND        SYS.start_time >= '{start_time_str}'
-                AND        SYS.end_time < '{end_time_str}'
-                AND        SYS.query_text ILIKE 'create temp table %' OR SYS.query_text ILIKE 'create temporary table %' or SYS.query_text ilike 'create table #%'
+                        type,
+                        userid
                 )
-            WHERE rn = 1
-        """
+                where
+                    query_text ilike 'create%'
+                    and (create_command ilike 'create temp table %'
+                        or create_command ilike 'create temporary table %'
+                        or create_command ilike 'create table #%')
+                    and query_text not ilike 'CREATE TEMP TABLE volt_tt_%'
+            )
+            where
+                rn = 1;
+            """
 
     @staticmethod
     def alter_table_rename_query(

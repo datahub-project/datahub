@@ -476,7 +476,7 @@ class RedshiftLineageExtractor:
         raw_db_name: str,
         connection: redshift_connector.Connection,
     ) -> List[LineageDataset]:
-        targe_source = []
+        target_source = []
         probable_temp_tables: List[str] = []
 
         for source in sources:
@@ -510,9 +510,10 @@ class RedshiftLineageExtractor:
                     self.report.num_lineage_tables_dropped += 1
                     continue
 
-            targe_source.append(source)
+            target_source.append(source)
 
         if probable_temp_tables and self.config.resolve_temp_table_in_lineage:
+            self.report.num_lineage_processed_temp_tables += len(probable_temp_tables)
             # Generate lineage dataset from temporary tables
             lineage_datasets: List[LineageDataset] = self.get_permanent_datasets(
                 db_name=raw_db_name,
@@ -520,14 +521,12 @@ class RedshiftLineageExtractor:
                 temp_table_names=probable_temp_tables,
             )
             logger.debug(
-                f"Number of permanent datasets found for {target_table} = {len(lineage_datasets)}"
+                f"Number of permanent datasets found for {target_table} = {len(lineage_datasets)} in temp tables {probable_temp_tables}"
             )
-            targe_source.extend(lineage_datasets)
 
-            # correct the table drop count
-            self.report.num_lineage_tables_dropped -= len(lineage_datasets)
+            target_source.extend(lineage_datasets)
 
-        return targe_source
+        return target_source
 
     def populate_lineage(
         self,
@@ -793,7 +792,7 @@ class RedshiftLineageExtractor:
         for table_name in temp_table_names:
             for row in temp_table_rows:
                 if any(
-                    row.query_text.lower().startswith(prefix)
+                    row.create_command.lower().startswith(prefix)
                     for prefix in RedshiftQuery.get_temp_table_clause(table_name)
                 ):
                     matched_temp_tables.append(row)
