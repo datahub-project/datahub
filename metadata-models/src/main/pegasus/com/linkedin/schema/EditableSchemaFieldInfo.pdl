@@ -15,5 +15,12 @@ record EditableSchemaFieldInfo includes EditableSchemaFieldBase {
           "entityTypes": [ "businessAttribute" ]
         }
       }
+      @Searchable = {
+          "/destinationUrn": {
+            "fieldName": "editedFieldBusinessAttribute",
+            "fieldType": "URN",
+            "boostScore": 0.5
+          }
+      }
     businessAttribute: optional BusinessAttributeAssociation
 }

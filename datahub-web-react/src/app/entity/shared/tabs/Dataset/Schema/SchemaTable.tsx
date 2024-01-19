@@ -173,7 +173,7 @@ export default function SchemaTable({
     };
 
     const businessAttributeColumn = {
-        width: '13%',
+        width: '18%',
         title: 'Business Attributes',
         dataIndex: 'businessAttribute',
         key: 'businessAttribute',

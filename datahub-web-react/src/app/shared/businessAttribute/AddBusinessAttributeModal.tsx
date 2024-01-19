@@ -39,6 +39,8 @@ const StyleTag = styled(CustomTag)`
     opacity: 1;
     color: #434343;
     line-height: 16px;
+    white-space: normal;
+    word-break: break-all;
 `;
 
 export const BrowserWrapper = styled.div<{ isHidden: boolean; width?: string; maxHeight?: number }>`

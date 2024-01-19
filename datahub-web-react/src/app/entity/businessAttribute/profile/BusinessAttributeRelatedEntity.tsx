@@ -12,7 +12,7 @@ export default function BusinessAttributeRelatedEntity() {
     const fixedOrFilters =
         (entityUrn && [
             {
-                field: 'businessAttributes',
+                field: 'businessAttribute',
                 values: [entityUrn],
             },
         ]) ||
