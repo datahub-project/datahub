@@ -1,6 +1,6 @@
-import requests_wrapper as requests
 from tests.consistency_utils import wait_for_writes_to_sync
 from tests.utils import (get_frontend_url, wait_for_writes_to_sync, get_admin_credentials)
+from datahub.cli import cli_utils
 
 
 def set_base_platform_privileges_policy_status(status, session):
@@ -150,14 +150,11 @@ def create_user(session, email, password):
 
 
 def login_as(username, password):
-    session = requests.Session()
-    headers = {
-        "Content-Type": "application/json",
-    }
-    data = '{"username":"' + username + '", "password":"' + password + '"}'
-    response = session.post(f"{get_frontend_url()}/logIn", headers=headers, data=data)
-    response.raise_for_status()
-    return session
+    return cli_utils.get_session_login_as(
+        username=username,
+        password=password,
+        frontend_url=get_frontend_url(),
+    )
 
 def remove_user(session, urn):
     json = {

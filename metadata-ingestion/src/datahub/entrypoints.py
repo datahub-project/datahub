@@ -10,6 +10,8 @@ import datahub as datahub_package
 from datahub.cli.check_cli import check
 from datahub.cli.cli_utils import (
     DATAHUB_CONFIG_PATH,
+    ensure_valid_gms_url,
+    generate_access_token,
     get_boolean_env_variable,
     make_shim_command,
     write_gms_config,
@@ -109,8 +111,15 @@ def version() -> None:
 
 
 @datahub.command()
+@click.option(
+    "--use-password",
+    type=bool,
+    is_flag=True,
+    default=False,
+    help="If passed then uses password to initialise token.",
+)
 @telemetry.with_telemetry()
-def init() -> None:
+def init(use_password: bool = False) -> None:
     """Configure which datahub instance to connect to"""
 
     if os.path.isfile(DATAHUB_CONFIG_PATH):
@@ -120,11 +129,22 @@ def init() -> None:
     host = click.prompt(
         "Enter your DataHub host", type=str, default="http://localhost:8080"
     )
-    token = click.prompt(
-        "Enter your DataHub access token (Supports env vars via `{VAR_NAME}` syntax)",
-        type=str,
-        default="",
-    )
+    host = ensure_valid_gms_url(host)
+    if use_password:
+        username = click.prompt("Enter your DataHub username", type=str)
+        password = click.prompt(
+            "Enter your DataHub password",
+            type=str,
+        )
+        _, token = generate_access_token(
+            username=username, password=password, gms_url=host
+        )
+    else:
+        token = click.prompt(
+            "Enter your DataHub access token (Supports env vars via `{VAR_NAME}` syntax)",
+            type=str,
+            default="",
+        )
     write_gms_config(host, token)
 
     click.echo(f"Written to {DATAHUB_CONFIG_PATH}")

@@ -686,3 +686,95 @@ def make_shim_command(name: str, suggestion: str) -> click.Command:
         ctx.exit(1)
 
     return command
+
+
+def get_session_login_as(
+    username: str, password: str, frontend_url: str
+) -> requests.Session:
+    session = requests.Session()
+    headers = {
+        "Content-Type": "application/json",
+    }
+    system_auth = get_system_auth()
+    if system_auth is not None:
+        session.headers.update({"Authorization": system_auth})
+    else:
+        data = '{"username":"' + username + '", "password":"' + password + '"}'
+        response = session.post(f"{frontend_url}/logIn", headers=headers, data=data)
+        response.raise_for_status()
+    return session
+
+
+def ensure_valid_gms_url_acryl_cloud(url: str) -> str:
+    if "acryl.io" not in url:
+        return url
+    if url.startswith("http://"):
+        url = url.replace("http://", "https://")
+    if url.endswith("acryl.io"):
+        url = f"{url}/gms"
+    return url
+
+
+def ensure_valid_gms_url(url: str) -> str:
+    if url is None:
+        return ""
+    if url.endswith("/"):
+        url = url.rstrip("/")
+    url = ensure_valid_gms_url_acryl_cloud(url)
+    return url
+
+
+def get_frontend_url_from_gms_url(gms_url: str) -> str:
+    gms_url = ensure_valid_gms_url(gms_url)
+    url = gms_url
+    if url.endswith("/gms"):
+        url = gms_url.rstrip("/gms")
+    if url.endswith("8080"):
+        url = url[:-4] + "9002"
+    return url
+
+
+def generate_access_token(
+    username: str,
+    password: str,
+    gms_url: str,
+    token_name: Optional[str] = None,
+    validity: str = "ONE_HOUR",
+) -> Tuple[str, str]:
+    frontend_url = get_frontend_url_from_gms_url(gms_url)
+    session = get_session_login_as(
+        username=username,
+        password=password,
+        frontend_url=frontend_url,
+    )
+    now = datetime.now()
+    timestamp = now.astimezone().isoformat()
+    if token_name is None:
+        token_name = f"cli token {timestamp}"
+    json = {
+        "query": """mutation createAccessToken($input: CreateAccessTokenInput!) {
+            createAccessToken(input: $input) {
+              accessToken
+              metadata {
+                id
+                actorUrn
+                ownerUrn
+                name
+                description
+              }
+            }
+        }""",
+        "variables": {
+            "input": {
+                "type": "PERSONAL",
+                "actorUrn": f"urn:li:corpuser:{username}",
+                "duration": validity,
+                "name": token_name,
+            }
+        },
+    }
+    response = session.post(f"{frontend_url}/api/v2/graphql", json=json)
+    response.raise_for_status()
+    return token_name, response.json().get("data", {}).get("createAccessToken", {}).get(
+        "accessToken", None
+    )
