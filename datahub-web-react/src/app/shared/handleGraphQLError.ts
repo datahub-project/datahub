@@ -4,19 +4,35 @@ import { ErrorCodes } from './constants';
 
 interface Props {
     error: ErrorResponse;
-    permissionMessage: string;
     defaultMessage: string;
+    permissionMessage?: string;
+    badRequestMessage?: string;
+    serverErrorMessage?: string;
 }
 
-export default function handleGraphQLError({ error, permissionMessage, defaultMessage }: Props) {
+export default function handleGraphQLError({
+    error,
+    permissionMessage,
+    defaultMessage,
+    badRequestMessage,
+    serverErrorMessage,
+}: Props) {
     // destroy the default error message from errorLink in App.tsx
     message.destroy();
     const { graphQLErrors } = error;
     if (graphQLErrors && graphQLErrors.length) {
         const { extensions } = graphQLErrors[0];
         const errorCode = extensions && (extensions.code as number);
-        if (errorCode === ErrorCodes.Unauthorized) {
+        if (errorCode === ErrorCodes.Forbidden && permissionMessage) {
             message.error(permissionMessage);
+            return;
+        }
+        if (errorCode === ErrorCodes.BadRequest && badRequestMessage) {
+            message.error(badRequestMessage);
+            return;
+        }
+        if (errorCode === ErrorCodes.ServerError && serverErrorMessage) {
+            message.error(serverErrorMessage);
             return;
         }
     }
