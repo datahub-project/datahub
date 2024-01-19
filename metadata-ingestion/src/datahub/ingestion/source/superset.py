@@ -267,13 +267,35 @@ class SupersetSource(StatefulIngestionSourceBase):
                 f"urn:li:chart:({self.platform},{value.get('meta', {}).get('chartId', 'unknown')})"
             )
 
+        # Build properties
+        custom_properties = {
+            "Status": str(dashboard_data.get("status")),
+            "IsPublished": str(dashboard_data.get("published", False)).lower(),
+            "Owners": ", ".join(
+                map(
+                    lambda owner: owner.get("username", None),
+                    dashboard_data.get("owners", []),
+                )
+            ),
+            "IsCertified": str(
+                True if dashboard_data.get("certified_by") else False
+            ).lower(),
+        }
+
+        if dashboard_data.get("certified_by"):
+            custom_properties["CertifiedBy"] = dashboard_data.get("certified_by")
+            custom_properties["CertificationDetails"] = str(
+                dashboard_data.get("certification_details")
+            )
+
+        # Create DashboardInfo object
         dashboard_info = DashboardInfoClass(
             description="",
             title=title,
             charts=chart_urns,
             lastModified=last_modified,
             dashboardUrl=dashboard_url,
-            customProperties={},
+            customProperties=custom_properties,
         )
         dashboard_snapshot.aspects.append(dashboard_info)
         return dashboard_snapshot
