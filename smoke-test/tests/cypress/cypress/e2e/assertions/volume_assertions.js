@@ -2,6 +2,10 @@ import { aliasQuery, hasOperationName } from "../utils";
 const datasetUrn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,climate.daily_temperature,PROD)";
 const datasetName = "daily_temperature";
 
+const enableButtonWithText = (text) => {
+  cy.contains('button', text).should('be.enabled')
+}
+
 describe("create and manage volume assertion", () => {
     beforeEach(() => {
       cy.intercept("POST", "/api/v2/graphql", (req) => {
@@ -27,7 +31,8 @@ describe("create and manage volume assertion", () => {
       cy.goToDataset(datasetUrn, datasetName);
       cy.openEntityTab("Validation");
       cy.waitTextVisible("No assertions have run");
-      cy.contains("Create Assertion").click();
+      enableButtonWithText('Create Assertion')
+      cy.clickOptionWithText("Create Assertion");
       cy.waitTextVisible("New Assertion Monitor");
       cy.clickOptionWithText("Volume");
       cy.waitTextVisible("Check table volume");
