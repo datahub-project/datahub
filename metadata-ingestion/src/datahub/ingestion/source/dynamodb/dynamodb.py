@@ -55,6 +55,7 @@ from datahub.metadata.schema_classes import (
     DataPlatformInstanceClass,
     DatasetPropertiesClass,
 )
+from datahub.utilities.registries.domain_registry import DomainRegistry
 
 MAX_ITEMS_TO_RETRIEVE = 100
 PAGE_SIZE = 100
@@ -161,6 +162,11 @@ class DynamoDBSource(StatefulIngestionSourceBase):
         self.config = config
         self.report = DynamoDBSourceReport()
         self.platform = platform
+
+        if self.config.domain:
+            self.domain_registry = DomainRegistry(
+            cached_domains=[domain_id for domain_id in self.config.domain],
+            graph=self.ctx.graph)
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "DynamoDBSource":
@@ -493,17 +499,16 @@ class DynamoDBSource(StatefulIngestionSourceBase):
     def get_report(self) -> DynamoDBSourceReport:
         return self.report
 
-    def _gen_domain_urn(self, dataset_name: str) -> Optional[str]:
+
+    def _get_domain_wu(self, dataset_name: str, entity_urn: str) -> Iterable[MetadataWorkUnit]:
+        domain_urn = None
         for domain, pattern in self.config.domain.items():
             if pattern.allowed(dataset_name):
-                return make_domain_urn(domain)
+                domain_urn = make_domain_urn(
+                    self.domain_registry.get_domain_urn(domain)
+                )
+                break
 
-        return None
-
-    def _get_domain_wu(
-        self, dataset_name: str, entity_urn: str
-    ) -> Iterable[MetadataWorkUnit]:
-        domain_urn = self._gen_domain_urn(dataset_name)
         if domain_urn:
             yield from add_domain_to_entity_wu(
                 entity_urn=entity_urn,
