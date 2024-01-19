@@ -793,6 +793,7 @@ jobs:
         datahub_upgrade_build,
         datahub_ingestion_slim_build,
       ]
+    if: ${{ always() && !failure() && !cancelled() }}
     steps:
       - name: Disk Check
         run: df -h . && docker images
