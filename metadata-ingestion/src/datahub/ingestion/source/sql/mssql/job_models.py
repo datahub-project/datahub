@@ -16,7 +16,7 @@ class ProcedureDependency:
     name: str
     type: str
     env: str
-    server: str
+    server: Optional[str]
     source: str = "mssql"
 
 
@@ -164,7 +164,9 @@ class MSSQLDataJob:
             flow_id=self.entity.flow.formatted_name,
             job_id=self.entity.formatted_name,
             cluster=self.entity.flow.cluster,
-            platform_instance=self.entity.flow.platform_instance,
+            platform_instance=self.entity.flow.platform_instance
+            if self.entity.flow.platform_instance
+            else None,
         )
 
     def add_property(
@@ -221,7 +223,9 @@ class MSSQLDataFlow:
             orchestrator=self.entity.orchestrator,
             flow_id=self.entity.formatted_name,
             cluster=self.entity.cluster,
-            platform_instance=self.entity.platform_instance,
+            platform_instance=self.entity.platform_instance
+            if self.entity.platform_instance
+            else None,
         )
 
     @property
