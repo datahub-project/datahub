@@ -7,5 +7,5 @@ public class ConsumerConfiguration {
 
   private int maxPartitionFetchBytes;
   private boolean stopOnDeserializationError;
-  private boolean restartOnFailure;
+  private boolean healthCheckEnabled;
 }

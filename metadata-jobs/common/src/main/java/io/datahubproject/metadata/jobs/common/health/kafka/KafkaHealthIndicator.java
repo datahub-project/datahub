@@ -43,7 +43,7 @@ public class KafkaHealthIndicator extends AbstractHealthIndicator {
             .collect(
                 Collectors.toMap(
                     MessageListenerContainer::getListenerId, this::buildConsumerDetails));
-    if (isContainerDown && configurationProvider.getKafka().getConsumer().isRestartOnFailure()) {
+    if (isContainerDown && configurationProvider.getKafka().getConsumer().isHealthCheckEnabled()) {
       kafkaStatus = Status.DOWN;
     }
     builder.status(kafkaStatus).withDetails(details).build();
