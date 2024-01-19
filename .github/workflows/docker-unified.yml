@@ -51,9 +51,18 @@ jobs:
       short_sha: ${{ steps.tag.outputs.short_sha }}
       branch_name: ${{ steps.tag.outputs.branch_name }}
       repository_name: ${{ steps.tag.outputs.repository_name }}
+      frontend_change: ${{ steps.ci-optimize.outputs.frontend-change == 'true' }}
+      ingestion_change: ${{ steps.ci-optimize.outputs.ingestion-change == 'true' }}
+      backend_change: ${{ steps.ci-optimize.outputs.backend-change == 'true' }}
+      frontend_only: ${{ steps.ci-optimize.outputs.frontend-only == 'true' }}
+      ingestion_only: ${{ steps.ci-optimize.outputs.ingestion-only == 'true' }}
+      kafka_setup_change: ${{ steps.ci-optimize.outputs.kafka-setup-change == 'true' }}
+      mysql_setup_change: ${{ steps.ci-optimize.outputs.mysql-setup-change == 'true' }}
+      postgres_setup_change: ${{ steps.ci-optimize.outputs.postgres-setup-change == 'true' }}
+      elasticsearch_setup_change: ${{ steps.ci-optimize.outputs.elasticsearch-setup-change == 'true' }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v3
+      - name: Check out the repo
+        uses: hsheth2/sane-checkout-action@v1
       - name: Compute Tag
         id: tag
         run: |
@@ -75,11 +84,16 @@ jobs:
         run: |
           echo "Enable publish: ${{ env.ENABLE_PUBLISH }}"
           echo "publish=${{ env.ENABLE_PUBLISH }}" >> $GITHUB_OUTPUT
+      - uses: ./.github/actions/ci-optimization
+        id: ci-optimize
 
   gms_build:
     name: Build and Push DataHub GMS Docker Image
     runs-on: ubuntu-latest
     needs: setup
+    if: ${{ needs.setup.outputs.backend_change == 'true' || needs.setup.outputs.publish == 'true' }}
+    outputs:
+      run_scan: ${{ steps.ci-optimize.outputs.backend-change == 'true' }}
     steps:
       - name: Set up JDK 17
         uses: actions/setup-java@v3
@@ -113,6 +127,7 @@ jobs:
     name: "[Monitoring] Scan GMS images for vulnerabilities"
     runs-on: ubuntu-latest
     needs: [setup, gms_build]
+    if: ${{ needs.setup.outputs.backend_change == 'true' || needs.setup.outputs.publish == 'true' }}
     steps:
       - name: Checkout # adding checkout step just to make trivy upload happy
         uses: actions/checkout@v3
@@ -142,6 +157,7 @@ jobs:
     name: Build and Push DataHub MAE Consumer Docker Image
     runs-on: ubuntu-latest
     needs: setup
+    if: ${{ needs.setup.outputs.backend_change == 'true' || needs.setup.outputs.publish == 'true' }}
     steps:
       - name: Set up JDK 17
         uses: actions/setup-java@v3
@@ -171,6 +187,7 @@ jobs:
     name: "[Monitoring] Scan MAE consumer images for vulnerabilities"
     runs-on: ubuntu-latest
     needs: [setup, mae_consumer_build]
+    if: ${{ needs.setup.outputs.backend_change == 'true' || needs.setup.outputs.publish == 'true' }}
     permissions:
       contents: read # for actions/checkout to fetch code
       security-events: write # for github/codeql-action/upload-sarif to upload SARIF results
@@ -204,6 +221,7 @@ jobs:
     name: Build and Push DataHub MCE Consumer Docker Image
     runs-on: ubuntu-latest
     needs: setup
+    if: ${{ needs.setup.outputs.backend_change == 'true' || needs.setup.outputs.publish == 'true' }}
     steps:
       - name: Set up JDK 17
         uses: actions/setup-java@v3
@@ -233,6 +251,7 @@ jobs:
     name: "[Monitoring] Scan MCE consumer images for vulnerabilities"
     runs-on: ubuntu-latest
     needs: [setup, mce_consumer_build]
+    if: ${{ needs.setup.outputs.backend_change == 'true' || needs.setup.outputs.publish == 'true' }}
     permissions:
       contents: read # for actions/checkout to fetch code
       security-events: write # for github/codeql-action/upload-sarif to upload SARIF results
@@ -266,6 +285,7 @@ jobs:
     name: Build and Push DataHub Upgrade Docker Image
     runs-on: ubuntu-latest
     needs: setup
+    if: ${{ needs.setup.outputs.backend_change == 'true' || needs.setup.outputs.publish == 'true' }}
     steps:
       - name: Set up JDK 17
         uses: actions/setup-java@v3
@@ -295,6 +315,7 @@ jobs:
     name: "[Monitoring] Scan DataHub Upgrade images for vulnerabilities"
     runs-on: ubuntu-latest
     needs: [setup, datahub_upgrade_build]
+    if: ${{ needs.setup.outputs.backend_change == 'true' || needs.setup.outputs.publish == 'true' }}
     permissions:
       contents: read # for actions/checkout to fetch code
       security-events: write # for github/codeql-action/upload-sarif to upload SARIF results
@@ -328,6 +349,7 @@ jobs:
     name: Build and Push DataHub Frontend Docker Image
     runs-on: ubuntu-latest
     needs: setup
+    if: ${{ needs.setup.outputs.frontend_change == 'true' || needs.setup.outputs.publish == 'true' }}
     steps:
       - name: Set up JDK 17
         uses: actions/setup-java@v3
@@ -359,6 +381,7 @@ jobs:
     name: "[Monitoring] Scan Frontend images for vulnerabilities"
     runs-on: ubuntu-latest
     needs: [setup, frontend_build]
+    if: ${{ needs.setup.outputs.frontend_change == 'true' || needs.setup.outputs.publish == 'true' }}
     permissions:
       contents: read # for actions/checkout to fetch code
       security-events: write # for github/codeql-action/upload-sarif to upload SARIF results
@@ -392,6 +415,7 @@ jobs:
     name: Build and Push DataHub Kafka Setup Docker Image
     runs-on: ubuntu-latest
     needs: setup
+    if: ${{ needs.setup.outputs.kafka_setup_change == 'true' || needs.setup.outputs.publish == 'true' }}
     steps:
       - name: Check out the repo
         uses: hsheth2/sane-checkout-action@v1
@@ -412,6 +436,7 @@ jobs:
     name: Build and Push DataHub MySQL Setup Docker Image
     runs-on: ubuntu-latest
     needs: setup
+    if: ${{ needs.setup.outputs.mysql_setup_change == 'true' || needs.setup.outputs.publish == 'true' }}
     steps:
       - name: Check out the repo
         uses: hsheth2/sane-checkout-action@v1
@@ -432,6 +457,7 @@ jobs:
     name: Build and Push DataHub Elasticsearch Setup Docker Image
     runs-on: ubuntu-latest
     needs: setup
+    if: ${{ needs.setup.outputs.elasticsearch_setup_change == 'true' || needs.setup.outputs.publish == 'true' }}
     steps:
       - name: Check out the repo
         uses: hsheth2/sane-checkout-action@v1
@@ -454,6 +480,7 @@ jobs:
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
     needs: setup
+    if: ${{ needs.setup.outputs.ingestion_change == 'true' || needs.setup.outputs.publish == 'true' }}
     steps:
       - name: Check out the repo
         uses: hsheth2/sane-checkout-action@v1
@@ -486,6 +513,7 @@ jobs:
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
     needs: [setup, datahub_ingestion_base_build]
+    if: ${{ needs.setup.outputs.ingestion_change == 'true' || needs.setup.outputs.publish == 'true' }}
     steps:
       - name: Check out the repo
         uses: hsheth2/sane-checkout-action@v1
@@ -526,6 +554,7 @@ jobs:
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
     needs: [setup, datahub_ingestion_base_build]
+    if: ${{ needs.setup.outputs.ingestion_change == 'true' || needs.setup.outputs.publish == 'true' }}
     steps:
       - name: Check out the repo
         uses: hsheth2/sane-checkout-action@v1
@@ -568,6 +597,7 @@ jobs:
       tag: ${{ steps.tag.outputs.tag }}
       needs_artifact_download: ${{ (steps.filter.outputs.datahub-ingestion-base == 'true' || steps.filter.outputs.datahub-ingestion == 'true') && needs.setup.outputs.publish != 'true' }}
     needs: [setup, datahub_ingestion_base_slim_build]
+    if: ${{ needs.setup.outputs.ingestion_change == 'true' || needs.setup.outputs.publish == 'true' }}
     steps:
       - name: Set up JDK 17
         uses: actions/setup-java@v3
@@ -623,6 +653,7 @@ jobs:
     name: "[Monitoring] Scan Datahub Ingestion Slim images for vulnerabilities"
     runs-on: ubuntu-latest
     needs: [setup, datahub_ingestion_slim_build]
+    if: ${{ needs.setup.outputs.ingestion_change == 'true' || needs.setup.outputs.publish == 'true' }}
     steps:
       - name: Checkout # adding checkout step just to make trivy upload happy
         uses: actions/checkout@v3
@@ -655,6 +686,7 @@ jobs:
       tag: ${{ steps.tag.outputs.tag }}
       needs_artifact_download: ${{ (steps.filter.outputs.datahub-ingestion-base == 'true' || steps.filter.outputs.datahub-ingestion == 'true') && needs.setup.outputs.publish != 'true' }}
     needs: [setup, datahub_ingestion_base_full_build]
+    if: ${{ needs.setup.outputs.ingestion_change == 'true' || needs.setup.outputs.publish == 'true' }}
     steps:
       - name: Set up JDK 17
         uses: actions/setup-java@v3
@@ -709,6 +741,7 @@ jobs:
     name: "[Monitoring] Scan Datahub Ingestion images for vulnerabilities"
     runs-on: ubuntu-latest
     needs: [setup, datahub_ingestion_full_build]
+    if: ${{ needs.setup.outputs.ingestion_change == 'true' || needs.setup.outputs.publish == 'true' }}
     steps:
       - name: Checkout # adding checkout step just to make trivy upload happy
         uses: actions/checkout@v3
