@@ -1,11 +1,10 @@
 import os
-from time import sleep
 
 import pytest
-import requests
 
 from tests.utils import (get_admin_credentials, get_frontend_url,
                          wait_for_healthcheck_util, wait_for_writes_to_sync)
+from datahub.cli import cli_utils
 
 # Disable telemetry
 os.environ["DATAHUB_TELEMETRY_ENABLED"] = "false"
@@ -468,16 +467,11 @@ def revokeAccessToken(session, tokenId):
 
 
 def loginAs(username, password):
-    session = requests.Session()
-
-    headers = {
-        "Content-Type": "application/json",
-    }
-    data = '{"username":"' + username + '", "password":"' + password + '"}'
-    response = session.post(f"{get_frontend_url()}/logIn", headers=headers, data=data)
-    response.raise_for_status()
-
-    return session
+    return cli_utils.get_session_login_as(
+        username=username,
+        password=password,
+        frontend_url=get_frontend_url(),
+    )
 
 
 def removeUser(session, urn):

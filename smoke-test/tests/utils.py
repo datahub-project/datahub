@@ -2,14 +2,10 @@ import functools
 import json
 import logging
 import os
-import subprocess
-import time
 from datetime import datetime, timedelta, timezone
-from time import sleep
 from typing import Any, Dict, List, Tuple
 
 from datahub.cli import cli_utils
-from datahub.cli.cli_utils import get_system_auth
 from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
 from datahub.ingestion.run.pipeline import Pipeline
 from joblib import Parallel, delayed
@@ -22,23 +18,10 @@ logger = logging.getLogger(__name__)
 
 
 def get_frontend_session():
-    session = requests.Session()
-
-    headers = {
-        "Content-Type": "application/json",
-    }
-    system_auth = get_system_auth()
-    if system_auth is not None:
-        session.headers.update({"Authorization": system_auth})
-    else:
-        username, password = get_admin_credentials()
-        data = '{"username":"' + username + '", "password":"' + password + '"}'
-        response = session.post(
-            f"{get_frontend_url()}/logIn", headers=headers, data=data
-        )
-        response.raise_for_status()
-
-    return session
+    username, password = get_admin_credentials()
+    return cli_utils.get_session_login_as(
+        username=username, password=password, frontend_url=get_frontend_url()
+    )
 
 
 def get_admin_username() -> str:
