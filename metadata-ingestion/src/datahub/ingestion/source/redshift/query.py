@@ -471,16 +471,20 @@ SELECT  schemaname as schema_name,
         end_time_str: str = end_time.strftime(redshift_datetime_format)
 
         return f"""
-            SELECT  transaction_id,
-                    session_id,
-                    start_time,
-                    query_text
-            FROM       sys_query_history SYS
-            WHERE      SYS.status = 'success'
-            AND        SYS.query_type in ('DDL', 'CTAS')
-            AND        SYS.start_time >= '{start_time_str}'
-            AND        SYS.end_time < '{end_time_str}'
-            AND        SYS.query_text ILIKE 'create temp table %' OR SYS.query_text ILIKE 'create temporary table %' or SYS.query_text ilike 'create table #%'
+            SELECT * from (
+                SELECT  transaction_id,
+                        session_id,
+                        start_time,
+                        query_text,
+                        row_number() over (partition by query_text order by start_time desc) rn
+                FROM       sys_query_history SYS
+                WHERE      SYS.status = 'success'
+                AND        SYS.query_type in ('DDL', 'CTAS')
+                AND        SYS.start_time >= '{start_time_str}'
+                AND        SYS.end_time < '{end_time_str}'
+                AND        SYS.query_text ILIKE 'create temp table %' OR SYS.query_text ILIKE 'create temporary table %' or SYS.query_text ilike 'create table #%'
+                )
+            WHERE rn = 1
         """
 
     @staticmethod
