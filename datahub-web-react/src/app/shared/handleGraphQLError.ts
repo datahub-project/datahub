@@ -12,8 +12,8 @@ interface Props {
 
 export default function handleGraphQLError({
     error,
-    permissionMessage,
     defaultMessage,
+    permissionMessage = 'Unauthorized. Please contact your DataHub administrator.',
     badRequestMessage,
     serverErrorMessage,
 }: Props) {
@@ -23,7 +23,7 @@ export default function handleGraphQLError({
     if (graphQLErrors && graphQLErrors.length) {
         const { extensions } = graphQLErrors[0];
         const errorCode = extensions && (extensions.code as number);
-        if (errorCode === ErrorCodes.Forbidden && permissionMessage) {
+        if (errorCode === ErrorCodes.Forbidden) {
             message.error(permissionMessage);
             return;
         }
