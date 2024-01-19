@@ -10,6 +10,10 @@ import {
 } from './constants';
 import { PostContentType } from '../../../types.generated';
 
+const TopFormItem = styled(Form.Item)`
+    margin-bottom: 24px;
+`;
+
 const SubFormItem = styled(Form.Item)`
     margin-bottom: 0;
 `;
@@ -21,10 +25,6 @@ type Props = {
 };
 
 export default function CreatePostForm({ setCreateButtonEnabled, form, contentType }: Props) {
-    const TopFormItem = styled(Form.Item)`
-        margin-bottom: 24px;
-    `;
-
     const [postType, setPostType] = useState<PostContentType>(PostContentType.Text);
 
     useEffect(() => {
