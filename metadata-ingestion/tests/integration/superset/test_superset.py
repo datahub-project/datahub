@@ -260,6 +260,18 @@ def test_superset_stateful_ingest(
                         "dashboard_title": "test_dashboard_title_1",
                         "url": "/dashboard/test_dashboard_url_1",
                         "position_json": '{"CHART-test-1": {"meta": { "chartId": "10" }}, "CHART-test-2": {"meta": { "chartId": "11" }}}',
+                        "status": "published",
+                        "published": True,
+                        "owners": [
+                            {
+                                "username": "test_username_1",
+                            },
+                            {
+                                "username": "test_username_2",
+                            },
+                        ],
+                        "certified_by": "Certification team",
+                        "certification_details": "Approved",
                     },
                 ],
             },

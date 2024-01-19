@@ -273,7 +273,7 @@ class SupersetSource(StatefulIngestionSourceBase):
             "IsPublished": str(dashboard_data.get("published", False)).lower(),
             "Owners": ", ".join(
                 map(
-                    lambda owner: owner.get("username", None),
+                    lambda owner: owner.get("username", "unknown"),
                     dashboard_data.get("owners", []),
                 )
             ),
