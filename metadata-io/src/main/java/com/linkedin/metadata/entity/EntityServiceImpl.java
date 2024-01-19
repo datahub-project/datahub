@@ -1994,9 +1994,10 @@ public class EntityServiceImpl implements EntityService<MCPUpsertBatchItem> {
       return existing.stream()
           .filter(
               urn ->
-                  !statusResult.containsKey(urn)
-                      || statusResult.get(urn).isEmpty()
-                      || !((Status) statusResult.get(urn).get(0)).isRemoved())
+                  // key aspect is always returned, make sure to only consider the status aspect
+                  statusResult.getOrDefault(urn, List.of()).stream()
+                      .filter(aspect -> STATUS_ASPECT_NAME.equals(aspect.schema().getName()))
+                      .noneMatch(aspect -> ((Status) aspect).isRemoved()))
           .collect(Collectors.toSet());
     }
   }
