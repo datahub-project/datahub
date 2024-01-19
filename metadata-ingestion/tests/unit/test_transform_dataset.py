@@ -1,3 +1,4 @@
+import json
 import re
 from typing import (
     Any,
@@ -26,6 +27,11 @@ from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.transformer.add_dataset_browse_path import (
     AddDatasetBrowsePathTransformer,
+)
+from datahub.ingestion.transformer.add_dataset_dataproduct import (
+    AddDatasetDataProduct,
+    PatternAddDatasetDataProduct,
+    SimpleAddDatasetDataProduct,
 )
 from datahub.ingestion.transformer.add_dataset_ownership import (
     AddDatasetOwnership,
@@ -873,7 +879,7 @@ def test_pattern_dataset_tags_transformation(mock_time):
     assert builder.make_tag_urn("Needs Documentation") not in tags_aspect.tags
 
 
-def test_import_resolver():
+def test_add_dataset_tags_transformation():
     transformer = AddDatasetTags.create(
         {
             "get_tags_to_add": "tests.unit.test_transform_dataset.dummy_tag_resolver_method"
@@ -2665,3 +2671,156 @@ def test_pattern_dataset_schema_tags_transformation_patch(
     assert builder.make_tag_urn("pii") in global_tags_urn
     assert builder.make_tag_urn("FirstName") in global_tags_urn
     assert builder.make_tag_urn("Name") in global_tags_urn
+
+
+def test_simple_dataset_data_product_transformation(mock_time):
+    transformer = SimpleAddDatasetDataProduct.create(
+        {
+            "dataset_to_data_product_urns": {
+                builder.make_dataset_urn(
+                    "bigquery", "example1"
+                ): "urn:li:dataProduct:first",
+                builder.make_dataset_urn(
+                    "bigquery", "example2"
+                ): "urn:li:dataProduct:second",
+                builder.make_dataset_urn(
+                    "bigquery", "example3"
+                ): "urn:li:dataProduct:first",
+            }
+        },
+        PipelineContext(run_id="test-dataproduct"),
+    )
+
+    outputs = list(
+        transformer.transform(
+            [
+                RecordEnvelope(input, metadata={})
+                for input in [
+                    make_generic_dataset(
+                        entity_urn=builder.make_dataset_urn("bigquery", "example1")
+                    ),
+                    make_generic_dataset(
+                        entity_urn=builder.make_dataset_urn("bigquery", "example2")
+                    ),
+                    make_generic_dataset(
+                        entity_urn=builder.make_dataset_urn("bigquery", "example3")
+                    ),
+                    EndOfStream(),
+                ]
+            ]
+        )
+    )
+
+    assert len(outputs) == 6
+
+    # Check new dataproduct entity should be there
+    assert outputs[3].record.entityUrn == "urn:li:dataProduct:first"
+    assert outputs[3].record.aspectName == "dataProductProperties"
+
+    first_data_product_aspect = json.loads(
+        outputs[3].record.aspect.value.decode("utf-8")
+    )
+    assert [item["value"]["destinationUrn"] for item in first_data_product_aspect] == [
+        builder.make_dataset_urn("bigquery", "example1"),
+        builder.make_dataset_urn("bigquery", "example3"),
+    ]
+
+    second_data_product_aspect = json.loads(
+        outputs[4].record.aspect.value.decode("utf-8")
+    )
+    assert [item["value"]["destinationUrn"] for item in second_data_product_aspect] == [
+        builder.make_dataset_urn("bigquery", "example2")
+    ]
+
+    assert isinstance(outputs[5].record, EndOfStream)
+
+
+def test_pattern_dataset_data_product_transformation(mock_time):
+    transformer = PatternAddDatasetDataProduct.create(
+        {
+            "dataset_to_data_product_urns_pattern": {
+                "rules": {
+                    ".*example1.*": "urn:li:dataProduct:first",
+                    ".*": "urn:li:dataProduct:second",
+                }
+            },
+        },
+        PipelineContext(run_id="test-dataproducts"),
+    )
+
+    outputs = list(
+        transformer.transform(
+            [
+                RecordEnvelope(input, metadata={})
+                for input in [
+                    make_generic_dataset(
+                        entity_urn=builder.make_dataset_urn("bigquery", "example1")
+                    ),
+                    make_generic_dataset(
+                        entity_urn=builder.make_dataset_urn("bigquery", "example2")
+                    ),
+                    make_generic_dataset(
+                        entity_urn=builder.make_dataset_urn("bigquery", "example3")
+                    ),
+                    EndOfStream(),
+                ]
+            ]
+        )
+    )
+
+    assert len(outputs) == 6
+
+    # Check new dataproduct entity should be there
+    assert outputs[3].record.entityUrn == "urn:li:dataProduct:first"
+    assert outputs[3].record.aspectName == "dataProductProperties"
+
+    first_data_product_aspect = json.loads(
+        outputs[3].record.aspect.value.decode("utf-8")
+    )
+    assert [item["value"]["destinationUrn"] for item in first_data_product_aspect] == [
+        builder.make_dataset_urn("bigquery", "example1")
+    ]
+
+    second_data_product_aspect = json.loads(
+        outputs[4].record.aspect.value.decode("utf-8")
+    )
+    assert [item["value"]["destinationUrn"] for item in second_data_product_aspect] == [
+        builder.make_dataset_urn("bigquery", "example2"),
+        builder.make_dataset_urn("bigquery", "example3"),
+    ]
+
+    assert isinstance(outputs[5].record, EndOfStream)
+
+
+def dummy_data_product_resolver_method(dataset_urn):
+    dataset_to_data_product_map = {
+        builder.make_dataset_urn("bigquery", "example1"): "urn:li:dataProduct:first"
+    }
+    return dataset_to_data_product_map.get(dataset_urn)
+
+
+def test_add_dataset_data_product_transformation():
+    transformer = AddDatasetDataProduct.create(
+        {
+            "get_data_product_to_add": "tests.unit.test_transform_dataset.dummy_data_product_resolver_method"
+        },
+        PipelineContext(run_id="test-dataproduct"),
+    )
+    outputs = list(
+        transformer.transform(
+            [
+                RecordEnvelope(input, metadata={})
+                for input in [make_generic_dataset(), EndOfStream()]
+            ]
+        )
+    )
+    # Check new dataproduct entity should be there
+    assert outputs[1].record.entityUrn == "urn:li:dataProduct:first"
+    assert outputs[1].record.aspectName == "dataProductProperties"
+
+    first_data_product_aspect = json.loads(
+        outputs[1].record.aspect.value.decode("utf-8")
+    )
+    assert [item["value"]["destinationUrn"] for item in first_data_product_aspect] == [
+        builder.make_dataset_urn("bigquery", "example1")
+    ]

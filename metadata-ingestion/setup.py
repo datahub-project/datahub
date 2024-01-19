@@ -160,6 +160,7 @@ bigquery_common = {
     "google-cloud-logging<=3.5.0",
     "google-cloud-bigquery",
     "more-itertools>=8.12.0",
+    "sqlalchemy-bigquery>=1.4.1",
 }
 
 clickhouse_common = {
@@ -188,7 +189,7 @@ snowflake_common = {
     "pandas",
     "cryptography",
     "msal",
-    "acryl-datahub-classify==0.0.8",
+    "acryl-datahub-classify==0.0.9",
     # spacy version restricted to reduce backtracking, used by acryl-datahub-classify,
     "spacy==3.4.3",
 }
@@ -251,9 +252,7 @@ powerbi_report_server = {"requests", "requests_ntlm"}
 
 databricks = {
     # 0.1.11 appears to have authentication issues with azure databricks
-    # 0.16.0 added py.typed support which caused mypy to fail. The databricks sdk is pinned until we resolve mypy issues.
-    # https://github.com/databricks/databricks-sdk-py/pull/483
-    "databricks-sdk>=0.9.0,<0.16.0",
+    "databricks-sdk>=0.9.0",
     "pyspark~=3.3.0",
     "requests",
     # Version 2.4.0 includes sqlalchemy dialect, 2.8.0 includes some bug fixes
@@ -295,10 +294,7 @@ plugins: Dict[str, Set[str]] = {
     "bigquery": sql_common
     | bigquery_common
     | {
-        # TODO: I doubt we need all three sql parsing libraries.
-        *sqllineage_lib,
         *sqlglot_lib,
-        "sqlalchemy-bigquery>=1.4.1",
         "google-cloud-datacatalog-lineage==0.2.2",
     },
     "clickhouse": sql_common | clickhouse_common,
@@ -316,7 +312,7 @@ plugins: Dict[str, Set[str]] = {
     # https://github.com/elastic/elasticsearch-py/issues/1639#issuecomment-883587433
     "elasticsearch": {"elasticsearch==7.13.4"},
     "feast": {
-        "feast~=0.34.1",
+        "feast~=0.35.0",
         "flask-openid>=1.3.0",
         # typeguard 3.x, released on 2023-03-14, seems to cause issues with Feast.
         "typeguard<3",
@@ -400,7 +396,7 @@ plugins: Dict[str, Set[str]] = {
     "unity-catalog": databricks | sql_common | sqllineage_lib,
     # databricks is alias for unity-catalog and needs to be kept in sync
     "databricks": databricks | sql_common | sqllineage_lib,
-    "fivetran": snowflake_common,
+    "fivetran": snowflake_common | bigquery_common,
 }
 
 # This is mainly used to exclude plugins from the Docker image.
@@ -653,6 +649,9 @@ entry_points = {
         "pattern_add_dataset_schema_terms = datahub.ingestion.transformer.add_dataset_schema_terms:PatternAddDatasetSchemaTerms",
         "pattern_add_dataset_schema_tags = datahub.ingestion.transformer.add_dataset_schema_tags:PatternAddDatasetSchemaTags",
         "extract_ownership_from_tags = datahub.ingestion.transformer.extract_ownership_from_tags:ExtractOwnersFromTagsTransformer",
+        "add_dataset_dataproduct = datahub.ingestion.transformer.add_dataset_dataproduct:AddDatasetDataProduct",
+        "simple_add_dataset_dataproduct = datahub.ingestion.transformer.add_dataset_dataproduct:SimpleAddDatasetDataProduct",
+        "pattern_add_dataset_dataproduct = datahub.ingestion.transformer.add_dataset_dataproduct:PatternAddDatasetDataProduct",
     ],
     "datahub.ingestion.sink.plugins": [
         "file = datahub.ingestion.sink.file:FileSink",

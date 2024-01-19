@@ -51,9 +51,14 @@ SQL_PARSE_RESULT_CACHE_SIZE = 1000
 
 RULES_BEFORE_TYPE_ANNOTATION: tuple = tuple(
     filter(
-        # Skip pushdown_predicates because it sometimes throws exceptions, and we
-        # don't actually need it for anything.
-        lambda func: func.__name__ not in {"pushdown_predicates"},
+        lambda func: func.__name__
+        not in {
+            # Skip pushdown_predicates because it sometimes throws exceptions, and we
+            # don't actually need it for anything.
+            "pushdown_predicates",
+            # Skip normalize because it can sometimes be expensive.
+            "normalize",
+        },
         itertools.takewhile(
             lambda func: func != sqlglot.optimizer.annotate_types.annotate_types,
             sqlglot.optimizer.optimizer.RULES,
@@ -333,6 +338,9 @@ def _table_level_lineage(
     return tables, modified
 
 
+TABLE_CASE_SENSITIVE_PLATFORMS = {"bigquery"}
+
+
 class SchemaResolver(Closeable):
     def __init__(
         self,
@@ -402,7 +410,10 @@ class SchemaResolver(Closeable):
             if schema_info:
                 return urn_lower, schema_info
 
-        return urn_lower, None
+        if self.platform in TABLE_CASE_SENSITIVE_PLATFORMS:
+            return urn, None
+        else:
+            return urn_lower, None
 
     def _resolve_schema_info(self, urn: str) -> Optional[SchemaInfo]:
         if urn in self._schema_cache:

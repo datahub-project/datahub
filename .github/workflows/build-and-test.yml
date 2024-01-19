@@ -29,11 +29,15 @@ jobs:
             "except_metadata_ingestion",
             "frontend",
           ]
-        timezone: ["UTC", "America/New_York"]
+        timezone: ["UTC"]
+        include:
+          # We only need the timezone variation for frontend tests.
+          - command: "frontend"
+            timezone: "America/New_York"
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
-      - uses: szenius/set-timezone@v1.0
+      - uses: szenius/set-timezone@v1.2
         with:
           timezoneLinux: ${{ matrix.timezone }}
       - uses: hsheth2/sane-checkout-action@v1
@@ -48,8 +52,7 @@ jobs:
           python-version: "3.10"
           cache: pip
       - name: Gradle build (and test) for metadata ingestion
-        # we only need the timezone runs for frontend tests
-        if: ${{  matrix.command == 'except_metadata_ingestion' && matrix.timezone == 'America/New_York' }}
+        if: ${{  matrix.command == 'except_metadata_ingestion' }}
         run: |
           ./gradlew build -x :metadata-ingestion:build -x :metadata-ingestion:check -x docs-website:build -x :metadata-integration:java:spark-lineage:test -x :metadata-io:test -x :metadata-ingestion-modules:airflow-plugin:build -x :metadata-ingestion-modules:airflow-plugin:check -x :datahub-frontend:build -x :datahub-web-react:build --parallel
       - name: Gradle build (and test) for frontend
@@ -66,15 +69,9 @@ jobs:
             **/build/reports/tests/test/**
             **/build/test-results/test/**
             **/junit.*.xml
+            !**/binary/**
       - name: Ensure codegen is updated
         uses: ./.github/actions/ensure-codegen-updated
-      - name: Slack failure notification
-        if: failure() && github.event_name == 'push'
-        uses: kpritam/slack-job-status-action@v1
-        with:
-          job-status: ${{ job.status }}
-          slack-bot-token: ${{ secrets.SLACK_BOT_TOKEN }}
-          channel: github-activities
 
   quickstart-compose-validation:
     runs-on: ubuntu-latest
@@ -83,10 +80,6 @@ jobs:
       - uses: actions/setup-python@v4
         with:
           python-version: "3.10"
-      - name: Download YQ
-        uses: chrisdickinson/setup-yq@v1.0.1
-        with:
-          yq-version: v4.28.2
       - name: Quickstart Compose Validation
         run: ./docker/quickstart/generate_and_compare.sh
 

@@ -8,7 +8,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.entity.AspectMigrationsDao;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.entity.ebean.transactions.UpsertBatchItem;
+import com.linkedin.metadata.entity.ebean.batch.MCPUpsertBatchItem;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
@@ -96,7 +96,7 @@ public class IngestDataPlatformInstancesStepTest {
   @Test
   public void testExecuteWhenSomeEntitiesShouldReceiveDataPlatformInstance() throws Exception {
     final EntityRegistry entityRegistry = getTestEntityRegistry();
-    final EntityService entityService = mock(EntityService.class);
+    final EntityService<MCPUpsertBatchItem> entityService = mock(EntityService.class);
     final AspectMigrationsDao migrationsDao = mock(AspectMigrationsDao.class);
     final int countOfCorpUserEntities = 5;
     final int countOfChartEntities = 7;
@@ -122,9 +122,8 @@ public class IngestDataPlatformInstancesStepTest {
                                 item.getUrn().getEntityType().equals("chart")
                                     && item.getAspectName()
                                         .equals(DATA_PLATFORM_INSTANCE_ASPECT_NAME)
-                                    && ((UpsertBatchItem) item).getAspect()
+                                    && ((MCPUpsertBatchItem) item).getAspect()
                                         instanceof DataPlatformInstance)),
-            any(),
             anyBoolean(),
             anyBoolean());
     verify(entityService, times(0))
@@ -137,9 +136,8 @@ public class IngestDataPlatformInstancesStepTest {
                                 item.getUrn().getEntityType().equals("chart")
                                     && item.getAspectName()
                                         .equals(DATA_PLATFORM_INSTANCE_ASPECT_NAME)
-                                    && ((UpsertBatchItem) item).getAspect()
+                                    && ((MCPUpsertBatchItem) item).getAspect()
                                         instanceof DataPlatformInstance)),
-            any(),
             anyBoolean(),
             anyBoolean());
   }

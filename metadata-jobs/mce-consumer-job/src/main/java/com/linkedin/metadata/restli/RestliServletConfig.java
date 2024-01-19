@@ -39,11 +39,15 @@ public class RestliServletConfig {
 
   @Bean("restliServletRegistration")
   public ServletRegistrationBean<RestliHandlerServlet> restliServletRegistration(
-      @Qualifier("restliHandlerServlet") RestliHandlerServlet servlet) {
-    return new ServletRegistrationBean<>(servlet, "/gms/*");
+      RestliHandlerServlet servlet) {
+
+    ServletRegistrationBean<RestliHandlerServlet> registrationBean =
+        new ServletRegistrationBean<>(servlet, "/gms/*");
+    registrationBean.setName("restliHandlerServlet");
+    return registrationBean;
   }
 
-  @Bean
+  @Bean("restliHandlerServlet")
   public RestliHandlerServlet restliHandlerServlet() {
     return new RestliHandlerServlet();
   }

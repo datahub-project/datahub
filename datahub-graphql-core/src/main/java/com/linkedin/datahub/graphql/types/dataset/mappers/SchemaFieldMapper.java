@@ -36,6 +36,7 @@ public class SchemaFieldMapper {
     }
     result.setIsPartOfKey(input.isIsPartOfKey());
     result.setIsPartitioningKey(input.isIsPartitioningKey());
+    result.setJsonProps(input.getJsonProps());
     return result;
   }
 

@@ -32,7 +32,9 @@ public class AspectTemplateEngine {
               DATA_FLOW_INFO_ASPECT_NAME,
               DATA_JOB_INFO_ASPECT_NAME,
               DATA_PRODUCT_PROPERTIES_ASPECT_NAME,
-              DATA_JOB_INPUT_OUTPUT_ASPECT_NAME)
+              DATA_JOB_INPUT_OUTPUT_ASPECT_NAME,
+              CHART_INFO_ASPECT_NAME,
+              DASHBOARD_INFO_ASPECT_NAME)
           .collect(Collectors.toSet());
 
   private final Map<String, Template<? extends RecordTemplate>> _aspectTemplateMap;
