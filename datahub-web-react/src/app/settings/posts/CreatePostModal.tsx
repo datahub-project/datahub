@@ -156,25 +156,14 @@ export default function CreatePostModal({ onClose, onCreate, editData, onEdit }:
                     <Button onClick={onCloseModal} type="text">
                         Cancel
                     </Button>
-                    {editData ? (
-                        <Button
-                            data-testid="update-post-button"
-                            onClick={onUpdatePost}
-                            disabled={!createButtonEnabled}
-                            id={CREATE_POST_BUTTON_ID}
-                        >
-                            Update
-                        </Button>
-                    ) : (
-                        <Button
-                            id={CREATE_POST_BUTTON_ID}
-                            data-testid="create-post-button"
-                            onClick={onCreatePost}
-                            disabled={!createButtonEnabled}
-                        >
-                            Create
-                        </Button>
-                    )}
+                    <Button
+                        id={CREATE_POST_BUTTON_ID}
+                        data-testid={!editData ? 'create-post-button' : 'update-post-button'}
+                        onClick={!editData ? onCreatePost : onUpdatePost}
+                        disabled={!createButtonEnabled}
+                    >
+                        {!editData ? 'Create' : 'Update'}
+                    </Button>
                 </>
             }
         >
