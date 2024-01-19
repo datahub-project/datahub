@@ -49,17 +49,20 @@ def flatten2list(d: dict) -> list:
 def request_call(
     url: str,
     token: Optional[str] = None,
+    bearer_token: Optional[bool] = False,
     username: Optional[str] = None,
     password: Optional[str] = None,
     proxies: Optional[dict] = None,
 ) -> requests.Response:
     headers = {"accept": "application/json"}
-
     if username is not None and password is not None:
         return requests.get(
             url, headers=headers, auth=HTTPBasicAuth(username, password)
         )
 
+    elif token is not None and bearer_token is True:
+        headers["Authorization"] = f"Bearer {token}"
+        return requests.get(url, proxies=proxies, headers=headers)
     elif token is not None:
         headers["Authorization"] = f"{token}"
         return requests.get(url, proxies=proxies, headers=headers)
@@ -70,6 +73,7 @@ def request_call(
 def get_swag_json(
     url: str,
     token: Optional[str] = None,
+    bearer_token: Optional[bool] = False,
     username: Optional[str] = None,
     password: Optional[str] = None,
     swagger_file: str = "",
@@ -77,7 +81,7 @@ def get_swag_json(
 ) -> Dict:
     tot_url = url + swagger_file
     if token is not None:
-        response = request_call(url=tot_url, token=token, proxies=proxies)
+        response = request_call(url=tot_url, token=token, bearer_token=bearer_token, proxies=proxies)
     else:
         response = request_call(
             url=tot_url, username=username, password=password, proxies=proxies

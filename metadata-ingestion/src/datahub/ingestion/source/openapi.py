@@ -114,6 +114,7 @@ class OpenApiConfig(ConfigModel):
             sw_dict = get_swag_json(
                 self.url,
                 token=self.token,
+                bearer_token=self.bearer_token,
                 swagger_file=self.swagger_file,
                 proxies=self.proxies,
             )  # load the swagger file
@@ -286,7 +287,7 @@ class APISource(Source, ABC):
 
                 if config.token:
                     response = request_call(
-                        tot_url, token=config.token, proxies=config.proxies
+                        tot_url, token=config.token, bearer_token=config.bearer_token, proxies=config.proxies
                     )
                 else:
                     response = request_call(
@@ -314,7 +315,7 @@ class APISource(Source, ABC):
                     tot_url = clean_url(config.url + self.url_basepath + url_guess)
                     if config.token:
                         response = request_call(
-                            tot_url, token=config.token, proxies=config.proxies
+                            tot_url, token=config.token, bearer_token=config.bearer_token, proxies=config.proxies
                         )
                     else:
                         response = request_call(
@@ -342,7 +343,7 @@ class APISource(Source, ABC):
                     tot_url = clean_url(config.url + self.url_basepath + composed_url)
                     if config.token:
                         response = request_call(
-                            tot_url, token=config.token, proxies=config.proxies
+                            tot_url, token=config.token, bearer_token=config.bearer_token, proxies=config.proxies
                         )
                     else:
                         response = request_call(
