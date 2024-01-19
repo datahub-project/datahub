@@ -1,0 +1,89 @@
+syntax = "proto3";
+package extended_protobuf;
+
+import "google/protobuf/wrappers.proto";
+
+/*
+  MyMsg Message
+ */
+message MyMsg {
+  /*
+    Message 1
+   */
+  message Msg1 {
+    int32 msg1_id = 1;
+  }
+  Msg1 msg1_field = 1;
+
+  /*
+    Message 2
+   */
+  message Msg2 {
+    int32 msg2_id = 1;
+  }
+  Msg2 msg2_field = 2;
+
+  /*
+    Message 3
+  */
+  message Msg3 {
+    // test comment 1
+    google.protobuf.Int64Value msg3_1 = 1;
+    // test comment 2
+    google.protobuf.Int64Value msg3_2 = 2;
+    // test comment 3
+    google.protobuf.Int64Value msg3_3 = 3;
+    // test comment 4
+    google.protobuf.StringValue msg3_4 = 4;
+    // test comment 5
+    reserved 5;
+    // test comment 6
+    reserved 6;
+
+    message Msg4 {
+      // msg4_1 comment
+      google.protobuf.Int32Value msg4_1 = 1;
+      // msg4_2 reserved
+      reserved 2;
+      // msg4_3 comment
+      google.protobuf.Int32Value msg4_3 = 3;
+
+      message Msg5 {
+        // msg5_1 comment
+        google.protobuf.Int32Value msg5_1 = 1;
+        // msg5_2 comment
+        google.protobuf.Int32Value msg5_2 = 2;
+        // msg5_3 comment
+        google.protobuf.Int32Value msg5_3 = 3;
+        // msg5_4 comment
+        google.protobuf.Int32Value msg5_4 = 4;
+        // reserved comment
+        reserved 5;
+        // msg5_6 comment
+        google.protobuf.Int32Value msg5_6 = 6;
+      }
+      // msg5 comment
+      Msg5 msg5 = 4;
+    }
+    // test comment 7
+    Msg4 msg4 = 7;
+    // test comment 8
+    google.protobuf.StringValue msg3_8 = 8;
+    // test comment 9
+    google.protobuf.StringValue msg3_9 = 9;
+    // test comment 10
+    google.protobuf.StringValue msg3_10 = 10;
+    // test comment 11
+    reserved 11;
+    // test comment 12
+    google.protobuf.StringValue msg3_12 = 12;
+    // test comment 13
+    google.protobuf.StringValue msg3_13 = 13;
+    // test comment 14
+    google.protobuf.StringValue msg3_14 = 14;
+    // test comment 15
+    google.protobuf.StringValue msg3_15 = 15;
+  }
+  // field 3
+  Msg3 field3 = 3;
+}

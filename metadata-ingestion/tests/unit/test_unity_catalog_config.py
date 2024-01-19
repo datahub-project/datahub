@@ -15,6 +15,7 @@ def test_within_thirty_days():
             "token": "token",
             "workspace_url": "https://workspace_url",
             "include_usage_statistics": True,
+            "include_hive_metastore": False,
             "start_time": FROZEN_TIME - timedelta(days=30),
         }
     )
@@ -38,6 +39,7 @@ def test_profiling_requires_warehouses_id():
         {
             "token": "token",
             "workspace_url": "https://workspace_url",
+            "include_hive_metastore": False,
             "profiling": {
                 "enabled": True,
                 "method": "ge",
@@ -51,6 +53,7 @@ def test_profiling_requires_warehouses_id():
         {
             "token": "token",
             "workspace_url": "https://workspace_url",
+            "include_hive_metastore": False,
             "profiling": {"enabled": False, "method": "ge"},
         }
     )
@@ -60,6 +63,7 @@ def test_profiling_requires_warehouses_id():
         UnityCatalogSourceConfig.parse_obj(
             {
                 "token": "token",
+                "include_hive_metastore": False,
                 "workspace_url": "workspace_url",
             }
         )

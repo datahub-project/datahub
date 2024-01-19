@@ -28,6 +28,7 @@ services:
       - DATAHUB_ANALYTICS_ENABLED=${DATAHUB_ANALYTICS_ENABLED:-true}
     volumes:
     - ../datahub-frontend/build/stage/main:/datahub-frontend
+    - ./monitoring/client-prometheus-config.yaml:/datahub-frontend/client-prometheus-config.yaml
   datahub-gms:
     image: 795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-gms:debug
     ports:

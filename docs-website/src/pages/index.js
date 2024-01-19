@@ -66,12 +66,13 @@ function Home() {
                   width: "18rem",
                 }}
               >
-                What Is DataHub?
+                The Origins of DataHub
               </h1>
               {/* <hr style={{ border: "2px solid black", width: "20rem" }}></hr> */}
               <p style={{ fontSize: "18px" }}>
-                Explore DataHub's journey from start to present, <br></br>
-                and learn how we empower leaders in today's data-driven world.
+                Explore DataHub's journey from search and discovery tool at
+                LinkedIn to the #1 open source metadata platform, through the
+                lens of its founder and some amazing community members.
               </p>
             </div>
           </div>

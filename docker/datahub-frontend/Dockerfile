@@ -15,10 +15,13 @@ RUN if [ "${ALPINE_REPO_URL}" != "http://dl-cdn.alpinelinux.org/alpine" ] ; then
 
 # Upgrade Alpine and base packages
 # PFP-260: Upgrade Sqlite to >=3.28.0-r0 to fix https://security.snyk.io/vuln/SNYK-ALPINE39-SQLITE-449762
+ENV JMX_VERSION=0.18.0
 RUN apk --no-cache --update-cache --available upgrade \
     && apk --no-cache add curl sqlite libc6-compat java-snappy \
     && apk --no-cache add openjdk17-jre-headless --repository=${ALPINE_REPO_URL}/edge/community \
-    && apk --no-cache add jattach --repository ${ALPINE_REPO_URL}/edge/community/
+    && apk --no-cache add jattach --repository ${ALPINE_REPO_URL}/edge/community/ \
+    && wget ${GITHUB_REPO_URL}/open-telemetry/opentelemetry-java-instrumentation/releases/download/v1.24.0/opentelemetry-javaagent.jar -O opentelemetry-javaagent.jar \
+    && wget ${MAVEN_CENTRAL_REPO_URL}/io/prometheus/jmx/jmx_prometheus_javaagent/${JMX_VERSION}/jmx_prometheus_javaagent-${JMX_VERSION}.jar -O jmx_prometheus_javaagent.jar
 
 ENV LD_LIBRARY_PATH="/lib:/lib64"
 
@@ -31,10 +34,6 @@ RUN unzip datahub-frontend.zip -d /datahub-frontend \
    && rm datahub-frontend.zip
 COPY ./docker/monitoring/client-prometheus-config.yaml /datahub-frontend/
 RUN chown -R datahub:datahub /datahub-frontend && chmod 755 /datahub-frontend
-
-ENV JMX_VERSION=0.18.0
-RUN wget ${GITHUB_REPO_URL}/open-telemetry/opentelemetry-java-instrumentation/releases/download/v1.24.0/opentelemetry-javaagent.jar -O opentelemetry-javaagent.jar \
-    && wget ${MAVEN_CENTRAL_REPO_URL}/io/prometheus/jmx/jmx_prometheus_javaagent/${JMX_VERSION}/jmx_prometheus_javaagent-${JMX_VERSION}.jar -O jmx_prometheus_javaagent.jar
 
 FROM base as dev-install
 # Dummy stage for development. Assumes code is built on your machine and mounted to this image.
