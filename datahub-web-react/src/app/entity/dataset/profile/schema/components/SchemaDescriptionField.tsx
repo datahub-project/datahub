@@ -3,7 +3,7 @@ import { EditOutlined } from '@ant-design/icons';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 import { FetchResult } from '@apollo/client';
-
+import { ActionRequestType, EntityType } from '../../../../../../types.generated';
 import { UpdateDatasetMutation } from '../../../../../../graphql/dataset.generated';
 import UpdateDescriptionModal from '../../../../shared/components/legacy/DescriptionModal';
 import StripMarkdownText, { removeMarkdown } from '../../../../shared/components/styled/StripMarkdownText';
@@ -106,22 +106,18 @@ export default function DescriptionField({
     const onCloseModal = () => setShowAddModal(false);
     const { urn, entityType } = useEntityData();
 
-    const sendAnalytics = () => {
-        analytics.event({
-            type: EventType.EntityActionEvent,
-            actionType: EntityActionType.UpdateSchemaDescription,
-            entityType,
-            entityUrn: urn,
-        });
-    };
-
     const onUpdateModal = async (desc: string | null) => {
         message.loading({ content: 'Updating...' });
         try {
             await onUpdate(desc || '');
             message.destroy();
             message.success({ content: 'Updated!', duration: 2 });
-            sendAnalytics();
+            analytics.event({
+                type: EventType.EntityActionEvent,
+                actionType: EntityActionType.UpdateSchemaDescription,
+                entityType,
+                entityUrn: urn,
+            });
         } catch (e: unknown) {
             message.destroy();
             if (e instanceof Error) message.error({ content: `Update Failed! \n ${e.message || ''}`, duration: 2 });
@@ -134,7 +130,13 @@ export default function DescriptionField({
             await onPropose?.(desc || '');
             message.destroy();
             message.success({ content: 'Proposed!', duration: 2 });
-            sendAnalytics();
+            analytics.event({
+                type: EventType.EntityActionEvent,
+                actionType: EntityActionType.ProposalCreated,
+                actionQualifier: ActionRequestType.UpdateDescription,
+                entityType: EntityType.Dataset,
+                entityUrn: urn,
+            });
         } catch (e: unknown) {
             message.destroy();
             if (e instanceof Error) message.error({ content: `Proposal Failed! \n ${e.message || ''}`, duration: 2 });

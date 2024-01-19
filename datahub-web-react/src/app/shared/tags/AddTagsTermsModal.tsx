@@ -3,7 +3,14 @@ import { message, Button, Modal, Select, Typography, Tag as CustomTag } from 'an
 import styled from 'styled-components';
 
 import { useGetSearchResultsLazyQuery } from '../../../graphql/search.generated';
-import { EntityType, Tag, Entity, ResourceRefInput, SubResourceType } from '../../../types.generated';
+import {
+    EntityType,
+    Tag,
+    Entity,
+    ResourceRefInput,
+    SubResourceType,
+    ActionRequestType,
+} from '../../../types.generated';
 import CreateTagModal from './CreateTagModal';
 import {
     useBatchAddTagsMutation,
@@ -21,6 +28,7 @@ import { FORBIDDEN_URN_CHARS_REGEX, handleBatchError } from '../../entity/shared
 import { TagTermLabel } from './TagTermLabel';
 import { ENTER_KEY_CODE } from '../constants';
 import { getModalDomContainer } from '../../../utils/focus';
+import analytics, { EntityActionType, EventType } from '../../analytics';
 
 export enum OperationType {
     ADD,
@@ -36,6 +44,7 @@ type EditTagsModalProps = {
     defaultValues?: { urn: string; entity?: Entity | null }[];
     onOkOverride?: (result: string[]) => void;
     showPropose?: boolean;
+    entityType?: EntityType
 };
 
 const TagSelect = styled(Select)`
@@ -95,6 +104,7 @@ export default function EditTagTermsModal({
     defaultValues = [],
     onOkOverride,
     showPropose = false,
+    entityType
 }: EditTagsModalProps) {
     const entityRegistry = useEntityRegistry();
     const [inputValue, setInputValue] = useState('');
@@ -276,6 +286,7 @@ export default function EditTagTermsModal({
         setDisableAction(true);
 
         let input = {};
+        let actionQualifier;
         if (type === EntityType.Tag) {
             input = {
                 tagUrn: urns[0],
@@ -283,6 +294,7 @@ export default function EditTagTermsModal({
                 subResource: resources[0].subResource,
                 subResourceType: resources[0].subResource ? SubResourceType.DatasetField : null,
             };
+            actionQualifier = ActionRequestType.TagAssociation;
         }
         if (type === EntityType.GlossaryTerm) {
             input = {
@@ -291,9 +303,8 @@ export default function EditTagTermsModal({
                 subResource: resources[0].subResource,
                 subResourceType: resources[0].subResource ? SubResourceType.DatasetField : null,
             };
+            actionQualifier = ActionRequestType.TermAssociation;
         }
-
-        // TODO: Add proper analytics.
 
         mutation({
             variables: {
@@ -301,10 +312,18 @@ export default function EditTagTermsModal({
             },
         })
             .then(({ errors }) => {
-                if (!errors) {
+                if (!errors && resources && resources.length) {
+                    const entityUrn = resources[0].resourceUrn;
                     message.success({
                         content: `${'Proposed'} ${type === EntityType.GlossaryTerm ? 'Term' : 'Tag'}!`,
                         duration: 2,
+                    });
+                    analytics.event({
+                        type: EventType.EntityActionEvent,
+                        actionType: EntityActionType.ProposalCreated,
+                        actionQualifier,
+                        entityType,
+                        entityUrn
                     });
                 }
             })

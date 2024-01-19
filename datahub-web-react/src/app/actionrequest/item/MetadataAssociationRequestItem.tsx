@@ -8,6 +8,7 @@ import { ActionRequest, ActionRequestResult, ActionRequestStatus, EntityType } f
 import { CustomAvatar } from '../../shared/avatar';
 import { capitalizeFirstLetter } from '../../shared/textUtil';
 import { useEntityRegistry } from '../../useEntityRegistry';
+import analytics, { EntityActionType, EventType } from '../../analytics';
 
 type Props = {
     actionRequest: ActionRequest;
@@ -76,6 +77,15 @@ export default function MetadataAssociationRequestItem({
             onOk() {
                 acceptProposalMutation({ variables: { urn: actionRequest.urn } })
                     .then(() => {
+                        if (actionRequest.entity?.urn) {
+                            analytics.event({
+                                type: EventType.EntityActionEvent,
+                                actionType: EntityActionType.ProposalAccepted,
+                                actionQualifier: actionRequest.type,
+                                entityType: actionRequest.entity?.type,
+                                entityUrn: actionRequest.entity?.urn
+                            });
+                        }
                         message.success('Successfully accepted the proposal!');
                         onUpdate();
                     })
@@ -94,6 +104,15 @@ export default function MetadataAssociationRequestItem({
             onOk() {
                 rejectProposalMutation({ variables: { urn: actionRequest.urn } })
                     .then(() => {
+                        if (actionRequest.entity?.urn) {
+                            analytics.event({
+                                type: EventType.EntityActionEvent,
+                                actionType: EntityActionType.ProposalRejected,
+                                actionQualifier: actionRequest.type,
+                                entityType: actionRequest.entity?.type,
+                                entityUrn: actionRequest.entity?.urn,
+                            });
+                        }
                         message.info('Proposal declined.');
                         onUpdate();
                     })

@@ -1,10 +1,11 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Empty, List, message, Pagination, Typography } from 'antd';
 import styled from 'styled-components';
 import ActionRequestListItem from './item/ActionRequestListItem';
 import { ActionRequest, ActionRequestAssignee, ActionRequestStatus } from '../../types.generated';
 import { Message } from '../shared/Message';
 import { useListActionRequestsQuery } from '../../graphql/actionRequest.generated';
+import analytics, { EventType } from '../analytics';
 
 const ActionRequestsContainer = styled.div``;
 
@@ -41,7 +42,7 @@ export const ActionRequestsList = ({ title, status, assignee }: Props) => {
     // Policy list paging.
     const pageSize = DEFAULT_PAGE_SIZE;
     const start = (page - 1) * pageSize;
-
+ 
     const { loading, error, data, refetch } = useListActionRequestsQuery({
         variables: {
             input: {
@@ -54,6 +55,9 @@ export const ActionRequestsList = ({ title, status, assignee }: Props) => {
         fetchPolicy: 'no-cache',
     });
 
+    useEffect(() => {
+            analytics.event({ type: EventType.InboxPageViewEvent });
+    }, []);
     let actionRequests = useMemo(() => data?.listActionRequests?.actionRequests || [], [data]);
 
     // Workaround for lack of read-write lookup consistency.

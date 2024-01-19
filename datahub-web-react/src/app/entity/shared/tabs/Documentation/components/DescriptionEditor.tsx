@@ -14,7 +14,7 @@ import {
 import { DiscardDescriptionModal } from './DiscardDescriptionModal';
 import { EDITED_DESCRIPTIONS_CACHE_NAME } from '../../../utils';
 import { useProposeUpdateDescriptionMutation } from '../../../../../../graphql/proposals.generated';
-import { EntityType } from '../../../../../../types.generated';
+import { ActionRequestType, EntityType } from '../../../../../../types.generated';
 import { DescriptionEditorToolbar } from './DescriptionEditorToolbar';
 import { Editor } from './editor/Editor';
 import SourceDescription from './SourceDesription';
@@ -153,6 +153,13 @@ export const DescriptionEditor = ({ onComplete }: DescriptionEditorProps) => {
         })
             .then(() => {
                 message.success({ content: `Proposed description update!`, duration: 2 });
+                analytics.event({
+                    type: EventType.EntityActionEvent,
+                    actionType: EntityActionType.ProposalCreated,
+                    actionQualifier: ActionRequestType.UpdateDescription,
+                    entityType,
+                    entityUrn: mutationUrn,
+                });
                 setIsDescriptionUpdated(false);
                 const editedDescriptionsLocal = (localStorageDictionary && JSON.parse(localStorageDictionary)) || {};
                 delete editedDescriptionsLocal[mutationUrn];

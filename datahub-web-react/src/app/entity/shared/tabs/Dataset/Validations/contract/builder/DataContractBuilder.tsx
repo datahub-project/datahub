@@ -7,6 +7,8 @@ import {
     Assertion,
     AssertionType,
     DataContractProposalOperationType,
+    ActionRequestType,
+    EntityType,
 } from '../../../../../../../../types.generated';
 import { DataContractBuilderState, DataContractCategoryType, DEFAULT_BUILDER_STATE } from './types';
 import { buildUpsertDataContractMutationVariables, buildProposeDataContractMutationVariables } from './utils';
@@ -19,6 +21,7 @@ import { createAssertionGroups } from '../../acrylUtils';
 import { DataContractAssertionGroupSelect } from './DataContractAssertionGroupSelect';
 import { ANTD_GRAY } from '../../../../../constants';
 import { DATA_QUALITY_ASSERTION_TYPES } from '../utils';
+import analytics, { EntityActionType, EventType } from '../../../../../../../analytics';
 
 const AssertionsSection = styled.div`
     border: 0.5px solid ${ANTD_GRAY[4]};
@@ -54,6 +57,7 @@ type Props = {
     onSubmit?: (contract: DataContract) => void;
     onPropose?: () => void;
     onCancel?: () => void;
+    entityType?: EntityType;
 };
 
 /**
@@ -61,7 +65,7 @@ type Props = {
  *
  * In order to build a data contract, we simply list all dataset assertions and allow the user to choose.
  */
-export const DataContractBuilder = ({ entityUrn, initialState, onSubmit, onPropose, onCancel }: Props) => {
+export const DataContractBuilder = ({ entityUrn, entityType, initialState, onSubmit, onPropose, onCancel }: Props) => {
     const isEdit = !!initialState;
     const [builderState, setBuilderState] = useState(initialState || DEFAULT_BUILDER_STATE);
     const [upsertDataContractMutation] = useUpsertDataContractMutation();
@@ -116,6 +120,13 @@ export const DataContractBuilder = ({ entityUrn, initialState, onSubmit, onPropo
         })
             .then(({ errors }) => {
                 if (!errors) {
+                    analytics.event({
+                        type: EventType.EntityActionEvent,
+                        actionType: EntityActionType.ProposalCreated,
+                        actionQualifier: ActionRequestType.DataContract,
+                        entityType,
+                        entityUrn,
+                    });
                     message.success({
                         content: `Proposed Data Contract!`,
                         duration: 3,
