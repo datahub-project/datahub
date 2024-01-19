@@ -414,6 +414,7 @@ SELECT  schemaname as schema_name,
                         and cluster = '{db_name}'
                         and si.starttime >= '{start_time}'
                         and si.starttime < '{end_time}'
+                        and sequence < 320
                     ) as target_tables
                     group by cluster, query_id, target_schema, target_table, username, starttime
                     order by cluster, query_id, target_schema, target_table, starttime asc
@@ -525,9 +526,9 @@ SELECT  schemaname as schema_name,
                     from
                         (
                         select
+                            starttime,
                             pid,
                             xid,
-                            starttime,
                             type,
                             userid,
                             LISTAGG(case
@@ -546,15 +547,18 @@ SELECT  schemaname as schema_name,
                             -- See https://stackoverflow.com/questions/72770890/redshift-result-size-exceeds-listagg-limit-on-svl-statementtext
                             AND sequence < 320
                         group by
+                            starttime,
                             pid,
                             xid,
-                            sequence,
-                            starttime,
                             type,
                             userid
                         order by
+                            starttime,
+                            pid,
                             xid,
-                            sequence)
+                            type,
+                            userid
+                            asc)
                     where
                         type in ('DDL', 'QUERY')
                 )
