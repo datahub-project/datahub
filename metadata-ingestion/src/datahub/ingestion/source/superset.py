@@ -58,6 +58,7 @@ from datahub.metadata.schema_classes import (
     DashboardInfoClass,
 )
 from datahub.utilities import config_clean
+from datahub.utilities.registries.domain_registry import DomainRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -200,9 +201,11 @@ class SupersetSource(StatefulIngestionSourceBase):
             }
         )
 
-        self.platform_instance = (
-            self.config.platform_instance + "." if self.config.platform_instance else ""
-        )
+        if self.config.domain:
+            self.domain_registry = DomainRegistry(
+                cached_domains=[domain_id for domain_id in self.config.domain],
+                graph=self.ctx.graph,
+            )
 
         # Test the connection
         test_response = self.session.get(f"{self.config.connect_uri}/api/v1/dashboard/")
@@ -337,7 +340,7 @@ class SupersetSource(StatefulIngestionSourceBase):
     def construct_chart_from_chart_data(self, chart_data):
         chart_urn = make_chart_urn(
             platform=self.platform,
-            name=chart_data['id'],
+            name=chart_data["id"],
             platform_instance=self.config.platform_instance,
         )
         chart_snapshot = ChartSnapshot(
@@ -456,15 +459,15 @@ class SupersetSource(StatefulIngestionSourceBase):
     def get_report(self) -> StaleEntityRemovalSourceReport:
         return self.report
 
-    def _gen_domain_urn(self, title: str) -> Optional[str]:
+    def _get_domain_wu(self, title: str, entity_urn: str) -> Iterable[MetadataWorkUnit]:
+        domain_urn = None
         for domain, pattern in self.config.domain.items():
             if pattern.allowed(title):
-                return make_domain_urn(domain)
+                domain_urn = make_domain_urn(
+                    self.domain_registry.get_domain_urn(domain)
+                )
+                break
 
-        return None
-
-    def _get_domain_wu(self, title: str, entity_urn: str) -> Iterable[MetadataWorkUnit]:
-        domain_urn = self._gen_domain_urn(title)
         if domain_urn:
             yield from add_domain_to_entity_wu(
                 entity_urn=entity_urn,
