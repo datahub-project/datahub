@@ -32,7 +32,7 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 public class CreateERModelRelationResolver implements DataFetcher<CompletableFuture<ERModelRelation>> {
 
     private final EntityClient _entityClient;
-    private final ERModelRelationService _ermodelrelationService;
+    private final ERModelRelationService _eRModelRelationService;
 
     @Override
     public CompletableFuture<ERModelRelation> get(DataFetchingEnvironment environment) throws Exception {
@@ -79,7 +79,7 @@ public class CreateERModelRelationResolver implements DataFetcher<CompletableFut
                 } catch (RemoteInvocationException e) {
                     throw new RuntimeException("Failed to create ermodelrelation entity", e);
                 }
-                return ERModelRelationMapper.map(_ermodelrelationService.getERModelRelationResponse(Urn.createFromString(inputUrn.toString()), authentication));
+                return ERModelRelationMapper.map(_eRModelRelationService.getERModelRelationResponse(Urn.createFromString(inputUrn.toString()), authentication));
             } catch (Exception e) {
                 log.error("Failed to create ERModelRelation to resource with input {}, {}", input, e.getMessage());
                 throw new RuntimeException(String.format("Failed to create ermodelrelation to resource with input %s", input), e);

@@ -397,6 +397,7 @@ public class GmsGraphQLEngine {
     private final LineageService lineageService;
     private final QueryService queryService;
     private final DataProductService dataProductService;
+    private final ERModelRelationService eRModelRelationService;
 
     private final FeatureFlags featureFlags;
 
@@ -445,7 +446,7 @@ public class GmsGraphQLEngine {
     private final QueryType queryType;
     private final DataProductType dataProductType;
     private final OwnershipType ownershipType;
-    private final ERModelRelationService ermodelrelationService;
+
 
     /**
      * A list of GraphQL Plugins that extend the core engine
@@ -511,7 +512,7 @@ public class GmsGraphQLEngine {
         this.settingsService = args.settingsService;
         this.lineageService = args.lineageService;
         this.queryService = args.queryService;
-        this.ermodelrelationService = args.ermodelrelationService;
+        this.eRModelRelationService = args.eRModelRelationService;
         this.dataProductService = args.dataProductService;
 
         this.ingestionConfiguration = Objects.requireNonNull(args.ingestionConfiguration);
@@ -937,7 +938,7 @@ public class GmsGraphQLEngine {
             .dataFetcher("updateCorpUserProperties", new MutableTypeResolver<>(corpUserType))
             .dataFetcher("updateCorpGroupProperties", new MutableTypeResolver<>(corpGroupType))
             .dataFetcher("updateERModelRelation", new UpdateERModelRelationResolver(this.entityClient))
-            .dataFetcher("createERModelRelation", new CreateERModelRelationResolver(this.entityClient, this.ermodelrelationService))
+            .dataFetcher("createERModelRelation", new CreateERModelRelationResolver(this.entityClient, this.eRModelRelationService))
             .dataFetcher("addTag", new AddTagResolver(entityService))
             .dataFetcher("addTags", new AddTagsResolver(entityService))
             .dataFetcher("batchAddTags", new BatchAddTagsResolver(entityService))

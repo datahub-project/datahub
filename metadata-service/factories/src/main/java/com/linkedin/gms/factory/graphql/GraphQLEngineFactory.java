@@ -164,8 +164,8 @@ public class GraphQLEngineFactory {
   private QueryService _queryService;
 
   @Autowired
-  @Qualifier("ermodelrelationService")
-  private ERModelRelationService _ermodelrelationService;
+  @Qualifier("eRModelRelationService")
+  private ERModelRelationService _eRModelRelationService;
 
   @Autowired
   @Qualifier("dataProductService")
@@ -214,7 +214,7 @@ public class GraphQLEngineFactory {
     args.setSettingsService(_settingsService);
     args.setLineageService(_lineageService);
     args.setQueryService(_queryService);
-    args.setErmodelrelationService(_ermodelrelationService);
+    args.setERModelRelationService(_eRModelRelationService);
     args.setFeatureFlags(_configProvider.getFeatureFlags());
     args.setDataProductService(_dataProductService);
     return new GmsGraphQLEngine(

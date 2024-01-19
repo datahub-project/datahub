@@ -74,6 +74,6 @@ public class GmsGraphQLEngineArgs {
     QueryService queryService;
     FeatureFlags featureFlags;
     DataProductService dataProductService;
-    ERModelRelationService ermodelrelationService;
+    ERModelRelationService eRModelRelationService;
     //any fork specific args should go below this line
 }

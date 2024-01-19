@@ -8,7 +8,7 @@ import com.linkedin.common.CustomProperties
  * Properties associated with a ERModelRelation
  */
 @Aspect = {
-  "name": "ermodelrelationProperties"
+  "name": "eRModelRelationProperties"
 }
 record ERModelRelationProperties includes CustomProperties {
 

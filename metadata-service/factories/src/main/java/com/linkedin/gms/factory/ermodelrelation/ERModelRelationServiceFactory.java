@@ -25,7 +25,7 @@ public class ERModelRelationServiceFactory {
   @Qualifier("systemAuthentication")
   private Authentication _authentication;
 
-  @Bean(name = "ermodelrelationService")
+  @Bean(name = "eRModelRelationService")
   @Scope("singleton")
   @Nonnull
   protected ERModelRelationService getInstance() throws Exception {

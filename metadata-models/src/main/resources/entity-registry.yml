@@ -438,7 +438,7 @@ entities:
     doc: ER Model Relation of  Dataset Fields
     keyAspect: ermodelrelationKey
     aspects:
-      - erModelRelationProperties
+      - eRModelRelationProperties
       - editableERModelRelationProperties
       - institutionalMemory
       - ownership
