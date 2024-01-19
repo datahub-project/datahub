@@ -781,12 +781,12 @@ class RedshiftLineageExtractor:
         return temp_table_rows
 
     def find_temp_tables(
-        self, temp_tables: List[TempTableRow], temp_table_names: List[str]
+        self, temp_table_rows: List[TempTableRow], temp_table_names: List[str]
     ) -> List[TempTableRow]:
         matched_temp_tables: List[TempTableRow] = []
 
         for table_name in temp_table_names:
-            for row in temp_tables:
+            for row in temp_table_rows:
                 if any(
                     row.query_text.lower().startswith(prefix)
                     for prefix in RedshiftQuery.get_temp_table_clause(table_name)
@@ -822,7 +822,7 @@ class RedshiftLineageExtractor:
 
                 # Check if table found is again a temp table
                 repeated_temp_table: List[TempTableRow] = self.find_temp_tables(
-                    temp_tables=self.get_temp_tables(connection=connection),
+                    temp_table_rows=self.get_temp_tables(connection=connection),
                     temp_table_names=[table],
                 )
 
@@ -852,7 +852,7 @@ class RedshiftLineageExtractor:
         permanent_lineage_datasets: List[LineageDataset] = []
 
         temp_table_rows: List[TempTableRow] = self.find_temp_tables(
-            temp_tables=self.get_temp_tables(connection=connection),
+            temp_table_rows=self.get_temp_tables(connection=connection),
             temp_table_names=temp_table_names,
         )
 
