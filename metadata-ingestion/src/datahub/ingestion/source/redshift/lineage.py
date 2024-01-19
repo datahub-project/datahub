@@ -314,7 +314,6 @@ class RedshiftLineageExtractor:
         lineage_type: LineageCollectorType,
         connection: redshift_connector.Connection,
         all_tables_set: Dict[str, Dict[str, Set[str]]],
-        table_renames: Dict[str, str],
     ) -> None:
         """
         This method generate table level lineage based with the given query.
@@ -349,7 +348,9 @@ class RedshiftLineageExtractor:
                 if not target:
                     continue
 
-                logger.debug(f"Processing lineage row: {lineage_row}")
+                logger.debug(
+                    f"Processing {lineage_type.name} lineage row: {lineage_row}"
+                )
 
                 sources, cll = self._get_sources(
                     lineage_type,
@@ -380,20 +381,6 @@ class RedshiftLineageExtractor:
                 else:
                     self._lineage_map[target.dataset.urn] = target
 
-                # If this table was renamed from some other name, copy in the lineage
-                # for the previous name as well.
-                prev_table_urn = table_renames.get(target.dataset.urn)
-                if prev_table_urn:
-                    prev_table_lineage = self._lineage_map.get(prev_table_urn)
-                    if prev_table_lineage:
-                        logger.debug(
-                            f"including lineage for {prev_table_urn} in {target.dataset.urn} due to table rename"
-                        )
-                        self._lineage_map[target.dataset.urn].merge_lineage(
-                            upstreams=prev_table_lineage.upstreams,
-                            cll=prev_table_lineage.cll,
-                        )
-
                 logger.debug(
                     f"Lineage[{target}]:{self._lineage_map[target.dataset.urn]}"
                 )
@@ -404,6 +391,26 @@ class RedshiftLineageExtractor:
                 f"Error was {e}, {traceback.format_exc()}",
             )
             self.report_status(f"extract-{lineage_type.name}", False)
+
+    def _update_lineage_map_for_table_renames(
+        self, table_renames: Dict[str, str]
+    ) -> None:
+        if not table_renames:
+            return
+
+        logger.info(f"Updating lineage map for {len(table_renames)} table renames")
+        for new_table_urn, prev_table_urn in table_renames.items():
+            # This table was renamed from some other name, copy in the lineage
+            # for the previous name as well.
+            prev_table_lineage = self._lineage_map.get(prev_table_urn)
+            if prev_table_lineage:
+                logger.debug(
+                    f"including lineage for {prev_table_urn} in {new_table_urn} due to table rename"
+                )
+                self._lineage_map[new_table_urn].merge_lineage(
+                    upstreams=prev_table_lineage.upstreams,
+                    cll=prev_table_lineage.cll,
+                )
 
     def _get_target_lineage(
         self,
@@ -605,8 +612,10 @@ class RedshiftLineageExtractor:
                 lineage_type=lineage_type,
                 connection=connection,
                 all_tables_set=all_tables_set,
-                table_renames=table_renames,
             )
+
+        # Handling for alter table statements.
+        self._update_lineage_map_for_table_renames(table_renames=table_renames)
 
         self.report.lineage_mem_size[self.config.database] = humanfriendly.format_size(
             memory_footprint.total_size(self._lineage_map)
