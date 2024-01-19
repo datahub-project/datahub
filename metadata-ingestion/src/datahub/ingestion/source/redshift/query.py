@@ -540,8 +540,15 @@ SELECT  schemaname as schema_name,
                             SVL_STATEMENTTEXT
                         where
                             type in ('DDL', 'QUERY')
-                            AND        start_time >= '{start_time_str}'
-                            AND        start_time < '{end_time_str}'
+                            AND        starttime >= '{start_time_str}'
+                            AND        starttime < '{end_time_str}'
+                        group by 
+                            pid,
+                            xid,
+                            sequence,
+                            starttime,
+                            type,
+                            userid
                         order by
                             xid,
                             sequence)
