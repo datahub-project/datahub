@@ -226,7 +226,7 @@ class SupersetSource(StatefulIngestionSourceBase):
             return make_dataset_urn(
                 platform=self.get_platform_from_database_id(database_id),
                 name=".".join(
-                    filter(lambda _: _, [schema_name, database_name, table_name])
+                    name for name in [database_name, schema_name, table_name] if name
                 ),
                 env=self.config.env,
             )
