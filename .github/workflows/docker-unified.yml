@@ -880,7 +880,7 @@ jobs:
         run: df -h . && docker images
       # All image tags head, except for ingestion base
       - name: Ingestion Only Image Setup
-        if: ${{ needs.setup.outputs.ingestion_only }}
+        if: ${{ needs.setup.outputs.ingestion_only == 'true' }}
         run: |
           echo 'Pulling head images'
           docker pull '${{ env.DATAHUB_GMS_IMAGE }}:head'
@@ -902,7 +902,7 @@ jobs:
           docker tag '${{ env.DATAHUB_UPGRADE_IMAGE }}:head' '${{ env.DATAHUB_UPGRADE_IMAGE }}:${{ needs.setup.outputs.unique_tag }}'
       # All image tags head, except frontend image
       - name: Frontend Only Image Setup
-        if: ${{ needs.setup.outputs.frontend_only }}
+        if: ${{ needs.setup.outputs.frontend_only == 'true' }}
         run: |
           echo 'Pulling head images'
           docker pull '${{ env.DATAHUB_GMS_IMAGE }}:head'
