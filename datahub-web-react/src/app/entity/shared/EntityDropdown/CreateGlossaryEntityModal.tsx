@@ -8,7 +8,7 @@ import {
     useCreateGlossaryTermMutation,
     useCreateGlossaryNodeMutation,
 } from '../../../../graphql/glossaryTerm.generated';
-import { EntityType } from '../../../../types.generated';
+import { ActionRequestType, EntityType } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import NodeParentSelect from './NodeParentSelect';
 import { useEntityData, useRefetch } from '../EntityContext';
@@ -16,7 +16,7 @@ import {
     useProposeCreateGlossaryNodeMutation,
     useProposeCreateGlossaryTermMutation,
 } from '../../../../graphql/proposals.generated';
-import analytics, { EventType } from '../../../analytics';
+import analytics, { EntityActionType, EventType } from '../../../analytics';
 import DescriptionModal from '../components/legacy/DescriptionModal';
 import { validateCustomUrnId } from '../../../shared/textUtil';
 import { useGlossaryEntityData } from '../GlossaryEntityContext';
@@ -152,6 +152,16 @@ function CreateGlossaryEntityModal(props: Props) {
                 message.error({ content: `Failed to propose: \n ${e.message || ''}`, duration: 3 });
             })
             .finally(() => {
+                analytics.event({
+                    type: EventType.EntityActionEvent,
+                    actionType: EntityActionType.ProposalCreated,
+                    actionQualifier:
+                        entityType === EntityType.GlossaryTerm
+                            ? ActionRequestType.CreateGlossaryTerm
+                            : ActionRequestType.CreateGlossaryNode,
+                    entityType,
+                    entityUrn: '',
+                });
                 message.success({ content: `Proposed ${entityRegistry.getEntityName(entityType)}!`, duration: 2 });
             });
         onClose();

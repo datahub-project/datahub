@@ -105,6 +105,7 @@ export enum EventType {
     SubscriptionDeleteErrorEvent,
     NotificationSettingsSuccessEvent,
     NotificationSettingsErrorEvent,
+    InboxPageViewEvent
 }
 
 /**
@@ -131,6 +132,13 @@ export interface PageViewEvent extends BaseEvent {
  */
 export interface HomePageViewEvent extends BaseEvent {
     type: EventType.HomePageViewEvent;
+}
+
+/**
+ * Viewed the Proposal Page on the UI.
+ */
+export interface InboxPageViewEvent extends BaseEvent {
+    type: EventType.InboxPageViewEvent;
 }
 
 /**
@@ -329,10 +337,15 @@ export const EntityActionType = {
     ClickExternalUrl: 'ClickExternalUrl',
     AddIncident: 'AddIncident',
     ResolvedIncident: 'ResolvedIncident',
+     // figure out type of proposal
+     ProposalCreated: 'ProposalCreated',
+     ProposalAccepted: 'ProposalAccepted',
+     ProposalRejected: 'ProposalRejected',
 };
 export interface EntityActionEvent extends BaseEvent {
     type: EventType.EntityActionEvent;
     actionType: string;
+    actionQualifier?: string;
     entityType?: EntityType;
     entityUrn: string;
 }
@@ -865,4 +878,5 @@ export type Event =
     | SubscriptionDeleteSuccessEvent
     | SubscriptionDeleteErrorEvent
     | NotificationSettingsSuccessEvent
-    | NotificationSettingsErrorEvent;
+    | NotificationSettingsErrorEvent
+    | InboxPageViewEvent;

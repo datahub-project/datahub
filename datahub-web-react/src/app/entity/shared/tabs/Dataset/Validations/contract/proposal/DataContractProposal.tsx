@@ -11,7 +11,7 @@ import {
 } from '@ant-design/icons';
 import { useEntityData } from '../../../../../EntityContext';
 import { useGetContractProposalsQuery } from '../../../../../../../../graphql/contract.generated';
-import { ActionRequestStatus, DataContractProposalParams } from '../../../../../../../../types.generated';
+import { ActionRequestStatus, ActionRequestType, DataContractProposalParams, EntityType } from '../../../../../../../../types.generated';
 import { DataContractProposalDescription } from './DataContractProposalDescription';
 import {
     useAcceptProposalMutation,
@@ -22,6 +22,7 @@ import { FAILURE_COLOR_HEX } from '../../../../Incident/incidentUtils';
 import { FreshnessContractSummary } from '../FreshnessContractSummary';
 import { SchemaContractSummary } from '../SchemaContractSummary';
 import { DataQualityContractSummary } from '../DataQualityContractSummary';
+import analytics, { EntityActionType, EventType } from '../../../../../../../analytics';
 
 const Container = styled.div``;
 
@@ -106,12 +107,14 @@ const StyledEyeOutlined = styled(EyeOutlined)`
 type Props = {
     showContractBuilder: () => void;
     refetch: () => void;
+    entityUrn: string;
+    entityType?: EntityType;
 };
 
 /**
  *  Displaying a Data Contract proposal for an entity.
  */
-export const DataContractProposal = ({ showContractBuilder, refetch }: Props) => {
+export const DataContractProposal = ({ showContractBuilder, refetch, entityUrn, entityType }: Props) => {
     const { urn } = useEntityData();
     const [acceptProposalMutation] = useAcceptProposalMutation();
     const [rejectProposalMutation] = useRejectProposalMutation();
@@ -133,6 +136,13 @@ export const DataContractProposal = ({ showContractBuilder, refetch }: Props) =>
             onOk() {
                 acceptProposalMutation({ variables: { urn: actionRequestUrn } })
                     .then(() => {
+                        analytics.event({
+                            type: EventType.EntityActionEvent,
+                            actionType: EntityActionType.ProposalAccepted,
+                            actionQualifier: ActionRequestType.DataContract,
+                            entityType,
+                            entityUrn,
+                        });
                         setTimeout(() => refetch(), 3000);
                         message.success('Successfully accepted the proposal!');
                     })
@@ -153,6 +163,13 @@ export const DataContractProposal = ({ showContractBuilder, refetch }: Props) =>
             onOk() {
                 rejectProposalMutation({ variables: { urn: actionRequestUrn } })
                     .then(() => {
+                        analytics.event({
+                            type: EventType.EntityActionEvent,
+                            actionType: EntityActionType.ProposalRejected,
+                            actionQualifier: ActionRequestType.DataContract,
+                            entityType,
+                            entityUrn
+                        });
                         contractRefetch();
                         setTimeout(() => refetch(), 3000);
                         message.success('Rejected the proposal.');

@@ -28,7 +28,7 @@ const RightColumn = styled.div`
  * Component used for rendering the Data Contract Tab on the Assertions parent tab.
  */
 export const DataContractTab = () => {
-    const { urn } = useEntityData();
+    const { urn, entityType } = useEntityData();
 
     const { data, refetch } = useGetDatasetContractQuery({
         variables: {
@@ -104,7 +104,7 @@ export const DataContractTab = () => {
                         </RightColumn>
                     </Container>
                 </>
-            )) || <DataContractProposal refetch={refetch} showContractBuilder={() => setShowContractBuilder(true)} />}
+            )) || <DataContractProposal refetch={refetch} showContractBuilder={() => setShowContractBuilder(true)} entityUrn={urn} entityType={entityType}/>}
             {showContractBuilder && (
                 <DataContractBuilderModal
                     initialState={createBuilderState(data?.dataset?.contract as any)}
@@ -112,6 +112,7 @@ export const DataContractTab = () => {
                     onCancel={() => setShowContractBuilder(false)}
                     onPropose={onContractUpdate}
                     onSubmit={onContractUpdate}
+                    entityType={entityType}
                 />
             )}
         </>

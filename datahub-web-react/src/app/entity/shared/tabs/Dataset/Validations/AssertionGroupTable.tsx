@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import styled from 'styled-components';
 import { Empty } from 'antd';
 import { DownOutlined, RightOutlined } from '@ant-design/icons';
@@ -7,6 +7,7 @@ import { AssertionGroup } from './acrylTypes';
 import { AssertionGroupHeader } from './AssertionGroupHeader';
 import { AcrylDatasetAssertionsList } from './AcrylAssertionsList';
 import { StyledTable } from '../../../components/styled/StyledTable';
+import { useExpandRowBasedOnAssertionUrn } from './assertion/builder/hooks';
 
 const StyledStyledTable = styled(StyledTable)`
     &&&& {
@@ -35,6 +36,11 @@ type Props = {
 };
 
 export const AssertionGroupTable = ({ groups, contract, onDeletedAssertion, onUpdatedAssertion }: Props) => {
+    const [expandedRowKeys, setExpandedRowKeys] = useState<string[] | undefined>(undefined);
+
+    // To handle assertion URN parameter logic for expanding rows
+    useExpandRowBasedOnAssertionUrn(groups, setExpandedRowKeys);
+
     const columns = [
         {
             title: 'Name',
@@ -54,6 +60,7 @@ export const AssertionGroupTable = ({ groups, contract, onDeletedAssertion, onUp
                 emptyText: <Empty description="No Assertions Found" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
             }}
             expandable={{
+                expandedRowKeys,
                 expandedRowRender: (group, _index, _indent, _expanded) => {
                     return (
                         <AcrylDatasetAssertionsList
@@ -61,6 +68,7 @@ export const AssertionGroupTable = ({ groups, contract, onDeletedAssertion, onUp
                             contract={contract}
                             onDeletedAssertion={onDeletedAssertion}
                             onUpdatedAssertion={onUpdatedAssertion}
+                            setExpandedRowKeys={setExpandedRowKeys}
                         />
                     );
                 },

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Modal, Typography } from 'antd';
-import { DataContract } from '../../../../../../../../types.generated';
+import { DataContract, EntityType } from '../../../../../../../../types.generated';
 import ClickOutside from '../../../../../../../shared/ClickOutside';
 import { DataContractBuilderState } from './types';
 import { DataContractBuilder } from './DataContractBuilder';
@@ -14,12 +14,13 @@ type Props = {
     onSubmit?: (contract: DataContract) => void;
     onPropose?: () => void;
     onCancel?: () => void;
+    entityType?: EntityType;
 };
 
 /**
  * This component is a modal used for constructing new Data Contracts
  */
-export const DataContractBuilderModal = ({ entityUrn, initialState, onSubmit, onPropose, onCancel }: Props) => {
+export const DataContractBuilderModal = ({ entityUrn, initialState, onSubmit, onPropose, onCancel, entityType }: Props) => {
     const isEditing = initialState !== undefined;
     const titleText = isEditing ? 'Edit Data Contract' : 'New Data Contract';
 
@@ -51,6 +52,7 @@ export const DataContractBuilderModal = ({ entityUrn, initialState, onSubmit, on
             >
                 <DataContractBuilder
                     entityUrn={entityUrn}
+                    entityType={entityType}
                     initialState={initialState}
                     onSubmit={onSubmit}
                     onPropose={onPropose}

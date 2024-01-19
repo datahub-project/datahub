@@ -93,7 +93,8 @@ public enum DataHubUsageEventType {
   SUBSCRIPTION_DELETE_SUCCESS_EVENT("SubscriptionDeleteSuccessEvent"),
   SUBSCRIPTION_DELETE_ERROR_EVENT("SubscriptionDeleteErrorEvent"),
   NOTIFICATION_SETTINGS_SUCCESS_EVENT("NotificationSettingsSuccessEvent"),
-  NOTIFICATION_SETTINGS_ERROR_EVENT("NotificationSettingsErrorEvent");
+  NOTIFICATION_SETTINGS_ERROR_EVENT("NotificationSettingsErrorEvent"),
+  INBOX_PAGE_VIEW_EVENT("InboxPageViewEvent");
 
   private final String type;
 
