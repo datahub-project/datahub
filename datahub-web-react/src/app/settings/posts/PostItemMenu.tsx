@@ -27,7 +27,7 @@ export default function PostItemMenu({ title, urn, onDelete }: Props) {
             })
             .catch(() => {
                 message.destroy();
-                message.error({ content: `Failed to delete Post!: An unknown error occurred.`, duration: 3 });
+                message.error({ content: `Failed to delete Post!: Unauthorized to perform this action.`, duration: 3 });
             });
     };
 

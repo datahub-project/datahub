@@ -69,7 +69,7 @@ export default function CreatePostModal({ onClose, onCreate }: Props) {
             })
             .catch((e) => {
                 message.destroy();
-                message.error({ content: 'Failed to create Post! An unknown error occured.', duration: 3 });
+                message.error({ content: 'Failed to create Post! Unauthorized to perform this action.', duration: 3 });
                 console.error('Failed to create Post:', e.message);
             });
         onClose();
