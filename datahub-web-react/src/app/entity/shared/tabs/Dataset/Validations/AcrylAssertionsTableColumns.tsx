@@ -245,6 +245,7 @@ export function ActionsColumn({
             <Dropdown
                 overlay={
                     <AssertionActionsMenu
+                        urn={assertion.urn}
                         monitor={monitor}
                         canManageAssertion={canManageAssertion}
                         isPartOfContract={isPartOfContract}
