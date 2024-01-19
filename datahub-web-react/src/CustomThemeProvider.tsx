@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { ThemeProvider } from 'styled-components';
 import { Theme } from './conf/theme/types';
-import defaultThemeConfig from './conf/theme/theme_acryl.config.json';
+import defaultThemeConfig from './conf/theme/theme_light.config.json';
 import { CustomThemeContext } from './customThemeContext';
 
 const CustomThemeProvider = ({ children }: { children: React.ReactNode }) => {
