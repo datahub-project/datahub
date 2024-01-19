@@ -487,7 +487,7 @@ SELECT  schemaname as schema_name,
         #    WHERE rn = 1
         # """
 
-        return f"""
+        return rf"""
             select
                 *
             from
@@ -498,20 +498,21 @@ SELECT  schemaname as schema_name,
                     start_time,
                     userid,
                     REGEXP_REPLACE(REGEXP_SUBSTR(REGEXP_REPLACE(query_text,
-                    '\\\\\\\\n',
-                    '\\\\n'),
-                    'create([\\\\n\\\\s\\\\t]+)?(temp)?[\\\\n\\\\s\\\\t]+table([\\\\n\\\\s\\\\t]+)([#a-zA-Z0-9_-]+)',
+                    '\\\\n',
+                    '\\n'),
+                    'create([\\n\\s\\t]+)?(temp)?[\\n\\s\\t]+table([\\n\\s\\t]+)([#a-zA-Z0-9_-]+)',
                     0,
                     1,
                     'ip'),
-                    '[\\\\n\\\\s\\\\t]+',
+                    '[\\n\\s\\t]+',
                     ' ',
                     1,
                     'p') as create_command,
                     query_text,
-                    row_number() over (partition by TRIM(query_text)
-                order by
-                    start_time desc) rn
+                    row_number() over (
+                        partition by TRIM(query_text)
+                        order by start_time desc
+                    ) rn
                 from
                     (
                     select
@@ -534,15 +535,17 @@ SELECT  schemaname as schema_name,
                                 else RTRIM(text)
                             end,
                             '') within group (
-                        order by
-                            sequence) as query_text
+                                order by sequence
+                            ) as query_text
                         from
                             SVL_STATEMENTTEXT
                         where
                             type in ('DDL', 'QUERY')
                             AND        starttime >= '{start_time_str}'
                             AND        starttime < '{end_time_str}'
-                        group by 
+                            -- See https://stackoverflow.com/questions/72770890/redshift-result-size-exceeds-listagg-limit-on-svl-statementtext
+                            AND sequence < 320
+                        group by
                             pid,
                             xid,
                             sequence,
