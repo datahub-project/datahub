@@ -13,7 +13,11 @@ from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
 )
-from datahub.emitter.mce_builder import make_domain_urn
+from datahub.emitter.mce_builder import (
+    make_chart_urn,
+    make_dashboard_urn,
+    make_domain_urn,
+)
 from datahub.emitter.mcp_builder import add_domain_to_entity_wu
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -247,7 +251,11 @@ class SupersetSource(StatefulIngestionSourceBase):
         return None
 
     def construct_dashboard_from_api_data(self, dashboard_data):
-        dashboard_urn = f"urn:li:dashboard:({self.platform},{self.platform_instance}{dashboard_data['id']})"
+        dashboard_urn = make_dashboard_urn(
+            platform=self.platform,
+            name=dashboard_data["id"],
+            platform_instance=self.config.platform_instance,
+        )
         dashboard_snapshot = DashboardSnapshot(
             urn=dashboard_urn,
             aspects=[Status(removed=False)],
@@ -276,7 +284,11 @@ class SupersetSource(StatefulIngestionSourceBase):
             if not key.startswith("CHART-"):
                 continue
             chart_urns.append(
-                f"urn:li:chart:({self.platform},{self.platform_instance}{value.get('meta', {}).get('chartId', 'unknown')})"
+                make_chart_urn(
+                    platform=self.platform,
+                    name=value.get("meta", {}).get("chartId", "unknown"),
+                    platform_instance=self.config.platform_instance,
+                )
             )
 
         dashboard_info = DashboardInfoClass(
@@ -323,8 +335,10 @@ class SupersetSource(StatefulIngestionSourceBase):
                 )
 
     def construct_chart_from_chart_data(self, chart_data):
-        chart_urn = (
-            f"urn:li:chart:({self.platform},{self.platform_instance}{chart_data['id']})"
+        chart_urn = make_chart_urn(
+            platform=self.platform,
+            name=chart_data['id'],
+            platform_instance=self.config.platform_instance,
         )
         chart_snapshot = ChartSnapshot(
             urn=chart_urn,
