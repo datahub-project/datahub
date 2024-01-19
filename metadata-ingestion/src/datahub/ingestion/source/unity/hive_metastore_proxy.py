@@ -12,11 +12,14 @@ from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.source.unity.proxy_types import (
     Catalog,
     Column,
+    ColumnProfile,
     CustomCatalogType,
     HiveTableType,
     Metastore,
     Schema,
     Table,
+    TableProfile,
+    TableReference,
 )
 
 logger = logging.getLogger(__name__)
@@ -37,6 +40,18 @@ type_map = {
     "date": ColumnTypeName.DATE,
     "binary": ColumnTypeName.BINARY,
 }
+
+NUM_NULLS = "num_nulls"
+DISTINCT_COUNT = "distinct_count"
+MIN = "min"
+MAX = "max"
+AVG_COL_LEN = "avg_col_len"
+MAX_COL_LEN = "max_col_len"
+VERSION = "version"
+
+ROWS = "rows"
+BYTES = "bytes"
+TABLE_STAT_LIST = {ROWS, BYTES}
 
 
 class HiveMetastoreProxy(Closeable):
@@ -67,7 +82,7 @@ class HiveMetastoreProxy(Closeable):
 
     def hive_metastore_catalog(self, metastore: Optional[Metastore]) -> Catalog:
         return Catalog(
-            id=HIVE_METASTORE,
+            id=f"{metastore.id}.{HIVE_METASTORE}" if metastore else HIVE_METASTORE,
             name=HIVE_METASTORE,
             comment=None,
             metastore=metastore,
@@ -95,9 +110,14 @@ class HiveMetastoreProxy(Closeable):
                 continue
             yield self._get_table(schema, table_name, False)
 
-    def _get_table(self, schema: Schema, table_name: str, is_view: bool) -> Table:
+    def _get_table(
+        self,
+        schema: Schema,
+        table_name: str,
+        is_view: bool = False,
+    ) -> Table:
         columns = self._get_columns(schema, table_name)
-        detailed_info = self._get_table_info(schema, table_name)
+        detailed_info = self._get_table_info(schema.name, table_name)
 
         comment = detailed_info.pop("Comment", None)
         storage_location = detailed_info.pop("Location", None)
@@ -128,6 +148,74 @@ class HiveMetastoreProxy(Closeable):
             table_id=f"{schema.id}.{table_name}",
             comment=comment,
         )
+
+    def get_table_profile(
+        self, ref: TableReference, include_column_stats: bool = False
+    ) -> TableProfile:
+        columns = self._get_columns(
+            Schema(
+                id=ref.schema,
+                name=ref.schema,
+                # This is okay, as none of this is used in profiling
+                catalog=self.hive_metastore_catalog(None),
+                comment=None,
+                owner=None,
+            ),
+            ref.table,
+        )
+        detailed_info = self._get_table_info(ref.schema, ref.table)
+
+        table_stats = (
+            self._get_cached_table_statistics(detailed_info["Statistics"])
+            if detailed_info.get("Statistics")
+            else {}
+        )
+
+        return TableProfile(
+            num_rows=int(table_stats[ROWS])
+            if table_stats.get(ROWS) is not None
+            else None,
+            total_size=int(table_stats[BYTES])
+            if table_stats.get(BYTES) is not None
+            else None,
+            num_columns=len(columns),
+            column_profiles=[
+                self._get_column_profile(column.name, ref) for column in columns
+            ]
+            if include_column_stats
+            else [],
+        )
+
+    def _get_column_profile(self, column: str, ref: TableReference) -> ColumnProfile:
+
+        props = self._column_describe_extended(ref.schema, ref.table, column)
+        col_stats = {}
+        for prop in props:
+            col_stats[prop[0]] = prop[1]
+        return ColumnProfile(
+            name=column,
+            null_count=int(col_stats[NUM_NULLS])
+            if col_stats.get(NUM_NULLS) is not None
+            else None,
+            distinct_count=int(col_stats[DISTINCT_COUNT])
+            if col_stats.get(DISTINCT_COUNT) is not None
+            else None,
+            min=col_stats.get(MIN),
+            max=col_stats.get(MAX),
+            avg_len=col_stats.get(AVG_COL_LEN),
+            max_len=col_stats.get(MAX_COL_LEN),
+            version=col_stats.get(VERSION),
+        )
+
+    def _get_cached_table_statistics(self, statistics: str) -> dict:
+        # statistics is in format "xx bytes" OR "1382 bytes, 2 rows"
+        table_stats = dict()
+        for prop in statistics.split(","):
+            value_key_list = prop.strip().split(" ")  # value_key_list -> [value, key]
+            if len(value_key_list) == 2 and value_key_list[1] in TABLE_STAT_LIST:
+                table_stats[value_key_list[1]] = value_key_list[0]
+
+        return table_stats
 
     def _get_created_at(self, created_at: Optional[str]) -> Optional[datetime]:
         return (
@@ -171,8 +259,8 @@ class HiveMetastoreProxy(Closeable):
         else:
             return HiveTableType.UNKNOWN
 
-    def _get_table_info(self, schema: Schema, table_name: str) -> dict:
-        rows = self._describe_extended(schema.name, table_name)
+    def _get_table_info(self, schema_name: str, table_name: str) -> dict:
+        rows = self._describe_extended(schema_name, table_name)
 
         index = rows.index(("# Detailed Table Information", "", ""))
         rows = rows[index + 1 :]
@@ -234,6 +322,17 @@ class HiveMetastoreProxy(Closeable):
         https://docs.databricks.com/en/sql/language-manual/sql-ref-syntax-aux-describe-table.html#examples
         """
         return self._execute_sql(f"DESCRIBE EXTENDED `{schema_name}`.`{table_name}`")
+
+    def _column_describe_extended(
+        self, schema_name: str, table_name: str, column_name: str
+    ) -> List[Row]:
+        """
+        Rows are structured as shown in examples here
+        https://docs.databricks.com/en/sql/language-manual/sql-ref-syntax-aux-describe-table.html#examples
+        """
+        return self._execute_sql(
+            f"DESCRIBE EXTENDED `{schema_name}`.`{table_name}` {column_name}"
+        )
 
     def _execute_sql(self, sql: str) -> List[Row]:
         return self.inspector.bind.execute(sql).fetchall()

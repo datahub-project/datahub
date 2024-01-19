@@ -91,6 +91,9 @@ public class ApplicationTest extends WithBrowser {
   @BeforeAll
   public void init() throws IOException {
     _gmsServer = new MockWebServer();
+    _gmsServer.enqueue(new MockResponse().setResponseCode(404)); // dynamic settings - not tested
+    _gmsServer.enqueue(new MockResponse().setResponseCode(404)); // dynamic settings - not tested
+    _gmsServer.enqueue(new MockResponse().setResponseCode(404)); // dynamic settings - not tested
     _gmsServer.enqueue(new MockResponse().setBody(String.format("{\"value\":\"%s\"}", TEST_USER)));
     _gmsServer.enqueue(
         new MockResponse().setBody(String.format("{\"accessToken\":\"%s\"}", TEST_TOKEN)));
@@ -192,8 +195,27 @@ public class ApplicationTest extends WithBrowser {
   }
 
   @Test
-  public void testOidcRedirectToRequestedUrl() throws InterruptedException {
+  public void testOidcRedirectToRequestedUrl() {
     browser.goTo("/authenticate?redirect_uri=%2Fcontainer%2Furn%3Ali%3Acontainer%3ADATABASE");
     assertEquals("container/urn:li:container:DATABASE", browser.url());
+  }
+
+  /**
+   * The Redirect Uri parameter is used to store a previous relative location within the app to be able to
+   * take a user back to their expected page. Redirecting to other domains should be blocked.
+   */
+  @Test
+  public void testInvalidRedirectUrl() {
+    browser.goTo("/authenticate?redirect_uri=https%3A%2F%2Fwww.google.com");
+    assertEquals("", browser.url());
+
+    browser.goTo("/authenticate?redirect_uri=file%3A%2F%2FmyFile");
+    assertEquals("", browser.url());
+
+    browser.goTo("/authenticate?redirect_uri=ftp%3A%2F%2FsomeFtp");
+    assertEquals("", browser.url());
+
+    browser.goTo("/authenticate?redirect_uri=localhost%3A9002%2Flogin");
+    assertEquals("", browser.url());
   }
 }

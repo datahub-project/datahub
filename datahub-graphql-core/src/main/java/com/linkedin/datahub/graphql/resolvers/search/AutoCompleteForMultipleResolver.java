@@ -20,6 +20,7 @@ import graphql.schema.DataFetchingEnvironment;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -67,7 +68,10 @@ public class AutoCompleteForMultipleResolver
     List<EntityType> types = getEntityTypes(input.getTypes(), maybeResolvedView);
     if (types != null && types.size() > 0) {
       return AutocompleteUtils.batchGetAutocompleteResults(
-          types.stream().map(_typeToEntity::get).collect(Collectors.toList()),
+          types.stream()
+              .map(_typeToEntity::get)
+              .filter(Objects::nonNull)
+              .collect(Collectors.toList()),
           sanitizedQuery,
           input,
           environment,
@@ -76,7 +80,10 @@ public class AutoCompleteForMultipleResolver
 
     // By default, autocomplete only against the Default Set of Autocomplete entities
     return AutocompleteUtils.batchGetAutocompleteResults(
-        AUTO_COMPLETE_ENTITY_TYPES.stream().map(_typeToEntity::get).collect(Collectors.toList()),
+        AUTO_COMPLETE_ENTITY_TYPES.stream()
+            .map(_typeToEntity::get)
+            .filter(Objects::nonNull)
+            .collect(Collectors.toList()),
         sanitizedQuery,
         input,
         environment,

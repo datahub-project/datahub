@@ -300,7 +300,7 @@ class DBTCommonConfig(
         description="When enabled, schemas will be inferred from the dbt node definition.",
     )
     include_column_lineage: bool = Field(
-        default=False,
+        default=True,
         description="When enabled, column-level lineage will be extracted from the dbt node definition. Requires `infer_dbt_schemas` to be enabled. "
         "If you run into issues where the column name casing does not match up with properly, providing a datahub_api or using the rest sink will improve accuracy.",
     )
@@ -696,7 +696,10 @@ def get_column_type(
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
 @capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
-@capability(SourceCapability.LINEAGE_FINE, "Enabled using `include_column_lineage`")
+@capability(
+    SourceCapability.LINEAGE_FINE,
+    "Enabled by default, configure using `include_column_lineage`",
+)
 class DBTSourceBase(StatefulIngestionSourceBase):
     def __init__(self, config: DBTCommonConfig, ctx: PipelineContext, platform: str):
         super().__init__(config, ctx)
@@ -899,6 +902,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             ),
         ):
             node = all_nodes_map[dbt_name]
+            logger.debug(f"Processing CLL/schemas for {node.dbt_name}")
 
             target_node_urn = None
             should_fetch_target_node_schema = False

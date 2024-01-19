@@ -165,7 +165,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
 
     #### sql_based
     The sql_based based collector uses Redshift's [stl_insert](https://docs.aws.amazon.com/redshift/latest/dg/r_STL_INSERT.html) to discover all the insert queries
-    and uses sql parsing to discover the dependecies.
+    and uses sql parsing to discover the dependencies.
 
     Pros:
     - Works with Spectrum tables
@@ -189,7 +189,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
 
     :::note
 
-    The redshift stl redshift tables which are used for getting data lineage only retain approximately two to five days of log history. This means you cannot extract lineage from queries issued outside that window.
+    The redshift stl redshift tables which are used for getting data lineage retain at most seven days of log history, and sometimes closer to 2-5 days. This means you cannot extract lineage from queries issued outside that window.
 
     :::
 
@@ -591,6 +591,9 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         dataset_name: str,
     ) -> Iterable[MetadataWorkUnit]:
         custom_properties = {}
+
+        if table.type:
+            custom_properties["table_type"] = table.type
 
         if table.location:
             custom_properties["location"] = table.location

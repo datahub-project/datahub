@@ -208,6 +208,25 @@ public interface EntitySearchService {
       int count);
 
   /**
+   * Gets browse snapshot of a given path
+   *
+   * @param entityNames set of entities being browsed
+   * @param path path being browsed
+   * @param filter browse filter
+   * @param input search query
+   * @param start start offset of first group
+   * @param count max number of results requested
+   */
+  @Nonnull
+  public BrowseResultV2 browseV2(
+      @Nonnull List<String> entityNames,
+      @Nonnull String path,
+      @Nullable Filter filter,
+      @Nonnull String input,
+      int start,
+      int count);
+
+  /**
    * Gets a list of paths for a given urn.
    *
    * @param entityName type of entity to query

@@ -14,6 +14,7 @@ The below table shows transformer which can transform aspects of entity [Dataset
 | `schemaMetadata`    | - [Pattern Add Dataset Schema Field glossaryTerms](#pattern-add-dataset-schema-field-glossaryterms)<br/> - [Pattern Add Dataset Schema Field globalTags](#pattern-add-dataset-schema-field-globaltags)            |
 | `datasetProperties` | - [Simple Add Dataset datasetProperties](#simple-add-dataset-datasetproperties)<br/> - [Add Dataset datasetProperties](#add-dataset-datasetproperties)                                                            |
 | `domains`           | - [Simple Add Dataset domains](#simple-add-dataset-domains)<br/> - [Pattern Add Dataset domains](#pattern-add-dataset-domains)                                                                                      | 
+| `dataProduct`       | - [Simple Add Dataset dataProduct ](#simple-add-dataset-dataproduct)<br/> - [Pattern Add Dataset dataProduct](#pattern-add-dataset-dataproduct)<br/> - [Add Dataset dataProduct](#add-dataset-dataproduct)  
 
 ## Extract Ownership from Tags
 ### Config Details
@@ -961,6 +962,75 @@ in both of the cases domain should be provisioned on DataHub GMS
                 'urn:li:dataset:\(urn:li:dataPlatform:postgres,postgres\.public\.n.*': ["hr"]
                 'urn:li:dataset:\(urn:li:dataPlatform:postgres,postgres\.public\.t.*': ["urn:li:domain:finance"] 
   ```
+## Simple Add Dataset dataProduct
+### Config Details
+| Field                         | Required | Type            | Default       | Description                                                                            |
+|-------------------------------|----------|-----------------|---------------|----------------------------------------------------------------------------------------|
+| `dataset_to_data_product_urns`| ✅       | Dict[str, str]  |               | Dataset Entity urn as key and dataproduct urn as value to create with dataset as asset.|
+
+Let’s suppose we’d like to add a set of dataproduct with specific datasets as its assets. To do so, we can use the `simple_add_dataset_dataproduct` transformer that’s included in the ingestion framework.
+
+The config, which we’d append to our ingestion recipe YAML, would look like this:
+
+  ```yaml
+  transformers:
+    - type: "simple_add_dataset_dataproduct"
+      config:
+        dataset_to_data_product_urns:
+          "urn:li:dataset:(urn:li:dataPlatform:bigquery,example1,PROD)": "urn:li:dataProduct:first"
+          "urn:li:dataset:(urn:li:dataPlatform:bigquery,example2,PROD)": "urn:li:dataProduct:second"
+  ```
+
+## Pattern Add Dataset dataProduct
+### Config Details
+| Field                                 | Required | Type                 | Default     | Description                                                                                 |
+|---------------------------------------|----------|----------------------|-------------|---------------------------------------------------------------------------------------------|
+| `dataset_to_data_product_urns_pattern`| ✅       | map[regx, urn]       |             | Dataset Entity urn with regular expression and dataproduct urn apply to matching entity urn.|
+
+Let’s suppose we’d like to append a series of dataproducts with specific datasets as its assets. To do so, we can use the `pattern_add_dataset_dataproduct` module that’s included in the ingestion framework.  This will match the regex pattern to `urn` of the dataset and create the data product entity with given urn and matched datasets as its assets. 
+
+The config, which we’d append to our ingestion recipe YAML, would look like this:
+
+  ```yaml
+  transformers:
+    - type: "pattern_add_dataset_dataproduct"
+      config:
+        dataset_to_data_product_urns_pattern:
+          rules:
+            ".*example1.*": "urn:li:dataProduct:first"
+            ".*example2.*": "urn:li:dataProduct:second"
+  ```
+
+## Add Dataset dataProduct
+### Config Details
+| Field                       | Required | Type                              | Default       | Description                                                                              |
+|-----------------------------|----------|-----------------------------------|---------------|------------------------------------------------------------------------------------------|
+| `get_data_product_to_add`   | ✅        | callable[[str], Optional[str]]   |               | A function which takes dataset entity urn as input and return dataproduct urn to create. |
+
+If you'd like to add more complex logic for creating dataproducts, you can use the more generic add_dataset_dataproduct transformer, which calls a user-provided function to determine the dataproduct to create with specified datasets as its asset.
+
+```yaml
+transformers:
+  - type: "add_dataset_dataproduct"
+    config:
+      get_data_product_to_add: "<your_module>.<your_function>"
+```
+
+Then define your function to return a dataproduct entity urn, for example:
+
+```python
+import datahub.emitter.mce_builder as builder
+
+def custom_dataproducts(entity_urn: str) -> Optional[str]:
+    """Compute the dataproduct urn to a given dataset urn."""
+
+    dataset_to_data_product_map = {
+        builder.make_dataset_urn("bigquery", "example1"): "urn:li:dataProduct:first"
+    }
+    return dataset_to_data_product_map.get(dataset_urn)
+```
+Finally, you can install and use your custom transformer as [shown here](#installing-the-package).
+
 ## Relationship Between replace_existing and semantics
 The transformer behaviour mentioned here is in context of `simple_add_dataset_ownership`, however it is applicable for all dataset transformers which are supporting `replace_existing`
 and `semantics` configuration attributes, for example `simple_add_dataset_tags` will add or remove tags as per behaviour mentioned in this section.

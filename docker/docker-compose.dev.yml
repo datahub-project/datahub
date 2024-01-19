@@ -24,7 +24,8 @@ services:
     - JAVA_TOOL_OPTIONS=-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5002
     - DATAHUB_ANALYTICS_ENABLED=${DATAHUB_ANALYTICS_ENABLED:-true}
     volumes:
-    - ../datahub-frontend/build/stage/playBinary:/datahub-frontend
+    - ../datahub-frontend/build/stage/main:/datahub-frontend
+    - ./monitoring/client-prometheus-config.yaml:/datahub-frontend/client-prometheus-config.yaml
   datahub-gms:
     image: linkedin/datahub-gms:debug
     ports:
@@ -45,6 +46,7 @@ services:
     - SEARCH_SERVICE_ENABLE_CACHE=false
     - LINEAGE_SEARCH_CACHE_ENABLED=false
     - SHOW_BROWSE_V2=true
+    - KAFKA_CONSUMER_STOP_ON_DESERIALIZATION_ERROR=${KAFKA_CONSUMER_STOP_ON_DESERIALIZATION_ERROR:-true}
     volumes:
     - ./datahub-gms/start.sh:/datahub/datahub-gms/scripts/start.sh
     - ./datahub-gms/jetty.xml:/datahub/datahub-gms/scripts/jetty.xml
