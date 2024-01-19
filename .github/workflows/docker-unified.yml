@@ -877,11 +877,8 @@ jobs:
       - name: Disk Check
         run: df -h . && docker images
       # All image tags head, except frontend image
-      - name: Frontend Only Image Tag Setup
+      - name: Frontend Only Image Setup
         if: ${{ needs.setup.outputs.frontend_only }}
-        env:
-          TEST_VERSION_TAG: ${{ needs.setup.outputs.unique_tag }}
-          TEST_INGESTION_VERSION_TAG: ${{ needs.datahub_ingestion_slim_build.outputs.tag }}
         run: |
           echo 'Pulling head images'
           docker pull '${{ env.DATAHUB_GMS_IMAGE }}:head'
@@ -893,19 +890,17 @@ jobs:
           docker pull '${{ env.DATAHUB_UPGRADE_IMAGE }}:head'
           docker pull '${{ env.DATAHUB_INGESTION_IMAGE }}:head'
           echo 'Tagging head images'
-          docker tag '${{ env.DATAHUB_GMS_IMAGE }}:head' '${{ env.DATAHUB_GMS_IMAGE }}:$TEST_VERSION_TAG'
-          docker tag '${{ env.DATAHUB_KAFKA_SETUP_IMAGE }}:head' '${{ env.DATAHUB_KAFKA_SETUP_IMAGE }}:$TEST_VERSION_TAG'
-          docker tag '${{ env.DATAHUB_MYSQL_SETUP_IMAGE }}:head' '${{ env.DATAHUB_MYSQL_SETUP_IMAGE }}:$TEST_VERSION_TAG'
-          docker tag '${{ env.DATAHUB_ELASTIC_SETUP_IMAGE }}:head' '${{ env.DATAHUB_ELASTIC_SETUP_IMAGE }}:$TEST_VERSION_TAG'
-          docker tag '${{ env.DATAHUB_MCE_CONSUMER_IMAGE }}:head' '${{ env.DATAHUB_MCE_CONSUMER_IMAGE }}:$TEST_VERSION_TAG'
-          docker tag '${{ env.DATAHUB_MAE_CONSUMER_IMAGE }}:head' '${{ env.DATAHUB_MAE_CONSUMER_IMAGE }}:$TEST_VERSION_TAG'
-          docker tag '${{ env.DATAHUB_UPGRADE_IMAGE }}:head' '${{ env.DATAHUB_UPGRADE_IMAGE }}:$TEST_VERSION_TAG'
-          docker tag '${{ env.DATAHUB_INGESTION_IMAGE }}:head' '${{ env.DATAHUB_INGESTION_IMAGE }}:$TEST_INGESTION_VERSION_TAG'
+          docker tag '${{ env.DATAHUB_GMS_IMAGE }}:head' '${{ env.DATAHUB_GMS_IMAGE }}:${{ needs.setup.outputs.unique_tag }}'
+          docker tag '${{ env.DATAHUB_KAFKA_SETUP_IMAGE }}:head' '${{ env.DATAHUB_KAFKA_SETUP_IMAGE }}:${{ needs.setup.outputs.unique_tag }}'
+          docker tag '${{ env.DATAHUB_MYSQL_SETUP_IMAGE }}:head' '${{ env.DATAHUB_MYSQL_SETUP_IMAGE }}:${{ needs.setup.outputs.unique_tag }}'
+          docker tag '${{ env.DATAHUB_ELASTIC_SETUP_IMAGE }}:head' '${{ env.DATAHUB_ELASTIC_SETUP_IMAGE }}:${{ needs.setup.outputs.unique_tag }}'
+          docker tag '${{ env.DATAHUB_MCE_CONSUMER_IMAGE }}:head' '${{ env.DATAHUB_MCE_CONSUMER_IMAGE }}:${{ needs.setup.outputs.unique_tag }}'
+          docker tag '${{ env.DATAHUB_MAE_CONSUMER_IMAGE }}:head' '${{ env.DATAHUB_MAE_CONSUMER_IMAGE }}:${{ needs.setup.outputs.unique_tag }}'
+          docker tag '${{ env.DATAHUB_UPGRADE_IMAGE }}:head' '${{ env.DATAHUB_UPGRADE_IMAGE }}:${{ needs.setup.outputs.unique_tag }}'
+          docker tag '${{ env.DATAHUB_INGESTION_IMAGE }}:head' '${{ env.DATAHUB_INGESTION_IMAGE }}:${{ needs.datahub_ingestion_slim_build.outputs.tag }}'
       # All image tags head, except for ingestion base
-      - name: Ingestion Only Image Tag Setup
+      - name: Ingestion Only Image Setup
         if: ${{ needs.setup.outputs.ingestion_only }}
-        env:
-          TEST_VERSION_TAG: ${{ needs.setup.outputs.unique_tag }}
         run: |
           echo 'Pulling head images'
           docker pull '${{ env.DATAHUB_GMS_IMAGE }}:head'
@@ -917,14 +912,14 @@ jobs:
           docker pull '${{ env.DATAHUB_MAE_CONSUMER_IMAGE }}:head'
           docker pull '${{ env.DATAHUB_UPGRADE_IMAGE }}:head'
           echo 'Tagging head images'
-          docker tag '${{ env.DATAHUB_GMS_IMAGE }}:head' '${{ env.DATAHUB_GMS_IMAGE }}:$TEST_VERSION_TAG'
-          docker tag '${{ env.DATAHUB_FRONTEND_IMAGE }}:head' '${{ env.DATAHUB_FRONTEND_IMAGE }}:$TEST_VERSION_TAG'
-          docker tag '${{ env.DATAHUB_KAFKA_SETUP_IMAGE }}:head' '${{ env.DATAHUB_KAFKA_SETUP_IMAGE }}:$TEST_VERSION_TAG'
-          docker tag '${{ env.DATAHUB_MYSQL_SETUP_IMAGE }}:head' '${{ env.DATAHUB_MYSQL_SETUP_IMAGE }}:$TEST_VERSION_TAG'
-          docker tag '${{ env.DATAHUB_ELASTIC_SETUP_IMAGE }}:head' '${{ env.DATAHUB_ELASTIC_SETUP_IMAGE }}:$TEST_VERSION_TAG'
-          docker tag '${{ env.DATAHUB_MCE_CONSUMER_IMAGE }}:head' '${{ env.DATAHUB_MCE_CONSUMER_IMAGE }}:$TEST_VERSION_TAG'
-          docker tag '${{ env.DATAHUB_MAE_CONSUMER_IMAGE }}:head' '${{ env.DATAHUB_MAE_CONSUMER_IMAGE }}:$TEST_VERSION_TAG'
-          docker tag '${{ env.DATAHUB_UPGRADE_IMAGE }}:head' '${{ env.DATAHUB_UPGRADE_IMAGE }}:$TEST_VERSION_TAG'
+          docker tag '${{ env.DATAHUB_GMS_IMAGE }}:head' '${{ env.DATAHUB_GMS_IMAGE }}:${{ needs.setup.outputs.unique_tag }}'
+          docker tag '${{ env.DATAHUB_FRONTEND_IMAGE }}:head' '${{ env.DATAHUB_FRONTEND_IMAGE }}:${{ needs.setup.outputs.unique_tag }}'
+          docker tag '${{ env.DATAHUB_KAFKA_SETUP_IMAGE }}:head' '${{ env.DATAHUB_KAFKA_SETUP_IMAGE }}:${{ needs.setup.outputs.unique_tag }}'
+          docker tag '${{ env.DATAHUB_MYSQL_SETUP_IMAGE }}:head' '${{ env.DATAHUB_MYSQL_SETUP_IMAGE }}:${{ needs.setup.outputs.unique_tag }}'
+          docker tag '${{ env.DATAHUB_ELASTIC_SETUP_IMAGE }}:head' '${{ env.DATAHUB_ELASTIC_SETUP_IMAGE }}:${{ needs.setup.outputs.unique_tag }}'
+          docker tag '${{ env.DATAHUB_MCE_CONSUMER_IMAGE }}:head' '${{ env.DATAHUB_MCE_CONSUMER_IMAGE }}:${{ needs.setup.outputs.unique_tag }}'
+          docker tag '${{ env.DATAHUB_MAE_CONSUMER_IMAGE }}:head' '${{ env.DATAHUB_MAE_CONSUMER_IMAGE }}:${{ needs.setup.outputs.unique_tag }}'
+          docker tag '${{ env.DATAHUB_UPGRADE_IMAGE }}:head' '${{ env.DATAHUB_UPGRADE_IMAGE }}:${{ needs.setup.outputs.unique_tag }}'
       - name: run quickstart
         env:
           DATAHUB_TELEMETRY_ENABLED: false
