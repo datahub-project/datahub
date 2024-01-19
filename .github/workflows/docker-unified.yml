@@ -774,11 +774,13 @@ jobs:
       - id: set-matrix
         run: |
           if [ '${{ needs.setup.outputs.frontend_only }}' == 'true' ]; then
-             echo "matrix=[\"cypress_suite1\",\"cypress_rest\"]" >> $GITHUB_OUTPUT
+             echo 'matrix=["cypress_suite1","cypress_rest"]' >> $GITHUB_OUTPUT
           elif [ '${{ needs.setup.outputs.ingestion_only }}' == 'true' ]; then
-             echo "matrix=[\"no_cypress_suite0\",\"no_cypress_suite1\"]" >> $GITHUB_OUTPUT
+             echo 'matrix=["no_cypress_suite0","no_cypress_suite1"]' >> $GITHUB_OUTPUT
+          elif [ '${{ needs.setup.outputs.backend_change }}' == 'true' ]; then
+             echo 'matrix=["no_cypress_suite0","no_cypress_suite1","cypress_suite1","cypress_rest"]' >> $GITHUB_OUTPUT
           else
-             echo "matrix=[\"no_cypress_suite0\",\"no_cypress_suite1\",\"cypress_suite1\",\"cypress_rest\"]" >> $GITHUB_OUTPUT
+             echo 'matrix=[]' >> $GITHUB_OUTPUT
           fi
 
   smoke_test:
@@ -802,7 +804,7 @@ jobs:
       fail-fast: false
       matrix:
         test_strategy: ${{ fromJson(needs.smoke_test_matrix.outputs.matrix) }}
-    if: ${{ always() && !failure() && !cancelled() }}
+    if: ${{ always() && !failure() && !cancelled() && needs.smoke_test_matrix.outputs.matrix != '[]' }}
     steps:
       - name: Disk Check
         run: df -h . && docker images
