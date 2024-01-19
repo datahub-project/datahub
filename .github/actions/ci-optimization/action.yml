@@ -8,6 +8,9 @@ outputs:
   ingestion-only:
     description: "Ingestion only change"
     value: ${{ steps.filter.outputs.frontend == 'false' && steps.filter.outputs.ingestion == 'true' && steps.filter.outputs.backend == 'false' }}
+  backend-only:
+    description: "Backend only change"
+    value: ${{ steps.filter.outputs.frontend == 'false' && steps.filter.outputs.ingestion == 'false' && steps.filter.outputs.backend == 'true' }}
   backend-change:
     description: "Backend code has changed"
     value: ${{ steps.filter.outputs.backend == 'true' }}
