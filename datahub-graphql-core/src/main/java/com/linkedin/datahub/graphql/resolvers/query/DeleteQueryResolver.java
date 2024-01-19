@@ -42,7 +42,7 @@ public class DeleteQueryResolver implements DataFetcher<CompletableFuture<Boolea
                       .collect(Collectors.toList())
                   : Collections.emptyList();
 
-          if (AuthorizationUtils.canDeleteQuery(queryUrn, subjectUrns, context)) {
+          if (!AuthorizationUtils.canDeleteQuery(queryUrn, subjectUrns, context)) {
             throw new AuthorizationException(
                 "Unauthorized to delete Query. Please contact your DataHub administrator if this needs corrective action.");
           }
