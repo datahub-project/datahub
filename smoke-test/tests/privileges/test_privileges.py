@@ -454,7 +454,7 @@ def test_privilege_to_create_and_manage_policies():
 
 
 @pytest.mark.dependency(depends=["test_healthchecks"])
-def test_privilege_from_group_role_can_create_and_manage_tokens():
+def test_privilege_from_group_role_can_create_and_manage_secret():
 
     (admin_user, admin_pass) = get_admin_credentials()
     admin_session = login_as(admin_user, admin_pass)

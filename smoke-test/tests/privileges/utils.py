@@ -262,37 +262,6 @@ def create_user_policy(user_urn, privileges, session):
     assert res_data["data"]["createPolicy"]
     return res_data["data"]["createPolicy"]
 
-def create_user_policy(user_urn, privileges, session):
-    policy = {
-        "query": """mutation createPolicy($input: PolicyUpdateInput!) {\n
-            createPolicy(input: $input) }""",
-        "variables": {
-            "input": {
-                "type": "PLATFORM",
-                "name": "Policy Name",
-                "description": "Policy Description",
-                "state": "ACTIVE",
-                "resources": {"filter":{"criteria":[]}},
-                "privileges": privileges,
-                "actors": {
-                    "users": [user_urn],
-                    "resourceOwners": False,
-                    "allUsers": False,
-                    "allGroups": False,
-                },
-            }
-        },
-    }
-
-    response = session.post(f"{get_frontend_url()}/api/v2/graphql", json=policy)
-    response.raise_for_status()
-    res_data = response.json()
-
-    assert res_data
-    assert res_data["data"]
-    assert res_data["data"]["createPolicy"]
-    return res_data["data"]["createPolicy"]
-
 def remove_policy(urn, session):
     remove_policy_json = {
         "query": """mutation deletePolicy($urn: String!) {\n
