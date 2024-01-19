@@ -2,6 +2,7 @@ package com.linkedin.metadata.kafka;
 
 import com.codahale.metrics.Histogram;
 import com.codahale.metrics.MetricRegistry;
+import com.codahale.metrics.Timer;
 import com.datahub.authentication.Authentication;
 import com.linkedin.entity.Entity;
 import com.linkedin.entity.client.SystemRestliEntityClient;
@@ -67,22 +68,24 @@ public class MetadataChangeEventsProcessor {
               + "}}",
       containerFactory = "kafkaEventConsumer")
   public void consume(final ConsumerRecord<String, GenericRecord> consumerRecord) {
-    kafkaLagStats.update(System.currentTimeMillis() - consumerRecord.timestamp());
-    final GenericRecord record = consumerRecord.value();
-    log.debug("Record {}", record);
+    try (Timer.Context i = MetricUtils.timer(this.getClass(), "consume").time()) {
+      kafkaLagStats.update(System.currentTimeMillis() - consumerRecord.timestamp());
+      final GenericRecord record = consumerRecord.value();
+      log.debug("Record {}", record);
 
-    MetadataChangeEvent event = new MetadataChangeEvent();
+      MetadataChangeEvent event = new MetadataChangeEvent();
 
-    try {
-      event = EventUtils.avroToPegasusMCE(record);
-      log.debug("MetadataChangeEvent {}", event);
-      if (event.hasProposedSnapshot()) {
-        processProposedSnapshot(event);
+      try {
+        event = EventUtils.avroToPegasusMCE(record);
+        log.debug("MetadataChangeEvent {}", event);
+        if (event.hasProposedSnapshot()) {
+          processProposedSnapshot(event);
+        }
+      } catch (Throwable throwable) {
+        log.error("MCE Processor Error", throwable);
+        log.error("Message: {}", record);
+        sendFailedMCE(event, throwable);
       }
-    } catch (Throwable throwable) {
-      log.error("MCE Processor Error", throwable);
-      log.error("Message: {}", record);
-      sendFailedMCE(event, throwable);
     }
   }
 
