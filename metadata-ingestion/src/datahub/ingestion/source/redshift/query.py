@@ -519,31 +519,41 @@ SELECT  schemaname as schema_name,
                         xid as transaction_id,
                         starttime as start_time,
                         type,
-                        userid,
-                        LISTAGG(case
-                            when LEN(RTRIM(text)) = 0 then text
-                            else RTRIM(text)
-                        end) within group (
-                    order by
-                        sequence) as query_text
+                        query_text,
+                        userid
                     from
-                        SVL_STATEMENTTEXT
+                        (
+                        select
+                            pid,
+                            xid,
+                            starttime,
+                            type,
+                            userid,
+                            LISTAGG(case
+                                when LEN(RTRIM(text)) = 0 then text
+                                else RTRIM(text)
+                            end,
+                            '') within group (
+                        order by
+                            sequence) as query_text
+                        from
+                            SVL_STATEMENTTEXT
+                        where
+                            type in ('DDL', 'QUERY')
+                            AND        start_time >= '{start_time_str}'
+                            AND        start_time < '{end_time_str}'
+                        order by
+                            xid,
+                            sequence)
                     where
                         type in ('DDL', 'QUERY')
-                        AND        start_time >= '{start_time_str}'
-                        AND        start_time < '{end_time_str}'
-                    group by
-                        pid,
-                        xid,
-                        start_time,
-                        type,
-                        userid
                 )
                 where
                     query_text ilike 'create%'
                     and (create_command ilike 'create temp table %'
                         or create_command ilike 'create temporary table %'
                         or create_command ilike 'create table #%')
+                    -- Redshift creates temp tables with the following names: volt_tt_%. We need to filter them out.
                     and query_text not ilike 'CREATE TEMP TABLE volt_tt_%'
             )
             where
