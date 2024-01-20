@@ -4,6 +4,7 @@ import io.datahubproject.openapi.converter.StringToChangeCategoryConverter;
 import io.swagger.v3.oas.annotations.OpenAPIDefinition;
 import io.swagger.v3.oas.annotations.info.Info;
 import io.swagger.v3.oas.annotations.servers.Server;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import org.springdoc.core.models.GroupedOpenApi;
@@ -24,9 +25,20 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
     servers = {@Server(url = "/openapi/", description = "Default Server URL")})
 @Configuration
 public class SpringWebConfig implements WebMvcConfigurer {
-
-  public static final Set<String> OPENAPI_PACKAGES =
+  private static final Set<String> OPERATIONS_PACKAGES =
       Set.of("io.datahubproject.openapi.operations", "io.datahubproject.openapi.health");
+  private static final Set<String> V2_PACKAGES = Set.of("io.datahubproject.openapi.v2");
+  private static final Set<String> SCHEMA_REGISTRY_PACKAGES =
+      Set.of("io.datahubproject.openapi.schema.registry");
+
+  public static final Set<String> NONDEFAULT_OPENAPI_PACKAGES;
+
+  static {
+    NONDEFAULT_OPENAPI_PACKAGES = new HashSet<>();
+    NONDEFAULT_OPENAPI_PACKAGES.addAll(OPERATIONS_PACKAGES);
+    NONDEFAULT_OPENAPI_PACKAGES.addAll(V2_PACKAGES);
+    NONDEFAULT_OPENAPI_PACKAGES.addAll(SCHEMA_REGISTRY_PACKAGES);
+  }
 
   @Override
   public void configureMessageConverters(List<HttpMessageConverter<?>> messageConverters) {
@@ -45,22 +57,23 @@ public class SpringWebConfig implements WebMvcConfigurer {
   public GroupedOpenApi defaultOpenApiGroup() {
     return GroupedOpenApi.builder()
         .group("default")
-        .packagesToExclude(OPENAPI_PACKAGES.toArray(String[]::new))
+        .packagesToExclude(NONDEFAULT_OPENAPI_PACKAGES.toArray(String[]::new))
         .build();
   }
 
   @Bean
   public GroupedOpenApi operationsOpenApiGroup() {
-    Set<String> groupPackages =
-        Set.of("io.datahubproject.openapi.operations", "io.datahubproject.openapi.health");
-
     return GroupedOpenApi.builder()
-        .group("operations")
-        .packagesToScan(groupPackages.toArray(String[]::new))
-        .packagesToExclude(
-            OPENAPI_PACKAGES.stream()
-                .filter(pkg -> !groupPackages.contains(pkg))
-                .toArray(String[]::new))
+        .group("Operations")
+        .packagesToScan(OPERATIONS_PACKAGES.toArray(String[]::new))
+        .build();
+  }
+
+  @Bean
+  public GroupedOpenApi openApiGroupV3() {
+    return GroupedOpenApi.builder()
+        .group("OpenAPI v2")
+        .packagesToScan(V2_PACKAGES.toArray(String[]::new))
         .build();
   }
 }

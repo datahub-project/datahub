@@ -101,6 +101,8 @@ x-datahub-gms-service: &datahub-gms-service
     timeout: 5s
   volumes:
     - ${HOME}/.datahub/plugins:/etc/datahub/plugins
+  labels:
+    io.datahubproject.datahub.component: "gms"
 
 x-datahub-gms-service-dev: &datahub-gms-service-dev
   <<: *datahub-gms-service

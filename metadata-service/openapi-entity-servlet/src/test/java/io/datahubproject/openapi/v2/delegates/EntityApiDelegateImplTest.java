@@ -1,4 +1,4 @@
-package io.datahubproject.openapi.delegates;
+package io.datahubproject.openapi.v2.delegates;
 
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.testng.Assert.*;
@@ -32,8 +32,8 @@ import io.datahubproject.openapi.generated.ScrollDatasetEntityResponseV2;
 import io.datahubproject.openapi.generated.Status;
 import io.datahubproject.openapi.generated.StatusAspectRequestV2;
 import io.datahubproject.openapi.generated.TagAssociation;
-import io.datahubproject.openapi.generated.controller.ChartApiController;
-import io.datahubproject.openapi.generated.controller.DatasetApiController;
+import io.datahubproject.openapi.v2.generated.controller.ChartApiController;
+import io.datahubproject.openapi.v2.generated.controller.DatasetApiController;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -51,7 +51,7 @@ import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
 @SpringBootTest(classes = {SpringWebConfig.class})
-@ComponentScan(basePackages = {"io.datahubproject.openapi.generated.controller"})
+@ComponentScan(basePackages = {"io.datahubproject.openapi.v2.generated.controller"})
 @Import({OpenAPIEntityTestConfiguration.class})
 @AutoConfigureMockMvc
 public class EntityApiDelegateImplTest extends AbstractTestNGSpringContextTests {
