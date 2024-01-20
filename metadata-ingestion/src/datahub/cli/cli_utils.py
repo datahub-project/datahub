@@ -705,7 +705,7 @@ def get_session_login_as(
     return session
 
 
-def ensure_valid_gms_url_acryl_cloud(url: str) -> str:
+def _ensure_valid_gms_url_acryl_cloud(url: str) -> str:
     if "acryl.io" not in url:
         return url
     if url.startswith("http://"):
@@ -715,17 +715,17 @@ def ensure_valid_gms_url_acryl_cloud(url: str) -> str:
     return url
 
 
-def ensure_valid_gms_url(url: str) -> str:
+def fixup_gms_url(url: str) -> str:
     if url is None:
         return ""
     if url.endswith("/"):
         url = url.rstrip("/")
-    url = ensure_valid_gms_url_acryl_cloud(url)
+    url = _ensure_valid_gms_url_acryl_cloud(url)
     return url
 
 
-def get_frontend_url_from_gms_url(gms_url: str) -> str:
-    gms_url = ensure_valid_gms_url(gms_url)
+def guess_frontend_url_from_gms_url(gms_url: str) -> str:
+    gms_url = fixup_gms_url(gms_url)
     url = gms_url
     if url.endswith("/gms"):
         url = gms_url.rstrip("/gms")
@@ -741,7 +741,7 @@ def generate_access_token(
     token_name: Optional[str] = None,
     validity: str = "ONE_HOUR",
 ) -> Tuple[str, str]:
-    frontend_url = get_frontend_url_from_gms_url(gms_url)
+    frontend_url = guess_frontend_url_from_gms_url(gms_url)
     session = get_session_login_as(
         username=username,
         password=password,
