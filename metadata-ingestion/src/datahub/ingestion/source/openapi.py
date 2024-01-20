@@ -46,12 +46,12 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 
 class OpenApiConfig(ConfigModel):
-    name: str = Field(description="")
-    url: str = Field(description="")
-    swagger_file: str = Field(description="")
-    ignore_endpoints: list = Field(default=[], description="")
-    username: str = Field(default="", description="")
-    password: str = Field(default="", description="")
+    name: str = Field(description="Name of ingestion.")
+    url: str = Field(description="Endpoint URL. e.g. https://example.com")
+    swagger_file: str = Field(description="Route for access to the swagger file. e.g. openapi.json")
+    ignore_endpoints: list = Field(default=[], description="List of endpoints to ignore during ingestion.")
+    username: str = Field(default="", description="Username used for basic HTTP authentication.")
+    password: str = Field(default="", description="Password used for basic HTTP authentication.")
     proxies: Optional[dict] = Field(
         default=None,
         description="Eg. "
@@ -59,9 +59,9 @@ class OpenApiConfig(ConfigModel):
         "If authentication is required, add it to the proxy url directly e.g. "
         "`http://user:pass@10.10.1.10:3128/`.",
     )
-    forced_examples: dict = Field(default={}, description="")
-    token: Optional[str] = Field(default=None, description="")
-    get_token: dict = Field(default={}, description="")
+    forced_examples: dict = Field(default={}, description="If no example is provided for a route, it is possible to create one using forced_example.")
+    token: Optional[str] = Field(default=None, description="Token for endpoint authentication.")
+    get_token: dict = Field(default={}, description="Retrieving a token from the endpoint.")
 
     def get_swagger(self) -> Dict:
         if self.get_token or self.token is not None:
