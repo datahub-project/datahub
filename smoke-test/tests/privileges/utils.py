@@ -1,7 +1,7 @@
 from datahub.cli import cli_utils
 
 from tests.consistency_utils import wait_for_writes_to_sync
-from tests.utils import get_admin_credentials, get_frontend_url, wait_for_writes_to_sync
+from tests.utils import get_admin_credentials, get_frontend_url
 
 
 def set_base_platform_privileges_policy_status(status, session):

@@ -41,7 +41,6 @@ def gen_datahub_groups(num_groups: int) -> Iterable[CorpGroup]:
             description=f"The Group {i}",
             picture_link=f"https://images.google.com/group{i}.jpg",
             slack=f"@group{i}",
-            admins=["user1"],
             members=["user2"],
         )
         yield group
