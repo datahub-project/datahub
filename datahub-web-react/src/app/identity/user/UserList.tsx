@@ -82,7 +82,7 @@ export const UserList = () => {
     });
 
     const totalUsers = usersData?.listUsers?.total || 0;
-    useEffect(()=> {
+    useEffect(() => {
         setUsersList(usersData?.listUsers?.users || []);
     }, [usersData]);
     const onChangePage = (newPage: number) => {
@@ -92,6 +92,7 @@ export const UserList = () => {
 
     const handleDelete = (urn: string) => {
         removeUserFromListUsersCache(urn, client, page, pageSize);
+        usersRefetch();
     };
 
     const {

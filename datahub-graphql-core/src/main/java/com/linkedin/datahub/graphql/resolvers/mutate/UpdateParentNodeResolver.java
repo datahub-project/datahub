@@ -26,7 +26,7 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class UpdateParentNodeResolver implements DataFetcher<CompletableFuture<Boolean>> {
 
-  private final EntityService _entityService;
+  private final EntityService<?> _entityService;
   private final EntityClient _entityClient;
 
   @Override
@@ -37,7 +37,7 @@ public class UpdateParentNodeResolver implements DataFetcher<CompletableFuture<B
     Urn targetUrn = Urn.createFromString(input.getResourceUrn());
     log.info("Updating parent node. input: {}", input.toString());
 
-    if (!_entityService.exists(targetUrn)) {
+    if (!_entityService.exists(targetUrn, true)) {
       throw new IllegalArgumentException(
           String.format("Failed to update %s. %s does not exist.", targetUrn, targetUrn));
     }
@@ -45,7 +45,7 @@ public class UpdateParentNodeResolver implements DataFetcher<CompletableFuture<B
     GlossaryNodeUrn parentNodeUrn = null;
     if (input.getParentNode() != null) {
       parentNodeUrn = GlossaryNodeUrn.createFromString(input.getParentNode());
-      if (!_entityService.exists(parentNodeUrn)
+      if (!_entityService.exists(parentNodeUrn, true)
           || !parentNodeUrn.getEntityType().equals(Constants.GLOSSARY_NODE_ENTITY_NAME)) {
         throw new IllegalArgumentException(
             String.format(

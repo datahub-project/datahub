@@ -8,6 +8,7 @@ import static com.datahub.authentication.token.TokenClaims.ACTOR_ID_CLAIM_NAME;
 import static com.datahub.authentication.token.TokenClaims.ACTOR_TYPE_CLAIM_NAME;
 import static com.datahub.authentication.token.TokenClaims.TOKEN_TYPE_CLAIM_NAME;
 import static com.datahub.authentication.token.TokenClaims.TOKEN_VERSION_CLAIM_NAME;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertThrows;
@@ -151,7 +152,7 @@ public class DataHubTokenAuthenticatorTest {
         configEntityRegistry.getEntitySpec(Constants.ACCESS_TOKEN_ENTITY_NAME).getKeyAspectSpec();
     Mockito.when(mockService.getKeyAspectSpec(Mockito.eq(Constants.ACCESS_TOKEN_ENTITY_NAME)))
         .thenReturn(keyAspectSpec);
-    Mockito.when(mockService.exists(Mockito.any(Urn.class))).thenReturn(true);
+    Mockito.when(mockService.exists(Mockito.any(Urn.class), eq(true))).thenReturn(true);
     Mockito.when(mockService.getEntityRegistry()).thenReturn(configEntityRegistry);
 
     final DataHubTokenAuthenticator authenticator = new DataHubTokenAuthenticator();

@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.resolvers.deprecation;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
 import static com.linkedin.metadata.Constants.*;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.testng.Assert.*;
 
 import com.datahub.authentication.Authentication;
@@ -45,9 +46,9 @@ public class UpdateDeprecationResolverTest {
 
     Mockito.when(
             mockClient.batchGetV2(
-                Mockito.eq(Constants.DATASET_ENTITY_NAME),
-                Mockito.eq(new HashSet<>(ImmutableSet.of(Urn.createFromString(TEST_ENTITY_URN)))),
-                Mockito.eq(ImmutableSet.of(Constants.DEPRECATION_ASPECT_NAME)),
+                eq(Constants.DATASET_ENTITY_NAME),
+                eq(new HashSet<>(ImmutableSet.of(Urn.createFromString(TEST_ENTITY_URN)))),
+                eq(ImmutableSet.of(Constants.DEPRECATION_ASPECT_NAME)),
                 Mockito.any(Authentication.class)))
         .thenReturn(
             ImmutableMap.of(
@@ -58,7 +59,8 @@ public class UpdateDeprecationResolverTest {
                     .setAspects(new EnvelopedAspectMap(Collections.emptyMap()))));
 
     EntityService mockService = getMockEntityService();
-    Mockito.when(mockService.exists(Urn.createFromString(TEST_ENTITY_URN))).thenReturn(true);
+    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
+        .thenReturn(true);
 
     UpdateDeprecationResolver resolver = new UpdateDeprecationResolver(mockClient, mockService);
 
@@ -66,7 +68,7 @@ public class UpdateDeprecationResolverTest {
     QueryContext mockContext = getMockAllowContext();
     Mockito.when(mockContext.getActorUrn()).thenReturn(TEST_ACTOR_URN.toString());
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
-    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_DEPRECATION_INPUT);
+    Mockito.when(mockEnv.getArgument(eq("input"))).thenReturn(TEST_DEPRECATION_INPUT);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
     resolver.get(mockEnv).get();
 
@@ -81,10 +83,10 @@ public class UpdateDeprecationResolverTest {
             UrnUtils.getUrn(TEST_ENTITY_URN), DEPRECATION_ASPECT_NAME, newDeprecation);
 
     Mockito.verify(mockClient, Mockito.times(1))
-        .ingestProposal(Mockito.eq(proposal), Mockito.any(Authentication.class), Mockito.eq(false));
+        .ingestProposal(eq(proposal), Mockito.any(Authentication.class), eq(false));
 
     Mockito.verify(mockService, Mockito.times(1))
-        .exists(Mockito.eq(Urn.createFromString(TEST_ENTITY_URN)));
+        .exists(eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true));
   }
 
   @Test
@@ -101,9 +103,9 @@ public class UpdateDeprecationResolverTest {
 
     Mockito.when(
             mockClient.batchGetV2(
-                Mockito.eq(Constants.DATASET_ENTITY_NAME),
-                Mockito.eq(new HashSet<>(ImmutableSet.of(Urn.createFromString(TEST_ENTITY_URN)))),
-                Mockito.eq(ImmutableSet.of(Constants.DEPRECATION_ASPECT_NAME)),
+                eq(Constants.DATASET_ENTITY_NAME),
+                eq(new HashSet<>(ImmutableSet.of(Urn.createFromString(TEST_ENTITY_URN)))),
+                eq(ImmutableSet.of(Constants.DEPRECATION_ASPECT_NAME)),
                 Mockito.any(Authentication.class)))
         .thenReturn(
             ImmutableMap.of(
@@ -119,7 +121,8 @@ public class UpdateDeprecationResolverTest {
                                     .setValue(new Aspect(originalDeprecation.data())))))));
 
     EntityService mockService = Mockito.mock(EntityService.class);
-    Mockito.when(mockService.exists(Urn.createFromString(TEST_ENTITY_URN))).thenReturn(true);
+    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
+        .thenReturn(true);
 
     UpdateDeprecationResolver resolver = new UpdateDeprecationResolver(mockClient, mockService);
 
@@ -127,7 +130,7 @@ public class UpdateDeprecationResolverTest {
     QueryContext mockContext = getMockAllowContext();
     Mockito.when(mockContext.getActorUrn()).thenReturn(TEST_ACTOR_URN.toString());
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
-    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_DEPRECATION_INPUT);
+    Mockito.when(mockEnv.getArgument(eq("input"))).thenReturn(TEST_DEPRECATION_INPUT);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
     resolver.get(mockEnv).get();
 
@@ -142,10 +145,10 @@ public class UpdateDeprecationResolverTest {
             UrnUtils.getUrn(TEST_ENTITY_URN), DEPRECATION_ASPECT_NAME, newDeprecation);
 
     Mockito.verify(mockClient, Mockito.times(1))
-        .ingestProposal(Mockito.eq(proposal), Mockito.any(Authentication.class), Mockito.eq(false));
+        .ingestProposal(eq(proposal), Mockito.any(Authentication.class), eq(false));
 
     Mockito.verify(mockService, Mockito.times(1))
-        .exists(Mockito.eq(Urn.createFromString(TEST_ENTITY_URN)));
+        .exists(eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true));
   }
 
   @Test
@@ -155,9 +158,9 @@ public class UpdateDeprecationResolverTest {
 
     Mockito.when(
             mockClient.batchGetV2(
-                Mockito.eq(Constants.DATASET_ENTITY_NAME),
-                Mockito.eq(new HashSet<>(ImmutableSet.of(Urn.createFromString(TEST_ENTITY_URN)))),
-                Mockito.eq(ImmutableSet.of(Constants.DEPRECATION_ASPECT_NAME)),
+                eq(Constants.DATASET_ENTITY_NAME),
+                eq(new HashSet<>(ImmutableSet.of(Urn.createFromString(TEST_ENTITY_URN)))),
+                eq(ImmutableSet.of(Constants.DEPRECATION_ASPECT_NAME)),
                 Mockito.any(Authentication.class)))
         .thenReturn(
             ImmutableMap.of(
@@ -168,7 +171,8 @@ public class UpdateDeprecationResolverTest {
                     .setAspects(new EnvelopedAspectMap(Collections.emptyMap()))));
 
     EntityService mockService = Mockito.mock(EntityService.class);
-    Mockito.when(mockService.exists(Urn.createFromString(TEST_ENTITY_URN))).thenReturn(false);
+    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
+        .thenReturn(false);
 
     UpdateDeprecationResolver resolver = new UpdateDeprecationResolver(mockClient, mockService);
 
@@ -176,7 +180,7 @@ public class UpdateDeprecationResolverTest {
     QueryContext mockContext = getMockAllowContext();
     Mockito.when(mockContext.getActorUrn()).thenReturn(TEST_ACTOR_URN.toString());
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
-    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_DEPRECATION_INPUT);
+    Mockito.when(mockEnv.getArgument(eq("input"))).thenReturn(TEST_DEPRECATION_INPUT);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
@@ -193,7 +197,7 @@ public class UpdateDeprecationResolverTest {
 
     // Execute resolver
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
-    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_DEPRECATION_INPUT);
+    Mockito.when(mockEnv.getArgument(eq("input"))).thenReturn(TEST_DEPRECATION_INPUT);
     QueryContext mockContext = getMockDenyContext();
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
@@ -214,7 +218,7 @@ public class UpdateDeprecationResolverTest {
     // Execute resolver
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     QueryContext mockContext = getMockAllowContext();
-    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_DEPRECATION_INPUT);
+    Mockito.when(mockEnv.getArgument(eq("input"))).thenReturn(TEST_DEPRECATION_INPUT);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());

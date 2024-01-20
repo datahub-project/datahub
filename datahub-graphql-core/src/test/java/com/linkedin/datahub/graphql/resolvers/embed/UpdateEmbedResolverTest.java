@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.resolvers.embed;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
 import static com.linkedin.metadata.Constants.*;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.testng.Assert.*;
 
 import com.datahub.authentication.Authentication;
@@ -47,7 +48,8 @@ public class UpdateEmbedResolverTest {
                 Mockito.eq(0L)))
         .thenReturn(null);
 
-    Mockito.when(mockService.exists(Urn.createFromString(TEST_ENTITY_URN))).thenReturn(true);
+    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
+        .thenReturn(true);
 
     UpdateEmbedResolver resolver = new UpdateEmbedResolver(mockService);
 
@@ -68,7 +70,7 @@ public class UpdateEmbedResolverTest {
     ;
 
     Mockito.verify(mockService, Mockito.times(1))
-        .exists(Mockito.eq(Urn.createFromString(TEST_ENTITY_URN)));
+        .exists(Mockito.eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true));
   }
 
   @Test
@@ -85,7 +87,8 @@ public class UpdateEmbedResolverTest {
                 Mockito.eq(0L)))
         .thenReturn(originalEmbed);
 
-    Mockito.when(mockService.exists(Urn.createFromString(TEST_ENTITY_URN))).thenReturn(true);
+    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
+        .thenReturn(true);
 
     UpdateEmbedResolver resolver = new UpdateEmbedResolver(mockService);
 
@@ -105,7 +108,7 @@ public class UpdateEmbedResolverTest {
     verifySingleIngestProposal(mockService, 1, proposal);
 
     Mockito.verify(mockService, Mockito.times(1))
-        .exists(Mockito.eq(Urn.createFromString(TEST_ENTITY_URN)));
+        .exists(Mockito.eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true));
   }
 
   @Test
@@ -128,7 +131,8 @@ public class UpdateEmbedResolverTest {
                     .setAspects(new EnvelopedAspectMap(Collections.emptyMap()))));
 
     EntityService mockService = getMockEntityService();
-    Mockito.when(mockService.exists(Urn.createFromString(TEST_ENTITY_URN))).thenReturn(false);
+    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
+        .thenReturn(false);
 
     UpdateEmbedResolver resolver = new UpdateEmbedResolver(mockService);
 

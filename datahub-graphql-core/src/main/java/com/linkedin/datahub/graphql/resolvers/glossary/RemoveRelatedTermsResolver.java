@@ -27,7 +27,7 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class RemoveRelatedTermsResolver implements DataFetcher<CompletableFuture<Boolean>> {
 
-  private final EntityService _entityService;
+  private final EntityService<?> _entityService;
 
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
@@ -46,7 +46,7 @@ public class RemoveRelatedTermsResolver implements DataFetcher<CompletableFuture
                   input.getTermUrns().stream().map(UrnUtils::getUrn).collect(Collectors.toList());
 
               if (!urn.getEntityType().equals(Constants.GLOSSARY_TERM_ENTITY_NAME)
-                  || !_entityService.exists(urn)) {
+                  || !_entityService.exists(urn, true)) {
                 throw new IllegalArgumentException(
                     String.format(
                         "Failed to update %s. %s either does not exist or is not a glossaryTerm.",

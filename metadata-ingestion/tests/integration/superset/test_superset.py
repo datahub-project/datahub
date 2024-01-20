@@ -41,6 +41,18 @@ def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
                         "dashboard_title": "test_dashboard_title_1",
                         "url": "/dashboard/test_dashboard_url_1",
                         "position_json": '{"CHART-test-1": {"meta": { "chartId": "10" }}, "CHART-test-2": {"meta": { "chartId": "11" }}}',
+                        "status": "published",
+                        "published": True,
+                        "owners": [
+                            {
+                                "username": "test_username_1",
+                            },
+                            {
+                                "username": "test_username_2",
+                            },
+                        ],
+                        "certified_by": "Certification team",
+                        "certification_details": "Approved",
                     },
                     {
                         "id": "2",
@@ -51,6 +63,15 @@ def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
                         "dashboard_title": "test_dashboard_title_2",
                         "url": "/dashboard/test_dashboard_url_2",
                         "position_json": '{"CHART-test-3": {"meta": { "chartId": "12" }}, "CHART-test-4": {"meta": { "chartId": "13" }}}',
+                        "status": "draft",
+                        "published": False,
+                        "owners": [
+                            {
+                                "first_name": "name",
+                            },
+                        ],
+                        "certified_by": "",
+                        "certification_details": "",
                     },
                 ],
             },
@@ -151,7 +172,6 @@ def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
 def test_superset_ingest(pytestconfig, tmp_path, mock_time, requests_mock):
-
     test_resources_dir = pytestconfig.rootpath / "tests/integration/superset"
 
     register_mock_api(request_mock=requests_mock)
@@ -193,7 +213,6 @@ def test_superset_ingest(pytestconfig, tmp_path, mock_time, requests_mock):
 def test_superset_stateful_ingest(
     pytestconfig, tmp_path, mock_time, requests_mock, mock_datahub_graph
 ):
-
     test_resources_dir = pytestconfig.rootpath / "tests/integration/superset"
 
     register_mock_api(request_mock=requests_mock)
@@ -241,6 +260,18 @@ def test_superset_stateful_ingest(
                         "dashboard_title": "test_dashboard_title_1",
                         "url": "/dashboard/test_dashboard_url_1",
                         "position_json": '{"CHART-test-1": {"meta": { "chartId": "10" }}, "CHART-test-2": {"meta": { "chartId": "11" }}}',
+                        "status": "published",
+                        "published": True,
+                        "owners": [
+                            {
+                                "username": "test_username_1",
+                            },
+                            {
+                                "username": "test_username_2",
+                            },
+                        ],
+                        "certified_by": "Certification team",
+                        "certification_details": "Approved",
                     },
                 ],
             },

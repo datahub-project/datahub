@@ -40,6 +40,8 @@ import io.datahubproject.test.search.config.SearchCommonTestConfiguration;
 import java.io.IOException;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import org.opensearch.client.RestHighLevelClient;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -276,7 +278,20 @@ public class SampleDataFixtureConfiguration {
 
     AspectDao mockAspectDao = mock(AspectDao.class);
     when(mockAspectDao.batchGet(anySet()))
-        .thenReturn(Map.of(mock(EntityAspectIdentifier.class), mock(EntityAspect.class)));
+        .thenAnswer(
+            args -> {
+              Set<EntityAspectIdentifier> ids = args.getArgument(0);
+              return ids.stream()
+                  .map(
+                      id -> {
+                        EntityAspect mockEntityAspect = mock(EntityAspect.class);
+                        when(mockEntityAspect.getUrn()).thenReturn(id.getUrn());
+                        when(mockEntityAspect.getAspect()).thenReturn(id.getAspect());
+                        when(mockEntityAspect.getVersion()).thenReturn(id.getVersion());
+                        return Map.entry(id, mockEntityAspect);
+                      })
+                  .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+            });
 
     PreProcessHooks preProcessHooks = new PreProcessHooks();
     preProcessHooks.setUiEnabled(true);

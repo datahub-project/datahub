@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.glossary;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
@@ -41,7 +42,8 @@ public class RemoveRelatedTermsResolverTest {
                 Mockito.eq(0L)))
         .thenReturn(relatedTerms);
 
-    Mockito.when(mockService.exists(Urn.createFromString(TEST_ENTITY_URN))).thenReturn(true);
+    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
+        .thenReturn(true);
 
     RemoveRelatedTermsResolver resolver = new RemoveRelatedTermsResolver(mockService);
 
@@ -56,7 +58,7 @@ public class RemoveRelatedTermsResolverTest {
     assertTrue(resolver.get(mockEnv).get());
     verifySingleIngestProposal(mockService, 1);
     Mockito.verify(mockService, Mockito.times(1))
-        .exists(Mockito.eq(Urn.createFromString(TEST_ENTITY_URN)));
+        .exists(Mockito.eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true));
   }
 
   @Test
@@ -73,7 +75,8 @@ public class RemoveRelatedTermsResolverTest {
                 Mockito.eq(0L)))
         .thenReturn(relatedTerms);
 
-    Mockito.when(mockService.exists(Urn.createFromString(TEST_ENTITY_URN))).thenReturn(true);
+    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
+        .thenReturn(true);
 
     RemoveRelatedTermsResolver resolver = new RemoveRelatedTermsResolver(mockService);
 
@@ -88,7 +91,7 @@ public class RemoveRelatedTermsResolverTest {
     assertTrue(resolver.get(mockEnv).get());
     verifySingleIngestProposal(mockService, 1);
     Mockito.verify(mockService, Mockito.times(1))
-        .exists(Mockito.eq(Urn.createFromString(TEST_ENTITY_URN)));
+        .exists(Mockito.eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true));
   }
 
   @Test
@@ -101,7 +104,8 @@ public class RemoveRelatedTermsResolverTest {
                 Mockito.eq(0L)))
         .thenReturn(null);
 
-    Mockito.when(mockService.exists(Urn.createFromString(TEST_ENTITY_URN))).thenReturn(true);
+    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
+        .thenReturn(true);
 
     RemoveRelatedTermsResolver resolver = new RemoveRelatedTermsResolver(mockService);
 
@@ -131,7 +135,8 @@ public class RemoveRelatedTermsResolverTest {
                 Mockito.eq(0L)))
         .thenReturn(relatedTerms);
 
-    Mockito.when(mockService.exists(Urn.createFromString(TEST_ENTITY_URN))).thenReturn(true);
+    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
+        .thenReturn(true);
 
     RemoveRelatedTermsResolver resolver = new RemoveRelatedTermsResolver(mockService);
 
@@ -146,6 +151,6 @@ public class RemoveRelatedTermsResolverTest {
     assertThrows(ExecutionException.class, () -> resolver.get(mockEnv).get());
     verifyNoIngestProposal(mockService);
     Mockito.verify(mockService, Mockito.times(0))
-        .exists(Mockito.eq(Urn.createFromString(TEST_ENTITY_URN)));
+        .exists(Mockito.eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true));
   }
 }

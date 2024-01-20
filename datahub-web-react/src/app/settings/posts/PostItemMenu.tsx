@@ -1,5 +1,5 @@
 import React from 'react';
-import { DeleteOutlined } from '@ant-design/icons';
+import { DeleteOutlined, EditOutlined } from '@ant-design/icons';
 import { Dropdown, Menu, message, Modal } from 'antd';
 import { MenuIcon } from '../../entity/shared/EntityDropdown/EntityDropdown';
 import { useDeletePostMutation } from '../../../graphql/post.generated';
@@ -8,9 +8,10 @@ type Props = {
     urn: string;
     title: string;
     onDelete?: () => void;
+    onEdit?: () => void;
 };
 
-export default function PostItemMenu({ title, urn, onDelete }: Props) {
+export default function PostItemMenu({ title, urn, onDelete, onEdit }: Props) {
     const [deletePostMutation] = useDeletePostMutation();
 
     const deletePost = () => {
@@ -52,6 +53,9 @@ export default function PostItemMenu({ title, urn, onDelete }: Props) {
                 <Menu>
                     <Menu.Item onClick={onConfirmDelete} key="delete">
                         <DeleteOutlined /> &nbsp;Delete
+                    </Menu.Item>
+                    <Menu.Item onClick={onEdit} key="edit">
+                        <EditOutlined /> &nbsp;Edit
                     </Menu.Item>
                 </Menu>
             }

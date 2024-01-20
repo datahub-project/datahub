@@ -93,6 +93,7 @@ import java.nio.charset.StandardCharsets;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -1782,7 +1783,8 @@ public class EntityServiceImpl implements EntityService<MCPUpsertBatchItem> {
     return response;
   }
 
-  private Map<String, Set<String>> buildEntityToValidAspects(final EntityRegistry entityRegistry) {
+  private static Map<String, Set<String>> buildEntityToValidAspects(
+      final EntityRegistry entityRegistry) {
     return entityRegistry.getEntitySpecs().values().stream()
         .collect(
             Collectors.toMap(
@@ -1950,36 +1952,54 @@ public class EntityServiceImpl implements EntityService<MCPUpsertBatchItem> {
   }
 
   /**
-   * Returns true if the entity exists (has materialized aspects)
+   * Returns a set of urns of entities that exist (has materialized aspects).
    *
-   * @param urn the urn of the entity to check
-   * @return true if the entity exists, false otherwise
+   * @param urns the list of urns of the entities to check
+   * @param includeSoftDeleted whether to consider soft delete
+   * @return a set of urns of entities that exist.
    */
   @Override
-  public Boolean exists(Urn urn) {
-    final Set<String> aspectsToFetch = getEntityAspectNames(urn);
-    final List<EntityAspectIdentifier> dbKeys =
-        aspectsToFetch.stream()
+  public Set<Urn> exists(@Nonnull final Collection<Urn> urns, boolean includeSoftDeleted) {
+    final Set<EntityAspectIdentifier> dbKeys =
+        urns.stream()
             .map(
-                aspectName ->
-                    new EntityAspectIdentifier(urn.toString(), aspectName, ASPECT_LATEST_VERSION))
-            .collect(Collectors.toList());
+                urn ->
+                    new EntityAspectIdentifier(
+                        urn.toString(),
+                        _entityRegistry
+                            .getEntitySpec(urn.getEntityType())
+                            .getKeyAspectSpec()
+                            .getName(),
+                        ASPECT_LATEST_VERSION))
+            .collect(Collectors.toSet());
 
-    Map<EntityAspectIdentifier, EntityAspect> aspects = _aspectDao.batchGet(new HashSet(dbKeys));
-    return aspects.values().stream().anyMatch(aspect -> aspect != null);
-  }
+    final Map<EntityAspectIdentifier, EntityAspect> aspects = _aspectDao.batchGet(dbKeys);
+    final Set<String> existingUrnStrings =
+        aspects.values().stream()
+            .filter(aspect -> aspect != null)
+            .map(aspect -> aspect.getUrn())
+            .collect(Collectors.toSet());
 
-  /**
-   * Returns true if an entity is soft-deleted.
-   *
-   * @param urn the urn to check
-   * @return true is the entity is soft deleted, false otherwise.
-   */
-  @Override
-  public Boolean isSoftDeleted(@Nonnull final Urn urn) {
-    Objects.requireNonNull(urn, "urn is required");
-    final RecordTemplate statusAspect = getLatestAspect(urn, STATUS_ASPECT_NAME);
-    return statusAspect != null && ((Status) statusAspect).isRemoved();
+    Set<Urn> existing =
+        urns.stream()
+            .filter(urn -> existingUrnStrings.contains(urn.toString()))
+            .collect(Collectors.toSet());
+
+    if (includeSoftDeleted) {
+      return existing;
+    } else {
+      // Additionally exclude status.removed == true
+      Map<Urn, List<RecordTemplate>> statusResult =
+          getLatestAspects(existing, Set.of(STATUS_ASPECT_NAME));
+      return existing.stream()
+          .filter(
+              urn ->
+                  // key aspect is always returned, make sure to only consider the status aspect
+                  statusResult.getOrDefault(urn, List.of()).stream()
+                      .filter(aspect -> STATUS_ASPECT_NAME.equals(aspect.schema().getName()))
+                      .noneMatch(aspect -> ((Status) aspect).isRemoved()))
+          .collect(Collectors.toSet());
+    }
   }
 
   @Override

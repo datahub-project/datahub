@@ -111,8 +111,8 @@ def check_sw_version(sw_dict: dict) -> None:
     version = [int(v) for v in v_split]
 
     if version[0] == 3 and version[1] > 0:
-        raise NotImplementedError(
-            "This plugin is not compatible with Swagger version >3.0"
+        logger.warning(
+            "This plugin has not been fully tested with Swagger version >3.0"
         )
 
 

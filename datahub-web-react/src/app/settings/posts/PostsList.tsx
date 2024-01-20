@@ -51,6 +51,7 @@ export const PostList = () => {
 
     const [page, setPage] = useState(1);
     const [isCreatingPost, setIsCreatingPost] = useState(false);
+    const [editData, setEditData] = useState<PostEntry | undefined>(undefined);
 
     const pageSize = DEFAULT_PAGE_SIZE;
     const start = (page - 1) * pageSize;
@@ -80,6 +81,16 @@ export const PostList = () => {
         setTimeout(() => {
             refetch?.();
         }, 2000);
+    };
+
+    const handleEdit = (post: PostEntry) => {
+        setEditData(post);
+        setIsCreatingPost(true);
+    };
+
+    const handleClose = () => {
+        setEditData(undefined);
+        setIsCreatingPost(false);
     };
 
     const allColumns = [
@@ -113,7 +124,7 @@ export const PostList = () => {
             width: '5%',
             align: 'right' as AlignType,
             key: 'menu',
-            render: PostListMenuColumn(handleDelete),
+            render: PostListMenuColumn(handleDelete, handleEdit),
         },
     ];
 
@@ -123,6 +134,8 @@ export const PostList = () => {
             title: post.content.title,
             description: post.content.description,
             contentType: post.content.contentType,
+            link: post.content.link,
+            imageUrl: post.content.media?.location,
         };
     });
 
@@ -181,7 +194,9 @@ export const PostList = () => {
                 )}
                 {isCreatingPost && (
                     <CreatePostModal
-                        onClose={() => setIsCreatingPost(false)}
+                        editData={editData as PostEntry}
+                        onClose={handleClose}
+                        onEdit={() => setTimeout(() => refetch(), 2000)}
                         onCreate={(urn, title, description) => {
                             addToListPostCache(
                                 client,

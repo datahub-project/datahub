@@ -28,8 +28,8 @@ import org.springframework.core.io.ClassPathResource;
 @RequiredArgsConstructor
 public class IngestRetentionPoliciesStep implements BootstrapStep {
 
-  private final RetentionService _retentionService;
-  private final EntityService _entityService;
+  private final RetentionService<?> _retentionService;
+  private final EntityService<?> _entityService;
   private final boolean _enableRetention;
   private final boolean _applyOnBootstrap;
   private final String pluginPath;
@@ -63,7 +63,7 @@ public class IngestRetentionPoliciesStep implements BootstrapStep {
   @Override
   public void execute() throws IOException, URISyntaxException {
     // 0. Execute preflight check to see whether we need to ingest policies
-    if (_entityService.exists(UPGRADE_ID_URN)) {
+    if (_entityService.exists(UPGRADE_ID_URN, true)) {
       log.info("Retention was applied. Skipping.");
       return;
     }

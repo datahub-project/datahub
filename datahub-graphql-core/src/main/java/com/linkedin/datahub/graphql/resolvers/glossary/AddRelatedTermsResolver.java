@@ -29,7 +29,7 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class AddRelatedTermsResolver implements DataFetcher<CompletableFuture<Boolean>> {
 
-  private final EntityService _entityService;
+  private final EntityService<?> _entityService;
 
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
@@ -91,7 +91,7 @@ public class AddRelatedTermsResolver implements DataFetcher<CompletableFuture<Bo
 
   public Boolean validateRelatedTermsInput(Urn urn, List<Urn> termUrns) {
     if (!urn.getEntityType().equals(Constants.GLOSSARY_TERM_ENTITY_NAME)
-        || !_entityService.exists(urn)) {
+        || !_entityService.exists(urn, true)) {
       throw new IllegalArgumentException(
           String.format(
               "Failed to update %s. %s either does not exist or is not a glossaryTerm.", urn, urn));
@@ -104,7 +104,7 @@ public class AddRelatedTermsResolver implements DataFetcher<CompletableFuture<Bo
       } else if (!termUrn.getEntityType().equals(Constants.GLOSSARY_TERM_ENTITY_NAME)) {
         throw new IllegalArgumentException(
             String.format("Failed to update %s. %s is not a glossaryTerm.", urn, termUrn));
-      } else if (!_entityService.exists(termUrn)) {
+      } else if (!_entityService.exists(termUrn, true)) {
         throw new IllegalArgumentException(
             String.format("Failed to update %s. %s does not exist.", urn, termUrn));
       }

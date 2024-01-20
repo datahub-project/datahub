@@ -3,8 +3,10 @@ package com.datahub.authorization;
 import static com.linkedin.metadata.Constants.*;
 
 import com.datahub.authentication.Authentication;
+import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.Owner;
 import com.linkedin.common.Ownership;
+import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.StringArray;
@@ -12,6 +14,8 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.identity.GroupMembership;
+import com.linkedin.identity.NativeGroupMembership;
 import com.linkedin.identity.RoleMembership;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.authorization.PoliciesConfig;
@@ -26,6 +30,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -393,7 +398,6 @@ public class PolicyEngine {
 
     Set<Urn> roles = new HashSet<>();
     final EnvelopedAspectMap aspectMap;
-
     try {
       Urn actorUrn = Urn.createFromString(actor);
       final EntityResponse corpUser =
@@ -401,7 +405,10 @@ public class PolicyEngine {
               .batchGetV2(
                   CORP_USER_ENTITY_NAME,
                   Collections.singleton(actorUrn),
-                  Collections.singleton(ROLE_MEMBERSHIP_ASPECT_NAME),
+                  ImmutableSet.of(
+                      ROLE_MEMBERSHIP_ASPECT_NAME,
+                      GROUP_MEMBERSHIP_ASPECT_NAME,
+                      NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME),
                   _systemAuthentication)
               .get(actorUrn);
       if (corpUser == null || !corpUser.hasAspects()) {
@@ -414,17 +421,69 @@ public class PolicyEngine {
       return roles;
     }
 
-    if (!aspectMap.containsKey(ROLE_MEMBERSHIP_ASPECT_NAME)) {
-      return roles;
+    if (aspectMap.containsKey(ROLE_MEMBERSHIP_ASPECT_NAME)) {
+      RoleMembership roleMembership =
+          new RoleMembership(aspectMap.get(ROLE_MEMBERSHIP_ASPECT_NAME).getValue().data());
+      if (roleMembership.hasRoles()) {
+        roles.addAll(roleMembership.getRoles());
+      }
     }
 
-    RoleMembership roleMembership =
-        new RoleMembership(aspectMap.get(ROLE_MEMBERSHIP_ASPECT_NAME).getValue().data());
-    if (roleMembership.hasRoles()) {
-      roles.addAll(roleMembership.getRoles());
+    List<Urn> groups = new ArrayList<>();
+    if (aspectMap.containsKey(GROUP_MEMBERSHIP_ASPECT_NAME)) {
+      GroupMembership groupMembership =
+          new GroupMembership(aspectMap.get(GROUP_MEMBERSHIP_ASPECT_NAME).getValue().data());
+      groups.addAll(groupMembership.getGroups());
+    }
+    if (aspectMap.containsKey(NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME)) {
+      NativeGroupMembership nativeGroupMembership =
+          new NativeGroupMembership(
+              aspectMap.get(NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME).getValue().data());
+      groups.addAll(nativeGroupMembership.getNativeGroups());
+    }
+    if (!groups.isEmpty()) {
+      GroupMembership memberships = new GroupMembership();
+      memberships.setGroups(new UrnArray(groups));
+      roles.addAll(getRolesFromGroups(memberships));
+    }
+
+    if (!roles.isEmpty()) {
       context.setRoles(roles);
     }
+
     return roles;
+  }
+
+  private Set<Urn> getRolesFromGroups(final GroupMembership groupMembership) {
+
+    HashSet<Urn> groups = new HashSet<>(groupMembership.getGroups());
+    try {
+      Map<Urn, EntityResponse> responseMap =
+          _entityClient.batchGetV2(
+              CORP_GROUP_ENTITY_NAME,
+              groups,
+              ImmutableSet.of(ROLE_MEMBERSHIP_ASPECT_NAME),
+              _systemAuthentication);
+
+      return responseMap.keySet().stream()
+          .filter(Objects::nonNull)
+          .filter(key -> responseMap.get(key) != null)
+          .filter(key -> responseMap.get(key).hasAspects())
+          .map(key -> responseMap.get(key).getAspects())
+          .filter(aspectMap -> aspectMap.containsKey(ROLE_MEMBERSHIP_ASPECT_NAME))
+          .map(
+              aspectMap ->
+                  new RoleMembership(aspectMap.get(ROLE_MEMBERSHIP_ASPECT_NAME).getValue().data()))
+          .filter(RoleMembership::hasRoles)
+          .map(RoleMembership::getRoles)
+          .flatMap(List::stream)
+          .collect(Collectors.toSet());
+
+    } catch (Exception e) {
+      log.error(
+          String.format("Failed to fetch %s for urns %s", ROLE_MEMBERSHIP_ASPECT_NAME, groups), e);
+      return new HashSet<>();
+    }
   }
 
   private Set<String> resolveGroups(

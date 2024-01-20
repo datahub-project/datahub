@@ -44,7 +44,7 @@ public class DescriptionUtils {
       Urn resourceUrn,
       String fieldPath,
       Urn actor,
-      EntityService entityService) {
+      EntityService<?> entityService) {
     EditableSchemaMetadata editableSchemaMetadata =
         (EditableSchemaMetadata)
             EntityUtils.getAspectFromEntity(
@@ -66,7 +66,7 @@ public class DescriptionUtils {
   }
 
   public static void updateContainerDescription(
-      String newDescription, Urn resourceUrn, Urn actor, EntityService entityService) {
+      String newDescription, Urn resourceUrn, Urn actor, EntityService<?> entityService) {
     EditableContainerProperties containerProperties =
         (EditableContainerProperties)
             EntityUtils.getAspectFromEntity(
@@ -84,7 +84,7 @@ public class DescriptionUtils {
   }
 
   public static void updateDomainDescription(
-      String newDescription, Urn resourceUrn, Urn actor, EntityService entityService) {
+      String newDescription, Urn resourceUrn, Urn actor, EntityService<?> entityService) {
     DomainProperties domainProperties =
         (DomainProperties)
             EntityUtils.getAspectFromEntity(
@@ -107,7 +107,7 @@ public class DescriptionUtils {
   }
 
   public static void updateTagDescription(
-      String newDescription, Urn resourceUrn, Urn actor, EntityService entityService) {
+      String newDescription, Urn resourceUrn, Urn actor, EntityService<?> entityService) {
     TagProperties tagProperties =
         (TagProperties)
             EntityUtils.getAspectFromEntity(
@@ -123,7 +123,7 @@ public class DescriptionUtils {
   }
 
   public static void updateCorpGroupDescription(
-      String newDescription, Urn resourceUrn, Urn actor, EntityService entityService) {
+      String newDescription, Urn resourceUrn, Urn actor, EntityService<?> entityService) {
     CorpGroupEditableInfo corpGroupEditableInfo =
         (CorpGroupEditableInfo)
             EntityUtils.getAspectFromEntity(
@@ -143,7 +143,7 @@ public class DescriptionUtils {
   }
 
   public static void updateGlossaryTermDescription(
-      String newDescription, Urn resourceUrn, Urn actor, EntityService entityService) {
+      String newDescription, Urn resourceUrn, Urn actor, EntityService<?> entityService) {
     GlossaryTermInfo glossaryTermInfo =
         (GlossaryTermInfo)
             EntityUtils.getAspectFromEntity(
@@ -168,7 +168,7 @@ public class DescriptionUtils {
   }
 
   public static void updateGlossaryNodeDescription(
-      String newDescription, Urn resourceUrn, Urn actor, EntityService entityService) {
+      String newDescription, Urn resourceUrn, Urn actor, EntityService<?> entityService) {
     GlossaryNodeInfo glossaryNodeInfo =
         (GlossaryNodeInfo)
             EntityUtils.getAspectFromEntity(
@@ -189,7 +189,7 @@ public class DescriptionUtils {
   }
 
   public static void updateNotebookDescription(
-      String newDescription, Urn resourceUrn, Urn actor, EntityService entityService) {
+      String newDescription, Urn resourceUrn, Urn actor, EntityService<?> entityService) {
     EditableNotebookProperties notebookProperties =
         (EditableNotebookProperties)
             EntityUtils.getAspectFromEntity(
@@ -212,8 +212,8 @@ public class DescriptionUtils {
       Urn resourceUrn,
       String subResource,
       SubResourceType subResourceType,
-      EntityService entityService) {
-    if (!entityService.exists(resourceUrn)) {
+      EntityService<?> entityService) {
+    if (!entityService.exists(resourceUrn, true)) {
       throw new IllegalArgumentException(
           String.format("Failed to update %s. %s does not exist.", resourceUrn, resourceUrn));
     }
@@ -223,8 +223,8 @@ public class DescriptionUtils {
     return true;
   }
 
-  public static Boolean validateDomainInput(Urn resourceUrn, EntityService entityService) {
-    if (!entityService.exists(resourceUrn)) {
+  public static Boolean validateDomainInput(Urn resourceUrn, EntityService<?> entityService) {
+    if (!entityService.exists(resourceUrn, true)) {
       throw new IllegalArgumentException(
           String.format("Failed to update %s. %s does not exist.", resourceUrn, resourceUrn));
     }
@@ -232,8 +232,8 @@ public class DescriptionUtils {
     return true;
   }
 
-  public static Boolean validateContainerInput(Urn resourceUrn, EntityService entityService) {
-    if (!entityService.exists(resourceUrn)) {
+  public static Boolean validateContainerInput(Urn resourceUrn, EntityService<?> entityService) {
+    if (!entityService.exists(resourceUrn, true)) {
       throw new IllegalArgumentException(
           String.format("Failed to update %s. %s does not exist.", resourceUrn, resourceUrn));
     }
@@ -241,24 +241,24 @@ public class DescriptionUtils {
     return true;
   }
 
-  public static Boolean validateLabelInput(Urn resourceUrn, EntityService entityService) {
-    if (!entityService.exists(resourceUrn)) {
+  public static Boolean validateLabelInput(Urn resourceUrn, EntityService<?> entityService) {
+    if (!entityService.exists(resourceUrn, true)) {
       throw new IllegalArgumentException(
           String.format("Failed to update %s. %s does not exist.", resourceUrn, resourceUrn));
     }
     return true;
   }
 
-  public static Boolean validateCorpGroupInput(Urn corpUserUrn, EntityService entityService) {
-    if (!entityService.exists(corpUserUrn)) {
+  public static Boolean validateCorpGroupInput(Urn corpUserUrn, EntityService<?> entityService) {
+    if (!entityService.exists(corpUserUrn, true)) {
       throw new IllegalArgumentException(
           String.format("Failed to update %s. %s does not exist.", corpUserUrn, corpUserUrn));
     }
     return true;
   }
 
-  public static Boolean validateNotebookInput(Urn notebookUrn, EntityService entityService) {
-    if (!entityService.exists(notebookUrn)) {
+  public static Boolean validateNotebookInput(Urn notebookUrn, EntityService<?> entityService) {
+    if (!entityService.exists(notebookUrn, true)) {
       throw new IllegalArgumentException(
           String.format("Failed to update %s. %s does not exist.", notebookUrn, notebookUrn));
     }
@@ -335,7 +335,7 @@ public class DescriptionUtils {
   }
 
   public static void updateMlModelDescription(
-      String newDescription, Urn resourceUrn, Urn actor, EntityService entityService) {
+      String newDescription, Urn resourceUrn, Urn actor, EntityService<?> entityService) {
     EditableMLModelProperties editableProperties =
         (EditableMLModelProperties)
             EntityUtils.getAspectFromEntity(
@@ -355,7 +355,7 @@ public class DescriptionUtils {
   }
 
   public static void updateMlModelGroupDescription(
-      String newDescription, Urn resourceUrn, Urn actor, EntityService entityService) {
+      String newDescription, Urn resourceUrn, Urn actor, EntityService<?> entityService) {
     EditableMLModelGroupProperties editableProperties =
         (EditableMLModelGroupProperties)
             EntityUtils.getAspectFromEntity(
@@ -375,7 +375,7 @@ public class DescriptionUtils {
   }
 
   public static void updateMlFeatureDescription(
-      String newDescription, Urn resourceUrn, Urn actor, EntityService entityService) {
+      String newDescription, Urn resourceUrn, Urn actor, EntityService<?> entityService) {
     EditableMLFeatureProperties editableProperties =
         (EditableMLFeatureProperties)
             EntityUtils.getAspectFromEntity(
@@ -395,7 +395,7 @@ public class DescriptionUtils {
   }
 
   public static void updateMlFeatureTableDescription(
-      String newDescription, Urn resourceUrn, Urn actor, EntityService entityService) {
+      String newDescription, Urn resourceUrn, Urn actor, EntityService<?> entityService) {
     EditableMLFeatureTableProperties editableProperties =
         (EditableMLFeatureTableProperties)
             EntityUtils.getAspectFromEntity(
@@ -415,7 +415,7 @@ public class DescriptionUtils {
   }
 
   public static void updateMlPrimaryKeyDescription(
-      String newDescription, Urn resourceUrn, Urn actor, EntityService entityService) {
+      String newDescription, Urn resourceUrn, Urn actor, EntityService<?> entityService) {
     EditableMLPrimaryKeyProperties editableProperties =
         (EditableMLPrimaryKeyProperties)
             EntityUtils.getAspectFromEntity(
@@ -435,7 +435,7 @@ public class DescriptionUtils {
   }
 
   public static void updateDataProductDescription(
-      String newDescription, Urn resourceUrn, Urn actor, EntityService entityService) {
+      String newDescription, Urn resourceUrn, Urn actor, EntityService<?> entityService) {
     DataProductProperties properties =
         (DataProductProperties)
             EntityUtils.getAspectFromEntity(

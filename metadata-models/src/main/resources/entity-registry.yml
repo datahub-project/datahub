@@ -208,6 +208,7 @@ entities:
       - status
       - origin
       - corpGroupSettings
+      - roleMembership
   - name: domain
     doc: A data domain within an organization.
     category: core

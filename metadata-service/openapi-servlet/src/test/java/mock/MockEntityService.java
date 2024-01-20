@@ -42,6 +42,7 @@ import com.linkedin.schema.SchemaMetadata;
 import com.linkedin.schema.StringType;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -212,7 +213,7 @@ public class MockEntityService extends EntityServiceImpl {
   }
 
   @Override
-  public Boolean exists(Urn urn) {
-    return null;
+  public Set<Urn> exists(@NotNull Collection<Urn> urns) {
+    return Set.of();
   }
 }

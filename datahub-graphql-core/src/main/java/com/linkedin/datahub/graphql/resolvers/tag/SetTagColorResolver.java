@@ -33,7 +33,7 @@ import lombok.extern.slf4j.Slf4j;
 public class SetTagColorResolver implements DataFetcher<CompletableFuture<Boolean>> {
 
   private final EntityClient _entityClient;
-  private final EntityService
+  private final EntityService<?>
       _entityService; // TODO: Remove this when 'exists' added to EntityClient
 
   @Override
@@ -53,7 +53,7 @@ public class SetTagColorResolver implements DataFetcher<CompletableFuture<Boolea
           }
 
           // If tag does not exist, then throw exception.
-          if (!_entityService.exists(tagUrn)) {
+          if (!_entityService.exists(tagUrn, true)) {
             throw new IllegalArgumentException(
                 String.format("Failed to set Tag %s color. Tag does not exist.", tagUrn));
           }
