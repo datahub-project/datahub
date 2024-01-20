@@ -10,7 +10,7 @@ import datahub as datahub_package
 from datahub.cli.check_cli import check
 from datahub.cli.cli_utils import (
     DATAHUB_CONFIG_PATH,
-    ensure_valid_gms_url,
+    fixup_gms_url,
     generate_access_token,
     get_boolean_env_variable,
     make_shim_command,
@@ -129,7 +129,7 @@ def init(use_password: bool = False) -> None:
     host = click.prompt(
         "Enter your DataHub host", type=str, default="http://localhost:8080"
     )
-    host = ensure_valid_gms_url(host)
+    host = fixup_gms_url(host)
     if use_password:
         username = click.prompt("Enter your DataHub username", type=str)
         password = click.prompt(
