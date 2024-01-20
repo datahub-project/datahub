@@ -5,7 +5,7 @@ import os
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Tuple
 
-from datahub.cli import cli_utils
+from datahub.cli import cli_utils, env_utils
 from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
 from datahub.ingestion.run.pipeline import Pipeline
 from joblib import Parallel, delayed
@@ -129,7 +129,7 @@ def delete_urns(urns: List[str]) -> None:
 
 
 def delete_urns_from_file(filename: str, shared_data: bool = False) -> None:
-    if not cli_utils.get_boolean_env_variable("CLEANUP_DATA", True):
+    if not env_utils.get_boolean_env_variable("CLEANUP_DATA", True):
         print("Not cleaning data to save time")
         return
     session = requests.Session()

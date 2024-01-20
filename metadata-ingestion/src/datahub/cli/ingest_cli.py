@@ -15,12 +15,7 @@ from tabulate import tabulate
 
 import datahub as datahub_package
 from datahub.cli import cli_utils
-from datahub.cli.cli_utils import (
-    CONDENSED_DATAHUB_CONFIG_PATH,
-    format_aspect_summaries,
-    get_session_and_host,
-    post_rollback_endpoint,
-)
+from datahub.cli.config_utils import CONDENSED_DATAHUB_CONFIG_PATH
 from datahub.configuration.config_loader import load_config_file
 from datahub.ingestion.graph.client import get_default_graph
 from datahub.ingestion.run.connection import ConnectionManager
@@ -436,7 +431,7 @@ def mcps(path: str) -> None:
 def list_runs(page_offset: int, page_size: int, include_soft_deletes: bool) -> None:
     """List recent ingestion runs to datahub"""
 
-    session, gms_host = get_session_and_host()
+    session, gms_host = cli_utils.get_session_and_host()
 
     url = f"{gms_host}/runs?action=list"
 
@@ -485,7 +480,7 @@ def show(
     run_id: str, start: int, count: int, include_soft_deletes: bool, show_aspect: bool
 ) -> None:
     """Describe a provided ingestion run to datahub"""
-    session, gms_host = get_session_and_host()
+    session, gms_host = cli_utils.get_session_and_host()
 
     url = f"{gms_host}/runs?action=describe"
 
@@ -504,7 +499,11 @@ def show(
     rows = parse_restli_response(response)
     if not show_aspect:
         click.echo(
-            tabulate(format_aspect_summaries(rows), RUN_TABLE_COLUMNS, tablefmt="grid")
+            tabulate(
+                cli_utils.format_aspect_summaries(rows),
+                RUN_TABLE_COLUMNS,
+                tablefmt="grid",
+            )
         )
     else:
         for row in rows:
@@ -546,7 +545,7 @@ def rollback(
         aspects_affected,
         unsafe_entity_count,
         unsafe_entities,
-    ) = post_rollback_endpoint(payload_obj, "/runs?action=rollback")
+    ) = cli_utils.post_rollback_endpoint(payload_obj, "/runs?action=rollback")
 
     click.echo(
         "Rolling back deletes the entities created by a run and reverts the updated aspects"

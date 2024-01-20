@@ -9,11 +9,13 @@ import click
 import datahub as datahub_package
 from datahub.cli.check_cli import check
 from datahub.cli.cli_utils import (
-    DATAHUB_CONFIG_PATH,
     fixup_gms_url,
     generate_access_token,
-    get_boolean_env_variable,
     make_shim_command,
+)
+from datahub.cli.config_utils import (
+    DATAHUB_CONFIG_PATH,
+    get_boolean_env_variable,
     write_gms_config,
 )
 from datahub.cli.delete_cli import delete
