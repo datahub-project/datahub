@@ -1,10 +1,8 @@
 import json
-from time import sleep
 
 import pytest
-from datahub.cli.cli_utils import (get_aspects_for_entity, guess_entity_type,
-                                   post_entity)
-from datahub.cli.ingest_cli import get_session_and_host, rollback
+from datahub.cli.cli_utils import get_aspects_for_entity
+from datahub.cli.ingest_cli import get_session_and_host
 
 from tests.utils import ingest_file_via_rest, wait_for_writes_to_sync
 

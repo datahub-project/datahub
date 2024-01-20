@@ -5,11 +5,17 @@ from typing import List, Set
 
 import pytest
 
-from tests.setup.lineage.ingest_time_lineage import (get_time_lineage_urns,
-                                                     ingest_time_lineage)
-from tests.utils import (create_datahub_step_state_aspects, delete_urns,
-                         delete_urns_from_file, get_admin_username,
-                         ingest_file_via_rest)
+from tests.setup.lineage.ingest_time_lineage import (
+    get_time_lineage_urns,
+    ingest_time_lineage,
+)
+from tests.utils import (
+    create_datahub_step_state_aspects,
+    delete_urns,
+    delete_urns_from_file,
+    get_admin_username,
+    ingest_file_via_rest,
+)
 
 CYPRESS_TEST_DATA_DIR = "tests/cypress"
 

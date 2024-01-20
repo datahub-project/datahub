@@ -2,17 +2,21 @@ import time
 import uuid
 from typing import Dict, Optional, Type
 
-from datahub.emitter.mce_builder import (make_tag_urn, make_term_urn,
-                                         make_user_urn)
+from datahub.emitter.mce_builder import make_tag_urn, make_term_urn, make_user_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_patch_builder import MetadataPatchProposal
 from datahub.ingestion.graph.client import DataHubGraph, DataHubGraphConfig
-from datahub.metadata.schema_classes import (AuditStampClass, GlobalTagsClass,
-                                             GlossaryTermAssociationClass,
-                                             GlossaryTermsClass, OwnerClass,
-                                             OwnershipClass,
-                                             OwnershipTypeClass,
-                                             TagAssociationClass, _Aspect)
+from datahub.metadata.schema_classes import (
+    AuditStampClass,
+    GlobalTagsClass,
+    GlossaryTermAssociationClass,
+    GlossaryTermsClass,
+    OwnerClass,
+    OwnershipClass,
+    OwnershipTypeClass,
+    TagAssociationClass,
+    _Aspect,
+)
 
 
 def helper_test_entity_terms_patch(
@@ -71,7 +75,6 @@ def helper_test_entity_terms_patch(
 def helper_test_dataset_tags_patch(
     test_entity_urn: str, patch_builder_class: Type[MetadataPatchProposal]
 ):
-
     tag_urn = make_tag_urn(tag=f"testTag-{uuid.uuid4()}")
 
     tag_association = TagAssociationClass(tag=tag_urn, context="test")

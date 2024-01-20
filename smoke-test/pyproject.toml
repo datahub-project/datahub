@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "smoke-test"
+version = "0.0.0"
+description = ""
+authors = [
+	{ name="Acryl Data", email="eng@acryl.io" },
+]
+requires-python = ">=3.9"
+
+
+[tool.black]
+extend-exclude = '''
+# A regex preceded with ^/ will apply only to files and directories
+# in the root of the project.
+^/tmp
+'''
+include = '\.pyi?$'
+target-version = ['py310']
+
+[tool.isort]
+profile = 'black'
+
+[tool.ruff]
+ignore = [
+	'E501', # Ignore line length, since black handles that.
+	'D203', # Ignore 1 blank line required before class docstring.
+]
+
+[tool.pyright]
+extraPaths = ['tests']

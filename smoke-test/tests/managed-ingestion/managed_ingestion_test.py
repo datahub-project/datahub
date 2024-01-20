@@ -3,8 +3,7 @@ import json
 import pytest
 import tenacity
 
-from tests.utils import (get_frontend_url, get_sleep_info,
-                         wait_for_healthcheck_util)
+from tests.utils import get_frontend_url, get_sleep_info, wait_for_healthcheck_util
 
 sleep_sec, sleep_times = get_sleep_info()
 
@@ -206,7 +205,6 @@ def _ensure_execution_request_present(frontend_session, execution_request_urn):
 
 @pytest.mark.dependency(depends=["test_healthchecks"])
 def test_create_list_get_remove_secret(frontend_session):
-
     # Get count of existing secrets
     json_q = {
         "query": """query listSecrets($input: ListSecretsInput!) {\n
@@ -333,7 +331,6 @@ def test_create_list_get_remove_secret(frontend_session):
 
 @pytest.mark.dependency(depends=["test_healthchecks"])
 def test_create_list_get_remove_ingestion_source(frontend_session):
-
     # Get count of existing ingestion sources
     res_data = _get_ingestionSources(frontend_session)
 
