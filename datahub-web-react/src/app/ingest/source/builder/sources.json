@@ -81,7 +81,7 @@
         "name": "cassandra",
         "displayName": "CassandraDB",
         "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/cassandra'",
-        "recipe": "source:\n    type: cassandra\n    config:\n      # Coordinates\n      contact_point: 'localhost'\n      port: 10350\n      # Credentials (ensure the user has read access to the system_schema keyspace)\n      username: null\n      password: null\n\n      # Optional Allow / Deny extraction of particular keyspaces.\n      # keyspace_pattern:\n        # allow:\n          # - \".*\""
+        "recipe": "source:\n    type: cassandra\n    config:\n      # Coordinates\n      contact_point: 'localhost'\n      port: 9042\n      # Credentials (ensure the user has read access to the system_schema keyspace)\n      username: null\n      password: null\n\n      # Optional Allow / Deny extraction of particular keyspaces.\n      # keyspace_pattern:\n        # allow:\n          # - \".*\""
     },
     {
         "urn": "urn:li:dataPlatform:hive",

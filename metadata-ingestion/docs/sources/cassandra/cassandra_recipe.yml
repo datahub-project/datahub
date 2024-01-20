@@ -3,7 +3,7 @@ source:
   config:
     # Coordinates
     contact_point: "localhost"
-    port: 10350
+    port: 9042
 
     # Credentials
     username: "admin"

@@ -117,7 +117,7 @@ class CassandraSourceConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
         default="localhost",
         description="The cassandra instance contact point domain (without the port).",
     )
-    port: str = Field(default="10350", description="The cassandra instance port.")
+    port: str = Field(default="9042", description="The cassandra instance port.")
     username: str = Field(
         default="",
         description=f"The username credential. Ensure user has read access to {SYSTEM_SCHEMA_KESPACE_NAME}.",
