@@ -563,8 +563,7 @@ SELECT  schemaname as schema_name,
                         type in ('DDL', 'QUERY')
                 )
                 where
-                    query_text ilike 'create%'
-                    and (create_command ilike 'create temp table %'
+                    (create_command ilike 'create temp table %'
                         or create_command ilike 'create temporary table %'
                         or create_command ilike 'create table #%')
                     -- Redshift creates temp tables with the following names: volt_tt_%. We need to filter them out.
