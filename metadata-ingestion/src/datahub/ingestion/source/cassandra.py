@@ -322,17 +322,19 @@ class CassandraSource(Source):
                 ),
             ).as_workunit()
 
-            # 4. TODO: If useful, we can construct and emit the datasetProperties aspect here.
+            # [4.] TODO: If useful, we can construct and emit the datasetProperties aspect here.
             # maybe emit details about the table like bloom_filter_fp_chance, caching, cdc, comment, compaction, compression,  ... max_index_interval ...
             # custom_properties: Dict[str, str] = {}
 
-            # 5. Connect the table to the parent keyspace container
+            # [5.] NOTE: Also, we don't emit the datasetProfile aspect because cassandra doesn't have a standard profiler we can tap into to cover most cases
+
+            # 6. Connect the table to the parent keyspace container
             yield from add_dataset_to_container(
                 container_key=self._generate_keyspace_container_key(keyspace_name),
                 dataset_urn=dataset_urn,
             )
 
-            # 6. Construct and emit the platform instance aspect.
+            # 7. Construct and emit the platform instance aspect.
             if self.config.platform_instance:
                 yield MetadataChangeProposalWrapper(
                     entityUrn=dataset_urn,
@@ -343,8 +345,6 @@ class CassandraSource(Source):
                         ),
                     ),
                 ).as_workunit()
-
-            # 6. NOTE: we don't emit the datasetProfile aspect because cassandra doesn't have a standard profiler we can tap into to cover most cases
 
     # get all columns for a given table, iterate over them to extract column metadata
     def _extract_columns_from_table(
