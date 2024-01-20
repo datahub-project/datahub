@@ -60,7 +60,7 @@ public class GroupService {
 
   public boolean groupExists(@Nonnull Urn groupUrn) {
     Objects.requireNonNull(groupUrn, "groupUrn must not be null");
-    return _entityService.exists(groupUrn);
+    return _entityService.exists(groupUrn, true);
   }
 
   public Origin getGroupOrigin(@Nonnull final Urn groupUrn) {
@@ -76,7 +76,7 @@ public class GroupService {
     Objects.requireNonNull(groupUrn, "groupUrn must not be null");
 
     // Verify the user exists
-    if (!_entityService.exists(userUrn)) {
+    if (!_entityService.exists(userUrn, true)) {
       throw new RuntimeException("Failed to add member to group. User does not exist.");
     }
 

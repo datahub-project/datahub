@@ -6,11 +6,9 @@ import static com.linkedin.metadata.utils.PegasusUtils.urnToEntityName;
 import com.datahub.util.RecordUtils;
 import com.google.common.base.Preconditions;
 import com.linkedin.common.AuditStamp;
-import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.template.RecordTemplate;
-import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.entity.validation.EntityRegistryUrnValidator;
 import com.linkedin.metadata.entity.validation.RecordTemplateValidator;
@@ -149,27 +147,6 @@ public class EntityUtils {
       return response;
     }
     return RecordUtils.toRecordTemplate(SystemMetadata.class, jsonSystemMetadata);
-  }
-
-  /** Check if entity is removed (removed=true in Status aspect) and exists */
-  public static boolean checkIfRemoved(EntityService entityService, Urn entityUrn) {
-    try {
-
-      if (!entityService.exists(entityUrn)) {
-        return false;
-      }
-
-      EnvelopedAspect statusAspect =
-          entityService.getLatestEnvelopedAspect(entityUrn.getEntityType(), entityUrn, "status");
-      if (statusAspect == null) {
-        return false;
-      }
-      Status status = new Status(statusAspect.getValue().data());
-      return status.isRemoved();
-    } catch (Exception e) {
-      log.error("Error while checking if {} is removed", entityUrn, e);
-      return false;
-    }
   }
 
   public static RecordTemplate buildKeyAspect(

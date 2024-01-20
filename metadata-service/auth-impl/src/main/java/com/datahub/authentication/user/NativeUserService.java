@@ -51,7 +51,7 @@ public class NativeUserService {
     Objects.requireNonNull(authentication, "authentication must not be null!");
 
     final Urn userUrn = Urn.createFromString(userUrnString);
-    if (_entityService.exists(userUrn)
+    if (_entityService.exists(userUrn, true)
         // Should never fail these due to Controller level check, but just in case more usages get
         // put in
         || userUrn.toString().equals(SYSTEM_ACTOR)

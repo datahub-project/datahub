@@ -22,7 +22,8 @@ import org.springframework.context.annotation.FilterType;
       "com.linkedin.gms.factory.entity.update.indices",
       "com.linkedin.gms.factory.entityclient",
       "com.linkedin.gms.factory.form",
-      "com.linkedin.gms.factory.timeline.eventgenerator"
+      "com.linkedin.gms.factory.timeline.eventgenerator",
+      "io.datahubproject.metadata.jobs.common.health.kafka"
     },
     excludeFilters = {
       @ComponentScan.Filter(

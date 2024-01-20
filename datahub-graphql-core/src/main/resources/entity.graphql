@@ -583,6 +583,11 @@ type Mutation {
     createPost(input: CreatePostInput!): Boolean
 
     """
+    Update or edit a post
+    """
+    updatePost(input: UpdatePostInput!): Boolean
+
+    """
     Delete a post
     """
     deletePost(urn: String!): Boolean
@@ -10438,6 +10443,26 @@ enum MediaType {
 Input provided when creating a Post
 """
 input CreatePostInput {
+    """
+    The type of post
+    """
+    postType: PostType!
+
+    """
+    The content of the post
+    """
+    content: UpdatePostContentInput!
+}
+
+"""
+Input provided when creating a Post
+"""
+input UpdatePostInput {
+    """
+    The urn of the post to edit or update
+    """
+    urn: String!,
+
     """
     The type of post
     """

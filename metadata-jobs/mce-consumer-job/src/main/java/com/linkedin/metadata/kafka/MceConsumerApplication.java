@@ -30,7 +30,9 @@ import org.springframework.context.annotation.PropertySource;
       "com.linkedin.metadata.restli",
       "com.linkedin.metadata.kafka",
       "com.linkedin.metadata.dao.producer",
-      "com.linkedin.gms.factory.form"
+      "com.linkedin.gms.factory.form",
+      "com.linkedin.metadata.dao.producer",
+      "io.datahubproject.metadata.jobs.common.health.kafka"
     },
     excludeFilters = {
       @ComponentScan.Filter(

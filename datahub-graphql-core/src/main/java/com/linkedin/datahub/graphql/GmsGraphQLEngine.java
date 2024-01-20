@@ -226,6 +226,7 @@ import com.linkedin.datahub.graphql.resolvers.policy.UpsertPolicyResolver;
 import com.linkedin.datahub.graphql.resolvers.post.CreatePostResolver;
 import com.linkedin.datahub.graphql.resolvers.post.DeletePostResolver;
 import com.linkedin.datahub.graphql.resolvers.post.ListPostsResolver;
+import com.linkedin.datahub.graphql.resolvers.post.UpdatePostResolver;
 import com.linkedin.datahub.graphql.resolvers.query.CreateQueryResolver;
 import com.linkedin.datahub.graphql.resolvers.query.DeleteQueryResolver;
 import com.linkedin.datahub.graphql.resolvers.query.ListQueriesResolver;
@@ -1146,6 +1147,7 @@ public class GmsGraphQLEngine {
                     "acceptRole", new AcceptRoleResolver(this.roleService, this.inviteTokenService))
                 .dataFetcher("createPost", new CreatePostResolver(this.postService))
                 .dataFetcher("deletePost", new DeletePostResolver(this.postService))
+                .dataFetcher("updatePost", new UpdatePostResolver(this.postService))
                 .dataFetcher(
                     "batchUpdateStepStates", new BatchUpdateStepStatesResolver(this.entityClient))
                 .dataFetcher("createView", new CreateViewResolver(this.viewService))

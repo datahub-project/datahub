@@ -62,7 +62,7 @@ public class StatefulTokenService extends StatelessTokenService {
                   public Boolean load(final String key) {
                     final Urn accessUrn =
                         Urn.createFromTuple(Constants.ACCESS_TOKEN_ENTITY_NAME, key);
-                    return !_entityService.exists(accessUrn);
+                    return !_entityService.exists(accessUrn, true);
                   }
                 });
     this.salt = salt;

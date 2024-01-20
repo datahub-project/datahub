@@ -44,42 +44,46 @@ public class PlatformEventProcessor {
       topics = {"${PLATFORM_EVENT_TOPIC_NAME:" + Topics.PLATFORM_EVENT + "}"},
       containerFactory = "kafkaEventConsumer")
   public void consume(final ConsumerRecord<String, GenericRecord> consumerRecord) {
+    try (Timer.Context i = MetricUtils.timer(this.getClass(), "consume").time()) {
 
-    log.debug("Consuming a Platform Event");
+      log.debug("Consuming a Platform Event");
 
-    kafkaLagStats.update(System.currentTimeMillis() - consumerRecord.timestamp());
-    final GenericRecord record = consumerRecord.value();
-    log.debug(
-        "Got Generic PE on topic: {}, partition: {}, offset: {}",
-        consumerRecord.topic(),
-        consumerRecord.partition(),
-        consumerRecord.offset());
-    MetricUtils.counter(this.getClass(), "received_pe_count").inc();
+      kafkaLagStats.update(System.currentTimeMillis() - consumerRecord.timestamp());
+      final GenericRecord record = consumerRecord.value();
+      log.debug(
+          "Got Generic PE on topic: {}, partition: {}, offset: {}",
+          consumerRecord.topic(),
+          consumerRecord.partition(),
+          consumerRecord.offset());
+      MetricUtils.counter(this.getClass(), "received_pe_count").inc();
 
-    PlatformEvent event;
-    try {
-      event = EventUtils.avroToPegasusPE(record);
-      log.debug("Successfully converted Avro PE to Pegasus PE. name: {}", event.getName());
-    } catch (Exception e) {
-      MetricUtils.counter(this.getClass(), "avro_to_pegasus_conversion_failure").inc();
-      log.error("Error deserializing message due to: ", e);
-      log.error("Message: {}", record.toString());
-      return;
-    }
-
-    log.debug("Invoking PE hooks for event name {}", event.getName());
-
-    for (PlatformEventHook hook : this.hooks) {
-      try (Timer.Context ignored =
-          MetricUtils.timer(this.getClass(), hook.getClass().getSimpleName() + "_latency").time()) {
-        hook.invoke(event);
+      PlatformEvent event;
+      try {
+        event = EventUtils.avroToPegasusPE(record);
+        log.debug("Successfully converted Avro PE to Pegasus PE. name: {}", event.getName());
       } catch (Exception e) {
-        // Just skip this hook and continue.
-        MetricUtils.counter(this.getClass(), hook.getClass().getSimpleName() + "_failure").inc();
-        log.error("Failed to execute PE hook with name {}", hook.getClass().getCanonicalName(), e);
+        MetricUtils.counter(this.getClass(), "avro_to_pegasus_conversion_failure").inc();
+        log.error("Error deserializing message due to: ", e);
+        log.error("Message: {}", record.toString());
+        return;
       }
+
+      log.debug("Invoking PE hooks for event name {}", event.getName());
+
+      for (PlatformEventHook hook : this.hooks) {
+        try (Timer.Context ignored =
+            MetricUtils.timer(this.getClass(), hook.getClass().getSimpleName() + "_latency")
+                .time()) {
+          hook.invoke(event);
+        } catch (Exception e) {
+          // Just skip this hook and continue.
+          MetricUtils.counter(this.getClass(), hook.getClass().getSimpleName() + "_failure").inc();
+          log.error(
+              "Failed to execute PE hook with name {}", hook.getClass().getCanonicalName(), e);
+        }
+      }
+      MetricUtils.counter(this.getClass(), "consumed_pe_count").inc();
+      log.debug("Successfully completed PE hooks for event with name {}", event.getName());
     }
-    MetricUtils.counter(this.getClass(), "consumed_pe_count").inc();
-    log.debug("Successfully completed PE hooks for event with name {}", event.getName());
   }
 }

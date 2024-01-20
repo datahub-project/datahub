@@ -188,6 +188,7 @@ entities:
       - ownership
       - status
       - origin
+      - roleMembership
   - name: domain
     doc: A data domain within an organization.
     category: core

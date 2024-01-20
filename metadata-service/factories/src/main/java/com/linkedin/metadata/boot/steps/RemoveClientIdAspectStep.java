@@ -27,7 +27,7 @@ public class RemoveClientIdAspectStep implements BootstrapStep {
   @Override
   public void execute() throws Exception {
     try {
-      if (_entityService.exists(REMOVE_UNKNOWN_ASPECTS_URN)) {
+      if (_entityService.exists(REMOVE_UNKNOWN_ASPECTS_URN, true)) {
         log.info("Unknown aspects have been removed. Skipping...");
         return;
       }

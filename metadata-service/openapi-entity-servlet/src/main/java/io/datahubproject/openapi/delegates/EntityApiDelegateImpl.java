@@ -136,7 +136,7 @@ public class EntityApiDelegateImpl<I, O, S> {
   public ResponseEntity<Void> head(String urn) {
     try {
       Urn entityUrn = Urn.createFromString(urn);
-      if (_entityService.exists(entityUrn)) {
+      if (_entityService.exists(entityUrn, true)) {
         return new ResponseEntity<>(HttpStatus.NO_CONTENT);
       } else {
         return new ResponseEntity<>(HttpStatus.NOT_FOUND);

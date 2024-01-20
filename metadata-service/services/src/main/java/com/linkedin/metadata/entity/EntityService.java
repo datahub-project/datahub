@@ -25,6 +25,7 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
 import java.net.URISyntaxException;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -314,9 +315,27 @@ public interface EntityService<U extends UpsertItem> extends AspectRetriever {
   IngestResult ingestProposal(
       MetadataChangeProposal proposal, AuditStamp auditStamp, final boolean async);
 
-  Boolean exists(Urn urn);
+  /**
+   * Returns a set of urns of entities that exist (has materialized aspects).
+   *
+   * @param urns the list of urns of the entities to check
+   * @return a set of urns of entities that exist.
+   */
+  Set<Urn> exists(@Nonnull final Collection<Urn> urns, boolean includeSoftDelete);
 
-  Boolean isSoftDeleted(@Nonnull final Urn urn);
+  /**
+   * Returns a set of urns of entities that exist (has materialized aspects).
+   *
+   * @param urns the list of urns of the entities to check
+   * @return a set of urns of entities that exist.
+   */
+  default Set<Urn> exists(@Nonnull final Collection<Urn> urns) {
+    return exists(urns, true);
+  }
+
+  default boolean exists(@Nonnull Urn urn, boolean includeSoftDelete) {
+    return exists(List.of(urn), includeSoftDelete).contains(urn);
+  }
 
   void setWritable(boolean canWrite);
 
