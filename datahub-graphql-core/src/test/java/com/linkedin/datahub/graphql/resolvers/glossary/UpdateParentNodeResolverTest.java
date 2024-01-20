@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.resolvers.glossary;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
 import static com.linkedin.metadata.Constants.*;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
@@ -63,8 +64,9 @@ public class UpdateParentNodeResolverTest {
   public void testGetSuccess() throws Exception {
     EntityService mockService = getMockEntityService();
     EntityClient mockClient = Mockito.mock(EntityClient.class);
-    Mockito.when(mockService.exists(Urn.createFromString(TERM_URN))).thenReturn(true);
-    Mockito.when(mockService.exists(GlossaryNodeUrn.createFromString(PARENT_NODE_URN)))
+    Mockito.when(mockService.exists(eq(Urn.createFromString(TERM_URN)), eq(true))).thenReturn(true);
+    Mockito.when(
+            mockService.exists(eq(GlossaryNodeUrn.createFromString(PARENT_NODE_URN)), eq(true)))
         .thenReturn(true);
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getArgument("input")).thenReturn(INPUT);
@@ -80,8 +82,9 @@ public class UpdateParentNodeResolverTest {
   public void testGetSuccessForNode() throws Exception {
     EntityService mockService = getMockEntityService();
     EntityClient mockClient = Mockito.mock(EntityClient.class);
-    Mockito.when(mockService.exists(Urn.createFromString(NODE_URN))).thenReturn(true);
-    Mockito.when(mockService.exists(GlossaryNodeUrn.createFromString(PARENT_NODE_URN)))
+    Mockito.when(mockService.exists(eq(Urn.createFromString(NODE_URN)), eq(true))).thenReturn(true);
+    Mockito.when(
+            mockService.exists(eq(GlossaryNodeUrn.createFromString(PARENT_NODE_URN)), eq(true)))
         .thenReturn(true);
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getArgument("input")).thenReturn(INPUT_WITH_NODE);
@@ -114,8 +117,10 @@ public class UpdateParentNodeResolverTest {
   public void testGetFailureEntityDoesNotExist() throws Exception {
     EntityService mockService = getMockEntityService();
     EntityClient mockClient = Mockito.mock(EntityClient.class);
-    Mockito.when(mockService.exists(Urn.createFromString(TERM_URN))).thenReturn(false);
-    Mockito.when(mockService.exists(GlossaryNodeUrn.createFromString(PARENT_NODE_URN)))
+    Mockito.when(mockService.exists(eq(Urn.createFromString(TERM_URN)), eq(true)))
+        .thenReturn(false);
+    Mockito.when(
+            mockService.exists(eq(GlossaryNodeUrn.createFromString(PARENT_NODE_URN)), eq(true)))
         .thenReturn(true);
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getArgument("input")).thenReturn(INPUT);
@@ -131,8 +136,9 @@ public class UpdateParentNodeResolverTest {
   public void testGetFailureNodeDoesNotExist() throws Exception {
     EntityService mockService = getMockEntityService();
     EntityClient mockClient = Mockito.mock(EntityClient.class);
-    Mockito.when(mockService.exists(Urn.createFromString(TERM_URN))).thenReturn(true);
-    Mockito.when(mockService.exists(GlossaryNodeUrn.createFromString(PARENT_NODE_URN)))
+    Mockito.when(mockService.exists(eq(Urn.createFromString(TERM_URN)), eq(true))).thenReturn(true);
+    Mockito.when(
+            mockService.exists(eq(GlossaryNodeUrn.createFromString(PARENT_NODE_URN)), eq(true)))
         .thenReturn(false);
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getArgument("input")).thenReturn(INPUT);
@@ -148,8 +154,9 @@ public class UpdateParentNodeResolverTest {
   public void testGetFailureParentIsNotNode() throws Exception {
     EntityService mockService = getMockEntityService();
     EntityClient mockClient = Mockito.mock(EntityClient.class);
-    Mockito.when(mockService.exists(Urn.createFromString(TERM_URN))).thenReturn(true);
-    Mockito.when(mockService.exists(GlossaryNodeUrn.createFromString(PARENT_NODE_URN)))
+    Mockito.when(mockService.exists(eq(Urn.createFromString(TERM_URN)), eq(true))).thenReturn(true);
+    Mockito.when(
+            mockService.exists(eq(GlossaryNodeUrn.createFromString(PARENT_NODE_URN)), eq(true)))
         .thenReturn(true);
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getArgument("input")).thenReturn(INVALID_INPUT);
