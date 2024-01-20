@@ -39,12 +39,12 @@ import javax.annotation.Nonnull;
 
 public class GroupService {
   private final EntityClient _entityClient;
-  private final EntityService _entityService;
+  private final EntityService<?> _entityService;
   private final GraphClient _graphClient;
 
   public GroupService(
       @Nonnull EntityClient entityClient,
-      @Nonnull EntityService entityService,
+      @Nonnull EntityService<?> entityService,
       @Nonnull GraphClient graphClient) {
     Objects.requireNonNull(entityClient, "entityClient must not be null!");
     Objects.requireNonNull(entityService, "entityService must not be null!");
@@ -57,7 +57,7 @@ public class GroupService {
 
   public boolean groupExists(@Nonnull Urn groupUrn) {
     Objects.requireNonNull(groupUrn, "groupUrn must not be null");
-    return _entityService.exists(groupUrn);
+    return _entityService.exists(groupUrn, true);
   }
 
   public Origin getGroupOrigin(@Nonnull final Urn groupUrn) {
@@ -73,7 +73,7 @@ public class GroupService {
     Objects.requireNonNull(groupUrn, "groupUrn must not be null");
 
     // Verify the user exists
-    if (!_entityService.exists(userUrn)) {
+    if (!_entityService.exists(userUrn, true)) {
       throw new RuntimeException("Failed to add member to group. User does not exist.");
     }
 

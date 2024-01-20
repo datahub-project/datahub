@@ -16,6 +16,7 @@ from datahub.configuration.source_common import (
 from datahub.emitter.mce_builder import (
     make_chart_urn,
     make_dashboard_urn,
+    make_dataset_urn,
     make_domain_urn,
 )
 from datahub.emitter.mcp_builder import add_domain_to_entity_wu
@@ -242,15 +243,13 @@ class SupersetSource(StatefulIngestionSourceBase):
         database_name = self.config.database_alias.get(database_name, database_name)
 
         if database_id and table_name:
-            platform = self.get_platform_from_database_id(database_id)
-            platform_urn = f"urn:li:dataPlatform:{platform}"
-            dataset_urn = (
-                f"urn:li:dataset:("
-                f"{platform_urn},{database_name + '.' if database_name else ''}"
-                f"{schema_name + '.' if schema_name else ''}"
-                f"{table_name},{self.config.env})"
+            return make_dataset_urn(
+                platform=self.get_platform_from_database_id(database_id),
+                name=".".join(
+                    name for name in [database_name, schema_name, table_name] if name
+                ),
+                env=self.config.env,
             )
-            return dataset_urn
         return None
 
     def construct_dashboard_from_api_data(self, dashboard_data):
@@ -294,13 +293,35 @@ class SupersetSource(StatefulIngestionSourceBase):
                 )
             )
 
+        # Build properties
+        custom_properties = {
+            "Status": str(dashboard_data.get("status")),
+            "IsPublished": str(dashboard_data.get("published", False)).lower(),
+            "Owners": ", ".join(
+                map(
+                    lambda owner: owner.get("username", "unknown"),
+                    dashboard_data.get("owners", []),
+                )
+            ),
+            "IsCertified": str(
+                True if dashboard_data.get("certified_by") else False
+            ).lower(),
+        }
+
+        if dashboard_data.get("certified_by"):
+            custom_properties["CertifiedBy"] = dashboard_data.get("certified_by")
+            custom_properties["CertificationDetails"] = str(
+                dashboard_data.get("certification_details")
+            )
+
+        # Create DashboardInfo object
         dashboard_info = DashboardInfoClass(
             description="",
             title=title,
             charts=chart_urns,
             lastModified=last_modified,
             dashboardUrl=dashboard_url,
-            customProperties={},
+            customProperties=custom_properties,
         )
         dashboard_snapshot.aspects.append(dashboard_info)
         return dashboard_snapshot

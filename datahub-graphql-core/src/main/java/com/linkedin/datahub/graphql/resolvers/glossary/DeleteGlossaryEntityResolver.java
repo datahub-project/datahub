@@ -15,10 +15,10 @@ import lombok.extern.slf4j.Slf4j;
 public class DeleteGlossaryEntityResolver implements DataFetcher<CompletableFuture<Boolean>> {
 
   private final EntityClient _entityClient;
-  private final EntityService _entityService;
+  private final EntityService<?> _entityService;
 
   public DeleteGlossaryEntityResolver(
-      final EntityClient entityClient, EntityService entityService) {
+      final EntityClient entityClient, EntityService<?> entityService) {
     _entityClient = entityClient;
     _entityService = entityService;
   }
@@ -33,7 +33,7 @@ public class DeleteGlossaryEntityResolver implements DataFetcher<CompletableFutu
     return CompletableFuture.supplyAsync(
         () -> {
           if (GlossaryUtils.canManageChildrenEntities(context, parentNodeUrn, _entityClient)) {
-            if (!_entityService.exists(entityUrn)) {
+            if (!_entityService.exists(entityUrn, true)) {
               throw new RuntimeException(String.format("This urn does not exist: %s", entityUrn));
             }
 

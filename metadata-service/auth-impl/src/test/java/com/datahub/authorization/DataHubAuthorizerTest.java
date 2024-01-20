@@ -28,6 +28,7 @@ import com.linkedin.common.OwnershipType;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.domain.DomainProperties;
 import com.linkedin.domain.Domains;
@@ -36,6 +37,7 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.identity.GroupMembership;
 import com.linkedin.identity.RoleMembership;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.search.ScrollResult;
@@ -254,10 +256,14 @@ public class DataHubAuthorizerTest {
     when(_entityClient.batchGetV2(
             any(),
             eq(Collections.singleton(USER_WITH_ADMIN_ROLE)),
-            eq(Collections.singleton(ROLE_MEMBERSHIP_ASPECT_NAME)),
+            eq(
+                ImmutableSet.of(
+                    ROLE_MEMBERSHIP_ASPECT_NAME,
+                    GROUP_MEMBERSHIP_ASPECT_NAME,
+                    NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME)),
             any()))
         .thenReturn(
-            createUserRoleMembershipBatchResponse(
+            createRoleMembershipBatchResponse(
                 USER_WITH_ADMIN_ROLE, UrnUtils.getUrn("urn:li:dataHubRole:Admin")));
 
     final Authentication systemAuthentication =
@@ -460,6 +466,49 @@ public class DataHubAuthorizerTest {
     assertEquals(_dataHubAuthorizer.authorize(request).getType(), AuthorizationResult.Type.DENY);
   }
 
+  @Test
+  public void testAuthorizationGrantedBasedOnGroupRole() throws Exception {
+    final EntitySpec resourceSpec = new EntitySpec("dataset", "urn:li:dataset:custom");
+
+    final Urn userUrnWithoutPermissions = UrnUtils.getUrn("urn:li:corpuser:userWithoutRole");
+    final Urn groupWithAdminPermission = UrnUtils.getUrn("urn:li:corpGroup:groupWithRole");
+    final UrnArray groups = new UrnArray(List.of(groupWithAdminPermission));
+    final GroupMembership groupMembership = new GroupMembership();
+    groupMembership.setGroups(groups);
+
+    // User has no role associated but is part of 1 group
+    when(_entityClient.batchGetV2(
+            any(),
+            eq(Collections.singleton(userUrnWithoutPermissions)),
+            eq(
+                ImmutableSet.of(
+                    ROLE_MEMBERSHIP_ASPECT_NAME,
+                    GROUP_MEMBERSHIP_ASPECT_NAME,
+                    NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME)),
+            any()))
+        .thenReturn(
+            createEntityBatchResponse(
+                userUrnWithoutPermissions, GROUP_MEMBERSHIP_ASPECT_NAME, groupMembership));
+
+    // Group has a role
+    when(_entityClient.batchGetV2(
+            any(),
+            eq(Collections.singleton(groupWithAdminPermission)),
+            eq(Collections.singleton(ROLE_MEMBERSHIP_ASPECT_NAME)),
+            any()))
+        .thenReturn(
+            createRoleMembershipBatchResponse(
+                groupWithAdminPermission, UrnUtils.getUrn("urn:li:dataHubRole:Admin")));
+
+    // This request should only be valid for actor with the admin role.
+    // Which the urn:li:corpuser:userWithoutRole does not have
+    AuthorizationRequest request =
+        new AuthorizationRequest(
+            userUrnWithoutPermissions.toString(), "EDIT_USER_PROFILE", Optional.of(resourceSpec));
+
+    assertEquals(_dataHubAuthorizer.authorize(request).getType(), AuthorizationResult.Type.ALLOW);
+  }
+
   private DataHubPolicyInfo createDataHubPolicyInfo(
       boolean active, List<String> privileges, @Nullable final Urn domain) throws Exception {
 
@@ -575,20 +624,24 @@ public class DataHubAuthorizerTest {
     return batchResponse;
   }
 
-  private Map<Urn, EntityResponse> createUserRoleMembershipBatchResponse(
-      final Urn userUrn, @Nullable final Urn roleUrn) {
-    final Map<Urn, EntityResponse> batchResponse = new HashMap<>();
-    final EntityResponse response = new EntityResponse();
-    EnvelopedAspectMap aspectMap = new EnvelopedAspectMap();
+  private Map<Urn, EntityResponse> createRoleMembershipBatchResponse(
+      final Urn actorUrn, @Nullable final Urn roleUrn) {
     final RoleMembership membership = new RoleMembership();
     if (roleUrn != null) {
       membership.setRoles(new UrnArray(roleUrn));
     }
+    return createEntityBatchResponse(actorUrn, ROLE_MEMBERSHIP_ASPECT_NAME, membership);
+  }
+
+  private Map<Urn, EntityResponse> createEntityBatchResponse(
+      final Urn actorUrn, final String aspectName, final RecordTemplate aspect) {
+    final Map<Urn, EntityResponse> batchResponse = new HashMap<>();
+    final EntityResponse response = new EntityResponse();
+    EnvelopedAspectMap aspectMap = new EnvelopedAspectMap();
     aspectMap.put(
-        ROLE_MEMBERSHIP_ASPECT_NAME,
-        new EnvelopedAspect().setValue(new com.linkedin.entity.Aspect(membership.data())));
+        aspectName, new EnvelopedAspect().setValue(new com.linkedin.entity.Aspect(aspect.data())));
     response.setAspects(aspectMap);
-    batchResponse.put(userUrn, response);
+    batchResponse.put(actorUrn, response);
     return batchResponse;
   }
 
