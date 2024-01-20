@@ -13,7 +13,7 @@ from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataplatform_instance_urn,
     make_dataset_urn_with_platform_instance,
-    make_domain_urn
+    make_domain_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import add_domain_to_entity_wu
@@ -165,8 +165,9 @@ class DynamoDBSource(StatefulIngestionSourceBase):
 
         if self.config.domain:
             self.domain_registry = DomainRegistry(
-            cached_domains=[domain_id for domain_id in self.config.domain],
-            graph=self.ctx.graph)
+                cached_domains=[domain_id for domain_id in self.config.domain],
+                graph=self.ctx.graph,
+            )
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "DynamoDBSource":
@@ -499,8 +500,9 @@ class DynamoDBSource(StatefulIngestionSourceBase):
     def get_report(self) -> DynamoDBSourceReport:
         return self.report
 
-
-    def _get_domain_wu(self, dataset_name: str, entity_urn: str) -> Iterable[MetadataWorkUnit]:
+    def _get_domain_wu(
+        self, dataset_name: str, entity_urn: str
+    ) -> Iterable[MetadataWorkUnit]:
         domain_urn = None
         for domain, pattern in self.config.domain.items():
             if pattern.allowed(dataset_name):
