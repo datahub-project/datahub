@@ -83,7 +83,11 @@ public class PolicyEngineTest {
     when(_entityClient.batchGetV2(
             eq(CORP_USER_ENTITY_NAME),
             eq(Collections.singleton(authorizedUserUrn)),
-            eq(Collections.singleton(ROLE_MEMBERSHIP_ASPECT_NAME)),
+            eq(
+                ImmutableSet.of(
+                    ROLE_MEMBERSHIP_ASPECT_NAME,
+                    GROUP_MEMBERSHIP_ASPECT_NAME,
+                    NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME)),
             any()))
         .thenReturn(authorizedEntityResponseMap);
 
@@ -94,7 +98,11 @@ public class PolicyEngineTest {
     when(_entityClient.batchGetV2(
             eq(CORP_USER_ENTITY_NAME),
             eq(Collections.singleton(unauthorizedUserUrn)),
-            eq(Collections.singleton(ROLE_MEMBERSHIP_ASPECT_NAME)),
+            eq(
+                ImmutableSet.of(
+                    ROLE_MEMBERSHIP_ASPECT_NAME,
+                    GROUP_MEMBERSHIP_ASPECT_NAME,
+                    NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME)),
             any()))
         .thenReturn(unauthorizedEntityResponseMap);
 
