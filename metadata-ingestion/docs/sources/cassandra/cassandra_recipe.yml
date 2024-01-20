@@ -1,0 +1,16 @@
+source:
+  type: "cassandra"
+  config:
+    # Coordinates
+    contact_point: "localhost"
+    port: 10350
+
+    # Credentials
+    username: "admin"
+    password: "password"
+
+    # Options
+    keyspace_pattern:
+      allow: [".*"]
+sink:
+  # config sinks

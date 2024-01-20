@@ -77,6 +77,13 @@
         "recipe": "source: \n    type: postgres\n    config:\n        # Coordinates\n        host_port: # Your Postgres host and port, e.g. postgres:5432\n        database: # Your Postgres Database, e.g. sample_db\n\n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        username: null # Your Postgres username, e.g. admin\n\n        # Options\n        include_tables: true\n        include_views: true\n\n        # Profiling\n        profiling:\n            enabled: true\n            profile_table_level_only: true\n        stateful_ingestion:\n            enabled: true"
     },
     {
+        "urn": "urn:li:dataPlatform:cassandra",
+        "name": "cassandra",
+        "displayName": "CassandraDB",
+        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/cassandra'",
+        "recipe": "source:\n    type: cassandra\n    config:\n      # Coordinates\n      contact_point: 'localhost'\n      port: 10350\n      # Credentials (ensure the user has read access to the system_schema keyspace)\n      username: null\n      password: null\n\n      # Optional Allow / Deny extraction of particular keyspaces.\n      # keyspace_pattern:\n        # allow:\n          # - \".*\""
+    },
+    {
         "urn": "urn:li:dataPlatform:hive",
         "name": "hive",
         "displayName": "Hive",

@@ -31,6 +31,7 @@ import mlflowLogo from '../../../../images/mlflowlogo.png';
 import dynamodbLogo from '../../../../images/dynamodblogo.png';
 import fivetranLogo from '../../../../images/fivetranlogo.png';
 import csvLogo from '../../../../images/csv-logo.png';
+import cassandraLogo from '../../../../images/cassandralogo.png';
 
 export const ATHENA = 'athena';
 export const ATHENA_URN = `urn:li:dataPlatform:${ATHENA}`;
@@ -40,6 +41,8 @@ export const BIGQUERY = 'bigquery';
 export const BIGQUERY_USAGE = 'bigquery-usage';
 export const BIGQUERY_BETA = 'bigquery-beta';
 export const BIGQUERY_URN = `urn:li:dataPlatform:${BIGQUERY}`;
+export const CASSANDRA = 'cassandra';
+export const CASSANDRA_URN = `urn:li:dataPlatform:${CASSANDRA}`;
 export const CLICKHOUSE = 'clickhouse';
 export const CLICKHOUSE_USAGE = 'clickhouse-usage';
 export const CLICKHOUSE_URN = `urn:li:dataPlatform:${CLICKHOUSE}`;
@@ -118,6 +121,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [ATHENA_URN]: athenaLogo,
     [AZURE_URN]: azureLogo,
     [BIGQUERY_URN]: bigqueryLogo,
+    [CASSANDRA_URN]: cassandraLogo,
     [CLICKHOUSE_URN]: clickhouseLogo,
     [DBT_URN]: dbtLogo,
     [DRUID_URN]: druidLogo,

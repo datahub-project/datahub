@@ -1,0 +1,118 @@
+[
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:e88cdfeb0f0ec790300527f9ea34ee05",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705707516705,
+        "runId": "cassandra-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:cassandra,cass_test_1.information,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:e88cdfeb0f0ec790300527f9ea34ee05",
+                    "urn": "urn:li:container:e88cdfeb0f0ec790300527f9ea34ee05"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705707516705,
+        "runId": "cassandra-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:cassandra,cass_test_1.people,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:e88cdfeb0f0ec790300527f9ea34ee05",
+                    "urn": "urn:li:container:e88cdfeb0f0ec790300527f9ea34ee05"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705707516706,
+        "runId": "cassandra-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:0381892d0717b54887d087eaafd95d2b",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705707516706,
+        "runId": "cassandra-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:cassandra,cass_test_2.tasks,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:0381892d0717b54887d087eaafd95d2b",
+                    "urn": "urn:li:container:0381892d0717b54887d087eaafd95d2b"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705707516706,
+        "runId": "cassandra-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:cassandra,cass_test_2.task_status,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:0381892d0717b54887d087eaafd95d2b",
+                    "urn": "urn:li:container:0381892d0717b54887d087eaafd95d2b"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705707516707,
+        "runId": "cassandra-test",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]

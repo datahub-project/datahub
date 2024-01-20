@@ -311,6 +311,9 @@ plugins: Dict[str, Set[str]] = {
     # https://www.elastic.co/guide/en/elasticsearch/client/python-api/current/release-notes.html#rn-7-14-0
     # https://github.com/elastic/elasticsearch-py/issues/1639#issuecomment-883587433
     "elasticsearch": {"elasticsearch==7.13.4"},
+    "cassandra": {
+        "cassandra-driver~=3.28.0"
+    },
     "feast": {
         "feast~=0.35.0",
         "flask-openid>=1.3.0",
@@ -483,6 +486,7 @@ base_dev_requirements = {
         for plugin in [
             "athena",
             "bigquery",
+            "cassandra",
             "clickhouse",
             "clickhouse-usage",
             "delta-lake",
@@ -571,6 +575,7 @@ entry_points = {
         "athena = datahub.ingestion.source.sql.athena:AthenaSource",
         "azure-ad = datahub.ingestion.source.identity.azure_ad:AzureADSource",
         "bigquery = datahub.ingestion.source.bigquery_v2.bigquery:BigqueryV2Source",
+        "cassandra = datahub.ingestion.source.cassandra:CassandraSource",
         "clickhouse = datahub.ingestion.source.sql.clickhouse:ClickHouseSource",
         "clickhouse-usage = datahub.ingestion.source.usage.clickhouse_usage:ClickHouseUsageSource",
         "delta-lake = datahub.ingestion.source.delta_lake:DeltaLakeSource",

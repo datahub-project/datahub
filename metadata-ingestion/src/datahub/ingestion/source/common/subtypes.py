@@ -25,6 +25,7 @@ class DatasetContainerSubTypes(str, Enum):
     DATABASE = "Database"
     SCHEMA = "Schema"
     # System-Specific SubTypes
+    KEYSPACE = "Keyspace"  # Cassandra
     CATALOG = "Catalog"  # Presto or Unity Catalog
     BIGQUERY_PROJECT = "Project"
     BIGQUERY_DATASET = "Dataset"
