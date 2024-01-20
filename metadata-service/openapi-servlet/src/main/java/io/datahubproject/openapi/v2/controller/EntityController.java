@@ -409,7 +409,7 @@ public class EntityController {
   }
 
   private Boolean exists(Urn urn, @Nullable String aspect) {
-    return aspect == null ? entityService.exists(urn) : entityService.exists(urn, aspect);
+    return aspect == null ? entityService.exists(urn, true) : entityService.exists(urn, aspect);
   }
 
   private List<GenericEntity> toRecordTemplates(

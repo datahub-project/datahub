@@ -289,44 +289,42 @@ public class ESUtils {
     if (sortCriterion.isEmpty() && enableDefaultSort) {
       searchSourceBuilder.sort(new ScoreSortBuilder().order(SortOrder.DESC));
     } else {
-      sortCriterion.forEach(
-          sortCriteria -> {
-            Optional<SearchableAnnotation.FieldType> fieldTypeForDefault = Optional.empty();
-            for (EntitySpec entitySpec : entitySpecs) {
-              List<SearchableFieldSpec> fieldSpecs = entitySpec.getSearchableFieldSpecs();
-              for (SearchableFieldSpec fieldSpec : fieldSpecs) {
-                SearchableAnnotation annotation = fieldSpec.getSearchableAnnotation();
-                if (annotation.getFieldName().equals(sortCriteria.getField())
-                    || annotation.getFieldNameAliases().contains(sortCriteria.getField())) {
-                  fieldTypeForDefault =
-                      Optional.of(fieldSpec.getSearchableAnnotation().getFieldType());
-                  break;
-                }
-              }
-              if (fieldTypeForDefault.isPresent()) {
-                break;
-              }
+      for (SortCriterion sortCriteria : sortCriterion) {
+        Optional<SearchableAnnotation.FieldType> fieldTypeForDefault = Optional.empty();
+        for (EntitySpec entitySpec : entitySpecs) {
+          List<SearchableFieldSpec> fieldSpecs = entitySpec.getSearchableFieldSpecs();
+          for (SearchableFieldSpec fieldSpec : fieldSpecs) {
+            SearchableAnnotation annotation = fieldSpec.getSearchableAnnotation();
+            if (annotation.getFieldName().equals(sortCriteria.getField())
+                || annotation.getFieldNameAliases().contains(sortCriteria.getField())) {
+              fieldTypeForDefault = Optional.of(fieldSpec.getSearchableAnnotation().getFieldType());
+              break;
             }
-            if (fieldTypeForDefault.isEmpty()) {
-              log.warn(
-                  "Sort criterion field "
-                      + sortCriteria.getField()
-                      + " was not found in any entity spec to be searched");
-            }
-            final SortOrder esSortOrder =
-                (sortCriteria.getOrder() == com.linkedin.metadata.query.filter.SortOrder.ASCENDING)
-                    ? SortOrder.ASC
-                    : SortOrder.DESC;
-            FieldSortBuilder sortBuilder =
-                new FieldSortBuilder(sortCriteria.getField()).order(esSortOrder);
-            if (fieldTypeForDefault.isPresent()) {
-              String esFieldtype = getElasticTypeForFieldType(fieldTypeForDefault.get());
-              if (esFieldtype != null) {
-                sortBuilder.unmappedType(esFieldtype);
-              }
-            }
-            searchSourceBuilder.sort(sortBuilder);
-          });
+          }
+          if (fieldTypeForDefault.isPresent()) {
+            break;
+          }
+        }
+        if (fieldTypeForDefault.isEmpty()) {
+          log.warn(
+              "Sort criterion field "
+                  + sortCriteria.getField()
+                  + " was not found in any entity spec to be searched");
+        }
+        final SortOrder esSortOrder =
+            (sortCriteria.getOrder() == com.linkedin.metadata.query.filter.SortOrder.ASCENDING)
+                ? SortOrder.ASC
+                : SortOrder.DESC;
+        FieldSortBuilder sortBuilder =
+            new FieldSortBuilder(sortCriteria.getField()).order(esSortOrder);
+        if (fieldTypeForDefault.isPresent()) {
+          String esFieldtype = getElasticTypeForFieldType(fieldTypeForDefault.get());
+          if (esFieldtype != null) {
+            sortBuilder.unmappedType(esFieldtype);
+          }
+        }
+        searchSourceBuilder.sort(sortBuilder);
+      }
     }
     if (enableDefaultSort
         && (sortCriterion.isEmpty()

@@ -122,6 +122,14 @@ public class OpenApiEntities {
         return componentsNode;
     }
 
+    /**
+     * Convert the pdl model names to desired class names. Upper case first letter unless the 3rd character is upper case.
+     * i.e. mlModel -> MLModel
+     *      dataset -> Dataset
+     *      dataProduct -> DataProduct
+     * @param s input string
+     * @return class name
+     */
     public static String toUpperFirst(String s) {
         if (s.length() > 2 && s.substring(2, 3).equals(s.substring(2, 3).toUpperCase())) {
             return s.substring(0, 2).toUpperCase() + s.substring(2);
