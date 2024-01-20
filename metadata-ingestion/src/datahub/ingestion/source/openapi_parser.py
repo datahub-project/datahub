@@ -49,7 +49,7 @@ def flatten2list(d: dict) -> list:
 def request_call(
     url: str,
     token: Optional[str] = None,
-    bearer_token: Optional[bool] = False,
+    bearer_token: Optional[str] = None,
     username: Optional[str] = None,
     password: Optional[str] = None,
     proxies: Optional[dict] = None,
@@ -60,10 +60,10 @@ def request_call(
             url, headers=headers, auth=HTTPBasicAuth(username, password)
         )
 
-    elif token is not None and bearer_token is True:
-        headers["Authorization"] = f"Bearer {token}"
+    elif bearer_token:
+        headers["Authorization"] = f"Bearer {bearer_token}"
         return requests.get(url, proxies=proxies, headers=headers)
-    elif token is not None:
+    elif token:
         headers["Authorization"] = f"{token}"
         return requests.get(url, proxies=proxies, headers=headers)
     else:
@@ -73,15 +73,17 @@ def request_call(
 def get_swag_json(
     url: str,
     token: Optional[str] = None,
-    bearer_token: Optional[bool] = False,
+    bearer_token: Optional[str] = None,
     username: Optional[str] = None,
     password: Optional[str] = None,
     swagger_file: str = "",
     proxies: Optional[dict] = None,
 ) -> Dict:
     tot_url = url + swagger_file
-    if token is not None:
-        response = request_call(url=tot_url, token=token, bearer_token=bearer_token, proxies=proxies)
+    if token or bearer_token:
+        response = request_call(
+            url=tot_url, token=token, bearer_token=bearer_token, proxies=proxies
+        )
     else:
         response = request_call(
             url=tot_url, username=username, password=password, proxies=proxies

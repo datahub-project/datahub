@@ -4,9 +4,10 @@ import warnings
 from abc import ABC
 from typing import Dict, Iterable, Optional, Tuple
 
+from pydantic import validator
 from pydantic.fields import Field
 
-from datahub.configuration.common import ConfigModel
+from datahub.configuration.common import ConfigModel, ConfigurationError
 from datahub.emitter.mce_builder import make_tag_urn
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -78,9 +79,19 @@ class OpenApiConfig(ConfigModel):
         default={}, description="Retrieving a token from the endpoint."
     )
 
+    @validator("bearer_token")
+    def ensure_only_one_token(
+        cls, bearer_token: Optional[str], values
+    ) -> Optional[str]:
+        if bearer_token is not None and values.get("token") is not None:
+            raise ConfigurationError(
+                "Unable to use 'token' and 'bearer_token' together."
+            )
+        return bearer_token
+
     def get_swagger(self) -> Dict:
-        if self.get_token or self.token is not None:
-            if self.token is not None:
+        if self.get_token or self.token or self.bearer_token is not None:
+            if self.token or self.bearer_token:
                 ...
             else:
                 assert (
@@ -284,10 +295,12 @@ class APISource(Source, ABC):
                 "{" not in endpoint_k
             ):  # if the API does not explicitly require parameters
                 tot_url = clean_url(config.url + self.url_basepath + endpoint_k)
-
-                if config.token:
+                if config.token or config.bearer_token:
                     response = request_call(
-                        tot_url, token=config.token, bearer_token=config.bearer_token, proxies=config.proxies
+                        tot_url,
+                        token=config.token,
+                        bearer_token=config.bearer_token,
+                        proxies=config.proxies,
                     )
                 else:
                     response = request_call(
@@ -313,9 +326,12 @@ class APISource(Source, ABC):
                     # start guessing...
                     url_guess = try_guessing(endpoint_k, root_dataset_samples)
                     tot_url = clean_url(config.url + self.url_basepath + url_guess)
-                    if config.token:
+                    if config.token or config.bearer_token:
                         response = request_call(
-                            tot_url, token=config.token, bearer_token=config.bearer_token, proxies=config.proxies
+                            tot_url,
+                            token=config.token,
+                            bearer_token=config.bearer_token,
+                            proxies=config.proxies,
                         )
                     else:
                         response = request_call(
@@ -341,9 +357,12 @@ class APISource(Source, ABC):
                         raw_url=endpoint_k, attr_list=config.forced_examples[endpoint_k]
                     )
                     tot_url = clean_url(config.url + self.url_basepath + composed_url)
-                    if config.token:
+                    if config.token or config.bearer_token:
                         response = request_call(
-                            tot_url, token=config.token, bearer_token=config.bearer_token, proxies=config.proxies
+                            tot_url,
+                            token=config.token,
+                            bearer_token=config.bearer_token,
+                            proxies=config.proxies,
                         )
                     else:
                         response = request_call(
