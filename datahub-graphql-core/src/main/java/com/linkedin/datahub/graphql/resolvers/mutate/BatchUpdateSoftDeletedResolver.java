@@ -20,7 +20,7 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class BatchUpdateSoftDeletedResolver implements DataFetcher<CompletableFuture<Boolean>> {
 
-  private final EntityService _entityService;
+  private final EntityService<?> _entityService;
 
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
@@ -65,7 +65,7 @@ public class BatchUpdateSoftDeletedResolver implements DataFetcher<CompletableFu
       throw new AuthorizationException(
           "Unauthorized to perform this action. Please contact your DataHub administrator.");
     }
-    if (!_entityService.exists(urn)) {
+    if (!_entityService.exists(urn, true)) {
       throw new IllegalArgumentException(
           String.format("Failed to soft delete entity with urn %s. Entity does not exist.", urn));
     }
