@@ -26,7 +26,7 @@ export default function useBusinessAttributeRenderer(
         );
 
         return (
-            <div data-testid={`schema-field-${record.fieldPath}-'businessAttribute'`}>
+            <div data-testid={`schema-field-${record.fieldPath}-businessAttribute`}>
                 <BusinessAttributeGroup
                     businessAttribute={relevantEditableFieldInfo?.businessAttributes?.businessAttribute}
                     canRemove

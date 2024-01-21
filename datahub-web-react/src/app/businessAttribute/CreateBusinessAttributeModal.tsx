@@ -98,6 +98,7 @@ export default function CreateBusinessAttributeModal({ visible, onClose, onCreat
                 message.error({ content: `Failed to create: \n ${e.message || ''}`, duration: 3 });
             });
         onModalClose();
+        setDocumentation('');
     };
 
     // Handle the Enter press
