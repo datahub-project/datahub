@@ -1,3 +1,4 @@
+from enum import Enum
 from typing import TYPE_CHECKING, Optional
 
 import datahub.emitter.mce_builder as builder
@@ -6,6 +7,11 @@ from datahub.configuration.common import ConfigModel
 
 if TYPE_CHECKING:
     from datahub_airflow_plugin.hooks.datahub import DatahubGenericHook
+
+
+class DatajobUrl(Enum):
+    GRID = "grid"
+    TASKINSTANCE = "taskinstance"
 
 
 class DatahubLineageConfig(ConfigModel):
@@ -41,6 +47,8 @@ class DatahubLineageConfig(ConfigModel):
     # The Airflow plugin behaves as if it were set to True.
     graceful_exceptions: bool = True
 
+    datajob_url_link: DatajobUrl = DatajobUrl.TASKINSTANCE
+
     def make_emitter_hook(self) -> "DatahubGenericHook":
         # This is necessary to avoid issues with circular imports.
         from datahub_airflow_plugin.hooks.datahub import DatahubGenericHook
@@ -65,6 +73,7 @@ def get_lineage_config() -> DatahubLineageConfig:
     disable_openlineage_plugin = conf.get(
         "datahub", "disable_openlineage_plugin", fallback=True
     )
+    datajob_url_link = conf.get("datahub", "datajob_url_link", fallback=DatajobUrl.TASKINSTANCE.value)
 
     return DatahubLineageConfig(
         enabled=enabled,
@@ -77,4 +86,5 @@ def get_lineage_config() -> DatahubLineageConfig:
         log_level=log_level,
         debug_emitter=debug_emitter,
         disable_openlineage_plugin=disable_openlineage_plugin,
+        datajob_url_link=datajob_url_link,
     )

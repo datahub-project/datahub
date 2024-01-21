@@ -120,6 +120,7 @@ def datahub_task_status_callback(context, status):
         dag=dag,
         capture_tags=config.capture_tags_info,
         capture_owner=config.capture_ownership_info,
+        config=config,
     )
     datajob.inlets.extend(
         entities_to_dataset_urn_list([let.urn for let in task_inlets])
@@ -143,6 +144,7 @@ def datahub_task_status_callback(context, status):
             dag_run=context["dag_run"],
             datajob=datajob,
             start_timestamp_millis=int(ti.start_date.timestamp() * 1000),
+            config=config,
         )
 
         task.log.info(f"Emitted Start Datahub Dataprocess Instance: {dpi}")
@@ -185,6 +187,7 @@ def datahub_pre_execution(context):
         dag=dag,
         capture_tags=config.capture_tags_info,
         capture_owner=config.capture_ownership_info,
+        config=config,
     )
     datajob.inlets.extend(
         entities_to_dataset_urn_list([let.urn for let in task_inlets])
@@ -208,6 +211,7 @@ def datahub_pre_execution(context):
             dag_run=context["dag_run"],
             datajob=datajob,
             start_timestamp_millis=int(ti.start_date.timestamp() * 1000),
+            config=config
         )
 
         task.log.info(f"Emitting Datahub Dataprocess Instance: {dpi}")

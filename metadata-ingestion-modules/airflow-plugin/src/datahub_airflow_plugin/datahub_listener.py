@@ -376,6 +376,7 @@ class DataHubListener:
             dag=dag,
             capture_tags=self.config.capture_tags_info,
             capture_owner=self.config.capture_ownership_info,
+            config=self.config,
         )
 
         # TODO: Make use of get_task_location to extract github urls.
@@ -397,6 +398,7 @@ class DataHubListener:
                 dag_run=dagrun,
                 datajob=datajob,
                 emit_templates=False,
+                config=self.config
             )
             logger.debug(f"Emitted DataHub DataProcess Instance start: {dpi}")
 
@@ -419,6 +421,7 @@ class DataHubListener:
             dag=dag,
             capture_tags=self.config.capture_tags_info,
             capture_owner=self.config.capture_ownership_info,
+            config=self.config,
         )
 
         # Add lineage info.
@@ -436,6 +439,7 @@ class DataHubListener:
                 dag_run=dagrun,
                 datajob=datajob,
                 result=status,
+                config=self.config,
             )
             logger.debug(
                 f"Emitted DataHub DataProcess Instance with status {status}: {dpi}"
