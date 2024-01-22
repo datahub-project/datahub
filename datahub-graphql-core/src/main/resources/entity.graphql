@@ -74,9 +74,9 @@ type Query {
     role(urn: String!): Role
 
     """
-    Fetch a Join by primary key (urn)
+    Fetch a ERModelRelation by primary key (urn)
     """
-    join(urn: String!): Join
+    ermodelrelation(urn: String!): ERModelRelation
 
     """
     Fetch a Glossary Term by primary key (urn)
@@ -231,12 +231,17 @@ type Query {
     listOwnershipTypes(
         "Input required for listing custom ownership types"
         input: ListOwnershipTypesInput!): ListOwnershipTypesResult!
+
+    """
+    Fetch a Data Platform Instance by primary key (urn)
+    """
+    dataPlatformInstance(urn: String!): DataPlatformInstance
 }
 
 """
-A Join is a high-level abstraction that dictates what datasets fields are joined.
+A ERModelRelation is a high-level abstraction that dictates what datasets fields are ermodelrelationed.
 """
-type Join implements EntityWithRelationships & Entity {
+type ERModelRelation implements EntityWithRelationships & Entity {
     """
     The primary key of the role
     """
@@ -248,19 +253,19 @@ type Join implements EntityWithRelationships & Entity {
     type: EntityType!
 
     """
-    Unique id for the join
+    Unique id for the ermodelrelation
     """
-    joinId: String!
+    ermodelrelationId: String!
 
     """
     An additional set of read only properties
     """
-    properties: JoinProperties
+    properties: ERModelRelationProperties
 
     """
     An additional set of of read write properties
     """
-    editableProperties: JoinEditableProperties
+    editableProperties: ERModelRelationEditableProperties
 
     """
     References to internal resources related to the dataset
@@ -304,27 +309,27 @@ type Join implements EntityWithRelationships & Entity {
 }
 
 """
-Additional properties about a Join
+Additional properties about a ERModelRelation
 """
-type JoinEditableProperties {
+type ERModelRelationEditableProperties {
 
     """
-    Documentation of the Join
+    Documentation of the ERModelRelation
     """
     description: String
     """
-    Display name of the Join
+    Display name of the ERModelRelation
     """
     name: String
 }
 
 """
-Additional properties about a Join
+Additional properties about a ERModelRelation
 """
-type JoinProperties {
+type ERModelRelationProperties {
 
     """
-    The name of the Join used in display
+    The name of the ERModelRelation used in display
     """
     name: String!
     """
@@ -338,25 +343,25 @@ type JoinProperties {
     datasetB: Dataset!
 
     """
-    The joinFieldMappings
+    The ermodelrelationFieldMappings
     """
-    joinFieldMapping: JoinFieldMapping!
+    ermodelrelationFieldMapping: ERModelRelationFieldMapping!
 
     """
-    Created timestamp millis associated with the Join
+    Created timestamp millis associated with the ERModelRelation
     """
     createdTime: Long
 
     """
-    Created actor urn associated with the Join
+    Created actor urn associated with the ERModelRelation
     """
     createdActor: Entity
 }
 
 """
-Join Field Mapping
+ERModelRelation Field Mapping
 """
-type JoinFieldMapping {
+type ERModelRelationFieldMapping {
     """
     The Array of FieldMap
     """
@@ -364,7 +369,7 @@ type JoinFieldMapping {
 }
 
 """
-Join FieldMap
+ERModelRelation FieldMap
 """
 type FieldMap {
     """
@@ -612,26 +617,26 @@ type Mutation {
     unsetDomain(entityUrn: String!): Boolean
 
     """
-    Create a Join
+    Create a ERModelRelation
     """
-    createJoin(
-        "Input required to create a new Join"
-        input: JoinUpdateInput!): Join
+    createERModelRelation(
+        "Input required to create a new ERModelRelation"
+        input: ERModelRelationUpdateInput!): ERModelRelation
 
     """
-    Update a Join
+    Update a ERModelRelation
     """
-    updateJoin(
-        "The urn of the Join to update"
+    updateERModelRelation(
+        "The urn of the ERModelRelation to update"
         urn: String!,
         "Input required to updat an existing DataHub View"
-        input: JoinUpdateInput!): Boolean
+        input: ERModelRelationUpdateInput!): Boolean
 
     """
-    Delete a Join
+    Delete a ERModelRelation
     """
-    deleteJoin(
-        "The urn of the Join to delete"
+    deleteERModelRelation(
+        "The urn of the ERModelRelation to delete"
         urn: String!): Boolean
 
 
@@ -926,9 +931,9 @@ enum EntityType {
     DATA_PLATFORM
 
     """
-    The Join Entity
+    The ERModelRelation Entity
     """
-    JOIN
+    ERMODELRELATION
 
     """
     The Dashboard Entity
@@ -3962,6 +3967,11 @@ type CorpGroup implements Entity {
     Additional read only info about the group
     """
     info: CorpGroupInfo @deprecated
+
+    """
+    Whether or not this entity exists on DataHub
+    """
+    exists: Boolean
 }
 
 """
@@ -4488,14 +4498,14 @@ input DatasetEditablePropertiesUpdate {
 """
 Update to writable Dataset fields
 """
-input JoinEditablePropertiesUpdate {
+input ERModelRelationEditablePropertiesUpdate {
     """
-    Display name of the Join
+    Display name of the ERModelRelation
     """
     name: String
 
     """
-    Writable description for Join
+    Writable description for ERModelRelation
     """
     description: String!
 }
@@ -4619,72 +4629,72 @@ input CreateTagInput {
 }
 
 """
-Input required to create/update a new Join
+Input required to create/update a new ERModelRelation
 """
-input JoinUpdateInput {
+input ERModelRelationUpdateInput {
     """
-    Details about the Join
+    Details about the ERModelRelation
     """
-    properties: JoinPropertiesInput
+    properties: ERModelRelationPropertiesInput
     """
     Update to editable properties
     """
-    editableProperties: JoinEditablePropertiesUpdate
+    editableProperties: ERModelRelationEditablePropertiesUpdate
 }
 
 """
-Details about the Join
+Details about the ERModelRelation
 """
-input JoinPropertiesInput {
+input ERModelRelationPropertiesInput {
     """
-    Details about the Join
+    Details about the ERModelRelation
     """
     name: String!
     """
-    Details about the Join
+    Details about the ERModelRelation
     """
     dataSetA: String!
     """
-    Details about the Join
+    Details about the ERModelRelation
     """
     datasetB: String!
     """
-    Details about the Join
+    Details about the ERModelRelation
     """
-    joinFieldmapping: JoinFieldMappingInput!
+    ermodelrelationFieldmapping: ERModelRelationFieldMappingInput!
     """
-    optional flag about the Join is getting create
+    optional flag about the ERModelRelation is getting create
     """
     created: Boolean
     """
-    optional field to prevent created time while the Join is getting update
+    optional field to prevent created time while the ERModelRelation is getting update
     """
     createdAt: Long
     """
-    optional field to prevent create actor while the Join is getting update
+    optional field to prevent create actor while the ERModelRelation is getting update
     """
     createdBy: String
 }
 
 """
-Details about the Join
+Details about the ERModelRelation
 """
-input JoinFieldMappingInput {
+input ERModelRelationFieldMappingInput {
     """
-    Details about the Join
+    Details about the ERModelRelation
     """
     fieldMappings: [FieldMappingInput]
 }
 """
-Details about the Join
+Details about the ERModelRelation
 """
 input FieldMappingInput {
     """
-    Details about the Join
+    Details about the ERModelRelation
     """
     afield: String
     """
-    Details about the Join
+    Details about the ERModelRelation
     """
     bfield: String
 }
@@ -5504,6 +5514,11 @@ type Chart implements EntityWithRelationships & Entity & BrowsableEntity {
     Whether or not this entity exists on DataHub
     """
     exists: Boolean
+
+    """
+    Sub Types that this entity implements
+    """
+    subTypes: SubTypes
 }
 
 """

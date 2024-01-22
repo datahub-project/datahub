@@ -21,7 +21,7 @@ import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.GlossaryNode;
 import com.linkedin.datahub.graphql.generated.GlossaryTerm;
-import com.linkedin.datahub.graphql.generated.Join;
+import com.linkedin.datahub.graphql.generated.ERModelRelation;
 import com.linkedin.datahub.graphql.generated.MLFeature;
 import com.linkedin.datahub.graphql.generated.MLFeatureTable;
 import com.linkedin.datahub.graphql.generated.MLModel;
@@ -154,10 +154,10 @@ public class UrnToEntityMapper implements ModelMapper<com.linkedin.common.urn.Ur
       ((Domain) partialEntity).setUrn(input.toString());
       ((Domain) partialEntity).setType(EntityType.DOMAIN);
     }
-    if (input.getEntityType().equals("join")) {
-      partialEntity = new Join();
-      ((Join) partialEntity).setUrn(input.toString());
-      ((Join) partialEntity).setType(EntityType.JOIN);
+    if (input.getEntityType().equals("ermodelrelation")) {
+      partialEntity = new ERModelRelation();
+      ((ERModelRelation) partialEntity).setUrn(input.toString());
+      ((ERModelRelation) partialEntity).setType(EntityType.ERMODELRELATION);
     }
     if (input.getEntityType().equals("assertion")) {
       partialEntity = new Assertion();

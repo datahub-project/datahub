@@ -1,7 +1,9 @@
 package com.datahub.authentication.user;
 
 import com.datahub.authentication.Authentication;
+import com.datahub.authentication.AuthenticationConfiguration;
 import com.linkedin.common.AuditStamp;
+import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.events.metadata.ChangeType;
@@ -34,6 +36,7 @@ public class NativeUserService {
   private final EntityService _entityService;
   private final EntityClient _entityClient;
   private final SecretService _secretService;
+  private final AuthenticationConfiguration _authConfig;
 
   public void createNativeUser(@Nonnull String userUrnString, @Nonnull String fullName, @Nonnull String email,
       @Nonnull String title, @Nonnull String password, @Nonnull Authentication authentication) throws Exception {
@@ -45,7 +48,12 @@ public class NativeUserService {
     Objects.requireNonNull(authentication, "authentication must not be null!");
 
     final Urn userUrn = Urn.createFromString(userUrnString);
-    if (_entityService.exists(userUrn) || userUrn.toString().equals(SYSTEM_ACTOR)) {
+    if (_entityService.exists(userUrn)
+        // Should never fail these due to Controller level check, but just in case more usages get put in
+        || userUrn.toString().equals(SYSTEM_ACTOR)
+        || userUrn.toString().equals(new CorpuserUrn(_authConfig.getSystemClientId()).toString())
+        || userUrn.toString().equals(DATAHUB_ACTOR)
+        || userUrn.toString().equals(UNKNOWN_ACTOR)) {
       throw new RuntimeException("This user already exists! Cannot create a new user.");
     }
     updateCorpUserInfo(userUrn, fullName, email, title, authentication);

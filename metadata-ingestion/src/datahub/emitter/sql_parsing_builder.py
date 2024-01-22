@@ -106,6 +106,7 @@ class SqlParsingBuilder:
         user: Optional[UserUrn] = None,
         custom_operation_type: Optional[str] = None,
         include_urns: Optional[Set[DatasetUrn]] = None,
+        include_column_lineage: bool = True,
     ) -> Iterable[MetadataWorkUnit]:
         """Process a single query and yield any generated workunits.
 
@@ -130,7 +131,9 @@ class SqlParsingBuilder:
                 _merge_lineage_data(
                     downstream_urn=downstream_urn,
                     upstream_urns=result.in_tables,
-                    column_lineage=result.column_lineage,
+                    column_lineage=result.column_lineage
+                    if include_column_lineage
+                    else None,
                     upstream_edges=self._lineage_map[downstream_urn],
                     query_timestamp=query_timestamp,
                     is_view_ddl=is_view_ddl,
@@ -179,17 +182,21 @@ class SqlParsingBuilder:
 
     def gen_workunits(self) -> Iterable[MetadataWorkUnit]:
         if self.generate_lineage:
-            yield from self._gen_lineage_workunits()
+            for mcp in self._gen_lineage_mcps():
+                yield mcp.as_workunit()
         if self.generate_usage_statistics:
             yield from self._gen_usage_statistics_workunits()
 
-    def _gen_lineage_workunits(self) -> Iterable[MetadataWorkUnit]:
+    def _gen_lineage_mcps(self) -> Iterable[MetadataChangeProposalWrapper]:
         for downstream_urn in self._lineage_map:
             upstreams: List[UpstreamClass] = []
             fine_upstreams: List[FineGrainedLineageClass] = []
-            for upstream_urn, edge in self._lineage_map[downstream_urn].items():
+            for edge in self._lineage_map[downstream_urn].values():
                 upstreams.append(edge.gen_upstream_aspect())
                 fine_upstreams.extend(edge.gen_fine_grained_lineage_aspects())
+
+            if not upstreams:
+                continue
 
             upstream_lineage = UpstreamLineageClass(
                 upstreams=sorted(upstreams, key=lambda x: x.dataset),
@@ -201,7 +208,7 @@ class SqlParsingBuilder:
             )
             yield MetadataChangeProposalWrapper(
                 entityUrn=downstream_urn, aspect=upstream_lineage
-            ).as_workunit()
+            )
 
     def _gen_usage_statistics_workunits(self) -> Iterable[MetadataWorkUnit]:
         yield from self._usage_aggregator.generate_workunits(

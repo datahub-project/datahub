@@ -442,9 +442,9 @@ type FeatureFlagsConfig {
   """
   showAcrylInfo: Boolean!
   """
-  Whether Join Tables Feature should be shown.
+  Whether ERModelRelation Tables Feature should be shown.
   """
-  joinFeatureEnabled: Boolean!
+  ermodelrelationFeatureEnabled: Boolean!
 
   """
   Whether we should show AccessManagement tab in the datahub UI.

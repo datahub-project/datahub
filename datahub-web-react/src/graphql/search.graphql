@@ -105,6 +105,9 @@ fragment autoCompleteFields on Entity {
         parentContainers {
             ...parentContainersFields
         }
+        subTypes {
+            typeNames
+        }
     }
     ... on DataFlow {
         orchestrator
@@ -550,6 +553,9 @@ fragment searchResultFields on Entity {
                 }
             }
         }
+        subTypes {
+            typeNames
+        }
     }
     ... on DataFlow {
         flowId
@@ -795,15 +801,15 @@ fragment searchResultFields on Entity {
     ... on DataProduct {
         ...dataProductSearchFields
     }
-    ... on Join {
+    ... on ERModelRelation {
         urn
         type
-        joinId
+        ermodelrelationId
         properties {
-            ...joinPropertiesFields
+            ...ermodelrelationPropertiesFields
         }
         editableProperties {
-            ...joinEditablePropertiesFields
+            ...ermodelrelationEditablePropertiesFields
         }
         ownership {
             ...ownershipFields

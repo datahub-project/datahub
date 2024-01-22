@@ -9,8 +9,8 @@ from pydantic.class_validators import root_validator
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
-from datahub.configuration.pydantic_field_deprecation import pydantic_field_deprecated
 from datahub.configuration.source_common import DEFAULT_ENV, DatasetSourceConfigMixin
+from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
 from datahub.ingestion.source.common.subtypes import BIAssetSubTypes
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
@@ -405,8 +405,7 @@ class PowerBiDashboardSourceConfig(
         "Works for M-Query where native SQL is used for transformation.",
     )
 
-    @root_validator
-    @classmethod
+    @root_validator(skip_on_failure=True)
     def validate_extract_column_level_lineage(cls, values: Dict) -> Dict:
         flags = [
             "native_query_parsing",
@@ -445,7 +444,7 @@ class PowerBiDashboardSourceConfig(
 
         return value
 
-    @root_validator(pre=False)
+    @root_validator(skip_on_failure=True)
     def workspace_id_backward_compatibility(cls, values: Dict) -> Dict:
         workspace_id = values.get("workspace_id")
         workspace_id_pattern = values.get("workspace_id_pattern")

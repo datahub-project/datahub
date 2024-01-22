@@ -4,7 +4,6 @@ import { MutationHookOptions, MutationTuple, QueryHookOptions, QueryResult } fro
 import styled from 'styled-components/macro';
 import { useHistory } from 'react-router';
 import { EntityType, Exact } from '../../../../../types.generated';
-import { Message } from '../../../../shared/Message';
 import {
     getEntityPath,
     getOnboardingStepIdsForEntityType,
@@ -168,7 +167,7 @@ export const EntityProfile = <T, U>({
     subHeader,
 }: Props<T, U>): JSX.Element => {
     const { config } = useAppConfig();
-    const { joinFeatureEnabled } = config.featureFlags;
+    const { ermodelrelationFeatureEnabled } = config.featureFlags;
     const isLineageMode = useIsLineageMode();
     const isHideSiblingMode = useIsSeparateSiblingsMode();
     const entityRegistry = useEntityRegistry();
@@ -177,7 +176,7 @@ export const EntityProfile = <T, U>({
     const isCompact = React.useContext(CompactContext);
     const tabsWithDefaults = tabs.map((tab) => ({ ...tab, display: { ...defaultTabDisplayConfig, ...tab.display } }));
 
-    if (joinFeatureEnabled) {
+    if (ermodelrelationFeatureEnabled) {
         const relationIndex = tabsWithDefaults.findIndex((tab) => {
             return tab.name === 'Relationships';
         });
@@ -289,7 +288,6 @@ export const EntityProfile = <T, U>({
                 }}
             >
                 <>
-                    {loading && <Message type="loading" content="Loading..." style={{ marginTop: '10%' }} />}
                     {(error && <ErrorSection />) ||
                         (!loading && (
                             <CompactProfile>
@@ -338,7 +336,6 @@ export const EntityProfile = <T, U>({
                         banner
                     />
                 )}
-                {loading && <Message type="loading" content="Loading..." style={{ marginTop: '10%' }} />}
                 {(error && <ErrorSection />) || (
                     <ContentContainer>
                         {isLineageMode ? (

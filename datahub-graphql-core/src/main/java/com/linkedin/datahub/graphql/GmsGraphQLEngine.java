@@ -60,8 +60,8 @@ import com.linkedin.datahub.graphql.generated.GlossaryTerm;
 import com.linkedin.datahub.graphql.generated.GlossaryTermAssociation;
 import com.linkedin.datahub.graphql.generated.IngestionSource;
 import com.linkedin.datahub.graphql.generated.InstitutionalMemoryMetadata;
-import com.linkedin.datahub.graphql.generated.Join;
-import com.linkedin.datahub.graphql.generated.JoinProperties;
+import com.linkedin.datahub.graphql.generated.ERModelRelation;
+import com.linkedin.datahub.graphql.generated.ERModelRelationProperties;
 import com.linkedin.datahub.graphql.generated.LineageRelationship;
 import com.linkedin.datahub.graphql.generated.ListAccessTokenResult;
 import com.linkedin.datahub.graphql.generated.ListDomainsResult;
@@ -289,8 +289,8 @@ import com.linkedin.datahub.graphql.types.domain.DomainType;
 import com.linkedin.datahub.graphql.types.rolemetadata.RoleType;
 import com.linkedin.datahub.graphql.types.glossary.GlossaryNodeType;
 import com.linkedin.datahub.graphql.types.glossary.GlossaryTermType;
-import com.linkedin.datahub.graphql.types.join.CreateJoinResolver;
-import com.linkedin.datahub.graphql.types.join.UpdateJoinResolver;
+import com.linkedin.datahub.graphql.types.ermodelrelation.CreateERModelRelationResolver;
+import com.linkedin.datahub.graphql.types.ermodelrelation.UpdateERModelRelationResolver;
 import com.linkedin.datahub.graphql.types.mlmodel.MLFeatureTableType;
 import com.linkedin.datahub.graphql.types.mlmodel.MLFeatureType;
 import com.linkedin.datahub.graphql.types.mlmodel.MLModelGroupType;
@@ -305,7 +305,7 @@ import com.linkedin.datahub.graphql.types.schemafield.SchemaFieldType;
 import com.linkedin.datahub.graphql.types.tag.TagType;
 import com.linkedin.datahub.graphql.types.test.TestType;
 import com.linkedin.datahub.graphql.types.view.DataHubViewType;
-import com.linkedin.datahub.graphql.types.join.JoinType;
+import com.linkedin.datahub.graphql.types.ermodelrelation.ERModelRelationType;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.config.DataHubConfiguration;
@@ -328,7 +328,7 @@ import com.linkedin.metadata.service.OwnershipTypeService;
 import com.linkedin.metadata.service.QueryService;
 import com.linkedin.metadata.service.SettingsService;
 import com.linkedin.metadata.service.ViewService;
-import com.linkedin.metadata.service.JoinService;
+import com.linkedin.metadata.service.ERModelRelationService;
 import com.linkedin.metadata.timeline.TimelineService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.version.GitVersion;
@@ -397,6 +397,7 @@ public class GmsGraphQLEngine {
     private final LineageService lineageService;
     private final QueryService queryService;
     private final DataProductService dataProductService;
+    private final ERModelRelationService eRModelRelationService;
 
     private final FeatureFlags featureFlags;
 
@@ -440,12 +441,12 @@ public class GmsGraphQLEngine {
     private final DataHubPolicyType dataHubPolicyType;
     private final DataHubRoleType dataHubRoleType;
     private final SchemaFieldType schemaFieldType;
-    private final JoinType joinType;
+    private final ERModelRelationType ermodelrelationType;
     private final DataHubViewType dataHubViewType;
     private final QueryType queryType;
     private final DataProductType dataProductType;
     private final OwnershipType ownershipType;
-    private final JoinService joinService;
+
 
     /**
      * A list of GraphQL Plugins that extend the core engine
@@ -511,7 +512,7 @@ public class GmsGraphQLEngine {
         this.settingsService = args.settingsService;
         this.lineageService = args.lineageService;
         this.queryService = args.queryService;
-        this.joinService = args.joinService;
+        this.eRModelRelationService = args.eRModelRelationService;
         this.dataProductService = args.dataProductService;
 
         this.ingestionConfiguration = Objects.requireNonNull(args.ingestionConfiguration);
@@ -553,7 +554,7 @@ public class GmsGraphQLEngine {
         this.dataHubPolicyType = new DataHubPolicyType(entityClient);
         this.dataHubRoleType = new DataHubRoleType(entityClient);
         this.schemaFieldType = new SchemaFieldType();
-        this.joinType = new JoinType(entityClient, featureFlags);
+        this.ermodelrelationType = new ERModelRelationType(entityClient, featureFlags);
         this.dataHubViewType = new DataHubViewType(entityClient);
         this.queryType = new QueryType(entityClient);
         this.dataProductType = new DataProductType(entityClient);
@@ -589,7 +590,7 @@ public class GmsGraphQLEngine {
             dataHubPolicyType,
             dataHubRoleType,
             schemaFieldType,
-            joinType,
+            ermodelrelationType,
             dataHubViewType,
             queryType,
             dataProductType,
@@ -672,7 +673,7 @@ public class GmsGraphQLEngine {
         configureTestResultResolvers(builder);
         configureRoleResolvers(builder);
         configureSchemaFieldResolvers(builder);
-        configureJoinResolvers(builder);
+        configureERModelRelationResolvers(builder);
         configureEntityPathResolvers(builder);
         configureViewResolvers(builder);
         configureQueryEntityResolvers(builder);
@@ -832,8 +833,9 @@ public class GmsGraphQLEngine {
             .dataFetcher("glossaryTerm", getResolver(glossaryTermType))
             .dataFetcher("glossaryNode", getResolver(glossaryNodeType))
             .dataFetcher("domain", getResolver((domainType)))
-            .dataFetcher("join", getResolver(joinType))
+            .dataFetcher("ermodelrelation", getResolver(ermodelrelationType))
             .dataFetcher("dataPlatform", getResolver(dataPlatformType))
+            .dataFetcher("dataPlatformInstance", getResolver(dataPlatformInstanceType))
             .dataFetcher("mlFeatureTable", getResolver(mlFeatureTableType))
             .dataFetcher("mlFeature", getResolver(mlFeatureType))
             .dataFetcher("mlPrimaryKey", getResolver(mlPrimaryKeyType))
@@ -935,8 +937,8 @@ public class GmsGraphQLEngine {
             .dataFetcher("updateDataFlow", new MutableTypeResolver<>(dataFlowType))
             .dataFetcher("updateCorpUserProperties", new MutableTypeResolver<>(corpUserType))
             .dataFetcher("updateCorpGroupProperties", new MutableTypeResolver<>(corpGroupType))
-            .dataFetcher("updateJoin", new UpdateJoinResolver(this.entityClient))
-            .dataFetcher("createJoin", new CreateJoinResolver(this.entityClient, this.joinService))
+            .dataFetcher("updateERModelRelation", new UpdateERModelRelationResolver(this.entityClient))
+            .dataFetcher("createERModelRelation", new CreateERModelRelationResolver(this.entityClient, this.eRModelRelationService))
             .dataFetcher("addTag", new AddTagResolver(entityService))
             .dataFetcher("addTags", new AddTagsResolver(entityService))
             .dataFetcher("batchAddTags", new BatchAddTagsResolver(entityService))
@@ -1306,7 +1308,8 @@ public class GmsGraphQLEngine {
      */
     private void configureCorpGroupResolvers(final RuntimeWiring.Builder builder) {
         builder.type("CorpGroup", typeWiring -> typeWiring
-            .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient)));
+            .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
+            .dataFetcher("exists", new EntityExistsResolver(entityService)));
         builder.type("CorpGroupInfo", typeWiring -> typeWiring
                 .dataFetcher("admins",
                     new LoadableTypeBatchResolver<>(corpUserType,
@@ -1446,6 +1449,10 @@ public class GmsGraphQLEngine {
             .dataFetcher("statsSummary", new ChartStatsSummaryResolver(this.timeseriesAspectService))
             .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
             .dataFetcher("exists", new EntityExistsResolver(entityService))
+            .dataFetcher("subTypes", new SubTypesResolver(
+                this.entityClient,
+                "chart",
+                "subTypes"))
         );
         builder.type("ChartInfo", typeWiring -> typeWiring
             .dataFetcher("inputs", new LoadableTypeBatchResolver<>(datasetType,
@@ -1504,25 +1511,25 @@ public class GmsGraphQLEngine {
     }
 
     /**
-     * Configures resolvers responsible for resolving the {@link Join} type.
+     * Configures resolvers responsible for resolving the {@link ERModelRelation} type.
      */
-    private void configureJoinResolvers(final RuntimeWiring.Builder builder) {
+    private void configureERModelRelationResolvers(final RuntimeWiring.Builder builder) {
         builder
-            .type("Join", typeWiring -> typeWiring
+            .type("ERModelRelation", typeWiring -> typeWiring
                 .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
                 .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient)))
-            .type("JoinProperties", typeWiring -> typeWiring
+            .type("ERModelRelationProperties", typeWiring -> typeWiring
                     .dataFetcher("datasetA",
                             new LoadableTypeResolver<>(datasetType,
                                     (env) -> {
-                                        final JoinProperties joinProperties = env.getSource();
-                                        return joinProperties.getDatasetA() != null ? joinProperties.getDatasetA().getUrn() : null;
+                                        final ERModelRelationProperties ermodelrelationProperties = env.getSource();
+                                        return ermodelrelationProperties.getDatasetA() != null ? ermodelrelationProperties.getDatasetA().getUrn() : null;
                                     }))
                     .dataFetcher("datasetB",
                             new LoadableTypeResolver<>(datasetType,
                                     (env) -> {
-                                        final JoinProperties joinProperties = env.getSource();
-                                        return joinProperties.getDatasetB() != null ? joinProperties.getDatasetB().getUrn() : null;
+                                        final ERModelRelationProperties ermodelrelationProperties = env.getSource();
+                                        return ermodelrelationProperties.getDatasetB() != null ? ermodelrelationProperties.getDatasetB().getUrn() : null;
                                     }))
                     )
             .type("Owner", typeWiring -> typeWiring

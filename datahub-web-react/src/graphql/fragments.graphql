@@ -1150,16 +1150,16 @@ fragment entityDisplayNameFields on Entity {
     }
 }
 
-fragment joinPropertiesFields on JoinProperties {
+fragment ermodelrelationPropertiesFields on ERModelRelationProperties {
     name
     datasetA {
-        ...datasetJoinFields
+        ...datasetERModelRelationFields
     }
     datasetB {
-        ...datasetJoinFields
+        ...datasetERModelRelationFields
     }
-    joinFieldMapping {
-        ...joinFieldMappingFields
+    ermodelrelationFieldMapping {
+        ...ermodelrelationFieldMappingFields
     }
     createdTime
     createdActor {
@@ -1167,19 +1167,19 @@ fragment joinPropertiesFields on JoinProperties {
     }
 }
 
-fragment joinFieldMappingFields on JoinFieldMapping {
+fragment ermodelrelationFieldMappingFields on ERModelRelationFieldMapping {
     fieldMappings {
         afield
         bfield
     }
 }
 
-fragment joinEditablePropertiesFields on JoinEditableProperties {
+fragment ermodelrelationEditablePropertiesFields on ERModelRelationEditableProperties {
     description
     name
 }
 
-fragment datasetJoinFields on Dataset {
+fragment datasetERModelRelationFields on Dataset {
     urn
     name
     properties {

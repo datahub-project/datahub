@@ -165,6 +165,9 @@ fragment lineageNodeProperties on EntityWithRelationships {
         status {
             removed
         }
+        subTypes {
+            typeNames
+        }
     }
     ... on Dataset {
         name
@@ -246,15 +249,15 @@ fragment lineageNodeProperties on EntityWithRelationships {
     ... on MLPrimaryKey {
         ...nonRecursiveMLPrimaryKey
     }
-    ... on Join {
+    ... on ERModelRelation {
         urn
         type
-        joinId
+        ermodelrelationId
         properties {
-            ...joinPropertiesFields
+            ...ermodelrelationPropertiesFields
         }
         editableProperties {
-            ...joinEditablePropertiesFields
+            ...ermodelrelationEditablePropertiesFields
         }
         ownership {
             ...ownershipFields

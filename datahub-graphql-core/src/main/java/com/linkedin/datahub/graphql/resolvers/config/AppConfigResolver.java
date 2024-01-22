@@ -171,7 +171,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
       .setReadOnlyModeEnabled(_featureFlags.isReadOnlyModeEnabled())
       .setShowBrowseV2(_featureFlags.isShowBrowseV2())
       .setShowAcrylInfo(_featureFlags.isShowAcrylInfo())
-      .setJoinFeatureEnabled(_featureFlags.isJoinFeatureEnabled())
+      .setErmodelrelationFeatureEnabled(_featureFlags.isErmodelrelationFeatureEnabled())
       .setShowAccessManagement(_featureFlags.isShowAccessManagement())
       .setNestedDomainsEnabled(_featureFlags.isNestedDomainsEnabled())
       .build();
@@ -227,8 +227,8 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
       return EntityType.CORP_GROUP;
     } else if (com.linkedin.metadata.authorization.PoliciesConfig.CORP_USER_PRIVILEGES.getResourceType().equals(resourceType)) {
       return EntityType.CORP_USER;
-    } else if (com.linkedin.metadata.authorization.PoliciesConfig.JOIN_PRIVILEGES.getResourceType().equals(resourceType)) {
-      return EntityType.JOIN;
+    } else if (com.linkedin.metadata.authorization.PoliciesConfig.ERMODELRELATION_PRIVILEGES.getResourceType().equals(resourceType)) {
+      return EntityType.ERMODELRELATION;
     } else {
       return null;
     }

@@ -1,0 +1,14 @@
+namespace com.linkedin.metadata.key
+
+/**
+ * Key for a ERModelRelation
+ */
+@Aspect = {
+  "name": "ermodelrelationKey"
+}
+record ERModelRelationKey {
+  /*
+  * Unique guid for ERModelRelation
+  */
+  ermodelrelationId: string
+}

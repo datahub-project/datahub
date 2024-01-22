@@ -2,14 +2,11 @@ package com.linkedin.datahub.graphql.resolvers.mutate;
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.CorpuserUrn;
-
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.AddOwnerInput;
-import com.linkedin.datahub.graphql.generated.OwnerEntityType;
 import com.linkedin.datahub.graphql.generated.OwnerInput;
-import com.linkedin.datahub.graphql.generated.OwnershipType;
 import com.linkedin.datahub.graphql.generated.ResourceRefInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.OwnerUtils;
 import com.linkedin.metadata.entity.EntityService;
@@ -20,7 +17,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
-import static com.linkedin.datahub.graphql.resolvers.mutate.util.OwnerUtils.*;
 
 
 @Slf4j
@@ -32,30 +28,33 @@ public class AddOwnerResolver implements DataFetcher<CompletableFuture<Boolean>>
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
     final AddOwnerInput input = bindArgument(environment.getArgument("input"), AddOwnerInput.class);
-
     Urn ownerUrn = Urn.createFromString(input.getOwnerUrn());
-    OwnerEntityType ownerEntityType = input.getOwnerEntityType();
-    OwnershipType type = input.getType() == null ? OwnershipType.NONE : input.getType();
-    String ownershipUrn = input.getOwnershipTypeUrn() == null ? mapOwnershipTypeToEntity(type.name()) : input.getOwnershipTypeUrn();
     Urn targetUrn = Urn.createFromString(input.getResourceUrn());
+    OwnerInput.Builder ownerInputBuilder = OwnerInput.builder();
+    ownerInputBuilder.setOwnerUrn(input.getOwnerUrn());
+    ownerInputBuilder.setOwnerEntityType(input.getOwnerEntityType());
+    if (input.getType() != null) {
+      ownerInputBuilder.setType(input.getType());
+    }
+    if (input.getOwnershipTypeUrn() != null) {
+      ownerInputBuilder.setOwnershipTypeUrn(input.getOwnershipTypeUrn());
+    }
 
+    OwnerInput ownerInput = ownerInputBuilder.build();
     if (!OwnerUtils.isAuthorizedToUpdateOwners(environment.getContext(), targetUrn)) {
       throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
     }
 
     return CompletableFuture.supplyAsync(() -> {
-      OwnerUtils.validateAddInput(
-          ownerUrn, input.getOwnershipTypeUrn(), ownerEntityType,
-          targetUrn,
-          _entityService
-      );
+      OwnerUtils.validateAddOwnerInput(ownerInput, ownerUrn, _entityService);
+
       try {
 
         log.debug("Adding Owner. input: {}", input);
 
         Urn actor = CorpuserUrn.createFromString(((QueryContext) environment.getContext()).getActorUrn());
         OwnerUtils.addOwnersToResources(
-            ImmutableList.of(new OwnerInput(input.getOwnerUrn(), ownerEntityType, type, ownershipUrn)),
+            ImmutableList.of(ownerInput),
             ImmutableList.of(new ResourceRefInput(input.getResourceUrn(), null, null)),
             actor,
             _entityService
