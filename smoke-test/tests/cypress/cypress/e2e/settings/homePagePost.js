@@ -1,42 +1,60 @@
-const title = 'Test Link Title'
-const url = 'https://www.example.com'
-const imagesURL = 'https://www.example.com/images/example-image.jpg'
-
 const homePageRedirection = () => {
     cy.visit('/')
     cy.waitTextPresent("Welcome back,")
 }
 
+const performTextAddAndEditAnnouncement = (text, title, discription, testId, updatedTitle) => {
+    cy.waitTextPresent(text)
+    cy.get('[data-testid="create-post-title"]').clear().type(title)
+    cy.get('[id="description"]').clear().type(discription)
+    cy.get(`[data-testid="${testId}-post-button"]`).click({ force: true });
+    cy.reload()
+    homePageRedirection();
+    cy.waitTextPresent(updatedTitle);
+}
+
 const addAnnouncement = () => {
     cy.get('[id="posts-create-post"]').click({ force: true });
-    cy.waitTextPresent('Create new Post')
-    cy.enterTextInTestId("create-post-title", "Test Announcement Title");
-    cy.get('[id="description"]').type("Add Description to post announcement")
-    cy.get('[data-testid="create-post-button"]').click({ force: true });
-    cy.reload()
-    homePageRedirection();
-    cy.waitTextPresent("Test Announcement Title");
+    performTextAddAndEditAnnouncement("Create new Post", "Test Announcement Title", "Add Description to post announcement", "create", "Test Announcement Title")
 }
 
-const addLink = (title,url,imagesURL) => {
+const editAnnouncement = () => {
+    cy.get('[aria-label="more"]').first().click()
+    cy.clickOptionWithText("Edit");
+    performTextAddAndEditAnnouncement("Edit Post", "Test Announcement Title Edited", "Decription Edited", "update", "Test Announcement Title Edited")
+}
+
+const performTextAddAndEditLink = (text, title, url, imagesURL, testId, updatedTitle) => {
+    cy.waitTextPresent(text)
+    cy.get('[data-testid="create-post-title"]').clear().type(title)
+    cy.get('[data-testid="create-post-link"]').clear().type(url)
+    cy.get('[data-testid="create-post-media-location"]').clear().type(imagesURL)
+    cy.get(`[data-testid="${testId}-post-button"]`).click({ force: true });
+    cy.reload()
+    homePageRedirection();
+    cy.waitTextPresent(updatedTitle);
+} 
+
+const addLink = () => {
     cy.get('[id="posts-create-post"]').click({ force: true });
     cy.waitTextPresent('Create new Post')
-    cy.clickOptionWithText('Link');
-    cy.enterTextInTestId('create-post-title', title);
-    cy.enterTextInTestId('create-post-link', url);
-    cy.enterTextInTestId('create-post-media-location', imagesURL)
-    cy.get('[data-testid="create-post-button"]').click({ force: true });
-    cy.reload()
-    homePageRedirection();
-    cy.waitTextPresent(title)
+    cy.contains('label', 'Link').click();
+    performTextAddAndEditLink("Create new Post", "Test Link Title", 'https://www.example.com', 'https://www.example.com/images/example-image.jpg',"create", "Test Link Title")
 }
 
-const deleteFromPostDropdown = () => {
+const editLink = () => {
+    cy.get('[aria-label="more"]').first().click()
+    cy.clickOptionWithText("Edit");
+    performTextAddAndEditLink("Edit Post", "Test Link Edited Title", 'https://www.updatedexample.com', 'https://www.updatedexample.com/images/example-image.jpg',"update", "Test Link Edited Title")
+}  
+
+const deleteFromPostDropdown = (post) => {
     cy.get('[aria-label="more"]').first().click()
     cy.clickOptionWithText("Delete");
     cy.clickOptionWithText("Yes");
     cy.reload()
     homePageRedirection();
+    cy.ensureTextNotPresent(post);
 }
 
 describe("Create announcement and link posts", () => {
@@ -49,17 +67,23 @@ describe("Create announcement and link posts", () => {
         addAnnouncement();
     })
 
+    it("Edit and verify Announcement Post", () => {
+        editAnnouncement();
+    })
+
     it("Delete and Verify Announcement Post", () => {
-        deleteFromPostDropdown();
-        cy.ensureTextNotPresent("Test Announcement Title")
+        deleteFromPostDropdown("Test Announcement Title Edited");
     })
 
     it("Create and Verify Link Post", () => {
-        addLink(title,url,imagesURL)
+        addLink()
+    })
+
+    it("Edit and Verify Link Post", () => {
+        editLink()
     })
 
     it("Delete and Verify Link Post", () => {
-        deleteFromPostDropdown();
-        cy.ensureTextNotPresent(title);
+        deleteFromPostDropdown("Test Link Edited Title");
     })
 })
