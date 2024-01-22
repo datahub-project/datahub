@@ -80,7 +80,12 @@ logger = logging.getLogger(__name__)
 @platform_name("Qlik Cloud")
 @config_class(QlikSourceConfig)
 @support_status(SupportStatus.INCUBATING)
+@capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
+@capability(
+    SourceCapability.OWNERSHIP,
+    "Enabled by default, configured using `ingest_owner`",
+)
 class QlikCloudSource(StatefulIngestionSourceBase, TestableSource):
     """
     This plugin extracts Qlik Cloud Spaces, Apps, and Datasets
