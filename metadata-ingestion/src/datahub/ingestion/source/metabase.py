@@ -207,7 +207,7 @@ class MetabaseSource(Source):
                 if not collection_dashboards.get("data"):
                     continue
 
-                for dashboard_info in collection_dashboards["data"]:
+                for dashboard_info in collection_dashboards.get("data"):
                     dashboard_snapshot = self.construct_dashboard_from_api_data(
                         dashboard_info
                     )
