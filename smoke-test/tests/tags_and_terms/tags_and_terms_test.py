@@ -11,10 +11,10 @@ from tests.utils import (
 @pytest.fixture(scope="module", autouse=True)
 def ingest_cleanup_data(request):
     print("ingesting test data")
-    ingest_file_via_rest("tests/tags-and-terms/data.json")
+    ingest_file_via_rest("tests/tags_and_terms/data.json")
     yield
     print("removing test data")
-    delete_urns_from_file("tests/tags-and-terms/data.json")
+    delete_urns_from_file("tests/tags_and_terms/data.json")
 
 
 @pytest.fixture(scope="session")
