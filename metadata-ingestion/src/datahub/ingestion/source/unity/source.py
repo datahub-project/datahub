@@ -1,7 +1,7 @@
 import logging
 import re
 from concurrent.futures import ThreadPoolExecutor
-from typing import Dict, Iterable, List, Optional, Set, Union
+from typing import Dict, Iterable, List, Optional, Set, Tuple, Union
 from urllib.parse import urljoin
 
 from datahub.emitter.mce_builder import (
@@ -189,7 +189,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         self.view_refs: Set[TableReference] = set()
         self.notebooks: FileBackedDict[Notebook] = FileBackedDict()
         self.view_definitions: FileBackedDict[
-            tuple[TableReference, str]
+            Tuple[TableReference, str]
         ] = FileBackedDict()
 
         # Global map of tables, for profiling
