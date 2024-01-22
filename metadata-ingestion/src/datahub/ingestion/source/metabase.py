@@ -204,7 +204,7 @@ class MetabaseSource(Source):
                 collection_dashboards_response.raise_for_status()
                 collection_dashboards = collection_dashboards_response.json()
 
-                if not collection_dashboards["data"]:
+                if not collection_dashboards.get("data"):
                     continue
 
                 for dashboard_info in collection_dashboards["data"]:
@@ -249,7 +249,7 @@ class MetabaseSource(Source):
             return None
 
         dashboard_urn = builder.make_dashboard_urn(
-            self.platform, f"dashboard-{dashboard_details.get('id', '')}"
+            self.platform, dashboard_details.get('id', '')
         )
         dashboard_snapshot = DashboardSnapshot(
             urn=dashboard_urn,
@@ -271,7 +271,7 @@ class MetabaseSource(Source):
         cards_data = dashboard_details.get("dashcards", {})
         for card_info in cards_data:
             chart_urn = builder.make_chart_urn(
-                self.platform, f"card-{card_info['card'].get('id', '')}"
+                self.platform, card_info['card'].get('id', '')
             )
             chart_urns.append(chart_urn)
 
