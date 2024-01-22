@@ -138,30 +138,27 @@ class BaseTransformer(Transformer, metaclass=ABCMeta):
             aspect_type = ASPECT_MAP.get(self.aspect_name())
             if aspect_type:
                 # if we find a type corresponding to the aspect name we look for it in the mce
-                old_aspect = (
-                    builder.get_aspect_if_available(
+                supports_aspect = builder.can_add_aspect(mce, aspect_type)
+                if supports_aspect:
+                    old_aspect = builder.get_aspect_if_available(
                         mce,
                         aspect_type,
                     )
-                    if builder.can_add_aspect(mce, aspect_type)
-                    else None
-                )
-                if old_aspect:
-                    if isinstance(self, LegacyMCETransformer):
-                        # use the transform_one pathway to transform this MCE
-                        envelope.record = self.transform_one(mce)
+                    transformed_aspect = self.transform_aspect(
+                        entity_urn=mce.proposedSnapshot.urn,
+                        aspect_name=self.aspect_name(),
+                        aspect=old_aspect,
+                    )
+                    if transformed_aspect is None:
+                        # remove the old aspect if any
+                        builder.remove_aspect_if_available(mce, aspect_type)
                     else:
-                        transformed_aspect = self.transform_aspect(
-                            entity_urn=mce.proposedSnapshot.urn,
-                            aspect_name=self.aspect_name(),
-                            aspect=old_aspect,
-                        )
                         builder.set_aspect(
                             mce,
                             aspect_type=aspect_type,
                             aspect=transformed_aspect,
                         )
-                        envelope.record = mce
+                    envelope.record = mce
                     self._mark_processed(mce.proposedSnapshot.urn)
             else:
                 log.warning(
@@ -202,7 +199,6 @@ class BaseTransformer(Transformer, metaclass=ABCMeta):
     def _handle_end_of_stream(
         self, envelope: RecordEnvelope
     ) -> Iterable[RecordEnvelope]:
-
         if not isinstance(self, SingleAspectTransformer) and not isinstance(
             self, LegacyMCETransformer
         ):
