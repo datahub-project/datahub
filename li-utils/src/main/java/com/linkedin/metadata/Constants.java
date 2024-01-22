@@ -241,7 +241,7 @@ public class Constants {
 
   // ERModelRelation
   public static final String ERMODELRELATION_KEY_ASPECT_NAME = "ermodelrelationKey";
-  public static final String ERMODELRELATION_PROPERTIES_ASPECT_NAME = "ermodelrelationProperties";
+  public static final String ERMODELRELATION_PROPERTIES_ASPECT_NAME = "eRModelRelationProperties";
   public static final String EDITABLE_ERMODELRELATION_PROPERTIES_ASPECT_NAME = "editableERModelRelationProperties";
 
   // Assertion
