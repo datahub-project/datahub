@@ -39,7 +39,6 @@ public class UpdateSecretResolver implements DataFetcher<CompletableFuture<Strin
     final UpdateSecretInput input =
         bindArgument(environment.getArgument("input"), UpdateSecretInput.class);
     final Urn secretUrn = Urn.createFromString(input.getUrn());
-
     return CompletableFuture.supplyAsync(
         () -> {
           if (IngestionAuthUtils.canManageSecrets(context)) {
@@ -60,13 +59,11 @@ public class UpdateSecretResolver implements DataFetcher<CompletableFuture<Strin
               final DataMap dataMap =
                   response.getAspects().get(SECRET_VALUE_ASPECT_NAME).getValue().data();
               final DataHubSecretValue existedDataHubSecretValue = new DataHubSecretValue(dataMap);
-
               existedDataHubSecretValue.setName(input.getName());
               existedDataHubSecretValue.setValue(secretService.encrypt(input.getValue()));
               if (StringUtils.hasText(input.getDescription())) {
                 existedDataHubSecretValue.setDescription(input.getDescription());
               }
-
               final MetadataChangeProposal proposal =
                   buildMetadataChangeProposalWithUrn(
                       secretUrn, SECRET_VALUE_ASPECT_NAME, existedDataHubSecretValue);
