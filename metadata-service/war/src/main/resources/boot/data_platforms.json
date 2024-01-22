@@ -584,5 +584,15 @@
       "type": "OTHERS",
       "logoUrl": "/assets/platforms/csv-logo.png"
     }
+  },
+  {
+    "urn": "urn:li:dataPlatform:qlikcloud",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "qlikcloud",
+      "displayName": "QlikCloud",
+      "type": "OTHERS",
+      "logoUrl": "/assets/platforms/qliklogo.png"
+    }
   }
 ]

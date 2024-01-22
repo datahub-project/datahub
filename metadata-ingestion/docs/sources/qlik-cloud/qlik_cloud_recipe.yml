@@ -1,0 +1,19 @@
+source:
+  type: qlikcloud
+  config:
+    # Coordinates
+    tenant_hostname: "https://xyz12xz.us.qlikcloud.com"
+    # Credentials
+    api_key: "QLIK_API_KEY"
+    
+    # Optional - filter for certain space names instead of ingesting everything.
+    # space_pattern:
+    #   allow:
+    #     - space_name
+
+    # Whether personal space and apps and datasets should be ingested.
+    extract_personal_entity: false
+    ingest_owner: true
+
+sink:
+  # sink configs
