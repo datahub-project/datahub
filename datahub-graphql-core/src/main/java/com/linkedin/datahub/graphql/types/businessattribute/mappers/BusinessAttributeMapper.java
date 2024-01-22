@@ -8,6 +8,7 @@ import com.linkedin.datahub.graphql.generated.BusinessAttribute;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.SchemaFieldDataType;
 import com.linkedin.datahub.graphql.types.common.mappers.AuditStampMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.CustomPropertiesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
@@ -67,6 +68,9 @@ public class BusinessAttributeMapper implements ModelMapper<EntityResponse, Busi
         }
         if (businessAttributeInfo.hasType()) {
             attributeInfo.setType(mapSchemaFieldDataType(businessAttributeInfo.getType()));
+        }
+        if (businessAttributeInfo.hasCustomProperties()) {
+            attributeInfo.setCustomProperties(CustomPropertiesMapper.map(businessAttributeInfo.getCustomProperties(), entityUrn));
         }
         businessAttribute.setProperties(attributeInfo);
     }
