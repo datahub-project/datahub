@@ -11,20 +11,20 @@
                 "env": "PROD",
                 "database": "test_db"
             },
-            "externalUrl": "https://app.snowflake.com/ap-south-1/abc12345/#/data/databases/TEST_DB/",
+            "externalUrl": "https://app.snowflake.com/ap-south-1.aws/abc12345/#/data/databases/TEST_DB/",
             "name": "TEST_DB",
             "description": "Comment for TEST_DB",
             "created": {
-                "time": 1623110400000
+                "time": 1623103200000
             },
             "lastModified": {
-                "time": 1623110400000
+                "time": 1623103200000
             }
         }
     },
     "systemMetadata": {
-        "lastObserved": 1654621200000,
-        "runId": "snowflake-2022_06_07-17_00_00",
+        "lastObserved": 1615443388097,
+        "runId": "snowflake-2023_12_18-10_16_09",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -144,20 +144,20 @@
                 "database": "test_db",
                 "schema": "test_schema"
             },
-            "externalUrl": "https://app.snowflake.com/ap-south-1/abc12345/#/data/databases/TEST_DB/schemas/TEST_SCHEMA/",
+            "externalUrl": "https://app.snowflake.com/ap-south-1.aws/abc12345/#/data/databases/TEST_DB/schemas/TEST_SCHEMA/",
             "name": "TEST_SCHEMA",
             "description": "comment for TEST_DB.TEST_SCHEMA",
             "created": {
-                "time": 1623110400000
+                "time": 1623103200000
             },
             "lastModified": {
-                "time": 1623110400000
+                "time": 1623103200000
             }
         }
     },
     "systemMetadata": {
-        "lastObserved": 1654621200000,
-        "runId": "snowflake-2022_06_07-17_00_00",
+        "lastObserved": 1615443388097,
+        "runId": "snowflake-2023_12_18-10_16_09",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -489,22 +489,22 @@
     "aspect": {
         "json": {
             "customProperties": {},
-            "externalUrl": "https://app.snowflake.com/ap-south-1/abc12345/#/data/databases/TEST_DB/schemas/TEST_SCHEMA/table/TABLE_1/",
+            "externalUrl": "https://app.snowflake.com/ap-south-1.aws/abc12345/#/data/databases/TEST_DB/schemas/TEST_SCHEMA/table/TABLE_1/",
             "name": "TABLE_1",
             "qualifiedName": "TEST_DB.TEST_SCHEMA.TABLE_1",
             "description": "Comment for Table",
             "created": {
-                "time": 1623090600000
+                "time": 1623103200000
             },
             "lastModified": {
-                "time": 1623090600000
+                "time": 1623103200000
             },
             "tags": []
         }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "snowflake-2023_08_04-09_52_28",
+        "runId": "snowflake-2023_12_18-10_16_09",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -788,22 +788,22 @@
     "aspect": {
         "json": {
             "customProperties": {},
-            "externalUrl": "https://app.snowflake.com/ap-south-1/abc12345/#/data/databases/TEST_DB/schemas/TEST_SCHEMA/table/TABLE_2/",
+            "externalUrl": "https://app.snowflake.com/ap-south-1.aws/abc12345/#/data/databases/TEST_DB/schemas/TEST_SCHEMA/table/TABLE_2/",
             "name": "TABLE_2",
             "qualifiedName": "TEST_DB.TEST_SCHEMA.TABLE_2",
             "description": "Comment for Table",
             "created": {
-                "time": 1623090600000
+                "time": 1623103200000
             },
             "lastModified": {
-                "time": 1623090600000
+                "time": 1623103200000
             },
             "tags": []
         }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "snowflake-2023_08_04-09_52_28",
+        "runId": "snowflake-2023_12_18-10_16_09",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1087,22 +1087,22 @@
     "aspect": {
         "json": {
             "customProperties": {},
-            "externalUrl": "https://app.snowflake.com/ap-south-1/abc12345/#/data/databases/TEST_DB/schemas/TEST_SCHEMA/table/TABLE_3/",
+            "externalUrl": "https://app.snowflake.com/ap-south-1.aws/abc12345/#/data/databases/TEST_DB/schemas/TEST_SCHEMA/table/TABLE_3/",
             "name": "TABLE_3",
             "qualifiedName": "TEST_DB.TEST_SCHEMA.TABLE_3",
             "description": "Comment for Table",
             "created": {
-                "time": 1623090600000
+                "time": 1623103200000
             },
             "lastModified": {
-                "time": 1623090600000
+                "time": 1623103200000
             },
             "tags": []
         }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "snowflake-2023_08_04-09_52_28",
+        "runId": "snowflake-2023_12_18-10_16_09",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1386,22 +1386,22 @@
     "aspect": {
         "json": {
             "customProperties": {},
-            "externalUrl": "https://app.snowflake.com/ap-south-1/abc12345/#/data/databases/TEST_DB/schemas/TEST_SCHEMA/table/TABLE_4/",
+            "externalUrl": "https://app.snowflake.com/ap-south-1.aws/abc12345/#/data/databases/TEST_DB/schemas/TEST_SCHEMA/table/TABLE_4/",
             "name": "TABLE_4",
             "qualifiedName": "TEST_DB.TEST_SCHEMA.TABLE_4",
             "description": "Comment for Table",
             "created": {
-                "time": 1623090600000
+                "time": 1623103200000
             },
             "lastModified": {
-                "time": 1623090600000
+                "time": 1623103200000
             },
             "tags": []
         }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "snowflake-2023_08_04-09_52_28",
+        "runId": "snowflake-2023_12_18-10_16_09",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1685,22 +1685,22 @@
     "aspect": {
         "json": {
             "customProperties": {},
-            "externalUrl": "https://app.snowflake.com/ap-south-1/abc12345/#/data/databases/TEST_DB/schemas/TEST_SCHEMA/table/TABLE_5/",
+            "externalUrl": "https://app.snowflake.com/ap-south-1.aws/abc12345/#/data/databases/TEST_DB/schemas/TEST_SCHEMA/table/TABLE_5/",
             "name": "TABLE_5",
             "qualifiedName": "TEST_DB.TEST_SCHEMA.TABLE_5",
             "description": "Comment for Table",
             "created": {
-                "time": 1623090600000
+                "time": 1623103200000
             },
             "lastModified": {
-                "time": 1623090600000
+                "time": 1623103200000
             },
             "tags": []
         }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "snowflake-2023_08_04-09_52_28",
+        "runId": "snowflake-2023_12_18-10_16_09",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1984,22 +1984,22 @@
     "aspect": {
         "json": {
             "customProperties": {},
-            "externalUrl": "https://app.snowflake.com/ap-south-1/abc12345/#/data/databases/TEST_DB/schemas/TEST_SCHEMA/table/TABLE_6/",
+            "externalUrl": "https://app.snowflake.com/ap-south-1.aws/abc12345/#/data/databases/TEST_DB/schemas/TEST_SCHEMA/table/TABLE_6/",
             "name": "TABLE_6",
             "qualifiedName": "TEST_DB.TEST_SCHEMA.TABLE_6",
             "description": "Comment for Table",
             "created": {
-                "time": 1623090600000
+                "time": 1623103200000
             },
             "lastModified": {
-                "time": 1623090600000
+                "time": 1623103200000
             },
             "tags": []
         }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "snowflake-2023_08_04-09_52_28",
+        "runId": "snowflake-2023_12_18-10_16_09",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2283,22 +2283,22 @@
     "aspect": {
         "json": {
             "customProperties": {},
-            "externalUrl": "https://app.snowflake.com/ap-south-1/abc12345/#/data/databases/TEST_DB/schemas/TEST_SCHEMA/table/TABLE_7/",
+            "externalUrl": "https://app.snowflake.com/ap-south-1.aws/abc12345/#/data/databases/TEST_DB/schemas/TEST_SCHEMA/table/TABLE_7/",
             "name": "TABLE_7",
             "qualifiedName": "TEST_DB.TEST_SCHEMA.TABLE_7",
             "description": "Comment for Table",
             "created": {
-                "time": 1623090600000
+                "time": 1623103200000
             },
             "lastModified": {
-                "time": 1623090600000
+                "time": 1623103200000
             },
             "tags": []
         }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "snowflake-2023_08_04-09_52_28",
+        "runId": "snowflake-2023_12_18-10_16_09",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2582,22 +2582,22 @@
     "aspect": {
         "json": {
             "customProperties": {},
-            "externalUrl": "https://app.snowflake.com/ap-south-1/abc12345/#/data/databases/TEST_DB/schemas/TEST_SCHEMA/table/TABLE_8/",
+            "externalUrl": "https://app.snowflake.com/ap-south-1.aws/abc12345/#/data/databases/TEST_DB/schemas/TEST_SCHEMA/table/TABLE_8/",
             "name": "TABLE_8",
             "qualifiedName": "TEST_DB.TEST_SCHEMA.TABLE_8",
             "description": "Comment for Table",
             "created": {
-                "time": 1623090600000
+                "time": 1623103200000
             },
             "lastModified": {
-                "time": 1623090600000
+                "time": 1623103200000
             },
             "tags": []
         }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "snowflake-2023_08_04-09_52_28",
+        "runId": "snowflake-2023_12_18-10_16_09",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2881,22 +2881,22 @@
     "aspect": {
         "json": {
             "customProperties": {},
-            "externalUrl": "https://app.snowflake.com/ap-south-1/abc12345/#/data/databases/TEST_DB/schemas/TEST_SCHEMA/table/TABLE_9/",
+            "externalUrl": "https://app.snowflake.com/ap-south-1.aws/abc12345/#/data/databases/TEST_DB/schemas/TEST_SCHEMA/table/TABLE_9/",
             "name": "TABLE_9",
             "qualifiedName": "TEST_DB.TEST_SCHEMA.TABLE_9",
             "description": "Comment for Table",
             "created": {
-                "time": 1623090600000
+                "time": 1623103200000
             },
             "lastModified": {
-                "time": 1623090600000
+                "time": 1623103200000
             },
             "tags": []
         }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "snowflake-2023_08_04-09_52_28",
+        "runId": "snowflake-2023_12_18-10_16_09",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -3180,22 +3180,22 @@
     "aspect": {
         "json": {
             "customProperties": {},
-            "externalUrl": "https://app.snowflake.com/ap-south-1/abc12345/#/data/databases/TEST_DB/schemas/TEST_SCHEMA/table/TABLE_10/",
+            "externalUrl": "https://app.snowflake.com/ap-south-1.aws/abc12345/#/data/databases/TEST_DB/schemas/TEST_SCHEMA/table/TABLE_10/",
             "name": "TABLE_10",
             "qualifiedName": "TEST_DB.TEST_SCHEMA.TABLE_10",
             "description": "Comment for Table",
             "created": {
-                "time": 1623090600000
+                "time": 1623103200000
             },
             "lastModified": {
-                "time": 1623090600000
+                "time": 1623103200000
             },
             "tags": []
         }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "snowflake-2023_08_04-09_52_28",
+        "runId": "snowflake-2023_12_18-10_16_09",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -3470,22 +3470,22 @@
     "aspect": {
         "json": {
             "customProperties": {},
-            "externalUrl": "https://app.snowflake.com/ap-south-1/abc12345/#/data/databases/TEST_DB/schemas/TEST_SCHEMA/view/VIEW_1/",
+            "externalUrl": "https://app.snowflake.com/ap-south-1.aws/abc12345/#/data/databases/TEST_DB/schemas/TEST_SCHEMA/view/VIEW_1/",
             "name": "VIEW_1",
             "qualifiedName": "TEST_DB.TEST_SCHEMA.VIEW_1",
             "description": "Comment for View",
             "created": {
-                "time": 1623090600000
+                "time": 1623103200000
             },
             "lastModified": {
-                "time": 1623090600000
+                "time": 1623103200000
             },
             "tags": []
         }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "snowflake-2023_08_04-09_52_28",
+        "runId": "snowflake-2023_12_18-10_16_09",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -3805,22 +3805,22 @@
     "aspect": {
         "json": {
             "customProperties": {},
-            "externalUrl": "https://app.snowflake.com/ap-south-1/abc12345/#/data/databases/TEST_DB/schemas/TEST_SCHEMA/view/VIEW_2/",
+            "externalUrl": "https://app.snowflake.com/ap-south-1.aws/abc12345/#/data/databases/TEST_DB/schemas/TEST_SCHEMA/view/VIEW_2/",
             "name": "VIEW_2",
             "qualifiedName": "TEST_DB.TEST_SCHEMA.VIEW_2",
             "description": "Comment for View",
             "created": {
-                "time": 1623090600000
+                "time": 1623103200000
             },
             "lastModified": {
-                "time": 1623090600000
+                "time": 1623103200000
             },
             "tags": []
         }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "snowflake-2023_08_04-09_52_28",
+        "runId": "snowflake-2023_12_18-10_16_09",
         "lastRunId": "no-run-id-provided"
     }
 },

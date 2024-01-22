@@ -39,6 +39,9 @@ import { GetMeDocument } from './graphql/me.generated';
 import { ListRecommendationsDocument } from './graphql/recommendations.generated';
 import { FetchedEntity } from './app/lineage/types';
 import { DEFAULT_APP_CONFIG } from './appConfigContext';
+import { GetQuickFiltersDocument } from './graphql/quickFilters.generated';
+import { GetGrantedPrivilegesDocument } from './graphql/policy.generated';
+import { VIEW_ENTITY_PAGE } from './app/entity/shared/constants';
 
 export const user1 = {
     __typename: 'CorpUser',
@@ -3716,6 +3719,31 @@ export const mocks = [
                     ],
                 },
             } as GetSearchResultsForMultipleQuery,
+        },
+    },
+    {
+        request: {
+            query: GetQuickFiltersDocument,
+            variables: {
+                input: {},
+            },
+        },
+        result: {
+            data: [],
+        },
+    },
+    {
+        request: {
+            query: GetGrantedPrivilegesDocument,
+            variables: {
+                input: {
+                    actorUrn: 'urn:li:corpuser:3',
+                    resourceSpec: { resourceType: EntityType.Dataset, resourceUrn: dataset3.urn },
+                },
+            },
+        },
+        result: {
+            data: { getGrantedPrivileges: { privileges: [VIEW_ENTITY_PAGE] } },
         },
     },
 ];

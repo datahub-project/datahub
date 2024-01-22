@@ -31,9 +31,10 @@ public class SendMAEStep implements UpgradeStep {
 
   private static final int DEFAULT_STARTING_OFFSET = 0;
   private static final int DEFAULT_THREADS = 1;
+  private static final boolean DEFAULT_URN_BASED_PAGINATION = false;
 
   private final Database _server;
-  private final EntityService _entityService;
+  private final EntityService<?> _entityService;
 
   public class KafkaJob implements Callable<RestoreIndicesResult> {
     UpgradeContext context;
@@ -89,6 +90,7 @@ public class SendMAEStep implements UpgradeStep {
     result.numThreads = getThreadCount(context.parsedArgs());
     result.batchDelayMs = getBatchDelayMs(context.parsedArgs());
     result.start = getStartingOffset(context.parsedArgs());
+    result.urnBasedPagination = getUrnBasedPagination(context.parsedArgs());
     if (containsKey(context.parsedArgs(), RestoreIndices.ASPECT_NAME_ARG_NAME)) {
       result.aspectName = context.parsedArgs().get(RestoreIndices.ASPECT_NAME_ARG_NAME).get();
     }
@@ -140,18 +142,49 @@ public class SendMAEStep implements UpgradeStep {
 
       List<Future<RestoreIndicesResult>> futures = new ArrayList<>();
       startTime = System.currentTimeMillis();
-      while (start < rowCount) {
-        args = args.clone();
-        args.start = start;
-        futures.add(executor.submit(new KafkaJob(context, args)));
-        start = start + args.batchSize;
-      }
-      while (futures.size() > 0) {
-        List<RestoreIndicesResult> tmpResults = iterateFutures(futures);
-        for (RestoreIndicesResult tmpResult : tmpResults) {
-          reportStats(context, finalJobResult, tmpResult, rowCount, startTime);
+      if (args.urnBasedPagination) {
+        RestoreIndicesResult previousResult = null;
+        int rowsProcessed = 1;
+        while (rowsProcessed > 0) {
+          args = args.clone();
+          if (previousResult != null) {
+            args.lastUrn = previousResult.lastUrn;
+            args.lastAspect = previousResult.lastAspect;
+          }
+          args.start = start;
+          context
+              .report()
+              .addLine(
+                  String.format(
+                      "Getting next batch of urns + aspects, starting with %s - %s",
+                      args.lastUrn, args.lastAspect));
+          Future<RestoreIndicesResult> future = executor.submit(new KafkaJob(context, args));
+          try {
+            RestoreIndicesResult result = future.get();
+            reportStats(context, finalJobResult, result, rowCount, startTime);
+            previousResult = result;
+            rowsProcessed = result.rowsMigrated + result.ignored;
+            context.report().addLine(String.format("Rows processed this loop %d", rowsProcessed));
+            start += args.batchSize;
+          } catch (InterruptedException | ExecutionException e) {
+            return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
+          }
+        }
+      } else {
+        while (start < rowCount) {
+          args = args.clone();
+          args.start = start;
+          futures.add(executor.submit(new KafkaJob(context, args)));
+          start = start + args.batchSize;
+        }
+        while (futures.size() > 0) {
+          List<RestoreIndicesResult> tmpResults = iterateFutures(futures);
+          for (RestoreIndicesResult tmpResult : tmpResults) {
+            reportStats(context, finalJobResult, tmpResult, rowCount, startTime);
+          }
         }
       }
+
       executor.shutdown();
       if (finalJobResult.rowsMigrated != rowCount) {
         float percentFailed = 0.0f;
@@ -231,6 +264,15 @@ public class SendMAEStep implements UpgradeStep {
 
   private int getThreadCount(final Map<String, Optional<String>> parsedArgs) {
     return getInt(parsedArgs, DEFAULT_THREADS, RestoreIndices.NUM_THREADS_ARG_NAME);
+  }
+
+  private boolean getUrnBasedPagination(final Map<String, Optional<String>> parsedArgs) {
+    boolean urnBasedPagination = DEFAULT_URN_BASED_PAGINATION;
+    if (containsKey(parsedArgs, RestoreIndices.URN_BASED_PAGINATION_ARG_NAME)) {
+      urnBasedPagination =
+          Boolean.parseBoolean(parsedArgs.get(RestoreIndices.URN_BASED_PAGINATION_ARG_NAME).get());
+    }
+    return urnBasedPagination;
   }
 
   private int getInt(

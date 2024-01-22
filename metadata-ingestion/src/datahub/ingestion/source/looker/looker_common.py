@@ -1,9 +1,8 @@
-from __future__ import print_function
-
 import datetime
 import itertools
 import logging
 import re
+from contextlib import contextmanager
 from dataclasses import dataclass, field as dataclasses_field
 from enum import Enum
 from functools import lru_cache
@@ -11,6 +10,7 @@ from typing import (
     TYPE_CHECKING,
     Dict,
     Iterable,
+    Iterator,
     List,
     Optional,
     Sequence,
@@ -1059,6 +1059,7 @@ class LookerDashboardSourceReport(StaleEntityRemovalSourceReport):
     dashboards_scanned_for_usage: int = 0
     charts_scanned_for_usage: int = 0
     charts_with_activity: LossySet[str] = dataclasses_field(default_factory=LossySet)
+    accessed_dashboards: int = 0
     dashboards_with_activity: LossySet[str] = dataclasses_field(
         default_factory=LossySet
     )
@@ -1066,6 +1067,10 @@ class LookerDashboardSourceReport(StaleEntityRemovalSourceReport):
     _looker_explore_registry: Optional[LookerExploreRegistry] = None
     total_explores: int = 0
     explores_scanned: int = 0
+
+    resolved_user_ids: int = 0
+    email_ids_missing: int = 0  # resolved users with missing email addresses
+
     _looker_api: Optional[LookerAPI] = None
     query_latency: Dict[str, datetime.timedelta] = dataclasses_field(
         default_factory=dict
@@ -1120,6 +1125,14 @@ class LookerDashboardSourceReport(StaleEntityRemovalSourceReport):
     def report_stage_end(self, stage_name: str) -> None:
         if self.stage_latency[-1].name == stage_name:
             self.stage_latency[-1].end_time = datetime.datetime.now()
+
+    @contextmanager
+    def report_stage(self, stage_name: str) -> Iterator[None]:
+        try:
+            self.report_stage_start(stage_name)
+            yield
+        finally:
+            self.report_stage_end(stage_name)
 
     def compute_stats(self) -> None:
         if self.total_dashboards:

@@ -52,6 +52,7 @@ export const UserList = () => {
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
     const paramsQuery = (params?.query as string) || undefined;
     const [query, setQuery] = useState<undefined | string>(undefined);
+    const [usersList, setUsersList] = useState<Array<any>>([]);
     useEffect(() => setQuery(paramsQuery), [paramsQuery]);
 
     const [page, setPage] = useState(1);
@@ -77,12 +78,13 @@ export const UserList = () => {
                 query: (query?.length && query) || undefined,
             },
         },
-        fetchPolicy: (query?.length || 0) > 0 ? 'no-cache' : 'cache-first',
+        fetchPolicy: 'no-cache',
     });
 
     const totalUsers = usersData?.listUsers?.total || 0;
-    const users = usersData?.listUsers?.users || [];
-
+    useEffect(() => {
+        setUsersList(usersData?.listUsers?.users || []);
+    }, [usersData]);
     const onChangePage = (newPage: number) => {
         scrollToTop();
         setPage(newPage);
@@ -90,6 +92,7 @@ export const UserList = () => {
 
     const handleDelete = (urn: string) => {
         removeUserFromListUsersCache(urn, client, page, pageSize);
+        usersRefetch();
     };
 
     const {
@@ -145,6 +148,7 @@ export const UserList = () => {
                         onQueryChange={(q) => {
                             setPage(1);
                             setQuery(q);
+                            setUsersList([]);
                         }}
                         entityRegistry={entityRegistry}
                         hideRecommendations
@@ -155,7 +159,7 @@ export const UserList = () => {
                     locale={{
                         emptyText: <Empty description="No Users!" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
                     }}
-                    dataSource={users}
+                    dataSource={usersList}
                     renderItem={(item: any) => (
                         <UserListItem
                             onDelete={() => handleDelete(item.urn as string)}

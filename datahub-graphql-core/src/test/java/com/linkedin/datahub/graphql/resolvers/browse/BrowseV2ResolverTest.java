@@ -249,7 +249,7 @@ public class BrowseV2ResolverTest {
     EntityClient client = Mockito.mock(EntityClient.class);
     Mockito.when(
             client.browseV2(
-                Mockito.eq(entityName),
+                Mockito.eq(ImmutableList.of(entityName)),
                 Mockito.eq(path),
                 Mockito.eq(filter),
                 Mockito.eq(query),

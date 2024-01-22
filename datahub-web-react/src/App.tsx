@@ -14,6 +14,7 @@ import { PageRoutes } from './conf/Global';
 import { isLoggedInVar } from './app/auth/checkAuthStatus';
 import { GlobalCfg } from './conf';
 import possibleTypesResult from './possibleTypes.generated';
+import { ErrorCodes } from './app/shared/constants';
 
 /*
     Construct Apollo Client
@@ -24,7 +25,7 @@ const errorLink = onError((error) => {
     const { networkError, graphQLErrors } = error;
     if (networkError) {
         const serverError = networkError as ServerError;
-        if (serverError.statusCode === 401) {
+        if (serverError.statusCode === ErrorCodes.Unauthorized) {
             isLoggedInVar(false);
             Cookies.remove(GlobalCfg.CLIENT_AUTH_COOKIE);
             const currentPath = window.location.pathname + window.location.search;
@@ -69,29 +70,42 @@ const client = new ApolloClient({
     },
 });
 
-const App: React.VFC = () => {
+export const InnerApp: React.VFC = () => {
     const [dynamicThemeConfig, setDynamicThemeConfig] = useState<Theme>(defaultThemeConfig);
 
     useEffect(() => {
-        import(`./conf/theme/${process.env.REACT_APP_THEME_CONFIG}`).then((theme) => {
-            setDynamicThemeConfig(theme);
-        });
+        if (import.meta.env.DEV) {
+            import(/* @vite-ignore */ `./conf/theme/${import.meta.env.REACT_APP_THEME_CONFIG}`).then((theme) => {
+                setDynamicThemeConfig(theme);
+            });
+        } else {
+            // Send a request to the server to get the theme config.
+            fetch(`/assets/conf/theme/${import.meta.env.REACT_APP_THEME_CONFIG}`)
+                .then((response) => response.json())
+                .then((theme) => {
+                    setDynamicThemeConfig(theme);
+                });
+        }
     }, []);
 
     return (
         <HelmetProvider>
+            <Helmet>
+                <title>{dynamicThemeConfig.content.title}</title>
+            </Helmet>
             <ThemeProvider theme={dynamicThemeConfig}>
                 <Router>
-                    <Helmet>
-                        <title>{dynamicThemeConfig.content.title}</title>
-                    </Helmet>
-                    <ApolloProvider client={client}>
-                        <Routes />
-                    </ApolloProvider>
+                    <Routes />
                 </Router>
             </ThemeProvider>
         </HelmetProvider>
     );
 };
 
-export default App;
+export const App: React.VFC = () => {
+    return (
+        <ApolloProvider client={client}>
+            <InnerApp />
+        </ApolloProvider>
+    );
+};

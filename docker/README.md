@@ -64,7 +64,7 @@ successful release on Github will automatically publish the images.
 To build the full images (that we are going to publish), you need to run the following:
 
 ```
-COMPOSE_DOCKER_CLI_BUILD=1 DOCKER_BUILDKIT=1 docker-compose -p datahub build
+COMPOSE_DOCKER_CLI_BUILD=1 DOCKER_BUILDKIT=1 docker compose -p datahub build
 ```
 
 This is because we're relying on builtkit for multistage builds. It does not hurt also set `DATAHUB_VERSION` to

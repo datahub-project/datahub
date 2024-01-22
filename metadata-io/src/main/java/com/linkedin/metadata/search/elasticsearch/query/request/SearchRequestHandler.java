@@ -69,6 +69,7 @@ import org.opensearch.search.SearchHit;
 import org.opensearch.search.aggregations.Aggregation;
 import org.opensearch.search.aggregations.AggregationBuilders;
 import org.opensearch.search.aggregations.Aggregations;
+import org.opensearch.search.aggregations.bucket.missing.ParsedMissing;
 import org.opensearch.search.aggregations.bucket.terms.ParsedTerms;
 import org.opensearch.search.aggregations.bucket.terms.Terms;
 import org.opensearch.search.builder.SearchSourceBuilder;
@@ -87,11 +88,7 @@ public class SearchRequestHandler {
           .setSkipHighlighting(false);
   private static final Map<List<EntitySpec>, SearchRequestHandler> REQUEST_HANDLER_BY_ENTITY_NAME =
       new ConcurrentHashMap<>();
-  private static final String REMOVED = "removed";
   private static final String URN_FILTER = "urn";
-  private static final String[] FIELDS_TO_FETCH = new String[] {"urn", "usageCountLast30Days"};
-  private static final String[] URN_FIELD = new String[] {"urn"};
-
   private final List<EntitySpec> _entitySpecs;
   private final Set<String> _defaultQueryFieldNames;
   private final HighlightBuilder _highlights;
@@ -214,22 +211,22 @@ public class SearchRequestHandler {
     BoolQueryBuilder filterQuery = getFilterQuery(filter);
     searchSourceBuilder.query(
         QueryBuilders.boolQuery()
-            .must(getQuery(input, finalSearchFlags.isFulltext()))
+            .must(getQuery(input, Boolean.TRUE.equals(finalSearchFlags.isFulltext())))
             .filter(filterQuery));
-    if (!finalSearchFlags.isSkipAggregates()) {
+    if (Boolean.FALSE.equals(finalSearchFlags.isSkipAggregates())) {
       _aggregationQueryBuilder.getAggregations(facets).forEach(searchSourceBuilder::aggregation);
     }
-    if (!finalSearchFlags.isSkipHighlighting()) {
+    if (Boolean.FALSE.equals(finalSearchFlags.isSkipHighlighting())) {
       searchSourceBuilder.highlighter(_highlights);
     }
     ESUtils.buildSortOrder(searchSourceBuilder, sortCriterion, _entitySpecs);
 
-    if (finalSearchFlags.isGetSuggestions()) {
+    if (Boolean.TRUE.equals(finalSearchFlags.isGetSuggestions())) {
       ESUtils.buildNameSuggestions(searchSourceBuilder, input);
     }
 
     searchRequest.source(searchSourceBuilder);
-    log.debug("Search request is: " + searchRequest.toString());
+    log.debug("Search request is: " + searchRequest);
 
     return searchRequest;
   }
@@ -270,12 +267,12 @@ public class SearchRequestHandler {
     BoolQueryBuilder filterQuery = getFilterQuery(filter);
     searchSourceBuilder.query(
         QueryBuilders.boolQuery()
-            .must(getQuery(input, finalSearchFlags.isFulltext()))
+            .must(getQuery(input, Boolean.TRUE.equals(finalSearchFlags.isFulltext())))
             .filter(filterQuery));
-    if (!finalSearchFlags.isSkipAggregates()) {
+    if (Boolean.FALSE.equals(finalSearchFlags.isSkipAggregates())) {
       _aggregationQueryBuilder.getAggregations().forEach(searchSourceBuilder::aggregation);
     }
-    if (!finalSearchFlags.isSkipHighlighting()) {
+    if (Boolean.FALSE.equals(finalSearchFlags.isSkipHighlighting())) {
       searchSourceBuilder.highlighter(_highlights);
     }
     ESUtils.buildSortOrder(searchSourceBuilder, sortCriterion, _entitySpecs);
@@ -455,7 +452,7 @@ public class SearchRequestHandler {
     for (Map.Entry<String, HighlightField> entry : highlightedFields.entrySet()) {
       // Get the field name from source e.g. name.delimited -> name
       Optional<String> fieldName = getFieldName(entry.getKey());
-      if (!fieldName.isPresent()) {
+      if (fieldName.isEmpty()) {
         continue;
       }
       if (!highlightedFieldNamesAndValues.containsKey(fieldName.get())) {
@@ -551,6 +548,28 @@ public class SearchRequestHandler {
     return searchResultMetadata;
   }
 
+  private List<SearchSuggestion> extractSearchSuggestions(@Nonnull SearchResponse searchResponse) {
+    final List<SearchSuggestion> searchSuggestions = new ArrayList<>();
+    if (searchResponse.getSuggest() != null) {
+      TermSuggestion termSuggestion = searchResponse.getSuggest().getSuggestion(NAME_SUGGESTION);
+      if (termSuggestion != null && !termSuggestion.getEntries().isEmpty()) {
+        termSuggestion
+            .getEntries()
+            .get(0)
+            .getOptions()
+            .forEach(
+                suggestOption -> {
+                  SearchSuggestion searchSuggestion = new SearchSuggestion();
+                  searchSuggestion.setText(String.valueOf(suggestOption.getText()));
+                  searchSuggestion.setFrequency(suggestOption.getFreq());
+                  searchSuggestion.setScore(suggestOption.getScore());
+                  searchSuggestions.add(searchSuggestion);
+                });
+      }
+    }
+    return searchSuggestions;
+  }
+
   private String computeDisplayName(String name) {
     if (_filtersToDisplayName.containsKey(name)) {
       return _filtersToDisplayName.get(name);
@@ -570,27 +589,55 @@ public class SearchRequestHandler {
     }
     for (Map.Entry<String, Aggregation> entry :
         searchResponse.getAggregations().getAsMap().entrySet()) {
-      final Map<String, Long> oneTermAggResult =
-          extractTermAggregations(
-              (ParsedTerms) entry.getValue(), entry.getKey().equals("_entityType"));
-      if (oneTermAggResult.isEmpty()) {
-        continue;
+      if (entry.getValue() instanceof ParsedTerms) {
+        processTermAggregations(entry, aggregationMetadataList);
       }
-      final AggregationMetadata aggregationMetadata =
-          new AggregationMetadata()
-              .setName(entry.getKey())
-              .setDisplayName(computeDisplayName(entry.getKey()))
-              .setAggregations(new LongMap(oneTermAggResult))
-              .setFilterValues(
-                  new FilterValueArray(
-                      SearchUtil.convertToFilters(oneTermAggResult, Collections.emptySet())));
-      aggregationMetadataList.add(aggregationMetadata);
+      if (entry.getValue() instanceof ParsedMissing) {
+        processMissingAggregations(entry, aggregationMetadataList);
+      }
     }
     return addFiltersToAggregationMetadata(aggregationMetadataList, filter);
   }
 
+  private void processTermAggregations(
+      final Map.Entry<String, Aggregation> entry,
+      final List<AggregationMetadata> aggregationMetadataList) {
+    final Map<String, Long> oneTermAggResult =
+        extractTermAggregations(
+            (ParsedTerms) entry.getValue(), entry.getKey().equals(INDEX_VIRTUAL_FIELD));
+    if (oneTermAggResult.isEmpty()) {
+      return;
+    }
+    final AggregationMetadata aggregationMetadata =
+        new AggregationMetadata()
+            .setName(entry.getKey())
+            .setDisplayName(computeDisplayName(entry.getKey()))
+            .setAggregations(new LongMap(oneTermAggResult))
+            .setFilterValues(
+                new FilterValueArray(
+                    SearchUtil.convertToFilters(oneTermAggResult, Collections.emptySet())));
+    aggregationMetadataList.add(aggregationMetadata);
+  }
+
+  private void processMissingAggregations(
+      final Map.Entry<String, Aggregation> entry,
+      final List<AggregationMetadata> aggregationMetadataList) {
+    ParsedMissing parsedMissing = (ParsedMissing) entry.getValue();
+    Long docCount = parsedMissing.getDocCount();
+    LongMap longMap = new LongMap();
+    longMap.put(entry.getKey(), docCount);
+    final AggregationMetadata aggregationMetadata =
+        new AggregationMetadata()
+            .setName(entry.getKey())
+            .setDisplayName(computeDisplayName(entry.getKey()))
+            .setAggregations(longMap)
+            .setFilterValues(
+                new FilterValueArray(SearchUtil.convertToFilters(longMap, Collections.emptySet())));
+    aggregationMetadataList.add(aggregationMetadata);
+  }
+
   @WithSpan
-  public static Map<String, Long> extractTermAggregations(
+  public static Map<String, Long> extractAggregationsFromResponse(
       @Nonnull SearchResponse searchResponse, @Nonnull String aggregationName) {
     if (searchResponse.getAggregations() == null) {
       return Collections.emptyMap();
@@ -600,30 +647,13 @@ public class SearchRequestHandler {
     if (aggregation == null) {
       return Collections.emptyMap();
     }
-    return extractTermAggregations(
-        (ParsedTerms) aggregation, aggregationName.equals("_entityType"));
-  }
-
-  private List<SearchSuggestion> extractSearchSuggestions(@Nonnull SearchResponse searchResponse) {
-    final List<SearchSuggestion> searchSuggestions = new ArrayList<>();
-    if (searchResponse.getSuggest() != null) {
-      TermSuggestion termSuggestion = searchResponse.getSuggest().getSuggestion(NAME_SUGGESTION);
-      if (termSuggestion != null && termSuggestion.getEntries().size() > 0) {
-        termSuggestion
-            .getEntries()
-            .get(0)
-            .getOptions()
-            .forEach(
-                suggestOption -> {
-                  SearchSuggestion searchSuggestion = new SearchSuggestion();
-                  searchSuggestion.setText(String.valueOf(suggestOption.getText()));
-                  searchSuggestion.setFrequency(suggestOption.getFreq());
-                  searchSuggestion.setScore(suggestOption.getScore());
-                  searchSuggestions.add(searchSuggestion);
-                });
-      }
+    if (aggregation instanceof ParsedTerms terms) {
+      return extractTermAggregations(terms, aggregationName.equals("_entityType"));
+    } else if (aggregation instanceof ParsedMissing missing) {
+      return Collections.singletonMap(missing.getName(), missing.getDocCount());
     }
-    return searchSuggestions;
+    throw new UnsupportedOperationException(
+        "Unsupported aggregation type: " + aggregation.getClass().getName());
   }
 
   /**
@@ -638,25 +668,51 @@ public class SearchRequestHandler {
 
     if (aggs != null) {
       for (Map.Entry<String, Aggregation> entry : aggs.getAsMap().entrySet()) {
-        ParsedTerms terms = (ParsedTerms) entry.getValue();
-        List<? extends Terms.Bucket> bucketList = terms.getBuckets();
-
-        for (Terms.Bucket bucket : bucketList) {
-          String key = bucket.getKeyAsString();
-          // Gets filtered sub aggregation doc count if exist
-          Map<String, Long> subAggs = recursivelyAddNestedSubAggs(bucket.getAggregations());
-          for (Map.Entry<String, Long> subAggEntry : subAggs.entrySet()) {
-            aggResult.put(
-                key + AGGREGATION_SEPARATOR_CHAR + subAggEntry.getKey(), subAggEntry.getValue());
-          }
-          long docCount = bucket.getDocCount();
-          if (docCount > 0) {
-            aggResult.put(key, docCount);
-          }
+        if (entry.getValue() instanceof ParsedTerms terms) {
+          recurseTermsAgg(terms, aggResult, false);
+        } else if (entry.getValue() instanceof ParsedMissing missing) {
+          recurseMissingAgg(missing, aggResult);
+        } else {
+          throw new UnsupportedOperationException(
+              "Unsupported aggregation type: " + entry.getValue().getClass().getName());
         }
       }
     }
     return aggResult;
+  }
+
+  private static void recurseTermsAgg(
+      ParsedTerms terms, Map<String, Long> aggResult, boolean includeZeroes) {
+    List<? extends Terms.Bucket> bucketList = terms.getBuckets();
+    bucketList.forEach(bucket -> processTermBucket(bucket, aggResult, includeZeroes));
+  }
+
+  private static void processTermBucket(
+      Terms.Bucket bucket, Map<String, Long> aggResult, boolean includeZeroes) {
+    String key = bucket.getKeyAsString();
+    // Gets filtered sub aggregation doc count if exist
+    Map<String, Long> subAggs = recursivelyAddNestedSubAggs(bucket.getAggregations());
+    subAggs.forEach(
+        (entryKey, entryValue) ->
+            aggResult.put(
+                String.format("%s%s%s", key, AGGREGATION_SEPARATOR_CHAR, entryKey), entryValue));
+    long docCount = bucket.getDocCount();
+    if (includeZeroes || docCount > 0) {
+      aggResult.put(key, docCount);
+    }
+  }
+
+  private static void recurseMissingAgg(ParsedMissing missing, Map<String, Long> aggResult) {
+    Map<String, Long> subAggs = recursivelyAddNestedSubAggs(missing.getAggregations());
+    subAggs.forEach(
+        (key, value) ->
+            aggResult.put(
+                String.format("%s%s%s", missing.getName(), AGGREGATION_SEPARATOR_CHAR, key),
+                value));
+    long docCount = missing.getDocCount();
+    if (docCount > 0) {
+      aggResult.put(missing.getName(), docCount);
+    }
   }
 
   /**
@@ -670,22 +726,7 @@ public class SearchRequestHandler {
       @Nonnull ParsedTerms terms, boolean includeZeroes) {
 
     final Map<String, Long> aggResult = new HashMap<>();
-    List<? extends Terms.Bucket> bucketList = terms.getBuckets();
-
-    for (Terms.Bucket bucket : bucketList) {
-      String key = bucket.getKeyAsString();
-      // Gets filtered sub aggregation doc count if exist
-      Map<String, Long> subAggs = recursivelyAddNestedSubAggs(bucket.getAggregations());
-      for (Map.Entry<String, Long> subAggEntry : subAggs.entrySet()) {
-        aggResult.put(
-            String.format("%s%s%s", key, AGGREGATION_SEPARATOR_CHAR, subAggEntry.getKey()),
-            subAggEntry.getValue());
-      }
-      long docCount = bucket.getDocCount();
-      if (includeZeroes || docCount > 0) {
-        aggResult.put(key, docCount);
-      }
-    }
+    recurseTermsAgg(terms, aggResult, includeZeroes);
 
     return aggResult;
   }
@@ -696,9 +737,9 @@ public class SearchRequestHandler {
     if (filter == null) {
       return originalMetadata;
     }
-    if (filter.hasOr()) {
+    if (filter.getOr() != null) {
       addOrFiltersToAggregationMetadata(filter.getOr(), originalMetadata);
-    } else if (filter.hasCriteria()) {
+    } else if (filter.getCriteria() != null) {
       addCriteriaFiltersToAggregationMetadata(filter.getCriteria(), originalMetadata);
     }
     return originalMetadata;
@@ -757,7 +798,8 @@ public class SearchRequestHandler {
        */
       AggregationMetadata originalAggMetadata = aggregationMetadataMap.get(finalFacetField);
       if (criterion.hasValues()) {
-        criterion.getValues().stream()
+        criterion
+            .getValues()
             .forEach(
                 value ->
                     addMissingAggregationValueToAggregationMetadata(value, originalAggMetadata));

@@ -6,7 +6,6 @@ import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.AddOwnersInput;
 import com.linkedin.datahub.graphql.generated.OwnerInput;
 import com.linkedin.datahub.graphql.generated.ResourceRefInput;
@@ -34,10 +33,7 @@ public class AddOwnersResolver implements DataFetcher<CompletableFuture<Boolean>
 
     return CompletableFuture.supplyAsync(
         () -> {
-          if (!OwnerUtils.isAuthorizedToUpdateOwners(environment.getContext(), targetUrn)) {
-            throw new AuthorizationException(
-                "Unauthorized to perform this action. Please contact your DataHub administrator.");
-          }
+          OwnerUtils.validateAuthorizedToUpdateOwners(environment.getContext(), targetUrn);
 
           OwnerUtils.validateAddOwnerInput(owners, targetUrn, _entityService);
           try {

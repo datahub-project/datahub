@@ -81,7 +81,7 @@ export const SecretBuilderModal = ({ initialState, visible, onSubmit, onCancel }
                             },
                             { whitespace: false },
                             { min: 1, max: 50 },
-                            { pattern: /^[^\s\t${}\\,'"]+$/, message: 'This secret name is not allowed.' },
+                            { pattern: /^[a-zA-Z_]+[a-zA-Z0-9_]*$/, message: 'Please start the secret name with a letter, followed by letters, digits, or underscores only.' },
                         ]}
                         hasFeedback
                     >

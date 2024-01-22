@@ -29,7 +29,6 @@ from datahub.metadata.schema_classes import (
     MetadataChangeEventClass,
     MetadataChangeProposalClass,
     StatusClass,
-    TagKeyClass,
     TimeWindowSizeClass,
 )
 from datahub.telemetry import telemetry
@@ -173,11 +172,11 @@ def auto_materialize_referenced_tags(
         yield wu
 
     for urn in sorted(referenced_tags - tags_with_aspects):
-        tag_urn = TagUrn.create_from_string(urn)
+        tag_urn = TagUrn.from_string(urn)
 
         yield MetadataChangeProposalWrapper(
             entityUrn=urn,
-            aspect=TagKeyClass(name=tag_urn.get_entity_id()[0]),
+            aspect=tag_urn.to_key_aspect(),
         ).as_workunit()
 
 

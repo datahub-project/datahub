@@ -10,9 +10,12 @@ import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.models.AspectSpec;
+import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.GenericAspect;
+import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataChangeProposal;
 import java.util.Collections;
 import java.util.HashMap;
@@ -35,7 +38,7 @@ public class AspectUtils {
 
   public static List<MetadataChangeProposal> getAdditionalChanges(
       @Nonnull MetadataChangeProposal metadataChangeProposal,
-      @Nonnull EntityService entityService,
+      @Nonnull EntityService<?> entityService,
       boolean onPrimaryKeyInsertOnly) {
 
     // No additional changes for unsupported operations
@@ -173,5 +176,42 @@ public class AspectUtils {
     auditStamp.setTime(DateTimeUtils.currentTimeMillis());
     auditStamp.setActor(actor);
     return auditStamp;
+  }
+
+  public static AspectSpec validateAspect(MetadataChangeLog mcl, EntitySpec entitySpec) {
+    if (!mcl.hasAspectName()
+        || (!ChangeType.DELETE.equals(mcl.getChangeType()) && !mcl.hasAspect())) {
+      throw new UnsupportedOperationException(
+          String.format(
+              "Aspect and aspect name is required for create and update operations. changeType: %s entityName: %s hasAspectName: %s hasAspect: %s",
+              mcl.getChangeType(), entitySpec.getName(), mcl.hasAspectName(), mcl.hasAspect()));
+    }
+
+    AspectSpec aspectSpec = entitySpec.getAspectSpec(mcl.getAspectName());
+
+    if (aspectSpec == null) {
+      throw new RuntimeException(
+          String.format(
+              "Unknown aspect %s for entity %s", mcl.getAspectName(), mcl.getEntityType()));
+    }
+
+    return aspectSpec;
+  }
+
+  public static AspectSpec validateAspect(MetadataChangeProposal mcp, EntitySpec entitySpec) {
+    if (!mcp.hasAspectName() || !mcp.hasAspect()) {
+      throw new UnsupportedOperationException(
+          "Aspect and aspect name is required for create and update operations");
+    }
+
+    AspectSpec aspectSpec = entitySpec.getAspectSpec(mcp.getAspectName());
+
+    if (aspectSpec == null) {
+      throw new RuntimeException(
+          String.format(
+              "Unknown aspect %s for entity %s", mcp.getAspectName(), mcp.getEntityType()));
+    }
+
+    return aspectSpec;
   }
 }

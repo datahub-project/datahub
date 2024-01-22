@@ -181,6 +181,10 @@ public class PluginEntityRegistryLoader {
       entityRegistry = new PatchEntityRegistry(patchDirectory, registryName, registryVersion);
       parentRegistry.apply(entityRegistry);
       loadResultBuilder.loadResult(LoadStatus.SUCCESS);
+
+      // Load plugin information
+      loadResultBuilder.plugins(entityRegistry.getPluginFactory().getPluginLoadResult());
+
       log.info("Loaded registry {} successfully", entityRegistry);
     } catch (RuntimeException | EntityRegistryException | IOException e) {
       log.debug("{}: Failed to load registry {} with {}", this, registryName, e.getMessage());
@@ -189,6 +193,7 @@ public class PluginEntityRegistryLoader {
       e.printStackTrace(pw);
       loadResultBuilder.loadResult(LoadStatus.FAILURE).failureReason(sw.toString()).failureCount(1);
     }
+
     addLoadResult(registryName, registryVersion, loadResultBuilder.build(), entityRegistry);
   }
 
