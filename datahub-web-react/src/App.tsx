@@ -14,6 +14,7 @@ import { PageRoutes } from './conf/Global';
 import { isLoggedInVar } from './app/auth/checkAuthStatus';
 import { GlobalCfg } from './conf';
 import possibleTypesResult from './possibleTypes.generated';
+import { ErrorCodes } from './app/shared/constants';
 
 /*
     Construct Apollo Client
@@ -24,7 +25,7 @@ const errorLink = onError((error) => {
     const { networkError, graphQLErrors } = error;
     if (networkError) {
         const serverError = networkError as ServerError;
-        if (serverError.statusCode === 401) {
+        if (serverError.statusCode === ErrorCodes.Unauthorized) {
             isLoggedInVar(false);
             Cookies.remove(GlobalCfg.CLIENT_AUTH_COOKIE);
             const currentPath = window.location.pathname + window.location.search;

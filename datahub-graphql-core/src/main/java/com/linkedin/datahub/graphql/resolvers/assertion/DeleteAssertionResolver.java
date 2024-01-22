@@ -24,10 +24,10 @@ import lombok.extern.slf4j.Slf4j;
 public class DeleteAssertionResolver implements DataFetcher<CompletableFuture<Boolean>> {
 
   private final EntityClient _entityClient;
-  private final EntityService _entityService;
+  private final EntityService<?> _entityService;
 
   public DeleteAssertionResolver(
-      final EntityClient entityClient, final EntityService entityService) {
+      final EntityClient entityClient, final EntityService<?> entityService) {
     _entityClient = entityClient;
     _entityService = entityService;
   }
@@ -41,7 +41,7 @@ public class DeleteAssertionResolver implements DataFetcher<CompletableFuture<Bo
         () -> {
 
           // 1. check the entity exists. If not, return false.
-          if (!_entityService.exists(assertionUrn)) {
+          if (!_entityService.exists(assertionUrn, true)) {
             return true;
           }
 

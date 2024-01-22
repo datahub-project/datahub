@@ -1,10 +1,13 @@
 package com.linkedin.datahub.graphql.types.dataset.mappers;
 
 import com.linkedin.common.urn.Urn;
+import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.SchemaField;
 import com.linkedin.datahub.graphql.generated.SchemaFieldDataType;
+import com.linkedin.datahub.graphql.generated.SchemaFieldEntity;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
+import com.linkedin.metadata.utils.SchemaFieldUtils;
 import javax.annotation.Nonnull;
 
 public class SchemaFieldMapper {
@@ -36,6 +39,8 @@ public class SchemaFieldMapper {
     }
     result.setIsPartOfKey(input.isIsPartOfKey());
     result.setIsPartitioningKey(input.isIsPartitioningKey());
+    result.setJsonProps(input.getJsonProps());
+    result.setSchemaFieldEntity(this.createSchemaFieldEntity(input, entityUrn));
     return result;
   }
 
@@ -73,5 +78,15 @@ public class SchemaFieldMapper {
           String.format(
               "Unrecognized SchemaFieldDataType provided %s", type.memberType().toString()));
     }
+  }
+
+  private SchemaFieldEntity createSchemaFieldEntity(
+      @Nonnull final com.linkedin.schema.SchemaField input, @Nonnull Urn entityUrn) {
+    SchemaFieldEntity schemaFieldEntity = new SchemaFieldEntity();
+    schemaFieldEntity.setUrn(
+        SchemaFieldUtils.generateSchemaFieldUrn(entityUrn.toString(), input.getFieldPath())
+            .toString());
+    schemaFieldEntity.setType(EntityType.SCHEMA_FIELD);
+    return schemaFieldEntity;
   }
 }

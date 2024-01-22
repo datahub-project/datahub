@@ -20,9 +20,9 @@ import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.policy.DataHubRoleInfo;
+import jakarta.annotation.Nonnull;
 import java.net.URISyntaxException;
 import java.util.List;
-import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.ClassPathResource;
@@ -31,7 +31,7 @@ import org.springframework.core.io.ClassPathResource;
 @RequiredArgsConstructor
 public class IngestRolesStep implements BootstrapStep {
   private static final int SLEEP_SECONDS = 60;
-  private final EntityService _entityService;
+  private final EntityService<?> _entityService;
   private final EntityRegistry _entityRegistry;
 
   @Override
@@ -130,8 +130,7 @@ public class IngestRolesStep implements BootstrapStep {
                 new AuditStamp()
                     .setActor(Urn.createFromString(SYSTEM_ACTOR))
                     .setTime(System.currentTimeMillis()),
-                _entityRegistry,
-                _entityService.getSystemEntityClient())
+                _entityService)
             .build(),
         false);
 
