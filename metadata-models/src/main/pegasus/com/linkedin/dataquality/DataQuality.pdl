@@ -1,0 +1,25 @@
+namespace com.linkedin.dataquality
+
+import com.linkedin.common.ChangeAuditStamps
+
+/**
+ * Data Quality aspect. This aspect will be attached with the Dataset entity
+ */
+@Aspect = {
+  "name": "dataQuality"
+}
+record DataQuality includes ChangeAuditStamps {
+
+  /**
+  * datasetDimensionInfo is a type of DataQualityDimensionInfo
+  * optional
+  */
+  datasetDimensionInfo: optional DataQualityDimensionInfo
+
+  /**
+   * schemaFieldDimensionInfo is an array of type SchemaFieldQualityDimensionInfo
+   * optional
+   */
+  schemaFieldDimensionInfos: optional array[SchemaFieldQualityDimensionInfo]
+
+}
