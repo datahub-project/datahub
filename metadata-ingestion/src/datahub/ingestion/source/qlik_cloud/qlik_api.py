@@ -115,7 +115,6 @@ class QlikAPI:
                 resource_type = item[Constant.RESOURCETYPE]
                 resource_attributes = item[Constant.RESOURCEATTRIBUTES]
                 if resource_type == Constant.APP:
-                    response = self.session.get(f"{self.base_url}/app/")
                     items.append(
                         App(
                             id=resource_attributes[Constant.ID],
