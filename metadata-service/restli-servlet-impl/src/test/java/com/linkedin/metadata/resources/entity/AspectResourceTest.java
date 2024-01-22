@@ -87,7 +87,7 @@ public class AspectResourceTest {
             .aspect(mcp.getAspect())
             .auditStamp(new AuditStamp())
             .metadataChangeProposal(mcp)
-            .build(_entityRegistry, _entityService.getSystemEntityClient());
+            .build(_entityService);
     when(_aspectDao.runInTransactionWithRetry(any(), any(), anyInt()))
         .thenReturn(
             List.of(

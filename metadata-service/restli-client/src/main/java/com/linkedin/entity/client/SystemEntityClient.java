@@ -4,23 +4,59 @@ import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
-import com.linkedin.metadata.aspect.plugins.validation.AspectRetriever;
 import com.linkedin.metadata.config.cache.client.EntityClientCacheConfig;
+import com.linkedin.metadata.query.SearchFlags;
+import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.PlatformEvent;
 import com.linkedin.r2.RemoteInvocationException;
 import java.net.URISyntaxException;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
-/** Adds entity/aspect cache and assumes system authentication */
-public interface SystemEntityClient extends EntityClient, AspectRetriever {
+/** Adds entity/aspect cache and assumes **system** authentication */
+public interface SystemEntityClient extends EntityClient {
 
   EntityClientCache getEntityClientCache();
 
   Authentication getSystemAuthentication();
+
+  /**
+   * Searches for entities matching to a given query and filters across multiple entity types
+   *
+   * @param entities entity types to search (if empty, searches all entities)
+   * @param input search query
+   * @param filter search filters
+   * @param scrollId opaque scroll ID indicating offset
+   * @param keepAlive string representation of time to keep point in time alive, ex: 5m
+   * @param count max number of search results requested
+   * @return Snapshot key
+   * @throws RemoteInvocationException
+   */
+  @Nonnull
+  default ScrollResult scrollAcrossEntities(
+      @Nonnull List<String> entities,
+      @Nonnull String input,
+      @Nullable Filter filter,
+      @Nullable String scrollId,
+      @Nullable String keepAlive,
+      int count,
+      @Nullable SearchFlags searchFlags)
+      throws RemoteInvocationException {
+    return scrollAcrossEntities(
+        entities,
+        input,
+        filter,
+        scrollId,
+        keepAlive,
+        count,
+        searchFlags,
+        getSystemAuthentication());
+  }
 
   /**
    * Builds the cache
@@ -101,11 +137,16 @@ public interface SystemEntityClient extends EntityClient, AspectRetriever {
     setWritable(canWrite, getSystemAuthentication());
   }
 
+  @Nullable
   default Aspect getLatestAspectObject(@Nonnull Urn urn, @Nonnull String aspectName)
       throws RemoteInvocationException, URISyntaxException {
-    return getV2(urn.getEntityType(), urn, Set.of(aspectName), getSystemAuthentication())
-        .getAspects()
-        .get(aspectName)
-        .getValue();
+    return getLatestAspectObject(urn, aspectName, getSystemAuthentication());
+  }
+
+  @Nonnull
+  default Map<Urn, Map<String, Aspect>> getLatestAspects(
+      @Nonnull Set<Urn> urns, @Nonnull Set<String> aspectNames)
+      throws RemoteInvocationException, URISyntaxException {
+    return getLatestAspects(urns, aspectNames, getSystemAuthentication());
   }
 }

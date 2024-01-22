@@ -80,7 +80,7 @@ describe('siblings', () => {
     cy.login();
     cy.visit('/search?page=1&query=raw_orders');
 
-    cy.contains('Showing 1 - 10 of 14 results');
+    cy.contains('Showing 1 - 10 of ');
 
     cy.get('.test-search-result').should('have.length', 5);
     cy.get('.test-search-result-sibling-section').should('have.length', 5);

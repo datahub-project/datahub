@@ -15,8 +15,7 @@ import org.apache.tools.ant.filters.ReplaceTokens
 jar.enabled = false // Since we only want to build shadow jars, disabling the regular jar creation
 
 dependencies {
-  implementation project(':metadata-models')
-  implementation project(path: ':metadata-models', configuration: "dataTemplate")
+  implementation project(':entity-registry')
   implementation(externalDependency.kafkaAvroSerializer) {
     exclude group: "org.apache.avro"
   }
@@ -81,13 +80,13 @@ shadowJar {
   // preventing java multi-release JAR leakage
   // https://github.com/johnrengelman/shadow/issues/729
   exclude('module-info.class', 'META-INF/versions/**',
-      '**/LICENSE', '**/LICENSE.txt', '**/NOTICE', '**/NOTICE.txt')
+      '**/LICENSE', '**/LICENSE*.txt', '**/NOTICE', '**/NOTICE.txt', 'licenses/**', 'log4j2.xml', 'log4j.xml')
   mergeServiceFiles()
   // we relocate namespaces manually, because we want to know exactly which libs we are exposing and why
   // we can move to automatic relocation using ConfigureShadowRelocation after we get to a good place on these first
   relocate 'org.springframework', 'datahub.shaded.org.springframework'
   relocate 'com.fasterxml.jackson', 'datahub.shaded.jackson'
-  relocate 'org.yaml', 'io.acryl.shaded.org.yaml' // Required for shading snakeyaml
+  relocate 'org.yaml', 'datahub.shaded.org.yaml' // Required for shading snakeyaml
   relocate 'net.jcip.annotations', 'datahub.shaded.annotations'
   relocate 'javassist', 'datahub.shaded.javassist'
   relocate 'edu.umd.cs.findbugs', 'datahub.shaded.findbugs'
@@ -95,6 +94,7 @@ shadowJar {
   relocate 'antlr', 'datahub.shaded.antlr'
   relocate 'com.google.common', 'datahub.shaded.com.google.common'
   relocate 'org.apache.commons', 'datahub.shaded.org.apache.commons'
+  relocate 'org.apache.maven', 'datahub.shaded.org.apache.maven'
   relocate 'org.reflections', 'datahub.shaded.org.reflections'
   relocate 'st4hidden', 'datahub.shaded.st4hidden'
   relocate 'org.stringtemplate', 'datahub.shaded.org.stringtemplate'
@@ -104,7 +104,6 @@ shadowJar {
   relocate 'com.github.benmanes.caffeine', 'datahub.shaded.com.github.benmanes.caffeine'
   relocate 'org.checkerframework', 'datahub.shaded.org.checkerframework'
   relocate 'com.google.errorprone', 'datahub.shaded.com.google.errorprone'
-  relocate 'com.sun.jna', 'datahub.shaded.com.sun.jna'
   // Below jars added for kafka emitter only
   relocate 'org.apache.avro', 'datahub.shaded.org.apache.avro'
   relocate 'com.thoughtworks.paranamer', 'datahub.shaded.com.thoughtworks.paranamer'
@@ -121,6 +120,9 @@ shadowJar {
   relocate 'common.message', 'datahub.shaded.common.message'
   relocate 'org.glassfish', 'datahub.shaded.org.glassfish'
   relocate 'ch.randelshofer', 'datahub.shaded.ch.randelshofer'
+  relocate 'io.github.classgraph', 'datahub.shaded.io.github.classgraph'
+  relocate 'nonapi.io.github.classgraph', 'datahub.shaded.nonapi.io.github.classgraph'
+  relocate 'com.github.fge', 'datahub.shaded.com.github.fge'
 
   finalizedBy checkShadowJar
 }

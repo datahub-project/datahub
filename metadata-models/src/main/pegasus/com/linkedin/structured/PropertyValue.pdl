@@ -1,0 +1,10 @@
+namespace com.linkedin.structured
+
+record PropertyValue {
+    value: PrimitivePropertyValue
+
+    /**
+    * Optional description of the property value
+    */
+    description: optional string
+}
