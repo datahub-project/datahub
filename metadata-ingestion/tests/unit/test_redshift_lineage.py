@@ -1,9 +1,16 @@
+from datetime import datetime
+from typing import List
+from unittest.mock import MagicMock
+
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.redshift.config import RedshiftConfig
 from datahub.ingestion.source.redshift.lineage import (
+    LineageDataset,
+    LineageDatasetPlatform,
     RedshiftLineageExtractor,
     parse_alter_table_rename,
 )
+from datahub.ingestion.source.redshift.redshift_schema import TempTableRow
 from datahub.ingestion.source.redshift.report import RedshiftReport
 from datahub.utilities.sqlglot_lineage import ColumnLineageInfo, DownstreamColumnRef
 
@@ -138,16 +145,25 @@ def test_parse_alter_table_rename():
     )
 
 
-def test_cll():
-    config = RedshiftConfig(host_port="localhost:5439", database="test")
+def get_lineage_extractor() -> RedshiftLineageExtractor:
+    config = RedshiftConfig(
+        host_port="localhost:5439", database="test", resolve_temp_table_in_lineage=True
+    )
     report = RedshiftReport()
-
-    test_query = """
-        select a,b,c from db.public.customer inner join db.public.order on db.public.customer.id = db.public.order.customer_id
-    """
     lineage_extractor = RedshiftLineageExtractor(
         config, report, PipelineContext(run_id="foo")
     )
+
+    return lineage_extractor
+
+
+def test_cll():
+    test_query = """
+        select a,b,c from db.public.customer inner join db.public.order on db.public.customer.id = db.public.order.customer_id
+    """
+
+    lineage_extractor = get_lineage_extractor()
+
     _, cll = lineage_extractor._get_sources_from_query(db_name="db", query=test_query)
 
     assert cll == [
@@ -167,3 +183,42 @@ def test_cll():
             logic=None,
         ),
     ]
+
+
+def test_collapse_temp_lineage():
+    lineage_extractor = get_lineage_extractor()
+
+    lineage_extractor.get_temp_tables = lambda connection: [  # type: ignore
+        TempTableRow(
+            transaction_id=126,
+            query_text="CREATE TABLE #player_price distkey(player_id) AS SELECT player_id, SUM(price) AS price_usd "
+            "from player_activity group by player_id",
+            start_time=datetime.now(),
+            session_id="abc",
+            create_command="CREATE TABLE #player_price",
+        ),
+    ]
+
+    datasets: List[LineageDataset] = lineage_extractor._get_upstream_lineages(
+        sources=[
+            LineageDataset(
+                platform=LineageDatasetPlatform.REDSHIFT,
+                urn="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_price,PROD)",
+            )
+        ],
+        target_table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.player_price_with_hike_v4,PROD)",
+        raw_db_name="dev",
+        alias_db_name="dev",
+        all_tables_set={
+            "dev": {
+                "public": set(),
+            }
+        },
+        connection=MagicMock(),
+    )
+
+    assert len(datasets) == 1
+    assert (
+        datasets[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.player_activity,PROD)"
+    )
