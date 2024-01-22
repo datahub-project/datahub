@@ -17,6 +17,8 @@ import com.datahub.authorization.AuthorizerChain;
 import io.datahubproject.openapi.exception.UnauthorizedException;
 import io.datahubproject.openapi.generated.BrowsePathsV2AspectRequestV2;
 import io.datahubproject.openapi.generated.BrowsePathsV2AspectResponseV2;
+import io.datahubproject.openapi.generated.BusinessAttributeInfoAspectRequestV2;
+import io.datahubproject.openapi.generated.BusinessAttributeInfoAspectResponseV2;
 import io.datahubproject.openapi.generated.ChartInfoAspectRequestV2;
 import io.datahubproject.openapi.generated.ChartInfoAspectResponseV2;
 import io.datahubproject.openapi.generated.DataProductPropertiesAspectRequestV2;
@@ -601,5 +603,35 @@ public class EntityApiDelegateImpl<I, O, S> {
                 .findFirst()
                 .map(StackWalker.StackFrame::getMethodName)).get();
         return deleteAspect(urn, methodNameToAspectName(methodName));
+    }
+
+    public ResponseEntity<BusinessAttributeInfoAspectResponseV2> createBusinessAttributeInfo(BusinessAttributeInfoAspectRequestV2 body, String urn) {
+        String methodName = walker.walk(frames -> frames
+                .findFirst()
+                .map(StackWalker.StackFrame::getMethodName)).get();
+        return createAspect(urn, methodNameToAspectName(methodName), body, BusinessAttributeInfoAspectRequestV2.class,
+                BusinessAttributeInfoAspectResponseV2.class);
+    }
+
+    public ResponseEntity<Void> deleteBusinessAttributeInfo(String urn) {
+        String methodName = walker.walk(frames -> frames
+                .findFirst()
+                .map(StackWalker.StackFrame::getMethodName)).get();
+        return deleteAspect(urn, methodNameToAspectName(methodName));
+    }
+
+    public ResponseEntity<BusinessAttributeInfoAspectResponseV2> getBusinessAttributeInfo(String urn, Boolean systemMetadata) {
+        String methodName = walker.walk(frames -> frames
+                .findFirst()
+                .map(StackWalker.StackFrame::getMethodName)).get();
+        return getAspect(urn, systemMetadata, methodNameToAspectName(methodName), _respClazz,
+                BusinessAttributeInfoAspectResponseV2.class);
+    }
+
+    public ResponseEntity<Void> headBusinessAttributeInfo(String urn) {
+        String methodName = walker.walk(frames -> frames
+                .findFirst()
+                .map(StackWalker.StackFrame::getMethodName)).get();
+        return headAspect(urn, methodNameToAspectName(methodName));
     }
 }

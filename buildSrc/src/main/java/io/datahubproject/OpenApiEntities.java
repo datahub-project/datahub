@@ -58,6 +58,7 @@ public class OpenApiEntities {
                 .add("notebookInfo").add("editableNotebookProperties")
                 .add("dataProductProperties")
                 .add("institutionalMemory")
+                .add("businessAttributeInfo")
                 .build();
 
 
