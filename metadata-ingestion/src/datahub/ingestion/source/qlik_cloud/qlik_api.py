@@ -33,6 +33,9 @@ class QlikAPI:
             }
         )
         self.base_url = f"{self.config.tenant_hostname}/api/v1"
+        # Test connection by fetching list of api keys
+        logger.info("Trying to connect to {}".format(self.base_url))
+        self.session.get(f"{self.base_url}/api-keys").raise_for_status()
 
     def log_http_error(self, message: str) -> Any:
         logger.warning(message)

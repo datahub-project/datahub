@@ -24,7 +24,7 @@ class Constant:
     keys used in qlik plugin
     """
 
-    PLATFORM_NAME = "qlikcloud"
+    PLATFORM_NAME = "qlik-cloud"
     DATA = "data"
     ID = "id"
     NAME = "name"
@@ -78,7 +78,7 @@ class QlikSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
     )
     extract_personal_entity: Optional[bool] = pydantic.Field(
         default=False,
-        description="Whether personal space and apps and datasets should be ingested.",
+        description="Whether personal space, apps and datasets should be ingested.",
     )
     ingest_owner: Optional[bool] = pydantic.Field(
         default=True,

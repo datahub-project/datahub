@@ -1,5 +1,5 @@
 source:
-  type: qlikcloud
+  type: qlik-cloud
   config:
     # Coordinates
     tenant_hostname: "https://xyz12xz.us.qlikcloud.com"

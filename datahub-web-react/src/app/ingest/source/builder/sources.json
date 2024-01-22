@@ -238,10 +238,10 @@
         "recipe": "source:\n  type: <source-type>\n  config:\n    # Source-type specifics config\n    <source-configs>"
     },
     {
-        "urn": "urn:li:dataPlatform:qlikcloud",
-        "name": "qlikcloud",
-        "displayName": "QlikCloud",
+        "urn": "urn:li:dataPlatform:qlik-cloud",
+        "name": "qlik-cloud",
+        "displayName": "Qlik Cloud",
         "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/qlik-cloud/",
-        "recipe": "source:\n    type: qlikcloud\n    config:\n        # Coordinates\n        tenant_hostname: https://xyz12xz.us.qlikcloud.com\n        # Coordinates\n        api_key: QLIK_API_KEY\n\n        # Optional - filter for certain space names instead of ingesting everything.\n        # space_pattern:\n\n        #   allow:\n        #     - space_name\n        # Whether personal space and apps and datasets should be ingested.\n        extract_personal_entity: false\n        ingest_owner: true"
+        "recipe": "source:\n    type: qlik-cloud\n    config:\n        # Coordinates\n        tenant_hostname: https://xyz12xz.us.qlikcloud.com\n        # Coordinates\n        api_key: QLIK_API_KEY\n\n        # Optional - filter for certain space names instead of ingesting everything.\n        # space_pattern:\n\n        #   allow:\n        #     - space_name\n        # Whether personal space and apps and datasets should be ingested.\n        extract_personal_entity: false\n        ingest_owner: true"
     }
 ]

@@ -77,24 +77,18 @@ from datahub.metadata.schema_classes import (
 logger = logging.getLogger(__name__)
 
 
-@platform_name("QlikCloud")
+@platform_name("Qlik Cloud")
 @config_class(QlikSourceConfig)
 @support_status(SupportStatus.INCUBATING)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
-@capability(
-    SourceCapability.LINEAGE_COARSE,
-    "Enabled by default, configured using `extract_lineage`.",
-)
 class QlikCloudSource(StatefulIngestionSourceBase, TestableSource):
     """
-    This plugin extracts the following:
-    - Qlik Cloud Spaces, Apps, Datasets and Collections
-    - Names, descriptions and URLs of apps and datasets
+    This plugin extracts Qlik Cloud Spaces, Apps, and Datasets
     """
 
     config: QlikSourceConfig
     reporter: QlikSourceReport
-    platform: str = "qlikcloud"
+    platform: str = "qlik-cloud"
 
     def __init__(self, config: QlikSourceConfig, ctx: PipelineContext):
         super(QlikCloudSource, self).__init__(config, ctx)
@@ -112,7 +106,7 @@ class QlikCloudSource(StatefulIngestionSourceBase, TestableSource):
     def test_connection(config_dict: dict) -> TestConnectionReport:
         test_report = TestConnectionReport()
         try:
-
+            QlikAPI(QlikSourceConfig.parse_obj_allow_extras(config_dict))
             test_report.basic_connectivity = CapabilityReport(capable=True)
         except Exception as e:
             test_report.basic_connectivity = CapabilityReport(
