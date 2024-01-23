@@ -1,0 +1,31 @@
+namespace com.linkedin.common
+
+/**
+ * Summary statistics about incidents on an entity.
+ */
+record IncidentSummaryDetails {
+    /**
+     * The urn of the incident
+     */
+    urn: Urn
+
+    /**
+    * The type of an incident
+    */
+    type: string
+
+    /**
+     * The time at which the incident was raised in milliseconds since epoch.
+     */
+    createdAt: long
+
+    /**
+     * The time at which the incident was marked as resolved in milliseconds since epoch. Null if the incident is still active.
+     */
+    resolvedAt: optional long
+
+    /**
+     * The priority of the incident
+     */
+    priority: optional int
+}
