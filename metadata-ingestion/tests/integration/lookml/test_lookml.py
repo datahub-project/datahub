@@ -16,6 +16,7 @@ from datahub.ingestion.source.looker.lookml_source import (
     LookerModel,
     LookerRefinementResolver,
     LookMLSourceConfig,
+    load_lkml,
 )
 from datahub.metadata.schema_classes import (
     DatasetSnapshotClass,
@@ -852,3 +853,14 @@ def test_same_name_views_different_file_path(pytestconfig, tmp_path, mock_time):
         output_path=tmp_path / mce_out,
         golden_path=test_resources_dir / mce_out,
     )
+
+
+def test_manifest_parser(pytestconfig: pytest.Config) -> None:
+    # This mainly tests that we're permissive enough that we don't crash when parsing the manifest file.
+    # We need the test because we monkeypatch the lkml library.
+
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/lookml"
+    manifest_file = test_resources_dir / "lkml_manifest_samples/complex-manifest.lkml"
+
+    manifest = load_lkml(manifest_file)
+    assert manifest
