@@ -1139,7 +1139,7 @@ type QuickFilter {
 }
 
 """
-Freshness stats for a query result. 
+Freshness stats for a query result.
 Captures whether the query was served out of a cache, what the staleness was, etc.
 """
 type FreshnessStats {
@@ -1154,7 +1154,7 @@ type FreshnessStats {
   In case an index was consulted, this reflects the freshness of the index
   """
   systemFreshness: [SystemFreshness]
-  
+
 }
 
 type SystemFreshness {

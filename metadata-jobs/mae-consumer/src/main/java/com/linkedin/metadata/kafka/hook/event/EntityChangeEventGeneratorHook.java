@@ -6,8 +6,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.SetMode;
-import com.linkedin.entity.client.SystemRestliEntityClient;
-import com.linkedin.gms.factory.entity.RestliEntityClientFactory;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
@@ -43,7 +42,7 @@ import org.springframework.stereotype.Component;
  */
 @Slf4j
 @Component
-@Import({EntityRegistryFactory.class, RestliEntityClientFactory.class})
+@Import({EntityRegistryFactory.class})
 public class EntityChangeEventGeneratorHook implements MetadataChangeLogHook {
 
   /** The list of aspects that are supported for generating semantic change events. */
@@ -78,7 +77,7 @@ public class EntityChangeEventGeneratorHook implements MetadataChangeLogHook {
       ImmutableSet.of("CREATE", "UPSERT", "DELETE");
 
   private final EntityChangeEventGeneratorRegistry _entityChangeEventGeneratorRegistry;
-  private final SystemRestliEntityClient _entityClient;
+  private final SystemEntityClient _entityClient;
   private final EntityRegistry _entityRegistry;
   private final Boolean _isEnabled;
 
@@ -86,7 +85,7 @@ public class EntityChangeEventGeneratorHook implements MetadataChangeLogHook {
   public EntityChangeEventGeneratorHook(
       @Nonnull @Qualifier("entityChangeEventGeneratorRegistry")
           final EntityChangeEventGeneratorRegistry entityChangeEventGeneratorRegistry,
-      @Nonnull final SystemRestliEntityClient entityClient,
+      @Nonnull final SystemEntityClient entityClient,
       @Nonnull final EntityRegistry entityRegistry,
       @Nonnull @Value("${entityChangeEvents.enabled:true}") Boolean isEnabled) {
     _entityChangeEventGeneratorRegistry =

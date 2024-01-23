@@ -1,8 +1,8 @@
 package com.linkedin.metadata.aspect.batch;
 
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.aspect.patch.template.AspectTemplateEngine;
 import com.linkedin.metadata.models.AspectSpec;
-import com.linkedin.metadata.models.registry.template.AspectTemplateEngine;
 import com.linkedin.mxe.MetadataChangeProposal;
 import javax.annotation.Nullable;
 

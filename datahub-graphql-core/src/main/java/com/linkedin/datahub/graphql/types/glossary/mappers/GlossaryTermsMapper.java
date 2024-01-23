@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.types.glossary.mappers;
 
 import com.linkedin.common.GlossaryTermAssociation;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.datahub.graphql.generated.CorpUser;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.GlossaryTerm;
 import com.linkedin.datahub.graphql.generated.GlossaryTerms;
@@ -46,7 +47,15 @@ public class GlossaryTermsMapper {
     resultGlossaryTerm.setName(
         GlossaryTermUtils.getGlossaryTermName(input.getUrn().getNameEntity()));
     result.setTerm(resultGlossaryTerm);
-    result.setAssociatedUrn(entityUrn.toString());
+    if (input.hasActor()) {
+      CorpUser actor = new CorpUser();
+      actor.setUrn(input.getActor().toString());
+      actor.setType(EntityType.CORP_USER);
+      result.setActor(actor);
+    }
+    if (entityUrn != null) {
+      result.setAssociatedUrn(entityUrn.toString());
+    }
     return result;
   }
 }

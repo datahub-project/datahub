@@ -1,0 +1,21 @@
+namespace com.linkedin.form
+
+import com.linkedin.common.Urn
+
+record FormActorAssignment {
+  /**
+   * Whether the form should be assigned to the owners of assets that it is applied to.
+   * This is the default.
+   */
+  owners: boolean = true
+
+  /**
+   * Optional: Specific set of groups that are targeted by this form assignment.
+   */
+  groups: optional array[Urn]
+
+  /**
+   * Optional: Specific set of users that are targeted by this form assignment.
+   */
+  users: optional array[Urn]
+}
