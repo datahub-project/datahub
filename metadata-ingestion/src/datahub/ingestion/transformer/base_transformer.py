@@ -138,6 +138,8 @@ class BaseTransformer(Transformer, metaclass=ABCMeta):
             aspect_type = ASPECT_MAP[self.aspect_name()]
 
             # If we find a type corresponding to the aspect name we look for it in the mce
+            # It's possible that the aspect is supported by the entity but not in the MCE
+            # snapshot union. In those cases, we just want to record the urn as seen.
             supports_aspect = builder.can_add_aspect(mce, aspect_type)
             if supports_aspect:
                 old_aspect = builder.get_aspect_if_available(
