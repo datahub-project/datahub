@@ -19,9 +19,9 @@ dependencies {
   dataModel project(':li-utils')
 
   // Newer Spring libraries require JDK17 classes, allow for JDK11
-  api externalDependency.springBootAutoconfigureJdk11
-  api externalDependency.annotationApi
-  api externalDependency.javaxValidation
+  compileOnly externalDependency.springBootAutoconfigureJdk11
+  compileOnly externalDependency.annotationApi
+  compileOnly externalDependency.javaxValidation
 
   compileOnly externalDependency.lombok
   annotationProcessor externalDependency.lombok
