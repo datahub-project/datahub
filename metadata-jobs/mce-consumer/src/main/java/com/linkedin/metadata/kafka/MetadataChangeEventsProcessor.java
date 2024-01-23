@@ -5,8 +5,8 @@ import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.Timer;
 import com.datahub.authentication.Authentication;
 import com.linkedin.entity.Entity;
-import com.linkedin.entity.client.SystemRestliEntityClient;
-import com.linkedin.gms.factory.entity.RestliEntityClientFactory;
+import com.linkedin.entity.client.SystemEntityClient;
+import com.linkedin.gms.factory.entityclient.RestliEntityClientFactory;
 import com.linkedin.gms.factory.kafka.DataHubKafkaProducerFactory;
 import com.linkedin.gms.factory.kafka.KafkaEventConsumerFactory;
 import com.linkedin.metadata.EventUtils;
@@ -48,7 +48,7 @@ import org.springframework.stereotype.Component;
 public class MetadataChangeEventsProcessor {
 
   @NonNull private final Authentication systemAuthentication;
-  private final SystemRestliEntityClient entityClient;
+  private final SystemEntityClient entityClient;
   private final Producer<String, IndexedRecord> kafkaProducer;
 
   private final Histogram kafkaLagStats =

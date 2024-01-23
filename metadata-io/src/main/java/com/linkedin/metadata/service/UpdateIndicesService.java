@@ -10,15 +10,16 @@ import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.InputField;
 import com.linkedin.common.InputFields;
 import com.linkedin.common.Status;
+import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.dataset.FineGrainedLineage;
 import com.linkedin.dataset.UpstreamLineage;
-import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.batch.MCLBatchItem;
+import com.linkedin.metadata.aspect.plugins.validation.AspectRetriever;
 import com.linkedin.metadata.entity.ebean.batch.MCLBatchItemImpl;
 import com.linkedin.metadata.graph.Edge;
 import com.linkedin.metadata.graph.GraphIndexUtils;
@@ -43,6 +44,7 @@ import com.linkedin.metadata.timeseries.transformer.TimeseriesAspectTransformer;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
+import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.util.Pair;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
@@ -70,17 +72,23 @@ public class UpdateIndicesService {
   private final EntitySearchService _entitySearchService;
   private final TimeseriesAspectService _timeseriesAspectService;
   private final SystemMetadataService _systemMetadataService;
-  private final EntityRegistry _entityRegistry;
   private final SearchDocumentTransformer _searchDocumentTransformer;
   private final EntityIndexBuilders _entityIndexBuilders;
 
-  private SystemEntityClient systemEntityClient;
+  private AspectRetriever aspectRetriever;
+  private EntityRegistry _entityRegistry;
 
   @Value("${featureFlags.graphServiceDiffModeEnabled:true}")
   private boolean _graphDiffMode;
 
   @Value("${featureFlags.searchServiceDiffModeEnabled:true}")
   private boolean _searchDiffMode;
+
+  @Value("${structuredProperties.enabled}")
+  private boolean _structuredPropertiesHookEnabled;
+
+  @Value("${structuredProperties.writeEnabled}")
+  private boolean _structuredPropertiesWriteEnabled;
 
   private static final Set<ChangeType> UPDATE_CHANGE_TYPES =
       ImmutableSet.of(ChangeType.UPSERT, ChangeType.RESTATE, ChangeType.PATCH);
@@ -100,31 +108,26 @@ public class UpdateIndicesService {
       EntitySearchService entitySearchService,
       TimeseriesAspectService timeseriesAspectService,
       SystemMetadataService systemMetadataService,
-      EntityRegistry entityRegistry,
       SearchDocumentTransformer searchDocumentTransformer,
       EntityIndexBuilders entityIndexBuilders) {
     _graphService = graphService;
     _entitySearchService = entitySearchService;
     _timeseriesAspectService = timeseriesAspectService;
     _systemMetadataService = systemMetadataService;
-    _entityRegistry = entityRegistry;
     _searchDocumentTransformer = searchDocumentTransformer;
     _entityIndexBuilders = entityIndexBuilders;
   }
 
   public void handleChangeEvent(@Nonnull final MetadataChangeLog event) {
     try {
-      MCLBatchItemImpl batch =
-          MCLBatchItemImpl.builder().build(event, _entityRegistry, systemEntityClient);
+      MCLBatchItemImpl batch = MCLBatchItemImpl.builder().build(event, aspectRetriever);
 
       Stream<MCLBatchItem> sideEffects =
           _entityRegistry
               .getMCLSideEffects(
                   event.getChangeType(), event.getEntityType(), event.getAspectName())
               .stream()
-              .flatMap(
-                  mclSideEffect ->
-                      mclSideEffect.apply(List.of(batch), _entityRegistry, systemEntityClient));
+              .flatMap(mclSideEffect -> mclSideEffect.apply(List.of(batch), aspectRetriever));
 
       for (MCLBatchItem mclBatchItem : Stream.concat(Stream.of(batch), sideEffects).toList()) {
         MetadataChangeLog hookEvent = mclBatchItem.getMetadataChangeLog();
@@ -173,11 +176,14 @@ public class UpdateIndicesService {
       updateSystemMetadata(event.getSystemMetadata(), urn, aspectSpec, aspect);
     }
 
-    // Step 1. For all aspects, attempt to update Search
+    // Step 1. Handle StructuredProperties Index Mapping changes
+    updateIndexMappings(entitySpec, aspectSpec, aspect, previousAspect);
+
+    // Step 2. For all aspects, attempt to update Search
     updateSearchService(
         entitySpec.getName(), urn, aspectSpec, aspect, event.getSystemMetadata(), previousAspect);
 
-    // Step 2. For all aspects, attempt to update Graph
+    // Step 3. For all aspects, attempt to update Graph
     SystemMetadata systemMetadata = event.getSystemMetadata();
     if (_graphDiffMode
         && !(_graphService instanceof DgraphGraphService)
@@ -187,6 +193,46 @@ public class UpdateIndicesService {
       updateGraphServiceDiff(urn, aspectSpec, previousAspect, aspect, event.getMetadataChangeLog());
     } else {
       updateGraphService(urn, aspectSpec, aspect, event.getMetadataChangeLog());
+    }
+  }
+
+  public void updateIndexMappings(
+      EntitySpec entitySpec,
+      AspectSpec aspectSpec,
+      RecordTemplate newValue,
+      RecordTemplate oldValue)
+      throws IOException {
+    if (_structuredPropertiesHookEnabled
+        && STRUCTURED_PROPERTY_ENTITY_NAME.equals(entitySpec.getName())
+        && STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME.equals(aspectSpec.getName())) {
+
+      UrnArray oldEntityTypes =
+          Optional.ofNullable(oldValue)
+              .map(
+                  recordTemplate ->
+                      new StructuredPropertyDefinition(recordTemplate.data()).getEntityTypes())
+              .orElse(new UrnArray());
+
+      StructuredPropertyDefinition newDefinition =
+          new StructuredPropertyDefinition(newValue.data());
+      newDefinition.getEntityTypes().removeAll(oldEntityTypes);
+
+      if (newDefinition.getEntityTypes().size() > 0) {
+        _entityIndexBuilders
+            .buildReindexConfigsWithNewStructProp(newDefinition)
+            .forEach(
+                reindexState -> {
+                  try {
+                    log.info(
+                        "Applying new structured property {} to index {}",
+                        newDefinition,
+                        reindexState.name());
+                    _entityIndexBuilders.getIndexBuilder().applyMappings(reindexState, false);
+                  } catch (IOException e) {
+                    throw new RuntimeException(e);
+                  }
+                });
+      }
     }
   }
 
@@ -617,13 +663,13 @@ public class UpdateIndicesService {
   }
 
   /**
-   * Allow internal use of the system entity client. Solves recursive dependencies between the
-   * UpdateIndicesService and the SystemJavaEntityClient
+   * Solves recursive dependencies between the UpdateIndicesService and EntityService
    *
-   * @param systemEntityClient system entity client
+   * @param aspectRetriever aspect Retriever
    */
-  public void setSystemEntityClient(SystemEntityClient systemEntityClient) {
-    this.systemEntityClient = systemEntityClient;
-    _searchDocumentTransformer.setEntityClient(systemEntityClient);
+  public void initializeAspectRetriever(AspectRetriever aspectRetriever) {
+    this.aspectRetriever = aspectRetriever;
+    this._entityRegistry = aspectRetriever.getEntityRegistry();
+    this._searchDocumentTransformer.setAspectRetriever(aspectRetriever);
   }
 }

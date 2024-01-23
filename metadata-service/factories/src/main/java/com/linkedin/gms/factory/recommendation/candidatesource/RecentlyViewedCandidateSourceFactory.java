@@ -31,7 +31,7 @@ public class RecentlyViewedCandidateSourceFactory {
 
   @Autowired
   @Qualifier("entityService")
-  private EntityService entityService;
+  private EntityService<?> entityService;
 
   @Bean(name = "recentlyViewedCandidateSource")
   @Nonnull

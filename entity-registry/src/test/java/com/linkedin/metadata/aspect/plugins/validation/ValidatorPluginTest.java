@@ -33,7 +33,7 @@ public class ValidatorPluginTest {
             TestEntityProfile.class.getClassLoader().getResourceAsStream(REGISTRY_FILE));
 
     List<AspectPayloadValidator> validators =
-        configEntityRegistry.getAspectPayloadValidators(ChangeType.UPSERT, "*", "status");
+        configEntityRegistry.getAspectPayloadValidators(ChangeType.UPSERT, "chart", "status");
     assertEquals(
         validators,
         List.of(

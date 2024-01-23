@@ -71,6 +71,7 @@ class GlossaryNodeConfig(ConfigModel):
     terms: Optional[List["GlossaryTermConfig"]]
     nodes: Optional[List["GlossaryNodeConfig"]]
     knowledge_links: Optional[List[KnowledgeCard]]
+    custom_properties: Optional[Dict[str, str]]
 
     # Private fields.
     _urn: str
@@ -252,6 +253,7 @@ def get_mces_from_node(
         definition=glossaryNode.description,
         parentNode=parentNode,
         name=glossaryNode.name,
+        customProperties=glossaryNode.custom_properties,
     )
     node_owners = parentOwners
     if glossaryNode.owners is not None:
