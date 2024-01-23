@@ -235,7 +235,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 run_id=self.ctx.run_id,
             )
 
-        # For database, schema, tables, views, snapshots,  etc
+        # For database, schema, tables, views, snapshots etc
         self.lineage_extractor = BigqueryLineageExtractor(
             config,
             self.report,
@@ -287,8 +287,8 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         self.snapshot_refs_by_project: Dict[str, Set[str]] = defaultdict(set)
         # Maps view ref -> actual sql
         self.view_definitions: FileBackedDict[str] = FileBackedDict()
-        # Maps snapshot ref -> actual sql
-        self.snapshot_definitions: FileBackedDict[str] = FileBackedDict()
+        # Maps snapshot ref -> Snapshot
+        self.snapshots_by_ref: FileBackedDict[BigqueryTableSnapshot] = FileBackedDict()
 
         self.add_config_to_report()
         atexit.register(cleanup, config)
@@ -456,9 +456,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
     def _init_schema_resolver(self) -> SchemaResolver:
         schema_resolution_required = (
-            self.config.lineage_parse_view_ddl
-            or self.config.lineage_parse_snapshot_ddl
-            or self.config.lineage_use_sql_parser
+            self.config.lineage_parse_view_ddl or self.config.lineage_use_sql_parser
         )
         schema_ingestion_enabled = (
             self.config.include_schema_metadata
@@ -580,7 +578,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 self.view_refs_by_project,
                 self.view_definitions,
                 self.snapshot_refs_by_project,
-                self.snapshot_definitions,
+                self.snapshots_by_ref,
                 self.table_refs,
             )
 
@@ -910,20 +908,21 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             self.report.report_dropped(table_identifier.raw_table_name())
             return
 
-        if self.store_table_refs:
-            table_ref = str(
-                BigQueryTableRef(table_identifier).get_sanitized_table_ref()
-            )
-            self.table_refs.add(table_ref)
-            if self.config.lineage_parse_snapshot_ddl and snapshot.snapshot_definition:
-                self.snapshot_refs_by_project[project_id].add(table_ref)
-                self.snapshot_definitions[table_ref] = snapshot.snapshot_definition
-
+        snapshot.columns = columns
         snapshot.column_count = len(columns)
         if not snapshot.column_count:
             logger.warning(
                 f"Snapshot doesn't have any column or unable to get columns for table: {table_identifier}"
             )
+
+        if self.store_table_refs:
+            table_ref = str(
+                BigQueryTableRef(table_identifier).get_sanitized_table_ref()
+            )
+            self.table_refs.add(table_ref)
+            if snapshot.base_table_identifier:
+                self.snapshot_refs_by_project[project_id].add(table_ref)
+                self.snapshots_by_ref[table_ref] = snapshot
 
         yield from self.gen_snapshot_dataset_workunits(
             table=snapshot,
@@ -1024,8 +1023,8 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         dataset_name: str,
     ) -> Iterable[MetadataWorkUnit]:
         custom_properties: Dict[str, str] = {}
-        if table.snapshot_definition:
-            custom_properties["snapshot_definition"] = table.snapshot_definition
+        if table.ddl:
+            custom_properties["snapshot_ddl"] = table.ddl
         if table.snapshot_time:
             custom_properties["snapshot_time"] = str(table.snapshot_time)
         if table.size_in_bytes:
@@ -1228,11 +1227,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             fields=self.gen_schema_fields(columns),
         )
 
-        if (
-            self.config.lineage_parse_view_ddl
-            or self.config.lineage_parse_snapshot_ddl
-            or self.config.lineage_use_sql_parser
-        ):
+        if self.config.lineage_parse_view_ddl or self.config.lineage_use_sql_parser:
             self.sql_parser_schema_resolver.add_schema_metadata(
                 dataset_urn, schema_metadata
             )

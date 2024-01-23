@@ -42,16 +42,6 @@ class BigQueryProcessingPerfReport(Report):
 
 
 @dataclass
-class BigQueryDatasetDefinitionParsingReport(Report):
-    num_dataset_definitions_parsed: int = 0
-    num_dataset_definitions_failed_parsing: int = 0
-    num_dataset_definitions_failed_column_parsing: int = 0
-    dataset_definitions_parsing_failures: LossyList[str] = field(
-        default_factory=LossyList
-    )
-
-
-@dataclass
 class BigQueryV2Report(ProfilingSqlReport, IngestionStageReport, BaseTimeWindowReport):
     num_total_lineage_entries: TopKDict[str, int] = field(default_factory=TopKDict)
     num_skipped_lineage_entries_missing_data: TopKDict[str, int] = field(
@@ -132,12 +122,10 @@ class BigQueryV2Report(ProfilingSqlReport, IngestionStageReport, BaseTimeWindowR
 
     snapshots_scanned: int = 0
 
-    view_definition_parsing_report: BigQueryDatasetDefinitionParsingReport = field(
-        default_factory=BigQueryDatasetDefinitionParsingReport
-    )
-    snapshot_definition_parsing_report: BigQueryDatasetDefinitionParsingReport = field(
-        default_factory=BigQueryDatasetDefinitionParsingReport
-    )
+    num_view_definitions_parsed: int = 0
+    num_view_definitions_failed_parsing: int = 0
+    num_view_definitions_failed_column_parsing: int = 0
+    view_definitions_parsing_failures: LossyList[str] = field(default_factory=LossyList)
 
     read_reasons_stat: Counter[str] = field(default_factory=collections.Counter)
     operation_types_stat: Counter[str] = field(default_factory=collections.Counter)

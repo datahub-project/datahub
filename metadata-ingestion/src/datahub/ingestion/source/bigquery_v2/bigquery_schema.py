@@ -107,16 +107,10 @@ class BigqueryView(BaseView):
 
 
 @dataclass
-class BigqueryTableSnapshot:
-    name: str
-    comment: Optional[str]
-    created: Optional[datetime]
-    last_altered: Optional[datetime]
-    snapshot_definition: Optional[str]
-    snapshot_time: Optional[datetime]
-    size_in_bytes: Optional[int] = None
-    rows_count: Optional[int] = None
-    column_count: Optional[int] = None
+class BigqueryTableSnapshot(BaseTable):
+    # Upstream table identifier
+    base_table_identifier: Optional[BigqueryTableIdentifier] = None
+    snapshot_time: Optional[datetime] = None
     columns: List[BigqueryColumn] = field(default_factory=list)
 
 
@@ -495,8 +489,13 @@ class BigQuerySchemaApi:
             if snapshot.get("last_altered") is not None
             else snapshot.created,
             comment=snapshot.comment,
-            snapshot_definition=snapshot.snapshot_definition,
+            ddl=snapshot.ddl,
             snapshot_time=snapshot.snapshot_time,
             size_in_bytes=snapshot.get("size_bytes"),
             rows_count=snapshot.get("row_count"),
+            base_table_identifier=BigqueryTableIdentifier(
+                project_id=snapshot.base_table_catalog,
+                dataset=snapshot.base_table_schema,
+                table=snapshot.base_table_name,
+            ),
         )

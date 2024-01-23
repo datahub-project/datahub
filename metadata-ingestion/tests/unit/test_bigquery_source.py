@@ -817,15 +817,22 @@ def test_gen_view_dataset_workunits(
 
 
 @pytest.fixture
-def bigquery_snapshot_1() -> BigqueryTableSnapshot:
+def bigquery_snapshot() -> BigqueryTableSnapshot:
     now = datetime.now(tz=timezone.utc)
     return BigqueryTableSnapshot(
-        name="table_snapshot_1",
+        name="table-snapshot",
         created=now - timedelta(days=10),
         last_altered=now - timedelta(hours=1),
         comment="comment1",
-        snapshot_definition="CREATE SNAPSHOT TABLE 1",
+        ddl="CREATE SNAPSHOT TABLE 1",
+        size_in_bytes=None,
+        rows_count=None,
         snapshot_time=now - timedelta(days=10),
+        base_table_identifier=BigqueryTableIdentifier(
+            project_id="test-project",
+            dataset="test-dataset",
+            table="test-table",
+        ),
     )
 
 
@@ -834,20 +841,24 @@ def bigquery_snapshot_1() -> BigqueryTableSnapshot:
 def test_get_snapshots_for_dataset(
     get_bq_client_mock: Mock,
     query_mock: Mock,
-    bigquery_snapshot_1: BigqueryTableSnapshot,
+    bigquery_snapshot: BigqueryTableSnapshot,
 ) -> None:
     client_mock = MagicMock()
     get_bq_client_mock.return_value = client_mock
-    assert bigquery_snapshot_1.last_altered
+    assert bigquery_snapshot.last_altered
+    assert bigquery_snapshot.base_table_identifier
     row1 = create_row(
         dict(
-            table_name=bigquery_snapshot_1.name,
-            created=bigquery_snapshot_1.created,
-            last_altered=bigquery_snapshot_1.last_altered.timestamp() * 1000,
-            comment=bigquery_snapshot_1.comment,
-            snapshot_definition=bigquery_snapshot_1.snapshot_definition,
-            snapshot_time=bigquery_snapshot_1.snapshot_time,
+            table_name=bigquery_snapshot.name,
+            created=bigquery_snapshot.created,
+            last_altered=bigquery_snapshot.last_altered.timestamp() * 1000,
+            comment=bigquery_snapshot.comment,
+            ddl=bigquery_snapshot.ddl,
+            snapshot_time=bigquery_snapshot.snapshot_time,
             table_type="SNAPSHOT",
+            base_table_catalog=bigquery_snapshot.base_table_identifier.project_id,
+            base_table_schema=bigquery_snapshot.base_table_identifier.dataset,
+            base_table_name=bigquery_snapshot.base_table_identifier.table,
         )
     )
     query_mock.return_value = [row1]
@@ -861,11 +872,11 @@ def test_get_snapshots_for_dataset(
         has_data_read=False,
         report=BigQueryV2Report(),
     )
-    assert list(snapshots) == [bigquery_snapshot_1]
+    assert list(snapshots) == [bigquery_snapshot]
 
 
 @patch.object(BigQueryV2Config, "get_bigquery_client")
-def test_gen_snapshot_dataset_workunits(get_bq_client_mock, bigquery_snapshot_1):
+def test_gen_snapshot_dataset_workunits(get_bq_client_mock, bigquery_snapshot):
     project_id = "test-project"
     dataset_name = "test-dataset"
     config = BigQueryV2Config.parse_obj(
@@ -878,16 +889,13 @@ def test_gen_snapshot_dataset_workunits(get_bq_client_mock, bigquery_snapshot_1)
     )
 
     gen = source.gen_snapshot_dataset_workunits(
-        bigquery_snapshot_1, [], project_id, dataset_name
+        bigquery_snapshot, [], project_id, dataset_name
     )
     mcp = cast(MetadataChangeProposalWrapper, list(gen)[2].metadata)
     dataset_properties = cast(DatasetPropertiesClass, mcp.aspect)
-    assert (
-        dataset_properties.customProperties["snapshot_definition"]
-        == bigquery_snapshot_1.snapshot_definition
-    )
+    assert dataset_properties.customProperties["snapshot_ddl"] == bigquery_snapshot.ddl
     assert dataset_properties.customProperties["snapshot_time"] == str(
-        bigquery_snapshot_1.snapshot_time
+        bigquery_snapshot.snapshot_time
     )
 
 

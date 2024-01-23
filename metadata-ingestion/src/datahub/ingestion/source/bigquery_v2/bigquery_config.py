@@ -201,10 +201,6 @@ class BigQueryV2Config(
         default=True,
         description="Sql parse view ddl to get lineage.",
     )
-    lineage_parse_snapshot_ddl: bool = Field(
-        default=True,
-        description="Sql parse snapshot ddl to get lineage.",
-    )
 
     lineage_sql_parser_use_raw_names: bool = Field(
         default=False,

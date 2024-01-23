@@ -164,11 +164,14 @@ SELECT
   t.table_name as table_name,
   t.table_type as table_type,
   t.creation_time as created,
+  t.is_insertable_into,
+  t.ddl,
+  t.snapshot_time_ms as snapshot_time,
+  t.base_table_catalog,
+  t.base_table_schema,
+  t.base_table_name,
   ts.last_modified_time as last_altered,
   tos.OPTION_VALUE as comment,
-  t.is_insertable_into,
-  t.ddl as snapshot_definition,
-  t.snapshot_time_ms as snapshot_time,
   ts.row_count,
   ts.size_bytes
 FROM
@@ -191,10 +194,13 @@ SELECT
   t.table_name as table_name,
   t.table_type as table_type,
   t.creation_time as created,
-  tos.OPTION_VALUE as comment,
   t.is_insertable_into,
-  t.ddl as snapshot_definition,
+  t.ddl,
   t.snapshot_time_ms as snapshot_time,
+  t.base_table_catalog,
+  t.base_table_schema,
+  t.base_table_name,
+  tos.OPTION_VALUE as comment,
 FROM
   `{{project_id}}`.`{{dataset_name}}`.INFORMATION_SCHEMA.TABLES t
   left join `{{project_id}}`.`{{dataset_name}}`.INFORMATION_SCHEMA.TABLE_OPTIONS as tos on t.table_schema = tos.table_schema
