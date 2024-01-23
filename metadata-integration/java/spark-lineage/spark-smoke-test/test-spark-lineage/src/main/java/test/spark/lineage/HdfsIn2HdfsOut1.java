@@ -7,25 +7,27 @@ import org.apache.spark.sql.SparkSession;
 
 public class HdfsIn2HdfsOut1 {
 
-	private static final String TEST_NAME = "Java" + HdfsIn2HdfsOut1.class.getSimpleName();
-	private static final String DATA_DIR = "../resources/data";
+  private static final String TEST_NAME = "Java" + HdfsIn2HdfsOut1.class.getSimpleName();
+  private static final String DATA_DIR = "../resources/data";
 
-	public static void main(String[] args) {
+  public static void main(String[] args) {
 
-		System.out.println("Inside main");
-		SparkSession spark = SparkSession.builder().appName(TEST_NAME).enableHiveSupport().getOrCreate();
+    System.out.println("Inside main");
+    SparkSession spark =
+        SparkSession.builder().appName(TEST_NAME).enableHiveSupport().getOrCreate();
 
-		Dataset<Row> df1 = spark.read().option("header", "true").csv(DATA_DIR + "/in1.csv");
-		Dataset<Row> df2 = spark.read().option("header", "true").csv(DATA_DIR + "/in2.csv");
-		df1.createOrReplaceTempView("v1");
-		df2.createOrReplaceTempView("v2");
+    Dataset<Row> df1 = spark.read().option("header", "true").csv(DATA_DIR + "/in1.csv");
+    Dataset<Row> df2 = spark.read().option("header", "true").csv(DATA_DIR + "/in2.csv");
+    df1.createOrReplaceTempView("v1");
+    df2.createOrReplaceTempView("v2");
 
-		Dataset<Row> df = spark
-		    .sql("select v1.c1 as a, v1.c2 as b, v2.c1 as c, v2.c2 as d from v1 join v2 on v1.id = v2.id");
+    Dataset<Row> df =
+        spark.sql(
+            "select v1.c1 as a, v1.c2 as b, v2.c1 as c, v2.c2 as d from v1 join v2 on v1.id = v2.id");
 
-		// InsertIntoHadoopFsRelationCommand
-		df.write().mode(SaveMode.Overwrite).csv(DATA_DIR + "/" + TEST_NAME + "/out.csv");
+    // InsertIntoHadoopFsRelationCommand
+    df.write().mode(SaveMode.Overwrite).csv(DATA_DIR + "/" + TEST_NAME + "/out.csv");
 
-		spark.stop();
-	}
+    spark.stop();
+  }
 }

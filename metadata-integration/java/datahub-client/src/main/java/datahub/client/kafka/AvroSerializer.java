@@ -1,16 +1,13 @@
 package datahub.client.kafka;
 
+import com.google.common.annotations.VisibleForTesting;
+import com.linkedin.mxe.MetadataChangeProposal;
+import datahub.event.EventFormatter;
+import datahub.event.MetadataChangeProposalWrapper;
 import java.io.IOException;
-
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
-
-import com.google.common.annotations.VisibleForTesting;
-import com.linkedin.mxe.MetadataChangeProposal;
-
-import datahub.event.EventFormatter;
-import datahub.event.MetadataChangeProposalWrapper;
 
 class AvroSerializer {
 
@@ -20,8 +17,12 @@ class AvroSerializer {
   private final EventFormatter _eventFormatter;
 
   public AvroSerializer() throws IOException {
-    _recordSchema = new Schema.Parser()
-        .parse(this.getClass().getClassLoader().getResourceAsStream("MetadataChangeProposal.avsc"));
+    _recordSchema =
+        new Schema.Parser()
+            .parse(
+                this.getClass()
+                    .getClassLoader()
+                    .getResourceAsStream("MetadataChangeProposal.avsc"));
     _genericAspectSchema = this._recordSchema.getField("aspect").schema().getTypes().get(1);
     _changeTypeEnumSchema = this._recordSchema.getField("changeType").schema();
     _eventFormatter = new EventFormatter(EventFormatter.Format.PEGASUS_JSON);
@@ -32,7 +33,8 @@ class AvroSerializer {
     return _recordSchema;
   }
 
-  public GenericRecord serialize(@SuppressWarnings("rawtypes") MetadataChangeProposalWrapper mcpw) throws IOException {
+  public GenericRecord serialize(@SuppressWarnings("rawtypes") MetadataChangeProposalWrapper mcpw)
+      throws IOException {
     return serialize(_eventFormatter.convert(mcpw));
   }
 
@@ -45,7 +47,8 @@ class AvroSerializer {
     genericRecord.put("aspect", genericAspect);
     genericRecord.put("aspectName", mcp.getAspectName());
     genericRecord.put("entityType", mcp.getEntityType());
-    genericRecord.put("changeType", new GenericData.EnumSymbol(_changeTypeEnumSchema, mcp.getChangeType()));
+    genericRecord.put(
+        "changeType", new GenericData.EnumSymbol(_changeTypeEnumSchema, mcp.getChangeType()));
     return genericRecord;
   }
 }

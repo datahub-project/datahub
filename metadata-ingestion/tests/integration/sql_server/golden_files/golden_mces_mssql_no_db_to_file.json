@@ -112,11 +112,11 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "job_id": "1f2f14ba-db84-4fa1-910e-7df71bede642",
+                "job_id": "3565ea3e-9a3a-4cb0-acd5-213d740479a0",
                 "job_name": "Weekly Demo Data Backup",
                 "description": "No description available.",
-                "date_created": "2023-10-27 10:11:55.540000",
-                "date_modified": "2023-10-27 10:11:55.667000",
+                "date_created": "2023-11-27 23:08:29.350000",
+                "date_modified": "2023-11-27 23:08:29.833000",
                 "step_id": "1",
                 "step_name": "Set database to read only",
                 "subsystem": "TSQL",
@@ -1961,8 +1961,8 @@
                 "code": "CREATE PROCEDURE [Foo].[Proc.With.SpecialChar] @ID INT\nAS\n    SELECT @ID AS ThatDB;\n",
                 "input parameters": "['@ID']",
                 "parameter @ID": "{'type': 'int'}",
-                "date_created": "2023-10-27 10:11:55.460000",
-                "date_modified": "2023-10-27 10:11:55.460000"
+                "date_created": "2023-11-27 23:08:29.077000",
+                "date_modified": "2023-11-27 23:08:29.077000"
             },
             "externalUrl": "",
             "name": "demodata.Foo.Proc.With.SpecialChar",
@@ -3575,6 +3575,18 @@
                                 "nativeDataType": "NVARCHAR()",
                                 "recursive": false,
                                 "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Price",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "MONEY()",
+                                "recursive": false,
+                                "isPartOfKey": false
                             }
                         ]
                     }
@@ -3814,6 +3826,18 @@
                                     }
                                 },
                                 "nativeDataType": "NVARCHAR()",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Price",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "SMALLMONEY()",
                                 "recursive": false,
                                 "isPartOfKey": false
                             }

@@ -5,6 +5,8 @@ from tests.utils import (get_frontend_session, wait_for_writes_to_sync, wait_for
                         get_frontend_url, get_admin_credentials,get_sleep_info)
 from tests.privileges.utils import *
 
+pytestmark = pytest.mark.no_cypress_suite1
+
 sleep_sec, sleep_times = get_sleep_info()
 
 @pytest.fixture(scope="session")
@@ -61,7 +63,7 @@ def _ensure_cant_perform_action(session, json,assertion_key):
     action_response.raise_for_status()
     action_data = action_response.json()
 
-    assert action_data["errors"][0]["extensions"]["code"] == 403
+    assert action_data["errors"][0]["extensions"]["code"] == 403, action_data["errors"][0]
     assert action_data["errors"][0]["extensions"]["type"] == "UNAUTHORIZED"
     assert action_data["data"][assertion_key] == None
 
@@ -365,8 +367,9 @@ def test_privilege_to_create_and_manage_policies():
 
     # Verify new user can't create a policy
     create_policy = {
-        "query": """mutation createPolicy($input: PolicyUpdateInput!) {\n
-            createPolicy(input: $input) }""",
+        "query": """mutation createPolicy($input: PolicyUpdateInput!) {
+            createPolicy(input: $input) 
+        }""",
         "variables": {
             "input": {
                 "type": "PLATFORM",
@@ -448,3 +451,63 @@ def test_privilege_to_create_and_manage_policies():
 
     # Ensure that user can't create a policy after privilege is removed by admin
     _ensure_cant_perform_action(user_session, create_policy,"createPolicy")
+
+
+@pytest.mark.dependency(depends=["test_healthchecks"])
+def test_privilege_from_group_role_can_create_and_manage_secret():
+
+    (admin_user, admin_pass) = get_admin_credentials()
+    admin_session = login_as(admin_user, admin_pass)
+    user_session = login_as("user", "user")
+    secret_urn = "urn:li:dataHubSecret:TestSecretName"
+
+    # Verify new user can't create secrets
+    create_secret = {
+        "query": """mutation createSecret($input: CreateSecretInput!) {\n
+            createSecret(input: $input)\n}""",
+        "variables": {
+            "input":{
+                "name":"TestSecretName",
+                "value":"Test Secret Value",
+                "description":"Test Secret Description"
+            }
+        },
+    }
+    _ensure_cant_perform_action(user_session, create_secret,"createSecret")
+
+    # Create group and grant it the admin role.
+    group_urn = create_group(admin_session, "Test Group")
+
+    # Assign admin role to group
+    assign_role(admin_session,"urn:li:dataHubRole:Admin", [group_urn])
+
+    # Assign user to group
+    assign_user_to_group(admin_session, group_urn, ["urn:li:corpuser:user"])
+
+    # Verify new user with admin group can create and manage secrets
+    # Create a secret
+    _ensure_can_create_secret(user_session, create_secret, secret_urn)
+
+    # Remove a secret
+    remove_secret = {
+        "query": """mutation deleteSecret($urn: String!) {\n
+            deleteSecret(urn: $urn)\n}""",
+        "variables": {
+            "urn": secret_urn
+        },
+    }
+
+    remove_secret_response = user_session.post(f"{get_frontend_url()}/api/v2/graphql", json=remove_secret)
+    remove_secret_response.raise_for_status()
+    secret_data = remove_secret_response.json()
+
+    assert secret_data
+    assert secret_data["data"]
+    assert secret_data["data"]["deleteSecret"]
+    assert secret_data["data"]["deleteSecret"] == secret_urn
+
+    # Delete group which removes the user's admin capabilities
+    remove_group(admin_session, group_urn)
+
+    # Ensure user can't create secret after policy is removed
+    _ensure_cant_perform_action(user_session, create_secret,"createSecret")

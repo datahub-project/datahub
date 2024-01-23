@@ -1,6 +1,8 @@
 import collections
+import copy
 import json
 import re
+import textwrap
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Tuple, Union
 
@@ -115,11 +117,20 @@ def patch_schema(schema: dict, urn_arrays: Dict[str, List[Tuple[str, str]]]) -> 
         # Patch normal urn types.
         field: avro.schema.Field
         for field in nested.fields:
-            java_class: Optional[str] = field.props.get("java", {}).get("class")
+            field_props: dict = field.props  # type: ignore
+            java_props: dict = field_props.get("java", {})
+            java_class: Optional[str] = java_props.get("class")
             if java_class and java_class.startswith(
                 "com.linkedin.pegasus2avro.common.urn."
             ):
-                field.set_prop("Urn", java_class.split(".")[-1])
+                type = java_class.split(".")[-1]
+                entity_types = field_props.get("Relationship", {}).get(
+                    "entityTypes", []
+                )
+
+                field.set_prop("Urn", type)
+                if entity_types:
+                    field.set_prop("entityTypes", entity_types)
 
         # Patch array urn types.
         if nested.name in urn_arrays:
@@ -130,7 +141,7 @@ def patch_schema(schema: dict, urn_arrays: Dict[str, List[Tuple[str, str]]]) -> 
                 field.set_prop("Urn", type)
                 field.set_prop("urn_is_array", True)
 
-    return patched.to_json()
+    return patched.to_json()  # type: ignore
 
 
 def merge_schemas(schemas_obj: List[dict]) -> str:
@@ -141,6 +152,7 @@ def merge_schemas(schemas_obj: List[dict]) -> str:
     class NamesWithDups(avro.schema.Names):
         def add_name(self, name_attr, space_attr, new_schema):
             to_add = avro.schema.Name(name_attr, space_attr, self.default_namespace)
+            assert to_add.fullname
             self.names[to_add.fullname] = new_schema
             return to_add
 
@@ -228,7 +240,6 @@ def make_load_schema_methods(schemas: Iterable[str]) -> str:
 
 def save_raw_schemas(schema_save_dir: Path, schemas: Dict[str, dict]) -> None:
     # Save raw avsc files.
-    schema_save_dir.mkdir()
     for name, schema in schemas.items():
         (schema_save_dir / f"{name}.avsc").write_text(json.dumps(schema, indent=2))
 
@@ -241,34 +252,12 @@ def annotate_aspects(aspects: List[dict], schema_class_file: Path) -> None:
     schema_classes_lines = schema_class_file.read_text().splitlines()
     line_lookup_table = {line: i for i, line in enumerate(schema_classes_lines)}
 
-    # Create the Aspect class.
-    # We ensure that it cannot be instantiated directly, as
-    # per https://stackoverflow.com/a/7989101/5004662.
+    # Import the _Aspect class.
     schema_classes_lines[
         line_lookup_table["__SCHEMAS: Dict[str, RecordSchema] = {}"]
     ] += """
 
-class _Aspect(DictWrapper):
-    ASPECT_NAME: ClassVar[str] = None  # type: ignore
-    ASPECT_TYPE: ClassVar[str] = "default"
-    ASPECT_INFO: ClassVar[dict] = None  # type: ignore
-
-    def __init__(self):
-        if type(self) is _Aspect:
-            raise TypeError("_Aspect is an abstract class, and cannot be instantiated directly.")
-        super().__init__()
-
-    @classmethod
-    def get_aspect_name(cls) -> str:
-        return cls.ASPECT_NAME  # type: ignore
-
-    @classmethod
-    def get_aspect_type(cls) -> str:
-        return cls.ASPECT_TYPE
-
-    @classmethod
-    def get_aspect_info(cls) -> dict:
-        return cls.ASPECT_INFO
+from datahub._codegen.aspect import _Aspect
 """
 
     for aspect in aspects:
@@ -333,6 +322,342 @@ KEY_ASPECTS: Dict[str, Type[_Aspect]] = {{
     schema_class_file.write_text("\n".join(schema_classes_lines))
 
 
+def write_urn_classes(key_aspects: List[dict], urn_dir: Path) -> None:
+    urn_dir.mkdir()
+
+    (urn_dir / "__init__.py").write_text("\n# This file is intentionally left empty.")
+
+    code = """
+# This file contains classes corresponding to entity URNs.
+
+from typing import ClassVar, List, Optional, Type, TYPE_CHECKING
+
+import functools
+from deprecated.sphinx import deprecated as _sphinx_deprecated
+
+from datahub.utilities.urn_encoder import UrnEncoder
+from datahub.utilities.urns._urn_base import _SpecificUrn, Urn
+from datahub.utilities.urns.error import InvalidUrnError
+
+deprecated = functools.partial(_sphinx_deprecated, version="0.12.0.2")
+"""
+
+    for aspect in key_aspects:
+        entity_type = aspect["Aspect"]["keyForEntity"]
+        if aspect["Aspect"]["entityCategory"] == "internal":
+            continue
+
+        code += generate_urn_class(entity_type, aspect)
+
+    (urn_dir / "urn_defs.py").write_text(code)
+
+
+def capitalize_entity_name(entity_name: str) -> str:
+    # Examples:
+    # corpuser -> CorpUser
+    # corpGroup -> CorpGroup
+    # mlModelDeployment -> MlModelDeployment
+
+    if entity_name == "corpuser":
+        return "CorpUser"
+
+    return f"{entity_name[0].upper()}{entity_name[1:]}"
+
+
+def python_type(avro_type: str) -> str:
+    if avro_type == "string":
+        return "str"
+    elif (
+        isinstance(avro_type, dict)
+        and avro_type.get("type") == "enum"
+        and avro_type.get("name") == "FabricType"
+    ):
+        # TODO: make this stricter using an enum
+        return "str"
+    raise ValueError(f"unknown type {avro_type}")
+
+
+def field_type(field: dict) -> str:
+    return python_type(field["type"])
+
+
+def field_name(field: dict) -> str:
+    manual_mapping = {
+        "origin": "env",
+        "platformName": "platform_name",
+    }
+
+    name: str = field["name"]
+    if name in manual_mapping:
+        return manual_mapping[name]
+
+    # If the name is mixed case, convert to snake case.
+    if name.lower() != name:
+        # Inject an underscore before each capital letter, and then convert to lowercase.
+        return re.sub(r"(?<!^)(?=[A-Z])", "_", name).lower()
+
+    return name
+
+
+_create_from_id = """
+@classmethod
+@deprecated(reason="Use the constructor instead")
+def create_from_id(cls, id: str) -> "{class_name}":
+    return cls(id)
+"""
+_extra_urn_methods: Dict[str, List[str]] = {
+    "corpGroup": [_create_from_id.format(class_name="CorpGroupUrn")],
+    "corpuser": [_create_from_id.format(class_name="CorpUserUrn")],
+    "dataFlow": [
+        """
+@classmethod
+def create_from_ids(
+    cls,
+    orchestrator: str,
+    flow_id: str,
+    env: str,
+    platform_instance: Optional[str] = None,
+) -> "DataFlowUrn":
+    return cls(
+        orchestrator=orchestrator,
+        flow_id=f"{platform_instance}.{flow_id}" if platform_instance else flow_id,
+        cluster=env,
+    )
+
+@deprecated(reason="Use .orchestrator instead")
+def get_orchestrator_name(self) -> str:
+    return self.orchestrator
+
+@deprecated(reason="Use .flow_id instead")
+def get_flow_id(self) -> str:
+    return self.flow_id
+
+@deprecated(reason="Use .cluster instead")
+def get_env(self) -> str:
+    return self.cluster
+""",
+    ],
+    "dataJob": [
+        """
+@classmethod
+def create_from_ids(cls, data_flow_urn: str, job_id: str) -> "DataJobUrn":
+    return cls(data_flow_urn, job_id)
+
+def get_data_flow_urn(self) -> "DataFlowUrn":
+    return DataFlowUrn.from_string(self.flow)
+
+@deprecated(reason="Use .job_id instead")
+def get_job_id(self) -> str:
+    return self.job_id
+"""
+    ],
+    "dataPlatform": [_create_from_id.format(class_name="DataPlatformUrn")],
+    "dataProcessInstance": [
+        _create_from_id.format(class_name="DataProcessInstanceUrn"),
+        """
+@deprecated(reason="Use .id instead")
+def get_dataprocessinstance_id(self) -> str:
+    return self.id
+""",
+    ],
+    "dataset": [
+        """
+@classmethod
+def create_from_ids(
+    cls,
+    platform_id: str,
+    table_name: str,
+    env: str,
+    platform_instance: Optional[str] = None,
+) -> "DatasetUrn":
+    return DatasetUrn(
+        platform=platform_id,
+        name=f"{platform_instance}.{table_name}" if platform_instance else table_name,
+        env=env,
+    )
+
+from datahub.utilities.urns.field_paths import get_simple_field_path_from_v2_field_path as _get_simple_field_path_from_v2_field_path
+
+get_simple_field_path_from_v2_field_path = staticmethod(deprecated(reason='Use the function from the field_paths module instead')(_get_simple_field_path_from_v2_field_path))
+
+def get_data_platform_urn(self) -> "DataPlatformUrn":
+    return DataPlatformUrn.from_string(self.platform)
+
+@deprecated(reason="Use .name instead")
+def get_dataset_name(self) -> str:
+    return self.name
+
+@deprecated(reason="Use .env instead")
+def get_env(self) -> str:
+    return self.env
+"""
+    ],
+    "domain": [_create_from_id.format(class_name="DomainUrn")],
+    "notebook": [
+        """
+@deprecated(reason="Use .notebook_tool instead")
+def get_platform_id(self) -> str:
+    return self.notebook_tool
+
+@deprecated(reason="Use .notebook_id instead")
+def get_notebook_id(self) -> str:
+    return self.notebook_id
+"""
+    ],
+    "tag": [_create_from_id.format(class_name="TagUrn")],
+}
+
+
+def generate_urn_class(entity_type: str, key_aspect: dict) -> str:
+    """Generate a class definition for this entity.
+
+    The class definition has the following structure:
+    - A class attribute ENTITY_TYPE, which is the entity type string.
+    - A class attribute URN_PARTS, which is the number of parts in the URN.
+    - A constructor that takes the URN parts as arguments. The field names
+      will match the key aspect's field names. It will also have a _allow_coercion
+      flag, which will allow for some normalization (e.g. upper case env).
+      Then, each part will be validated (including nested calls for urn subparts).
+    - Utilities for converting to/from the key aspect.
+    - Any additional methods that are required for this entity type, defined above.
+      These are primarily for backwards compatibility.
+    - Getter methods for each field.
+    """
+
+    class_name = f"{capitalize_entity_name(entity_type)}Urn"
+
+    fields = copy.deepcopy(key_aspect["fields"])
+    if entity_type == "container":
+        # The annotations say guid is optional, but it is required.
+        # This is a quick fix of the annotations.
+        assert field_name(fields[0]) == "guid"
+        assert fields[0]["type"] == ["null", "string"]
+        fields[0]["type"] = "string"
+
+    _init_arg_parts: List[str] = []
+    for field in fields:
+        default = '"PROD"' if field_name(field) == "env" else None
+        _arg_part = f"{field_name(field)}: {field_type(field)}"
+        if default:
+            _arg_part += f" = {default}"
+        _init_arg_parts.append(_arg_part)
+    init_args = ", ".join(_init_arg_parts)
+
+    super_init_args = ", ".join(field_name(field) for field in fields)
+
+    arg_count = len(fields)
+    parse_ids_mapping = ", ".join(
+        f"{field_name(field)}=entity_ids[{i}]" for i, field in enumerate(fields)
+    )
+
+    key_aspect_class = f"{key_aspect['name']}Class"
+    to_key_aspect_args = ", ".join(
+        # The LHS bypasses any field name aliases.
+        f"{field['name']}=self.{field_name(field)}"
+        for field in fields
+    )
+    from_key_aspect_args = ", ".join(
+        f"{field_name(field)}=key_aspect.{field['name']}" for field in fields
+    )
+
+    init_coercion = ""
+    init_validation = ""
+    for field in fields:
+        init_validation += f'if not {field_name(field)}:\n    raise InvalidUrnError("{field_name(field)} cannot be empty")\n'
+
+        # Generalized mechanism for validating embedded urns.
+        field_urn_type_class = None
+        if field_name(field) == "platform":
+            field_urn_type_class = "DataPlatformUrn"
+        elif field.get("Urn"):
+            if len(field.get("entityTypes", [])) == 1:
+                field_entity_type = field["entityTypes"][0]
+                field_urn_type_class = f"{capitalize_entity_name(field_entity_type)}Urn"
+            else:
+                field_urn_type_class = "Urn"
+
+        if field_urn_type_class:
+            init_validation += f"{field_name(field)} = str({field_name(field)})\n"
+            init_validation += (
+                f"assert {field_urn_type_class}.from_string({field_name(field)})\n"
+            )
+        else:
+            init_validation += (
+                f"assert not UrnEncoder.contains_reserved_char({field_name(field)})\n"
+            )
+
+        if field_name(field) == "env":
+            init_coercion += "env = env.upper()\n"
+        # TODO add ALL_ENV_TYPES validation
+        elif entity_type == "dataPlatform" and field_name(field) == "platform_name":
+            init_coercion += 'if platform_name.startswith("urn:li:dataPlatform:"):\n'
+            init_coercion += "    platform_name = DataPlatformUrn.from_string(platform_name).platform_name\n"
+
+        if field_name(field) == "platform":
+            init_coercion += "platform = DataPlatformUrn(platform).urn()\n"
+        elif field_urn_type_class is None:
+            # For all non-urns, run the value through the UrnEncoder.
+            init_coercion += (
+                f"{field_name(field)} = UrnEncoder.encode_string({field_name(field)})\n"
+            )
+    if not init_coercion:
+        init_coercion = "pass"
+
+    # TODO include the docs for each field
+
+    code = f"""
+if TYPE_CHECKING:
+    from datahub.metadata.schema_classes import {key_aspect_class}
+
+class {class_name}(_SpecificUrn):
+    ENTITY_TYPE: ClassVar[str] = "{entity_type}"
+    URN_PARTS: ClassVar[int] = {arg_count}
+
+    def __init__(self, {init_args}, *, _allow_coercion: bool = True) -> None:
+        if _allow_coercion:
+            # Field coercion logic (if any is required).
+{textwrap.indent(init_coercion.strip(), prefix=" "*4*3)}
+
+        # Validation logic.
+{textwrap.indent(init_validation.strip(), prefix=" "*4*2)}
+
+        super().__init__(self.ENTITY_TYPE, [{super_init_args}])
+
+    @classmethod
+    def _parse_ids(cls, entity_ids: List[str]) -> "{class_name}":
+        if len(entity_ids) != cls.URN_PARTS:
+            raise InvalidUrnError(f"{class_name} should have {{cls.URN_PARTS}} parts, got {{len(entity_ids)}}: {{entity_ids}}")
+        return cls({parse_ids_mapping}, _allow_coercion=False)
+
+    @classmethod
+    def underlying_key_aspect_type(cls) -> Type["{key_aspect_class}"]:
+        from datahub.metadata.schema_classes import {key_aspect_class}
+
+        return {key_aspect_class}
+
+    def to_key_aspect(self) -> "{key_aspect_class}":
+        from datahub.metadata.schema_classes import {key_aspect_class}
+
+        return {key_aspect_class}({to_key_aspect_args})
+
+    @classmethod
+    def from_key_aspect(cls, key_aspect: "{key_aspect_class}") -> "{class_name}":
+        return cls({from_key_aspect_args})
+"""
+
+    for extra_method in _extra_urn_methods.get(entity_type, []):
+        code += textwrap.indent(extra_method, prefix=" " * 4)
+
+    for i, field in enumerate(fields):
+        code += f"""
+    @property
+    def {field_name(field)}(self) -> {field_type(field)}:
+        return self.entity_ids[{i}]
+"""
+
+    return code
+
+
 @click.command()
 @click.argument(
     "entity_registry", type=click.Path(exists=True, dir_okay=False), required=True
@@ -367,6 +692,7 @@ def generate(
         if schema.get("Aspect")
     }
 
+    # Copy entity registry info into the corresponding key aspect.
     for entity in entities:
         # This implicitly requires that all keyAspects are resolvable.
         aspect = aspects[entity.keyAspect]
@@ -428,6 +754,8 @@ def generate(
 import importlib
 from typing import TYPE_CHECKING
 
+from datahub._codegen.aspect import _Aspect
+from datahub.utilities.docs_build import IS_SPHINX_BUILD
 from datahub.utilities._custom_package_loader import get_custom_models_package
 
 _custom_package_path = get_custom_models_package()
@@ -436,17 +764,65 @@ if TYPE_CHECKING or not _custom_package_path:
     from ._schema_classes import *
 
     # Required explicitly because __all__ doesn't include _ prefixed names.
-    from ._schema_classes import _Aspect, __SCHEMA_TYPES
+    from ._schema_classes import __SCHEMA_TYPES
+
+    if IS_SPHINX_BUILD:
+        # Set __module__ to the current module so that Sphinx will document the
+        # classes as belonging to this module instead of the custom package.
+        for _cls in list(globals().values()):
+            if hasattr(_cls, "__module__") and "datahub.metadata._schema_classes" in _cls.__module__:
+                _cls.__module__ = __name__
 else:
     _custom_package = importlib.import_module(_custom_package_path)
     globals().update(_custom_package.__dict__)
-
 """
+        )
+
+        (Path(outdir) / "urns.py").write_text(
+            """
+# This is a specialized shim layer that allows us to dynamically load custom URN types from elsewhere.
+
+import importlib
+from typing import TYPE_CHECKING
+
+from datahub.utilities.docs_build import IS_SPHINX_BUILD
+from datahub.utilities._custom_package_loader import get_custom_urns_package
+from datahub.utilities.urns._urn_base import Urn  # noqa: F401
+
+_custom_package_path = get_custom_urns_package()
+
+if TYPE_CHECKING or not _custom_package_path:
+    from ._urns.urn_defs import *  # noqa: F401
+
+    if IS_SPHINX_BUILD:
+        # Set __module__ to the current module so that Sphinx will document the
+        # classes as belonging to this module instead of the custom package.
+        for _cls in list(globals().values()):
+            if hasattr(_cls, "__module__") and ("datahub.metadata._urns.urn_defs" in _cls.__module__ or _cls is Urn):
+                _cls.__module__ = __name__
+else:
+    _custom_package = importlib.import_module(_custom_package_path)
+    globals().update(_custom_package.__dict__)
+"""
+        )
+
+    # Generate URN classes.
+    urn_dir = Path(outdir) / "_urns"
+    write_urn_classes(
+        [aspect for aspect in aspects.values() if aspect["Aspect"].get("keyForEntity")],
+        urn_dir,
+    )
+
+    # Save raw schema files in codegen as well.
+    schema_save_dir = Path(outdir) / "schemas"
+    schema_save_dir.mkdir()
+    for schema_out_file, schema in schemas.items():
+        (schema_save_dir / f"{schema_out_file}.avsc").write_text(
+            json.dumps(schema, indent=2)
         )
 
     # Keep a copy of a few raw avsc files.
     required_avsc_schemas = {"MetadataChangeEvent", "MetadataChangeProposal"}
-    schema_save_dir = Path(outdir) / "schemas"
     save_raw_schemas(
         schema_save_dir,
         {

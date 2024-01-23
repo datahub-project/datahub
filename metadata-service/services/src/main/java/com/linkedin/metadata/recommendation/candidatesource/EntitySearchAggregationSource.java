@@ -27,49 +27,36 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.tuple.Pair;
 
-
 /**
  * Base class for search aggregation based candidate source (e.g. top platform, top tags, top terms)
- * Aggregates entities based on field value in the entity search index and gets the value with the most documents
+ * Aggregates entities based on field value in the entity search index and gets the value with the
+ * most documents
  */
 @Slf4j
 @RequiredArgsConstructor
 public abstract class EntitySearchAggregationSource implements RecommendationSource {
   private final EntitySearchService _entitySearchService;
 
-  /**
-   * Field to aggregate on
-   */
+  /** Field to aggregate on */
   protected abstract String getSearchFieldName();
 
-  /**
-   * Max number of contents in module
-   */
+  /** Max number of contents in module */
   protected abstract int getMaxContent();
 
-  /**
-   * Whether the aggregate value is an urn
-   */
+  /** Whether the aggregate value is an urn */
   protected abstract boolean isValueUrn();
 
-  /**
-   * Whether the urn candidate is valid
-   */
+  /** Whether the urn candidate is valid */
   protected boolean isValidCandidateUrn(Urn urn) {
     return true;
   }
 
-  /**
-   * Whether the string candidate is valid
-   */
+  /** Whether the string candidate is valid */
   protected boolean isValidCandidateValue(String candidateValue) {
     return true;
   }
 
-  /**
-   * Whether the candidate is valid
-   * Calls different functions if candidate is an Urn
-   */
+  /** Whether the candidate is valid Calls different functions if candidate is an Urn */
   protected <T> boolean isValidCandidate(T candidate) {
     if (candidate instanceof Urn) {
       return isValidCandidateUrn((Urn) candidate);
@@ -79,10 +66,11 @@ public abstract class EntitySearchAggregationSource implements RecommendationSou
 
   @Override
   @WithSpan
-  public List<RecommendationContent> getRecommendations(@Nonnull Urn userUrn,
-      @Nullable RecommendationRequestContext requestContext) {
+  public List<RecommendationContent> getRecommendations(
+      @Nonnull Urn userUrn, @Nullable RecommendationRequestContext requestContext) {
     Map<String, Long> aggregationResult =
-        _entitySearchService.aggregateByValue(getEntityNames(), getSearchFieldName(), null, getMaxContent());
+        _entitySearchService.aggregateByValue(
+            getEntityNames(), getSearchFieldName(), null, getMaxContent());
 
     if (aggregationResult.isEmpty()) {
       return Collections.emptyList();
@@ -96,15 +84,21 @@ public abstract class EntitySearchAggregationSource implements RecommendationSou
     }
 
     // If the aggregated values are urns, convert key into urns
-    Map<Urn, Long> urnCounts = aggregationResult.entrySet().stream().map(entry -> {
-      try {
-        Urn tagUrn = Urn.createFromString(entry.getKey());
-        return Optional.of(Pair.of(tagUrn, entry.getValue()));
-      } catch (URISyntaxException e) {
-        log.error("Invalid tag urn {}", entry.getKey(), e);
-        return Optional.<Pair<Urn, Long>>empty();
-      }
-    }).filter(Optional::isPresent).map(Optional::get).collect(Collectors.toMap(Pair::getKey, Pair::getValue));
+    Map<Urn, Long> urnCounts =
+        aggregationResult.entrySet().stream()
+            .map(
+                entry -> {
+                  try {
+                    Urn tagUrn = Urn.createFromString(entry.getKey());
+                    return Optional.of(Pair.of(tagUrn, entry.getValue()));
+                  } catch (URISyntaxException e) {
+                    log.error("Invalid tag urn {}", entry.getKey(), e);
+                    return Optional.<Pair<Urn, Long>>empty();
+                  }
+                })
+            .filter(Optional::isPresent)
+            .map(Optional::get)
+            .collect(Collectors.toMap(Pair::getKey, Pair::getValue));
 
     if (urnCounts.isEmpty()) {
       return Collections.emptyList();
@@ -128,13 +122,16 @@ public abstract class EntitySearchAggregationSource implements RecommendationSou
     for (Map.Entry<T, Long> entry : countMap.entrySet()) {
       if (queue.size() < getMaxContent() && isValidCandidate(entry.getKey())) {
         queue.add(entry);
-      } else if (queue.size() > 0 && queue.peek().getValue() < entry.getValue() && isValidCandidate(entry.getKey())) {
+      } else if (queue.size() > 0
+          && queue.peek().getValue() < entry.getValue()
+          && isValidCandidate(entry.getKey())) {
         queue.poll();
         queue.add(entry);
       }
     }
 
-    // Since priority queue polls in reverse order (nature of heaps), need to reverse order before returning
+    // Since priority queue polls in reverse order (nature of heaps), need to reverse order before
+    // returning
     final LinkedList<Map.Entry<T, Long>> topK = new LinkedList<>();
     while (!queue.isEmpty()) {
       topK.addFirst(queue.poll());
@@ -149,15 +146,25 @@ public abstract class EntitySearchAggregationSource implements RecommendationSou
 
   private <T> RecommendationContent buildRecommendationContent(T candidate, long count) {
     // Set filters for platform
-    SearchParams searchParams = new SearchParams().setQuery("")
-        .setFilters(new CriterionArray(
-            ImmutableList.of(new Criterion().setField(getSearchFieldName()).setValue(candidate.toString()))));
+    SearchParams searchParams =
+        new SearchParams()
+            .setQuery("")
+            .setFilters(
+                new CriterionArray(
+                    ImmutableList.of(
+                        new Criterion()
+                            .setField(getSearchFieldName())
+                            .setValue(candidate.toString()))));
     ContentParams contentParams = new ContentParams().setCount(count);
     RecommendationContent content = new RecommendationContent();
     if (candidate instanceof Urn) {
       content.setEntity((Urn) candidate);
     }
-    return content.setValue(candidate.toString())
-        .setParams(new RecommendationParams().setSearchParams(searchParams).setContentParams(contentParams));
+    return content
+        .setValue(candidate.toString())
+        .setParams(
+            new RecommendationParams()
+                .setSearchParams(searchParams)
+                .setContentParams(contentParams));
   }
 }

@@ -1,0 +1,218 @@
+[
+  {
+    "auditHeader": null,
+    "entityType": "entityType",
+    "entityUrn": "urn:li:entityType:datahub.dataset",
+    "changeType": "UPSERT",
+    "aspectName": "entityTypeInfo",
+    "aspect": {
+      "value": "{\"qualifiedName\": \"datahub.dataset\", \"displayName\": \"Dataset\", \"description\": \"An entity type.\"}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "entityType",
+    "entityUrn": "urn:li:entityType:datahub.corpuser",
+    "changeType": "UPSERT",
+    "aspectName": "entityTypeInfo",
+    "aspect": {
+      "value": "{\"qualifiedName\": \"datahub.corpuser\", \"displayName\": \"User\", \"description\": \"An entity type.\"}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "entityType",
+    "entityUrn": "urn:li:entityType:datahub.corpGroup",
+    "changeType": "UPSERT",
+    "aspectName": "entityTypeInfo",
+    "aspect": {
+      "value": "{\"qualifiedName\": \"datahub.corpGroup\", \"displayName\": \"Group\", \"description\": \"An entity type.\"}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataType",
+    "entityUrn": "urn:li:dataType:datahub.string",
+    "changeType": "UPSERT",
+    "aspectName": "dataTypeInfo",
+    "aspect": {
+      "value": "{\"qualifiedName\": \"datahub.string\", \"displayName\": \"String\", \"description\": \"A string type.\"}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataType",
+    "entityUrn": "urn:li:dataType:datahub.float",
+    "changeType": "UPSERT",
+    "aspectName": "dataTypeInfo",
+    "aspect": {
+      "value": "{\"qualifiedName\": \"datahub.float\", \"displayName\": \"Number\", \"description\": \"A number type.\"}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataType",
+    "entityUrn": "urn:li:dataType:datahub.urn",
+    "changeType": "UPSERT",
+    "aspectName": "dataTypeInfo",
+    "aspect": {
+      "value": "{\"qualifiedName\": \"datahub.urn\", \"displayName\": \"Urn\", \"description\": \"A entity type.\"}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "structuredProperty",
+    "entityUrn": "urn:li:structuredProperty:test.Property1",
+    "changeType": "UPSERT",
+    "aspectName": "propertyDefinition",
+    "aspect": {
+      "value": "{\"qualifiedName\": \"test.Property1\", \"displayName\": \"String Property\", \"valueType\": \"urn:li:dataType:datahub.string\", \"cardinality\": \"SINGLE\", \"entityTypes\": [\"urn:li:entityType:datahub.dataset\"], \"description\": \"My description\"}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "structuredProperty",
+    "entityUrn": "urn:li:structuredProperty:test.Property2",
+    "changeType": "UPSERT",
+    "aspectName": "propertyDefinition",
+    "aspect": {
+      "value": "{\"qualifiedName\": \"test.Property2\", \"displayName\": \"String Property With Allowed Values\", \"valueType\": \"urn:li:dataType:datahub.string\", \"cardinality\": \"MULTIPLE\", \"allowedValues\": [ { \"value\": { \"string\": \"Test 1\" } }, { \"value\": { \"string\": \"Test 2\" } } ], \"entityTypes\": [\"urn:li:entityType:datahub.dataset\"], \"description\": \"My description\"}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "structuredProperty",
+    "entityUrn": "urn:li:structuredProperty:test.Property3",
+    "changeType": "UPSERT",
+    "aspectName": "propertyDefinition",
+    "aspect": {
+      "value": "{\"qualifiedName\": \"test.Property3\", \"displayName\": \"Numeric Property\", \"valueType\": \"urn:li:dataType:datahub.float\", \"cardinality\": \"MULTIPLE\", \"entityTypes\": [\"urn:li:entityType:datahub.dataset\"], \"description\": \"My description\"}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "structuredProperty",
+    "entityUrn": "urn:li:structuredProperty:test.Property4",
+    "changeType": "UPSERT",
+    "aspectName": "propertyDefinition",
+    "aspect": {
+      "value": "{\"qualifiedName\": \"test.Property4\", \"displayName\": \"Numeric Property with Allowed Values\", \"valueType\": \"urn:li:dataType:datahub.float\", \"cardinality\": \"MULTIPLE\", \"allowedValues\": [ { \"value\": { \"double\": 0.12 } }, { \"value\": { \"double\": 1 } } ], \"entityTypes\": [\"urn:li:entityType:datahub.dataset\"], \"description\": \"My description\"}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "structuredProperty",
+    "entityUrn": "urn:li:structuredProperty:test.Property5",
+    "changeType": "UPSERT",
+    "aspectName": "propertyDefinition",
+    "aspect": {
+      "value": "{\"qualifiedName\": \"test.Property5\", \"displayName\": \"Urn property no type qualifier\", \"valueType\": \"urn:li:dataType:datahub.urn\", \"cardinality\": \"MULTIPLE\", \"entityTypes\": [\"urn:li:entityType:datahub.dataset\"], \"description\": \"My description\"}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "structuredProperty",
+    "entityUrn": "urn:li:structuredProperty:test.Property6",
+    "changeType": "UPSERT",
+    "aspectName": "propertyDefinition",
+    "aspect": {
+      "value": "{\"qualifiedName\": \"test.Property6\", \"displayName\": \"Urn property with 1 type qualifier (user)\", \"valueType\": \"urn:li:dataType:datahub.urn\", \"typeQualifier\": { \"allowedTypes\": [\"urn:li:entityType:datahub.corpuser\"] }, \"cardinality\": \"MULTIPLE\", \"entityTypes\": [\"urn:li:entityType:datahub.dataset\"], \"description\": \"My description\"}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "structuredProperty",
+    "entityUrn": "urn:li:structuredProperty:test.Property7",
+    "changeType": "UPSERT",
+    "aspectName": "propertyDefinition",
+    "aspect": {
+      "value": "{\"qualifiedName\": \"test.Property7\", \"displayName\": \"Urn property with 2 type qualifier (user)\", \"valueType\": \"urn:li:dataType:datahub.urn\", \"typeQualifier\": { \"allowedTypes\": [\"urn:li:entityType:datahub.corpuser\", \"urn:li:entityType:datahub.corpGroup\"] }, \"cardinality\": \"MULTIPLE\", \"entityTypes\": [\"urn:li:entityType:datahub.dataset\"], \"description\": \"My description\"}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "form",
+    "entityUrn": "urn:li:form:my-test-form-verification-default-3",
+    "changeType": "UPSERT",
+    "aspectName": "formInfo",
+    "aspect": {
+      "value": "{\"name\": \"My test form\", \"description\": \"My test description\", \"type\": \"VERIFICATION\", \"prompts\": [{\"id\": \"prompt-1\", \"title\": \"Select your thing\", \"description\": \"Which will you select?\", \"type\": \"STRUCTURED_PROPERTY\", \"structuredPropertyParams\": { \"urn\": \"urn:li:structuredProperty:test.Property7\" }}, {\"id\": \"prompt-2\", \"title\": \"Select your thing\", \"description\": \"Which will you select?\", \"type\": \"STRUCTURED_PROPERTY\", \"structuredPropertyParams\": { \"urn\": \"urn:li:structuredProperty:test.Property7\" }}]}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "form",
+    "entityUrn": "urn:li:form:my-test-no-verification-3",
+    "changeType": "UPSERT",
+    "aspectName": "formInfo",
+    "aspect": {
+      "value": "{\"name\": \"My test form without verification\", \"description\": \"My test description\", \"prompts\": [{\"id\": \"prompt-1\", \"title\": \"Select your thing\", \"description\": \"Which will you select?\", \"type\": \"STRUCTURED_PROPERTY\", \"structuredPropertyParams\": { \"urn\": \"urn:li:structuredProperty:test.Property7\" }}, {\"id\": \"prompt-2\", \"title\": \"Select your thing\", \"description\": \"Which will you select?\", \"type\": \"STRUCTURED_PROPERTY\", \"structuredPropertyParams\": { \"urn\": \"urn:li:structuredProperty:test.Property7\" }}]}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "form",
+    "entityUrn": "urn:li:form:my-test-no-verification-custom-5",
+    "changeType": "UPSERT",
+    "aspectName": "formInfo",
+    "aspect": {
+      "value": "{\"name\": \"My test form with custom verification\", \"description\": \"My test description\", \"type\": \"VERIFICATION\", \"verification\": { \"type\": \"urn:li:verificationType:my-test\"}, \"prompts\": [{\"id\": \"prompt-1\", \"title\": \"Select your thing\", \"description\": \"Which will you select?\", \"type\": \"STRUCTURED_PROPERTY\", \"required\": true, \"structuredPropertyParams\": { \"urn\": \"urn:li:structuredProperty:test.Property7\" } }, {\"id\": \"prompt-2\", \"title\": \"Select your thing\", \"description\": \"Which will you select?\", \"type\": \"STRUCTURED_PROPERTY\", \"required\": true, \"structuredPropertyParams\": { \"urn\": \"urn:li:structuredProperty:test.Property7\" }}]}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "form",
+    "entityUrn": "urn:li:form:my-test-no-verification-custom-5",
+    "changeType": "UPSERT",
+    "aspectName": "dynamicFormAssignment",
+    "aspect": {
+      "value": "{\"filter\": { \"or\": [  { \"and\": [ { \"field\": \"platform\", \"condition\": \"EQUAL\", \"values\": [\"urn:li:dataPlatform:snowflake\"], \"value\": \"\" } ] } ] } }",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "forms",
+    "aspect": {
+      "value": "{          \"incompleteForms\":[\n            {\n               \"incompletePrompts\":[\n                  \n               ],\n               \"urn\":\"urn:li:form:my-test-no-verification-custom-4\",\n               \"completedPrompts\":[\n                  {\n                     \"lastModified\":{\n                        \"actor\":\"urn:li:corpuser:__datahub_system\",\n                        \"time\":1697585983115\n                     },\n                     \"id\":\"prompt-2\"\n                  },\n                  {\n                     \"id\":\"prompt-1\",\n                     \"lastModified\":{\n                        \"actor\":\"urn:li:corpuser:__datahub_system\",\n                        \"time\":1697585983252\n                     }\n                  }\n               ]\n            },\n            {\n               \"incompletePrompts\":[\n                  \n               ],\n               \"urn\":\"urn:li:form:my-test-no-verification-custom-5\",\n               \"completedPrompts\":[\n                  {\n                     \"lastModified\":{\n                        \"actor\":\"urn:li:corpuser:__datahub_system\",\n                        \"time\":1697645753521\n                     },\n                     \"id\":\"prompt-2\"\n                  },\n                  {\n                     \"id\":\"prompt-1\",\n                     \"lastModified\":{\n                        \"actor\":\"urn:li:corpuser:__datahub_system\",\n                        \"time\":1697645754180\n                     }\n                  }\n               ]\n            }\n         ],\n         \"completedForms\":[\n            \n         ]}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  }
+]

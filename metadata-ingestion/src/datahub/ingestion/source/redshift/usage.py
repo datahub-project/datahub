@@ -4,6 +4,7 @@ import time
 from datetime import datetime
 from typing import Callable, Dict, Iterable, List, Optional, Tuple, Union
 
+import cachetools
 import pydantic.error_wrappers
 import redshift_connector
 from pydantic.fields import Field
@@ -84,15 +85,18 @@ REDSHIFT_OPERATION_ASPECT_QUERY_TEMPLATE: str = """
       sq.endtime AS endtime,
       'insert' AS operation_type
     FROM
-      stl_insert si
+      (select userid, query, sum(rows) as rows, tbl
+        from stl_insert si
+        where si.rows > 0
+        AND si.starttime >= '{start_time}'
+        AND si.starttime < '{end_time}'
+        group by userid, query, tbl
+      ) as si
       JOIN svv_table_info sti ON si.tbl = sti.table_id
       JOIN stl_query sq ON si.query = sq.query
       JOIN svl_user_info sui ON sq.userid = sui.usesysid
     WHERE
-      si.starttime >= '{start_time}'
-      AND si.starttime < '{end_time}'
-      AND si.rows > 0
-      AND sq.aborted = 0)
+      sq.aborted = 0)
 UNION
   (SELECT
       DISTINCT sd.userid AS userid,
@@ -108,15 +112,18 @@ UNION
       sq.endtime AS endtime,
       'delete' AS operation_type
     FROM
-      stl_delete sd
+      (select userid, query, sum(rows) as rows, tbl
+        from stl_delete sd
+        where sd.rows > 0
+        AND sd.starttime >= '{start_time}'
+        AND sd.starttime < '{end_time}'
+        group by userid, query, tbl
+      ) as sd
       JOIN svv_table_info sti ON sd.tbl = sti.table_id
       JOIN stl_query sq ON sd.query = sq.query
       JOIN svl_user_info sui ON sq.userid = sui.usesysid
     WHERE
-      sd.starttime >= '{start_time}'
-      AND sd.starttime < '{end_time}'
-      AND sd.rows > 0
-      AND sq.aborted = 0)
+      sq.aborted = 0)
 ORDER BY
   endtime DESC
 """.strip()
@@ -251,7 +258,7 @@ class RedshiftUsageExtractor:
     ) -> Iterable[MetadataWorkUnit]:
         self.report.num_usage_workunits_emitted = 0
         self.report.num_usage_stat_skipped = 0
-        self.report.num_operational_stats_skipped = 0
+        self.report.num_operational_stats_filtered = 0
 
         if self.config.include_operational_stats:
             self.report.report_ingestion_stage_start(USAGE_EXTRACTION_OPERATIONAL_STATS)
@@ -304,8 +311,13 @@ class RedshiftUsageExtractor:
         )
 
         # Generate operation aspect work units from the access events
-        yield from self._gen_operation_aspect_workunits_from_access_events(
-            access_events_iterable, all_tables=all_tables
+        yield from (
+            mcpw.as_workunit()
+            for mcpw in self._drop_repeated_operations(
+                self._gen_operation_aspect_workunits_from_access_events(
+                    access_events_iterable, all_tables=all_tables
+                )
+            )
         )
 
     def _should_process_event(
@@ -359,10 +371,6 @@ class RedshiftUsageExtractor:
                     self.report.num_usage_stat_skipped += 1
                     continue
 
-                # Replace database name with the alias name if one is provided in the config.
-                if self.config.database_alias:
-                    access_event.database = self.config.database_alias
-
                 if not self._should_process_event(access_event, all_tables=all_tables):
                     self.report.num_usage_stat_skipped += 1
                     continue
@@ -370,11 +378,61 @@ class RedshiftUsageExtractor:
                 yield access_event
             results = cursor.fetchmany()
 
+    def _drop_repeated_operations(
+        self, events: Iterable[MetadataChangeProposalWrapper]
+    ) -> Iterable[MetadataChangeProposalWrapper]:
+        """Drop repeated operations on the same entity.
+
+        ASSUMPTION: Events are ordered by lastUpdatedTimestamp, descending.
+
+        Operations are only dropped if they were within 1 minute of each other,
+        and have the same operation type, user, and entity.
+
+        This is particularly useful when we see a string of insert operations
+        that are all really part of the same overall operation.
+        """
+
+        OPERATION_CACHE_MAXSIZE = 1000
+        DROP_WINDOW_SEC = 10
+
+        # All timestamps are in milliseconds.
+        timestamp_low_watermark = 0
+
+        def timer():
+            return -timestamp_low_watermark
+
+        # dict of entity urn -> (last event's actor, operation type)
+        # TODO: Remove the type ignore and use TTLCache[key_type, value_type] directly once that's supported in Python 3.9.
+        last_events: Dict[str, Tuple[Optional[str], str]] = cachetools.TTLCache(  # type: ignore[assignment]
+            maxsize=OPERATION_CACHE_MAXSIZE, ttl=DROP_WINDOW_SEC * 1000, timer=timer
+        )
+
+        for event in events:
+            assert isinstance(event.aspect, OperationClass)
+
+            timestamp_low_watermark = min(
+                timestamp_low_watermark, event.aspect.lastUpdatedTimestamp
+            )
+
+            urn = event.entityUrn
+            assert urn
+            assert isinstance(event.aspect.operationType, str)
+            value: Tuple[Optional[str], str] = (
+                event.aspect.actor,
+                event.aspect.operationType,
+            )
+            if urn in last_events and last_events[urn] == value:
+                self.report.num_repeated_operations_dropped += 1
+                continue
+
+            last_events[urn] = value
+            yield event
+
     def _gen_operation_aspect_workunits_from_access_events(
         self,
         events_iterable: Iterable[RedshiftAccessEvent],
         all_tables: Dict[str, Dict[str, List[Union[RedshiftView, RedshiftTable]]]],
-    ) -> Iterable[MetadataWorkUnit]:
+    ) -> Iterable[MetadataChangeProposalWrapper]:
         self.report.num_operational_stats_workunits_emitted = 0
         for event in events_iterable:
             if not (
@@ -388,7 +446,7 @@ class RedshiftUsageExtractor:
                 continue
 
             if not self._should_process_event(event, all_tables=all_tables):
-                self.report.num_operational_stats_skipped += 1
+                self.report.num_operational_stats_filtered += 1
                 continue
 
             assert event.operation_type in ["insert", "delete"]
@@ -410,7 +468,7 @@ class RedshiftUsageExtractor:
             resource: str = f"{event.database}.{event.schema_}.{event.table}".lower()
             yield MetadataChangeProposalWrapper(
                 entityUrn=self.dataset_urn_builder(resource), aspect=operation_aspect
-            ).as_workunit()
+            )
             self.report.num_operational_stats_workunits_emitted += 1
 
     def _aggregate_access_events(
