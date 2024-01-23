@@ -608,8 +608,14 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                 else ""
             },
         )
-
         chart_snapshot.aspects.append(chart_info)
+
+        if dashboard and dashboard.folder_path is not None:
+            browse_path = BrowsePathsClass(
+                paths=[f"/looker/{dashboard.folder_path}/{dashboard.title}"]
+            )
+            chart_snapshot.aspects.append(browse_path)
+
         if dashboard is not None:
             ownership = self.get_ownership(dashboard)
             if ownership is not None:
