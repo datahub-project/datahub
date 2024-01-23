@@ -27,6 +27,9 @@ query getUser($urn: String!, $groupsCount: Int!) {
         globalTags {
             ...globalTagsFields
         }
+        autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
+            ...autoRenderAspectFields
+        }
         groups: relationships(
             input: {
                 types: ["IsMemberOfGroup", "IsMemberOfNativeGroup"]

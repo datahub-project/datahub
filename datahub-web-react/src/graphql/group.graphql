@@ -24,6 +24,9 @@ query getGroup($urn: String!, $membersCount: Int!) {
             email
             slack
         }
+        autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
+            ...autoRenderAspectFields
+        }
         ownership {
             ...ownershipFields
         }
