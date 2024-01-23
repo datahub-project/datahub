@@ -4,15 +4,13 @@ import { Editor } from '../../../tabs/Documentation/components/editor/Editor';
 import { ANTD_GRAY_V2 } from '../../../constants';
 import { useEntityFormContext } from '../../EntityFormContext';
 
-const StyledEditor = styled(Editor)<{ displayBulkPromptStyles?: boolean }>`
+const StyledEditor = styled(Editor)`
     border: 1px solid ${ANTD_GRAY_V2[6]};
     min-height: 115px;
     border-radius: 6px;
     width: 75%;
     min-width: 585px;
     max-width: 700px;
-
-    ${(props) => props.displayBulkPromptStyles && `background-color: white;`}
 
     &&& {
         .remirror-editor {
@@ -27,8 +25,6 @@ interface Props {
 }
 
 export default function RichTextInput({ selectedValues, updateSelectedValues }: Props) {
-    const { displayBulkPromptStyles } = useEntityFormContext();
-
     function updateInput(value: string) {
         updateSelectedValues([value]);
     }
@@ -38,7 +34,6 @@ export default function RichTextInput({ selectedValues, updateSelectedValues }: 
             doNotFocus
             content={selectedValues.length > 0 ? selectedValues[0] : undefined}
             onChange={updateInput}
-            displayBulkPromptStyles={displayBulkPromptStyles}
         />
     );
 }

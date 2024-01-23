@@ -1,10 +1,8 @@
 import { DeleteOutlined } from '@ant-design/icons';
-import { red } from '@ant-design/colors';
 import { Button, Input } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 import { ANTD_GRAY_V2 } from '../../../constants';
-import { useEntityFormContext } from '../../EntityFormContext';
 
 const StyledInput = styled(Input)`
     width: 75%;
@@ -19,20 +17,14 @@ const InputWrapper = styled.div`
     margin-top: 8px;
 `;
 
-const StyledButton = styled(Button)<{ $displayBulkStyles?: boolean }>`
+const StyledButton = styled(Button)`
     display: block;
     margin-top: 4px;
     padding: 0;
-    ${(props) => props.$displayBulkStyles && 'color: white;'}
 `;
 
-const DeleteButton = styled(Button)<{ $displayBulkStyles?: boolean }>`
+const DeleteButton = styled(Button)`
     margin-left: 4px;
-    ${(props) => props.$displayBulkStyles && 'color: white;'}
-
-    &:hover {
-        ${(props) => props.$displayBulkStyles && `color: ${red[3]};`}
-    }
 `;
 
 interface Props {
@@ -41,8 +33,6 @@ interface Props {
 }
 
 export default function MultipleStringInput({ selectedValues, updateSelectedValues }: Props) {
-    const { displayBulkPromptStyles } = useEntityFormContext();
-
     function updateInput(text: string, index: number) {
         const updatedValues =
             selectedValues.length > 0 ? selectedValues.map((value, i) => (i === index ? text : value)) : [text];
@@ -74,12 +64,7 @@ export default function MultipleStringInput({ selectedValues, updateSelectedValu
                                 value={selectedValue}
                                 onChange={(e) => updateInput(e.target.value, index)}
                             />
-                            <DeleteButton
-                                $displayBulkStyles={displayBulkPromptStyles}
-                                type="text"
-                                icon={<DeleteOutlined />}
-                                onClick={() => deleteValue(index)}
-                            />
+                            <DeleteButton type="text" icon={<DeleteOutlined />} onClick={() => deleteValue(index)} />
                         </InputWrapper>
                     );
                 })}
@@ -90,7 +75,7 @@ export default function MultipleStringInput({ selectedValues, updateSelectedValu
                     onChange={(e) => updateInput(e.target.value, 0)}
                 />
             )}
-            <StyledButton type="link" onClick={addNewValue} $displayBulkStyles={displayBulkPromptStyles}>
+            <StyledButton type="link" onClick={addNewValue}>
                 + Add More
             </StyledButton>
         </>

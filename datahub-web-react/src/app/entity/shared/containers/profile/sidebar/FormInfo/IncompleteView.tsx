@@ -14,8 +14,6 @@ const StyledButton = styled(Button)`
     display: flex;
     align-items: center;
     justify-content: center;
-    background-color: #00615f;
-    border: 1px solid #00615f;
 `;
 
 interface Props {

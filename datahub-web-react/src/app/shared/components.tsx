@@ -50,7 +50,6 @@ export const BodyContainer = styled.div`
 
 export const WhiteButton = styled(Button)`
     background-color: white;
-    border: 1px solid ${(props) => props.theme.styles['link-color']};
-    color: ${(props) => props.theme.styles['link-color']};
+    color: ${(props) => props.theme.styles['primary-color']};
     text-shadow: none;
 `;

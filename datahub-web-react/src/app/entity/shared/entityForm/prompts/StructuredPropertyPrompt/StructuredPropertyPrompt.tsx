@@ -30,9 +30,7 @@ import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import { getTimeFromNow } from '../../../../../shared/time/timeUtils';
 import CompletedPromptAuditStamp from './CompletedPromptAuditStamp';
 import { applyOpacity } from '../../../../../shared/styleUtils';
-import { useEntityFormContext } from '../../EntityFormContext';
 import { useUserContext } from '../../../../../context/useUserContext';
-import BulkSubmissionButton from './BulkSubmissionButton';
 
 const PromptWrapper = styled.div<{ displayBulkStyles?: boolean }>`
     display: flex;
@@ -110,7 +108,6 @@ export default function StructuredPropertyPrompt({
     const { entityData } = useEntityData();
     const { user } = useUserContext();
     const entityRegistry = useEntityRegistry();
-    const { displayBulkPromptStyles } = useEntityFormContext();
     const completedPrompts = getCompletedPrompts(entityData);
     const incompletePrompts = getIncompletePrompts(entityData);
     const promptAssociation = findPromptAssociation(prompt, completedPrompts.concat(incompletePrompts));
@@ -138,14 +135,12 @@ export default function StructuredPropertyPrompt({
     }
 
     return (
-        <PromptWrapper displayBulkStyles={displayBulkPromptStyles}>
+        <PromptWrapper>
             <PromptInputWrapper>
-                <PromptTitle displayBulkStyles={displayBulkPromptStyles}>
+                <PromptTitle>
                     {promptNumber !== undefined && <>{promptNumber}. </>}
                     {displayName}
-                    {prompt.required && (
-                        <RequiredText displayBulkStyles={displayBulkPromptStyles}>required</RequiredText>
-                    )}
+                    {prompt.required && <RequiredText>required</RequiredText>}
                 </PromptTitle>
                 {description && <PromptSubTitle>{description}</PromptSubTitle>}
                 <InputSection>
@@ -193,22 +188,15 @@ export default function StructuredPropertyPrompt({
                     )}
                 </InputSection>
             </PromptInputWrapper>
-            {!displayBulkPromptStyles && isSaveVisible && selectedValues.length > 0 && (
+            {isSaveVisible && selectedValues.length > 0 && (
                 <StyledButton type="primary" onClick={submitStructuredPropertyResponse}>
                     Save
                 </StyledButton>
             )}
-            {displayBulkPromptStyles && (
-                <BulkSubmissionButton
-                    isDisabled={!isSaveVisible || selectedValues.length < 1}
-                    submitResponse={submitStructuredPropertyResponse}
-                />
-            )}
             {(isPromptComplete(prompt, completedPrompts) ||
                 isFieldPromptComplete(field, promptAssociation) ||
                 optimisticCompletedTimestamp) &&
-                !isSaveVisible &&
-                !displayBulkPromptStyles && (
+                !isSaveVisible && (
                     <CompletedPromptAuditStamp
                         completedByName={getCompletedByName()}
                         completedByTime={getCompletedByRelativeTime()}

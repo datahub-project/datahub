@@ -6,10 +6,7 @@ import { useGetDatasetQuery } from '../../../../graphql/dataset.generated';
 import { EntityAndType, GenericEntityProperties } from '../types';
 import { getFormAssociation, isFormVerificationType } from '../containers/profile/sidebar/FormInfo/utils';
 import usePrevious from '../../../shared/usePrevious';
-import { useUserContext } from '../../../context/useUserContext';
 import { SCHEMA_FIELD_PROMPT_TYPES } from './constants';
-import { useSearchForEntitiesByFormCountQuery } from '../../../../graphql/form.generated';
-import useFormFilter from './useFormFilter';
 
 interface Props {
     children: React.ReactNode;
@@ -17,7 +14,6 @@ interface Props {
 }
 
 export default function EntityFormContextProvider({ children, formUrn }: Props) {
-    const { user } = useUserContext();
     const { entityData, refetch: refetchEntityProfile, loading: profileLoading } = useEntityContext();
     const formAssociation = getFormAssociation(formUrn, entityData);
     const initialPromptId =
@@ -29,22 +25,6 @@ export default function EntityFormContextProvider({ children, formUrn }: Props) 
     const [selectedPromptId, setSelectedPromptId] = useState<string | null>(initialPromptId);
     const [selectedEntities, setSelectedEntities] = useState<EntityAndType[]>([]);
     const [shouldRefetchSearchResults, setShouldRefetchSearchResults] = useState(false);
-    const { formFilter, formResponsesFilters, setFormResponsesFilters } = useFormFilter({
-        formUrn,
-        isVerificationType,
-        formView,
-        selectedPromptId,
-    });
-
-    const { data, refetch: refetchNumReadyForVerification } = useSearchForEntitiesByFormCountQuery({
-        variables: {
-            input: {
-                formFilter: { formUrn, assignedActor: user?.urn, isFormVerified: false, isFormComplete: true },
-                count: 0,
-            },
-        },
-        skip: !isVerificationType,
-    });
 
     useEffect(() => {
         if (!selectedPromptId && formAssociation) {
@@ -70,7 +50,6 @@ export default function EntityFormContextProvider({ children, formUrn }: Props) 
 
     const isOnEntityProfilePage = selectedEntity.urn === entityData?.urn;
     const selectedEntityData = isOnEntityProfilePage ? entityData : (fetchedData?.dataset as GenericEntityProperties);
-    const displayBulkPromptStyles = formView === FormView.BY_QUESTION;
 
     return (
         <EntityFormContext.Provider
@@ -86,16 +65,10 @@ export default function EntityFormContextProvider({ children, formUrn }: Props) 
                 setFormView,
                 selectedPromptId,
                 setSelectedPromptId,
-                displayBulkPromptStyles,
-                formFilter,
                 selectedEntities,
                 setSelectedEntities,
-                formResponsesFilters,
-                setFormResponsesFilters,
                 shouldRefetchSearchResults,
                 setShouldRefetchSearchResults,
-                numReadyForVerification: data?.searchForEntitiesByForm?.total || 0,
-                refetchNumReadyForVerification,
                 isVerificationType,
             }}
         >

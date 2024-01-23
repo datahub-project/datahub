@@ -47,7 +47,7 @@ export default function EntityFormModal({ selectedFormUrn, isFormVisible, hideFo
                 open={isFormVisible}
                 onCancel={hideFormModal}
                 footer={null}
-                title={<FormPageHeader formUrn={selectedFormUrn || ''} />}
+                title={<FormPageHeader />}
                 closeIcon={<StyledClose />}
                 style={{ top: 0, height: '100vh', minWidth: '100vw' }}
                 destroyOnClose

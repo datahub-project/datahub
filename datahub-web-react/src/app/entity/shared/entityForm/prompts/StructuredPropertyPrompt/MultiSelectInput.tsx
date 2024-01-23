@@ -6,9 +6,8 @@ import { getStructuredPropertyValue } from '../../../utils';
 import ValueDescription from './ValueDescription';
 import { AllowedValue } from '../../../../../../types.generated';
 import DropdownLabel from './DropdownLabel';
-import { useEntityFormContext } from '../../EntityFormContext';
 
-const StyledCheckbox = styled(Checkbox)<{ $displayBulkStyles?: boolean }>`
+const StyledCheckbox = styled(Checkbox)`
     display: flex;
     margin: 0 0 4px 0;
     .ant-checkbox-inner {
@@ -17,7 +16,6 @@ const StyledCheckbox = styled(Checkbox)<{ $displayBulkStyles?: boolean }>`
     &&& {
         margin-left: 0;
     }
-    ${(props) => props.$displayBulkStyles && 'color: white;'}
 `;
 
 const StyleTag = styled(Tag)`
@@ -42,8 +40,6 @@ export default function MultiSelectInput({
     allowedValues,
     selectedValues,
 }: Props) {
-    const { displayBulkPromptStyles } = useEntityFormContext();
-
     return allowedValues.length > 5 ? (
         <Select
             style={DROPDOWN_STYLE as any}
@@ -76,7 +72,6 @@ export default function MultiSelectInput({
                     value={getStructuredPropertyValue(allowedValue.value)}
                     onChange={(e) => toggleSelectedValue(e.target.value)}
                     checked={selectedValues.includes(getStructuredPropertyValue(allowedValue.value))}
-                    $displayBulkStyles={displayBulkPromptStyles}
                 >
                     {getStructuredPropertyValue(allowedValue.value)}
                     {allowedValue.description && <ValueDescription description={allowedValue.description} />}

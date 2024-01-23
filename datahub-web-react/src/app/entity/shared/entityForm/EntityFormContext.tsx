@@ -1,18 +1,9 @@
 import React, { useContext } from 'react';
-import { Entity, FormFilter } from '../../../../types.generated';
+import { Entity } from '../../../../types.generated';
 import { EntityAndType, GenericEntityProperties } from '../types';
 
 export enum FormView {
     BY_ENTITY,
-    BY_QUESTION,
-    BULK_VERIFY,
-}
-
-export const FORM_RESPONSES_FILTER = 'formResponsesFilter';
-
-export enum FormResponsesFilter {
-    INCOMPLETE = 'INCOMPLETE',
-    COMPLETE = 'COMPLETE',
 }
 
 export type EntityFormContextType = {
@@ -29,14 +20,8 @@ export type EntityFormContextType = {
     refetch: () => Promise<any>;
     setSelectedEntity: (sortOption: Entity) => void;
     setSelectedPromptId: (promptId: string) => void;
-    displayBulkPromptStyles: boolean;
-    formFilter?: FormFilter;
-    formResponsesFilters?: FormResponsesFilter[];
-    setFormResponsesFilters: (filters: FormResponsesFilter[]) => void;
     shouldRefetchSearchResults: boolean;
     setShouldRefetchSearchResults: (shouldRefetch: boolean) => void;
-    numReadyForVerification: number;
-    refetchNumReadyForVerification: () => Promise<any>;
     isVerificationType: boolean;
 };
 
@@ -54,14 +39,8 @@ export const DEFAULT_CONTEXT = {
     setFormView: (_: FormView) => null,
     selectedPromptId: null,
     setSelectedPromptId: (_: string) => null,
-    displayBulkPromptStyles: false,
-    formFilter: undefined,
-    formResponsesFilters: undefined,
-    setFormResponsesFilters: () => null,
     shouldRefetchSearchResults: false,
     setShouldRefetchSearchResults: () => null,
-    numReadyForVerification: 0,
-    refetchNumReadyForVerification: () => Promise.resolve({}),
     isVerificationType: true,
 };
 

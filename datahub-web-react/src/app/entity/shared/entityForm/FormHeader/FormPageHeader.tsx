@@ -1,11 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
 import AppLogoLink from '../../../../shared/AppLogoLink';
-import EntityNavigation from './EntityNavigation';
-import { FormView, useEntityFormContext } from '../EntityFormContext';
-import FormViewToggle from './FormViewToggle';
-import PromptNavigation from './PromptNavigation';
-import BulkVerifyHeader from './BulkVerifyHeader';
 
 const Header = styled.div`
     padding: 12px 24px;
@@ -31,13 +26,7 @@ const TitleWrapper = styled.div`
     align-items: center;
 `;
 
-interface Props {
-    formUrn: string;
-}
-
-export default function FormPageHeader({ formUrn }: Props) {
-    const { formView } = useEntityFormContext();
-
+export default function FormPageHeader() {
     return (
         <StyledDivider>
             <Header>
@@ -45,11 +34,7 @@ export default function FormPageHeader({ formUrn }: Props) {
                     <AppLogoLink />
                     <HeaderText>Complete Documentation Requests</HeaderText>
                 </TitleWrapper>
-                <FormViewToggle />
             </Header>
-            {formView === FormView.BY_ENTITY && <EntityNavigation />}
-            {formView === FormView.BY_QUESTION && <PromptNavigation formUrn={formUrn} />}
-            {formView === FormView.BULK_VERIFY && <BulkVerifyHeader formUrn={formUrn} />}
         </StyledDivider>
     );
 }

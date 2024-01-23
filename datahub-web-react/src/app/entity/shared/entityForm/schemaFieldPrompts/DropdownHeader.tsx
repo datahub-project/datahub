@@ -1,7 +1,7 @@
 import Icon from '@ant-design/icons/lib/components/Icon';
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
-import { ReactComponent as GreenCircleIcon } from '../../../../../images/greenCircleTwoTone.svg';
+import GreenCircleIcon from '../../../../../images/greenCircleTwoTone.svg?react';
 import { SchemaField } from '../../../../../types.generated';
 import translateFieldPath from '../../../dataset/profile/schema/utils/translateFieldPath';
 import { getNumPromptsCompletedForField } from '../../containers/profile/sidebar/FormInfo/utils';

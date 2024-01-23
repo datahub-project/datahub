@@ -1,8 +1,8 @@
 import Link from 'antd/lib/typography/Link';
 import React from 'react';
 import styled from 'styled-components';
-import { ReactComponent as GreenVerificationLogo } from '../../../../../../../images/verificationGreen.svg';
-import { ReactComponent as PurpleVerificationLogo } from '../../../../../../../images/verificationPurple.svg';
+import GreenVerificationLogo from '../../../../../../../images/verificationGreen.svg?react';
+import PurpleVerificationLogo from '../../../../../../../images/verificationPurple.svg?react';
 import { CTAWrapper, FlexWrapper, StyledIcon, StyledReadOutlined, Title } from './components';
 import OptionalPromptsRemaining from './OptionalPromptsRemaining';
 import VerificationAuditStamp from './VerificationAuditStamp';

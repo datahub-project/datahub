@@ -6,14 +6,12 @@ import { getStructuredPropertyValue } from '../../../utils';
 import ValueDescription from './ValueDescription';
 import { AllowedValue } from '../../../../../../types.generated';
 import DropdownLabel from './DropdownLabel';
-import { useEntityFormContext } from '../../EntityFormContext';
 
-const StyledRadio = styled(Radio)<{ displayBulkStyles?: boolean }>`
+const StyledRadio = styled(Radio)`
     display: block;
     .ant-radio-inner {
         border-color: ${ANTD_GRAY_V2[8]};
     }
-    ${(props) => props.displayBulkStyles && 'color: white;'}
 `;
 
 const DROPDOWN_STYLE = { minWidth: 320, maxWidth: 320, textAlign: 'left', fontSize: '14px' };
@@ -25,8 +23,6 @@ interface Props {
 }
 
 export default function SingleSelectInput({ selectSingleValue, allowedValues, selectedValues }: Props) {
-    const { displayBulkPromptStyles } = useEntityFormContext();
-
     return allowedValues.length > 5 ? (
         <Select
             style={DROPDOWN_STYLE as any}
@@ -50,7 +46,6 @@ export default function SingleSelectInput({ selectSingleValue, allowedValues, se
                 <StyledRadio
                     key={getStructuredPropertyValue(allowedValue.value)}
                     value={getStructuredPropertyValue(allowedValue.value)}
-                    displayBulkStyles={displayBulkPromptStyles}
                 >
                     {getStructuredPropertyValue(allowedValue.value)}
                     {allowedValue.description && <ValueDescription description={allowedValue.description} />}
