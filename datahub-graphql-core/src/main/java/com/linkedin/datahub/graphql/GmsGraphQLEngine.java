@@ -160,6 +160,8 @@ import com.linkedin.datahub.graphql.resolvers.group.RemoveGroupMembersResolver;
 import com.linkedin.datahub.graphql.resolvers.group.RemoveGroupResolver;
 import com.linkedin.datahub.graphql.resolvers.health.EntityHealthResolver;
 import com.linkedin.datahub.graphql.resolvers.incident.EntityIncidentsResolver;
+import com.linkedin.datahub.graphql.resolvers.incident.RaiseIncidentResolver;
+import com.linkedin.datahub.graphql.resolvers.incident.UpdateIncidentStatusResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.execution.CancelIngestionExecutionRequestResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.execution.CreateIngestionExecutionRequestResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.execution.CreateTestConnectionRequestResolver;
@@ -1210,7 +1212,11 @@ public class GmsGraphQLEngine {
                     "createDynamicFormAssignment",
                     new CreateDynamicFormAssignmentResolver(this.formService))
                 .dataFetcher(
-                    "verifyForm", new VerifyFormResolver(this.formService, this.groupService)));
+                    "verifyForm", new VerifyFormResolver(this.formService, this.groupService))
+                .dataFetcher("raiseIncident", new RaiseIncidentResolver(this.entityClient))
+                .dataFetcher(
+                        "updateIncidentStatus",
+                        new UpdateIncidentStatusResolver(this.entityClient, this.entityService)));
   }
 
   private void configureGenericEntityResolvers(final RuntimeWiring.Builder builder) {
