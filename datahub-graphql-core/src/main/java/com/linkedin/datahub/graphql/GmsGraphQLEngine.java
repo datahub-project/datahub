@@ -415,8 +415,8 @@ public class GmsGraphQLEngine {
   private final LineageService lineageService;
   private final QueryService queryService;
   private final DataProductService dataProductService;
-    private final ERModelRelationService eRModelRelationService;
-    private final FormService formService;
+  private final ERModelRelationService eRModelRelationService;
+  private final FormService formService;
 
   private final FeatureFlags featureFlags;
 
@@ -460,7 +460,7 @@ public class GmsGraphQLEngine {
   private final DataHubPolicyType dataHubPolicyType;
   private final DataHubRoleType dataHubRoleType;
   private final SchemaFieldType schemaFieldType;
-    private final ERModelRelationType ermodelrelationType;
+  private final ERModelRelationType ermodelrelationType;
   private final DataHubViewType dataHubViewType;
   private final QueryType queryType;
   private final DataProductType dataProductType;
@@ -525,7 +525,7 @@ public class GmsGraphQLEngine {
     this.settingsService = args.settingsService;
     this.lineageService = args.lineageService;
     this.queryService = args.queryService;
-        this.eRModelRelationService = args.eRModelRelationService;
+    this.eRModelRelationService = args.eRModelRelationService;
     this.dataProductService = args.dataProductService;
     this.formService = args.formService;
 
@@ -567,8 +567,8 @@ public class GmsGraphQLEngine {
     this.testType = new TestType(entityClient);
     this.dataHubPolicyType = new DataHubPolicyType(entityClient);
     this.dataHubRoleType = new DataHubRoleType(entityClient);
-        this.schemaFieldType = new SchemaFieldType(entityClient, featureFlags);
-        this.ermodelrelationType = new ERModelRelationType(entityClient, featureFlags);
+    this.schemaFieldType = new SchemaFieldType(entityClient, featureFlags);
+    this.ermodelrelationType = new ERModelRelationType(entityClient, featureFlags);
     this.dataHubViewType = new DataHubViewType(entityClient);
     this.queryType = new QueryType(entityClient);
     this.dataProductType = new DataProductType(entityClient);
@@ -698,7 +698,7 @@ public class GmsGraphQLEngine {
     configureTestResultResolvers(builder);
     configureRoleResolvers(builder);
     configureSchemaFieldResolvers(builder);
-        configureERModelRelationResolvers(builder);
+    configureERModelRelationResolvers(builder);
     configureEntityPathResolvers(builder);
     configureResolvedAuditStampResolvers(builder);
     configureViewResolvers(builder);
