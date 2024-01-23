@@ -6,14 +6,8 @@ from typing import Dict, Iterable, Optional, Tuple
 
 from pydantic.fields import Field
 
-from datahub.configuration.common import (
-    ConfigModel,
-    AllowDenyPattern
-)
-from datahub.emitter.mce_builder import (
-    make_tag_urn,
-    make_domain_urn
-)
+from datahub.configuration.common import ConfigModel, AllowDenyPattern
+from datahub.emitter.mce_builder import make_tag_urn, make_domain_urn
 from datahub.emitter.mcp_builder import add_domain_to_entity_wu
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -166,9 +160,9 @@ class APISource(Source, ABC):
 
         if self.config.domain:
             self.domain_registry = DomainRegistry(
-            cached_domains=[domain_id for domain_id in self.config.domain],
-            graph=self.ctx.graph)
-
+                cached_domains=[domain_id for domain_id in self.config.domain],
+                graph=self.ctx.graph,
+            )
 
     def report_bad_responses(self, status_code: int, key: str) -> None:
         if status_code == 400:
@@ -370,7 +364,7 @@ class APISource(Source, ABC):
 
         yield from self._get_domain_wu(
             dataset_name=dataset_name,
-            entity_urn=f"urn:li:dataset:(urn:li:dataPlatform:{self.platform},{config.name}.{dataset_name},PROD)"
+            entity_urn=f"urn:li:dataset:(urn:li:dataPlatform:{self.platform},{config.name}.{dataset_name},PROD)",
         )
 
     def get_report(self):
