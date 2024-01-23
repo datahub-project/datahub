@@ -24,6 +24,9 @@ query getGroup($urn: String!, $membersCount: Int!) {
             email
             slack
         }
+        autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
+            ...autoRenderAspectFields
+        }
         ownership {
             ...ownershipFields
         }
@@ -194,6 +197,17 @@ query listGroups($input: ListGroupsInput!) {
                 input: { types: ["IsMemberOfGroup", "IsMemberOfNativeGroup"], direction: INCOMING, start: 0, count: 1 }
             ) {
                 total
+            }
+            roles: relationships(input: { types: ["IsMemberOfRole"], direction: OUTGOING, start: 0 }) {
+                relationships {
+                    entity {
+                        ... on DataHubRole {
+                            urn
+                            type
+                            name
+                        }
+                    }
+                }
             }
         }
     }

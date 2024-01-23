@@ -1,8 +1,10 @@
 package com.linkedin.metadata.search.elasticsearch.query.request;
 
+import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.utils.SearchUtil.*;
 
 import com.linkedin.metadata.config.search.SearchConfiguration;
+import com.linkedin.metadata.models.StructuredPropertyUtils;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import com.linkedin.metadata.search.utils.ESUtils;
 import java.util.ArrayList;
@@ -72,8 +74,12 @@ public class AggregationQueryBuilder {
   }
 
   private boolean isValidAggregate(final String inputFacet) {
-    Set<String> facets = Set.of(inputFacet.split(AGGREGATION_SEPARATOR_CHAR));
-    boolean isValid = !facets.isEmpty() && _allFacetFields.containsAll(facets);
+    List<String> facets = List.of(inputFacet.split(AGGREGATION_SEPARATOR_CHAR));
+    boolean isValid =
+        !facets.isEmpty()
+            && ((facets.size() == 1
+                    && facets.get(0).startsWith(STRUCTURED_PROPERTY_MAPPING_FIELD + "."))
+                || _allFacetFields.containsAll(facets));
     if (!isValid) {
       log.warn(
           String.format(
@@ -89,6 +95,13 @@ public class AggregationQueryBuilder {
     AggregationBuilder lastAggBuilder = null;
     for (int i = facets.size() - 1; i >= 0; i--) {
       String facet = facets.get(i);
+      if (facet.startsWith(STRUCTURED_PROPERTY_MAPPING_FIELD + ".")) {
+        String structPropFqn = facet.substring(STRUCTURED_PROPERTY_MAPPING_FIELD.length() + 1);
+        facet =
+            STRUCTURED_PROPERTY_MAPPING_FIELD
+                + "."
+                + StructuredPropertyUtils.sanitizeStructuredPropertyFQN(structPropFqn);
+      }
       AggregationBuilder aggBuilder;
       if (facet.contains(AGGREGATION_SPECIAL_TYPE_DELIMITER)) {
         List<String> specialTypeFields = List.of(facet.split(AGGREGATION_SPECIAL_TYPE_DELIMITER));

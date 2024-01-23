@@ -5,25 +5,26 @@ import static com.linkedin.metadata.models.registry.EntityRegistryUtils.*;
 
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.UnionTemplate;
+import com.linkedin.metadata.aspect.patch.template.AspectTemplateEngine;
+import com.linkedin.metadata.aspect.patch.template.Template;
+import com.linkedin.metadata.aspect.patch.template.chart.ChartInfoTemplate;
+import com.linkedin.metadata.aspect.patch.template.common.GlobalTagsTemplate;
+import com.linkedin.metadata.aspect.patch.template.common.GlossaryTermsTemplate;
+import com.linkedin.metadata.aspect.patch.template.common.OwnershipTemplate;
+import com.linkedin.metadata.aspect.patch.template.common.StructuredPropertiesTemplate;
+import com.linkedin.metadata.aspect.patch.template.dashboard.DashboardInfoTemplate;
+import com.linkedin.metadata.aspect.patch.template.dataflow.DataFlowInfoTemplate;
+import com.linkedin.metadata.aspect.patch.template.datajob.DataJobInfoTemplate;
+import com.linkedin.metadata.aspect.patch.template.datajob.DataJobInputOutputTemplate;
+import com.linkedin.metadata.aspect.patch.template.dataproduct.DataProductPropertiesTemplate;
+import com.linkedin.metadata.aspect.patch.template.dataset.DatasetPropertiesTemplate;
+import com.linkedin.metadata.aspect.patch.template.dataset.EditableSchemaMetadataTemplate;
+import com.linkedin.metadata.aspect.patch.template.dataset.UpstreamLineageTemplate;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.DefaultEntitySpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.EntitySpecBuilder;
 import com.linkedin.metadata.models.EventSpec;
-import com.linkedin.metadata.models.registry.template.AspectTemplateEngine;
-import com.linkedin.metadata.models.registry.template.Template;
-import com.linkedin.metadata.models.registry.template.chart.ChartInfoTemplate;
-import com.linkedin.metadata.models.registry.template.common.GlobalTagsTemplate;
-import com.linkedin.metadata.models.registry.template.common.GlossaryTermsTemplate;
-import com.linkedin.metadata.models.registry.template.common.OwnershipTemplate;
-import com.linkedin.metadata.models.registry.template.dashboard.DashboardInfoTemplate;
-import com.linkedin.metadata.models.registry.template.dataflow.DataFlowInfoTemplate;
-import com.linkedin.metadata.models.registry.template.datajob.DataJobInfoTemplate;
-import com.linkedin.metadata.models.registry.template.datajob.DataJobInputOutputTemplate;
-import com.linkedin.metadata.models.registry.template.dataproduct.DataProductPropertiesTemplate;
-import com.linkedin.metadata.models.registry.template.dataset.DatasetPropertiesTemplate;
-import com.linkedin.metadata.models.registry.template.dataset.EditableSchemaMetadataTemplate;
-import com.linkedin.metadata.models.registry.template.dataset.UpstreamLineageTemplate;
 import com.linkedin.metadata.snapshot.Snapshot;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -84,6 +85,8 @@ public class SnapshotEntityRegistry implements EntityRegistry {
     aspectSpecTemplateMap.put(CHART_INFO_ASPECT_NAME, new ChartInfoTemplate());
     aspectSpecTemplateMap.put(DASHBOARD_INFO_ASPECT_NAME, new DashboardInfoTemplate());
     aspectSpecTemplateMap.put(DATA_JOB_INPUT_OUTPUT_ASPECT_NAME, new DataJobInputOutputTemplate());
+    aspectSpecTemplateMap.put(
+        STRUCTURED_PROPERTIES_ASPECT_NAME, new StructuredPropertiesTemplate());
     return new AspectTemplateEngine(aspectSpecTemplateMap);
   }
 

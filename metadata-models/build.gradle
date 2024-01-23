@@ -43,11 +43,10 @@ mainAvroSchemaJar.dependsOn generateAvroSchema
 pegasus.main.generationModes = [PegasusGenerationMode.PEGASUS, PegasusGenerationMode.AVRO]
 
 
-tasks.register('generateJsonSchema', GenerateJsonSchemaTask) {
+task generateJsonSchema(type: GenerateJsonSchemaTask, dependsOn: 'generateAvroSchema') {
   it.setInputDirectory("$projectDir/src/mainGeneratedAvroSchema")
   it.setOutputDirectory("$projectDir/src/generatedJsonSchema")
   it.setEntityRegistryYaml("${project(':metadata-models').projectDir}/src/main/resources/entity-registry.yml")
-  dependsOn generateAvroSchema
 }
 
 // https://github.com/int128/gradle-swagger-generator-plugin#task-type-generateswaggercode

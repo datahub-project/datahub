@@ -76,7 +76,7 @@ public class TrackingServiceTest {
   @Test
   public void testEmitAnalyticsEvent() throws IOException {
     when(_secretService.hashString(eq(ACTOR_URN_STRING))).thenReturn(HASHED_ACTOR_URN_STRING);
-    when(_entityService.exists(_clientIdUrn)).thenReturn(true);
+    when(_entityService.exists(eq(_clientIdUrn), eq(true))).thenReturn(true);
     when(_entityService.getLatestAspect(eq(_clientIdUrn), eq(CLIENT_ID_ASPECT)))
         .thenReturn(TELEMETRY_CLIENT_ID);
     when(_mixpanelMessageBuilder.event(eq(CLIENT_ID), eq(EVENT_TYPE), any()))
@@ -99,7 +99,7 @@ public class TrackingServiceTest {
 
   @Test
   public void testGetClientIdAlreadyExists() {
-    when(_entityService.exists(_clientIdUrn)).thenReturn(true);
+    when(_entityService.exists(eq(_clientIdUrn), eq(true))).thenReturn(true);
     when(_entityService.getLatestAspect(eq(_clientIdUrn), eq(CLIENT_ID_ASPECT)))
         .thenReturn(TELEMETRY_CLIENT_ID);
 
@@ -108,7 +108,7 @@ public class TrackingServiceTest {
 
   @Test
   public void testGetClientIdDoesNotExist() {
-    when(_entityService.exists(_clientIdUrn)).thenReturn(false);
+    when(_entityService.exists(eq(_clientIdUrn), eq(true))).thenReturn(false);
 
     assertNotNull(_trackingService.getClientId());
     verify(_entityService, times(1))

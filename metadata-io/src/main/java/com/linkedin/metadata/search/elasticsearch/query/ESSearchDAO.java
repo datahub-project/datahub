@@ -1,7 +1,7 @@
 package com.linkedin.metadata.search.elasticsearch.query;
 
 import static com.linkedin.metadata.Constants.*;
-import static com.linkedin.metadata.models.registry.template.util.TemplateUtil.*;
+import static com.linkedin.metadata.aspect.patch.template.TemplateUtil.*;
 import static com.linkedin.metadata.utils.SearchUtil.*;
 
 import com.codahale.metrics.Timer;
@@ -304,7 +304,7 @@ public class ESSearchDAO {
   /**
    * Returns number of documents per field value given the field and filters
    *
-   * @param entityName name of the entity, if null, aggregates over all entities
+   * @param entityNames names of the entities, if null, aggregates over all entities
    * @param field the field name for aggregate
    * @param requestParams filters to apply before aggregating
    * @param limit the number of aggregations to return

@@ -1,7 +1,7 @@
 package com.linkedin.datahub.upgrade.config;
 
 import com.linkedin.datahub.upgrade.restorebackup.RestoreBackup;
-import com.linkedin.entity.client.SystemRestliEntityClient;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -25,7 +25,7 @@ public class RestoreBackupConfig {
   @DependsOn({
     "ebeanServer",
     "entityService",
-    "systemRestliEntityClient",
+    "systemEntityClient",
     "graphService",
     "searchService",
     "entityRegistry"
@@ -34,9 +34,8 @@ public class RestoreBackupConfig {
   @Nonnull
   public RestoreBackup createInstance() {
     final Database ebeanServer = applicationContext.getBean(Database.class);
-    final EntityService entityService = applicationContext.getBean(EntityService.class);
-    final SystemRestliEntityClient entityClient =
-        applicationContext.getBean(SystemRestliEntityClient.class);
+    final EntityService<?> entityService = applicationContext.getBean(EntityService.class);
+    final SystemEntityClient entityClient = applicationContext.getBean(SystemEntityClient.class);
     final GraphService graphClient = applicationContext.getBean(GraphService.class);
     final EntitySearchService searchClient = applicationContext.getBean(EntitySearchService.class);
     final EntityRegistry entityRegistry = applicationContext.getBean(EntityRegistry.class);

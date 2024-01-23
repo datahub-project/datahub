@@ -27,6 +27,9 @@ query getGlossaryNode($urn: String!) {
             canManageEntity
             canManageChildren
         }
+        autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
+            ...autoRenderAspectFields
+        }
         children: relationships(
             input: {
                 types: ["IsPartOf"]

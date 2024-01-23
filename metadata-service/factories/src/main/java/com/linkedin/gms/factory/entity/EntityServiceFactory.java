@@ -48,16 +48,14 @@ public class EntityServiceFactory {
     final KafkaEventProducer eventProducer =
         new KafkaEventProducer(producer, convention, kafkaHealthChecker);
     FeatureFlags featureFlags = configurationProvider.getFeatureFlags();
-    EntityService entityService =
-        new EntityServiceImpl(
-            aspectDao,
-            eventProducer,
-            entityRegistry,
-            featureFlags.isAlwaysEmitChangeLog(),
-            updateIndicesService,
-            featureFlags.getPreProcessHooks(),
-            _ebeanMaxTransactionRetry);
 
-    return entityService;
+    return new EntityServiceImpl(
+        aspectDao,
+        eventProducer,
+        entityRegistry,
+        featureFlags.isAlwaysEmitChangeLog(),
+        updateIndicesService,
+        featureFlags.getPreProcessHooks(),
+        _ebeanMaxTransactionRetry);
   }
 }

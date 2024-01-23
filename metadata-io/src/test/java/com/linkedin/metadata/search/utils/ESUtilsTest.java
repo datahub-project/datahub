@@ -257,4 +257,75 @@ public class ESUtilsTest {
             + "}";
     Assert.assertEquals(result.toString(), expected);
   }
+
+  @Test
+  public void testGetQueryBuilderFromStructPropEqualsValue() {
+
+    final Criterion singleValueCriterion =
+        new Criterion()
+            .setField("structuredProperties.ab.fgh.ten")
+            .setCondition(Condition.EQUAL)
+            .setValues(new StringArray(ImmutableList.of("value1")));
+
+    QueryBuilder result = ESUtils.getQueryBuilderFromCriterion(singleValueCriterion, false);
+    String expected =
+        "{\n"
+            + "  \"terms\" : {\n"
+            + "    \"structuredProperties.ab_fgh_ten\" : [\n"
+            + "      \"value1\"\n"
+            + "    ],\n"
+            + "    \"boost\" : 1.0,\n"
+            + "    \"_name\" : \"structuredProperties.ab_fgh_ten\"\n"
+            + "  }\n"
+            + "}";
+    Assert.assertEquals(result.toString(), expected);
+  }
+
+  @Test
+  public void testGetQueryBuilderFromStructPropExists() {
+    final Criterion singleValueCriterion =
+        new Criterion().setField("structuredProperties.ab.fgh.ten").setCondition(Condition.EXISTS);
+
+    QueryBuilder result = ESUtils.getQueryBuilderFromCriterion(singleValueCriterion, false);
+    String expected =
+        "{\n"
+            + "  \"bool\" : {\n"
+            + "    \"must\" : [\n"
+            + "      {\n"
+            + "        \"exists\" : {\n"
+            + "          \"field\" : \"structuredProperties.ab_fgh_ten\",\n"
+            + "          \"boost\" : 1.0\n"
+            + "        }\n"
+            + "      }\n"
+            + "    ],\n"
+            + "    \"adjust_pure_negative\" : true,\n"
+            + "    \"boost\" : 1.0,\n"
+            + "    \"_name\" : \"structuredProperties.ab_fgh_ten\"\n"
+            + "  }\n"
+            + "}";
+    Assert.assertEquals(result.toString(), expected);
+
+    // No diff in the timeseries field case for this condition.
+    final Criterion timeseriesField =
+        new Criterion().setField("myTestField").setCondition(Condition.EXISTS);
+
+    result = ESUtils.getQueryBuilderFromCriterion(timeseriesField, true);
+    expected =
+        "{\n"
+            + "  \"bool\" : {\n"
+            + "    \"must\" : [\n"
+            + "      {\n"
+            + "        \"exists\" : {\n"
+            + "          \"field\" : \"myTestField\",\n"
+            + "          \"boost\" : 1.0\n"
+            + "        }\n"
+            + "      }\n"
+            + "    ],\n"
+            + "    \"adjust_pure_negative\" : true,\n"
+            + "    \"boost\" : 1.0,\n"
+            + "    \"_name\" : \"myTestField\"\n"
+            + "  }\n"
+            + "}";
+    Assert.assertEquals(result.toString(), expected);
+  }
 }

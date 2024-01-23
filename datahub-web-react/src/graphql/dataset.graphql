@@ -112,13 +112,7 @@ fragment nonSiblingDatasetFields on Dataset {
     }
     ...viewProperties
     autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
-        aspectName
-        payload
-        renderSpec {
-            displayType
-            displayName
-            key
-        }
+        ...autoRenderAspectFields
     }
     status {
         removed
