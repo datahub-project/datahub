@@ -195,6 +195,17 @@ query listGroups($input: ListGroupsInput!) {
             ) {
                 total
             }
+            roles: relationships(input: { types: ["IsMemberOfRole"], direction: OUTGOING, start: 0 }) {
+                relationships {
+                    entity {
+                        ... on DataHubRole {
+                            urn
+                            type
+                            name
+                        }
+                    }
+                }
+            }
         }
     }
 }
