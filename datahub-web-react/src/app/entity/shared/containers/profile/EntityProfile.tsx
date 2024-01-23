@@ -45,6 +45,7 @@ import {
 import { useAppConfig } from '../../../../useAppConfig';
 import { useUpdateDomainEntityDataOnChange } from '../../../../domain/utils';
 import ProfileSidebar from './sidebar/ProfileSidebar';
+import SidebarFormInfoWrapper from './sidebar/FormInfo/SidebarFormInfoWrapper';
 
 type Props<T, U> = {
     urn: string;
@@ -333,7 +334,10 @@ export const EntityProfile = <T, U>({
                                         </TabContent>
                                     </HeaderAndTabsFlex>
                                 </HeaderAndTabs>
-                                <ProfileSidebar sidebarSections={sidebarSections} />
+                                <ProfileSidebar
+                                    sidebarSections={sidebarSections}
+                                    topSection={{ component: SidebarFormInfoWrapper }}
+                                />
                             </>
                         )}
                     </ContentContainer>
