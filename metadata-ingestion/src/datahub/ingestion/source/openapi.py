@@ -6,8 +6,15 @@ from typing import Dict, Iterable, Optional, Tuple
 
 from pydantic.fields import Field
 
-from datahub.configuration.common import ConfigModel
-from datahub.emitter.mce_builder import make_tag_urn
+from datahub.configuration.common import (
+    ConfigModel,
+    AllowDenyPattern
+)
+from datahub.emitter.mce_builder import (
+    make_tag_urn,
+    make_domain_urn
+)
+from datahub.emitter.mcp_builder import add_domain_to_entity_wu
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -31,6 +38,7 @@ from datahub.ingestion.source.openapi_parser import (
     set_metadata,
     try_guessing,
 )
+
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
@@ -41,6 +49,7 @@ from datahub.metadata.schema_classes import (
     InstitutionalMemoryMetadataClass,
     TagAssociationClass,
 )
+from datahub.utilities.registries.domain_registry import DomainRegistry
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -62,6 +71,10 @@ class OpenApiConfig(ConfigModel):
     forced_examples: dict = Field(default={}, description="")
     token: Optional[str] = Field(default=None, description="")
     get_token: dict = Field(default={}, description="")
+    domain: Dict[str, AllowDenyPattern] = Field(
+        default=dict(),
+        description="regex patterns for tables to filter to assign domain_key. ",
+    )
 
     def get_swagger(self) -> Dict:
         if self.get_token or self.token is not None:
@@ -150,6 +163,12 @@ class APISource(Source, ABC):
         self.platform = platform
         self.report = SourceReport()
         self.url_basepath = ""
+
+        if self.config.domain:
+            self.domain_registry = DomainRegistry(
+            cached_domains=[domain_id for domain_id in self.config.domain],
+            graph=self.ctx.graph)
+
 
     def report_bad_responses(self, status_code: int, key: str) -> None:
         if status_code == 400:
@@ -349,8 +368,30 @@ class APISource(Source, ABC):
                     else:
                         self.report_bad_responses(response.status_code, key=endpoint_k)
 
+        yield from self._get_domain_wu(
+            dataset_name=dataset_name,
+            entity_urn=f"urn:li:dataset:(urn:li:dataPlatform:{self.platform},{config.name}.{dataset_name},PROD)"
+        )
+
     def get_report(self):
         return self.report
+
+    def _gen_domain_urn(self, dataset_name: str) -> Optional[str]:
+        for domain, pattern in self.config.domain.items():
+            if pattern.allowed(dataset_name):
+                return make_domain_urn(domain)
+
+        return None
+
+    def _get_domain_wu(
+        self, dataset_name: str, entity_urn: str
+    ) -> Iterable[MetadataWorkUnit]:
+        domain_urn = self._gen_domain_urn(dataset_name)
+        if domain_urn:
+            yield from add_domain_to_entity_wu(
+                entity_urn=entity_urn,
+                domain_urn=domain_urn,
+            )
 
 
 class OpenApiSource(APISource):
