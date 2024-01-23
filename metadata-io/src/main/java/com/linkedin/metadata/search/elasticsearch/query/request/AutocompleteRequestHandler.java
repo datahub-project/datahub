@@ -14,6 +14,7 @@ import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.utils.ESUtils;
 import java.net.URISyntaxException;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -40,19 +41,33 @@ import org.opensearch.search.fetch.subphase.highlight.HighlightBuilder;
 public class AutocompleteRequestHandler {
 
   private final List<String> _defaultAutocompleteFields;
+  private final Map<String, Set<SearchableFieldSpec>> searchableFields;
 
   private static final Map<EntitySpec, AutocompleteRequestHandler>
       AUTOCOMPLETE_QUERY_BUILDER_BY_ENTITY_NAME = new ConcurrentHashMap<>();
 
   public AutocompleteRequestHandler(@Nonnull EntitySpec entitySpec) {
+    List<SearchableFieldSpec> fieldSpecs = entitySpec.getSearchableFieldSpecs();
     _defaultAutocompleteFields =
         Stream.concat(
-                entitySpec.getSearchableFieldSpecs().stream()
+                fieldSpecs.stream()
                     .map(SearchableFieldSpec::getSearchableAnnotation)
                     .filter(SearchableAnnotation::isEnableAutocomplete)
                     .map(SearchableAnnotation::getFieldName),
                 Stream.of("urn"))
             .collect(Collectors.toList());
+    searchableFields =
+        fieldSpecs.stream()
+            .collect(
+                Collectors.toMap(
+                    searchableFieldSpec ->
+                        searchableFieldSpec.getSearchableAnnotation().getFieldName(),
+                    searchableFieldSpec ->
+                        new HashSet<>(Collections.singleton(searchableFieldSpec)),
+                    (set1, set2) -> {
+                      set1.addAll(set2);
+                      return set1;
+                    }));
   }
 
   public static AutocompleteRequestHandler getBuilder(@Nonnull EntitySpec entitySpec) {
@@ -66,7 +81,7 @@ public class AutocompleteRequestHandler {
     SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
     searchSourceBuilder.size(limit);
     searchSourceBuilder.query(getQuery(input, field));
-    searchSourceBuilder.postFilter(ESUtils.buildFilterQuery(filter, false));
+    searchSourceBuilder.postFilter(ESUtils.buildFilterQuery(filter, false, searchableFields));
     searchSourceBuilder.highlighter(getHighlights(field));
     searchRequest.source(searchSourceBuilder);
     return searchRequest;

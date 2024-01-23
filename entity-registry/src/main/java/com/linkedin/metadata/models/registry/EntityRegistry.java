@@ -8,6 +8,7 @@ import com.linkedin.metadata.aspect.plugins.hooks.MutationHook;
 import com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.DefaultEntitySpec;
+import com.linkedin.metadata.models.DefaultEventSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.EventSpec;
 import com.linkedin.metadata.models.registry.template.AspectTemplateEngine;

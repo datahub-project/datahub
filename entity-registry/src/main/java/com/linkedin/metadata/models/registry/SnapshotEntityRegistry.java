@@ -117,7 +117,7 @@ public class SnapshotEntityRegistry implements EntityRegistry {
   }
 
   @Override
-  public EventSpec getEventSpec(final String ignored) {
+  public EventSpec getEventSpec(@Nonnull final String ignored) {
     return null;
   }
 
