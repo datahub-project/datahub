@@ -117,7 +117,6 @@ task cleanExtraDirs {
   delete 'dist'
   delete 'tmp'
   delete 'just'
-  delete fileTree('../datahub-frontend/public')
   delete fileTree(dir: 'src', include: '*.generated.ts')
 }
 clean.finalizedBy(cleanExtraDirs)
