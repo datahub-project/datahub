@@ -22,18 +22,10 @@ record IncidentSource {
      * Manually created incident, via UI or API.
      */
      MANUAL
-
-    /**
-     * An assertion has failed, triggering the incident.
-     */
-     ASSERTION_FAILURE
   }
 
   /**
-  * Reference to an URN related to the source of an incident. Currently populated when the type of the incident
-  * is ASSERTION_FAILURE.
-  *
-  * If this incident was raised due to an assertion failure, then this will contain the urn of the source Assertion.
+  * Reference to an URN related to the source of an incident.
   */
   @Searchable = {
     "fieldType": "URN"
