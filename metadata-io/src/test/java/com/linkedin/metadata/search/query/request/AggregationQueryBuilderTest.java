@@ -13,6 +13,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.opensearch.search.aggregations.AggregationBuilder;
+import org.opensearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -20,7 +21,6 @@ public class AggregationQueryBuilderTest {
 
   @Test
   public void testGetDefaultAggregationsHasFields() {
-
     SearchableAnnotation annotation =
         new SearchableAnnotation(
             "test",
@@ -82,7 +82,6 @@ public class AggregationQueryBuilderTest {
 
   @Test
   public void testGetSpecificAggregationsHasFields() {
-
     SearchableAnnotation annotation1 =
         new SearchableAnnotation(
             "test1",
@@ -133,6 +132,100 @@ public class AggregationQueryBuilderTest {
     // Case 2: Ask for fields that should NOT exist.
     aggs = builder.getAggregations(ImmutableList.of("hasTest2"));
     Assert.assertEquals(aggs.size(), 0);
+  }
+
+  @Test
+  public void testAggregateOverStructuredProperty() {
+    SearchConfiguration config = new SearchConfiguration();
+    config.setMaxTermBucketSize(25);
+
+    AggregationQueryBuilder builder = new AggregationQueryBuilder(config, List.of());
+
+    List<AggregationBuilder> aggs =
+        builder.getAggregations(List.of("structuredProperties.ab.fgh.ten"));
+    Assert.assertEquals(aggs.size(), 1);
+    AggregationBuilder aggBuilder = aggs.get(0);
+    Assert.assertTrue(aggBuilder instanceof TermsAggregationBuilder);
+    TermsAggregationBuilder agg = (TermsAggregationBuilder) aggBuilder;
+    // Check that field name is sanitized to correct field name
+    Assert.assertEquals(agg.field(), "structuredProperties.ab_fgh_ten");
+
+    // Two structured properties
+    aggs =
+        builder.getAggregations(
+            List.of("structuredProperties.ab.fgh.ten", "structuredProperties.hello"));
+    Assert.assertEquals(aggs.size(), 2);
+    Assert.assertEquals(
+        aggs.stream()
+            .map(aggr -> ((TermsAggregationBuilder) aggr).field())
+            .collect(Collectors.toSet()),
+        Set.of("structuredProperties.ab_fgh_ten", "structuredProperties.hello"));
+  }
+
+  @Test
+  public void testAggregateOverFieldsAndStructProp() {
+    SearchableAnnotation annotation1 =
+        new SearchableAnnotation(
+            "test1",
+            SearchableAnnotation.FieldType.KEYWORD,
+            true,
+            true,
+            false,
+            false,
+            Optional.empty(),
+            Optional.of("Has Test"),
+            1.0,
+            Optional.of("hasTest1"),
+            Optional.empty(),
+            Collections.emptyMap(),
+            Collections.emptyList(),
+            false);
+
+    SearchableAnnotation annotation2 =
+        new SearchableAnnotation(
+            "test2",
+            SearchableAnnotation.FieldType.KEYWORD,
+            true,
+            true,
+            false,
+            false,
+            Optional.of("Test Filter"),
+            Optional.empty(),
+            1.0,
+            Optional.empty(),
+            Optional.empty(),
+            Collections.emptyMap(),
+            Collections.emptyList(),
+            false);
+
+    SearchConfiguration config = new SearchConfiguration();
+    config.setMaxTermBucketSize(25);
+
+    AggregationQueryBuilder builder =
+        new AggregationQueryBuilder(config, ImmutableList.of(annotation1, annotation2));
+
+    // Aggregate over fields and structured properties
+    List<AggregationBuilder> aggs =
+        builder.getAggregations(
+            ImmutableList.of(
+                "test1",
+                "test2",
+                "hasTest1",
+                "structuredProperties.ab.fgh.ten",
+                "structuredProperties.hello"));
+    Assert.assertEquals(aggs.size(), 5);
+    Set<String> facets =
+        aggs.stream()
+            .map(aggB -> ((TermsAggregationBuilder) aggB).field())
+            .collect(Collectors.toSet());
+    Assert.assertEquals(
+        facets,
+        ImmutableSet.of(
+            "test1.keyword",
+            "test2.keyword",
+            "hasTest1",
+            "structuredProperties.ab_fgh_ten",
+            "structuredProperties.hello"));
   }
 
   @Test

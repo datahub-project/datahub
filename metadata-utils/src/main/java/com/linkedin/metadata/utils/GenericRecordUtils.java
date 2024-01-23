@@ -1,12 +1,17 @@
 package com.linkedin.metadata.utils;
 
 import com.datahub.util.RecordUtils;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.data.ByteString;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.entity.Aspect;
+import com.linkedin.entity.EntityResponse;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.GenericPayload;
 import java.nio.charset.StandardCharsets;
+import java.util.Map;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 
 public class GenericRecordUtils {
@@ -65,5 +70,21 @@ public class GenericRecordUtils {
         ByteString.unsafeWrap(RecordUtils.toJsonString(payload).getBytes(StandardCharsets.UTF_8)));
     genericPayload.setContentType(GenericRecordUtils.JSON);
     return genericPayload;
+  }
+
+  @Nonnull
+  public static Map<Urn, Map<String, Aspect>> entityResponseToAspectMap(
+      Map<Urn, EntityResponse> inputMap) {
+    return inputMap.entrySet().stream()
+        .map(
+            entry ->
+                Map.entry(
+                    entry.getKey(),
+                    entry.getValue().getAspects().entrySet().stream()
+                        .map(
+                            aspectEntry ->
+                                Map.entry(aspectEntry.getKey(), aspectEntry.getValue().getValue()))
+                        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))))
+        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
   }
 }

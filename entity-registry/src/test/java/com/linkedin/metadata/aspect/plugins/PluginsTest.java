@@ -61,16 +61,15 @@ public class PluginsTest {
     assertNotNull(eventSpec.getPegasusSchema());
 
     assertEquals(
-        configEntityRegistry.getAspectPayloadValidators(ChangeType.UPSERT, "*", "status").size(),
+        configEntityRegistry
+            .getAspectPayloadValidators(ChangeType.UPSERT, "chart", "status")
+            .size(),
         2);
     assertEquals(
-        configEntityRegistry.getAspectPayloadValidators(ChangeType.DELETE, "*", "status").size(),
+        configEntityRegistry
+            .getAspectPayloadValidators(ChangeType.DELETE, "chart", "status")
+            .size(),
         0);
-
-    assertEquals(
-        configEntityRegistry.getMCLSideEffects(ChangeType.UPSERT, "chart", "chartInfo").size(), 1);
-    assertEquals(
-        configEntityRegistry.getMCLSideEffects(ChangeType.DELETE, "chart", "chartInfo").size(), 0);
 
     assertEquals(
         configEntityRegistry.getMCPSideEffects(ChangeType.UPSERT, "dataset", "datasetKey").size(),
@@ -124,16 +123,15 @@ public class PluginsTest {
     assertNotNull(eventSpec.getPegasusSchema());
 
     assertEquals(
-        mergedEntityRegistry.getAspectPayloadValidators(ChangeType.UPSERT, "*", "status").size(),
-        3);
+        mergedEntityRegistry
+            .getAspectPayloadValidators(ChangeType.UPSERT, "chart", "status")
+            .size(),
+        2);
     assertEquals(
-        mergedEntityRegistry.getAspectPayloadValidators(ChangeType.DELETE, "*", "status").size(),
+        mergedEntityRegistry
+            .getAspectPayloadValidators(ChangeType.DELETE, "chart", "status")
+            .size(),
         1);
-
-    assertEquals(
-        mergedEntityRegistry.getMCLSideEffects(ChangeType.UPSERT, "chart", "chartInfo").size(), 2);
-    assertEquals(
-        mergedEntityRegistry.getMCLSideEffects(ChangeType.DELETE, "chart", "chartInfo").size(), 1);
 
     assertEquals(
         mergedEntityRegistry.getMCPSideEffects(ChangeType.UPSERT, "dataset", "datasetKey").size(),

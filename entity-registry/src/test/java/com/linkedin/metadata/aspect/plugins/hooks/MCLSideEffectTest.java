@@ -9,7 +9,6 @@ import com.linkedin.metadata.aspect.batch.MCLBatchItem;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.validation.AspectRetriever;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
-import com.linkedin.metadata.models.registry.EntityRegistry;
 import java.util.List;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
@@ -60,9 +59,7 @@ public class MCLSideEffectTest {
 
     @Override
     protected Stream<MCLBatchItem> applyMCLSideEffect(
-        @Nonnull MCLBatchItem input,
-        @Nonnull EntityRegistry entityRegistry,
-        @Nonnull AspectRetriever aspectRetriever) {
+        @Nonnull MCLBatchItem input, @Nonnull AspectRetriever aspectRetriever) {
       return Stream.of(input);
     }
   }

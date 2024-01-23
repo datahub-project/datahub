@@ -88,7 +88,7 @@ public class AspectUtils {
 
   public static List<MetadataChangeProposal> getAdditionalChanges(
       @Nonnull MetadataChangeProposal metadataChangeProposal,
-      @Nonnull EntityService entityService) {
+      @Nonnull EntityService<?> entityService) {
 
     return getAdditionalChanges(metadataChangeProposal, entityService, false);
   }

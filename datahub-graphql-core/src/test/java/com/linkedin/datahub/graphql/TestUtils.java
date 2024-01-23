@@ -122,13 +122,7 @@ public class TestUtils {
       int numberOfInvocations,
       List<MetadataChangeProposal> proposals) {
     AspectsBatchImpl batch =
-        AspectsBatchImpl.builder()
-            .mcps(
-                proposals,
-                mock(AuditStamp.class),
-                mockService.getEntityRegistry(),
-                mockService.getSystemEntityClient())
-            .build();
+        AspectsBatchImpl.builder().mcps(proposals, mock(AuditStamp.class), mockService).build();
     Mockito.verify(mockService, Mockito.times(numberOfInvocations))
         .ingestProposal(Mockito.eq(batch), Mockito.eq(false));
   }

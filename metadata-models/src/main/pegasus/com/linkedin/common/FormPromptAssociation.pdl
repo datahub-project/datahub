@@ -1,0 +1,23 @@
+namespace com.linkedin.common
+
+/**
+ * Information about the status of a particular prompt.
+ * Note that this is where we can add additional information about individual responses:
+ * actor, timestamp, and the response itself.
+ */
+record FormPromptAssociation {
+    /**
+     * The id for the prompt. This must be GLOBALLY UNIQUE.
+     */
+    id: string
+
+    /**
+     * The last time this prompt was touched for the entity (set, unset)
+     */
+    lastModified: AuditStamp
+
+    /**
+     * Optional information about the field-level prompt associations.
+     */
+    fieldAssociations: optional FormPromptFieldAssociations
+}
