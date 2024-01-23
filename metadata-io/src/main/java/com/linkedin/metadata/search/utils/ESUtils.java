@@ -15,6 +15,7 @@ import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -30,6 +31,7 @@ import org.opensearch.common.unit.TimeValue;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
+import org.opensearch.index.query.RangeQueryBuilder;
 import org.opensearch.search.builder.PointInTimeBuilder;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.search.sort.FieldSortBuilder;
@@ -74,6 +76,13 @@ public class ESUtils {
           SearchableAnnotation.FieldType.BROWSE_PATH_V2,
           SearchableAnnotation.FieldType.URN,
           SearchableAnnotation.FieldType.URN_PARTIAL);
+
+  public static final Set<Condition> RANGE_QUERY_CONDITIONS =
+      Set.of(
+          Condition.GREATER_THAN,
+          Condition.GREATER_THAN_OR_EQUAL_TO,
+          Condition.LESS_THAN,
+          Condition.LESS_THAN_OR_EQUAL_TO);
   public static final String ENTITY_NAME_FIELD = "_entityName";
   public static final String NAME_SUGGESTION = "nameSuggestion";
 
@@ -443,23 +452,9 @@ public class ESUtils {
       if (condition == Condition.EQUAL) {
         return buildEqualsConditionFromCriterion(
             fieldName, criterion, isTimeseries, searchableFields);
-        // TODO: Support multi-match on the following operators (using new 'values' field)
-      } else if (condition == Condition.GREATER_THAN) {
-        return QueryBuilders.rangeQuery(criterion.getField())
-            .gt(criterion.getValue().trim())
-            .queryName(fieldName);
-      } else if (condition == Condition.GREATER_THAN_OR_EQUAL_TO) {
-        return QueryBuilders.rangeQuery(criterion.getField())
-            .gte(criterion.getValue().trim())
-            .queryName(fieldName);
-      } else if (condition == Condition.LESS_THAN) {
-        return QueryBuilders.rangeQuery(criterion.getField())
-            .lt(criterion.getValue().trim())
-            .queryName(fieldName);
-      } else if (condition == Condition.LESS_THAN_OR_EQUAL_TO) {
-        return QueryBuilders.rangeQuery(criterion.getField())
-            .lte(criterion.getValue().trim())
-            .queryName(fieldName);
+      } else if (RANGE_QUERY_CONDITIONS.contains(condition)) {
+        return buildRangeQueryFromCriterion(
+            criterion, fieldName, searchableFields, condition, isTimeseries);
       } else if (condition == Condition.CONTAIN) {
         return QueryBuilders.wildcardQuery(
                 toKeywordField(criterion.getField(), isTimeseries),
@@ -509,13 +504,7 @@ public class ESUtils {
       @Nonnull final Criterion criterion,
       final boolean isTimeseries,
       final Map<String, Set<SearchableFieldSpec>> searchableFields) {
-    Set<SearchableFieldSpec> fieldSpecs = searchableFields.get(fieldName);
-    Set<String> fieldTypes =
-        fieldSpecs.stream()
-            .map(SearchableFieldSpec::getSearchableAnnotation)
-            .map(SearchableAnnotation::getFieldType)
-            .map(ESUtils::getElasticTypeForFieldType)
-            .collect(Collectors.toSet());
+    Set<String> fieldTypes = getFieldTypes(searchableFields, fieldName);
     if (fieldTypes.size() > 1) {
       log.warn(
           "Multiple field types for field name {}, determining best fit for set: {}",
@@ -541,6 +530,72 @@ public class ESUtils {
     return QueryBuilders.termsQuery(
             toKeywordField(criterion.getField(), isTimeseries), criterion.getValues())
         .queryName(fieldName);
+  }
+
+  private static Set<String> getFieldTypes(
+      Map<String, Set<SearchableFieldSpec>> searchableFields, String fieldName) {
+    Set<SearchableFieldSpec> fieldSpecs = searchableFields.get(fieldName);
+    Set<String> fieldTypes =
+        fieldSpecs.stream()
+            .map(SearchableFieldSpec::getSearchableAnnotation)
+            .map(SearchableAnnotation::getFieldType)
+            .map(ESUtils::getElasticTypeForFieldType)
+            .collect(Collectors.toSet());
+    if (fieldTypes.size() > 1) {
+      log.warn(
+          "Multiple field types for field name {}, determining best fit for set: {}",
+          fieldName,
+          fieldTypes);
+    }
+    return fieldTypes;
+  }
+
+  private static RangeQueryBuilder buildRangeQueryFromCriterion(
+      Criterion criterion,
+      String fieldName,
+      Map<String, Set<SearchableFieldSpec>> searchableFields,
+      Condition condition,
+      boolean isTimeseries) {
+    Set<String> fieldTypes = getFieldTypes(searchableFields, fieldName);
+
+    // Determine criterion value
+    List<String> criterionValues;
+    if (!criterion.getValues().isEmpty()) {
+      criterionValues = criterion.getValues();
+    } else {
+      criterionValues = Collections.singletonList(criterion.getValue());
+    }
+    Object criterionValue;
+    String documentFieldName;
+    if ((BOOLEAN_FIELDS.contains(fieldName) || fieldTypes.contains(BOOLEAN_FIELD_TYPE))
+        && criterionValues.size() == 1) {
+      // Handle special-cased Boolean fields.
+      // here we special case boolean fields we recognize the names of and hard-cast
+      // the first provided value to a boolean to do the comparison.
+      criterionValue = Boolean.parseBoolean(criterionValues.get(0));
+      documentFieldName = criterion.getField();
+    } else if (fieldTypes.contains(LONG_FIELD_TYPE) || fieldTypes.contains(DATE_FIELD_TYPE)) {
+      criterionValue = criterionValues.stream().map(Long::parseLong).collect(Collectors.toList());
+      documentFieldName = criterion.getField();
+    } else if (fieldTypes.contains(DOUBLE_FIELD_TYPE)) {
+      criterionValue =
+          criterionValues.stream().map(Double::parseDouble).collect(Collectors.toList());
+      documentFieldName = criterion.getField();
+    } else {
+      criterionValue = criterionValues.stream().map(String::trim).collect(Collectors.toList());
+      documentFieldName = toKeywordField(criterion.getField(), isTimeseries);
+    }
+
+    // Set up QueryBuilder based on condition
+    if (condition == Condition.GREATER_THAN) {
+      return QueryBuilders.rangeQuery(documentFieldName).gt(criterionValue).queryName(fieldName);
+    } else if (condition == Condition.GREATER_THAN_OR_EQUAL_TO) {
+      return QueryBuilders.rangeQuery(documentFieldName).gte(criterionValue).queryName(fieldName);
+    } else if (condition == Condition.LESS_THAN) {
+      return QueryBuilders.rangeQuery(documentFieldName).lt(criterionValue).queryName(fieldName);
+    } else /*if (condition == Condition.LESS_THAN_OR_EQUAL_TO)*/ {
+      return QueryBuilders.rangeQuery(documentFieldName).lte(criterionValue).queryName(fieldName);
+    }
   }
 
   /**
