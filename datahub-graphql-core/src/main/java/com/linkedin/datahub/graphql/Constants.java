@@ -22,10 +22,11 @@ public class Constants {
   public static final String TESTS_SCHEMA_FILE = "tests.graphql";
   public static final String STEPS_SCHEMA_FILE = "step.graphql";
   public static final String LINEAGE_SCHEMA_FILE = "lineage.graphql";
+  public static final String PROPERTIES_SCHEMA_FILE = "properties.graphql";
+  public static final String FORMS_SCHEMA_FILE = "forms.graphql";
   public static final String BROWSE_PATH_DELIMITER = "/";
   public static final String BROWSE_PATH_V2_DELIMITER = "␟";
   public static final String VERSION_STAMP_FIELD_NAME = "versionStamp";
-
   public static final String ENTITY_FILTER_NAME = "_entityType";
 
   public static final Set<String> DEFAULT_PERSONA_URNS =

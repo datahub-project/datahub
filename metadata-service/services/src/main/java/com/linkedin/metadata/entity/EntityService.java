@@ -9,11 +9,11 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.Entity;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
-import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.aspect.batch.UpsertItem;
+import com.linkedin.metadata.aspect.plugins.validation.AspectRetriever;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesResult;
 import com.linkedin.metadata.models.AspectSpec;
@@ -25,6 +25,7 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
 import java.net.URISyntaxException;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -34,7 +35,7 @@ import java.util.function.Consumer;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
-public interface EntityService<U extends UpsertItem> {
+public interface EntityService<U extends UpsertItem> extends AspectRetriever {
 
   /**
    * Just whether the entity/aspect exists
@@ -286,6 +287,8 @@ public interface EntityService<U extends UpsertItem> {
 
   Set<String> getEntityAspectNames(final String entityName);
 
+  @Override
+  @Nonnull
   EntityRegistry getEntityRegistry();
 
   RollbackResult deleteAspect(
@@ -312,9 +315,27 @@ public interface EntityService<U extends UpsertItem> {
   IngestResult ingestProposal(
       MetadataChangeProposal proposal, AuditStamp auditStamp, final boolean async);
 
-  Boolean exists(Urn urn);
+  /**
+   * Returns a set of urns of entities that exist (has materialized aspects).
+   *
+   * @param urns the list of urns of the entities to check
+   * @return a set of urns of entities that exist.
+   */
+  Set<Urn> exists(@Nonnull final Collection<Urn> urns, boolean includeSoftDelete);
 
-  Boolean isSoftDeleted(@Nonnull final Urn urn);
+  /**
+   * Returns a set of urns of entities that exist (has materialized aspects).
+   *
+   * @param urns the list of urns of the entities to check
+   * @return a set of urns of entities that exist.
+   */
+  default Set<Urn> exists(@Nonnull final Collection<Urn> urns) {
+    return exists(urns, true);
+  }
+
+  default boolean exists(@Nonnull Urn urn, boolean includeSoftDelete) {
+    return exists(List.of(urn), includeSoftDelete).contains(urn);
+  }
 
   void setWritable(boolean canWrite);
 
@@ -329,16 +350,6 @@ public interface EntityService<U extends UpsertItem> {
   @Nonnull
   BrowsePathsV2 buildDefaultBrowsePathV2(final @Nonnull Urn urn, boolean useContainerPaths)
       throws URISyntaxException;
-
-  /**
-   * Allow internal use of the system entity client. Solves recursive dependencies between the
-   * EntityService and the SystemJavaEntityClient
-   *
-   * @param systemEntityClient system entity client
-   */
-  void setSystemEntityClient(SystemEntityClient systemEntityClient);
-
-  SystemEntityClient getSystemEntityClient();
 
   RecordTemplate getLatestAspect(@Nonnull final Urn urn, @Nonnull final String aspectName);
 }
