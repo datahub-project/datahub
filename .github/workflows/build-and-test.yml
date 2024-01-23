@@ -83,6 +83,10 @@ jobs:
           ./gradlew :datahub-frontend:build :datahub-web-react:build --parallel
         env:
           NODE_OPTIONS: "--max-old-space-size=3072"
+      - name: Gradle compile (jdk8) for legacy Spark
+        if: ${{  matrix.command == 'except_metadata_ingestion' && needs.setup.outputs.backend_change == 'true' }}
+        run: |
+          ./gradlew -PjavaClassVersionDefault=8 :metadata-integration:java:spark-lineage:compileJava
       - uses: actions/upload-artifact@v3
         if: always()
         with:

@@ -424,7 +424,7 @@ public class TestEngine {
         queries.stream()
             .map(query -> _queryEngine.validateQuery(query, entityTypes))
             .filter(result -> !result.isValid())
-            .toList();
+            .collect(Collectors.toList());
 
     if (invalidResults.isEmpty()) {
       return ValidationResult.validResult();

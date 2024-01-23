@@ -126,7 +126,8 @@ public class UpdateIndicesService {
                   mclSideEffect ->
                       mclSideEffect.apply(List.of(batch), _entityRegistry, systemEntityClient));
 
-      for (MCLBatchItem mclBatchItem : Stream.concat(Stream.of(batch), sideEffects).toList()) {
+      for (MCLBatchItem mclBatchItem :
+          Stream.concat(Stream.of(batch), sideEffects).collect(Collectors.toList())) {
         MetadataChangeLog hookEvent = mclBatchItem.getMetadataChangeLog();
         if (UPDATE_CHANGE_TYPES.contains(hookEvent.getChangeType())) {
           handleUpdateChangeEvent(mclBatchItem);

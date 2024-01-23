@@ -1,4 +1,7 @@
-apply plugin: 'java'
+plugins {
+  id 'java'
+  id 'pegasus'
+}
 
 configurations {
   avroOriginal

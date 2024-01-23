@@ -1,20 +1,11 @@
+plugins {
+  id 'java-library'
+  id 'io.acryl.gradle.plugin.avro'
+}
+
 configurations {
   avsc
 }
-
-apply plugin: 'io.acryl.gradle.plugin.avro'
-apply plugin: 'java-library'
-tasks.withType(JavaCompile).configureEach {
-    javaCompiler = javaToolchains.compilerFor {
-        languageVersion = JavaLanguageVersion.of(8)
-    }
-}
-tasks.withType(Test).configureEach {
-    javaLauncher = javaToolchains.launcherFor {
-        languageVersion = JavaLanguageVersion.of(8)
-    }
-}
-
 
 dependencies {
   api externalDependency.avro

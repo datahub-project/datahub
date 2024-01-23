@@ -1,5 +1,6 @@
 package com.linkedin.metadata.aspect.plugins.config;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -11,10 +12,10 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class PluginConfiguration {
-  private List<AspectPluginConfig> aspectPayloadValidators = List.of();
-  private List<AspectPluginConfig> mutationHooks = List.of();
-  private List<AspectPluginConfig> mclSideEffects = List.of();
-  private List<AspectPluginConfig> mcpSideEffects = List.of();
+  private List<AspectPluginConfig> aspectPayloadValidators = Collections.emptyList();
+  private List<AspectPluginConfig> mutationHooks = Collections.emptyList();
+  private List<AspectPluginConfig> mclSideEffects = Collections.emptyList();
+  private List<AspectPluginConfig> mcpSideEffects = Collections.emptyList();
 
   public static PluginConfiguration EMPTY = new PluginConfiguration();
 
