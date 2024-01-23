@@ -149,7 +149,7 @@ looker_common = {
     # This version of lkml contains a fix for parsing lists in
     # LookML files with spaces between an item and the following comma.
     # See https://github.com/joshtemple/lkml/issues/73.
-    "lkml>=1.3.0b5",
+    "lkml>=1.3.4",
     "sql-metadata==2.2.2",
     *sqllineage_lib,
     "GitPython>2",

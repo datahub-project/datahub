@@ -1,5 +1,6 @@
 package com.linkedin.metadata.boot.kafka;
 
+import com.codahale.metrics.Timer;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.EventUtils;
 import com.linkedin.metadata.boot.dependencies.BootstrapDependency;
@@ -35,7 +36,7 @@ public class DataHubUpgradeKafkaListener implements ConsumerSeekAware, Bootstrap
 
   private final KafkaListenerEndpointRegistry registry;
 
-  private static final String CONSUMER_GROUP =
+  public static final String CONSUMER_GROUP =
       "${DATAHUB_UPGRADE_HISTORY_KAFKA_CONSUMER_GROUP_ID:generic-duhe-consumer-job-client}";
   private static final String SUFFIX = "temp";
   public static final String TOPIC_NAME =
@@ -98,29 +99,31 @@ public class DataHubUpgradeKafkaListener implements ConsumerSeekAware, Bootstrap
       containerFactory = "duheKafkaEventConsumer",
       concurrency = "1")
   public void checkSystemVersion(final ConsumerRecord<String, GenericRecord> consumerRecord) {
-    final GenericRecord record = consumerRecord.value();
-    final String expectedVersion = String.format("%s-%s", _gitVersion.getVersion(), revision);
+    try (Timer.Context i = MetricUtils.timer(this.getClass(), "checkSystemVersion").time()) {
+      final GenericRecord record = consumerRecord.value();
+      final String expectedVersion = String.format("%s-%s", _gitVersion.getVersion(), revision);
 
-    DataHubUpgradeHistoryEvent event;
-    try {
-      event = EventUtils.avroToPegasusDUHE(record);
-      log.info("Latest system update version: {}", event.getVersion());
-      if (expectedVersion.equals(event.getVersion())) {
-        IS_UPDATED.getAndSet(true);
-      } else if (!_configurationProvider.getSystemUpdate().isWaitForSystemUpdate()) {
-        log.warn("Wait for system update is disabled. Proceeding with startup.");
-        IS_UPDATED.getAndSet(true);
-      } else {
-        log.warn(
-            "System version is not up to date: {}. Waiting for datahub-upgrade to complete...",
-            expectedVersion);
+      DataHubUpgradeHistoryEvent event;
+      try {
+        event = EventUtils.avroToPegasusDUHE(record);
+        log.info("Latest system update version: {}", event.getVersion());
+        if (expectedVersion.equals(event.getVersion())) {
+          IS_UPDATED.getAndSet(true);
+        } else if (!_configurationProvider.getSystemUpdate().isWaitForSystemUpdate()) {
+          log.warn("Wait for system update is disabled. Proceeding with startup.");
+          IS_UPDATED.getAndSet(true);
+        } else {
+          log.warn(
+              "System version is not up to date: {}. Waiting for datahub-upgrade to complete...",
+              expectedVersion);
+        }
+
+      } catch (Exception e) {
+        MetricUtils.counter(this.getClass(), "avro_to_pegasus_conversion_failure").inc();
+        log.error("Error deserializing message due to: ", e);
+        log.error("Message: {}", record.toString());
+        return;
       }
-
-    } catch (Exception e) {
-      MetricUtils.counter(this.getClass(), "avro_to_pegasus_conversion_failure").inc();
-      log.error("Error deserializing message due to: ", e);
-      log.error("Message: {}", record.toString());
-      return;
     }
   }
 

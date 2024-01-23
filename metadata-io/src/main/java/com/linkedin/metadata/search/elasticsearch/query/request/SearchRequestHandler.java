@@ -93,6 +93,7 @@ public class SearchRequestHandler {
   private final Set<String> _defaultQueryFieldNames;
   private final HighlightBuilder _highlights;
   private final Map<String, String> _filtersToDisplayName;
+
   private final SearchConfiguration _configs;
   private final SearchQueryBuilder _searchQueryBuilder;
   private final AggregationQueryBuilder _aggregationQueryBuilder;

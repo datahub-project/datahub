@@ -77,7 +77,7 @@ public class DomainUtils {
       @Nullable Urn domainUrn,
       List<ResourceRefInput> resources,
       Urn actor,
-      EntityService entityService)
+      EntityService<?> entityService)
       throws Exception {
     final List<MetadataChangeProposal> changes = new ArrayList<>();
     for (ResourceRefInput resource : resources) {
@@ -87,7 +87,10 @@ public class DomainUtils {
   }
 
   private static MetadataChangeProposal buildSetDomainProposal(
-      @Nullable Urn domainUrn, ResourceRefInput resource, Urn actor, EntityService entityService) {
+      @Nullable Urn domainUrn,
+      ResourceRefInput resource,
+      Urn actor,
+      EntityService<?> entityService) {
     Domains domains =
         (Domains)
             EntityUtils.getAspectFromEntity(
@@ -104,8 +107,8 @@ public class DomainUtils {
         UrnUtils.getUrn(resource.getResourceUrn()), Constants.DOMAINS_ASPECT_NAME, domains);
   }
 
-  public static void validateDomain(Urn domainUrn, EntityService entityService) {
-    if (!entityService.exists(domainUrn)) {
+  public static void validateDomain(Urn domainUrn, EntityService<?> entityService) {
+    if (!entityService.exists(domainUrn, true)) {
       throw new IllegalArgumentException(
           String.format("Failed to validate Domain with urn %s. Urn does not exist.", domainUrn));
     }

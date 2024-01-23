@@ -127,7 +127,6 @@ public class KafkaEventConsumerFactory {
           DeserializationException.class, new CommonContainerStoppingErrorHandler());
       factory.setCommonErrorHandler(delegatingErrorHandler);
     }
-
     log.info(
         String.format(
             "Event-based KafkaListenerContainerFactory built successfully. Consumer concurrency = %s",

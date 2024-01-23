@@ -21,4 +21,4 @@ This ingestion source maps the following Source System Concepts to DataHub Conce
 Works only for
 
 - Source connectors: JDBC, Debezium, Mongo and Generic connectors with user-defined lineage graph
-- Sink connectors: BigQuery, Confluent S3, Snowflake
+- Sink connectors: BigQuery, Confluent, S3, Snowflake
