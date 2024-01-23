@@ -7,7 +7,6 @@ import pydantic
 import sqlalchemy.dialects.mssql
 
 # This import verifies that the dependencies are available.
-import sqlalchemy_pytds  # noqa: F401
 from pydantic.fields import Field
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.engine.base import Connection
@@ -131,10 +130,6 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
         if self.use_odbc:
             uri = f"{uri}?{urllib.parse.urlencode(self.uri_args)}"
         return uri
-
-    @property
-    def host(self):
-        return self.platform_instance or self.host_port.split(":")[0]
 
     @property
     def db(self):
@@ -369,7 +364,7 @@ class SQLServerSource(SQLAlchemySource):
                     name=job_name,
                     env=sql_config.env,
                     db=db_name,
-                    platform_instance=sql_config.host,
+                    platform_instance=sql_config.platform_instance,
                 )
                 data_flow = MSSQLDataFlow(entity=job)
                 yield from self.construct_flow_workunits(data_flow=data_flow)
@@ -404,7 +399,7 @@ class SQLServerSource(SQLAlchemySource):
             name=procedure_flow_name,
             env=sql_config.env,
             db=db_name,
-            platform_instance=sql_config.host,
+            platform_instance=sql_config.platform_instance,
         )
         data_flow = MSSQLDataFlow(entity=mssql_default_job)
         with inspector.engine.connect() as conn:

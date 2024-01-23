@@ -173,7 +173,8 @@ public class SearchableFieldSpecExtractor implements SchemaVisitor {
                 annotation.getHasValuesFieldName(),
                 annotation.getNumValuesFieldName(),
                 annotation.getWeightsPerFieldValue(),
-                annotation.getFieldNameAliases());
+                annotation.getFieldNameAliases(),
+                annotation.isIncludeQueryEmptyAggregation());
       }
     }
     log.debug("Searchable annotation for field: {} : {}", schemaPathSpec, annotation);

@@ -39,6 +39,45 @@ function Home() {
     >
       <Hero />
       <Features />
+      <Section>
+        <div className="container">
+          <div className="row row--centered">
+            <div className="col col--6">
+              <div>
+                <iframe
+                  style={{
+                    display: "block",
+                    margin: "0 auto",
+                    borderRadius: "0.4rem",
+                  }}
+                  width="620"
+                  height="320"
+                  src="https://www.youtube.com/embed/oxNzH40m5E0"
+                  frameBorder="0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                  title="Intro Video"
+                />
+              </div>
+            </div>
+            <div className="col col--5 col--offset-1">
+              <h1
+                style={{
+                  width: "18rem",
+                }}
+              >
+                The Origins of DataHub
+              </h1>
+              {/* <hr style={{ border: "2px solid black", width: "20rem" }}></hr> */}
+              <p style={{ fontSize: "18px" }}>
+                Explore DataHub's journey from search and discovery tool at
+                LinkedIn to the #1 open source metadata platform, through the
+                lens of its founder and some amazing community members.
+              </p>
+            </div>
+          </div>
+        </div>
+      </Section>
       <PlatformLogos />
       <Section title="A Modern Approach to Metadata Management" withBackground>
         <div className="container">
