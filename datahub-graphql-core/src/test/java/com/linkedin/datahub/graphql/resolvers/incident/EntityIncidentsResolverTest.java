@@ -57,16 +57,14 @@ public class EntityIncidentsResolverTest {
 
     IncidentInfo expectedInfo =
         new IncidentInfo()
-            .setType(IncidentType.DATASET_COLUMN)
+            .setType(IncidentType.OPERATIONAL)
             .setCustomType("Custom Type")
             .setDescription("Description")
             .setPriority(5)
             .setTitle("Title")
             .setEntities(new UrnArray(ImmutableList.of(datasetUrn)))
             .setSource(
-                new IncidentSource()
-                    .setType(IncidentSourceType.ASSERTION_FAILURE)
-                    .setSourceUrn(assertionUrn))
+                new IncidentSource().setType(IncidentSourceType.MANUAL).setSourceUrn(assertionUrn))
             .setStatus(
                 new IncidentStatus()
                     .setState(IncidentState.ACTIVE)

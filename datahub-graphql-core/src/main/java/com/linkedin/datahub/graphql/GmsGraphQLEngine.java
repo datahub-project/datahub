@@ -126,7 +126,6 @@ import com.linkedin.datahub.graphql.resolvers.dataproduct.CreateDataProductResol
 import com.linkedin.datahub.graphql.resolvers.dataproduct.DeleteDataProductResolver;
 import com.linkedin.datahub.graphql.resolvers.dataproduct.ListDataProductAssetsResolver;
 import com.linkedin.datahub.graphql.resolvers.dataproduct.UpdateDataProductResolver;
-import com.linkedin.datahub.graphql.resolvers.dataset.DatasetHealthResolver;
 import com.linkedin.datahub.graphql.resolvers.dataset.DatasetStatsSummaryResolver;
 import com.linkedin.datahub.graphql.resolvers.dataset.DatasetUsageStatsResolver;
 import com.linkedin.datahub.graphql.resolvers.deprecation.UpdateDeprecationResolver;
@@ -159,6 +158,7 @@ import com.linkedin.datahub.graphql.resolvers.group.EntityCountsResolver;
 import com.linkedin.datahub.graphql.resolvers.group.ListGroupsResolver;
 import com.linkedin.datahub.graphql.resolvers.group.RemoveGroupMembersResolver;
 import com.linkedin.datahub.graphql.resolvers.group.RemoveGroupResolver;
+import com.linkedin.datahub.graphql.resolvers.health.EntityHealthResolver;
 import com.linkedin.datahub.graphql.resolvers.incident.EntityIncidentsResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.execution.CancelIngestionExecutionRequestResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.execution.CreateIngestionExecutionRequestResolver;
@@ -1493,7 +1493,12 @@ public class GmsGraphQLEngine {
                     .dataFetcher("usageStats", new DatasetUsageStatsResolver(this.usageClient))
                     .dataFetcher("statsSummary", new DatasetStatsSummaryResolver(this.usageClient))
                     .dataFetcher(
-                        "health", new DatasetHealthResolver(graphClient, timeseriesAspectService))
+                        "health",
+                        new EntityHealthResolver(
+                            entityClient,
+                            graphClient,
+                            timeseriesAspectService,
+                            new EntityHealthResolver.Config(true, true)))
                     .dataFetcher("schemaMetadata", new AspectResolver())
                     .dataFetcher(
                         "assertions", new EntityAssertionsResolver(entityClient, graphClient))
@@ -1842,7 +1847,14 @@ public class GmsGraphQLEngine {
                 .dataFetcher(
                     "statsSummary", new DashboardStatsSummaryResolver(timeseriesAspectService))
                 .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
-                .dataFetcher("exists", new EntityExistsResolver(entityService)));
+                .dataFetcher("exists", new EntityExistsResolver(entityService))
+                .dataFetcher(
+                    "health",
+                    new EntityHealthResolver(
+                        entityClient,
+                        graphClient,
+                        timeseriesAspectService,
+                        new EntityHealthResolver.Config(false, true))));
     builder.type(
         "DashboardInfo",
         typeWiring ->
@@ -1959,7 +1971,14 @@ public class GmsGraphQLEngine {
                 .dataFetcher(
                     "statsSummary", new ChartStatsSummaryResolver(this.timeseriesAspectService))
                 .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
-                .dataFetcher("exists", new EntityExistsResolver(entityService)));
+                .dataFetcher("exists", new EntityExistsResolver(entityService))
+                .dataFetcher(
+                    "health",
+                    new EntityHealthResolver(
+                        entityClient,
+                        graphClient,
+                        timeseriesAspectService,
+                        new EntityHealthResolver.Config(false, true))));
     builder.type(
         "ChartInfo",
         typeWiring ->
@@ -2064,7 +2083,14 @@ public class GmsGraphQLEngine {
                             }))
                     .dataFetcher("runs", new DataJobRunsResolver(entityClient))
                     .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
-                    .dataFetcher("exists", new EntityExistsResolver(entityService)))
+                    .dataFetcher("exists", new EntityExistsResolver(entityService))
+                    .dataFetcher(
+                        "health",
+                        new EntityHealthResolver(
+                            entityClient,
+                            graphClient,
+                            timeseriesAspectService,
+                            new EntityHealthResolver.Config(false, true))))
         .type(
             "DataJobInputOutput",
             typeWiring ->
@@ -2127,7 +2153,14 @@ public class GmsGraphQLEngine {
                           return dataFlow.getDataPlatformInstance() != null
                               ? dataFlow.getDataPlatformInstance().getUrn()
                               : null;
-                        })));
+                        }))
+                .dataFetcher(
+                    "health",
+                    new EntityHealthResolver(
+                        entityClient,
+                        graphClient,
+                        timeseriesAspectService,
+                        new EntityHealthResolver.Config(false, true))));
   }
 
   /**

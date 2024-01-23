@@ -132,30 +132,6 @@ A specific type of incident
 """
 enum IncidentType {
   """
-  A Freshness Assertion has failed, triggering the incident.
-  Raised on assets where assertions are configured to generate incidents.
-  """
-  FRESHNESS
-
-  """
-  A Volume Assertion has failed, triggering the incident.
-  Raised on assets where assertions are configured to generate incidents.
-  """
-  VOLUME
-
-  """
-  An assertion on a particular column(s) of a Dataset has triggered the incident.
-  Raised on Datasets where assertions are configured to generate incidents.
-  """
-  DATASET_COLUMN
-
-  """
-  An assertion on the row count of a Dataset has triggered the incident.
-  Raised on datasets where assertions are configured to generate incidents.
-  """
-  DATASET_ROWS
-
-  """
   An operational incident, e.g. failure to materialize a dataset, or failure to execute a task / pipeline.
   """
   OPERATIONAL
@@ -193,10 +169,6 @@ enum IncidentSourceType {
   The incident was created manually, from either the API or the UI.
   """
   MANUAL
-  """
-  An assertion has failed, triggering the incident.
-  """
-  ASSERTION_FAILURE
 }
 
 """

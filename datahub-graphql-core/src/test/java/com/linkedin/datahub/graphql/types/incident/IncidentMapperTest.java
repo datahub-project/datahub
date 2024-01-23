@@ -35,7 +35,7 @@ public class IncidentMapperTest {
 
     EnvelopedAspect envelopedIncidentInfo = new EnvelopedAspect();
     IncidentInfo incidentInfo = new IncidentInfo();
-    incidentInfo.setType(IncidentType.DATASET_COLUMN);
+    incidentInfo.setType(IncidentType.OPERATIONAL);
     incidentInfo.setCustomType("Custom Type");
     incidentInfo.setTitle("Test Incident", SetMode.IGNORE_NULL);
     incidentInfo.setDescription("This is a test incident", SetMode.IGNORE_NULL);
@@ -43,7 +43,7 @@ public class IncidentMapperTest {
     incidentInfo.setEntities(new UrnArray(Collections.singletonList(urn)));
 
     IncidentSource source = new IncidentSource();
-    source.setType(IncidentSourceType.ASSERTION_FAILURE);
+    source.setType(IncidentSourceType.MANUAL);
     source.setSourceUrn(assertionUrn);
     incidentInfo.setSource(source);
 
@@ -76,13 +76,13 @@ public class IncidentMapperTest {
     assertEquals(incident.getCustomType(), "Custom Type");
     assertEquals(
         incident.getIncidentType().toString(),
-        com.linkedin.datahub.graphql.generated.IncidentType.DATASET_COLUMN.toString());
+        com.linkedin.datahub.graphql.generated.IncidentType.OPERATIONAL.toString());
     assertEquals(incident.getTitle(), "Test Incident");
     assertEquals(incident.getDescription(), "This is a test incident");
     assertEquals(incident.getPriority().intValue(), 1);
     assertEquals(
         incident.getSource().getType().toString(),
-        com.linkedin.datahub.graphql.generated.IncidentSourceType.ASSERTION_FAILURE.toString());
+        com.linkedin.datahub.graphql.generated.IncidentSourceType.MANUAL.toString());
     assertEquals(incident.getSource().getSource().getUrn(), assertionUrn.toString());
     assertEquals(
         incident.getStatus().getState().toString(),

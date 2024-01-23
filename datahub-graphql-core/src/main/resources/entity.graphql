@@ -1702,7 +1702,7 @@ type VersionedDataset implements Entity {
     domain: DomainAssociation
 
     """
-    Experimental! The resolved health status of the Dataset
+    Experimental! The resolved health status of the asset
     """
     health: [Health!]
 
@@ -5135,6 +5135,11 @@ type Dashboard implements EntityWithRelationships & Entity & BrowsableEntity {
     Structured properties about this asset
     """
     structuredProperties: StructuredProperties
+
+    """
+    Experimental! The resolved health statuses of the asset
+    """
+    health: [Health!]
 }
 
 """
@@ -5456,6 +5461,11 @@ type Chart implements EntityWithRelationships & Entity & BrowsableEntity {
     Structured properties about this asset
     """
     structuredProperties: StructuredProperties
+
+    """
+    Experimental! The resolved health statuses of the asset
+    """
+    health: [Health!]
 }
 
 """
@@ -5824,6 +5834,11 @@ type DataFlow implements EntityWithRelationships & Entity & BrowsableEntity {
     Structured properties about this asset
     """
     structuredProperties: StructuredProperties
+
+    """
+    Experimental! The resolved health statuses of the asset
+    """
+    health: [Health!]
 }
 
 """
@@ -6035,6 +6050,11 @@ type DataJob implements EntityWithRelationships & Entity & BrowsableEntity {
     Structured properties about this asset
     """
     structuredProperties: StructuredProperties
+
+    """
+    Experimental! The resolved health statuses of the asset
+    """
+    health: [Health!]
 }
 
 """
@@ -10215,6 +10235,11 @@ enum HealthStatusType {
   Assertions status
   """
   ASSERTIONS
+
+  """
+  Incidents status
+  """
+  INCIDENTS
 }
 
 """

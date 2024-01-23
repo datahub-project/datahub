@@ -5,30 +5,6 @@ namespace com.linkedin.incident
  */
 enum IncidentType {
   /**
-  * An Freshness Assertion has failed, triggering the incident.
-  * Raised on entities where assertions are configured to generate incidents.
-  */
-  FRESHNESS
-
-  /**
-  * An Volume Assertion has failed, triggering the incident.
-  * Raised on entities where assertions are configured to generate incidents.
-  */
-  VOLUME
-
-  /**
-  * An assertion on a particular column(s) of a Dataset has triggered the incident.
-  * Raised on Datasets where assertions are configured to generate incidents.
-  */
-  DATASET_COLUMN
-
-  /**
-  * An assertion on the row count of a Dataset has triggered the incident.
-  * Raised on datasets where assertions are configured to generate incidents.
-  */
-  DATASET_ROWS
-
-  /**
   * A misc. operational incident, e.g. failure to materialize a dataset.
   */
   OPERATIONAL
