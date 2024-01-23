@@ -80,7 +80,7 @@ public class IngestMetadataTestsStep implements BootstrapStep {
 
   @Override
   public void execute() throws IOException, URISyntaxException {
-    if (_entityService.exists(UPGRADE_ID_URN)) {
+    if (_entityService.exists(UPGRADE_ID_URN, true)) {
       log.info("Default metadata tests were already ingested. Skipping ingesting again.");
       return;
     }

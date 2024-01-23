@@ -34,8 +34,7 @@ import lombok.extern.slf4j.Slf4j;
 public class ValidationUtils {
 
   public static SearchResult validateSearchResult(
-<<<<<<< HEAD
-      final SearchResult searchResult, @Nonnull final EntityService entityService) {
+      final SearchResult searchResult, @Nonnull final EntityService<?> entityService) {
     try (Timer.Context ignored =
         MetricUtils.timer(ValidationUtils.class, "validateSearchResult").time()) {
       if (searchResult == null) {
@@ -51,35 +50,13 @@ public class ValidationUtils {
               .setNumEntities(searchResult.getNumEntities());
 
       SearchEntityArray validatedEntities =
-          searchResult.getEntities().stream()
-              .filter(searchEntity -> entityService.exists(searchEntity.getEntity()))
+          validatedUrns(searchResult.getEntities(), SearchEntity::getEntity, entityService, true)
               .collect(Collectors.toCollection(SearchEntityArray::new));
+
       validatedSearchResult.setEntities(validatedEntities);
 
       return validatedSearchResult;
     }
-=======
-      final SearchResult searchResult, @Nonnull final EntityService<?> entityService) {
-    if (searchResult == null) {
-      return null;
-    }
-    Objects.requireNonNull(entityService, "entityService must not be null");
-
-    SearchResult validatedSearchResult =
-        new SearchResult()
-            .setFrom(searchResult.getFrom())
-            .setMetadata(searchResult.getMetadata())
-            .setPageSize(searchResult.getPageSize())
-            .setNumEntities(searchResult.getNumEntities());
-
-    SearchEntityArray validatedEntities =
-        validatedUrns(searchResult.getEntities(), SearchEntity::getEntity, entityService, true)
-            .collect(Collectors.toCollection(SearchEntityArray::new));
-
-    validatedSearchResult.setEntities(validatedEntities);
-
-    return validatedSearchResult;
->>>>>>> oss_master
   }
 
   public static ScrollResult validateScrollResult(
@@ -108,8 +85,7 @@ public class ValidationUtils {
   }
 
   public static BrowseResult validateBrowseResult(
-<<<<<<< HEAD
-      final BrowseResult browseResult, @Nonnull final EntityService entityService) {
+      final BrowseResult browseResult, @Nonnull final EntityService<?> entityService) {
     try (Timer.Context ignored =
         MetricUtils.timer(ValidationUtils.class, "validateBrowseResult").time()) {
       if (browseResult == null) {
@@ -128,9 +104,9 @@ public class ValidationUtils {
               .setNumElements(browseResult.getNumElements());
 
       BrowseResultEntityArray validatedEntities =
-          browseResult.getEntities().stream()
-              .filter(browseResultEntity -> entityService.exists(browseResultEntity.getUrn()))
+          validatedUrns(browseResult.getEntities(), BrowseResultEntity::getUrn, entityService, true)
               .collect(Collectors.toCollection(BrowseResultEntityArray::new));
+
       validatedBrowseResult.setEntities(validatedEntities);
 
       return validatedBrowseResult;
@@ -138,7 +114,7 @@ public class ValidationUtils {
   }
 
   public static ListResult validateListResult(
-      final ListResult listResult, @Nonnull final EntityService entityService) {
+      final ListResult listResult, @Nonnull final EntityService<?> entityService) {
     try (Timer.Context ignored =
         MetricUtils.timer(ValidationUtils.class, "validateListResult").time()) {
       if (listResult == null) {
@@ -153,9 +129,9 @@ public class ValidationUtils {
               .setTotal(listResult.getTotal());
 
       UrnArray validatedEntities =
-          listResult.getEntities().stream()
-              .filter(entityService::exists)
+          validatedUrns(listResult.getEntities(), Function.identity(), entityService, true)
               .collect(Collectors.toCollection(UrnArray::new));
+
       validatedListResult.setEntities(validatedEntities);
 
       return validatedListResult;
@@ -163,7 +139,8 @@ public class ValidationUtils {
   }
 
   public static LineageSearchResult validateLineageSearchResult(
-      final LineageSearchResult lineageSearchResult, @Nonnull final EntityService entityService) {
+      final LineageSearchResult lineageSearchResult,
+      @Nonnull final EntityService<?> entityService) {
     try (Timer.Context ignored =
         MetricUtils.timer(ValidationUtils.class, "validateLineageResult").time()) {
       if (lineageSearchResult == null) {
@@ -179,89 +156,17 @@ public class ValidationUtils {
               .setNumEntities(lineageSearchResult.getNumEntities());
 
       LineageSearchEntityArray validatedEntities =
-          lineageSearchResult.getEntities().stream()
-              .filter(entity -> entityService.exists(entity.getEntity()))
+          validatedUrns(
+                  lineageSearchResult.getEntities(),
+                  LineageSearchEntity::getEntity,
+                  entityService,
+                  true)
               .collect(Collectors.toCollection(LineageSearchEntityArray::new));
+
       validatedLineageSearchResult.setEntities(validatedEntities);
 
-      log.debug("Returning validated lineage search results");
       return validatedLineageSearchResult;
     }
-=======
-      final BrowseResult browseResult, @Nonnull final EntityService<?> entityService) {
-    if (browseResult == null) {
-      return null;
-    }
-    Objects.requireNonNull(entityService, "entityService must not be null");
-
-    BrowseResult validatedBrowseResult =
-        new BrowseResult()
-            .setGroups(browseResult.getGroups())
-            .setMetadata(browseResult.getMetadata())
-            .setFrom(browseResult.getFrom())
-            .setPageSize(browseResult.getPageSize())
-            .setNumGroups(browseResult.getNumGroups())
-            .setNumEntities(browseResult.getNumEntities())
-            .setNumElements(browseResult.getNumElements());
-
-    BrowseResultEntityArray validatedEntities =
-        validatedUrns(browseResult.getEntities(), BrowseResultEntity::getUrn, entityService, true)
-            .collect(Collectors.toCollection(BrowseResultEntityArray::new));
-
-    validatedBrowseResult.setEntities(validatedEntities);
-
-    return validatedBrowseResult;
-  }
-
-  public static ListResult validateListResult(
-      final ListResult listResult, @Nonnull final EntityService<?> entityService) {
-    if (listResult == null) {
-      return null;
-    }
-    Objects.requireNonNull(entityService, "entityService must not be null");
-
-    ListResult validatedListResult =
-        new ListResult()
-            .setStart(listResult.getStart())
-            .setCount(listResult.getCount())
-            .setTotal(listResult.getTotal());
-
-    UrnArray validatedEntities =
-        validatedUrns(listResult.getEntities(), Function.identity(), entityService, true)
-            .collect(Collectors.toCollection(UrnArray::new));
-
-    validatedListResult.setEntities(validatedEntities);
-
-    return validatedListResult;
-  }
-
-  public static LineageSearchResult validateLineageSearchResult(
-      final LineageSearchResult lineageSearchResult,
-      @Nonnull final EntityService<?> entityService) {
-    if (lineageSearchResult == null) {
-      return null;
-    }
-    Objects.requireNonNull(entityService, "entityService must not be null");
-
-    LineageSearchResult validatedLineageSearchResult =
-        new LineageSearchResult()
-            .setMetadata(lineageSearchResult.getMetadata())
-            .setFrom(lineageSearchResult.getFrom())
-            .setPageSize(lineageSearchResult.getPageSize())
-            .setNumEntities(lineageSearchResult.getNumEntities());
-
-    LineageSearchEntityArray validatedEntities =
-        validatedUrns(
-                lineageSearchResult.getEntities(),
-                LineageSearchEntity::getEntity,
-                entityService,
-                true)
-            .collect(Collectors.toCollection(LineageSearchEntityArray::new));
-
-    validatedLineageSearchResult.setEntities(validatedEntities);
-
-    return validatedLineageSearchResult;
->>>>>>> oss_master
   }
 
   public static EntityLineageResult validateEntityLineageResult(

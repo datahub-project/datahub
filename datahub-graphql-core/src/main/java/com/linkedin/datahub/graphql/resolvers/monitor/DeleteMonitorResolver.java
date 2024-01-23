@@ -43,7 +43,7 @@ public class DeleteMonitorResolver implements DataFetcher<CompletableFuture<Bool
         () -> {
 
           // 1. check the entity exists. If not, return false.
-          if (!_entityService.exists(monitorUrn)) {
+          if (!_entityService.exists(monitorUrn, true)) {
             return true;
           }
 

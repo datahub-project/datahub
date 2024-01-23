@@ -140,7 +140,7 @@ public class ProposalServiceTest {
 
   @Test
   public void proposeUpdateResourceDescriptionPasses() {
-    when(_entityService.exists(eq(_glossaryNodeUrn))).thenReturn(true);
+    when(_entityService.exists(eq(_glossaryNodeUrn), anyBoolean())).thenReturn(true);
 
     _proposalService.proposeUpdateResourceDescription(
         ACTOR_URN, _glossaryNodeUrn, DESCRIPTION, _authorizer);

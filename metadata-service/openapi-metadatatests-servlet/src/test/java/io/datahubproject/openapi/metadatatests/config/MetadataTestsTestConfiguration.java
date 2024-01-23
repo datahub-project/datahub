@@ -32,6 +32,7 @@ import io.datahubproject.openapi.generated.ScrollTestEntityResponseV2;
 import io.datahubproject.openapi.generated.TestEntityRequestV2;
 import io.datahubproject.openapi.generated.TestEntityResponseV2;
 import io.datahubproject.openapi.health.HealthCheckController;
+import io.datahubproject.openapi.operations.elastic.OperationsController;
 import io.datahubproject.openapi.relationships.RelationshipsController;
 import io.datahubproject.openapi.timeline.TimelineController;
 import org.mockito.Mockito;
@@ -107,8 +108,8 @@ public class MetadataTestsTestConfiguration {
       entityApiDelegate;
 
   @MockBean public TimelineController timelineController;
-
   @MockBean public RelationshipsController relationshipsController;
-
   @MockBean public HealthCheckController healthCheckController;
+
+  @MockBean public OperationsController operationsController;
 }

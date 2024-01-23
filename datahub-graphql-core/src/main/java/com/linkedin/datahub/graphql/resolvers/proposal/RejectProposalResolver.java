@@ -43,7 +43,7 @@ public class RejectProposalResolver implements DataFetcher<CompletableFuture<Boo
                     "Failed to reject proposal, Urn provided (%s) is not a valid actionRequest urn",
                     proposalUrn));
           }
-          if (!_entityService.exists(proposalUrn)) {
+          if (!_entityService.exists(proposalUrn, true)) {
             throw new RuntimeException(
                 String.format(
                     "Failed to reject proposal, proposal provided (%s) does not exist",

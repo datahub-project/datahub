@@ -82,7 +82,7 @@ public class ProposalService {
   private static final String UPDATE_DESCRIPTION_ACTION_REQUEST_TYPE = "UPDATE_DESCRIPTION";
   private static final String DATA_CONTRACT_REQUEST_TYPE = "DATA_CONTRACT";
 
-  private final EntityService _entityService;
+  private final EntityService<?> _entityService;
   private final EntityClient _entityClient;
   private final GraphClient _graphClient;
 
@@ -158,7 +158,7 @@ public class ProposalService {
     Objects.requireNonNull(resourceUrn, "resourceUrn cannot be null");
     Objects.requireNonNull(description, "description cannot be null");
 
-    if (!_entityService.exists(resourceUrn)) {
+    if (!_entityService.exists(resourceUrn, true)) {
       throw new RuntimeException(String.format("Entity %s does not exist", resourceUrn));
     }
 
@@ -213,7 +213,7 @@ public class ProposalService {
     Objects.requireNonNull(entityUrn, "entityUrn cannot be null");
     Objects.requireNonNull(opType, "opType cannot be null");
 
-    if (!_entityService.exists(entityUrn)) {
+    if (!_entityService.exists(entityUrn, true)) {
       throw new RuntimeException(String.format("Entity %s does not exist", entityUrn));
     }
 
@@ -1157,8 +1157,9 @@ public class ProposalService {
   }
 
   private void verifyAssertionsExist(@Nonnull final List<Urn> assertionUrns) {
+    final Set<Urn> existing = _entityService.exists(assertionUrns);
     for (final Urn assertionUrn : assertionUrns) {
-      if (!_entityService.exists(assertionUrn)) {
+      if (!existing.contains(assertionUrn)) {
         throw new RuntimeException(String.format("Assertion %s does not exist", assertionUrn));
       }
     }

@@ -35,7 +35,7 @@ public class MostPopularCandidateSourceFactory {
 
   @Autowired
   @Qualifier("entityService")
-  private EntityService entityService;
+  private EntityService<?> entityService;
 
   @Value("${recommendationService.mostPopular.offline}")
   private Boolean fetchOffline;

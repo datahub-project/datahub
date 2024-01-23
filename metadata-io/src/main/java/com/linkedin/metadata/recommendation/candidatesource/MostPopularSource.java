@@ -8,12 +8,7 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.datahubusage.DataHubUsageEventConstants;
 import com.linkedin.metadata.datahubusage.DataHubUsageEventType;
 import com.linkedin.metadata.entity.EntityService;
-<<<<<<< HEAD
-import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.metadata.key.RecommendationModuleKey;
-import com.linkedin.metadata.recommendation.EntityProfileParams;
-=======
->>>>>>> oss_master
 import com.linkedin.metadata.recommendation.RecommendationContent;
 import com.linkedin.metadata.recommendation.RecommendationRenderType;
 import com.linkedin.metadata.recommendation.RecommendationRequestContext;
@@ -45,11 +40,9 @@ import org.opensearch.search.builder.SearchSourceBuilder;
 
 @Slf4j
 @RequiredArgsConstructor
-<<<<<<< HEAD
-public class MostPopularSource implements RecommendationSourceWithOffline {
-=======
-public class MostPopularSource implements EntityRecommendationSource {
->>>>>>> oss_master
+public class MostPopularSource
+    implements RecommendationSourceWithOffline, EntityRecommendationSource {
+
   /** Entity Types that should be in scope for this type of recommendation. */
   private static final Set<String> SUPPORTED_ENTITY_TYPES =
       ImmutableSet.of(
@@ -66,8 +59,8 @@ public class MostPopularSource implements EntityRecommendationSource {
 
   private final RestHighLevelClient _searchClient;
   private final IndexConvention _indexConvention;
-  private final boolean _fetchOffline;
   private final EntityService<?> _entityService;
+  private final boolean _fetchOffline;
 
   private static final String DATAHUB_USAGE_INDEX = "datahub_usage_event";
   private static final String ENTITY_AGG_NAME = "entity";
@@ -162,26 +155,9 @@ public class MostPopularSource implements EntityRecommendationSource {
     request.indices(_indexConvention.getIndexName(DATAHUB_USAGE_INDEX));
     return request;
   }
-<<<<<<< HEAD
-
-  private Optional<RecommendationContent> buildContent(@Nonnull String entityUrn) {
-    Urn entity = UrnUtils.getUrn(entityUrn);
-    if (EntityUtils.checkIfRemoved(_entityService, entity)
-        || !RecommendationUtils.isSupportedEntityType(entity, SUPPORTED_ENTITY_TYPES)) {
-      return Optional.empty();
-    }
-
-    return Optional.of(
-        new RecommendationContent()
-            .setEntity(entity)
-            .setValue(entityUrn)
-            .setParams(
-                new RecommendationParams()
-                    .setEntityProfileParams(new EntityProfileParams().setUrn(entity))));
-  }
 
   @Override
-  public EntityService getEntityService() {
+  public EntityService<?> getEntityService() {
     return _entityService;
   }
 
@@ -195,6 +171,4 @@ public class MostPopularSource implements EntityRecommendationSource {
       @Nonnull Urn userUrn, @Nonnull RecommendationRequestContext requestContext) {
     return MODULE_URN;
   }
-=======
->>>>>>> oss_master
 }
