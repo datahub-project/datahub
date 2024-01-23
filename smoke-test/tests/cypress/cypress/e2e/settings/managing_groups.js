@@ -109,7 +109,7 @@ describe("create and manage group", () => {
     it("remove group", () => {
         cy.loginWithCredentials();
         cy.visit("/settings/identities/groups");
-        cy.get(`[href="/group/urn:li:corpGroup:${test_id}"]`).next().click();
+        cy.get(`[href="/group/urn:li:corpGroup:${test_id}"]`).openThreeDotDropdown()
         cy.clickOptionWithText("Delete");
         cy.clickOptionWithText("Yes");
         cy.waitTextVisible("Deleted Group!"); 
