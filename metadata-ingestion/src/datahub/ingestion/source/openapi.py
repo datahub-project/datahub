@@ -79,7 +79,7 @@ class OpenApiConfig(ConfigModel):
         default={}, description="Retrieving a token from the endpoint."
     )
 
-    @validator("bearer_token")
+    @validator("bearer_token", always=True)
     def ensure_only_one_token(
         cls, bearer_token: Optional[str], values
     ) -> Optional[str]:
