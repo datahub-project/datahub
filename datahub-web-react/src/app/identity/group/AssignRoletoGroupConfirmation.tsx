@@ -35,7 +35,7 @@ export default function AssignRoletoGroupConfirmation({
             .then(({ errors }) => {
                 if (!errors) {
                     analytics.event({
-                        type: EventType.SelectUserRoleEvent,
+                        type: EventType.SelectGroupRoleEvent,
                         roleUrn: roleToAssign?.urn || 'undefined',
                         groupUrn,
                     });
@@ -53,7 +53,7 @@ export default function AssignRoletoGroupConfirmation({
                 message.error({
                     content: roleToAssign
                         ? `Failed to assign role ${roleToAssign?.name} to group ${groupName}: \n ${e.message || ''}`
-                        : `Failed to remove role from  group${groupName}: \n ${e.message || ''}`,
+                        : `Failed to remove role from  group ${groupName}: \n ${e.message || ''}`,
                     duration: 3,
                 });
             });
