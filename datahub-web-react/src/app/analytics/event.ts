@@ -409,7 +409,8 @@ export interface DeleteEntityEvent extends BaseEvent {
 export interface SelectUserRoleEvent extends BaseEvent {
     type: EventType.SelectUserRoleEvent;
     roleUrn: string;
-    userUrn: string;
+    userUrn?: string;
+    groupUrn?: string;
 }
 
 export interface BatchSelectUserRoleEvent extends BaseEvent {
