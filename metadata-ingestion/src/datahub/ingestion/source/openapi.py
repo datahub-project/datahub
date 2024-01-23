@@ -91,7 +91,10 @@ class OpenApiConfig(ConfigModel):
 
     def get_swagger(self) -> Dict:
         if self.get_token or self.token or self.bearer_token is not None:
-            if self.token or self.bearer_token:
+            if self.token:
+                pass
+            elif self.bearer_token:
+                self.token = f"Bearer {self.bearer_token}"
                 ...
             else:
                 assert (
