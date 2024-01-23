@@ -20,10 +20,8 @@ import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.secret.SecretService;
-import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.secret.DataHubSecretValue;
 import graphql.schema.DataFetchingEnvironment;
-import java.net.URISyntaxException;
 import java.util.concurrent.CompletionException;
 import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
@@ -42,14 +40,14 @@ public class UpdateSecretResolverTest {
   private UpdateSecretResolver resolver;
 
   @BeforeMethod
-  public void before() throws RemoteInvocationException, URISyntaxException {
+  public void before() {
     mockClient = Mockito.mock(EntityClient.class);
     mockSecretService = Mockito.mock(SecretService.class);
 
     resolver = new UpdateSecretResolver(mockClient, mockSecretService);
   }
 
-  private DataHubSecretValue createSecretAspectWithTypeUrn(Urn testUrn) {
+  private DataHubSecretValue createSecretAspect() {
     DataHubSecretValue secretAspect = new DataHubSecretValue();
     secretAspect.setValue("encryptedvalue.updated");
     secretAspect.setName(TEST_INPUT.getName() + ".updated");
@@ -68,13 +66,12 @@ public class UpdateSecretResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     Mockito.when(mockClient.exists(any(), any())).thenReturn(true);
-    Mockito.when(mockSecretService.encrypt(Mockito.eq(TEST_INPUT.getValue())))
-        .thenReturn("encrypted_value");
+    Mockito.when(mockSecretService.encrypt(any())).thenReturn("encrypted_value");
     final EntityResponse entityResponse = new EntityResponse();
     final EnvelopedAspectMap aspectMap = new EnvelopedAspectMap();
     aspectMap.put(
         SECRET_VALUE_ASPECT_NAME,
-        new EnvelopedAspect().setValue(new Aspect(createSecretAspectWithTypeUrn(TEST_URN).data())));
+        new EnvelopedAspect().setValue(new Aspect(createSecretAspect().data())));
     entityResponse.setAspects(aspectMap);
 
     when(mockClient.getV2(any(), any(), any(), any())).thenReturn(entityResponse);

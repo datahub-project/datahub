@@ -5,11 +5,11 @@ import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.buildM
 import static com.linkedin.metadata.Constants.SECRET_VALUE_ASPECT_NAME;
 
 import com.linkedin.common.urn.Urn;
-import com.linkedin.data.DataMap;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.UpdateSecretInput;
 import com.linkedin.datahub.graphql.resolvers.ingest.IngestionAuthUtils;
+import com.linkedin.datahub.graphql.types.ingest.secret.mapper.DataHubSecretValueMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.secret.SecretService;
@@ -21,7 +21,6 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.util.StringUtils;
 
 /**
  * Creates an encrypted DataHub secret. Uses AES symmetric encryption / decryption. Requires the
@@ -56,17 +55,17 @@ public class UpdateSecretResolver implements DataFetcher<CompletableFuture<Strin
                     String.format("Secret for urn %s doesn't exists!", secretUrn));
               }
 
-              final DataMap dataMap =
-                  response.getAspects().get(SECRET_VALUE_ASPECT_NAME).getValue().data();
-              final DataHubSecretValue existedDataHubSecretValue = new DataHubSecretValue(dataMap);
-              existedDataHubSecretValue.setName(input.getName());
-              existedDataHubSecretValue.setValue(secretService.encrypt(input.getValue()));
-              if (StringUtils.hasText(input.getDescription())) {
-                existedDataHubSecretValue.setDescription(input.getDescription());
-              }
+              DataHubSecretValue updatedVal =
+                  DataHubSecretValueMapper.map(
+                      response,
+                      input.getName(),
+                      secretService.encrypt(input.getValue()),
+                      input.getDescription(),
+                      null);
+
               final MetadataChangeProposal proposal =
                   buildMetadataChangeProposalWithUrn(
-                      secretUrn, SECRET_VALUE_ASPECT_NAME, existedDataHubSecretValue);
+                      secretUrn, SECRET_VALUE_ASPECT_NAME, updatedVal);
               return entityClient.ingestProposal(proposal, context.getAuthentication(), false);
             } catch (Exception e) {
               throw new RuntimeException(
