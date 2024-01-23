@@ -1,10 +1,12 @@
 package com.linkedin.metadata.aspect.plugins.validation;
 
+import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.Aspect;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.r2.RemoteInvocationException;
 import java.net.URISyntaxException;
+import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nonnull;
@@ -15,8 +17,8 @@ public interface AspectRetriever {
   @Nullable
   default Aspect getLatestAspectObject(@Nonnull final Urn urn, @Nonnull final String aspectName)
       throws RemoteInvocationException, URISyntaxException {
-    return getLatestAspectObjects(Set.of(urn), Set.of(aspectName))
-        .getOrDefault(urn, Map.of())
+    return getLatestAspectObjects(ImmutableSet.of(urn), ImmutableSet.of(aspectName))
+        .getOrDefault(urn, Collections.emptyMap())
         .get(aspectName);
   }
 
