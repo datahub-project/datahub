@@ -299,11 +299,10 @@ class ElasticsearchSourceConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
 
     profiling: ElasticProfiling = Field(
         default_factory=ElasticProfiling,
-        description="Configs to ingest data profiles from ElasticSearch."
+        description="Configs to ingest data profiles from ElasticSearch.",
     )
     collapse_urns: CollapseUrns = Field(
-        default_factory=CollapseUrns,
-        description="Urn of collapse."
+        default_factory=CollapseUrns, description="Urn of collapse."
     )
 
     def is_profiling_enabled(self) -> bool:
