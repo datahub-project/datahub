@@ -514,8 +514,11 @@ public class ElasticSearchTimeseriesAspectService
       int count,
       @Nullable Long startTimeMillis,
       @Nullable Long endTimeMillis) {
+
+    Map<String, Set<SearchableFieldSpec>> searchableFields =
+        _entityRegistry.getEntitySpec(entityName).getSearchableFieldSpecMap();
     final BoolQueryBuilder filterQueryBuilder =
-        QueryBuilders.boolQuery().filter(ESUtils.buildFilterQuery(filter, true));
+        QueryBuilders.boolQuery().filter(ESUtils.buildFilterQuery(filter, true, searchableFields));
 
     if (startTimeMillis != null) {
       Criterion startTimeCriterion =
@@ -523,7 +526,8 @@ public class ElasticSearchTimeseriesAspectService
               .setField(MappingsBuilder.TIMESTAMP_MILLIS_FIELD)
               .setCondition(Condition.GREATER_THAN_OR_EQUAL_TO)
               .setValue(startTimeMillis.toString());
-      filterQueryBuilder.filter(ESUtils.getQueryBuilderFromCriterion(startTimeCriterion, true));
+      filterQueryBuilder.filter(ESUtils.getQueryBuilderFromCriterion(startTimeCriterion, true,
+          searchableFields));
     }
     if (endTimeMillis != null) {
       Criterion endTimeCriterion =
@@ -531,7 +535,8 @@ public class ElasticSearchTimeseriesAspectService
               .setField(MappingsBuilder.TIMESTAMP_MILLIS_FIELD)
               .setCondition(Condition.LESS_THAN_OR_EQUAL_TO)
               .setValue(endTimeMillis.toString());
-      filterQueryBuilder.filter(ESUtils.getQueryBuilderFromCriterion(endTimeCriterion, true));
+      filterQueryBuilder.filter(ESUtils.getQueryBuilderFromCriterion(endTimeCriterion, true,
+          searchableFields));
     }
 
     SearchResponse response =
@@ -553,7 +558,7 @@ public class ElasticSearchTimeseriesAspectService
   }
 
   private SearchResponse executeScrollSearchQuery(
-      @Nonnull final String entityNname,
+      @Nonnull final String entityName,
       @Nonnull final String aspectName,
       @Nonnull final QueryBuilder query,
       @Nonnull List<SortCriterion> sortCriterion,
@@ -576,7 +581,7 @@ public class ElasticSearchTimeseriesAspectService
     searchRequest.source(searchSourceBuilder);
     ESUtils.setSearchAfter(searchSourceBuilder, sort, null, null);
 
-    searchRequest.indices(_indexConvention.getTimeseriesAspectIndexName(entityNname, aspectName));
+    searchRequest.indices(_indexConvention.getTimeseriesAspectIndexName(entityName, aspectName));
 
     try (Timer.Context ignored =
         MetricUtils.timer(this.getClass(), "scrollAspects_search").time()) {
