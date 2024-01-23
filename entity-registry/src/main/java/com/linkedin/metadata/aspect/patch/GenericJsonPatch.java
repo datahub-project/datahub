@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.github.fge.jsonpatch.JsonPatch;
 import java.io.IOException;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nonnull;
@@ -24,7 +25,7 @@ public class GenericJsonPatch {
 
   @Nonnull
   public Map<String, List<String>> getArrayPrimaryKeys() {
-    return arrayPrimaryKeys == null ? Map.of() : arrayPrimaryKeys;
+    return arrayPrimaryKeys == null ? Collections.emptyMap() : arrayPrimaryKeys;
   }
 
   @JsonIgnore

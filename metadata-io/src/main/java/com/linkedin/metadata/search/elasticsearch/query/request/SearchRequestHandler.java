@@ -648,10 +648,12 @@ public class SearchRequestHandler {
     if (aggregation == null) {
       return Collections.emptyMap();
     }
-    if (aggregation instanceof ParsedTerms terms) {
-      return extractTermAggregations(terms, aggregationName.equals("_entityType"));
-    } else if (aggregation instanceof ParsedMissing missing) {
-      return Collections.singletonMap(missing.getName(), missing.getDocCount());
+    if (aggregation instanceof ParsedTerms) {
+      return extractTermAggregations(
+          (ParsedTerms) aggregation, aggregationName.equals("_entityType"));
+    } else if (aggregation instanceof ParsedMissing) {
+      return Collections.singletonMap(
+          aggregation.getName(), ((ParsedMissing) aggregation).getDocCount());
     }
     throw new UnsupportedOperationException(
         "Unsupported aggregation type: " + aggregation.getClass().getName());
@@ -669,10 +671,10 @@ public class SearchRequestHandler {
 
     if (aggs != null) {
       for (Map.Entry<String, Aggregation> entry : aggs.getAsMap().entrySet()) {
-        if (entry.getValue() instanceof ParsedTerms terms) {
-          recurseTermsAgg(terms, aggResult, false);
-        } else if (entry.getValue() instanceof ParsedMissing missing) {
-          recurseMissingAgg(missing, aggResult);
+        if (entry.getValue() instanceof ParsedTerms) {
+          recurseTermsAgg((ParsedTerms) entry.getValue(), aggResult, false);
+        } else if (entry.getValue() instanceof ParsedMissing) {
+          recurseMissingAgg((ParsedMissing) entry.getValue(), aggResult);
         } else {
           throw new UnsupportedOperationException(
               "Unsupported aggregation type: " + entry.getValue().getClass().getName());

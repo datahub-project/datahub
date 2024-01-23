@@ -126,7 +126,7 @@ public class RollbackService {
                       !row.getRunId().equals(runId)
                           && !row.isKeyAspect()
                           && !row.getAspectName().equals(Constants.STATUS_ASPECT_NAME))
-              .toList();
+              .collect(Collectors.toList());
 
       long unsafeEntitiesCount =
           affectedAspectsList.stream()
@@ -212,7 +212,7 @@ public class RollbackService {
                     !row.getRunId().equals(runId)
                         && !row.isKeyAspect()
                         && !row.getAspectName().equals(Constants.STATUS_ASPECT_NAME))
-            .toList();
+            .collect(Collectors.toList());
 
     long affectedAspects = affectedAspectsList.size();
     long unsafeEntitiesCount =

@@ -1,5 +1,6 @@
 package com.linkedin.metadata.models.registry.config;
 
+import java.util.Collections;
 import java.util.Set;
 import lombok.Builder;
 import lombok.Data;
@@ -23,9 +24,9 @@ public class EntityRegistryLoadResult {
     private int mcpSideEffectCount;
     private int mclSideEffectCount;
 
-    @Builder.Default private Set<String> validatorClasses = Set.of();
-    @Builder.Default private Set<String> mutationHookClasses = Set.of();
-    @Builder.Default private Set<String> mcpSideEffectClasses = Set.of();
-    @Builder.Default private Set<String> mclSideEffectClasses = Set.of();
+    @Builder.Default private Set<String> validatorClasses = Collections.emptySet();
+    @Builder.Default private Set<String> mutationHookClasses = Collections.emptySet();
+    @Builder.Default private Set<String> mcpSideEffectClasses = Collections.emptySet();
+    @Builder.Default private Set<String> mclSideEffectClasses = Collections.emptySet();
   }
 }

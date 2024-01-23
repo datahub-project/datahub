@@ -1,6 +1,32 @@
 buildscript {
-  ext.jdkVersion = 17
-  ext.javaClassVersion = 11
+  ext.jdkVersionDefault = 17
+  ext.javaClassVersionDefault = 11
+
+  ext.jdkVersion = { p ->
+    // If Spring 6 is present, hard dependency on jdk17
+    if (p.configurations.any { it.getDependencies().any{
+      (it.getGroup().equals("org.springframework") && it.getVersion().startsWith("6."))
+      || (it.getGroup().equals("org.springframework.boot") && it.getVersion().startsWith("3.") && !it.getName().equals("spring-boot-starter-test"))
+    }}) {
+      return 17
+    } else {
+      // otherwise we can use the preferred default which can be overridden with a property: -PjdkVersionDefault
+      return p.hasProperty('jdkVersionDefault') ? Integer.valueOf((String) p.getProperty('jdkVersionDefault')) : ext.jdkVersionDefault
+    }
+  }
+
+  ext.javaClassVersion = { p ->
+    // If Spring 6 is present, hard dependency on jdk17
+    if (p.configurations.any { it.getDependencies().any{
+      (it.getGroup().equals("org.springframework") && it.getVersion().startsWith("6."))
+              || (it.getGroup().equals("org.springframework.boot") && it.getVersion().startsWith("3.") && !it.getName().equals("spring-boot-starter-test"))
+    }}) {
+      return 17
+    } else {
+      // otherwise we can use the preferred default which can be overridden with a property: -PjavaClassVersionDefault
+      return p.hasProperty('javaClassVersionDefault') ? Integer.valueOf((String) p.getProperty('javaClassVersionDefault')) : ext.javaClassVersionDefault
+    }
+  }
 
   ext.junitJupiterVersion = '5.6.1'
   // Releases: https://github.com/linkedin/rest.li/blob/master/CHANGELOG.md
@@ -217,6 +243,7 @@ project.ext.externalDependency = [
     'springActuator': "org.springframework.boot:spring-boot-starter-actuator:$springBootVersion",
     'swaggerAnnotations': 'io.swagger.core.v3:swagger-annotations:2.2.15',
     'swaggerCli': 'io.swagger.codegen.v3:swagger-codegen-cli:3.0.46',
+    'springBootAutoconfigureJdk11': 'org.springframework.boot:spring-boot-autoconfigure:2.7.18',
     'testng': 'org.testng:testng:7.8.0',
     'testContainers': 'org.testcontainers:testcontainers:' + testContainersVersion,
     'testContainersJunit': 'org.testcontainers:junit-jupiter:' + testContainersVersion,
@@ -252,23 +279,27 @@ allprojects {
     }
   }
 
-  if (project.plugins.hasPlugin('java')
+  /**
+   * If making changes to this section also see the sections for pegasus below
+   * which use project.plugins.hasPlugin('pegasus')
+   **/
+  if (!project.plugins.hasPlugin('pegasus') && (project.plugins.hasPlugin('java')
           || project.plugins.hasPlugin('java-library')
-          || project.plugins.hasPlugin('application')
-          || project.plugins.hasPlugin('pegasus')) {
+          || project.plugins.hasPlugin('application'))) {
 
     java {
       toolchain {
-        languageVersion = JavaLanguageVersion.of(jdkVersion)
+        languageVersion = JavaLanguageVersion.of(jdkVersion(project))
       }
     }
 
     compileJava {
-      options.release = javaClassVersion
+      options.release = javaClassVersion(project)
     }
+
     tasks.withType(JavaCompile).configureEach {
       javaCompiler = javaToolchains.compilerFor {
-        languageVersion = JavaLanguageVersion.of(jdkVersion)
+        languageVersion = JavaLanguageVersion.of(jdkVersion(project))
       }
       // Puts parameter names into compiled class files, necessary for Spring 6
       options.compilerArgs.add("-parameters")
@@ -276,24 +307,28 @@ allprojects {
 
     tasks.withType(JavaExec).configureEach {
       javaLauncher = javaToolchains.launcherFor {
-        languageVersion = JavaLanguageVersion.of(jdkVersion)
+        languageVersion = JavaLanguageVersion.of(jdkVersion(project))
       }
     }
+  }
 
-    // not duplicated, need to set this outside and inside afterEvaluate
-    afterEvaluate {
+  // not duplicated, need to set this outside and inside afterEvaluate
+  afterEvaluate {
+    /**
+     * If making changes to this section also see the sections for pegasus below
+     * which use project.plugins.hasPlugin('pegasus')
+     **/
+    if (!project.plugins.hasPlugin('pegasus') && (project.plugins.hasPlugin('java')
+            || project.plugins.hasPlugin('java-library')
+            || project.plugins.hasPlugin('application'))) {
+
       compileJava {
-        options.release = javaClassVersion
-      }
-      tasks.withType(JavaCompile).configureEach {
-        javaCompiler = javaToolchains.compilerFor {
-          languageVersion = JavaLanguageVersion.of(jdkVersion)
-        }
+        options.release = javaClassVersion(project)
       }
 
       tasks.withType(JavaExec).configureEach {
         javaLauncher = javaToolchains.launcherFor {
-          languageVersion = JavaLanguageVersion.of(jdkVersion)
+          languageVersion = JavaLanguageVersion.of(jdkVersion(project))
         }
       }
     }
@@ -368,6 +403,30 @@ subprojects {
         dataTemplateCompile externalDependency.annotationApi // support > jdk8
         restClientCompile spec.product.pegasus.restliClient
       }
+
+      java {
+        toolchain {
+          languageVersion = JavaLanguageVersion.of(jdkVersion(project))
+        }
+      }
+
+      compileJava {
+        options.release = javaClassVersion(project)
+      }
+
+      tasks.withType(JavaCompile).configureEach {
+        javaCompiler = javaToolchains.compilerFor {
+          languageVersion = JavaLanguageVersion.of(jdkVersion(project))
+        }
+        // Puts parameter names into compiled class files, necessary for Spring 6
+        options.compilerArgs.add("-parameters")
+      }
+
+      tasks.withType(JavaExec).configureEach {
+        javaLauncher = javaToolchains.launcherFor {
+          languageVersion = JavaLanguageVersion.of(jdkVersion(project))
+        }
+      }
     }
 
     afterEvaluate {
@@ -393,6 +452,16 @@ subprojects {
         dataTemplateCompile spec.product.pegasus.data
         dataTemplateCompile externalDependency.annotationApi // support > jdk8
         restClientCompile spec.product.pegasus.restliClient
+      }
+
+      compileJava {
+        options.release = javaClassVersion(project)
+      }
+
+      tasks.withType(JavaExec).configureEach {
+        javaLauncher = javaToolchains.launcherFor {
+          languageVersion = JavaLanguageVersion.of(jdkVersion(project))
+        }
       }
     }
   }

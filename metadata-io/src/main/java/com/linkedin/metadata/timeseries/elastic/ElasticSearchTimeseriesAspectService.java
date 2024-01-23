@@ -526,7 +526,7 @@ public class ElasticSearchTimeseriesAspectService
     List<Pair<EnvelopedAspect, GenericTimeseriesDocument>> resultPairs =
         Arrays.stream(response.getHits().getHits())
             .map(ElasticSearchTimeseriesAspectService::toEnvAspectGenericDocument)
-            .toList();
+            .collect(Collectors.toList());
 
     return TimeseriesScrollResult.builder()
         .numResults(totalCount)
