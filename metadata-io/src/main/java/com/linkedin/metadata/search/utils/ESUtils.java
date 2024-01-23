@@ -1,5 +1,7 @@
 package com.linkedin.metadata.search.utils;
 
+import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder.*;
 import static com.linkedin.metadata.search.elasticsearch.query.request.SearchFieldConfig.KEYWORD_FIELDS;
 import static com.linkedin.metadata.search.elasticsearch.query.request.SearchFieldConfig.PATH_HIERARCHY_FIELDS;
 import static com.linkedin.metadata.search.utils.SearchUtils.isUrn;
@@ -8,6 +10,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
+import com.linkedin.metadata.models.StructuredPropertyUtils;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
@@ -97,6 +100,7 @@ public class ESUtils {
         }
       };
 
+  // TODO - This has been expanded for has* in another branch
   public static final Set<String> BOOLEAN_FIELDS = ImmutableSet.of("removed");
 
   /*
@@ -203,6 +207,9 @@ public class ESUtils {
   public static QueryBuilder getQueryBuilderFromCriterion(
       @Nonnull final Criterion criterion, boolean isTimeseries) {
     final String fieldName = toFacetField(criterion.getField());
+    if (fieldName.startsWith(STRUCTURED_PROPERTY_MAPPING_FIELD)) {
+      criterion.setField(fieldName);
+    }
 
     /*
      * Check the field-name for a "sibling" field, or one which should ALWAYS
@@ -262,46 +269,69 @@ public class ESUtils {
       @Nonnull SearchSourceBuilder searchSourceBuilder,
       @Nullable SortCriterion sortCriterion,
       List<EntitySpec> entitySpecs) {
-    if (sortCriterion == null) {
+    buildSortOrder(
+        searchSourceBuilder,
+        sortCriterion == null ? List.of() : List.of(sortCriterion),
+        entitySpecs,
+        true);
+  }
+
+  /**
+   * Allow disabling default sort, used when you know uniqueness is present without urn field. For
+   * example, edge indices where the unique constraint is determined by multiple fields (src urn,
+   * dst urn, relation type).
+   *
+   * @param enableDefaultSort enable/disable default sorting logic
+   */
+  public static void buildSortOrder(
+      @Nonnull SearchSourceBuilder searchSourceBuilder,
+      @Nonnull List<SortCriterion> sortCriterion,
+      List<EntitySpec> entitySpecs,
+      boolean enableDefaultSort) {
+    if (sortCriterion.isEmpty() && enableDefaultSort) {
       searchSourceBuilder.sort(new ScoreSortBuilder().order(SortOrder.DESC));
     } else {
-      Optional<SearchableAnnotation.FieldType> fieldTypeForDefault = Optional.empty();
-      for (EntitySpec entitySpec : entitySpecs) {
-        List<SearchableFieldSpec> fieldSpecs = entitySpec.getSearchableFieldSpecs();
-        for (SearchableFieldSpec fieldSpec : fieldSpecs) {
-          SearchableAnnotation annotation = fieldSpec.getSearchableAnnotation();
-          if (annotation.getFieldName().equals(sortCriterion.getField())
-              || annotation.getFieldNameAliases().contains(sortCriterion.getField())) {
-            fieldTypeForDefault = Optional.of(fieldSpec.getSearchableAnnotation().getFieldType());
+      for (SortCriterion sortCriteria : sortCriterion) {
+        Optional<SearchableAnnotation.FieldType> fieldTypeForDefault = Optional.empty();
+        for (EntitySpec entitySpec : entitySpecs) {
+          List<SearchableFieldSpec> fieldSpecs = entitySpec.getSearchableFieldSpecs();
+          for (SearchableFieldSpec fieldSpec : fieldSpecs) {
+            SearchableAnnotation annotation = fieldSpec.getSearchableAnnotation();
+            if (annotation.getFieldName().equals(sortCriteria.getField())
+                || annotation.getFieldNameAliases().contains(sortCriteria.getField())) {
+              fieldTypeForDefault = Optional.of(fieldSpec.getSearchableAnnotation().getFieldType());
+              break;
+            }
+          }
+          if (fieldTypeForDefault.isPresent()) {
             break;
           }
         }
+        if (fieldTypeForDefault.isEmpty()) {
+          log.warn(
+              "Sort criterion field "
+                  + sortCriteria.getField()
+                  + " was not found in any entity spec to be searched");
+        }
+        final SortOrder esSortOrder =
+            (sortCriteria.getOrder() == com.linkedin.metadata.query.filter.SortOrder.ASCENDING)
+                ? SortOrder.ASC
+                : SortOrder.DESC;
+        FieldSortBuilder sortBuilder =
+            new FieldSortBuilder(sortCriteria.getField()).order(esSortOrder);
         if (fieldTypeForDefault.isPresent()) {
-          break;
+          String esFieldtype = getElasticTypeForFieldType(fieldTypeForDefault.get());
+          if (esFieldtype != null) {
+            sortBuilder.unmappedType(esFieldtype);
+          }
         }
+        searchSourceBuilder.sort(sortBuilder);
       }
-      if (fieldTypeForDefault.isEmpty()) {
-        log.warn(
-            "Sort criterion field "
-                + sortCriterion.getField()
-                + " was not found in any entity spec to be searched");
-      }
-      final SortOrder esSortOrder =
-          (sortCriterion.getOrder() == com.linkedin.metadata.query.filter.SortOrder.ASCENDING)
-              ? SortOrder.ASC
-              : SortOrder.DESC;
-      FieldSortBuilder sortBuilder =
-          new FieldSortBuilder(sortCriterion.getField()).order(esSortOrder);
-      if (fieldTypeForDefault.isPresent()) {
-        String esFieldtype = getElasticTypeForFieldType(fieldTypeForDefault.get());
-        if (esFieldtype != null) {
-          sortBuilder.unmappedType(esFieldtype);
-        }
-      }
-      searchSourceBuilder.sort(sortBuilder);
     }
-    if (sortCriterion == null
-        || !sortCriterion.getField().equals(DEFAULT_SEARCH_RESULTS_SORT_BY_FIELD)) {
+    if (enableDefaultSort
+        && (sortCriterion.isEmpty()
+            || sortCriterion.stream()
+                .noneMatch(c -> c.getField().equals(DEFAULT_SEARCH_RESULTS_SORT_BY_FIELD)))) {
       searchSourceBuilder.sort(
           new FieldSortBuilder(DEFAULT_SEARCH_RESULTS_SORT_BY_FIELD).order(SortOrder.ASC));
     }
@@ -337,7 +367,15 @@ public class ESUtils {
 
   @Nonnull
   public static String toFacetField(@Nonnull final String filterField) {
-    return filterField.replace(ESUtils.KEYWORD_SUFFIX, "");
+    String fieldName = filterField;
+    if (fieldName.startsWith(STRUCTURED_PROPERTY_MAPPING_FIELD + ".")) {
+      fieldName =
+          STRUCTURED_PROPERTY_MAPPING_FIELD
+              + "."
+              + StructuredPropertyUtils.sanitizeStructuredPropertyFQN(
+                  fieldName.substring(STRUCTURED_PROPERTY_MAPPING_FIELD.length() + 1));
+    }
+    return fieldName.replace(ESUtils.KEYWORD_SUFFIX, "");
   }
 
   @Nonnull

@@ -13,7 +13,9 @@ import com.linkedin.metadata.boot.steps.BackfillBrowsePathsV2Step;
 import com.linkedin.metadata.boot.steps.IndexDataPlatformsStep;
 import com.linkedin.metadata.boot.steps.IngestDataPlatformInstancesStep;
 import com.linkedin.metadata.boot.steps.IngestDataPlatformsStep;
+import com.linkedin.metadata.boot.steps.IngestDataTypesStep;
 import com.linkedin.metadata.boot.steps.IngestDefaultGlobalSettingsStep;
+import com.linkedin.metadata.boot.steps.IngestEntityTypesStep;
 import com.linkedin.metadata.boot.steps.IngestOwnershipTypesStep;
 import com.linkedin.metadata.boot.steps.IngestPoliciesStep;
 import com.linkedin.metadata.boot.steps.IngestRetentionPoliciesStep;
@@ -54,7 +56,7 @@ public class BootstrapManagerFactory {
 
   @Autowired
   @Qualifier("entityService")
-  private EntityService _entityService;
+  private EntityService<?> _entityService;
 
   @Autowired
   @Qualifier("entityRegistry")
@@ -131,6 +133,8 @@ public class BootstrapManagerFactory {
         new WaitForSystemUpdateStep(_dataHubUpgradeKafkaListener, _configurationProvider);
     final IngestOwnershipTypesStep ingestOwnershipTypesStep =
         new IngestOwnershipTypesStep(_entityService, _ownershipTypesResource);
+    final IngestDataTypesStep ingestDataTypesStep = new IngestDataTypesStep(_entityService);
+    final IngestEntityTypesStep ingestEntityTypesStep = new IngestEntityTypesStep(_entityService);
 
     final List<BootstrapStep> finalSteps =
         new ArrayList<>(
@@ -148,7 +152,9 @@ public class BootstrapManagerFactory {
                 removeClientIdAspectStep,
                 restoreDbtSiblingsIndices,
                 indexDataPlatformsStep,
-                restoreColumnLineageIndices));
+                restoreColumnLineageIndices,
+                ingestDataTypesStep,
+                ingestEntityTypesStep));
 
     if (_upgradeDefaultBrowsePathsEnabled) {
       finalSteps.add(new UpgradeDefaultBrowsePathsStep(_entityService));

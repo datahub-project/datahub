@@ -10,7 +10,7 @@ import com.linkedin.datahub.graphql.generated.AspectRenderSpec;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.RawAspect;
-import com.linkedin.datahub.graphql.resolvers.EntityTypeMapper;
+import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.models.AspectSpec;
