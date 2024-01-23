@@ -419,6 +419,14 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                 self.dataset.engine.execute(get_estimate_script).scalar()
             )
         else:
+            # If the configuration is not set to 'estimate only' mode, we directly obtain the row count from the dataset.
+            # However, if an offset or limit is set, we need to adjust how we calculate the row count.
+            # This is because applying a limit or offset could potentially skew the row count.
+            # For instance, if a limit is set and the actual row count exceeds this limit,
+            # the returned row count would incorrectly be the limit value.
+            #
+            # To address this, if a limit is set, we use the original table name when calculating the row count.
+            # This ensures that the row count is based on the original table, not on a view which have limit or offset applied.
             if (self.config.limit or self.config.offset) and not self.custom_sql:
                 # We don't want limit and offset to get applied to the row count
                 # This is kinda hacky way to do it, but every other way would require major refactoring
