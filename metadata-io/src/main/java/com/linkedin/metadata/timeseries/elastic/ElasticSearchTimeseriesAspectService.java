@@ -526,8 +526,8 @@ public class ElasticSearchTimeseriesAspectService
               .setField(MappingsBuilder.TIMESTAMP_MILLIS_FIELD)
               .setCondition(Condition.GREATER_THAN_OR_EQUAL_TO)
               .setValue(startTimeMillis.toString());
-      filterQueryBuilder.filter(ESUtils.getQueryBuilderFromCriterion(startTimeCriterion, true,
-          searchableFields));
+      filterQueryBuilder.filter(
+          ESUtils.getQueryBuilderFromCriterion(startTimeCriterion, true, searchableFields));
     }
     if (endTimeMillis != null) {
       Criterion endTimeCriterion =
@@ -535,8 +535,8 @@ public class ElasticSearchTimeseriesAspectService
               .setField(MappingsBuilder.TIMESTAMP_MILLIS_FIELD)
               .setCondition(Condition.LESS_THAN_OR_EQUAL_TO)
               .setValue(endTimeMillis.toString());
-      filterQueryBuilder.filter(ESUtils.getQueryBuilderFromCriterion(endTimeCriterion, true,
-          searchableFields));
+      filterQueryBuilder.filter(
+          ESUtils.getQueryBuilderFromCriterion(endTimeCriterion, true, searchableFields));
     }
 
     SearchResponse response =
