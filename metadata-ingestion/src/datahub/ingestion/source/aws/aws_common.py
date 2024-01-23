@@ -34,7 +34,7 @@ class AwsAssumeRoleConfig(PermissiveConfigModel):
 
 def assume_role(
     role: AwsAssumeRoleConfig,
-    aws_region: str,
+    aws_region: Optional[str],
     credentials: Optional[dict] = None,
 ) -> dict:
     credentials = credentials or {}

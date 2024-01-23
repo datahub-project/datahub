@@ -199,7 +199,7 @@ def test_dbt_entity_emission_configuration():
 
 def test_dbt_s3_config():
     # test missing aws config
-    config_dict = {
+    config_dict: dict = {
         "manifest_path": "s3://dummy_path",
         "catalog_path": "s3://dummy_path",
         "target_platform": "dummy_platform",
