@@ -48,7 +48,7 @@ public class MCLSpringTest extends AbstractTestNGSpringContextTests {
     assertEquals(
         1,
         metadataChangeLogProcessor.getHooks().stream()
-                .filter(hook -> hook instanceof IncidentsSummaryHook)
-                .count());
+            .filter(hook -> hook instanceof IncidentsSummaryHook)
+            .count());
   }
 }

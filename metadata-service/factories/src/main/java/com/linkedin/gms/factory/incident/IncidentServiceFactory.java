@@ -3,7 +3,7 @@ package com.linkedin.gms.factory.incident;
 import com.datahub.authentication.Authentication;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.gms.factory.auth.SystemAuthenticationFactory;
-import com.linkedin.gms.factory.entity.RestliEntityClientFactory;
+import com.linkedin.gms.factory.entityclient.RestliEntityClientFactory;
 import com.linkedin.metadata.service.IncidentService;
 import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import javax.annotation.Nonnull;
@@ -20,7 +20,7 @@ import org.springframework.context.annotation.Scope;
 @Import({SystemAuthenticationFactory.class, RestliEntityClientFactory.class})
 public class IncidentServiceFactory {
   @Autowired
-  @Qualifier("restliEntityClient")
+  @Qualifier("entityClient")
   private EntityClient _entityClient;
 
   @Autowired

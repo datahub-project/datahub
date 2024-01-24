@@ -1215,8 +1215,8 @@ public class GmsGraphQLEngine {
                     "verifyForm", new VerifyFormResolver(this.formService, this.groupService))
                 .dataFetcher("raiseIncident", new RaiseIncidentResolver(this.entityClient))
                 .dataFetcher(
-                        "updateIncidentStatus",
-                        new UpdateIncidentStatusResolver(this.entityClient, this.entityService)));
+                    "updateIncidentStatus",
+                    new UpdateIncidentStatusResolver(this.entityClient, this.entityService)));
   }
 
   private void configureGenericEntityResolvers(final RuntimeWiring.Builder builder) {

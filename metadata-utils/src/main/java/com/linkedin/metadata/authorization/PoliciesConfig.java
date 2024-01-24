@@ -202,10 +202,10 @@ public class PoliciesConfig {
           "The ability to report or edit operations information about an entity.");
 
   public static final Privilege EDIT_ENTITY_INCIDENTS_PRIVILEGE =
-          Privilege.of(
-                  "EDIT_ENTITY_INCIDENTS",
-                  "Edit Incidents",
-                  "The ability to create and remove incidents for an entity.");
+      Privilege.of(
+          "EDIT_ENTITY_INCIDENTS",
+          "Edit Incidents",
+          "The ability to create and remove incidents for an entity.");
 
   public static final Privilege EDIT_ENTITY_PRIVILEGE =
       Privilege.of(
