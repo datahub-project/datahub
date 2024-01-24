@@ -320,7 +320,7 @@ class JsonSchemaTranslator:
         if "description" in schema:
             description = schema.get("description")
         elif "const" in schema:
-            description = schema.get("const")
+            description = f"Const value: {schema.get("const")}"
         else:
             description = ""
         if JsonSchemaTranslator._INJECT_DEFAULTS_INTO_DESCRIPTION:
