@@ -596,31 +596,29 @@ public class ESUtils {
       boolean isTimeseries) {
     Set<String> fieldTypes = getFieldTypes(searchableFields, fieldName);
 
-    // Determine criterion value
-    List<String> criterionValues;
+    // Determine criterion value, range query only accepts single value so take first value in values if multiple
+    String criterionValueString;
     if (!criterion.getValues().isEmpty()) {
-      criterionValues = criterion.getValues();
+      criterionValueString = criterion.getValues().get(0).trim();
     } else {
-      criterionValues = Collections.singletonList(criterion.getValue());
+      criterionValueString = criterion.getValue().trim();
     }
     Object criterionValue;
     String documentFieldName;
-    if ((BOOLEAN_FIELDS.contains(fieldName) || fieldTypes.contains(BOOLEAN_FIELD_TYPE))
-        && criterionValues.size() == 1) {
+    if ((BOOLEAN_FIELDS.contains(fieldName) || fieldTypes.contains(BOOLEAN_FIELD_TYPE))) {
       // Handle special-cased Boolean fields.
       // here we special case boolean fields we recognize the names of and hard-cast
       // the first provided value to a boolean to do the comparison.
-      criterionValue = Boolean.parseBoolean(criterionValues.get(0));
+      criterionValue = Boolean.parseBoolean(criterionValueString);
       documentFieldName = criterion.getField();
     } else if (fieldTypes.contains(LONG_FIELD_TYPE) || fieldTypes.contains(DATE_FIELD_TYPE)) {
-      criterionValue = criterionValues.stream().map(Long::parseLong).collect(Collectors.toList());
+      criterionValue = Long.parseLong(criterionValueString);
       documentFieldName = criterion.getField();
     } else if (fieldTypes.contains(DOUBLE_FIELD_TYPE)) {
-      criterionValue =
-          criterionValues.stream().map(Double::parseDouble).collect(Collectors.toList());
+      criterionValue = Double.parseDouble(criterionValueString);
       documentFieldName = criterion.getField();
     } else {
-      criterionValue = criterionValues.stream().map(String::trim).collect(Collectors.toList());
+      criterionValue = criterionValueString;
       documentFieldName = toKeywordField(criterion.getField(), isTimeseries);
     }
 
