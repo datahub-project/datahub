@@ -1,76 +1,63 @@
 # Defining environment
 ARG APP_ENV=prod
+ARG BASE_IMAGE=acryldata/datahub-ingestion
+ARG DOCKER_VERSION=head-slim
+ARG PIP_MIRROR_URL=null
 
-FROM golang:1-alpine3.17 AS binary
-ENV DOCKERIZE_VERSION v0.6.1
-WORKDIR /go/src/github.com/jwilder
-RUN apk --no-cache --update add openssl git tar curl
-WORKDIR /go/src/github.com/jwilder/dockerize
-RUN go install github.com/jwilder/dockerize@$DOCKERIZE_VERSION
+# Base Image Common To All
+FROM $BASE_IMAGE:$DOCKER_VERSION as base
+USER 0
 
-
-FROM acryldata/datahub-ingestion-base:head as base
-COPY --from=binary /go/bin/dockerize /usr/local/bin
-RUN pip install poetry==1.4.2
-
-FROM eclipse-temurin:11 as prod-build
-COPY . /datahub-src
-WORKDIR /datahub-src
-
-# NOTE: Copied from ../datahub-ingestion/Dockerfile.
-RUN (for attempt in 1 2 3 4 5; do ./gradlew --version && break ; echo "Failed to download gradle wrapper (attempt $attempt)" && sleep $((2<<$attempt)) ; done ) && \
-    ./gradlew :metadata-events:mxe-schemas:build
-
-FROM base as prod-codegen
-
-COPY --from=prod-build /datahub-src /datahub-src
-RUN cd /datahub-src/metadata-ingestion && \
-    pip install -e ".[base]" && \
-    ./scripts/codegen.sh
-
-FROM base as prod-install
+COPY ./datahub-monitors-service /datahub-monitors-service
+COPY ./metadata-ingestion /metadata-ingestion
 
 ARG RELEASE_VERSION
+WORKDIR /datahub-monitors-service
+RUN sed -i.bak "s/__version__ = \"1!0.0.0.dev0\"/__version__ = \"$RELEASE_VERSION\"/" src/datahub_monitors/__init__.py && \
+    cat src/datahub_monitors/__init__.py && \
+    sed -i.bak "s/version = \"1!0.0.0.dev0\"/version = \"$RELEASE_VERSION\"/" pyproject.toml && \
+    chown -R datahub /datahub-monitors-service /metadata-ingestion
+
+USER datahub
 
 ENV POETRY_VIRTUALENVS_CREATE=false
 ENV POETRY_VIRTUALENVS_IN_PROJECT=false
-COPY --from=prod-codegen /datahub-src/metadata-ingestion /datahub-src/metadata-ingestion
-COPY --from=prod-codegen /datahub-src/datahub-monitors-service /datahub-src/datahub-monitors-service
-COPY --from=prod-codegen /root/.cache/pip /root/.cache/pip
-RUN cd /datahub-src/datahub-monitors-service && \
-    sed -i.bak "s/__version__ = \"0.0.0.dev0\"/__version__ = \"$RELEASE_VERSION\"/" src/datahub_monitors/__init__.py && \
-    cat src/datahub_monitors/__init__.py && \
-    sed -i.bak "s/version = \"0.0.0.dev0\"/version = \"$RELEASE_VERSION\"/" pyproject.toml && \
+
+# Build only for production/non-development
+FROM base as build
+
+ARG PIP_MIRROR_URL
+RUN if [ "${PIP_MIRROR_URL}" != "null" ] ; then pip config set global.index-url ${PIP_MIRROR_URL} ; fi
+
+# Why venv? https://github.com/python-poetry/poetry/issues/1214
+RUN pip install --no-cache --user poetry==1.4.2 && \
+    python3 -m venv /metadata-ingestion/.local && \
+    . /metadata-ingestion/.local/bin/activate && \
     poetry config virtualenvs.create false && \
-    poetry install && \
-    poetry export --without-hashes
+    poetry install --no-interaction --no-ansi && \
+    poetry export --without-hashes && \
+    deactivate && \
+    pip install --no-cache --user -e "."
+
+# Production Image Built From Build Image
+FROM base as prod-install
+
+COPY --from=build /datahub-ingestion/.local /datahub-ingestion/.local
 
 COPY ./docker/datahub-monitors-service/start.sh /start_datahub_monitors_service.sh
+USER 0
 RUN chmod a+x /start_datahub_monitors_service.sh
+USER datahub
 
-FROM base as dev-install
+FROM prod-install as dev-install
 
 # Dummy stage for development. Assumes most of the code is built on your machine and mounted to this image.
 # See this excellent thread https://github.com/docker/cli/issues/1134
-ENV POETRY_VIRTUALENVS_CREATE=false
-ENV POETRY_VIRTUALENVS_IN_PROJECT=false
-COPY ./datahub-monitors-service/pyproject.toml ./datahub-monitors-service/poetry.lock /datahub-src/datahub-monitors-service/
-# We only add these so that we can run `poetry install` without errors.
-COPY ./datahub-monitors-service/src/datahub_monitors/__init__.py /datahub-src/datahub-monitors-service/src/datahub_monitors/__init__.py
-COPY ./metadata-ingestion/setup.py /datahub-src/metadata-ingestion/
-COPY ./metadata-ingestion/README.md /datahub-src/metadata-ingestion/
-COPY ./metadata-ingestion/src/datahub/__init__.py /datahub-src/metadata-ingestion/src/datahub/__init__.py
-RUN cd /datahub-src/datahub-monitors-service && \
-    poetry config virtualenvs.create false && \
-    poetry install --no-interaction --no-ansi && \
-    pip freeze
 
-ENV EXTRA_UVICORN_ARGS="--reload --reload-dir /datahub-src/datahub-monitors-service/src/datahub_monitors"
+ENV EXTRA_UVICORN_ARGS="--reload --reload-dir /datahub-monitors-service/src/datahub_monitors"
 
 FROM ${APP_ENV}-install as final
 
-USER datahub
-WORKDIR /datahub-src/datahub-monitors-service
 HEALTHCHECK --start-period=2m --retries=4 CMD curl --fail http://localhost:9004/health || exit 1
 ENTRYPOINT []
 CMD dockerize -wait ${DATAHUB_GMS_PROTOCOL:-http}://$DATAHUB_GMS_HOST:$DATAHUB_GMS_PORT/health -timeout 240s /start_datahub_monitors_service.sh

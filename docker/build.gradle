@@ -16,8 +16,10 @@ ext {
             ':metadata-jobs:mce-consumer-job',
             ':metadata-jobs:mae-consumer-job',
             ':metadata-service:war',
-            ':datahub-frontend',
+            ':datahub-frontend'
     ]
+    // Quickstart Saas Only
+    quickstart_modules = quickstart_modules + [':datahub-integrations-service', ':datahub-monitors-service']
 
     debug_modules = quickstart_modules - [':metadata-jobs:mce-consumer-job',
                                           ':metadata-jobs:mae-consumer-job']
@@ -29,6 +31,8 @@ ext {
     ]
     // Postgres
     pg_quickstart_modules = quickstart_modules - [':docker:mysql-setup'] + [':docker:postgres-setup']
+    // Postgres Saas Only
+    pg_quickstart_modules = pg_quickstart_modules - [':datahub-integrations-service', ':datahub-monitors-service']
 }
 
 tasks.register('minDockerCompose2.20', Exec) {

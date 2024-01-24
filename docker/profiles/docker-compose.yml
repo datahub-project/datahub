@@ -11,3 +11,5 @@ include:
   - docker-compose.frontend.yml
   # Remaining components: i.e. gms, system-update, consumers
   - docker-compose.gms.yml
+  # Saas components: i.e. monitors & integrations services
+  - docker-compose.acryl.yml

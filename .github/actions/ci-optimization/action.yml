@@ -35,6 +35,13 @@ outputs:
   elasticsearch-setup-change:
     description: "Elasticsearch setup docker change"
     value: ${{ steps.filter.outputs.elasticsearch-setup == 'true' }}
+  # Saas Only
+  integrations-service-change:
+    description: "Integrations Service code has changed"
+    value: ${{ steps.filter.outputs.integrations-service == 'true' }}
+  monitors-service-change:
+    description: "Monitors Service code has changed"
+    value: ${{ steps.filter.outputs.monitors-service == 'true' }}
 runs:
   using: "composite"
   steps:
@@ -77,3 +84,15 @@ runs:
             - "docker/postgres-setup/**"
           elasticsearch-setup:
             - "docker/elasticsearch-setup/**"
+          integrations-service:
+            - "datahub-integrations-service/**"
+            - "metadata-ingestion/**"
+            - "metadata-models/**"
+            - "docker/datahub-ingestion-**"
+            - "docker/datahub-integrations-service/**"
+          monitors-service:
+            - "datahub-monitors-service/**"
+            - "metadata-ingestion/**"
+            - "metadata-models/**"
+            - "docker/datahub-ingestion-**"
+            - "docker/datahub-monitors-service/**"

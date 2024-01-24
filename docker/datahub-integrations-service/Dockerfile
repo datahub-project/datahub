@@ -1,68 +1,58 @@
 # Defining environment
 ARG APP_ENV=prod
+ARG BASE_IMAGE=acryldata/datahub-ingestion
+ARG DOCKER_VERSION=head-slim
+ARG PIP_MIRROR_URL=null
 
-# TODO: Switch to head-slim once that gets published.
-FROM acryldata/datahub-ingestion-base:head as base
+# Base Image Common To All
+FROM $BASE_IMAGE:$DOCKER_VERSION as base
+USER 0
 
-FROM eclipse-temurin:11 as prod-build
-COPY . /datahub-src
-WORKDIR /datahub-src
-
-# NOTE: Copied from ../datahub-ingestion/Dockerfile.
-RUN (for attempt in 1 2 3 4 5; do ./gradlew --version && break ; echo "Failed to download gradle wrapper (attempt $attempt)" && sleep $((2<<$attempt)) ; done ) && \
-    ./gradlew :metadata-events:mxe-schemas:build
-
-FROM base as prod-codegen
-
-COPY --from=prod-build /datahub-src /datahub-src
-RUN cd /datahub-src/metadata-ingestion && \
-    pip install -e ".[base]" && \
-    ./scripts/codegen.sh
-
-FROM base as prod-install
+COPY ./datahub-integrations-service /datahub-integrations-service
+COPY ./metadata-ingestion /metadata-ingestion
 
 ARG RELEASE_VERSION
-
-COPY --from=prod-codegen /datahub-src/metadata-ingestion /datahub-src/metadata-ingestion
-COPY --from=prod-codegen /datahub-src/datahub-integrations-service /datahub-src/datahub-integrations-service
-COPY --from=prod-codegen /root/.cache/pip /root/.cache/pip
-RUN cd /datahub-src/datahub-integrations-service && \
-    sed -i.bak "s/__version__ = \"1!0.0.0.dev0\"/__version__ = \"$RELEASE_VERSION\"/" src/datahub_integrations/__init__.py && \
+WORKDIR /datahub-integrations-service
+RUN sed -i.bak "s/__version__ = \"1!0.0.0.dev0\"/__version__ = \"$RELEASE_VERSION\"/" src/datahub_integrations/__init__.py && \
     cat src/datahub_integrations/__init__.py && \
     sed -i.bak "s/version = \"1!0.0.0.dev0\"/version = \"$RELEASE_VERSION\"/" pyproject.toml && \
-    pip install -r requirements.txt && \
-    pip install -e . && \
-    pip freeze
+    chown -R datahub /datahub-integrations-service /metadata-ingestion
+
+USER datahub
+
+# Build only for production/non-development
+FROM base as build
+
+ARG PIP_MIRROR_URL
+RUN if [ "${PIP_MIRROR_URL}" != "null" ] ; then pip config set global.index-url ${PIP_MIRROR_URL} ; fi
+
+RUN pip install --no-cache --user -r requirements.txt && \
+    pip install --no-cache --user -e "."
+
+# Production Image Built From Build Image
+FROM base as prod-install
+
+COPY --from=build /datahub-ingestion/.local /datahub-ingestion/.local
 
 COPY ./docker/datahub-integrations-service/start.sh /start_datahub_integrations_service.sh
+USER 0
 RUN chmod a+x /start_datahub_integrations_service.sh
+USER datahub
 
-FROM base as dev-install
+FROM prod-install as dev-install
 
 # Dummy stage for development. Assumes most of the code is built on your machine and mounted to this image.
 # See this excellent thread https://github.com/docker/cli/issues/1134
 
-COPY ./datahub-integrations-service/pyproject.toml ./datahub-integrations-service/requirements.txt /datahub-src/datahub-integrations-service/
-# We only add these so that we can run `pip install` without errors.
-COPY ./datahub-integrations-service/src/datahub_integrations/__init__.py /datahub-src/datahub-integrations-service/src/datahub_integrations/__init__.py
-COPY ./metadata-ingestion/setup.py /datahub-src/metadata-ingestion/
-COPY ./metadata-ingestion/README.md /datahub-src/metadata-ingestion/
-COPY ./metadata-ingestion/src/datahub/__init__.py /datahub-src/metadata-ingestion/src/datahub/__init__.py
 # Bring in DataHub Actions
-# COPY ./datahub-actions/datahub-actions/setup.py /datahub-src/datahub-actions/datahub-actions/
-# COPY ./datahub-actions/datahub-actions/README.md /datahub-src/datahub-actions/datahub-actions/
-# COPY ./datahub-actions/datahub-actions/src/datahub_actions/__init__.py /datahub-src/datahub-actions/datahub-actions/src/datahub_actions/__init__.py
-RUN cd /datahub-src/datahub-integrations-service && \
-    pip install -r requirements.txt && \
-    pip install -e . && \
-    pip freeze
+# COPY ./datahub-actions/datahub-actions/setup.py /datahub-actions/datahub-actions/
+# COPY ./datahub-actions/datahub-actions/README.md /datahub-actions/datahub-actions/
+# COPY ./datahub-actions/datahub-actions/src/datahub_actions/__init__.py /datahub-actions/datahub-actions/src/datahub_actions/__init__.py
 
-ENV EXTRA_UVICORN_ARGS="--reload --reload-dir /datahub-src/datahub-integrations-service/src --reload-dir /datahub-src/metadata-ingestion/src"
+ENV EXTRA_UVICORN_ARGS="--reload --reload-dir /datahub-integrations-service/src --reload-dir /metadata-ingestion/src"
 
 FROM ${APP_ENV}-install as final
 
-USER datahub
-WORKDIR /datahub-src/datahub-integrations-service
 HEALTHCHECK --start-period=2m --retries=4 CMD curl --fail http://localhost:9003/ping || exit 1
 ENTRYPOINT []
 CMD dockerize -wait ${DATAHUB_GMS_PROTOCOL:-http}://$DATAHUB_GMS_HOST:$DATAHUB_GMS_PORT/health -timeout 240s /start_datahub_integrations_service.sh

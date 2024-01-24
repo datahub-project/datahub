@@ -102,3 +102,13 @@ Runs everything except for the GMS. Useful for running just a local (non-docker)
 | debug-consumers     | X     |          |           |       | X        | X   | X       | X            | X   | X   | X     | X          |               |
 | debug-neo4j         | X     |          |           | X     | X        | X   | X       | X            |     |     | X     | X          |               |
 | debug-elasticsearch | X     |          |           |       | X        | X   | X       | X            |     |     | X     |            | X             |
+
+## Acryl Quickstart Profiles
+
+The following additions were added for Acryl Saas in `docker-compose.acryl.yml`
+
+| Profile Name         | Integrations Service | Monitors Service |
+|----------------------|----------------------|------------------|
+| debug                | X                    | X                |
+| quickstart-consumers | X                    | X                |
+

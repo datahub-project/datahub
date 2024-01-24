@@ -12,9 +12,9 @@ services:
       - ../datahub-integrations-service/.env
     volumes:
       - ./datahub-integrations-service/start.sh:/start_datahub_integrations_service.sh
-      - ../metadata-ingestion:/datahub-src/metadata-ingestion
-      - ../datahub-integrations-service:/datahub-src/datahub-integrations-service
-      # - ../datahub-actions:/datahub-src/datahub-actions
+      - ../metadata-ingestion/src:/metadata-ingestion/src
+      - ../datahub-integrations-service:/datahub-integrations-service
+      # - ../datahub-actions:/datahub-actions
   datahub-monitors-service:
     build:
       context: ../
@@ -24,5 +24,5 @@ services:
     image: 795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-monitors-service:debug
     volumes:
       - ./datahub-monitors-service/start.sh:/start_datahub_monitors_service.sh
-      - ../metadata-ingestion:/datahub-src/metadata-ingestion
-      - ../datahub-monitors-service:/datahub-src/datahub-monitors-service
+      - ../metadata-ingestion/src:/metadata-ingestion/src
+      - ../datahub-monitors-service:/datahub-monitors-service
