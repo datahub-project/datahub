@@ -110,9 +110,6 @@ public class ESUtils {
         }
       };
 
-  // TODO - This has been expanded for has* in another branch
-  public static final Set<String> BOOLEAN_FIELDS = ImmutableSet.of("removed");
-
   /*
    * Refer to https://www.elastic.co/guide/en/elasticsearch/reference/current/regexp-syntax.html for list of reserved
    * characters in an Elasticsearch regular expression.
@@ -549,11 +546,7 @@ public class ESUtils {
           fieldName,
           fieldTypes);
     }
-    if ((BOOLEAN_FIELDS.contains(fieldName) || fieldTypes.contains(BOOLEAN_FIELD_TYPE))
-        && criterion.getValues().size() == 1) {
-      // Handle special-cased Boolean fields.
-      // here we special case boolean fields we recognize the names of and hard-cast
-      // the first provided value to a boolean to do the comparison.
+    if (fieldTypes.contains(BOOLEAN_FIELD_TYPE) && criterion.getValues().size() == 1) {
       return QueryBuilders.termQuery(fieldName, Boolean.parseBoolean(criterion.getValues().get(0)))
           .queryName(fieldName);
     } else if (fieldTypes.contains(LONG_FIELD_TYPE) || fieldTypes.contains(DATE_FIELD_TYPE)) {
@@ -607,10 +600,7 @@ public class ESUtils {
     }
     Object criterionValue;
     String documentFieldName;
-    if ((BOOLEAN_FIELDS.contains(fieldName) || fieldTypes.contains(BOOLEAN_FIELD_TYPE))) {
-      // Handle special-cased Boolean fields.
-      // here we special case boolean fields we recognize the names of and hard-cast
-      // the first provided value to a boolean to do the comparison.
+    if (fieldTypes.contains(BOOLEAN_FIELD_TYPE)) {
       criterionValue = Boolean.parseBoolean(criterionValueString);
       documentFieldName = criterion.getField();
     } else if (fieldTypes.contains(LONG_FIELD_TYPE) || fieldTypes.contains(DATE_FIELD_TYPE)) {
