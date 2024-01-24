@@ -24,6 +24,7 @@ from openlineage.client.serde import Serde
 
 from datahub_airflow_plugin._airflow_shims import (
     HAS_AIRFLOW_DAG_LISTENER_API,
+    HAS_AIRFLOW_DATASET_LISTENER_API,
     Operator,
     get_task_inlets,
     get_task_outlets,
@@ -40,6 +41,7 @@ from datahub_airflow_plugin.entities import (
 
 _F = TypeVar("_F", bound=Callable[..., None])
 if TYPE_CHECKING:
+    from airflow.datasets import Dataset
     from airflow.models import DAG, DagRun, TaskInstance
     from sqlalchemy.orm import Session
 
@@ -502,3 +504,23 @@ class DataHubListener:
             self.emitter.flush()
 
     # TODO: Add hooks for on_dag_run_success, on_dag_run_failed -> call AirflowGenerator.complete_dataflow
+
+    if HAS_AIRFLOW_DATASET_LISTENER_API:
+
+        @hookimpl
+        @run_in_thread
+        def on_dataset_created(self, dataset: "Dataset") -> None:
+            self._set_log_level()
+
+            logger.debug(
+                f"DataHub listener got notification about dataset create for {dataset}"
+            )
+
+        @hookimpl
+        @run_in_thread
+        def on_dataset_changed(self, dataset: "Dataset") -> None:
+            self._set_log_level()
+
+            logger.debug(
+                f"DataHub listener got notification about dataset change for {dataset}"
+            )

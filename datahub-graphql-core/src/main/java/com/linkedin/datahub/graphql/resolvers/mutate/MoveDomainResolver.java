@@ -27,7 +27,7 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class MoveDomainResolver implements DataFetcher<CompletableFuture<Boolean>> {
 
-  private final EntityService _entityService;
+  private final EntityService<?> _entityService;
   private final EntityClient _entityClient;
 
   @Override
@@ -67,7 +67,7 @@ public class MoveDomainResolver implements DataFetcher<CompletableFuture<Boolean
               if (!newParentDomainUrn.getEntityType().equals(Constants.DOMAIN_ENTITY_NAME)) {
                 throw new IllegalArgumentException("Parent entity is not a domain.");
               }
-              if (!_entityService.exists(newParentDomainUrn)) {
+              if (!_entityService.exists(newParentDomainUrn, true)) {
                 throw new IllegalArgumentException("Parent entity does not exist.");
               }
             }

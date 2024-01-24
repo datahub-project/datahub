@@ -1,0 +1,66 @@
+namespace com.linkedin.common
+
+/**
+ * Forms that are assigned to this entity to be filled out
+ */
+@Aspect = {
+   "name": "forms"
+}
+record Forms {
+  /**
+   * All incomplete forms assigned to the entity.
+   */
+  @Searchable = {
+    "/*/urn": {
+      "fieldType": "URN",
+      "fieldName": "incompleteForms"
+    },
+    "/*/completedPrompts/*/id" : {
+      "fieldType": "KEYWORD",
+      "fieldName": "incompleteFormsCompletedPromptIds",
+    },
+    "/*/incompletePrompts/*/id" : {
+      "fieldType": "KEYWORD",
+      "fieldName": "incompleteFormsIncompletePromptIds",
+    },
+    "/*/completedPrompts/*/lastModified/time" : {
+      "fieldType": "DATETIME",
+      "fieldName": "incompleteFormsCompletedPromptResponseTimes",
+    }
+  }
+  incompleteForms: array[FormAssociation]
+
+  /**
+   * All complete forms assigned to the entity.
+   */
+  @Searchable = {
+    "/*/urn": {
+      "fieldType": "URN",
+      "fieldName": "completedForms"
+    },
+    "/*/completedPrompts/*/id" : {
+      "fieldType": "KEYWORD",
+      "fieldName": "completedFormsCompletedPromptIds",
+    },
+    "/*/incompletePrompts/*/id" : {
+      "fieldType": "KEYWORD",
+      "fieldName": "completedFormsIncompletePromptIds",
+    },
+    "/*/completedPrompts/*/lastModified/time" : {
+      "fieldType": "DATETIME",
+      "fieldName": "completedFormsCompletedPromptResponseTimes",
+    }
+  }
+  completedForms: array[FormAssociation]
+
+  /**
+   * Verifications that have been applied to the entity via completed forms.
+   */
+  @Searchable = {
+    "/*/form": {
+      "fieldType": "URN",
+      "fieldName": "verifiedForms"
+    }
+  }
+  verifications: array[FormVerificationAssociation] = []
+}

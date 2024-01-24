@@ -35,6 +35,7 @@ Column Assertions are currently supported for:
 1. Snowflake
 2. Redshift
 3. BigQuery
+4. Databricks
 
 Note that an Ingestion Source _must_ be configured with the data platform of your choice in
 Acryl DataHub's **Ingestion** tab.
