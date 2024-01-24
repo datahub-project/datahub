@@ -69,6 +69,7 @@ jobs:
           java-version: 17
       - uses: gradle/gradle-build-action@v2
       - uses: actions/setup-python@v4
+        if: ${{ needs.setup.outputs.ingestion_change == 'true' }}
         with:
           python-version: "3.10"
           cache: pip
@@ -82,6 +83,10 @@ jobs:
           ./gradlew :datahub-frontend:build :datahub-web-react:build --parallel
         env:
           NODE_OPTIONS: "--max-old-space-size=3072"
+      - name: Gradle compile (jdk8) for legacy Spark
+        if: ${{  matrix.command == 'except_metadata_ingestion' && needs.setup.outputs.backend_change == 'true' }}
+        run: |
+          ./gradlew -PjavaClassVersionDefault=8 :metadata-integration:java:spark-lineage:compileJava
       - uses: actions/upload-artifact@v3
         if: always()
         with:

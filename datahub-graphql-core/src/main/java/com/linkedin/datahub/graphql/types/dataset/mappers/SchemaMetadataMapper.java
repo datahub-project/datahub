@@ -18,6 +18,11 @@ public class SchemaMetadataMapper {
   public com.linkedin.datahub.graphql.generated.SchemaMetadata apply(
       @Nonnull final EnvelopedAspect aspect, @Nonnull final Urn entityUrn) {
     final SchemaMetadata input = new SchemaMetadata(aspect.getValue().data());
+    return apply(input, entityUrn, aspect.getVersion());
+  }
+
+  public com.linkedin.datahub.graphql.generated.SchemaMetadata apply(
+      @Nonnull final SchemaMetadata input, final Urn entityUrn, final long version) {
     final com.linkedin.datahub.graphql.generated.SchemaMetadata result =
         new com.linkedin.datahub.graphql.generated.SchemaMetadata();
 
@@ -35,7 +40,7 @@ public class SchemaMetadataMapper {
             .map(field -> SchemaFieldMapper.map(field, entityUrn))
             .collect(Collectors.toList()));
     result.setPlatformSchema(PlatformSchemaMapper.map(input.getPlatformSchema()));
-    result.setAspectVersion(aspect.getVersion());
+    result.setAspectVersion(version);
     if (input.hasForeignKeys()) {
       result.setForeignKeys(
           input.getForeignKeys().stream()
