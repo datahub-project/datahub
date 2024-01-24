@@ -879,7 +879,8 @@ class RedshiftLineageExtractor:
             try:
                 if (
                     sqlglot_l.get_query_type(
-                        sql=row.query_text, platform=LineageDatasetPlatform.REDSHIFT.value
+                        sql=row.query_text,
+                        platform=LineageDatasetPlatform.REDSHIFT.value,
                     )
                     != sqlglot_l.QueryType.CREATE
                 ):
