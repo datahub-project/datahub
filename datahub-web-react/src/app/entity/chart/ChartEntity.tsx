@@ -27,6 +27,7 @@ import EmbeddedProfile from '../shared/embed/EmbeddedProfile';
 import { LOOKER_URN } from '../../ingest/source/builder/constants';
 import { MatchedFieldList } from '../../search/matches/MatchedFieldList';
 import { matchedInputFieldRenderer } from '../../search/matches/matchedInputFieldRenderer';
+import { IncidentTab } from '../shared/tabs/Incident/IncidentTab';
 
 /**
  * Definition of the DataHub Chart entity.
@@ -80,7 +81,7 @@ export class ChartEntity implements Entity<Chart> {
             useEntityQuery={useGetChartQuery}
             useUpdateQuery={useUpdateChartMutation}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
-            headerDropdownItems={new Set([EntityMenuItems.UPDATE_DEPRECATION])}
+            headerDropdownItems={new Set([EntityMenuItems.UPDATE_DEPRECATION, EntityMenuItems.RAISE_INCIDENT])}
             subHeader={{
                 component: ChartStatsSummarySubHeader,
             }}
@@ -125,6 +126,14 @@ export class ChartEntity implements Entity<Chart> {
                 {
                     name: 'Properties',
                     component: PropertiesTab,
+                },
+                {
+                    name: 'Incidents',
+                    component: IncidentTab,
+                    getDynamicName: (_, chart) => {
+                        const activeIncidentCount = chart?.chart?.activeIncidents.total;
+                        return `Incidents${(activeIncidentCount && ` (${activeIncidentCount})`) || ''}`;
+                    },
                 },
             ]}
             sidebarSections={[

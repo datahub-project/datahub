@@ -21,6 +21,7 @@ import { DataFlowEntity } from '../dataFlow/DataFlowEntity';
 import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
 import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
 import { getDataProduct } from '../shared/utils';
+import { IncidentTab } from '../shared/tabs/Incident/IncidentTab';
 
 const getDataJobPlatformName = (data?: DataJob): string => {
     return (
@@ -76,7 +77,7 @@ export class DataJobEntity implements Entity<DataJob> {
             useEntityQuery={useGetDataJobQuery}
             useUpdateQuery={useUpdateDataJobMutation}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
-            headerDropdownItems={new Set([EntityMenuItems.UPDATE_DEPRECATION])}
+            headerDropdownItems={new Set([EntityMenuItems.UPDATE_DEPRECATION, EntityMenuItems.RAISE_INCIDENT])}
             tabs={[
                 {
                     name: 'Documentation',
@@ -100,6 +101,14 @@ export class DataJobEntity implements Entity<DataJob> {
                     display: {
                         visible: (_, _1) => true,
                         enabled: (_, dataJob: GetDataJobQuery) => (dataJob?.dataJob?.runs?.total || 0) !== 0,
+                    },
+                },
+                {
+                    name: 'Incidents',
+                    component: IncidentTab,
+                    getDynamicName: (_, dataJob) => {
+                        const activeIncidentCount = dataJob?.dataJob?.activeIncidents.total;
+                        return `Incidents${(activeIncidentCount && ` (${activeIncidentCount})`) || ''}`;
                     },
                 },
             ]}
