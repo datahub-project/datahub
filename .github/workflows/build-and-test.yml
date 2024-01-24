@@ -3,7 +3,6 @@ on:
   push:
     branches:
       - master
-      - 7onn/update-metabase-dashboard-url
     paths-ignore:
       - "docs/**"
       - "**.md"
