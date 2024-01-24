@@ -260,6 +260,27 @@ def test_create_list_get_remove_secret(frontend_session):
     # Get new count of secrets
     _ensure_secret_increased(frontend_session, before_count)
 
+    # Update existing secret
+    json_q = {
+        "query": """mutation updateSecret($input: UpdateSecretInput!) {\n
+            updateSecret(input: $input)
+        }""",
+        "variables": {"input": {"urn": secret_urn, "name": "SMOKE_TEST", "value": "mytestvalue.updated"}},
+    }
+
+    response = frontend_session.post(
+        f"{get_frontend_url()}/api/v2/graphql", json=json_q
+    )
+    response.raise_for_status()
+    res_data = response.json()
+
+    assert res_data
+    assert res_data["data"]
+    assert res_data["data"]["updateSecret"] is not None
+    assert "errors" not in res_data
+
+    secret_urn = res_data["data"]["updateSecret"]
+
     # Get the secret value back
     json_q = {
         "query": """query getSecretValues($input: GetSecretValuesInput!) {\n
@@ -285,7 +306,7 @@ def test_create_list_get_remove_secret(frontend_session):
 
     secret_values = res_data["data"]["getSecretValues"]
     secret_value = [x for x in secret_values if x["name"] == "SMOKE_TEST"][0]
-    assert secret_value["value"] == "mytestvalue"
+    assert secret_value["value"] == "mytestvalue.updated"
 
     # Now cleanup and remove the secret
     json_q = {
