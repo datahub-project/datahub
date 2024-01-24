@@ -2,6 +2,7 @@ from datetime import datetime
 from typing import List
 from unittest.mock import MagicMock
 
+import datahub.utilities.sqlglot_lineage as sqlglot_l
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.redshift.config import RedshiftConfig
 from datahub.ingestion.source.redshift.lineage import (
@@ -12,6 +13,7 @@ from datahub.ingestion.source.redshift.lineage import (
 )
 from datahub.ingestion.source.redshift.redshift_schema import TempTableRow
 from datahub.ingestion.source.redshift.report import RedshiftReport
+from datahub.metadata._schema_classes import NumberTypeClass, SchemaFieldDataTypeClass
 from datahub.utilities.sqlglot_lineage import ColumnLineageInfo, DownstreamColumnRef
 
 
@@ -188,19 +190,37 @@ def test_cll():
 def test_collapse_temp_lineage():
     lineage_extractor = get_lineage_extractor()
 
-    lineage_extractor.get_temp_tables = lambda connection: [  # type: ignore
-        TempTableRow(
-            transaction_id=126,
-            query_text="CREATE TABLE #player_price distkey(player_id) AS SELECT player_id, SUM(price) AS price_usd "
-            "from player_activity group by player_id",
-            start_time=datetime.now(),
-            session_id="abc",
-            create_command="CREATE TABLE #player_price",
-            urn=None,
-        ),
+    temp_table: TempTableRow = TempTableRow(
+        transaction_id=126,
+        query_text="CREATE TABLE #player_price distkey(player_id) AS SELECT player_id, SUM(price) AS price_usd "
+        "from player_activity group by player_id",
+        start_time=datetime.now(),
+        session_id="abc",
+        create_command="CREATE TABLE #player_price",
+        urn="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_price,PROD)",
+    )
+
+    lineage_extractor.temp_tables = [temp_table]
+
+    target_dataset_cll: List[sqlglot_l.ColumnLineageInfo] = [
+        ColumnLineageInfo(
+            downstream=DownstreamColumnRef(
+                table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.player_price_with_hike_v6,PROD)",
+                column="price",
+                column_type=SchemaFieldDataTypeClass(type=NumberTypeClass()),
+                native_column_type="DOUBLE PRECISION",
+            ),
+            upstreams=[
+                sqlglot_l.ColumnRef(
+                    table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_price,PROD)",
+                    column="price_usd",
+                )
+            ],
+            logic=None,
+        )
     ]
 
-    datasets: List[LineageDataset] = lineage_extractor._get_upstream_lineages(
+    datasets = lineage_extractor._get_upstream_lineages(
         sources=[
             LineageDataset(
                 platform=LineageDatasetPlatform.REDSHIFT,
@@ -216,11 +236,18 @@ def test_collapse_temp_lineage():
             }
         },
         connection=MagicMock(),
-        target_dataset_cll=None,
+        target_dataset_cll=target_dataset_cll,
     )
 
     assert len(datasets) == 1
+
     assert (
         datasets[0].urn
         == "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.player_activity,PROD)"
     )
+
+    assert target_dataset_cll[0].upstreams[0].table == (
+        "urn:li:dataset:(urn:li:dataPlatform:redshift,"
+        "dev.public.player_activity,PROD)"
+    )
+    assert target_dataset_cll[0].upstreams[0].column == "price"
