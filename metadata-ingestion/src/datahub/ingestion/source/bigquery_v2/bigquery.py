@@ -1148,6 +1148,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         # TODO: Refractor this such that
         # converter = HiveColumnToAvroConverter(struct_type_separator=" ");
         # converter.get_schema_fields_for_hive_column(...)
+        original_struct_type_separator = (
+            HiveColumnToAvroConverter._STRUCT_TYPE_SEPARATOR
+        )
         HiveColumnToAvroConverter._STRUCT_TYPE_SEPARATOR = " "
         _COMPLEX_TYPE = re.compile("^(struct|array)")
         last_id = -1
@@ -1208,6 +1211,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 )
                 schema_fields.append(field)
             last_id = col.ordinal_position
+        HiveColumnToAvroConverter._STRUCT_TYPE_SEPARATOR = (
+            original_struct_type_separator
+        )
         return schema_fields
 
     def gen_schema_metadata(
