@@ -1106,7 +1106,7 @@ jobs:
         uses: ishworkh/docker-image-artifact-download@v1
         if: ${{ needs.setup.outputs.publish != 'true' }}
         with:
-          image: ${{ env.DATAHUB_INTEGRATIONS_IMAGE }}:${{ needs.setup.outputs.tag }}
+          image: ${{ env.DATAHUB_INTEGRATIONS_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
       - name: Run Trivy vulnerability scanner Slim Image
         uses: aquasecurity/trivy-action@0.8.0
         env:
@@ -1115,7 +1115,7 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: us-west-2
         with:
-          image-ref: ${{ env.DATAHUB_INTEGRATIONS_IMAGE }}:${{ needs.setup.outputs.tag }}
+          image-ref: ${{ env.DATAHUB_INTEGRATIONS_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
           format: "template"
           template: "@/contrib/sarif.tpl"
           output: "trivy-results.sarif"
@@ -1173,7 +1173,7 @@ jobs:
         uses: ishworkh/docker-image-artifact-download@v1
         if: ${{ needs.setup.outputs.publish != 'true' }}
         with:
-          image: ${{ env.DATAHUB_MONITORS_IMAGE }}:${{ needs.setup.outputs.tag }}
+          image: ${{ env.DATAHUB_MONITORS_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
       - name: Run Trivy vulnerability scanner Slim Image
         uses: aquasecurity/trivy-action@0.8.0
         env:
@@ -1182,7 +1182,7 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: us-west-2
         with:
-          image-ref: ${{ env.DATAHUB_MONITORS_IMAGE }}:${{ needs.setup.outputs.tag }}
+          image-ref: ${{ env.DATAHUB_MONITORS_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
           format: "template"
           template: "@/contrib/sarif.tpl"
           output: "trivy-results.sarif"

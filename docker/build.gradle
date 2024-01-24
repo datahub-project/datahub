@@ -8,16 +8,19 @@ import com.avast.gradle.dockercompose.tasks.ComposeDownForced
 apply from: "../gradle/versioning/versioning.gradle"
 
 ext {
-    quickstart_modules = [
+    backend_modules = [
             ':docker:elasticsearch-setup',
             ':docker:mysql-setup',
             ':docker:kafka-setup',
             ':datahub-upgrade',
+            ':metadata-service:war',
+    ]
+    quickstart_modules = backend_modules + [
             ':metadata-jobs:mce-consumer-job',
             ':metadata-jobs:mae-consumer-job',
-            ':metadata-service:war',
             ':datahub-frontend'
     ]
+
     // Quickstart Saas Only
     quickstart_modules = quickstart_modules + [':datahub-integrations-service', ':datahub-monitors-service']
 
@@ -100,9 +103,14 @@ dockerCompose {
         removeVolumes = false
     }
 
+    /**
+     * The smallest disk footprint required for Spark integration tests
+     *
+     * No frontend, mae, mce, or other services
+     */
     quickstartSlim {
         isRequiredBy(tasks.named('quickstartSlim'))
-        composeAdditionalArgs = ['--profile', 'quickstart-consumers']
+        composeAdditionalArgs = ['--profile', 'quickstart-backend']
 
         environment.put 'DATAHUB_VERSION', "v${version}"
         environment.put "DATAHUB_ACTIONS_IMAGE", "795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-ingestion"
@@ -143,7 +151,7 @@ tasks.getByName('quickstartComposeUp').dependsOn(
 tasks.getByName('quickstartPgComposeUp').dependsOn(
         pg_quickstart_modules.collect { it + ':dockerTag' })
 tasks.getByName('quickstartSlimComposeUp').dependsOn(
-        ([':docker:datahub-ingestion'] + quickstart_modules)
+        ([':docker:datahub-ingestion'] + backend_modules)
                 .collect { it + ':dockerTag' })
 tasks.getByName('quickstartDebugComposeUp').dependsOn(
         debug_modules.collect { it + ':dockerTagDebug' }

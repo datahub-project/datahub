@@ -42,8 +42,12 @@ jobs:
           cache: "pip"
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
+      - name: Disk Check
+        run: df -h . && docker images
       - name: Remove images
         run: docker image prune -a -f || true
+      - name: Disk Check
+        run: df -h . && docker images
       - name: Smoke test
         run: |
           ./gradlew :metadata-integration:java:spark-lineage:integrationTest \
