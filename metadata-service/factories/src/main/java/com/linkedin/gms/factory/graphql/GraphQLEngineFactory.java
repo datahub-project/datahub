@@ -10,17 +10,16 @@ import com.linkedin.datahub.graphql.GmsGraphQLEngine;
 import com.linkedin.datahub.graphql.GmsGraphQLEngineArgs;
 import com.linkedin.datahub.graphql.GraphQLEngine;
 import com.linkedin.datahub.graphql.analytics.service.AnalyticsService;
+import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.gms.factory.auth.DataHubTokenServiceFactory;
 import com.linkedin.gms.factory.common.GitVersionFactory;
 import com.linkedin.gms.factory.common.IndexConventionFactory;
 import com.linkedin.gms.factory.common.RestHighLevelClientFactory;
 import com.linkedin.gms.factory.common.SiblingGraphServiceFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
-import com.linkedin.gms.factory.entity.RestliEntityClientFactory;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
 import com.linkedin.gms.factory.recommendation.RecommendationServiceFactory;
-import com.linkedin.metadata.client.JavaEntityClient;
-import com.linkedin.metadata.client.SystemJavaEntityClient;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.graph.GraphService;
@@ -29,6 +28,7 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.recommendation.RecommendationsService;
 import com.linkedin.metadata.secret.SecretService;
 import com.linkedin.metadata.service.DataProductService;
+import com.linkedin.metadata.service.FormService;
 import com.linkedin.metadata.service.LineageService;
 import com.linkedin.metadata.service.OwnershipTypeService;
 import com.linkedin.metadata.service.QueryService;
@@ -52,7 +52,6 @@ import org.springframework.context.annotation.Import;
 @Import({
   RestHighLevelClientFactory.class,
   IndexConventionFactory.class,
-  RestliEntityClientFactory.class,
   RecommendationServiceFactory.class,
   EntityRegistryFactory.class,
   DataHubTokenServiceFactory.class,
@@ -69,14 +68,6 @@ public class GraphQLEngineFactory {
   private IndexConvention indexConvention;
 
   @Autowired
-  @Qualifier("javaEntityClient")
-  private JavaEntityClient _entityClient;
-
-  @Autowired
-  @Qualifier("systemJavaEntityClient")
-  private SystemJavaEntityClient _systemEntityClient;
-
-  @Autowired
   @Qualifier("graphClient")
   private GraphClient _graphClient;
 
@@ -86,7 +77,7 @@ public class GraphQLEngineFactory {
 
   @Autowired
   @Qualifier("entityService")
-  private EntityService _entityService;
+  private EntityService<?> _entityService;
 
   @Autowired
   @Qualifier("graphService")
@@ -172,15 +163,21 @@ public class GraphQLEngineFactory {
   @Qualifier("dataProductService")
   private DataProductService _dataProductService;
 
+  @Autowired
+  @Qualifier("formService")
+  private FormService _formService;
+
   @Value("${platformAnalytics.enabled}") // TODO: Migrate to DATAHUB_ANALYTICS_ENABLED
   private Boolean isAnalyticsEnabled;
 
   @Bean(name = "graphQLEngine")
   @Nonnull
-  protected GraphQLEngine getInstance() {
+  protected GraphQLEngine getInstance(
+      @Qualifier("entityClient") final EntityClient entityClient,
+      @Qualifier("systemEntityClient") final SystemEntityClient systemEntityClient) {
     GmsGraphQLEngineArgs args = new GmsGraphQLEngineArgs();
-    args.setEntityClient(_entityClient);
-    args.setSystemEntityClient(_systemEntityClient);
+    args.setEntityClient(entityClient);
+    args.setSystemEntityClient(systemEntityClient);
     args.setGraphClient(_graphClient);
     args.setUsageClient(_usageClient);
     if (isAnalyticsEnabled) {
@@ -215,6 +212,7 @@ public class GraphQLEngineFactory {
     args.setLineageService(_lineageService);
     args.setQueryService(_queryService);
     args.setFeatureFlags(_configProvider.getFeatureFlags());
+    args.setFormService(_formService);
     args.setDataProductService(_dataProductService);
     return new GmsGraphQLEngine(args).builder().build();
   }
