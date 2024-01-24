@@ -8,21 +8,18 @@ import com.avast.gradle.dockercompose.tasks.ComposeDownForced
 apply from: "../gradle/versioning/versioning.gradle"
 
 ext {
-    backend_modules = [
+    backend_profile_modules = [
             ':docker:elasticsearch-setup',
             ':docker:mysql-setup',
             ':docker:kafka-setup',
             ':datahub-upgrade',
             ':metadata-service:war',
     ]
-    quickstart_modules = backend_modules + [
+    quickstart_modules = backend_profile_modules + [
             ':metadata-jobs:mce-consumer-job',
             ':metadata-jobs:mae-consumer-job',
             ':datahub-frontend'
     ]
-
-    // Quickstart Saas Only
-    quickstart_modules = quickstart_modules + [':datahub-integrations-service', ':datahub-monitors-service']
 
     debug_modules = quickstart_modules - [':metadata-jobs:mce-consumer-job',
                                           ':metadata-jobs:mae-consumer-job']
@@ -34,8 +31,6 @@ ext {
     ]
     // Postgres
     pg_quickstart_modules = quickstart_modules - [':docker:mysql-setup'] + [':docker:postgres-setup']
-    // Postgres Saas Only
-    pg_quickstart_modules = pg_quickstart_modules - [':datahub-integrations-service', ':datahub-monitors-service']
 }
 
 tasks.register('minDockerCompose2.20', Exec) {
@@ -71,6 +66,10 @@ dockerCompose {
         // SaaS only Start
         environment.put "METADATA_TESTS_ENABLED", "true"
         environment.put "DATAHUB_REPO", "${docker_registry}"
+        // -----  Remove once acryl-main build with arm
+        environment.put "DATAHUB_INTEGRATIONS_VERSION", "pr2280"
+        environment.put "DATAHUB_MONITORS_VERSION", "pr2280"
+        // -----
         // SaaS only end
 
         useComposeFiles = ['profiles/docker-compose.yml']
@@ -137,6 +136,13 @@ dockerCompose {
         isRequiredBy(tasks.named('quickstartDebug'))
         composeAdditionalArgs = ['--profile', 'debug']
 
+        // SaaS only Start
+        // -----  Remove once acryl-main build with arm
+        environment.put "DATAHUB_INTEGRATIONS_VERSION", "pr2280"
+        environment.put "DATAHUB_MONITORS_VERSION", "pr2280"
+        // -----
+        // SaaS only end
+
         useComposeFiles = ['profiles/docker-compose.yml']
         projectName = 'datahub'
         projectNamePrefix = ''
@@ -151,7 +157,7 @@ tasks.getByName('quickstartComposeUp').dependsOn(
 tasks.getByName('quickstartPgComposeUp').dependsOn(
         pg_quickstart_modules.collect { it + ':dockerTag' })
 tasks.getByName('quickstartSlimComposeUp').dependsOn(
-        ([':docker:datahub-ingestion'] + backend_modules)
+        ([':docker:datahub-ingestion'] + backend_profile_modules)
                 .collect { it + ':dockerTag' })
 tasks.getByName('quickstartDebugComposeUp').dependsOn(
         debug_modules.collect { it + ':dockerTagDebug' }

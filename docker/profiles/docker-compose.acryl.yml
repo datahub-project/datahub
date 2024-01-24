@@ -3,14 +3,14 @@
 #################################
 x-datahub-integrations-service: &datahub-integrations-service
   hostname: datahub-integrations-service
-  image: ${DATAHUB_INTEGRATIONS_IMAGE:-${DATAHUB_REPO:-795586375822.dkr.ecr.us-west-2.amazonaws.com}/datahub-integrations-service}:${DATAHUB_VERSION:-head}
+  image: ${DATAHUB_INTEGRATIONS_IMAGE:-${DATAHUB_REPO:-795586375822.dkr.ecr.us-west-2.amazonaws.com}/datahub-integrations-service}:${DATAHUB_INTEGRATIONS_VERSION:-head}
   ports:
     - ${DATAHUB_MAPPED_INTEGRATIONS_PORT:-9003}:9003
   env_file: datahub-integrations-service/env/docker.env
 
 x-datahub-integrations-service-dev: &datahub-integrations-service-dev
   <<: *datahub-integrations-service
-  image: ${DATAHUB_INTEGRATIONS_IMAGE:-${DATAHUB_REPO:-795586375822.dkr.ecr.us-west-2.amazonaws.com}/datahub-integrations-service}:debug
+  image: ${DATAHUB_INTEGRATIONS_IMAGE:-${DATAHUB_REPO:-795586375822.dkr.ecr.us-west-2.amazonaws.com}/datahub-integrations-service}:${DATAHUB_INTEGRATIONS_VERSION:-head}
   volumes:
     - ./datahub-integrations-service/start.sh:/start_datahub_integrations_service.sh
     - ../../metadata-ingestion/src:/metadata-ingestion/src
@@ -22,14 +22,14 @@ x-datahub-integrations-service-dev: &datahub-integrations-service-dev
 #################################
 x-datahub-monitors-service: &datahub-monitors-service
   hostname: datahub-monitors-service
-  image: ${DATAHUB_MONITORS_IMAGE:-${DATAHUB_REPO:-795586375822.dkr.ecr.us-west-2.amazonaws.com}/datahub-monitors-service}:${DATAHUB_VERSION:-head}
+  image: ${DATAHUB_MONITORS_IMAGE:-${DATAHUB_REPO:-795586375822.dkr.ecr.us-west-2.amazonaws.com}/datahub-monitors-service}:${DATAHUB_MONITORS_VERSION:-head}
   ports:
     - ${DATAHUB_MAPPED_MONITORS_PORT:-9004}:9004
   env_file: datahub-monitors-service/env/docker.env
 
 x-datahub-monitors-service-dev: &datahub-monitors-service-dev
   <<: *datahub-monitors-service
-  image: ${DATAHUB_MONITORS_IMAGE:-${DATAHUB_REPO:-795586375822.dkr.ecr.us-west-2.amazonaws.com}/datahub-monitors-service}:${DATAHUB_VERSION:-debug}
+  image: ${DATAHUB_MONITORS_IMAGE:-${DATAHUB_REPO:-795586375822.dkr.ecr.us-west-2.amazonaws.com}/datahub-monitors-service}:${DATAHUB_MONITORS_VERSION:-head}
   volumes:
     - ./datahub-monitors-service/start.sh:/start_datahub_monitors_service.sh
     - ../../metadata-ingestion/src:/metadata-ingestion/src
