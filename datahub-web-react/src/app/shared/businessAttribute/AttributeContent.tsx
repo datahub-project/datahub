@@ -101,7 +101,7 @@ export default function AttributeContent({
 
     return (
         <StyledAttribute
-            style={{ cursor: 'pointer' }}
+            style={{ cursor: 'pointer', whiteSpace: 'normal' }}
             closable={canRemove && !readOnly}
             onClose={(e) => {
                 e.preventDefault();

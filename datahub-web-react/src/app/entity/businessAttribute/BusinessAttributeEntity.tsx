@@ -14,6 +14,7 @@ import { SidebarTagsSection } from '../shared/containers/profile/sidebar/Sidebar
 import { Preview } from './preview/Preview';
 import { PageRoutes } from '../../../conf/Global';
 import BusinessAttributeRelatedEntity from './profile/BusinessAttributeRelatedEntity';
+import { BusinessAttributeDataTypeSection } from './profile/BusinessAttributeDataTypeSection';
 
 /**
  *  Definition of datahub Business Attribute Entity
@@ -120,6 +121,9 @@ export class BusinessAttributeEntity implements Entity<BusinessAttribute> {
                         component: SidebarAboutSection,
                     },
                     {
+                        component: BusinessAttributeDataTypeSection,
+                    },
+                    {
                         component: SidebarOwnerSection,
                     },
                     {
@@ -138,14 +142,7 @@ export class BusinessAttributeEntity implements Entity<BusinessAttribute> {
     };
 
     renderSearch = (result: SearchResult) => {
-        return (
-            <GlobalOutlined
-                style={{
-                    fontSize: 12,
-                    color: 'Brown',
-                }}
-            />
-        );
+        return this.renderPreview(PreviewType.SEARCH, result.entity as BusinessAttribute);
     };
 
     supportedCapabilities = () => {

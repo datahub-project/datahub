@@ -233,6 +233,12 @@ fragment autoCompleteFields on Entity {
     ... on DataPlatform {
         ...nonConflictingPlatformFields
     }
+    ... on BusinessAttribute {
+        properties {
+            name
+            description
+        }
+    }
 }
 
 query getAutoCompleteResults($input: AutoCompleteInput!) {

@@ -13,12 +13,17 @@ import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.r2.RemoteInvocationException;
-import com.linkedin.schema.ArrayType;
+import com.linkedin.schema.EnumType;
+import com.linkedin.schema.FixedType;
+import com.linkedin.schema.MapType;
 import com.linkedin.schema.BooleanType;
-import com.linkedin.schema.DateType;
-import com.linkedin.schema.NumberType;
-import com.linkedin.schema.SchemaFieldDataType;
 import com.linkedin.schema.StringType;
+import com.linkedin.schema.ArrayType;
+import com.linkedin.schema.BytesType;
+import com.linkedin.schema.NumberType;
+import com.linkedin.schema.TimeType;
+import com.linkedin.schema.DateType;
+import com.linkedin.schema.SchemaFieldDataType;
 import lombok.extern.slf4j.Slf4j;
 
 import javax.annotation.Nonnull;
@@ -73,6 +78,21 @@ public class BusinessAttributeUtils {
         }
         SchemaFieldDataType schemaFieldDataType = new SchemaFieldDataType();
         switch (type) {
+            case BYTES:
+                schemaFieldDataType.setType(SchemaFieldDataType.Type.create(new BytesType()));
+                return schemaFieldDataType;
+            case FIXED:
+                schemaFieldDataType.setType(SchemaFieldDataType.Type.create(new FixedType()));
+                return schemaFieldDataType;
+            case ENUM:
+                schemaFieldDataType.setType(SchemaFieldDataType.Type.create(new EnumType()));
+                return schemaFieldDataType;
+            case MAP:
+                schemaFieldDataType.setType(SchemaFieldDataType.Type.create(new MapType()));
+                return schemaFieldDataType;
+            case TIME:
+                schemaFieldDataType.setType(SchemaFieldDataType.Type.create(new TimeType()));
+                return schemaFieldDataType;
             case BOOLEAN:
                 schemaFieldDataType.setType(SchemaFieldDataType.Type.create(new BooleanType()));
                 return schemaFieldDataType;

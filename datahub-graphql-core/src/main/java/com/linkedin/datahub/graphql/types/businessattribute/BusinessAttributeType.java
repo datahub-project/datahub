@@ -13,9 +13,11 @@ import com.linkedin.datahub.graphql.generated.SearchResults;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.SearchableEntityType;
 import com.linkedin.datahub.graphql.types.businessattribute.mappers.BusinessAttributeMapper;
+import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchResult;
@@ -104,6 +106,8 @@ public class BusinessAttributeType implements SearchableEntityType<BusinessAttri
     @Override
     public AutoCompleteResults autoComplete(@Nonnull String query, @Nullable String field,
                                             @Nullable Filter filters, int limit, @Nonnull QueryContext context) throws Exception {
-        return null;
+        final AutoCompleteResult result = _entityClient.autoComplete(
+                "businessAttribute", query, filters, limit, context.getAuthentication());
+        return AutoCompleteResultsMapper.map(result);
     }
 }

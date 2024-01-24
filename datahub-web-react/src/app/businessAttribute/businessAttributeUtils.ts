@@ -12,3 +12,26 @@ export function getRelatedEntitiesUrl(entityRegistry: EntityRegistry, urn: strin
         'Related Entities',
     )}`;
 }
+
+export enum SchemaFieldDataType {
+    /** A boolean type */
+    Boolean = 'BOOLEAN',
+    /** A fixed bytestring type */
+    Fixed = 'FIXED',
+    /** A string type */
+    String = 'STRING',
+    /** A string of bytes */
+    Bytes = 'BYTES',
+    /** A number, including integers, floats, and doubles */
+    Number = 'NUMBER',
+    /** A datestrings type */
+    Date = 'DATE',
+    /** A timestamp type */
+    Time = 'TIME',
+    /** An enum type */
+    Enum = 'ENUM',
+    /** A map collection type */
+    Map = 'MAP',
+    /** An array collection type */
+    Array = 'ARRAY',
+}
