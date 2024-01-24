@@ -4,8 +4,8 @@ import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { useEntityData, useRefetch } from '../../shared/EntityContext';
 import { SidebarHeader } from '../../shared/containers/profile/sidebar/SidebarHeader';
-import { SchemaFieldDataType } from '../../../../types.generated';
 import { useUpdateBusinessAttributeMutation } from '../../../../graphql/businessAttribute.generated';
+import { SchemaFieldDataType } from '../../../businessAttribute/businessAttributeUtils';
 
 interface Props {
     readOnly?: boolean;

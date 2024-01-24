@@ -5,10 +5,11 @@ import { EditOutlined } from '@ant-design/icons';
 import DOMPurify from 'dompurify';
 import { useEnterKeyListener } from '../shared/useEnterKeyListener';
 import { useCreateBusinessAttributeMutation } from '../../graphql/businessAttribute.generated';
-import { CreateBusinessAttributeInput, SchemaFieldDataType, EntityType } from '../../types.generated';
+import { CreateBusinessAttributeInput, EntityType } from '../../types.generated';
 import analytics, { EventType } from '../analytics';
 import { useEntityRegistry } from '../useEntityRegistry';
 import DescriptionModal from '../entity/shared/components/legacy/DescriptionModal';
+import { SchemaFieldDataType } from './businessAttributeUtils';
 
 type Props = {
     visible: boolean;

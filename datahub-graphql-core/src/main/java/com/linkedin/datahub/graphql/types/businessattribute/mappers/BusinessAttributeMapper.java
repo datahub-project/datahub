@@ -93,16 +93,10 @@ public class BusinessAttributeMapper implements ModelMapper<EntityResponse, Busi
             return SchemaFieldDataType.TIME;
         } else if (type.isEnumType()) {
             return SchemaFieldDataType.ENUM;
-        } else if (type.isNullType()) {
-            return SchemaFieldDataType.NULL;
         } else if (type.isArrayType()) {
             return SchemaFieldDataType.ARRAY;
         } else if (type.isMapType()) {
             return SchemaFieldDataType.MAP;
-        } else if (type.isRecordType()) {
-            return SchemaFieldDataType.STRUCT;
-        } else if (type.isUnionType()) {
-            return SchemaFieldDataType.UNION;
         } else {
             throw new RuntimeException(String.format("Unrecognized SchemaFieldDataType provided %s",
                     type.memberType().toString()));
