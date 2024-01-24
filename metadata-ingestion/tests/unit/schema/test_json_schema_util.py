@@ -735,7 +735,7 @@ def test_const_description_pulled_correctly():
     fields = list(JsonSchemaTranslator.get_fields_from_schema(schema))
     expected_field_paths: List[str] = ["[version=2.0].[type=object].[type=string].bar"]
     assert_field_paths_match(fields, expected_field_paths)
-    assert fields[0].description == "not_defined"
+    assert fields[0].description == "Const value: not_defined"
 
 
 def test_anyof_with_properties():
