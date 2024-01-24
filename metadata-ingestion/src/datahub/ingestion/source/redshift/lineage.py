@@ -4,7 +4,6 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from functools import lru_cache
 from typing import Dict, List, Optional, Set, Tuple, Union, cast
 from urllib.parse import urlparse
 
@@ -167,6 +166,8 @@ class RedshiftLineageExtractor:
             self.report.lineage_end_time,
         ) = self.get_time_window()
 
+        self.temp_tables: List[TempTableRow] = []
+
     def _init_temp_table_schema(
         self, database: str, temp_tables: List[TempTableRow]
     ) -> None:
@@ -194,8 +195,15 @@ class RedshiftLineageExtractor:
                 graph=self.context.graph,
             )
 
-            if result.column_lineage is None:
+            if (
+                result.column_lineage is None
+                or result.query_type != sqlglot_l.QueryType.CREATE
+            ):
                 continue
+
+            self.temp_tables.append(
+                table
+            )  # add only temp tables which has "create" statements
 
             for column_lineage in result.column_lineage:
                 if column_lineage.downstream.table not in dataset_vs_columns:
@@ -856,7 +864,6 @@ class RedshiftLineageExtractor:
         logger.info(f"Discovered {len(table_renames)} table renames")
         return table_renames, all_tables
 
-    @lru_cache(maxsize=64)
     def get_temp_tables(
         self, connection: redshift_connector.Connection
     ) -> List[TempTableRow]:
@@ -873,27 +880,7 @@ class RedshiftLineageExtractor:
             conn=connection,
             query=ddl_query,
         ):
-
-            # check whether the statement got from audit table is create statement
-            # add only create statement in temp_table_rows list
-            try:
-                if (
-                    sqlglot_l.get_query_type(
-                        sql=row.query_text,
-                        platform=LineageDatasetPlatform.REDSHIFT.value,
-                    )
-                    != sqlglot_l.QueryType.CREATE
-                ):
-
-                    continue
-
-            except sqlglot.errors.ParseError:
-                logger.debug(f"query parsing failed for query = {row.query_text}")
-                continue
-
             temp_table_rows.append(row)
-
-        logger.debug(f"Number of temp tables = {len(temp_table_rows)}")
 
         return temp_table_rows
 
@@ -987,7 +974,7 @@ class RedshiftLineageExtractor:
 
                 # Check if table found is again a temp table
                 repeated_temp_table: List[TempTableRow] = self.find_temp_tables(
-                    temp_table_rows=self.get_temp_tables(connection=connection),
+                    temp_table_rows=self.temp_tables,
                     temp_table_names=[table],
                 )
 
@@ -1020,7 +1007,7 @@ class RedshiftLineageExtractor:
         permanent_lineage_datasets: List[LineageDataset] = []
 
         temp_table_rows: List[TempTableRow] = self.find_temp_tables(
-            temp_table_rows=self.get_temp_tables(connection=connection),
+            temp_table_rows=self.temp_tables,
             temp_table_names=temp_table_names,
         )
 
