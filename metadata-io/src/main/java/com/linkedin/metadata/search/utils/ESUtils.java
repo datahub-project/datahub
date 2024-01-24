@@ -572,7 +572,7 @@ public class ESUtils {
 
   private static Set<String> getFieldTypes(
       Map<String, Set<SearchableFieldSpec>> searchableFields, String fieldName) {
-    Set<SearchableFieldSpec> fieldSpecs = searchableFields.get(fieldName);
+    Set<SearchableFieldSpec> fieldSpecs = searchableFields.getOrDefault(fieldName, Collections.emptySet());
     Set<String> fieldTypes =
         fieldSpecs.stream()
             .map(SearchableFieldSpec::getSearchableAnnotation)
