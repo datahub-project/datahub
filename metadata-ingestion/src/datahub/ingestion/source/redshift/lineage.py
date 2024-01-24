@@ -425,11 +425,6 @@ class RedshiftLineageExtractor:
                     f"Processing {lineage_type.name} lineage row: {lineage_row}"
                 )
 
-                if "player_price_with_hike_v6" in target.dataset.urn:
-                    import pdb
-
-                    pdb.set_trace()
-
                 sources, cll = self._get_sources(
                     lineage_type,
                     alias_db_name,
@@ -602,11 +597,6 @@ class RedshiftLineageExtractor:
         if probable_temp_tables and self.config.resolve_temp_table_in_lineage:
             self.report.num_lineage_processed_temp_tables += len(probable_temp_tables)
             # Generate lineage dataset from temporary tables
-            if "player_price_with_hike_v6" in target_table:
-                import pdb
-
-                pdb.set_trace()
-
             number_of_permanent_dataset_found: int = (
                 self.update_table_and_column_lineage(
                     db_name=raw_db_name,
@@ -883,19 +873,24 @@ class RedshiftLineageExtractor:
             conn=connection,
             query=ddl_query,
         ):
-            # There is a bug in row.create_command formation. The create_command contains create statement even if
-            # query_text has select statement, so time being performing search on query_text
-            if any(
-                [
-                    row.query_text.lower().startswith(prefix)
-                    for prefix in [
-                        RedshiftQuery.CREATE_TEMP_TABLE_CLAUSE,
-                        RedshiftQuery.CREATE_TEMPORARY_TABLE_CLAUSE,
-                        RedshiftQuery.CREATE_TEMPORARY_TABLE_HASH_CLAUSE,
-                    ]
-                ]
-            ):
-                temp_table_rows.append(row)
+
+            # check whether the statement got from audit table is create statement
+            # add only create statement in temp_table_rows list
+            try:
+                if (
+                    sqlglot_l.get_query_type(
+                        sql=row.query_text, platform=LineageDatasetPlatform.REDSHIFT.value
+                    )
+                    != sqlglot_l.QueryType.CREATE
+                ):
+
+                    continue
+
+            except sqlglot.errors.ParseError:
+                logger.debug(f"query parsing failed for query = {row.query_text}")
+                continue
+
+            temp_table_rows.append(row)
 
         logger.debug(f"Number of temp tables = {len(temp_table_rows)}")
 
