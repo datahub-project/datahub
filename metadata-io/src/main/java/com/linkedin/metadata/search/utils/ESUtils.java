@@ -572,7 +572,8 @@ public class ESUtils {
 
   private static Set<String> getFieldTypes(
       Map<String, Set<SearchableFieldSpec>> searchableFields, String fieldName) {
-    Set<SearchableFieldSpec> fieldSpecs = searchableFields.getOrDefault(fieldName, Collections.emptySet());
+    Set<SearchableFieldSpec> fieldSpecs =
+        searchableFields.getOrDefault(fieldName, Collections.emptySet());
     Set<String> fieldTypes =
         fieldSpecs.stream()
             .map(SearchableFieldSpec::getSearchableAnnotation)
@@ -596,7 +597,8 @@ public class ESUtils {
       boolean isTimeseries) {
     Set<String> fieldTypes = getFieldTypes(searchableFields, fieldName);
 
-    // Determine criterion value, range query only accepts single value so take first value in values if multiple
+    // Determine criterion value, range query only accepts single value so take first value in
+    // values if multiple
     String criterionValueString;
     if (!criterion.getValues().isEmpty()) {
       criterionValueString = criterion.getValues().get(0).trim();

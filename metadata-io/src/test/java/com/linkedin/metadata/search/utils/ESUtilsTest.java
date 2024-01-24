@@ -267,7 +267,8 @@ public class ESUtilsTest {
             .setCondition(Condition.EQUAL)
             .setValues(new StringArray(ImmutableList.of("value1")));
 
-    QueryBuilder result = ESUtils.getQueryBuilderFromCriterion(singleValueCriterion, false, new HashMap<>());
+    QueryBuilder result =
+        ESUtils.getQueryBuilderFromCriterion(singleValueCriterion, false, new HashMap<>());
     String expected =
         "{\n"
             + "  \"terms\" : {\n"
@@ -286,7 +287,8 @@ public class ESUtilsTest {
     final Criterion singleValueCriterion =
         new Criterion().setField("structuredProperties.ab.fgh.ten").setCondition(Condition.EXISTS);
 
-    QueryBuilder result = ESUtils.getQueryBuilderFromCriterion(singleValueCriterion, false, new HashMap<>());
+    QueryBuilder result =
+        ESUtils.getQueryBuilderFromCriterion(singleValueCriterion, false, new HashMap<>());
     String expected =
         "{\n"
             + "  \"bool\" : {\n"
