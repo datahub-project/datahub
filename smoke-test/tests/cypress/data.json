@@ -2011,5 +2011,29 @@
       "contentType": "application/json"
     },
     "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "incident",
+    "entityUrn": "urn:li:incident:test",
+    "changeType": "UPSERT",
+    "aspectName": "incidentInfo",
+    "aspect": {
+      "value": "{\"entities\":[\"urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleCypressHdfsDataset,PROD)\"],\"created\":{\"actor\":\"urn:li:corpuser:admin\",\"time\":1692301854918},\"description\":\"test\",\"source\":{\"type\":\"MANUAL\"},\"title\":\"test\",\"type\":\"OPERATIONAL\",\"status\":{\"lastUpdated\":{\"actor\":\"urn:li:corpuser:admin\",\"time\":1692301854919},\"state\":\"ACTIVE\"}}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleCypressHdfsDataset,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "incidentsSummary",
+    "aspect": {
+      "value": "{\"resolvedIncidentDetails\":[], \"activeIncidentDetails\": [{ \"urn\": \"urn:li:incident:test\", \"type\": \"OPERATIONAL\", \"createdAt\": 0 }]}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
   }
 ]

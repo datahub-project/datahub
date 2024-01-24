@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { message, Modal, Button, Form, Input, Typography, Select } from 'antd';
 import { useApolloClient } from '@apollo/client';
 import analytics, { EventType, EntityActionType } from '../../../../../analytics';
-import { useEntityData } from '../../../EntityContext';
+import { useEntityData, useRefetch } from '../../../EntityContext';
 import { EntityType, IncidentSourceType, IncidentState, IncidentType } from '../../../../../../types.generated';
 import { INCIDENT_DISPLAY_TYPES, PAGE_SIZE, addActiveIncidentToCache } from '../incidentUtils';
 import { useRaiseIncidentMutation } from '../../../../../../graphql/mutations.generated';
@@ -88,6 +88,9 @@ export const AddIncidentModal = ({ visible, onClose, refetch }: AddIncidentProps
                 });
                 addActiveIncidentToCache(client, urn, newIncident, PAGE_SIZE);
                 handleClose();
+                setTimeout(() => {
+                    refetch?.();
+                }, 2000);
             })
             .catch((error) => {
                 console.error(error);

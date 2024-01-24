@@ -57,7 +57,7 @@ export const IncidentTab = () => {
             start: 0,
             count: PAGE_SIZE,
         },
-        fetchPolicy: 'cache-first',
+        fetchPolicy: 'cache-and-network',
     });
 
     const hasData = (data?.entity as any)?.incidents;
@@ -115,7 +115,14 @@ export const IncidentTab = () => {
                     <IncidentStyledList
                         bordered
                         locale={{
-                            emptyText: <Empty description="No Incidents!" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
+                            emptyText: (
+                                <Empty
+                                    description={`No${
+                                        !!selectedIncidentState ? ` ${selectedIncidentState.toLocaleLowerCase()} ` : ''
+                                    } incidents`}
+                                    image={Empty.PRESENTED_IMAGE_SIMPLE}
+                                />
+                            ),
                         }}
                         dataSource={incidentList}
                         renderItem={(item: any) => <IncidentListItem refetch={refetch} incident={item} />}
