@@ -317,12 +317,12 @@ class JsonSchemaTranslator:
     @staticmethod
     def _get_description_from_any_schema(schema: Dict) -> str:
         # we do a redundant `if description in schema` check to guard against the scenario that schema is not a dictionary
+        description = ""
         if "description" in schema:
-            description = schema.get("description")
+            description = str(schema.get("description"))
         elif "const" in schema:
-            description = f"Const value: {schema.get("const")}"
-        else:
-            description = ""
+            schema_const = schema.get("const")
+            description = f"Const value: {schema_const}"
         if JsonSchemaTranslator._INJECT_DEFAULTS_INTO_DESCRIPTION:
             default = schema.get("default")
             if default is not None:
