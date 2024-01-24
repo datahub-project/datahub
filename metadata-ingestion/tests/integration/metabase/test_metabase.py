@@ -14,9 +14,10 @@ FROZEN_TIME = "2021-11-11 07:00:00"
 JSON_RESPONSE_MAP = {
     "http://localhost:3000/api/session": "session.json",
     "http://localhost:3000/api/user/current": "user.json",
-    "http://localhost:3000/api/collection": "collections.json",
-    "http://localhost:3000/api/collection/1/items?models=dashboard ": "collection_dashboards.json",
-    "http://localhost:3000/api/dashboard/1": "dashboard_1.json",
+    "http://localhost:3000/api/collection/": "collections.json",
+    "http://localhost:3000/api/collection/root/items?models=dashboard": "collection_dashboards.json",
+    "http://localhost:3000/api/collection/150/items?models=dashboard": "collection_dashboards.json",
+    "http://localhost:3000/api/dashboard/10": "dashboard_1.json",
     "http://localhost:3000/api/user/1": "user.json",
     "http://localhost:3000/api/card": "card.json",
     "http://localhost:3000/api/database/1": "bigquery_database.json",
@@ -115,9 +116,9 @@ def test_mode_ingest_success(pytestconfig, tmp_path):
                 },
             }
         )
+
         pipeline.run()
         pipeline.raise_from_status()
-
         mce_helpers.check_golden_file(
             pytestconfig,
             output_path=f"{tmp_path}/metabase_mces.json",

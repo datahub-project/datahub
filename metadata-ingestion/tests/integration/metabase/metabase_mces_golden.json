@@ -57,7 +57,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1636614000000,
-        "runId": "metabase-test"
+        "runId": "metabase-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -112,7 +113,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1636614000000,
-        "runId": "metabase-test"
+        "runId": "metabase-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -167,7 +169,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1636614000000,
-        "runId": "metabase-test"
+        "runId": "metabase-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -180,10 +183,7 @@
                         "customProperties": {},
                         "title": "Dashboard 1",
                         "description": "",
-                        "charts": [
-                            "urn:li:chart:(metabase,1)",
-                            "urn:li:chart:(metabase,2)"
-                        ],
+                        "charts": [],
                         "datasets": [],
                         "lastModified": {
                             "created": {
@@ -195,7 +195,7 @@
                                 "actor": "urn:li:corpuser:admin@metabase.com"
                             }
                         },
-                        "dashboardUrl": "http://localhost:3000/dashboard/1"
+                        "dashboardUrl": "http://localhost:3000/dashboard/10"
                     }
                 },
                 {
@@ -217,7 +217,56 @@
     },
     "systemMetadata": {
         "lastObserved": 1636614000000,
-        "runId": "metabase-test"
+        "runId": "metabase-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DashboardSnapshot": {
+            "urn": "urn:li:dashboard:(metabase,1)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.dashboard.DashboardInfo": {
+                        "customProperties": {},
+                        "title": "Dashboard 1",
+                        "description": "",
+                        "charts": [],
+                        "datasets": [],
+                        "lastModified": {
+                            "created": {
+                                "time": 1639417721742,
+                                "actor": "urn:li:corpuser:admin@metabase.com"
+                            },
+                            "lastModified": {
+                                "time": 1639417721742,
+                                "actor": "urn:li:corpuser:admin@metabase.com"
+                            }
+                        },
+                        "dashboardUrl": "http://localhost:3000/dashboard/10"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [
+                            {
+                                "owner": "urn:li:corpuser:admin@metabase.com",
+                                "type": "DATAOWNER"
+                            }
+                        ],
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        }
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1636614000000,
+        "runId": "metabase-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -232,7 +281,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1636614000000,
-        "runId": "metabase-test"
+        "runId": "metabase-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -247,7 +297,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1636614000000,
-        "runId": "metabase-test"
+        "runId": "metabase-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -262,7 +313,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1636614000000,
-        "runId": "metabase-test"
+        "runId": "metabase-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -277,7 +329,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1636614000000,
-        "runId": "metabase-test"
+        "runId": "metabase-test",
+        "lastRunId": "no-run-id-provided"
     }
 }
 ]
