@@ -558,7 +558,6 @@ class MetabaseSource(Source):
                     key="metabase-query",
                     reason=f"Unable to retrieve lineage from query: {raw_query}",
                 )
-            print(result.debug_info.table_error)
             return result.in_tables
 
         return None
