@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from functools import lru_cache
-from typing import Dict, List, Optional, Set, Tuple, Union
+from typing import Dict, List, Optional, Set, Tuple, Union, cast
 from urllib.parse import urlparse
 
 import humanfriendly
@@ -32,11 +32,17 @@ from datahub.ingestion.source.redshift.report import RedshiftReport
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
     RedundantLineageRunSkipHandler,
 )
+from datahub.metadata._schema_classes import SchemaFieldDataTypeClass
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     FineGrainedLineage,
     FineGrainedLineageDownstreamType,
     FineGrainedLineageUpstreamType,
     UpstreamLineage,
+)
+from datahub.metadata.com.linkedin.pegasus2avro.schema import (
+    OtherSchema,
+    SchemaField,
+    SchemaMetadata,
 )
 from datahub.metadata.schema_classes import (
     DatasetLineageTypeClass,
@@ -160,6 +166,73 @@ class RedshiftLineageExtractor:
             self.report.lineage_start_time,
             self.report.lineage_end_time,
         ) = self.get_time_window()
+
+    def _init_temp_table_schema(
+        self, database: str, temp_tables: List[TempTableRow]
+    ) -> None:
+        if self.context.graph is None:  # to silent lint
+            return
+
+        schema_resolver: sqlglot_l.SchemaResolver = (
+            self.context.graph._make_schema_resolver(
+                platform=LineageDatasetPlatform.REDSHIFT.value,
+                platform_instance=self.config.platform_instance,
+                env=self.config.env,
+            )
+        )
+
+        dataset_vs_columns: Dict[str, List[SchemaField]] = {}
+        # prepare dataset_urn vs List of schema fields
+        for table in temp_tables:
+            result = sqlglot_l.create_lineage_sql_parsed_result(
+                platform=LineageDatasetPlatform.REDSHIFT.value,
+                platform_instance=self.config.platform_instance,
+                env=self.config.env,
+                database=database,
+                schema=self.config.default_schema,
+                query=table.query_text,
+                graph=self.context.graph,
+            )
+
+            if result.column_lineage is None:
+                continue
+
+            for column_lineage in result.column_lineage:
+                if column_lineage.downstream.table not in dataset_vs_columns:
+                    dataset_vs_columns[cast(str, column_lineage.downstream.table)] = []
+                    # Initialise the temp table urn, we later need this to merge CLL
+                    table.urn = column_lineage.downstream.table
+
+                dataset_vs_columns[cast(str, column_lineage.downstream.table)].append(
+                    SchemaField(
+                        fieldPath=column_lineage.downstream.column,
+                        type=cast(
+                            SchemaFieldDataTypeClass,
+                            column_lineage.downstream.column_type,
+                        ),
+                        nativeDataType=cast(
+                            str, column_lineage.downstream.native_column_type
+                        ),
+                    )
+                )
+
+        # Add datasets, and it's respective fields in schema_resolver, so that later schema_resolver would be able
+        # correctly generates the upstreams for temporary tables
+        for urn in dataset_vs_columns:
+            db, schema, table_name = split_qualified_table_name(urn)
+            schema_resolver.add_schema_metadata(
+                urn=urn,
+                schema_metadata=SchemaMetadata(
+                    schemaName=table_name,
+                    platform=builder.make_data_platform_urn(
+                        LineageDatasetPlatform.REDSHIFT.value
+                    ),
+                    version=0,
+                    hash="",
+                    platformSchema=OtherSchema(rawSchema=""),
+                    fields=dataset_vs_columns[urn],
+                ),
+            )
 
     def get_time_window(self) -> Tuple[datetime, datetime]:
         if self.redundant_run_skip_handler:
@@ -352,6 +425,11 @@ class RedshiftLineageExtractor:
                     f"Processing {lineage_type.name} lineage row: {lineage_row}"
                 )
 
+                if "player_price_with_hike_v6" in target.dataset.urn:
+                    import pdb
+
+                    pdb.set_trace()
+
                 sources, cll = self._get_sources(
                     lineage_type,
                     alias_db_name,
@@ -365,6 +443,7 @@ class RedshiftLineageExtractor:
                     self._get_upstream_lineages(
                         sources=sources,
                         target_table=target.dataset.urn,
+                        target_dataset_cll=cll,
                         all_tables_set=all_tables_set,
                         alias_db_name=alias_db_name,
                         raw_db_name=raw_db_name,
@@ -482,6 +561,7 @@ class RedshiftLineageExtractor:
         alias_db_name: str,
         raw_db_name: str,
         connection: redshift_connector.Connection,
+        target_dataset_cll: Optional[List[sqlglot_l.ColumnLineageInfo]],
     ) -> List[LineageDataset]:
         target_source = []
         probable_temp_tables: List[str] = []
@@ -522,16 +602,25 @@ class RedshiftLineageExtractor:
         if probable_temp_tables and self.config.resolve_temp_table_in_lineage:
             self.report.num_lineage_processed_temp_tables += len(probable_temp_tables)
             # Generate lineage dataset from temporary tables
-            lineage_datasets: List[LineageDataset] = self.get_permanent_datasets(
-                db_name=raw_db_name,
-                connection=connection,
-                temp_table_names=probable_temp_tables,
-            )
-            logger.debug(
-                f"Number of permanent datasets found for {target_table} = {len(lineage_datasets)} in temp tables {probable_temp_tables}"
+            if "player_price_with_hike_v6" in target_table:
+                import pdb
+
+                pdb.set_trace()
+
+            number_of_permanent_dataset_found: int = (
+                self.update_table_and_column_lineage(
+                    db_name=raw_db_name,
+                    connection=connection,
+                    temp_table_names=probable_temp_tables,
+                    target_source_dataset=target_source,
+                    target_dataset_cll=target_dataset_cll,
+                )
             )
 
-            target_source.extend(lineage_datasets)
+            logger.debug(
+                f"Number of permanent datasets found for {target_table} = {number_of_permanent_dataset_found} in "
+                f"temp tables {probable_temp_tables}"
+            )
 
         return target_source
 
@@ -541,6 +630,13 @@ class RedshiftLineageExtractor:
         connection: redshift_connector.Connection,
         all_tables: Dict[str, Dict[str, List[Union[RedshiftView, RedshiftTable]]]],
     ) -> None:
+
+        if self.config.resolve_temp_table_in_lineage:
+            self._init_temp_table_schema(
+                database=database,
+                temp_tables=self.get_temp_tables(connection=connection),
+            )
+
         populate_calls: List[Tuple[str, LineageCollectorType]] = []
 
         all_tables_set: Dict[str, Dict[str, Set[str]]] = {
@@ -781,13 +877,25 @@ class RedshiftLineageExtractor:
 
         logger.debug(f"Temporary table ddl query = {ddl_query}")
 
-        temp_table_rows: List[TempTableRow] = [
-            row
-            for row in RedshiftDataDictionary.get_temporary_rows(
-                conn=connection,
-                query=ddl_query,
-            )
-        ]
+        temp_table_rows: List[TempTableRow] = []
+
+        for row in RedshiftDataDictionary.get_temporary_rows(
+            conn=connection,
+            query=ddl_query,
+        ):
+            # There is a bug in row.create_command formation. The create_command contains create statement even if
+            # query_text has select statement, so time being performing search on query_text
+            if any(
+                [
+                    row.query_text.lower().startswith(prefix)
+                    for prefix in [
+                        RedshiftQuery.CREATE_TEMP_TABLE_CLAUSE,
+                        RedshiftQuery.CREATE_TEMPORARY_TABLE_CLAUSE,
+                        RedshiftQuery.CREATE_TEMPORARY_TABLE_HASH_CLAUSE,
+                    ]
+                ]
+            ):
+                temp_table_rows.append(row)
 
         logger.debug(f"Number of temp tables = {len(temp_table_rows)}")
 
@@ -808,6 +916,38 @@ class RedshiftLineageExtractor:
 
         return matched_temp_tables
 
+    def _update_target_dataset_cll(
+        self,
+        temp_table_urn: str,
+        target_dataset_cll: List[sqlglot_l.ColumnLineageInfo],
+        source_dataset_cll: List[sqlglot_l.ColumnLineageInfo],
+    ) -> None:
+
+        for column_lineage in target_dataset_cll:
+            upstreams: List[sqlglot_l.ColumnRef] = []
+            # Look for temp_table_urn in upstream of column_lineage, if found then we need to replace it with
+            # column of permanent table
+            for column_ref in column_lineage.upstreams:
+                if column_ref.table == temp_table_urn:
+                    # Look for column_ref.table and column_ref.column in downstream of source_dataset_cll.
+                    # The source_dataset_cll contains CLL generated from create statement of temp table (temp_table_urn)
+                    for source_column_lineage in source_dataset_cll:
+                        if (
+                            source_column_lineage.downstream.table == column_ref.table
+                            and source_column_lineage.downstream.column
+                            == column_ref.column
+                        ):
+                            # Add all upstream of above temporary column into upstream of target column
+                            upstreams.extend(source_column_lineage.upstreams)
+
+                    continue
+
+                upstreams.append(column_ref)
+
+            if upstreams:
+                # update the upstreams
+                column_lineage.upstreams = upstreams
+
     def _add_permanent_datasets_recursively(
         self,
         db_name: str,
@@ -815,6 +955,7 @@ class RedshiftLineageExtractor:
         visited_tables: Set[str],
         connection: redshift_connector.Connection,
         permanent_lineage_datasets: List[LineageDataset],
+        target_dataset_cll: Optional[List[sqlglot_l.ColumnLineageInfo]],
     ) -> None:
         transitive_temp_tables: List[TempTableRow] = []
 
@@ -823,10 +964,21 @@ class RedshiftLineageExtractor:
                 f"Processing temp table with transaction id: {temp_table.transaction_id} and query text {temp_table.query_text}"
             )
 
-            intermediate_l_datasets, _ = self._get_sources_from_query(
+            intermediate_l_datasets, cll = self._get_sources_from_query(
                 db_name=db_name,
                 query=temp_table.query_text,
             )
+
+            if (
+                temp_table.urn is not None
+                and target_dataset_cll is not None
+                and cll is not None
+            ):  # condition to silent the lint
+                self._update_target_dataset_cll(
+                    temp_table_urn=temp_table.urn,
+                    target_dataset_cll=target_dataset_cll,
+                    source_dataset_cll=cll,
+                )
 
             # make sure lineage dataset should not contain a temp table
             # if such dataset is present then add it to transitive_temp_tables to resolve it to original permanent table
@@ -858,14 +1010,17 @@ class RedshiftLineageExtractor:
                 visited_tables=visited_tables,
                 connection=connection,
                 permanent_lineage_datasets=permanent_lineage_datasets,
+                target_dataset_cll=target_dataset_cll,
             )
 
-    def get_permanent_datasets(
+    def update_table_and_column_lineage(
         self,
         db_name: str,
         temp_table_names: List[str],
         connection: redshift_connector.Connection,
-    ) -> List[LineageDataset]:
+        target_source_dataset: List[LineageDataset],
+        target_dataset_cll: Optional[List[sqlglot_l.ColumnLineageInfo]],
+    ) -> int:
         permanent_lineage_datasets: List[LineageDataset] = []
 
         temp_table_rows: List[TempTableRow] = self.find_temp_tables(
@@ -881,6 +1036,9 @@ class RedshiftLineageExtractor:
             visited_tables=visited_tables,
             connection=connection,
             permanent_lineage_datasets=permanent_lineage_datasets,
+            target_dataset_cll=target_dataset_cll,
         )
 
-        return permanent_lineage_datasets
+        target_source_dataset.extend(permanent_lineage_datasets)
+
+        return len(permanent_lineage_datasets)

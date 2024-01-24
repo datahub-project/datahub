@@ -196,6 +196,7 @@ def test_collapse_temp_lineage():
             start_time=datetime.now(),
             session_id="abc",
             create_command="CREATE TABLE #player_price",
+            urn=None,
         ),
     ]
 
@@ -215,6 +216,7 @@ def test_collapse_temp_lineage():
             }
         },
         connection=MagicMock(),
+        target_dataset_cll=None,
     )
 
     assert len(datasets) == 1

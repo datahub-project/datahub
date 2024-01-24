@@ -87,6 +87,7 @@ class TempTableRow:
     query_text: str
     create_command: str
     start_time: datetime
+    urn: Optional[str]
 
 
 @dataclass
@@ -412,6 +413,7 @@ class RedshiftDataDictionary:
                     ),
                     create_command=row[field_names.index("create_command")],
                     start_time=row[field_names.index("start_time")],
+                    urn=None,
                 )
             rows = cursor.fetchmany()
 
