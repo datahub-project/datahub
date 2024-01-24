@@ -58,13 +58,22 @@ jobs:
              -x :datahub-web-react:yarnBuild \
              -x :datahub-web-react:distZip \
              -x :datahub-web-react:jar
+      - name: store logs
+        if: failure()
+        run: |
+          docker ps -a
+          docker logs datahub-gms >& gms-${{ matrix.test_strategy }}.log || true
+          docker logs datahub-actions >& actions-${{ matrix.test_strategy }}.log || true
+          docker logs broker >& broker-${{ matrix.test_strategy }}.log || true
+          docker logs mysql >& mysql-${{ matrix.test_strategy }}.log || true
+          docker logs elasticsearch >& elasticsearch-${{ matrix.test_strategy }}.log || true
+          docker logs datahub-frontend-react >& frontend-${{ matrix.test_strategy }}.log || true
       - name: Upload logs
         uses: actions/upload-artifact@v3
         if: failure()
         with:
           name: docker logs
-          # Smoke tests change path, using relative path
-          path: "../../../../docker/build/container-logs/*.log"
+          path: "**/docker/build/container-logs/*.log"
       - uses: actions/upload-artifact@v3
         if: always()
         with:
