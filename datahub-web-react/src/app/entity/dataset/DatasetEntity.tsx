@@ -139,7 +139,11 @@ export class DatasetEntity implements Entity<Dataset> {
                     component: QueriesTab,
                     display: {
                         visible: (_, _1) => true,
-                        enabled: (_, _2) => true,
+                        enabled: (_, dataset: GetDatasetQuery) => {
+                            const accessAspect = dataset?.dataset?.access;
+                            const rolesList = accessAspect?.roles;
+                            return !!accessAspect && !!rolesList && rolesList.length > 0;
+                        },
                     },
                 },
                 {
