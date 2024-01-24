@@ -30,7 +30,7 @@ import lombok.extern.slf4j.Slf4j;
 public class NativeUserService {
   private static final long ONE_DAY_MILLIS = TimeUnit.DAYS.toMillis(1);
 
-  private final EntityService _entityService;
+  private final EntityService<?> _entityService;
   private final EntityClient _entityClient;
   private final SecretService _secretService;
   private final AuthenticationConfiguration _authConfig;
@@ -51,7 +51,7 @@ public class NativeUserService {
     Objects.requireNonNull(authentication, "authentication must not be null!");
 
     final Urn userUrn = Urn.createFromString(userUrnString);
-    if (_entityService.exists(userUrn)
+    if (_entityService.exists(userUrn, true)
         // Should never fail these due to Controller level check, but just in case more usages get
         // put in
         || userUrn.toString().equals(SYSTEM_ACTOR)

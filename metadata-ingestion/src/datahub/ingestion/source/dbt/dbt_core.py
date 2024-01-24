@@ -65,7 +65,7 @@ class DBTCoreConfig(DBTCommonConfig):
 
     _github_info_deprecated = pydantic_renamed_field("github_info", "git_info")
 
-    @validator("aws_connection")
+    @validator("aws_connection", always=True)
     def aws_connection_needed_if_s3_uris_present(
         cls, aws_connection: Optional[AwsConnectionConfig], values: Dict, **kwargs: Any
     ) -> Optional[AwsConnectionConfig]:

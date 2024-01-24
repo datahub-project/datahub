@@ -16,13 +16,13 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.batch.PatchItem;
+import com.linkedin.metadata.aspect.patch.template.AspectTemplateEngine;
 import com.linkedin.metadata.aspect.plugins.validation.AspectRetriever;
 import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.metadata.entity.validation.ValidationUtils;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.models.registry.template.AspectTemplateEngine;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -73,9 +73,7 @@ public class MCPPatchBatchItem extends PatchItem {
   }
 
   public MCPUpsertBatchItem applyPatch(
-      EntityRegistry entityRegistry,
-      RecordTemplate recordTemplate,
-      AspectRetriever aspectRetriever) {
+      RecordTemplate recordTemplate, AspectRetriever aspectRetriever) {
     MCPUpsertBatchItem.MCPUpsertBatchItemBuilder builder =
         MCPUpsertBatchItem.builder()
             .urn(getUrn())
@@ -84,7 +82,8 @@ public class MCPPatchBatchItem extends PatchItem {
             .auditStamp(auditStamp)
             .systemMetadata(getSystemMetadata());
 
-    AspectTemplateEngine aspectTemplateEngine = entityRegistry.getAspectTemplateEngine();
+    AspectTemplateEngine aspectTemplateEngine =
+        aspectRetriever.getEntityRegistry().getAspectTemplateEngine();
 
     RecordTemplate currentValue =
         recordTemplate != null
@@ -106,7 +105,7 @@ public class MCPPatchBatchItem extends PatchItem {
       throw new RuntimeException(e);
     }
 
-    return builder.build(entityRegistry, aspectRetriever);
+    return builder.build(aspectRetriever);
   }
 
   public static class MCPPatchBatchItemBuilder {

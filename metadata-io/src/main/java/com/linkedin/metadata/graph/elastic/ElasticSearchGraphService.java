@@ -11,7 +11,9 @@ import com.linkedin.metadata.graph.GraphFilters;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.metadata.graph.LineageRelationshipArray;
+import com.linkedin.metadata.graph.RelatedEntities;
 import com.linkedin.metadata.graph.RelatedEntitiesResult;
+import com.linkedin.metadata.graph.RelatedEntitiesScrollResult;
 import com.linkedin.metadata.graph.RelatedEntity;
 import com.linkedin.metadata.models.registry.LineageRegistry;
 import com.linkedin.metadata.query.filter.Condition;
@@ -22,11 +24,14 @@ import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.query.filter.RelationshipFilter;
+import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
+import com.linkedin.metadata.search.elasticsearch.query.request.SearchAfterWrapper;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.shared.ElasticSearchIndexed;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
+import com.linkedin.structured.StructuredPropertyDefinition;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -35,6 +40,7 @@ import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -47,6 +53,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.index.query.QueryBuilders;
+import org.opensearch.search.SearchHit;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -165,8 +172,6 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
     }
 
     final RelationshipDirection relationshipDirection = relationshipFilter.getDirection();
-    String destinationNode =
-        relationshipDirection == RelationshipDirection.OUTGOING ? "destination" : "source";
 
     SearchResponse response =
         _graphReadDAO.getSearchResponse(
@@ -185,28 +190,8 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
 
     int totalCount = (int) response.getHits().getTotalHits().value;
     final List<RelatedEntity> relationships =
-        Arrays.stream(response.getHits().getHits())
-            .map(
-                hit -> {
-                  final String urnStr =
-                      ((HashMap<String, String>)
-                              hit.getSourceAsMap().getOrDefault(destinationNode, EMPTY_HASH))
-                          .getOrDefault("urn", null);
-                  final String relationshipType =
-                      (String) hit.getSourceAsMap().get("relationshipType");
-
-                  if (urnStr == null || relationshipType == null) {
-                    log.error(
-                        String.format(
-                            "Found null urn string, relationship type, aspect name or path spec in Elastic index. "
-                                + "urnStr: %s, relationshipType: %s",
-                            urnStr, relationshipType));
-                    return null;
-                  }
-
-                  return new RelatedEntity(relationshipType, urnStr);
-                })
-            .filter(Objects::nonNull)
+        searchHitsToRelatedEntities(response.getHits().getHits(), relationshipDirection).stream()
+            .map(RelatedEntities::asRelatedEntity)
             .collect(Collectors.toList());
 
     return new RelatedEntitiesResult(offset, relationships.size(), totalCount, relationships);
@@ -329,6 +314,12 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
   }
 
   @Override
+  public List<ReindexConfig> buildReindexConfigsWithAllStructProps(
+      Collection<StructuredPropertyDefinition> properties) throws IOException {
+    return buildReindexConfigs();
+  }
+
+  @Override
   public void reindexAll() {
     configure();
   }
@@ -343,5 +334,89 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
   @Override
   public boolean supportsMultiHop() {
     return true;
+  }
+
+  @Nonnull
+  @Override
+  public RelatedEntitiesScrollResult scrollRelatedEntities(
+      @Nullable List<String> sourceTypes,
+      @Nullable Filter sourceEntityFilter,
+      @Nullable List<String> destinationTypes,
+      @Nullable Filter destinationEntityFilter,
+      @Nonnull List<String> relationshipTypes,
+      @Nonnull RelationshipFilter relationshipFilter,
+      @Nonnull List<SortCriterion> sortCriterion,
+      @Nullable String scrollId,
+      int count,
+      @Nullable Long startTimeMillis,
+      @Nullable Long endTimeMillis) {
+
+    final RelationshipDirection relationshipDirection = relationshipFilter.getDirection();
+
+    SearchResponse response =
+        _graphReadDAO.getSearchResponse(
+            sourceTypes,
+            sourceEntityFilter,
+            destinationTypes,
+            destinationEntityFilter,
+            relationshipTypes,
+            relationshipFilter,
+            sortCriterion,
+            scrollId,
+            count);
+
+    if (response == null) {
+      return new RelatedEntitiesScrollResult(0, 0, null, ImmutableList.of());
+    }
+
+    int totalCount = (int) response.getHits().getTotalHits().value;
+    final List<RelatedEntities> relationships =
+        searchHitsToRelatedEntities(response.getHits().getHits(), relationshipDirection);
+
+    SearchHit[] searchHits = response.getHits().getHits();
+    // Only return next scroll ID if there are more results, indicated by full size results
+    String nextScrollId = null;
+    if (searchHits.length == count) {
+      Object[] sort = searchHits[searchHits.length - 1].getSortValues();
+      nextScrollId = new SearchAfterWrapper(sort, null, 0L).toScrollId();
+    }
+
+    return RelatedEntitiesScrollResult.builder()
+        .entities(relationships)
+        .pageSize(relationships.size())
+        .numResults(totalCount)
+        .scrollId(nextScrollId)
+        .build();
+  }
+
+  private static List<RelatedEntities> searchHitsToRelatedEntities(
+      SearchHit[] searchHits, RelationshipDirection relationshipDirection) {
+    return Arrays.stream(searchHits)
+        .map(
+            hit -> {
+              final String destinationUrnStr =
+                  ((HashMap<String, String>)
+                          hit.getSourceAsMap().getOrDefault("destination", EMPTY_HASH))
+                      .getOrDefault("urn", null);
+              final String sourceUrnStr =
+                  ((HashMap<String, String>)
+                          hit.getSourceAsMap().getOrDefault("source", EMPTY_HASH))
+                      .getOrDefault("urn", null);
+              final String relationshipType = (String) hit.getSourceAsMap().get("relationshipType");
+
+              if (destinationUrnStr == null || sourceUrnStr == null || relationshipType == null) {
+                log.error(
+                    String.format(
+                        "Found null urn string, relationship type, aspect name or path spec in Elastic index. "
+                            + "destinationUrnStr: %s, sourceUrnStr: %s, relationshipType: %s",
+                        destinationUrnStr, sourceUrnStr, relationshipType));
+                return null;
+              }
+
+              return new RelatedEntities(
+                  relationshipType, sourceUrnStr, destinationUrnStr, relationshipDirection);
+            })
+        .filter(Objects::nonNull)
+        .collect(Collectors.toList());
   }
 }

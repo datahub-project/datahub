@@ -170,6 +170,67 @@ def remove_user(session, urn):
     response.raise_for_status()
     return response.json()
 
+def create_group(session, name):
+    json = {
+        "query": """mutation createGroup($input: CreateGroupInput!) {\n
+            createGroup(input: $input)
+        }""",
+        "variables": {"input": {"name": name}},
+    }
+    response = session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
+    response.raise_for_status()
+    res_data = response.json()
+    assert res_data
+    assert res_data["data"]
+    assert res_data["data"]["createGroup"]
+    return res_data["data"]["createGroup"]
+
+def remove_group(session, urn):
+    json = {
+        "query": """mutation removeGroup($urn: String!) {\n
+            removeGroup(urn: $urn)
+        }""",
+        "variables": {"urn": urn},
+    }
+    response = session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
+    response.raise_for_status()
+    res_data = response.json()
+    assert res_data
+    assert res_data["data"]
+    assert res_data["data"]["removeGroup"]
+    return res_data["data"]["removeGroup"]
+
+def assign_user_to_group(session, group_urn, user_urns):
+    json = {
+        "query": """mutation addGroupMembers($groupUrn: String!, $userUrns: [String!]!) {\n
+            addGroupMembers(input: { groupUrn: $groupUrn, userUrns: $userUrns })
+        }""",
+        "variables": {"groupUrn": group_urn, "userUrns": user_urns},
+    }
+    response = session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
+    response.raise_for_status()
+    res_data = response.json()
+    assert res_data
+    assert res_data["data"]
+    assert res_data["data"]["addGroupMembers"]
+    return res_data["data"]["addGroupMembers"]
+
+def assign_role(session, role_urn, actor_urns):
+    json = {
+        "query": """mutation batchAssignRole($input: BatchAssignRoleInput!) {\n
+            batchAssignRole(input: $input)
+        }""",
+        "variables": {"input": {"roleUrn": role_urn, "actors": actor_urns}},
+    }
+
+    response = session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
+    response.raise_for_status()
+    res_data = response.json()
+    assert res_data
+    assert res_data["data"]
+    assert res_data["data"]["batchAssignRole"]
+    return res_data["data"]["batchAssignRole"]
+
 def create_user_policy(user_urn, privileges, session):
     policy = {
         "query": """mutation createPolicy($input: PolicyUpdateInput!) {\n

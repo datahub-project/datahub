@@ -465,11 +465,7 @@ public class MappingUtil {
 
       AspectsBatch batch =
           AspectsBatchImpl.builder()
-              .mcps(
-                  proposalStream.collect(Collectors.toList()),
-                  auditStamp,
-                  entityService.getEntityRegistry(),
-                  entityService.getSystemEntityClient())
+              .mcps(proposalStream.collect(Collectors.toList()), auditStamp, entityService)
               .build();
 
       Set<IngestResult> proposalResult = entityService.ingestProposal(batch, async);

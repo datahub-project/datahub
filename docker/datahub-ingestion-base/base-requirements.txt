@@ -1,5 +1,5 @@
 # Generated requirements file. Run ./regenerate-base-requirements.sh to regenerate.
-acryl-datahub-classify==0.0.8
+acryl-datahub-classify==0.0.9
 acryl-PyHive==0.6.16
 acryl-sqlglot==20.4.1.dev14
 aenum==3.1.15

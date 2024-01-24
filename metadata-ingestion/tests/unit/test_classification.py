@@ -157,3 +157,72 @@ def test_incorrect_custom_info_type_config():
                 },
             }
         )
+
+
+def test_exclude_name_config():
+    config = DataHubClassifier.create(
+        config_dict={
+            "confidence_level_threshold": 0.7,
+            "info_types_config": {
+                "Email_Address": {
+                    "Prediction_Factors_and_Weights": {
+                        "Name": 1,
+                        "Description": 0,
+                        "Datatype": 0,
+                        "Values": 0,
+                    },
+                    "ExcludeName": ["email_sent", "email_received"],
+                    "Name": {
+                        "regex": [
+                            "^.*mail.*id.*$",
+                            "^.*id.*mail.*$",
+                            "^.*mail.*add.*$",
+                            "^.*add.*mail.*$",
+                            "email",
+                            "mail",
+                        ]
+                    },
+                    "Description": {"regex": []},
+                    "Datatype": {"type": ["str"]},
+                    "Values": {"prediction_type": "regex", "regex": [], "library": []},
+                }
+            },
+        }
+    ).config
+    assert config.info_types_config["Email_Address"].ExcludeName is not None
+    assert config.info_types_config["Email_Address"].ExcludeName == [
+        "email_sent",
+        "email_received",
+    ]
+
+
+def test_no_exclude_name_config():
+    config = DataHubClassifier.create(
+        config_dict={
+            "confidence_level_threshold": 0.7,
+            "info_types_config": {
+                "Email_Address": {
+                    "Prediction_Factors_and_Weights": {
+                        "Name": 1,
+                        "Description": 0,
+                        "Datatype": 0,
+                        "Values": 0,
+                    },
+                    "Name": {
+                        "regex": [
+                            "^.*mail.*id.*$",
+                            "^.*id.*mail.*$",
+                            "^.*mail.*add.*$",
+                            "^.*add.*mail.*$",
+                            "email",
+                            "mail",
+                        ]
+                    },
+                    "Description": {"regex": []},
+                    "Datatype": {"type": ["str"]},
+                    "Values": {"prediction_type": "regex", "regex": [], "library": []},
+                }
+            },
+        }
+    ).config
+    assert config.info_types_config["Email_Address"].ExcludeName is None

@@ -149,7 +149,7 @@ looker_common = {
     # This version of lkml contains a fix for parsing lists in
     # LookML files with spaces between an item and the following comma.
     # See https://github.com/joshtemple/lkml/issues/73.
-    "lkml>=1.3.0b5",
+    "lkml>=1.3.4",
     "sql-metadata==2.2.2",
     *sqllineage_lib,
     "GitPython>2",
@@ -189,7 +189,7 @@ snowflake_common = {
     "pandas",
     "cryptography",
     "msal",
-    "acryl-datahub-classify==0.0.8",
+    "acryl-datahub-classify==0.0.9",
     # spacy version restricted to reduce backtracking, used by acryl-datahub-classify,
     "spacy==3.4.3",
 }
@@ -312,7 +312,7 @@ plugins: Dict[str, Set[str]] = {
     # https://github.com/elastic/elasticsearch-py/issues/1639#issuecomment-883587433
     "elasticsearch": {"elasticsearch==7.13.4"},
     "feast": {
-        "feast~=0.34.1",
+        "feast~=0.35.0",
         "flask-openid>=1.3.0",
         # typeguard 3.x, released on 2023-03-14, seems to cause issues with Feast.
         "typeguard<3",
