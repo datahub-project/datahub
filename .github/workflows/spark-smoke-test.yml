@@ -63,7 +63,8 @@ jobs:
         if: failure()
         with:
           name: docker logs
-          path: "docker/build/container-logs/*.log"
+          # Smoke tests change path, using relative path
+          path: "../../../../docker/build/container-logs/*.log"
       - uses: actions/upload-artifact@v3
         if: always()
         with:

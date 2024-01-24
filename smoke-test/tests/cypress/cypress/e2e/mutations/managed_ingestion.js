@@ -26,7 +26,7 @@ describe("run managed ingestion", () => {
         cy.enterTextInTestId('source-name-input', testName)
         cy.clickOptionWithText("Advanced")
         cy.enterTextInTestId('cli-version-input', cli_version)
-        cy.clickOptionWithText("Save & Run")
+        cy.clickOptionWithTextToScrollintoView("Save & Run")
         cy.waitTextVisible(testName)
 
         cy.contains(testName).parent().within(() => {
