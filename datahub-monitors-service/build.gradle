@@ -117,7 +117,8 @@ docker {
     }
     tag("Debug", "${docker_registry}/${docker_repo}:debug")
 
-    def dockerBuildArgs = [DOCKER_VERSION: "${version}-slim", RELEASE_VERSION: version.replace('-SNAPSHOT', '').replace('v', '').replace("-slim", ''), BASE_IMAGE: "${docker_registry}/datahub-ingestion"]
+    // Not building the full image locally (DOCKER_VERSION=head, BASE_IMAGE=acryldata/datahub-ingestion)
+    def dockerBuildArgs = [RELEASE_VERSION: version.replace('-SNAPSHOT', '').replace('v', '').replace("-slim", '')]
 
     // Add build args if they are defined (needed for some CI or enterprise environments)
     if (project.hasProperty('pipMirrorUrl')) {
@@ -129,8 +130,7 @@ docker {
 
     buildArgs(dockerBuildArgs)
 }
-tasks.getByName('dockerPrepare').dependsOn(['install',
-                                            ':docker:datahub-ingestion:docker'])
+tasks.getByName('dockerPrepare').dependsOn(['install'])
 
 task cleanLocalDockerImages {
     doLast {

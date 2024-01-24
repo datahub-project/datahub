@@ -12,7 +12,7 @@ authors = [
 requires-python = ">=3.9"
 
 dependencies = [
-	"acryl-datahub",
+	"acryl-datahub[base]",
 	"fastapi",
 	"uvicorn[standard]",
 	"loguru",

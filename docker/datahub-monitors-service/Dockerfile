@@ -1,7 +1,8 @@
 # Defining environment
 ARG APP_ENV=prod
 ARG BASE_IMAGE=acryldata/datahub-ingestion
-ARG DOCKER_VERSION=head-slim
+# Should not use head-slim because monitors requires `s3`
+ARG DOCKER_VERSION=head
 ARG PIP_MIRROR_URL=null
 
 # Base Image Common To All
