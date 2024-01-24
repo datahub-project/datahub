@@ -40,7 +40,7 @@ public interface BootstrapStep {
         new DataHubUpgradeKey().setId(upgradeId), Constants.DATA_HUB_UPGRADE_ENTITY_NAME);
   }
 
-  static void setUpgradeResult(Urn urn, EntityService entityService) throws URISyntaxException {
+  static void setUpgradeResult(Urn urn, EntityService<?> entityService) throws URISyntaxException {
     final AuditStamp auditStamp =
         new AuditStamp()
             .setActor(Urn.createFromString(Constants.SYSTEM_ACTOR))

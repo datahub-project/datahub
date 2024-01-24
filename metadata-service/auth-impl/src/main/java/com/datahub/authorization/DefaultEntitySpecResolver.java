@@ -8,6 +8,7 @@ import com.datahub.authorization.fieldresolverprovider.EntityTypeFieldResolverPr
 import com.datahub.authorization.fieldresolverprovider.EntityUrnFieldResolverProvider;
 import com.datahub.authorization.fieldresolverprovider.GroupMembershipFieldResolverProvider;
 import com.datahub.authorization.fieldresolverprovider.OwnerFieldResolverProvider;
+import com.datahub.authorization.fieldresolverprovider.TagFieldResolverProvider;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.util.Pair;
@@ -26,7 +27,8 @@ public class DefaultEntitySpecResolver implements EntitySpecResolver {
             new DomainFieldResolverProvider(entityClient, systemAuthentication),
             new OwnerFieldResolverProvider(entityClient, systemAuthentication),
             new DataPlatformInstanceFieldResolverProvider(entityClient, systemAuthentication),
-            new GroupMembershipFieldResolverProvider(entityClient, systemAuthentication));
+            new GroupMembershipFieldResolverProvider(entityClient, systemAuthentication),
+            new TagFieldResolverProvider(entityClient, systemAuthentication));
   }
 
   @Override

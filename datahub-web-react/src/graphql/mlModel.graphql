@@ -18,5 +18,8 @@ query getMLModel($urn: String!) {
                 }
             }
         }
+        autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
+            ...autoRenderAspectFields
+        }
     }
 }

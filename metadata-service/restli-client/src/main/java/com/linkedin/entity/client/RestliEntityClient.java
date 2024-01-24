@@ -1,6 +1,7 @@
 package com.linkedin.entity.client;
 
 import com.datahub.authentication.Authentication;
+import com.datahub.plugins.auth.authorization.Authorizer;
 import com.datahub.util.RecordUtils;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.VersionedUrn;
@@ -539,7 +540,9 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
 
     if (searchFlags != null) {
       requestBuilder.searchFlagsParam(searchFlags);
-      requestBuilder.fulltextParam(searchFlags.isFulltext());
+      if (searchFlags.isFulltext() != null) {
+        requestBuilder.fulltextParam(searchFlags.isFulltext());
+      }
     }
 
     return sendClientRequest(requestBuilder, authentication).getEntity();
@@ -1057,7 +1060,10 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
   }
 
   @Override
-  public void rollbackIngestion(@Nonnull String runId, @Nonnull final Authentication authentication)
+  public void rollbackIngestion(
+      @Nonnull String runId,
+      @Nonnull Authorizer authorizer,
+      @Nonnull final Authentication authentication)
       throws Exception {
     final RunsDoRollbackRequestBuilder requestBuilder =
         RUNS_REQUEST_BUILDERS.actionRollback().runIdParam(runId).dryRunParam(false);

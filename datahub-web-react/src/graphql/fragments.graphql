@@ -1162,3 +1162,13 @@ fragment entityDisplayNameFields on Entity {
         instanceId
     }
 }
+
+fragment autoRenderAspectFields on RawAspect {
+    aspectName
+    payload
+    renderSpec {
+        displayType
+        displayName
+        key
+    }
+}

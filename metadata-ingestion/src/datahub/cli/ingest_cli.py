@@ -131,7 +131,7 @@ def run(
 
     async def run_pipeline_to_completion(pipeline: Pipeline) -> int:
         logger.info("Starting metadata ingestion")
-        with click_spinner.spinner(disable=no_spinner):
+        with click_spinner.spinner(disable=no_spinner or no_progress):
             try:
                 pipeline.run()
             except Exception as e:

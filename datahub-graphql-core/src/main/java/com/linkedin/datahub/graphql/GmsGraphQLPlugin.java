@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql;
 
+import com.linkedin.datahub.graphql.types.EntityType;
 import com.linkedin.datahub.graphql.types.LoadableType;
 import graphql.schema.idl.RuntimeWiring;
 import java.util.Collection;
@@ -33,6 +34,9 @@ public interface GmsGraphQLPlugin {
    * @return
    */
   Collection<? extends LoadableType<?, ?>> getLoadableTypes();
+
+  /** Return a list of Entity Types that the plugin services */
+  Collection<? extends EntityType<?, ?>> getEntityTypes();
 
   /**
    * Optional callback that a plugin can implement to configure any Query, Mutation or Type specific

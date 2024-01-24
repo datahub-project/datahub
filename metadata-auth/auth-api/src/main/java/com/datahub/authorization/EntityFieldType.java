@@ -28,5 +28,7 @@ public enum EntityFieldType {
   /** Groups of which the entity (only applies to corpUser) is a member */
   GROUP_MEMBERSHIP,
   /** Data platform instance of resource */
-  DATA_PLATFORM_INSTANCE
+  DATA_PLATFORM_INSTANCE,
+  /** Tags of the entity */
+  TAG,
 }

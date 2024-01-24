@@ -19,6 +19,7 @@ import com.linkedin.metadata.graph.LineageRelationship;
 import com.linkedin.metadata.graph.LineageRelationshipArray;
 import com.linkedin.metadata.graph.SiblingGraphService;
 import java.net.URISyntaxException;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -60,12 +61,13 @@ public class SiblingGraphServiceTest {
 
   private GraphService _graphService;
   private SiblingGraphService _client;
-  EntityService _mockEntityService;
+  EntityService<?> _mockEntityService;
 
   @BeforeClass
   public void setup() {
     _mockEntityService = Mockito.mock(EntityService.class);
-    when(_mockEntityService.exists(any())).thenReturn(true);
+    when(_mockEntityService.exists(any(Collection.class), any(Boolean.class)))
+        .thenAnswer(args -> new HashSet<>(args.getArgument(0)));
     _graphService = Mockito.mock(GraphService.class);
     _client = new SiblingGraphService(_mockEntityService, _graphService);
   }
