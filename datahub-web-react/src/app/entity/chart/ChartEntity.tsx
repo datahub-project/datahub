@@ -189,6 +189,7 @@ export class ChartEntity implements Entity<Chart> {
                 domain={data.domain?.domain}
                 dataProduct={getDataProduct(genericProperties?.dataProduct)}
                 parentContainers={data.parentContainers}
+                health={data.health}
             />
         );
     };
@@ -224,6 +225,7 @@ export class ChartEntity implements Entity<Chart> {
                 }
                 degree={(result as any).degree}
                 paths={(result as any).paths}
+                health={data.health}
             />
         );
     };

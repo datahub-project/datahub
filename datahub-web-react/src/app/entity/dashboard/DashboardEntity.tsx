@@ -206,6 +206,7 @@ export class DashboardEntity implements Entity<Dashboard> {
                 lastUpdatedMs={data.properties?.lastModified?.time}
                 createdMs={data.properties?.created?.time}
                 subtype={data.subTypes?.typeNames?.[0]}
+                health={data.health}
             />
         );
     };
@@ -245,6 +246,7 @@ export class DashboardEntity implements Entity<Dashboard> {
                 subtype={data.subTypes?.typeNames?.[0]}
                 degree={(result as any).degree}
                 paths={(result as any).paths}
+                health={data.health}
             />
         );
     };
