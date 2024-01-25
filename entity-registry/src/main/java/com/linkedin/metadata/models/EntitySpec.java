@@ -3,8 +3,11 @@ package com.linkedin.metadata.models;
 import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.schema.TyperefDataSchema;
 import com.linkedin.metadata.models.annotation.EntityAnnotation;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /** A specification of a DataHub Entity */
@@ -34,6 +37,18 @@ public interface EntitySpec {
         .map(AspectSpec::getSearchableFieldSpecs)
         .flatMap(List::stream)
         .collect(Collectors.toList());
+  }
+
+  default Map<String, Set<SearchableFieldSpec>> getSearchableFieldSpecMap() {
+    return getSearchableFieldSpecs().stream()
+        .collect(
+            Collectors.toMap(
+                searchableFieldSpec -> searchableFieldSpec.getSearchableAnnotation().getFieldName(),
+                searchableFieldSpec -> new HashSet<>(Collections.singleton(searchableFieldSpec)),
+                (set1, set2) -> {
+                  set1.addAll(set2);
+                  return set1;
+                }));
   }
 
   default List<SearchScoreFieldSpec> getSearchScoreFieldSpecs() {

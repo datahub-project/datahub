@@ -377,7 +377,9 @@ public class ESAggregatedStatsDAO {
       @Nullable GroupingBucket[] groupingBuckets) {
 
     // Setup the filter query builder using the input filter provided.
-    final BoolQueryBuilder filterQueryBuilder = ESUtils.buildFilterQuery(filter, true);
+    final BoolQueryBuilder filterQueryBuilder =
+        ESUtils.buildFilterQuery(
+            filter, true, _entityRegistry.getEntitySpec(entityName).getSearchableFieldSpecMap());
 
     AspectSpec aspectSpec = getTimeseriesAspectSpec(entityName, aspectName);
     // Build and attach the grouping aggregations
