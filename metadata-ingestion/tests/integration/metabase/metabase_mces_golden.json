@@ -190,9 +190,9 @@
                         "title": "Dashboard 1",
                         "description": "",
                         "charts": [
-                            "urn:li:chart:(metabase,15)",
-                            "urn:li:chart:(metabase,16)",
-                            "urn:li:chart:(metabase,17)"
+                            "urn:li:chart:(metabase,1)",
+                            "urn:li:chart:(metabase,2)",
+                            "urn:li:chart:(metabase,3)"
                         ],
                         "datasets": [],
                         "lastModified": {
@@ -242,9 +242,9 @@
                         "title": "Dashboard 1",
                         "description": "",
                         "charts": [
-                            "urn:li:chart:(metabase,15)",
-                            "urn:li:chart:(metabase,16)",
-                            "urn:li:chart:(metabase,17)"
+                            "urn:li:chart:(metabase,1)",
+                            "urn:li:chart:(metabase,2)",
+                            "urn:li:chart:(metabase,3)"
                         ],
                         "datasets": [],
                         "lastModified": {
