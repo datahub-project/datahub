@@ -47,7 +47,6 @@ class MockResponse:
         response_json_path = (
             f"{test_resources_dir}/setup/{JSON_RESPONSE_MAP.get(self.url)}"
         )
-        print(self.url, JSON_RESPONSE_MAP.get(self.url))
         with open(response_json_path) as file:
             data = json.loads(file.read())
             self.json_data = data
@@ -117,9 +116,9 @@ def test_mode_ingest_success(pytestconfig, tmp_path):
                 },
             }
         )
-
         pipeline.run()
         pipeline.raise_from_status()
+
         mce_helpers.check_golden_file(
             pytestconfig,
             output_path=f"{tmp_path}/metabase_mces.json",
