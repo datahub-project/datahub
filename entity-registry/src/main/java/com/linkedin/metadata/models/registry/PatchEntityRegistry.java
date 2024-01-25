@@ -32,6 +32,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -91,7 +92,10 @@ public class PatchEntityRegistry implements EntityRegistry {
       throws IOException, EntityRegistryException {
     this(
         DataSchemaFactory.withCustomClasspath(configFileClassPathPair.getSecond()),
-        DataSchemaFactory.getClassLoader(configFileClassPathPair.getSecond()).stream().toList(),
+        DataSchemaFactory.getClassLoader(configFileClassPathPair.getSecond())
+            .map(Stream::of)
+            .orElse(Stream.empty())
+            .collect(Collectors.toList()),
         configFileClassPathPair.getFirst(),
         registryName,
         registryVersion);

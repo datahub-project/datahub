@@ -62,13 +62,6 @@ MAX_CONTENT_WIDTH = 120
     default=None,
     help="Enable debug logging.",
 )
-@click.option(
-    "--debug-vars/--no-debug-vars",
-    type=bool,
-    is_flag=True,
-    default=False,
-    help="Show variable values in stack traces. Implies --debug. While we try to avoid printing sensitive information like passwords, this may still happen.",
-)
 @click.version_option(
     version=datahub_package.nice_version_name(),
     prog_name=datahub_package.__package_name__,
@@ -76,13 +69,7 @@ MAX_CONTENT_WIDTH = 120
 def datahub(
     debug: bool,
     log_file: Optional[str],
-    debug_vars: bool,
 ) -> None:
-    if debug_vars:
-        # debug_vars implies debug. This option isn't actually used here, but instead
-        # read directly from the command line arguments in the main entrypoint.
-        debug = True
-
     debug = debug or get_boolean_env_variable("DATAHUB_DEBUG", False)
 
     # Note that we're purposely leaking the context manager here.

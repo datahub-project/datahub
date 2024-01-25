@@ -106,13 +106,16 @@ public class AggregationQueryBuilder {
       if (facet.contains(AGGREGATION_SPECIAL_TYPE_DELIMITER)) {
         List<String> specialTypeFields = List.of(facet.split(AGGREGATION_SPECIAL_TYPE_DELIMITER));
         switch (specialTypeFields.get(0)) {
-          case MISSING_SPECIAL_TYPE -> aggBuilder =
-              INDEX_VIRTUAL_FIELD.equalsIgnoreCase(specialTypeFields.get(1))
-                  ? AggregationBuilders.missing(inputFacet).field(getAggregationField("_index"))
-                  : AggregationBuilders.missing(inputFacet)
-                      .field(getAggregationField(specialTypeFields.get(1)));
-          default -> throw new UnsupportedOperationException(
-              "Unknown special type: " + specialTypeFields.get(0));
+          case MISSING_SPECIAL_TYPE:
+            aggBuilder =
+                INDEX_VIRTUAL_FIELD.equalsIgnoreCase(specialTypeFields.get(1))
+                    ? AggregationBuilders.missing(inputFacet).field(getAggregationField("_index"))
+                    : AggregationBuilders.missing(inputFacet)
+                        .field(getAggregationField(specialTypeFields.get(1)));
+            break;
+          default:
+            throw new UnsupportedOperationException(
+                "Unknown special type: " + specialTypeFields.get(0));
         }
       } else {
         aggBuilder =

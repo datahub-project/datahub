@@ -28,11 +28,13 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -67,7 +69,10 @@ public class ConfigEntityRegistry implements EntityRegistry {
   public ConfigEntityRegistry(Pair<Path, Path> configFileClassPathPair) throws IOException {
     this(
         DataSchemaFactory.withCustomClasspath(configFileClassPathPair.getSecond()),
-        DataSchemaFactory.getClassLoader(configFileClassPathPair.getSecond()).stream().toList(),
+        DataSchemaFactory.getClassLoader(configFileClassPathPair.getSecond())
+            .map(Stream::of)
+            .orElse(Stream.empty())
+            .collect(Collectors.toList()),
         configFileClassPathPair.getFirst());
   }
 
@@ -112,7 +117,7 @@ public class ConfigEntityRegistry implements EntityRegistry {
   }
 
   public ConfigEntityRegistry(InputStream configFileInputStream) {
-    this(DataSchemaFactory.getInstance(), List.of(), configFileInputStream);
+    this(DataSchemaFactory.getInstance(), Collections.emptyList(), configFileInputStream);
   }
 
   public ConfigEntityRegistry(

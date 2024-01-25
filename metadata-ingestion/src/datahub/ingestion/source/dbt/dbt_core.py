@@ -81,7 +81,7 @@ class DBTCoreConfig(DBTCommonConfig):
             if (values.get(f) or "").startswith("s3://")
         ]
 
-        if uri_containing_fields and not aws_connection:
+        if uri_containing_fields and aws_connection is None:
             raise ValueError(
                 f"Please provide aws_connection configuration, since s3 uris have been provided in fields {uri_containing_fields}"
             )

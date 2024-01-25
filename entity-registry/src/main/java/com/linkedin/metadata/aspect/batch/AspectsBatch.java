@@ -50,22 +50,21 @@ public interface AspectsBatch {
 
   default Map<String, Set<String>> getUrnAspectsMap() {
     return getItems().stream()
-        .map(aspect -> Map.entry(aspect.getUrn().toString(), aspect.getAspectName()))
+        .map(aspect -> Pair.of(aspect.getUrn().toString(), aspect.getAspectName()))
         .collect(
             Collectors.groupingBy(
-                Map.Entry::getKey, Collectors.mapping(Map.Entry::getValue, Collectors.toSet())));
+                Pair::getKey, Collectors.mapping(Pair::getValue, Collectors.toSet())));
   }
 
   default Map<String, Set<String>> getNewUrnAspectsMap(
       Map<String, Set<String>> existingMap, List<? extends BatchItem> items) {
     Map<String, HashSet<String>> newItemsMap =
         items.stream()
-            .map(aspect -> Map.entry(aspect.getUrn().toString(), aspect.getAspectName()))
+            .map(aspect -> Pair.of(aspect.getUrn().toString(), aspect.getAspectName()))
             .collect(
                 Collectors.groupingBy(
-                    Map.Entry::getKey,
-                    Collectors.mapping(
-                        Map.Entry::getValue, Collectors.toCollection(HashSet::new))));
+                    Pair::getKey,
+                    Collectors.mapping(Pair::getValue, Collectors.toCollection(HashSet::new))));
 
     return newItemsMap.entrySet().stream()
         .filter(

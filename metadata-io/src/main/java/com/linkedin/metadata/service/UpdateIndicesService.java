@@ -129,7 +129,8 @@ public class UpdateIndicesService {
               .stream()
               .flatMap(mclSideEffect -> mclSideEffect.apply(List.of(batch), aspectRetriever));
 
-      for (MCLBatchItem mclBatchItem : Stream.concat(Stream.of(batch), sideEffects).toList()) {
+      for (MCLBatchItem mclBatchItem :
+          Stream.concat(Stream.of(batch), sideEffects).collect(Collectors.toList())) {
         MetadataChangeLog hookEvent = mclBatchItem.getMetadataChangeLog();
         if (UPDATE_CHANGE_TYPES.contains(hookEvent.getChangeType())) {
           handleUpdateChangeEvent(mclBatchItem);

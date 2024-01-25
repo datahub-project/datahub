@@ -101,6 +101,9 @@ play {
 test {
   useJUnitPlatform()
 
+  testLogging.showStandardStreams = true
+  testLogging.exceptionFormat = 'full'
+
   def playJava17CompatibleJvmArgs = [
           "--add-opens=java.base/java.lang=ALL-UNNAMED",
           //"--add-opens=java.base/java.lang.invoke=ALL-UNNAMED",
