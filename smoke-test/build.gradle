@@ -50,6 +50,8 @@ task installDev(type: Exec) {
     inputs.file file('requirements.txt')
     outputs.file("${venv_name}/.build_install_dev_sentinel")
     commandLine 'bash', '-x', '-c',
+        "${python_executable} -m venv ${venv_name} && " +
+        "${venv_name}/bin/pip install --upgrade pip wheel setuptools && " +
         "${venv_name}/bin/pip install -r requirements.txt && " +
         "touch ${venv_name}/.build_install_dev_sentinel"
 }

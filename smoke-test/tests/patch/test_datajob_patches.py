@@ -106,6 +106,8 @@ def test_datajob_inputoutput_dataset_patch(wait_for_healthchecks):
             entity_urn=datajob_urn,
             aspect_type=DataJobInputOutputClass,
         )
+        assert inputoutput_lineage_read is not None
+        assert inputoutput_lineage_read.inputDatasetEdges is not None
         assert len(inputoutput_lineage_read.inputDatasetEdges) == 2
         assert (
             inputoutput_lineage_read.inputDatasetEdges[0].destinationUrn
@@ -128,6 +130,7 @@ def test_datajob_inputoutput_dataset_patch(wait_for_healthchecks):
             entity_urn=datajob_urn,
             aspect_type=DataJobInputOutputClass,
         )
+        assert inputoutput_lineage_read is not None
         assert inputoutput_lineage_read.inputDatasetEdges is not None
         assert len(inputoutput_lineage_read.inputDatasetEdges) == 1
         assert (

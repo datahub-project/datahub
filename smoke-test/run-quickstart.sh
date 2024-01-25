@@ -4,10 +4,7 @@ set -euxo pipefail
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 cd "$DIR"
 
-python3 -m venv venv
-source venv/bin/activate
-pip install --upgrade pip wheel setuptools
-pip install -r requirements.txt
+../gradlew :smoke-test:installDev
 
 mkdir -p ~/.datahub/plugins/frontend/auth/
 echo "test_user:test_pass" >> ~/.datahub/plugins/frontend/auth/user.props
