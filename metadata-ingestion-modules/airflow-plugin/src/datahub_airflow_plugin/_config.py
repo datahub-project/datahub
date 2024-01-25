@@ -73,7 +73,9 @@ def get_lineage_config() -> DatahubLineageConfig:
     disable_openlineage_plugin = conf.get(
         "datahub", "disable_openlineage_plugin", fallback=True
     )
-    datajob_url_link = conf.get("datahub", "datajob_url_link", fallback=DatajobUrl.TASKINSTANCE.value)
+    datajob_url_link = conf.get(
+        "datahub", "datajob_url_link", fallback=DatajobUrl.TASKINSTANCE.value
+    )
 
     return DatahubLineageConfig(
         enabled=enabled,

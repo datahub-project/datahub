@@ -270,7 +270,10 @@ class AirflowGenerator:
         datajob.properties = job_property_bag
         base_url = conf.get("webserver", "base_url")
 
-        if kwargs.get("config") and kwargs.get("config").datajob_url_link == DatajobUrl.GRID:
+        if (
+                kwargs.get("config")
+                and kwargs.get("config").datajob_url_link == DatajobUrl.GRID
+        ):
             datajob.url = f"{base_url}/dags/{datajob.flow_urn.get_flow_id()}/grid?task_id={task.task_id}"
         else:
             datajob.url = f"{base_url}/taskinstance/list/?flt1_dag_id_equals={datajob.flow_urn.get_flow_id()}&_flt_3_task_id={task.task_id}"
@@ -299,7 +302,9 @@ class AirflowGenerator:
         **kwargs: Any,
     ) -> DataProcessInstance:
         if data_job is None:
-            data_job = AirflowGenerator.generate_datajob(cluster, task=task, dag=dag, **kwargs)
+            data_job = AirflowGenerator.generate_datajob(
+                cluster, task=task, dag=dag, **kwargs
+            )
         dpi = DataProcessInstance.from_datajob(
             datajob=data_job, id=task.task_id, clone_inlets=True, clone_outlets=True
         )
@@ -489,7 +494,6 @@ class AirflowGenerator:
         result: Optional[InstanceRunResult] = None,
         datajob: Optional[DataJob] = None,
         **kwargs: Any,
-
     ) -> DataProcessInstance:
         """
 

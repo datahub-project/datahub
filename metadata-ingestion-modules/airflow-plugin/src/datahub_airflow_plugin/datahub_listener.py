@@ -398,7 +398,7 @@ class DataHubListener:
                 dag_run=dagrun,
                 datajob=datajob,
                 emit_templates=False,
-                config=self.config
+                config=self.config,
             )
             logger.debug(f"Emitted DataHub DataProcess Instance start: {dpi}")
 

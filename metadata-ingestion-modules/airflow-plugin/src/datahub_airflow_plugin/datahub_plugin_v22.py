@@ -211,7 +211,7 @@ def datahub_pre_execution(context):
             dag_run=context["dag_run"],
             datajob=datajob,
             start_timestamp_millis=int(ti.start_date.timestamp() * 1000),
-            config=config
+            config=config,
         )
 
         task.log.info(f"Emitting Datahub Dataprocess Instance: {dpi}")
