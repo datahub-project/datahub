@@ -4,7 +4,6 @@ import pathlib
 import sys
 from typing import Any, Dict, cast
 from unittest import mock
-from unittest.mock import MagicMock
 
 import pytest
 from freezegun import freeze_time
