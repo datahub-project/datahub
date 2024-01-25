@@ -1,3 +1,4 @@
+import { Typography } from 'antd';
 import React from 'react';
 import Icon from '@ant-design/icons';
 import styled from 'styled-components';
@@ -13,6 +14,7 @@ const PadIcon = styled.div`
 const CompletedPromptContainer = styled.div`
     display: flex;
     align-self: end;
+    max-width: 350px;
 `;
 
 const AuditStamp = styled.div`
@@ -21,6 +23,9 @@ const AuditStamp = styled.div`
     font-family: Manrope;
     font-weight: 600;
     line-height: 18px;
+    overflow: hidden;
+    white-space: nowrap;
+    display: flex;
 `;
 
 const AuditStampSubTitle = styled.div`
@@ -37,6 +42,10 @@ const StyledIcon = styled(Icon)`
     margin-right: 4px;
 `;
 
+const AuditWrapper = styled.div`
+    max-width: 95%;
+`;
+
 interface Props {
     completedByName: string;
     completedByTime: string;
@@ -48,10 +57,13 @@ export default function CompletedPromptAuditStamp({ completedByName, completedBy
             <PadIcon>
                 <StyledIcon component={GreenCircleIcon} />
             </PadIcon>
-            <div>
-                <AuditStamp>Completed by {completedByName}</AuditStamp>
+            <AuditWrapper>
+                <AuditStamp>
+                    Completed by&nbsp;
+                    <Typography.Text ellipsis={{ tooltip: completedByName }}>{completedByName}</Typography.Text>
+                </AuditStamp>
                 <AuditStampSubTitle>{completedByTime}</AuditStampSubTitle>
-            </div>
+            </AuditWrapper>
         </CompletedPromptContainer>
     );
 }
