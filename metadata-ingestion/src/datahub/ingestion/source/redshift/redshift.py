@@ -78,8 +78,11 @@ from datahub.ingestion.source_report.ingestion_stage import (
     METADATA_EXTRACTION,
     PROFILING,
 )
-from datahub.metadata.com.linkedin.pegasus2avro.common import SubTypes
-from datahub.metadata.com.linkedin.pegasus2avro.dataset import ViewProperties
+from datahub.metadata.com.linkedin.pegasus2avro.common import SubTypes, TimeStamp
+from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
+    DatasetProperties,
+    ViewProperties,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     ArrayType,
     BooleanType,
@@ -94,7 +97,11 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     StringType,
     TimeType,
 )
-from datahub.metadata.schema_classes import GlobalTagsClass, TagAssociationClass
+from datahub.metadata.schema_classes import (
+    DatasetPropertiesClass,
+    GlobalTagsClass,
+    TagAssociationClass,
+)
 from datahub.utilities import memory_footprint
 from datahub.utilities.mapping import Constants
 from datahub.utilities.perf_timer import PerfTimer
@@ -724,14 +731,44 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         yield from self.gen_schema_metadata(
             dataset_urn, table, str(datahub_dataset_name)
         )
-
-        patch_builder = create_dataset_props_patch_builder(
-            datahub_dataset_name, dataset_urn, table, custom_properties
-        )
-        for patch_mcp in patch_builder.build():
-            yield MetadataWorkUnit(
-                id=f"{dataset_urn}-{patch_mcp.aspectName}", mcp_raw=patch_mcp
+        if self.config.patch_custom_properties:
+            patch_builder = create_dataset_props_patch_builder(
+                dataset_urn,
+                DatasetPropertiesClass(
+                    customProperties=custom_properties,
+                    qualifiedName=datahub_dataset_name,
+                ),
+                table,
             )
+            for patch_mcp in patch_builder.build():
+                yield MetadataWorkUnit(
+                    id=f"{dataset_urn}-{patch_mcp.aspectName}", mcp_raw=patch_mcp
+                )
+        else:
+            dataset_properties = DatasetProperties(
+                name=table.name,
+                created=TimeStamp(time=int(table.created.timestamp() * 1000))
+                if table.created
+                else None,
+                lastModified=TimeStamp(time=int(table.last_altered.timestamp() * 1000))
+                if table.last_altered
+                else TimeStamp(time=int(table.created.timestamp() * 1000))
+                if table.created
+                else None,
+                description=table.comment,
+                qualifiedName=str(datahub_dataset_name),
+            )
+
+            if custom_properties:
+                dataset_properties.customProperties = custom_properties
+
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn, aspect=dataset_properties
+            ).as_workunit()
+
+        # TODO: Check if needed
+        # if tags_to_add:
+        #    yield gen_tags_aspect_workunit(dataset_urn, tags_to_add)
 
         schema_container_key = gen_schema_key(
             db_name=database,

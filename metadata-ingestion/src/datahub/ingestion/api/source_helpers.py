@@ -20,6 +20,9 @@ from datahub.emitter.mce_builder import make_dataplatform_instance_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import entity_supports_aspect
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+
+if TYPE_CHECKING:
+    from datahub.ingestion.source.sql.sql_generic import BaseTable
 from datahub.metadata.com.linkedin.pegasus2avro.common import TimeStamp
 from datahub.metadata.schema_classes import (
     BrowsePathEntryClass,
@@ -27,6 +30,7 @@ from datahub.metadata.schema_classes import (
     BrowsePathsV2Class,
     ChangeTypeClass,
     ContainerClass,
+    DatasetPropertiesClass,
     DatasetUsageStatisticsClass,
     MetadataChangeEventClass,
     MetadataChangeProposalClass,
@@ -62,10 +66,9 @@ def auto_workunit(
 
 
 def create_dataset_props_patch_builder(
-    datahub_dataset_name: str,
     dataset_urn: str,
-    table: Any,  # TODO: refactor to avoid circular import while type-hinting with BaseTable
-    custom_properties: Optional[Dict[str, str]] = None,
+    properties: DatasetPropertiesClass,
+    table: BaseTable,
 ) -> DatasetPatchBuilder:
     """Creates a patch builder with a table's or view's attributes and dataset properties"""
     patch_builder = DatasetPatchBuilder(dataset_urn)
@@ -86,10 +89,10 @@ def create_dataset_props_patch_builder(
         patch_builder.set_last_modified(
             timestamp=TimeStamp(time=int(table.created.timestamp() * 1000))
         )
-    patch_builder.set_qualified_name(str(datahub_dataset_name))
+    patch_builder.set_qualified_name(str(properties.qualifiedName))
 
-    if custom_properties:
-        patch_builder.add_custom_properties(custom_properties)
+    if properties.customProperties:
+        patch_builder.add_custom_properties(properties.customProperties)
 
     return patch_builder
 

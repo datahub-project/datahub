@@ -139,6 +139,11 @@ class RedshiftConfig(
         description="When enabled, emits lineage as incremental to existing lineage already in DataHub. When disabled, re-states lineage on each run.  This config works with rest-sink only.",
     )
 
+    patch_custom_properties: bool = Field(
+        default=False,
+        description="Whether to patch custom properties on existing datasets rather than replace.",
+    )
+
     @root_validator(pre=True)
     def check_email_is_set_on_usage(cls, values):
         if values.get("include_usage_statistics"):
