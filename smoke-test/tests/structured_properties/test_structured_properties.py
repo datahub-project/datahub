@@ -409,12 +409,14 @@ def test_dataset_yaml_loader(ingest_cleanup_data, graph):
     )
     field_name = "ip"
     assert dataset.schema_metadata is not None
+    assert dataset.schema_metadata.fields is not None
     matching_fields = [
         f
         for f in dataset.schema_metadata.fields
-        if Dataset._simplify_field_path(f.id) == field_name
+        if f.id is not None and Dataset._simplify_field_path(f.id) == field_name
     ]
     assert len(matching_fields) == 1
+    assert matching_fields[0].structured_properties is not None
     assert matching_fields[0].structured_properties[
         Urn.make_structured_property_urn("io.acryl.dataManagement.deprecationDate")
     ] == ["2023-01-01"]

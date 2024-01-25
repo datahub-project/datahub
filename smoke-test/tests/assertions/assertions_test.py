@@ -7,7 +7,7 @@ from datahub.emitter.mce_builder import make_dataset_urn, make_schema_field_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
 from datahub.ingestion.api.sink import NoopWriteCallback
-from datahub.ingestion.sink.file import FileSink, FileSinkConfig
+from datahub.ingestion.sink.file import FileSink
 from datahub.metadata.com.linkedin.pegasus2avro.assertion import AssertionStdAggregation
 from datahub.metadata.schema_classes import (
     AssertionInfoClass,
@@ -216,7 +216,7 @@ def create_test_data(test_file):
     )
 
     fileSink: FileSink = FileSink.create(
-        FileSinkConfig(filename=test_file), ctx=PipelineContext(run_id="test-file")
+        {"filename": test_file}, ctx=PipelineContext(run_id="test-file")
     )
     for mcp in [mcp1, mcp2, mcp3, mcp4, mcp5, mcp6, mcp7]:
         fileSink.write_record_async(

@@ -63,11 +63,9 @@ def helper_test_entity_terms_patch(
         assert terms_read.terms[1].urn == new_term.urn
         assert terms_read.terms[1].context is None
 
-        for patch_mcp in (
-            patch_builder_class(test_entity_urn, entity_type)
-            .remove_term(term_urn)
-            .build()
-        ):
+        patch_builder = patch_builder_class(test_entity_urn, entity_type)
+        assert hasattr(patch_builder, "remove_term")
+        for patch_mcp in patch_builder.remove_term(term_urn).build():
             graph.emit_mcp(patch_mcp)
             pass
 
@@ -114,11 +112,9 @@ def helper_test_dataset_tags_patch(
         assert tags_read.tags[1].tag == new_tag.tag
         assert tags_read.tags[1].context is None
 
-        for patch_mcp in (
-            patch_builder_class(test_entity_urn, entity_type)
-            .remove_tag(tag_urn)
-            .build()
-        ):
+        patch_builder = patch_builder_class(test_entity_urn, entity_type)
+        assert hasattr(patch_builder, "remove_tag")
+        for patch_mcp in patch_builder.remove_tag(tag_urn).build():
             graph.emit_mcp(patch_mcp)
             pass
 
@@ -153,22 +149,18 @@ def helper_test_ownership_patch(
         assert owner is not None
         assert owner.owners[0].owner == make_user_urn("jdoe")
 
-        for patch_mcp in (
-            patch_builder_class(test_entity_urn, entity_type)
-            .add_owner(owner_to_add)
-            .build()
-        ):
+        patch_builder = patch_builder_class(test_entity_urn, entity_type)
+        assert hasattr(patch_builder, "add_owner")
+        for patch_mcp in patch_builder.add_owner(owner_to_add).build():
             graph.emit_mcp(patch_mcp)
 
         owner = graph.get_aspect(entity_urn=test_entity_urn, aspect_type=OwnershipClass)
         assert owner is not None
         assert len(owner.owners) == 2
 
-        for patch_mcp in (
-            patch_builder_class(test_entity_urn, entity_type)
-            .remove_owner(make_user_urn("gdoe"))
-            .build()
-        ):
+        patch_builder = patch_builder_class(test_entity_urn, entity_type)
+        assert hasattr(patch_builder, "remove_owner")
+        for patch_mcp in patch_builder.remove_owner(make_user_urn("gdoe")).build():
             graph.emit_mcp(patch_mcp)
 
         owner = graph.get_aspect(entity_urn=test_entity_urn, aspect_type=OwnershipClass)
@@ -192,6 +184,7 @@ def helper_test_custom_properties_patch(
             aspect_type=custom_properties_aspect_class,
         )
         assert custom_properties_aspect
+        assert hasattr(custom_properties_aspect, "customProperties")
         return custom_properties_aspect.customProperties
 
     base_property_map = {"base_property": "base_property_value"}
@@ -215,6 +208,7 @@ def helper_test_custom_properties_patch(
         }
 
         entity_patch_builder = patch_builder_class(test_entity_urn, entity_type)
+        assert hasattr(entity_patch_builder, "add_custom_property")
         for k, v in new_properties.items():
             entity_patch_builder.add_custom_property(k, v)
 
@@ -232,11 +226,9 @@ def helper_test_custom_properties_patch(
             assert custom_properties[k] == v
 
         # Remove property
-        for patch_mcp in (
-            patch_builder_class(test_entity_urn, entity_type)
-            .remove_custom_property("test_property")
-            .build()
-        ):
+        patch_builder = patch_builder_class(test_entity_urn, entity_type)
+        assert hasattr(patch_builder, "remove_custom_property")
+        for patch_mcp in patch_builder.remove_custom_property("test_property").build():
             graph.emit_mcp(patch_mcp)
 
         custom_properties = get_custom_properties(graph, test_entity_urn)
@@ -250,11 +242,9 @@ def helper_test_custom_properties_patch(
             assert custom_properties[k] == v
 
         # Replace custom properties
-        for patch_mcp in (
-            patch_builder_class(test_entity_urn, entity_type)
-            .set_custom_properties(new_properties)
-            .build()
-        ):
+        patch_builder = patch_builder_class(test_entity_urn, entity_type)
+        assert hasattr(patch_builder, "set_custom_properties")
+        for patch_mcp in patch_builder.set_custom_properties(new_properties).build():
             graph.emit_mcp(patch_mcp)
 
         custom_properties = get_custom_properties(graph, test_entity_urn)
