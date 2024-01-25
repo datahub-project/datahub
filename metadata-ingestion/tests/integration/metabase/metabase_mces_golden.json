@@ -26,6 +26,9 @@
                         "chartUrl": "http://localhost:3000/card/1",
                         "inputs": [
                             {
+                                "string": "urn:li:dataset:(urn:li:dataPlatform:bigquery,acryl-data.public.customer,PROD)"
+                            },
+                            {
                                 "string": "urn:li:dataset:(urn:li:dataPlatform:bigquery,acryl-data.public.payment,PROD)"
                             }
                         ],
@@ -34,7 +37,7 @@
                 },
                 {
                     "com.linkedin.pegasus2avro.chart.ChartQuery": {
-                        "rawQuery": "SELECT\\n\\tcustomer.customer_id,\\n\\tfirst_name,\\n\\tlast_name,\\n\\tamount,\\n\\tpayment_date,\\n\\trental_id\\nFROM\\n\\tcustomer\\nINNER JOIN payment \\n    ON payment.customer_id = customer.customer_id\\nORDER BY payment_date",
+                        "rawQuery": "SELECT\n\tcustomer.customer_id,\n\tfirst_name,\n\tlast_name,\n\tamount,\n\tpayment_date,\n\trental_id\nFROM\n\tcustomer\nINNER JOIN payment \n    ON payment.customer_id = customer.customer_id\nORDER BY payment_date",
                         "type": "SQL"
                     }
                 },
@@ -143,6 +146,9 @@
                         },
                         "chartUrl": "http://localhost:3000/card/3",
                         "inputs": [
+                            {
+                                "string": "urn:li:dataset:(urn:li:dataPlatform:bigquery,acryl-data.public.customer,PROD)"
+                            },
                             {
                                 "string": "urn:li:dataset:(urn:li:dataPlatform:bigquery,acryl-data.public.payment,PROD)"
                             }
