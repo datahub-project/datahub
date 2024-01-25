@@ -1,0 +1,21 @@
+namespace com.linkedin.settings.global
+
+/**
+ * Information regarding the help link dislayed in the UI
+ */
+record HelpLink {
+  /**
+   * Whether or not this link should be shown in the UI
+   */
+   isEnabled: boolean
+
+  /**
+   * The label of this help link
+   */
+   label: string
+
+  /**
+   * The url or mailto link that this links to
+   */
+   link: string
+}

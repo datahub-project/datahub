@@ -52,6 +52,13 @@ query getGlobalSettings {
                 }
             }
         }
+        visualSettings {
+            helpLink {
+                isEnabled
+                label
+                link
+            }
+        }
     }
 }
 
@@ -118,4 +125,8 @@ mutation updateGlobalNotificationSettings($input: UpdateGlobalNotificationSettin
 
 mutation updateSsoSettings($input: UpdateSsoSettingsInput!) {
     updateGlobalSettings(input: { ssoSettings: $input })
+}
+
+mutation updateHelpLink($input: UpdateHelpLinkInput!) {
+    updateHelpLink(input: $input)
 }

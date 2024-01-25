@@ -3,7 +3,7 @@ import React from 'react';
 import styled from 'styled-components/macro';
 import { PostList } from './PostsList';
 
-const PageContainer = styled.div`
+export const PageContainer = styled.div`
     padding-top: 20px;
     width: 100%;
     display: flex;
@@ -11,13 +11,13 @@ const PageContainer = styled.div`
     overflow: auto;
 `;
 
-const PageHeaderContainer = styled.div`
+export const PageHeaderContainer = styled.div`
     && {
         padding-left: 24px;
     }
 `;
 
-const PageTitle = styled(Typography.Title)`
+export const PageTitle = styled(Typography.Title)`
     && {
         margin-bottom: 12px;
     }

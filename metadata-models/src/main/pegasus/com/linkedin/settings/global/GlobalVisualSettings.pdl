@@ -1,0 +1,11 @@
+namespace com.linkedin.settings.global
+
+/**
+ * Global settings for the UI
+ */
+record GlobalVisualSettings {
+  /**
+   * The configurable help link shown in the UI
+   */
+   helpLink: optional HelpLink
+}

@@ -21,6 +21,7 @@ import { useUpdateEducationStepIdsAllowlist } from '../../onboarding/useUpdateEd
 import { useUserContext } from '../../context/useUserContext';
 import { PageRoutes } from '../../../conf/Global';
 import DomainIcon from '../../domain/DomainIcon';
+import HelpDropdown from './HelpDropdown';
 
 const LinkWrapper = styled.span`
     margin-right: 0px;
@@ -216,6 +217,7 @@ export function HeaderLinks(props: Props) {
                     </Link>
                 </LinkWrapper>
             )}
+            <HelpDropdown />
             {showSettings && (
                 <LinkWrapper style={{ marginRight: 12 }}>
                     <Link to="/settings">

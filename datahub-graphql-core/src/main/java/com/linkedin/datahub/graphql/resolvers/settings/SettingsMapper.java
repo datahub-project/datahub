@@ -8,6 +8,8 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.GlobalIntegrationSettings;
 import com.linkedin.datahub.graphql.generated.GlobalNotificationSettings;
 import com.linkedin.datahub.graphql.generated.GlobalSettings;
+import com.linkedin.datahub.graphql.generated.GlobalVisualSettings;
+import com.linkedin.datahub.graphql.generated.HelpLink;
 import com.linkedin.datahub.graphql.generated.NotificationScenarioType;
 import com.linkedin.datahub.graphql.generated.NotificationSetting;
 import com.linkedin.datahub.graphql.generated.NotificationSettingValue;
@@ -77,6 +79,9 @@ public class SettingsMapper {
     if (input.hasSso() && input.getSso() != null) {
       result.setSsoSettings(mapSsoSettings(input.getSso()));
     }
+    if (input.hasVisual() && input.getVisual() != null) {
+      result.setVisualSettings(mapVisualSettings(input.getVisual()));
+    }
     return result;
   }
 
@@ -134,6 +139,19 @@ public class SettingsMapper {
     final SsoSettings result = new SsoSettings();
     if (input.hasOidcSettings()) {
       result.setOidcSettings(mapOidcSettings(input.getOidcSettings()));
+    }
+    return result;
+  }
+
+  private GlobalVisualSettings mapVisualSettings(
+      @Nonnull com.linkedin.settings.global.GlobalVisualSettings gmsGlobalVisualSettings) {
+    final GlobalVisualSettings result = new GlobalVisualSettings();
+    if (gmsGlobalVisualSettings.hasHelpLink()) {
+      HelpLink helpLink = new HelpLink();
+      helpLink.setIsEnabled((gmsGlobalVisualSettings.getHelpLink().isIsEnabled()));
+      helpLink.setLabel((gmsGlobalVisualSettings.getHelpLink().getLabel()));
+      helpLink.setLink((gmsGlobalVisualSettings.getHelpLink().getLink()));
+      result.setHelpLink(helpLink);
     }
     return result;
   }
