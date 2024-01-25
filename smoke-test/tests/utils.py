@@ -210,7 +210,7 @@ def create_datahub_step_state_aspect(
 
 
 def create_datahub_step_state_aspects(
-    username: str, onboarding_ids: str, onboarding_filename
+    username: str, onboarding_ids: List[str], onboarding_filename: str
 ) -> None:
     """
     For a specific user, creates dataHubStepState aspects for each onboarding id in the list

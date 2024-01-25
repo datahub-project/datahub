@@ -580,6 +580,7 @@ def test_dataset_structured_property_patch(ingest_cleanup_data, graph, caplog):
 
     dataset = Dataset.from_datahub(graph=graph, urn=dataset_urns[0])
     assert dataset.structured_properties is not None
+    assert isinstance(dataset.structured_properties, list)
     assert [
         int(float(k))
         for k in dataset.structured_properties[

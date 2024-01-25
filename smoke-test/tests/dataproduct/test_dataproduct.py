@@ -194,6 +194,7 @@ def test_create_data_product(ingest_cleanup_data):
     assert result["batchSetDataProduct"] is True
     data_product_props = graph.get_aspect(data_product_urn, DataProductPropertiesClass)
     assert data_product_props is not None
+    assert data_product_props.assets is not None
     assert data_product_props.description == "Test Description"
     assert data_product_props.name == "Test Data Product"
     assert len(data_product_props.assets) == len(dataset_urns)

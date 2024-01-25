@@ -184,8 +184,10 @@ def test_run_cypress(frontend_session, wait_for_healthchecks):
     print(f"test strategy is {test_strategy}")
     test_spec_arg = ""
     if test_strategy is not None:
-        specs = _get_spec_map(strategy_spec_map.get(test_strategy))
-        test_spec_arg = f" --spec '{specs}' "
+        specs = strategy_spec_map.get(test_strategy)
+        assert specs is not None
+        specs_str = _get_spec_map(specs)
+        test_spec_arg = f" --spec '{specs_str}' "
 
     print("Running Cypress tests with command")
     command = f"NO_COLOR=1 npx cypress run {record_arg} {test_spec_arg} {tag_arg}"
