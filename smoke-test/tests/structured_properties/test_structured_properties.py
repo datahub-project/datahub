@@ -408,6 +408,7 @@ def test_dataset_yaml_loader(ingest_cleanup_data, graph):
         urn="urn:li:dataset:(urn:li:dataPlatform:hive,user.clicks,PROD)",
     )
     field_name = "ip"
+    assert dataset.schema_metadata is not None
     matching_fields = [
         f
         for f in dataset.schema_metadata.fields

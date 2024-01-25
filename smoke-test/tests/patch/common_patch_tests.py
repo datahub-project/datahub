@@ -20,7 +20,9 @@ from datahub.metadata.schema_classes import (
 
 
 def helper_test_entity_terms_patch(
-    test_entity_urn: str, patch_builder_class: Type[MetadataPatchProposal]
+    test_entity_urn: str,
+    entity_type: str,
+    patch_builder_class: Type[MetadataPatchProposal],
 ):
     def get_terms(graph, entity_urn):
         return graph.get_aspect(
@@ -48,7 +50,7 @@ def helper_test_entity_terms_patch(
         new_term = GlossaryTermAssociationClass(
             urn=make_term_urn(f"test-{uuid.uuid4()}")
         )
-        patch_builder = patch_builder_class(test_entity_urn)
+        patch_builder = patch_builder_class(test_entity_urn, entity_type)
         assert hasattr(patch_builder, "add_term")
         for patch_mcp in patch_builder.add_term(new_term).build():
             graph.emit_mcp(patch_mcp)
@@ -62,7 +64,9 @@ def helper_test_entity_terms_patch(
         assert terms_read.terms[1].context is None
 
         for patch_mcp in (
-            patch_builder_class(test_entity_urn).remove_term(term_urn).build()
+            patch_builder_class(test_entity_urn, entity_type)
+            .remove_term(term_urn)
+            .build()
         ):
             graph.emit_mcp(patch_mcp)
             pass

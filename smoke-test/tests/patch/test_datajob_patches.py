@@ -42,7 +42,9 @@ def test_datajob_tags_patch(wait_for_healthchecks):
 
 # Terms
 def test_dataset_terms_patch(wait_for_healthchecks):
-    helper_test_entity_terms_patch(_make_test_datajob_urn(), DataJobPatchBuilder)
+    helper_test_entity_terms_patch(
+        _make_test_datajob_urn(), "datajob", DataJobPatchBuilder
+    )
 
 
 # Custom Properties

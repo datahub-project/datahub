@@ -1,4 +1,3 @@
-import datetime
 from typing import List
 
 from datahub.emitter.mce_builder import (
@@ -10,6 +9,7 @@ from datahub.emitter.mce_builder import (
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import UpstreamLineage
+from datahub.metadata.com.linkedin.pegasus2avro.mxe import SystemMetadata
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     ChangeTypeClass,
@@ -185,17 +185,16 @@ def create_upstream_mcp(
     run_id: str = "",
 ) -> MetadataChangeProposalWrapper:
     print(f"Creating upstreamLineage aspect for {entity_urn}")
-    timestamp_millis: int = int(datetime.datetime.now().timestamp() * 1000)
     mcp = MetadataChangeProposalWrapper(
         entityType=entity_type,
         entityUrn=entity_urn,
         changeType=ChangeTypeClass.UPSERT,
         aspectName="upstreamLineage",
         aspect=UpstreamLineage(upstreams=upstreams),
-        systemMetadata={
-            "lastObserved": timestamp_millis,
-            "runId": run_id,
-        },
+        systemMetadata=SystemMetadata(
+            lastObserved=timestamp_millis,
+            runId=run_id,
+        ),
     )
     return mcp
 

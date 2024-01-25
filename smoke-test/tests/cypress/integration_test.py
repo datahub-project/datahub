@@ -200,6 +200,8 @@ def test_run_cypress(frontend_session, wait_for_healthchecks):
         stderr=subprocess.PIPE,
         cwd=f"{CYPRESS_TEST_DATA_DIR}",
     )
+    assert proc.stdout is not None
+    assert proc.stderr is not None
     stdout = proc.stdout.read()
     stderr = proc.stderr.read()
     return_code = proc.wait()

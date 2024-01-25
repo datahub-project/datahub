@@ -46,7 +46,7 @@ def test_dataset_terms_patch(wait_for_healthchecks):
     dataset_urn = make_dataset_urn(
         platform="hive", name=f"SampleHiveDataset-{uuid.uuid4()}", env="PROD"
     )
-    helper_test_entity_terms_patch(dataset_urn, DatasetPatchBuilder)
+    helper_test_entity_terms_patch(dataset_urn, "dataset", DatasetPatchBuilder)
 
 
 def test_dataset_upstream_lineage_patch(wait_for_healthchecks):
