@@ -238,6 +238,7 @@ export class ChartEntity implements Entity<Chart> {
             icon: entity?.platform?.properties?.logoUrl || undefined,
             platform: entity?.platform,
             subtype: entity?.subTypes?.typeNames?.[0] || undefined,
+            health: entity?.health || undefined,
         };
     };
 
