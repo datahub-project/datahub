@@ -5,7 +5,7 @@ module.exports = {
         'airbnb-typescript',
         'airbnb/hooks',
         'plugin:@typescript-eslint/recommended',
-        'plugin:jest/recommended',
+        'plugin:vitest/recommended',
         'prettier',
     ],
     plugins: ['@typescript-eslint'],
@@ -46,6 +46,7 @@ module.exports = {
                 argsIgnorePattern: '^_',
             },
         ],
+        'vitest/prefer-to-be': 'off',
     },
     settings: {
         react: {

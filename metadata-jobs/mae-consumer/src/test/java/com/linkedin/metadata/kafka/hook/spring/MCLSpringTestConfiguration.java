@@ -1,8 +1,11 @@
 package com.linkedin.metadata.kafka.hook.spring;
 
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
 import com.datahub.authentication.Authentication;
 import com.datahub.metadata.ingestion.IngestionScheduler;
-import com.linkedin.entity.client.SystemRestliEntityClient;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.gms.factory.kafka.schemaregistry.SchemaRegistryConfig;
 import com.linkedin.metadata.boot.kafka.DataHubUpgradeKafkaListener;
 import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
@@ -14,7 +17,9 @@ import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import org.apache.avro.generic.GenericRecord;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
@@ -23,7 +28,8 @@ import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 @ComponentScan(
     basePackages = {
       "com.linkedin.metadata.kafka",
-      "com.linkedin.gms.factory.entity.update.indices"
+      "com.linkedin.gms.factory.entity.update.indices",
+      "com.linkedin.gms.factory.timeline.eventgenerator"
     })
 public class MCLSpringTestConfiguration {
 
@@ -39,12 +45,18 @@ public class MCLSpringTestConfiguration {
 
   @MockBean public IngestionScheduler ingestionScheduler;
 
-  @MockBean(name = "systemRestliEntityClient")
-  public SystemRestliEntityClient entityClient;
+  @Bean
+  public SystemEntityClient systemEntityClient(
+      @Qualifier("systemAuthentication") Authentication systemAuthentication) {
+    SystemEntityClient systemEntityClient = mock(SystemEntityClient.class);
+    when(systemEntityClient.getSystemAuthentication()).thenReturn(systemAuthentication);
+    return systemEntityClient;
+  }
 
   @MockBean public ElasticSearchService searchService;
 
-  @MockBean public Authentication systemAuthentication;
+  @MockBean(name = "systemAuthentication")
+  public Authentication systemAuthentication;
 
   @MockBean(name = "dataHubUpgradeKafkaListener")
   public DataHubUpgradeKafkaListener dataHubUpgradeKafkaListener;

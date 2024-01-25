@@ -12,13 +12,14 @@ import com.linkedin.datahub.graphql.generated.BrowseResultMetadata;
 import com.linkedin.datahub.graphql.generated.BrowseResultsV2;
 import com.linkedin.datahub.graphql.generated.BrowseV2Input;
 import com.linkedin.datahub.graphql.generated.EntityType;
-import com.linkedin.datahub.graphql.resolvers.EntityTypeMapper;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.resolvers.search.SearchUtils;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
+import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.browse.BrowseResultV2;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.service.FormService;
 import com.linkedin.metadata.service.ViewService;
 import com.linkedin.view.DataHubViewInfo;
 import graphql.schema.DataFetcher;
@@ -37,6 +38,7 @@ public class BrowseV2Resolver implements DataFetcher<CompletableFuture<BrowseRes
 
   private final EntityClient _entityClient;
   private final ViewService _viewService;
+  private final FormService _formService;
 
   private static final int DEFAULT_START = 0;
   private static final int DEFAULT_COUNT = 10;
@@ -68,7 +70,7 @@ public class BrowseV2Resolver implements DataFetcher<CompletableFuture<BrowseRes
                     ? BROWSE_PATH_V2_DELIMITER
                         + String.join(BROWSE_PATH_V2_DELIMITER, input.getPath())
                     : "";
-            final Filter filter = ResolverUtils.buildFilter(null, input.getOrFilters());
+            final Filter inputFilter = ResolverUtils.buildFilter(null, input.getOrFilters());
 
             BrowseResultV2 browseResults =
                 _entityClient.browseV2(
@@ -76,8 +78,8 @@ public class BrowseV2Resolver implements DataFetcher<CompletableFuture<BrowseRes
                     pathStr,
                     maybeResolvedView != null
                         ? SearchUtils.combineFilters(
-                            filter, maybeResolvedView.getDefinition().getFilter())
-                        : filter,
+                            inputFilter, maybeResolvedView.getDefinition().getFilter())
+                        : inputFilter,
                     sanitizedQuery,
                     start,
                     count,

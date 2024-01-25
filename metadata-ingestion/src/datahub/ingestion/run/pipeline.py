@@ -5,6 +5,7 @@ import os
 import platform
 import shutil
 import sys
+import threading
 import time
 from dataclasses import dataclass
 from typing import Any, Dict, Iterable, Iterator, List, Optional, cast
@@ -129,8 +130,18 @@ class CliReport(Report):
     py_version: str = sys.version
     py_exec_path: str = sys.executable
     os_details: str = platform.platform()
+
+    mem_info: Optional[str] = None
+    peak_memory_usage: Optional[str] = None
     _peak_memory_usage: int = 0
+
+    disk_info: Optional[dict] = None
+    peak_disk_usage: Optional[str] = None
+    _initial_disk_usage: int = -1
     _peak_disk_usage: int = 0
+
+    thread_count: Optional[int] = None
+    peak_thread_count: Optional[int] = None
 
     def compute_stats(self) -> None:
         try:
@@ -141,18 +152,30 @@ class CliReport(Report):
                     self._peak_memory_usage
                 )
             self.mem_info = humanfriendly.format_size(mem_usage)
+        except Exception as e:
+            logger.warning(f"Failed to compute memory usage: {e}")
 
+        try:
             disk_usage = shutil.disk_usage("/")
+            if self._initial_disk_usage < 0:
+                self._initial_disk_usage = disk_usage.used
             if self._peak_disk_usage < disk_usage.used:
                 self._peak_disk_usage = disk_usage.used
                 self.peak_disk_usage = humanfriendly.format_size(self._peak_disk_usage)
             self.disk_info = {
                 "total": humanfriendly.format_size(disk_usage.total),
                 "used": humanfriendly.format_size(disk_usage.used),
+                "used_initally": humanfriendly.format_size(self._initial_disk_usage),
                 "free": humanfriendly.format_size(disk_usage.free),
             }
         except Exception as e:
-            logger.warning(f"Failed to compute report memory usage: {e}")
+            logger.warning(f"Failed to compute disk usage: {e}")
+
+        try:
+            self.thread_count = threading.active_count()
+            self.peak_thread_count = max(self.peak_thread_count or 0, self.thread_count)
+        except Exception as e:
+            logger.warning(f"Failed to compute thread count: {e}")
 
         return super().compute_stats()
 

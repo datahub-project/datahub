@@ -201,4 +201,15 @@ public interface TimeseriesAspectService {
       @Nonnull final JsonNode document);
 
   List<TimeseriesIndexSizeResult> getIndexSizes();
+
+  @Nonnull
+  TimeseriesScrollResult scrollAspects(
+      @Nonnull final String entityName,
+      @Nonnull final String aspectName,
+      @Nullable Filter filter,
+      @Nonnull List<SortCriterion> sortCriterion,
+      @Nullable String scrollId,
+      int count,
+      @Nullable Long startTimeMillis,
+      @Nullable Long endTimeMillis);
 }

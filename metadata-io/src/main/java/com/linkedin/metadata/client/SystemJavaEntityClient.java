@@ -2,7 +2,6 @@ package com.linkedin.metadata.client;
 
 import com.datahub.authentication.Authentication;
 import com.linkedin.entity.client.EntityClientCache;
-import com.linkedin.entity.client.RestliEntityClient;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.config.cache.client.EntityClientCacheConfig;
 import com.linkedin.metadata.entity.DeleteEntityService;
@@ -12,7 +11,9 @@ import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.LineageSearchService;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.client.CachingEntitySearchService;
+import com.linkedin.metadata.service.RollbackService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import javax.annotation.Nonnull;
 import lombok.Getter;
 
 /** Java backed SystemEntityClient */
@@ -23,16 +24,16 @@ public class SystemJavaEntityClient extends JavaEntityClient implements SystemEn
   private final Authentication systemAuthentication;
 
   public SystemJavaEntityClient(
-      EntityService entityService,
+      EntityService<?> entityService,
       DeleteEntityService deleteEntityService,
       EntitySearchService entitySearchService,
       CachingEntitySearchService cachingEntitySearchService,
       SearchService searchService,
       LineageSearchService lineageSearchService,
       TimeseriesAspectService timeseriesAspectService,
+      RollbackService rollbackService,
       EventProducer eventProducer,
-      RestliEntityClient restliEntityClient,
-      Authentication systemAuthentication,
+      @Nonnull Authentication systemAuthentication,
       EntityClientCacheConfig cacheConfig) {
     super(
         entityService,
@@ -42,8 +43,8 @@ public class SystemJavaEntityClient extends JavaEntityClient implements SystemEn
         searchService,
         lineageSearchService,
         timeseriesAspectService,
-        eventProducer,
-        restliEntityClient);
+        rollbackService,
+        eventProducer);
     this.systemAuthentication = systemAuthentication;
     this.entityClientCache =
         buildEntityClientCache(SystemJavaEntityClient.class, systemAuthentication, cacheConfig);

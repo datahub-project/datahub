@@ -22,10 +22,10 @@ import com.linkedin.metadata.secret.SecretService;
 import com.linkedin.settings.global.GlobalSettingsInfo;
 import com.linkedin.settings.global.OidcSettings;
 import com.linkedin.settings.global.SsoSettings;
+import jakarta.inject.Inject;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nullable;
-import javax.inject.Inject;
 import lombok.extern.slf4j.Slf4j;
 import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -72,7 +72,9 @@ public class AuthServiceController {
   private static final String USE_NONCE = "useNonce";
   private static final String READ_TIMEOUT = "readTimeout";
   private static final String EXTRACT_JWT_ACCESS_TOKEN_CLAIMS = "extractJwtAccessTokenClaims";
+  // Retained for backwards compatibility
   private static final String PREFERRED_JWS_ALGORITHM = "preferredJwsAlgorithm";
+  private static final String PREFERRED_JWS_ALGORITHM_2 = "preferredJwsAlgorithm2";
 
   @Inject StatelessTokenService _statelessTokenService;
 
@@ -514,8 +516,8 @@ public class AuthServiceController {
     if (oidcSettings.hasExtractJwtAccessTokenClaims()) {
       json.put(EXTRACT_JWT_ACCESS_TOKEN_CLAIMS, oidcSettings.isExtractJwtAccessTokenClaims());
     }
-    if (oidcSettings.hasPreferredJwsAlgorithm()) {
-      json.put(PREFERRED_JWS_ALGORITHM, oidcSettings.getPreferredJwsAlgorithm());
+    if (oidcSettings.hasPreferredJwsAlgorithm2()) {
+      json.put(PREFERRED_JWS_ALGORITHM, oidcSettings.getPreferredJwsAlgorithm2());
     }
   }
 }

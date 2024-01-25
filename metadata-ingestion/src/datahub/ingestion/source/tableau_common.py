@@ -5,6 +5,7 @@ from functools import lru_cache
 from typing import Dict, List, Optional, Tuple
 
 from pydantic.fields import Field
+from tableauserverclient import Server
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigModel
@@ -532,6 +533,9 @@ def get_platform(connection_type: str) -> str:
         platform = "mssql"
     elif connection_type in ("athena"):
         platform = "athena"
+    elif connection_type.endswith("_jdbc"):
+        # e.g. convert trino_jdbc -> trino
+        platform = connection_type[: -len("_jdbc")]
     else:
         platform = connection_type
     return platform
@@ -699,7 +703,6 @@ def get_overridden_info(
     platform_instance_map: Optional[Dict[str, str]],
     lineage_overrides: Optional[TableauLineageOverrides] = None,
 ) -> Tuple[Optional[str], Optional[str], str, str]:
-
     original_platform = platform = get_platform(connection_type)
     if (
         lineage_overrides is not None
@@ -824,7 +827,14 @@ def clean_query(query: str) -> str:
     return query
 
 
-def query_metadata(server, main_query, connection_name, first, offset, qry_filter=""):
+def query_metadata(
+    server: Server,
+    main_query: str,
+    connection_name: str,
+    first: int,
+    offset: int,
+    qry_filter: str = "",
+) -> dict:
     query = """{{
         {connection_name} (first:{first}, offset:{offset}, filter:{{{filter}}})
         {{

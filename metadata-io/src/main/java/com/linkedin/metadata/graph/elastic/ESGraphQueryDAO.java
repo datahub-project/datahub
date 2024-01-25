@@ -23,6 +23,8 @@ import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.query.filter.RelationshipFilter;
+import com.linkedin.metadata.query.filter.SortCriterion;
+import com.linkedin.metadata.search.elasticsearch.query.request.SearchAfterWrapper;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.utils.ConcurrencyUtils;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
@@ -81,7 +83,7 @@ public class ESGraphQueryDAO {
 
   @Nonnull
   public static void addFilterToQueryBuilder(
-      @Nonnull Filter filter, String node, BoolQueryBuilder rootQuery) {
+      @Nonnull Filter filter, @Nullable String node, BoolQueryBuilder rootQuery) {
     BoolQueryBuilder orQuery = new BoolQueryBuilder();
     for (ConjunctiveCriterion conjunction : filter.getOr()) {
       final BoolQueryBuilder andQuery = new BoolQueryBuilder();
@@ -93,12 +95,13 @@ public class ESGraphQueryDAO {
       }
       criterionArray.forEach(
           criterion ->
-              andQuery.must(
+              andQuery.filter(
                   QueryBuilders.termQuery(
-                      node + "." + criterion.getField(), criterion.getValue())));
+                      (node == null ? "" : node + ".") + criterion.getField(),
+                      criterion.getValue())));
       orQuery.should(andQuery);
     }
-    rootQuery.must(orQuery);
+    rootQuery.filter(orQuery);
   }
 
   private SearchResponse executeSearchQuery(
@@ -174,9 +177,9 @@ public class ESGraphQueryDAO {
 
   public static BoolQueryBuilder buildQuery(
       @Nullable final List<String> sourceTypes,
-      @Nonnull final Filter sourceEntityFilter,
+      @Nullable final Filter sourceEntityFilter,
       @Nullable final List<String> destinationTypes,
-      @Nonnull final Filter destinationEntityFilter,
+      @Nullable final Filter destinationEntityFilter,
       @Nonnull final List<String> relationshipTypes,
       @Nonnull final RelationshipFilter relationshipFilter) {
     BoolQueryBuilder finalQuery = QueryBuilders.boolQuery();
@@ -187,17 +190,22 @@ public class ESGraphQueryDAO {
     String sourceNode =
         relationshipDirection == RelationshipDirection.OUTGOING ? SOURCE : DESTINATION;
     if (sourceTypes != null && sourceTypes.size() > 0) {
-      finalQuery.must(QueryBuilders.termsQuery(sourceNode + ".entityType", sourceTypes));
+      finalQuery.filter(QueryBuilders.termsQuery(sourceNode + ".entityType", sourceTypes));
     }
-    addFilterToQueryBuilder(sourceEntityFilter, sourceNode, finalQuery);
+    if (sourceEntityFilter != null) {
+      addFilterToQueryBuilder(sourceEntityFilter, sourceNode, finalQuery);
+    }
 
     // set destination filter
     String destinationNode =
         relationshipDirection == RelationshipDirection.OUTGOING ? DESTINATION : SOURCE;
     if (destinationTypes != null && destinationTypes.size() > 0) {
-      finalQuery.must(QueryBuilders.termsQuery(destinationNode + ".entityType", destinationTypes));
+      finalQuery.filter(
+          QueryBuilders.termsQuery(destinationNode + ".entityType", destinationTypes));
     }
-    addFilterToQueryBuilder(destinationEntityFilter, destinationNode, finalQuery);
+    if (destinationEntityFilter != null) {
+      addFilterToQueryBuilder(destinationEntityFilter, destinationNode, finalQuery);
+    }
 
     // set relationship filter
     if (relationshipTypes.size() > 0) {
@@ -206,8 +214,14 @@ public class ESGraphQueryDAO {
           relationshipType ->
               relationshipQuery.should(
                   QueryBuilders.termQuery(RELATIONSHIP_TYPE, relationshipType)));
-      finalQuery.must(relationshipQuery);
+      finalQuery.filter(relationshipQuery);
     }
+
+    // general filter
+    if (relationshipFilter.getOr() != null) {
+      addFilterToQueryBuilder(new Filter().setOr(relationshipFilter.getOr()), null, finalQuery);
+    }
+
     return finalQuery;
   }
 
@@ -336,17 +350,10 @@ public class ESGraphQueryDAO {
                 Collectors.toMap(
                     Function.identity(),
                     entityType -> lineageRegistry.getLineageRelationships(entityType, direction)));
-    BoolQueryBuilder finalQuery = QueryBuilders.boolQuery();
-    // Get all relation types relevant to the set of urns to hop from
-    urnsPerEntityType.forEach(
-        (entityType, urns) ->
-            finalQuery.should(
-                getQueryForLineage(
-                    urns,
-                    edgesPerEntityType.getOrDefault(entityType, Collections.emptyList()),
-                    graphFilters,
-                    startTimeMillis,
-                    endTimeMillis)));
+
+    QueryBuilder finalQuery =
+        getLineageQuery(
+            urnsPerEntityType, edgesPerEntityType, graphFilters, startTimeMillis, endTimeMillis);
     SearchResponse response =
         executeSearchQuery(finalQuery, 0, graphQueryConfiguration.getMaxResult());
     Set<Urn> entityUrnSet = new HashSet<>(entityUrns);
@@ -361,18 +368,53 @@ public class ESGraphQueryDAO {
         entityUrnSet, response, validEdges, visitedEntities, numHops, existingPaths);
   }
 
-  // Get search query for given list of edges and source urns
   @VisibleForTesting
-  public static QueryBuilder getQueryForLineage(
-      @Nonnull List<Urn> urns,
-      @Nonnull List<EdgeInfo> lineageEdges,
+  public static QueryBuilder getLineageQuery(
+      @Nonnull Map<String, List<Urn>> urnsPerEntityType,
+      @Nonnull Map<String, List<EdgeInfo>> edgesPerEntityType,
       @Nonnull GraphFilters graphFilters,
       @Nullable Long startTimeMillis,
       @Nullable Long endTimeMillis) {
-    BoolQueryBuilder query = QueryBuilders.boolQuery();
-    if (lineageEdges.isEmpty()) {
-      return query;
+    BoolQueryBuilder entityTypeQueries = QueryBuilders.boolQuery();
+    // Get all relation types relevant to the set of urns to hop from
+    urnsPerEntityType.forEach(
+        (entityType, urns) -> {
+          if (edgesPerEntityType.containsKey(entityType)
+              && !edgesPerEntityType.get(entityType).isEmpty()) {
+            entityTypeQueries.should(
+                getLineageQueryForEntityType(
+                    urns, edgesPerEntityType.get(entityType), graphFilters));
+          }
+        });
+
+    BoolQueryBuilder finalQuery = QueryBuilders.boolQuery();
+
+    finalQuery.filter(entityTypeQueries);
+    finalQuery.filter(buildEntityTypesFilter(graphFilters.getAllowedEntityTypes(), SOURCE));
+    finalQuery.filter(buildEntityTypesFilter(graphFilters.getAllowedEntityTypes(), DESTINATION));
+
+    /*
+     * Optional - Add edge filtering based on time windows.
+     */
+    if (startTimeMillis != null && endTimeMillis != null) {
+      finalQuery.filter(TimeFilterUtils.getEdgeTimeFilterQuery(startTimeMillis, endTimeMillis));
+    } else {
+      log.debug(
+          String.format(
+              "Empty time filter range provided: start time %s, end time: %s. Skipping application of time filters",
+              startTimeMillis, endTimeMillis));
     }
+
+    return finalQuery;
+  }
+
+  // Get search query for given list of edges and source urns
+  @VisibleForTesting
+  public static QueryBuilder getLineageQueryForEntityType(
+      @Nonnull List<Urn> urns,
+      @Nonnull List<EdgeInfo> lineageEdges,
+      @Nonnull GraphFilters graphFilters) {
+    BoolQueryBuilder query = QueryBuilders.boolQuery();
     Map<RelationshipDirection, List<EdgeInfo>> edgesByDirection =
         lineageEdges.stream().collect(Collectors.groupingBy(EdgeInfo::getDirection));
 
@@ -386,18 +428,6 @@ public class ESGraphQueryDAO {
         edgesByDirection.getOrDefault(RelationshipDirection.INCOMING, Collections.emptyList());
     if (!incomingEdges.isEmpty()) {
       query.should(getIncomingEdgeQuery(urns, incomingEdges, graphFilters));
-    }
-
-    /*
-     * Optional - Add edge filtering based on time windows.
-     */
-    if (startTimeMillis != null && endTimeMillis != null) {
-      query.must(TimeFilterUtils.getEdgeTimeFilterQuery(startTimeMillis, endTimeMillis));
-    } else {
-      log.debug(
-          String.format(
-              "Empty time filter range provided: start time %s, end time: %s. Skipping application of time filters",
-              startTimeMillis, endTimeMillis));
     }
 
     return query;
@@ -601,9 +631,6 @@ public class ESGraphQueryDAO {
     BoolQueryBuilder outgoingEdgeQuery = QueryBuilders.boolQuery();
     outgoingEdgeQuery.must(buildUrnFilters(urns, SOURCE));
     outgoingEdgeQuery.must(buildEdgeFilters(outgoingEdges));
-    outgoingEdgeQuery.must(buildEntityTypesFilter(graphFilters.getAllowedEntityTypes(), SOURCE));
-    outgoingEdgeQuery.must(
-        buildEntityTypesFilter(graphFilters.getAllowedEntityTypes(), DESTINATION));
     return outgoingEdgeQuery;
   }
 
@@ -612,9 +639,6 @@ public class ESGraphQueryDAO {
     BoolQueryBuilder incomingEdgeQuery = QueryBuilders.boolQuery();
     incomingEdgeQuery.must(buildUrnFilters(urns, DESTINATION));
     incomingEdgeQuery.must(buildEdgeFilters(incomingEdges));
-    incomingEdgeQuery.must(buildEntityTypesFilter(graphFilters.getAllowedEntityTypes(), SOURCE));
-    incomingEdgeQuery.must(
-        buildEntityTypesFilter(graphFilters.getAllowedEntityTypes(), DESTINATION));
     return incomingEdgeQuery;
   }
 
@@ -648,5 +672,61 @@ public class ESGraphQueryDAO {
   public static class LineageResponse {
     int total;
     List<LineageRelationship> lineageRelationships;
+  }
+
+  public SearchResponse getSearchResponse(
+      @Nullable final List<String> sourceTypes,
+      @Nullable final Filter sourceEntityFilter,
+      @Nullable final List<String> destinationTypes,
+      @Nullable final Filter destinationEntityFilter,
+      @Nonnull final List<String> relationshipTypes,
+      @Nonnull final RelationshipFilter relationshipFilter,
+      @Nonnull List<SortCriterion> sortCriterion,
+      @Nullable String scrollId,
+      int count) {
+
+    BoolQueryBuilder finalQuery =
+        buildQuery(
+            sourceTypes,
+            sourceEntityFilter,
+            destinationTypes,
+            destinationEntityFilter,
+            relationshipTypes,
+            relationshipFilter);
+
+    return executeScrollSearchQuery(finalQuery, sortCriterion, scrollId, count);
+  }
+
+  private SearchResponse executeScrollSearchQuery(
+      @Nonnull final QueryBuilder query,
+      @Nonnull List<SortCriterion> sortCriterion,
+      @Nullable String scrollId,
+      final int count) {
+
+    Object[] sort = null;
+    if (scrollId != null) {
+      SearchAfterWrapper searchAfterWrapper = SearchAfterWrapper.fromScrollId(scrollId);
+      sort = searchAfterWrapper.getSort();
+    }
+
+    SearchRequest searchRequest = new SearchRequest();
+
+    SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+
+    searchSourceBuilder.size(count);
+    searchSourceBuilder.query(query);
+    ESUtils.buildSortOrder(searchSourceBuilder, sortCriterion, List.of(), false);
+    searchRequest.source(searchSourceBuilder);
+    ESUtils.setSearchAfter(searchSourceBuilder, sort, null, null);
+
+    searchRequest.indices(indexConvention.getIndexName(INDEX_NAME));
+
+    try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "esQuery").time()) {
+      MetricUtils.counter(this.getClass(), SEARCH_EXECUTIONS_METRIC).inc();
+      return client.search(searchRequest, RequestOptions.DEFAULT);
+    } catch (Exception e) {
+      log.error("Search query failed", e);
+      throw new ESQueryException("Search query failed:", e);
+    }
   }
 }

@@ -70,6 +70,7 @@ task customPackageGenerate(type: Exec, dependsOn: [environmentSetup, installPack
   def package_version = project.findProperty('package_version')
   commandLine 'bash', '-c',
     "source ${venv_name}/bin/activate && " +
+    "pip install build && " +
     "./scripts/custom_package_codegen.sh '${package_name}' '${package_version}'"
 }
 

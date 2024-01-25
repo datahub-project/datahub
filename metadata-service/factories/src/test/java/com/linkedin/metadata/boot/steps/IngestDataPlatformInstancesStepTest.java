@@ -8,7 +8,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.entity.AspectMigrationsDao;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.entity.ebean.transactions.UpsertBatchItem;
+import com.linkedin.metadata.entity.ebean.batch.MCPUpsertBatchItem;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
@@ -39,7 +39,7 @@ public class IngestDataPlatformInstancesStepTest {
   @Test
   public void testExecuteDoesNothingWhenDataPlatformInstanceAspectsAlreadyExists()
       throws Exception {
-    final EntityService entityService = mock(EntityService.class);
+    final EntityService<?> entityService = mock(EntityService.class);
     final AspectMigrationsDao migrationsDao = mock(AspectMigrationsDao.class);
 
     mockDBWithDataPlatformInstanceAspects(migrationsDao);
@@ -55,7 +55,7 @@ public class IngestDataPlatformInstancesStepTest {
 
   @Test
   public void testExecuteCopesWithEmptyDB() throws Exception {
-    final EntityService entityService = mock(EntityService.class);
+    final EntityService<?> entityService = mock(EntityService.class);
     final AspectMigrationsDao migrationsDao = mock(AspectMigrationsDao.class);
 
     mockEmptyDB(migrationsDao);
@@ -73,7 +73,7 @@ public class IngestDataPlatformInstancesStepTest {
   @Test
   public void testExecuteChecksKeySpecForAllUrns() throws Exception {
     final EntityRegistry entityRegistry = getTestEntityRegistry();
-    final EntityService entityService = mock(EntityService.class);
+    final EntityService<?> entityService = mock(EntityService.class);
     final AspectMigrationsDao migrationsDao = mock(AspectMigrationsDao.class);
     final int countOfCorpUserEntities = 2;
     final int countOfChartEntities = 4;
@@ -96,7 +96,7 @@ public class IngestDataPlatformInstancesStepTest {
   @Test
   public void testExecuteWhenSomeEntitiesShouldReceiveDataPlatformInstance() throws Exception {
     final EntityRegistry entityRegistry = getTestEntityRegistry();
-    final EntityService entityService = mock(EntityService.class);
+    final EntityService<?> entityService = mock(EntityService.class);
     final AspectMigrationsDao migrationsDao = mock(AspectMigrationsDao.class);
     final int countOfCorpUserEntities = 5;
     final int countOfChartEntities = 7;
@@ -122,9 +122,8 @@ public class IngestDataPlatformInstancesStepTest {
                                 item.getUrn().getEntityType().equals("chart")
                                     && item.getAspectName()
                                         .equals(DATA_PLATFORM_INSTANCE_ASPECT_NAME)
-                                    && ((UpsertBatchItem) item).getAspect()
+                                    && ((MCPUpsertBatchItem) item).getAspect()
                                         instanceof DataPlatformInstance)),
-            any(),
             anyBoolean(),
             anyBoolean());
     verify(entityService, times(0))
@@ -137,9 +136,8 @@ public class IngestDataPlatformInstancesStepTest {
                                 item.getUrn().getEntityType().equals("chart")
                                     && item.getAspectName()
                                         .equals(DATA_PLATFORM_INSTANCE_ASPECT_NAME)
-                                    && ((UpsertBatchItem) item).getAspect()
+                                    && ((MCPUpsertBatchItem) item).getAspect()
                                         instanceof DataPlatformInstance)),
-            any(),
             anyBoolean(),
             anyBoolean());
   }
@@ -163,7 +161,7 @@ public class IngestDataPlatformInstancesStepTest {
 
   private void mockDBWithWorkToDo(
       EntityRegistry entityRegistry,
-      EntityService entityService,
+      EntityService<?> entityService,
       AspectMigrationsDao migrationsDao,
       int countOfCorpUserEntities,
       int countOfChartEntities) {
@@ -196,7 +194,7 @@ public class IngestDataPlatformInstancesStepTest {
       String entity,
       String urnTemplate,
       EntityRegistry entityRegistry,
-      EntityService entityService) {
+      EntityService<?> entityService) {
     EntitySpec entitySpec = entityRegistry.getEntitySpec(entity);
     AspectSpec keySpec = entitySpec.getKeyAspectSpec();
     List<Urn> urns = new ArrayList<>();

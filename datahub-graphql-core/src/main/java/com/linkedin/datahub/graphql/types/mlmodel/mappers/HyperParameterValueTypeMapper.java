@@ -33,7 +33,7 @@ public class HyperParameterValueTypeMapper
     } else if (input.isDouble()) {
       result = new FloatBox(input.getDouble());
     } else if (input.isFloat()) {
-      result = new FloatBox(new Double(input.getFloat()));
+      result = new FloatBox(Double.valueOf(input.getFloat()));
     } else {
       throw new RuntimeException("Type is not one of the Union Types, Type: " + input.toString());
     }

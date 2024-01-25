@@ -24,6 +24,7 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.specific.custom_properties import CustomPropertiesPatchHelper
 from datahub.specific.ownership import OwnershipPatchHelper
+from datahub.specific.structured_properties import StructuredPropertiesPatchHelper
 from datahub.utilities.urns.tag_urn import TagUrn
 from datahub.utilities.urns.urn import Urn
 
@@ -104,6 +105,7 @@ class DatasetPatchBuilder(MetadataPatchProposal):
             self, DatasetProperties.ASPECT_NAME
         )
         self.ownership_patch_helper = OwnershipPatchHelper(self)
+        self.structured_properties_patch_helper = StructuredPropertiesPatchHelper(self)
 
     def add_owner(self, owner: Owner) -> "DatasetPatchBuilder":
         self.ownership_patch_helper.add_owner(owner)
@@ -144,7 +146,7 @@ class DatasetPatchBuilder(MetadataPatchProposal):
 
     def set_upstream_lineages(self, upstreams: List[Upstream]) -> "DatasetPatchBuilder":
         self._add_patch(
-            UpstreamLineage.ASPECT_NAME, "replace", path="/upstreams", value=upstreams
+            UpstreamLineage.ASPECT_NAME, "add", path="/upstreams", value=upstreams
         )
         return self
 
@@ -298,7 +300,7 @@ class DatasetPatchBuilder(MetadataPatchProposal):
             DatasetProperties.ASPECT_NAME
             if not editable
             else EditableDatasetProperties.ASPECT_NAME,
-            "replace",
+            "add",
             path="/description",
             value=description,
         )
@@ -309,7 +311,7 @@ class DatasetPatchBuilder(MetadataPatchProposal):
     ) -> "DatasetPatchBuilder":
         self._add_patch(
             DatasetProperties.ASPECT_NAME,
-            "replace",
+            "add",
             path="/customProperties",
             value=custom_properties,
         )
@@ -334,11 +336,12 @@ class DatasetPatchBuilder(MetadataPatchProposal):
         if display_name is not None:
             self._add_patch(
                 DatasetProperties.ASPECT_NAME,
-                "replace",
+                "add",
                 path="/name",
                 value=display_name,
             )
         return self
+
 
     def set_qualified_name(self, qualified_name: str) -> "DatasetPatchBuilder":
         if qualified_name is not None:
@@ -368,4 +371,33 @@ class DatasetPatchBuilder(MetadataPatchProposal):
                 path="/lastModified",
                 value=timestamp,
             )
+
+    def set_structured_property(
+        self, property_name: str, value: Union[str, float, List[Union[str, float]]]
+    ) -> "DatasetPatchBuilder":
+        """
+        This is a helper method to set a structured property.
+        @param property_name: the name of the property (either bare or urn form)
+        @param value: the value of the property (for multi-valued properties, this can be a list)
+        """
+        self.structured_properties_patch_helper.set_property(property_name, value)
+        return self
+
+    def add_structured_property(
+        self, property_name: str, value: Union[str, float]
+    ) -> "DatasetPatchBuilder":
+        """
+        This is a helper method to add a structured property.
+        @param property_name: the name of the property (either bare or urn form)
+        @param value: the value of the property (for multi-valued properties, this value will be appended to the list)
+        """
+        self.structured_properties_patch_helper.add_property(property_name, value)
+        return self
+
+    def remove_structured_property(self, property_name: str) -> "DatasetPatchBuilder":
+        """
+        This is a helper method to remove a structured property.
+        @param property_name: the name of the property (either bare or urn form)
+        """
+        self.structured_properties_patch_helper.remove_property(property_name)
         return self

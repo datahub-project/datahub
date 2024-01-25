@@ -13,6 +13,9 @@ public class Constants {
   public static final String UNKNOWN_ACTOR = "urn:li:corpuser:UNKNOWN"; // Unknown principal.
   public static final Long ASPECT_LATEST_VERSION = 0L;
   public static final String UNKNOWN_DATA_PLATFORM = "urn:li:dataPlatform:unknown";
+  public static final String ENTITY_TYPE_URN_PREFIX = "urn:li:entityType:";
+  public static final String DATA_TYPE_URN_PREFIX = "urn:li:dataType:";
+  public static final String STRUCTURED_PROPERTY_MAPPING_FIELD = "structuredProperties";
 
   // !!!!!!! IMPORTANT !!!!!!!
   // This effectively sets the max aspect size to 16 MB. Used in deserialization of messages.
@@ -73,6 +76,10 @@ public class Constants {
   public static final String QUERY_ENTITY_NAME = "query";
   public static final String DATA_PRODUCT_ENTITY_NAME = "dataProduct";
   public static final String OWNERSHIP_TYPE_ENTITY_NAME = "ownershipType";
+  public static final String STRUCTURED_PROPERTY_ENTITY_NAME = "structuredProperty";
+  public static final String DATA_TYPE_ENTITY_NAME = "dataType";
+  public static final String ENTITY_TYPE_ENTITY_NAME = "entityType";
+  public static final String FORM_ENTITY_NAME = "form";
 
   /** Aspects */
   // Common
@@ -125,6 +132,8 @@ public class Constants {
   public static final String VIEW_PROPERTIES_ASPECT_NAME = "viewProperties";
   public static final String DATASET_PROFILE_ASPECT_NAME = "datasetProfile";
 
+  public static final String STRUCTURED_PROPERTIES_ASPECT_NAME = "structuredProperties";
+  public static final String FORMS_ASPECT_NAME = "forms";
   // Aspect support
   public static final String FINE_GRAINED_LINEAGE_DATASET_TYPE = "DATASET";
   public static final String FINE_GRAINED_LINEAGE_FIELD_SET_TYPE = "FIELD_SET";
@@ -305,6 +314,20 @@ public class Constants {
   // Ownership Types
   public static final String OWNERSHIP_TYPE_KEY_ASPECT_NAME = "ownershipTypeKey";
   public static final String OWNERSHIP_TYPE_INFO_ASPECT_NAME = "ownershipTypeInfo";
+
+  // Structured Property
+  public static final String STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME = "propertyDefinition";
+
+  // Form
+  public static final String FORM_INFO_ASPECT_NAME = "formInfo";
+  public static final String FORM_KEY_ASPECT_NAME = "formKey";
+  public static final String DYNAMIC_FORM_ASSIGNMENT_ASPECT_NAME = "dynamicFormAssignment";
+
+  // Data Type
+  public static final String DATA_TYPE_INFO_ASPECT_NAME = "dataTypeInfo";
+
+  // Entity Type
+  public static final String ENTITY_TYPE_INFO_ASPECT_NAME = "entityTypeInfo";
 
   // Settings
   public static final String GLOBAL_SETTINGS_ENTITY_NAME = "globalSettings";
