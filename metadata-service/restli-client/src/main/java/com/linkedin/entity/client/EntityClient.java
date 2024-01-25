@@ -1,6 +1,9 @@
 package com.linkedin.entity.client;
 
+import static com.linkedin.metadata.utils.GenericRecordUtils.entityResponseToAspectMap;
+
 import com.datahub.authentication.Authentication;
+import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.common.VersionedUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
@@ -11,7 +14,6 @@ import com.linkedin.entity.Entity;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.aspect.VersionedAspect;
-import com.linkedin.metadata.aspect.plugins.validation.AspectRetriever;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.browse.BrowseResultV2;
 import com.linkedin.metadata.graph.LineageDirection;
@@ -40,7 +42,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 // Consider renaming this to datahub client.
-public interface EntityClient extends AspectRetriever {
+public interface EntityClient {
 
   @Nullable
   public EntityResponse getV2(
@@ -623,14 +625,26 @@ public interface EntityClient extends AspectRetriever {
       @Nonnull Authentication authentication)
       throws Exception;
 
-  public void rollbackIngestion(@Nonnull String runId, @Nonnull Authentication authentication)
+  public void rollbackIngestion(
+      @Nonnull String runId, @Nonnull Authorizer authorizer, @Nonnull Authentication authentication)
       throws Exception;
 
-  default Aspect getLatestAspectObject(@Nonnull Urn urn, @Nonnull String aspectName)
+  @Nullable
+  default Aspect getLatestAspectObject(
+      @Nonnull Urn urn, @Nonnull String aspectName, @Nonnull Authentication authentication)
       throws RemoteInvocationException, URISyntaxException {
-    return getV2(urn.getEntityType(), urn, Set.of(aspectName), null)
-        .getAspects()
-        .get(aspectName)
-        .getValue();
+    return getLatestAspects(Set.of(urn), Set.of(aspectName), authentication)
+        .getOrDefault(urn, Map.of())
+        .get(aspectName);
+  }
+
+  @Nonnull
+  default Map<Urn, Map<String, Aspect>> getLatestAspects(
+      @Nonnull Set<Urn> urns,
+      @Nonnull Set<String> aspectNames,
+      @Nonnull Authentication authentication)
+      throws RemoteInvocationException, URISyntaxException {
+    String entityName = urns.stream().findFirst().map(Urn::getEntityType).get();
+    return entityResponseToAspectMap(batchGetV2(entityName, urns, aspectNames, authentication));
   }
 }

@@ -1,4 +1,6 @@
-apply plugin: 'java'
+plugins {
+    id 'java'
+}
 
 dependencies {
     implementation project(path: ':metadata-models')
@@ -7,6 +9,7 @@ dependencies {
     implementation project(':metadata-service:configuration')
 
     implementation externalDependency.slf4jApi
+    implementation externalDependency.springContext
     compileOnly externalDependency.lombok
     annotationProcessor externalDependency.lombok
 

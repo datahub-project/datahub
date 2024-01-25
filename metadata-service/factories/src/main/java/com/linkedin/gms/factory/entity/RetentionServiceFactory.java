@@ -33,9 +33,9 @@ public class RetentionServiceFactory {
   @DependsOn({"cassandraSession", "entityService"})
   @ConditionalOnProperty(name = "entityService.impl", havingValue = "cassandra")
   @Nonnull
-  protected RetentionService createCassandraInstance(CqlSession session) {
-    RetentionService retentionService =
-        new CassandraRetentionService(_entityService, session, _batchSize);
+  protected RetentionService<MCPUpsertBatchItem> createCassandraInstance(CqlSession session) {
+    RetentionService<MCPUpsertBatchItem> retentionService =
+        new CassandraRetentionService<>(_entityService, session, _batchSize);
     _entityService.setRetentionService(retentionService);
     return retentionService;
   }
@@ -44,9 +44,9 @@ public class RetentionServiceFactory {
   @DependsOn({"ebeanServer", "entityService"})
   @ConditionalOnProperty(name = "entityService.impl", havingValue = "ebean", matchIfMissing = true)
   @Nonnull
-  protected RetentionService createEbeanInstance(Database server) {
-    RetentionService retentionService =
-        new EbeanRetentionService(_entityService, server, _batchSize);
+  protected RetentionService<MCPUpsertBatchItem> createEbeanInstance(Database server) {
+    RetentionService<MCPUpsertBatchItem> retentionService =
+        new EbeanRetentionService<>(_entityService, server, _batchSize);
     _entityService.setRetentionService(retentionService);
     return retentionService;
   }

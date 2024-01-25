@@ -198,7 +198,7 @@ public class EntitySpecBuilderTest {
             .getSearchableAnnotation()
             .getFieldName());
     assertEquals(
-        SearchableAnnotation.FieldType.KEYWORD,
+        SearchableAnnotation.FieldType.TEXT,
         testEntityInfo
             .getSearchableFieldSpecMap()
             .get(new PathSpec("customProperties").toString())
@@ -218,6 +218,12 @@ public class EntitySpecBuilderTest {
             .get(new PathSpec("textField").toString())
             .getSearchableAnnotation()
             .getFieldType());
+    assertTrue(
+        testEntityInfo
+            .getSearchableFieldSpecMap()
+            .get(new PathSpec("textField").toString())
+            .getSearchableAnnotation()
+            .isIncludeQueryEmptyAggregation());
     assertEquals(
         "textArrayField",
         testEntityInfo

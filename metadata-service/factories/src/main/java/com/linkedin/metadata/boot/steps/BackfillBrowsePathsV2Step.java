@@ -47,7 +47,7 @@ public class BackfillBrowsePathsV2Step extends UpgradeStep {
 
   private final SearchService _searchService;
 
-  public BackfillBrowsePathsV2Step(EntityService entityService, SearchService searchService) {
+  public BackfillBrowsePathsV2Step(EntityService<?> entityService, SearchService searchService) {
     super(entityService, VERSION, UPGRADE_ID);
     _searchService = searchService;
   }

@@ -148,6 +148,15 @@ class BigQueryV2Config(
         " because the project id is represented as the top-level container.",
     )
 
+    include_table_snapshots: Optional[bool] = Field(
+        default=True, description="Whether table snapshots should be ingested."
+    )
+
+    table_snapshot_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns for table snapshots to filter in ingestion. Specify regex to match the entire snapshot name in database.schema.snapshot format. e.g. to match all snapshots starting with customer in Customer database and public schema, use the regex 'Customer.public.customer.*'",
+    )
+
     debug_include_full_payloads: bool = Field(
         default=False,
         description="Include full payload into events. It is only for debugging and internal use.",

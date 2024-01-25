@@ -82,7 +82,7 @@ public class UpdateEmbedResolver implements DataFetcher<CompletableFuture<Boolea
    */
   private static void validateUpdateEmbedInput(
       @Nonnull final UpdateEmbedInput input, @Nonnull final EntityService entityService) {
-    if (!entityService.exists(UrnUtils.getUrn(input.getUrn()))) {
+    if (!entityService.exists(UrnUtils.getUrn(input.getUrn()), true)) {
       throw new IllegalArgumentException(
           String.format(
               "Failed to update embed for entity with urn %s. Entity does not exist!",
