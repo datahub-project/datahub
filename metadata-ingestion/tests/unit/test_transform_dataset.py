@@ -648,18 +648,24 @@ def test_extract_owners_from_tags():
                 )
             ]
         )
+
         transformer = ExtractOwnersFromTagsTransformer.create(
             config,
             PipelineContext(run_id="test"),
         )
-        transformed = list(
+
+        list(
             transformer.transform(
                 [
                     RecordEnvelope(dataset, metadata={}),
                 ]
             )
         )
-        owners_aspect = transformed[0].record.proposedSnapshot.aspects[0]
+
+        mcp: MetadataChangeProposalWrapper = cast(
+            MetadataChangeProposalWrapper, transformer.handle_end_of_stream()[0]
+        )
+        owners_aspect = cast(OwnershipClass, mcp.aspect)
         owners = owners_aspect.owners
         owner = owners[0]
         if expected_owner_type is not None:
