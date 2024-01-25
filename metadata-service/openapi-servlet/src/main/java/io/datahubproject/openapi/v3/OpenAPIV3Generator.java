@@ -111,9 +111,11 @@ public class OpenAPIV3Generator {
         .forEach(
             e -> {
               paths.addPathItem(
-                  String.format("/%s", e.getName().toLowerCase()), buildListEntityPath(e));
+                  String.format("/v3/entity/%s", e.getName().toLowerCase()),
+                  buildListEntityPath(e));
               paths.addPathItem(
-                  String.format("/%s/{urn}", e.getName().toLowerCase()), buildListEntityPath(e));
+                  String.format("/v3/entity/%s/{urn}", e.getName().toLowerCase()),
+                  buildListEntityPath(e));
             });
     entityRegistry.getEntitySpecs().values().stream()
         .filter(e -> definitionNames.contains(e.getName()))
@@ -125,7 +127,7 @@ public class OpenAPIV3Generator {
                       a ->
                           paths.addPathItem(
                               String.format(
-                                  "/%s/{urn}/%s",
+                                  "/v3/entity/%s/{urn}/%s",
                                   e.getName().toLowerCase(), a.getName().toLowerCase()),
                               buildSingleEntityAspectPath(
                                   e, a.getName(), a.getPegasusSchema().getName())));

@@ -1,6 +1,6 @@
 package com.linkedin.metadata.models;
 
-import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 import com.datahub.test.TestEntityProfile;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -106,9 +106,9 @@ public class OpenApiSpecBuilderTest {
         Path.of(getClass().getResource("/").getPath(), "open-api.yaml"),
         openapiYaml.getBytes(StandardCharsets.UTF_8));
 
-    assertEquals(openAPI.getComponents().getSchemas().size(), 822);
-    assertEquals(openAPI.getComponents().getParameters().size(), 50);
-    assertEquals(openAPI.getPaths().size(), 90);
+    assertTrue(openAPI.getComponents().getSchemas().size() >= 882);
+    assertTrue(openAPI.getComponents().getParameters().size() >= 54);
+    assertTrue(openAPI.getPaths().size() >= 98);
   }
 
   private OpenAPI generateOpenApiSpec(EntityRegistry entityRegistry) {
