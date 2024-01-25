@@ -1307,9 +1307,7 @@ def create_lineage_sql_parsed_result(
     schema: Optional[str] = None,
     graph: Optional[DataHubGraph] = None,
 ) -> SqlParsingResult:
-    """ "
-    graph and schema_resolver are exclusive. Preference is given to schema_resolver.
-    """
+
     needs_close = False
     try:
         if graph:
