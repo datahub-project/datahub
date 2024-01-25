@@ -13,7 +13,7 @@ from sqlalchemy.dialects.oracle.base import ischema_names
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.sql import sqltypes
 from sqlalchemy.types import FLOAT, INTEGER, TIMESTAMP
-from sqlalchemy.util import compat, defaultdict, py2k, warn
+from sqlalchemy.util import defaultdict, py2k, warn
 
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -307,7 +307,9 @@ class OracleInspectorObjectWrapper:
                 computed = None
 
             if identity_options is not None:
-                identity = self._inspector_instance.dialect._parse_identity_options(identity_options, default_on_nul)
+                identity = self._inspector_instance.dialect._parse_identity_options(  # type: ignore
+                    identity_options, default_on_nul
+                )
                 default = None
             else:
                 identity = None
@@ -561,6 +563,8 @@ class OracleSource(SQLAlchemySource):
     Using the Oracle source requires that you've also installed the correct drivers; see the [cx_Oracle docs](https://cx-oracle.readthedocs.io/en/latest/user_guide/installation.html). The easiest one is the [Oracle Instant Client](https://www.oracle.com/database/technologies/instant-client.html).
 
     """
+
+    config: OracleConfig
 
     def __init__(self, config, ctx):
         super().__init__(config, ctx, "oracle")
