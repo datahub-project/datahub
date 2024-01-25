@@ -47,6 +47,7 @@ class MockResponse:
         response_json_path = (
             f"{test_resources_dir}/setup/{JSON_RESPONSE_MAP.get(self.url)}"
         )
+        print(self.url, JSON_RESPONSE_MAP.get(self.url))
         with open(response_json_path) as file:
             data = json.loads(file.read())
             self.json_data = data

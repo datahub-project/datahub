@@ -176,23 +176,27 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DashboardSnapshot": {
-            "urn": "urn:li:dashboard:(metabase,1)",
+            "urn": "urn:li:dashboard:(metabase,13)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dashboard.DashboardInfo": {
                         "customProperties": {},
-                        "title": "Dashboard 1",
+                        "title": "REDACTED/search",
                         "description": "",
-                        "charts": [],
+                        "charts": [
+                            "urn:li:chart:(metabase,15)",
+                            "urn:li:chart:(metabase,16)",
+                            "urn:li:chart:(metabase,17)"
+                        ],
                         "datasets": [],
                         "lastModified": {
                             "created": {
-                                "time": 1639417721742,
-                                "actor": "urn:li:corpuser:admin@metabase.com"
+                                "time": 1705398694904,
+                                "actor": "urn:li:corpuser:john.doe@example.com"
                             },
                             "lastModified": {
-                                "time": 1639417721742,
-                                "actor": "urn:li:corpuser:admin@metabase.com"
+                                "time": 1705398694904,
+                                "actor": "urn:li:corpuser:john.doe@example.com"
                             }
                         },
                         "dashboardUrl": "http://localhost:3000/dashboard/10"
@@ -224,23 +228,27 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DashboardSnapshot": {
-            "urn": "urn:li:dashboard:(metabase,1)",
+            "urn": "urn:li:dashboard:(metabase,13)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dashboard.DashboardInfo": {
                         "customProperties": {},
-                        "title": "Dashboard 1",
+                        "title": "REDACTED/search",
                         "description": "",
-                        "charts": [],
+                        "charts": [
+                            "urn:li:chart:(metabase,15)",
+                            "urn:li:chart:(metabase,16)",
+                            "urn:li:chart:(metabase,17)"
+                        ],
                         "datasets": [],
                         "lastModified": {
                             "created": {
-                                "time": 1639417721742,
-                                "actor": "urn:li:corpuser:admin@metabase.com"
+                                "time": 1705398694904,
+                                "actor": "urn:li:corpuser:john.doe@example.com"
                             },
                             "lastModified": {
-                                "time": 1639417721742,
-                                "actor": "urn:li:corpuser:admin@metabase.com"
+                                "time": 1705398694904,
+                                "actor": "urn:li:corpuser:john.doe@example.com"
                             }
                         },
                         "dashboardUrl": "http://localhost:3000/dashboard/10"
@@ -319,7 +327,7 @@
 },
 {
     "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(metabase,1)",
+    "entityUrn": "urn:li:dashboard:(metabase,13)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
