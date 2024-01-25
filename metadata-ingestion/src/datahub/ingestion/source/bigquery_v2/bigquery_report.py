@@ -25,6 +25,7 @@ class BigQuerySchemaApiPerfReport(Report):
     get_tables_for_dataset: PerfTimer = field(default_factory=PerfTimer)
     list_tables: PerfTimer = field(default_factory=PerfTimer)
     get_views_for_dataset: PerfTimer = field(default_factory=PerfTimer)
+    get_snapshots_for_dataset: PerfTimer = field(default_factory=PerfTimer)
 
 
 @dataclass
@@ -118,6 +119,8 @@ class BigQueryV2Report(ProfilingSqlReport, IngestionStageReport, BaseTimeWindowR
     num_filtered_query_events: int = 0
     num_usage_query_hash_collisions: int = 0
     num_operational_stats_workunits_emitted: int = 0
+
+    snapshots_scanned: int = 0
 
     num_view_definitions_parsed: int = 0
     num_view_definitions_failed_parsing: int = 0

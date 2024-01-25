@@ -97,6 +97,7 @@ public class SearchRequestHandler {
   private final SearchConfiguration _configs;
   private final SearchQueryBuilder _searchQueryBuilder;
   private final AggregationQueryBuilder _aggregationQueryBuilder;
+  private final Map<String, Set<SearchableFieldSpec>> searchableFields;
 
   private SearchRequestHandler(
       @Nonnull EntitySpec entitySpec,
@@ -121,6 +122,17 @@ public class SearchRequestHandler {
     _searchQueryBuilder = new SearchQueryBuilder(configs, customSearchConfiguration);
     _aggregationQueryBuilder = new AggregationQueryBuilder(configs, annotations);
     _configs = configs;
+    searchableFields =
+        _entitySpecs.stream()
+            .flatMap(entitySpec -> entitySpec.getSearchableFieldSpecMap().entrySet().stream())
+            .collect(
+                Collectors.toMap(
+                    Map.Entry::getKey,
+                    Map.Entry::getValue,
+                    (set1, set2) -> {
+                      set1.addAll(set2);
+                      return set1;
+                    }));
   }
 
   public static SearchRequestHandler getBuilder(
@@ -169,8 +181,13 @@ public class SearchRequestHandler {
     };
   }
 
-  public static BoolQueryBuilder getFilterQuery(@Nullable Filter filter) {
-    BoolQueryBuilder filterQuery = ESUtils.buildFilterQuery(filter, false);
+  public BoolQueryBuilder getFilterQuery(@Nullable Filter filter) {
+    return getFilterQuery(filter, searchableFields);
+  }
+
+  public static BoolQueryBuilder getFilterQuery(
+      @Nullable Filter filter, Map<String, Set<SearchableFieldSpec>> searchableFields) {
+    BoolQueryBuilder filterQuery = ESUtils.buildFilterQuery(filter, false, searchableFields);
 
     return filterSoftDeletedByDefault(filter, filterQuery);
   }
@@ -354,7 +371,7 @@ public class SearchRequestHandler {
    * @return {@link SearchRequest} that contains the aggregation query
    */
   @Nonnull
-  public static SearchRequest getAggregationRequest(
+  public SearchRequest getAggregationRequest(
       @Nonnull String field, @Nullable Filter filter, int limit) {
     SearchRequest searchRequest = new SearchRequest();
     BoolQueryBuilder filterQuery = getFilterQuery(filter);
