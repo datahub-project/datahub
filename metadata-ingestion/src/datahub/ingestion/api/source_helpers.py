@@ -2,7 +2,6 @@ import logging
 from datetime import datetime, timezone
 from typing import (
     TYPE_CHECKING,
-    Any,
     Callable,
     Dict,
     Iterable,
