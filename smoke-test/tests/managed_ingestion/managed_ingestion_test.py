@@ -263,7 +263,13 @@ def test_create_list_get_remove_secret(frontend_session):
         "query": """mutation updateSecret($input: UpdateSecretInput!) {\n
             updateSecret(input: $input)
         }""",
-        "variables": {"input": {"urn": secret_urn, "name": "SMOKE_TEST", "value": "mytestvalue.updated"}},
+        "variables": {
+            "input": {
+                "urn": secret_urn,
+                "name": "SMOKE_TEST",
+                "value": "mytestvalue.updated",
+            }
+        },
     }
 
     response = frontend_session.post(

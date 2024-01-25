@@ -1,31 +1,39 @@
 import logging
 import os
-from datahub.ingestion.graph.filters import SearchFilterRule
-from tests.consistency_utils import wait_for_writes_to_sync
 import tempfile
 from random import randint
-from tests.utilities.file_emitter import FileEmitter
 from typing import Iterable, List, Optional, Union
 
 import pytest
+
 # import tenacity
 from datahub.api.entities.dataset.dataset import Dataset
-from datahub.api.entities.structuredproperties.structuredproperties import \
-    StructuredProperties
+from datahub.api.entities.structuredproperties.structuredproperties import (
+    StructuredProperties,
+)
 from datahub.emitter.mce_builder import make_dataset_urn, make_schema_field_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
 from datahub.metadata.schema_classes import (
-    EntityTypeInfoClass, PropertyValueClass, StructuredPropertiesClass,
-    StructuredPropertyDefinitionClass, StructuredPropertyValueAssignmentClass)
+    EntityTypeInfoClass,
+    PropertyValueClass,
+    StructuredPropertiesClass,
+    StructuredPropertyDefinitionClass,
+    StructuredPropertyValueAssignmentClass,
+)
 from datahub.specific.dataset import DatasetPatchBuilder
-from datahub.utilities.urns.structured_properties_urn import \
-    StructuredPropertyUrn
+from datahub.utilities.urns.structured_properties_urn import StructuredPropertyUrn
 from datahub.utilities.urns.urn import Urn
 
-from tests.utils import (delete_urns, delete_urns_from_file, get_gms_url,
-                         get_sleep_info, ingest_file_via_rest,
-                         wait_for_writes_to_sync)
+from tests.consistency_utils import wait_for_writes_to_sync
+from tests.utilities.file_emitter import FileEmitter
+from tests.utils import (
+    delete_urns,
+    delete_urns_from_file,
+    get_gms_url,
+    get_sleep_info,
+    ingest_file_via_rest,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -36,14 +44,14 @@ dataset_urns = [
 ]
 
 schema_field_urns = [
-    make_schema_field_urn(dataset_urn, "column_1")
-    for dataset_urn in dataset_urns
+    make_schema_field_urn(dataset_urn, "column_1") for dataset_urn in dataset_urns
 ]
 
 generated_urns = [d for d in dataset_urns] + [f for f in schema_field_urns]
 
 
 default_namespace = "io.acryl.privacy"
+
 
 def create_logical_entity(
     entity_name: str,
@@ -66,14 +74,13 @@ def create_test_data(filename: str):
     file_emitter.close()
     wait_for_writes_to_sync()
 
+
 sleep_sec, sleep_times = get_sleep_info()
 
 
 @pytest.fixture(scope="module", autouse=False)
 def graph() -> DataHubGraph:
-    graph: DataHubGraph = DataHubGraph(
-        config=DatahubClientConfig(server=get_gms_url())
-    )
+    graph: DataHubGraph = DataHubGraph(config=DatahubClientConfig(server=get_gms_url()))
     return graph
 
 
@@ -132,7 +139,7 @@ def attach_property_to_entity(
     property_name: str,
     property_value: Union[str, float, List[str | float]],
     graph: DataHubGraph,
-    namespace: str = default_namespace
+    namespace: str = default_namespace,
 ):
     if isinstance(property_value, list):
         property_values: List[Union[str, float]] = property_value
@@ -159,15 +166,12 @@ def get_property_from_entity(
     property_name: str,
     graph: DataHubGraph,
 ):
-    structured_properties: Optional[
-        StructuredPropertiesClass
-    ] = graph.get_aspect(urn, StructuredPropertiesClass)
+    structured_properties: Optional[StructuredPropertiesClass] = graph.get_aspect(
+        urn, StructuredPropertiesClass
+    )
     assert structured_properties is not None
     for property in structured_properties.properties:
-        if (
-            property.propertyUrn
-            == f"urn:li:structuredProperty:{property_name}"
-        ):
+        if property.propertyUrn == f"urn:li:structuredProperty:{property_name}":
             return property.values
     return None
 
@@ -181,16 +185,14 @@ def test_structured_property_string(ingest_cleanup_data, graph):
     property_name = "retentionPolicy"
 
     create_property_definition(property_name, graph)
-    generated_urns.append(f"urn:li:structuredProperty:{default_namespace}.retentionPolicy")
-
-    attach_property_to_entity(
-        dataset_urns[0], property_name, ["30d"], graph=graph
+    generated_urns.append(
+        f"urn:li:structuredProperty:{default_namespace}.retentionPolicy"
     )
 
+    attach_property_to_entity(dataset_urns[0], property_name, ["30d"], graph=graph)
+
     try:
-        attach_property_to_entity(
-            dataset_urns[0], property_name, 200030, graph=graph
-        )
+        attach_property_to_entity(dataset_urns[0], property_name, 200030, graph=graph)
         raise AssertionError(
             "Should not be able to attach a number to a string property"
         )
@@ -208,12 +210,12 @@ def test_structured_property_string(ingest_cleanup_data, graph):
 @pytest.mark.dependency(depends=["test_healthchecks"])
 def test_structured_property_double(ingest_cleanup_data, graph):
     property_name = "expiryTime"
-    generated_urns.append(f"urn:li:structuredProperty:{default_namespace}.{property_name}")
+    generated_urns.append(
+        f"urn:li:structuredProperty:{default_namespace}.{property_name}"
+    )
     create_property_definition(property_name, graph, value_type="number")
 
-    attach_property_to_entity(
-        dataset_urns[0], property_name, 2000034, graph=graph
-    )
+    attach_property_to_entity(dataset_urns[0], property_name, 2000034, graph=graph)
 
     try:
         attach_property_to_entity(
@@ -232,9 +234,7 @@ def test_structured_property_double(ingest_cleanup_data, graph):
         attach_property_to_entity(
             dataset_urns[0], property_name, [2000034, 2000035], graph=graph
         )
-        raise AssertionError(
-            "Should not be able to attach a list to a number property"
-        )
+        raise AssertionError("Should not be able to attach a list to a number property")
     except Exception as e:
         if not isinstance(e, AssertionError):
             pass
@@ -249,15 +249,15 @@ def test_structured_property_double(ingest_cleanup_data, graph):
 @pytest.mark.dependency(depends=["test_healthchecks"])
 def test_structured_property_double_multiple(ingest_cleanup_data, graph):
     property_name = "versions"
-    generated_urns.append(f"urn:li:structuredProperty:{default_namespace}.{property_name}")
+    generated_urns.append(
+        f"urn:li:structuredProperty:{default_namespace}.{property_name}"
+    )
 
     create_property_definition(
         property_name, graph, value_type="number", cardinality="MULTIPLE"
     )
 
-    attach_property_to_entity(
-        dataset_urns[0], property_name, [1.0, 2.0], graph=graph
-    )
+    attach_property_to_entity(dataset_urns[0], property_name, [1.0, 2.0], graph=graph)
 
 
 # @tenacity.retry(
@@ -265,11 +265,11 @@ def test_structured_property_double_multiple(ingest_cleanup_data, graph):
 #     wait=tenacity.wait_fixed(sleep_sec),
 # )
 @pytest.mark.dependency(depends=["test_healthchecks"])
-def test_structured_property_string_allowed_values(
-    ingest_cleanup_data, graph
-):
+def test_structured_property_string_allowed_values(ingest_cleanup_data, graph):
     property_name = "enumProperty"
-    generated_urns.append(f"urn:li:structuredProperty:{default_namespace}.{property_name}")
+    generated_urns.append(
+        f"urn:li:structuredProperty:{default_namespace}.{property_name}"
+    )
 
     create_property_definition(
         property_name,
@@ -301,9 +301,7 @@ def test_structured_property_string_allowed_values(
 
 
 @pytest.mark.dependency(depends=["test_healthchecks"])
-def test_structured_property_definition_evolution(
-    ingest_cleanup_data, graph
-):
+def test_structured_property_definition_evolution(ingest_cleanup_data, graph):
     property_name = "enumProperty1234"
 
     create_property_definition(
@@ -316,7 +314,9 @@ def test_structured_property_definition_evolution(
             PropertyValueClass(value="bar"),
         ],
     )
-    generated_urns.append(f"urn:li:structuredProperty:{default_namespace}.{property_name}")
+    generated_urns.append(
+        f"urn:li:structuredProperty:{default_namespace}.{property_name}"
+    )
 
     try:
         create_property_definition(
@@ -345,9 +345,7 @@ def test_structured_property_definition_evolution(
 # )
 @pytest.mark.dependency(depends=["test_healthchecks"])
 def test_structured_property_schema_field(ingest_cleanup_data, graph):
-    property_name = (
-        f"deprecationDate{randint(10, 10000)}"
-    )
+    property_name = f"deprecationDate{randint(10, 10000)}"
 
     create_property_definition(
         property_name,
@@ -356,26 +354,31 @@ def test_structured_property_schema_field(ingest_cleanup_data, graph):
         value_type="date",
         entity_types=["schemaField"],
     )
-    generated_urns.append(f"urn:li:structuredProperty:io.datahubproject.test.{property_name}")
+    generated_urns.append(
+        f"urn:li:structuredProperty:io.datahubproject.test.{property_name}"
+    )
 
     attach_property_to_entity(
-        schema_field_urns[0], property_name, "2020-10-01", graph=graph, namespace="io.datahubproject.test"
+        schema_field_urns[0],
+        property_name,
+        "2020-10-01",
+        graph=graph,
+        namespace="io.datahubproject.test",
     )
 
-    assert (
-        get_property_from_entity(
-            schema_field_urns[0], f"io.datahubproject.test.{property_name}", graph=graph
-        )
-        == ["2020-10-01"]
-    )
+    assert get_property_from_entity(
+        schema_field_urns[0], f"io.datahubproject.test.{property_name}", graph=graph
+    ) == ["2020-10-01"]
 
     try:
         attach_property_to_entity(
-            schema_field_urns[0], property_name, 200030, graph=graph, namespace="io.datahubproject.test"
+            schema_field_urns[0],
+            property_name,
+            200030,
+            graph=graph,
+            namespace="io.datahubproject.test",
         )
-        raise AssertionError(
-            "Should not be able to attach a number to a DATE property"
-        )
+        raise AssertionError("Should not be able to attach a number to a DATE property")
     except Exception as e:
         if not isinstance(e, AssertionError):
             pass
@@ -388,24 +391,17 @@ def test_dataset_yaml_loader(ingest_cleanup_data, graph):
         "tests/structured_properties/test_structured_properties.yaml"
     )
 
-    for dataset in Dataset.from_yaml(
-        "tests/structured_properties/test_dataset.yaml"
-    ):
+    for dataset in Dataset.from_yaml("tests/structured_properties/test_dataset.yaml"):
         for mcp in dataset.generate_mcp():
             graph.emit(mcp)
         wait_for_writes_to_sync()
 
     property_name = "io.acryl.dataManagement.deprecationDate"
-    assert (
-        get_property_from_entity(
-            make_schema_field_urn(
-                make_dataset_urn("hive", "user.clicks"), "ip"
-            ),
-            property_name,
-            graph=graph,
-        )
-        == ["2023-01-01"]
-    )
+    assert get_property_from_entity(
+        make_schema_field_urn(make_dataset_urn("hive", "user.clicks"), "ip"),
+        property_name,
+        graph=graph,
+    ) == ["2023-01-01"]
 
     dataset = Dataset.from_datahub(
         graph=graph,
@@ -418,19 +414,12 @@ def test_dataset_yaml_loader(ingest_cleanup_data, graph):
         if Dataset._simplify_field_path(f.id) == field_name
     ]
     assert len(matching_fields) == 1
-    assert (
-        matching_fields[0].structured_properties[
-            Urn.make_structured_property_urn(
-                "io.acryl.dataManagement.deprecationDate"
-            )
-        ]
-        == ["2023-01-01"]
-    )
+    assert matching_fields[0].structured_properties[
+        Urn.make_structured_property_urn("io.acryl.dataManagement.deprecationDate")
+    ] == ["2023-01-01"]
 
 
-def test_dataset_structured_property_validation(
-    ingest_cleanup_data, graph, caplog
-):
+def test_dataset_structured_property_validation(ingest_cleanup_data, graph, caplog):
     from datahub.api.entities.dataset.dataset import Dataset
 
     property_name = "replicationSLA"
@@ -440,7 +429,9 @@ def test_dataset_structured_property_validation(
     create_property_definition(
         property_name=property_name, graph=graph, value_type=value_type
     )
-    generated_urns.append(f"urn:li:structuredProperty:{default_namespace}.replicationSLA")
+    generated_urns.append(
+        f"urn:li:structuredProperty:{default_namespace}.replicationSLA"
+    )
 
     attach_property_to_entity(
         dataset_urns[0], property_name, [property_value], graph=graph
@@ -453,21 +444,15 @@ def test_dataset_structured_property_validation(
         float(property_value),
     )
 
-    assert (
-            Dataset.validate_structured_property("testName", "testValue") is None
-    )
+    assert Dataset.validate_structured_property("testName", "testValue") is None
 
     bad_property_value = "2023-09-20"
     assert (
-        Dataset.validate_structured_property(
-            property_name, bad_property_value
-        )
-        is None
+        Dataset.validate_structured_property(property_name, bad_property_value) is None
     )
 
-    
-def test_structured_property_search(ingest_cleanup_data, graph: DataHubGraph, caplog):
 
+def test_structured_property_search(ingest_cleanup_data, graph: DataHubGraph, caplog):
     def to_es_name(property_name, namespace=default_namespace):
         namespace_field = namespace.replace(".", "_")
         return f"structuredProperties.{namespace_field}_{property_name}"
@@ -478,88 +463,115 @@ def test_structured_property_search(ingest_cleanup_data, graph: DataHubGraph, ca
     create_property_definition(
         namespace="io.datahubproject.test",
         property_name=field_property_name,
-        graph=graph, value_type="date", entity_types=["schemaField"]
+        graph=graph,
+        value_type="date",
+        entity_types=["schemaField"],
     )
-    generated_urns.append(f"urn:li:structuredProperty:io.datahubproject.test.{field_property_name}")
+    generated_urns.append(
+        f"urn:li:structuredProperty:io.datahubproject.test.{field_property_name}"
+    )
 
     attach_property_to_entity(
-        schema_field_urns[0], field_property_name, "2020-10-01", graph=graph, namespace="io.datahubproject.test"
+        schema_field_urns[0],
+        field_property_name,
+        "2020-10-01",
+        graph=graph,
+        namespace="io.datahubproject.test",
     )
     dataset_property_name = "replicationSLA"
     property_value = 30
     value_type = "number"
 
-    create_property_definition(property_name=dataset_property_name, graph=graph, value_type=value_type)
-    generated_urns.append(f"urn:li:structuredProperty:{default_namespace}.{dataset_property_name}")
+    create_property_definition(
+        property_name=dataset_property_name, graph=graph, value_type=value_type
+    )
+    generated_urns.append(
+        f"urn:li:structuredProperty:{default_namespace}.{dataset_property_name}"
+    )
 
-    attach_property_to_entity(dataset_urns[0], dataset_property_name, [property_value], graph=graph)
+    attach_property_to_entity(
+        dataset_urns[0], dataset_property_name, [property_value], graph=graph
+    )
 
     # [] = default entities which includes datasets, does not include fields
-    entity_urns = list(graph.get_urns_by_filter(extraFilters=[
-        {
-            "field": to_es_name(dataset_property_name),
-            "negated": "false",
-            "condition": "EXISTS",
-        }
-    ]))
+    entity_urns = list(
+        graph.get_urns_by_filter(
+            extraFilters=[
+                {
+                    "field": to_es_name(dataset_property_name),
+                    "negated": "false",
+                    "condition": "EXISTS",
+                }
+            ]
+        )
+    )
     assert len(entity_urns) == 1
     assert entity_urns[0] == dataset_urns[0]
 
     # Search over schema field specifically
-    field_structured_prop = graph.get_aspect(entity_urn=schema_field_urns[0], aspect_type=StructuredPropertiesClass)
+    field_structured_prop = graph.get_aspect(
+        entity_urn=schema_field_urns[0], aspect_type=StructuredPropertiesClass
+    )
     assert field_structured_prop == StructuredPropertiesClass(
         properties=[
             StructuredPropertyValueAssignmentClass(
                 propertyUrn=f"urn:li:structuredProperty:io.datahubproject.test.{field_property_name}",
-                values=["2020-10-01"]
+                values=["2020-10-01"],
             )
         ]
     )
 
     # Search over entities that do not include the field
-    field_urns = list(graph.get_urns_by_filter(entity_types=["tag"],
-                                               extraFilters=[
-                                                   {
-                                                       "field": to_es_name(field_property_name,
-                                                                           namespace="io.datahubproject.test"),
-                                                       "negated": "false",
-                                                       "condition": "EXISTS",
-                                                   }
-                                               ]))
+    field_urns = list(
+        graph.get_urns_by_filter(
+            entity_types=["tag"],
+            extraFilters=[
+                {
+                    "field": to_es_name(
+                        field_property_name, namespace="io.datahubproject.test"
+                    ),
+                    "negated": "false",
+                    "condition": "EXISTS",
+                }
+            ],
+        )
+    )
     assert len(field_urns) == 0
 
     # OR the two properties together to return both results
-    field_urns = list(graph.get_urns_by_filter(entity_types=["dataset", "tag"],
-                                               extraFilters=[
-                                                   {
-                                                       "field": to_es_name(dataset_property_name),
-                                                       "negated": "false",
-                                                       "condition": "EXISTS",
-                                                   }
-                                               ]))
+    field_urns = list(
+        graph.get_urns_by_filter(
+            entity_types=["dataset", "tag"],
+            extraFilters=[
+                {
+                    "field": to_es_name(dataset_property_name),
+                    "negated": "false",
+                    "condition": "EXISTS",
+                }
+            ],
+        )
+    )
     assert len(field_urns) == 1
     assert dataset_urns[0] in field_urns
 
 
-def test_dataset_structured_property_patch(
-    ingest_cleanup_data, graph, caplog
-):
+def test_dataset_structured_property_patch(ingest_cleanup_data, graph, caplog):
     property_name = "replicationSLA"
     property_value = 30
     value_type = "number"
 
     create_property_definition(
-        property_name=property_name,
-        graph=graph,
-        value_type=value_type
+        property_name=property_name, graph=graph, value_type=value_type
     )
 
-    dataset_patcher: DatasetPatchBuilder = DatasetPatchBuilder(
-        urn=dataset_urns[0]
-    )
+    dataset_patcher: DatasetPatchBuilder = DatasetPatchBuilder(urn=dataset_urns[0])
 
-    dataset_patcher.set_structured_property(StructuredPropertyUrn.make_structured_property_urn(
-        f"{default_namespace}.{property_name}"), property_value)
+    dataset_patcher.set_structured_property(
+        StructuredPropertyUrn.make_structured_property_urn(
+            f"{default_namespace}.{property_name}"
+        ),
+        property_value,
+    )
 
     for mcp in dataset_patcher.build():
         graph.emit(mcp)
@@ -567,11 +579,11 @@ def test_dataset_structured_property_patch(
 
     dataset = Dataset.from_datahub(graph=graph, urn=dataset_urns[0])
     assert dataset.structured_properties is not None
-    assert (
-        [int(float(k)) for k in dataset.structured_properties[
+    assert [
+        int(float(k))
+        for k in dataset.structured_properties[
             StructuredPropertyUrn.make_structured_property_urn(
                 f"{default_namespace}.{property_name}"
             )
-        ]]
-        == [property_value]
-    )
+        ]
+    ] == [property_value]
