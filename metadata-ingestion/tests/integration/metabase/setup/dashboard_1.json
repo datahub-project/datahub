@@ -401,7 +401,7 @@
       "entity_id": "tA9M9vJlTHG0KxQnvknKW",
       "visualization_settings": {},
       "size_y": 6,
-      "dashboard_id": 13,
+      "dashboard_id": 1,
       "created_at": "2024-01-16T09:45:45.410379Z",
       "row": 0
     },
@@ -582,13 +582,13 @@
       },
       "updated_at": "2024-01-16T09:50:34.394488Z",
       "col": 12,
-      "id": 13,
+      "id": 1,
       "parameter_mappings": [],
       "card_id": 16,
       "entity_id": "lXypX5aa14HjkN_Im82C2",
       "visualization_settings": {},
       "size_y": 6,
-      "dashboard_id": 13,
+      "dashboard_id": 1,
       "created_at": "2024-01-16T09:50:34.394488Z",
       "row": 0
     },
@@ -802,7 +802,7 @@
       "entity_id": "iVOtiEPgX-a90Qh3rJWui",
       "visualization_settings": {},
       "size_y": 6,
-      "dashboard_id": 13,
+      "dashboard_id": 1,
       "created_at": "2024-01-16T09:51:34.833525Z",
       "row": 6
     }
@@ -813,7 +813,7 @@
   "enable_embedding": false,
   "collection_id": 112,
   "show_in_getting_started": false,
-  "name": "REDACTED/search",
+  "name": "Dashboard 1",
   "caveats": null,
   "collection_authority_level": null,
   "creator_id": 1,
@@ -821,15 +821,15 @@
   "made_public_by_id": null,
   "embedding_params": null,
   "cache_ttl": null,
-  "id": 13,
+  "id": 1,
   "position": null,
   "entity_id": "Z6B2yiCTEMiwZFe4x5jPT",
   "param_fields": null,
   "last-edit-info": {
     "id": 1,
-    "email": "john.doe@example.com",
-    "first_name": "john",
-    "last_name": "doe",
+    "email": "admin@metabase.com",
+    "first_name": "admin",
+    "last_name": "metabase",
     "timestamp": "2024-01-16T09:51:34.904566Z"
   },
   "collection": {

@@ -176,12 +176,12 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DashboardSnapshot": {
-            "urn": "urn:li:dashboard:(metabase,13)",
+            "urn": "urn:li:dashboard:(metabase,1)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dashboard.DashboardInfo": {
                         "customProperties": {},
-                        "title": "REDACTED/search",
+                        "title": "Dashboard 1",
                         "description": "",
                         "charts": [
                             "urn:li:chart:(metabase,15)",
@@ -192,11 +192,11 @@
                         "lastModified": {
                             "created": {
                                 "time": 1705398694904,
-                                "actor": "urn:li:corpuser:john.doe@example.com"
+                                "actor": "urn:li:corpuser:admin@metabase.com"
                             },
                             "lastModified": {
                                 "time": 1705398694904,
-                                "actor": "urn:li:corpuser:john.doe@example.com"
+                                "actor": "urn:li:corpuser:admin@metabase.com"
                             }
                         },
                         "dashboardUrl": "http://localhost:3000/dashboard/10"
@@ -228,12 +228,12 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DashboardSnapshot": {
-            "urn": "urn:li:dashboard:(metabase,13)",
+            "urn": "urn:li:dashboard:(metabase,1)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dashboard.DashboardInfo": {
                         "customProperties": {},
-                        "title": "REDACTED/search",
+                        "title": "Dashboard 1",
                         "description": "",
                         "charts": [
                             "urn:li:chart:(metabase,15)",
@@ -244,11 +244,11 @@
                         "lastModified": {
                             "created": {
                                 "time": 1705398694904,
-                                "actor": "urn:li:corpuser:john.doe@example.com"
+                                "actor": "urn:li:corpuser:admin@metabase.com"
                             },
                             "lastModified": {
                                 "time": 1705398694904,
-                                "actor": "urn:li:corpuser:john.doe@example.com"
+                                "actor": "urn:li:corpuser:admin@metabase.com"
                             }
                         },
                         "dashboardUrl": "http://localhost:3000/dashboard/10"
@@ -327,7 +327,7 @@
 },
 {
     "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(metabase,13)",
+    "entityUrn": "urn:li:dashboard:(metabase,1)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
