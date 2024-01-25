@@ -33,10 +33,19 @@ def make_dataset_urn_helper(suffix=""):
     )
 
 
-def apply_patch_helper(graph: DataHubGraph, dataset_urn: str, patch_actions):
-    for patch_mcp in patch_actions:
-        graph.emit_mcp(patch_mcp)
-        pass
+def create_dataset_properties_helper(name: str, patch_type: str, patch_type_value: str):
+    if patch_type == "created" or patch_type == "lastModified":
+        return DatasetPropertiesClass(
+            name=name, **{patch_type: TimeStamp(datetime_to_ts_millis(dt.now()))}
+        )
+    else:
+        return DatasetPropertiesClass(name=name, **{patch_type: patch_type_value})
+
+
+def setup(urn_suffix: str, property_details: Dict[str, str]):
+    dataset_urn = make_dataset_urn_helper(urn_suffix)
+    orig_dataset_properties = create_dataset_properties_helper(**property_details)
+    return (dataset_urn, orig_dataset_properties)
 
 
 # Common Aspect Patch Tests
@@ -61,9 +70,7 @@ def test_dataset_terms_patch(wait_for_healthchecks):
 
 def test_dataset_upstream_lineage_patch(wait_for_healthchecks):
     dataset_urn = make_dataset_urn_helper("-")
-
     other_dataset_urn = make_dataset_urn_helper("2-")
-
     patch_dataset_urn = make_dataset_urn_helper("3-")
 
     upstream_lineage = UpstreamLineageClass(
@@ -85,13 +92,13 @@ def test_dataset_upstream_lineage_patch(wait_for_healthchecks):
         )
         assert upstream_lineage_read.upstreams[0].dataset == other_dataset_urn
 
-        apply_patch_helper(
-            graph,
-            dataset_urn,
+        for patch_mcp in (
             DatasetPatchBuilder(dataset_urn)
             .add_upstream_lineage(upstream_lineage_to_add)
-            .build(),
-        )
+            .build()
+        ):
+            graph.emit_mcp(patch_mcp)
+            pass
 
         upstream_lineage_read = graph.get_aspect_v2(
             entity_urn=dataset_urn,
@@ -281,10 +288,10 @@ def get_custom_properties(
 
 
 def test_custom_properties_patch(wait_for_healthchecks):
-    dataset_urn = make_dataset_urn_helper("-")
-    orig_dataset_properties = DatasetPropertiesClass(
-        name="test_name", description="test_description"
+    dataset_urn, orig_dataset_properties = setup(
+        "-", {"name": "test_name", "description": "test_description"}
     )
+
     helper_test_custom_properties_patch(
         test_entity_urn=dataset_urn,
         patch_builder_class=DatasetPatchBuilder,
@@ -320,9 +327,8 @@ def test_custom_properties_patch(wait_for_healthchecks):
 
 
 def test_qualified_name_patch(wait_for_healthchecks):
-    dataset_urn = make_dataset_urn_helper("-")
-    orig_dataset_properties = DatasetPropertiesClass(
-        name="test_name", qualifiedName="to_be_replaced"
+    dataset_urn, orig_dataset_properties = setup(
+        "-", {"name": "test_name", "qualifiedName": "to_be_replaced"}
     )
 
     mcpw = MetadataChangeProposalWrapper(
@@ -336,7 +342,6 @@ def test_qualified_name_patch(wait_for_healthchecks):
         assert qualified_name
         assert qualified_name == "to_be_replaced"
 
-    with DataHubGraph(DataHubGraphConfig()) as graph:
         for patch_mcp in (
             DatasetPatchBuilder(dataset_urn)
             .set_qualified_name("new_qualified_name")
@@ -344,16 +349,17 @@ def test_qualified_name_patch(wait_for_healthchecks):
         ):
             graph.emit_mcp(patch_mcp)
 
-    get_dataset_property(graph, dataset_urn, "qualifiedName") == "new_qualified_name"
+    assert (
+        get_dataset_property(graph, dataset_urn, "qualifiedName")
+        == "new_qualified_name"
+    )
 
 
 def test_timestamp_patch_types(wait_for_healthchecks):
     for patch_type in ["created", "lastModified"]:
         test_time = datetime_to_ts_millis(dt.now())
-
-        dataset_urn = make_dataset_urn_helper("-")
-        orig_dataset_properties = DatasetPropertiesClass(
-            name="test_name", **{patch_type: TimeStamp(test_time)}
+        dataset_urn, orig_dataset_properties = setup(
+            "-", {"name": "test_name", patch_type: test_time}
         )
 
         mcpw = MetadataChangeProposalWrapper(
@@ -366,14 +372,14 @@ def test_timestamp_patch_types(wait_for_healthchecks):
             assert dataset_property
             assert dataset_property.time == test_time
 
-        new_test_time = datetime_to_ts_millis(dt.now())
+            new_test_time = datetime_to_ts_millis(dt.now())
 
-        with DataHubGraph(DataHubGraphConfig()) as graph:
             patch_builder = DatasetPatchBuilder(dataset_urn)
             patch_method = getattr(patch_builder, f"set_{patch_type}")
             for patch_mcp in patch_method(TimeStamp(new_test_time)).build():
                 graph.emit_mcp(patch_mcp)
 
-        assert (
-            get_dataset_property(graph, dataset_urn, patch_type).time == new_test_time
-        )
+            assert (
+                get_dataset_property(graph, dataset_urn, patch_type).time
+                == new_test_time
+            )
