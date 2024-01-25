@@ -218,6 +218,10 @@ Cypress.Commands.add( 'multiSelect', (within_data_id , text) => {
   cy.clickOptionWithText(text);
 });
 
+Cypress.Commands.add("getWithTestId", (id) => {
+  return cy.get(selectorWithtestId(id));
+});
+
 Cypress.Commands.add("enterTextInTestId", (id, text) => {
   cy.get(selectorWithtestId(id)).type(text);
 })
