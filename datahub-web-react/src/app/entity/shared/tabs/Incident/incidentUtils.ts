@@ -1,6 +1,6 @@
 import { GetEntityIncidentsDocument } from '../../../../../graphql/incident.generated';
 
-import { IncidentType, IncidentState, Incident, EntityType } from '../../../../../types.generated';
+import { IncidentType, IncidentState, Incident } from '../../../../../types.generated';
 
 export const PAGE_SIZE = 100;
 
@@ -55,14 +55,6 @@ export const addOrUpdateIncidentInList = (existingIncidents, newIncidents) => {
         return { incident, siblings: null };
     });
     return didUpdate ? updatedIncidents : [newIncidents, ...existingIncidents];
-};
-
-/**
- * Add raised incident to cache
- */
-export const addActiveIncidentToCache = (client, urn, incident, pageSize) => {
-    // Add to active and overall list
-    updateListIncidentsCache(client, urn, incident, pageSize);
 };
 
 /**
@@ -135,4 +127,12 @@ export const getIncidentsStatusSummary = (incidents: Array<Incident>) => {
         }
     });
     return summary;
+};
+
+/**
+ * Add raised incident to cache
+ */
+export const addActiveIncidentToCache = (client, urn, incident, pageSize) => {
+    // Add to active and overall list
+    updateListIncidentsCache(client, urn, incident, pageSize);
 };

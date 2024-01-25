@@ -3,7 +3,7 @@ import { CheckCircleFilled, WarningFilled, StopOutlined } from '@ant-design/icon
 import { Typography } from 'antd';
 import styled from 'styled-components';
 import { ANTD_GRAY } from '../../../constants';
-import { SUCCESS_COLOR_HEX, FAILURE_COLOR_HEX, PAGE_SIZE } from '../incidentUtils';
+import { SUCCESS_COLOR_HEX, FAILURE_COLOR_HEX } from '../incidentUtils';
 
 const SummaryHeader = styled.div`
     width: 100%;

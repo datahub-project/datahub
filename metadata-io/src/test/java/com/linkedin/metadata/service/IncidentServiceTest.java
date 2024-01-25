@@ -116,7 +116,7 @@ public class IncidentServiceTest {
     final IncidentService service =
         new IncidentService(mockClient, Mockito.mock(Authentication.class));
     service.raiseIncident(
-        IncidentType.FRESHNESS,
+        IncidentType.OPERATIONAL,
         null,
         null,
         null,
@@ -128,7 +128,7 @@ public class IncidentServiceTest {
 
     final IncidentInfo expectedInfo =
         new IncidentInfo()
-            .setType(IncidentType.FRESHNESS)
+            .setType(IncidentType.OPERATIONAL)
             .setEntities(new UrnArray(ImmutableList.of(TEST_DATASET_URN)))
             .setStatus(
                 new IncidentStatus()
@@ -152,19 +152,19 @@ public class IncidentServiceTest {
     final IncidentService service =
         new IncidentService(mockClient, Mockito.mock(Authentication.class));
     service.raiseIncident(
-        IncidentType.FRESHNESS,
+        IncidentType.OPERATIONAL,
         "custom type",
         2,
         "title",
         "description",
         ImmutableList.of(TEST_DATASET_URN),
-        new IncidentSource().setType(IncidentSourceType.ASSERTION_FAILURE),
+        new IncidentSource().setType(IncidentSourceType.MANUAL),
         UrnUtils.getUrn(SYSTEM_ACTOR),
         "message");
 
     final IncidentInfo expectedInfo =
         new IncidentInfo()
-            .setType(IncidentType.FRESHNESS)
+            .setType(IncidentType.OPERATIONAL)
             .setCustomType("custom type")
             .setPriority(2)
             .setTitle("title")
@@ -175,7 +175,7 @@ public class IncidentServiceTest {
                     .setState(IncidentState.ACTIVE)
                     .setLastUpdated(new AuditStamp().setTime(0L).setActor(TEST_USER_URN))
                     .setMessage("message"))
-            .setSource(new IncidentSource().setType(IncidentSourceType.ASSERTION_FAILURE))
+            .setSource(new IncidentSource().setType(IncidentSourceType.MANUAL))
             .setCreated(new AuditStamp().setTime(0L).setActor(TEST_USER_URN));
 
     Mockito.verify(mockClient, Mockito.times(1))
@@ -299,7 +299,7 @@ public class IncidentServiceTest {
 
   private static IncidentInfo mockIncidentInfo() throws Exception {
     return new IncidentInfo()
-        .setType(IncidentType.FRESHNESS)
+        .setType(IncidentType.OPERATIONAL)
         .setEntities(new UrnArray(ImmutableList.of(TEST_DATASET_URN)))
         .setStatus(
             new IncidentStatus()

@@ -34,7 +34,7 @@ import { getDataProduct } from '../shared/utils';
 import AccessManagement from '../shared/tabs/Dataset/AccessManagement/AccessManagement';
 import { matchedFieldPathsRenderer } from '../../search/matches/matchedFieldPathsRenderer';
 import { getLastUpdatedMs } from './shared/utils';
-import { IncidentTab } from '../../entity/shared/tabs/Incident/IncidentTab';
+import { IncidentTab } from '../shared/tabs/Incident/IncidentTab';
 
 const SUBTYPES = {
     VIEW: 'view',

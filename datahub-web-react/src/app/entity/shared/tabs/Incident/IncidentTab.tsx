@@ -118,7 +118,7 @@ export const IncidentTab = () => {
                             emptyText: (
                                 <Empty
                                     description={`No${
-                                        !!selectedIncidentState ? ` ${selectedIncidentState.toLocaleLowerCase()} ` : ''
+                                        selectedIncidentState ? ` ${selectedIncidentState.toLocaleLowerCase()} ` : ''
                                     } incidents`}
                                     image={Empty.PRESENTED_IMAGE_SIMPLE}
                                 />

@@ -3,7 +3,6 @@ import styled from 'styled-components';
 import { Button, Dropdown, List, Menu, message, Popover, Tag, Tooltip, Typography } from 'antd';
 import { CheckCircleFilled, CheckOutlined, MoreOutlined, WarningFilled } from '@ant-design/icons';
 import { Link } from 'react-router-dom';
-import { useApolloClient } from '@apollo/client';
 import { EntityType, IncidentState, IncidentType } from '../../../../../../types.generated';
 import { FAILURE_COLOR_HEX, getNameFromType, SUCCESS_COLOR_HEX } from '../incidentUtils';
 import { useGetUserQuery } from '../../../../../../graphql/user.generated';
@@ -144,8 +143,6 @@ export default function IncidentListItem({ incident, refetch }: Props) {
     const entityRegistry = useEntityRegistry();
     const [updateIncidentStatusMutation] = useUpdateIncidentStatusMutation();
     const [isResolvedModalVisible, setIsResolvedModalVisible] = useState(false);
-
-    const client = useApolloClient();
 
     // Fetching the most recent actor's data.
     const { data: createdActor } = useGetUserQuery({

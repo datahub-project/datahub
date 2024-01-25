@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { message, Modal, Button, Form, Input, Typography, Select } from 'antd';
 import { useApolloClient } from '@apollo/client';
+import TextArea from 'antd/lib/input/TextArea';
 import analytics, { EventType, EntityActionType } from '../../../../../analytics';
-import { useEntityData, useRefetch } from '../../../EntityContext';
+import { useEntityData } from '../../../EntityContext';
 import { EntityType, IncidentSourceType, IncidentState, IncidentType } from '../../../../../../types.generated';
 import { INCIDENT_DISPLAY_TYPES, PAGE_SIZE, addActiveIncidentToCache } from '../incidentUtils';
 import { useRaiseIncidentMutation } from '../../../../../../graphql/mutations.generated';
@@ -29,6 +30,7 @@ export const AddIncidentModal = ({ visible, onClose, refetch }: AddIncidentProps
     const handleClose = () => {
         form.resetFields();
         setIsOtherTypeSelected(false);
+        setSelectedIncidentType(IncidentType.Operational);
         onClose?.();
     };
 
@@ -147,7 +149,7 @@ export const AddIncidentModal = ({ visible, onClose, refetch }: AddIncidentProps
                                 },
                             ]}
                         >
-                            <Input />
+                            <Input placeholder="Freshness" />
                         </Form.Item>
                     )}
                     <Form.Item
@@ -160,7 +162,7 @@ export const AddIncidentModal = ({ visible, onClose, refetch }: AddIncidentProps
                             },
                         ]}
                     >
-                        <Input placeholder="A title for this incident" />
+                        <Input placeholder="What went wrong?" />
                     </Form.Item>
                     <Form.Item
                         name="description"
@@ -172,7 +174,7 @@ export const AddIncidentModal = ({ visible, onClose, refetch }: AddIncidentProps
                             },
                         ]}
                     >
-                        <Input placeholder="A short description for this incident" />
+                        <TextArea placeholder="Provide some additional details" />
                     </Form.Item>
                 </Form>
             </Modal>
