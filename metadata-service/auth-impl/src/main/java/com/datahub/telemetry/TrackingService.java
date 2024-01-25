@@ -146,7 +146,7 @@ public class TrackingService {
 
     Urn clientIdUrn = UrnUtils.getUrn(CLIENT_ID_URN);
     // Create a new client id if it doesn't exist
-    if (!_entityService.exists(clientIdUrn)) {
+    if (!_entityService.exists(clientIdUrn, true)) {
       return createClientIdIfNotPresent(_entityService);
     }
 

@@ -106,10 +106,19 @@ describe("create and manage group", () => {
         cy.waitTextVisible(username);  
     });
 
+    it("assign role to group ", () => {
+        cy.loginWithCredentials();
+        cy.visit("/settings/identities/groups");
+        cy.get(`[href="/group/urn:li:corpGroup:${test_id}"]`).next().click()
+        cy.get('.ant-select-item-option').contains('Admin').click()
+        cy.get('button.ant-btn-primary').contains('OK').click();
+        cy.get(`[href="/group/urn:li:corpGroup:${test_id}"]`).waitTextVisible('Admin');
+    });
+
     it("remove group", () => {
         cy.loginWithCredentials();
         cy.visit("/settings/identities/groups");
-        cy.get(`[href="/group/urn:li:corpGroup:${test_id}"]`).next().click();
+        cy.get(`[href="/group/urn:li:corpGroup:${test_id}"]`).openThreeDotDropdown()
         cy.clickOptionWithText("Delete");
         cy.clickOptionWithText("Yes");
         cy.waitTextVisible("Deleted Group!"); 

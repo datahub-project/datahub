@@ -42,6 +42,8 @@ entities:
       - dataPlatformInstance
       - browsePathsV2
       - access
+      - structuredProperties
+      - forms
   - name: dataHubPolicy
     doc: DataHub Policies represent access policies granted to users or groups on metadata operations like edit, view etc.
     category: internal
@@ -67,6 +69,7 @@ entities:
       - institutionalMemory
       - dataPlatformInstance
       - browsePathsV2
+      - structuredProperties
       - subTypes
   - name: dataFlow
     category: core
@@ -85,6 +88,7 @@ entities:
       - institutionalMemory
       - dataPlatformInstance
       - browsePathsV2
+      - structuredProperties
   - name: dataProcess
     keyAspect: dataProcessKey
     aspects:
@@ -184,6 +188,7 @@ entities:
       - ownership
       - status
       - origin
+      - roleMembership
   - name: domain
     doc: A data domain within an organization.
     category: core
@@ -408,7 +413,8 @@ entities:
   - name: schemaField
     category: core
     keyAspect: schemaFieldKey
-    aspects: []
+    aspects:
+      - structuredProperties
   - name: globalSettings
     doc: Global settings for an the platform
     category: internal
@@ -467,5 +473,51 @@ entities:
       - dataContractProperties
       - dataContractStatus
       - status
-
+  - name: entityType
+    doc: A type of entity in the DataHub Metadata Model.
+    category: core
+    keyAspect: entityTypeKey
+    aspects:
+      - entityTypeInfo
+      - institutionalMemory
+      - status
+  - name: dataType
+    doc: A type of data element stored within DataHub.
+    category: core
+    keyAspect: dataTypeKey
+    aspects:
+      - dataTypeInfo
+      - institutionalMemory
+      - status
+  - name: structuredProperty
+    doc: Structured Property represents a property meant for extending the core model of a logical entity
+    category: core
+    keyAspect: structuredPropertyKey
+    aspects:
+      - propertyDefinition
+      - institutionalMemory
+      - status
+  - name: form
+    category: core
+    keyAspect: formKey
+    aspects:
+      - formInfo
+      - dynamicFormAssignment
+      - ownership
 events:
+plugins:
+  aspectPayloadValidators:
+    - className: 'com.linkedin.metadata.aspect.validation.PropertyDefinitionValidator'
+      enabled: true
+      supportedOperations:
+        - UPSERT
+      supportedEntityAspectNames:
+        - entityName: structuredProperty
+          aspectName: propertyDefinition
+    - className: 'com.linkedin.metadata.aspect.validation.StructuredPropertiesValidator'
+      enabled: true
+      supportedOperations:
+        - UPSERT
+      supportedEntityAspectNames:
+        - entityName: '*'
+          aspectName: structuredProperties

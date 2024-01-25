@@ -7,6 +7,9 @@ query getDashboard($urn: String!) {
         datasets: relationships(input: { types: ["Consumes"], direction: OUTGOING, start: 0, count: 100 }) {
             ...fullRelationshipResults
         }
+        autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
+            ...autoRenderAspectFields
+        }
     }
 }
 

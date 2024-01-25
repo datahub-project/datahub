@@ -1,7 +1,10 @@
 package com.linkedin.metadata.kafka;
 
-import com.linkedin.entity.client.RestliEntityClient;
+import com.datahub.authentication.Authentication;
+import com.linkedin.entity.client.SystemEntityClient;
+import com.linkedin.entity.client.SystemRestliEntityClient;
 import com.linkedin.gms.factory.auth.SystemAuthenticationFactory;
+import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.dao.producer.KafkaHealthChecker;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.SiblingGraphService;
@@ -15,6 +18,7 @@ import com.linkedin.restli.client.Client;
 import io.ebean.Database;
 import java.net.URI;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.boot.test.web.client.TestRestTemplate;
@@ -30,14 +34,21 @@ public class MceConsumerApplicationTestConfiguration {
 
   @MockBean public KafkaHealthChecker kafkaHealthChecker;
 
-  @MockBean public EntityService _entityService;
+  @MockBean public EntityService<?> _entityService;
 
-  @Bean("restliEntityClient")
+  @Bean
   @Primary
-  public RestliEntityClient restliEntityClient() {
+  public SystemEntityClient systemEntityClient(
+      @Qualifier("configurationProvider") final ConfigurationProvider configurationProvider,
+      @Qualifier("systemAuthentication") final Authentication systemAuthentication) {
     String selfUri = restTemplate.getRootUri();
     final Client restClient = DefaultRestliClientFactory.getRestLiClient(URI.create(selfUri), null);
-    return new RestliEntityClient(restClient, new ExponentialBackoff(1), 1);
+    return new SystemRestliEntityClient(
+        restClient,
+        new ExponentialBackoff(1),
+        1,
+        systemAuthentication,
+        configurationProvider.getCache().getClient().getEntityClient());
   }
 
   @MockBean public Database ebeanServer;

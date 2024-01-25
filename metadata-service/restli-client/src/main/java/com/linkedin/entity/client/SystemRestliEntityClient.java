@@ -17,7 +17,7 @@ public class SystemRestliEntityClient extends RestliEntityClient implements Syst
       @Nonnull final Client restliClient,
       @Nonnull final BackoffPolicy backoffPolicy,
       int retryCount,
-      Authentication systemAuthentication,
+      @Nonnull Authentication systemAuthentication,
       EntityClientCacheConfig cacheConfig) {
     super(restliClient, backoffPolicy, retryCount);
     this.systemAuthentication = systemAuthentication;

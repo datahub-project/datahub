@@ -58,6 +58,25 @@ module.exports = {
         },
         {
           type: "dropdown",
+          label: "Community",
+          position: "right",
+          items: [
+            {
+              href: "https://slack.datahubproject.io",
+              label: "Join Slack",
+            },
+            {
+              href: "https://calendar.datahubproject.io/",
+              label: "Events",
+            },
+            {
+              to: "/champions",
+              label: "Champions",
+            },
+          ],
+        },
+        {
+          type: "dropdown",
           label: "Resources",
           position: "right",
           items: [
@@ -66,16 +85,12 @@ module.exports = {
               label: "Demo",
             },
             {
-              href: "https://blog.datahubproject.io/",
+              href: "https://www.acryldata.io/blog",
               label: "Blog",
             },
             {
               href: "https://feature-requests.datahubproject.io/roadmap",
               label: "Roadmap",
-            },
-            {
-              href: "https://slack.datahubproject.io",
-              label: "Slack",
             },
             {
               href: "https://github.com/datahub-project/datahub",
@@ -84,6 +99,14 @@ module.exports = {
             {
               href: "https://www.youtube.com/channel/UC3qFQC5IiwR5fvWEqi_tJ5w",
               label: "YouTube",
+            },
+            {
+              href: "https://www.youtube.com/playlist?list=PLdCtLs64vZvGCKMQC2dJEZ6cUqWsREbFi",
+              label: "Case Studies",
+            },
+            {
+              href: "https://www.youtube.com/playlist?list=PLdCtLs64vZvErAXMiqUYH9e63wyDaMBgg",
+              label: "DataHub Basics",
             },
           ],
         },
