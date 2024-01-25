@@ -25,7 +25,8 @@ def test_gen_dataset_workunits_patch_custom_properties():
 
     custom_props_exist = False
     for item in gen:
-        mcp = cast(MetadataChangeProposalClass, item.metadata)
+        assert isinstance(item.metadata, MetadataChangeProposalClass)
+        mcp = item.metadata
         if mcp.aspectName == "datasetProperties":
             assert mcp.changeType == "PATCH"
             custom_props_exist = True
