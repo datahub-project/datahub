@@ -2,7 +2,6 @@ import React from 'react';
 import styled from 'styled-components';
 import { Editor } from '../../../tabs/Documentation/components/editor/Editor';
 import { ANTD_GRAY_V2 } from '../../../constants';
-import { useEntityFormContext } from '../../EntityFormContext';
 
 const StyledEditor = styled(Editor)`
     border: 1px solid ${ANTD_GRAY_V2[6]};
