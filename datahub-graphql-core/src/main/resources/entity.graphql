@@ -6803,6 +6803,11 @@ type AssertionInfo {
     Dataset-specific assertion information
     """
     datasetAssertion: DatasetAssertionInfo
+
+    """
+    An optional human-readable description of the assertion
+    """
+    description: String
 }
 
 """
