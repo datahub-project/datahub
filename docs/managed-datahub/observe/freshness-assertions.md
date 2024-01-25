@@ -130,11 +130,11 @@ Change Source types vary by the platform, but generally fall into these categori
     This relies on Operations being reported to DataHub, either via ingestion or via use of the DataHub APIs (see [Report Operation via API](#reporting-operations-via-api)).
     Note if you have not configured an ingestion source through DataHub, then this may be the only option available. By default, any operation type found will be considered a valid change. Use the **Operation Types** dropdown when selecting this option to specify which operation types should be considered valid changes. You may choose from one of DataHub's standard Operation Types, or specify a "Custom" Operation Type by typing in the name of the Operation Type.
 
-  - **File Metadata Column** (Databricks Only): A column that is exposed by Databricks for both Unity Catalog and Hive Metastore based tables
+  - **File Metadata** (Databricks Only): A column that is exposed by Databricks for both Unity Catalog and Hive Metastore based tables
     which includes information about the last time that a file for the table was changed. Read more about it [here](https://docs.databricks.com/en/ingestion/file-metadata-column.html). 
 
-    Using either of the column value approaches (**Last Modified Column** or **High Watermark Column**) to determine whether a Table has changed can be useful because it can be customized to determine whether specific types of important changes have been made to a given Table.
-    Because it does not involve system warehouse tables, it is also easily portable across Data Warehouse and Data Lake providers. 
+    Using either of the column value approaches (**Last Modified Column** or **High Watermark Column**) to determine whether a Table has changed can be useful because it can be customized to determine whether specific types of changes have been made to a given Table.
+    And because this type of assertion does not involve system warehouse tables, they are easily portable across Data Warehouse and Data Lake providers. 
 
 Freshness Assertions also have an off switch: they can be started or stopped at any time with the click of button.
 
