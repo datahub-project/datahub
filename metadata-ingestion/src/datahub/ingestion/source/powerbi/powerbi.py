@@ -546,6 +546,7 @@ class Mapper:
             entity_urn=chart_urn,
             aspect_name=Constant.CHART_INFO,
             aspect=chart_info_instance,
+            change_type=ChangeTypeClass.PATCH,
         )
 
         # removed status mcp
@@ -636,6 +637,7 @@ class Mapper:
             entity_urn=dashboard_urn,
             aspect_name=Constant.DASHBOARD_INFO,
             aspect=dashboard_info_cls,
+            change_type=ChangeTypeClass.PATCH,
         )
 
         # removed status mcp
@@ -954,6 +956,7 @@ class Mapper:
                 entity_urn=chart_urn,
                 aspect_name=Constant.CHART_INFO,
                 aspect=chart_info_instance,
+                change_type=ChangeTypeClass.PATCH,
             )
 
             # removed status mcp
@@ -1022,6 +1025,7 @@ class Mapper:
             entity_urn=dashboard_urn,
             aspect_name=Constant.DASHBOARD_INFO,
             aspect=dashboard_info_cls,
+            change_type=ChangeTypeClass.PATCH,
         )
 
         # removed status mcp
