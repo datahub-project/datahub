@@ -40,7 +40,7 @@ export default function DropdownHeader({ field, numPrompts, isExpanded }: Props)
     const { formUrn } = useEntityFormContext();
     const numPromptsCompletedForField = useMemo(
         () => getNumPromptsCompletedForField(field.fieldPath, entityData, formUrn),
-        [entityData, field.fieldPath],
+        [entityData, field.fieldPath, formUrn],
     );
     const numPromptsRemaining = numPrompts - numPromptsCompletedForField;
 
