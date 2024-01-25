@@ -67,7 +67,7 @@ def auto_workunit(
 def create_dataset_props_patch_builder(
     dataset_urn: str,
     properties: DatasetPropertiesClass,
-    table: BaseTable,
+    table: "BaseTable",
 ) -> DatasetPatchBuilder:
     """Creates a patch builder with a table's or view's attributes and dataset properties"""
     patch_builder = DatasetPatchBuilder(dataset_urn)
