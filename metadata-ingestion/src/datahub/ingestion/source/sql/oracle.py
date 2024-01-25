@@ -1,6 +1,6 @@
 import logging
 import re
-from typing import Any, Dict, Iterable, List, NoReturn, Optional, Tuple, cast
+from typing import Any, Dict, Iterable, List, NoReturn, Optional, Tuple, Union, cast
 from unittest.mock import patch
 
 # This import verifies that the dependencies are available.
@@ -516,7 +516,7 @@ class OracleInspectorObjectWrapper:
 
     def get_view_definition(
         self, view_name: Optional[str], schema: Optional[str] = None
-    ) -> str | None:
+    ) -> Union[str, None]:
         view_name = self._inspector_instance.dialect.denormalize_name(view_name)
         schema = self._inspector_instance.dialect.denormalize_name(
             schema or self.default_schema_name
