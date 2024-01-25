@@ -62,7 +62,7 @@ def get_group_ownership(user_urn: str) -> List[str]:
     graph = get_default_graph()
     entities = graph.get_related_entities(
         entity_urn=user_urn,
-        relationship_types="OwnedBy",
+        relationship_types=["OwnedBy"],
         direction=DataHubGraph.RelationshipDirection.INCOMING,
     )
     return [entity.urn for entity in entities]
@@ -72,7 +72,7 @@ def get_group_membership(user_urn: str) -> List[str]:
     graph = get_default_graph()
     entities = graph.get_related_entities(
         entity_urn=user_urn,
-        relationship_types="IsMemberOfGroup",
+        relationship_types=["IsMemberOfGroup"],
         direction=DataHubGraph.RelationshipDirection.OUTGOING,
     )
     return [entity.urn for entity in entities]

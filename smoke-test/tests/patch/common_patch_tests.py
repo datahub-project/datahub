@@ -77,7 +77,9 @@ def helper_test_entity_terms_patch(
 
 
 def helper_test_dataset_tags_patch(
-    test_entity_urn: str, patch_builder_class: Type[MetadataPatchProposal]
+    test_entity_urn: str,
+    entity_type: str,
+    patch_builder_class: Type[MetadataPatchProposal],
 ):
     tag_urn = make_tag_urn(tag=f"testTag-{uuid.uuid4()}")
 
@@ -87,15 +89,16 @@ def helper_test_dataset_tags_patch(
 
     with DataHubGraph(DataHubGraphConfig()) as graph:
         graph.emit_mcp(mcpw)
-        tags_read: GlobalTagsClass = graph.get_aspect(
+        tags_read = graph.get_aspect(
             entity_urn=test_entity_urn,
             aspect_type=GlobalTagsClass,
         )
+        assert tags_read is not None
         assert tags_read.tags[0].tag == tag_urn
         assert tags_read.tags[0].context == "test"
 
         new_tag = TagAssociationClass(tag=make_tag_urn(f"test-{uuid.uuid4()}"))
-        patch_builder = patch_builder_class(test_entity_urn)
+        patch_builder = patch_builder_class(test_entity_urn, entity_type)
         assert hasattr(patch_builder, "add_tag")
         for patch_mcp in patch_builder.add_tag(new_tag).build():
             graph.emit_mcp(patch_mcp)
@@ -105,13 +108,16 @@ def helper_test_dataset_tags_patch(
             entity_urn=test_entity_urn,
             aspect_type=GlobalTagsClass,
         )
+        assert tags_read is not None
         assert tags_read.tags[0].tag == tag_urn
         assert tags_read.tags[0].context == "test"
         assert tags_read.tags[1].tag == new_tag.tag
         assert tags_read.tags[1].context is None
 
         for patch_mcp in (
-            patch_builder_class(test_entity_urn).remove_tag(tag_urn).build()
+            patch_builder_class(test_entity_urn, entity_type)
+            .remove_tag(tag_urn)
+            .build()
         ):
             graph.emit_mcp(patch_mcp)
             pass
@@ -120,12 +126,15 @@ def helper_test_dataset_tags_patch(
             entity_urn=test_entity_urn,
             aspect_type=GlobalTagsClass,
         )
+        assert tags_read is not None
         assert len(tags_read.tags) == 1
         assert tags_read.tags[0].tag == new_tag.tag
 
 
 def helper_test_ownership_patch(
-    test_entity_urn: str, patch_builder_class: Type[MetadataPatchProposal]
+    test_entity_urn: str,
+    entity_type: str,
+    patch_builder_class: Type[MetadataPatchProposal],
 ):
     owner_to_set = OwnerClass(
         owner=make_user_urn("jdoe"), type=OwnershipTypeClass.DATAOWNER
@@ -140,33 +149,37 @@ def helper_test_ownership_patch(
     )
     with DataHubGraph(DataHubGraphConfig()) as graph:
         graph.emit_mcp(mcpw)
-        owner: OwnershipClass = graph.get_aspect(
-            entity_urn=test_entity_urn, aspect_type=OwnershipClass
-        )
+        owner = graph.get_aspect(entity_urn=test_entity_urn, aspect_type=OwnershipClass)
+        assert owner is not None
         assert owner.owners[0].owner == make_user_urn("jdoe")
 
         for patch_mcp in (
-            patch_builder_class(test_entity_urn).add_owner(owner_to_add).build()
+            patch_builder_class(test_entity_urn, entity_type)
+            .add_owner(owner_to_add)
+            .build()
         ):
             graph.emit_mcp(patch_mcp)
 
         owner = graph.get_aspect(entity_urn=test_entity_urn, aspect_type=OwnershipClass)
+        assert owner is not None
         assert len(owner.owners) == 2
 
         for patch_mcp in (
-            patch_builder_class(test_entity_urn)
+            patch_builder_class(test_entity_urn, entity_type)
             .remove_owner(make_user_urn("gdoe"))
             .build()
         ):
             graph.emit_mcp(patch_mcp)
 
         owner = graph.get_aspect(entity_urn=test_entity_urn, aspect_type=OwnershipClass)
+        assert owner is not None
         assert len(owner.owners) == 1
         assert owner.owners[0].owner == make_user_urn("jdoe")
 
 
 def helper_test_custom_properties_patch(
     test_entity_urn: str,
+    entity_type: str,
     patch_builder_class: Type[MetadataPatchProposal],
     custom_properties_aspect_class: Type[_Aspect],
     base_aspect: _Aspect,
@@ -201,7 +214,7 @@ def helper_test_custom_properties_patch(
             "test_property1": "test_value1",
         }
 
-        entity_patch_builder = patch_builder_class(test_entity_urn)
+        entity_patch_builder = patch_builder_class(test_entity_urn, entity_type)
         for k, v in new_properties.items():
             entity_patch_builder.add_custom_property(k, v)
 
@@ -220,7 +233,7 @@ def helper_test_custom_properties_patch(
 
         # Remove property
         for patch_mcp in (
-            patch_builder_class(test_entity_urn)
+            patch_builder_class(test_entity_urn, entity_type)
             .remove_custom_property("test_property")
             .build()
         ):
@@ -238,7 +251,7 @@ def helper_test_custom_properties_patch(
 
         # Replace custom properties
         for patch_mcp in (
-            patch_builder_class(test_entity_urn)
+            patch_builder_class(test_entity_urn, entity_type)
             .set_custom_properties(new_properties)
             .build()
         ):
