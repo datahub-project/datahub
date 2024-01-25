@@ -76,6 +76,14 @@ export const SchemaTab = ({ properties }: { properties?: any }) => {
         [schemaMetadata],
     );
 
+    const hasProperties = useMemo(
+        () =>
+            entityWithSchema?.schemaMetadata?.fields.some(
+                (schemaField) => !!schemaField.schemaFieldEntity?.structuredProperties?.properties?.length,
+            ),
+        [entityWithSchema],
+    );
+
     const [showKeySchema, setShowKeySchema] = useState(false);
     const [showSchemaAuditView, setShowSchemaAuditView] = useState(false);
 
@@ -190,13 +198,13 @@ export const SchemaTab = ({ properties }: { properties?: any }) => {
                                 <SchemaTable
                                     schemaMetadata={schemaMetadata}
                                     rows={rows}
-                                    editMode={editMode}
                                     editableSchemaMetadata={editableSchemaMetadata}
                                     usageStats={usageStats}
                                     schemaFieldBlameList={schemaFieldBlameList}
                                     showSchemaAuditView={showSchemaAuditView}
                                     expandedRowsFromFilter={expandedRowsFromFilter as any}
                                     filterText={filterText as any}
+                                    hasProperties={hasProperties}
                                 />
                             </SchemaEditableContext.Provider>
                         </>
