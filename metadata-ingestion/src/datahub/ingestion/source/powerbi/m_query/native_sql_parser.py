@@ -69,8 +69,8 @@ def parse_custom_sql(
 
     return sqlglot_l.create_lineage_sql_parsed_result(
         query=sql_query,
-        schema=schema,
-        database=database,
+        default_schema=schema,
+        default_db=database,
         platform=platform,
         platform_instance=platform_instance,
         env=env,

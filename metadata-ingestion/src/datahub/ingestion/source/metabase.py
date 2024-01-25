@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timezone
 from functools import lru_cache
 from typing import Dict, Iterable, List, Optional, Tuple, Union
@@ -7,7 +8,6 @@ import pydantic
 import requests
 from pydantic import Field, validator
 from requests.models import HTTPError
-from sqllineage.runner import LineageRunner
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.source_common import DatasetLineageProviderConfigBase
@@ -42,6 +42,9 @@ from datahub.metadata.schema_classes import (
     OwnershipTypeClass,
 )
 from datahub.utilities import config_clean
+from datahub.utilities.sqlglot_lineage import create_lineage_sql_parsed_result
+
+logger = logging.getLogger(__name__)
 
 DATASOURCE_URN_RECURSION_LIMIT = 5
 
@@ -242,7 +245,7 @@ class MetabaseSource(Source):
             dashboard_response.raise_for_status()
             dashboard_details = dashboard_response.json()
         except HTTPError as http_error:
-            self.report.report_failure(
+            self.report.report_warning(
                 key=f"metabase-dashboard-{dashboard_id}",
                 reason=f"Unable to retrieve dashboard. " f"Reason: {str(http_error)}",
             )
@@ -310,7 +313,7 @@ class MetabaseSource(Source):
                 )
                 return None
             # For cases when the error is not 404 but something else
-            self.report.report_failure(
+            self.report.report_warning(
                 key=f"metabase-user-{creator_id}",
                 reason=f"Unable to retrieve User info. " f"Reason: {str(http_error)}",
             )
@@ -365,7 +368,7 @@ class MetabaseSource(Source):
             card_response.raise_for_status()
             return card_response.json()
         except HTTPError as http_error:
-            self.report.report_failure(
+            self.report.report_warning(
                 key=f"metabase-card-{card_id}",
                 reason=f"Unable to retrieve Card info. " f"Reason: {str(http_error)}",
             )
@@ -374,7 +377,7 @@ class MetabaseSource(Source):
     def construct_card_from_api_data(self, card_data: dict) -> Optional[ChartSnapshot]:
         card_id = card_data.get("id")
         if card_id is None:
-            self.report.report_failure(
+            self.report.report_warning(
                 key="metabase-card",
                 reason=f"Unable to get Card id from card data {str(card_data)}",
             )
@@ -382,7 +385,7 @@ class MetabaseSource(Source):
 
         card_details = self.get_card_details_by_id(card_id)
         if not card_details:
-            self.report.report_failure(
+            self.report.report_warning(
                 key=f"metabase-card-{card_id}",
                 reason="Unable to construct Card due to empty card details",
             )
@@ -499,7 +502,7 @@ class MetabaseSource(Source):
         self, card_details: dict, recursion_depth: int = 0
     ) -> Optional[List]:
         if recursion_depth > DATASOURCE_URN_RECURSION_LIMIT:
-            self.report.report_failure(
+            self.report.report_warning(
                 key=f"metabase-card-{card_details.get('id')}",
                 reason="Unable to retrieve Card info. Reason: source table recursion depth exceeded",
             )
@@ -513,14 +516,13 @@ class MetabaseSource(Source):
             platform_instance,
         ) = self.get_datasource_from_id(datasource_id)
         if not platform:
-            self.report.report_failure(
+            self.report.report_warning(
                 key=f"metabase-datasource-{datasource_id}",
                 reason=f"Unable to detect platform for database id {datasource_id}",
             )
             return None
 
         query_type = card_details.get("dataset_query", {}).get("type", {})
-        source_tables = set()
 
         if query_type == "query":
             source_table_id = (
@@ -542,57 +544,40 @@ class MetabaseSource(Source):
                 # the question is built directly from table in DB
                 schema_name, table_name = self.get_source_table_from_id(source_table_id)
                 if table_name:
-                    source_tables.add(
-                        f"{database_name + '.' if database_name else ''}{schema_name + '.' if schema_name else ''}{table_name}"
-                    )
-        else:
-            try:
-                raw_query = (
-                    card_details.get("dataset_query", {})
-                    .get("native", {})
-                    .get("query", "")
-                )
-                parser = LineageRunner(raw_query)
-
-                for table in parser.source_tables:
-                    sources = str(table).split(".")
-
-                    source_db = sources[-3] if len(sources) > 2 else database_name
-                    source_schema, source_table = sources[-2], sources[-1]
-                    if source_schema == "<default>":
-                        source_schema = (
-                            database_schema
-                            if database_schema is not None
-                            else str(self.config.default_schema)
+                    name_components = [database_name, schema_name, table_name]
+                    return [
+                        builder.make_dataset_urn_with_platform_instance(
+                            platform=platform,
+                            name=".".join([v for v in name_components if v]),
+                            platform_instance=platform_instance,
+                            env=self.config.env,
                         )
-
-                    source_tables.add(
-                        f"{source_db + '.' if source_db else ''}{source_schema}.{source_table}"
-                    )
-            except Exception as e:
-                self.report.report_failure(
-                    key="metabase-query",
-                    reason=f"Unable to retrieve lineage from query. "
-                    f"Query: {raw_query} "
-                    f"Reason: {str(e)} ",
-                )
-                return None
-
-        if platform == "snowflake":
-            source_tables = set(i.lower() for i in source_tables)
-
-        # Create dataset URNs
-        dataset_urn = [
-            builder.make_dataset_urn_with_platform_instance(
+                    ]
+        else:
+            raw_query = (
+                card_details.get("dataset_query", {}).get("native", {}).get("query", "")
+            )
+            result = create_lineage_sql_parsed_result(
+                query=raw_query,
+                default_db=database_name,
+                default_schema=database_schema or self.config.default_schema,
                 platform=platform,
-                name=name,
                 platform_instance=platform_instance,
                 env=self.config.env,
+                graph=self.ctx.graph,
             )
-            for name in source_tables
-        ]
+            if result.debug_info.table_error:
+                logger.info(
+                    f"Failed to parse lineage from query {raw_query}: "
+                    f"{result.debug_info.table_error}"
+                )
+                self.report.report_warning(
+                    key="metabase-query",
+                    reason=f"Unable to retrieve lineage from query: {raw_query}",
+                )
+            return result.in_tables
 
-        return dataset_urn
+        return None
 
     @lru_cache(maxsize=None)
     def get_source_table_from_id(
@@ -609,10 +594,9 @@ class MetabaseSource(Source):
             return schema, name
 
         except HTTPError as http_error:
-            self.report.report_failure(
+            self.report.report_warning(
                 key=f"metabase-table-{table_id}",
-                reason=f"Unable to retrieve source table. "
-                f"Reason: {str(http_error)}",
+                reason=f"Unable to retrieve source table. Reason: {str(http_error)}",
             )
 
         return None, None
@@ -658,7 +642,7 @@ class MetabaseSource(Source):
             dataset_response.raise_for_status()
             dataset_json = dataset_response.json()
         except HTTPError as http_error:
-            self.report.report_failure(
+            self.report.report_warning(
                 key=f"metabase-datasource-{datasource_id}",
                 reason=f"Unable to retrieve Datasource. " f"Reason: {str(http_error)}",
             )

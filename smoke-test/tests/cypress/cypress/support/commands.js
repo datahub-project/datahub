@@ -183,10 +183,10 @@ Cypress.Commands.add("addViaFormModal", (text, modelHeader) => {
   cy.get(".ant-modal-footer > button:nth-child(2)").click();
 });
 
-Cypress.Commands.add("addViaModal", (text, modelHeader,value) => {
+Cypress.Commands.add("addViaModal", (text, modelHeader, value, dataTestId) => {
   cy.waitTextVisible(modelHeader);
   cy.get(".ant-input-affix-wrapper > input[type='text']").first().type(text);
-  cy.get(".ant-modal-footer > button:nth-child(2)").click();
+  cy.get('[data-testid="' + dataTestId + '"]').click();
   cy.contains(value).should('be.visible');
 });
 
