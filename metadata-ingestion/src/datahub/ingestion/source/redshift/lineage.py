@@ -196,9 +196,11 @@ class RedshiftLineageExtractor:
             )
 
             if (
-                result.column_lineage is None
+                result is None
+                or result.column_lineage is None
                 or result.query_type != sqlglot_l.QueryType.CREATE
             ):
+                logger.debug(f"Unsupported temp table query found: {table.query_text}")
                 continue
 
             self.temp_tables.append(
