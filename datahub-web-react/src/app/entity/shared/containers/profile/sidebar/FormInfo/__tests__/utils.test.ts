@@ -55,12 +55,12 @@ describe('form prompt utils', () => {
     });
 
     it('should get the numer of completed prompts for a given schema field in incompletePrompts', () => {
-        const numCompleted = getNumPromptsCompletedForField('test2', mockEntityData);
+        const numCompleted = getNumPromptsCompletedForField('test2', mockEntityData, 'urn:li:form:1');
         expect(numCompleted).toBe(1);
     });
 
     it('should get the numer of completed prompts for a given schema field in completedPrompts and incompletePrompts', () => {
-        const numCompleted = getNumPromptsCompletedForField('test3', mockEntityData);
+        const numCompleted = getNumPromptsCompletedForField('test3', mockEntityData, 'urn:li:form:1');
         expect(numCompleted).toBe(2);
     });
 

@@ -101,8 +101,12 @@ export function getCompletedFieldPromptAssociationsForForm(
     return formAssociation ? getCompletedFieldPromptsFromForm(formAssociation, relevantFieldFormPromptIds) : [];
 }
 
-export function getNumPromptsCompletedForField(fieldPath: string, entityData: GenericEntityProperties | null) {
-    const completedFieldPromptAssociations = getCompletedFieldPromptAssociations(entityData);
+export function getNumPromptsCompletedForField(
+    fieldPath: string,
+    entityData: GenericEntityProperties | null,
+    formUrn: string,
+) {
+    const completedFieldPromptAssociations = getCompletedFieldPromptAssociationsForForm(formUrn, entityData);
     return completedFieldPromptAssociations.filter((association) => association.fieldPath === fieldPath).length;
 }
 
@@ -136,6 +140,8 @@ export function getCompletedPrompts(entityData: GenericEntityProperties | null) 
     completedPrompts = completedPrompts.concat(
         forms?.completedForms?.flatMap((form) => (form.completedPrompts ? form.completedPrompts : [])) || [],
     );
+    console.log('entityData', entityData);
+    console.log('getCompletedPrompts', completedPrompts);
     return completedPrompts;
 }
 

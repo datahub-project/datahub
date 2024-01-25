@@ -8,6 +8,7 @@ import { getNumPromptsCompletedForField } from '../../containers/profile/sidebar
 import { useEntityData } from '../../EntityContext';
 import { ANTD_GRAY_V2 } from '../../constants';
 import { pluralize } from '../../../../shared/textUtil';
+import { useEntityFormContext } from '../EntityFormContext';
 
 const HeaderWrapper = styled.div`
     display: flex;
@@ -36,8 +37,9 @@ interface Props {
 
 export default function DropdownHeader({ field, numPrompts, isExpanded }: Props) {
     const { entityData } = useEntityData();
+    const { formUrn } = useEntityFormContext();
     const numPromptsCompletedForField = useMemo(
-        () => getNumPromptsCompletedForField(field.fieldPath, entityData),
+        () => getNumPromptsCompletedForField(field.fieldPath, entityData, formUrn),
         [entityData, field.fieldPath],
     );
     const numPromptsRemaining = numPrompts - numPromptsCompletedForField;
