@@ -1,8 +1,6 @@
 package com.linkedin.metadata.models;
 
-import com.linkedin.data.schema.BooleanDataSchema;
 import com.linkedin.data.schema.DataSchema;
-import com.linkedin.data.schema.LongDataSchema;
 import com.linkedin.data.schema.PathSpec;
 import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.schema.TyperefDataSchema;
@@ -46,27 +44,21 @@ public interface EntitySpec {
         .collect(Collectors.toList());
   }
 
-  default Map<String, Set<SearchableFieldSpec>> getSearchableFieldSpecMap() {
+  default Map<String, Set<SearchableAnnotation.FieldType>> getSearchableFieldTypes() {
     // Get additional fields and mint SearchableFieldSpecs for them
-    Map<String, Set<SearchableFieldSpec>> fieldSpecMap = new HashMap<>();
+    Map<String, Set<SearchableAnnotation.FieldType>> fieldSpecMap = new HashMap<>();
     for (SearchableFieldSpec fieldSpec : getSearchableFieldSpecs()) {
       SearchableAnnotation searchableAnnotation = fieldSpec.getSearchableAnnotation();
       if (searchableAnnotation.getNumValuesFieldName().isPresent()) {
         String fieldName = searchableAnnotation.getNumValuesFieldName().get();
-        SearchableFieldSpec numValuesField =
-            getSearchableFieldSpec(
-                fieldName, SearchableAnnotation.FieldType.COUNT, new LongDataSchema());
-        Set<SearchableFieldSpec> fieldSet = new HashSet<>();
-        fieldSet.add(numValuesField);
+        Set<SearchableAnnotation.FieldType> fieldSet = new HashSet<>();
+        fieldSet.add(SearchableAnnotation.FieldType.COUNT);
         fieldSpecMap.put(fieldName, fieldSet);
       }
       if (searchableAnnotation.getHasValuesFieldName().isPresent()) {
         String fieldName = searchableAnnotation.getHasValuesFieldName().get();
-        SearchableFieldSpec hasValuesField =
-            getSearchableFieldSpec(
-                fieldName, SearchableAnnotation.FieldType.BOOLEAN, new BooleanDataSchema());
-        Set<SearchableFieldSpec> fieldSet = new HashSet<>();
-        fieldSet.add(hasValuesField);
+        Set<SearchableAnnotation.FieldType> fieldSet = new HashSet<>();
+        fieldSet.add(SearchableAnnotation.FieldType.BOOLEAN);
         fieldSpecMap.put(fieldName, fieldSet);
       }
     }
@@ -77,7 +69,9 @@ public interface EntitySpec {
                     searchableFieldSpec ->
                         searchableFieldSpec.getSearchableAnnotation().getFieldName(),
                     searchableFieldSpec ->
-                        new HashSet<>(Collections.singleton(searchableFieldSpec)),
+                        new HashSet<>(
+                            Collections.singleton(
+                                searchableFieldSpec.getSearchableAnnotation().getFieldType())),
                     (set1, set2) -> {
                       set1.addAll(set2);
                       return set1;
