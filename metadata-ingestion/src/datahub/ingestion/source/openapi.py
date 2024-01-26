@@ -75,6 +75,9 @@ class OpenApiConfig(ConfigModel):
     token: Optional[str] = Field(
         default=None, description="Token for endpoint authentication."
     )
+    bearer_token: Optional[str] = Field(
+        default=None, description="Bearer token for endpoint authentication."
+    )
     get_token: dict = Field(
         default={}, description="Retrieving a token from the endpoint."
     )
