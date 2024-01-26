@@ -106,10 +106,7 @@ def test_list_dataset_incidents(frontend_session):
                 },
                 "source": {
                     "type": "MANUAL",
-                    "source": {
-                        "urn": "urn:li:assertion:assertion-test",
-                        "info": {"type": "DATASET"},
-                    },
+                    "source": None,
                 },
                 "entity": {"urn": TEST_DATASET_URN},
                 "created": {"time": 0, "actor": "urn:li:corpuser:admin"},
