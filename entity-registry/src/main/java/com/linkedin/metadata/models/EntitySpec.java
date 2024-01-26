@@ -53,40 +53,55 @@ public interface EntitySpec {
       SearchableAnnotation searchableAnnotation = fieldSpec.getSearchableAnnotation();
       if (searchableAnnotation.getNumValuesFieldName().isPresent()) {
         String fieldName = searchableAnnotation.getNumValuesFieldName().get();
-        SearchableFieldSpec numValuesField = getSearchableFieldSpec(fieldName, SearchableAnnotation.FieldType.COUNT,
-            new LongDataSchema());
+        SearchableFieldSpec numValuesField =
+            getSearchableFieldSpec(
+                fieldName, SearchableAnnotation.FieldType.COUNT, new LongDataSchema());
         Set<SearchableFieldSpec> fieldSet = new HashSet<>();
         fieldSet.add(numValuesField);
         fieldSpecMap.put(fieldName, fieldSet);
       }
       if (searchableAnnotation.getHasValuesFieldName().isPresent()) {
         String fieldName = searchableAnnotation.getHasValuesFieldName().get();
-        SearchableFieldSpec hasValuesField = getSearchableFieldSpec(fieldName, SearchableAnnotation.FieldType.BOOLEAN,
-            new BooleanDataSchema());
+        SearchableFieldSpec hasValuesField =
+            getSearchableFieldSpec(
+                fieldName, SearchableAnnotation.FieldType.BOOLEAN, new BooleanDataSchema());
         Set<SearchableFieldSpec> fieldSet = new HashSet<>();
         fieldSet.add(hasValuesField);
         fieldSpecMap.put(fieldName, fieldSet);
       }
     }
-    fieldSpecMap.putAll(getSearchableFieldSpecs().stream()
-        .collect(
-            Collectors.toMap(
-                searchableFieldSpec -> searchableFieldSpec.getSearchableAnnotation().getFieldName(),
-                searchableFieldSpec -> new HashSet<>(Collections.singleton(searchableFieldSpec)),
-                (set1, set2) -> {
-                  set1.addAll(set2);
-                  return set1;
-                })));
+    fieldSpecMap.putAll(
+        getSearchableFieldSpecs().stream()
+            .collect(
+                Collectors.toMap(
+                    searchableFieldSpec ->
+                        searchableFieldSpec.getSearchableAnnotation().getFieldName(),
+                    searchableFieldSpec ->
+                        new HashSet<>(Collections.singleton(searchableFieldSpec)),
+                    (set1, set2) -> {
+                      set1.addAll(set2);
+                      return set1;
+                    })));
     return fieldSpecMap;
   }
 
-  private static SearchableFieldSpec getSearchableFieldSpec(String fieldName, SearchableAnnotation.FieldType fieldType,
-      DataSchema dataSchema) {
+  private static SearchableFieldSpec getSearchableFieldSpec(
+      String fieldName, SearchableAnnotation.FieldType fieldType, DataSchema dataSchema) {
     SearchableAnnotation searchableAnnotation =
-        new SearchableAnnotation(fieldName, fieldType, false,
-            false, false, false, Optional.empty(),
-            Optional.empty(), 1.0, Optional.empty(),
-            Optional.empty(), Collections.emptyMap(), Collections.emptyList(),
+        new SearchableAnnotation(
+            fieldName,
+            fieldType,
+            false,
+            false,
+            false,
+            false,
+            Optional.empty(),
+            Optional.empty(),
+            1.0,
+            Optional.empty(),
+            Optional.empty(),
+            Collections.emptyMap(),
+            Collections.emptyList(),
             false);
     PathSpec pathSpec = new PathSpec(fieldName);
     return new SearchableFieldSpec(pathSpec, searchableAnnotation, dataSchema);
