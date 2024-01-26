@@ -1193,7 +1193,7 @@ public class GmsGraphQLEngine {
                     "createDynamicFormAssignment",
                     new CreateDynamicFormAssignmentResolver(this.formService))
                 .dataFetcher(
-                    "verifyForm", new VerifyFormResolver(this.formService, this.groupService)))
+                    "verifyForm", new VerifyFormResolver(this.formService, this.groupService))
                 .dataFetcher("addAccessRequest", new AddAccessRequestResolver(this.entityService));
   }
 
