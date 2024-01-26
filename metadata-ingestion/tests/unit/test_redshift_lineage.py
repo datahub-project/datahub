@@ -21,9 +21,9 @@ from datahub.metadata._schema_classes import (
 from datahub.utilities.sqlglot_lineage import (
     ColumnLineageInfo,
     DownstreamColumnRef,
-    SqlParsingResult,
     QueryType,
     SqlParsingDebugInfo,
+    SqlParsingResult,
 )
 
 
