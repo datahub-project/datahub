@@ -189,8 +189,8 @@ class RedshiftLineageExtractor:
                 platform=LineageDatasetPlatform.REDSHIFT.value,
                 platform_instance=self.config.platform_instance,
                 env=self.config.env,
-                database=database,
-                schema=self.config.default_schema,
+                default_db=database,
+                default_schema=self.config.default_schema,
                 query=table.query_text,
                 graph=self.context.graph,
             )
@@ -291,8 +291,8 @@ class RedshiftLineageExtractor:
                 query=query,
                 platform=LineageDatasetPlatform.REDSHIFT.value,
                 platform_instance=self.config.platform_instance,
-                database=db_name,
-                schema=str(self.config.default_schema),
+                default_db=db_name,
+                default_schema=str(self.config.default_schema),
                 graph=self.context.graph,
                 env=self.config.env,
             )
