@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -19,6 +20,7 @@ public class ConfigEntitySpec implements EntitySpec {
   private final Map<String, AspectSpec> _aspectSpecs;
 
   private List<SearchableFieldSpec> _searchableFieldSpecs;
+  private Map<String, Set<SearchableFieldSpec>> searchableFieldSpecMap;
 
   public ConfigEntitySpec(
       @Nonnull final String entityName,
@@ -88,5 +90,14 @@ public class ConfigEntitySpec implements EntitySpec {
     }
 
     return _searchableFieldSpecs;
+  }
+
+  @Override
+  public Map<String, Set<SearchableFieldSpec>> getSearchableFieldSpecMap() {
+    if (searchableFieldSpecMap == null) {
+      searchableFieldSpecMap = EntitySpec.super.getSearchableFieldSpecMap();
+    }
+
+    return searchableFieldSpecMap;
   }
 }
