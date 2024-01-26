@@ -12,8 +12,6 @@ describe("dataset health test", () => {
         cy.waitTextVisible("Assertions 1 of 1 assertions are failing");
         cy.get('[data-testid="assertions-details"]').click();
         // cy.clickOptionWithText("details");
-        cy.waitTextVisible("All assertions are failing");
-        cy.clickOptionWithText("External");
-        cy.waitTextVisible("Failed");
-        });
+        cy.waitTextVisible("1 failed assertions");
+    });
 });

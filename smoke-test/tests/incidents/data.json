@@ -147,7 +147,7 @@
     "changeType":"UPSERT",
     "aspectName":"incidentInfo",
     "aspect":{
-      "value":"{\"type\": \"OPERATIONAL\", \"title\": \"test title\", \"description\": \"test description\", \"entities\": [\"urn:li:dataset:(urn:li:dataPlatform:kafka,incidents-sample-dataset,PROD)\"], \"status\": { \"state\": \"ACTIVE\", \"lastUpdated\": { \"time\": 0, \"actor\": \"urn:li:corpuser:admin\" } }, \"source\": { \"type\": \"ASSERTION_FAILURE\", \"sourceUrn\": \"urn:li:assertion:assertion-test\"}, \"created\": { \"time\": 0, \"actor\": \"urn:li:corpuser:admin\" } }",
+      "value":"{\"type\": \"OPERATIONAL\", \"title\": \"test title\", \"description\": \"test description\", \"entities\": [\"urn:li:dataset:(urn:li:dataPlatform:kafka,incidents-sample-dataset,PROD)\"], \"status\": { \"state\": \"ACTIVE\", \"lastUpdated\": { \"time\": 0, \"actor\": \"urn:li:corpuser:admin\" } }, \"source\": { \"type\": \"MANUAL\" }, \"created\": { \"time\": 0, \"actor\": \"urn:li:corpuser:admin\" } }",
       "contentType":"application/json"
     },
     "systemMetadata":null

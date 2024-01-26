@@ -105,7 +105,7 @@ def test_list_dataset_incidents(frontend_session):
                     "lastUpdated": {"time": 0, "actor": "urn:li:corpuser:admin"},
                 },
                 "source": {
-                    "type": "ASSERTION_FAILURE",
+                    "type": "MANUAL",
                     "source": {
                         "urn": "urn:li:assertion:assertion-test",
                         "info": {"type": "DATASET"},
