@@ -278,6 +278,7 @@ import com.linkedin.datahub.graphql.resolvers.view.DeleteViewResolver;
 import com.linkedin.datahub.graphql.resolvers.view.ListGlobalViewsResolver;
 import com.linkedin.datahub.graphql.resolvers.view.ListMyViewsResolver;
 import com.linkedin.datahub.graphql.resolvers.view.UpdateViewResolver;
+import com.linkedin.datahub.graphql.resolvers.mutate.AddAccessRequestResolver;
 import com.linkedin.datahub.graphql.types.BrowsableEntityType;
 import com.linkedin.datahub.graphql.types.EntityType;
 import com.linkedin.datahub.graphql.types.LoadableType;
@@ -1192,7 +1193,8 @@ public class GmsGraphQLEngine {
                     "createDynamicFormAssignment",
                     new CreateDynamicFormAssignmentResolver(this.formService))
                 .dataFetcher(
-                    "verifyForm", new VerifyFormResolver(this.formService, this.groupService)));
+                    "verifyForm", new VerifyFormResolver(this.formService, this.groupService)))
+                .dataFetcher("addAccessRequest", new AddAccessRequestResolver(this.entityService));
   }
 
   private void configureGenericEntityResolvers(final RuntimeWiring.Builder builder) {

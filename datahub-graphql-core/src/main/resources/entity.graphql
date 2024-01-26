@@ -725,6 +725,11 @@ type Mutation {
     is of type VERIFICATION.
     """
     verifyForm(input: VerifyFormInput!): Boolean
+
+    """
+    Add an access request to an object by URN. Supported currently for Dataset and Containers.
+    """
+    addAccessRequest(input: AddAccessRequestInput!): Boolean
 }
 
 """
@@ -11604,4 +11609,20 @@ type EntityTypeInfo {
     The description of this type
     """
     description: String
+}
+
+
+"""
+Input provided when adding an access request to an Entity.
+"""
+input AddAccessRequestInput {
+    """
+    The target Metadata Entity to add or remove the access request to
+    """
+    resourceUrn: String!
+
+    """
+    Additional metadata to apply to the tag. Takes in a JSON string containing additional properties.
+    """
+    additionalMetadata: [StringMapEntryInput]!
 }

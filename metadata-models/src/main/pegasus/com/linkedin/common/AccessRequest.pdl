@@ -1,0 +1,19 @@
+namespace com.linkedin.common
+
+/**
+ * An access request object containing who reported the access request, in addition to some extra metadata concerning it.
+ */
+@Aspect = {
+  "name": "accessRequest"
+}
+record AccessRequest {
+  /**
+    * Audit stamp containing who reported the access request and when.
+    */
+    created: AuditStamp
+
+  /**
+   * Additional metadata provided by the user creating the access request.
+   */
+    additionalMetadata: map[string, string] = { }
+}
