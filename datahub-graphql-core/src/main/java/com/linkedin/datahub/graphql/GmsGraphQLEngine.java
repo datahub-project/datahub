@@ -156,6 +156,7 @@ import com.linkedin.datahub.graphql.resolvers.ingest.execution.CreateIngestionEx
 import com.linkedin.datahub.graphql.resolvers.ingest.execution.CreateTestConnectionRequestResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.execution.GetIngestionExecutionRequestResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.execution.IngestionSourceExecutionRequestsResolver;
+import com.linkedin.datahub.graphql.resolvers.ingest.execution.ListSignalRequestsResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.execution.RollbackIngestionResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.secret.CreateSecretResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.secret.DeleteSecretResolver;
@@ -934,6 +935,8 @@ public class GmsGraphQLEngine {
                 .dataFetcher(
                     "listOwnershipTypes", new ListOwnershipTypesResolver(this.entityClient))
                 .dataFetcher("browseV2", new BrowseV2Resolver(this.entityClient, this.viewService))
+                .dataFetcher(
+                    "listSignalRequests", new ListSignalRequestsResolver(this.entityClient))
                 .dataFetcher(
                     "ingestionSourceForEntity",
                     new IngestionSourceForEntityResolver(this.entityClient)));

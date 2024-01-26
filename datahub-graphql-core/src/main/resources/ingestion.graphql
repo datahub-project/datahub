@@ -33,6 +33,11 @@ extend type Query {
   Get whether or not not a data connection for an entity exists
   """
   ingestionSourceForEntity(urn: String!): IngestionSource
+
+  """
+  List signal requests available for a list of urns
+  """
+  listSignalRequests(input: ListSignalRequestsInput!): ListSignalRequestsResult
 }
 
 extend type Mutation {
@@ -598,5 +603,50 @@ input RollbackIngestionInput {
   An ingestion run ID
   """
   runId: String!
+}
+
+"""
+Input arguments for listing Signal Requests
+"""
+input ListSignalRequestsInput {
+  """
+  A list of execution request urns to check for signal requests associated to them
+  """
+  urns: [String!]
+}
+
+"""
+Results returned when listing Signal Requests
+"""
+type ListSignalRequestsResult {
+  """
+  The total number of results in the result set
+  """
+  total: Int!
+
+  """
+  The Signal Requests themselves
+  """
+  signalRequests: [SignalRequest!]!
+}
+
+"""
+A Signal Request
+"""
+type SignalRequest {
+  """
+  The execId of the execution request this signal is associated with
+  """
+  execId: String!
+
+  """
+  The executorId associated with this execution request
+  """
+  executorId: String!
+
+  """
+  The signal sent
+  """
+  signal: String!
 }
 
