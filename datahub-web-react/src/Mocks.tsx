@@ -40,6 +40,8 @@ import { ListRecommendationsDocument } from './graphql/recommendations.generated
 import { FetchedEntity } from './app/lineage/types';
 import { DEFAULT_APP_CONFIG } from './appConfigContext';
 import { GetQuickFiltersDocument } from './graphql/quickFilters.generated';
+import { GetGrantedPrivilegesDocument } from './graphql/policy.generated';
+import { VIEW_ENTITY_PAGE } from './app/entity/shared/constants';
 
 export const user1 = {
     __typename: 'CorpUser',
@@ -86,6 +88,7 @@ export const user1 = {
     editableInfo: null,
     properties: null,
     editableProperties: null,
+    autoRenderAspects: [],
 };
 
 const user2 = {
@@ -293,6 +296,8 @@ export const dataset1 = {
     statsSummary: null,
     embed: null,
     browsePathV2: { path: [{ name: 'test', entity: null }], __typename: 'BrowsePathV2' },
+    autoRenderAspects: [],
+    structuredProperties: null,
 };
 
 export const dataset2 = {
@@ -388,6 +393,8 @@ export const dataset2 = {
     statsSummary: null,
     embed: null,
     browsePathV2: { path: [{ name: 'test', entity: null }], __typename: 'BrowsePathV2' },
+    autoRenderAspects: [],
+    structuredProperties: null,
 };
 
 export const dataset3 = {
@@ -593,7 +600,7 @@ export const dataset3 = {
     viewProperties: null,
     autoRenderAspects: [
         {
-            __typename: 'AutoRenderAspect',
+            __typename: 'RawAspect',
             aspectName: 'autoRenderAspect',
             payload: '{ "values": [{ "autoField1": "autoValue1", "autoField2": "autoValue2" }] }',
             renderSpec: {
@@ -621,6 +628,7 @@ export const dataset3 = {
     dataProduct: null,
     lastProfile: null,
     lastOperation: null,
+    structuredProperties: null,
 } as Dataset;
 
 export const dataset3WithSchema = {
@@ -645,6 +653,7 @@ export const dataset3WithSchema = {
                     globalTags: null,
                     glossaryTerms: null,
                     label: 'hi',
+                    schemaFieldEntity: null,
                 },
                 {
                     __typename: 'SchemaField',
@@ -660,6 +669,7 @@ export const dataset3WithSchema = {
                     globalTags: null,
                     glossaryTerms: null,
                     label: 'hi',
+                    schemaFieldEntity: null,
                 },
             ],
             hash: '',
@@ -960,6 +970,7 @@ export const container1 = {
         externalUrl: null,
         __typename: 'ContainerProperties',
     },
+    autoRenderAspects: [],
     __typename: 'Container',
 } as Container;
 
@@ -974,6 +985,7 @@ export const container2 = {
         externalUrl: null,
         __typename: 'ContainerProperties',
     },
+    autoRenderAspects: [],
     __typename: 'Container',
 } as Container;
 
@@ -1021,6 +1033,7 @@ export const glossaryTerm1 = {
     },
     parentNodes: null,
     deprecation: null,
+    autoRenderAspects: [],
 } as GlossaryTerm;
 
 const glossaryTerm2 = {
@@ -1093,6 +1106,7 @@ const glossaryTerm2 = {
         __typename: 'EntityRelationshipsResult',
     },
     parentNodes: null,
+    autoRenderAspects: [],
     __typename: 'GlossaryTerm',
 };
 
@@ -1159,6 +1173,7 @@ const glossaryTerm3 = {
         __typename: 'GlossaryRelatedTerms',
     },
     deprecation: null,
+    autoRenderAspects: [],
     __typename: 'GlossaryTerm',
 } as GlossaryTerm;
 
@@ -1255,6 +1270,7 @@ export const sampleTag = {
         description: 'sample tag description',
         colorHex: 'sample tag color',
     },
+    autoRenderAspects: [],
 };
 
 export const dataFlow1 = {
@@ -1326,6 +1342,7 @@ export const dataFlow1 = {
     },
     domain: null,
     deprecation: null,
+    autoRenderAspects: [],
 } as DataFlow;
 
 export const dataJob1 = {
@@ -1412,6 +1429,7 @@ export const dataJob1 = {
     domain: null,
     status: null,
     deprecation: null,
+    autoRenderAspects: [],
 } as DataJob;
 
 export const dataJob2 = {
@@ -1481,6 +1499,7 @@ export const dataJob2 = {
     upstream: null,
     downstream: null,
     deprecation: null,
+    autoRenderAspects: [],
 } as DataJob;
 
 export const dataJob3 = {
@@ -1553,6 +1572,7 @@ export const dataJob3 = {
     downstream: null,
     status: null,
     deprecation: null,
+    autoRenderAspects: [],
 } as DataJob;
 
 export const mlModel = {
@@ -1634,6 +1654,7 @@ export const mlModel = {
     downstream: null,
     status: null,
     deprecation: null,
+    autoRenderAspects: [],
 } as MlModel;
 
 export const dataset1FetchedEntity = {
@@ -3711,6 +3732,20 @@ export const mocks = [
         },
         result: {
             data: [],
+        },
+    },
+    {
+        request: {
+            query: GetGrantedPrivilegesDocument,
+            variables: {
+                input: {
+                    actorUrn: 'urn:li:corpuser:3',
+                    resourceSpec: { resourceType: EntityType.Dataset, resourceUrn: dataset3.urn },
+                },
+            },
+        },
+        result: {
+            data: { getGrantedPrivileges: { privileges: [VIEW_ENTITY_PAGE] } },
         },
     },
 ];

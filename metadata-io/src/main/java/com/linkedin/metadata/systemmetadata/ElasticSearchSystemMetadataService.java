@@ -13,12 +13,14 @@ import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.shared.ElasticSearchIndexed;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.mxe.SystemMetadata;
+import com.linkedin.structured.StructuredPropertyDefinition;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 import java.util.Base64;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -243,6 +245,12 @@ public class ElasticSearchSystemMetadataService
             _indexConvention.getIndexName(INDEX_NAME),
             SystemMetadataMappingsBuilder.getMappings(),
             Collections.emptyMap()));
+  }
+
+  @Override
+  public List<ReindexConfig> buildReindexConfigsWithAllStructProps(
+      Collection<StructuredPropertyDefinition> properties) throws IOException {
+    return buildReindexConfigs();
   }
 
   @Override

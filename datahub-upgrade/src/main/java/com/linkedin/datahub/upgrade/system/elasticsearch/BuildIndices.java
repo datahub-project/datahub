@@ -7,7 +7,9 @@ import com.linkedin.datahub.upgrade.system.elasticsearch.steps.BuildIndicesPreSt
 import com.linkedin.datahub.upgrade.system.elasticsearch.steps.BuildIndicesStep;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
+import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.graph.GraphService;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.shared.ElasticSearchIndexed;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
@@ -28,7 +30,9 @@ public class BuildIndices implements Upgrade {
       final GraphService graphService,
       final BaseElasticSearchComponentsFactory.BaseElasticSearchComponents
           baseElasticSearchComponents,
-      final ConfigurationProvider configurationProvider) {
+      final ConfigurationProvider configurationProvider,
+      final AspectDao aspectDao,
+      final EntityRegistry entityRegistry) {
 
     List<ElasticSearchIndexed> indexedServices =
         Stream.of(graphService, entitySearchService, systemMetadataService, timeseriesAspectService)
@@ -36,7 +40,13 @@ public class BuildIndices implements Upgrade {
             .map(service -> (ElasticSearchIndexed) service)
             .collect(Collectors.toList());
 
-    _steps = buildSteps(indexedServices, baseElasticSearchComponents, configurationProvider);
+    _steps =
+        buildSteps(
+            indexedServices,
+            baseElasticSearchComponents,
+            configurationProvider,
+            aspectDao,
+            entityRegistry);
   }
 
   @Override
@@ -53,13 +63,19 @@ public class BuildIndices implements Upgrade {
       final List<ElasticSearchIndexed> indexedServices,
       final BaseElasticSearchComponentsFactory.BaseElasticSearchComponents
           baseElasticSearchComponents,
-      final ConfigurationProvider configurationProvider) {
+      final ConfigurationProvider configurationProvider,
+      final AspectDao aspectDao,
+      final EntityRegistry entityRegistry) {
 
     final List<UpgradeStep> steps = new ArrayList<>();
     // Disable ES write mode/change refresh rate and clone indices
     steps.add(
         new BuildIndicesPreStep(
-            baseElasticSearchComponents, indexedServices, configurationProvider));
+            baseElasticSearchComponents,
+            indexedServices,
+            configurationProvider,
+            aspectDao,
+            entityRegistry));
     // Configure graphService, entitySearchService, systemMetadataService, timeseriesAspectService
     steps.add(new BuildIndicesStep(indexedServices));
     // Reset configuration (and delete clones? Or just do this regularly? Or delete clone in

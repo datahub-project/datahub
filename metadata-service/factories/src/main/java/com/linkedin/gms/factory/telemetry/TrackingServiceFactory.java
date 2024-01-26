@@ -32,7 +32,7 @@ public class TrackingServiceFactory {
 
   @Autowired
   @Qualifier("entityService")
-  private EntityService _entityService;
+  private EntityService<?> _entityService;
 
   @Autowired
   @Qualifier("gitVersion")

@@ -2,10 +2,11 @@ package com.linkedin.metadata.kafka;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
-import static org.testng.AssertJUnit.assertTrue;
+import static org.testng.AssertJUnit.*;
 
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesResult;
+import io.datahubproject.metadata.jobs.common.health.kafka.KafkaHealthIndicator;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
@@ -21,7 +22,9 @@ public class MceConsumerApplicationTest extends AbstractTestNGSpringContextTests
 
   @Autowired private TestRestTemplate restTemplate;
 
-  @Autowired private EntityService _mockEntityService;
+  @Autowired private EntityService<?> _mockEntityService;
+
+  @Autowired private KafkaHealthIndicator kafkaHealthIndicator;
 
   @Test
   public void testRestliServletConfig() {
@@ -33,5 +36,10 @@ public class MceConsumerApplicationTest extends AbstractTestNGSpringContextTests
         this.restTemplate.postForObject(
             "/gms/aspects?action=restoreIndices", "{\"urn\":\"\"}", String.class);
     assertTrue(response.contains(mockResult.toString()));
+  }
+
+  @Test
+  public void testHealthIndicator() {
+    assertNotNull(kafkaHealthIndicator);
   }
 }

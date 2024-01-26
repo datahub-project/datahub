@@ -725,6 +725,19 @@ def test_non_str_enums():
     assert fields[0].description == 'One of: "baz", 1, null'
 
 
+def test_const_description_pulled_correctly():
+    schema = {
+        "$id": "test",
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "properties": {"bar": {"type": "string", "const": "not_defined"}},
+    }
+
+    fields = list(JsonSchemaTranslator.get_fields_from_schema(schema))
+    expected_field_paths: List[str] = ["[version=2.0].[type=object].[type=string].bar"]
+    assert_field_paths_match(fields, expected_field_paths)
+    assert fields[0].description == "Const value: not_defined"
+
+
 def test_anyof_with_properties():
     # We expect the event / timestamp fields to be included in both branches of the anyOf.
 

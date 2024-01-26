@@ -12,6 +12,7 @@ import static com.linkedin.metadata.Constants.SYSTEM_ACTOR;
 import static com.linkedin.metadata.Constants.UI_SOURCE;
 import static com.linkedin.metadata.search.utils.BrowsePathUtils.buildDataPlatformUrn;
 import static com.linkedin.metadata.search.utils.BrowsePathUtils.getDefaultBrowsePath;
+import static com.linkedin.metadata.utils.GenericRecordUtils.entityResponseToAspectMap;
 import static com.linkedin.metadata.utils.PegasusUtils.constructMCL;
 import static com.linkedin.metadata.utils.PegasusUtils.getDataTemplateClassFromSchema;
 import static com.linkedin.metadata.utils.PegasusUtils.urnToEntityName;
@@ -46,7 +47,6 @@ import com.linkedin.entity.Entity;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
-import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.Aspect;
@@ -84,6 +84,7 @@ import com.linkedin.mxe.MetadataAuditOperation;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
+import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.util.Pair;
 import io.ebean.PagedList;
 import io.ebean.Transaction;
@@ -93,6 +94,7 @@ import java.nio.charset.StandardCharsets;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -165,14 +167,12 @@ public class EntityServiceImpl implements EntityService<MCPUpsertBatchItem> {
 
   private final Integer ebeanMaxTransactionRetry;
 
-  private SystemEntityClient systemEntityClient;
-
   public EntityServiceImpl(
       @Nonnull final AspectDao aspectDao,
       @Nonnull final EventProducer producer,
       @Nonnull final EntityRegistry entityRegistry,
       final boolean alwaysEmitChangeLog,
-      final UpdateIndicesService updateIndicesService,
+      @Nullable final UpdateIndicesService updateIndicesService,
       final PreProcessHooks preProcessHooks) {
     this(
         aspectDao,
@@ -189,9 +189,9 @@ public class EntityServiceImpl implements EntityService<MCPUpsertBatchItem> {
       @Nonnull final EventProducer producer,
       @Nonnull final EntityRegistry entityRegistry,
       final boolean alwaysEmitChangeLog,
-      final UpdateIndicesService updateIndicesService,
+      @Nullable final UpdateIndicesService updateIndicesService,
       final PreProcessHooks preProcessHooks,
-      final Integer retry) {
+      @Nullable final Integer retry) {
 
     _aspectDao = aspectDao;
     _producer = producer;
@@ -199,19 +199,11 @@ public class EntityServiceImpl implements EntityService<MCPUpsertBatchItem> {
     _entityToValidAspects = buildEntityToValidAspects(entityRegistry);
     _alwaysEmitChangeLog = alwaysEmitChangeLog;
     _updateIndicesService = updateIndicesService;
+    if (_updateIndicesService != null) {
+      _updateIndicesService.initializeAspectRetriever(this);
+    }
     _preProcessHooks = preProcessHooks;
     ebeanMaxTransactionRetry = retry != null ? retry : DEFAULT_MAX_TRANSACTION_RETRY;
-  }
-
-  @Override
-  public void setSystemEntityClient(SystemEntityClient systemEntityClient) {
-    this.systemEntityClient = systemEntityClient;
-    this._updateIndicesService.setSystemEntityClient(systemEntityClient);
-  }
-
-  @Override
-  public SystemEntityClient getSystemEntityClient() {
-    return this.systemEntityClient;
   }
 
   @Override
@@ -633,7 +625,7 @@ public class EntityServiceImpl implements EntityService<MCPUpsertBatchItem> {
                         .aspect(pair.getValue())
                         .systemMetadata(systemMetadata)
                         .auditStamp(auditStamp)
-                        .build(_entityRegistry, systemEntityClient))
+                        .build(this))
             .collect(Collectors.toList());
     return ingestAspects(AspectsBatchImpl.builder().items(items).build(), true, true);
   }
@@ -692,7 +684,7 @@ public class EntityServiceImpl implements EntityService<MCPUpsertBatchItem> {
           // 1. Convert patches to full upserts
           // 2. Run any entity/aspect level hooks
           Pair<Map<String, Set<String>>, List<UpsertItem>> updatedItems =
-              aspectsBatch.toUpsertBatchItems(latestAspects, _entityRegistry, systemEntityClient);
+              aspectsBatch.toUpsertBatchItems(latestAspects, this);
 
           // Fetch additional information if needed
           final Map<String, Map<String, SystemAspect>> updatedLatestAspects;
@@ -724,8 +716,7 @@ public class EntityServiceImpl implements EntityService<MCPUpsertBatchItem> {
                           previousAspect == null
                               ? null
                               : previousAspect.getRecordTemplate(_entityRegistry),
-                          _entityRegistry,
-                          systemEntityClient);
+                          this);
                     } catch (AspectValidationException e) {
                       throw new RuntimeException(e);
                     }
@@ -933,7 +924,7 @@ public class EntityServiceImpl implements EntityService<MCPUpsertBatchItem> {
                     .aspect(newValue)
                     .systemMetadata(systemMetadata)
                     .auditStamp(auditStamp)
-                    .build(_entityRegistry, systemEntityClient))
+                    .build(this))
             .build();
     List<UpdateAspectResult> ingested = ingestAspects(aspectsBatch, true, false);
 
@@ -953,10 +944,7 @@ public class EntityServiceImpl implements EntityService<MCPUpsertBatchItem> {
   public IngestResult ingestProposal(
       MetadataChangeProposal proposal, AuditStamp auditStamp, final boolean async) {
     return ingestProposal(
-            AspectsBatchImpl.builder()
-                .mcps(List.of(proposal), auditStamp, getEntityRegistry(), systemEntityClient)
-                .build(),
-            async)
+            AspectsBatchImpl.builder().mcps(List.of(proposal), auditStamp, this).build(), async)
         .stream()
         .findFirst()
         .get();
@@ -1544,7 +1532,7 @@ public class EntityServiceImpl implements EntityService<MCPUpsertBatchItem> {
   @Nonnull
   protected Map<Urn, List<UnionTemplate>> getLatestAspectUnions(
       @Nonnull final Set<Urn> urns, @Nonnull final Set<String> aspectNames) {
-    return getLatestAspects(urns, aspectNames).entrySet().stream()
+    return this.getLatestAspects(urns, aspectNames).entrySet().stream()
         .collect(
             Collectors.toMap(
                 Map.Entry::getKey,
@@ -1693,7 +1681,7 @@ public class EntityServiceImpl implements EntityService<MCPUpsertBatchItem> {
                                 .aspect(pair.getValue())
                                 .auditStamp(auditStamp)
                                 .systemMetadata(systemMetadata)
-                                .build(_entityRegistry, systemEntityClient))
+                                .build(this))
                     .collect(Collectors.toList()))
             .build();
 
@@ -1782,7 +1770,8 @@ public class EntityServiceImpl implements EntityService<MCPUpsertBatchItem> {
     return response;
   }
 
-  private Map<String, Set<String>> buildEntityToValidAspects(final EntityRegistry entityRegistry) {
+  private static Map<String, Set<String>> buildEntityToValidAspects(
+      final EntityRegistry entityRegistry) {
     return entityRegistry.getEntitySpecs().values().stream()
         .collect(
             Collectors.toMap(
@@ -1794,6 +1783,7 @@ public class EntityServiceImpl implements EntityService<MCPUpsertBatchItem> {
   }
 
   @Override
+  @Nonnull
   public EntityRegistry getEntityRegistry() {
     return _entityRegistry;
   }
@@ -1950,36 +1940,54 @@ public class EntityServiceImpl implements EntityService<MCPUpsertBatchItem> {
   }
 
   /**
-   * Returns true if the entity exists (has materialized aspects)
+   * Returns a set of urns of entities that exist (has materialized aspects).
    *
-   * @param urn the urn of the entity to check
-   * @return true if the entity exists, false otherwise
+   * @param urns the list of urns of the entities to check
+   * @param includeSoftDeleted whether to consider soft delete
+   * @return a set of urns of entities that exist.
    */
   @Override
-  public Boolean exists(Urn urn) {
-    final Set<String> aspectsToFetch = getEntityAspectNames(urn);
-    final List<EntityAspectIdentifier> dbKeys =
-        aspectsToFetch.stream()
+  public Set<Urn> exists(@Nonnull final Collection<Urn> urns, boolean includeSoftDeleted) {
+    final Set<EntityAspectIdentifier> dbKeys =
+        urns.stream()
             .map(
-                aspectName ->
-                    new EntityAspectIdentifier(urn.toString(), aspectName, ASPECT_LATEST_VERSION))
-            .collect(Collectors.toList());
+                urn ->
+                    new EntityAspectIdentifier(
+                        urn.toString(),
+                        _entityRegistry
+                            .getEntitySpec(urn.getEntityType())
+                            .getKeyAspectSpec()
+                            .getName(),
+                        ASPECT_LATEST_VERSION))
+            .collect(Collectors.toSet());
 
-    Map<EntityAspectIdentifier, EntityAspect> aspects = _aspectDao.batchGet(new HashSet(dbKeys));
-    return aspects.values().stream().anyMatch(aspect -> aspect != null);
-  }
+    final Map<EntityAspectIdentifier, EntityAspect> aspects = _aspectDao.batchGet(dbKeys);
+    final Set<String> existingUrnStrings =
+        aspects.values().stream()
+            .filter(aspect -> aspect != null)
+            .map(aspect -> aspect.getUrn())
+            .collect(Collectors.toSet());
 
-  /**
-   * Returns true if an entity is soft-deleted.
-   *
-   * @param urn the urn to check
-   * @return true is the entity is soft deleted, false otherwise.
-   */
-  @Override
-  public Boolean isSoftDeleted(@Nonnull final Urn urn) {
-    Objects.requireNonNull(urn, "urn is required");
-    final RecordTemplate statusAspect = getLatestAspect(urn, STATUS_ASPECT_NAME);
-    return statusAspect != null && ((Status) statusAspect).isRemoved();
+    Set<Urn> existing =
+        urns.stream()
+            .filter(urn -> existingUrnStrings.contains(urn.toString()))
+            .collect(Collectors.toSet());
+
+    if (includeSoftDeleted) {
+      return existing;
+    } else {
+      // Additionally exclude status.removed == true
+      Map<Urn, List<RecordTemplate>> statusResult =
+          getLatestAspects(existing, Set.of(STATUS_ASPECT_NAME));
+      return existing.stream()
+          .filter(
+              urn ->
+                  // key aspect is always returned, make sure to only consider the status aspect
+                  statusResult.getOrDefault(urn, List.of()).stream()
+                      .filter(aspect -> STATUS_ASPECT_NAME.equals(aspect.schema().getName()))
+                      .noneMatch(aspect -> ((Status) aspect).isRemoved()))
+          .collect(Collectors.toSet());
+    }
   }
 
   @Override
@@ -2466,5 +2474,13 @@ public class EntityServiceImpl implements EntityService<MCPUpsertBatchItem> {
     final List<RelationshipFieldSpec> relationshipFieldSpecs =
         aspectSpec.getRelationshipFieldSpecs();
     return relationshipFieldSpecs.stream().anyMatch(RelationshipFieldSpec::isLineageRelationship);
+  }
+
+  @Nonnull
+  @Override
+  public Map<Urn, Map<String, com.linkedin.entity.Aspect>> getLatestAspectObjects(
+      Set<Urn> urns, Set<String> aspectNames) throws RemoteInvocationException, URISyntaxException {
+    String entityName = urns.stream().findFirst().map(Urn::getEntityType).get();
+    return entityResponseToAspectMap(getEntitiesV2(entityName, urns, aspectNames));
   }
 }

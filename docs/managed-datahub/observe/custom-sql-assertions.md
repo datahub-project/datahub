@@ -43,6 +43,7 @@ Custom SQL Assertions are currently supported for:
 1. Snowflake
 2. Redshift
 3. BigQuery
+4. Databricks
 
 Note that an Ingestion Source _must_ be configured with the data platform of your choice in Acryl DataHub's **Ingestion**
 tab.
@@ -116,7 +117,7 @@ The **Assertion Description**: This is a human-readable description of the Asser
 ### Prerequisites
 
 1. **Permissions**: To create or delete Custom SQL Assertions for a specific entity on DataHub, you'll need to be granted the
-   `Edit Assertions` and `Edit Monitors` privileges for the entity. This is granted to Entity owners by default.
+   `Edit Assertions`, `Edit Monitors`, **and the additional `Edit SQL Assertion Monitors`** privileges for the entity. This is granted to Entity owners by default.
 
 2. **Data Platform Connection**: In order to create a Custom SQL Assertion, you'll need to have an **Ingestion Source** configured to your
    Data Platform: Snowflake, BigQuery, or Redshift under the **Integrations** tab.

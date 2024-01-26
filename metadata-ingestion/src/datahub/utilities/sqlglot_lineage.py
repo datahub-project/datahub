@@ -51,9 +51,14 @@ SQL_PARSE_RESULT_CACHE_SIZE = 1000
 
 RULES_BEFORE_TYPE_ANNOTATION: tuple = tuple(
     filter(
-        # Skip pushdown_predicates because it sometimes throws exceptions, and we
-        # don't actually need it for anything.
-        lambda func: func.__name__ not in {"pushdown_predicates"},
+        lambda func: func.__name__
+        not in {
+            # Skip pushdown_predicates because it sometimes throws exceptions, and we
+            # don't actually need it for anything.
+            "pushdown_predicates",
+            # Skip normalize because it can sometimes be expensive.
+            "normalize",
+        },
         itertools.takewhile(
             lambda func: func != sqlglot.optimizer.annotate_types.annotate_types,
             sqlglot.optimizer.optimizer.RULES,
@@ -1275,35 +1280,35 @@ def detach_ctes(
 
 def create_lineage_sql_parsed_result(
     query: str,
-    database: Optional[str],
+    default_db: Optional[str],
     platform: str,
     platform_instance: Optional[str],
     env: str,
-    schema: Optional[str] = None,
+    default_schema: Optional[str] = None,
     graph: Optional[DataHubGraph] = None,
 ) -> SqlParsingResult:
-    needs_close = False
-    try:
-        if graph:
-            schema_resolver = graph._make_schema_resolver(
-                platform=platform,
-                platform_instance=platform_instance,
-                env=env,
-            )
-        else:
-            needs_close = True
-            schema_resolver = SchemaResolver(
-                platform=platform,
-                platform_instance=platform_instance,
-                env=env,
-                graph=None,
-            )
+    if graph:
+        needs_close = False
+        schema_resolver = graph._make_schema_resolver(
+            platform=platform,
+            platform_instance=platform_instance,
+            env=env,
+        )
+    else:
+        needs_close = True
+        schema_resolver = SchemaResolver(
+            platform=platform,
+            platform_instance=platform_instance,
+            env=env,
+            graph=None,
+        )
 
+    try:
         return sqlglot_lineage(
             query,
             schema_resolver=schema_resolver,
-            default_db=database,
-            default_schema=schema,
+            default_db=default_db,
+            default_schema=default_schema,
         )
     except Exception as e:
         return SqlParsingResult.make_from_error(e)
