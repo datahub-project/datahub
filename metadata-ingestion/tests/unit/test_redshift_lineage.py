@@ -13,8 +13,18 @@ from datahub.ingestion.source.redshift.lineage import (
 )
 from datahub.ingestion.source.redshift.redshift_schema import TempTableRow
 from datahub.ingestion.source.redshift.report import RedshiftReport
-from datahub.metadata._schema_classes import NumberTypeClass, SchemaFieldDataTypeClass
-from datahub.utilities.sqlglot_lineage import ColumnLineageInfo, DownstreamColumnRef
+from datahub.metadata._schema_classes import (
+    NumberTypeClass,
+    SchemaFieldDataTypeClass,
+    StringTypeClass,
+)
+from datahub.utilities.sqlglot_lineage import (
+    ColumnLineageInfo,
+    DownstreamColumnRef,
+    SqlParsingResult,
+    QueryType,
+    SqlParsingDebugInfo,
+)
 
 
 def test_get_sources_from_query():
@@ -200,7 +210,8 @@ def test_collapse_temp_lineage():
         urn="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_price,PROD)",
     )
 
-    lineage_extractor.temp_tables = [temp_table]
+    assert temp_table.urn
+    lineage_extractor.temp_tables[temp_table.urn] = temp_table
 
     target_dataset_cll: List[sqlglot_l.ColumnLineageInfo] = [
         ColumnLineageInfo(
@@ -251,3 +262,520 @@ def test_collapse_temp_lineage():
         "dev.public.player_activity,PROD)"
     )
     assert target_dataset_cll[0].upstreams[0].column == "price"
+
+
+def test_collapse_temp_recursive_cll_lineage():
+    lineage_extractor = get_lineage_extractor()
+
+    temp_table: TempTableRow = TempTableRow(
+        transaction_id=126,
+        query_text="CREATE TABLE #player_price distkey(player_id) AS SELECT player_id, SUM(price_usd) AS price_usd "
+        "from #player_activity_temp group by player_id",
+        start_time=datetime.now(),
+        session_id="abc",
+        create_command="CREATE TABLE #player_price",
+        parsed_result=SqlParsingResult(
+            query_type=QueryType.CREATE,
+            in_tables=[
+                "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_activity_temp,PROD)"
+            ],
+            out_tables=[
+                "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_price,PROD)"
+            ],
+            debug_info=SqlParsingDebugInfo(),
+            column_lineage=[
+                ColumnLineageInfo(
+                    downstream=DownstreamColumnRef(
+                        table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_price,PROD)",
+                        column="player_id",
+                        column_type=SchemaFieldDataTypeClass(NumberTypeClass()),
+                        native_column_type="INTEGER",
+                    ),
+                    upstreams=[
+                        sqlglot_l.ColumnRef(
+                            table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_activity_temp,PROD)",
+                            column="player_id",
+                        )
+                    ],
+                    logic=None,
+                ),
+                ColumnLineageInfo(
+                    downstream=DownstreamColumnRef(
+                        table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_price,PROD)",
+                        column="price_usd",
+                        column_type=SchemaFieldDataTypeClass(NumberTypeClass()),
+                        native_column_type="BIGINT",
+                    ),
+                    upstreams=[
+                        sqlglot_l.ColumnRef(
+                            table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_activity_temp,PROD)",
+                            column="price_usd",
+                        )
+                    ],
+                    logic=None,
+                ),
+            ],
+        ),
+        urn="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_price,PROD)",
+    )
+
+    temp_table_activity: TempTableRow = TempTableRow(
+        transaction_id=127,
+        query_text="CREATE TABLE #player_activity_temp SELECT player_id, SUM(price) AS price_usd "
+        "from player_activity",
+        start_time=datetime.now(),
+        session_id="abc",
+        create_command="CREATE TABLE #player_activity_temp",
+        parsed_result=SqlParsingResult(
+            query_type=QueryType.CREATE,
+            in_tables=[
+                "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.player_activity,PROD)"
+            ],
+            out_tables=[
+                "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_activity_temp,PROD)"
+            ],
+            debug_info=SqlParsingDebugInfo(),
+            column_lineage=[
+                ColumnLineageInfo(
+                    downstream=DownstreamColumnRef(
+                        table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_activity_temp,PROD)",
+                        column="player_id",
+                        column_type=SchemaFieldDataTypeClass(NumberTypeClass()),
+                        native_column_type="INTEGER",
+                    ),
+                    upstreams=[
+                        sqlglot_l.ColumnRef(
+                            table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.player_activity,PROD)",
+                            column="player_id",
+                        )
+                    ],
+                    logic=None,
+                ),
+                ColumnLineageInfo(
+                    downstream=DownstreamColumnRef(
+                        table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_activity_temp,PROD)",
+                        column="price_usd",
+                        column_type=SchemaFieldDataTypeClass(NumberTypeClass()),
+                        native_column_type="BIGINT",
+                    ),
+                    upstreams=[
+                        sqlglot_l.ColumnRef(
+                            table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.player_activity,PROD)",
+                            column="price",
+                        )
+                    ],
+                    logic=None,
+                ),
+            ],
+        ),
+        urn="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_activity_temp,PROD)",
+    )
+
+    assert temp_table.urn
+    assert temp_table_activity.urn
+
+    lineage_extractor.temp_tables[temp_table.urn] = temp_table
+    lineage_extractor.temp_tables[temp_table_activity.urn] = temp_table_activity
+
+    target_dataset_cll: List[sqlglot_l.ColumnLineageInfo] = [
+        ColumnLineageInfo(
+            downstream=DownstreamColumnRef(
+                table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.player_price_with_hike_v6,PROD)",
+                column="price",
+                column_type=SchemaFieldDataTypeClass(type=NumberTypeClass()),
+                native_column_type="DOUBLE PRECISION",
+            ),
+            upstreams=[
+                sqlglot_l.ColumnRef(
+                    table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_price,PROD)",
+                    column="price_usd",
+                )
+            ],
+            logic=None,
+        )
+    ]
+
+    datasets = lineage_extractor._get_upstream_lineages(
+        sources=[
+            LineageDataset(
+                platform=LineageDatasetPlatform.REDSHIFT,
+                urn="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_price,PROD)",
+            )
+        ],
+        target_table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.player_price_with_hike_v4,PROD)",
+        raw_db_name="dev",
+        alias_db_name="dev",
+        all_tables_set={
+            "dev": {
+                "public": set(),
+            }
+        },
+        connection=MagicMock(),
+        target_dataset_cll=target_dataset_cll,
+    )
+
+    assert len(datasets) == 1
+
+    assert (
+        datasets[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.player_activity,PROD)"
+    )
+
+    assert target_dataset_cll[0].upstreams[0].table == (
+        "urn:li:dataset:(urn:li:dataPlatform:redshift,"
+        "dev.public.player_activity,PROD)"
+    )
+    assert target_dataset_cll[0].upstreams[0].column == "price"
+
+
+def test_collapse_temp_recursive_with_compex_column_cll_lineage():
+    lineage_extractor = get_lineage_extractor()
+
+    temp_table: TempTableRow = TempTableRow(
+        transaction_id=126,
+        query_text="CREATE TABLE #player_price distkey(player_id) AS SELECT player_id, SUM(price+tax) AS price_usd "
+        "from #player_activity_temp group by player_id",
+        start_time=datetime.now(),
+        session_id="abc",
+        create_command="CREATE TABLE #player_price",
+        parsed_result=SqlParsingResult(
+            query_type=QueryType.CREATE,
+            in_tables=[
+                "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_activity_temp,PROD)"
+            ],
+            out_tables=[
+                "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_price,PROD)"
+            ],
+            debug_info=SqlParsingDebugInfo(),
+            column_lineage=[
+                ColumnLineageInfo(
+                    downstream=DownstreamColumnRef(
+                        table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_price,PROD)",
+                        column="player_id",
+                        column_type=SchemaFieldDataTypeClass(NumberTypeClass()),
+                        native_column_type="INTEGER",
+                    ),
+                    upstreams=[
+                        sqlglot_l.ColumnRef(
+                            table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_activity_temp,PROD)",
+                            column="player_id",
+                        )
+                    ],
+                    logic=None,
+                ),
+                ColumnLineageInfo(
+                    downstream=DownstreamColumnRef(
+                        table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_price,PROD)",
+                        column="price_usd",
+                        column_type=SchemaFieldDataTypeClass(NumberTypeClass()),
+                        native_column_type="BIGINT",
+                    ),
+                    upstreams=[
+                        sqlglot_l.ColumnRef(
+                            table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_activity_temp,PROD)",
+                            column="price",
+                        ),
+                        sqlglot_l.ColumnRef(
+                            table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_activity_temp,PROD)",
+                            column="tax",
+                        ),
+                    ],
+                    logic=None,
+                ),
+            ],
+        ),
+        urn="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_price,PROD)",
+    )
+
+    temp_table_activity: TempTableRow = TempTableRow(
+        transaction_id=127,
+        query_text="CREATE TABLE #player_activity_temp SELECT player_id, price, tax "
+        "from player_activity",
+        start_time=datetime.now(),
+        session_id="abc",
+        create_command="CREATE TABLE #player_activity_temp",
+        parsed_result=SqlParsingResult(
+            query_type=QueryType.CREATE,
+            in_tables=[
+                "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.player_activity,PROD)"
+            ],
+            out_tables=[
+                "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_activity_temp,PROD)"
+            ],
+            debug_info=SqlParsingDebugInfo(),
+            column_lineage=[
+                ColumnLineageInfo(
+                    downstream=DownstreamColumnRef(
+                        table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_activity_temp,PROD)",
+                        column="player_id",
+                        column_type=SchemaFieldDataTypeClass(NumberTypeClass()),
+                        native_column_type="INTEGER",
+                    ),
+                    upstreams=[
+                        sqlglot_l.ColumnRef(
+                            table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.player_activity,PROD)",
+                            column="player_id",
+                        )
+                    ],
+                    logic=None,
+                ),
+                ColumnLineageInfo(
+                    downstream=DownstreamColumnRef(
+                        table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_activity_temp,PROD)",
+                        column="price",
+                        column_type=SchemaFieldDataTypeClass(NumberTypeClass()),
+                        native_column_type="BIGINT",
+                    ),
+                    upstreams=[
+                        sqlglot_l.ColumnRef(
+                            table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.player_activity,PROD)",
+                            column="price",
+                        )
+                    ],
+                    logic=None,
+                ),
+                ColumnLineageInfo(
+                    downstream=DownstreamColumnRef(
+                        table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_activity_temp,PROD)",
+                        column="tax",
+                        column_type=SchemaFieldDataTypeClass(NumberTypeClass()),
+                        native_column_type="BIGINT",
+                    ),
+                    upstreams=[
+                        sqlglot_l.ColumnRef(
+                            table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.player_activity,PROD)",
+                            column="tax",
+                        )
+                    ],
+                    logic=None,
+                ),
+            ],
+        ),
+        urn="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_activity_temp,PROD)",
+    )
+    assert temp_table.urn
+    assert temp_table_activity.urn
+
+    lineage_extractor.temp_tables[temp_table.urn] = temp_table
+    lineage_extractor.temp_tables[temp_table_activity.urn] = temp_table_activity
+
+    target_dataset_cll: List[sqlglot_l.ColumnLineageInfo] = [
+        ColumnLineageInfo(
+            downstream=DownstreamColumnRef(
+                table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.player_price_with_hike_v6,PROD)",
+                column="price",
+                column_type=SchemaFieldDataTypeClass(type=NumberTypeClass()),
+                native_column_type="DOUBLE PRECISION",
+            ),
+            upstreams=[
+                sqlglot_l.ColumnRef(
+                    table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_price,PROD)",
+                    column="price_usd",
+                )
+            ],
+            logic=None,
+        ),
+        ColumnLineageInfo(
+            downstream=DownstreamColumnRef(
+                table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.player_price_with_hike_v6,PROD)",
+                column="player_id",
+                column_type=SchemaFieldDataTypeClass(type=NumberTypeClass()),
+                native_column_type="BIGINT",
+            ),
+            upstreams=[
+                sqlglot_l.ColumnRef(
+                    table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_price,PROD)",
+                    column="player_id",
+                )
+            ],
+            logic=None,
+        ),
+    ]
+
+    datasets = lineage_extractor._get_upstream_lineages(
+        sources=[
+            LineageDataset(
+                platform=LineageDatasetPlatform.REDSHIFT,
+                urn="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_price,PROD)",
+            )
+        ],
+        target_table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.player_price_with_hike_v4,PROD)",
+        raw_db_name="dev",
+        alias_db_name="dev",
+        all_tables_set={
+            "dev": {
+                "public": set(),
+            }
+        },
+        connection=MagicMock(),
+        target_dataset_cll=target_dataset_cll,
+    )
+
+    assert len(datasets) == 1
+
+    assert (
+        datasets[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.player_activity,PROD)"
+    )
+
+    assert target_dataset_cll[0].upstreams[0].table == (
+        "urn:li:dataset:(urn:li:dataPlatform:redshift,"
+        "dev.public.player_activity,PROD)"
+    )
+    assert target_dataset_cll[0].upstreams[0].column == "price"
+    assert target_dataset_cll[0].upstreams[1].column == "tax"
+    assert target_dataset_cll[1].upstreams[0].column == "player_id"
+
+
+def test_collapse_temp_recursive_cll_lineage_with_circular_reference():
+    lineage_extractor = get_lineage_extractor()
+
+    temp_table: TempTableRow = TempTableRow(
+        transaction_id=126,
+        query_text="CREATE TABLE #player_price distkey(player_id) AS SELECT player_id, SUM(price_usd) AS price_usd "
+        "from #player_activity_temp group by player_id",
+        start_time=datetime.now(),
+        session_id="abc",
+        create_command="CREATE TABLE #player_price",
+        parsed_result=SqlParsingResult(
+            query_type=QueryType.CREATE,
+            in_tables=[
+                "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_activity_temp,PROD)"
+            ],
+            out_tables=[
+                "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_price,PROD)"
+            ],
+            debug_info=SqlParsingDebugInfo(),
+            column_lineage=[
+                ColumnLineageInfo(
+                    downstream=DownstreamColumnRef(
+                        table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_price,PROD)",
+                        column="player_id",
+                        column_type=SchemaFieldDataTypeClass(NumberTypeClass()),
+                        native_column_type="INTEGER",
+                    ),
+                    upstreams=[
+                        sqlglot_l.ColumnRef(
+                            table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_activity_temp,PROD)",
+                            column="player_id",
+                        )
+                    ],
+                    logic=None,
+                ),
+                ColumnLineageInfo(
+                    downstream=DownstreamColumnRef(
+                        table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_price,PROD)",
+                        column="price_usd",
+                        column_type=SchemaFieldDataTypeClass(NumberTypeClass()),
+                        native_column_type="BIGINT",
+                    ),
+                    upstreams=[
+                        sqlglot_l.ColumnRef(
+                            table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_activity_temp,PROD)",
+                            column="price_usd",
+                        )
+                    ],
+                    logic=None,
+                ),
+            ],
+        ),
+        urn="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_price,PROD)",
+    )
+
+    temp_table_activity: TempTableRow = TempTableRow(
+        transaction_id=127,
+        query_text="CREATE TABLE #player_activity_temp SELECT player_id, SUM(price) AS price_usd "
+        "from #player_price",
+        start_time=datetime.now(),
+        session_id="abc",
+        create_command="CREATE TABLE #player_activity_temp",
+        parsed_result=SqlParsingResult(
+            query_type=QueryType.CREATE,
+            in_tables=[
+                "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.player_activity,PROD)"
+            ],
+            out_tables=[
+                "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_activity_temp,PROD)"
+            ],
+            debug_info=SqlParsingDebugInfo(),
+            column_lineage=[
+                ColumnLineageInfo(
+                    downstream=DownstreamColumnRef(
+                        table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_activity_temp,PROD)",
+                        column="player_id",
+                        column_type=SchemaFieldDataTypeClass(NumberTypeClass()),
+                        native_column_type="INTEGER",
+                    ),
+                    upstreams=[
+                        sqlglot_l.ColumnRef(
+                            table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_activity_temp,PROD)",
+                            column="player_id",
+                        )
+                    ],
+                    logic=None,
+                ),
+                ColumnLineageInfo(
+                    downstream=DownstreamColumnRef(
+                        table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_activity_temp,PROD)",
+                        column="price_usd",
+                        column_type=SchemaFieldDataTypeClass(NumberTypeClass()),
+                        native_column_type="BIGINT",
+                    ),
+                    upstreams=[
+                        sqlglot_l.ColumnRef(
+                            table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_activity_temp,PROD)",
+                            column="price_usd",
+                        )
+                    ],
+                    logic=None,
+                ),
+            ],
+        ),
+        urn="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_activity_temp,PROD)",
+    )
+
+    assert temp_table.urn
+    assert temp_table_activity.urn
+
+    lineage_extractor.temp_tables[temp_table.urn] = temp_table
+    lineage_extractor.temp_tables[temp_table_activity.urn] = temp_table_activity
+
+    target_dataset_cll: List[sqlglot_l.ColumnLineageInfo] = [
+        ColumnLineageInfo(
+            downstream=DownstreamColumnRef(
+                table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.player_price_with_hike_v6,PROD)",
+                column="price",
+                column_type=SchemaFieldDataTypeClass(type=NumberTypeClass()),
+                native_column_type="DOUBLE PRECISION",
+            ),
+            upstreams=[
+                sqlglot_l.ColumnRef(
+                    table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_price,PROD)",
+                    column="price_usd",
+                )
+            ],
+            logic=None,
+        )
+    ]
+
+    datasets = lineage_extractor._get_upstream_lineages(
+        sources=[
+            LineageDataset(
+                platform=LineageDatasetPlatform.REDSHIFT,
+                urn="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_price,PROD)",
+            )
+        ],
+        target_table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.player_price_with_hike_v4,PROD)",
+        raw_db_name="dev",
+        alias_db_name="dev",
+        all_tables_set={
+            "dev": {
+                "public": set(),
+            }
+        },
+        connection=MagicMock(),
+        target_dataset_cll=target_dataset_cll,
+    )
+
+    assert len(datasets) == 1
+    # Here we only interested if it fails or not

@@ -9,6 +9,7 @@ from datahub.ingestion.source.redshift.query import RedshiftQuery
 from datahub.ingestion.source.sql.sql_generic import BaseColumn, BaseTable
 from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
 from datahub.utilities.hive_schema_to_avro import get_schema_fields_for_hive_column
+from datahub.utilities.sqlglot_lineage import ColumnLineageInfo, SqlParsingResult
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -88,6 +89,7 @@ class TempTableRow:
     create_command: str
     start_time: datetime
     urn: Optional[str]
+    parsed_result: Optional[SqlParsingResult] = None
 
 
 @dataclass
