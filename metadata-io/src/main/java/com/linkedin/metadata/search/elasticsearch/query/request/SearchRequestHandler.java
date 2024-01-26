@@ -97,7 +97,7 @@ public class SearchRequestHandler {
   private final SearchConfiguration _configs;
   private final SearchQueryBuilder _searchQueryBuilder;
   private final AggregationQueryBuilder _aggregationQueryBuilder;
-  private final Map<String, Set<SearchableFieldSpec>> searchableFields;
+  private final Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes;
 
   private SearchRequestHandler(
       @Nonnull EntitySpec entitySpec,
@@ -122,9 +122,9 @@ public class SearchRequestHandler {
     _searchQueryBuilder = new SearchQueryBuilder(configs, customSearchConfiguration);
     _aggregationQueryBuilder = new AggregationQueryBuilder(configs, annotations);
     _configs = configs;
-    searchableFields =
+    searchableFieldTypes =
         _entitySpecs.stream()
-            .flatMap(entitySpec -> entitySpec.getSearchableFieldSpecMap().entrySet().stream())
+            .flatMap(entitySpec -> entitySpec.getSearchableFieldTypes().entrySet().stream())
             .collect(
                 Collectors.toMap(
                     Map.Entry::getKey,
@@ -182,12 +182,13 @@ public class SearchRequestHandler {
   }
 
   public BoolQueryBuilder getFilterQuery(@Nullable Filter filter) {
-    return getFilterQuery(filter, searchableFields);
+    return getFilterQuery(filter, searchableFieldTypes);
   }
 
   public static BoolQueryBuilder getFilterQuery(
-      @Nullable Filter filter, Map<String, Set<SearchableFieldSpec>> searchableFields) {
-    BoolQueryBuilder filterQuery = ESUtils.buildFilterQuery(filter, false, searchableFields);
+      @Nullable Filter filter,
+      Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes) {
+    BoolQueryBuilder filterQuery = ESUtils.buildFilterQuery(filter, false, searchableFieldTypes);
 
     return filterSoftDeletedByDefault(filter, filterQuery);
   }
