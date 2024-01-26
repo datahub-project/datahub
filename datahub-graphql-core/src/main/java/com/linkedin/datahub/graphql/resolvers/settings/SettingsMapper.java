@@ -201,8 +201,8 @@ public class SettingsMapper {
     if (input.hasExtractJwtAccessTokenClaims()) {
       result.setExtractJwtAccessTokenClaims(input.isExtractJwtAccessTokenClaims());
     }
-    if (input.hasPreferredJwsAlgorithm()) {
-      result.setPreferredJwsAlgorithm(input.getPreferredJwsAlgorithm());
+    if (input.hasPreferredJwsAlgorithm2()) {
+      result.setPreferredJwsAlgorithm(input.getPreferredJwsAlgorithm2());
     }
     return result;
   }

@@ -18,4 +18,12 @@ dependencies {
   compileOnly externalDependency.lombok
 
   annotationProcessor externalDependency.lombok
+
+  testImplementation externalDependency.testng
+  testImplementation externalDependency.springBootTest
+}
+
+test {
+  testLogging.showStandardStreams = true
+  testLogging.exceptionFormat = 'full'
 }

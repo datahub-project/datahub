@@ -49,6 +49,7 @@ public class UpdateGlobalSettingsResolverTest {
   private static final String CLIENT_SECRET_VALUE = "clientSecret";
   private static final String DISCOVERY_URI_VALUE =
       "https://idp.com/.well-known/openid-configuration";
+  private static final String PREFERRED_JWS_ALGORITHM = "jws1";
   private static final UpdateGlobalSettingsInput TEST_INPUT = new UpdateGlobalSettingsInput();
 
   @BeforeMethod
@@ -72,6 +73,7 @@ public class UpdateGlobalSettingsResolverTest {
     updateOidcSettingsInput.setClientId(CLIENT_ID_VALUE);
     updateOidcSettingsInput.setClientSecret(CLIENT_SECRET_VALUE);
     updateOidcSettingsInput.setDiscoveryUri(DISCOVERY_URI_VALUE);
+    updateOidcSettingsInput.setPreferredJwsAlgorithm(PREFERRED_JWS_ALGORITHM);
     updateSsoSettingsInput.setOidcSettings(updateOidcSettingsInput);
 
     TEST_INPUT.setSsoSettings(updateSsoSettingsInput);

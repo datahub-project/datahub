@@ -194,8 +194,9 @@ public class UpdateGlobalSettingsResolver implements DataFetcher<CompletableFutu
       oidcSettings.setExtractJwtAccessTokenClaims(update.getExtractJwtAccessTokenClaims());
     }
     if (update.getPreferredJwsAlgorithm() != null) {
-      oidcSettings.setPreferredJwsAlgorithm(update.getPreferredJwsAlgorithm());
+      oidcSettings.setPreferredJwsAlgorithm2(update.getPreferredJwsAlgorithm());
     }
+    oidcSettings.removePreferredJwsAlgorithm();
   }
 
   private NotificationSettingMap mapSettings(List<NotificationSettingInput> updatedSettings) {

@@ -76,6 +76,9 @@ public class AuthUtils {
   public static final String USE_NONCE = "useNonce";
   public static final String READ_TIMEOUT = "readTimeout";
   public static final String EXTRACT_JWT_ACCESS_TOKEN_CLAIMS = "extractJwtAccessTokenClaims";
+  // Retained for backwards compatibility
+  public static final String PREFERRED_JWS_ALGORITHM = "preferredJwsAlgorithm";
+  public static final String PREFERRED_JWS_ALGORITHM_2 = "preferredJwsAlgorithm2";
 
   /**
    * Determines whether the inbound request should be forward to downstream Metadata Service. Today,
