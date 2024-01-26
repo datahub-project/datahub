@@ -1876,6 +1876,25 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
             c.PUBLISHED_DATA_SOURCES_CONNECTION,
             datasource_filter,
         ):
+            datasource_id: str = datasource[c.ID]
+            datasource_urn = builder.make_dataset_urn_with_platform_instance(
+                platform=self.platform,
+                name=datasource_id,
+                platform_instance=self.config.platform_instance,
+                env=self.config.env,
+            )
+
+            dataset_snapshot = DatasetSnapshot(
+                urn=datasource_urn,
+                aspects=[self.get_data_platform_instance()],
+            )
+
+            tags = self.get_tags(dataset_snapshot)
+            if tags:
+                dataset_snapshot.aspects.append(builder.make_global_tag_aspect_with_tag_list(tags))
+            
+            yield self.get_metadata_change_event(dataset_snapshot)
+
             yield from self.emit_datasource(datasource)
 
     def emit_upstream_tables(self) -> Iterable[MetadataWorkUnit]:
