@@ -79,28 +79,6 @@ public interface EntitySpec {
     return fieldSpecMap;
   }
 
-  private static SearchableFieldSpec getSearchableFieldSpec(
-      String fieldName, SearchableAnnotation.FieldType fieldType, DataSchema dataSchema) {
-    SearchableAnnotation searchableAnnotation =
-        new SearchableAnnotation(
-            fieldName,
-            fieldType,
-            false,
-            false,
-            false,
-            false,
-            Optional.empty(),
-            Optional.empty(),
-            1.0,
-            Optional.empty(),
-            Optional.empty(),
-            Collections.emptyMap(),
-            Collections.emptyList(),
-            false);
-    PathSpec pathSpec = new PathSpec(fieldName);
-    return new SearchableFieldSpec(pathSpec, searchableAnnotation, dataSchema);
-  }
-
   default List<SearchScoreFieldSpec> getSearchScoreFieldSpecs() {
     return getAspectSpecs().stream()
         .map(AspectSpec::getSearchScoreFieldSpecs)
