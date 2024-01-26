@@ -16,7 +16,6 @@ from datahub.ingestion.source.redshift.report import RedshiftReport
 from datahub.metadata._schema_classes import (
     NumberTypeClass,
     SchemaFieldDataTypeClass,
-    StringTypeClass,
 )
 from datahub.utilities.sqlglot_lineage import (
     ColumnLineageInfo,
