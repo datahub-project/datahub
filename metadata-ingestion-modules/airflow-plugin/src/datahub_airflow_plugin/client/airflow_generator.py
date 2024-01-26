@@ -13,7 +13,7 @@ from datahub.utilities.urns.data_flow_urn import DataFlowUrn
 from datahub.utilities.urns.data_job_urn import DataJobUrn
 
 from datahub_airflow_plugin._airflow_compat import AIRFLOW_PATCHED
-from datahub_airflow_plugin._config import DatahubLineageConfig, DatajobUrl
+from datahub_airflow_plugin._config import DatajobUrl
 
 assert AIRFLOW_PATCHED
 

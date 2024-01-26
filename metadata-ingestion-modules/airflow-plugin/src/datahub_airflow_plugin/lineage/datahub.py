@@ -76,7 +76,6 @@ class DatahubLineageBackend(LineageBackend):
                 operator.inlets,
                 operator.outlets,
                 context,
-                config=config
             )
         except Exception as e:
             operator.log.error(e)
