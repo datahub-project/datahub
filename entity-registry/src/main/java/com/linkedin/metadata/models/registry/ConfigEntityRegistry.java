@@ -91,7 +91,7 @@ public class ConfigEntityRegistry implements EntityRegistry {
               .filter(Files::isRegularFile)
               .filter(f -> f.endsWith("entity-registry.yml") || f.endsWith("entity-registry.yaml"))
               .collect(Collectors.toList());
-      if (yamlFiles.size() == 0) {
+      if (yamlFiles.isEmpty()) {
         throw new EntityRegistryException(
             String.format(
                 "Did not find an entity registry (entity_registry.yaml/yml) under %s",

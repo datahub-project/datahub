@@ -1300,36 +1300,35 @@ def detach_ctes(
 
 def create_lineage_sql_parsed_result(
     query: str,
-    database: Optional[str],
+    default_db: Optional[str],
     platform: str,
     platform_instance: Optional[str],
     env: str,
-    schema: Optional[str] = None,
+    default_schema: Optional[str] = None,
     graph: Optional[DataHubGraph] = None,
 ) -> SqlParsingResult:
+    if graph:
+        needs_close = False
+        schema_resolver = graph._make_schema_resolver(
+            platform=platform,
+            platform_instance=platform_instance,
+            env=env,
+        )
+    else:
+        needs_close = True
+        schema_resolver = SchemaResolver(
+            platform=platform,
+            platform_instance=platform_instance,
+            env=env,
+            graph=None,
+        )
 
-    needs_close = False
     try:
-        if graph:
-            schema_resolver = graph._make_schema_resolver(
-                platform=platform,
-                platform_instance=platform_instance,
-                env=env,
-            )
-        else:
-            needs_close = True
-            schema_resolver = SchemaResolver(
-                platform=platform,
-                platform_instance=platform_instance,
-                env=env,
-                graph=None,
-            )
-
         return sqlglot_lineage(
             query,
             schema_resolver=schema_resolver,
-            default_db=database,
-            default_schema=schema,
+            default_db=default_db,
+            default_schema=default_schema,
         )
     except Exception as e:
         return SqlParsingResult.make_from_error(e)

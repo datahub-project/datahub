@@ -157,6 +157,62 @@ order by
   table_name ASC
 """
 
+    snapshots_for_dataset: str = f"""
+SELECT
+  t.table_catalog as table_catalog,
+  t.table_schema as table_schema,
+  t.table_name as table_name,
+  t.table_type as table_type,
+  t.creation_time as created,
+  t.is_insertable_into,
+  t.ddl,
+  t.snapshot_time_ms as snapshot_time,
+  t.base_table_catalog,
+  t.base_table_schema,
+  t.base_table_name,
+  ts.last_modified_time as last_altered,
+  tos.OPTION_VALUE as comment,
+  ts.row_count,
+  ts.size_bytes
+FROM
+  `{{project_id}}`.`{{dataset_name}}`.INFORMATION_SCHEMA.TABLES t
+  join `{{project_id}}`.`{{dataset_name}}`.__TABLES__ as ts on ts.table_id = t.TABLE_NAME
+  left join `{{project_id}}`.`{{dataset_name}}`.INFORMATION_SCHEMA.TABLE_OPTIONS as tos on t.table_schema = tos.table_schema
+  and t.TABLE_NAME = tos.TABLE_NAME
+  and tos.OPTION_NAME = "description"
+WHERE
+  table_type = '{BigqueryTableType.SNAPSHOT}'
+order by
+  table_schema ASC,
+  table_name ASC
+"""
+
+    snapshots_for_dataset_without_data_read: str = f"""
+SELECT
+  t.table_catalog as table_catalog,
+  t.table_schema as table_schema,
+  t.table_name as table_name,
+  t.table_type as table_type,
+  t.creation_time as created,
+  t.is_insertable_into,
+  t.ddl,
+  t.snapshot_time_ms as snapshot_time,
+  t.base_table_catalog,
+  t.base_table_schema,
+  t.base_table_name,
+  tos.OPTION_VALUE as comment,
+FROM
+  `{{project_id}}`.`{{dataset_name}}`.INFORMATION_SCHEMA.TABLES t
+  left join `{{project_id}}`.`{{dataset_name}}`.INFORMATION_SCHEMA.TABLE_OPTIONS as tos on t.table_schema = tos.table_schema
+  and t.TABLE_NAME = tos.TABLE_NAME
+  and tos.OPTION_NAME = "description"
+WHERE
+  table_type = '{BigqueryTableType.SNAPSHOT}'
+order by
+  table_schema ASC,
+  table_name ASC
+"""
+
     columns_for_dataset: str = """
 select
   c.table_catalog as table_catalog,

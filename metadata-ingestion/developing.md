@@ -10,7 +10,7 @@ Also take a look at the guide to [adding a source](./adding-source.md).
 ### Requirements
 
 1. Python 3.7+ must be installed in your host environment.
-2. Java8 (gradle won't work with newer versions)
+2. Java 17 (gradle won't work with newer or older versions)
 4. On Debian/Ubuntu: `sudo apt install python3-dev python3-venv`
 5. On Fedora (if using LDAP source integration): `sudo yum install openldap-devel`
 
