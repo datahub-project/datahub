@@ -833,9 +833,8 @@ class GlueSource(StatefulIngestionSourceBase):
                 **{k: v for k, v in kwargs.items() if v}
             )
 
-            partition_keys = response["Table"]["PartitionKeys"]
-
             # check if this table is partitioned
+            partition_keys = response["Table"].get("PartitionKeys")
             if partition_keys:
                 # ingest data profile with partitions
                 # for cross-account ingestion
