@@ -72,3 +72,29 @@ task lintFix(type: Exec, dependsOn: installDev) {
         "ruff --fix tests/ && " +
         "mypy tests/"
 }
+
+/**
+ * The following tasks assume an already running quickstart.
+ * ./gradlew quickstart (or another variation)
+ */
+task quickstartNoCypressSuite0(type: Exec, dependsOn: [installDev, ':metadata-ingestion:installDev']) {
+    environment 'RUN_QUICKSTART', 'false'
+    environment 'DATAHUB_KAFKA_SCHEMA_REGISTRY_URL', 'http://localhost:8080/schema-registry/api/'
+    environment 'TEST_STRATEGY', 'no_cypress_suite0'
+
+    workingDir = project.projectDir
+    commandLine 'bash', '-c',
+            "source ${venv_name}/bin/activate && set -x && " +
+            "./smoke.sh"
+}
+
+task quickstartNoCypressSuite1(type: Exec, dependsOn: [installDev, ':metadata-ingestion:installDev']) {
+    environment 'RUN_QUICKSTART', 'false'
+    environment 'DATAHUB_KAFKA_SCHEMA_REGISTRY_URL', 'http://localhost:8080/schema-registry/api/'
+    environment 'TEST_STRATEGY', 'no_cypress_suite1'
+
+    workingDir = project.projectDir
+    commandLine 'bash', '-c',
+            "source ${venv_name}/bin/activate && set -x && " +
+                    "./smoke.sh"
+}

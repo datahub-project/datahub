@@ -13,7 +13,7 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
-import com.linkedin.metadata.entity.ebean.batch.MCPUpsertBatchItem;
+import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -22,14 +22,14 @@ import org.mockito.Mockito;
 
 public class TestUtils {
 
-  public static EntityService<MCPUpsertBatchItem> getMockEntityService() {
+  public static EntityService<ChangeItemImpl> getMockEntityService() {
     PathSpecBasedSchemaAnnotationVisitor.class
         .getClassLoader()
         .setClassAssertionStatus(PathSpecBasedSchemaAnnotationVisitor.class.getName(), false);
     EntityRegistry registry =
         new ConfigEntityRegistry(TestUtils.class.getResourceAsStream("/test-entity-registry.yaml"));
-    EntityService<MCPUpsertBatchItem> mockEntityService =
-        (EntityService<MCPUpsertBatchItem>) Mockito.mock(EntityService.class);
+    EntityService<ChangeItemImpl> mockEntityService =
+        (EntityService<ChangeItemImpl>) Mockito.mock(EntityService.class);
     Mockito.when(mockEntityService.getEntityRegistry()).thenReturn(registry);
     return mockEntityService;
   }
@@ -111,14 +111,14 @@ public class TestUtils {
   }
 
   public static void verifyIngestProposal(
-      EntityService<MCPUpsertBatchItem> mockService,
+      EntityService<ChangeItemImpl> mockService,
       int numberOfInvocations,
       MetadataChangeProposal proposal) {
     verifyIngestProposal(mockService, numberOfInvocations, List.of(proposal));
   }
 
   public static void verifyIngestProposal(
-      EntityService<MCPUpsertBatchItem> mockService,
+      EntityService<ChangeItemImpl> mockService,
       int numberOfInvocations,
       List<MetadataChangeProposal> proposals) {
     AspectsBatchImpl batch =
@@ -128,7 +128,7 @@ public class TestUtils {
   }
 
   public static void verifySingleIngestProposal(
-      EntityService<MCPUpsertBatchItem> mockService,
+      EntityService<ChangeItemImpl> mockService,
       int numberOfInvocations,
       MetadataChangeProposal proposal) {
     Mockito.verify(mockService, Mockito.times(numberOfInvocations))
@@ -136,13 +136,13 @@ public class TestUtils {
   }
 
   public static void verifyIngestProposal(
-      EntityService<MCPUpsertBatchItem> mockService, int numberOfInvocations) {
+      EntityService<ChangeItemImpl> mockService, int numberOfInvocations) {
     Mockito.verify(mockService, Mockito.times(numberOfInvocations))
         .ingestProposal(Mockito.any(AspectsBatchImpl.class), Mockito.eq(false));
   }
 
   public static void verifySingleIngestProposal(
-      EntityService<MCPUpsertBatchItem> mockService, int numberOfInvocations) {
+      EntityService<ChangeItemImpl> mockService, int numberOfInvocations) {
     Mockito.verify(mockService, Mockito.times(numberOfInvocations))
         .ingestProposal(
             Mockito.any(MetadataChangeProposal.class),
@@ -150,7 +150,7 @@ public class TestUtils {
             Mockito.eq(false));
   }
 
-  public static void verifyNoIngestProposal(EntityService<MCPUpsertBatchItem> mockService) {
+  public static void verifyNoIngestProposal(EntityService<ChangeItemImpl> mockService) {
     Mockito.verify(mockService, Mockito.times(0))
         .ingestProposal(Mockito.any(AspectsBatchImpl.class), Mockito.anyBoolean());
   }

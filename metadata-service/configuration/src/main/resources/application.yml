@@ -400,7 +400,8 @@ cache:
           corpUserCredentials: 20
           corpUserSettings: 20
         structuredProperty:
-          propertyDefinition: 86400 # 1 day
+          status: 300 # 5 min
+          propertyDefinition: 300 # 5 min
           structuredPropertyKey: 86400 # 1 day
         chart:
           usageFeatures: 21600 # 6hrs
