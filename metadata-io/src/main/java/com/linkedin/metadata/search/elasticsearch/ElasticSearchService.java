@@ -1,6 +1,7 @@
 package com.linkedin.metadata.search.elasticsearch;
 
 import com.linkedin.common.urn.Urn;
+import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.browse.BrowseResultV2;
 import com.linkedin.metadata.query.AutoCompleteResult;
@@ -39,6 +40,13 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
   private final ESSearchDAO esSearchDAO;
   private final ESBrowseDAO esBrowseDAO;
   private final ESWriteDAO esWriteDAO;
+
+  @Override
+  public ElasticSearchService postConstruct(AspectRetriever aspectRetriever) {
+    esSearchDAO.setAspectRetriever(aspectRetriever);
+    esBrowseDAO.setAspectRetriever(aspectRetriever);
+    return this;
+  }
 
   @Override
   public void configure() {

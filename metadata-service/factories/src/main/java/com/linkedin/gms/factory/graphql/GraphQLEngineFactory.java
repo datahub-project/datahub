@@ -172,7 +172,7 @@ public class GraphQLEngineFactory {
 
   @Bean(name = "graphQLEngine")
   @Nonnull
-  protected GraphQLEngine getInstance(
+  protected GraphQLEngine graphQLEngine(
       @Qualifier("entityClient") final EntityClient entityClient,
       @Qualifier("systemEntityClient") final SystemEntityClient systemEntityClient) {
     GmsGraphQLEngineArgs args = new GmsGraphQLEngineArgs();

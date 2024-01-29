@@ -7,13 +7,16 @@ import com.datahub.authentication.Authentication;
 import com.datahub.metadata.ingestion.IngestionScheduler;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.gms.factory.kafka.schemaregistry.SchemaRegistryConfig;
+import com.linkedin.metadata.aspect.CachingAspectRetriever;
 import com.linkedin.metadata.boot.kafka.DataHubUpgradeKafkaListener;
+import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.registry.SchemaRegistryService;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.EntityIndexBuilders;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
+import com.linkedin.metadata.service.FormService;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import org.apache.avro.generic.GenericRecord;
@@ -45,7 +48,7 @@ public class MCLSpringTestConfiguration {
 
   @MockBean public IngestionScheduler ingestionScheduler;
 
-  @Bean
+  @Bean(name = "systemEntityClient")
   public SystemEntityClient systemEntityClient(
       @Qualifier("systemAuthentication") Authentication systemAuthentication) {
     SystemEntityClient systemEntityClient = mock(SystemEntityClient.class);
@@ -54,6 +57,13 @@ public class MCLSpringTestConfiguration {
   }
 
   @MockBean public ElasticSearchService searchService;
+
+  @MockBean public EntityService<?> entityService;
+
+  @MockBean public FormService formService;
+
+  @MockBean(name = "cachingAspectRetriever")
+  CachingAspectRetriever cachingAspectRetriever;
 
   @MockBean(name = "systemAuthentication")
   public Authentication systemAuthentication;

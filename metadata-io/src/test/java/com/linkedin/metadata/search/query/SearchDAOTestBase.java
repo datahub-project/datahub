@@ -2,6 +2,9 @@ package com.linkedin.metadata.search.query;
 
 import static com.linkedin.metadata.Constants.ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH;
 import static com.linkedin.metadata.utils.SearchUtil.AGGREGATION_SEPARATOR_CHAR;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNotNull;
@@ -11,8 +14,8 @@ import com.datahub.test.Snapshot;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.data.template.LongMap;
 import com.linkedin.data.template.StringArray;
+import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.config.search.SearchConfiguration;
-import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
@@ -29,12 +32,15 @@ import com.linkedin.metadata.search.SearchResultMetadata;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
 import com.linkedin.metadata.utils.SearchUtil;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
+import com.linkedin.r2.RemoteInvocationException;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import org.opensearch.client.RestHighLevelClient;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 public abstract class SearchDAOTestBase extends AbstractTestNGSpringContextTests {
@@ -45,7 +51,15 @@ public abstract class SearchDAOTestBase extends AbstractTestNGSpringContextTests
 
   protected abstract IndexConvention getIndexConvention();
 
-  EntityRegistry _entityRegistry = new SnapshotEntityRegistry(new Snapshot());
+  protected AspectRetriever aspectRetriever;
+
+  @BeforeClass
+  public void setup() throws RemoteInvocationException, URISyntaxException {
+    aspectRetriever = mock(AspectRetriever.class);
+    when(aspectRetriever.getEntityRegistry())
+        .thenReturn(new SnapshotEntityRegistry(new Snapshot()));
+    when(aspectRetriever.getLatestAspectObjects(any(), any())).thenReturn(Map.of());
+  }
 
   @Test
   public void testTransformFilterForEntitiesNoChange() {
@@ -219,13 +233,13 @@ public abstract class SearchDAOTestBase extends AbstractTestNGSpringContextTests
   public void testTransformIndexIntoEntityNameSingle() {
     ESSearchDAO searchDAO =
         new ESSearchDAO(
-            _entityRegistry,
-            getSearchClient(),
-            getIndexConvention(),
-            false,
-            ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH,
-            getSearchConfiguration(),
-            null);
+                getSearchClient(),
+                getIndexConvention(),
+                false,
+                ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH,
+                getSearchConfiguration(),
+                null)
+            .setAspectRetriever(aspectRetriever);
     // Empty aggregations
     final SearchResultMetadata searchResultMetadata =
         new SearchResultMetadata().setAggregations(new AggregationMetadataArray());
@@ -302,13 +316,13 @@ public abstract class SearchDAOTestBase extends AbstractTestNGSpringContextTests
   public void testTransformIndexIntoEntityNameNested() {
     ESSearchDAO searchDAO =
         new ESSearchDAO(
-            _entityRegistry,
-            getSearchClient(),
-            getIndexConvention(),
-            false,
-            ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH,
-            getSearchConfiguration(),
-            null);
+                getSearchClient(),
+                getIndexConvention(),
+                false,
+                ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH,
+                getSearchConfiguration(),
+                null)
+            .setAspectRetriever(aspectRetriever);
     // One nested facet
     Map<String, Long> entityTypeMap =
         Map.of(

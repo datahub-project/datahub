@@ -1,6 +1,10 @@
 package com.linkedin.metadata.aspect.batch;
 
-import com.linkedin.metadata.aspect.plugins.validation.AspectRetriever;
+import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.aspect.ReadItem;
+import com.linkedin.metadata.aspect.SystemAspect;
+import com.linkedin.metadata.aspect.plugins.hooks.MutationHook;
+import com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
 import java.util.Collection;
@@ -20,25 +24,106 @@ import javax.annotation.Nonnull;
 public interface AspectsBatch {
   Collection<? extends BatchItem> getItems();
 
+  AspectRetriever getAspectRetriever();
+
   /**
-   * Returns MCP items. Can be patch, upsert, etc.
+   * Returns MCP items. Could be patch, upsert, etc.
    *
    * @return batch items
    */
-  default Collection<? extends MCPBatchItem> getMCPItems() {
+  default Collection<? extends MCPItem> getMCPItems() {
     return getItems().stream()
-        .filter(item -> item instanceof MCPBatchItem)
-        .map(item -> (MCPBatchItem) item)
+        .filter(item -> item instanceof MCPItem)
+        .map(item -> (MCPItem) item)
         .collect(Collectors.toList());
   }
 
-  Pair<Map<String, Set<String>>, List<UpsertItem>> toUpsertBatchItems(
-      Map<String, Map<String, SystemAspect>> latestAspects, AspectRetriever aspectRetriever);
+  /**
+   * Convert patches to upserts, apply hooks at the aspect and batch level.
+   *
+   * @param latestAspects latest version in the database
+   * @return The new urn/aspectnames and the uniform upserts, possibly expanded/mutated by the
+   *     various hooks
+   */
+  Pair<Map<String, Set<String>>, List<ChangeMCP>> toUpsertBatchItems(
+      Map<String, Map<String, SystemAspect>> latestAspects);
 
-  default Stream<UpsertItem> applyMCPSideEffects(
-      List<UpsertItem> items, AspectRetriever aspectRetriever) {
+  /**
+   * Apply read mutations to batch
+   *
+   * @param items
+   */
+  default void applyReadMutationHooks(Collection<ReadItem> items) {
+    applyReadMutationHooks(items, getAspectRetriever());
+  }
+
+  static void applyReadMutationHooks(Collection<ReadItem> items, AspectRetriever aspectRetriever) {
+    for (MutationHook mutationHook : aspectRetriever.getEntityRegistry().getAllMutationHooks()) {
+      mutationHook.applyReadMutation(items, aspectRetriever);
+    }
+  }
+
+  /**
+   * Apply write mutations to batch
+   *
+   * @param changeMCPS
+   */
+  default void applyWriteMutationHooks(Collection<ChangeMCP> changeMCPS) {
+    applyWriteMutationHooks(changeMCPS, getAspectRetriever());
+  }
+
+  static void applyWriteMutationHooks(
+      Collection<ChangeMCP> changeMCPS, AspectRetriever aspectRetriever) {
+    for (MutationHook mutationHook : aspectRetriever.getEntityRegistry().getAllMutationHooks()) {
+      mutationHook.applyWriteMutation(changeMCPS, aspectRetriever);
+    }
+  }
+
+  default <T extends BatchItem> ValidationExceptionCollection validateProposed(
+      Collection<T> mcpItems) {
+    return validateProposed(mcpItems, getAspectRetriever());
+  }
+
+  static <T extends BatchItem> ValidationExceptionCollection validateProposed(
+      Collection<T> mcpItems, AspectRetriever aspectRetriever) {
+    ValidationExceptionCollection exceptions = ValidationExceptionCollection.newCollection();
+    aspectRetriever.getEntityRegistry().getAllAspectPayloadValidators().stream()
+        .flatMap(validator -> validator.validateProposed(mcpItems, aspectRetriever))
+        .forEach(exceptions::addException);
+    return exceptions;
+  }
+
+  default ValidationExceptionCollection validatePreCommit(Collection<ChangeMCP> changeMCPs) {
+    return validatePreCommit(changeMCPs, getAspectRetriever());
+  }
+
+  static ValidationExceptionCollection validatePreCommit(
+      Collection<ChangeMCP> changeMCPs, AspectRetriever aspectRetriever) {
+    ValidationExceptionCollection exceptions = ValidationExceptionCollection.newCollection();
+    aspectRetriever.getEntityRegistry().getAllAspectPayloadValidators().stream()
+        .flatMap(validator -> validator.validatePreCommit(changeMCPs, aspectRetriever))
+        .forEach(exceptions::addException);
+    return exceptions;
+  }
+
+  default Stream<ChangeMCP> applyMCPSideEffects(Collection<ChangeMCP> items) {
+    return applyMCPSideEffects(items, getAspectRetriever());
+  }
+
+  static Stream<ChangeMCP> applyMCPSideEffects(
+      Collection<ChangeMCP> items, AspectRetriever aspectRetriever) {
     return aspectRetriever.getEntityRegistry().getAllMCPSideEffects().stream()
         .flatMap(mcpSideEffect -> mcpSideEffect.apply(items, aspectRetriever));
+  }
+
+  default Stream<MCLItem> applyMCLSideEffects(Collection<MCLItem> items) {
+    return applyMCLSideEffects(items, getAspectRetriever());
+  }
+
+  static Stream<MCLItem> applyMCLSideEffects(
+      Collection<MCLItem> items, AspectRetriever aspectRetriever) {
+    return aspectRetriever.getEntityRegistry().getAllMCLSideEffects().stream()
+        .flatMap(mclSideEffect -> mclSideEffect.apply(items, aspectRetriever));
   }
 
   default boolean containsDuplicateAspects() {
@@ -81,7 +166,7 @@ public interface AspectsBatch {
         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
   }
 
-  default <T> Map<String, Map<String, T>> merge(
+  static <T> Map<String, Map<String, T>> merge(
       @Nonnull Map<String, Map<String, T>> a, @Nonnull Map<String, Map<String, T>> b) {
     return Stream.concat(a.entrySet().stream(), b.entrySet().stream())
         .flatMap(
