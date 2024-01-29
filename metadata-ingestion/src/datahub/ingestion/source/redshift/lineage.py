@@ -928,9 +928,11 @@ class RedshiftLineageExtractor:
             logger.warning(
                 f"Max depth reached for resolving temporary columns: {column_refs}"
             )
+            self.report.num_unresolved_temp_columns += 1
             return column_refs
 
         for ref in column_refs:
+            resolved = False
             if ref.table in self.temp_tables:
                 table = self.temp_tables[ref.table]
                 if table.parsed_result and table.parsed_result.column_lineage:
@@ -944,7 +946,17 @@ class RedshiftLineageExtractor:
                                     column_lineage.upstreams, depth=depth + 1
                                 )
                             )
+                            resolved = True
+                            break
+                    # If we reach here, it means that we were not able to resolve the column reference.
+                    if resolved is False:
+                        logger.warning(
+                            f"Unable to resolve column reference {ref} to a permanent table"
+                        )
             else:
+                logger.debug(
+                    f"Resolved column reference {ref} is not resolved because referenced table {ref.table} is not a temp table or not found. Adding reference as non-temp table. This is normal."
+                )
                 resolved_column_refs.append(ref)
         return resolved_column_refs
 

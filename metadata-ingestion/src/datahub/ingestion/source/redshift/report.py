@@ -44,6 +44,7 @@ class RedshiftReport(ProfilingSqlReport, IngestionStageReport, BaseTimeWindowRep
     usage_start_time: Optional[datetime] = None
     usage_end_time: Optional[datetime] = None
     stateful_usage_ingestion_enabled: bool = False
+    num_unresolved_temp_columns: int = 0
 
     def report_dropped(self, key: str) -> None:
         self.filtered.append(key)
