@@ -7,7 +7,7 @@ redshift_datetime_format = "%Y-%m-%d %H:%M:%S"
 class RedshiftQuery:
     CREATE_TEMP_TABLE_CLAUSE = "create temp table"
     CREATE_TEMPORARY_TABLE_CLAUSE = "create temporary table"
-    CREATE_TABLE_CLAUSE = "create table "
+    CREATE_TABLE_CLAUSE = "create table"
 
     list_databases: str = """SELECT datname FROM pg_database
         WHERE (datname <> ('padb_harvest')::name)
