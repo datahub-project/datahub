@@ -62,7 +62,7 @@ module.exports = {
           position: "right",
           items: [
             {
-              href: "https://slack.datahubproject.io",
+              to: "/slack",
               label: "Join Slack",
             },
             {
