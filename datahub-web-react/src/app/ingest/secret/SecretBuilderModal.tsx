@@ -120,7 +120,7 @@ export const SecretBuilderModal = ({ initialState, editSecret, visible, onSubmit
                         ]}
                         hasFeedback
                     >
-                        <Input placeholder="A name for your secret" />
+                        <Input placeholder="A name for your secret" disabled={editSecret !== undefined} />
                     </Form.Item>
                 </Form.Item>
                 <Form.Item label={<Typography.Text strong>Value</Typography.Text>}>
