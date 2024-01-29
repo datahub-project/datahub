@@ -19,6 +19,9 @@ import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.metadata.graph.LineageRelationship;
 import com.linkedin.metadata.graph.LineageRelationshipArray;
 import com.linkedin.metadata.query.FreshnessStats;
+import com.linkedin.metadata.query.GroupingCriterion;
+import com.linkedin.metadata.query.GroupingCriterionArray;
+import com.linkedin.metadata.query.GroupingSpec;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.Criterion;
@@ -55,13 +58,22 @@ import org.springframework.cache.Cache;
 @RequiredArgsConstructor
 @Slf4j
 public class LineageSearchService {
+
   private static final SearchFlags DEFAULT_SERVICE_SEARCH_FLAGS =
       new SearchFlags()
           .setFulltext(false)
           .setMaxAggValues(20)
           .setSkipCache(false)
           .setSkipAggregates(false)
-          .setSkipHighlighting(true);
+          .setSkipHighlighting(true)
+          .setGroupingSpec(
+              new GroupingSpec()
+                  .setGroupingCriteria(
+                      new GroupingCriterionArray(
+                          new GroupingCriterion() // Convert schema fields to datasets by default to
+                              // maintain backwards compatibility
+                              .setRawEntityType(SCHEMA_FIELD_ENTITY_NAME)
+                              .setGroupingEntityType(DATASET_ENTITY_NAME))));
   private final SearchService _searchService;
   private final GraphService _graphService;
   @Nullable private final Cache cache;
@@ -206,14 +218,18 @@ public class LineageSearchService {
       }
     }
 
-    // set schemaField relationship entity to be its reference urn
-    LineageRelationshipArray updatedRelationships = convertSchemaFieldRelationships(lineageResult);
-    lineageResult.setRelationships(updatedRelationships);
+    if (SearchUtils.convertSchemaFieldToDataset(searchFlags)) {
+      // set schemaField relationship entity to be its reference urn
+      LineageRelationshipArray updatedRelationships =
+          convertSchemaFieldRelationships(lineageResult);
+      lineageResult.setRelationships(updatedRelationships);
+    }
 
     // Filter hopped result based on the set of entities to return and inputFilters before sending
     // to search
     List<LineageRelationship> lineageRelationships =
         filterRelationships(lineageResult, new HashSet<>(entities), inputFilters);
+    log.debug("Lineage relationships found: {}", lineageRelationships);
 
     String lineageGraphInfo =
         String.format(
@@ -247,7 +263,9 @@ public class LineageSearchService {
                 lineageRelationships, input, reducedFilters, sortCriterion, from, size, finalFlags);
         if (!lineageSearchResult.getEntities().isEmpty()) {
           log.debug(
-              "Lineage entity result: {}", lineageSearchResult.getEntities().get(0).toString());
+              "Lineage entity results number -> {}; first -> {}",
+              lineageSearchResult.getNumEntities(),
+              lineageSearchResult.getEntities().get(0).toString());
         }
         numEntities = lineageSearchResult.getNumEntities();
         return lineageSearchResult;
@@ -470,9 +488,17 @@ public class LineageSearchService {
       if (existingRelationship == null) {
         urnToRelationship.put(relationship.getEntity(), relationship);
       } else {
-        UrnArrayArray paths = existingRelationship.getPaths();
-        paths.addAll(relationship.getPaths());
-        existingRelationship.setPaths(paths);
+        UrnArrayArray newPaths =
+            new UrnArrayArray(
+                existingRelationship.getPaths().size() + relationship.getPaths().size());
+        log.debug(
+            "Found {} paths for {}, will add to existing paths: {}",
+            relationship.getPaths().size(),
+            relationship.getEntity(),
+            existingRelationship.getPaths().size());
+        newPaths.addAll(existingRelationship.getPaths());
+        newPaths.addAll(relationship.getPaths());
+        existingRelationship.setPaths(newPaths);
       }
     }
     return urnToRelationship;
@@ -665,6 +691,9 @@ public class LineageSearchService {
     if (lineageRelationship != null) {
       entity.setPaths(lineageRelationship.getPaths());
       entity.setDegree(lineageRelationship.getDegree());
+      if (lineageRelationship.hasDegrees()) {
+        entity.setDegrees(lineageRelationship.getDegrees());
+      }
     }
     return entity;
   }

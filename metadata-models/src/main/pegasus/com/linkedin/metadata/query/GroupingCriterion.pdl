@@ -1,0 +1,20 @@
+namespace com.linkedin.metadata.query
+
+/**
+*
+**/
+
+record GroupingCriterion {
+
+    /**
+    * The type of the entity to be grouped.
+    * e.g. schemaField
+    */
+    rawEntityType: string
+
+    /**
+    * The type of the entity to be grouped into.
+    * e.g. dataset, domain, etc.
+    */
+    groupingEntityType: string
+}

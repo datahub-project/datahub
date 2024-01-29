@@ -45,7 +45,8 @@ public class SearchResolverTest {
             .setSkipAggregates(false)
             .setSkipHighlighting(true) // empty/wildcard
             .setMaxAggValues(20)
-            .setSkipCache(false));
+            .setSkipCache(false)
+            .setConvertSchemaFieldsToDatasets(true));
   }
 
   @Test
@@ -82,7 +83,8 @@ public class SearchResolverTest {
             .setSkipAggregates(true)
             .setSkipHighlighting(true)
             .setMaxAggValues(10)
-            .setSkipCache(true));
+            .setSkipCache(true)
+            .setConvertSchemaFieldsToDatasets(true));
   }
 
   @Test
@@ -112,7 +114,8 @@ public class SearchResolverTest {
             .setSkipAggregates(false)
             .setSkipHighlighting(false) // empty/wildcard
             .setMaxAggValues(20)
-            .setSkipCache(false));
+            .setSkipCache(false)
+            .setConvertSchemaFieldsToDatasets(true));
   }
 
   private EntityClient initMockSearchEntityClient() throws Exception {
