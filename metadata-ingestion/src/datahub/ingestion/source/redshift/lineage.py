@@ -185,6 +185,7 @@ class RedshiftLineageExtractor:
         dataset_vs_columns: Dict[str, List[SchemaField]] = {}
         # prepare dataset_urn vs List of schema fields
         for table in temp_tables:
+            logger.debug(f"Processing temp table: {table.create_command} with query text {table.query_text}")
             result = sqlglot_l.create_lineage_sql_parsed_result(
                 platform=LineageDatasetPlatform.REDSHIFT.value,
                 platform_instance=self.config.platform_instance,
@@ -1041,6 +1042,11 @@ class RedshiftLineageExtractor:
                     temp_table_rows=list(self.temp_tables.values()),
                     temp_table_names=[table],
                 )
+
+                if not repeated_temp_table:
+                    logger.debug(
+                        f"Unable to find table {table} in temp tables."
+                    )
 
                 if repeated_temp_table:
                     transitive_temp_tables.extend(repeated_temp_table)
