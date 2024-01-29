@@ -370,6 +370,7 @@ class DatasetPatchBuilder(MetadataPatchProposal):
                 path="/lastModified",
                 value=timestamp,
             )
+        return self
 
     def set_structured_property(
         self, property_name: str, value: Union[str, float, List[Union[str, float]]]
