@@ -36,10 +36,12 @@ export const SecretBuilderModal = ({ initialState, editSecret, visible, onSubmit
     }, [editSecret, form]);
 
     function resetValues() {
+        setCreateButtonEnabled(false);
         form.resetFields();
     }
 
     const onCloseModal = () => {
+        setCreateButtonEnabled(false);
         form.resetFields();
         onCancel?.();
     };
