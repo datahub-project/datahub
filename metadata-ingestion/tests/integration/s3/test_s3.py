@@ -6,7 +6,7 @@ from datetime import datetime
 import moto.s3
 import pytest
 from boto3.session import Session
-from moto import mock_aws
+from moto import mock_s3
 from pydantic import ValidationError
 
 from datahub.ingestion.run.pipeline import Pipeline, PipelineContext
@@ -23,7 +23,7 @@ def bucket_names():
 
 @pytest.fixture(scope="module", autouse=True)
 def s3():
-    with mock_aws():
+    with mock_s3():
         conn = Session(
             aws_access_key_id="test",
             aws_secret_access_key="test",
@@ -34,14 +34,14 @@ def s3():
 
 @pytest.fixture(scope="module", autouse=True)
 def s3_resource(s3):
-    with mock_aws():
+    with mock_s3():
         conn = s3.resource("s3")
         yield conn
 
 
 @pytest.fixture(scope="module", autouse=True)
 def s3_client(s3):
-    with mock_aws():
+    with mock_s3():
         conn = s3.client("s3")
         yield conn
 

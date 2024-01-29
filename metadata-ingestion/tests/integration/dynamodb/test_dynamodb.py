@@ -3,7 +3,7 @@ import pathlib
 import boto3
 import pytest
 from freezegun import freeze_time
-from moto import mock_aws
+from moto import mock_dynamodb
 
 from datahub.ingestion.run.pipeline import Pipeline
 from tests.test_helpers import mce_helpers
@@ -13,7 +13,7 @@ FROZEN_TIME = "2023-08-30 12:00:00"
 
 
 @freeze_time(FROZEN_TIME)
-@mock_aws
+@mock_dynamodb
 @pytest.mark.integration
 def test_dynamodb(pytestconfig, tmp_path, mock_time):
     boto3.setup_default_session()
