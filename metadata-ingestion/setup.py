@@ -149,7 +149,7 @@ looker_common = {
     # This version of lkml contains a fix for parsing lists in
     # LookML files with spaces between an item and the following comma.
     # See https://github.com/joshtemple/lkml/issues/73.
-    "lkml>=1.3.0b5",
+    "lkml>=1.3.4",
     "sql-metadata==2.2.2",
     *sqllineage_lib,
     "GitPython>2",
@@ -234,7 +234,8 @@ s3_base = {
     # ujson 5.2.0 has the JSONDecodeError exception type, which we need for error handling.
     "ujson>=5.2.0",
     "smart-open[s3]>=5.2.1",
-    "moto[s3]",
+    # moto 5.0.0 drops support for Python 3.7
+    "moto[s3]<5.0.0",
     *path_spec_common,
 }
 
@@ -340,7 +341,7 @@ plugins: Dict[str, Set[str]] = {
     "ldap": {"python-ldap>=2.4"},
     "looker": looker_common,
     "lookml": looker_common,
-    "metabase": {"requests"} | sqllineage_lib,
+    "metabase": {"requests"} | sqlglot_lib,
     "mlflow": {"mlflow-skinny>=2.3.0"},
     "mode": {"requests", "tenacity>=8.0.1"} | sqllineage_lib,
     "mongodb": {"pymongo[srv]>=3.11", "packaging"},

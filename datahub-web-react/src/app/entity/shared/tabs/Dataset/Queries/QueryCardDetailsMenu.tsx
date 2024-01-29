@@ -3,6 +3,7 @@ import styled from 'styled-components';
 import { DeleteOutlined, MoreOutlined } from '@ant-design/icons';
 import { Dropdown, Menu, message, Modal } from 'antd';
 import { useDeleteQueryMutation } from '../../../../../../graphql/query.generated';
+import handleGraphQLError from '../../../../../shared/handleGraphQLError';
 
 const StyledMoreOutlined = styled(MoreOutlined)`
     font-size: 14px;
@@ -28,9 +29,12 @@ export default function QueryCardDetailsMenu({ urn, onDeleted, index }: Props) {
                     onDeleted?.(urn);
                 }
             })
-            .catch(() => {
-                message.destroy();
-                message.error({ content: 'Failed to delete Query! An unexpected error occurred' });
+            .catch((error) => {
+                handleGraphQLError({
+                    error,
+                    defaultMessage: 'Failed to delete Query! An unexpected error occurred',
+                    permissionMessage: 'Unauthorized to delete Query. Please contact your DataHub administrator.',
+                });
             });
     };
 

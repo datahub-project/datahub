@@ -93,9 +93,11 @@ public class SearchRequestHandler {
   private final Set<String> _defaultQueryFieldNames;
   private final HighlightBuilder _highlights;
   private final Map<String, String> _filtersToDisplayName;
+
   private final SearchConfiguration _configs;
   private final SearchQueryBuilder _searchQueryBuilder;
   private final AggregationQueryBuilder _aggregationQueryBuilder;
+  private final Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes;
 
   private SearchRequestHandler(
       @Nonnull EntitySpec entitySpec,
@@ -120,6 +122,17 @@ public class SearchRequestHandler {
     _searchQueryBuilder = new SearchQueryBuilder(configs, customSearchConfiguration);
     _aggregationQueryBuilder = new AggregationQueryBuilder(configs, annotations);
     _configs = configs;
+    searchableFieldTypes =
+        _entitySpecs.stream()
+            .flatMap(entitySpec -> entitySpec.getSearchableFieldTypes().entrySet().stream())
+            .collect(
+                Collectors.toMap(
+                    Map.Entry::getKey,
+                    Map.Entry::getValue,
+                    (set1, set2) -> {
+                      set1.addAll(set2);
+                      return set1;
+                    }));
   }
 
   public static SearchRequestHandler getBuilder(
@@ -168,8 +181,14 @@ public class SearchRequestHandler {
     };
   }
 
-  public static BoolQueryBuilder getFilterQuery(@Nullable Filter filter) {
-    BoolQueryBuilder filterQuery = ESUtils.buildFilterQuery(filter, false);
+  public BoolQueryBuilder getFilterQuery(@Nullable Filter filter) {
+    return getFilterQuery(filter, searchableFieldTypes);
+  }
+
+  public static BoolQueryBuilder getFilterQuery(
+      @Nullable Filter filter,
+      Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes) {
+    BoolQueryBuilder filterQuery = ESUtils.buildFilterQuery(filter, false, searchableFieldTypes);
 
     return filterSoftDeletedByDefault(filter, filterQuery);
   }
@@ -353,7 +372,7 @@ public class SearchRequestHandler {
    * @return {@link SearchRequest} that contains the aggregation query
    */
   @Nonnull
-  public static SearchRequest getAggregationRequest(
+  public SearchRequest getAggregationRequest(
       @Nonnull String field, @Nullable Filter filter, int limit) {
     SearchRequest searchRequest = new SearchRequest();
     BoolQueryBuilder filterQuery = getFilterQuery(filter);
@@ -647,10 +666,12 @@ public class SearchRequestHandler {
     if (aggregation == null) {
       return Collections.emptyMap();
     }
-    if (aggregation instanceof ParsedTerms terms) {
-      return extractTermAggregations(terms, aggregationName.equals("_entityType"));
-    } else if (aggregation instanceof ParsedMissing missing) {
-      return Collections.singletonMap(missing.getName(), missing.getDocCount());
+    if (aggregation instanceof ParsedTerms) {
+      return extractTermAggregations(
+          (ParsedTerms) aggregation, aggregationName.equals("_entityType"));
+    } else if (aggregation instanceof ParsedMissing) {
+      return Collections.singletonMap(
+          aggregation.getName(), ((ParsedMissing) aggregation).getDocCount());
     }
     throw new UnsupportedOperationException(
         "Unsupported aggregation type: " + aggregation.getClass().getName());
@@ -668,10 +689,10 @@ public class SearchRequestHandler {
 
     if (aggs != null) {
       for (Map.Entry<String, Aggregation> entry : aggs.getAsMap().entrySet()) {
-        if (entry.getValue() instanceof ParsedTerms terms) {
-          recurseTermsAgg(terms, aggResult, false);
-        } else if (entry.getValue() instanceof ParsedMissing missing) {
-          recurseMissingAgg(missing, aggResult);
+        if (entry.getValue() instanceof ParsedTerms) {
+          recurseTermsAgg((ParsedTerms) entry.getValue(), aggResult, false);
+        } else if (entry.getValue() instanceof ParsedMissing) {
+          recurseMissingAgg((ParsedMissing) entry.getValue(), aggResult);
         } else {
           throw new UnsupportedOperationException(
               "Unsupported aggregation type: " + entry.getValue().getClass().getName());

@@ -77,7 +77,7 @@ class BaseTransformer(Transformer, metaclass=ABCMeta):
             mixedin = mixedin or isinstance(self, mixin)
         if not mixedin:
             assert (
-                "Class does not implement one of required traits {self.allowed_mixins}"
+                f"Class does not implement one of required traits {self.allowed_mixins}"
             )
 
     def _should_process(
@@ -135,38 +135,37 @@ class BaseTransformer(Transformer, metaclass=ABCMeta):
         if mce.proposedSnapshot:
             self._record_mce(mce)
         if isinstance(self, SingleAspectTransformer):
-            aspect_type = ASPECT_MAP.get(self.aspect_name())
-            if aspect_type:
-                # if we find a type corresponding to the aspect name we look for it in the mce
-                old_aspect = (
-                    builder.get_aspect_if_available(
-                        mce,
-                        aspect_type,
+            aspect_type = ASPECT_MAP[self.aspect_name()]
+
+            # If we find a type corresponding to the aspect name we look for it in the mce
+            # It's possible that the aspect is supported by the entity but not in the MCE
+            # snapshot union. In those cases, we just want to record the urn as seen.
+            supports_aspect = builder.can_add_aspect(mce, aspect_type)
+            if supports_aspect:
+                old_aspect = builder.get_aspect_if_available(
+                    mce,
+                    aspect_type,
+                )
+                if old_aspect is not None:
+                    # TRICKY: If the aspect is not present in the MCE, it might still show up in a
+                    # subsequent MCP. As such, we _only_ mark the urn as processed if we actually
+                    # find the aspect already in the MCE.
+
+                    transformed_aspect = self.transform_aspect(
+                        entity_urn=mce.proposedSnapshot.urn,
+                        aspect_name=self.aspect_name(),
+                        aspect=old_aspect,
                     )
-                    if builder.can_add_aspect(mce, aspect_type)
-                    else None
-                )
-                if old_aspect:
-                    if isinstance(self, LegacyMCETransformer):
-                        # use the transform_one pathway to transform this MCE
-                        envelope.record = self.transform_one(mce)
-                    else:
-                        transformed_aspect = self.transform_aspect(
-                            entity_urn=mce.proposedSnapshot.urn,
-                            aspect_name=self.aspect_name(),
-                            aspect=old_aspect,
-                        )
-                        builder.set_aspect(
-                            mce,
-                            aspect_type=aspect_type,
-                            aspect=transformed_aspect,
-                        )
-                        envelope.record = mce
+
+                    # If transformed_aspect is None, this will remove the aspect.
+                    builder.set_aspect(
+                        mce,
+                        aspect_type=aspect_type,
+                        aspect=transformed_aspect,
+                    )
+
+                    envelope.record = mce
                     self._mark_processed(mce.proposedSnapshot.urn)
-            else:
-                log.warning(
-                    f"Could not locate a snapshot aspect type for aspect {self.aspect_name()}. This can lead to silent drops of messages in transformers."
-                )
         elif isinstance(self, LegacyMCETransformer):
             # we pass down the full MCE
             envelope.record = self.transform_one(mce)
@@ -202,7 +201,6 @@ class BaseTransformer(Transformer, metaclass=ABCMeta):
     def _handle_end_of_stream(
         self, envelope: RecordEnvelope
     ) -> Iterable[RecordEnvelope]:
-
         if not isinstance(self, SingleAspectTransformer) and not isinstance(
             self, LegacyMCETransformer
         ):
@@ -265,7 +263,7 @@ class BaseTransformer(Transformer, metaclass=ABCMeta):
                             else None,
                         )
                         if transformed_aspect:
-                            structured_urn = Urn.create_from_string(urn)
+                            structured_urn = Urn.from_string(urn)
 
                             mcp: MetadataChangeProposalWrapper = (
                                 MetadataChangeProposalWrapper(

@@ -10,11 +10,12 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.FilterOperator;
-import com.linkedin.datahub.graphql.resolvers.EntityTypeMapper;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.SearchableEntityType;
+import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
 import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.metadata.query.SearchFlags;
+import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.LineageSearchResult;
 import com.linkedin.metadata.search.LineageSearchService;
 import com.linkedin.metadata.search.ScrollResult;
@@ -63,6 +64,23 @@ public class SearchTestUtils {
         SEARCHABLE_ENTITIES,
         query,
         null,
+        null,
+        0,
+        100,
+        new SearchFlags().setFulltext(true).setSkipCache(true),
+        facets);
+  }
+
+  public static SearchResult searchAcrossEntities(
+      SearchService searchService,
+      String query,
+      @Nullable List<String> facets,
+      Filter filter,
+      List<String> entityNames) {
+    return searchService.searchAcrossEntities(
+        entityNames,
+        query,
+        filter,
         null,
         0,
         100,

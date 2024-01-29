@@ -20,7 +20,7 @@ public class UpgradeCliApplicationTestConfiguration {
 
   @MockBean private Database ebeanServer;
 
-  @MockBean private EntityService _entityService;
+  @MockBean private EntityService<?> _entityService;
 
   @MockBean private SearchService searchService;
 

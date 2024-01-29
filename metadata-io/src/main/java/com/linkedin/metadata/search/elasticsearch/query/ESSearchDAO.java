@@ -1,7 +1,7 @@
 package com.linkedin.metadata.search.elasticsearch.query;
 
 import static com.linkedin.metadata.Constants.*;
-import static com.linkedin.metadata.models.registry.template.util.TemplateUtil.*;
+import static com.linkedin.metadata.aspect.patch.template.TemplateUtil.*;
 import static com.linkedin.metadata.utils.SearchUtil.*;
 
 import com.codahale.metrics.Timer;
@@ -78,7 +78,7 @@ public class ESSearchDAO {
     EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
     CountRequest countRequest =
         new CountRequest(indexConvention.getIndexName(entitySpec))
-            .query(SearchRequestHandler.getFilterQuery(null));
+            .query(SearchRequestHandler.getFilterQuery(null, entitySpec.getSearchableFieldTypes()));
     try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "docCount").time()) {
       return client.count(countRequest, RequestOptions.DEFAULT).getCount();
     } catch (IOException e) {
@@ -303,7 +303,7 @@ public class ESSearchDAO {
   /**
    * Returns number of documents per field value given the field and filters
    *
-   * @param entityName name of the entity, if null, aggregates over all entities
+   * @param entityNames names of the entities, if null, aggregates over all entities
    * @param field the field name for aggregate
    * @param requestParams filters to apply before aggregating
    * @param limit the number of aggregations to return
@@ -315,9 +315,17 @@ public class ESSearchDAO {
       @Nonnull String field,
       @Nullable Filter requestParams,
       int limit) {
+    List<EntitySpec> entitySpecs;
+    if (entityNames == null || entityNames.isEmpty()) {
+      entitySpecs = new ArrayList<>(entityRegistry.getEntitySpecs().values());
+    } else {
+      entitySpecs =
+          entityNames.stream().map(entityRegistry::getEntitySpec).collect(Collectors.toList());
+    }
     final SearchRequest searchRequest =
-        SearchRequestHandler.getAggregationRequest(
-            field, transformFilterForEntities(requestParams, indexConvention), limit);
+        SearchRequestHandler.getBuilder(entitySpecs, searchConfiguration, customSearchConfiguration)
+            .getAggregationRequest(
+                field, transformFilterForEntities(requestParams, indexConvention), limit);
     if (entityNames == null) {
       String indexName = indexConvention.getAllEntityIndicesPattern();
       searchRequest.indices(indexName);
