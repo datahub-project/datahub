@@ -5669,9 +5669,10 @@
     "namespace" : "com.linkedin.metadata.query",
     "doc" : "\n",
     "fields" : [ {
-      "name" : "rawEntityType",
+      "name" : "baseEntityType",
       "type" : "string",
-      "doc" : "The type of the entity to be grouped.\ne.g. schemaField"
+      "doc" : "The type of the entity to be grouped.\ne.g. schemaField\nOmitting this field will result in all base entities being grouped.",
+      "optional" : true
     }, {
       "name" : "groupingEntityType",
       "type" : "string",
