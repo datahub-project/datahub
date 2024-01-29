@@ -140,6 +140,10 @@ class OktaConfig(StatefulIngestionConfigBase, ConfigModel):
         default=None,
         description="Okta search expression (not regex) for ingesting groups. Only one of `okta_groups_filter` and `okta_groups_search` can be set. See (https://developer.okta.com/docs/reference/api/groups/#list-groups-with-search) for more info.",
     )
+    ingest_users_for_filtered_groups: bool = Field(
+        default=False,
+        description="Whether to only ingest users that are members of groups that match the filter or search expression for groups. If this is set to False, all users will be ingested regardless of group membership.",
+    )
 
     # Configuration for stateful ingestion
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
@@ -165,6 +169,9 @@ class OktaConfig(StatefulIngestionConfigBase, ConfigModel):
                 "Only one of okta_groups_filter or okta_groups_search can be set"
             )
         return v
+
+    def has_group_filter(self):
+        return self.okta_groups_filter or self.okta_groups_search
 
 
 @dataclass
@@ -387,6 +394,16 @@ class OktaSource(StatefulIngestionSourceBase):
                         datahub_corp_user_snapshot.urn
                     ]
                 )
+                if (
+                    self.config.ingest_users_for_filtered_groups
+                    and self.config.has_group_filter()
+                    and len(datahub_group_membership.groups) == 0
+                ):
+                    logger.debug(
+                        f"Filtering {datahub_corp_user_snapshot.urn} due to group filter"
+                    )
+                    self.report.report_filtered(datahub_corp_user_snapshot.urn)
+                    continue
                 assert datahub_group_membership is not None
                 datahub_corp_user_snapshot.aspects.append(datahub_group_membership)
                 mce = MetadataChangeEvent(proposedSnapshot=datahub_corp_user_snapshot)
