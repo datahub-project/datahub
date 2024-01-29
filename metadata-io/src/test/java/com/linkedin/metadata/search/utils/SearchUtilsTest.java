@@ -31,7 +31,7 @@ public class SearchUtilsTest {
               .setGroupingCriteria(
                   new GroupingCriterionArray(
                       new GroupingCriterion()
-                          .setRawEntityType(SCHEMA_FIELD_ENTITY_NAME)
+                          .setBaseEntityType(SCHEMA_FIELD_ENTITY_NAME)
                           .setGroupingEntityType(DATASET_ENTITY_NAME))));
     } else {
       return flags.setGroupingSpec(null, SetMode.REMOVE_IF_NULL);

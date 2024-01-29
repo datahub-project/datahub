@@ -1332,13 +1332,15 @@ A single grouping criterion for grouping search results
 input GroupingCriterion {
 
   """
-  The raw entity type that needs to be grouped
+  The base entity type that needs to be grouped
+  e.g. schemaField
+  Omitting this field will result in all base entities being grouped into the groupingEntityType.
   """
-  rawEntityType: String!
+  baseEntityType: EntityType
 
   """
   The grouping entity type
   """
-  groupingEntityType: String!
+  groupingEntityType: EntityType!
 
 }

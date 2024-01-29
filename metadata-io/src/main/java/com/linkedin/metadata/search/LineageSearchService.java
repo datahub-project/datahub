@@ -72,7 +72,7 @@ public class LineageSearchService {
                       new GroupingCriterionArray(
                           new GroupingCriterion() // Convert schema fields to datasets by default to
                               // maintain backwards compatibility
-                              .setRawEntityType(SCHEMA_FIELD_ENTITY_NAME)
+                              .setBaseEntityType(SCHEMA_FIELD_ENTITY_NAME)
                               .setGroupingEntityType(DATASET_ENTITY_NAME))));
   private final SearchService _searchService;
   private final GraphService _graphService;

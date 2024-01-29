@@ -219,7 +219,7 @@ public class SearchUtils {
         && (searchFlags.getGroupingSpec().getGroupingCriteria().stream()
             .anyMatch(
                 grouping ->
-                    grouping.getRawEntityType().equals(SCHEMA_FIELD_ENTITY_NAME)
+                    grouping.getBaseEntityType().equals(SCHEMA_FIELD_ENTITY_NAME)
                         && grouping.getGroupingEntityType().equals(DATASET_ENTITY_NAME)));
   }
 }
