@@ -62,7 +62,7 @@ module.exports = {
           position: "right",
           items: [
             {
-              to: "/slacksurvey",
+              to: "/slack",
               label: "Join Slack",
             },
             {
