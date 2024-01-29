@@ -98,8 +98,7 @@ def search_across_lineage(
     def _explain_sal_result(result: dict) -> str:
         explain = ""
         entities = [
-            x["entity"]["urn"]
-            for x in result["searchAcrossLineage"]["searchResults"]
+            x["entity"]["urn"] for x in result["searchAcrossLineage"]["searchResults"]
         ]
         number_of_results = len(entities)
         explain += f"Number of results: {number_of_results}\n"
@@ -143,8 +142,8 @@ def search_across_lineage(
                     "groupingSpec": {
                         "groupingCriteria": [
                             {
-                                "rawEntityType": "schemaField",
-                                "groupingEntityType": "dataset",
+                                "baseEntityType": "SCHEMA_FIELD",
+                                "groupingEntityType": "DATASET",
                             },
                         ]
                     },
@@ -199,9 +198,7 @@ def search_across_lineage(
         """,
         variables=variable,
     )
-    print(
-        f"Query -> Entity {main_entity} with hops {hops} and direction {direction}"
-    )
+    print(f"Query -> Entity {main_entity} with hops {hops} and direction {direction}")
     print(result)
     print(_explain_sal_result(result))
     return result
@@ -293,9 +290,7 @@ class ScenarioExpectation:
         for main_entity in self._graph.nodes():
             for direction in [Direction.UPSTREAM, Direction.DOWNSTREAM]:
                 for upconvert_schema_fields_to_datasets in upconvert_options:
-                    possible_hops = [h for h in range(1, max_hops)] + [
-                        INFINITE_HOPS
-                    ]
+                    possible_hops = [h for h in range(1, max_hops)] + [INFINITE_HOPS]
                     for hops in possible_hops:
                         query = ImpactQuery(
                             main_entity=main_entity,
@@ -305,9 +300,7 @@ class ScenarioExpectation:
                         )
                         yield query, self.get_expectation_for_query(query)
 
-    def get_expectation_for_query(
-        self, query: ImpactQuery
-    ) -> LineageExpectation:
+    def get_expectation_for_query(self, query: ImpactQuery) -> LineageExpectation:
         graph_to_walk = (
             self._graph
             if query.direction == Direction.DOWNSTREAM
@@ -344,10 +337,7 @@ class ScenarioExpectation:
                 if via_entity not in lineage_expectation.impacted_entities:
                     lineage_expectation.impacted_entities[via_entity] = []
                 via_path = Path(path=[x for x in expanded_path])
-                if (
-                    via_path
-                    not in lineage_expectation.impacted_entities[via_entity]
-                ):
+                if via_path not in lineage_expectation.impacted_entities[via_entity]:
                     lineage_expectation.impacted_entities[via_entity].append(
                         Path(path=[x for x in expanded_path])
                     )
@@ -369,16 +359,12 @@ class ScenarioExpectation:
                     ).entity_ids[0]
                     if impacted_dataset_entity in entries_to_add:
                         entries_to_add[impacted_dataset_entity].extend(
-                            lineage_expectation.impacted_entities[
-                                impacted_entity
-                            ]
+                            lineage_expectation.impacted_entities[impacted_entity]
                         )
                     else:
-                        entries_to_add[impacted_dataset_entity] = (
-                            lineage_expectation.impacted_entities[
-                                impacted_entity
-                            ]
-                        )
+                        entries_to_add[
+                            impacted_dataset_entity
+                        ] = lineage_expectation.impacted_entities[impacted_entity]
                     entries_to_remove.append(impacted_entity)
             for impacted_entity in entries_to_remove:
                 del lineage_expectation.impacted_entities[impacted_entity]
@@ -401,18 +387,12 @@ class Scenario(BaseModel):
     hop_transformation_map: Dict[int, str] = {}
     num_hops: int = 1
     default_datasets_at_each_hop: int = 2
-    default_dataset_fanin: int = (
-        2  # Number of datasets that feed into a transformation
-    )
-    default_column_fanin: int = (
-        2  # Number of columns that feed into a transformation
-    )
+    default_dataset_fanin: int = 2  # Number of datasets that feed into a transformation
+    default_column_fanin: int = 2  # Number of columns that feed into a transformation
     default_dataset_fanout: int = (
         1  # Number of datasets that a transformation feeds into
     )
-    default_column_fanout: int = (
-        1  # Number of columns that a transformation feeds into
-    )
+    default_column_fanout: int = 1  # Number of columns that a transformation feeds into
     # num_upstream_datasets: int = 2
     # num_downstream_datasets: int = 1
     default_dataset_prefix: str = "librarydb."
@@ -545,9 +525,7 @@ class Scenario(BaseModel):
 
             # Add field level expectations
             for upstream_field_urn in fine_grained_lineage.upstreams or []:
-                for downstream_field_urn in (
-                    fine_grained_lineage.downstreams or []
-                ):
+                for downstream_field_urn in fine_grained_lineage.downstreams or []:
                     self.expectations.extend_impacted_entities(
                         Direction.DOWNSTREAM,
                         upstream_field_urn,
@@ -616,9 +594,7 @@ class Scenario(BaseModel):
                 )
                 for fine_grained_lineage in fine_grained_lineages:
                     # Add field level expectations
-                    for upstream_field_urn in (
-                        fine_grained_lineage.upstreams or []
-                    ):
+                    for upstream_field_urn in fine_grained_lineage.upstreams or []:
                         for downstream_field_urn in (
                             fine_grained_lineage.downstreams or []
                         ):
@@ -627,9 +603,7 @@ class Scenario(BaseModel):
                                 upstream_field_urn,
                                 downstream_field_urn,
                                 path_extension=[
-                                    self.get_transformation_query_urn(
-                                        hop_index
-                                    ),
+                                    self.get_transformation_query_urn(hop_index),
                                     downstream_field_urn,
                                 ],
                             )
@@ -724,18 +698,14 @@ class Scenario(BaseModel):
                 aspects=[
                     SchemaMetadataClass(
                         schemaName=str(dataset_urn),
-                        platform=builder.make_data_platform_urn(
-                            dataset_urn.platform
-                        ),
+                        platform=builder.make_data_platform_urn(dataset_urn.platform),
                         version=0,
                         hash="",
                         platformSchema=OtherSchemaClass(rawSchema=""),
                         fields=[
                             SchemaFieldClass(
                                 fieldPath=self.get_column_name(i),
-                                type=SchemaFieldDataTypeClass(
-                                    type=StringTypeClass()
-                                ),
+                                type=SchemaFieldDataTypeClass(type=StringTypeClass()),
                                 nativeDataType="string",
                             )
                             for i in range(self.default_column_fanin)
@@ -765,22 +735,12 @@ class Scenario(BaseModel):
                     assert graph.exists(dataset_urn) is True
 
             if self.lineage_style == Scenario.LineageStyle.DATASET_JOB_DATASET:
-                assert (
-                    graph.exists(self.get_transformation_job_urn(hop_index))
-                    is True
-                )
-                assert (
-                    graph.exists(self.get_transformation_flow_urn(hop_index))
-                    is True
-                )
+                assert graph.exists(self.get_transformation_job_urn(hop_index)) is True
+                assert graph.exists(self.get_transformation_flow_urn(hop_index)) is True
 
-            if (
-                self.lineage_style
-                == Scenario.LineageStyle.DATASET_QUERY_DATASET
-            ):
+            if self.lineage_style == Scenario.LineageStyle.DATASET_QUERY_DATASET:
                 assert (
-                    graph.exists(self.get_transformation_query_urn(hop_index))
-                    is True
+                    graph.exists(self.get_transformation_query_urn(hop_index)) is True
                 )
 
             wait_for_writes_to_sync()  # Wait for the graph to update
@@ -790,9 +750,7 @@ class Scenario(BaseModel):
             for (
                 query,
                 expectation,
-            ) in self.expectations.generate_query_expectation_pairs(
-                self.num_hops
-            ):
+            ) in self.expectations.generate_query_expectation_pairs(self.num_hops):
                 impacted_entities_expectation = set(
                     [x for x in expectation.impacted_entities.keys()]
                 )
@@ -983,9 +941,7 @@ def ingest_multipath_metadata(
                 ChartInfoClass(
                     title="chart",
                     description="chart",
-                    lastModified=ChangeAuditStampsClass(
-                        created=fake_auditstamp
-                    ),
+                    lastModified=ChangeAuditStampsClass(created=fake_auditstamp),
                     inputEdges=[
                         EdgeClass(
                             destinationUrn=intermediate_entity,
@@ -1021,8 +977,7 @@ def test_simple_lineage_multiple_paths(
         convert_schema_fields_to_datasets=True,
     )
     assert destination_urn in [
-        x["entity"]["urn"]
-        for x in results["searchAcrossLineage"]["searchResults"]
+        x["entity"]["urn"] for x in results["searchAcrossLineage"]["searchResults"]
     ]
     for search_result in results["searchAcrossLineage"]["searchResults"]:
         if search_result["entity"]["urn"] == destination_urn:
