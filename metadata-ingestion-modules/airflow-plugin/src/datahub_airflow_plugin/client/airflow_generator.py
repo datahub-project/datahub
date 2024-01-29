@@ -272,7 +272,7 @@ class AirflowGenerator:
         base_url = conf.get("webserver", "base_url")
 
         if (
-                config and config.datajob_url_link == DatajobUrl.GRID
+            config and config.datajob_url_link == DatajobUrl.GRID
         ):
             datajob.url = f"{base_url}/dags/{datajob.flow_urn.get_flow_id()}/grid?task_id={task.task_id}"
         else:
