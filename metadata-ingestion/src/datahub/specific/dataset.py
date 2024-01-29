@@ -342,7 +342,6 @@ class DatasetPatchBuilder(MetadataPatchProposal):
             )
         return self
 
-
     def set_qualified_name(self, qualified_name: str) -> "DatasetPatchBuilder":
         if qualified_name is not None:
             self._add_patch(

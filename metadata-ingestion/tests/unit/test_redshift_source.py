@@ -1,5 +1,3 @@
-from typing import cast
-
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.redshift.config import RedshiftConfig
 from datahub.ingestion.source.redshift.redshift import RedshiftSource
