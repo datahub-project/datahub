@@ -146,6 +146,10 @@ input  SearchFlags {
 
   """
   Additional grouping specifications to apply to the search results
+  Grouping specifications will control how search results are grouped together
+  in the response. This is currently being used to group schema fields (columns)
+  as datasets, and in the future will be used to group other entities as well.
+  Note: This is an experimental feature and is subject to change.
   """
   groupingSpec: GroupingSpec
 }
@@ -1318,11 +1322,15 @@ input SortCriterion {
 }
 
 """
-A grouping specification for search results
+A grouping specification for search results.
 """
 input GroupingSpec {
 
-  groupingCriteria: [GroupingCriterion!]!
+  """
+  A list of grouping criteria for grouping search results.
+  There is no implied order in the grouping criteria.
+  """
+  groupingCriteria: [GroupingCriterion!]
 
 }
 
@@ -1339,7 +1347,8 @@ input GroupingCriterion {
   baseEntityType: EntityType
 
   """
-  The grouping entity type
+  The type of entity being grouped into
+  e.g. dataset, domain, etc.
   """
   groupingEntityType: EntityType!
 

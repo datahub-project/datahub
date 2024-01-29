@@ -45,7 +45,8 @@ public class SearchFlagsInputMapper
     if (searchFlags.getGetSuggestions() != null) {
       result.setGetSuggestions(searchFlags.getGetSuggestions());
     }
-    if (searchFlags.getGroupingSpec() != null) {
+    if (searchFlags.getGroupingSpec() != null
+        && searchFlags.getGroupingSpec().getGroupingCriteria() != null) {
       result.setGroupingSpec(
           new GroupingSpec()
               .setGroupingCriteria(

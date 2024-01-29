@@ -131,7 +131,7 @@ public class SearchService {
       int size,
       @Nullable SearchFlags searchFlags,
       @Nullable List<String> facets) {
-    log.warn(
+    log.debug(
         String.format(
             "Searching Search documents entities: %s, input: %s, postFilters: %s, sortCriterion: %s, from: %s, size: %s",
             entities, input, postFilters, sortCriterion, from, size));

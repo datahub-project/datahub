@@ -9,6 +9,10 @@ import com.linkedin.metadata.entity.EntityService;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 
+/**
+ * A job that reindexes all datajob inputoutput aspects as part of the via node upgrade. This is
+ * required to index column-level lineage correctly using via nodes.
+ */
 @Slf4j
 public class ReindexDataJobViaNodesCLL implements Upgrade {
 
