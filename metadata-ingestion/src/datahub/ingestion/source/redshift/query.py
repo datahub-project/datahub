@@ -560,8 +560,8 @@ SELECT  schemaname as schema_name,
                 )
                 where
                     (create_command ilike 'create temp table %'
-                        or create_command ilike 'create temporary table %'\
-                        -- we want to get all the create table statements and not just temp tables if non temp table is created and dropped in the same transaction 
+                        or create_command ilike 'create temporary table %'
+                        -- we want to get all the create table statements and not just temp tables if non temp table is created and dropped in the same transaction
                         or create_command ilike 'create table %')
                     -- Redshift creates temp tables with the following names: volt_tt_%. We need to filter them out.
                     and query_text not ilike 'CREATE TEMP TABLE volt_tt_%'
