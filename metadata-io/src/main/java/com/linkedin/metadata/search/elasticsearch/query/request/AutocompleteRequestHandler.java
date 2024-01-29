@@ -41,7 +41,7 @@ import org.opensearch.search.fetch.subphase.highlight.HighlightBuilder;
 public class AutocompleteRequestHandler {
 
   private final List<String> _defaultAutocompleteFields;
-  private final Map<String, Set<SearchableFieldSpec>> searchableFields;
+  private final Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes;
 
   private static final Map<EntitySpec, AutocompleteRequestHandler>
       AUTOCOMPLETE_QUERY_BUILDER_BY_ENTITY_NAME = new ConcurrentHashMap<>();
@@ -56,14 +56,16 @@ public class AutocompleteRequestHandler {
                     .map(SearchableAnnotation::getFieldName),
                 Stream.of("urn"))
             .collect(Collectors.toList());
-    searchableFields =
+    searchableFieldTypes =
         fieldSpecs.stream()
             .collect(
                 Collectors.toMap(
                     searchableFieldSpec ->
                         searchableFieldSpec.getSearchableAnnotation().getFieldName(),
                     searchableFieldSpec ->
-                        new HashSet<>(Collections.singleton(searchableFieldSpec)),
+                        new HashSet<>(
+                            Collections.singleton(
+                                searchableFieldSpec.getSearchableAnnotation().getFieldType())),
                     (set1, set2) -> {
                       set1.addAll(set2);
                       return set1;
@@ -81,7 +83,7 @@ public class AutocompleteRequestHandler {
     SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
     searchSourceBuilder.size(limit);
     searchSourceBuilder.query(getQuery(input, field));
-    searchSourceBuilder.postFilter(ESUtils.buildFilterQuery(filter, false, searchableFields));
+    searchSourceBuilder.postFilter(ESUtils.buildFilterQuery(filter, false, searchableFieldTypes));
     searchSourceBuilder.highlighter(getHighlights(field));
     searchRequest.source(searchSourceBuilder);
     return searchRequest;
