@@ -400,8 +400,8 @@ published_datasource_graphql_query = """
     uri
     projectName
     tags {
-          name
-      }
+        name
+    }
 }
         """
 

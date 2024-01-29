@@ -1744,10 +1744,12 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
         )
 
         # Tags
-        tags = self.get_tags(dataset_snapshot)
+        tags = self.get_tags(datasource_info)
         if tags:
-            dataset_snapshot.aspects.append(builder.make_global_tag_aspect_with_tag_list(tags))
-        
+            dataset_snapshot.aspects.append(
+                builder.make_global_tag_aspect_with_tag_list(tags)
+            )
+
         # Browse path
 
         if browse_path and is_embedded_ds and workbook and workbook.get(c.NAME):
