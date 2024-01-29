@@ -7,7 +7,7 @@ redshift_datetime_format = "%Y-%m-%d %H:%M:%S"
 class RedshiftQuery:
     CREATE_TEMP_TABLE_CLAUSE = "create temp table"
     CREATE_TEMPORARY_TABLE_CLAUSE = "create temporary table"
-    CREATE_TEMPORARY_TABLE_HASH_CLAUSE = "create table #"
+    CREATE_TABLE_CLAUSE = "create table "
 
     list_databases: str = """SELECT datname FROM pg_database
         WHERE (datname <> ('padb_harvest')::name)
@@ -455,12 +455,8 @@ SELECT  schemaname as schema_name,
 
     @staticmethod
     def get_temp_table_clause(table_name: str) -> List[str]:
-        if table_name.startswith("#"):
-            return [
-                f"{RedshiftQuery.CREATE_TEMPORARY_TABLE_HASH_CLAUSE}{table_name[1:]}"
-            ]
-
         return [
+            f"{RedshiftQuery.CREATE_TABLE_CLAUSE} {table_name}",
             f"{RedshiftQuery.CREATE_TEMP_TABLE_CLAUSE} {table_name}",
             f"{RedshiftQuery.CREATE_TEMPORARY_TABLE_CLAUSE} {table_name}",
         ]
@@ -564,8 +560,9 @@ SELECT  schemaname as schema_name,
                 )
                 where
                     (create_command ilike 'create temp table %'
-                        or create_command ilike 'create temporary table %'
-                        or create_command ilike 'create table #%')
+                        or create_command ilike 'create temporary table %'\
+                        -- we want to get all the create table statements and not just temp tables if non temp table is created and dropped in the same transaction 
+                        or create_command ilike 'create table %')
                     -- Redshift creates temp tables with the following names: volt_tt_%. We need to filter them out.
                     and query_text not ilike 'CREATE TEMP TABLE volt_tt_%'
             )
