@@ -19,6 +19,10 @@ logger = logging.getLogger(__name__)
 
 def get_frontend_session():
     username, password = get_admin_credentials()
+    return login_as(username, password)
+
+
+def login_as(username: str, password: str):
     return cli_utils.get_session_login_as(
         username=username, password=password, frontend_url=get_frontend_url()
     )

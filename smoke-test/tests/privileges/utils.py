@@ -1,7 +1,5 @@
-from datahub.cli import cli_utils
-
 from tests.consistency_utils import wait_for_writes_to_sync
-from tests.utils import get_admin_credentials, get_frontend_url
+from tests.utils import get_admin_credentials, get_frontend_url, login_as
 
 
 def set_base_platform_privileges_policy_status(status, session):
@@ -162,14 +160,6 @@ def create_user(session, email, password):
     (admin_user, admin_pass) = get_admin_credentials()
     admin_session = login_as(admin_user, admin_pass)
     return admin_session
-
-
-def login_as(username, password):
-    return cli_utils.get_session_login_as(
-        username=username,
-        password=password,
-        frontend_url=get_frontend_url(),
-    )
 
 
 def remove_user(session, urn):

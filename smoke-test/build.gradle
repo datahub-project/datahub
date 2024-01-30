@@ -46,6 +46,7 @@ task yarnInstall(type: YarnTask) {
 }
 
 task installDev(type: Exec) {
+    inputs.file file('pyproject.toml')
     inputs.file file('requirements.txt')
     outputs.file("${venv_name}/.build_install_dev_sentinel")
     commandLine 'bash', '-x', '-c',
@@ -59,7 +60,7 @@ task lint(type: Exec, dependsOn: installDev) {
         "black --check --diff tests/ && " +
         "isort --check --diff tests/ && " +
         "ruff --statistics tests/ && " +
-        "mypy tests/"
+        "mypy tests/ --check-untyped-defs"
 }
 task lintFix(type: Exec, dependsOn: installDev) {
     commandLine 'bash', '-c',
@@ -67,5 +68,5 @@ task lintFix(type: Exec, dependsOn: installDev) {
         "black tests/ && " +
         "isort tests/ && " +
         "ruff --fix tests/ && " +
-        "mypy tests/"
+        "mypy tests/ --check-untyped-defs"
 }

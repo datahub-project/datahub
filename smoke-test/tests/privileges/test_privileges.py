@@ -1,6 +1,5 @@
 import pytest
 import tenacity
-from datahub.cli.cli_utils import get_session_login_as
 
 from tests.privileges.utils import (
     assign_role,
@@ -20,6 +19,7 @@ from tests.utils import (
     get_frontend_session,
     get_frontend_url,
     get_sleep_info,
+    login_as,
     wait_for_healthcheck_util,
     wait_for_writes_to_sync,
 )
@@ -158,8 +158,8 @@ def _ensure_can_create_user_policy(session, json):
 @pytest.mark.dependency(depends=["test_healthchecks"])
 def test_privilege_to_create_and_manage_secrets():
     (admin_user, admin_pass) = get_admin_credentials()
-    admin_session = get_session_login_as(admin_user, admin_pass)
-    user_session = get_session_login_as("user", "user")
+    admin_session = login_as(admin_user, admin_pass)
+    user_session = login_as("user", "user")
     secret_urn = "urn:li:dataHubSecret:TestSecretName"
 
     # Verify new user can't create secrets
@@ -213,8 +213,8 @@ def test_privilege_to_create_and_manage_secrets():
 @pytest.mark.dependency(depends=["test_healthchecks"])
 def test_privilege_to_create_and_manage_ingestion_source():
     (admin_user, admin_pass) = get_admin_credentials()
-    admin_session = get_session_login_as(admin_user, admin_pass)
-    user_session = get_session_login_as("user", "user")
+    admin_session = login_as(admin_user, admin_pass)
+    user_session = login_as("user", "user")
 
     # Verify new user can't create ingestion source
     create_ingestion_source = {
@@ -322,8 +322,8 @@ def test_privilege_to_create_and_manage_ingestion_source():
 @pytest.mark.dependency(depends=["test_healthchecks"])
 def test_privilege_to_create_and_manage_access_tokens():
     (admin_user, admin_pass) = get_admin_credentials()
-    admin_session = get_session_login_as(admin_user, admin_pass)
-    user_session = get_session_login_as("user", "user")
+    admin_session = login_as(admin_user, admin_pass)
+    user_session = login_as("user", "user")
 
     # Verify new user can't create access token
     create_access_token = {
@@ -406,8 +406,8 @@ def test_privilege_to_create_and_manage_access_tokens():
 @pytest.mark.dependency(depends=["test_healthchecks"])
 def test_privilege_to_create_and_manage_policies():
     (admin_user, admin_pass) = get_admin_credentials()
-    admin_session = get_session_login_as(admin_user, admin_pass)
-    user_session = get_session_login_as("user", "user")
+    admin_session = login_as(admin_user, admin_pass)
+    user_session = login_as("user", "user")
 
     # Verify new user can't create a policy
     create_policy = {
@@ -502,8 +502,8 @@ def test_privilege_to_create_and_manage_policies():
 @pytest.mark.dependency(depends=["test_healthchecks"])
 def test_privilege_from_group_role_can_create_and_manage_secret():
     (admin_user, admin_pass) = get_admin_credentials()
-    admin_session = get_session_login_as(admin_user, admin_pass)
-    user_session = get_session_login_as("user", "user")
+    admin_session = login_as(admin_user, admin_pass)
+    user_session = login_as("user", "user")
     secret_urn = "urn:li:dataHubSecret:TestSecretName"
 
     # Verify new user can't create secrets

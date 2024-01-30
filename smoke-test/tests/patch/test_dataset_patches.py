@@ -171,6 +171,7 @@ def test_field_terms_patch(wait_for_healthchecks):
 
         assert field_info
         assert field_info.description == "This is a test field"
+        assert field_info.glossaryTerms is not None
         assert len(field_info.glossaryTerms.terms) == 1
         assert field_info.glossaryTerms.terms[0].urn == new_term.urn
 
@@ -188,6 +189,7 @@ def test_field_terms_patch(wait_for_healthchecks):
 
         assert field_info
         assert field_info.description == "This is a test field"
+        assert field_info.glossaryTerms is not None
         assert len(field_info.glossaryTerms.terms) == 0
 
 
@@ -231,6 +233,7 @@ def test_field_tags_patch(wait_for_healthchecks):
 
         assert field_info
         assert field_info.description == "This is a test field"
+        assert field_info.globalTags is not None
         assert len(field_info.globalTags.tags) == 1
         assert field_info.globalTags.tags[0].tag == new_tag.tag
 
@@ -249,6 +252,7 @@ def test_field_tags_patch(wait_for_healthchecks):
 
         assert field_info
         assert field_info.description == "This is a test field"
+        assert field_info.globalTags is not None
         assert len(field_info.globalTags.tags) == 1
         assert field_info.globalTags.tags[0].tag == new_tag.tag
 
@@ -266,6 +270,7 @@ def test_field_tags_patch(wait_for_healthchecks):
 
         assert field_info
         assert field_info.description == "This is a test field"
+        assert field_info.globalTags is not None
         assert len(field_info.globalTags.tags) == 0
 
 
