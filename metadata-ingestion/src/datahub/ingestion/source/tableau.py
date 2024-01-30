@@ -1750,7 +1750,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                 dataset_snapshot.aspects.append(
                     builder.make_global_tag_aspect_with_tag_list(tags)
                 )
-        
+
         # Browse path
         if browse_path and is_embedded_ds and workbook and workbook.get(c.NAME):
             browse_path = (
