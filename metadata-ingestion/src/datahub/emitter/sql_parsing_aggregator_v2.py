@@ -8,7 +8,11 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 from datahub.metadata.urns import CorpUserUrn, DataPlatformUrn, DatasetUrn
-from datahub.utilities.sqlglot_lineage import SchemaResolver, sqlglot_lineage
+from datahub.utilities.sqlglot_lineage import (
+    QuerySubtype,
+    SchemaResolver,
+    sqlglot_lineage,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -89,7 +93,7 @@ class SqlParsingAggregator:
         # logic that we previously needed in each source
 
         if self._need_schemas:
-            self._schema_resolver.add_schema_metadata(urn, schema)
+            self._schema_resolver.add_schema_metadata(str(urn), schema)
 
     def _initialize_schema_resolver_from_graph(self, graph: DataHubGraph) -> None:
         # requires a graph instance
@@ -177,7 +181,7 @@ class SqlParsingAggregator:
 
         if (
             is_known_temp_table
-            or parsed.query_type == TEMP
+            or parsed.query_subtype == QuerySubtype.CREATE_TEMP_TABLE
             or (self.is_temp_table and self.is_temp_table(out_table))
             or not self._schema_resolver.has_urn(out_table)
         ):

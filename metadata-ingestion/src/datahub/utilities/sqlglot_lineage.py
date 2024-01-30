@@ -105,6 +105,16 @@ class QueryType(enum.Enum):
             return OperationTypeClass.UNKNOWN
 
 
+class QuerySubtype(enum.Enum):
+    UNKNOWN = "UNKNOWN"
+    OTHER = "OTHER"  # used when the type is known but the subtype is not
+
+    CREATE_TABLE_DDL = "CREATE_TABLE_DDL"
+    CREATE_CTAS = "CREATE_CTAS"
+    CREATE_VIEW = "CREATE_VIEW"
+    CREATE_TEMP_TABLE = "CREATE_TEMP_TABLE"
+
+
 def get_query_type_of_sql(expression: sqlglot.exp.Expression) -> QueryType:
     # UPGRADE: Once we use Python 3.10, replace this with a match expression.
     mapping = {
@@ -257,6 +267,7 @@ class SqlParsingDebugInfo(_ParserBaseModel):
 
 class SqlParsingResult(_ParserBaseModel):
     query_type: QueryType = QueryType.UNKNOWN
+    query_subtype: QuerySubtype = QuerySubtype.UNKNOWN
 
     in_tables: List[Urn]
     out_tables: List[Urn]
