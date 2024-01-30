@@ -418,6 +418,9 @@ class SchemaResolver(Closeable):
         else:
             return urn_lower, None
 
+    def has_urn(self, urn: str) -> bool:
+        return urn in self._schema_cache
+
     def _resolve_schema_info(self, urn: str) -> Optional[SchemaInfo]:
         if urn in self._schema_cache:
             return self._schema_cache[urn]

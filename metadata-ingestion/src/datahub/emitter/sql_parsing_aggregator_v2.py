@@ -62,6 +62,7 @@ class SqlParsingAggregator:
         self.store_queries = store_queries  # TODO: implement
 
         # Set up the schema resolver.
+        self._schema_resolver: SchemaResolver
         if graph is None:
             self._schema_resolver = SchemaResolver(
                 platform=self.platform.urn(),
@@ -69,7 +70,7 @@ class SqlParsingAggregator:
                 env=self.env,
             )
         else:
-            self._schema_resolver = None
+            self._schema_resolver = None  # type: ignore
             self._initialize_schema_resolver_from_graph(graph)
 
     @property
@@ -99,9 +100,13 @@ class SqlParsingAggregator:
         if not self._need_schemas:
             return
 
-        if self._schema_resolver is not None and len(self._schema_resolver) > 0:
+        if (
+            self._schema_resolver is not None
+            and self._schema_resolver.schema_count() > 0
+        ):
             logger.info(
-                f"Not fetching any schemas from the graph, since we already have {len(self._schema_resolver)} schemas registered."
+                "Not fetching any schemas from the graph, since "
+                f"there are {self._schema_resolver.schema_count()} schemas already registered."
             )
             return
 
@@ -149,15 +154,37 @@ class SqlParsingAggregator:
 
         # Note: this assumes that queries come in order of increasing timestamps
 
-        parsed = sqlglot_lineage(...)
+        parsed = sqlglot_lineage(
+            query,
+            schema_resolver=self._schema_resolver,
+            default_db=default_db,
+            default_schema=default_schema,
+        )
+
+        if parsed.debug_info.table_error:
+            # TODO replace with better error reporting + logging
+            logger.debug(
+                f"Error parsing query {query}: {parsed.debug_info.table_error}"
+            )
+            return
+
+        if not parsed.out_tables:
+            # TODO - this is just a SELECT statement, so it only counts towards usage
+
+            return
+
+        out_table = parsed.out_tables[0]
 
         if (
             is_known_temp_table
             or parsed.query_type == TEMP
-            or (is_temp_table and is_temp_table(...))
+            or (self.is_temp_table and self.is_temp_table(out_table))
+            or not self._schema_resolver.has_urn(out_table)
         ):
             # handle temp table
             pass
+
+        # handle non-temp table
 
         # TODO: what happens if a CREATE VIEW query gets passed into this method
         pass
