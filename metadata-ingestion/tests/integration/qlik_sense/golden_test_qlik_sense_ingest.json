@@ -1,16 +1,15 @@
 [
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:1775d746acf71f0eea10452f850ff472",
+    "entityUrn": "urn:li:container:88cf1accecf63ec7669dc1ec7cb28704",
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
         "json": {
             "customProperties": {
-                "platform": "qlik-cloud",
-                "instance": "qlik_cloud_platform",
+                "platform": "qlik-sense",
                 "space": "659d0e41d1b0ecce6eebc9b1",
-                "type": "shared"
+                "type": "SpaceType.SHARED"
             },
             "name": "test_space",
             "description": "",
@@ -23,14 +22,14 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705920242978,
-        "runId": "qlik-cloud-test",
+        "lastObserved": 1706628250099,
+        "runId": "qlik-sense-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:1775d746acf71f0eea10452f850ff472",
+    "entityUrn": "urn:li:container:88cf1accecf63ec7669dc1ec7cb28704",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -39,31 +38,30 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705920242980,
-        "runId": "qlik-cloud-test",
+        "lastObserved": 1706628250100,
+        "runId": "qlik-sense-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:1775d746acf71f0eea10452f850ff472",
+    "entityUrn": "urn:li:container:88cf1accecf63ec7669dc1ec7cb28704",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
         "json": {
-            "platform": "urn:li:dataPlatform:qlik-cloud",
-            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:qlik-cloud,qlik_cloud_platform)"
+            "platform": "urn:li:dataPlatform:qlik-sense"
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705920242981,
-        "runId": "qlik-cloud-test",
+        "lastObserved": 1706628250101,
+        "runId": "qlik-sense-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:1775d746acf71f0eea10452f850ff472",
+    "entityUrn": "urn:li:container:88cf1accecf63ec7669dc1ec7cb28704",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -74,14 +72,14 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705920242981,
-        "runId": "qlik-cloud-test",
+        "lastObserved": 1706628250102,
+        "runId": "qlik-sense-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:1775d746acf71f0eea10452f850ff472",
+    "entityUrn": "urn:li:container:88cf1accecf63ec7669dc1ec7cb28704",
     "changeType": "UPSERT",
     "aspectName": "ownership",
     "aspect": {
@@ -99,64 +97,58 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705920242982,
-        "runId": "qlik-cloud-test",
+        "lastObserved": 1706628250103,
+        "runId": "qlik-sense-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:1775d746acf71f0eea10452f850ff472",
+    "entityUrn": "urn:li:container:88cf1accecf63ec7669dc1ec7cb28704",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
-            "path": [
-                {
-                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:qlik-cloud,qlik_cloud_platform)",
-                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:qlik-cloud,qlik_cloud_platform)"
-                }
-            ]
+            "path": []
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705920242983,
-        "runId": "qlik-cloud-test",
+        "lastObserved": 1706628250104,
+        "runId": "qlik-sense-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:fdffbfd49b6139680de19df7d14a6737",
+    "entityUrn": "urn:li:container:1128aaac0b93f59ab99672a0b23a1bbf",
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
         "json": {
             "customProperties": {
-                "platform": "qlik-cloud",
-                "instance": "qlik_cloud_platform",
+                "platform": "qlik-sense",
                 "space": "personal-space-id",
                 "type": "SpaceType.PERSONAL"
             },
             "name": "personal_space",
             "description": "",
             "created": {
-                "time": 1705920242976
+                "time": 1706628249975
             },
             "lastModified": {
-                "time": 1705920242976
+                "time": 1706628249975
             }
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705920242995,
-        "runId": "qlik-cloud-test",
+        "lastObserved": 1706628250113,
+        "runId": "qlik-sense-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:fdffbfd49b6139680de19df7d14a6737",
+    "entityUrn": "urn:li:container:1128aaac0b93f59ab99672a0b23a1bbf",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -165,31 +157,30 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705920242997,
-        "runId": "qlik-cloud-test",
+        "lastObserved": 1706628250114,
+        "runId": "qlik-sense-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:fdffbfd49b6139680de19df7d14a6737",
+    "entityUrn": "urn:li:container:1128aaac0b93f59ab99672a0b23a1bbf",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
         "json": {
-            "platform": "urn:li:dataPlatform:qlik-cloud",
-            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:qlik-cloud,qlik_cloud_platform)"
+            "platform": "urn:li:dataPlatform:qlik-sense"
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705920242998,
-        "runId": "qlik-cloud-test",
+        "lastObserved": 1706628250115,
+        "runId": "qlik-sense-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:fdffbfd49b6139680de19df7d14a6737",
+    "entityUrn": "urn:li:container:1128aaac0b93f59ab99672a0b23a1bbf",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -200,42 +191,36 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705920243000,
-        "runId": "qlik-cloud-test",
+        "lastObserved": 1706628250116,
+        "runId": "qlik-sense-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:fdffbfd49b6139680de19df7d14a6737",
+    "entityUrn": "urn:li:container:1128aaac0b93f59ab99672a0b23a1bbf",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
-            "path": [
-                {
-                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:qlik-cloud,qlik_cloud_platform)",
-                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:qlik-cloud,qlik_cloud_platform)"
-                }
-            ]
+            "path": []
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705920243001,
-        "runId": "qlik-cloud-test",
+        "lastObserved": 1706628250117,
+        "runId": "qlik-sense-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:f6f5c0da7f27f2b0de030832fa371da2",
+    "entityUrn": "urn:li:container:152b86a9f687c1c85a9b7d55481757e9",
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
         "json": {
             "customProperties": {
-                "platform": "qlik-cloud",
-                "instance": "qlik_cloud_platform",
+                "platform": "qlik-sense",
                 "app": "b90c4d4e-0d07-4c24-9458-b17d1492660b",
                 "qri": "qri:app:sense://b90c4d4e-0d07-4c24-9458-b17d1492660b",
                 "usage": "ANALYTICS"
@@ -251,14 +236,14 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705920243003,
-        "runId": "qlik-cloud-test",
+        "lastObserved": 1706628250119,
+        "runId": "qlik-sense-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:f6f5c0da7f27f2b0de030832fa371da2",
+    "entityUrn": "urn:li:container:152b86a9f687c1c85a9b7d55481757e9",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -267,31 +252,30 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705920243005,
-        "runId": "qlik-cloud-test",
+        "lastObserved": 1706628250120,
+        "runId": "qlik-sense-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:f6f5c0da7f27f2b0de030832fa371da2",
+    "entityUrn": "urn:li:container:152b86a9f687c1c85a9b7d55481757e9",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
         "json": {
-            "platform": "urn:li:dataPlatform:qlik-cloud",
-            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:qlik-cloud,qlik_cloud_platform)"
+            "platform": "urn:li:dataPlatform:qlik-sense"
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705920243007,
-        "runId": "qlik-cloud-test",
+        "lastObserved": 1706628250121,
+        "runId": "qlik-sense-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:f6f5c0da7f27f2b0de030832fa371da2",
+    "entityUrn": "urn:li:container:152b86a9f687c1c85a9b7d55481757e9",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -302,14 +286,14 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705920243008,
-        "runId": "qlik-cloud-test",
+        "lastObserved": 1706628250122,
+        "runId": "qlik-sense-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:f6f5c0da7f27f2b0de030832fa371da2",
+    "entityUrn": "urn:li:container:152b86a9f687c1c85a9b7d55481757e9",
     "changeType": "UPSERT",
     "aspectName": "ownership",
     "aspect": {
@@ -327,55 +311,51 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705920243008,
-        "runId": "qlik-cloud-test",
+        "lastObserved": 1706628250122,
+        "runId": "qlik-sense-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:f6f5c0da7f27f2b0de030832fa371da2",
+    "entityUrn": "urn:li:container:152b86a9f687c1c85a9b7d55481757e9",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:fdffbfd49b6139680de19df7d14a6737"
+            "container": "urn:li:container:1128aaac0b93f59ab99672a0b23a1bbf"
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705920243010,
-        "runId": "qlik-cloud-test",
+        "lastObserved": 1706628250124,
+        "runId": "qlik-sense-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:f6f5c0da7f27f2b0de030832fa371da2",
+    "entityUrn": "urn:li:container:152b86a9f687c1c85a9b7d55481757e9",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
             "path": [
                 {
-                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:qlik-cloud,qlik_cloud_platform)",
-                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:qlik-cloud,qlik_cloud_platform)"
-                },
-                {
-                    "id": "urn:li:container:fdffbfd49b6139680de19df7d14a6737",
-                    "urn": "urn:li:container:fdffbfd49b6139680de19df7d14a6737"
+                    "id": "urn:li:container:1128aaac0b93f59ab99672a0b23a1bbf",
+                    "urn": "urn:li:container:1128aaac0b93f59ab99672a0b23a1bbf"
                 }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705920243011,
-        "runId": "qlik-cloud-test",
+        "lastObserved": 1706628250124,
+        "runId": "qlik-sense-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:qlik-cloud,qlik_cloud_platform.659d8aef92df266ef3aa5a7c,PROD)",
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(qlik-sense,f4f57386-263a-4ec9-b40c-abcd2467f423)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -384,20 +364,180 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705920243015,
-        "runId": "qlik-cloud-test",
+        "lastObserved": 1706628250126,
+        "runId": "qlik-sense-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(qlik-sense,f4f57386-263a-4ec9-b40c-abcd2467f423)",
+    "changeType": "UPSERT",
+    "aspectName": "dashboardInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "chartCount": "1"
+            },
+            "title": "New ds sheet",
+            "description": "",
+            "charts": [
+                "urn:li:chart:(qlik-sense,QYUUb)"
+            ],
+            "datasets": [],
+            "lastModified": {
+                "created": {
+                    "time": 1705296709704,
+                    "actor": "urn:li:corpuser:657b5abe656297cec3d8b205"
+                },
+                "lastModified": {
+                    "time": 1706511226868,
+                    "actor": "urn:li:corpuser:657b5abe656297cec3d8b205"
+                }
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1706628250127,
+        "runId": "qlik-sense-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(qlik-sense,f4f57386-263a-4ec9-b40c-abcd2467f423)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:152b86a9f687c1c85a9b7d55481757e9"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1706628250130,
+        "runId": "qlik-sense-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(qlik-sense,f4f57386-263a-4ec9-b40c-abcd2467f423)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:657b5abe656297cec3d8b205",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1706628250131,
+        "runId": "qlik-sense-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(qlik-sense,f4f57386-263a-4ec9-b40c-abcd2467f423)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:1128aaac0b93f59ab99672a0b23a1bbf",
+                    "urn": "urn:li:container:1128aaac0b93f59ab99672a0b23a1bbf"
+                },
+                {
+                    "id": "urn:li:container:152b86a9f687c1c85a9b7d55481757e9",
+                    "urn": "urn:li:container:152b86a9f687c1c85a9b7d55481757e9"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1706628250133,
+        "runId": "qlik-sense-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(qlik-sense,QYUUb)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1706628250136,
+        "runId": "qlik-sense-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(qlik-sense,QYUUb)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "title": "QYUUb",
+            "description": "barchart",
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                }
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1706628250137,
+        "runId": "qlik-sense-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:qlik-cloud,qlik_cloud_platform.659d8aef92df266ef3aa5a7c,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,659d8aef92df266ef3aa5a7c,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1706628250142,
+        "runId": "qlik-sense-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,659d8aef92df266ef3aa5a7c,PROD)",
     "changeType": "UPSERT",
     "aspectName": "schemaMetadata",
     "aspect": {
         "json": {
             "schemaName": "659d8aef92df266ef3aa5a7c",
-            "platform": "urn:li:dataPlatform:qlik-cloud",
+            "platform": "urn:li:dataPlatform:qlik-sense",
             "version": 0,
             "created": {
                 "time": 0,
@@ -466,14 +606,14 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705920243017,
-        "runId": "qlik-cloud-test",
+        "lastObserved": 1706628250144,
+        "runId": "qlik-sense-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:qlik-cloud,qlik_cloud_platform.659d8aef92df266ef3aa5a7c,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,659d8aef92df266ef3aa5a7c,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
@@ -498,47 +638,30 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705920243020,
-        "runId": "qlik-cloud-test",
+        "lastObserved": 1706628250149,
+        "runId": "qlik-sense-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:qlik-cloud,qlik_cloud_platform.659d8aef92df266ef3aa5a7c,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,659d8aef92df266ef3aa5a7c,PROD)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:1775d746acf71f0eea10452f850ff472"
+            "container": "urn:li:container:88cf1accecf63ec7669dc1ec7cb28704"
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705920243021,
-        "runId": "qlik-cloud-test",
+        "lastObserved": 1706628250151,
+        "runId": "qlik-sense-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:qlik-cloud,qlik_cloud_platform.659d8aef92df266ef3aa5a7c,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:qlik-cloud",
-            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:qlik-cloud,qlik_cloud_platform)"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705920243022,
-        "runId": "qlik-cloud-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:qlik-cloud,qlik_cloud_platform.659d8aef92df266ef3aa5a7c,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,659d8aef92df266ef3aa5a7c,PROD)",
     "changeType": "UPSERT",
     "aspectName": "ownership",
     "aspect": {
@@ -556,14 +679,14 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705920243024,
-        "runId": "qlik-cloud-test",
+        "lastObserved": 1706628250153,
+        "runId": "qlik-sense-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:qlik-cloud,qlik_cloud_platform.659d8aef92df266ef3aa5a7c,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,659d8aef92df266ef3aa5a7c,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -574,46 +697,41 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705920243025,
-        "runId": "qlik-cloud-test",
+        "lastObserved": 1706628250155,
+        "runId": "qlik-sense-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:qlik-cloud,qlik_cloud_platform.659d8aef92df266ef3aa5a7c,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,659d8aef92df266ef3aa5a7c,PROD)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
             "path": [
                 {
-                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:qlik-cloud,qlik_cloud_platform)",
-                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:qlik-cloud,qlik_cloud_platform)"
-                },
-                {
-                    "id": "urn:li:container:1775d746acf71f0eea10452f850ff472",
-                    "urn": "urn:li:container:1775d746acf71f0eea10452f850ff472"
+                    "id": "urn:li:container:88cf1accecf63ec7669dc1ec7cb28704",
+                    "urn": "urn:li:container:88cf1accecf63ec7669dc1ec7cb28704"
                 }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705920243026,
-        "runId": "qlik-cloud-test",
+        "lastObserved": 1706628250156,
+        "runId": "qlik-sense-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:3317438354ff863161e317b5cb9a2b78",
+    "entityUrn": "urn:li:container:032d02d88d0c25e289e88c688ba84d1d",
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
         "json": {
             "customProperties": {
-                "platform": "qlik-cloud",
-                "instance": "qlik_cloud_platform",
+                "platform": "qlik-sense",
                 "app": "e09a68e7-18c9-461d-b957-043e0c045dcd",
                 "qri": "qri:app:sense://e09a68e7-18c9-461d-b957-043e0c045dcd",
                 "usage": "ANALYTICS"
@@ -629,14 +747,14 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705920243027,
-        "runId": "qlik-cloud-test",
+        "lastObserved": 1706628250159,
+        "runId": "qlik-sense-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:3317438354ff863161e317b5cb9a2b78",
+    "entityUrn": "urn:li:container:032d02d88d0c25e289e88c688ba84d1d",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -645,31 +763,30 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705920243029,
-        "runId": "qlik-cloud-test",
+        "lastObserved": 1706628250160,
+        "runId": "qlik-sense-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:3317438354ff863161e317b5cb9a2b78",
+    "entityUrn": "urn:li:container:032d02d88d0c25e289e88c688ba84d1d",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
         "json": {
-            "platform": "urn:li:dataPlatform:qlik-cloud",
-            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:qlik-cloud,qlik_cloud_platform)"
+            "platform": "urn:li:dataPlatform:qlik-sense"
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705920243030,
-        "runId": "qlik-cloud-test",
+        "lastObserved": 1706628250161,
+        "runId": "qlik-sense-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:3317438354ff863161e317b5cb9a2b78",
+    "entityUrn": "urn:li:container:032d02d88d0c25e289e88c688ba84d1d",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -680,14 +797,14 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705920243032,
-        "runId": "qlik-cloud-test",
+        "lastObserved": 1706628250162,
+        "runId": "qlik-sense-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:3317438354ff863161e317b5cb9a2b78",
+    "entityUrn": "urn:li:container:032d02d88d0c25e289e88c688ba84d1d",
     "changeType": "UPSERT",
     "aspectName": "ownership",
     "aspect": {
@@ -705,55 +822,51 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705920243033,
-        "runId": "qlik-cloud-test",
+        "lastObserved": 1706628250163,
+        "runId": "qlik-sense-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:3317438354ff863161e317b5cb9a2b78",
+    "entityUrn": "urn:li:container:032d02d88d0c25e289e88c688ba84d1d",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:1775d746acf71f0eea10452f850ff472"
+            "container": "urn:li:container:88cf1accecf63ec7669dc1ec7cb28704"
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705920243034,
-        "runId": "qlik-cloud-test",
+        "lastObserved": 1706628250164,
+        "runId": "qlik-sense-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:3317438354ff863161e317b5cb9a2b78",
+    "entityUrn": "urn:li:container:032d02d88d0c25e289e88c688ba84d1d",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
             "path": [
                 {
-                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:qlik-cloud,qlik_cloud_platform)",
-                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:qlik-cloud,qlik_cloud_platform)"
-                },
-                {
-                    "id": "urn:li:container:1775d746acf71f0eea10452f850ff472",
-                    "urn": "urn:li:container:1775d746acf71f0eea10452f850ff472"
+                    "id": "urn:li:container:88cf1accecf63ec7669dc1ec7cb28704",
+                    "urn": "urn:li:container:88cf1accecf63ec7669dc1ec7cb28704"
                 }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705920243035,
-        "runId": "qlik-cloud-test",
+        "lastObserved": 1706628250165,
+        "runId": "qlik-sense-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:qlik-cloud,qlik_cloud_platform.65a137c849f82a37c625151b,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,65a137c849f82a37c625151b,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -762,20 +875,20 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705920243037,
-        "runId": "qlik-cloud-test",
+        "lastObserved": 1706628250168,
+        "runId": "qlik-sense-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:qlik-cloud,qlik_cloud_platform.65a137c849f82a37c625151b,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,65a137c849f82a37c625151b,PROD)",
     "changeType": "UPSERT",
     "aspectName": "schemaMetadata",
     "aspect": {
         "json": {
             "schemaName": "65a137c849f82a37c625151b",
-            "platform": "urn:li:dataPlatform:qlik-cloud",
+            "platform": "urn:li:dataPlatform:qlik-sense",
             "version": 0,
             "created": {
                 "time": 0,
@@ -808,14 +921,14 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705920243038,
-        "runId": "qlik-cloud-test",
+        "lastObserved": 1706628250170,
+        "runId": "qlik-sense-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:qlik-cloud,qlik_cloud_platform.65a137c849f82a37c625151b,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,65a137c849f82a37c625151b,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
@@ -840,47 +953,30 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705920243039,
-        "runId": "qlik-cloud-test",
+        "lastObserved": 1706628250173,
+        "runId": "qlik-sense-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:qlik-cloud,qlik_cloud_platform.65a137c849f82a37c625151b,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,65a137c849f82a37c625151b,PROD)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:fdffbfd49b6139680de19df7d14a6737"
+            "container": "urn:li:container:1128aaac0b93f59ab99672a0b23a1bbf"
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705920243040,
-        "runId": "qlik-cloud-test",
+        "lastObserved": 1706628250175,
+        "runId": "qlik-sense-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:qlik-cloud,qlik_cloud_platform.65a137c849f82a37c625151b,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:qlik-cloud",
-            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:qlik-cloud,qlik_cloud_platform)"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705920243041,
-        "runId": "qlik-cloud-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:qlik-cloud,qlik_cloud_platform.65a137c849f82a37c625151b,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,65a137c849f82a37c625151b,PROD)",
     "changeType": "UPSERT",
     "aspectName": "ownership",
     "aspect": {
@@ -898,14 +994,14 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705920243042,
-        "runId": "qlik-cloud-test",
+        "lastObserved": 1706628250177,
+        "runId": "qlik-sense-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:qlik-cloud,qlik_cloud_platform.65a137c849f82a37c625151b,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,65a137c849f82a37c625151b,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -916,175 +1012,170 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705920243042,
-        "runId": "qlik-cloud-test",
+        "lastObserved": 1706628250179,
+        "runId": "qlik-sense-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:qlik-cloud,qlik_cloud_platform.65a137c849f82a37c625151b,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,65a137c849f82a37c625151b,PROD)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
             "path": [
                 {
-                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:qlik-cloud,qlik_cloud_platform)",
-                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:qlik-cloud,qlik_cloud_platform)"
+                    "id": "urn:li:container:1128aaac0b93f59ab99672a0b23a1bbf",
+                    "urn": "urn:li:container:1128aaac0b93f59ab99672a0b23a1bbf"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1706628250180,
+        "runId": "qlik-sense-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:88cf1accecf63ec7669dc1ec7cb28704",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1706628250182,
+        "runId": "qlik-sense-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:1128aaac0b93f59ab99672a0b23a1bbf",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1706628250183,
+        "runId": "qlik-sense-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:152b86a9f687c1c85a9b7d55481757e9",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:1128aaac0b93f59ab99672a0b23a1bbf",
+                    "urn": "urn:li:container:1128aaac0b93f59ab99672a0b23a1bbf"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1706628250185,
+        "runId": "qlik-sense-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(qlik-sense,f4f57386-263a-4ec9-b40c-abcd2467f423)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:1128aaac0b93f59ab99672a0b23a1bbf",
+                    "urn": "urn:li:container:1128aaac0b93f59ab99672a0b23a1bbf"
                 },
                 {
-                    "id": "urn:li:container:fdffbfd49b6139680de19df7d14a6737",
-                    "urn": "urn:li:container:fdffbfd49b6139680de19df7d14a6737"
+                    "id": "urn:li:container:152b86a9f687c1c85a9b7d55481757e9",
+                    "urn": "urn:li:container:152b86a9f687c1c85a9b7d55481757e9"
                 }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705920243043,
-        "runId": "qlik-cloud-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:1775d746acf71f0eea10452f850ff472",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:qlik-cloud,qlik_cloud_platform)",
-                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:qlik-cloud,qlik_cloud_platform)"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705920243044,
-        "runId": "qlik-cloud-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:fdffbfd49b6139680de19df7d14a6737",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:qlik-cloud,qlik_cloud_platform)",
-                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:qlik-cloud,qlik_cloud_platform)"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705920243045,
-        "runId": "qlik-cloud-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:f6f5c0da7f27f2b0de030832fa371da2",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:qlik-cloud,qlik_cloud_platform)",
-                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:qlik-cloud,qlik_cloud_platform)"
-                },
-                {
-                    "id": "urn:li:container:fdffbfd49b6139680de19df7d14a6737",
-                    "urn": "urn:li:container:fdffbfd49b6139680de19df7d14a6737"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705920243046,
-        "runId": "qlik-cloud-test",
+        "lastObserved": 1706628250188,
+        "runId": "qlik-sense-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:qlik-cloud,qlik_cloud_platform.659d8aef92df266ef3aa5a7c,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,659d8aef92df266ef3aa5a7c,PROD)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
             "path": [
                 {
-                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:qlik-cloud,qlik_cloud_platform)",
-                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:qlik-cloud,qlik_cloud_platform)"
-                },
-                {
-                    "id": "urn:li:container:1775d746acf71f0eea10452f850ff472",
-                    "urn": "urn:li:container:1775d746acf71f0eea10452f850ff472"
+                    "id": "urn:li:container:88cf1accecf63ec7669dc1ec7cb28704",
+                    "urn": "urn:li:container:88cf1accecf63ec7669dc1ec7cb28704"
                 }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705920243046,
-        "runId": "qlik-cloud-test",
+        "lastObserved": 1706628250189,
+        "runId": "qlik-sense-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:3317438354ff863161e317b5cb9a2b78",
+    "entityUrn": "urn:li:container:032d02d88d0c25e289e88c688ba84d1d",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
             "path": [
                 {
-                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:qlik-cloud,qlik_cloud_platform)",
-                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:qlik-cloud,qlik_cloud_platform)"
-                },
-                {
-                    "id": "urn:li:container:1775d746acf71f0eea10452f850ff472",
-                    "urn": "urn:li:container:1775d746acf71f0eea10452f850ff472"
+                    "id": "urn:li:container:88cf1accecf63ec7669dc1ec7cb28704",
+                    "urn": "urn:li:container:88cf1accecf63ec7669dc1ec7cb28704"
                 }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705920243047,
-        "runId": "qlik-cloud-test",
+        "lastObserved": 1706628250191,
+        "runId": "qlik-sense-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:qlik-cloud,qlik_cloud_platform.65a137c849f82a37c625151b,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,65a137c849f82a37c625151b,PROD)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
             "path": [
                 {
-                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:qlik-cloud,qlik_cloud_platform)",
-                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:qlik-cloud,qlik_cloud_platform)"
-                },
-                {
-                    "id": "urn:li:container:fdffbfd49b6139680de19df7d14a6737",
-                    "urn": "urn:li:container:fdffbfd49b6139680de19df7d14a6737"
+                    "id": "urn:li:container:1128aaac0b93f59ab99672a0b23a1bbf",
+                    "urn": "urn:li:container:1128aaac0b93f59ab99672a0b23a1bbf"
                 }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705920243048,
-        "runId": "qlik-cloud-test",
+        "lastObserved": 1706628250192,
+        "runId": "qlik-sense-test",
         "lastRunId": "no-run-id-provided"
     }
 }

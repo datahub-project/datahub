@@ -397,7 +397,7 @@ plugins: Dict[str, Set[str]] = {
     # databricks is alias for unity-catalog and needs to be kept in sync
     "databricks": databricks | sql_common | sqllineage_lib,
     "fivetran": snowflake_common | bigquery_common,
-    "qlik-cloud": {"requests"},
+    "qlik-sense": {"requests"},
 }
 
 # This is mainly used to exclude plugins from the Docker image.
@@ -627,7 +627,7 @@ entry_points = {
         "gcs = datahub.ingestion.source.gcs.gcs_source:GCSSource",
         "sql-queries = datahub.ingestion.source.sql_queries:SqlQueriesSource",
         "fivetran = datahub.ingestion.source.fivetran.fivetran:FivetranSource",
-        "qlik-cloud = datahub.ingestion.source.qlik_cloud.qlik_cloud:QlikCloudSource",
+        "qlik-sense = datahub.ingestion.source.qlik_sense.qlik_sense:QlikSenseSource",
     ],
     "datahub.ingestion.transformer.plugins": [
         "simple_remove_dataset_ownership = datahub.ingestion.transformer.remove_dataset_ownership:SimpleRemoveDatasetOwnership",

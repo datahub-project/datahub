@@ -586,11 +586,11 @@
     }
   },
   {
-    "urn": "urn:li:dataPlatform:qlik-cloud",
+    "urn": "urn:li:dataPlatform:qlik-sense",
     "aspect": {
       "datasetNameDelimiter": ".",
-      "name": "qlik-cloud",
-      "displayName": "Qlik Cloud",
+      "name": "qlik-sense",
+      "displayName": "Qlik Sense",
       "type": "OTHERS",
       "logoUrl": "/assets/platforms/qliklogo.png"
     }

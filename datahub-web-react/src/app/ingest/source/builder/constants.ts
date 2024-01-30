@@ -114,8 +114,8 @@ export const FIVETRAN = 'fivetran';
 export const FIVETRAN_URN = `urn:li:dataPlatform:${FIVETRAN}`;
 export const CSV = 'csv-enricher';
 export const CSV_URN = `urn:li:dataPlatform:${CSV}`;
-export const QLIK_CLOUD = 'qlik-cloud';
-export const QLIK_CLOUD_URN = `urn:li:dataPlatform:${QLIK_CLOUD}`;
+export const QLIK_SENSE = 'qlik-sense';
+export const QLIK_SENSE_URN = `urn:li:dataPlatform:${QLIK_SENSE}`;
 
 export const PLATFORM_URN_TO_LOGO = {
     [ATHENA_URN]: athenaLogo,
@@ -152,7 +152,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [VERTICA_URN]: verticaLogo,
     [FIVETRAN_URN]: fivetranLogo,
     [CSV_URN]: csvLogo,
-    [QLIK_CLOUD_URN]: qlikLogo,
+    [QLIK_SENSE_URN]: qlikLogo,
 };
 
 export const SOURCE_TO_PLATFORM_URN = {

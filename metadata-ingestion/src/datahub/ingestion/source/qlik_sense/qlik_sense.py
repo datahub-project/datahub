@@ -1,15 +1,10 @@
 import logging
 from datetime import datetime
-from typing import Iterable, List, Optional
+from typing import Dict, Iterable, List, Optional
 
-from datahub.emitter.mce_builder import (
-    make_data_platform_urn,
-    make_dataplatform_instance_urn,
-    make_dataset_urn_with_platform_instance,
-    make_user_urn,
-)
+import datahub.emitter.mce_builder as builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp_builder import add_dataset_to_container, gen_containers
+from datahub.emitter.mcp_builder import add_entity_to_container, gen_containers
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -31,22 +26,24 @@ from datahub.ingestion.source.common.subtypes import (
     BIContainerSubTypes,
     DatasetSubTypes,
 )
-from datahub.ingestion.source.qlik_cloud.config import (
+from datahub.ingestion.source.qlik_sense.config import (
     Constant,
     QlikSourceConfig,
     QlikSourceReport,
 )
-from datahub.ingestion.source.qlik_cloud.data_classes import (
+from datahub.ingestion.source.qlik_sense.data_classes import (
     FIELD_TYPE_MAPPING,
+    PERSONAL_SPACE_DICT,
     App,
     AppKey,
+    Chart,
     QlikDataset,
     SchemaField as QlikDatasetSchemaField,
+    Sheet,
     Space,
     SpaceKey,
-    SpaceType,
 )
-from datahub.ingestion.source.qlik_cloud.qlik_api import QlikAPI
+from datahub.ingestion.source.qlik_sense.qlik_api import QlikAPI
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
 )
@@ -66,6 +63,10 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     SchemaMetadata,
 )
 from datahub.metadata.schema_classes import (
+    AuditStampClass,
+    ChangeAuditStampsClass,
+    ChartInfoClass,
+    DashboardInfoClass,
     DataPlatformInstanceClass,
     OwnerClass,
     OwnershipClass,
@@ -77,7 +78,7 @@ from datahub.metadata.schema_classes import (
 logger = logging.getLogger(__name__)
 
 
-@platform_name("Qlik Cloud")
+@platform_name("Qlik Sense")
 @config_class(QlikSourceConfig)
 @support_status(SupportStatus.INCUBATING)
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
@@ -86,17 +87,20 @@ logger = logging.getLogger(__name__)
     SourceCapability.OWNERSHIP,
     "Enabled by default, configured using `ingest_owner`",
 )
-class QlikCloudSource(StatefulIngestionSourceBase, TestableSource):
+class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
     """
-    This plugin extracts Qlik Cloud Spaces, Apps, and Datasets
+    This plugin extracts the following:
+    - Qlik Sense Spaces and Apps as Container.
+    - Qlik Datasets
+    - Sheets as dashboard and its charts
     """
 
     config: QlikSourceConfig
     reporter: QlikSourceReport
-    platform: str = "qlik-cloud"
+    platform: str = "qlik-sense"
 
     def __init__(self, config: QlikSourceConfig, ctx: PipelineContext):
-        super(QlikCloudSource, self).__init__(config, ctx)
+        super(QlikSenseSource, self).__init__(config, ctx)
         self.config = config
         self.reporter = QlikSourceReport()
         try:
@@ -139,13 +143,12 @@ class QlikCloudSource(StatefulIngestionSourceBase, TestableSource):
         )
 
     def _gen_personal_space(self) -> Space:
-        return Space(
-            id=Constant.PERSONAL_SPACE_ID,
-            name=Constant.PERSONAL_SPACE_NAME,
-            description="",
-            type=SpaceType.PERSONAL,
-            created_at=datetime.now(),
-            updated_at=datetime.now(),
+        return Space.parse_obj(PERSONAL_SPACE_DICT)
+
+    def _get_audit_stamp(self, date: datetime, username: str) -> AuditStampClass:
+        return AuditStampClass(
+            time=int(date.timestamp() * 1000),
+            actor=builder.make_user_urn(username),
         )
 
     def _get_allowed_spaces(self) -> List[Space]:
@@ -164,70 +167,177 @@ class QlikCloudSource(StatefulIngestionSourceBase, TestableSource):
         return allowed_spaces
 
     def _gen_space_workunit(self, space: Space) -> Iterable[MetadataWorkUnit]:
+        """
+        Map Qlik space to Datahub container
+        """
         yield from gen_containers(
             container_key=self._gen_space_key(space.id),
             name=space.name,
             description=space.description,
             sub_types=[BIContainerSubTypes.QLIK_SPACE],
             extra_properties={Constant.TYPE: str(space.type)},
-            owner_urn=make_user_urn(space.owner_id)
-            if self.config.ingest_owner and space.owner_id
+            owner_urn=builder.make_user_urn(space.ownerId)
+            if self.config.ingest_owner and space.ownerId
             else None,
-            created=int(space.created_at.timestamp() * 1000),
-            last_modified=int(space.updated_at.timestamp() * 1000),
+            created=int(space.createdAt.timestamp() * 1000),
+            last_modified=int(space.updatedAt.timestamp() * 1000),
         )
 
+    def _gen_entity_status_aspect(self, entity_urn: str) -> MetadataWorkUnit:
+        return MetadataChangeProposalWrapper(
+            entityUrn=entity_urn, aspect=Status(removed=False)
+        ).as_workunit()
+
+    def _gen_entity_owner_aspect(
+        self, entity_urn: str, owner_id: str
+    ) -> MetadataWorkUnit:
+        aspect = OwnershipClass(
+            owners=[
+                OwnerClass(
+                    owner=builder.make_user_urn(owner_id),
+                    type=OwnershipTypeClass.DATAOWNER,
+                )
+            ]
+        )
+        return MetadataChangeProposalWrapper(
+            entityUrn=entity_urn,
+            aspect=aspect,
+        ).as_workunit()
+
+    def _gen_dashboard_urn(self, dashboard_identifier: str) -> str:
+        return builder.make_dashboard_urn(
+            platform=self.platform,
+            platform_instance=self.config.platform_instance,
+            name=dashboard_identifier,
+        )
+
+    def _gen_dashboard_info_workunit(self, sheet: Sheet) -> MetadataWorkUnit:
+        dashboard_urn = self._gen_dashboard_urn(sheet.id)
+        custom_properties: Dict[str, str] = {"chartCount": str(len(sheet.charts))}
+        dashboard_info_cls = DashboardInfoClass(
+            title=sheet.title,
+            description=sheet.description,
+            charts=[
+                builder.make_chart_urn(
+                    platform=self.platform,
+                    platform_instance=self.config.platform_instance,
+                    name=chart.qId,
+                )
+                for chart in sheet.charts
+            ],
+            lastModified=ChangeAuditStampsClass(
+                created=self._get_audit_stamp(sheet.createdAt, sheet.ownerId),
+                lastModified=self._get_audit_stamp(sheet.updatedAt, sheet.ownerId),
+            ),
+            customProperties=custom_properties,
+        )
+        return MetadataChangeProposalWrapper(
+            entityUrn=dashboard_urn, aspect=dashboard_info_cls
+        ).as_workunit()
+
+    def _gen_charts_workunit(
+        self, charts: List[Chart], space_id: str, app_id: str, sheet_id: str
+    ) -> Iterable[MetadataWorkUnit]:
+        """
+        Map Qlik Chart to Datahub Chart
+        """
+        for chart in charts:
+            chart_urn = builder.make_chart_urn(
+                platform=self.platform,
+                platform_instance=self.config.platform_instance,
+                name=chart.qId,
+            )
+
+            yield self._gen_entity_status_aspect(chart_urn)
+
+            yield MetadataChangeProposalWrapper(
+                entityUrn=chart_urn,
+                aspect=ChartInfoClass(
+                    title=chart.qId,
+                    description=chart.qType,
+                    lastModified=ChangeAuditStampsClass(),
+                ),
+            ).as_workunit()
+
+            # yield MetadataChangeProposalWrapper(
+            #     entityUrn=chart_urn,
+            #     aspect=BrowsePathsClass(
+            #         paths=[f"/{self.platform}/{space_id}/{app_id}/{sheet_id}"]
+            #     ),
+            # ).as_workunit()
+
+    def _gen_sheets_workunit(
+        self, sheets: List[Sheet], space_id: str, app_id: str
+    ) -> Iterable[MetadataWorkUnit]:
+        """
+        Map Qlik Sheet to Datahub dashboard
+        """
+        for sheet in sheets:
+            dashboard_urn = self._gen_dashboard_urn(sheet.id)
+
+            yield self._gen_entity_status_aspect(dashboard_urn)
+
+            yield self._gen_dashboard_info_workunit(sheet)
+
+            yield from add_entity_to_container(
+                container_key=self._gen_app_key(app_id),
+                entity_type="dashboard",
+                entity_urn=dashboard_urn,
+            )
+
+            dpi_aspect = self._gen_dataplatform_instance_aspect(dashboard_urn)
+            if dpi_aspect:
+                yield dpi_aspect
+
+            if self.config.ingest_owner:
+                yield self._gen_entity_owner_aspect(dashboard_urn, sheet.ownerId)
+
+            yield from self._gen_charts_workunit(
+                sheet.charts, space_id, app_id, sheet.id
+            )
+
     def _gen_app_workunit(self, app: App) -> Iterable[MetadataWorkUnit]:
+        """
+        Map Qlik App to Datahub container
+        """
         yield from gen_containers(
             container_key=self._gen_app_key(app.id),
             name=app.name,
             description=app.description,
             sub_types=[BIContainerSubTypes.QLIK_APP],
-            parent_container_key=self._gen_space_key(app.space_id),
+            parent_container_key=self._gen_space_key(app.spaceId),
             extra_properties={Constant.QRI: app.qri, Constant.USAGE: app.usage},
-            owner_urn=make_user_urn(app.owner_id) if self.config.ingest_owner else None,
-            created=int(app.created_at.timestamp() * 1000),
-            last_modified=int(app.updated_at.timestamp() * 1000),
+            owner_urn=builder.make_user_urn(app.ownerId)
+            if self.config.ingest_owner
+            else None,
+            created=int(app.createdAt.timestamp() * 1000),
+            last_modified=int(app.updatedAt.timestamp() * 1000),
         )
+        yield from self._gen_sheets_workunit(app.sheets, app.spaceId, app.id)
 
     def _gen_dataset_urn(self, dataset_identifier: str) -> str:
-        return make_dataset_urn_with_platform_instance(
+        return builder.make_dataset_urn_with_platform_instance(
             name=dataset_identifier,
             env=self.config.env,
             platform=self.platform,
             platform_instance=self.config.platform_instance,
         )
 
-    def gen_dataplatform_instance_aspect(
-        self, dataset_urn: str
+    def _gen_dataplatform_instance_aspect(
+        self, entity_urn: str
     ) -> Optional[MetadataWorkUnit]:
         if self.config.platform_instance:
             aspect = DataPlatformInstanceClass(
-                platform=make_data_platform_urn(self.platform),
-                instance=make_dataplatform_instance_urn(
+                platform=builder.make_data_platform_urn(self.platform),
+                instance=builder.make_dataplatform_instance_urn(
                     self.platform, self.config.platform_instance
                 ),
             )
             return MetadataChangeProposalWrapper(
-                entityUrn=dataset_urn, aspect=aspect
+                entityUrn=entity_urn, aspect=aspect
             ).as_workunit()
         else:
             return None
-
-    def _gen_dataset_owner_aspect(
-        self, dataset_urn: str, owner_id: str
-    ) -> MetadataWorkUnit:
-        aspect = OwnershipClass(
-            owners=[
-                OwnerClass(
-                    owner=make_user_urn(owner_id), type=OwnershipTypeClass.DATAOWNER
-                )
-            ]
-        )
-        return MetadataChangeProposalWrapper(
-            entityUrn=dataset_urn,
-            aspect=aspect,
-        ).as_workunit()
 
     def _gen_schema_fields(
         self, schema: List[QlikDatasetSchemaField]
@@ -237,12 +347,12 @@ class QlikCloudSource(StatefulIngestionSourceBase, TestableSource):
             schema_field = SchemaField(
                 fieldPath=field.name,
                 type=SchemaFieldDataTypeClass(
-                    type=FIELD_TYPE_MAPPING.get(field.data_type, NullType)()
+                    type=FIELD_TYPE_MAPPING.get(field.dataType, NullType)()
                 ),
                 # NOTE: nativeDataType will not be in sync with older connector
-                nativeDataType=field.data_type,
+                nativeDataType=field.dataType,
                 nullable=field.nullable,
-                isPartOfKey=field.primary_key,
+                isPartOfKey=field.primaryKey,
             )
             schema_fields.append(schema_field)
         return schema_fields
@@ -252,11 +362,11 @@ class QlikCloudSource(StatefulIngestionSourceBase, TestableSource):
 
         schema_metadata = SchemaMetadata(
             schemaName=dataset.id,
-            platform=make_data_platform_urn(self.platform),
+            platform=builder.make_data_platform_urn(self.platform),
             version=0,
             hash="",
             platformSchema=MySqlDDL(tableSchema=""),
-            fields=self._gen_schema_fields(dataset.schema),
+            fields=self._gen_schema_fields(dataset.datasetSchema),
         )
 
         return MetadataChangeProposalWrapper(
@@ -270,16 +380,16 @@ class QlikCloudSource(StatefulIngestionSourceBase, TestableSource):
             name=dataset.name,
             description=dataset.description,
             qualifiedName=dataset.name,
-            created=TimeStamp(time=int(dataset.created_at.timestamp() * 1000)),
-            lastModified=TimeStamp(time=int(dataset.updated_at.timestamp() * 1000)),
+            created=TimeStamp(time=int(dataset.createdAt.timestamp() * 1000)),
+            lastModified=TimeStamp(time=int(dataset.updatedAt.timestamp() * 1000)),
         )
         dataset_properties.customProperties.update(
             {
                 Constant.QRI: dataset.qri,
-                Constant.SPACEID: dataset.space_id,
+                Constant.SPACEID: dataset.spaceId,
                 Constant.TYPE: dataset.type,
                 Constant.SIZE: str(dataset.size),
-                Constant.ROWCOUNT: str(dataset.row_count),
+                Constant.ROWCOUNT: str(dataset.rowCount),
             }
         )
 
@@ -290,25 +400,24 @@ class QlikCloudSource(StatefulIngestionSourceBase, TestableSource):
     def _gen_dataset_workunit(self, dataset: QlikDataset) -> Iterable[MetadataWorkUnit]:
         dataset_urn = self._gen_dataset_urn(dataset.id)
 
-        yield MetadataChangeProposalWrapper(
-            entityUrn=dataset_urn, aspect=Status(removed=False)
-        ).as_workunit()
+        yield self._gen_entity_status_aspect(dataset_urn)
 
         yield self._gen_schema_metadata(dataset)
 
         yield self._gen_dataset_properties(dataset)
 
-        yield from add_dataset_to_container(
-            container_key=self._gen_space_key(dataset.space_id),
-            dataset_urn=dataset_urn,
+        yield from add_entity_to_container(
+            container_key=self._gen_space_key(dataset.spaceId),
+            entity_type="dataset",
+            entity_urn=dataset_urn,
         )
 
-        dpi_aspect = self.gen_dataplatform_instance_aspect(dataset_urn)
+        dpi_aspect = self._gen_dataplatform_instance_aspect(dataset_urn)
         if dpi_aspect:
             yield dpi_aspect
 
         if self.config.ingest_owner:
-            yield self._gen_dataset_owner_aspect(dataset_urn, dataset.owner_id)
+            yield self._gen_entity_owner_aspect(dataset_urn, dataset.ownerId)
 
         yield MetadataChangeProposalWrapper(
             entityUrn=dataset_urn,
@@ -327,15 +436,16 @@ class QlikCloudSource(StatefulIngestionSourceBase, TestableSource):
         """
         Datahub Ingestion framework invoke this method
         """
-        logger.info("Qlik Cloud plugin execution is started")
+        logger.info("Qlik Sense plugin execution is started")
         for space in self._get_allowed_spaces():
             yield from self._gen_space_workunit(space)
         for item in self.qlik_api.get_items():
             # If item is personal item and flag is Disable, skip ingesting personal item
-            if not item.space_id:
-                item.space_id = Constant.PERSONAL_SPACE_ID
-                if not self.config.extract_personal_entity:
-                    continue
+            if (
+                item.spaceId == Constant.PERSONAL_SPACE_ID
+                and not self.config.extract_personal_entity
+            ):
+                continue
             if isinstance(item, App):
                 yield from self._gen_app_workunit(item)
             elif isinstance(item, QlikDataset):

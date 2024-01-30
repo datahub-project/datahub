@@ -1,4 +1,5 @@
 from typing import Any
+from unittest.mock import patch
 
 import pytest
 
@@ -587,9 +588,180 @@ def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
         )
 
 
+def mock_websocket_response(*args, **kwargs):
+    request = kwargs["request"]
+    if request == {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "handle": -1,
+        "method": "OpenDoc",
+        "params": {"qDocName": "b90c4d4e-0d07-4c24-9458-b17d1492660b"},
+    }:
+        return {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "result": {
+                "qReturn": {
+                    "qType": "Doc",
+                    "qHandle": 1,
+                    "qGenericId": "b90c4d4e-0d07-4c24-9458-b17d1492660b",
+                }
+            },
+            "change": [1],
+        }
+    elif request == {
+        "jsonrpc": "2.0",
+        "id": 2,
+        "handle": 1,
+        "method": "GetObjects",
+        "params": {"qOptions": {"qTypes": ["sheet"]}},
+    }:
+        return {
+            "jsonrpc": "2.0",
+            "id": 2,
+            "result": {
+                "qList": [
+                    {
+                        "qInfo": {
+                            "qId": "f4f57386-263a-4ec9-b40c-abcd2467f423",
+                            "qType": "sheet",
+                        },
+                        "qMeta": {
+                            "title": "New ds sheet",
+                            "description": "",
+                            "_resourcetype": "app.object",
+                            "_objecttype": "sheet",
+                            "id": "f4f57386-263a-4ec9-b40c-abcd2467f423",
+                            "approved": False,
+                            "published": False,
+                            "owner": "auth0|fd95ee6facf82e692d2eac4ccb5ddb18ef05c22a7575fcc4d26d7bc9aefedb4f",
+                            "ownerId": "657b5abe656297cec3d8b205",
+                            "createdDate": "2024-01-15T11:01:49.704Z",
+                            "modifiedDate": "2024-01-29T12:23:46.868Z",
+                            "publishTime": True,
+                            "privileges": [
+                                "read",
+                                "update",
+                                "delete",
+                                "publish",
+                                "change_owner",
+                            ],
+                        },
+                        "qData": {},
+                    },
+                ]
+            },
+        }
+    elif request == {
+        "jsonrpc": "2.0",
+        "id": 3,
+        "handle": 1,
+        "method": "GetObject",
+        "params": {"qId": "f4f57386-263a-4ec9-b40c-abcd2467f423"},
+    }:
+        return {
+            "jsonrpc": "2.0",
+            "id": 3,
+            "result": {
+                "qReturn": {
+                    "qType": "GenericObject",
+                    "qHandle": 2,
+                    "qGenericType": "sheet",
+                    "qGenericId": "f4f57386-263a-4ec9-b40c-abcd2467f423",
+                }
+            },
+        }
+    elif request == {
+        "jsonrpc": "2.0",
+        "id": 4,
+        "handle": 2,
+        "method": "GetLayout",
+        "params": {},
+    }:
+        return {
+            "jsonrpc": "2.0",
+            "id": 4,
+            "result": {
+                "qLayout": {
+                    "qInfo": {
+                        "qId": "f4f57386-263a-4ec9-b40c-abcd2467f423",
+                        "qType": "sheet",
+                    },
+                    "qMeta": {
+                        "title": "New ds sheet",
+                        "description": "",
+                        "_resourcetype": "app.object",
+                        "_objecttype": "sheet",
+                        "id": "f4f57386-263a-4ec9-b40c-abcd2467f423",
+                        "approved": False,
+                        "published": False,
+                        "owner": "auth0|fd95ee6facf82e692d2eac4ccb5ddb18ef05c22a7575fcc4d26d7bc9aefedb4f",
+                        "ownerId": "657b5abe656297cec3d8b205",
+                        "createdDate": "2024-01-15T11:01:49.704Z",
+                        "modifiedDate": "2024-01-29T12:23:46.868Z",
+                        "publishTime": True,
+                        "privileges": [
+                            "read",
+                            "update",
+                            "delete",
+                            "publish",
+                            "change_owner",
+                        ],
+                    },
+                    "qSelectionInfo": {},
+                    "rank": 0,
+                    "thumbnail": {"qStaticContentUrl": {}},
+                    "columns": 24,
+                    "rows": 12,
+                    "cells": [
+                        {
+                            "bounds": {"x": 0, "y": 0, "width": 100, "height": 100},
+                            "col": 0,
+                            "colspan": 24,
+                            "name": "QYUUb",
+                            "row": 0,
+                            "rowspan": 12,
+                            "smartGrid": {
+                                "rowIdx": 0,
+                                "itemIdx": 0,
+                                "item": {"width": 1},
+                            },
+                            "type": "barchart",
+                        }
+                    ],
+                    "qChildList": {
+                        "qItems": [
+                            {
+                                "qInfo": {"qId": "QYUUb", "qType": "barchart"},
+                                "qMeta": {"privileges": ["read", "update", "delete"]},
+                                "qData": {"title": ""},
+                            }
+                        ]
+                    },
+                    "customRowBase": 12,
+                    "gridResolution": "small",
+                    "layoutOptions": {"mobileLayout": "LIST", "extendable": False},
+                    "gridMode": "simpleEdit",
+                }
+            },
+        }
+
+
+@pytest.fixture(scope="module")
+def mock_websocket_send_request():
+
+    with patch(
+        "datahub.ingestion.source.qlik_sense.qlik_api.QlikAPI._websocket_send_request"
+    ) as mock_websocket_send_request, patch(
+        "datahub.ingestion.source.qlik_sense.qlik_api.create_connection"
+    ):
+        mock_websocket_send_request.side_effect = mock_websocket_response
+        yield mock_websocket_send_request
+
+
 def default_config():
     return {
-        "tenant_hostname": "https://iq37k6byr9lgam8.us.qlikcloud.com",
+        "tenant_hostname": "iq37k6byr9lgam8.us.qlikcloud.com",
         "api_key": "qlik-api-key",
         "space_pattern": {
             "allow": [
@@ -601,19 +773,21 @@ def default_config():
 
 
 @pytest.mark.integration
-def test_qlik_cloud_ingest(pytestconfig, tmp_path, requests_mock):
+def test_qlik_sense_ingest(
+    pytestconfig, tmp_path, requests_mock, mock_websocket_send_request
+):
 
-    test_resources_dir = pytestconfig.rootpath / "tests/integration/qlik_cloud"
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/qlik_sense"
 
     register_mock_api(request_mock=requests_mock)
 
-    output_path: str = f"{tmp_path}/qlik_cloud_ingest_mces.json"
+    output_path: str = f"{tmp_path}/qlik_sense_ingest_mces.json"
 
     pipeline = Pipeline.create(
         {
-            "run_id": "qlik-cloud-test",
+            "run_id": "qlik-sense-test",
             "source": {
-                "type": "qlik-cloud",
+                "type": "qlik-sense",
                 "config": {
                     **default_config(),
                 },
@@ -629,7 +803,7 @@ def test_qlik_cloud_ingest(pytestconfig, tmp_path, requests_mock):
 
     pipeline.run()
     pipeline.raise_from_status()
-    golden_file = "golden_test_qlik_cloud_ingest.json"
+    golden_file = "golden_test_qlik_sense_ingest.json"
 
     mce_helpers.check_golden_file(
         pytestconfig,
@@ -639,9 +813,11 @@ def test_qlik_cloud_ingest(pytestconfig, tmp_path, requests_mock):
 
 
 @pytest.mark.integration
-def test_platform_instance_ingest(pytestconfig, tmp_path, requests_mock):
+def test_platform_instance_ingest(
+    pytestconfig, tmp_path, requests_mock, mock_websocket_send_request
+):
 
-    test_resources_dir = pytestconfig.rootpath / "tests/integration/qlik_cloud"
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/qlik_sense"
 
     register_mock_api(request_mock=requests_mock)
 
@@ -649,12 +825,12 @@ def test_platform_instance_ingest(pytestconfig, tmp_path, requests_mock):
 
     pipeline = Pipeline.create(
         {
-            "run_id": "qlik-cloud-test",
+            "run_id": "qlik-sense-test",
             "source": {
-                "type": "qlik-cloud",
+                "type": "qlik-sense",
                 "config": {
                     **default_config(),
-                    "platform_instance": "qlik_cloud_platform",
+                    "platform_instance": "qlik_sense_platform",
                 },
             },
             "sink": {

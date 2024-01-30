@@ -5,10 +5,12 @@ from typing import Optional
 import pydantic
 
 from datahub.configuration.common import AllowDenyPattern
-from datahub.configuration.source_common import DatasetSourceConfigMixin
+from datahub.configuration.source_common import (
+    EnvConfigMixin,
+    PlatformInstanceConfigMixin,
+)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
-    StatefulStaleMetadataRemovalConfig,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
@@ -19,18 +21,29 @@ logger = logging.getLogger(__name__)
 QLIK_DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%S.%fZ"
 
 
+class WebSocketRequest:
+    """
+    Web socket send request dict
+    """
+
+    OPEN_DOC = {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "handle": -1,
+        "method": "OpenDoc",
+        "params": {"qDocName": "f0714ca7-7093-49e4-8b58-47bb38563647"},
+    }
+
+
 class Constant:
     """
     keys used in qlik plugin
     """
 
-    PLATFORM_NAME = "qlik-cloud"
+    # Rest API response key constants
     DATA = "data"
-    ID = "id"
     NAME = "name"
-    DESCRIPTION = "description"
     TYPE = "type"
-    OWNERID = "ownerId"
     CREATEDAT = "createdAt"
     UPDATEDAT = "updatedAt"
     SECUREQRI = "secureQri"
@@ -52,6 +65,18 @@ class Constant:
     CREATEDDATE = "createdDate"
     MODIFIEDDATE = "modifiedDate"
     RESOURCEID = "resourceId"
+    DATASETSCHEMA = "datasetSchema"
+    # Websocket response key constants
+    QID = "qId"
+    RESULT = "result"
+    QRETURN = "qReturn"
+    QHANDLE = "qHandle"
+    QLAYOUT = "qLayout"
+    QMETA = "qMeta"
+    QCHILDLIST = "qChildList"
+    QITEMS = "qItems"
+    QINFO = "qInfo"
+    QLIST = "qList"
     # Item type
     APP = "app"
     DATASET = "dataset"
@@ -68,7 +93,9 @@ class QlikSourceReport(StaleEntityRemovalSourceReport):
         self.number_of_spaces = number_of_spaces
 
 
-class QlikSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
+class QlikSourceConfig(
+    StatefulIngestionConfigBase, PlatformInstanceConfigMixin, EnvConfigMixin
+):
     tenant_hostname: str = pydantic.Field(description="Qlik Tenant hostname")
     api_key: str = pydantic.Field(description="Qlik API Key")
     # Qlik space identifier
@@ -83,8 +110,4 @@ class QlikSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
     ingest_owner: Optional[bool] = pydantic.Field(
         default=True,
         description="Ingest Owner from source. This will override Owner info entered from UI",
-    )
-    # Configuration for stateful ingestion
-    stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = pydantic.Field(
-        default=None, description="Qlik Stateful Ingestion Config."
     )
