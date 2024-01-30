@@ -16,6 +16,7 @@ class DatasetSubTypes(str, Enum):
     SALESFORCE_STANDARD_OBJECT = "Object"
     POWERBI_DATASET_TABLE = "PowerBI Dataset Table"
     QLIK_DATASET = "Qlik Dataset"
+    BIGQUERY_TABLE_SNAPSHOT = "Bigquery Table Snapshot"
 
     # TODO: Create separate entity...
     NOTEBOOK = "Notebook"

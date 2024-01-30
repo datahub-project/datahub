@@ -202,16 +202,16 @@ public class OwnerUtils {
   }
 
   public static void validateAddOwnerInput(
-      List<OwnerInput> owners, Urn resourceUrn, EntityService entityService) {
+      List<OwnerInput> owners, Urn resourceUrn, EntityService<?> entityService) {
     for (OwnerInput owner : owners) {
       validateAddOwnerInput(owner, resourceUrn, entityService);
     }
   }
 
   public static void validateAddOwnerInput(
-      OwnerInput owner, Urn resourceUrn, EntityService entityService) {
+      OwnerInput owner, Urn resourceUrn, EntityService<?> entityService) {
 
-    if (!entityService.exists(resourceUrn)) {
+    if (!entityService.exists(resourceUrn, true)) {
       throw new IllegalArgumentException(
           String.format(
               "Failed to change ownership for resource %s. Resource does not exist.", resourceUrn));
@@ -220,7 +220,7 @@ public class OwnerUtils {
     validateOwner(owner, entityService);
   }
 
-  public static void validateOwner(OwnerInput owner, EntityService entityService) {
+  public static void validateOwner(OwnerInput owner, EntityService<?> entityService) {
 
     OwnerEntityType ownerEntityType = owner.getOwnerEntityType();
     Urn ownerUrn = UrnUtils.getUrn(owner.getOwnerUrn());
@@ -241,7 +241,7 @@ public class OwnerUtils {
               ownerUrn));
     }
 
-    if (!entityService.exists(ownerUrn)) {
+    if (!entityService.exists(ownerUrn, true)) {
       throw new IllegalArgumentException(
           String.format(
               "Failed to change ownership for resource(s). Owner with urn %s does not exist.",
@@ -249,7 +249,7 @@ public class OwnerUtils {
     }
 
     if (owner.getOwnershipTypeUrn() != null
-        && !entityService.exists(UrnUtils.getUrn(owner.getOwnershipTypeUrn()))) {
+        && !entityService.exists(UrnUtils.getUrn(owner.getOwnershipTypeUrn()), true)) {
       throw new IllegalArgumentException(
           String.format(
               "Failed to change ownership for resource(s). Custom Ownership type with "
@@ -264,8 +264,8 @@ public class OwnerUtils {
     }
   }
 
-  public static void validateRemoveInput(Urn resourceUrn, EntityService entityService) {
-    if (!entityService.exists(resourceUrn)) {
+  public static void validateRemoveInput(Urn resourceUrn, EntityService<?> entityService) {
+    if (!entityService.exists(resourceUrn, true)) {
       throw new IllegalArgumentException(
           String.format(
               "Failed to change ownership for resource %s. Resource does not exist.", resourceUrn));
@@ -276,17 +276,18 @@ public class OwnerUtils {
       QueryContext context,
       String urn,
       OwnerEntityType ownerEntityType,
-      EntityService entityService) {
+      EntityService<?> entityService) {
     try {
       Urn actorUrn = CorpuserUrn.createFromString(context.getActorUrn());
       OwnershipType ownershipType = OwnershipType.TECHNICAL_OWNER;
-      if (!entityService.exists(UrnUtils.getUrn(mapOwnershipTypeToEntity(ownershipType.name())))) {
+      if (!entityService.exists(
+          UrnUtils.getUrn(mapOwnershipTypeToEntity(ownershipType.name())), true)) {
         log.warn("Technical owner does not exist, defaulting to None ownership.");
         ownershipType = OwnershipType.NONE;
       }
       String ownershipTypeUrn = mapOwnershipTypeToEntity(ownershipType.name());
 
-      if (!entityService.exists(UrnUtils.getUrn(ownershipTypeUrn))) {
+      if (!entityService.exists(UrnUtils.getUrn(ownershipTypeUrn), true)) {
         throw new RuntimeException(
             String.format("Unknown ownership type urn %s", ownershipTypeUrn));
       }

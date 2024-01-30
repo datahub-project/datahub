@@ -1,16 +1,9 @@
-import sys
-
-import pytest
 from freezegun import freeze_time
 
 from datahub.ingestion.run.pipeline import Pipeline
 from tests.test_helpers import mce_helpers
 
 FROZEN_TIME = "2020-04-14 07:00:00"
-
-pytestmark = pytest.mark.skipif(
-    sys.version_info < (3, 8), reason="requires python 3.8 or higher"
-)
 
 
 @freeze_time(FROZEN_TIME)

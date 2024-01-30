@@ -18,7 +18,7 @@ public class SiblingGraphServiceFactory {
 
   @Autowired
   @Qualifier("entityService")
-  private EntityService _entityService;
+  private EntityService<?> _entityService;
 
   @Autowired
   @Qualifier("graphService")

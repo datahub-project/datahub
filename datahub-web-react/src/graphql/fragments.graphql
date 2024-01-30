@@ -245,6 +245,11 @@ fragment nonRecursiveDatasetFields on Dataset {
             actor
         }
     }
+    structuredProperties {
+        properties {
+            ...structuredPropertiesFields
+        }
+    }
     editableProperties {
         description
     }
@@ -709,6 +714,15 @@ fragment schemaFieldFields on SchemaField {
     glossaryTerms {
         ...glossaryTerms
     }
+    schemaFieldEntity {
+        urn
+        type
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
+    }
 }
 
 fragment schemaMetadataFields on SchemaMetadata {
@@ -1160,5 +1174,78 @@ fragment entityDisplayNameFields on Entity {
     }
     ... on DataPlatformInstance {
         instanceId
+    }
+}
+
+fragment structuredPropertyFields on StructuredPropertyEntity {
+    urn
+    type
+    definition {
+        displayName
+        qualifiedName
+        description
+        cardinality
+        valueType {
+            info {
+                type
+                displayName
+            }
+        }
+        entityTypes {
+            info {
+                type
+            }
+        }
+        cardinality
+        typeQualifier {
+            allowedTypes {
+                urn
+                type
+                info {
+                    type
+                    displayName
+                }
+            }
+        }
+        allowedValues {
+            value {
+                ... on StringValue {
+                    stringValue
+                }
+                ... on NumberValue {
+                    numberValue
+                }
+            }
+            description
+        }
+    }
+}
+
+fragment structuredPropertiesFields on StructuredPropertiesEntry {
+    structuredProperty {
+        ...structuredPropertyFields
+    }
+    values {
+        ... on StringValue {
+            stringValue
+        }
+        ... on NumberValue {
+            numberValue
+        }
+    }
+    valueEntities {
+        urn
+        type
+        ...entityDisplayNameFields
+    }
+}
+
+fragment autoRenderAspectFields on RawAspect {
+    aspectName
+    payload
+    renderSpec {
+        displayType
+        displayName
+        key
     }
 }

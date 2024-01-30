@@ -161,7 +161,7 @@ public interface EntitySearchService {
    * @param field the field name for aggregate
    * @param requestParams filters to apply before aggregating
    * @param limit the number of aggregations to return
-   * @return
+   * @return a map of the value to the count of documents having the value
    */
   @Nonnull
   Map<String, Long> aggregateByValue(

@@ -1,6 +1,6 @@
 package com.linkedin.metadata.search.elasticsearch.query.request;
 
-import static com.linkedin.metadata.models.registry.template.util.TemplateUtil.*;
+import static com.linkedin.metadata.aspect.patch.template.TemplateUtil.*;
 
 import java.io.IOException;
 import java.io.Serializable;

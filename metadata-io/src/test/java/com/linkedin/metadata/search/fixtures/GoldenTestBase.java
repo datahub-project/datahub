@@ -1,18 +1,27 @@
 package com.linkedin.metadata.search.fixtures;
 
+import static com.linkedin.metadata.Constants.*;
 import static io.datahubproject.test.search.SearchTestUtils.searchAcrossCustomEntities;
 import static io.datahubproject.test.search.SearchTestUtils.searchAcrossEntities;
-import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.*;
 import static org.testng.AssertJUnit.assertNotNull;
 
+import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.generated.EntityType;
-import com.linkedin.datahub.graphql.resolvers.EntityTypeMapper;
+import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
+import com.linkedin.metadata.query.filter.Criterion;
+import com.linkedin.metadata.query.filter.CriterionArray;
+import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.MatchedFieldArray;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchService;
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -167,6 +176,35 @@ public abstract class GoldenTestBase extends AbstractTestNGSpringContextTests {
     // Checks that the scores aren't tied so that we are matching on table name more than column
     // name
     assertTrue(firstResultScore > secondResultScore);
+  }
+
+  @Test
+  public void testFilterOnCountField() {
+    assertNotNull(getSearchService());
+    Filter filter =
+        new Filter()
+            .setOr(
+                new ConjunctiveCriterionArray(
+                    new ConjunctiveCriterion()
+                        .setAnd(
+                            new CriterionArray(
+                                ImmutableList.of(
+                                    new Criterion()
+                                        .setField("rowCount")
+                                        .setValue("")
+                                        .setValues(new StringArray(ImmutableList.of("68"))))))));
+    SearchResult searchResult =
+        searchAcrossEntities(
+            getSearchService(),
+            "*",
+            SEARCHABLE_LONGTAIL_ENTITIES,
+            filter,
+            Collections.singletonList(DATASET_ENTITY_NAME));
+    assertFalse(searchResult.getEntities().isEmpty());
+    Urn firstResultUrn = searchResult.getEntities().get(0).getEntity();
+    assertEquals(
+        firstResultUrn.toString(),
+        "urn:li:dataset:(urn:li:dataPlatform:dbt,long_tail_companions.analytics.dogs_in_movies,PROD)");
   }
 
   /*

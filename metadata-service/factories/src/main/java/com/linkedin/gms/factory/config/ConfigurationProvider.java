@@ -60,9 +60,15 @@ public class ConfigurationProvider {
   /** System Update configurations */
   private SystemUpdateConfiguration systemUpdate;
 
+  /** The base URL where DataHub is hosted. */
+  private String baseUrl;
+
   /** Configuration for caching */
   private CacheConfiguration cache;
 
   /** Configuration for the health check server */
   private HealthCheckConfiguration healthCheck;
+
+  /** Structured properties related configurations */
+  private StructuredPropertiesConfiguration structuredProperties;
 }

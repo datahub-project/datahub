@@ -32,7 +32,6 @@ from tableauserverclient.server.endpoint.exceptions import NonXMLResponseError
 from urllib3 import Retry
 
 import datahub.emitter.mce_builder as builder
-import datahub.utilities.sqlglot_lineage as sqlglot_l
 from datahub.configuration.common import (
     AllowDenyPattern,
     ConfigModel,
@@ -144,7 +143,11 @@ from datahub.metadata.schema_classes import (
     ViewPropertiesClass,
 )
 from datahub.utilities import config_clean
-from datahub.utilities.sqlglot_lineage import ColumnLineageInfo, SqlParsingResult
+from datahub.utilities.sqlglot_lineage import (
+    ColumnLineageInfo,
+    SqlParsingResult,
+    create_lineage_sql_parsed_result,
+)
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -1617,9 +1620,9 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
             f"Overridden info upstream_db={upstream_db}, platform_instance={platform_instance}, platform={platform}"
         )
 
-        return sqlglot_l.create_lineage_sql_parsed_result(
+        return create_lineage_sql_parsed_result(
             query=query,
-            database=upstream_db,
+            default_db=upstream_db,
             platform=platform,
             platform_instance=platform_instance,
             env=env,
@@ -1740,8 +1743,15 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
             aspects=[self.get_data_platform_instance()],
         )
 
-        # Browse path
+        # Tags
+        if datasource_info:
+            tags = self.get_tags(datasource_info)
+            if tags:
+                dataset_snapshot.aspects.append(
+                    builder.make_global_tag_aspect_with_tag_list(tags)
+                )
 
+        # Browse path
         if browse_path and is_embedded_ds and workbook and workbook.get(c.NAME):
             browse_path = (
                 f"{browse_path}/{workbook[c.NAME].replace('/', REPLACE_SLASH_CHAR)}"
