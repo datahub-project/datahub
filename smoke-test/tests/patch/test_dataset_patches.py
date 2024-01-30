@@ -30,7 +30,7 @@ def test_dataset_ownership_patch(wait_for_healthchecks):
     dataset_urn = make_dataset_urn(
         platform="hive", name=f"SampleHiveDataset{uuid.uuid4()}", env="PROD"
     )
-    helper_test_ownership_patch(dataset_urn, "dataset", DatasetPatchBuilder)
+    helper_test_ownership_patch(dataset_urn, DatasetPatchBuilder)
 
 
 # Tags
@@ -38,7 +38,7 @@ def test_dataset_tags_patch(wait_for_healthchecks):
     dataset_urn = make_dataset_urn(
         platform="hive", name=f"SampleHiveDataset-{uuid.uuid4()}", env="PROD"
     )
-    helper_test_dataset_tags_patch(dataset_urn, "dataset", DatasetPatchBuilder)
+    helper_test_dataset_tags_patch(dataset_urn, DatasetPatchBuilder)
 
 
 # Terms
@@ -46,7 +46,7 @@ def test_dataset_terms_patch(wait_for_healthchecks):
     dataset_urn = make_dataset_urn(
         platform="hive", name=f"SampleHiveDataset-{uuid.uuid4()}", env="PROD"
     )
-    helper_test_entity_terms_patch(dataset_urn, "dataset", DatasetPatchBuilder)
+    helper_test_entity_terms_patch(dataset_urn, DatasetPatchBuilder)
 
 
 def test_dataset_upstream_lineage_patch(wait_for_healthchecks):
@@ -294,7 +294,6 @@ def test_custom_properties_patch(wait_for_healthchecks):
     )
     helper_test_custom_properties_patch(
         test_entity_urn=dataset_urn,
-        entity_type="dataset",
         patch_builder_class=DatasetPatchBuilder,
         custom_properties_aspect_class=DatasetPropertiesClass,
         base_aspect=orig_dataset_properties,

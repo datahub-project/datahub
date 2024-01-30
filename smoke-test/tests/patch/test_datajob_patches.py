@@ -32,21 +32,17 @@ def _make_test_datajob_urn(
 # Ownership
 def test_datajob_ownership_patch(wait_for_healthchecks):
     datajob_urn = _make_test_datajob_urn()
-    helper_test_ownership_patch(datajob_urn, "datajob", DataJobPatchBuilder)
+    helper_test_ownership_patch(datajob_urn, DataJobPatchBuilder)
 
 
 # Tags
 def test_datajob_tags_patch(wait_for_healthchecks):
-    helper_test_dataset_tags_patch(
-        _make_test_datajob_urn(), "datajob", DataJobPatchBuilder
-    )
+    helper_test_dataset_tags_patch(_make_test_datajob_urn(), DataJobPatchBuilder)
 
 
 # Terms
 def test_dataset_terms_patch(wait_for_healthchecks):
-    helper_test_entity_terms_patch(
-        _make_test_datajob_urn(), "datajob", DataJobPatchBuilder
-    )
+    helper_test_entity_terms_patch(_make_test_datajob_urn(), DataJobPatchBuilder)
 
 
 # Custom Properties
@@ -54,7 +50,6 @@ def test_custom_properties_patch(wait_for_healthchecks):
     orig_datajob_info = DataJobInfoClass(name="test_name", type="TestJobType")
     helper_test_custom_properties_patch(
         test_entity_urn=_make_test_datajob_urn(),
-        entity_type="datajob",
         patch_builder_class=DataJobPatchBuilder,
         custom_properties_aspect_class=DataJobInfoClass,
         base_aspect=orig_datajob_info,
