@@ -611,7 +611,7 @@ class RedshiftLineageExtractor:
                     logger.debug(
                         f"{source.urn} missing table. Adding it to temp table list for target table {target_table}.",
                     )
-                    probable_temp_tables.append(table)
+                    probable_temp_tables.append(f"{schema}.{table}")
                     self.report.num_lineage_tables_dropped += 1
                     continue
 
@@ -904,10 +904,14 @@ class RedshiftLineageExtractor:
         matched_temp_tables: List[TempTableRow] = []
 
         for table_name in temp_table_names:
+            prefixes = RedshiftQuery.get_temp_table_clause(table_name)
+            prefixes.extend(
+                RedshiftQuery.get_temp_table_clause(table_name.split(".")[-1])
+            )
+
             for row in temp_table_rows:
                 if any(
-                    row.create_command.lower().startswith(prefix)
-                    for prefix in RedshiftQuery.get_temp_table_clause(table_name)
+                    row.create_command.lower().startswith(prefix) for prefix in prefixes
                 ):
                     matched_temp_tables.append(row)
 
