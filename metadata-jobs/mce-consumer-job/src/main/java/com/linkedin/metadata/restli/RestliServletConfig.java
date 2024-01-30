@@ -42,8 +42,8 @@ public class RestliServletConfig {
 
   @Bean
   public FilterRegistrationBean<AuthenticationFilter> authenticationFilterRegistrationBean(
-      @Qualifier("restliServletRegistration")
-      ServletRegistrationBean<RestliHandlerServlet> servlet, AuthenticationFilter authenticationFilter) {
+      @Qualifier("restliServletRegistration") ServletRegistrationBean<RestliHandlerServlet> servlet,
+      AuthenticationFilter authenticationFilter) {
     FilterRegistrationBean<AuthenticationFilter> registrationBean = new FilterRegistrationBean<>();
     registrationBean.setServletRegistrationBeans(Collections.singletonList(servlet));
     registrationBean.setUrlPatterns(Collections.singletonList("/gms/*"));
