@@ -57,14 +57,6 @@ def before_cursor_execute(conn, cursor, statement, parameters, context, executem
     cursor.outputtypehandler = output_type_handler
 
 
-def class_usage_notification(cls, func):
-    def _wrapper(*args, **kwargs):
-        logger.info(f"{cls.__name__}.{func.__name__} is in used.")
-        return func(*args, **kwargs)
-
-    return _wrapper
-
-
 class OracleConfig(BasicSQLAlchemyConfig):
     # defaults
     scheme: str = Field(
