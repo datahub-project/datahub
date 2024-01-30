@@ -222,10 +222,11 @@ public class PoliciesConfig {
           "Edit Embedded Content",
           "The ability to edit the embedded content for an entity.");
 
-  public static final Privilege CREATE_ERMODELRELATION_PRIVILEGE = Privilege.of(
-      "CREATE_ENTITY_ERMODELRELATION",
-      "Create ermodelrelation",
-      "The ability to add ermodelrelation on a dataset.");
+  public static final Privilege CREATE_ERMODELRELATION_PRIVILEGE =
+      Privilege.of(
+          "CREATE_ENTITY_ERMODELRELATION",
+          "Create ermodelrelation",
+          "The ability to add ermodelrelation on a dataset.");
 
   public static final List<Privilege> COMMON_ENTITY_PRIVILEGES =
       ImmutableList.of(
@@ -569,12 +570,12 @@ public class PoliciesConfig {
               EDIT_ENTITY_PRIVILEGE));
 
   // ERModelRelation Privileges
-  public static final ResourcePrivileges ERMODELRELATION_PRIVILEGES = ResourcePrivileges.of(
+  public static final ResourcePrivileges ERMODELRELATION_PRIVILEGES =
+      ResourcePrivileges.of(
           "ermodelrelation",
           "ERModelRelation",
           "update privileges for ermodelrelations",
-          COMMON_ENTITY_PRIVILEGES
-  );
+          COMMON_ENTITY_PRIVILEGES);
   public static final List<ResourcePrivileges> ENTITY_RESOURCE_PRIVILEGES =
       ImmutableList.of(
           DATASET_PRIVILEGES,
@@ -590,9 +591,8 @@ public class PoliciesConfig {
           CORP_GROUP_PRIVILEGES,
           CORP_USER_PRIVILEGES,
           NOTEBOOK_PRIVILEGES,
-      DATA_PRODUCT_PRIVILEGES,
-      ERMODELRELATION_PRIVILEGES
-  );
+          DATA_PRODUCT_PRIVILEGES,
+          ERMODELRELATION_PRIVILEGES);
 
   // Merge all entity specific resource privileges to create a superset of all resource privileges
   public static final ResourcePrivileges ALL_RESOURCE_PRIVILEGES =

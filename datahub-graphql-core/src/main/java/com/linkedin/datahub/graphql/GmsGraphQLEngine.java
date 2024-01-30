@@ -53,6 +53,8 @@ import com.linkedin.datahub.graphql.generated.DataPlatformInstance;
 import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.DatasetStatsSummary;
 import com.linkedin.datahub.graphql.generated.Domain;
+import com.linkedin.datahub.graphql.generated.ERModelRelation;
+import com.linkedin.datahub.graphql.generated.ERModelRelationProperties;
 import com.linkedin.datahub.graphql.generated.EntityPath;
 import com.linkedin.datahub.graphql.generated.EntityRelationship;
 import com.linkedin.datahub.graphql.generated.EntityRelationshipLegacy;
@@ -65,8 +67,6 @@ import com.linkedin.datahub.graphql.generated.GlossaryTerm;
 import com.linkedin.datahub.graphql.generated.GlossaryTermAssociation;
 import com.linkedin.datahub.graphql.generated.IngestionSource;
 import com.linkedin.datahub.graphql.generated.InstitutionalMemoryMetadata;
-import com.linkedin.datahub.graphql.generated.ERModelRelation;
-import com.linkedin.datahub.graphql.generated.ERModelRelationProperties;
 import com.linkedin.datahub.graphql.generated.LineageRelationship;
 import com.linkedin.datahub.graphql.generated.ListAccessTokenResult;
 import com.linkedin.datahub.graphql.generated.ListDomainsResult;
@@ -305,11 +305,12 @@ import com.linkedin.datahub.graphql.types.dataset.mappers.DatasetProfileMapper;
 import com.linkedin.datahub.graphql.types.datatype.DataTypeType;
 import com.linkedin.datahub.graphql.types.domain.DomainType;
 import com.linkedin.datahub.graphql.types.entitytype.EntityTypeType;
+import com.linkedin.datahub.graphql.types.ermodelrelation.CreateERModelRelationResolver;
+import com.linkedin.datahub.graphql.types.ermodelrelation.ERModelRelationType;
+import com.linkedin.datahub.graphql.types.ermodelrelation.UpdateERModelRelationResolver;
 import com.linkedin.datahub.graphql.types.form.FormType;
 import com.linkedin.datahub.graphql.types.glossary.GlossaryNodeType;
 import com.linkedin.datahub.graphql.types.glossary.GlossaryTermType;
-import com.linkedin.datahub.graphql.types.ermodelrelation.CreateERModelRelationResolver;
-import com.linkedin.datahub.graphql.types.ermodelrelation.UpdateERModelRelationResolver;
 import com.linkedin.datahub.graphql.types.mlmodel.MLFeatureTableType;
 import com.linkedin.datahub.graphql.types.mlmodel.MLFeatureType;
 import com.linkedin.datahub.graphql.types.mlmodel.MLModelGroupType;
@@ -326,7 +327,6 @@ import com.linkedin.datahub.graphql.types.structuredproperty.StructuredPropertyT
 import com.linkedin.datahub.graphql.types.tag.TagType;
 import com.linkedin.datahub.graphql.types.test.TestType;
 import com.linkedin.datahub.graphql.types.view.DataHubViewType;
-import com.linkedin.datahub.graphql.types.ermodelrelation.ERModelRelationType;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.config.DataHubConfiguration;
@@ -344,13 +344,13 @@ import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.recommendation.RecommendationsService;
 import com.linkedin.metadata.secret.SecretService;
 import com.linkedin.metadata.service.DataProductService;
+import com.linkedin.metadata.service.ERModelRelationService;
 import com.linkedin.metadata.service.FormService;
 import com.linkedin.metadata.service.LineageService;
 import com.linkedin.metadata.service.OwnershipTypeService;
 import com.linkedin.metadata.service.QueryService;
 import com.linkedin.metadata.service.SettingsService;
 import com.linkedin.metadata.service.ViewService;
-import com.linkedin.metadata.service.ERModelRelationService;
 import com.linkedin.metadata.timeline.TimelineService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.version.GitVersion;
@@ -470,9 +470,7 @@ public class GmsGraphQLEngine {
   private final EntityTypeType entityTypeType;
   private final FormType formType;
 
-
-    /**
-      A list of GraphQL Plugins that extend the core engine */
+  /** A list of GraphQL Plugins that extend the core engine */
   private final List<GmsGraphQLPlugin> graphQLPlugins;
 
   /** Configures the graph objects that can be fetched primary key. */
@@ -925,7 +923,7 @@ public class GmsGraphQLEngine {
                 .dataFetcher("glossaryTerm", getResolver(glossaryTermType))
                 .dataFetcher("glossaryNode", getResolver(glossaryNodeType))
                 .dataFetcher("domain", getResolver((domainType)))
-            .dataFetcher("ermodelrelation", getResolver(ermodelrelationType))
+                .dataFetcher("ermodelrelation", getResolver(ermodelrelationType))
                 .dataFetcher("dataPlatform", getResolver(dataPlatformType))
                 .dataFetcher("dataPlatformInstance", getResolver(dataPlatformInstanceType))
                 .dataFetcher("mlFeatureTable", getResolver(mlFeatureTableType))
@@ -1053,8 +1051,12 @@ public class GmsGraphQLEngine {
                 .dataFetcher("updateDataFlow", new MutableTypeResolver<>(dataFlowType))
                 .dataFetcher("updateCorpUserProperties", new MutableTypeResolver<>(corpUserType))
                 .dataFetcher("updateCorpGroupProperties", new MutableTypeResolver<>(corpGroupType))
-            .dataFetcher("updateERModelRelation", new UpdateERModelRelationResolver(this.entityClient))
-            .dataFetcher("createERModelRelation", new CreateERModelRelationResolver(this.entityClient, this.eRModelRelationService))
+                .dataFetcher(
+                    "updateERModelRelation", new UpdateERModelRelationResolver(this.entityClient))
+                .dataFetcher(
+                    "createERModelRelation",
+                    new CreateERModelRelationResolver(
+                        this.entityClient, this.eRModelRelationService))
                 .dataFetcher("addTag", new AddTagResolver(entityService))
                 .dataFetcher("addTags", new AddTagsResolver(entityService))
                 .dataFetcher("batchAddTags", new BatchAddTagsResolver(entityService))
@@ -2026,37 +2028,59 @@ public class GmsGraphQLEngine {
     builder.scalar(GraphQLLong);
   }
 
-    /**
-     * Configures resolvers responsible for resolving the {@link ERModelRelation} type.
-     */
-    private void configureERModelRelationResolvers(final RuntimeWiring.Builder builder) {
-        builder
-            .type("ERModelRelation", typeWiring -> typeWiring
-                .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
-                .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient)))
-            .type("ERModelRelationProperties", typeWiring -> typeWiring
-                    .dataFetcher("datasetA",
-                            new LoadableTypeResolver<>(datasetType,
-                                    (env) -> {
-                                        final ERModelRelationProperties ermodelrelationProperties = env.getSource();
-                                        return ermodelrelationProperties.getDatasetA() != null ? ermodelrelationProperties.getDatasetA().getUrn() : null;
-                                    }))
-                    .dataFetcher("datasetB",
-                            new LoadableTypeResolver<>(datasetType,
-                                    (env) -> {
-                                        final ERModelRelationProperties ermodelrelationProperties = env.getSource();
-                                        return ermodelrelationProperties.getDatasetB() != null ? ermodelrelationProperties.getDatasetB().getUrn() : null;
-                                    }))
-                    )
-            .type("Owner", typeWiring -> typeWiring
-                .dataFetcher("owner", new OwnerTypeResolver<>(ownerTypes,
-                    (env) -> ((Owner) env.getSource()).getOwner()))
-            )
-            .type("InstitutionalMemoryMetadata", typeWiring -> typeWiring
-                .dataFetcher("author", new LoadableTypeResolver<>(corpUserType,
-                    (env) -> ((InstitutionalMemoryMetadata) env.getSource()).getAuthor().getUrn()))
-            );
-    }
+  /** Configures resolvers responsible for resolving the {@link ERModelRelation} type. */
+  private void configureERModelRelationResolvers(final RuntimeWiring.Builder builder) {
+    builder
+        .type(
+            "ERModelRelation",
+            typeWiring ->
+                typeWiring
+                    .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
+                    .dataFetcher(
+                        "relationships", new EntityRelationshipsResultResolver(graphClient)))
+        .type(
+            "ERModelRelationProperties",
+            typeWiring ->
+                typeWiring
+                    .dataFetcher(
+                        "datasetA",
+                        new LoadableTypeResolver<>(
+                            datasetType,
+                            (env) -> {
+                              final ERModelRelationProperties ermodelrelationProperties =
+                                  env.getSource();
+                              return ermodelrelationProperties.getDatasetA() != null
+                                  ? ermodelrelationProperties.getDatasetA().getUrn()
+                                  : null;
+                            }))
+                    .dataFetcher(
+                        "datasetB",
+                        new LoadableTypeResolver<>(
+                            datasetType,
+                            (env) -> {
+                              final ERModelRelationProperties ermodelrelationProperties =
+                                  env.getSource();
+                              return ermodelrelationProperties.getDatasetB() != null
+                                  ? ermodelrelationProperties.getDatasetB().getUrn()
+                                  : null;
+                            })))
+        .type(
+            "Owner",
+            typeWiring ->
+                typeWiring.dataFetcher(
+                    "owner",
+                    new OwnerTypeResolver<>(
+                        ownerTypes, (env) -> ((Owner) env.getSource()).getOwner())))
+        .type(
+            "InstitutionalMemoryMetadata",
+            typeWiring ->
+                typeWiring.dataFetcher(
+                    "author",
+                    new LoadableTypeResolver<>(
+                        corpUserType,
+                        (env) ->
+                            ((InstitutionalMemoryMetadata) env.getSource()).getAuthor().getUrn())));
+  }
 
   /**
    * Configures resolvers responsible for resolving the {@link
