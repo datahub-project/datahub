@@ -140,9 +140,9 @@ class OktaConfig(StatefulIngestionConfigBase, ConfigModel):
         default=None,
         description="Okta search expression (not regex) for ingesting groups. Only one of `okta_groups_filter` and `okta_groups_search` can be set. See (https://developer.okta.com/docs/reference/api/groups/#list-groups-with-search) for more info.",
     )
-    ingest_users_for_filtered_groups: bool = Field(
+    skip_users_without_a_group: bool = Field(
         default=False,
-        description="Whether to only ingest users that are members of groups that match the filter or search expression for groups. If this is set to False, all users will be ingested regardless of group membership.",
+        description="Whether to only ingest users that are members of groups. If this is set to False, all users will be ingested regardless of group membership.",
     )
 
     # Configuration for stateful ingestion
@@ -169,9 +169,6 @@ class OktaConfig(StatefulIngestionConfigBase, ConfigModel):
                 "Only one of okta_groups_filter or okta_groups_search can be set"
             )
         return v
-
-    def has_group_filter(self):
-        return self.okta_groups_filter or self.okta_groups_search
 
 
 @dataclass
@@ -395,8 +392,7 @@ class OktaSource(StatefulIngestionSourceBase):
                     ]
                 )
                 if (
-                    self.config.ingest_users_for_filtered_groups
-                    and self.config.has_group_filter()
+                    self.config.skip_users_without_a_group
                     and len(datahub_group_membership.groups) == 0
                 ):
                     logger.debug(
