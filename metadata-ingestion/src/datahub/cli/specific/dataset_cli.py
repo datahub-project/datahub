@@ -8,7 +8,7 @@ from click_default_group import DefaultGroup
 
 from datahub.api.entities.dataset.dataset import Dataset
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.graph.client import get_default_graph
+from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
 from datahub.metadata.com.linkedin.pegasus2avro.common import Siblings
 from datahub.telemetry import telemetry
 from datahub.upgrade import upgrade
@@ -80,7 +80,7 @@ def get(urn: str, to_file: str) -> None:
     multiple=True,
 )
 @telemetry.with_telemetry()
-def add_sibling(urn: str, sibling_urns: Tuple[str]):
+def add_sibling(urn: str, sibling_urns: Tuple[str]) -> None:
     all_urns = set()
     all_urns.add(urn)
     for sibling_urn in sibling_urns:
@@ -90,7 +90,9 @@ def add_sibling(urn: str, sibling_urns: Tuple[str]):
             _emit_sibling(graph, urn, _urn, all_urns)
 
 
-def _emit_sibling(graph, primary_urn: str, urn: str, all_urns: Set[str]):
+def _emit_sibling(
+    graph: DataHubGraph, primary_urn: str, urn: str, all_urns: Set[str]
+) -> None:
     siblings = []
     for sibling_urn in all_urns:
         if sibling_urn != urn:
