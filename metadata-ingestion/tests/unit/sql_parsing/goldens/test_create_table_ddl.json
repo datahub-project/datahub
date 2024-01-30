@@ -1,5 +1,6 @@
 {
-    "query_type": "CREATE",
+    "query_type": "CREATE_DDL",
+    "query_type_props": {},
     "in_tables": [],
     "out_tables": [
         "urn:li:dataset:(urn:li:dataPlatform:sqlite,costs,PROD)"

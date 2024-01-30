@@ -1,5 +1,6 @@
 {
     "query_type": "UPDATE",
+    "query_type_props": {},
     "in_tables": [
         "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.my_table,PROD)",
         "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.table1,PROD)",

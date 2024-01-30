@@ -1,5 +1,8 @@
 {
-    "query_type": "CREATE",
+    "query_type": "CREATE_VIEW",
+    "query_type_props": {
+        "kind": "VIEW"
+    },
     "in_tables": [
         "urn:li:dataset:(urn:li:dataPlatform:oracle,scott.emp,PROD)"
     ],

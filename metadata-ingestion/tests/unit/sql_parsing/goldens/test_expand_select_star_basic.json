@@ -1,5 +1,6 @@
 {
     "query_type": "SELECT",
+    "query_type_props": {},
     "in_tables": [
         "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_sample_data.tpch_sf1.orders,PROD)"
     ],

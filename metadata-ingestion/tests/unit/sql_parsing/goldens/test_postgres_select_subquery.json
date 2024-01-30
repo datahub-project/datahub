@@ -1,5 +1,6 @@
 {
     "query_type": "SELECT",
+    "query_type_props": {},
     "in_tables": [
         "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.table1,PROD)",
         "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.table2,PROD)"

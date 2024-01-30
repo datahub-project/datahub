@@ -79,46 +79,79 @@ class GraphQLSchemaMetadata(TypedDict):
 
 
 class QueryType(enum.Enum):
-    CREATE = "CREATE"
+    UNKNOWN = "UNKNOWN"
+
+    CREATE_DDL = "CREATE_DDL"
+    CREATE_VIEW = "CREATE_VIEW"
+    CREATE_TABLE_AS_SELECT = "CREATE_TABLE_AS_SELECT"
+    CREATE_OTHER = "CREATE_OTHER"
+
     SELECT = "SELECT"
     INSERT = "INSERT"
     UPDATE = "UPDATE"
     DELETE = "DELETE"
     MERGE = "MERGE"
 
-    UNKNOWN = "UNKNOWN"
+    def _is_create(self) -> bool:
+        return self in {
+            QueryType.CREATE_DDL,
+            QueryType.CREATE_VIEW,
+            QueryType.CREATE_TABLE_AS_SELECT,
+            QueryType.CREATE_OTHER,
+        }
 
     def to_operation_type(self) -> Optional[str]:
-        if self == QueryType.CREATE:
+        if self._is_create():
             return OperationTypeClass.CREATE
-        elif self == QueryType.INSERT:
-            return OperationTypeClass.INSERT
-        elif self == QueryType.UPDATE:
-            return OperationTypeClass.UPDATE
-        elif self == QueryType.DELETE:
-            return OperationTypeClass.DELETE
-        elif self == QueryType.MERGE:
-            return OperationTypeClass.UPDATE
-        elif self == QueryType.SELECT:
-            return None
-        else:
-            return OperationTypeClass.UNKNOWN
+
+        query_to_operation_mapping = {
+            QueryType.SELECT: None,
+            QueryType.INSERT: OperationTypeClass.INSERT,
+            QueryType.UPDATE: OperationTypeClass.UPDATE,
+            QueryType.DELETE: OperationTypeClass.DELETE,
+            QueryType.MERGE: OperationTypeClass.UPDATE,
+        }
+        return query_to_operation_mapping.get(self, OperationTypeClass.UNKNOWN)
 
 
-class QuerySubtype(enum.Enum):
-    UNKNOWN = "UNKNOWN"
-    OTHER = "OTHER"  # used when the type is known but the subtype is not
+def _is_temp_table(table: sqlglot.exp.Table, dialect: sqlglot.Dialect) -> bool:
+    identifier: sqlglot.exp.Identifier = table.this
 
-    CREATE_TABLE_DDL = "CREATE_TABLE_DDL"
-    CREATE_CTAS = "CREATE_CTAS"
-    CREATE_VIEW = "CREATE_VIEW"
-    CREATE_TEMP_TABLE = "CREATE_TEMP_TABLE"
+    return identifier.args.get("temporary") or (
+        _is_dialect_instance(dialect, "redshift") and identifier.name.startswith("#")
+    )
 
 
-def get_query_type_of_sql(expression: sqlglot.exp.Expression) -> QueryType:
+def get_query_type_of_sql(
+    expression: sqlglot.exp.Expression, dialect: sqlglot.Dialect
+) -> Tuple[QueryType, dict]:
+    query_type_props = {}
+
+    # For creates, we need to look at the inner expression.
+    if isinstance(expression, sqlglot.exp.Create):
+        if _is_create_table_ddl(expression):
+            return QueryType.CREATE_DDL, query_type_props
+
+        kind = expression.args.get("kind")
+        if kind:
+            query_type_props["kind"] = kind
+
+        target = expression.this
+        if any(
+            isinstance(prop, sqlglot.exp.TemporaryProperty)
+            for prop in (expression.args.get("properties") or [])
+        ) or _is_temp_table(target, dialect=dialect):
+            query_type_props["temporary"] = True
+
+        if kind and "TABLE" in kind.upper():
+            return QueryType.CREATE_TABLE_AS_SELECT, query_type_props
+        elif kind and "VIEW" in kind.upper():
+            return QueryType.CREATE_VIEW, query_type_props
+
+        return QueryType.CREATE_OTHER, query_type_props
+
     # UPGRADE: Once we use Python 3.10, replace this with a match expression.
     mapping = {
-        sqlglot.exp.Create: QueryType.CREATE,
         sqlglot.exp.Select: QueryType.SELECT,
         sqlglot.exp.Insert: QueryType.INSERT,
         sqlglot.exp.Update: QueryType.UPDATE,
@@ -129,8 +162,8 @@ def get_query_type_of_sql(expression: sqlglot.exp.Expression) -> QueryType:
 
     for cls, query_type in mapping.items():
         if isinstance(expression, cls):
-            return query_type
-    return QueryType.UNKNOWN
+            return query_type, query_type_props
+    return QueryType.UNKNOWN, {}
 
 
 class _ParserBaseModel(
@@ -267,7 +300,7 @@ class SqlParsingDebugInfo(_ParserBaseModel):
 
 class SqlParsingResult(_ParserBaseModel):
     query_type: QueryType = QueryType.UNKNOWN
-    query_subtype: QuerySubtype = QuerySubtype.UNKNOWN
+    query_type_props: dict = {}
 
     in_tables: List[Urn]
     out_tables: List[Urn]
@@ -1177,8 +1210,12 @@ def _sqlglot_lineage_inner(
             for internal_col_lineage in column_lineage
         ]
 
+    query_type, query_type_props = get_query_type_of_sql(
+        original_statement, dialect=dialect
+    )
     return SqlParsingResult(
-        query_type=get_query_type_of_sql(original_statement),
+        query_type=query_type,
+        query_type_props=query_type_props,
         in_tables=in_urns,
         out_tables=out_urns,
         column_lineage=column_lineage_urns,
