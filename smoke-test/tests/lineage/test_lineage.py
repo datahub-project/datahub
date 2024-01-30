@@ -723,10 +723,6 @@ class Scenario(BaseModel):
         for urn in self._generated_urns:
             delete_agent.delete_entity(urn)
 
-    def generate_expectation(self, query: ImpactQuery) -> LineageExpectation:
-        assert self.expectations is not None
-        return self.expectations.generate_query_expectation_pairs(query)
-
     def test_expectation(self, graph: DataHubGraph) -> bool:
         print("Testing expectation...")
         assert self.expectations is not None
