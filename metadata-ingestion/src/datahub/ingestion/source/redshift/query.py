@@ -484,7 +484,7 @@ SELECT  schemaname as schema_name,
         #    WHERE rn = 1
         # """
 
-        return rf"""
+        return rf"""-- DataHub Redshift Source temp table DDL query
             select
                 *
             from
@@ -494,7 +494,7 @@ SELECT  schemaname as schema_name,
                     transaction_id,
                     start_time,
                     userid,
-                    REGEXP_SUBSTR(REGEXP_REPLACE(query_text,'\\\\n','\\n'), '(CREATE(?:[\\n\\s\\t]+(?:temp|temporary))?(?:[\\n\\s\\t]+)table(?:[\\n\\s\\t]+)[^\\n\\s\\t()-]+)', 0, 1, 'ipe') as create_command,
+                    REGEXP_REPLACE(REGEXP_SUBSTR(REGEXP_REPLACE(query_text,'\\\\n','\\n'), '(CREATE(?:[\\n\\s\\t]+(?:temp|temporary))?(?:[\\n\\s\\t]+)table(?:[\\n\\s\\t]+)[^\\n\\s\\t()-]+)', 0, 1, 'ipe'),'[\\n\\s\\t]+',' ',1,'p') as create_command,
                     query_text,
                     row_number() over (
                         partition by TRIM(query_text)
@@ -555,6 +555,10 @@ SELECT  schemaname as schema_name,
                         or create_command ilike 'create table %')
                     -- Redshift creates temp tables with the following names: volt_tt_%. We need to filter them out.
                     and query_text not ilike 'CREATE TEMP TABLE volt_tt_%'
+                    and create_command not like 'CREATE TEMP TABLE volt_tt_'
+                    -- We need to filter out our query and it was not possible earlier when we did not have any comment in the query
+                    and query_text not ilike '%https://stackoverflow.com/questions/72770890/redshift-result-size-exceeds-listagg-limit-on-svl-statementtext%'
+
             )
             where
                 rn = 1;
