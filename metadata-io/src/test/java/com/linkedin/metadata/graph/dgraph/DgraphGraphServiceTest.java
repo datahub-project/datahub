@@ -820,7 +820,7 @@ public class DgraphGraphServiceTest extends GraphServiceTestBase {
   }
 
   @Override
-  public void testPopulatedGraphServiceGetLineageMultihop() {
+  public void testPopulatedGraphServiceGetLineageMultihop(boolean attemptMultiHop) {
     // TODO: Remove this overridden method once the multihop for dGraph is implemented!
   }
 }
