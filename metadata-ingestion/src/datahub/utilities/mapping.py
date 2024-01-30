@@ -173,12 +173,24 @@ class OperationProcessor:
                         operation_type = Constants.ADD_TERM_OPERATION
 
                     if operation:
-                        if isinstance(operation, (str, list)):
+                        if (
+                            isinstance(operation, list)
+                            and operation_type == Constants.ADD_OWNER_OPERATION
+                        ):
+                            operation_value_list = operations_map.get(
+                                operation_type, list()
+                            )
+                            cast(List, operation_value_list).extend(
+                                operation
+                            )  # cast to silent the lint
+                            operations_map[operation_type] = operation_value_list
+
+                        elif isinstance(operation, (str, list)):
                             operations_value_set = operations_map.get(
                                 operation_type, set()
                             )
                             if isinstance(operation, list):
-                                operations_value_set.update([op if isinstance(op, str) else tuple(op.items()) for op in operation])  # type: ignore
+                                operations_value_set.update(operation)  # type: ignore
                             else:
                                 operations_value_set.add(operation)  # type: ignore
                             operations_map[operation_type] = operations_value_set
@@ -202,29 +214,27 @@ class OperationProcessor:
             tag_aspect = mce_builder.make_global_tag_aspect_with_tag_list(
                 sorted(operation_map[Constants.ADD_TAG_OPERATION])
             )
+
             aspect_map[Constants.ADD_TAG_OPERATION] = tag_aspect
+
         if Constants.ADD_OWNER_OPERATION in operation_map:
 
-            owners: List[OwnerClass] = []
-
-            for x in sorted(
-                operation_map[Constants.ADD_OWNER_OPERATION],
-                key=lambda x: dict(x)["urn"],
-            ):
-                dict_owner_class = dict(x)
-
-                owners.append(
+            owner_aspect = OwnershipClass(
+                owners=[
                     OwnerClass(
-                        owner=dict_owner_class["urn"],
-                        type=dict_owner_class["category"],
-                        typeUrn=dict_owner_class.get("categoryUrn"),
+                        owner=x.get("urn"),
+                        type=x.get("category"),
+                        typeUrn=x.get("categoryUrn"),
                         source=OwnershipSourceClass(type=self.owner_source_type)
                         if self.owner_source_type
                         else None,
                     )
-                )
-
-            owner_aspect = OwnershipClass(owners=owners)
+                    for x in sorted(
+                        operation_map[Constants.ADD_OWNER_OPERATION],
+                        key=lambda x: x["urn"],
+                    )
+                ]
+            )
 
             aspect_map[Constants.ADD_OWNER_OPERATION] = owner_aspect
 
@@ -302,12 +312,8 @@ class OperationProcessor:
             and operation_config[Constants.OWNER_TYPE]
         ):
             owner_id = _get_best_match(match, "owner")
-            owner_ids: List[str] = []
 
-            if "," in owner_id:
-                owner_ids = [_id.strip() for _id in owner_id.split(",")]
-            else:
-                owner_ids = [owner_id]
+            owner_ids: List[str] = [_id.strip() for _id in owner_id.split(",")]
 
             owner_category = (
                 operation_config.get(Constants.OWNER_CATEGORY)
@@ -320,15 +326,10 @@ class OperationProcessor:
             else:
                 owner_category = owner_category.upper()
 
-            sanitize_owner_ids: List[str] = []
-
             if self.strip_owner_email_id:
-                sanitize_owner_ids = [
+                owner_ids = [
                     self.sanitize_owner_ids(owner_id) for owner_id in owner_ids
                 ]
-
-            if sanitize_owner_ids:
-                owner_ids = sanitize_owner_ids
 
             owner_type_mapping: Dict[str, OwnerType] = {
                 Constants.USER_OWNER: OwnerType.USER,
