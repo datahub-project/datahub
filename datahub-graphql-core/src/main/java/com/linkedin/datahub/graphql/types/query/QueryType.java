@@ -21,7 +21,9 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @RequiredArgsConstructor
 public class QueryType
     implements com.linkedin.datahub.graphql.types.EntityType<QueryEntity, String> {
@@ -50,6 +52,7 @@ public class QueryType
     final List<Urn> viewUrns = urns.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
 
     try {
+      log.debug("Fetching query entities: {}", viewUrns);
       final Map<Urn, EntityResponse> entities =
           _entityClient.batchGetV2(
               QUERY_ENTITY_NAME,

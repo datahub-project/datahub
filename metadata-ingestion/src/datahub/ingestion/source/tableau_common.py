@@ -399,6 +399,9 @@ published_datasource_graphql_query = """
     description
     uri
     projectName
+    tags {
+        name
+    }
 }
         """
 

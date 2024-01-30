@@ -226,6 +226,7 @@ elasticsearch:
       timeoutSeconds: ${ELASTICSEARCH_SEARCH_GRAPH_TIMEOUT_SECONDS:50} # graph dao timeout seconds
       batchSize: ${ELASTICSEARCH_SEARCH_GRAPH_BATCH_SIZE:1000} # graph dao batch size
       maxResult: ${ELASTICSEARCH_SEARCH_GRAPH_MAX_RESULT:10000} # graph dao max result size
+      enableMultiPathSearch: ${ELASTICSEARCH_SEARCH_GRAPH_MULTI_PATH_SEARCH:true}
 
 # TODO: Kafka topic convention
 kafka:
@@ -394,4 +395,4 @@ springdoc.api-docs.groups.enabled: true
 
 forms:
   hook:
-    enabled: {$FORMS_HOOK_ENABLED:true}
+    enabled: { $FORMS_HOOK_ENABLED:true }
