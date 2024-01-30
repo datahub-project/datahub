@@ -138,7 +138,9 @@ public class TestSparkJobsLineage {
 
   @BeforeClass
   public static void init() {
-    mockServer = startClientAndServer(GMS_PORT);
+    if (mockServer == null) {
+      mockServer = startClientAndServer(GMS_PORT);
+    }
     resetBaseExpectations();
   }
 

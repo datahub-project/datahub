@@ -31,6 +31,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Objects;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -72,6 +73,12 @@ public class MCPPatchBatchItem extends PatchItem {
     return ChangeType.PATCH;
   }
 
+  @Nullable
+  @Override
+  public RecordTemplate getRecordTemplate() {
+    return null;
+  }
+
   public MCPUpsertBatchItem applyPatch(
       RecordTemplate recordTemplate, AspectRetriever aspectRetriever) {
     MCPUpsertBatchItem.MCPUpsertBatchItemBuilder builder =
@@ -100,7 +107,8 @@ public class MCPPatchBatchItem extends PatchItem {
     }
 
     try {
-      builder.aspect(aspectTemplateEngine.applyPatch(currentValue, getPatch(), getAspectSpec()));
+      builder.recordTemplate(
+          aspectTemplateEngine.applyPatch(currentValue, getPatch(), getAspectSpec()));
     } catch (JsonProcessingException | JsonPatchException e) {
       throw new RuntimeException(e);
     }

@@ -158,8 +158,8 @@ public class UpdateIndicesService {
     final AspectSpec aspectSpec = event.getAspectSpec();
     final Urn urn = event.getUrn();
 
-    RecordTemplate aspect = event.getAspect();
-    RecordTemplate previousAspect = event.getPreviousAspect();
+    RecordTemplate aspect = event.getRecordTemplate();
+    RecordTemplate previousAspect = event.getPreviousRecordTemplate();
 
     // Step 0. If the aspect is timeseries, add to its timeseries index.
     if (aspectSpec.isTimeseries()) {
@@ -262,7 +262,7 @@ public class UpdateIndicesService {
               urn.getEntityType(), event.getAspectName()));
     }
 
-    RecordTemplate aspect = event.getAspect();
+    RecordTemplate aspect = event.getRecordTemplate();
     Boolean isDeletingKey = event.getAspectName().equals(entitySpec.getKeyAspectName());
 
     if (!aspectSpec.isTimeseries()) {
