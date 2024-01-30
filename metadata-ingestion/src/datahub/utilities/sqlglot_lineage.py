@@ -157,9 +157,9 @@ class _TableName(_FrozenModel):
 
     def as_sqlglot_table(self) -> sqlglot.exp.Table:
         return sqlglot.exp.Table(
-            catalog=sqlglot.exp.Identifier(this=self.database)
-            if self.database
-            else None,
+            catalog=(
+                sqlglot.exp.Identifier(this=self.database) if self.database else None
+            ),
             db=sqlglot.exp.Identifier(this=self.db_schema) if self.db_schema else None,
             this=sqlglot.exp.Identifier(this=self.table),
         )
@@ -368,6 +368,9 @@ class SchemaResolver(Closeable):
 
     def get_urns(self) -> Set[str]:
         return set(self._schema_cache.keys())
+
+    def schema_count(self) -> int:
+        return len(self._schema_cache)
 
     def get_urn_for_table(self, table: _TableName, lower: bool = False) -> str:
         # TODO: Validate that this is the correct 2/3 layer hierarchy for the platform.
@@ -962,18 +965,18 @@ def _translate_internal_column_lineage(
         downstream=DownstreamColumnRef(
             table=downstream_urn,
             column=raw_column_lineage.downstream.column,
-            column_type=_translate_sqlglot_type(
-                raw_column_lineage.downstream.column_type.this
-            )
-            if raw_column_lineage.downstream.column_type
-            else None,
-            native_column_type=raw_column_lineage.downstream.column_type.sql(
-                dialect=dialect
-            )
-            if raw_column_lineage.downstream.column_type
-            and raw_column_lineage.downstream.column_type.this
-            != sqlglot.exp.DataType.Type.UNKNOWN
-            else None,
+            column_type=(
+                _translate_sqlglot_type(raw_column_lineage.downstream.column_type.this)
+                if raw_column_lineage.downstream.column_type
+                else None
+            ),
+            native_column_type=(
+                raw_column_lineage.downstream.column_type.sql(dialect=dialect)
+                if raw_column_lineage.downstream.column_type
+                and raw_column_lineage.downstream.column_type.this
+                != sqlglot.exp.DataType.Type.UNKNOWN
+                else None
+            ),
         ),
         upstreams=[
             ColumnRef(
@@ -1102,10 +1105,13 @@ def _sqlglot_lineage_inner(
     total_tables_discovered = len(tables | modified)
     total_schemas_resolved = len(table_name_schema_mapping)
     debug_info = SqlParsingDebugInfo(
-        confidence=0.9 if total_tables_discovered == total_schemas_resolved
-        # If we're missing any schema info, our confidence will be in the 0.2-0.5 range depending
-        # on how many tables we were able to resolve.
-        else 0.2 + 0.3 * total_schemas_resolved / total_tables_discovered,
+        confidence=(
+            0.9
+            if total_tables_discovered == total_schemas_resolved
+            # If we're missing any schema info, our confidence will be in the 0.2-0.5 range depending
+            # on how many tables we were able to resolve.
+            else 0.2 + 0.3 * total_schemas_resolved / total_tables_discovered
+        ),
         tables_discovered=total_tables_discovered,
         table_schemas_resolved=total_schemas_resolved,
     )
