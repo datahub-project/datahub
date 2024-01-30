@@ -49,6 +49,7 @@ from datahub.metadata.schema_classes import (
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 from datahub.utilities.urns.urn import Urn
 from pydantic import BaseModel, validator
+
 from tests.utils import ingest_file_via_rest, wait_for_writes_to_sync
 
 logger = logging.getLogger(__name__)
@@ -85,7 +86,6 @@ def ingest_tableau_cll_via_rest(wait_for_healthchecks) -> None:
     ingest_file_via_rest(
         "tests/lineage/tableau_cll_mcps.json",
     )
-    yield
 
 
 def search_across_lineage(
@@ -499,6 +499,7 @@ class Scenario(BaseModel):
     def get_lineage_mcps_for_hop(
         self, hop_index: int
     ) -> Iterable[MetadataChangeProposalWrapper]:
+        assert self.expectations is not None
         if self.lineage_style == Scenario.LineageStyle.DATASET_JOB_DATASET:
             fine_grained_lineage = FineGrainedLineage(
                 upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
@@ -723,10 +724,12 @@ class Scenario(BaseModel):
             delete_agent.delete_entity(urn)
 
     def generate_expectation(self, query: ImpactQuery) -> LineageExpectation:
+        assert self.expectations is not None
         return self.expectations.generate_query_expectation_pairs(query)
 
     def test_expectation(self, graph: DataHubGraph) -> bool:
         print("Testing expectation...")
+        assert self.expectations is not None
         try:
             for hop_index in range(self.num_hops):
                 for dataset_urn in self.get_upstream_dataset_urns(hop_index):
