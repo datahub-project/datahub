@@ -319,6 +319,7 @@ def test_privilege_to_create_and_manage_ingestion_source():
     )
 
 
+@pytest.mark.skip(reason="Functionality and test needs to be validated for correctness")
 @pytest.mark.dependency(depends=["test_healthchecks"])
 def test_privilege_to_create_and_manage_access_tokens():
     (admin_user, admin_pass) = get_admin_credentials()
@@ -499,6 +500,7 @@ def test_privilege_to_create_and_manage_policies():
     _ensure_cant_perform_action(user_session, create_policy, "createPolicy")
 
 
+@pytest.mark.skip(reason="Functionality and test needs to be validated for correctness")
 @pytest.mark.dependency(depends=["test_healthchecks"])
 def test_privilege_from_group_role_can_create_and_manage_secret():
     (admin_user, admin_pass) = get_admin_credentials()

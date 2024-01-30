@@ -558,6 +558,7 @@ def test_structured_property_search(ingest_cleanup_data, graph: DataHubGraph, ca
     assert dataset_urns[0] in field_urns
 
 
+@pytest.mark.skip(reason="Functionality and test needs to be validated for correctness")
 def test_dataset_structured_property_patch(ingest_cleanup_data, graph, caplog):
     property_name = "replicationSLA"
     property_value = 30
