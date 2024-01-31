@@ -1,4 +1,3 @@
-import sys
 from typing import Dict, Set
 
 import setuptools
@@ -11,7 +10,6 @@ with open("./src/datahub/__init__.py") as fp:
 base_requirements = {
     # Typing extension should be >=3.10.0.2 ideally but we can't restrict due to a Airflow 2.1 dependency conflict.
     "typing_extensions>=3.7.4.3",
-    "mypy_extensions>=0.4.3",
     # Actual dependencies.
     "typing-inspect",
     # pydantic 1.8.2 is incompatible with mypy 0.910.
@@ -48,9 +46,7 @@ framework_common = {
     "click-spinner",
     "requests_file",
     "jsonref",
-    # jsonschema drops python 3.7 support in v4.18.0
-    "jsonschema<=4.17.3; python_version < '3.8'",
-    "jsonschema; python_version >= '3.8'",
+    "jsonschema",
     "ruamel.yaml",
 }
 
@@ -463,7 +459,7 @@ base_dev_requirements = {
     "black==22.12.0",
     "coverage>=5.1",
     "faker>=18.4.0",
-    "flake8>=3.8.3",  # DEPRECATION: Once we drop Python 3.7, we can pin to 6.x.
+    "flake8>=6.0.0",
     "flake8-tidy-imports>=4.3.0",
     "flake8-bugbear==23.3.12",
     "isort>=5.7.0",
@@ -489,9 +485,9 @@ base_dev_requirements = {
             "delta-lake",
             "druid",
             "elasticsearch",
-            "feast" if sys.version_info >= (3, 8) else None,
-            "iceberg" if sys.version_info >= (3, 8) else None,
-            "mlflow" if sys.version_info >= (3, 8) else None,
+            "feast",
+            "iceberg",
+            "mlflow",
             "json-schema",
             "ldap",
             "looker",
@@ -544,14 +540,14 @@ full_test_dev_requirements = {
             "clickhouse",
             "delta-lake",
             "druid",
-            "feast" if sys.version_info >= (3, 8) else None,
+            "feast",
             "hana",
             "hive",
-            "iceberg" if sys.version_info >= (3, 8) else None,
+            "iceberg",
             "kafka-connect",
             "ldap",
             "mongodb",
-            "mssql" if sys.version_info >= (3, 8) else None,
+            "mssql",
             "mysql",
             "mariadb",
             "redash",
@@ -699,7 +695,6 @@ See the [DataHub docs](https://datahubproject.io/docs/metadata-ingestion).
         "Programming Language :: Python",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3 :: Only",
-        "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
@@ -716,7 +711,7 @@ See the [DataHub docs](https://datahubproject.io/docs/metadata-ingestion).
     ],
     # Package info.
     zip_safe=False,
-    python_requires=">=3.7",
+    python_requires=">=3.8",
     package_dir={"": "src"},
     packages=setuptools.find_namespace_packages(where="./src"),
     package_data={

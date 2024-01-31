@@ -57,12 +57,14 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
   private final IndexConvention _indexConvention = new IndexConventionImpl(null);
   private final String _indexName = _indexConvention.getIndexName(INDEX_NAME);
   private ElasticSearchGraphService _client;
+  private boolean _enableMultiPathSearch =
+      GraphQueryConfiguration.testDefaults.isEnableMultiPathSearch();
 
   private static final String TAG_RELATIONSHIP = "SchemaFieldTaggedWith";
 
   @BeforeClass
   public void setup() {
-    _client = buildService();
+    _client = buildService(_enableMultiPathSearch);
     _client.configure();
   }
 
@@ -73,8 +75,10 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
   }
 
   @Nonnull
-  private ElasticSearchGraphService buildService() {
+  private ElasticSearchGraphService buildService(boolean enableMultiPathSearch) {
     LineageRegistry lineageRegistry = new LineageRegistry(SnapshotEntityRegistry.getInstance());
+    GraphQueryConfiguration configuration = GraphQueryConfiguration.testDefaults;
+    configuration.setEnableMultiPathSearch(enableMultiPathSearch);
     ESGraphQueryDAO readDAO =
         new ESGraphQueryDAO(
             getSearchClient(),
@@ -93,8 +97,19 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
 
   @Override
   @Nonnull
-  protected GraphService getGraphService() {
+  protected GraphService getGraphService(boolean enableMultiPathSearch) {
+    if (enableMultiPathSearch != _enableMultiPathSearch) {
+      _enableMultiPathSearch = enableMultiPathSearch;
+      _client = buildService(enableMultiPathSearch);
+      _client.configure();
+    }
     return _client;
+  }
+
+  @Override
+  @Nonnull
+  protected GraphService getGraphService() {
+    return getGraphService(GraphQueryConfiguration.testDefaults.isEnableMultiPathSearch());
   }
 
   @Override

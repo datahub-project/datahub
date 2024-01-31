@@ -74,4 +74,9 @@ record QueryProperties {
     }
   }
   lastModified: AuditStamp
+
+  /**
+   * The urn of the DataPlatform where the Query was executed.
+   */
+  dataPlatform: optional Urn
 }
