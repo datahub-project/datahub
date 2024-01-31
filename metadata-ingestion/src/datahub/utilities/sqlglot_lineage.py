@@ -38,6 +38,7 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.utilities.file_backed_collections import ConnectionWrapper, FileBackedDict
 from datahub.utilities.urns.field_paths import get_simple_field_path_from_v2_field_path
+from datahub.utilities.dialects.patched.tsql import TSQLv2
 
 logger = logging.getLogger(__name__)
 
@@ -260,6 +261,7 @@ class SqlParsingResult(_ParserBaseModel):
 
     in_tables: List[Urn]
     out_tables: List[Urn]
+    in_tables_schemas: Dict[Urn, Set[str]]
 
     column_lineage: Optional[List[ColumnLineageInfo]] = None
 
@@ -276,6 +278,7 @@ class SqlParsingResult(_ParserBaseModel):
         return cls(
             in_tables=[],
             out_tables=[],
+            in_tables_schemas={},
             debug_info=SqlParsingDebugInfo(
                 table_error=error,
             ),
@@ -511,7 +514,7 @@ DIALECTS_WITH_CASE_INSENSITIVE_COLS = {
     # A name, even when enclosed in double quotation marks, is not case sensitive. For example, CUSTOMER and Customer are the same.
     # See more below:
     # https://documentation.sas.com/doc/en/pgmsascdc/9.4_3.5/acreldb/n0ejgx4895bofnn14rlguktfx5r3.htm
-    "teradata",
+    "teradata"
 }
 DIALECTS_WITH_DEFAULT_UPPERCASE_COLS = {
     # In some dialects, column identifiers are effectively case insensitive
@@ -950,6 +953,22 @@ def _translate_sqlglot_type(
     return SchemaFieldDataTypeClass(type=TypeClass())
 
 
+def _translate_internal_lineage_to_in_tables_schemas(
+    table_name_urn_mapping: Dict[_TableName, str],
+    raw_lineage: List[_ColumnLineageInfo]
+) -> Dict[Urn, Set[str]]:
+    table_urn_to_schema_map = {}
+    for cli in raw_lineage:
+        for upstream in cli.upstreams:
+            upstream_table_urn = table_name_urn_mapping[upstream.table]
+            if upstream_table_urn in table_urn_to_schema_map:
+                table_urn_to_schema_map[upstream_table_urn].append(upstream.column)
+            else:
+                table_urn_to_schema_map[upstream_table_urn] = [upstream.column]
+    
+    return table_urn_to_schema_map
+
+
 def _translate_internal_column_lineage(
     table_name_urn_mapping: Dict[_TableName, str],
     raw_column_lineage: _ColumnLineageInfo,
@@ -1006,7 +1025,11 @@ def _get_dialect_str(platform: str) -> str:
 
 
 def _get_dialect(platform: str) -> sqlglot.Dialect:
-    return sqlglot.Dialect.get_or_raise(_get_dialect_str(platform))
+    dialect_str = _get_dialect_str(platform)
+    if dialect_str == 'tsql':
+        return TSQLv2()
+    else:
+        return sqlglot.Dialect.get_or_raise(dialect_str)
 
 
 def _is_dialect_instance(
@@ -1085,8 +1108,9 @@ def _sqlglot_lineage_inner(
         urn, schema_info = schema_resolver.resolve_table(qualified_table)
 
         table_name_urn_mapping[qualified_table] = urn
-        if schema_info:
-            table_name_schema_mapping[qualified_table] = schema_info
+        # Made it blind to ingested schemas
+        #if schema_info:
+        #    table_name_schema_mapping[qualified_table] = schema_info
 
         # Also include the original, non-qualified table name in the urn mapping.
         table_name_urn_mapping[table] = urn
@@ -1117,6 +1141,7 @@ def _sqlglot_lineage_inner(
     column_lineage: Optional[List[_ColumnLineageInfo]] = None
     try:
         if select_statement is not None:
+            # TODO: it's buggy here
             column_lineage = _column_level_lineage(
                 select_statement,
                 dialect=dialect,
@@ -1141,6 +1166,7 @@ def _sqlglot_lineage_inner(
     in_urns = sorted(set(table_name_urn_mapping[table] for table in tables))
     out_urns = sorted(set(table_name_urn_mapping[table] for table in modified))
     column_lineage_urns = None
+    in_tables_schemas = None
     if column_lineage:
         column_lineage_urns = [
             _translate_internal_column_lineage(
@@ -1149,11 +1175,16 @@ def _sqlglot_lineage_inner(
             for internal_col_lineage in column_lineage
         ]
 
+        in_tables_schemas = _translate_internal_lineage_to_in_tables_schemas(
+            table_name_urn_mapping, column_lineage
+        )
+
     return SqlParsingResult(
         query_type=get_query_type_of_sql(original_statement),
         in_tables=in_urns,
         out_tables=out_urns,
         column_lineage=column_lineage_urns,
+        in_tables_schemas=in_tables_schemas,
         debug_info=debug_info,
     )
 

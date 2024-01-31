@@ -375,6 +375,11 @@ class TableauConfig(
         description="[Experimental] Whether to extract lineage from unsupported custom sql queries using SQL parsing",
     )
 
+    force_extraction_of_lineage_from_custom_sql_queries: bool = Field(
+        default=False,
+        description="[Experimental] Forces extraction of lineage from custom sql queries using SQL parsing, ignoring Tableau metadata",
+    )
+
     # pre = True because we want to take some decision before pydantic initialize the configuration to default values
     @root_validator(pre=True)
     def projects_backward_compatibility(cls, values: Dict) -> Dict:
@@ -515,6 +520,8 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
         # This list keeps track of datasource being actively used by workbooks so that we only retrieve those
         # when emitting custom SQL data sources.
         self.custom_sql_ids_being_used: List[str] = []
+        # This dictionary accumulates tables schemas during ingestion
+        self.in_tables_schemas: Dict[str, Set[str]] = {}
 
         self._authenticate()
 
@@ -1297,6 +1304,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                 custom_sql_filter,
             )
         )
+
         unique_custom_sql = get_unique_custom_sql(custom_sql_connection)
 
         for csql in unique_custom_sql:
@@ -1342,20 +1350,28 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                     )
                 project = self._get_project_browse_path_name(datasource)
 
-                tables = csql.get(c.TABLES, [])
-
-                if tables:
-                    # lineage from custom sql -> datasets/tables #
-                    yield from self._create_lineage_to_upstream_tables(
-                        csql_urn, tables, datasource
-                    )
-                elif self.config.extract_lineage_from_unsupported_custom_sql_queries:
-                    logger.debug("Extracting TLL & CLL from custom sql")
-                    # custom sql tables may contain unsupported sql, causing incomplete lineage
-                    # we extract the lineage from the raw queries
+                logger.debug("Patched version of DataHub <adapted for Exact>")
+                if self.config.force_extraction_of_lineage_from_custom_sql_queries:
+                    logger.debug("Extracting TLL & CLL from custom sql (forced)")
                     yield from self._create_lineage_from_unsupported_csql(
                         csql_urn, csql
                     )
+                else:
+                    tables = csql.get(c.TABLES, [])
+
+                    if tables:
+                        # lineage from custom sql -> datasets/tables #
+                        yield from self._create_lineage_to_upstream_tables(
+                            csql_urn, tables, datasource
+                        )
+                    elif self.config.extract_lineage_from_unsupported_custom_sql_queries:
+                        logger.debug("Extracting TLL & CLL from custom sql")
+                        # custom sql tables may contain unsupported sql, causing incomplete lineage
+                        # we extract the lineage from the raw queries
+                        yield from self._create_lineage_from_unsupported_csql(
+                            csql_urn, csql
+                        )
+
             #  Schema Metadata
             # if condition is needed as graphQL return "cloumns": None
             columns: List[Dict[Any, Any]] = (
@@ -1368,7 +1384,6 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                 dataset_snapshot.aspects.append(schema_metadata)
 
             # Browse path
-
             if project and datasource_name:
                 browse_paths = BrowsePathsClass(
                     paths=[
@@ -1400,6 +1415,25 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                 aspect_name=c.SUB_TYPES,
                 aspect=SubTypesClass(typeNames=[DatasetSubTypes.VIEW, c.CUSTOM_SQL]),
             )
+
+        logger.debug(f"Accumulated schema {self.in_tables_schemas}")
+        for in_table_urn, columns in self.in_tables_schemas.items():
+            logger.debug(f"Emmiting schema for database table {in_table_urn} columns {columns}")
+            fields = [SchemaField(col, SchemaFieldDataType(type=NullTypeClass()), c.UNKNOWN) for col in columns]
+            yield self.get_metadata_change_proposal(
+                in_table_urn,
+                aspect_name="schemaMetadata",
+                aspect=SchemaMetadata(
+                    schemaName="test",
+                    # TODO: is it important?
+                    platform=f"urn:li:dataPlatform:mssql",
+                    version=0,
+                    fields=fields,
+                    hash="",
+                    platformSchema=OtherSchema(rawSchema=""),                        
+                ),
+            )
+            
 
     def get_schema_metadata_for_custom_sql(
         self, columns: List[dict]
@@ -1565,6 +1599,29 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                 aspect=upstream_lineage,
             )
 
+    def _substitude_tableau_parameters(
+        self,
+        query: str
+    ) -> str:
+        if not query:
+            return query
+        
+        #
+        # It replaces all following occurrences by 1
+        # which is enough to fix syntax of SQL query 
+        # and make sqlglot parser happy:
+        #
+        #   <[Parameters].[SomeParameterName]>
+        #   <Parameters.[SomeParameterName]>
+        #   <[Parameters].SomeParameterName>
+        #   <Parameters.SomeParameterName>
+        #
+        return \
+            re.sub(r"\<\[[Pp]arameters\]\.\[?[^\]]+\]?\>", '1', query) \
+                .replace("<<", "<") \
+                .replace(">>", ">") \
+                .replace("\n\n", "\n")
+
     def parse_custom_sql(
         self,
         datasource: dict,
@@ -1586,7 +1643,8 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
     ) -> Optional["SqlParsingResult"]:
         database_info = datasource.get(c.DATABASE) or {}
 
-        if datasource.get(c.IS_UNSUPPORTED_CUSTOM_SQL) in (None, False):
+        if datasource.get(c.IS_UNSUPPORTED_CUSTOM_SQL) in (None, False) and \
+            not self.config.force_extraction_of_lineage_from_custom_sql_queries:
             logger.debug(f"datasource {datasource_urn} is not created from custom sql")
             return None
 
@@ -1602,6 +1660,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                 f"raw sql query is not available for datasource {datasource_urn}"
             )
             return None
+        query = self._substitude_tableau_parameters(query)
 
         logger.debug(f"Parsing sql={query}")
 
@@ -1628,7 +1687,17 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
             env=env,
             graph=self.ctx.graph,
         )
-
+    
+    def merge_intables_schemas(
+        self,
+        in_tables_schemas: Dict[str, Set[str]]
+    ):       
+        for table_urn, columns in in_tables_schemas.items():
+            if table_urn in self.in_tables_schemas:
+                self.in_tables_schemas[table_urn].update(columns)
+            else:
+                self.in_tables_schemas[table_urn] = columns
+    
     def _create_lineage_from_unsupported_csql(
         self, csql_urn: str, csql: dict
     ) -> Iterable[MetadataWorkUnit]:
@@ -1646,6 +1715,14 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                 f"Failed to extract table level lineage for datasource {csql_urn}"
             )
             return
+
+        if not parsed_result.in_tables_schemas:
+            logger.debug(
+                f"The schema of incoming tables was not inferred from {csql_urn}"
+            )
+        
+        logger.debug(f"Merging schemas inferred from {csql_urn}, schema={parsed_result.in_tables_schemas}")
+        self.merge_intables_schemas(parsed_result.in_tables_schemas)
 
         upstream_tables = make_upstream_class(parsed_result)
 
