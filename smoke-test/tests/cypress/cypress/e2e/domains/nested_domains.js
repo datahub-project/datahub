@@ -29,7 +29,7 @@ const createDomain = () => {
 
 const moveDomaintoRootLevel = () => {
     cy.clickOptionWithText(domainName);
-    cy.openThreeDotMenu();
+    cy.openThreeDotDropdown();
     cy.clickOptionWithTestId("entity-menu-move-button");
     cy.get('[data-testid="move-domain-modal"]').contains("Marketing").click({force: true});
     cy.waitTextVisible('Marketing')
@@ -40,7 +40,7 @@ const moveDomaintoParent = () => {
     cy.get('[data-testid="domain-list-item"]').contains("Marketing").prev().click();
     cy.clickOptionWithText(domainName);
     cy.waitTextVisible(domainName)
-    cy.openThreeDotMenu();
+    cy.openThreeDotDropdown();
     cy.clickOptionWithTestId("entity-menu-move-button");
     cy.clickOptionWithTestId("move-domain-modal-move-button")
    }
@@ -54,7 +54,7 @@ const getDomainList = (domainName) =>{
 
 const deleteFromDomainDropdown = () => {
      cy.clickOptionWithText('Filters')
-     cy.openThreeDotMenu();
+     cy.openThreeDotDropdown();
      cy.clickOptionWithTestId("entity-menu-delete-button");
      cy.waitTextVisible("Are you sure you want to remove this Domain?");
      cy.clickOptionWithText("Yes");
@@ -148,7 +148,7 @@ describe("Verify nested domains test functionalities", () => {
         cy.ensureTextNotPresent(domainName)
     })
     
-    it('Verify entities tab with addeding and deleting assets and performimg some actions', () => {
+    it('Verify entities tab with adding and deleting assets and performimg some actions', () => {
         cy.clickFirstOptionWithText('Marketing');
         cy.clickOptionWithText('Add assets');
         cy.waitTextVisible("Add assets to Domain");
@@ -156,7 +156,7 @@ describe("Verify nested domains test functionalities", () => {
         cy.clickOptionWithSpecificClass('.ant-checkbox', 1)
         cy.clickOptionWithId('#continueButton')
         cy.waitTextVisible("Added assets to Domain!")
-        cy.openThreeDotDropdown()
+        cy.openThreeDotMenu()
         cy.clickOptionWithText("Edit")
         cy.clickOptionWithSpecificClass('.ant-checkbox', 1)
         verifyEditAndPerformAddAndRemoveActionForDomain('Tags', 'Add tags', 'Cypress', 'Add Tags')
@@ -164,17 +164,17 @@ describe("Verify nested domains test functionalities", () => {
         cy.waitTextVisible("Cypress")
         cy.waitTextVisible("Marketing")
         cy.go('back')
-        cy.openThreeDotDropdown()
+        cy.openThreeDotMenu()
         cy.clickOptionWithText("Edit")
         cy.clickOptionWithSpecificClass('.ant-checkbox', 1)
         verifyEditAndPerformAddAndRemoveActionForDomain('Tags', 'Remove tags', 'Cypress', 'Remove Tags')
-        cy.ensureTextNotPresent("Cypress")
         cy.clickTextOptionWithClass('.ant-dropdown-trigger', 'Domain')
         cy.clickOptionWithText('Unset Domain')
         cy.clickOptionWithText("Yes");
         cy.clickOptionWithText('Baz Chart 1')
         cy.waitTextVisible('Dashboards')
         cy.reload()
+        cy.ensureTextNotPresent("Cypress")
         cy.ensureTextNotPresent("Marketing")
     })
     

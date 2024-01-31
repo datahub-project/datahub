@@ -160,17 +160,16 @@ Cypress.Commands.add("goToStarSearchList", () => {
 })
 
 Cypress.Commands.add("openThreeDotDropdown", () => {
-  cy.clickOptionWithTestId("three-dot-menu")
+  cy.clickOptionWithTestId("entity-header-dropdown")
 });
 
 Cypress.Commands.add("openThreeDotMenu", () => {
-  cy.clickOptionWithTestId("entity-header-dropdown")
+  cy.clickOptionWithTestId("three-dot-menu")
 });
 
 Cypress.Commands.add("clickOptionWithText", (text) => {
   cy.contains(text).should('be.visible').click();
 });
-
 
 Cypress.Commands.add("clickFirstOptionWithText", (text) => {
   cy.contains(text).first().click();
