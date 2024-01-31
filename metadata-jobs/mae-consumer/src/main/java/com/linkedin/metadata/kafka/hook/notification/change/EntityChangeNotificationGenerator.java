@@ -26,8 +26,6 @@ import com.linkedin.event.notification.NotificationRecipient;
 import com.linkedin.event.notification.NotificationRequest;
 import com.linkedin.event.notification.NotificationSinkType;
 import com.linkedin.events.metadata.ChangeType;
-import com.linkedin.gms.factory.auth.SystemAuthenticationFactory;
-import com.linkedin.gms.factory.entity.RestliEntityClientFactory;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.event.EventProducer;
@@ -81,8 +79,6 @@ import org.springframework.context.annotation.Import;
 @Import({
   EntityChangeEventGeneratorRegistry.class,
   EntityRegistryFactory.class,
-  RestliEntityClientFactory.class,
-  SystemAuthenticationFactory.class,
   SlackNotificationRecipientBuilder.class
 })
 public class EntityChangeNotificationGenerator extends BaseMclNotificationGenerator {

@@ -12,6 +12,7 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.aspect.patch.template.AspectTemplateEngine;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ListResult;
 import com.linkedin.metadata.models.AspectSpec;
@@ -19,7 +20,6 @@ import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.EntitySpecBuilder;
 import com.linkedin.metadata.models.EventSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.models.registry.template.AspectTemplateEngine;
 import com.linkedin.metadata.query.ExtraInfo;
 import com.linkedin.metadata.query.ExtraInfoArray;
 import com.linkedin.metadata.query.ListResultMetadata;
@@ -48,7 +48,7 @@ public class UpgradeDefaultBrowsePathsStepTest {
   @Test
   public void testExecuteNoExistingBrowsePaths() throws Exception {
 
-    final EntityService mockService = Mockito.mock(EntityService.class);
+    final EntityService<?> mockService = Mockito.mock(EntityService.class);
     final EntityRegistry registry = new TestEntityRegistry();
     Mockito.when(mockService.getEntityRegistry()).thenReturn(registry);
 
@@ -104,7 +104,7 @@ public class UpgradeDefaultBrowsePathsStepTest {
     Urn testUrn2 =
         UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset2,PROD)");
 
-    final EntityService mockService = Mockito.mock(EntityService.class);
+    final EntityService<?> mockService = Mockito.mock(EntityService.class);
     final EntityRegistry registry = new TestEntityRegistry();
     Mockito.when(mockService.getEntityRegistry()).thenReturn(registry);
     Mockito.when(mockService.buildDefaultBrowsePath(Mockito.eq(testUrn1)))
@@ -193,7 +193,7 @@ public class UpgradeDefaultBrowsePathsStepTest {
             "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset4,PROD)"); // Do not
     // migrate
 
-    final EntityService mockService = Mockito.mock(EntityService.class);
+    final EntityService<?> mockService = Mockito.mock(EntityService.class);
     final EntityRegistry registry = new TestEntityRegistry();
     Mockito.when(mockService.getEntityRegistry()).thenReturn(registry);
 
@@ -269,7 +269,7 @@ public class UpgradeDefaultBrowsePathsStepTest {
 
   @Test
   public void testDoesNotRunWhenAlreadyExecuted() throws Exception {
-    final EntityService mockService = Mockito.mock(EntityService.class);
+    final EntityService<?> mockService = Mockito.mock(EntityService.class);
 
     final Urn upgradeEntityUrn = Urn.createFromString(UPGRADE_URN);
     com.linkedin.upgrade.DataHubUpgradeRequest upgradeRequest =
@@ -297,7 +297,7 @@ public class UpgradeDefaultBrowsePathsStepTest {
             Mockito.anyBoolean());
   }
 
-  private void initMockServiceOtherEntities(EntityService mockService) {
+  private void initMockServiceOtherEntities(EntityService<?> mockService) {
     List<String> skippedEntityTypes =
         ImmutableList.of(
             Constants.DASHBOARD_ENTITY_NAME,

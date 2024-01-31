@@ -65,10 +65,13 @@ public class ConfigurationProvider {
   /** System Update configurations */
   private SystemUpdateConfiguration systemUpdate;
 
-  // fork related configs go below this line
   /** The base URL where DataHub is hosted. */
   private String baseUrl;
 
+  /** Structured properties related configurations */
+  private StructuredPropertiesConfiguration structuredProperties;
+
+  // fork related configs go below this line
   /** Event mirroring related configs */
   private EventSinksConfiguration eventSinks;
 

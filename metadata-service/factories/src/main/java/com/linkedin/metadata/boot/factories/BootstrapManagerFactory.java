@@ -14,8 +14,10 @@ import com.linkedin.metadata.boot.steps.BackfillBrowsePathsV2Step;
 import com.linkedin.metadata.boot.steps.IndexDataPlatformsStep;
 import com.linkedin.metadata.boot.steps.IngestDataPlatformInstancesStep;
 import com.linkedin.metadata.boot.steps.IngestDataPlatformsStep;
+import com.linkedin.metadata.boot.steps.IngestDataTypesStep;
 import com.linkedin.metadata.boot.steps.IngestDefaultGlobalSettingsStep;
 import com.linkedin.metadata.boot.steps.IngestDefaultTagsStep;
+import com.linkedin.metadata.boot.steps.IngestEntityTypesStep;
 import com.linkedin.metadata.boot.steps.IngestMetadataTestsStep;
 import com.linkedin.metadata.boot.steps.IngestOwnershipTypesStep;
 import com.linkedin.metadata.boot.steps.IngestPoliciesStep;
@@ -66,7 +68,7 @@ public class BootstrapManagerFactory {
 
   @Autowired
   @Qualifier("entityService")
-  private EntityService _entityService;
+  private EntityService<?> _entityService;
 
   @Autowired
   @Qualifier("entityRegistry")
@@ -160,6 +162,8 @@ public class BootstrapManagerFactory {
         new WaitForSystemUpdateStep(_dataHubUpgradeKafkaListener, _configurationProvider);
     final IngestOwnershipTypesStep ingestOwnershipTypesStep =
         new IngestOwnershipTypesStep(_entityService, _ownershipTypesResource);
+    final IngestDataTypesStep ingestDataTypesStep = new IngestDataTypesStep(_entityService);
+    final IngestEntityTypesStep ingestEntityTypesStep = new IngestEntityTypesStep(_entityService);
     final IngestDefaultTagsStep ingestDefaultTagsStep = new IngestDefaultTagsStep(_entityService);
 
     final MigrateAssertionsSummaryStep assertionsSummaryStep =
@@ -188,6 +192,8 @@ public class BootstrapManagerFactory {
                 restoreDbtSiblingsIndices,
                 indexDataPlatformsStep,
                 restoreColumnLineageIndices,
+                ingestDataTypesStep,
+                ingestEntityTypesStep,
                 assertionsSummaryStep,
                 incidentsSummaryStep,
                 // Saas-only

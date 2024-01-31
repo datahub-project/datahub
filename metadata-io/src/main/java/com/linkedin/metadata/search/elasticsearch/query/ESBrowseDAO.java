@@ -19,6 +19,7 @@ import com.linkedin.metadata.browse.BrowseResultV2;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchRequestHandler;
@@ -33,6 +34,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -554,7 +556,8 @@ public class ESBrowseDAO {
 
     queryBuilder.filter(QueryBuilders.rangeQuery(BROWSE_PATH_V2_DEPTH).gt(browseDepthVal));
 
-    queryBuilder.filter(SearchRequestHandler.getFilterQuery(filter));
+    queryBuilder.filter(
+        SearchRequestHandler.getFilterQuery(filter, entitySpec.getSearchableFieldTypes()));
 
     return queryBuilder;
   }
@@ -580,7 +583,18 @@ public class ESBrowseDAO {
 
     queryBuilder.filter(QueryBuilders.rangeQuery(BROWSE_PATH_V2_DEPTH).gt(browseDepthVal));
 
-    queryBuilder.filter(SearchRequestHandler.getFilterQuery(filter));
+    Map<String, Set<SearchableAnnotation.FieldType>> searchableFields =
+        entitySpecs.stream()
+            .flatMap(entitySpec -> entitySpec.getSearchableFieldTypes().entrySet().stream())
+            .collect(
+                Collectors.toMap(
+                    Map.Entry::getKey,
+                    Map.Entry::getValue,
+                    (set1, set2) -> {
+                      set1.addAll(set2);
+                      return set1;
+                    }));
+    queryBuilder.filter(SearchRequestHandler.getFilterQuery(filter, searchableFields));
 
     return queryBuilder;
   }

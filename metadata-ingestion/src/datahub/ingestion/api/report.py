@@ -2,11 +2,10 @@ import dataclasses
 import json
 import logging
 import pprint
-import sys
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import humanfriendly
 import pydantic
@@ -19,25 +18,11 @@ from datahub.utilities.lossy_collections import LossyList
 logger = logging.getLogger(__name__)
 LogLevel = Literal["ERROR", "WARNING", "INFO", "DEBUG"]
 
-# The sort_dicts option was added in Python 3.8.
-if sys.version_info >= (3, 8):
-    PPRINT_OPTIONS = {"sort_dicts": False}
-else:
-    PPRINT_OPTIONS: Dict = {}
-
 
 @runtime_checkable
 class SupportsAsObj(Protocol):
     def as_obj(self) -> dict:
         ...
-
-
-def _stacklevel_if_supported(level: int) -> dict:
-    # The logging module added support for stacklevel in Python 3.8.
-    if sys.version_info >= (3, 8):
-        return {"stacklevel": level}
-    else:
-        return {}
 
 
 @dataclass
@@ -95,7 +80,7 @@ class Report(SupportsAsObj):
         }
 
     def as_string(self) -> str:
-        return pprint.pformat(self.as_obj(), width=150, **PPRINT_OPTIONS)
+        return pprint.pformat(self.as_obj(), width=150, sort_dicts=False)
 
     def as_json(self) -> str:
         return json.dumps(self.as_obj())
@@ -118,7 +103,7 @@ class ReportAttribute(BaseModel):
         return log_levels[self.severity]
 
     def log(self, msg: str) -> None:
-        logger.log(level=self.logger_sev, msg=msg, **_stacklevel_if_supported(3))
+        logger.log(level=self.logger_sev, msg=msg, stacklevel=3)
 
 
 class EntityFilterReport(ReportAttribute):

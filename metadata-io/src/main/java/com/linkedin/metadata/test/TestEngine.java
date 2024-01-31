@@ -9,6 +9,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.aspect.patch.builder.TestResultsPatchBuilder;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.test.action.ActionApplier;
@@ -30,7 +31,6 @@ import com.linkedin.test.TestResult;
 import com.linkedin.test.TestResultArray;
 import com.linkedin.test.TestResultType;
 import com.linkedin.test.TestResults;
-import datahub.client.patch.tests.TestResultsPatchBuilder;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -103,7 +103,7 @@ public class TestEngine {
   }
 
   public TestEngine(
-      EntityService entityService,
+      EntityService<?> entityService,
       TestFetcher testFetcher,
       TestDefinitionParser testDefinitionParser,
       QueryEngine queryEngine,
@@ -551,13 +551,7 @@ public class TestEngine {
               .setTime(System.currentTimeMillis());
 
       AspectsBatchImpl batch =
-          AspectsBatchImpl.builder()
-              .mcps(
-                  mcps,
-                  auditStamp,
-                  _entityService.getEntityRegistry(),
-                  _entityService.getSystemEntityClient())
-              .build();
+          AspectsBatchImpl.builder().mcps(mcps, auditStamp, _entityService).build();
 
       _entityService.ingestProposal(batch, mode != EvaluationMode.SYNC);
     }

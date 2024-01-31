@@ -1,29 +1,27 @@
-import time
 import uuid
 from typing import Dict, Optional
 
-from datahub.emitter.mce_builder import (make_dataset_urn, make_tag_urn,
-                                         make_term_urn, make_user_urn)
+from datahub.emitter.mce_builder import make_dataset_urn, make_tag_urn, make_term_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DataHubGraph, DataHubGraphConfig
-from datahub.metadata.schema_classes import (AuditStampClass,
-                                             DatasetLineageTypeClass,
-                                             DatasetPropertiesClass,
-                                             EditableSchemaFieldInfoClass,
-                                             EditableSchemaMetadataClass,
-                                             GlobalTagsClass,
-                                             GlossaryTermAssociationClass,
-                                             GlossaryTermsClass, OwnerClass,
-                                             OwnershipClass,
-                                             OwnershipTypeClass,
-                                             TagAssociationClass,
-                                             UpstreamClass,
-                                             UpstreamLineageClass)
+from datahub.metadata.schema_classes import (
+    DatasetLineageTypeClass,
+    DatasetPropertiesClass,
+    EditableSchemaFieldInfoClass,
+    EditableSchemaMetadataClass,
+    GlossaryTermAssociationClass,
+    TagAssociationClass,
+    UpstreamClass,
+    UpstreamLineageClass,
+)
 from datahub.specific.dataset import DatasetPatchBuilder
 
 from tests.patch.common_patch_tests import (
-    helper_test_custom_properties_patch, helper_test_dataset_tags_patch,
-    helper_test_entity_terms_patch, helper_test_ownership_patch)
+    helper_test_custom_properties_patch,
+    helper_test_dataset_tags_patch,
+    helper_test_entity_terms_patch,
+    helper_test_ownership_patch,
+)
 
 
 # Common Aspect Patch Tests
@@ -135,7 +133,6 @@ def get_field_info(
 
 
 def test_field_terms_patch(wait_for_healthchecks):
-
     dataset_urn = make_dataset_urn(
         platform="hive", name=f"SampleHiveDataset-{uuid.uuid4()}", env="PROD"
     )
@@ -174,6 +171,7 @@ def test_field_terms_patch(wait_for_healthchecks):
 
         assert field_info
         assert field_info.description == "This is a test field"
+        assert field_info.glossaryTerms is not None
         assert len(field_info.glossaryTerms.terms) == 1
         assert field_info.glossaryTerms.terms[0].urn == new_term.urn
 
@@ -191,11 +189,11 @@ def test_field_terms_patch(wait_for_healthchecks):
 
         assert field_info
         assert field_info.description == "This is a test field"
+        assert field_info.glossaryTerms is not None
         assert len(field_info.glossaryTerms.terms) == 0
 
 
 def test_field_tags_patch(wait_for_healthchecks):
-
     dataset_urn = make_dataset_urn(
         platform="hive", name=f"SampleHiveDataset-{uuid.uuid4()}", env="PROD"
     )
@@ -235,6 +233,7 @@ def test_field_tags_patch(wait_for_healthchecks):
 
         assert field_info
         assert field_info.description == "This is a test field"
+        assert field_info.globalTags is not None
         assert len(field_info.globalTags.tags) == 1
         assert field_info.globalTags.tags[0].tag == new_tag.tag
 
@@ -253,6 +252,7 @@ def test_field_tags_patch(wait_for_healthchecks):
 
         assert field_info
         assert field_info.description == "This is a test field"
+        assert field_info.globalTags is not None
         assert len(field_info.globalTags.tags) == 1
         assert field_info.globalTags.tags[0].tag == new_tag.tag
 
@@ -270,6 +270,7 @@ def test_field_tags_patch(wait_for_healthchecks):
 
         assert field_info
         assert field_info.description == "This is a test field"
+        assert field_info.globalTags is not None
         assert len(field_info.globalTags.tags) == 0
 
 
@@ -285,7 +286,6 @@ def get_custom_properties(
 
 
 def test_custom_properties_patch(wait_for_healthchecks):
-
     dataset_urn = make_dataset_urn(
         platform="hive", name=f"SampleHiveDataset-{uuid.uuid4()}", env="PROD"
     )

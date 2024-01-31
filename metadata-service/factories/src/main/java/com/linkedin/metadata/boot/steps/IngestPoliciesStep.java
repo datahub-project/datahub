@@ -46,7 +46,7 @@ public class IngestPoliciesStep implements BootstrapStep {
   private static final String POLICY_INFO_ASPECT_NAME = "dataHubPolicyInfo";
 
   private final EntityRegistry _entityRegistry;
-  private final EntityService _entityService;
+  private final EntityService<?> _entityService;
   private final EntitySearchService _entitySearchService;
   private final SearchDocumentTransformer _searchDocumentTransformer;
 
@@ -210,8 +210,7 @@ public class IngestPoliciesStep implements BootstrapStep {
                 new AuditStamp()
                     .setActor(Urn.createFromString(Constants.SYSTEM_ACTOR))
                     .setTime(System.currentTimeMillis()),
-                _entityRegistry,
-                _entityService.getSystemEntityClient())
+                _entityService)
             .build(),
         false);
   }

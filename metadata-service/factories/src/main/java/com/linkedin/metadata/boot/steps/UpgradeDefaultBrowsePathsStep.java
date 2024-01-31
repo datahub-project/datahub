@@ -39,7 +39,7 @@ public class UpgradeDefaultBrowsePathsStep extends UpgradeStep {
   private static final String UPGRADE_ID = "upgrade-default-browse-paths-step";
   private static final Integer BATCH_SIZE = 5000;
 
-  public UpgradeDefaultBrowsePathsStep(EntityService entityService) {
+  public UpgradeDefaultBrowsePathsStep(EntityService<?> entityService) {
     super(entityService, VERSION, UPGRADE_ID);
   }
 

@@ -124,21 +124,21 @@ public class EbeanEntityServiceTest
                 .aspect(writeAspect1)
                 .systemMetadata(metadata1)
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(_testEntityRegistry, _entityServiceImpl.getSystemEntityClient()),
+                .build(_entityServiceImpl),
             MCPUpsertBatchItem.builder()
                 .urn(entityUrn2)
                 .aspectName(aspectName)
                 .aspect(writeAspect2)
                 .systemMetadata(metadata1)
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(_testEntityRegistry, _entityServiceImpl.getSystemEntityClient()),
+                .build(_entityServiceImpl),
             MCPUpsertBatchItem.builder()
                 .urn(entityUrn3)
                 .aspectName(aspectName)
                 .aspect(writeAspect3)
                 .systemMetadata(metadata1)
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(_testEntityRegistry, _entityServiceImpl.getSystemEntityClient()));
+                .build(_entityServiceImpl));
     _entityServiceImpl.ingestAspects(AspectsBatchImpl.builder().items(items).build(), true, true);
 
     // List aspects
@@ -193,21 +193,21 @@ public class EbeanEntityServiceTest
                 .aspect(writeAspect1)
                 .systemMetadata(metadata1)
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(_testEntityRegistry, _entityServiceImpl.getSystemEntityClient()),
+                .build(_entityServiceImpl),
             MCPUpsertBatchItem.builder()
                 .urn(entityUrn2)
                 .aspectName(aspectName)
                 .aspect(writeAspect2)
                 .systemMetadata(metadata1)
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(_testEntityRegistry, _entityServiceImpl.getSystemEntityClient()),
+                .build(_entityServiceImpl),
             MCPUpsertBatchItem.builder()
                 .urn(entityUrn3)
                 .aspectName(aspectName)
                 .aspect(writeAspect3)
                 .systemMetadata(metadata1)
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(_testEntityRegistry, _entityServiceImpl.getSystemEntityClient()));
+                .build(_entityServiceImpl));
     _entityServiceImpl.ingestAspects(AspectsBatchImpl.builder().items(items).build(), true, true);
 
     // List aspects urns
@@ -451,13 +451,7 @@ public class EbeanEntityServiceTest
           auditStamp.setActor(Urn.createFromString(Constants.DATAHUB_ACTOR));
           auditStamp.setTime(System.currentTimeMillis());
           AspectsBatchImpl batch =
-              AspectsBatchImpl.builder()
-                  .mcps(
-                      mcps,
-                      auditStamp,
-                      entityService.getEntityRegistry(),
-                      entityService.getSystemEntityClient())
-                  .build();
+              AspectsBatchImpl.builder().mcps(mcps, auditStamp, entityService).build();
           entityService.ingestProposal(batch, false);
         }
       } catch (InterruptedException | URISyntaxException ie) {

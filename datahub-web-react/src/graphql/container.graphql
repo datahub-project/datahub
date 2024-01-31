@@ -54,6 +54,9 @@ query getContainer($urn: String!) {
         status {
             removed
         }
+        autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
+            ...autoRenderAspectFields
+        }
         termProposals: proposals(type: TERM_ASSOCIATION) {
             ...proposalsFragment
         }

@@ -56,7 +56,6 @@ def _abort_if_non_existent_urn(graph: DataHubGraph, urn: str, operation: str) ->
 
 
 def _print_diff(orig_file, new_file):
-
     with open(orig_file) as fp:
         orig_lines = fp.readlines()
     with open(new_file) as fp:
@@ -388,7 +387,7 @@ def add_asset(urn: str, asset: str, validate_assets: bool) -> None:
             graph.emit(mcp)
 
 
-@dataproduct.command(name="remove_asset", help="Add an asset to a Data Product")
+@dataproduct.command(name="remove_asset", help="Remove an asset from a Data Product")
 @click.option("--urn", required=True, type=str)
 @click.option("--asset", required=True, type=str)
 @click.option(

@@ -1,5 +1,6 @@
 package config;
 
+import com.linkedin.metadata.config.VisualConfiguration;
 import com.linkedin.metadata.config.cache.CacheConfiguration;
 import com.linkedin.metadata.config.kafka.KafkaConfiguration;
 import com.linkedin.metadata.spring.YamlPropertySourceFactory;
@@ -22,4 +23,7 @@ public class ConfigurationProvider {
 
   /** Configuration for caching */
   private CacheConfiguration cache;
+
+  /** Configuration for the view layer */
+  private VisualConfiguration visualConfig;
 }

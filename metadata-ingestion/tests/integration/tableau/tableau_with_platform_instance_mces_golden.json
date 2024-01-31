@@ -31856,6 +31856,15 @@
                     }
                 },
                 {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:tag on published datasource"
+                            }
+                        ]
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
                             "/prod/tableau/acryl_site1/default"
@@ -43850,6 +43859,22 @@
     "aspect": {
         "json": {
             "name": "YEAR"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:tag on published datasource",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "tag on published datasource"
         }
     },
     "systemMetadata": {

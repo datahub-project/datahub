@@ -144,8 +144,7 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
             "textArrayField.delimited", 0.4f,
             "nestedArrayStringField.delimited", 0.4f,
             "wordGramField.delimited", 0.4f,
-            "customProperties.delimited", 0.4f // Saas only?
-            ));
+            "customProperties.delimited", 0.4f));
 
     BoolQueryBuilder boolPrefixQuery = (BoolQueryBuilder) shouldQueries.get(1);
     assertTrue(boolPrefixQuery.should().size() > 0);
@@ -600,7 +599,7 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
             "textFieldOverride.wordGrams2",
             "textFieldOverride.wordGrams3",
             "textFieldOverride.wordGrams4",
-            "customProperties.delimited")); // customProperties.delimited Saas only
+            "customProperties.delimited"));
 
     // Field which only exists in first one: Should be the same
     assertEquals(

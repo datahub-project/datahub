@@ -13,7 +13,8 @@ from mixpanel import Consumer, Mixpanel
 from typing_extensions import ParamSpec
 
 import datahub as datahub_package
-from datahub.cli.cli_utils import DATAHUB_ROOT_FOLDER, get_boolean_env_variable
+from datahub.cli.config_utils import DATAHUB_ROOT_FOLDER
+from datahub.cli.env_utils import get_boolean_env_variable
 from datahub.configuration.common import ExceptionWithProps
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import _custom_package_path

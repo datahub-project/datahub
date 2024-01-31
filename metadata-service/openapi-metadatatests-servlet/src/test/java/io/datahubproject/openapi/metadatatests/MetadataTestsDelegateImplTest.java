@@ -81,7 +81,7 @@ public class MetadataTestsDelegateImplTest extends AbstractTestNGSpringContextTe
   @Autowired private MetadataTestApiController metadataTestApiController;
   @Autowired private MockMvc mockMvc;
 
-  @Autowired private EntityService mockEntityService;
+  @Autowired private EntityService<?> mockEntityService;
 
   @Autowired private QueryEngine mockQueryEngine;
 

@@ -5,11 +5,17 @@ from typing import List, Set
 
 import pytest
 
-from tests.setup.lineage.ingest_time_lineage import (get_time_lineage_urns,
-                                                     ingest_time_lineage)
-from tests.utils import (create_datahub_step_state_aspects, delete_urns,
-                         delete_urns_from_file, get_admin_username,
-                         ingest_file_via_rest)
+from tests.setup.lineage.ingest_time_lineage import (
+    get_time_lineage_urns,
+    ingest_time_lineage,
+)
+from tests.utils import (
+    create_datahub_step_state_aspects,
+    delete_urns,
+    delete_urns_from_file,
+    get_admin_username,
+    ingest_file_via_rest,
+)
 
 CYPRESS_TEST_DATA_DIR = "tests/cypress"
 
@@ -181,7 +187,12 @@ def test_run_cypress(frontend_session, wait_for_healthchecks):
     rest_specs = set(os.listdir("tests/cypress/cypress/e2e"))
     cypress_suite1_specs = {"mutations", "search", "views"}
     rest_specs.difference_update(set(cypress_suite1_specs))
-    cypress_saas_suite1_specs = {"assertions", "incidents", "metadata_tests", "observability"}
+    cypress_saas_suite1_specs = {
+        "assertions",
+        "incidents",
+        "metadata_tests",
+        "observability",
+    }
     rest_specs.difference_update(set(cypress_saas_suite1_specs))
     strategy_spec_map = {
         "cypress_suite1": cypress_suite1_specs,
@@ -191,8 +202,10 @@ def test_run_cypress(frontend_session, wait_for_healthchecks):
     print(f"test strategy is {test_strategy}")
     test_spec_arg = ""
     if test_strategy is not None:
-        specs = _get_spec_map(strategy_spec_map.get(test_strategy))
-        test_spec_arg = f" --spec '{specs}' "
+        specs = strategy_spec_map.get(test_strategy)
+        assert specs is not None
+        specs_str = _get_spec_map(specs)
+        test_spec_arg = f" --spec '{specs_str}' "
 
     print("Running Cypress tests with command")
     command = f"NO_COLOR=1 npx cypress run {record_arg} {test_spec_arg} {tag_arg}"
@@ -207,6 +220,8 @@ def test_run_cypress(frontend_session, wait_for_healthchecks):
         stderr=subprocess.PIPE,
         cwd=f"{CYPRESS_TEST_DATA_DIR}",
     )
+    assert proc.stdout is not None
+    assert proc.stderr is not None
     stdout = proc.stdout.read()
     stderr = proc.stderr.read()
     return_code = proc.wait()

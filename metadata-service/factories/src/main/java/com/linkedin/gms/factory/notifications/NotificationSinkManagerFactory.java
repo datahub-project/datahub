@@ -1,17 +1,13 @@
 package com.linkedin.gms.factory.notifications;
 
-import com.datahub.authentication.Authentication;
 import com.datahub.notification.NotificationSink;
 import com.datahub.notification.NotificationSinkConfig;
 import com.datahub.notification.NotificationSinkManager;
 import com.datahub.notification.provider.IdentityProvider;
 import com.datahub.notification.provider.SecretProvider;
 import com.datahub.notification.provider.SettingsProvider;
-import com.linkedin.entity.client.EntityClient;
-import com.linkedin.gms.factory.auth.SystemAuthenticationFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.connection.ConnectionServiceFactory;
-import com.linkedin.gms.factory.entity.RestliEntityClientFactory;
 import com.linkedin.metadata.config.notification.NotificationSinkConfiguration;
 import com.linkedin.metadata.connection.ConnectionService;
 import com.linkedin.metadata.spring.YamlPropertySourceFactory;
@@ -33,23 +29,12 @@ import org.springframework.context.annotation.PropertySource;
 @Configuration
 @PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
 @Import({
-  RestliEntityClientFactory.class,
   SettingsProviderFactory.class,
   IdentityProviderFactory.class,
   SecretProviderFactory.class,
-  SystemAuthenticationFactory.class,
   ConnectionServiceFactory.class
 })
 public class NotificationSinkManagerFactory {
-
-  @Autowired
-  @Qualifier("restliEntityClient")
-  private EntityClient entityClient;
-
-  @Autowired
-  @Qualifier("systemAuthentication")
-  private Authentication systemAuthentication;
-
   @Autowired
   @Qualifier("settingsProvider")
   private SettingsProvider settingsProvider;

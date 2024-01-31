@@ -21,7 +21,7 @@ import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
-import com.linkedin.entity.client.SystemRestliEntityClient;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.key.DatasetKey;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
@@ -41,7 +41,7 @@ import org.testng.annotations.Test;
 
 public class SiblingAssociationHookTest {
   private SiblingAssociationHook _siblingAssociationHook;
-  SystemRestliEntityClient _mockEntityClient;
+  SystemEntityClient _mockEntityClient;
   EntitySearchService _mockSearchService;
 
   @BeforeMethod
@@ -51,7 +51,7 @@ public class SiblingAssociationHookTest {
             SiblingAssociationHookTest.class
                 .getClassLoader()
                 .getResourceAsStream("test-entity-registry-siblings.yml"));
-    _mockEntityClient = Mockito.mock(SystemRestliEntityClient.class);
+    _mockEntityClient = Mockito.mock(SystemEntityClient.class);
     _mockSearchService = Mockito.mock(EntitySearchService.class);
     _siblingAssociationHook =
         new SiblingAssociationHook(registry, _mockEntityClient, _mockSearchService, true);

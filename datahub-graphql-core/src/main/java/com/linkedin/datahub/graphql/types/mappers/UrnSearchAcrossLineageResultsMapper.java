@@ -62,6 +62,7 @@ public class UrnSearchAcrossLineageResultsMapper<T extends RecordTemplate, E ext
         .setMatchedFields(getMatchedFieldEntry(searchEntity.getMatchedFields()))
         .setPaths(searchEntity.getPaths().stream().map(this::mapPath).collect(Collectors.toList()))
         .setDegree(searchEntity.getDegree())
+        .setDegrees(searchEntity.getDegrees().stream().collect(Collectors.toList()))
         .build();
   }
 

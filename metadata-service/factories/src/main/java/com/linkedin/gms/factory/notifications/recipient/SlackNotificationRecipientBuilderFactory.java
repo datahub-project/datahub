@@ -1,9 +1,8 @@
 package com.linkedin.gms.factory.notifications.recipient;
 
-import com.datahub.authentication.Authentication;
 import com.datahub.notification.provider.SettingsProvider;
 import com.datahub.notification.recipient.SlackNotificationRecipientBuilder;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,19 +19,12 @@ public class SlackNotificationRecipientBuilderFactory {
   @Qualifier("settingsProvider")
   private SettingsProvider settingsProvider;
 
-  @Autowired
-  @Qualifier("restliEntityClient")
-  private EntityClient entityClient;
-
-  @Autowired
-  @Qualifier("systemAuthentication")
-  private Authentication systemAuthentication;
-
   @Bean(name = "slackNotificationRecipientBuilder")
   @Scope("singleton")
   @Nonnull
-  protected SlackNotificationRecipientBuilder getInstance() {
+  protected SlackNotificationRecipientBuilder getInstance(
+      final SystemEntityClient systemEntityClient) {
     return new SlackNotificationRecipientBuilder(
-        this.settingsProvider, this.entityClient, this.systemAuthentication);
+        this.settingsProvider, systemEntityClient, systemEntityClient.getSystemAuthentication());
   }
 }

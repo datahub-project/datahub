@@ -10,7 +10,6 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesResult;
-import com.linkedin.metadata.models.registry.EntityRegistry;
 import io.ebean.Database;
 import io.ebean.ExpressionList;
 import java.util.ArrayList;
@@ -63,10 +62,7 @@ public class SendMAEStep implements UpgradeStep {
     return false;
   }
 
-  public SendMAEStep(
-      final Database server,
-      final EntityService entityService,
-      final EntityRegistry entityRegistry) {
+  public SendMAEStep(final Database server, final EntityService<?> entityService) {
     _server = server;
     _entityService = entityService;
   }
@@ -89,7 +85,7 @@ public class SendMAEStep implements UpgradeStep {
           result.add(future.get());
           futures.remove(future);
         } catch (InterruptedException | ExecutionException e) {
-          e.printStackTrace();
+          log.error("Error iterating futures", e);
         }
       }
     }

@@ -8,7 +8,6 @@ import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.SystemAspect;
 import com.linkedin.metadata.aspect.batch.UpsertItem;
 import com.linkedin.metadata.aspect.plugins.validation.AspectRetriever;
-import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
@@ -33,15 +32,12 @@ public class AspectsBatchImpl implements AspectsBatch {
    * Convert patches to upserts, apply hooks at the aspect and batch level.
    *
    * @param latestAspects latest version in the database
-   * @param entityRegistry entity registry
    * @return The new urn/aspectnames and the uniform upserts, possibly expanded/mutated by the
    *     various hooks
    */
   @Override
   public Pair<Map<String, Set<String>>, List<UpsertItem>> toUpsertBatchItems(
-      final Map<String, Map<String, SystemAspect>> latestAspects,
-      EntityRegistry entityRegistry,
-      AspectRetriever aspectRetriever) {
+      final Map<String, Map<String, SystemAspect>> latestAspects, AspectRetriever aspectRetriever) {
 
     LinkedList<UpsertItem> upsertBatchItems =
         items.stream()
@@ -59,25 +55,27 @@ public class AspectsBatchImpl implements AspectsBatch {
                     // patch to upsert
                     MCPPatchBatchItem patchBatchItem = (MCPPatchBatchItem) item;
                     final RecordTemplate currentValue =
-                        latest != null ? latest.getRecordTemplate(entityRegistry) : null;
-                    upsertItem =
-                        patchBatchItem.applyPatch(entityRegistry, currentValue, aspectRetriever);
+                        latest != null
+                            ? latest.getRecordTemplate(aspectRetriever.getEntityRegistry())
+                            : null;
+                    upsertItem = patchBatchItem.applyPatch(currentValue, aspectRetriever);
                   }
 
                   // Apply hooks
                   final SystemMetadata oldSystemMetadata =
                       latest != null ? latest.getSystemMetadata() : null;
                   final RecordTemplate oldAspectValue =
-                      latest != null ? latest.getRecordTemplate(entityRegistry) : null;
-                  upsertItem.applyMutationHooks(
-                      oldAspectValue, oldSystemMetadata, entityRegistry, aspectRetriever);
+                      latest != null
+                          ? latest.getRecordTemplate(aspectRetriever.getEntityRegistry())
+                          : null;
+                  upsertItem.applyMutationHooks(oldAspectValue, oldSystemMetadata, aspectRetriever);
 
                   return upsertItem;
                 })
             .collect(Collectors.toCollection(LinkedList::new));
 
     LinkedList<UpsertItem> newItems =
-        applyMCPSideEffects(upsertBatchItems, entityRegistry, aspectRetriever)
+        applyMCPSideEffects(upsertBatchItems, aspectRetriever)
             .collect(Collectors.toCollection(LinkedList::new));
     Map<String, Set<String>> newUrnAspectNames = getNewUrnAspectsMap(getUrnAspectsMap(), newItems);
     upsertBatchItems.addAll(newItems);
@@ -98,20 +96,17 @@ public class AspectsBatchImpl implements AspectsBatch {
     }
 
     public AspectsBatchImplBuilder mcps(
-        List<MetadataChangeProposal> mcps,
-        AuditStamp auditStamp,
-        EntityRegistry entityRegistry,
-        AspectRetriever aspectRetriever) {
+        List<MetadataChangeProposal> mcps, AuditStamp auditStamp, AspectRetriever aspectRetriever) {
       this.items =
           mcps.stream()
               .map(
                   mcp -> {
                     if (mcp.getChangeType().equals(ChangeType.PATCH)) {
                       return MCPPatchBatchItem.MCPPatchBatchItemBuilder.build(
-                          mcp, auditStamp, entityRegistry);
+                          mcp, auditStamp, aspectRetriever.getEntityRegistry());
                     } else {
                       return MCPUpsertBatchItem.MCPUpsertBatchItemBuilder.build(
-                          mcp, auditStamp, entityRegistry, aspectRetriever);
+                          mcp, auditStamp, aspectRetriever);
                     }
                   })
               .collect(Collectors.toList());

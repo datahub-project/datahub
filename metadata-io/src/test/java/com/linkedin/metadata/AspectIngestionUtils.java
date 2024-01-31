@@ -41,7 +41,7 @@ public class AspectIngestionUtils {
               .aspect(aspect)
               .auditStamp(AspectGenerationUtils.createAuditStamp())
               .systemMetadata(AspectGenerationUtils.createSystemMetadata())
-              .build(entityService.getEntityRegistry(), entityService.getSystemEntityClient()));
+              .build(entityService));
     }
     entityService.ingestAspects(AspectsBatchImpl.builder().items(items).build(), true, true);
     return aspects;
@@ -71,7 +71,7 @@ public class AspectIngestionUtils {
               .aspect(aspect)
               .auditStamp(AspectGenerationUtils.createAuditStamp())
               .systemMetadata(AspectGenerationUtils.createSystemMetadata())
-              .build(entityService.getEntityRegistry(), entityService.getSystemEntityClient()));
+              .build(entityService));
     }
     entityService.ingestAspects(AspectsBatchImpl.builder().items(items).build(), true, true);
     return aspects;
@@ -102,7 +102,7 @@ public class AspectIngestionUtils {
               .aspect(aspect)
               .auditStamp(AspectGenerationUtils.createAuditStamp())
               .systemMetadata(AspectGenerationUtils.createSystemMetadata())
-              .build(entityService.getEntityRegistry(), entityService.getSystemEntityClient()));
+              .build(entityService));
     }
     entityService.ingestAspects(AspectsBatchImpl.builder().items(items).build(), true, true);
     return aspects;

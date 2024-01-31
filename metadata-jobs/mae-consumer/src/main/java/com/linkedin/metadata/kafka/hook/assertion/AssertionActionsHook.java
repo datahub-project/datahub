@@ -23,10 +23,9 @@ import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.gms.factory.assertions.AssertionServiceFactory;
-import com.linkedin.gms.factory.auth.SystemAuthenticationFactory;
-import com.linkedin.gms.factory.entity.RestliEntityClientFactory;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
 import com.linkedin.gms.factory.incident.IncidentServiceFactory;
 import com.linkedin.incident.IncidentSource;
@@ -56,7 +55,6 @@ import javax.annotation.Nonnull;
 import javax.inject.Singleton;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Import;
 import org.springframework.stereotype.Component;
@@ -120,13 +118,7 @@ import org.springframework.stereotype.Component;
 @Slf4j
 @Component
 @Singleton
-@Import({
-  EntityRegistryFactory.class,
-  RestliEntityClientFactory.class,
-  IncidentServiceFactory.class,
-  AssertionServiceFactory.class,
-  SystemAuthenticationFactory.class
-})
+@Import({EntityRegistryFactory.class, IncidentServiceFactory.class, AssertionServiceFactory.class})
 public class AssertionActionsHook implements MetadataChangeLogHook {
 
   private static final String INCIDENT_SOURCE_URN_SEARCH_INDEX_FIELD_NAME = "sourceUrn.keyword";
@@ -151,15 +143,19 @@ public class AssertionActionsHook implements MetadataChangeLogHook {
   @Autowired
   public AssertionActionsHook(
       @Nonnull final EntityRegistry entityRegistry,
-      @Nonnull @Qualifier("restliEntityClient") final EntityClient entityClient,
-      @Nonnull final Authentication authentication,
+      @Nonnull final SystemEntityClient systemEntityClient,
       @Nonnull @Value("${assertionActions.hook.enabled:true}") Boolean isEnabled) {
     _entityRegistry = Objects.requireNonNull(entityRegistry, "entityRegistry is required");
-    _entityClient = Objects.requireNonNull(entityClient, "entityClient is entityClient");
-    _authentication = Objects.requireNonNull(authentication, "authentication is required");
-    _assertionService = new AssertionService(entityClient, authentication);
-    _incidentService = new IncidentService(entityClient, authentication);
-    _anomalyService = new AnomalyService(entityClient, authentication);
+    _entityClient = Objects.requireNonNull(systemEntityClient, "entityClient is entityClient");
+    _authentication =
+        Objects.requireNonNull(
+            systemEntityClient.getSystemAuthentication(), "authentication is required");
+    _assertionService =
+        new AssertionService(systemEntityClient, systemEntityClient.getSystemAuthentication());
+    _incidentService =
+        new IncidentService(systemEntityClient, systemEntityClient.getSystemAuthentication());
+    _anomalyService =
+        new AnomalyService(systemEntityClient, systemEntityClient.getSystemAuthentication());
     _isEnabled = isEnabled;
   }
 

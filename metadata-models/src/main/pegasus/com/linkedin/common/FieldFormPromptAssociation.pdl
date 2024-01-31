@@ -1,0 +1,17 @@
+namespace com.linkedin.common
+
+/**
+ * Information about the status of a particular prompt for a specific schema field
+ * on an entity.
+ */
+record FieldFormPromptAssociation {
+    /**
+     * The field path on a schema field.
+     */
+    fieldPath: string
+
+    /**
+     * The last time this prompt was touched for the field on the entity (set, unset)
+     */
+    lastModified: AuditStamp
+}

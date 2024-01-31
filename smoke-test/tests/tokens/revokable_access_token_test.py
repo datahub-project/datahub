@@ -1,11 +1,14 @@
 import os
-from time import sleep
 
 import pytest
-import requests
 
-from tests.utils import (get_admin_credentials, get_frontend_url,
-                         wait_for_healthcheck_util, wait_for_writes_to_sync)
+from tests.utils import (
+    get_admin_credentials,
+    get_frontend_url,
+    login_as,
+    wait_for_healthcheck_util,
+    wait_for_writes_to_sync,
+)
 
 # Disable telemetry
 os.environ["DATAHUB_TELEMETRY_ENABLED"] = "false"
@@ -29,7 +32,7 @@ def test_healthchecks(wait_for_healthchecks):
 @pytest.fixture(scope="class", autouse=True)
 def custom_user_setup():
     """Fixture to execute setup before and tear down after all tests are run"""
-    admin_session = loginAs(admin_user, admin_pass)
+    admin_session = login_as(admin_user, admin_pass)
 
     res_data = removeUser(admin_session, "urn:li:corpuser:user")
     assert res_data
@@ -77,7 +80,7 @@ def custom_user_setup():
 
     # signUp will override the session cookie to the new user to be signed up.
     admin_session.cookies.clear()
-    admin_session = loginAs(admin_user, admin_pass)
+    admin_session = login_as(admin_user, admin_pass)
 
     # Make user created user is there.
     res_data = listUsers(admin_session)
@@ -91,7 +94,7 @@ def custom_user_setup():
     res_data = removeUser(admin_session, "urn:li:corpuser:user")
     assert res_data
     assert res_data["data"]
-    assert res_data["data"]["removeUser"] == True
+    assert res_data["data"]["removeUser"] is True
     # Sleep for eventual consistency
     wait_for_writes_to_sync()
 
@@ -106,7 +109,7 @@ def custom_user_setup():
 @pytest.fixture(autouse=True)
 def access_token_setup():
     """Fixture to execute asserts before and after a test is run"""
-    admin_session = loginAs(admin_user, admin_pass)
+    admin_session = login_as(admin_user, admin_pass)
 
     res_data = listAccessTokens(admin_session)
     assert res_data
@@ -127,7 +130,7 @@ def access_token_setup():
 
 @pytest.mark.dependency(depends=["test_healthchecks"])
 def test_admin_can_create_list_and_revoke_tokens(wait_for_healthchecks):
-    admin_session = loginAs(admin_user, admin_pass)
+    admin_session = login_as(admin_user, admin_pass)
 
     # Using a super account, there should be no tokens
     res_data = listAccessTokens(admin_session)
@@ -170,7 +173,7 @@ def test_admin_can_create_list_and_revoke_tokens(wait_for_healthchecks):
     assert res_data
     assert res_data["data"]
     assert res_data["data"]["revokeAccessToken"]
-    assert res_data["data"]["revokeAccessToken"] == True
+    assert res_data["data"]["revokeAccessToken"] is True
     # Sleep for eventual consistency
     wait_for_writes_to_sync()
 
@@ -184,7 +187,7 @@ def test_admin_can_create_list_and_revoke_tokens(wait_for_healthchecks):
 
 @pytest.mark.dependency(depends=["test_healthchecks"])
 def test_admin_can_create_and_revoke_tokens_for_other_user(wait_for_healthchecks):
-    admin_session = loginAs(admin_user, admin_pass)
+    admin_session = login_as(admin_user, admin_pass)
 
     # Using a super account, there should be no tokens
     res_data = listAccessTokens(admin_session)
@@ -227,7 +230,7 @@ def test_admin_can_create_and_revoke_tokens_for_other_user(wait_for_healthchecks
     assert res_data
     assert res_data["data"]
     assert res_data["data"]["revokeAccessToken"]
-    assert res_data["data"]["revokeAccessToken"] == True
+    assert res_data["data"]["revokeAccessToken"] is True
     # Sleep for eventual consistency
     wait_for_writes_to_sync()
 
@@ -241,7 +244,7 @@ def test_admin_can_create_and_revoke_tokens_for_other_user(wait_for_healthchecks
 
 @pytest.mark.dependency(depends=["test_healthchecks"])
 def test_non_admin_can_create_list_revoke_tokens(wait_for_healthchecks):
-    user_session = loginAs("user", "user")
+    user_session = login_as("user", "user")
 
     # Normal user should be able to generate token for himself.
     res_data = generateAccessToken_v2(user_session, "urn:li:corpuser:user")
@@ -280,7 +283,7 @@ def test_non_admin_can_create_list_revoke_tokens(wait_for_healthchecks):
     assert res_data
     assert res_data["data"]
     assert res_data["data"]["revokeAccessToken"]
-    assert res_data["data"]["revokeAccessToken"] == True
+    assert res_data["data"]["revokeAccessToken"] is True
     # Sleep for eventual consistency
     wait_for_writes_to_sync()
 
@@ -296,7 +299,7 @@ def test_non_admin_can_create_list_revoke_tokens(wait_for_healthchecks):
 
 @pytest.mark.dependency(depends=["test_healthchecks"])
 def test_admin_can_manage_tokens_generated_by_other_user(wait_for_healthchecks):
-    admin_session = loginAs(admin_user, admin_pass)
+    admin_session = login_as(admin_user, admin_pass)
 
     # Using a super account, there should be no tokens
     res_data = listAccessTokens(admin_session)
@@ -306,7 +309,7 @@ def test_admin_can_manage_tokens_generated_by_other_user(wait_for_healthchecks):
     assert len(res_data["data"]["listAccessTokens"]["tokens"]) == 0
 
     admin_session.cookies.clear()
-    user_session = loginAs("user", "user")
+    user_session = login_as("user", "user")
     res_data = generateAccessToken_v2(user_session, "urn:li:corpuser:user")
     assert res_data
     assert res_data["data"]
@@ -326,7 +329,7 @@ def test_admin_can_manage_tokens_generated_by_other_user(wait_for_healthchecks):
 
     # Admin should be able to list other tokens
     user_session.cookies.clear()
-    admin_session = loginAs(admin_user, admin_pass)
+    admin_session = login_as(admin_user, admin_pass)
     res_data = listAccessTokens(
         admin_session, [{"field": "ownerUrn", "values": ["urn:li:corpuser:user"]}]
     )
@@ -346,18 +349,18 @@ def test_admin_can_manage_tokens_generated_by_other_user(wait_for_healthchecks):
 
     # Admin can delete token created by someone else.
     admin_session.cookies.clear()
-    admin_session = loginAs(admin_user, admin_pass)
+    admin_session = login_as(admin_user, admin_pass)
     res_data = revokeAccessToken(admin_session, user_tokenId)
     assert res_data
     assert res_data["data"]
     assert res_data["data"]["revokeAccessToken"]
-    assert res_data["data"]["revokeAccessToken"] == True
+    assert res_data["data"]["revokeAccessToken"] is True
     # Sleep for eventual consistency
     wait_for_writes_to_sync()
 
     # Using a normal account, check that all its tokens where removed.
     user_session.cookies.clear()
-    user_session = loginAs("user", "user")
+    user_session = login_as("user", "user")
     res_data = listAccessTokens(
         user_session, [{"field": "ownerUrn", "values": ["urn:li:corpuser:user"]}]
     )
@@ -367,7 +370,7 @@ def test_admin_can_manage_tokens_generated_by_other_user(wait_for_healthchecks):
     assert len(res_data["data"]["listAccessTokens"]["tokens"]) == 0
 
     # Using the super account, check that all tokens where removed.
-    admin_session = loginAs(admin_user, admin_pass)
+    admin_session = login_as(admin_user, admin_pass)
     res_data = listAccessTokens(
         admin_session, [{"field": "ownerUrn", "values": ["urn:li:corpuser:user"]}]
     )
@@ -379,7 +382,7 @@ def test_admin_can_manage_tokens_generated_by_other_user(wait_for_healthchecks):
 
 @pytest.mark.dependency(depends=["test_healthchecks"])
 def test_non_admin_can_not_generate_tokens_for_others(wait_for_healthchecks):
-    user_session = loginAs("user", "user")
+    user_session = login_as("user", "user")
     # Normal user should not be able to generate token for another user
     res_data = generateAccessToken_v2(user_session, f"urn:li:corpuser:{admin_user}")
     assert res_data
@@ -465,19 +468,6 @@ def revokeAccessToken(session, tokenId):
     response.raise_for_status()
 
     return response.json()
-
-
-def loginAs(username, password):
-    session = requests.Session()
-
-    headers = {
-        "Content-Type": "application/json",
-    }
-    data = '{"username":"' + username + '", "password":"' + password + '"}'
-    response = session.post(f"{get_frontend_url()}/logIn", headers=headers, data=data)
-    response.raise_for_status()
-
-    return session
 
 
 def removeUser(session, urn):

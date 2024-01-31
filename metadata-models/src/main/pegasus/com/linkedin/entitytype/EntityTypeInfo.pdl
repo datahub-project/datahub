@@ -1,0 +1,22 @@
+namespace com.linkedin.entitytype
+
+@Aspect = {
+    "name": "entityTypeInfo"
+}
+record EntityTypeInfo {
+    /**
+     * The fully qualified name for the entity type, which usually consists of a namespace
+     * plus an identifier or name, e.g. datahub.dataset
+     */
+    qualifiedName: string
+
+    /**
+     * The display name for the Entity Type.
+     */
+    displayName: optional string
+
+    /**
+     * A description for the Entity Type: what is it for?
+     */
+    description: optional string
+}

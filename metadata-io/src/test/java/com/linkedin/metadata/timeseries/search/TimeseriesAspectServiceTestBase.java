@@ -488,6 +488,65 @@ public abstract class TimeseriesAspectServiceTestBase extends AbstractTestNGSpri
   @Test(
       groups = {"getAggregatedStats"},
       dependsOnGroups = {"upsert"})
+  public void testGetAggregatedStatsLatestStatForDay1WithValues() {
+    // Filter is only on the urn
+    Criterion hasUrnCriterion =
+        new Criterion().setField("urn").setCondition(Condition.EQUAL).setValue(TEST_URN.toString());
+    Criterion startTimeCriterion =
+        new Criterion()
+            .setField(ES_FIELD_TIMESTAMP)
+            .setCondition(Condition.GREATER_THAN_OR_EQUAL_TO)
+            .setValues(new StringArray(_startTime.toString()))
+            .setValue("");
+    Criterion endTimeCriterion =
+        new Criterion()
+            .setField(ES_FIELD_TIMESTAMP)
+            .setCondition(Condition.LESS_THAN_OR_EQUAL_TO)
+            .setValues(new StringArray(String.valueOf(_startTime + 23 * TIME_INCREMENT)))
+            .setValue("");
+
+    Filter filter =
+        QueryUtils.getFilterFromCriteria(
+            ImmutableList.of(hasUrnCriterion, startTimeCriterion, endTimeCriterion));
+
+    // Aggregate on latest stat value
+    AggregationSpec latestStatAggregationSpec =
+        new AggregationSpec().setAggregationType(AggregationType.LATEST).setFieldPath("stat");
+
+    // Grouping bucket is only timestamp filed.
+    GroupingBucket timestampBucket =
+        new GroupingBucket()
+            .setKey(ES_FIELD_TIMESTAMP)
+            .setType(GroupingBucketType.DATE_GROUPING_BUCKET)
+            .setTimeWindowSize(new TimeWindowSize().setMultiple(1).setUnit(CalendarInterval.DAY));
+
+    GenericTable resultTable =
+        _elasticSearchTimeseriesAspectService.getAggregatedStats(
+            ENTITY_NAME,
+            ASPECT_NAME,
+            new AggregationSpec[] {latestStatAggregationSpec},
+            filter,
+            new GroupingBucket[] {timestampBucket});
+    // Validate column names
+    assertEquals(
+        resultTable.getColumnNames(),
+        new StringArray(ES_FIELD_TIMESTAMP, "latest_" + ES_FIELD_STAT));
+    // Validate column types
+    assertEquals(resultTable.getColumnTypes(), new StringArray("long", "long"));
+    // Validate rows
+    assertNotNull(resultTable.getRows());
+    assertEquals(resultTable.getRows().size(), 1);
+    assertEquals(
+        resultTable.getRows(),
+        new StringArrayArray(
+            new StringArray(
+                _startTime.toString(),
+                _testEntityProfiles.get(_startTime + 23 * TIME_INCREMENT).getStat().toString())));
+  }
+
+  @Test(
+      groups = {"getAggregatedStats"},
+      dependsOnGroups = {"upsert"})
   public void testGetAggregatedStatsLatestAComplexNestedRecordForDay1() {
     // Filter is only on the urn
     Criterion hasUrnCriterion =

@@ -1,0 +1,11 @@
+namespace com.linkedin.structured
+
+@Aspect = {
+    "name": "structuredPropertyKey"
+}
+record StructuredPropertyKey {
+    /**
+    * The id for a structured proeprty.
+    */
+    id: string
+}

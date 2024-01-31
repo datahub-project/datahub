@@ -49,7 +49,7 @@ import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
-import com.linkedin.entity.client.SystemRestliEntityClient;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.key.DatasetKey;
@@ -117,7 +117,7 @@ public class EntityChangeEventGeneratorHookTest {
   private static final String TEST_GLOSSARY_TERM_DESCRIPTION =
       "Personally Identifiable Information";
 
-  private SystemRestliEntityClient _mockClient;
+  private SystemEntityClient _mockClient;
   private EntityService _mockEntityService;
 
   private EntityChangeEventGeneratorHook _entityChangeEventHook;
@@ -125,7 +125,7 @@ public class EntityChangeEventGeneratorHookTest {
   @BeforeMethod
   public void setupTest() throws URISyntaxException {
     actorUrn = Urn.createFromString(TEST_ACTOR_URN);
-    _mockClient = Mockito.mock(SystemRestliEntityClient.class);
+    _mockClient = Mockito.mock(SystemEntityClient.class);
     _mockEntityService = Mockito.mock(EntityService.class);
     EntityChangeEventGeneratorRegistry entityChangeEventGeneratorRegistry =
         createEntityChangeEventGeneratorRegistry();
@@ -1133,12 +1133,12 @@ public class EntityChangeEventGeneratorHookTest {
   }
 
   private void verifyProducePlatformEvent(
-      SystemRestliEntityClient mockClient, PlatformEvent platformEvent) throws Exception {
+      SystemEntityClient mockClient, PlatformEvent platformEvent) throws Exception {
     verifyProducePlatformEvent(mockClient, platformEvent, true);
   }
 
   private void verifyProducePlatformEvent(
-      SystemRestliEntityClient mockClient, PlatformEvent platformEvent, boolean noMoreInteractions)
+      SystemEntityClient mockClient, PlatformEvent platformEvent, boolean noMoreInteractions)
       throws Exception {
     // Verify event has been emitted.
     verify(mockClient, Mockito.times(1))

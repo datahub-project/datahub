@@ -189,7 +189,7 @@ public class RestoreAspectStep implements UpgradeStep {
                     .aspectName(aspectName)
                     .aspect(aspectRecord)
                     .auditStamp(toAuditStamp(aspect))
-                    .build(_entityRegistry, _entityService.getSystemEntityClient()));
+                    .build(_entityService));
 
         _entityService.ingestAspects(
             AspectsBatchImpl.builder().items(items).build(), emitMae, true);

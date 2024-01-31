@@ -21,7 +21,6 @@ import com.linkedin.test.TestInfo;
 import com.linkedin.test.TestMode;
 import com.linkedin.test.TestStatus;
 import com.linkedin.util.Pair;
-import io.datahubproject.openapi.delegates.EntityApiDelegateImpl;
 import io.datahubproject.openapi.generated.MetadataTestEntityResultV1;
 import io.datahubproject.openapi.generated.MetadataTestEntityResultV1Failing;
 import io.datahubproject.openapi.generated.MetadataTestEntityResultV1Passing;
@@ -33,6 +32,7 @@ import io.datahubproject.openapi.generated.TestEntityRequestV2;
 import io.datahubproject.openapi.generated.TestEntityResponseV2;
 import io.datahubproject.openapi.generated.TestResultType;
 import io.datahubproject.openapi.metadatatests.generated.controller.MetadataTestApiDelegate;
+import io.datahubproject.openapi.v2.delegates.EntityApiDelegateImpl;
 import java.net.URISyntaxException;
 import java.util.Collections;
 import java.util.List;
@@ -46,7 +46,7 @@ import org.springframework.http.ResponseEntity;
 public class MetadataTestsDelegateImpl implements MetadataTestApiDelegate {
 
   private final EntityRegistry entityRegistry;
-  private final EntityService entityService;
+  private final EntityService<?> entityService;
   private final EntitySearchService entitySearchService;
   private final EntityApiDelegateImpl<
           TestEntityRequestV2, TestEntityResponseV2, ScrollTestEntityResponseV2>
@@ -61,7 +61,7 @@ public class MetadataTestsDelegateImpl implements MetadataTestApiDelegate {
   private final PredicateEvaluator predicateEvaluator;
 
   public MetadataTestsDelegateImpl(
-      EntityService entityService,
+      EntityService<?> entityService,
       EntitySearchService entitySearchService,
       EntityApiDelegateImpl<TestEntityRequestV2, TestEntityResponseV2, ScrollTestEntityResponseV2>
           entityApiDelegate,
@@ -82,7 +82,7 @@ public class MetadataTestsDelegateImpl implements MetadataTestApiDelegate {
   }
 
   public MetadataTestsDelegateImpl(
-      EntityService entityService,
+      EntityService<?> entityService,
       EntitySearchService entitySearchService,
       EntityApiDelegateImpl<TestEntityRequestV2, TestEntityResponseV2, ScrollTestEntityResponseV2>
           entityApiDelegate,

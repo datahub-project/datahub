@@ -48,7 +48,7 @@ public class RestoreStorageStep implements UpgradeStep {
   private final ExecutorService _gmsThreadPool;
 
   public RestoreStorageStep(
-      final EntityService entityService, final EntityRegistry entityRegistry) {
+      final EntityService<?> entityService, final EntityRegistry entityRegistry) {
     _entityService = entityService;
     _entityRegistry = entityRegistry;
     _backupReaders =

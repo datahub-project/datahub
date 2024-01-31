@@ -87,6 +87,7 @@ public class AssertionMapper {
           mapDatasetAssertionInfo(gmsAssertionInfo.getDatasetAssertion());
       assertionInfo.setDatasetAssertion(datasetAssertion);
     }
+    assertionInfo.setDescription(gmsAssertionInfo.getDescription());
     // FRESHNESS Assertions
     if (gmsAssertionInfo.hasFreshnessAssertion()) {
       FreshnessAssertionInfo freshnessAssertionInfo =

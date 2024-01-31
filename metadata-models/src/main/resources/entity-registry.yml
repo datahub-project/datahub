@@ -53,6 +53,8 @@ entities:
       - browsePathsV2
       - anomaliesSummary
       - access
+      - structuredProperties
+      - forms
   - name: dataHubPolicy
     doc: DataHub Policies represent access policies granted to users or groups on metadata operations like edit, view etc.
     category: internal
@@ -80,6 +82,7 @@ entities:
       - institutionalMemory
       - dataPlatformInstance
       - browsePathsV2
+      - structuredProperties
       - anomaliesSummary
       - subTypes
   - name: dataFlow
@@ -101,6 +104,7 @@ entities:
       - institutionalMemory
       - dataPlatformInstance
       - browsePathsV2
+      - structuredProperties
   - name: dataProcess
     keyAspect: dataProcessKey
     aspects:
@@ -451,7 +455,8 @@ entities:
   - name: schemaField
     category: core
     keyAspect: schemaFieldKey
-    aspects: []
+    aspects:
+      - structuredProperties
   ## Not in OSS
   - name: constraint
     keyAspect: constraintKey
@@ -565,5 +570,53 @@ entities:
     keyAspect: subscriptionKey
     aspects:
       - subscriptionInfo
+  - name: entityType
+    doc: A type of entity in the DataHub Metadata Model.
+    category: core
+    keyAspect: entityTypeKey
+    aspects:
+      - entityTypeInfo
+      - institutionalMemory
+      - status
+  - name: dataType
+    doc: A type of data element stored within DataHub.
+    category: core
+    keyAspect: dataTypeKey
+    aspects:
+      - dataTypeInfo
+      - institutionalMemory
+      - status
+  - name: structuredProperty
+    doc: Structured Property represents a property meant for extending the core model of a logical entity
+    category: core
+    keyAspect: structuredPropertyKey
+    aspects:
+      - propertyDefinition
+      - institutionalMemory
+      - status
+  - name: form
+    category: core
+    keyAspect: formKey
+    aspects:
+      - formInfo
+      - dynamicFormAssignment
+      - ownership
 events:
   - name: notificationRequest
+plugins:
+  aspectPayloadValidators:
+    - className: 'com.linkedin.metadata.aspect.validation.PropertyDefinitionValidator'
+      enabled: true
+      supportedOperations:
+        - UPSERT
+      supportedEntityAspectNames:
+        - entityName: structuredProperty
+          aspectName: propertyDefinition
+    - className: 'com.linkedin.metadata.aspect.validation.StructuredPropertiesValidator'
+      enabled: true
+      supportedOperations:
+        - UPSERT
+      supportedEntityAspectNames:
+        - entityName: '*'
+          aspectName: structuredProperties
+

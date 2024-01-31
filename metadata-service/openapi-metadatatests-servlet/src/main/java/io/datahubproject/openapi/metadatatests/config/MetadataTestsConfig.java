@@ -7,13 +7,13 @@ import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.test.action.ActionApplier;
 import com.linkedin.metadata.test.eval.PredicateEvaluator;
 import com.linkedin.metadata.test.query.QueryEngine;
-import io.datahubproject.openapi.delegates.EntityApiDelegateImpl;
 import io.datahubproject.openapi.entities.EntitiesController;
 import io.datahubproject.openapi.generated.ScrollTestEntityResponseV2;
 import io.datahubproject.openapi.generated.TestEntityRequestV2;
 import io.datahubproject.openapi.generated.TestEntityResponseV2;
 import io.datahubproject.openapi.metadatatests.delegates.MetadataTestsDelegateImpl;
 import io.datahubproject.openapi.metadatatests.generated.controller.MetadataTestApiDelegate;
+import io.datahubproject.openapi.v2.delegates.EntityApiDelegateImpl;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -23,7 +23,7 @@ public class MetadataTestsConfig {
 
   @Bean(name = "metadataTestsDelegate")
   public MetadataTestApiDelegate metadataTestsApiDelegate(
-      final EntityService entityService,
+      final EntityService<?> entityService,
       final SearchService searchService,
       final EntitySearchService entitySearchService,
       final EntitiesController entitiesController,

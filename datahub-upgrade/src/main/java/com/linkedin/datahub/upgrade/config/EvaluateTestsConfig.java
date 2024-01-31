@@ -17,16 +17,11 @@ public class EvaluateTestsConfig {
   @Autowired ApplicationContext applicationContext;
 
   @Bean(name = "evaluateTests")
-  @DependsOn({
-    "entitySearchService",
-    "testEngine",
-    "systemRestliEntityClient",
-    "systemAuthentication"
-  })
+  @DependsOn({"entitySearchService", "testEngine", "systemEntityClient"})
   @Nonnull
   public EvaluateTests createInstance() {
     final SystemEntityClient entityClient =
-        applicationContext.getBean("systemRestliEntityClient", SystemEntityClient.class);
+        applicationContext.getBean("systemEntityClient", SystemEntityClient.class);
     final EntitySearchService entitySearchService =
         applicationContext.getBean(EntitySearchService.class);
     final TestEngine testEngine = applicationContext.getBean(TestEngine.class);

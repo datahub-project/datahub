@@ -1,6 +1,6 @@
 import dataclasses
 import json
-from typing import TYPE_CHECKING, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, List, Optional, Sequence, Tuple, Union
 
 from datahub.emitter.aspect import ASPECT_MAP, JSON_CONTENT_TYPE, TIMESERIES_ASPECT_MAP
 from datahub.emitter.serialization_helper import post_json_transform, pre_json_transform
@@ -100,7 +100,7 @@ class MetadataChangeProposalWrapper:
 
     @classmethod
     def construct_many(
-        cls, entityUrn: str, aspects: List[Optional[_Aspect]]
+        cls, entityUrn: str, aspects: Sequence[Optional[_Aspect]]
     ) -> List["MetadataChangeProposalWrapper"]:
         return [cls(entityUrn=entityUrn, aspect=aspect) for aspect in aspects if aspect]
 

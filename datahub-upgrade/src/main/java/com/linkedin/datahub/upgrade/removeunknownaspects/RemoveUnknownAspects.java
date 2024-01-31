@@ -12,7 +12,7 @@ public class RemoveUnknownAspects implements Upgrade {
 
   private final List<UpgradeStep> _steps;
 
-  public RemoveUnknownAspects(final EntityService entityService) {
+  public RemoveUnknownAspects(final EntityService<?> entityService) {
     _steps = buildSteps(entityService);
   }
 
@@ -26,7 +26,7 @@ public class RemoveUnknownAspects implements Upgrade {
     return _steps;
   }
 
-  private List<UpgradeStep> buildSteps(final EntityService entityService) {
+  private List<UpgradeStep> buildSteps(final EntityService<?> entityService) {
     final List<UpgradeStep> steps = new ArrayList<>();
     steps.add(new RemoveClientIdAspectStep(entityService));
     return steps;

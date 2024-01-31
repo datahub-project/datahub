@@ -183,6 +183,7 @@ public class GenerateJsonSchemaTask extends DefaultTask {
     final String fileBaseName;
     try {
       final JsonNode schema = JsonLoader.fromFile(file);
+
       final JsonNode result = buildResult(schema.toString());
       String prettySchema = JacksonUtils.prettyPrint(result);
       Path absolutePath = file.getAbsoluteFile().toPath();
@@ -195,11 +196,21 @@ public class GenerateJsonSchemaTask extends DefaultTask {
       } else {
         fileBaseName = getBaseName(file.getName());
       }
-      Files.write(Paths.get(jsonDirectory + sep + fileBaseName + ".json"),
+
+      final String targetName;
+      if (schema.has("Aspect") && schema.get("Aspect").has("name") &&
+              !schema.get("Aspect").get("name").asText().equalsIgnoreCase(fileBaseName)) {
+        targetName = OpenApiEntities.toUpperFirst(schema.get("Aspect").get("name").asText());
+        prettySchema = prettySchema.replaceAll(fileBaseName, targetName);
+      } else {
+        targetName = fileBaseName;
+      }
+
+      Files.write(Paths.get(jsonDirectory + sep + targetName + ".json"),
           prettySchema.getBytes(StandardCharsets.UTF_8), StandardOpenOption.WRITE, StandardOpenOption.CREATE,
           StandardOpenOption.TRUNCATE_EXISTING);
       if (schema.has("Aspect")) {
-        aspectType.add(NODE_FACTORY.objectNode().put("$ref", "#/definitions/" + getBaseName(file.getName())));
+        aspectType.add(NODE_FACTORY.objectNode().put("$ref", "#/definitions/" + targetName));
       }
     } catch (IOException | ProcessingException e) {
       throw new RuntimeException(e);

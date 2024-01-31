@@ -6,11 +6,11 @@ import static com.linkedin.metadata.Constants.*;
 
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.UrnUtils;
-import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.CreateSecretInput;
 import com.linkedin.datahub.graphql.resolvers.ingest.IngestionAuthUtils;
+import com.linkedin.datahub.graphql.types.ingest.secret.mapper.DataHubSecretValueMapper;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.key.DataHubSecretKey;
 import com.linkedin.metadata.secret.SecretService;
@@ -58,14 +58,15 @@ public class CreateSecretResolver implements DataFetcher<CompletableFuture<Strin
               }
 
               // Create the secret value.
-              final DataHubSecretValue value = new DataHubSecretValue();
-              value.setName(input.getName());
-              value.setValue(_secretService.encrypt(input.getValue()));
-              value.setDescription(input.getDescription(), SetMode.IGNORE_NULL);
-              value.setCreated(
-                  new AuditStamp()
-                      .setActor(UrnUtils.getUrn(context.getActorUrn()))
-                      .setTime(System.currentTimeMillis()));
+              final DataHubSecretValue value =
+                  DataHubSecretValueMapper.map(
+                      null,
+                      input.getName(),
+                      _secretService.encrypt(input.getValue()),
+                      input.getDescription(),
+                      new AuditStamp()
+                          .setActor(UrnUtils.getUrn(context.getActorUrn()))
+                          .setTime(System.currentTimeMillis()));
 
               final MetadataChangeProposal proposal =
                   buildMetadataChangeProposalWithKey(

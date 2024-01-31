@@ -8,6 +8,9 @@ public class VisualConfiguration {
   /** Asset related configurations */
   public AssetsConfiguration assets;
 
+  /** Custom app title to show in the browse tab */
+  public String appTitle;
+
   /** Queries tab related configurations */
   public QueriesTabConfig queriesTab;
 

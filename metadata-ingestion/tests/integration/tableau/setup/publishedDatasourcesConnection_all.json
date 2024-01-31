@@ -250,7 +250,12 @@
                     },
                     "description": "description for test publish datasource",
                     "uri": "sites/4989/datasources/155429",
-                    "projectName": "default"
+                    "projectName": "default",
+                    "tags": [
+                        {
+                            "name": "tag on published datasource"
+                        }
+                    ]
                 },
                 {
                     "__typename": "PublishedDatasource",

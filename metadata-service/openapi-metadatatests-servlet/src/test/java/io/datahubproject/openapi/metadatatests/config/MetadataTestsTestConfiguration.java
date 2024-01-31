@@ -14,7 +14,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityServiceImpl;
-import com.linkedin.metadata.graph.GraphService;
+import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistryException;
@@ -27,7 +27,7 @@ import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.test.action.ActionApplier;
 import com.linkedin.metadata.test.query.QueryEngine;
 import com.linkedin.metadata.timeline.TimelineService;
-import io.datahubproject.openapi.delegates.EntityApiDelegateImpl;
+import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import io.datahubproject.openapi.generated.ScrollTestEntityResponseV2;
 import io.datahubproject.openapi.generated.TestEntityRequestV2;
 import io.datahubproject.openapi.generated.TestEntityResponseV2;
@@ -35,6 +35,7 @@ import io.datahubproject.openapi.health.HealthCheckController;
 import io.datahubproject.openapi.operations.elastic.OperationsController;
 import io.datahubproject.openapi.relationships.RelationshipsController;
 import io.datahubproject.openapi.timeline.TimelineController;
+import io.datahubproject.openapi.v2.delegates.EntityApiDelegateImpl;
 import org.mockito.Mockito;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.mock.mockito.MockBean;
@@ -51,8 +52,8 @@ public class MetadataTestsTestConfiguration {
 
   @Bean
   @Primary
-  public EntityService entityService(final EntityRegistry mockRegistry) {
-    EntityService entityService = mock(EntityServiceImpl.class);
+  public EntityService<?> entityService(final EntityRegistry mockRegistry) {
+    EntityService<?> entityService = mock(EntityServiceImpl.class);
     when(entityService.getEntityRegistry()).thenReturn(mockRegistry);
     return entityService;
   }
@@ -65,7 +66,7 @@ public class MetadataTestsTestConfiguration {
 
   @MockBean public ActionApplier actionApplier;
 
-  @MockBean public GraphService graphService;
+  @MockBean public ElasticSearchGraphService graphService;
 
   @Bean
   public AuthorizerChain authorizerChain() {
@@ -87,6 +88,8 @@ public class MetadataTestsTestConfiguration {
 
   @MockBean public CachingEntitySearchService cachingEntitySearchService;
 
+  @MockBean public TimeseriesAspectService timeseriesAspectService;
+
   @Bean("entityRegistry")
   @Primary
   public EntityRegistry entityRegistry() throws EntityRegistryException {
@@ -101,6 +104,11 @@ public class MetadataTestsTestConfiguration {
     return entityRegistry;
   }
 
+  @Bean
+  public boolean restApiAuthorizationEnabled() {
+    return false;
+  }
+
   /* Controllers not under this module */
   @MockBean
   public EntityApiDelegateImpl<
@@ -110,6 +118,5 @@ public class MetadataTestsTestConfiguration {
   @MockBean public TimelineController timelineController;
   @MockBean public RelationshipsController relationshipsController;
   @MockBean public HealthCheckController healthCheckController;
-
   @MockBean public OperationsController operationsController;
 }

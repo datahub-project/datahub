@@ -1,8 +1,6 @@
 import logging
 import os
-import subprocess
 import tempfile
-import time
 from random import randint
 from typing import List
 
@@ -14,17 +12,24 @@ from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
 from datahub.ingestion.api.sink import NoopWriteCallback
 from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
 from datahub.ingestion.sink.file import FileSink, FileSinkConfig
-from datahub.metadata.schema_classes import (DataProductPropertiesClass,
-                                             DatasetPropertiesClass,
-                                             DomainPropertiesClass,
-                                             DomainsClass)
+from datahub.metadata.schema_classes import (
+    DataProductPropertiesClass,
+    DatasetPropertiesClass,
+    DomainPropertiesClass,
+    DomainsClass,
+)
 from datahub.utilities.urns.urn import Urn
+
+from tests.utils import (
+    delete_urns_from_file,
+    get_gms_url,
+    get_sleep_info,
+    ingest_file_via_rest,
+    wait_for_writes_to_sync,
+)
 
 logger = logging.getLogger(__name__)
 
-import requests_wrapper as requests
-from tests.utils import (delete_urns_from_file, get_gms_url, get_sleep_info,
-                         ingest_file_via_rest, wait_for_writes_to_sync)
 
 start_index = randint(10, 10000)
 dataset_urns = [
@@ -82,7 +87,6 @@ sleep_sec, sleep_times = get_sleep_info()
 
 @pytest.fixture(scope="module", autouse=False)
 def ingest_cleanup_data(request):
-
     new_file, filename = tempfile.mkstemp()
     try:
         create_test_data(filename)
@@ -160,7 +164,6 @@ def validate_relationships(
 )
 @pytest.mark.dependency(depends=["test_healthchecks"])
 def test_create_data_product(ingest_cleanup_data):
-
     domain_urn = Urn("domain", [datahub_guid({"name": "Marketing"})])
     graph: DataHubGraph = DataHubGraph(config=DatahubClientConfig(server=get_gms_url()))
     result = graph.execute_graphql(
@@ -191,6 +194,7 @@ def test_create_data_product(ingest_cleanup_data):
     assert result["batchSetDataProduct"] is True
     data_product_props = graph.get_aspect(data_product_urn, DataProductPropertiesClass)
     assert data_product_props is not None
+    assert data_product_props.assets is not None
     assert data_product_props.description == "Test Description"
     assert data_product_props.name == "Test Data Product"
     assert len(data_product_props.assets) == len(dataset_urns)

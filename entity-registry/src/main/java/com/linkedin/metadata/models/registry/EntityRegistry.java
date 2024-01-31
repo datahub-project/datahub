@@ -1,6 +1,7 @@
 package com.linkedin.metadata.models.registry;
 
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.aspect.patch.template.AspectTemplateEngine;
 import com.linkedin.metadata.aspect.plugins.PluginFactory;
 import com.linkedin.metadata.aspect.plugins.hooks.MCLSideEffect;
 import com.linkedin.metadata.aspect.plugins.hooks.MCPSideEffect;
@@ -10,7 +11,6 @@ import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.DefaultEntitySpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.EventSpec;
-import com.linkedin.metadata.models.registry.template.AspectTemplateEngine;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -39,11 +39,10 @@ public interface EntityRegistry {
   EntitySpec getEntitySpec(@Nonnull final String entityName);
 
   /**
-   * Given an event name, returns an instance of {@link DefaultEventSpec}.
+   * Given an event name, returns an instance of {@link EventSpec}.
    *
    * @param eventName the name of the event to be retrieved
-   * @return an {@link DefaultEventSpec} corresponding to the entity name provided, null if none
-   *     exists.
+   * @return an {@link EventSpec} corresponding to the entity name provided, null if none exists.
    */
   @Nullable
   EventSpec getEventSpec(@Nonnull final String eventName);

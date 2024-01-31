@@ -38,7 +38,7 @@ public class RestoreGlossaryIndices extends UpgradeStep {
   private final EntityRegistry _entityRegistry;
 
   public RestoreGlossaryIndices(
-      EntityService entityService,
+      EntityService<?> entityService,
       EntitySearchService entitySearchService,
       EntityRegistry entityRegistry) {
     super(entityService, VERSION, UPGRADE_ID);

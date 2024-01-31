@@ -1,10 +1,6 @@
-import time
-
 import pytest
 
-import requests_wrapper as requests
-from tests.utils import (delete_urns_from_file, get_frontend_url,
-                         ingest_file_via_rest)
+from tests.utils import delete_urns_from_file, get_frontend_url, ingest_file_via_rest
 
 TEST_DATASET_1_URN = "urn:li:dataset:(urn:li:dataPlatform:kafka,test-browse-1,PROD)"
 TEST_DATASET_2_URN = "urn:li:dataset:(urn:li:dataPlatform:kafka,test-browse-2,PROD)"
@@ -29,7 +25,6 @@ def test_healthchecks(wait_for_healthchecks):
 
 @pytest.mark.dependency(depends=["test_healthchecks"])
 def test_get_browse_paths(frontend_session, ingest_cleanup_data):
-
     # Iterate through each browse path, starting with the root
 
     get_browse_paths_query = """query browse($input: BrowseInput!) {\n

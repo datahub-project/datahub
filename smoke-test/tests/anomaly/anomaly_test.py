@@ -2,8 +2,7 @@ import time
 
 import pytest
 
-from tests.utils import (delete_urns_from_file, get_frontend_url, get_gms_url,
-                         ingest_file_via_rest)
+from tests.utils import delete_urns_from_file, get_frontend_url, ingest_file_via_rest
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -29,7 +28,6 @@ TEST_ANOMALY_URN = "urn:li:anomaly:test"
 
 @pytest.mark.dependency(depends=["test_healthchecks"])
 def test_list_dataset_anomalies(frontend_session):
-
     # Sleep for eventual consistency (not ideal)
     time.sleep(2)
 

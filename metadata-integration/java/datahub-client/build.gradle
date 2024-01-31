@@ -19,8 +19,7 @@ dependencies {
   implementation project(':entity-registry')
   implementation project(':metadata-events:mxe-utils-avro')
 
-  implementation project(':metadata-models')
-  implementation project(path: ':metadata-models', configuration: "dataTemplate")
+  implementation project(':entity-registry')
   implementation(externalDependency.kafkaAvroSerializer) {
     exclude group: "org.apache.avro"
   }
@@ -102,6 +101,7 @@ shadowJar {
   relocate 'antlr', 'io.acryl.shaded.antlr'
   relocate 'com.google.common', 'io.acryl.shaded.com.google.common'
   relocate 'org.apache.commons', 'io.acryl.shaded.org.apache.commons'
+  relocate 'org.apache.maven', 'io.acryl.shaded.org.apache.maven'
   relocate 'org.reflections', 'io.acryl.shaded.org.reflections'
   relocate 'st4hidden', 'io.acryl.shaded.st4hidden'
   relocate 'org.stringtemplate', 'io.acryl.shaded.org.stringtemplate'
@@ -112,6 +112,9 @@ shadowJar {
   relocate 'org.checkerframework', 'io.acryl.shaded.org.checkerframework'
   relocate 'com.google.errorprone', 'io.acryl.shaded.com.google.errorprone'
   relocate 'com.sun.jna', 'io.acryl.shaded.com.sun.jna'
+  relocate 'io.github.classgraph', 'io.acryl.shaded.io.github.classgraph'
+  relocate 'nonapi.io.github.classgraph', 'io.acryl.shaded.nonapi.io.github.classgraph'
+  relocate 'com.github.fge', 'io.acryl.shaded.com.github.fge'
   // Below jars added for kafka emitter only
   relocate 'org.apache.avro', 'io.acryl.shaded.org.apache.avro'
   relocate 'com.thoughtworks.paranamer', 'io.acryl.shaded.com.thoughtworks.paranamer'

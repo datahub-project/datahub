@@ -1,7 +1,6 @@
 package com.linkedin.metadata.aspect.batch;
 
 import com.linkedin.metadata.aspect.plugins.validation.AspectRetriever;
-import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
 import java.util.HashSet;
@@ -33,14 +32,12 @@ public interface AspectsBatch {
   }
 
   Pair<Map<String, Set<String>>, List<UpsertItem>> toUpsertBatchItems(
-      Map<String, Map<String, SystemAspect>> latestAspects,
-      EntityRegistry entityRegistry,
-      AspectRetriever aspectRetriever);
+      Map<String, Map<String, SystemAspect>> latestAspects, AspectRetriever aspectRetriever);
 
   default Stream<UpsertItem> applyMCPSideEffects(
-      List<UpsertItem> items, EntityRegistry entityRegistry, AspectRetriever aspectRetriever) {
-    return entityRegistry.getAllMCPSideEffects().stream()
-        .flatMap(mcpSideEffect -> mcpSideEffect.apply(items, entityRegistry, aspectRetriever));
+      List<UpsertItem> items, AspectRetriever aspectRetriever) {
+    return aspectRetriever.getEntityRegistry().getAllMCPSideEffects().stream()
+        .flatMap(mcpSideEffect -> mcpSideEffect.apply(items, aspectRetriever));
   }
 
   default boolean containsDuplicateAspects() {

@@ -11,11 +11,11 @@ import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.ingestion.DataHubIngestionSourceConfig;
 import com.linkedin.ingestion.DataHubIngestionSourceInfo;
 import com.linkedin.ingestion.DataHubIngestionSourceSchedule;
 import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.client.JavaEntityClient;
 import com.linkedin.metadata.config.IngestionConfiguration;
 import com.linkedin.metadata.query.ListResult;
 import java.util.Collections;
@@ -88,7 +88,7 @@ public class IngestionSchedulerTest {
         .thenReturn(Constants.INGESTION_SOURCE_ENTITY_NAME);
     Mockito.when(entityResponse2.getAspects()).thenReturn(map2);
 
-    JavaEntityClient mockClient = Mockito.mock(JavaEntityClient.class);
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
 
     // Set up mocks for ingestion source batch fetching
     Mockito.when(

@@ -15,13 +15,13 @@ public class Features {
   Map<Name, Double> numericFeatures;
 
   public enum Name {
-    SEARCH_BACKEND_SCORE,
-    NUM_ENTITIES_PER_TYPE,
+    SEARCH_BACKEND_SCORE, // Score returned by search backend
+    NUM_ENTITIES_PER_TYPE, // Number of entities per entity type
     RANK_WITHIN_TYPE,
+    ONLY_MATCH_CUSTOM_PROPERTIES, // Rank within the entity type
     QUERY_COUNT,
     OUT_DEGREE,
-    HAS_OWNERS,
-    ONLY_MATCH_CUSTOM_PROPERTIES
+    HAS_OWNERS
   }
 
   public Double getNumericFeature(Name featureName, double defaultValue) {

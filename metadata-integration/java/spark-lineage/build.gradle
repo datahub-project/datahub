@@ -58,7 +58,6 @@ dependencies {
     exclude group: "com.fasterxml.jackson.core"
   }
 
-  testImplementation externalDependency.testng
   testImplementation externalDependency.mockito
 
   testImplementation(externalDependency.mockServer){
@@ -103,48 +102,54 @@ shadowJar {
   // prevent jni conflict with spark
   exclude '**/libzstd-jni.*'
   exclude '**/com_github_luben_zstd_*'
+  exclude '**/log4j*.xml'
 
-  relocate 'com.fasterxml.jackson', 'datahub.shaded.jackson'
-  relocate 'org.slf4j','datahub.shaded.org.slf4j'
-  relocate 'org.apache.http','datahub.spark2.shaded.http'
-  relocate 'org.apache.commons.codec', 'datahub.spark2.shaded.o.a.c.codec'
-  relocate 'org.apache.commons.compress', 'datahub.spark2.shaded.o.a.c.compress'
-  relocate 'mozilla', 'datahub.spark2.shaded.mozilla'
-  relocate 'com.typesafe','datahub.spark2.shaded.typesafe'
-  relocate 'io.opentracing','datahub.spark2.shaded.io.opentracing'
-  relocate 'io.netty','datahub.spark2.shaded.io.netty'
-  relocate 'ch.randelshofer', 'datahub.shaded.ch.randelshofer'
+  relocate 'com.fasterxml.jackson', 'io.acryl.shaded.jackson'
+  relocate 'org.slf4j','io.acryl.shaded.org.slf4j'
+  relocate 'org.apache.http','io.acryl.spark2.shaded.http'
+  relocate 'org.apache.commons.codec', 'io.acryl.spark2.shaded.o.a.c.codec'
+  relocate 'org.apache.commons.compress', 'io.acryl.spark2.shaded.o.a.c.compress'
+  relocate 'mozilla', 'io.acryl.spark2.shaded.mozilla'
+  relocate 'com.typesafe','io.acryl.spark2.shaded.typesafe'
+  relocate 'io.opentracing','io.acryl.spark2.shaded.io.opentracing'
+  relocate 'io.netty','io.acryl.spark2.shaded.io.netty'
+  relocate 'ch.randelshofer', 'io.acryl.shaded.ch.randelshofer'
+  relocate 'com.sun', 'io.acryl.shaded.com.sun'
+  relocate 'avroutil1', 'io.acryl.shaded.avroutil1'
+  relocate 'com.github', 'io.acryl.shaded.com.github'
+  relocate 'org.apache.maven', 'io.acryl.shaded.org.apache.maven'
 }
 
 jacocoTestReport {
     dependsOn test // tests are required to run before generating the report
 }
 
-// This has historically been disabled for Saas
-//test {
-//  forkEvery = 1
-//  useJUnit()
-//
-//  def sparkJava17CompatibleJvmArgs = [
-//          "--add-opens=java.base/java.lang=ALL-UNNAMED",
-//          //"--add-opens=java.base/java.lang.invoke=ALL-UNNAMED",
-//          //"--add-opens=java.base/java.lang.reflect=ALL-UNNAMED",
-//          //"--add-opens=java.base/java.io=ALL-UNNAMED",
-//          "--add-opens=java.base/java.net=ALL-UNNAMED",
-//          "--add-opens=java.base/java.nio=ALL-UNNAMED",
-//          //"--add-opens=java.base/java.util=ALL-UNNAMED",
-//          //"--add-opens=java.base/java.util.concurrent=ALL-UNNAMED",
-//          //"--add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED",
-//          "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED",
-//          //"--add-opens=java.base/sun.nio.cs=ALL-UNNAMED",
-//          //"--add-opens=java.base/sun.security.action=ALL-UNNAMED",
-//          //"--add-opens=java.base/sun.util.calendar=ALL-UNNAMED",
-//          //"--add-opens=java.security.jgss/sun.security.krb5=ALL-UNNAMED",
-//  ]
-//  jvmArgs = sparkJava17CompatibleJvmArgs
-//
-//  finalizedBy jacocoTestReport
-//}
+test {
+  exclude '**' // This has historically been disabled for Saas
+
+  forkEvery = 1
+  useJUnit()
+
+  def sparkJava17CompatibleJvmArgs = [
+          "--add-opens=java.base/java.lang=ALL-UNNAMED",
+          //"--add-opens=java.base/java.lang.invoke=ALL-UNNAMED",
+          //"--add-opens=java.base/java.lang.reflect=ALL-UNNAMED",
+          //"--add-opens=java.base/java.io=ALL-UNNAMED",
+          "--add-opens=java.base/java.net=ALL-UNNAMED",
+          "--add-opens=java.base/java.nio=ALL-UNNAMED",
+          //"--add-opens=java.base/java.util=ALL-UNNAMED",
+          //"--add-opens=java.base/java.util.concurrent=ALL-UNNAMED",
+          //"--add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED",
+          "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED",
+          //"--add-opens=java.base/sun.nio.cs=ALL-UNNAMED",
+          //"--add-opens=java.base/sun.security.action=ALL-UNNAMED",
+          //"--add-opens=java.base/sun.util.calendar=ALL-UNNAMED",
+          //"--add-opens=java.security.jgss/sun.security.krb5=ALL-UNNAMED",
+  ]
+  jvmArgs = sparkJava17CompatibleJvmArgs
+
+  finalizedBy jacocoTestReport
+}
 
 assemble {
     dependsOn shadowJar

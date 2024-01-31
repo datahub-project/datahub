@@ -18,6 +18,9 @@ import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.search.utils.SearchUtils;
 import com.linkedin.metadata.shared.ElasticSearchIndexed;
+import com.linkedin.structured.StructuredPropertyDefinition;
+import java.io.IOException;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -45,6 +48,12 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
   @Override
   public List<ReindexConfig> buildReindexConfigs() {
     return indexBuilders.buildReindexConfigs();
+  }
+
+  @Override
+  public List<ReindexConfig> buildReindexConfigsWithAllStructProps(
+      Collection<StructuredPropertyDefinition> properties) throws IOException {
+    return indexBuilders.buildReindexConfigsWithAllStructProps(properties);
   }
 
   @Override

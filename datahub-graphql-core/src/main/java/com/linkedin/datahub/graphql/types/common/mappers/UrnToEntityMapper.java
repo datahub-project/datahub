@@ -35,8 +35,10 @@ import com.linkedin.datahub.graphql.generated.MLPrimaryKey;
 import com.linkedin.datahub.graphql.generated.Monitor;
 import com.linkedin.datahub.graphql.generated.Notebook;
 import com.linkedin.datahub.graphql.generated.OwnershipTypeEntity;
+import com.linkedin.datahub.graphql.generated.QueryEntity;
 import com.linkedin.datahub.graphql.generated.Role;
 import com.linkedin.datahub.graphql.generated.SchemaFieldEntity;
+import com.linkedin.datahub.graphql.generated.StructuredPropertyEntity;
 import com.linkedin.datahub.graphql.generated.Tag;
 import com.linkedin.datahub.graphql.generated.Test;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
@@ -196,6 +198,16 @@ public class UrnToEntityMapper implements ModelMapper<com.linkedin.common.urn.Ur
       partialEntity = new OwnershipTypeEntity();
       ((OwnershipTypeEntity) partialEntity).setUrn(input.toString());
       ((OwnershipTypeEntity) partialEntity).setType(EntityType.CUSTOM_OWNERSHIP_TYPE);
+    }
+    if (input.getEntityType().equals(STRUCTURED_PROPERTY_ENTITY_NAME)) {
+      partialEntity = new StructuredPropertyEntity();
+      ((StructuredPropertyEntity) partialEntity).setUrn(input.toString());
+      ((StructuredPropertyEntity) partialEntity).setType(EntityType.STRUCTURED_PROPERTY);
+    }
+    if (input.getEntityType().equals(QUERY_ENTITY_NAME)) {
+      partialEntity = new QueryEntity();
+      ((QueryEntity) partialEntity).setUrn(input.toString());
+      ((QueryEntity) partialEntity).setType(EntityType.QUERY);
     }
     if (input.getEntityType().equals(DATAHUB_CONNECTION_ENTITY_NAME)) {
       partialEntity = new DataHubConnection();

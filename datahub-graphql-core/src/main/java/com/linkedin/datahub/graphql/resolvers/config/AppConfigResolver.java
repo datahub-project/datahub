@@ -144,6 +144,9 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
         visualConfig.setLogoUrl(_visualConfiguration.getAssets().getLogoUrl());
         visualConfig.setFaviconUrl(_visualConfiguration.getAssets().getFaviconUrl());
       }
+      if (_visualConfiguration.getAppTitle() != null) {
+        visualConfig.setAppTitle(_visualConfiguration.getAppTitle());
+      }
       visualConfig.setHideGlossary(_visualConfiguration.isHideGlossary());
     }
     if (_visualConfiguration != null && _visualConfiguration.getQueriesTab() != null) {

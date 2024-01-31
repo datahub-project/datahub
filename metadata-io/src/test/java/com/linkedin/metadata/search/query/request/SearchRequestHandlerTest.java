@@ -614,7 +614,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     Filter filter = new Filter();
     filter.setOr(conjunctiveCriterionArray);
 
-    BoolQueryBuilder test = SearchRequestHandler.getFilterQuery(filter);
+    BoolQueryBuilder test = SearchRequestHandler.getFilterQuery(filter, new HashMap<>());
 
     assertEquals(test.should().size(), 1);
 

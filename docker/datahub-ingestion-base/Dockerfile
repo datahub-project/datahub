@@ -48,6 +48,8 @@ RUN apt-get update && apt-get install -y -qq \
     zip \
     unzip \
     ldap-utils \
+    unixodbc \
+    libodbc2 \
     && python -m pip install --no-cache --upgrade pip wheel setuptools \
     && rm -rf /var/lib/apt/lists/* /var/cache/apk/*
 

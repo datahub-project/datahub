@@ -35,7 +35,7 @@ public class AwsGlueSchemaRegistryFactory {
 
   @Bean("schemaRegistryConfig")
   @Nonnull
-  protected SchemaRegistryConfig getInstance(ConfigurationProvider configurationProvider) {
+  protected SchemaRegistryConfig getInstance(final ConfigurationProvider configurationProvider) {
     Map<String, Object> props = new HashMap<>();
     // FIXME: Properties for this factory should come from ConfigurationProvider object,
     // specifically under the

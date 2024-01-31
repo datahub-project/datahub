@@ -562,9 +562,18 @@ module.exports = {
           ],
         },
         {
-          type: "doc",
-          label: "OpenAPI",
-          id: "docs/api/openapi/openapi-usage-guide",
+          OpenAPI: [
+            {
+              type: "doc",
+              label: "OpenAPI",
+              id: "docs/api/openapi/openapi-usage-guide",
+            },
+            {
+              type: "doc",
+              label: "Structured Properties",
+              id: "docs/api/openapi/openapi-structured-properties",
+            },
+          ],
         },
         "docs/dev-guides/timeline",
         {
@@ -769,6 +778,7 @@ module.exports = {
     // "docs/how/add-user-data",
     // "docs/_feature-guide-template"
     // - "metadata-service/services/README"
+    // "metadata-ingestion/examples/structured_properties/README"
     // ],
   ],
 };

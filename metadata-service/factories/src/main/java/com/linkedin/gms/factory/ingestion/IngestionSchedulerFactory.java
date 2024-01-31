@@ -1,11 +1,9 @@
 package com.linkedin.gms.factory.ingestion;
 
-import com.datahub.authentication.Authentication;
 import com.datahub.metadata.ingestion.IngestionScheduler;
-import com.linkedin.entity.client.RestliEntityClient;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.gms.factory.auth.SystemAuthenticationFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
-import com.linkedin.gms.factory.entity.RestliEntityClientFactory;
 import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,17 +14,9 @@ import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.PropertySource;
 import org.springframework.context.annotation.Scope;
 
-@Import({SystemAuthenticationFactory.class, RestliEntityClientFactory.class})
+@Import({SystemAuthenticationFactory.class})
 @PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
 public class IngestionSchedulerFactory {
-
-  @Autowired
-  @Qualifier("systemAuthentication")
-  private Authentication _systemAuthentication;
-
-  @Autowired
-  @Qualifier("restliEntityClient")
-  private RestliEntityClient _entityClient;
 
   @Autowired
   @Qualifier("configurationProvider")
@@ -43,10 +33,10 @@ public class IngestionSchedulerFactory {
   @Bean(name = "ingestionScheduler")
   @Scope("singleton")
   @Nonnull
-  protected IngestionScheduler getInstance() {
+  protected IngestionScheduler getInstance(final SystemEntityClient entityClient) {
     return new IngestionScheduler(
-        _systemAuthentication,
-        _entityClient,
+        entityClient.getSystemAuthentication(),
+        entityClient,
         _configProvider.getIngestion(),
         _delayIntervalSeconds,
         _refreshIntervalSeconds);

@@ -1,0 +1,21 @@
+namespace com.linkedin.common
+
+/**
+ * Properties of an applied form.
+ */
+record FormAssociation {
+ /**
+  * Urn of the applied form
+  */
+  urn: Urn
+
+  /**
+   * A list of prompts that are not yet complete for this form.
+   */
+  incompletePrompts: array[FormPromptAssociation] = []
+
+  /**
+   * A list of prompts that have been completed for this form.
+   */
+  completedPrompts: array[FormPromptAssociation] = []
+}

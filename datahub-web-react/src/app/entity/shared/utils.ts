@@ -1,6 +1,6 @@
 import { Maybe } from 'graphql/jsutils/Maybe';
 
-import { Entity, EntityType, EntityRelationshipsResult, DataProduct } from '../../../types.generated';
+import { Entity, EntityType, EntityRelationshipsResult, DataProduct, PropertyValue } from '../../../types.generated';
 import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
 import { GenericEntityProperties } from './types';
 
@@ -127,6 +127,16 @@ export function getFineGrainedLineageWithSiblings(
 export function getDataProduct(dataProductResult: Maybe<EntityRelationshipsResult> | undefined) {
     if (dataProductResult?.relationships && dataProductResult.relationships.length > 0) {
         return dataProductResult.relationships[0].entity as DataProduct;
+    }
+    return null;
+}
+
+export function getStructuredPropertyValue(value: PropertyValue) {
+    if (value.__typename === 'StringValue') {
+        return value.stringValue;
+    }
+    if (value.__typename === 'NumberValue') {
+        return value.numberValue;
     }
     return null;
 }

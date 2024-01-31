@@ -1,4 +1,4 @@
-# The base URL where DataHub is accessible to users. This is used for crafting notifications, among other things.
+# The base URL where DataHub is accessible to users.
 baseUrl: ${DATAHUB_BASE_URL:http://localhost:9002}
 
 # App Layer
@@ -130,7 +130,8 @@ visualConfig:
     queriesTabResultSize: ${REACT_APP_QUERIES_TAB_RESULT_SIZE:5}
   assets:
     logoUrl: ${REACT_APP_LOGO_URL:/assets/logos/acryl-dark-mark.svg}
-    faviconUrl: ${REACT_APP_FAVICON_URL:/assets/favicon.ico}
+    faviconUrl: ${REACT_APP_FAVICON_URL:/assets/icons/favicon.ico}
+  appTitle: ${REACT_APP_TITLE:}
   hideGlossary: ${REACT_APP_HIDE_GLOSSARY:false}
   entityProfile:
     # we only support default tab for domains right now. In order to implement for other entities, update React code
@@ -239,6 +240,7 @@ elasticsearch:
       timeoutSeconds: ${ELASTICSEARCH_SEARCH_GRAPH_TIMEOUT_SECONDS:50} # graph dao timeout seconds
       batchSize: ${ELASTICSEARCH_SEARCH_GRAPH_BATCH_SIZE:1000} # graph dao batch size
       maxResult: ${ELASTICSEARCH_SEARCH_GRAPH_MAX_RESULT:10000} # graph dao max result size
+      enableMultiPathSearch: ${ELASTICSEARCH_SEARCH_GRAPH_MULTI_PATH_SEARCH:true}
   scroll:
     timeout: ${ELASTICSEARCH_SCROLL_TIMEOUT:5m} # Default timeout of the scroll reference for legacy scroll and PIT for searchAfter
 
@@ -376,6 +378,11 @@ systemUpdate:
   backOffFactor: ${BOOTSTRAP_SYSTEM_UPDATE_BACK_OFF_FACTOR:2} # Multiplicative factor for back off, default values will result in waiting 5min 15s
   waitForSystemUpdate: ${BOOTSTRAP_SYSTEM_UPDATE_WAIT_FOR_SYSTEM_UPDATE:true}
 
+structuredProperties:
+  enabled: ${ENABLE_STRUCTURED_PROPERTIES_HOOK:true} # applies structured properties mappings
+  writeEnabled: ${ENABLE_STRUCTURED_PROPERTIES_WRITE:true} # write structured property values
+  systemUpdateEnabled: ${ENABLE_STRUCTURED_PROPERTIES_SYSTEM_UPDATE:false} # applies structured property mappings in system update job
+
 healthCheck:
   cacheDurationSeconds: ${HEALTH_CHECK_CACHE_DURATION_SECONDS:5}
 
@@ -400,6 +407,7 @@ featureFlags:
     uiEnabled: ${PRE_PROCESS_HOOKS_UI_ENABLED:true} # Circumvents Kafka for processing index updates for UI changes sourced from GraphQL to avoid processing delays
   showAcrylInfo: ${SHOW_ACRYL_INFO:false} # Show different CTAs within DataHub around moving to Managed DataHub. Set to true for the demo site.
   nestedDomainsEnabled: ${NESTED_DOMAINS_ENABLED:true} # Enables the nested Domains feature that allows users to have sub-Domains. If this is off, Domains appear "flat" again
+  schemaFieldEntityFetchEnabled: ${SCHEMA_FIELD_ENTITY_FETCH_ENABLED:true} # Enables fetching for schema field entities from the database when we hydrate them on schema fields
 
 entityChangeEvents:
   enabled: ${ENABLE_ENTITY_CHANGE_EVENTS_HOOK:true}
@@ -456,6 +464,9 @@ cache:
           status: 20
           corpUserCredentials: 20
           corpUserSettings: 20
+        structuredProperty:
+          propertyDefinition: 86400 # 1 day
+          structuredPropertyKey: 86400 # 1 day
 
 chromeExtension:
   enabled: ${CHROME_EXTENSION_ENABLED:true}
@@ -476,3 +487,7 @@ monitorService:
   useSsl: ${DATAHUB_MONITORS_USE_SSL:false}
 
 springdoc.api-docs.groups.enabled: true
+
+forms:
+  hook:
+    enabled: { $FORMS_HOOK_ENABLED:true }

@@ -40,7 +40,7 @@ class DashboardPatchBuilder(MetadataPatchProposal):
             audit_header: The Kafka audit header of the dashboard (optional).
         """
         super().__init__(
-            urn, "dashboard", system_metadata=system_metadata, audit_header=audit_header
+            urn, system_metadata=system_metadata, audit_header=audit_header
         )
         self.custom_properties_patch_helper = CustomPropertiesPatchHelper(
             self, DashboardInfo.ASPECT_NAME

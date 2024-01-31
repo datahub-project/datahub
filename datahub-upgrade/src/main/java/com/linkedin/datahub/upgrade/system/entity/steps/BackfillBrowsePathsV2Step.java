@@ -54,10 +54,10 @@ public class BackfillBrowsePathsV2Step implements UpgradeStep {
           Constants.ML_FEATURE_ENTITY_NAME);
   private static final Integer BATCH_SIZE = 5000;
 
-  private final EntityService _entityService;
+  private final EntityService<?> _entityService;
   private final SearchService _searchService;
 
-  public BackfillBrowsePathsV2Step(EntityService entityService, SearchService searchService) {
+  public BackfillBrowsePathsV2Step(EntityService<?> entityService, SearchService searchService) {
     _searchService = searchService;
     _entityService = entityService;
   }

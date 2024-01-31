@@ -55,7 +55,6 @@ TABLE_STAT_LIST = {ROWS, BYTES}
 
 
 class HiveMetastoreProxy(Closeable):
-    # TODO: Support for view lineage using SQL parsing
     # Why not use hive ingestion source directly here ?
     # 1. hive ingestion source assumes 2-level namespace heirarchy and currently
     #    there is no other intermediate interface except sqlalchemy inspector

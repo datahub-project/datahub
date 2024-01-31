@@ -76,7 +76,7 @@ public class BackfillBrowsePathsV2StepTest {
 
   @Test
   public void testExecuteNoExistingBrowsePaths() throws Exception {
-    final EntityService mockService = initMockService();
+    final EntityService<?> mockService = initMockService();
     final SearchService mockSearchService = initMockSearchService();
 
     final Urn upgradeEntityUrn = Urn.createFromString(UPGRADE_URN);
@@ -110,7 +110,7 @@ public class BackfillBrowsePathsV2StepTest {
 
   @Test
   public void testDoesNotRunWhenAlreadyExecuted() throws Exception {
-    final EntityService mockService = Mockito.mock(EntityService.class);
+    final EntityService<?> mockService = Mockito.mock(EntityService.class);
     final SearchService mockSearchService = initMockSearchService();
 
     final Urn upgradeEntityUrn = Urn.createFromString(UPGRADE_URN);
@@ -140,8 +140,8 @@ public class BackfillBrowsePathsV2StepTest {
             Mockito.anyBoolean());
   }
 
-  private EntityService initMockService() throws URISyntaxException {
-    final EntityService mockService = Mockito.mock(EntityService.class);
+  private EntityService<?> initMockService() throws URISyntaxException {
+    final EntityService<?> mockService = Mockito.mock(EntityService.class);
     final EntityRegistry registry = new UpgradeDefaultBrowsePathsStepTest.TestEntityRegistry();
     Mockito.when(mockService.getEntityRegistry()).thenReturn(registry);
 

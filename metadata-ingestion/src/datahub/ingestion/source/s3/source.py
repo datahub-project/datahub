@@ -458,7 +458,8 @@ class S3Source(StatefulIngestionSourceBase):
             )
             file.close()
         logger.debug(f"Extracted fields in schema: {fields}")
-        fields = sorted(fields, key=lambda f: f.fieldPath)
+        if self.source_config.sort_schema_fields:
+            fields = sorted(fields, key=lambda f: f.fieldPath)
 
         if self.source_config.add_partition_columns_to_schema:
             self.add_partition_columns_to_schema(

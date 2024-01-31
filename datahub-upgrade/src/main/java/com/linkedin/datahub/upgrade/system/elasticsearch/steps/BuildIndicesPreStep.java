@@ -2,6 +2,8 @@ package com.linkedin.datahub.upgrade.system.elasticsearch.steps;
 
 import static com.linkedin.datahub.upgrade.system.elasticsearch.util.IndexUtils.INDEX_BLOCKS_WRITE_SETTING;
 import static com.linkedin.datahub.upgrade.system.elasticsearch.util.IndexUtils.getAllReindexConfigs;
+import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_ENTITY_NAME;
 
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.datahub.upgrade.UpgradeContext;
@@ -11,8 +13,12 @@ import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
 import com.linkedin.datahub.upgrade.system.elasticsearch.util.IndexUtils;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
+import com.linkedin.metadata.entity.AspectDao;
+import com.linkedin.metadata.entity.EntityUtils;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.shared.ElasticSearchIndexed;
+import com.linkedin.structured.StructuredPropertyDefinition;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
@@ -31,6 +37,8 @@ public class BuildIndicesPreStep implements UpgradeStep {
   private final BaseElasticSearchComponentsFactory.BaseElasticSearchComponents _esComponents;
   private final List<ElasticSearchIndexed> _services;
   private final ConfigurationProvider _configurationProvider;
+  private final AspectDao _aspectDao;
+  private final EntityRegistry _entityRegistry;
 
   @Override
   public String id() {
@@ -46,9 +54,28 @@ public class BuildIndicesPreStep implements UpgradeStep {
   public Function<UpgradeContext, UpgradeStepResult> executable() {
     return (context) -> {
       try {
+        List<ReindexConfig> reindexConfigs =
+            _configurationProvider.getStructuredProperties().isSystemUpdateEnabled()
+                ? getAllReindexConfigs(
+                    _services,
+                    _aspectDao
+                        .streamAspects(
+                            STRUCTURED_PROPERTY_ENTITY_NAME,
+                            STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME)
+                        .map(
+                            entityAspect ->
+                                EntityUtils.toAspectRecord(
+                                    STRUCTURED_PROPERTY_ENTITY_NAME,
+                                    STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME,
+                                    entityAspect.getMetadata(),
+                                    _entityRegistry))
+                        .map(recordTemplate -> (StructuredPropertyDefinition) recordTemplate)
+                        .collect(Collectors.toSet()))
+                : getAllReindexConfigs(_services);
+
         // Get indices to update
         List<ReindexConfig> indexConfigs =
-            getAllReindexConfigs(_services).stream()
+            reindexConfigs.stream()
                 .filter(ReindexConfig::requiresReindex)
                 .collect(Collectors.toList());
 

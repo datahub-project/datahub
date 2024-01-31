@@ -1,7 +1,7 @@
 package com.linkedin.gms.factory.auth;
 
 import com.datahub.authentication.proposal.ProposalService;
-import com.linkedin.metadata.client.JavaEntityClient;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.spring.YamlPropertySourceFactory;
@@ -21,17 +21,14 @@ public class ProposalServiceFactory {
   private EntityService _entityService;
 
   @Autowired
-  @Qualifier("javaEntityClient")
-  private JavaEntityClient _javaEntityClient;
-
-  @Autowired
   @Qualifier("graphClient")
   private GraphClient _graphClient;
 
   @Bean(name = "proposalService")
   @Scope("singleton")
   @Nonnull
-  protected ProposalService getInstance() throws Exception {
-    return new ProposalService(this._entityService, this._javaEntityClient, this._graphClient);
+  protected ProposalService getInstance(final @Qualifier("entityClient") EntityClient entityClient)
+      throws Exception {
+    return new ProposalService(this._entityService, entityClient, this._graphClient);
   }
 }

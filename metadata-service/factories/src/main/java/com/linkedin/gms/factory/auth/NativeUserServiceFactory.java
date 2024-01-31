@@ -1,8 +1,8 @@
 package com.linkedin.gms.factory.auth;
 
 import com.datahub.authentication.user.NativeUserService;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
-import com.linkedin.metadata.client.JavaEntityClient;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.secret.SecretService;
 import com.linkedin.metadata.spring.YamlPropertySourceFactory;
@@ -19,11 +19,7 @@ import org.springframework.context.annotation.Scope;
 public class NativeUserServiceFactory {
   @Autowired
   @Qualifier("entityService")
-  private EntityService _entityService;
-
-  @Autowired
-  @Qualifier("javaEntityClient")
-  private JavaEntityClient _javaEntityClient;
+  private EntityService<?> _entityService;
 
   @Autowired
   @Qualifier("dataHubSecretService")
@@ -34,11 +30,8 @@ public class NativeUserServiceFactory {
   @Bean(name = "nativeUserService")
   @Scope("singleton")
   @Nonnull
-  protected NativeUserService getInstance() throws Exception {
+  protected NativeUserService getInstance(final SystemEntityClient entityClient) throws Exception {
     return new NativeUserService(
-        _entityService,
-        _javaEntityClient,
-        _secretService,
-        _configurationProvider.getAuthentication());
+        _entityService, entityClient, _secretService, _configurationProvider.getAuthentication());
   }
 }

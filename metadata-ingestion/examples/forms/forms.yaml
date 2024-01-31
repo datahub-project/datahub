@@ -1,0 +1,54 @@
+- id: 123456
+  # urn: "urn:li:form:123456"  # optional if id is provided
+  type: VERIFICATION
+  name: "Metadata Initiative 2023"
+  description: "How we want to ensure the most important data assets in our organization have all of the most important and expected pieces of metadata filled out"
+  prompts:
+    - id: "123"
+      title: "Retention Time"
+      description: "Apply Retention Time structured property to form"
+      type: STRUCTURED_PROPERTY
+      structured_property_id: io.acryl.privacy.retentionTime
+      required: True # optional, will default to True
+    - id: "92847"
+      title: "Replication SLA"
+      description: "Apply Replication SLA structured property to form"
+      type: STRUCTURED_PROPERTY
+      structured_property_urn: urn:li:structuredProperty:io.acryl.dataManagement.replicationSLA
+      required: True
+    - id: "76543"
+      title: "Replication SLA"
+      description: "Apply Replication SLA structured property to form"
+      type: FIELDS_STRUCTURED_PROPERTY
+      structured_property_urn: urn:li:structuredProperty:io.acryl.dataManagement.replicationSLA
+      required: False
+  entities: # Either pass a list of urns or a group of filters
+    # urns:
+    #   - urn:li:dataset:(urn:li:dataPlatform:hive,user.clicks,PROD)
+    #   - urn:li:dataset:(urn:li:dataPlatform:snowflake,user.clicks,PROD)
+    filters:
+      types:
+        - dataset
+      platforms:
+        - snowflake
+        - dbt
+      domains:
+        - urn:li:domain:b41fbb69-1549-4f30-a463-d75d1bed31c1
+      containers:
+        - urn:li:container:21d4204e13d5b984c58acad468ecdbdd
+- urn: "urn:li:form:917364"
+  # id: 917364  # optional if urn is provided
+  type: VERIFICATION
+  name: "Governance Initiative"
+  prompts:
+    - id: "123"
+      title: "Retention Time"
+      description: "Apply Retention Time structured property to form"
+      type: STRUCTURED_PROPERTY
+      structured_property_id: io.acryl.privacy.retentionTime
+      required: False
+    - id: "certifier"
+      title: "Certifier"
+      type: STRUCTURED_PROPERTY
+      structured_property_id: io.acryl.dataManagement.certifier
+      required: True

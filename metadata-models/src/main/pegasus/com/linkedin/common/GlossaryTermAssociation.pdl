@@ -29,4 +29,5 @@ record GlossaryTermAssociation {
    * Additional context about the association
    */
   context: optional string
+
 }

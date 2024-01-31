@@ -9,6 +9,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.net.ssl.SSLContext;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -16,6 +17,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.DependsOn;
 
+@Slf4j
 @Configuration
 public class CassandraSessionFactory {
 
@@ -50,7 +52,7 @@ public class CassandraSessionFactory {
       try {
         csb = csb.withSslContext(SSLContext.getDefault());
       } catch (Exception e) {
-        e.printStackTrace();
+        log.error("Error creating cassandra ssl session", e);
       }
     }
 

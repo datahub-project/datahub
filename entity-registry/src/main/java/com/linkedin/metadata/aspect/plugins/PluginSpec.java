@@ -38,9 +38,11 @@ public abstract class PluginSpec {
 
   protected boolean isEntityAspectSupported(
       @Nonnull String entityName, @Nonnull String aspectName) {
-    return (ENTITY_WILDCARD.equals(entityName)
-            || getConfig().getSupportedEntityAspectNames().stream()
-                .anyMatch(supported -> supported.getEntityName().equals(entityName)))
+    return (getConfig().getSupportedEntityAspectNames().stream()
+            .anyMatch(
+                supported ->
+                    ENTITY_WILDCARD.equals(supported.getEntityName())
+                        || supported.getEntityName().equals(entityName)))
         && isAspectSupported(aspectName);
   }
 

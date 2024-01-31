@@ -165,6 +165,7 @@ public class ValidationUtils {
 
       validatedLineageSearchResult.setEntities(validatedEntities);
 
+      log.debug("Returning validated lineage search results");
       return validatedLineageSearchResult;
     }
   }

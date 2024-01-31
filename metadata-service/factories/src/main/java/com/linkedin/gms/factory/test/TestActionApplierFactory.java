@@ -1,9 +1,6 @@
 package com.linkedin.gms.factory.test;
 
-import com.datahub.authentication.Authentication;
-import com.linkedin.entity.client.EntityClient;
-import com.linkedin.gms.factory.auth.SystemAuthenticationFactory;
-import com.linkedin.gms.factory.entity.JavaEntityClientFactory;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.service.DomainService;
 import com.linkedin.metadata.service.GlossaryTermService;
@@ -29,34 +26,27 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.PropertySource;
 
 @Configuration
-@Import({JavaEntityClientFactory.class, SystemAuthenticationFactory.class})
 @PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
 public class TestActionApplierFactory {
-
-  @Autowired
-  @Qualifier("javaEntityClient")
-  private EntityClient entityClient;
-
-  @Autowired
-  @Qualifier("systemAuthentication")
-  private Authentication systemAuthentication;
-
   @Autowired
   @Qualifier("entityService")
   private EntityService entityService;
 
   @Bean(name = "testActionApplier")
   @Nonnull
-  protected ActionApplier getInstance() {
+  protected ActionApplier getInstance(final SystemEntityClient systemEntityClient) {
     List<Action> appliers = new ArrayList<>();
-    TagService tagService = new TagService(entityClient, systemAuthentication);
-    GlossaryTermService termsService = new GlossaryTermService(entityClient, systemAuthentication);
-    OwnerService ownerService = new OwnerService(entityClient, systemAuthentication);
-    DomainService domainService = new DomainService(entityClient, systemAuthentication);
+    TagService tagService =
+        new TagService(systemEntityClient, systemEntityClient.getSystemAuthentication());
+    GlossaryTermService termsService =
+        new GlossaryTermService(systemEntityClient, systemEntityClient.getSystemAuthentication());
+    OwnerService ownerService =
+        new OwnerService(systemEntityClient, systemEntityClient.getSystemAuthentication());
+    DomainService domainService =
+        new DomainService(systemEntityClient, systemEntityClient.getSystemAuthentication());
     appliers.add(new AddTagsAction(tagService));
     appliers.add(new RemoveTagsAction(tagService));
     appliers.add(new AddGlossaryTermsAction(termsService));
