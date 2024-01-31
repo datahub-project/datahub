@@ -2,7 +2,7 @@ import dataclasses
 import enum
 import logging
 from datetime import datetime
-from typing import Callable, Dict, Iterable, List, Optional
+from typing import Callable, Dict, Iterable, List, Optional, Set
 
 import datahub.metadata.schema_classes as models
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -33,21 +33,15 @@ class QueryMetadata:
     raw_query_string: str
     formatted_query_string: str
 
-    type: str = models.DatasetLineageTypeClass.TRANSFORMED
+    session_id: Optional[str]
+    type: str
     latest_timestamp: Optional[datetime]
     actor: Optional[CorpUserUrn]
 
-
-@dataclasses.dataclass
-class LineageEdge:
-    # info about upstream edges for a given downstream urn + query id
-
-    query_id: QueryId
-
-    upstreams: List[str]
-    column_lineage: Optional[List[ColumnLineageInfo]] = (
-        None  # TODO add an internal representation?
-    )
+    upstreams: List[str]  # this is direct upstreams, which may be temp tables
+    column_lineage: Optional[
+        List[ColumnLineageInfo]
+    ]  # TODO add an internal representation?
 
 
 class SqlParsingAggregator:
@@ -87,7 +81,9 @@ class SqlParsingAggregator:
         # can be used by BQ where we have a "temp_table_dataset_prefix"
         self.is_temp_table = is_temp_table
 
-        self.store_queries = store_queries  # TODO: implement
+        self.store_queries = (
+            store_queries  # TODO: implement + make the name more descriptive
+        )
 
         # Set up the schema resolver.
         self._schema_resolver: SchemaResolver
@@ -102,12 +98,23 @@ class SqlParsingAggregator:
             self._initialize_schema_resolver_from_graph(graph)
 
         # Initialize internal data structures.
+        # This leans pretty heavily on the our query fingerprinting capabilities.
+        # In particular, it must be true that if two queries have the same fingerprint,
+        # they must generate the same lineage.
 
         # Map of query_id -> QueryMetadata
         self._query_map = FileBackedDict[QueryMetadata]()
 
-        # Map of downstream urn -> {query id -> {upstream_urn -> LineageEdge} }
-        self._lineage_map = FileBackedDict[Dict[str, Dict[str, LineageEdge]]]()
+        # Map of downstream urn -> { query ids }
+        self._lineage_map = FileBackedDict[Set[QueryId]]()
+
+        # Map of session ID -> {temp table name -> query id}
+        # Needs to use the query_map to find the info about the query.
+        # This assumes that a temp table is created at most once per session.
+        self._temp_lineage_map = FileBackedDict[Dict[str, QueryId]]()
+
+        # Map of query ID -> schema fields, only for query IDs that generate temp tables.
+        self._inferred_temp_schemas = FileBackedDict[List[models.SchemaFieldClass]]
 
         # TODO list of query IDs that we actually want in operations
 
@@ -142,6 +149,7 @@ class SqlParsingAggregator:
             self._schema_resolver is not None
             and self._schema_resolver.schema_count() > 0
         ):
+            # TODO: Have a mechanism to override this, e.g. when table ingestion is enabled but view ingestion is not.
             logger.info(
                 "Not fetching any schemas from the graph, since "
                 f"there are {self._schema_resolver.schema_count()} schemas already registered."
@@ -230,9 +238,25 @@ class SqlParsingAggregator:
             breakpoint()
 
         else:
+            # Non-temp tables -> immediately generate lineage.
+
+            query_fingerprint = TODO
+
+            if query_fingerprint in self._query_map:
+                pass
+            else:
+                self._query_map[query_fingerprint] = QueryMetadata(
+                    query_id=query_fingerprint,
+                    raw_query_string=query,
+                    formatted_query_string=parsed.formatted_query,
+                    session_id=session_id,
+                    type=models.DatasetLineageTypeClass.TRANSFORMED,
+                    latest_timestamp=query_timestamp,
+                    actor=user,
+                )
+
             # TODO: what happens if a CREATE VIEW query gets passed into this method
 
-            # Non-temp tables -> immediately generate lineage.
             pass
 
     def add_lineage(self) -> None:

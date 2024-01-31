@@ -31,6 +31,7 @@ from datahub.metadata.schema_classes import (
     DateTypeClass,
     NumberTypeClass,
     OperationTypeClass,
+    SchemaFieldClass,
     SchemaFieldDataTypeClass,
     SchemaMetadataClass,
     StringTypeClass,
@@ -510,13 +511,19 @@ class SchemaResolver(Closeable):
     def _convert_schema_aspect_to_info(
         cls, schema_metadata: SchemaMetadataClass
     ) -> SchemaInfo:
+        return cls._convert_schema_field_list_to_info(schema_metadata.fields)
+
+    @classmethod
+    def _convert_schema_field_list_to_info(
+        cls, schema_fields: List[SchemaFieldClass]
+    ) -> SchemaInfo:
         return {
             get_simple_field_path_from_v2_field_path(col.fieldPath): (
                 # The actual types are more of a "nice to have".
                 col.nativeDataType
                 or "str"
             )
-            for col in schema_metadata.fields
+            for col in schema_fields
             # TODO: We can't generate lineage to columns nested within structs yet.
             if "." not in get_simple_field_path_from_v2_field_path(col.fieldPath)
         }
