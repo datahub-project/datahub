@@ -8,11 +8,7 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 from datahub.metadata.urns import CorpUserUrn, DataPlatformUrn, DatasetUrn
-from datahub.utilities.sqlglot_lineage import (
-    QuerySubtype,
-    SchemaResolver,
-    sqlglot_lineage,
-)
+from datahub.utilities.sqlglot_lineage import SchemaResolver, sqlglot_lineage
 
 logger = logging.getLogger(__name__)
 
@@ -174,6 +170,7 @@ class SqlParsingAggregator:
 
         if not parsed.out_tables:
             # TODO - this is just a SELECT statement, so it only counts towards usage
+            breakpoint()
 
             return
 
@@ -181,17 +178,21 @@ class SqlParsingAggregator:
 
         if (
             is_known_temp_table
-            or parsed.query_subtype == QuerySubtype.CREATE_TEMP_TABLE
+            or (
+                parsed.query_type.is_create()
+                and parsed.query_type_props.get("temporary")
+            )
             or (self.is_temp_table and self.is_temp_table(out_table))
             or not self._schema_resolver.has_urn(out_table)
         ):
             # handle temp table
+            breakpoint()
+
+        else:
+            # TODO: what happens if a CREATE VIEW query gets passed into this method
+
+            # Non-temp tables -> immediately generate lineage.
             pass
-
-        # handle non-temp table
-
-        # TODO: what happens if a CREATE VIEW query gets passed into this method
-        pass
 
     def add_lineage(self) -> None:
         # A secondary mechanism for adding non-SQL-based lineage

@@ -92,7 +92,7 @@ class QueryType(enum.Enum):
     DELETE = "DELETE"
     MERGE = "MERGE"
 
-    def _is_create(self) -> bool:
+    def is_create(self) -> bool:
         return self in {
             QueryType.CREATE_DDL,
             QueryType.CREATE_VIEW,
@@ -101,7 +101,7 @@ class QueryType(enum.Enum):
         }
 
     def to_operation_type(self) -> Optional[str]:
-        if self._is_create():
+        if self.is_create():
             return OperationTypeClass.CREATE
 
         query_to_operation_mapping = {
