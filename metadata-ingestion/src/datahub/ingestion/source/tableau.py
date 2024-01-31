@@ -1291,7 +1291,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
             op = field_type  # BinField, CombinedField, etc
 
         return op
-
+    
     def emit_custom_sql_datasources(self) -> Iterable[MetadataWorkUnit]:
         custom_sql_filter = (
             f"{c.ID_WITH_IN}: {json.dumps(self.custom_sql_ids_being_used)}"
@@ -1351,10 +1351,17 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                 project = self._get_project_browse_path_name(datasource)
 
                 logger.debug("Patched version of DataHub <adapted for Exact>")
+                # if condition is needed as graphQL return "cloumns": None
+                columns: List[Dict[Any, Any]] = (
+                    cast(List[Dict[Any, Any]], csql.get(c.COLUMNS))
+                    if c.COLUMNS in csql and csql.get(c.COLUMNS) is not None
+                    else []
+                )
+
                 if self.config.force_extraction_of_lineage_from_custom_sql_queries:
                     logger.debug("Extracting TLL & CLL from custom sql (forced)")
                     yield from self._create_lineage_from_unsupported_csql(
-                        csql_urn, csql
+                        csql_urn, csql, columns
                     )
                 else:
                     tables = csql.get(c.TABLES, [])
@@ -1369,16 +1376,10 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                         # custom sql tables may contain unsupported sql, causing incomplete lineage
                         # we extract the lineage from the raw queries
                         yield from self._create_lineage_from_unsupported_csql(
-                            csql_urn, csql
+                            csql_urn, csql, columns
                         )
 
             #  Schema Metadata
-            # if condition is needed as graphQL return "cloumns": None
-            columns: List[Dict[Any, Any]] = (
-                cast(List[Dict[Any, Any]], csql.get(c.COLUMNS))
-                if c.COLUMNS in csql and csql.get(c.COLUMNS) is not None
-                else []
-            )
             schema_metadata = self.get_schema_metadata_for_custom_sql(columns)
             if schema_metadata is not None:
                 dataset_snapshot.aspects.append(schema_metadata)
@@ -1641,7 +1642,10 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
             ]
         ],
     ) -> Optional["SqlParsingResult"]:
-        database_info = datasource.get(c.DATABASE) or {}
+        database_info = datasource.get(c.DATABASE) or {
+            c.NAME: c.UNKNOWN,
+            c.CONNECTION_TYPE: "databricks"
+        }
 
         if datasource.get(c.IS_UNSUPPORTED_CUSTOM_SQL) in (None, False) and \
             not self.config.force_extraction_of_lineage_from_custom_sql_queries:
@@ -1699,7 +1703,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                 self.in_tables_schemas[table_urn] = columns
     
     def _create_lineage_from_unsupported_csql(
-        self, csql_urn: str, csql: dict
+        self, csql_urn: str, csql: dict, out_columns: List[Dict[Any, Any]]
     ) -> Iterable[MetadataWorkUnit]:
         parsed_result = self.parse_custom_sql(
             datasource=csql,
@@ -1732,7 +1736,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
         if self.config.extract_column_level_lineage:
             logger.info("Extracting CLL from custom sql")
             fine_grained_lineages = make_fine_grained_lineage_class(
-                parsed_result, csql_urn
+                parsed_result, csql_urn, out_columns
             )
 
         upstream_lineage = UpstreamLineage(
