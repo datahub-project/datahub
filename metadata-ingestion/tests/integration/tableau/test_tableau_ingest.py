@@ -853,33 +853,6 @@ def test_tableau_unsupported_csql(mock_datahub_graph):
             == "urn:li:dataset:(urn:li:dataPlatform:tableau,09988088-05ad-173c-a2f1-f33ba3a13d1a,PROD)"
         )
 
-from  datahub.ingestion.graph.client import DataHubGraph, DatahubClientConfig
-
-def test_tableau_parse_csql(mock_datahub_graph):
-    context = PipelineContext(run_id="0", pipeline_name="test_tableau")
-    graph_cfg = DatahubClientConfig(token = "eyJhbGciOiJIUzI1NiJ9.eyJhY3RvclR5cGUiOiJVU0VSIiwiYWN0b3JJZCI6ImRhdGFodWIiLCJ0eXBlIjoiUEVSU09OQUwiLCJ2ZXJzaW9uIjoiMiIsImp0aSI6ImJiYjA0MTE5LWExYzEtNGU4MC1iYzE2LTIwMjM4ZWUyMDE5OCIsInN1YiI6ImRhdGFodWIiLCJpc3MiOiJkYXRhaHViLW1ldGFkYXRhLXNlcnZpY2UifQ.5zvTo_CvtpU23tIXQIBLCf-DkNOgSVngxUZEDBT84Nw")
-    context.graph = DataHubGraph(graph_cfg)
-    config = TableauConfig.parse_obj(config_source_default.copy())
-    config.extract_lineage_from_unsupported_custom_sql_queries = True
-    config.force_extraction_of_lineage_from_custom_sql_queries = True
-    config.lineage_overrides = TableauLineageOverrides(
-        database_override_map={"production database": "prod"}
-    )
-
-    source = TableauSource(config=config, ctx=context)
-
-    lineage = source.emit_custom_sql_datasources()
-    res = next(lineage)
-    res = next(lineage)
-    res = next(lineage)
-    res = next(lineage)
-    res = next(lineage)
-    res = next(lineage)
-    res = next(lineage)
-    res = next(lineage)
-    res = next(lineage)
-
-
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
 def test_get_all_datasources_failure(pytestconfig, tmp_path, mock_datahub_graph):
