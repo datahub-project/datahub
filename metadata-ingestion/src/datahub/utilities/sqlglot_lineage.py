@@ -1024,18 +1024,6 @@ def _is_dialect_instance(
     return False
 
 
-def get_query_type(
-    sql: str,
-    platform: str,
-) -> QueryType:
-
-    dialect = _get_dialect(platform)
-
-    statement = _parse_statement(sql, dialect=dialect)
-
-    return get_query_type_of_sql(statement)
-
-
 def _sqlglot_lineage_inner(
     sql: sqlglot.exp.ExpOrStr,
     schema_resolver: SchemaResolver,
