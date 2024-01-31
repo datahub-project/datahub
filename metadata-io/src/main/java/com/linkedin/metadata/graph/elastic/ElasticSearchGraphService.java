@@ -1,5 +1,7 @@
 package com.linkedin.metadata.graph.elastic;
 
+import static com.linkedin.metadata.graph.elastic.GraphRelationshipMappingsBuilder.*;
+
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.annotations.VisibleForTesting;
@@ -81,9 +83,9 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
     destinationObject.put("urn", edge.getDestination().toString());
     destinationObject.put("entityType", edge.getDestination().getEntityType());
 
-    searchDocument.set("source", sourceObject);
-    searchDocument.set("destination", destinationObject);
-    searchDocument.put("relationshipType", edge.getRelationshipType());
+    searchDocument.set(EDGE_FIELD_SOURCE, sourceObject);
+    searchDocument.set(EDGE_FIELD_DESTINATION, destinationObject);
+    searchDocument.put(EDGE_FIELD_RELNSHIP_TYPE, edge.getRelationshipType());
     if (edge.getCreatedOn() != null) {
       searchDocument.put("createdOn", edge.getCreatedOn());
     }
@@ -108,8 +110,15 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
                   entry.getKey(), entry.getValue()));
         }
       }
-      searchDocument.set("properties", propertiesObject);
+      searchDocument.set(EDGE_FIELD_PROPERTIES, propertiesObject);
     }
+    if (edge.getLifecycleOwner() != null) {
+      searchDocument.put(EDGE_FIELD_LIFECYCLE_OWNER, edge.getLifecycleOwner().toString());
+    }
+    if (edge.getVia() != null) {
+      searchDocument.put(EDGE_FIELD_VIA, edge.getVia().toString());
+    }
+    log.debug("Search doc for write {}", searchDocument);
 
     return searchDocument.toString();
   }
@@ -192,8 +201,8 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
     final List<RelatedEntity> relationships =
         searchHitsToRelatedEntities(response.getHits().getHits(), relationshipDirection).stream()
             .map(RelatedEntities::asRelatedEntity)
+            .filter(Objects::nonNull)
             .collect(Collectors.toList());
-
     return new RelatedEntitiesResult(offset, relationships.size(), totalCount, relationships);
   }
 
@@ -276,6 +285,10 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
 
     _graphWriteDAO.deleteByQuery(
         null, urnFilter, null, emptyFilter, relationshipTypes, incomingFilter);
+
+    // Delete all edges where this entity is a lifecycle owner
+    _graphWriteDAO.deleteByQuery(
+        null, emptyFilter, null, emptyFilter, relationshipTypes, incomingFilter, urn.toString());
 
     return;
   }
@@ -394,15 +407,15 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
     return Arrays.stream(searchHits)
         .map(
             hit -> {
+              final Map<String, Object> hitMap = hit.getSourceAsMap();
               final String destinationUrnStr =
-                  ((HashMap<String, String>)
-                          hit.getSourceAsMap().getOrDefault("destination", EMPTY_HASH))
+                  ((Map<String, String>) hitMap.getOrDefault(EDGE_FIELD_DESTINATION, EMPTY_HASH))
                       .getOrDefault("urn", null);
               final String sourceUrnStr =
-                  ((HashMap<String, String>)
-                          hit.getSourceAsMap().getOrDefault("source", EMPTY_HASH))
+                  ((Map<String, String>) hitMap.getOrDefault(EDGE_FIELD_SOURCE, EMPTY_HASH))
                       .getOrDefault("urn", null);
-              final String relationshipType = (String) hit.getSourceAsMap().get("relationshipType");
+              final String relationshipType = (String) hitMap.get(EDGE_FIELD_RELNSHIP_TYPE);
+              String viaEntity = (String) hitMap.get(EDGE_FIELD_VIA);
 
               if (destinationUrnStr == null || sourceUrnStr == null || relationshipType == null) {
                 log.error(
@@ -414,7 +427,11 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
               }
 
               return new RelatedEntities(
-                  relationshipType, sourceUrnStr, destinationUrnStr, relationshipDirection);
+                  relationshipType,
+                  sourceUrnStr,
+                  destinationUrnStr,
+                  relationshipDirection,
+                  viaEntity);
             })
         .filter(Objects::nonNull)
         .collect(Collectors.toList());

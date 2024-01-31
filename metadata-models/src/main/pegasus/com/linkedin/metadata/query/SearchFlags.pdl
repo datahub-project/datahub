@@ -33,4 +33,9 @@ record SearchFlags {
    * Whether to request for search suggestions on the _entityName virtualized field
    */
   getSuggestions:optional boolean = false
+
+  /**
+  * Instructions for grouping results before returning
+  */
+  groupingSpec: optional GroupingSpec
 }

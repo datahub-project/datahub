@@ -17,15 +17,17 @@ public class RelatedEntities extends RelatedEntity {
       @Nonnull String relationshipType,
       @Nonnull String sourceUrn,
       @Nonnull String destinationUrn,
-      @Nonnull RelationshipDirection relationshipDirection) {
+      @Nonnull RelationshipDirection relationshipDirection,
+      String viaEntity) {
     super(
         relationshipType,
-        relationshipDirection == RelationshipDirection.OUTGOING ? destinationUrn : sourceUrn);
+        relationshipDirection == RelationshipDirection.OUTGOING ? destinationUrn : sourceUrn,
+        viaEntity);
     this.sourceUrn = sourceUrn;
     this.destinationUrn = destinationUrn;
   }
 
   public RelatedEntity asRelatedEntity() {
-    return new RelatedEntity(relationshipType, urn);
+    return new RelatedEntity(relationshipType, urn, via);
   }
 }
