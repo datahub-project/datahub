@@ -1,8 +1,13 @@
 import pytest
 import tenacity
 
-from tests.utils import (delete_urns_from_file, get_frontend_url, get_gms_url,
-                         get_sleep_info, ingest_file_via_rest)
+from tests.utils import (
+    delete_urns_from_file,
+    get_frontend_url,
+    get_gms_url,
+    get_sleep_info,
+    ingest_file_via_rest,
+)
 
 sleep_sec, sleep_times = get_sleep_info()
 
@@ -26,7 +31,6 @@ def test_healthchecks(wait_for_healthchecks):
     stop=tenacity.stop_after_attempt(sleep_times), wait=tenacity.wait_fixed(sleep_sec)
 )
 def _ensure_more_domains(frontend_session, list_domains_json, before_count):
-
     # Get new count of Domains
     response = frontend_session.post(
         f"{get_frontend_url()}/api/v2/graphql", json=list_domains_json
@@ -47,7 +51,6 @@ def _ensure_more_domains(frontend_session, list_domains_json, before_count):
 
 @pytest.mark.dependency(depends=["test_healthchecks"])
 def test_create_list_get_domain(frontend_session):
-
     # Setup: Delete the domain (if exists)
     response = frontend_session.post(
         f"{get_gms_url()}/entities?action=delete", json={"urn": "urn:li:domain:test id"}
@@ -167,7 +170,6 @@ def test_create_list_get_domain(frontend_session):
 
 @pytest.mark.dependency(depends=["test_healthchecks", "test_create_list_get_domain"])
 def test_set_unset_domain(frontend_session, ingest_cleanup_data):
-
     # Set and Unset a Domain for a dataset. Note that this doesn't test for adding domains to charts, dashboards, charts, & jobs.
     dataset_urn = (
         "urn:li:dataset:(urn:li:dataPlatform:kafka,test-tags-terms-sample-kafka,PROD)"
