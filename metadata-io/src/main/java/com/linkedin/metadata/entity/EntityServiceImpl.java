@@ -1844,6 +1844,7 @@ public class EntityServiceImpl implements EntityService<MCPUpsertBatchItem> {
    */
   @Override
   public Set<Urn> exists(@Nonnull final Collection<Urn> urns, boolean includeSoftDeleted) {
+
     final Set<EntityAspectIdentifier> dbKeys =
         urns.stream()
             .map(
@@ -1856,7 +1857,6 @@ public class EntityServiceImpl implements EntityService<MCPUpsertBatchItem> {
                             .getName(),
                         ASPECT_LATEST_VERSION))
             .collect(Collectors.toSet());
-
     final Map<EntityAspectIdentifier, EntityAspect> aspects = _aspectDao.batchGet(dbKeys);
     final Set<String> existingUrnStrings =
         aspects.values().stream()

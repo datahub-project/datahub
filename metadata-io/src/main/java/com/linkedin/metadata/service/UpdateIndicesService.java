@@ -14,7 +14,9 @@ import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.datajob.DataJobInputOutput;
 import com.linkedin.dataset.FineGrainedLineage;
+import com.linkedin.dataset.FineGrainedLineageArray;
 import com.linkedin.dataset.UpstreamLineage;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
@@ -275,21 +277,36 @@ public class UpdateIndicesService {
 
   // TODO: remove this method once we implement sourceOverride when creating graph edges
   private void updateFineGrainedEdgesAndRelationships(
-      RecordTemplate aspect,
+      Urn entity,
+      FineGrainedLineageArray fineGrainedLineageArray,
       List<Edge> edgesToAdd,
       HashMap<Urn, Set<String>> urnToRelationshipTypesBeingAdded) {
-    UpstreamLineage upstreamLineage = new UpstreamLineage(aspect.data());
-    if (upstreamLineage.getFineGrainedLineages() != null) {
-      for (FineGrainedLineage fineGrainedLineage : upstreamLineage.getFineGrainedLineages()) {
+    if (fineGrainedLineageArray != null) {
+      for (FineGrainedLineage fineGrainedLineage : fineGrainedLineageArray) {
         if (!fineGrainedLineage.hasDownstreams() || !fineGrainedLineage.hasUpstreams()) {
           break;
         }
+        // Fine grained lineage array is present either on datajob (datajob input/output) or dataset
+        // We set the datajob as the viaEntity in scenario 1, and the query (if present) as the
+        // viaEntity in scenario 2
+        Urn viaEntity =
+            entity.getEntityType().equals("dataJob") ? entity : fineGrainedLineage.getQuery();
         // for every downstream, create an edge with each of the upstreams
         for (Urn downstream : fineGrainedLineage.getDownstreams()) {
           for (Urn upstream : fineGrainedLineage.getUpstreams()) {
             // TODO: add edges uniformly across aspects
             edgesToAdd.add(
-                new Edge(downstream, upstream, DOWNSTREAM_OF, null, null, null, null, null));
+                new Edge(
+                    downstream,
+                    upstream,
+                    DOWNSTREAM_OF,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    entity,
+                    viaEntity));
             Set<String> relationshipTypes =
                 urnToRelationshipTypesBeingAdded.getOrDefault(downstream, new HashSet<>());
             relationshipTypes.add(DOWNSTREAM_OF);
@@ -357,12 +374,23 @@ public class UpdateIndicesService {
     // inputFields
     // since @Relationship only links between the parent entity urn and something else.
     if (aspectSpec.getName().equals(Constants.UPSTREAM_LINEAGE_ASPECT_NAME)) {
-      updateFineGrainedEdgesAndRelationships(aspect, edgesToAdd, urnToRelationshipTypesBeingAdded);
-    }
-    if (aspectSpec.getName().equals(Constants.INPUT_FIELDS_ASPECT_NAME)) {
+      UpstreamLineage upstreamLineage = new UpstreamLineage(aspect.data());
+      updateFineGrainedEdgesAndRelationships(
+          urn,
+          upstreamLineage.getFineGrainedLineages(),
+          edgesToAdd,
+          urnToRelationshipTypesBeingAdded);
+    } else if (aspectSpec.getName().equals(Constants.INPUT_FIELDS_ASPECT_NAME)) {
       final InputFields inputFields = new InputFields(aspect.data());
       updateInputFieldEdgesAndRelationships(
           urn, inputFields, edgesToAdd, urnToRelationshipTypesBeingAdded);
+    } else if (aspectSpec.getName().equals(Constants.DATA_JOB_INPUT_OUTPUT_ASPECT_NAME)) {
+      DataJobInputOutput dataJobInputOutput = new DataJobInputOutput(aspect.data());
+      updateFineGrainedEdgesAndRelationships(
+          urn,
+          dataJobInputOutput.getFineGrainedLineages(),
+          edgesToAdd,
+          urnToRelationshipTypesBeingAdded);
     }
 
     Map<RelationshipFieldSpec, List<Object>> extractedFields =
@@ -394,7 +422,7 @@ public class UpdateIndicesService {
         edgeAndRelationTypes.getSecond();
 
     log.debug("Here's the relationship types found {}", urnToRelationshipTypesBeingAdded);
-    if (urnToRelationshipTypesBeingAdded.size() > 0) {
+    if (!urnToRelationshipTypesBeingAdded.isEmpty()) {
       for (Map.Entry<Urn, Set<String>> entry : urnToRelationshipTypesBeingAdded.entrySet()) {
         _graphService.removeEdgesFromNode(
             entry.getKey(),
