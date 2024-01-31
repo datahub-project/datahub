@@ -83,6 +83,7 @@ export const DatasetAssertionsList = ({ assertions, onDelete }: Props) => {
         type: assertion.info?.type,
         platform: assertion.platform,
         datasetAssertionInfo: assertion.info?.datasetAssertion,
+        description: assertion.info?.description,
         lastExecTime: assertion.runEvents?.runEvents?.length && assertion.runEvents.runEvents[0].timestampMillis,
         lastExecResult:
             assertion.runEvents?.runEvents?.length &&
@@ -101,6 +102,7 @@ export const DatasetAssertionsList = ({ assertions, onDelete }: Props) => {
                 const resultColor = (record.lastExecResult && getResultColor(record.lastExecResult)) || 'default';
                 const resultText = (record.lastExecResult && getResultText(record.lastExecResult)) || 'No Evaluations';
                 const resultIcon = (record.lastExecResult && getResultIcon(record.lastExecResult)) || <StopOutlined />;
+                const { description } = record;
                 return (
                     <ResultContainer>
                         <div>
@@ -111,7 +113,10 @@ export const DatasetAssertionsList = ({ assertions, onDelete }: Props) => {
                                 </Tag>
                             </Tooltip>
                         </div>
-                        <DatasetAssertionDescription assertionInfo={record.datasetAssertionInfo} />
+                        <DatasetAssertionDescription
+                            description={description}
+                            assertionInfo={record.datasetAssertionInfo}
+                        />
                     </ResultContainer>
                 );
             },
@@ -146,12 +151,7 @@ export const DatasetAssertionsList = ({ assertions, onDelete }: Props) => {
                     <Button onClick={() => onDeleteAssertion(record.urn)} type="text" shape="circle" danger>
                         <DeleteOutlined />
                     </Button>
-                    <Dropdown
-                        overlay={
-                            <AssertionMenu urn={record.urn}/>
-                        }
-                        trigger={['click']}
-                    >
+                    <Dropdown overlay={<AssertionMenu urn={record.urn} />} trigger={['click']}>
                         <StyledMoreOutlined />
                     </Dropdown>
                 </ActionButtonContainer>
