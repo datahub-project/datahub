@@ -534,7 +534,8 @@ public class Neo4jGraphService implements GraphService {
                             .get(0)
                             .asNode()
                             .get("urn")
-                            .asString())); // Urn TODO: Validate this works against Neo4j.
+                            .asString(), // Urn TODO: Validate this works against Neo4j.
+                        null));
     final int totalCount = runQuery(countStatement).single().get(0).asInt();
     return new RelatedEntitiesResult(offset, relatedEntities.size(), totalCount, relatedEntities);
   }

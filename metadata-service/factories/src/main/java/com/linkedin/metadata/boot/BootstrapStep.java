@@ -48,6 +48,17 @@ public interface BootstrapStep {
     final DataHubUpgradeResult upgradeResult =
         new DataHubUpgradeResult().setTimestampMs(System.currentTimeMillis());
 
+    // Workaround because entity service does not auto-generate the key aspect for us
+    final MetadataChangeProposal keyProposal = new MetadataChangeProposal();
+    final DataHubUpgradeKey upgradeKey = new DataHubUpgradeKey().setId(urn.getId());
+    keyProposal.setEntityUrn(urn);
+    keyProposal.setEntityType(Constants.DATA_HUB_UPGRADE_ENTITY_NAME);
+    keyProposal.setAspectName(Constants.DATA_HUB_UPGRADE_KEY_ASPECT_NAME);
+    keyProposal.setAspect(GenericRecordUtils.serializeAspect(upgradeKey));
+    keyProposal.setChangeType(ChangeType.UPSERT);
+    entityService.ingestProposal(keyProposal, auditStamp, false);
+
+    // Ingest the upgrade result
     final MetadataChangeProposal upgradeProposal = new MetadataChangeProposal();
     upgradeProposal.setEntityUrn(urn);
     upgradeProposal.setEntityType(Constants.DATA_HUB_UPGRADE_ENTITY_NAME);
