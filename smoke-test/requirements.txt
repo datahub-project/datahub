@@ -7,3 +7,4 @@ slack-sdk==3.18.1
 aiohttp
 joblib
 pytest-xdist
+networkx

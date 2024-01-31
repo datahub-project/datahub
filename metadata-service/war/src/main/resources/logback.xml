@@ -47,7 +47,7 @@
             <maxHistory>1</maxHistory>
         </rollingPolicy>
         <filter class="ch.qos.logback.classic.filter.LevelFilter">
-            <level>DEBUG</level>
+            <level>${logging.appender.debug_file.level:-DEBUG}</level>
             <onMatch>ACCEPT</onMatch>
             <onMismatch>DENY</onMismatch>
         </filter>

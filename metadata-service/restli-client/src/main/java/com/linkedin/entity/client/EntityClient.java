@@ -381,6 +381,7 @@ public interface EntityClient {
    * @param endTimeMillis end time to filter to
    * @param startTimeMillis start time to filter from
    * @param searchFlags configuration flags for the search request
+   * @param authentication a reference to an authentication
    * @return a {@link SearchResult} that contains a list of matched documents and related search
    *     result metadata
    */
