@@ -1,16 +1,23 @@
+import dataclasses
 import enum
 import logging
 from datetime import datetime
-from typing import Callable, Iterable, Optional
+from typing import Callable, Dict, Iterable, List, Optional
 
 import datahub.metadata.schema_classes as models
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 from datahub.metadata.urns import CorpUserUrn, DataPlatformUrn, DatasetUrn
-from datahub.utilities.sqlglot_lineage import SchemaResolver, sqlglot_lineage
+from datahub.utilities.file_backed_collections import FileBackedDict
+from datahub.utilities.sqlglot_lineage import (
+    ColumnLineageInfo,
+    SchemaResolver,
+    sqlglot_lineage,
+)
 
 logger = logging.getLogger(__name__)
+QueryId = str
 
 
 class StoreQueriesSetting(enum.Enum):
@@ -19,10 +26,31 @@ class StoreQueriesSetting(enum.Enum):
     STORE_FAILED = "STORE_FAILED"
 
 
-class SqlParsingAggregator:
+@dataclasses.dataclass
+class QueryMetadata:
+    query_id: QueryId
 
-    # _lineage_map: ...
-    # TODO: a bunch of internal data structures based on FileBackedDicts
+    raw_query_string: str
+    formatted_query_string: str
+
+    type: str = models.DatasetLineageTypeClass.TRANSFORMED
+    latest_timestamp: Optional[datetime]
+    actor: Optional[CorpUserUrn]
+
+
+@dataclasses.dataclass
+class LineageEdge:
+    # info about upstream edges for a given downstream urn + query id
+
+    query_id: QueryId
+
+    upstreams: List[str]
+    column_lineage: Optional[List[ColumnLineageInfo]] = (
+        None  # TODO add an internal representation?
+    )
+
+
+class SqlParsingAggregator:
 
     def __init__(
         self,
@@ -73,6 +101,16 @@ class SqlParsingAggregator:
             self._schema_resolver = None  # type: ignore
             self._initialize_schema_resolver_from_graph(graph)
 
+        # Initialize internal data structures.
+
+        # Map of query_id -> QueryMetadata
+        self._query_map = FileBackedDict[QueryMetadata]()
+
+        # Map of downstream urn -> {query id -> {upstream_urn -> LineageEdge} }
+        self._lineage_map = FileBackedDict[Dict[str, Dict[str, LineageEdge]]]()
+
+        # TODO list of query IDs that we actually want in operations
+
     @property
     def generate_lineage(self) -> bool:
         return self.generate_view_lineage or self.generate_observed_lineage
@@ -110,6 +148,9 @@ class SqlParsingAggregator:
             )
             return
 
+        # TODO: The initialize_schema_resolver_from_datahub method should take in a SchemaResolver
+        # that it can populate or add to, rather than creating a new one and dropping any schemas
+        # that were already loaded into the existing one.
         self._schema_resolver = graph.initialize_schema_resolver_from_datahub(
             platform=self.platform.urn(),
             platform_instance=self.platform_instance,
