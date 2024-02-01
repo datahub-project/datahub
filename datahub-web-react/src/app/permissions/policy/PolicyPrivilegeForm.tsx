@@ -396,8 +396,6 @@ export default function PolicyPrivilegeForm({
             criteria: [],
         };
         setInputValue('');
-        setIsFocusedOnInput(true);
-
         setSelectedTags(selectedTags?.filter((term) => term.urn !== urn));
 
         setResources({
