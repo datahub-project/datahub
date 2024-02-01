@@ -14,7 +14,11 @@ from click_default_group import DefaultGroup
 
 from datahub.api.entities.dataproduct.dataproduct import DataProduct
 from datahub.cli.specific.file_loader import load_file
-from datahub.emitter.mce_builder import make_group_urn, make_user_urn, validate_ownership_type
+from datahub.emitter.mce_builder import (
+    make_group_urn,
+    make_user_urn,
+    validate_ownership_type,
+)
 from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
 from datahub.metadata.schema_classes import OwnerClass, OwnershipTypeClass
 from datahub.specific.dataproduct import DataProductPatchBuilder

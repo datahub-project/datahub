@@ -141,11 +141,13 @@ class DataProduct(ConfigModel):
             )
         else:
             assert isinstance(owner, Ownership)
-            ownership_type, ownership_type_urn = builder.validate_ownership_type(owner.type)
+            ownership_type, ownership_type_urn = builder.validate_ownership_type(
+                owner.type
+            )
             return OwnerClass(
                 owner=builder.make_user_urn(owner.id),
                 type=ownership_type,
-                typeUrn=ownership_type_urn
+                typeUrn=ownership_type_urn,
             )
 
     def _generate_properties_mcp(
