@@ -330,7 +330,6 @@ export default function PolicyPrivilegeForm({
         setDomainInputValue('');
     }
 
-
     function handleBlurTag() {
         setInputValue('');
     }
@@ -526,8 +525,11 @@ export default function PolicyPrivilegeForm({
                 </Form.Item>
             )}
             {showResourceFilterInput && (
-                <Form.Item label={<Typography.Text strong>Tags</Typography.Text>}>
-                    <Typography.Paragraph>The list of tags for which this policy will apply?</Typography.Paragraph>
+                <Form.Item label={<Typography.Text strong>Select Tags</Typography.Text>}>
+                    <Typography.Paragraph>
+                        The policy will apply to all entities containing all of the chosen tags. If no tags are
+                        selected, the policy will not account for tags.
+                    </Typography.Paragraph>
                     <TagSelect
                         data-testid="tag-term-modal-input"
                         mode="multiple"
