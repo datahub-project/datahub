@@ -10,7 +10,6 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.key.DataHubAccessTokenKey;
@@ -20,12 +19,11 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import java.util.Base64;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
@@ -146,15 +144,8 @@ public class StatefulTokenService extends StatelessTokenService {
     final AuditStamp auditStamp =
         AuditStampUtils.createDefaultAuditStamp().setActor(UrnUtils.getUrn(actorUrn));
 
-    Stream<MetadataChangeProposal> proposalStream =
-        Stream.concat(
-            Stream.of(proposal),
-            AspectUtils.getAdditionalChanges(proposal, _entityService).stream());
-
     _entityService.ingestProposal(
-        AspectsBatchImpl.builder()
-            .mcps(proposalStream.collect(Collectors.toList()), auditStamp, _entityService)
-            .build(),
+        AspectsBatchImpl.builder().mcps(List.of(proposal), auditStamp, _entityService).build(),
         false);
 
     return accessToken;

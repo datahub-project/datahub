@@ -26,7 +26,7 @@ public interface MCLBatchItem extends BatchItem {
     if (getMetadataChangeLog().getAspectName() != null) {
       return getMetadataChangeLog().getAspectName();
     } else {
-      return getAspect().schema().getName();
+      return getRecordTemplate().schema().getName();
     }
   }
 
@@ -40,10 +40,7 @@ public interface MCLBatchItem extends BatchItem {
   }
 
   @Nullable
-  RecordTemplate getPreviousAspect();
-
-  @Nonnull
-  RecordTemplate getAspect();
+  RecordTemplate getPreviousRecordTemplate();
 
   @Override
   @Nonnull

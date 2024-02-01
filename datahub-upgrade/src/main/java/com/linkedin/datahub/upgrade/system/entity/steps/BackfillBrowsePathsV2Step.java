@@ -15,6 +15,7 @@ import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.aspect.utils.DefaultAspectsUtil;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Condition;
@@ -181,7 +182,8 @@ public class BackfillBrowsePathsV2Step implements UpgradeStep {
   }
 
   private void ingestBrowsePathsV2(Urn urn, AuditStamp auditStamp) throws Exception {
-    BrowsePathsV2 browsePathsV2 = _entityService.buildDefaultBrowsePathV2(urn, true);
+    BrowsePathsV2 browsePathsV2 =
+        DefaultAspectsUtil.buildDefaultBrowsePathV2(urn, true, _entityService);
     log.debug(String.format("Adding browse path v2 for urn %s with value %s", urn, browsePathsV2));
     MetadataChangeProposal proposal = new MetadataChangeProposal();
     proposal.setEntityUrn(urn);

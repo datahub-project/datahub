@@ -61,7 +61,8 @@ public class CassandraTimelineServiceTest extends TimelineServiceTest<CassandraA
             _testEntityRegistry,
             true,
             _mockUpdateIndicesService,
-            preProcessHooks);
+            preProcessHooks,
+            true);
   }
 
   /**

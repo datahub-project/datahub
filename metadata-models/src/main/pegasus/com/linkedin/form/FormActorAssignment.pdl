@@ -7,15 +7,31 @@ record FormActorAssignment {
    * Whether the form should be assigned to the owners of assets that it is applied to.
    * This is the default.
    */
+  @Searchable = {
+    "fieldName": "isOwnershipForm",
+    "fieldType": "BOOLEAN",
+  }
   owners: boolean = true
 
   /**
    * Optional: Specific set of groups that are targeted by this form assignment.
    */
+  @Searchable = {
+    "/*": {
+      "fieldName": "assignedGroups",
+      "fieldType": "URN"
+    }
+  }
   groups: optional array[Urn]
 
   /**
    * Optional: Specific set of users that are targeted by this form assignment.
    */
+  @Searchable = {
+    "/*": {
+      "fieldName": "assignedUsers",
+      "fieldType": "URN"
+    }
+  }
   users: optional array[Urn]
 }

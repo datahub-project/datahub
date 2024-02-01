@@ -296,7 +296,8 @@ public class SampleDataFixtureConfiguration {
     PreProcessHooks preProcessHooks = new PreProcessHooks();
     preProcessHooks.setUiEnabled(true);
     return new JavaEntityClient(
-        new EntityServiceImpl(mockAspectDao, null, entityRegistry, true, null, preProcessHooks),
+        new EntityServiceImpl(
+            mockAspectDao, null, entityRegistry, true, null, preProcessHooks, true),
         null,
         entitySearchService,
         cachingEntitySearchService,

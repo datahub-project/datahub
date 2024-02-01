@@ -30,9 +30,9 @@ public class MCLBatchItemImpl implements MCLBatchItem {
 
   @Nonnull private final MetadataChangeLog metadataChangeLog;
 
-  @Nullable private final RecordTemplate aspect;
+  @Nullable private final RecordTemplate recordTemplate;
 
-  @Nullable private final RecordTemplate previousAspect;
+  @Nullable private final RecordTemplate previousRecordTemplate;
 
   // derived
   private final EntitySpec entitySpec;

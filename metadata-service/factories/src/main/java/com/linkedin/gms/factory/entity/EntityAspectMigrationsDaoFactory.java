@@ -1,6 +1,7 @@
 package com.linkedin.gms.factory.entity;
 
 import com.datastax.oss.driver.api.core.CqlSession;
+import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.entity.AspectMigrationsDao;
 import com.linkedin.metadata.entity.cassandra.CassandraAspectDao;
 import com.linkedin.metadata.entity.ebean.EbeanAspectDao;
@@ -18,8 +19,9 @@ public class EntityAspectMigrationsDaoFactory {
   @DependsOn({"gmsEbeanServiceConfig"})
   @ConditionalOnProperty(name = "entityService.impl", havingValue = "ebean", matchIfMissing = true)
   @Nonnull
-  protected AspectMigrationsDao createEbeanInstance(Database server) {
-    return new EbeanAspectDao(server);
+  protected AspectMigrationsDao createEbeanInstance(
+      Database server, final ConfigurationProvider configurationProvider) {
+    return new EbeanAspectDao(server, configurationProvider.getEbean());
   }
 
   @Bean(name = "entityAspectMigrationsDao")

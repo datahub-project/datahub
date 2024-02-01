@@ -26,7 +26,6 @@ import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.browse.BrowseResultV2;
-import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.entity.DeleteEntityService;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.IngestResult;
@@ -67,7 +66,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
@@ -706,14 +704,10 @@ public class JavaEntityClient implements EntityClient {
             : Constants.UNKNOWN_ACTOR;
     final AuditStamp auditStamp =
         new AuditStamp().setTime(_clock.millis()).setActor(UrnUtils.getUrn(actorUrnStr));
-    final List<MetadataChangeProposal> additionalChanges =
-        AspectUtils.getAdditionalChanges(metadataChangeProposal, _entityService);
 
-    Stream<MetadataChangeProposal> proposalStream =
-        Stream.concat(Stream.of(metadataChangeProposal), additionalChanges.stream());
     AspectsBatch batch =
         AspectsBatchImpl.builder()
-            .mcps(proposalStream.collect(Collectors.toList()), auditStamp, _entityService)
+            .mcps(List.of(metadataChangeProposal), auditStamp, _entityService)
             .build();
 
     IngestResult one = _entityService.ingestProposal(batch, async).stream().findFirst().get();

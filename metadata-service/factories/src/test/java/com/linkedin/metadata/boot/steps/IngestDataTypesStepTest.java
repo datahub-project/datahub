@@ -13,6 +13,8 @@ import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
+import java.util.Collection;
+import java.util.Set;
 import org.jetbrains.annotations.NotNull;
 import org.mockito.Mockito;
 import org.testng.Assert;
@@ -51,14 +53,17 @@ public class IngestDataTypesStepTest {
   @Test
   public void testExecuteInvalidJson() throws Exception {
     final EntityService<?> entityService = mock(EntityService.class);
+    when(entityService.exists(any(Collection.class))).thenAnswer(args -> Set.of());
 
     final IngestDataTypesStep step =
         new IngestDataTypesStep(entityService, "./boot/test_data_types_invalid.json");
 
     Assert.assertThrows(RuntimeException.class, step::execute);
 
-    // Verify no interactions
-    verifyNoInteractions(entityService);
+    verify(entityService, times(1)).exists(any());
+
+    // Verify no additional interactions
+    verifyNoMoreInteractions(entityService);
   }
 
   private static MetadataChangeProposal buildUpdateDataTypeProposal(final DataTypeInfo info) {

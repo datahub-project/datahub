@@ -122,7 +122,7 @@ public class IngestDataPlatformInstancesStepTest {
                                 item.getUrn().getEntityType().equals("chart")
                                     && item.getAspectName()
                                         .equals(DATA_PLATFORM_INSTANCE_ASPECT_NAME)
-                                    && ((MCPUpsertBatchItem) item).getAspect()
+                                    && ((MCPUpsertBatchItem) item).getRecordTemplate()
                                         instanceof DataPlatformInstance)),
             anyBoolean(),
             anyBoolean());
@@ -136,7 +136,7 @@ public class IngestDataPlatformInstancesStepTest {
                                 item.getUrn().getEntityType().equals("chart")
                                     && item.getAspectName()
                                         .equals(DATA_PLATFORM_INSTANCE_ASPECT_NAME)
-                                    && ((MCPUpsertBatchItem) item).getAspect()
+                                    && ((MCPUpsertBatchItem) item).getRecordTemplate()
                                         instanceof DataPlatformInstance)),
             anyBoolean(),
             anyBoolean());

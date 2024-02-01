@@ -481,7 +481,7 @@ public class EntityController {
         .urn(entityUrn)
         .aspectName(aspectSpec.getName())
         .auditStamp(AuditStampUtils.createAuditStamp(actor.toUrnStr()))
-        .aspect(
+        .recordTemplate(
             GenericRecordUtils.deserializeAspect(
                 ByteString.copyString(jsonAspect, StandardCharsets.UTF_8),
                 GenericRecordUtils.JSON,

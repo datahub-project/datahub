@@ -24,16 +24,12 @@ public class TopTermsCandidateSourceFactory {
   @Qualifier("entitySearchService")
   private EntitySearchService entitySearchService;
 
-  @Autowired
-  @Qualifier("entityService")
-  private EntityService entityService;
-
   @Value("${recommendationService.topTerms.offline}")
   private Boolean fetchOffline;
 
   @Bean(name = "topTermsCandidateSource")
   @Nonnull
-  protected TopTermsSource getInstance() {
+  protected TopTermsSource getInstance(final EntityService<?> entityService) {
     return new TopTermsSource(entitySearchService, entityService, fetchOffline);
   }
 }

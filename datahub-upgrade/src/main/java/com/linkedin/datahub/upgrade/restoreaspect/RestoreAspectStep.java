@@ -187,7 +187,7 @@ public class RestoreAspectStep implements UpgradeStep {
                 MCPUpsertBatchItem.builder()
                     .urn(urn)
                     .aspectName(aspectName)
-                    .aspect(aspectRecord)
+                    .recordTemplate(aspectRecord)
                     .auditStamp(toAuditStamp(aspect))
                     .build(_entityService));
 

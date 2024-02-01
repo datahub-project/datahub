@@ -3,6 +3,7 @@ package com.linkedin.metadata.aspect.batch;
 import com.linkedin.metadata.aspect.plugins.validation.AspectRetriever;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -17,14 +18,14 @@ import javax.annotation.Nonnull;
  * SystemMetadata} and record/message created time
  */
 public interface AspectsBatch {
-  List<? extends BatchItem> getItems();
+  Collection<? extends BatchItem> getItems();
 
   /**
    * Returns MCP items. Can be patch, upsert, etc.
    *
    * @return batch items
    */
-  default List<? extends MCPBatchItem> getMCPItems() {
+  default Collection<? extends MCPBatchItem> getMCPItems() {
     return getItems().stream()
         .filter(item -> item instanceof MCPBatchItem)
         .map(item -> (MCPBatchItem) item)

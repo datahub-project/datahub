@@ -38,7 +38,7 @@ public class AspectIngestionUtils {
           MCPUpsertBatchItem.builder()
               .urn(urn)
               .aspectName(aspectName)
-              .aspect(aspect)
+              .recordTemplate(aspect)
               .auditStamp(AspectGenerationUtils.createAuditStamp())
               .systemMetadata(AspectGenerationUtils.createSystemMetadata())
               .build(entityService));
@@ -68,7 +68,7 @@ public class AspectIngestionUtils {
           MCPUpsertBatchItem.builder()
               .urn(urn)
               .aspectName(aspectName)
-              .aspect(aspect)
+              .recordTemplate(aspect)
               .auditStamp(AspectGenerationUtils.createAuditStamp())
               .systemMetadata(AspectGenerationUtils.createSystemMetadata())
               .build(entityService));
@@ -99,7 +99,7 @@ public class AspectIngestionUtils {
           MCPUpsertBatchItem.builder()
               .urn(urn)
               .aspectName(aspectName)
-              .aspect(aspect)
+              .recordTemplate(aspect)
               .auditStamp(AspectGenerationUtils.createAuditStamp())
               .systemMetadata(AspectGenerationUtils.createSystemMetadata())
               .build(entityService));

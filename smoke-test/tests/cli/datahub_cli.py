@@ -24,8 +24,8 @@ def test_setup():
 
     session, gms_host = get_session_and_host()
 
-    assert "browsePaths" not in get_aspects_for_entity(
-        entity_urn=dataset_urn, aspects=["browsePaths"], typed=False
+    assert "browsePathsV2" not in get_aspects_for_entity(
+        entity_urn=dataset_urn, aspects=["browsePathsV2"], typed=False
     )
     assert "editableDatasetProperties" not in get_aspects_for_entity(
         entity_urn=dataset_urn, aspects=["editableDatasetProperties"], typed=False
@@ -36,8 +36,8 @@ def test_setup():
     ).config.run_id
     print("Setup ingestion id: " + ingested_dataset_run_id)
 
-    assert "browsePaths" in get_aspects_for_entity(
-        entity_urn=dataset_urn, aspects=["browsePaths"], typed=False
+    assert "browsePathsV2" in get_aspects_for_entity(
+        entity_urn=dataset_urn, aspects=["browsePathsV2"], typed=False
     )
 
     yield
@@ -58,8 +58,8 @@ def test_setup():
         ),
     )
 
-    assert "browsePaths" not in get_aspects_for_entity(
-        entity_urn=dataset_urn, aspects=["browsePaths"], typed=False
+    assert "browsePathsV2" not in get_aspects_for_entity(
+        entity_urn=dataset_urn, aspects=["browsePathsV2"], typed=False
     )
     assert "editableDatasetProperties" not in get_aspects_for_entity(
         entity_urn=dataset_urn, aspects=["editableDatasetProperties"], typed=False
@@ -79,8 +79,8 @@ def test_rollback_editable():
 
     print("Ingested dataset id:", ingested_dataset_run_id)
     # Assert that second data ingestion worked
-    assert "browsePaths" in get_aspects_for_entity(
-        entity_urn=dataset_urn, aspects=["browsePaths"], typed=False
+    assert "browsePathsV2" in get_aspects_for_entity(
+        entity_urn=dataset_urn, aspects=["browsePathsV2"], typed=False
     )
 
     # Make editable change
@@ -111,6 +111,6 @@ def test_rollback_editable():
         entity_urn=dataset_urn, aspects=["editableDatasetProperties"], typed=False
     )
     # But first ingestion aspects should not be present
-    assert "browsePaths" not in get_aspects_for_entity(
-        entity_urn=dataset_urn, aspects=["browsePaths"], typed=False
+    assert "browsePathsV2" not in get_aspects_for_entity(
+        entity_urn=dataset_urn, aspects=["browsePathsV2"], typed=False
     )
