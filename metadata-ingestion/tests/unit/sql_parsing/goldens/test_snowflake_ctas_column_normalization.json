@@ -3,6 +3,7 @@
     "query_type_props": {
         "kind": "TABLE"
     },
+    "query_fingerprint": "6aaac237788fd64545ccb5409ad7a175e82b6986a880cc73f3e42a0d00a69497",
     "in_tables": [
         "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_sample_data.tpch_sf1.orders,PROD)"
     ],

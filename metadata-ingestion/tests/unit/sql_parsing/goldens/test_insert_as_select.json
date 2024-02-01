@@ -1,6 +1,7 @@
 {
     "query_type": "INSERT",
     "query_type_props": {},
+    "query_fingerprint": "2ef01d0ff1cb2f129dbe746a3dc1a1c4403f1203fb9bd1bfaf8aa8cafdd2ac32",
     "in_tables": [
         "urn:li:dataset:(urn:li:dataPlatform:hive,catalog_returns,PROD)",
         "urn:li:dataset:(urn:li:dataPlatform:hive,catalog_sales,PROD)",

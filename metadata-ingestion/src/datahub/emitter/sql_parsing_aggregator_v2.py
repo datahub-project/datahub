@@ -253,6 +253,7 @@ class SqlParsingAggregator:
                     type=models.DatasetLineageTypeClass.TRANSFORMED,
                     latest_timestamp=query_timestamp,
                     actor=user,
+                    # TODO upstreams + CLL info
                 )
 
             # TODO: what happens if a CREATE VIEW query gets passed into this method

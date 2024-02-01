@@ -4,6 +4,7 @@
         "kind": "TABLE",
         "temporary": true
     },
+    "query_fingerprint": "252f5a0232a14a4533919960412ad2681c14b14b8045c046b23ac3d2411c4c5e",
     "in_tables": [
         "urn:li:dataset:(urn:li:dataPlatform:redshift,my_db.other_schema.table1,PROD)"
     ],

@@ -1,6 +1,7 @@
 {
     "query_type": "SELECT",
     "query_type_props": {},
+    "query_fingerprint": "727911301a80a595a80671e784793aa2ea1be2e2924e10eba3e0c622e5082b0d",
     "in_tables": [
         "urn:li:dataset:(urn:li:dataPlatform:mysql,mytable,PROD)"
     ],

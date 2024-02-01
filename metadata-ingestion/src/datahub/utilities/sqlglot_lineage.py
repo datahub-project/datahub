@@ -233,7 +233,10 @@ def get_query_fingerprint(
 ) -> str:
     dialect = _get_dialect(dialect)
     expression_sql = generalize_query(expression, dialect=dialect)
-    fingerprint = hashlib.sha1(expression_sql.encode("utf-8")).hexdigest()
+
+    # Once we move to Python 3.9+, we can set `usedforsecurity=False`.
+    fingerprint = hashlib.sha256(expression_sql.encode("utf-8")).hexdigest()
+
     return fingerprint
 
 
@@ -372,6 +375,7 @@ class SqlParsingDebugInfo(_ParserBaseModel):
 class SqlParsingResult(_ParserBaseModel):
     query_type: QueryType = QueryType.UNKNOWN
     query_type_props: dict = {}
+    query_fingerprint: Optional[str] = None
 
     in_tables: List[Urn]
     out_tables: List[Urn]
@@ -1292,9 +1296,11 @@ def _sqlglot_lineage_inner(
     query_type, query_type_props = get_query_type_of_sql(
         original_statement, dialect=dialect
     )
+    query_fingerprint = get_query_fingerprint(original_statement, dialect=dialect)
     return SqlParsingResult(
         query_type=query_type,
         query_type_props=query_type_props,
+        query_fingerprint=query_fingerprint,
         in_tables=in_urns,
         out_tables=out_urns,
         column_lineage=column_lineage_urns,

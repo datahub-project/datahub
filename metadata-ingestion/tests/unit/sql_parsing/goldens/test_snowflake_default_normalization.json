@@ -3,6 +3,7 @@
     "query_type_props": {
         "kind": "TABLE"
     },
+    "query_fingerprint": "2aa655ab211e061dc8c1161e0b2a7073b38636f9ffcc4719d4e70743e3321cb2",
     "in_tables": [
         "urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.analytics.customer_last_purchase_date,PROD)",
         "urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.ecommerce.purchases,PROD)"

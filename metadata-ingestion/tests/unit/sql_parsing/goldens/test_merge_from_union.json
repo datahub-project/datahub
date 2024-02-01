@@ -1,6 +1,7 @@
 {
     "query_type": "MERGE",
     "query_type_props": {},
+    "query_fingerprint": "8001b852498d94a7f0f532dcd8cfa05328981ba437df6314466c764cc408969c",
     "in_tables": [
         "urn:li:dataset:(urn:li:dataPlatform:bigquery,demo-pipelines-stg.referrer.prep_from_ios,PROD)",
         "urn:li:dataset:(urn:li:dataPlatform:bigquery,demo-pipelines-stg.referrer.prep_from_web,PROD)"

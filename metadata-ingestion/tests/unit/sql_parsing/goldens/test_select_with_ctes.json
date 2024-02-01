@@ -1,6 +1,7 @@
 {
     "query_type": "SELECT",
     "query_type_props": {},
+    "query_fingerprint": "a82cc26433c370a26b8aeecc2d8a1b672eab44349e00ec6f3da837c633e39b1c",
     "in_tables": [
         "urn:li:dataset:(urn:li:dataPlatform:oracle,table1,PROD)",
         "urn:li:dataset:(urn:li:dataPlatform:oracle,table2,PROD)"

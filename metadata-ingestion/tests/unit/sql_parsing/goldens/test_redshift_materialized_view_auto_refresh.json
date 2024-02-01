@@ -3,6 +3,7 @@
     "query_type_props": {
         "kind": "VIEW"
     },
+    "query_fingerprint": "95c53f18203e740eaff371573f18506801fe194fdf38b7e06527e45eb67a34a0",
     "in_tables": [
         "urn:li:dataset:(urn:li:dataPlatform:redshift,customer,PROD)",
         "urn:li:dataset:(urn:li:dataPlatform:redshift,orders,PROD)"
