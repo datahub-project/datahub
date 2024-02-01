@@ -982,9 +982,6 @@ public class GmsGraphQLEngine {
                     "browseV2",
                     new BrowseV2Resolver(this.entityClient, this.viewService, this.formService))
                 .dataFetcher(
-                    "browseV2",
-                    new BrowseV2Resolver(this.entityClient, this.viewService, this.formService))
-                .dataFetcher(
                     "listSignalRequests", new ListSignalRequestsResolver(this.entityClient))
                 .dataFetcher(
                     "ingestionSourceForEntity",

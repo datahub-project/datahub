@@ -186,7 +186,6 @@ class HiveMetastoreProxy(Closeable):
         )
 
     def _get_column_profile(self, column: str, ref: TableReference) -> ColumnProfile:
-
         props = self._column_describe_extended(ref.schema, ref.table, column)
         col_stats = {}
         for prop in props:

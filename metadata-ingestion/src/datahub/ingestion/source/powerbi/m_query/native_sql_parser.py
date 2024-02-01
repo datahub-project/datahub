@@ -60,7 +60,6 @@ def parse_custom_sql(
     env: str,
     platform_instance: Optional[str],
 ) -> Optional["SqlParsingResult"]:
-
     logger.debug("Using sqlglot_lineage to parse custom sql")
 
     sql_query = remove_special_characters(query)
