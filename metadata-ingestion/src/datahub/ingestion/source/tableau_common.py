@@ -854,4 +854,7 @@ def query_metadata(
         filter=qry_filter,
         main_query=main_query,
     )
-    return server.metadata.query(query)
+    data = server.metadata.query(query)
+    logger.debug(f"Tableau server request: {main_query} filter {qry_filter}")
+    logger.debug(f"Tableau server response: {data}")
+    return data
