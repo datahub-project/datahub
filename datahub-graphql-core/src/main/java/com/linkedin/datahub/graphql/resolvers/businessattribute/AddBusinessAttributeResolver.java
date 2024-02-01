@@ -5,6 +5,7 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.AddBusinessAttributeInput;
 import com.linkedin.datahub.graphql.generated.ResourceRefInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.LabelUtils;
@@ -24,6 +25,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.concurrent.CompletableFuture;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
+import static com.linkedin.datahub.graphql.resolvers.businessattribute.BusinessAttributeAuthorizationUtils.isAuthorizeToUpdateDataset;
 import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.buildMetadataChangeProposalWithUrn;
 import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.getFieldInfoFromSchema;
 
@@ -38,7 +40,9 @@ public class AddBusinessAttributeResolver implements DataFetcher<CompletableFutu
         AddBusinessAttributeInput input = bindArgument(environment.getArgument("input"), AddBusinessAttributeInput.class);
         Urn businessAttributeUrn = UrnUtils.getUrn(input.getBusinessAttributeUrn());
         ResourceRefInput resourceRefInput = input.getResourceUrn();
-        //TODO: add authorization check
+        if (!isAuthorizeToUpdateDataset(context, Urn.createFromString(resourceRefInput.getResourceUrn()))) {
+            throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
+        }
         if (!_entityClient.exists(businessAttributeUrn, context.getAuthentication())) {
             throw new RuntimeException(String.format("This urn does not exist: %s", businessAttributeUrn));
         }

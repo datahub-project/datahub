@@ -380,6 +380,12 @@ public class PoliciesConfig {
       "Produce Platform Event API",
       "The ability to produce Platform Events using the API.");
 
+  public static final Privilege EDIT_DATASET_COL_BUSINESS_ATTRIBUTE_PRIVILEGE = Privilege.of(
+          "EDIT_DATASET_COL_BUSINESS_ATTRIBUTE_PRIVILEGE",
+          "Edit Dataset Column Business Attribute",
+          "The ability to edit the column (field) business attribute associated with a dataset schema."
+  );
+
   public static final ResourcePrivileges DATASET_PRIVILEGES = ResourcePrivileges.of(
       "dataset",
       "Datasets",
@@ -394,7 +400,7 @@ public class PoliciesConfig {
               EDIT_ENTITY_ASSERTIONS_PRIVILEGE,
               EDIT_LINEAGE_PRIVILEGE,
               EDIT_ENTITY_EMBED_PRIVILEGE,
-              EDIT_QUERIES_PRIVILEGE))
+              EDIT_QUERIES_PRIVILEGE, EDIT_DATASET_COL_BUSINESS_ATTRIBUTE_PRIVILEGE))
           .flatMap(Collection::stream)
           .collect(Collectors.toList())
   );
@@ -547,6 +553,14 @@ public class PoliciesConfig {
           EDIT_ENTITY_PRIVILEGE)
   );
 
+  public static final ResourcePrivileges BUSINESS_ATTRIBUTE_PRIVILEGES = ResourcePrivileges.of(
+          "businessAttribute",
+          "Business Attribute",
+          "Business Attribute created on Datahub",
+          ImmutableList.of(VIEW_ENTITY_PAGE_PRIVILEGE, EDIT_ENTITY_OWNERS_PRIVILEGE, EDIT_ENTITY_DOCS_PRIVILEGE, EDIT_ENTITY_TAGS_PRIVILEGE,
+                  EDIT_ENTITY_GLOSSARY_TERMS_PRIVILEGE)
+  );
+
   public static final List<ResourcePrivileges> ENTITY_RESOURCE_PRIVILEGES = ImmutableList.of(
       DATASET_PRIVILEGES,
       DASHBOARD_PRIVILEGES,
@@ -561,7 +575,8 @@ public class PoliciesConfig {
       CORP_GROUP_PRIVILEGES,
       CORP_USER_PRIVILEGES,
       NOTEBOOK_PRIVILEGES,
-      DATA_PRODUCT_PRIVILEGES
+      DATA_PRODUCT_PRIVILEGES,
+      BUSINESS_ATTRIBUTE_PRIVILEGES
   );
 
   // Merge all entity specific resource privileges to create a superset of all resource privileges

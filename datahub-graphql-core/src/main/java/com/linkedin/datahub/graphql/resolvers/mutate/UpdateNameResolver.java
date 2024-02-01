@@ -10,6 +10,7 @@ import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
 import com.linkedin.datahub.graphql.generated.UpdateNameInput;
+import com.linkedin.datahub.graphql.resolvers.businessattribute.BusinessAttributeAuthorizationUtils;
 import com.linkedin.datahub.graphql.resolvers.dataproduct.DataProductAuthorizationUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.BusinessAttributeUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.DomainUtils;
@@ -18,8 +19,8 @@ import com.linkedin.dataproduct.DataProductProperties;
 import com.linkedin.domain.DomainProperties;
 import com.linkedin.domain.Domains;
 import com.linkedin.entity.client.EntityClient;
-import com.linkedin.glossary.GlossaryTermInfo;
 import com.linkedin.glossary.GlossaryNodeInfo;
+import com.linkedin.glossary.GlossaryTermInfo;
 import com.linkedin.identity.CorpGroupInfo;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
@@ -225,6 +226,9 @@ public class UpdateNameResolver implements DataFetcher<CompletableFuture<Boolean
             UpdateNameInput input,
             QueryContext context
     ) {
+        if (!BusinessAttributeAuthorizationUtils.canManageBusinessAttribute(context)) {
+            throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
+        }
         try {
             BusinessAttributeInfo businessAttributeInfo = (BusinessAttributeInfo) EntityUtils.getAspectFromEntity(
                     targetUrn.toString(), Constants.BUSINESS_ATTRIBUTE_INFO_ASPECT_NAME, _entityService, null);

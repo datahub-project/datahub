@@ -226,6 +226,8 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
       return EntityType.CORP_GROUP;
     } else if (com.linkedin.metadata.authorization.PoliciesConfig.CORP_USER_PRIVILEGES.getResourceType().equals(resourceType)) {
       return EntityType.CORP_USER;
+    } else if (com.linkedin.metadata.authorization.PoliciesConfig.BUSINESS_ATTRIBUTE_PRIVILEGES.getResourceType().equals(resourceType)) {
+      return EntityType.BUSINESS_ATTRIBUTE;
     } else {
       return null;
     }
