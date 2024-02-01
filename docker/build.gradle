@@ -31,6 +31,12 @@ ext {
     ]
     // Postgres
     pg_quickstart_modules = quickstart_modules - [':docker:mysql-setup'] + [':docker:postgres-setup']
+
+    // Saas Only
+    python_services_modules = [
+            ':datahub-integrations-service',
+            ':datahub-monitors-service',
+    ]
 }
 
 tasks.register('minDockerCompose2.20', Exec) {
@@ -67,10 +73,6 @@ dockerCompose {
         // SaaS only Start
         environment.put "METADATA_TESTS_ENABLED", "true"
         environment.put "DATAHUB_REPO", "${docker_registry}"
-        // -----  Remove once acryl-main build with arm
-        environment.put "DATAHUB_INTEGRATIONS_VERSION", "pr2280"
-        environment.put "DATAHUB_MONITORS_VERSION", "pr2280"
-        // -----
         // SaaS only end
 
         useComposeFiles = ['profiles/docker-compose.yml']
@@ -138,14 +140,10 @@ dockerCompose {
     quickstartDebug {
         isRequiredBy(tasks.named('quickstartDebug'))
         composeAdditionalArgs = ['--profile', 'debug']
-
         environment.put 'DATAHUB_TELEMETRY_ENABLED', 'false' // disabled when built locally
-
         // SaaS only Start
-        // -----  Remove once acryl-main build with arm
-        environment.put "DATAHUB_INTEGRATIONS_VERSION", "pr2280"
-        environment.put "DATAHUB_MONITORS_VERSION", "pr2280"
-        // -----
+        environment.put "METADATA_TESTS_ENABLED", "true"
+        environment.put "DATAHUB_REPO", "${docker_registry}"
         // SaaS only end
 
         useComposeFiles = ['profiles/docker-compose.yml']
@@ -167,6 +165,11 @@ tasks.getByName('quickstartSlimComposeUp').dependsOn(
 tasks.getByName('quickstartDebugComposeUp').dependsOn(
         debug_modules.collect { it + ':dockerTagDebug' }
 )
+// Saas Only (overrides above)
+tasks.getByName('quickstartDebugComposeUp').dependsOn(
+        (python_services_modules + debug_modules).collect { it + ':dockerTagDebug' }
+)
+
 tasks.withType(ComposeUp).configureEach {
     shouldRunAfter('quickstartNuke')
     dependsOn tasks.named("minDockerCompose2.20")
