@@ -1,10 +1,13 @@
 package com.linkedin.metadata.search.query.request;
 
 import static com.linkedin.metadata.utils.SearchUtil.*;
+import static org.mockito.Mockito.mock;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.metadata.config.search.SearchConfiguration;
+import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import com.linkedin.metadata.search.elasticsearch.query.request.AggregationQueryBuilder;
 import java.util.Collections;
@@ -42,7 +45,8 @@ public class AggregationQueryBuilderTest {
     config.setMaxTermBucketSize(25);
 
     AggregationQueryBuilder builder =
-        new AggregationQueryBuilder(config, ImmutableList.of(annotation));
+        new AggregationQueryBuilder(
+            config, ImmutableMap.of(mock(EntitySpec.class), ImmutableList.of(annotation)));
 
     List<AggregationBuilder> aggs = builder.getAggregations();
 
@@ -73,7 +77,8 @@ public class AggregationQueryBuilderTest {
     config.setMaxTermBucketSize(25);
 
     AggregationQueryBuilder builder =
-        new AggregationQueryBuilder(config, ImmutableList.of(annotation));
+        new AggregationQueryBuilder(
+            config, ImmutableMap.of(mock(EntitySpec.class), ImmutableList.of(annotation)));
 
     List<AggregationBuilder> aggs = builder.getAggregations();
 
@@ -120,7 +125,9 @@ public class AggregationQueryBuilderTest {
     config.setMaxTermBucketSize(25);
 
     AggregationQueryBuilder builder =
-        new AggregationQueryBuilder(config, ImmutableList.of(annotation1, annotation2));
+        new AggregationQueryBuilder(
+            config,
+            ImmutableMap.of(mock(EntitySpec.class), ImmutableList.of(annotation1, annotation2)));
 
     // Case 1: Ask for fields that should exist.
     List<AggregationBuilder> aggs =
@@ -139,7 +146,9 @@ public class AggregationQueryBuilderTest {
     SearchConfiguration config = new SearchConfiguration();
     config.setMaxTermBucketSize(25);
 
-    AggregationQueryBuilder builder = new AggregationQueryBuilder(config, List.of());
+    AggregationQueryBuilder builder =
+        new AggregationQueryBuilder(
+            config, ImmutableMap.of(mock(EntitySpec.class), ImmutableList.of()));
 
     List<AggregationBuilder> aggs =
         builder.getAggregations(List.of("structuredProperties.ab.fgh.ten"));
@@ -202,7 +211,9 @@ public class AggregationQueryBuilderTest {
     config.setMaxTermBucketSize(25);
 
     AggregationQueryBuilder builder =
-        new AggregationQueryBuilder(config, ImmutableList.of(annotation1, annotation2));
+        new AggregationQueryBuilder(
+            config,
+            ImmutableMap.of(mock(EntitySpec.class), ImmutableList.of(annotation1, annotation2)));
 
     // Aggregate over fields and structured properties
     List<AggregationBuilder> aggs =
@@ -252,7 +263,8 @@ public class AggregationQueryBuilderTest {
     config.setMaxTermBucketSize(25);
 
     AggregationQueryBuilder builder =
-        new AggregationQueryBuilder(config, ImmutableList.of(annotation));
+        new AggregationQueryBuilder(
+            config, ImmutableMap.of(mock(EntitySpec.class), ImmutableList.of(annotation)));
 
     List<AggregationBuilder> aggs = builder.getAggregations();
 
