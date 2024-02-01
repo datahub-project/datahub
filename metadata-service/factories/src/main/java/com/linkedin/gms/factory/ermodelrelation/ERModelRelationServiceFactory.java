@@ -24,7 +24,7 @@ public class ERModelRelationServiceFactory {
   @Scope("singleton")
   @Nonnull
   protected ERModelRelationService getInstance(
-          @Qualifier("entityClient") final EntityClient entityClient) throws Exception {
+      @Qualifier("entityClient") final EntityClient entityClient) throws Exception {
     return new ERModelRelationService(entityClient, _authentication);
   }
 }
