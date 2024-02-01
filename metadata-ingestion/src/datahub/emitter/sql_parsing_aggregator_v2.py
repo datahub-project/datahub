@@ -31,7 +31,7 @@ class QueryMetadata:
     query_id: QueryId
 
     raw_query_string: str
-    formatted_query_string: str
+    # formatted_query_string: str  # TODO add this
 
     session_id: Optional[str]
     type: str
@@ -224,6 +224,8 @@ class SqlParsingAggregator:
             return
 
         out_table = parsed.out_tables[0]
+        query_fingerprint = parsed.query_fingerprint
+        assert query_fingerprint is not None
 
         if (
             is_known_temp_table
@@ -240,15 +242,12 @@ class SqlParsingAggregator:
         else:
             # Non-temp tables -> immediately generate lineage.
 
-            query_fingerprint = TODO
-
             if query_fingerprint in self._query_map:
                 pass
             else:
                 self._query_map[query_fingerprint] = QueryMetadata(
                     query_id=query_fingerprint,
                     raw_query_string=query,
-                    formatted_query_string=parsed.formatted_query,
                     session_id=session_id,
                     type=models.DatasetLineageTypeClass.TRANSFORMED,
                     latest_timestamp=query_timestamp,
