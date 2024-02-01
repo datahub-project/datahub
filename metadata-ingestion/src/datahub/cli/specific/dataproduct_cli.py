@@ -14,7 +14,7 @@ from click_default_group import DefaultGroup
 
 from datahub.api.entities.dataproduct.dataproduct import DataProduct
 from datahub.cli.specific.file_loader import load_file
-from datahub.emitter.mce_builder import make_group_urn, make_user_urn
+from datahub.emitter.mce_builder import make_group_urn, make_user_urn, validate_ownership_type
 from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
 from datahub.metadata.schema_classes import OwnerClass, OwnershipTypeClass
 from datahub.specific.dataproduct import DataProductPatchBuilder
@@ -332,6 +332,7 @@ def add_owner(urn: str, owner: str, owner_type: str) -> None:
     if not urn.startswith("urn:li:dataProduct:"):
         urn = f"urn:li:dataProduct:{urn}"
     dataproduct_patcher: DataProductPatchBuilder = DataProduct.get_patch_builder(urn)
+    owner_type, owner_type_urn = validate_ownership_type(owner_type)
     dataproduct_patcher.add_owner(
         owner=OwnerClass(owner=_get_owner_urn(owner), type=owner_type)
     )
