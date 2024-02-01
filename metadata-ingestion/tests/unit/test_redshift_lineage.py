@@ -3,7 +3,7 @@ from functools import partial
 from typing import List
 from unittest.mock import MagicMock
 
-import datahub.utilities.sqlglot_lineage as sqlglot_l
+import datahub.sql_parsing.sqlglot_lineage as sqlglot_l
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.redshift.config import RedshiftConfig
@@ -18,7 +18,7 @@ from datahub.ingestion.source.redshift.lineage import (
 from datahub.ingestion.source.redshift.redshift_schema import TempTableRow
 from datahub.ingestion.source.redshift.report import RedshiftReport
 from datahub.metadata._schema_classes import NumberTypeClass, SchemaFieldDataTypeClass
-from datahub.utilities.sqlglot_lineage import (
+from datahub.sql_parsing.sqlglot_lineage import (
     ColumnLineageInfo,
     DownstreamColumnRef,
     QueryType,
@@ -255,7 +255,9 @@ def test_collapse_temp_lineage():
 
     print(lineage_extractor._lineage_map)
 
-    target_urn: str = "urn:li:dataset:(urn:li:dataPlatform:redshift,test.public.player_price_with_hike_v6,PROD)"
+    target_urn: str = (
+        "urn:li:dataset:(urn:li:dataPlatform:redshift,test.public.player_price_with_hike_v6,PROD)"
+    )
 
     assert lineage_extractor._lineage_map.get(target_urn) is not None
 

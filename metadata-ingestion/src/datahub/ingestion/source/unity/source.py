@@ -103,15 +103,15 @@ from datahub.metadata.schema_classes import (
     UpstreamClass,
     UpstreamLineageClass,
 )
-from datahub.utilities.file_backed_collections import FileBackedDict
-from datahub.utilities.hive_schema_to_avro import get_schema_fields_for_hive_column
-from datahub.utilities.registries.domain_registry import DomainRegistry
-from datahub.utilities.sqlglot_lineage import (
+from datahub.sql_parsing.sqlglot_lineage import (
     SchemaResolver,
     SqlParsingResult,
     sqlglot_lineage,
     view_definition_lineage_helper,
 )
+from datahub.utilities.file_backed_collections import FileBackedDict
+from datahub.utilities.hive_schema_to_avro import get_schema_fields_for_hive_column
+from datahub.utilities.registries.domain_registry import DomainRegistry
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -188,9 +188,9 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         self.table_refs: Set[TableReference] = set()
         self.view_refs: Set[TableReference] = set()
         self.notebooks: FileBackedDict[Notebook] = FileBackedDict()
-        self.view_definitions: FileBackedDict[
-            Tuple[TableReference, str]
-        ] = FileBackedDict()
+        self.view_definitions: FileBackedDict[Tuple[TableReference, str]] = (
+            FileBackedDict()
+        )
 
         # Global map of tables, for profiling
         self.tables: FileBackedDict[Table] = FileBackedDict()
@@ -338,14 +338,16 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                     externalUrl=urljoin(
                         self.config.workspace_url, f"#notebook/{notebook.id}"
                     ),
-                    created=TimeStampClass(int(notebook.created_at.timestamp() * 1000))
-                    if notebook.created_at
-                    else None,
-                    lastModified=TimeStampClass(
-                        int(notebook.modified_at.timestamp() * 1000)
-                    )
-                    if notebook.modified_at
-                    else None,
+                    created=(
+                        TimeStampClass(int(notebook.created_at.timestamp() * 1000))
+                        if notebook.created_at
+                        else None
+                    ),
+                    lastModified=(
+                        TimeStampClass(int(notebook.modified_at.timestamp() * 1000))
+                        if notebook.modified_at
+                        else None
+                    ),
                 ),
                 SubTypesClass(typeNames=[DatasetSubTypes.NOTEBOOK]),
                 BrowsePathsClass(paths=notebook.path.split("/")),
@@ -583,9 +585,9 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         if upstreams:
             return UpstreamLineageClass(
                 upstreams=upstreams,
-                fineGrainedLineages=finegrained_lineages
-                if self.config.include_column_lineage
-                else None,
+                fineGrainedLineages=(
+                    finegrained_lineages if self.config.include_column_lineage else None
+                ),
             )
         else:
             return None
@@ -662,9 +664,11 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             name=catalog.name,
             sub_types=[DatasetContainerSubTypes.CATALOG],
             domain_urn=domain_urn,
-            parent_container_key=self.gen_metastore_key(catalog.metastore)
-            if self.config.include_metastore and catalog.metastore
-            else None,
+            parent_container_key=(
+                self.gen_metastore_key(catalog.metastore)
+                if self.config.include_metastore and catalog.metastore
+                else None
+            ),
             description=catalog.comment,
             owner_urn=self.get_owner_urn(catalog.owner),
             external_url=f"{self.external_url_base}/{catalog.name}",
@@ -804,11 +808,13 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         if self.config.ingest_data_platform_instance_aspect:
             return DataPlatformInstanceClass(
                 platform=make_data_platform_urn(self.platform),
-                instance=make_dataplatform_instance_urn(
-                    self.platform, self.platform_instance_name
-                )
-                if self.platform_instance_name
-                else None,
+                instance=(
+                    make_dataplatform_instance_urn(
+                        self.platform, self.platform_instance_name
+                    )
+                    if self.platform_instance_name
+                    else None
+                ),
             )
         return None
 

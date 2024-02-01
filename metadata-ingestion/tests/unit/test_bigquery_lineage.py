@@ -14,7 +14,7 @@ from datahub.ingestion.source.bigquery_v2.lineage import (
     BigqueryLineageExtractor,
     LineageEdge,
 )
-from datahub.utilities.sqlglot_lineage import SchemaResolver
+from datahub.sql_parsing.sqlglot_lineage import SchemaResolver
 
 
 @pytest.fixture

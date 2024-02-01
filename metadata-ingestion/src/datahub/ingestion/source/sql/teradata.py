@@ -17,7 +17,6 @@ from typing import (
 )
 
 # This import verifies that the dependencies are available.
-import teradatasqlalchemy  # noqa: F401
 import teradatasqlalchemy.types as custom_types
 from pydantic.fields import Field
 from sqlalchemy import create_engine, inspect
@@ -58,7 +57,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     BytesTypeClass,
     TimeTypeClass,
 )
-from datahub.utilities.sqlglot_lineage import SchemaResolver, sqlglot_lineage
+from datahub.sql_parsing.sqlglot_lineage import SchemaResolver, sqlglot_lineage
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -457,11 +456,14 @@ class TeradataSource(TwoTierSQLAlchemySource):
 
     LINEAGE_QUERY_DATABASE_FILTER: str = """and default_database IN ({databases})"""
 
-    LINEAGE_TIMESTAMP_BOUND_QUERY: str = """
+    LINEAGE_TIMESTAMP_BOUND_QUERY: str = (
+        """
     SELECT MIN(CollectTimeStamp) as "min_ts", MAX(CollectTimeStamp) as "max_ts" from DBC.DBQLogTbl
     """.strip()
+    )
 
-    QUERY_TEXT_QUERY: str = """
+    QUERY_TEXT_QUERY: str = (
+        """
     SELECT
         s.QueryID as "query_id",
         UserName as "user",
@@ -496,8 +498,10 @@ class TeradataSource(TwoTierSQLAlchemySource):
         {databases_filter}
     ORDER BY "query_id", "row_no"
     """.strip()
+    )
 
-    TABLES_AND_VIEWS_QUERY: str = """
+    TABLES_AND_VIEWS_QUERY: str = (
+        """
 SELECT
     t.DatabaseName,
     t.TableName as name,
@@ -563,6 +567,7 @@ WHERE DatabaseName NOT IN (
 AND t.TableKind in ('T', 'V', 'Q', 'O')
 ORDER by DatabaseName, TableName;
      """.strip()
+    )
 
     _tables_cache: MutableMapping[str, List[TeradataTable]] = defaultdict(list)
 
@@ -573,9 +578,9 @@ ORDER by DatabaseName, TableName;
         self.graph: Optional[DataHubGraph] = ctx.graph
 
         self.builder: SqlParsingBuilder = SqlParsingBuilder(
-            usage_config=self.config.usage
-            if self.config.include_usage_statistics
-            else None,
+            usage_config=(
+                self.config.usage if self.config.include_usage_statistics else None
+            ),
             generate_lineage=True,
             generate_usage_statistics=self.config.include_usage_statistics,
             generate_operations=self.config.usage.include_operational_stats,
@@ -782,9 +787,11 @@ ORDER by DatabaseName, TableName;
                 create_timestamp=entry.CreateTimeStamp,
                 last_alter_name=entry.LastAlterName,
                 last_alter_timestamp=entry.LastAlterTimeStamp,
-                request_text=entry.RequestText.strip()
-                if entry.object_type == "View" and entry.RequestText
-                else None,
+                request_text=(
+                    entry.RequestText.strip()
+                    if entry.object_type == "View" and entry.RequestText
+                    else None
+                ),
             )
             if table.database not in self._tables_cache:
                 self._tables_cache[table.database] = []
@@ -836,9 +843,9 @@ ORDER by DatabaseName, TableName;
             sql=query.replace("(NOT CASESPECIFIC)", ""),
             schema_resolver=self.schema_resolver,
             default_db=None,
-            default_schema=default_database
-            if default_database
-            else self.config.default_db,
+            default_schema=(
+                default_database if default_database else self.config.default_db
+            ),
         )
         if result.debug_info.table_error:
             logger.debug(

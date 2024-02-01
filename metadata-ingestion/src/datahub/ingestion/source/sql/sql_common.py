@@ -96,17 +96,17 @@ from datahub.metadata.schema_classes import (
     UpstreamClass,
     ViewPropertiesClass,
 )
-from datahub.telemetry import telemetry
-from datahub.utilities.file_backed_collections import FileBackedDict
-from datahub.utilities.lossy_collections import LossyList
-from datahub.utilities.registries.domain_registry import DomainRegistry
-from datahub.utilities.sqlalchemy_query_combiner import SQLAlchemyQueryCombinerReport
-from datahub.utilities.sqlglot_lineage import (
+from datahub.sql_parsing.sqlglot_lineage import (
     SchemaResolver,
     SqlParsingResult,
     sqlglot_lineage,
     view_definition_lineage_helper,
 )
+from datahub.telemetry import telemetry
+from datahub.utilities.file_backed_collections import FileBackedDict
+from datahub.utilities.lossy_collections import LossyList
+from datahub.utilities.registries.domain_registry import DomainRegistry
+from datahub.utilities.sqlalchemy_query_combiner import SQLAlchemyQueryCombinerReport
 
 if TYPE_CHECKING:
     from datahub.ingestion.source.ge_data_profiler import (

@@ -59,14 +59,14 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
 )
 from datahub.specific.dataset import DatasetPatchBuilder
-from datahub.utilities import memory_footprint
-from datahub.utilities.file_backed_collections import FileBackedDict
-from datahub.utilities.perf_timer import PerfTimer
-from datahub.utilities.sqlglot_lineage import (
+from datahub.sql_parsing.sqlglot_lineage import (
     SchemaResolver,
     SqlParsingResult,
     sqlglot_lineage,
 )
+from datahub.utilities import memory_footprint
+from datahub.utilities.file_backed_collections import FileBackedDict
+from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -846,11 +846,11 @@ class BigqueryLineageExtractor:
                             upstream_lineage, temp_table_upstream
                         )
 
-                        upstreams[
-                            ref_temp_table_upstream
-                        ] = _merge_lineage_edge_columns(
-                            upstreams.get(ref_temp_table_upstream),
-                            collapsed_lineage,
+                        upstreams[ref_temp_table_upstream] = (
+                            _merge_lineage_edge_columns(
+                                upstreams.get(ref_temp_table_upstream),
+                                collapsed_lineage,
+                            )
                         )
             else:
                 upstreams[upstream_table_ref] = _merge_lineage_edge_columns(

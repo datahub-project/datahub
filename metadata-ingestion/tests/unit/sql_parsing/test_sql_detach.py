@@ -1,4 +1,4 @@
-from datahub.utilities.sqlglot_lineage import detach_ctes
+from datahub.sql_parsing.sqlglot_lineage import detach_ctes
 
 
 def test_detach_ctes_simple():

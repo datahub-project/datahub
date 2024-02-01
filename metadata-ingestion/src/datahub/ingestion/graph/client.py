@@ -50,7 +50,7 @@ if TYPE_CHECKING:
     from datahub.ingestion.source.state.entity_removal_state import (
         GenericCheckpointState,
     )
-    from datahub.utilities.sqlglot_lineage import (
+    from datahub.sql_parsing.sqlglot_lineage import (
         GraphQLSchemaMetadata,
         SchemaResolver,
         SqlParsingResult,
@@ -203,7 +203,9 @@ class DataHubGraph(DatahubRestEmitter):
                 'Cannot get a timeseries aspect using "get_aspect". Use "get_latest_timeseries_value" instead.'
             )
 
-        url: str = f"{self._gms_server}/aspects/{Urn.url_encode(entity_urn)}?aspect={aspect}&version={version}"
+        url: str = (
+            f"{self._gms_server}/aspects/{Urn.url_encode(entity_urn)}?aspect={aspect}&version={version}"
+        )
         response = self._session.get(url)
         if response.status_code == 404:
             # not found
@@ -1003,7 +1005,7 @@ class DataHubGraph(DatahubRestEmitter):
         env: str,
         include_graph: bool = True,
     ) -> "SchemaResolver":
-        from datahub.utilities.sqlglot_lineage import SchemaResolver
+        from datahub.sql_parsing.sqlglot_lineage import SchemaResolver
 
         return SchemaResolver(
             platform=platform,
@@ -1055,7 +1057,7 @@ class DataHubGraph(DatahubRestEmitter):
         default_db: Optional[str] = None,
         default_schema: Optional[str] = None,
     ) -> "SqlParsingResult":
-        from datahub.utilities.sqlglot_lineage import sqlglot_lineage
+        from datahub.sql_parsing.sqlglot_lineage import sqlglot_lineage
 
         # Cache the schema resolver to make bulk parsing faster.
         schema_resolver = self._make_schema_resolver(

@@ -27,7 +27,7 @@ from datahub.ingestion.source.powerbi.m_query.data_classes import (
     IdentifierAccessor,
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import Table
-from datahub.utilities.sqlglot_lineage import ColumnLineageInfo, SqlParsingResult
+from datahub.sql_parsing.sqlglot_lineage import ColumnLineageInfo, SqlParsingResult
 
 logger = logging.getLogger(__name__)
 
@@ -170,16 +170,16 @@ class AbstractDataPlatformTableCreator(ABC):
             )
         )
 
-        parsed_result: Optional[
-            "SqlParsingResult"
-        ] = native_sql_parser.parse_custom_sql(
-            ctx=self.ctx,
-            query=query,
-            platform=self.get_platform_pair().datahub_data_platform_name,
-            platform_instance=platform_detail.platform_instance,
-            env=platform_detail.env,
-            database=database,
-            schema=schema,
+        parsed_result: Optional["SqlParsingResult"] = (
+            native_sql_parser.parse_custom_sql(
+                ctx=self.ctx,
+                query=query,
+                platform=self.get_platform_pair().datahub_data_platform_name,
+                platform_instance=platform_detail.platform_instance,
+                env=platform_detail.env,
+                database=database,
+                schema=schema,
+            )
         )
 
         if parsed_result is None:
@@ -199,9 +199,11 @@ class AbstractDataPlatformTableCreator(ABC):
 
         return Lineage(
             upstreams=dataplatform_tables,
-            column_lineage=parsed_result.column_lineage
-            if parsed_result.column_lineage is not None
-            else [],
+            column_lineage=(
+                parsed_result.column_lineage
+                if parsed_result.column_lineage is not None
+                else []
+            ),
         )
 
 
@@ -439,14 +441,14 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
                 logger.debug(v_statement.pretty())
                 return None
 
-            invoke_expression: Optional[
-                Tree
-            ] = tree_function.first_invoke_expression_func(rh_tree)
+            invoke_expression: Optional[Tree] = (
+                tree_function.first_invoke_expression_func(rh_tree)
+            )
 
             if invoke_expression is not None:
-                result: Union[
-                    DataAccessFunctionDetail, List[str], None
-                ] = self._process_invoke_expression(invoke_expression)
+                result: Union[DataAccessFunctionDetail, List[str], None] = (
+                    self._process_invoke_expression(invoke_expression)
+                )
                 if result is None:
                     return None  # No need to process some un-expected grammar found while processing invoke_expression
                 if isinstance(result, DataAccessFunctionDetail):
@@ -503,9 +505,9 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
             return lineage
 
         # Parse M-Query and use output_variable as root of tree and create instance of DataAccessFunctionDetail
-        table_links: List[
-            DataAccessFunctionDetail
-        ] = self.create_data_access_functional_detail(output_variable)
+        table_links: List[DataAccessFunctionDetail] = (
+            self.create_data_access_functional_detail(output_variable)
+        )
 
         # Each item is data-access function
         for f_detail in table_links:
@@ -525,12 +527,12 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
 
             # From supported_resolver enum get respective resolver like AmazonRedshift or Snowflake or Oracle or NativeQuery and create instance of it
             # & also pass additional information that will be need to generate urn
-            table_qualified_name_creator: AbstractDataPlatformTableCreator = (
-                supported_resolver.get_table_full_name_creator()(
-                    ctx=ctx,
-                    config=config,
-                    platform_instance_resolver=platform_instance_resolver,
-                )
+            table_qualified_name_creator: (
+                AbstractDataPlatformTableCreator
+            ) = supported_resolver.get_table_full_name_creator()(
+                ctx=ctx,
+                config=config,
+                platform_instance_resolver=platform_instance_resolver,
             )
 
             lineage.append(table_qualified_name_creator.create_lineage(f_detail))

@@ -10,7 +10,7 @@ from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
 from datahub.ingestion.source.bigquery_v2.usage import BigQueryUsageExtractor
-from datahub.utilities.sqlglot_lineage import SchemaResolver
+from datahub.sql_parsing.sqlglot_lineage import SchemaResolver
 
 FROZEN_TIME = "2021-07-20 00:00:00"
 

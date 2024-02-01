@@ -1,4 +1,4 @@
-from datahub.utilities.sqlglot_lineage import SchemaResolver, _TableName
+from datahub.sql_parsing.sqlglot_lineage import SchemaResolver, _TableName
 
 
 def test_get_urn_for_table_lowercase():

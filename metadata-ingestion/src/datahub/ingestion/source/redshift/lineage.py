@@ -12,7 +12,7 @@ import redshift_connector
 import sqlglot
 
 import datahub.emitter.mce_builder as builder
-import datahub.utilities.sqlglot_lineage as sqlglot_l
+import datahub.sql_parsing.sqlglot_lineage as sqlglot_l
 from datahub.emitter import mce_builder
 from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.ingestion.api.common import PipelineContext
@@ -320,9 +320,11 @@ class RedshiftLineageExtractor:
 
         return (
             sources,
-            parsed_result.column_lineage
-            if self.config.include_view_column_lineage
-            else None,
+            (
+                parsed_result.column_lineage
+                if self.config.include_view_column_lineage
+                else None
+            ),
         )
 
     def _build_s3_path_from_row(self, filename: str) -> str:
@@ -376,11 +378,11 @@ class RedshiftLineageExtractor:
                     platform=platform.value,
                     name=path,
                     env=self.config.env,
-                    platform_instance=self.config.platform_instance_map.get(
-                        platform.value
-                    )
-                    if self.config.platform_instance_map is not None
-                    else None,
+                    platform_instance=(
+                        self.config.platform_instance_map.get(platform.value)
+                        if self.config.platform_instance_map is not None
+                        else None
+                    ),
                 )
             elif source_schema is not None and source_table is not None:
                 platform = LineageDatasetPlatform.REDSHIFT
@@ -545,11 +547,11 @@ class RedshiftLineageExtractor:
                     platform=target_platform.value,
                     name=target_path,
                     env=self.config.env,
-                    platform_instance=self.config.platform_instance_map.get(
-                        target_platform.value
-                    )
-                    if self.config.platform_instance_map is not None
-                    else None,
+                    platform_instance=(
+                        self.config.platform_instance_map.get(target_platform.value)
+                        if self.config.platform_instance_map is not None
+                        else None
+                    ),
                 )
             except ValueError as e:
                 self.warn(logger, "non-s3-lineage", str(e))
@@ -803,11 +805,11 @@ class RedshiftLineageExtractor:
                 mce_builder.make_dataset_urn_with_platform_instance(
                     upstream_platform,
                     f"{schema.external_database}.{tablename}",
-                    platform_instance=self.config.platform_instance_map.get(
-                        upstream_platform
-                    )
-                    if self.config.platform_instance_map
-                    else None,
+                    platform_instance=(
+                        self.config.platform_instance_map.get(upstream_platform)
+                        if self.config.platform_instance_map
+                        else None
+                    ),
                     env=self.config.env,
                 ),
                 DatasetLineageTypeClass.COPY,

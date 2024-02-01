@@ -1,7 +1,7 @@
 from typing import List
 
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigQueryTableRef
-from datahub.utilities.sqlglot_lineage import SchemaResolver, sqlglot_lineage
+from datahub.sql_parsing.sqlglot_lineage import SchemaResolver, sqlglot_lineage
 
 
 class BigQuerySQLParser:

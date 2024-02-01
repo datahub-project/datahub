@@ -2,7 +2,7 @@ import textwrap
 
 import sqlglot
 
-from datahub.utilities.sqlglot_lineage import (
+from datahub.sql_parsing.sqlglot_lineage import (
     _UPDATE_ARGS_NOT_SUPPORTED_BY_SELECT,
     QueryType,
     _get_dialect,

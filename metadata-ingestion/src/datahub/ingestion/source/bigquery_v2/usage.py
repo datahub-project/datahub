@@ -59,9 +59,9 @@ from datahub.ingestion.source_report.ingestion_stage import (
     USAGE_EXTRACTION_USAGE_AGGREGATION,
 )
 from datahub.metadata.schema_classes import OperationClass, OperationTypeClass
+from datahub.sql_parsing.sqlglot_lineage import SchemaResolver, sqlglot_lineage
 from datahub.utilities.file_backed_collections import ConnectionWrapper, FileBackedDict
 from datahub.utilities.perf_timer import PerfTimer
-from datahub.utilities.sqlglot_lineage import SchemaResolver, sqlglot_lineage
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -754,9 +754,9 @@ class BigQueryUsageExtractor:
                     )
 
                 if event.query_event.default_dataset:
-                    custom_properties[
-                        "defaultDatabase"
-                    ] = event.query_event.default_dataset
+                    custom_properties["defaultDatabase"] = (
+                        event.query_event.default_dataset
+                    )
             if event.read_event:
                 if event.read_event.readReason:
                     custom_properties["readReason"] = event.read_event.readReason

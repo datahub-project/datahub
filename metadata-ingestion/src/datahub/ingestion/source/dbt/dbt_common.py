@@ -107,8 +107,7 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
     ViewPropertiesClass,
 )
-from datahub.utilities.mapping import Constants, OperationProcessor
-from datahub.utilities.sqlglot_lineage import (
+from datahub.sql_parsing.sqlglot_lineage import (
     SchemaInfo,
     SchemaResolver,
     SqlParsingDebugInfo,
@@ -116,6 +115,7 @@ from datahub.utilities.sqlglot_lineage import (
     detach_ctes,
     sqlglot_lineage,
 )
+from datahub.utilities.mapping import Constants, OperationProcessor
 from datahub.utilities.time import datetime_to_ts_millis
 from datahub.utilities.topological_sort import topological_sort
 
@@ -951,9 +951,11 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             ):
                 schema_fields = [
                     SchemaField(
-                        fieldPath=column.name.lower()
-                        if self.config.convert_column_urns_to_lowercase
-                        else column.name,
+                        fieldPath=(
+                            column.name.lower()
+                            if self.config.convert_column_urns_to_lowercase
+                            else column.name
+                        ),
                         type=column.datahub_data_type
                         or SchemaFieldDataType(type=NullTypeClass()),
                         nativeDataType=column.data_type,
@@ -1541,9 +1543,9 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     downstreams=[
                         mce_builder.make_schema_field_urn(node_urn, downstream)
                     ],
-                    confidenceScore=node.cll_debug_info.confidence
-                    if node.cll_debug_info
-                    else None,
+                    confidenceScore=(
+                        node.cll_debug_info.confidence if node.cll_debug_info else None
+                    ),
                 )
                 for downstream, upstreams in itertools.groupby(
                     node.upstream_cll, lambda x: x.downstream_col

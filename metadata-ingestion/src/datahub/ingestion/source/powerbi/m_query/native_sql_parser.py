@@ -3,9 +3,9 @@ from typing import List, Optional
 
 import sqlparse
 
-import datahub.utilities.sqlglot_lineage as sqlglot_l
+import datahub.sql_parsing.sqlglot_lineage as sqlglot_l
 from datahub.ingestion.api.common import PipelineContext
-from datahub.utilities.sqlglot_lineage import SqlParsingResult
+from datahub.sql_parsing.sqlglot_lineage import SqlParsingResult
 
 SPECIAL_CHARACTERS = ["#(lf)", "(lf)"]
 
