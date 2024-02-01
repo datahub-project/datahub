@@ -24,7 +24,7 @@ public class CustomDataQualityRulesMCPSideEffect extends MCPSideEffect {
         MCPUpsertBatchItem.builder()
             .urn(mirror)
             .aspectName(input.getAspectName())
-            .aspect(input.getAspect())
+            .recordTemplate(input.getRecordTemplate())
             .auditStamp(input.getAuditStamp())
             .systemMetadata(input.getSystemMetadata())
             .build(aspectRetriever));

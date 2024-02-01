@@ -879,7 +879,8 @@ public class GmsGraphQLEngine {
                     "scrollAcrossEntities",
                     new ScrollAcrossEntitiesResolver(this.entityClient, this.viewService))
                 .dataFetcher(
-                    "searchAcrossLineage", new SearchAcrossLineageResolver(this.entityClient))
+                    "searchAcrossLineage",
+                    new SearchAcrossLineageResolver(this.entityClient, this.entityRegistry))
                 .dataFetcher(
                     "scrollAcrossLineage", new ScrollAcrossLineageResolver(this.entityClient))
                 .dataFetcher(

@@ -2,7 +2,9 @@ package com.linkedin.datahub.graphql.resolvers.search;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.*;
+import static com.linkedin.metadata.Constants.QUERY_ENTITY_NAME;
 
+import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
@@ -14,30 +16,62 @@ import com.linkedin.datahub.graphql.types.common.mappers.SearchFlagsInputMapper;
 import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchAcrossLineageResultsMapper;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.search.LineageSearchResult;
 import com.linkedin.r2.RemoteInvocationException;
+import graphql.VisibleForTesting;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /** Resolver responsible for resolving 'searchAcrossEntities' field of the Query type */
 @Slf4j
-@RequiredArgsConstructor
 public class SearchAcrossLineageResolver
     implements DataFetcher<CompletableFuture<SearchAcrossLineageResults>> {
 
   private static final int DEFAULT_START = 0;
   private static final int DEFAULT_COUNT = 10;
 
+  private static final Set<String> TRANSIENT_ENTITIES = ImmutableSet.of(QUERY_ENTITY_NAME);
+
   private final EntityClient _entityClient;
+
+  private final EntityRegistry _entityRegistry;
+
+  @VisibleForTesting final Set<String> _allEntities;
+  private final List<String> _allowedEntities;
+
+  public SearchAcrossLineageResolver(EntityClient entityClient, EntityRegistry entityRegistry) {
+    this._entityClient = entityClient;
+    this._entityRegistry = entityRegistry;
+    this._allEntities =
+        entityRegistry.getEntitySpecs().values().stream()
+            .map(EntitySpec::getName)
+            .collect(Collectors.toSet());
+
+    this._allowedEntities =
+        this._allEntities.stream()
+            .filter(e -> !TRANSIENT_ENTITIES.contains(e))
+            .collect(Collectors.toList());
+  }
+
+  private List<String> getEntityNamesFromInput(List<EntityType> inputTypes) {
+    if (inputTypes != null && !inputTypes.isEmpty()) {
+      return inputTypes.stream().map(EntityTypeMapper::getName).collect(Collectors.toList());
+    } else {
+      return this._allowedEntities;
+    }
+  }
 
   @Override
   public CompletableFuture<SearchAcrossLineageResults> get(DataFetchingEnvironment environment)
@@ -50,12 +84,7 @@ public class SearchAcrossLineageResolver
 
     final LineageDirection lineageDirection = input.getDirection();
 
-    List<EntityType> entityTypes =
-        (input.getTypes() == null || input.getTypes().isEmpty())
-            ? SEARCHABLE_ENTITY_TYPES
-            : input.getTypes();
-    List<String> entityNames =
-        entityTypes.stream().map(EntityTypeMapper::getName).collect(Collectors.toList());
+    List<String> entityNames = getEntityNamesFromInput(input.getTypes());
 
     // escape forward slash since it is a reserved character in Elasticsearch
     final String sanitizedQuery =
@@ -99,8 +128,7 @@ public class SearchAcrossLineageResolver
             } else {
               searchFlags = new SearchFlags().setFulltext(true).setSkipHighlighting(true);
             }
-
-            return UrnSearchAcrossLineageResultsMapper.map(
+            LineageSearchResult salResults =
                 _entityClient.searchAcrossLineage(
                     urn,
                     resolvedDirection,
@@ -114,7 +142,9 @@ public class SearchAcrossLineageResolver
                     startTimeMillis,
                     endTimeMillis,
                     searchFlags,
-                    ResolverUtils.getAuthentication(environment)));
+                    getAuthentication(environment));
+
+            return UrnSearchAcrossLineageResultsMapper.map(salResults);
           } catch (RemoteInvocationException e) {
             log.error(
                 "Failed to execute search across relationships: source urn {}, direction {}, entity types {}, query {}, filters: {}, start: {}, count: {}",

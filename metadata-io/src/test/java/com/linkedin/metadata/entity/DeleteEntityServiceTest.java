@@ -59,7 +59,8 @@ public class DeleteEntityServiceTest {
             _entityRegistry,
             true,
             _mockUpdateIndicesService,
-            preProcessHooks);
+            preProcessHooks,
+            true);
     _deleteEntityService = new DeleteEntityService(_entityServiceImpl, _graphService);
   }
 

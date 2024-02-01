@@ -28,8 +28,9 @@ public class BatchLoadUtils {
                 .filter(entity -> entities.get(0).getClass().isAssignableFrom(entity.objectClass()))
                 .collect(Collectors.toList()));
 
-    final DataLoader loader = dataLoaderRegistry.getDataLoader(filteredEntity.name());
-    List keyList = new ArrayList();
+    final DataLoader<Object, Entity> loader =
+        dataLoaderRegistry.getDataLoader(filteredEntity.name());
+    List<Object> keyList = new ArrayList();
     for (Entity entity : entities) {
       keyList.add(filteredEntity.getKeyProvider().apply(entity));
     }

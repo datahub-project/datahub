@@ -2,26 +2,31 @@
 
 ## Installing the CLI
 
-Make sure you have installed DataHub CLI before following this guide. 
+Make sure you have installed DataHub CLI before following this guide.
+
 ```shell
-# Requires Python 3.7+
+# Requires Python 3.8+
 python3 -m pip install --upgrade pip wheel setuptools
 python3 -m pip install --upgrade acryl-datahub
 # validate that the install was successful
 datahub version
 # If you see "command not found", try running this instead: python3 -m datahub version
 ```
-Check out the [CLI Installation Guide](../docs/cli.md#installation) for more installation options and troubleshooting tips. 
+
+Check out the [CLI Installation Guide](../docs/cli.md#installation) for more installation options and troubleshooting tips.
 
 After that, install the required plugin for the ingestion.
 
 ```shell
 pip install 'acryl-datahub[datahub-rest]'  # install the required plugin
 ```
-Check out the [alternative installation options](../docs/cli.md#alternate-installation-options) for more reference. 
+
+Check out the [alternative installation options](../docs/cli.md#alternate-installation-options) for more reference.
 
 ## Configuring a Recipe
+
 Create a recipe.yml file that defines the source and sink for metadata, as shown below.
+
 ```yaml
 # my_reipe.yml
 source:
@@ -29,7 +34,7 @@ source:
   config:
     option_1: <value>
     ...
-  
+
 sink:
   type: <sink_type_name>
   config:
@@ -39,7 +44,8 @@ sink:
 For more information and examples on configuring recipes, please refer to [Recipes](recipe_overview.md).
 
 ## Ingesting Metadata
-You can run ingestion using `datahub ingest` like below.  
+
+You can run ingestion using `datahub ingest` like below.
 
 ```shell
 datahub ingest -c <path_to_recipe_file.yml>
@@ -48,6 +54,7 @@ datahub ingest -c <path_to_recipe_file.yml>
 ## Reference
 
 Please refer the following pages for advanced guids on CLI ingestion.
+
 - [Reference for `datahub ingest` command](../docs/cli.md#ingest)
 - [UI Ingestion Guide](../docs/ui-ingestion.md)
 

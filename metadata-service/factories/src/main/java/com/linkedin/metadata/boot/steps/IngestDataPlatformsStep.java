@@ -86,7 +86,7 @@ public class IngestDataPlatformsStep implements BootstrapStep {
                     return MCPUpsertBatchItem.builder()
                         .urn(urn)
                         .aspectName(PLATFORM_ASPECT_NAME)
-                        .aspect(info)
+                        .recordTemplate(info)
                         .auditStamp(
                             new AuditStamp()
                                 .setActor(Urn.createFromString(Constants.SYSTEM_ACTOR))

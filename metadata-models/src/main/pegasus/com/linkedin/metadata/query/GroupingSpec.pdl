@@ -1,0 +1,15 @@
+namespace com.linkedin.metadata.query
+
+/**
+ * A set of directives to control how results are grouped.
+ * The underlying generic groupings are nested to allow for further evolution of the grouping spec.
+ */
+
+record GroupingSpec {
+
+    /**
+    * A list of generic directives to group results by.
+    **/
+    groupingCriteria: array[GroupingCriterion] = []
+
+}
