@@ -2,7 +2,7 @@ import json
 import logging
 import unittest.mock
 from hashlib import md5
-from typing import Any, Callable, Dict, Iterable, List, Optional, Type
+from typing import Any, Callable, Dict, Iterable, List, Optional, Type, Union
 
 import jsonref
 import jsonschema
@@ -421,11 +421,25 @@ class JsonSchemaTranslator:
             # default items schema is string
             items_schema = schema.get("items", {"type": "string"})
             items_type = JsonSchemaTranslator._get_type_from_schema(items_schema)
+            # Extracting description for array field
+            description = JsonSchemaTranslator._get_description_from_any_schema(schema)
             field_path._set_parent_type_if_not_exists(
                 DataHubType(type=ArrayTypeClass, nested_type=items_type)
             )
             yield from JsonSchemaTranslator.get_fields(
                 items_type, items_schema, required=False, base_field_path=field_path
+            )
+            # Adding a field for the array itself with the extracted description
+            yield SchemaField(
+                fieldPath=field_path.as_string(),
+                type=type_override or SchemaFieldDataTypeClass(type=ArrayTypeClass()),
+                nativeDataType=native_type_override or "array",
+                description=description,
+                nullable=nullable,
+                jsonProps=JsonSchemaTranslator._get_jsonprops_for_any_schema(
+                    schema, required=required
+                ),
+                isPartOfKey=field_path.is_key_schema,
             )
 
         elif datahub_field_type == MapTypeClass:
@@ -561,6 +575,30 @@ class JsonSchemaTranslator:
     }
 
     @classmethod
+    def extract_descriptions_from_schema(cls, schema: Dict[str, Union[str, Dict]]) -> List[Optional[str]]:
+        """
+        Extracts descriptions from a JSON schema.
+
+        Args:
+            schema (Dict[str, Union[str, Dict]]): The JSON schema.
+
+        Returns:
+            List[Optional[str]]: List of descriptions corresponding to properties.
+        """
+        def extract_description(property_schema: Dict[str, Union[str, Dict]]) -> Optional[str]:
+            return property_schema.get("description")
+
+        descriptions = []
+        properties = schema.get("properties", {})
+
+        for _, property_schema in properties.items():
+            if isinstance(property_schema, dict):
+                description = extract_description(property_schema)
+                descriptions.append(description)
+
+        return descriptions
+    
+    @classmethod
     def get_fields(
         cls,
         json_type: str,
@@ -620,6 +658,29 @@ class JsonSchemaTranslator:
                 base_field_path=FieldPath(is_key_schema=is_key_schema),
             )
 
+    @classmethod
+    def extract_descriptions_from_schema(cls, schema: Dict[str, Union[str, Dict]]) -> List[Optional[str]]:
+        """
+        Extracts descriptions from a JSON schema.
+
+        Args:
+            schema (Dict[str, Union[str, Dict]]): The JSON schema.
+
+        Returns:
+            List[Optional[str]]: List of descriptions corresponding to properties.
+        """
+        def extract_description(property_schema: Dict[str, Union[str, Dict]]) -> Optional[str]:
+            return JsonSchemaTranslator._get_description_from_any_schema(property_schema)
+
+        descriptions = []
+        properties = schema.get("properties", {})
+
+        for _, property_schema in properties.items():
+            if isinstance(property_schema, dict):
+                description = extract_description(property_schema)
+                descriptions.append(description)
+
+        return descriptions
     @staticmethod
     def _get_id_from_any_schema(schema_dict: Dict[Any, Any]) -> Optional[str]:
         return schema_dict.get("$id", schema_dict.get("id"))

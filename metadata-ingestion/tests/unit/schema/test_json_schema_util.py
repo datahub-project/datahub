@@ -846,3 +846,29 @@ def test_top_level_trival_allof():
     assert json.loads(fields[1].jsonProps or "{}")["required"] is False
     assert json.loads(fields[2].jsonProps or "{}")["required"] is True
     assert json.loads(fields[3].jsonProps or "{}")["required"] is False
+
+
+def test_description_extraction():
+    schema = {
+        "$id": "test",
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "properties": {
+            "bar": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "XYZ",
+            }
+        },
+    }
+    fields = list(JsonSchemaTranslator.get_fields_from_schema(schema))   
+    expected_field_paths: List[str] = [
+        "[version=2.0].[type=object].[type=array].[type=string].bar",
+        "[version=2.0].[type=object].[type=array].bar"
+    ]
+    assert_field_paths_match(fields, expected_field_paths)
+    assert_fields_are_valid(fields)
+    # Additional check for the description extraction
+    array_field = next(field for field in fields if field.fieldPath == "[version=2.0].[type=object].[type=array].bar")
+    assert array_field.description == "XYZ"
+
+    
