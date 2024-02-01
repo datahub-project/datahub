@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass
-from typing import Optional
+from typing import Dict, Optional
 
 import pydantic
 
@@ -42,6 +42,7 @@ class Constant:
 
     # Rest API response key constants
     DATA = "data"
+    ID = "id"
     NAME = "name"
     TYPE = "type"
     CREATEDAT = "createdAt"
@@ -60,7 +61,6 @@ class Constant:
     SCHEMA = "schema"
     DATAFIELDS = "dataFields"
     RESOURCETYPE = "resourceType"
-    RESOURCEATTRIBUTES = "resourceAttributes"
     USAGE = "usage"
     CREATEDDATE = "createdDate"
     MODIFIEDDATE = "modifiedDate"
@@ -77,6 +77,16 @@ class Constant:
     QITEMS = "qItems"
     QINFO = "qInfo"
     QLIST = "qList"
+    CONNECTORPROPERTIES = "connectorProperties"
+    TABLEQUALIFIERS = "tableQualifiers"
+    CONNECTIONINFO = "connectionInfo"
+    SOURCECONNECTORID = "sourceConnectorID"
+    DATABASENAME = "databaseName"
+    SCHEMANAME = "schemaName"
+    TABLES = "tables"
+    DATACONNECTORID = "dataconnectorid"
+    DATACONNECTORNAME = "dataconnectorName"
+    DATACONNECTORPLATFORM = "dataconnectorPlatform"
     # Item type
     APP = "app"
     DATASET = "dataset"
@@ -93,6 +103,10 @@ class QlikSourceReport(StaleEntityRemovalSourceReport):
         self.number_of_spaces = number_of_spaces
 
 
+class PlatformDetail(PlatformInstanceConfigMixin, EnvConfigMixin):
+    pass
+
+
 class QlikSourceConfig(
     StatefulIngestionConfigBase, PlatformInstanceConfigMixin, EnvConfigMixin
 ):
@@ -101,13 +115,15 @@ class QlikSourceConfig(
     # Qlik space identifier
     space_pattern: AllowDenyPattern = pydantic.Field(
         default=AllowDenyPattern.allow_all(),
-        description="Regex patterns to filter Qlik spaces in ingestion",
-    )
-    extract_personal_entity: Optional[bool] = pydantic.Field(
-        default=False,
-        description="Whether personal space, apps and datasets should be ingested.",
+        description="Regex patterns to filter Qlik spaces in ingestion."
+        "Mention 'personal_space' if entities of personal space need to ingest",
     )
     ingest_owner: Optional[bool] = pydantic.Field(
         default=True,
         description="Ingest Owner from source. This will override Owner info entered from UI",
+    )
+    # Qlik app dataset upstream source to platform instance mapping
+    app_dataset_source_to_platform_instance: Dict[str, PlatformDetail] = pydantic.Field(
+        default={},
+        description="A mapping of the Qlik app dataset upstream source to platform instance. Use <database>.<schema>.<table> as key.",
     )

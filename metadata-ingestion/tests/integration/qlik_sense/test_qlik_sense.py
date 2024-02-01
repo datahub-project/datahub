@@ -58,101 +58,54 @@ def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
             "json": {
                 "data": [
                     {
-                        "name": "test_app_1",
+                        "name": "test_app",
+                        "spaceId": "659d0e41d1b0ecce6eebc9b1",
                         "thumbnailId": "",
                         "resourceAttributes": {
                             "_resourcetype": "app",
-                            "createdDate": "2024-01-09T08:39:28.928Z",
+                            "createdDate": "2024-01-25T17:52:24.922Z",
                             "description": "",
                             "dynamicColor": "",
                             "hasSectionAccess": False,
-                            "id": "b90c4d4e-0d07-4c24-9458-b17d1492660b",
+                            "id": "f0714ca7-7093-49e4-8b58-47bb38563647",
                             "isDirectQueryMode": False,
-                            "lastReloadTime": "2024-01-09T09:03:59.227Z",
-                            "modifiedDate": "2024-01-09T09:04:00.100Z",
-                            "name": "test_app_1",
+                            "lastReloadTime": "2024-01-25T17:56:00.902Z",
+                            "modifiedDate": "2024-01-25T17:56:02.045Z",
+                            "name": "test_app",
                             "originAppId": "",
                             "owner": "auth0|fd95ee6facf82e692d2eac4ccb5ddb18ef05c22a7575fcc4d26d7bc9aefedb4f",
                             "ownerId": "657b5abe656297cec3d8b205",
                             "publishTime": "",
                             "published": False,
-                            "spaceId": "",
+                            "spaceId": "659d0e41d1b0ecce6eebc9b1",
                             "thumbnail": "",
                             "usage": "ANALYTICS",
                         },
                         "resourceCustomAttributes": None,
-                        "resourceUpdatedAt": "2024-01-09T09:04:00Z",
+                        "resourceUpdatedAt": "2024-01-25T17:56:02Z",
                         "resourceType": "app",
-                        "resourceId": "b90c4d4e-0d07-4c24-9458-b17d1492660b",
-                        "resourceCreatedAt": "2024-01-09T08:39:28Z",
-                        "id": "659d064133e7d51dbcbb5911",
-                        "createdAt": "2024-01-09T08:39:29Z",
-                        "updatedAt": "2024-01-09T09:04:00Z",
+                        "resourceId": "f0714ca7-7093-49e4-8b58-47bb38563647",
+                        "resourceCreatedAt": "2024-01-25T17:52:24Z",
+                        "id": "65b29fd9435c545ed042a807",
+                        "createdAt": "2024-01-25T17:52:25Z",
+                        "updatedAt": "2024-01-25T17:56:02Z",
                         "creatorId": "657b5abe656297cec3d8b205",
                         "updaterId": "657b5abe656297cec3d8b205",
                         "tenantId": "ysA4KqhDrbdy36hO9wwo4HUvPxeaKT7A",
                         "isFavorited": False,
-                        "links": {
-                            "self": {
-                                "href": "https://iq37k6byr9lgam8.us.qlikcloud.com/api/v1/items/659d064133e7d51dbcbb5911"
-                            },
-                            "collections": {
-                                "href": "https://iq37k6byr9lgam8.us.qlikcloud.com/api/v1/items/659d064133e7d51dbcbb5911/collections"
-                            },
-                            "open": {
-                                "href": "https://iq37k6byr9lgam8.us.qlikcloud.com/sense/app/b90c4d4e-0d07-4c24-9458-b17d1492660b"
-                            },
-                        },
-                        "actions": [
-                            "change_owner",
-                            "change_space",
-                            "create",
-                            "create_session_app",
-                            "delete",
-                            "delete_share",
-                            "duplicate",
-                            "export",
-                            "export_reduced",
-                            "exportappdata",
-                            "import",
-                            "read",
-                            "reload",
-                            "source",
-                            "update",
-                        ],
-                        "collectionIds": ["659d0c6dad4c8e1b1e1f6ebe"],
+                        "collectionIds": [],
                         "meta": {
                             "isFavorited": False,
-                            "actions": [
-                                "change_owner",
-                                "change_space",
-                                "create",
-                                "create_session_app",
-                                "delete",
-                                "delete_share",
-                                "duplicate",
-                                "export",
-                                "export_reduced",
-                                "exportappdata",
-                                "import",
-                                "read",
-                                "reload",
-                                "source",
-                                "update",
+                            "tags": [
+                                {"id": "659ce561640a2affcf0d629f", "name": "test_tag"}
                             ],
-                            "tags": [],
-                            "collections": [
-                                {
-                                    "id": "659d0c6dad4c8e1b1e1f6ebe",
-                                    "name": "test_collection",
-                                }
-                            ],
+                            "collections": [],
                         },
                         "ownerId": "657b5abe656297cec3d8b205",
-                        "resourceReloadEndTime": "2024-01-09T09:03:59Z",
+                        "resourceReloadEndTime": "2024-01-25T17:56:00Z",
                         "resourceReloadStatus": "ok",
-                        "resourceSize": {"appFile": 196608, "appMemory": 625},
-                        "itemViews": {"total": 10, "trend": 0.5, "unique": 2},
+                        "resourceSize": {"appFile": 2057, "appMemory": 78},
+                        "itemViews": {"total": 3, "trend": 0.3, "unique": 1},
                     },
                     {
                         "name": "IPL_Matches_2022.csv",
@@ -182,33 +135,8 @@ def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
                         "updaterId": "657b5abe656297cec3d8b205",
                         "tenantId": "ysA4KqhDrbdy36hO9wwo4HUvPxeaKT7A",
                         "isFavorited": False,
-                        "links": {
-                            "self": {
-                                "href": "https://iq37k6byr9lgam8.us.qlikcloud.com/api/v1/items/659d8aef12794f37026cb262"
-                            },
-                            "collections": {
-                                "href": "https://iq37k6byr9lgam8.us.qlikcloud.com/api/v1/items/659d8aef12794f37026cb262/collections"
-                            },
-                        },
-                        "actions": [
-                            "create",
-                            "delete",
-                            "list",
-                            "profile",
-                            "read",
-                            "update",
-                        ],
                         "collectionIds": [],
                         "meta": {
-                            "isFavorited": False,
-                            "actions": [
-                                "create",
-                                "delete",
-                                "list",
-                                "profile",
-                                "read",
-                                "update",
-                            ],
                             "tags": [],
                             "collections": [],
                         },
@@ -217,99 +145,6 @@ def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
                         "resourceReloadStatus": "",
                         "resourceSize": {"appFile": 0, "appMemory": 0},
                         "itemViews": {},
-                    },
-                    {
-                        "name": "IPL_Matches_2022",
-                        "spaceId": "659d0e41d1b0ecce6eebc9b1",
-                        "thumbnailId": "",
-                        "resourceAttributes": {
-                            "_resourcetype": "app",
-                            "createdDate": "2024-01-09T18:05:36.545Z",
-                            "description": "",
-                            "dynamicColor": "",
-                            "hasSectionAccess": False,
-                            "id": "e09a68e7-18c9-461d-b957-043e0c045dcd",
-                            "isDirectQueryMode": False,
-                            "lastReloadTime": "2024-01-15T11:06:53.070Z",
-                            "modifiedDate": "2024-01-15T11:06:54.684Z",
-                            "name": "IPL_Matches_2022",
-                            "originAppId": "",
-                            "owner": "auth0|fd95ee6facf82e692d2eac4ccb5ddb18ef05c22a7575fcc4d26d7bc9aefedb4f",
-                            "ownerId": "657b5abe656297cec3d8b205",
-                            "publishTime": "",
-                            "published": False,
-                            "spaceId": "659d0e41d1b0ecce6eebc9b1",
-                            "thumbnail": "",
-                            "usage": "ANALYTICS",
-                        },
-                        "resourceCustomAttributes": None,
-                        "resourceUpdatedAt": "2024-01-15T11:06:54Z",
-                        "resourceType": "app",
-                        "resourceId": "e09a68e7-18c9-461d-b957-043e0c045dcd",
-                        "resourceCreatedAt": "2024-01-09T18:05:36Z",
-                        "id": "659d8af1ef4eadeead3ec0ec",
-                        "createdAt": "2024-01-09T18:05:37Z",
-                        "updatedAt": "2024-01-15T11:06:54Z",
-                        "creatorId": "657b5abe656297cec3d8b205",
-                        "updaterId": "657b5abe656297cec3d8b205",
-                        "tenantId": "ysA4KqhDrbdy36hO9wwo4HUvPxeaKT7A",
-                        "isFavorited": False,
-                        "links": {
-                            "self": {
-                                "href": "https://iq37k6byr9lgam8.us.qlikcloud.com/api/v1/items/659d8af1ef4eadeead3ec0ec"
-                            },
-                            "collections": {
-                                "href": "https://iq37k6byr9lgam8.us.qlikcloud.com/api/v1/items/659d8af1ef4eadeead3ec0ec/collections"
-                            },
-                            "open": {
-                                "href": "https://iq37k6byr9lgam8.us.qlikcloud.com/sense/app/e09a68e7-18c9-461d-b957-043e0c045dcd"
-                            },
-                        },
-                        "actions": [
-                            "change_owner",
-                            "change_space",
-                            "create",
-                            "delete",
-                            "delete_share",
-                            "duplicate",
-                            "export",
-                            "export_reduced",
-                            "exportappdata",
-                            "import",
-                            "read",
-                            "reload",
-                            "share",
-                            "source",
-                            "update",
-                        ],
-                        "collectionIds": [],
-                        "meta": {
-                            "isFavorited": False,
-                            "actions": [
-                                "change_owner",
-                                "change_space",
-                                "create",
-                                "delete",
-                                "delete_share",
-                                "duplicate",
-                                "export",
-                                "export_reduced",
-                                "exportappdata",
-                                "import",
-                                "read",
-                                "reload",
-                                "share",
-                                "source",
-                                "update",
-                            ],
-                            "tags": [],
-                            "collections": [],
-                        },
-                        "ownerId": "657b5abe656297cec3d8b205",
-                        "resourceReloadEndTime": "2024-01-15T11:06:53Z",
-                        "resourceReloadStatus": "ok",
-                        "resourceSize": {"appFile": 17634, "appMemory": 36315},
-                        "itemViews": {"total": 4, "trend": 0.5, "unique": 2},
                     },
                     {
                         "name": "test_tabl",
@@ -338,33 +173,8 @@ def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
                         "updaterId": "657b5abe656297cec3d8b205",
                         "tenantId": "ysA4KqhDrbdy36hO9wwo4HUvPxeaKT7A",
                         "isFavorited": False,
-                        "links": {
-                            "self": {
-                                "href": "https://iq37k6byr9lgam8.us.qlikcloud.com/api/v1/items/65a137c8d5a03b02d359624a"
-                            },
-                            "collections": {
-                                "href": "https://iq37k6byr9lgam8.us.qlikcloud.com/api/v1/items/65a137c8d5a03b02d359624a/collections"
-                            },
-                        },
-                        "actions": [
-                            "create",
-                            "delete",
-                            "list",
-                            "profile",
-                            "read",
-                            "update",
-                        ],
                         "collectionIds": [],
                         "meta": {
-                            "isFavorited": False,
-                            "actions": [
-                                "create",
-                                "delete",
-                                "list",
-                                "profile",
-                                "read",
-                                "update",
-                            ],
                             "tags": [],
                             "collections": [],
                         },
@@ -372,12 +182,6 @@ def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
                         "resourceReloadEndTime": "",
                         "resourceReloadStatus": "",
                         "resourceSize": {"appFile": 0, "appMemory": 0},
-                        "itemViews": {
-                            "total": 2,
-                            "trend": 0.3,
-                            "unique": 1,
-                            "usedBy": 1,
-                        },
                     },
                 ],
             },
@@ -595,94 +399,69 @@ def mock_websocket_response(*args, **kwargs):
         "id": 1,
         "handle": -1,
         "method": "OpenDoc",
-        "params": {"qDocName": "b90c4d4e-0d07-4c24-9458-b17d1492660b"},
+        "params": {"qDocName": "f0714ca7-7093-49e4-8b58-47bb38563647"},
     }:
         return {
-            "jsonrpc": "2.0",
-            "id": 1,
-            "result": {
-                "qReturn": {
-                    "qType": "Doc",
-                    "qHandle": 1,
-                    "qGenericId": "b90c4d4e-0d07-4c24-9458-b17d1492660b",
-                }
-            },
-            "change": [1],
+            "qReturn": {
+                "qType": "Doc",
+                "qHandle": 1,
+                "qGenericId": "f0714ca7-7093-49e4-8b58-47bb38563647",
+            }
         }
     elif request == {
         "jsonrpc": "2.0",
         "id": 2,
         "handle": 1,
-        "method": "GetObjects",
-        "params": {"qOptions": {"qTypes": ["sheet"]}},
+        "method": "GetAppLayout",
+        "params": {},
     }:
         return {
-            "jsonrpc": "2.0",
-            "id": 2,
-            "result": {
-                "qList": [
-                    {
-                        "qInfo": {
-                            "qId": "f4f57386-263a-4ec9-b40c-abcd2467f423",
-                            "qType": "sheet",
-                        },
-                        "qMeta": {
-                            "title": "New ds sheet",
-                            "description": "",
-                            "_resourcetype": "app.object",
-                            "_objecttype": "sheet",
-                            "id": "f4f57386-263a-4ec9-b40c-abcd2467f423",
-                            "approved": False,
-                            "published": False,
-                            "owner": "auth0|fd95ee6facf82e692d2eac4ccb5ddb18ef05c22a7575fcc4d26d7bc9aefedb4f",
-                            "ownerId": "657b5abe656297cec3d8b205",
-                            "createdDate": "2024-01-15T11:01:49.704Z",
-                            "modifiedDate": "2024-01-29T12:23:46.868Z",
-                            "publishTime": True,
-                            "privileges": [
-                                "read",
-                                "update",
-                                "delete",
-                                "publish",
-                                "change_owner",
-                            ],
-                        },
-                        "qData": {},
-                    },
-                ]
-            },
+            "qLayout": {
+                "qTitle": "IPL_Matches_2022",
+                "qFileName": "e09a68e7-18c9-461d-b957-043e0c045dcd",
+                "qLastReloadTime": "2024-01-15T11:06:53.070Z",
+                "qHasScript": True,
+                "qStateNames": [],
+                "qMeta": {},
+                "qHasData": True,
+                "qThumbnail": {},
+                "qUnsupportedFeatures": [],
+                "qUsage": "ANALYTICS",
+                "encrypted": True,
+                "id": "e09a68e7-18c9-461d-b957-043e0c045dcd",
+                "published": False,
+                "owner": "auth0|fd95ee6facf82e692d2eac4ccb5ddb18ef05c22a7575fcc4d26d7bc9aefedb4f",
+                "ownerId": "657b5abe656297cec3d8b205",
+                "createdDate": "2024-01-09T18:05:36.545Z",
+                "modifiedDate": "2024-01-15T11:07:00.333Z",
+                "spaceId": "659d0e41d1b0ecce6eebc9b1",
+                "hassectionaccess": False,
+                "_resourcetype": "app",
+                "privileges": [
+                    "read",
+                    "update",
+                    "delete",
+                    "reload",
+                    "export",
+                    "duplicate",
+                    "change_owner",
+                    "change_space",
+                    "export_reduced",
+                    "source",
+                    "exportappdata",
+                ],
+            }
         }
     elif request == {
         "jsonrpc": "2.0",
         "id": 3,
         "handle": 1,
-        "method": "GetObject",
-        "params": {"qId": "f4f57386-263a-4ec9-b40c-abcd2467f423"},
+        "method": "GetObjects",
+        "params": {"qOptions": {"qTypes": ["sheet"]}},
     }:
         return {
-            "jsonrpc": "2.0",
-            "id": 3,
-            "result": {
-                "qReturn": {
-                    "qType": "GenericObject",
-                    "qHandle": 2,
-                    "qGenericType": "sheet",
-                    "qGenericId": "f4f57386-263a-4ec9-b40c-abcd2467f423",
-                }
-            },
-        }
-    elif request == {
-        "jsonrpc": "2.0",
-        "id": 4,
-        "handle": 2,
-        "method": "GetLayout",
-        "params": {},
-    }:
-        return {
-            "jsonrpc": "2.0",
-            "id": 4,
-            "result": {
-                "qLayout": {
+            "qList": [
+                {
                     "qInfo": {
                         "qId": "f4f57386-263a-4ec9-b40c-abcd2467f423",
                         "qType": "sheet",
@@ -708,52 +487,194 @@ def mock_websocket_response(*args, **kwargs):
                             "change_owner",
                         ],
                     },
-                    "qSelectionInfo": {},
-                    "rank": 0,
-                    "thumbnail": {"qStaticContentUrl": {}},
-                    "columns": 24,
-                    "rows": 12,
-                    "cells": [
-                        {
-                            "bounds": {"x": 0, "y": 0, "width": 100, "height": 100},
-                            "col": 0,
-                            "colspan": 24,
-                            "name": "QYUUb",
-                            "row": 0,
-                            "rowspan": 12,
-                            "smartGrid": {
-                                "rowIdx": 0,
-                                "itemIdx": 0,
-                                "item": {"width": 1},
-                            },
-                            "type": "barchart",
-                        }
-                    ],
-                    "qChildList": {
-                        "qItems": [
-                            {
-                                "qInfo": {"qId": "QYUUb", "qType": "barchart"},
-                                "qMeta": {"privileges": ["read", "update", "delete"]},
-                                "qData": {"title": ""},
-                            }
-                        ]
-                    },
-                    "customRowBase": 12,
-                    "gridResolution": "small",
-                    "layoutOptions": {"mobileLayout": "LIST", "extendable": False},
-                    "gridMode": "simpleEdit",
-                }
-            },
+                    "qData": {},
+                },
+            ]
         }
+    elif request == {
+        "jsonrpc": "2.0",
+        "id": 4,
+        "handle": 1,
+        "method": "GetObject",
+        "params": {"qId": "f4f57386-263a-4ec9-b40c-abcd2467f423"},
+    }:
+        return {
+            "qReturn": {
+                "qType": "GenericObject",
+                "qHandle": 2,
+                "qGenericType": "sheet",
+                "qGenericId": "f4f57386-263a-4ec9-b40c-abcd2467f423",
+            }
+        }
+    elif request == {
+        "jsonrpc": "2.0",
+        "id": 5,
+        "handle": 2,
+        "method": "GetLayout",
+        "params": {},
+    }:
+        return {
+            "qLayout": {
+                "qInfo": {
+                    "qId": "f4f57386-263a-4ec9-b40c-abcd2467f423",
+                    "qType": "sheet",
+                },
+                "qMeta": {
+                    "title": "New ds sheet",
+                    "description": "",
+                    "_resourcetype": "app.object",
+                    "_objecttype": "sheet",
+                    "id": "f4f57386-263a-4ec9-b40c-abcd2467f423",
+                    "approved": False,
+                    "published": False,
+                    "owner": "auth0|fd95ee6facf82e692d2eac4ccb5ddb18ef05c22a7575fcc4d26d7bc9aefedb4f",
+                    "ownerId": "657b5abe656297cec3d8b205",
+                    "createdDate": "2024-01-15T11:01:49.704Z",
+                    "modifiedDate": "2024-01-29T12:23:46.868Z",
+                    "publishTime": True,
+                    "privileges": [
+                        "read",
+                        "update",
+                        "delete",
+                        "publish",
+                        "change_owner",
+                    ],
+                },
+                "qSelectionInfo": {},
+                "rank": 0,
+                "thumbnail": {"qStaticContentUrl": {}},
+                "columns": 24,
+                "rows": 12,
+                "qChildList": {
+                    "qItems": [
+                        {
+                            "qInfo": {"qId": "QYUUb", "qType": "barchart"},
+                            "qMeta": {"privileges": ["read", "update", "delete"]},
+                            "qData": {"title": ""},
+                        }
+                    ]
+                },
+                "customRowBase": 12,
+                "gridResolution": "small",
+                "layoutOptions": {"mobileLayout": "LIST", "extendable": False},
+                "gridMode": "simpleEdit",
+            }
+        }
+    elif request == {
+        "jsonrpc": "2.0",
+        "id": 6,
+        "handle": 1,
+        "method": "GetObject",
+        "params": ["LoadModel"],
+    }:
+        return {
+            "qReturn": {
+                "qType": "GenericObject",
+                "qHandle": 3,
+                "qGenericType": "LoadModel",
+                "qGenericId": "LoadModel",
+            }
+        }
+    elif request == {
+        "jsonrpc": "2.0",
+        "id": 7,
+        "handle": 3,
+        "method": "GetLayout",
+        "params": {},
+    }:
+        return {
+            "qLayout": {
+                "qInfo": {"qId": "LoadModel", "qType": "LoadModel"},
+                "tables": [
+                    {
+                        "dataconnectorName": "Google_BigQuery_harshal-playground-306419",
+                        "dataconnectorPrefix": "test_space:",
+                        "boxType": "blackbox",
+                        "databaseName": "",
+                        "ownerName": "",
+                        "tableName": "test_table",
+                        "tableAlias": "test_table",
+                        "loadProperties": {
+                            "filterInfo": {"filterClause": "", "filterType": 1}
+                        },
+                        "key": "Google_BigQuery_harshal-playground-306419:::test_table",
+                        "fields": [
+                            {
+                                "alias": "name",
+                                "name": "name",
+                                "selected": True,
+                                "checked": True,
+                                "id": "dsd.test_table.name",
+                            }
+                        ],
+                        "connectionInfo": {
+                            "name": "Google_BigQuery_harshal-playground-306419",
+                            "displayName": "Google_BigQuery_harshal-playground-306419",
+                            "id": "bb5be407-d3d3-4f19-858c-e71d593f09ae",
+                            "type": {
+                                "provider": "QvOdbcConnectorPackage.exe",
+                                "type": "custom",
+                                "name": "QvOdbcConnectorPackage",
+                                "displayName": "Qlik® ODBC Connector Package",
+                                "isStandardConnector": False,
+                                "isIframeCompatible": True,
+                                "needsConnect": True,
+                                "connectDialog": "/customdata/64/QvOdbcConnectorPackage/web/standalone/connect-dialog.html?locale=en-US",
+                                "selectDialog": "/customdata/64/QvOdbcConnectorPackage/web/standalone/select-dialog.html?locale=en-US",
+                                "selectAddData": "/customdata/64/QvOdbcConnectorPackage/web/standalone/select-adddata.html?locale=en-US",
+                                "credentialsDialog": "/customdata/64/QvOdbcConnectorPackage/web/standalone/credentials-dialog.html?locale=en-US",
+                                "update": "/customdata/64/QvOdbcConnectorPackage/web/standalone/loadModelUpdate.js",
+                                "architecture": {"text": "Common.undefinedbit"},
+                                "connectorMain": "QvOdbcConnectorPackage.webroot/connector-main-iframe",
+                            },
+                            "typeName": "QvOdbcConnectorPackage.exe",
+                            "privileges": [
+                                "change_owner",
+                                "change_space",
+                                "delete",
+                                "list",
+                                "read",
+                                "update",
+                            ],
+                            "sourceConnectorID": "gbq",
+                            "dataconnectorPrefix": "test_space:",
+                            "isInAppSpace": True,
+                            "space": "659d0e41d1b0ecce6eebc9b1",
+                            "connectionString": 'CUSTOM CONNECT TO "provider=QvOdbcConnectorPackage.exe;driver=gbq;OAuthMechanism=0;SupportOldClient=true;Catalog_Old=harshal-playground-306419;separateCredentials=false;Catalog=harshal-playground-306419;Min_TLS=1.2;SQLDialect=1;RowsFetchedPerBlock=16384;DefaultStringColumnLength=65535;AllowLargeResults=false;EnableHTAPI=false;HTAPI_MinResultsSize=1000;HTAPI_MinActivationRatio=3;allowNonSelectQueries=false;QueryTimeout=30;Timeout=300;useBulkReader=true;bulkFetchSize=50;rowBatchSize=1;bulkFetchColumnMode=true;maxStringLength=4096;logSQLStatements=false;"',
+                            "hasEditableSeparatedCredentials": False,
+                            "canDelete": True,
+                            "connectorImagePath": "https://iq37k6byr9lgam8.us.qlikcloud.com/customdata/64/QvOdbcConnectorPackage/web/gbq-square.png",
+                            "connectorDisplayName": "Google BigQuery",
+                            "dbInfo": {},
+                        },
+                        "id": "dsd.test_table",
+                        "tableGroupId": "",
+                        "connectorProperties": {
+                            "tableQualifiers": [
+                                "harshal-playground-306419",
+                                "test_dataset",
+                            ],
+                        },
+                        "selectStatement": "SELECT name\nFROM `harshal-playground-306419`.`test_dataset`.`test_table`;",
+                        "caching": {"enabled": True, "type": "qvd"},
+                    }
+                ],
+                "schemaVersion": 2.1,
+            }
+        }
+    else:
+        import pdb
+
+        pdb.set_trace()
+        return {}
 
 
 @pytest.fixture(scope="module")
 def mock_websocket_send_request():
-
     with patch(
-        "datahub.ingestion.source.qlik_sense.qlik_api.QlikAPI._websocket_send_request"
+        "datahub.ingestion.source.qlik_sense.qlik_api.WebsocketConnection._send_request"
     ) as mock_websocket_send_request, patch(
-        "datahub.ingestion.source.qlik_sense.qlik_api.create_connection"
+        "datahub.ingestion.source.qlik_sense.websocket_connection.create_connection"
     ):
         mock_websocket_send_request.side_effect = mock_websocket_response
         yield mock_websocket_send_request
@@ -763,12 +684,7 @@ def default_config():
     return {
         "tenant_hostname": "iq37k6byr9lgam8.us.qlikcloud.com",
         "api_key": "qlik-api-key",
-        "space_pattern": {
-            "allow": [
-                "test_space",
-            ]
-        },
-        "extract_personal_entity": True,
+        "space_pattern": {"allow": ["test_space", "personal_space"]},
     }
 
 
@@ -831,6 +747,12 @@ def test_platform_instance_ingest(
                 "config": {
                     **default_config(),
                     "platform_instance": "qlik_sense_platform",
+                    "app_dataset_source_to_platform_instance": {
+                        "harshal-playground-306419.test_dataset.test_table": {
+                            "platform_instance": "google-cloud",
+                            "env": "DEV",
+                        }
+                    },
                 },
             },
             "sink": {
@@ -843,7 +765,7 @@ def test_platform_instance_ingest(
     )
     pipeline.run()
     pipeline.raise_from_status()
-    golden_file = "golden_test_platform_instace_ingest.json"
+    golden_file = "golden_test_platform_instance_ingest.json"
 
     mce_helpers.check_golden_file(
         pytestconfig,

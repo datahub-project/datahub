@@ -2,7 +2,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Dict, List, Optional, Type, Union
 
-from pydantic import BaseModel, root_validator
+from pydantic import BaseModel, Field, root_validator
 
 from datahub.emitter.mcp_builder import ContainerKey
 from datahub.ingestion.source.qlik_sense.config import QLIK_DATETIME_FORMAT, Constant
@@ -38,6 +38,11 @@ FIELD_TYPE_MAPPING: Dict[
     "INTEGER": NumberType,
     "BOOLEAN": BooleanType,
     "BINARY": BytesType,
+}
+
+KNOWN_DATA_PLATFORM_MAPPING = {
+    "gbq": "bigquery",
+    "snowflake": "snowflake",
 }
 
 
@@ -88,13 +93,51 @@ class Space(BaseModel):
 
 class Item(BaseModel):
     id: str
-    name: str
-    qri: str
-    description: str
+    description: str = ""
     ownerId: str
     spaceId: str
     createdAt: datetime
     updatedAt: datetime
+
+
+class SchemaField(BaseModel):
+    name: str
+    dataType: Optional[str] = None
+    primaryKey: Optional[bool] = None
+    nullable: Optional[bool] = None
+
+    @root_validator(pre=True)
+    def update_values(cls, values: Dict) -> Dict:
+        values[Constant.DATATYPE] = values.get(Constant.DATATYPE, {}).get(Constant.TYPE)
+        return values
+
+
+class QlikDataset(Item):
+    name: str
+    secureQri: str
+    type: str
+    size: int
+    rowCount: int
+    datasetSchema: List[SchemaField]
+
+    @root_validator(pre=True)
+    def update_values(cls, values: Dict) -> Dict:
+        # Update str time to datetime
+        values[Constant.CREATEDAT] = datetime.strptime(
+            values[Constant.CREATEDTIME], QLIK_DATETIME_FORMAT
+        )
+        values[Constant.UPDATEDAT] = datetime.strptime(
+            values[Constant.LASTMODIFIEDTIME], QLIK_DATETIME_FORMAT
+        )
+        if not values.get(Constant.SPACEID):
+            # spaceId none indicates dataset present in personal space
+            values[Constant.SPACEID] = Constant.PERSONAL_SPACE_ID
+        values[Constant.QRI] = values[Constant.SECUREQRI]
+        values[Constant.SIZE] = values[Constant.OPERATIONAL].get(Constant.SIZE, 0)
+        values[Constant.ROWCOUNT] = values[Constant.OPERATIONAL][Constant.ROWCOUNT]
+
+        values[Constant.DATASETSCHEMA] = values[Constant.SCHEMA][Constant.DATAFIELDS]
+        return values
 
 
 class Chart(BaseModel):
@@ -122,9 +165,37 @@ class Sheet(BaseModel):
         return values
 
 
+class QlikAppDataset(BaseModel):
+    tableName: str
+    schemaName: str
+    databaseName: str
+    tableAlias: str
+    dataconnectorid: str
+    dataconnectorName: str
+    dataconnectorPlatform: str
+    datasetSchema: List[SchemaField] = Field(alias="fields")
+
+    @root_validator(pre=True)
+    def update_values(cls, values: Dict) -> Dict:
+        values[Constant.DATABASENAME] = values[Constant.CONNECTORPROPERTIES][
+            Constant.TABLEQUALIFIERS
+        ][0]
+        values[Constant.SCHEMANAME] = values[Constant.CONNECTORPROPERTIES][
+            Constant.TABLEQUALIFIERS
+        ][1]
+        values[Constant.DATACONNECTORID] = values[Constant.CONNECTIONINFO][Constant.ID]
+        values[Constant.DATACONNECTORPLATFORM] = values[Constant.CONNECTIONINFO][
+            Constant.SOURCECONNECTORID
+        ]
+        return values
+
+
 class App(Item):
-    usage: str
+    qTitle: str
+    qri: str
+    qUsage: str
     sheets: List[Sheet] = []
+    datasets: List[QlikAppDataset] = []
 
     @root_validator(pre=True)
     def update_values(cls, values: Dict) -> Dict:
@@ -138,45 +209,4 @@ class App(Item):
             # spaceId none indicates app present in personal space
             values[Constant.SPACEID] = Constant.PERSONAL_SPACE_ID
         values[Constant.QRI] = f"qri:app:sense://{values['id']}"
-        return values
-
-
-class SchemaField(BaseModel):
-    name: str
-    dataType: str
-    primaryKey: bool
-    nullable: bool
-
-
-class QlikDataset(Item):
-    type: str
-    size: int
-    rowCount: int
-    datasetSchema: List[SchemaField]
-
-    @root_validator(pre=True)
-    def update_values(cls, values: Dict) -> Dict:
-        # Update str time to datetime
-        values[Constant.CREATEDAT] = datetime.strptime(
-            values[Constant.CREATEDTIME], QLIK_DATETIME_FORMAT
-        )
-        values[Constant.UPDATEDAT] = datetime.strptime(
-            values[Constant.LASTMODIFIEDTIME], QLIK_DATETIME_FORMAT
-        )
-        if not values.get(Constant.SPACEID):
-            # spaceId none indicates dataset present in personal space
-            values[Constant.SPACEID] = Constant.PERSONAL_SPACE_ID
-        values[Constant.QRI] = values[Constant.SECUREQRI]
-        values[Constant.SIZE] = values[Constant.OPERATIONAL].get(Constant.SIZE, 0)
-        values[Constant.ROWCOUNT] = values[Constant.OPERATIONAL][Constant.ROWCOUNT]
-
-        values[Constant.DATASETSCHEMA] = [
-            {
-                Constant.NAME: field[Constant.NAME],
-                Constant.DATATYPE: field[Constant.DATATYPE][Constant.TYPE],
-                Constant.PRIMARYKEY: field[Constant.PRIMARYKEY],
-                Constant.NULLABLE: field[Constant.NULLABLE],
-            }
-            for field in values[Constant.SCHEMA][Constant.DATAFIELDS]
-        ]
         return values

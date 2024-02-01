@@ -1,20 +1,21 @@
-import json
 import logging
 import sys
 from typing import Any, Dict, List, Optional
 
 import requests
-from websocket import WebSocket, create_connection
 
 from datahub.ingestion.source.qlik_sense.config import Constant, QlikSourceConfig
 from datahub.ingestion.source.qlik_sense.data_classes import (
+    PERSONAL_SPACE_DICT,
     App,
     Chart,
     Item,
+    QlikAppDataset,
     QlikDataset,
     Sheet,
     Space,
 )
+from datahub.ingestion.source.qlik_sense.websocket_connection import WebsocketConnection
 
 # Logger instance
 logger = logging.getLogger(__name__)
@@ -22,6 +23,7 @@ logger = logging.getLogger(__name__)
 
 class QlikAPI:
     def __init__(self, config: QlikSourceConfig) -> None:
+        self.spaces: Dict = {}
         self.config = config
         self.session = requests.Session()
         self.session.headers.update(
@@ -31,7 +33,6 @@ class QlikAPI:
             }
         )
         self.rest_api_url = f"https://{self.config.tenant_hostname}/api/v1"
-        self.websocket_url = f"wss://{self.config.tenant_hostname}/app"
         # Test connection by fetching list of api keys
         logger.info("Trying to connect to {}".format(self.rest_api_url))
         self.session.get(f"{self.rest_api_url}/api-keys").raise_for_status()
@@ -44,36 +45,20 @@ class QlikAPI:
         logger.debug(msg=message, exc_info=e)
         return e
 
-    def _websocket_send_request(
-        self, socket_connection: WebSocket, request: dict
-    ) -> Dict:
-        """
-        Method to send request to websocket
-        """
-        socket_connection.send(json.dumps(request))
-        resp = socket_connection.recv()
-        if request["handle"] == -1:
-            resp = socket_connection.recv()
-        return json.loads(resp)
-
-    def _get_websocket_request_dict(
-        self, id: int, handle: int, method: str, params: Dict = {}
-    ) -> Dict:
-        return {
-            "jsonrpc": "2.0",
-            "id": id,
-            "handle": handle,
-            "method": method,
-            "params": params,
-        }
-
     def get_spaces(self) -> List[Space]:
         spaces: List[Space] = []
         try:
             response = self.session.get(f"{self.rest_api_url}/spaces")
             response.raise_for_status()
             for space_dict in response.json()[Constant.DATA]:
-                spaces.append(Space.parse_obj(space_dict))
+                space = Space.parse_obj(space_dict)
+                spaces.append(space)
+                self.spaces[space.id] = space.name
+            # Add personal space entity
+            spaces.append(Space.parse_obj(PERSONAL_SPACE_DICT))
+            self.spaces[PERSONAL_SPACE_DICT[Constant.ID]] = PERSONAL_SPACE_DICT[
+                Constant.NAME
+            ]
         except Exception:
             self._log_http_error(message="Unable to fetch spaces")
         return spaces
@@ -89,57 +74,17 @@ class QlikAPI:
             )
         return None
 
-    def get_items(self) -> List[Item]:
-        items: List[Item] = []
-        try:
-            response = self.session.get(f"{self.rest_api_url}/items")
-            response.raise_for_status()
-            data = response.json()[Constant.DATA]
-            for item in data:
-                resource_type = item[Constant.RESOURCETYPE]
-                resource_attributes = item[Constant.RESOURCEATTRIBUTES]
-                if resource_type == Constant.APP:
-                    app = App.parse_obj(resource_attributes)
-                    app.sheets = self._get_app_sheets(app_id=app.id)
-                    items.append(app)
-                elif resource_type == Constant.DATASET:
-                    dataset = self._get_dataset(dataset_id=item[Constant.RESOURCEID])
-                    if dataset:
-                        items.append(dataset)
-
-        except Exception:
-            self._log_http_error(message="Unable to fetch items")
-        return items
-
     def _get_sheet(
         self,
-        socket_connection: WebSocket,
-        request_id: int,
-        current_handle: int,
+        websocket_connection: WebsocketConnection,
         sheet_id: str,
     ) -> Optional[Sheet]:
         try:
-            response = self._websocket_send_request(
-                socket_connection=socket_connection,
-                request=self._get_websocket_request_dict(
-                    id=request_id,
-                    handle=current_handle,
-                    method="GetObject",
-                    params={"qId": sheet_id},
-                ),
+            websocket_connection.websocket_send_request(
+                method="GetObject", params={"qId": sheet_id}
             )
-            request_id += 1
-            current_handle = response[Constant.RESULT][Constant.QRETURN][
-                Constant.QHANDLE
-            ]
-            response = self._websocket_send_request(
-                socket_connection=socket_connection,
-                request=self._get_websocket_request_dict(
-                    id=request_id, handle=current_handle, method="GetLayout"
-                ),
-            )
-            request_id += 1
-            sheet_dict = response[Constant.RESULT][Constant.QLAYOUT]
+            response = websocket_connection.websocket_send_request(method="GetLayout")
+            sheet_dict = response[Constant.QLAYOUT]
             sheet = Sheet.parse_obj(sheet_dict[Constant.QMETA])
             for chart_dict in sheet_dict[Constant.QCHILDLIST][Constant.QITEMS]:
                 sheet.charts.append(Chart.parse_obj(chart_dict[Constant.QINFO]))
@@ -148,49 +93,98 @@ class QlikAPI:
             self._log_http_error(message=f"Unable to fetch sheet with id {sheet_id}")
         return None
 
-    def _get_app_sheets(self, app_id: str) -> List[Sheet]:
-        sheets: List[Sheet] = []
-        request_id = 1
-        current_handle = -1
+    def _get_app_used_datasets(
+        self, websocket_connection: WebsocketConnection, app_id: str
+    ) -> List[QlikAppDataset]:
+        datasets: List[QlikAppDataset] = []
         try:
-            socket_connection = create_connection(
-                f"{self.websocket_url}/{app_id}",
-                header={"Authorization": f"Bearer {self.config.api_key}"},
+            websocket_connection.websocket_send_request(
+                method="GetObject",
+                params=["LoadModel"],
             )
-            response = self._websocket_send_request(
-                socket_connection=socket_connection,
-                request=self._get_websocket_request_dict(
-                    id=request_id,
-                    handle=current_handle,
-                    method="OpenDoc",
-                    params={"qDocName": app_id},
-                ),
+            response = websocket_connection.websocket_send_request(method="GetLayout")
+            for table_dict in response[Constant.QLAYOUT][Constant.TABLES]:
+                # Condition to Add connection based table only
+                if table_dict["boxType"] == "blackbox":
+                    datasets.append(QlikAppDataset.parse_obj(table_dict))
+            websocket_connection.handle.pop()
+        except Exception:
+            self._log_http_error(
+                message=f"Unable to fetch app used datasets for app {app_id}"
             )
-            request_id += 1
-            current_handle = response["result"]["qReturn"]["qHandle"]
-            response = self._websocket_send_request(
-                socket_connection=socket_connection,
-                request=self._get_websocket_request_dict(
-                    id=request_id,
-                    handle=current_handle,
-                    method="GetObjects",
-                    params={
-                        "qOptions": {
-                            "qTypes": ["sheet"],
-                        }
-                    },
-                ),
+        return datasets
+
+    def _get_app_sheets(
+        self, websocket_connection: WebsocketConnection, app_id: str
+    ) -> List[Sheet]:
+        sheets: List[Sheet] = []
+        try:
+            response = websocket_connection.websocket_send_request(
+                method="GetObjects",
+                params={
+                    "qOptions": {
+                        "qTypes": ["sheet"],
+                    }
+                },
             )
-            request_id += 1
-            for sheet_dict in response[Constant.RESULT][Constant.QLIST]:
+            for sheet_dict in response[Constant.QLIST]:
                 sheet = self._get_sheet(
-                    socket_connection=socket_connection,
-                    request_id=request_id,
-                    current_handle=current_handle,
+                    websocket_connection=websocket_connection,
                     sheet_id=sheet_dict[Constant.QINFO][Constant.QID],
                 )
                 if sheet:
                     sheets.append(sheet)
+                websocket_connection.handle.pop()
         except Exception:
-            self._log_http_error(message="Unable to fetch sheets")
+            self._log_http_error(message=f"Unable to fetch sheets for app {app_id}")
         return sheets
+
+    def _get_app(self, app_id: str) -> Optional[App]:
+        try:
+            websocket_connection = WebsocketConnection(
+                self.config.tenant_hostname, self.config.api_key, app_id
+            )
+            websocket_connection.websocket_send_request(
+                method="OpenDoc",
+                params={"qDocName": app_id},
+            )
+            response = websocket_connection.websocket_send_request(
+                method="GetAppLayout"
+            )
+            app = App.parse_obj(response[Constant.QLAYOUT])
+            app.sheets = self._get_app_sheets(websocket_connection, app_id)
+            app.datasets = self._get_app_used_datasets(websocket_connection, app_id)
+            websocket_connection.close_websocket()
+            return app
+        except Exception:
+            self._log_http_error(message=f"Unable to fetch app with id {app_id}")
+        return None
+
+    def get_items(self) -> List[Item]:
+        items: List[Item] = []
+        try:
+            response = self.session.get(f"{self.rest_api_url}/items")
+            response.raise_for_status()
+            data = response.json()[Constant.DATA]
+            for item in data:
+                # spaceId none indicates item present in personal space
+                if not item.get(Constant.SPACEID):
+                    item[Constant.SPACEID] = Constant.PERSONAL_SPACE_ID
+                if self.config.space_pattern.allowed(
+                    self.spaces[item[Constant.SPACEID]]
+                ):
+                    resource_type = item[Constant.RESOURCETYPE]
+                    if resource_type == Constant.APP:
+                        app = self._get_app(app_id=item[Constant.RESOURCEID])
+                        if app:
+                            items.append(app)
+                    elif resource_type == Constant.DATASET:
+                        dataset = self._get_dataset(
+                            dataset_id=item[Constant.RESOURCEID]
+                        )
+                        if dataset:
+                            items.append(dataset)
+
+        except Exception:
+            self._log_http_error(message="Unable to fetch items")
+        return items
