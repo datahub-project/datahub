@@ -370,6 +370,7 @@ export const ManagePolicies = () => {
             </PaginationContainer>
             {showPolicyBuilderModal && (
                 <PolicyBuilderModal
+                    focusPolicyUrn={focusPolicyUrn}
                     policy={focusPolicy || EMPTY_POLICY}
                     setPolicy={setFocusPolicy}
                     visible={showPolicyBuilderModal}

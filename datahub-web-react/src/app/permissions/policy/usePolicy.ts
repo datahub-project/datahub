@@ -49,7 +49,9 @@ export function usePolicy(
             criteria: filter.criteria?.map((criterion): PolicyMatchCriterionInput => {
                 return {
                     field: criterion.field,
-                    values: criterion.values.map((criterionValue) => criterionValue.value),
+                    values: criterion.values.map((criterionValue) =>
+                        criterion.field === 'TAG' ? (criterionValue as any) : criterionValue.value,
+                    ),
                     condition: criterion.condition,
                 };
             }),
@@ -178,6 +180,7 @@ export function usePolicy(
                     __typename: 'ListPoliciesResult',
                     urn: focusPolicyUrn,
                     ...savePolicy,
+                    resources: null,
                 };
                 analytics.event({
                     type: EventType.UpdatePolicyEvent,
