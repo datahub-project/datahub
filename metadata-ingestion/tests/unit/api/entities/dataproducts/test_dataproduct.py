@@ -161,7 +161,7 @@ def test_dataproduct_ownership_type_urn_from_yaml(
     tmp_path: Path,
     test_resources_dir: Path,
     base_mock_graph: MockDataHubGraph,
-):
+) -> None:
     data_product_file = test_resources_dir / "dataproduct_ownership_type_urn.yaml"
     mock_graph = base_mock_graph
     data_product = DataProduct.from_yaml(data_product_file, mock_graph)
@@ -178,7 +178,7 @@ def test_dataproduct_ownership_type_urn_from_yaml(
 @freeze_time(FROZEN_TIME)
 def test_dataproduct_ownership_type_urn_patch_yaml(
     tmp_path: Path, test_resources_dir: Path, base_mock_graph: MockDataHubGraph
-):
+) -> None:
     mock_graph = base_mock_graph
     source_file = test_resources_dir / "golden_dataproduct_out_ownership_type_urn.json"
     mock_graph.import_file(source_file)
@@ -195,7 +195,7 @@ def test_dataproduct_ownership_type_urn_patch_yaml(
     )
 
     dataproduct_output_file = (
-        tmp_path / f"patch_dataproduct_ownership_type_urn_different_owner.yaml"
+        tmp_path / "patch_dataproduct_ownership_type_urn_different_owner.yaml"
     )
     data_product.patch_yaml(original_data_product, dataproduct_output_file)
 
