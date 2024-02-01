@@ -41,7 +41,7 @@ class DataJobPatchBuilder(MetadataPatchProposal):
             audit_header: The Kafka audit header of the data job (optional).
         """
         super().__init__(
-            urn, "datajob", system_metadata=system_metadata, audit_header=audit_header
+            urn, system_metadata=system_metadata, audit_header=audit_header
         )
         self.custom_properties_patch_helper = CustomPropertiesPatchHelper(
             self, DataJobInfo.ASPECT_NAME

@@ -40,7 +40,7 @@ class ChartPatchBuilder(MetadataPatchProposal):
             audit_header: The Kafka audit header of the chart (optional).
         """
         super().__init__(
-            urn, "chart", system_metadata=system_metadata, audit_header=audit_header
+            urn, system_metadata=system_metadata, audit_header=audit_header
         )
         self.custom_properties_patch_helper = CustomPropertiesPatchHelper(
             self, ChartInfo.ASPECT_NAME
