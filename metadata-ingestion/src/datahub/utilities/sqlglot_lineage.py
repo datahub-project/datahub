@@ -1,6 +1,7 @@
 import contextlib
 import enum
 import functools
+import hashlib
 import itertools
 import logging
 import pathlib
@@ -43,6 +44,7 @@ from datahub.utilities.urns.field_paths import get_simple_field_path_from_v2_fie
 logger = logging.getLogger(__name__)
 
 Urn = str
+DialectOrStr = Union[sqlglot.Dialect, str]
 
 # A lightweight table schema: column -> type mapping.
 SchemaInfo = Dict[str, str]
@@ -124,8 +126,9 @@ def _is_temp_table(table: sqlglot.exp.Table, dialect: sqlglot.Dialect) -> bool:
 
 
 def get_query_type_of_sql(
-    expression: sqlglot.exp.Expression, dialect: sqlglot.Dialect
+    expression: sqlglot.exp.Expression, dialect: DialectOrStr
 ) -> Tuple[QueryType, dict]:
+    dialect = _get_dialect(dialect)
     query_type_props = {}
 
     # For creates, we need to look at the inner expression.
@@ -165,6 +168,73 @@ def get_query_type_of_sql(
         if isinstance(expression, cls):
             return query_type, query_type_props
     return QueryType.UNKNOWN, {}
+
+
+def generalize_query(expression: sqlglot.exp.ExpOrStr, dialect: DialectOrStr) -> str:
+    """
+    Generalize a SQL query, to be usable for fingerprinting.
+
+    The generalized query will strip comments and normalize things like
+    whitespace and keyword casing. It will also replace things like date
+    literals with placeholders so they don't affect the fingerprint.
+
+    Args:
+        expression: The SQL query to generalize.
+        dialect: The SQL dialect to use.
+
+    Returns:
+        The generalized SQL query.
+    """
+
+    # Similar to sql-metadata's query normalization.
+    #   Implementation: https://github.com/macbre/sql-metadata/blob/master/sql_metadata/generalizator.py
+    #   Tests: https://github.com/macbre/sql-metadata/blob/master/test/test_normalization.py
+    #
+    # Note that this is somewhat different from SQLGlot's normalization
+    # https://tobikodata.com/are_these_sql_queries_the_same.html
+    # which is used to determine if queries are functionally equivalent.
+
+    dialect = _get_dialect(dialect)
+    expression = sqlglot.maybe_parse(expression, dialect=dialect)
+
+    def _simplify_node_expressions(node: sqlglot.exp.Expression) -> None:
+        # Replace all literals in the expressions with a single placeholder.
+        is_last_literal = True
+        for i, expression in reversed(list(enumerate(node.expressions))):
+            if isinstance(expression, sqlglot.exp.Literal):
+                if is_last_literal:
+                    node.expressions[i] = sqlglot.exp.Placeholder()
+                    is_last_literal = False
+                else:
+                    node.expressions.pop(i)
+
+            elif isinstance(expression, sqlglot.exp.Tuple):
+                _simplify_node_expressions(expression)
+
+    def _strip_expression(
+        node: sqlglot.exp.Expression,
+    ) -> Optional[sqlglot.exp.Expression]:
+        node.comments = None
+
+        if isinstance(node, (sqlglot.exp.In, sqlglot.exp.Values)):
+            _simplify_node_expressions(node)
+        elif isinstance(node, sqlglot.exp.Literal):
+            return sqlglot.exp.Placeholder()
+
+        return node
+
+    expression = expression.transform(_strip_expression, copy=True)
+
+    return expression.sql(dialect=dialect)
+
+
+def get_query_fingerprint(
+    expression: sqlglot.exp.ExpOrStr, dialect: DialectOrStr
+) -> str:
+    dialect = _get_dialect(dialect)
+    expression_sql = generalize_query(expression, dialect=dialect)
+    fingerprint = hashlib.sha1(expression_sql.encode("utf-8")).hexdigest()
+    return fingerprint
 
 
 class _ParserBaseModel(
@@ -1062,7 +1132,9 @@ def _get_dialect_str(platform: str) -> str:
         return platform
 
 
-def _get_dialect(platform: str) -> sqlglot.Dialect:
+def _get_dialect(platform: DialectOrStr) -> sqlglot.Dialect:
+    if isinstance(platform, sqlglot.Dialect):
+        return platform
     return sqlglot.Dialect.get_or_raise(_get_dialect_str(platform))
 
 
