@@ -25,6 +25,7 @@ import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.elasticsearch.query.request.AutocompleteRequestHandler;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchAfterWrapper;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchRequestHandler;
+import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.opentelemetry.extension.annotations.WithSpan;
@@ -447,7 +448,7 @@ public class ESSearchDAO {
       int limit) {
     List<EntitySpec> entitySpecs;
     if (entityNames == null || entityNames.isEmpty()) {
-      entitySpecs = new ArrayList<>(entityRegistry.getEntitySpecs().values());
+      entitySpecs = QueryUtils.getQueryByDefaultEntitySpecs(entityRegistry);
     } else {
       entitySpecs =
           entityNames.stream().map(entityRegistry::getEntitySpec).collect(Collectors.toList());

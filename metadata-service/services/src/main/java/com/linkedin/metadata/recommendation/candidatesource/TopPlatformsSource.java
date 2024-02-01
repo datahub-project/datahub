@@ -37,11 +37,12 @@ public class TopPlatformsSource extends EntitySearchAggregationSource {
           Constants.CONTAINER_ENTITY_NAME,
           Constants.NOTEBOOK_ENTITY_NAME);
 
-  private final EntityService _entityService;
+  private final EntityService<?> _entityService;
   private static final String PLATFORM = "platform";
 
-  public TopPlatformsSource(EntityService entityService, EntitySearchService entitySearchService) {
-    super(entitySearchService);
+  public TopPlatformsSource(
+      EntityService<?> entityService, EntitySearchService entitySearchService) {
+    super(entitySearchService, entityService.getEntityRegistry());
     _entityService = entityService;
   }
 

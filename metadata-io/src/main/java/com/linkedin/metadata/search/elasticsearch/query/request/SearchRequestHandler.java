@@ -93,7 +93,7 @@ public class SearchRequestHandler {
   private final List<EntitySpec> _entitySpecs;
   private final Set<String> _defaultQueryFieldNames;
   private final HighlightBuilder _highlights;
-  private final Map<String, String> _filtersToDisplayName;
+  private Map<String, String> _filtersToDisplayName;
 
   private final SearchConfiguration _configs;
   private final SearchQueryBuilder _searchQueryBuilder;
@@ -112,13 +112,11 @@ public class SearchRequestHandler {
       @Nonnull SearchConfiguration configs,
       @Nullable CustomSearchConfiguration customSearchConfiguration) {
     _entitySpecs = entitySpecs;
-    List<SearchableAnnotation> annotations = getSearchableAnnotations();
+    List<SearchableAnnotation> annotations =
+        getSearchableAnnotations().values().stream()
+            .flatMap(List::stream)
+            .collect(Collectors.toList());
     _defaultQueryFieldNames = getDefaultQueryFieldNames(annotations);
-    _filtersToDisplayName =
-        annotations.stream()
-            .flatMap(annotation -> getFacetFieldDisplayNameFromAnnotation(annotation).stream())
-            .collect(Collectors.toMap(Pair::getFirst, Pair::getSecond, mapMerger()));
-    _filtersToDisplayName.put(INDEX_VIRTUAL_FIELD, "Type");
     _highlights = getHighlights();
     _searchQueryBuilder = new SearchQueryBuilder(configs, customSearchConfiguration);
     _aggregationQueryBuilder = new AggregationQueryBuilder(configs, annotations);
@@ -154,12 +152,67 @@ public class SearchRequestHandler {
         k -> new SearchRequestHandler(entitySpecs, configs, customSearchConfiguration));
   }
 
-  private List<SearchableAnnotation> getSearchableAnnotations() {
+  /**
+   * Only used in aggregation queries, lazy load
+   *
+   * @return map of field name to facet display names
+   */
+  private Map<String, String> getFacetToDisplayNames() {
+    if (_filtersToDisplayName == null) {
+      Map<EntitySpec, List<SearchableAnnotation>> annotationMap = getSearchableAnnotations();
+
+      // Validate field names
+      Map<String, Set<Pair<String, Pair<String, String>>>> validateFieldMap =
+          annotationMap.entrySet().stream()
+              .flatMap(
+                  entry ->
+                      entry.getValue().stream()
+                          .flatMap(
+                              annotation ->
+                                  getFacetFieldDisplayNameFromAnnotation(entry.getKey(), annotation)
+                                      .stream()))
+              .collect(Collectors.groupingBy(Pair::getFirst, Collectors.toSet()));
+      for (Map.Entry<String, Set<Pair<String, Pair<String, String>>>> entry :
+          validateFieldMap.entrySet()) {
+        if (entry.getValue().stream().map(i -> i.getSecond().getSecond()).distinct().count() > 1) {
+          Map<String, Set<Pair<String, String>>> displayNameEntityMap =
+              entry.getValue().stream()
+                  .map(Pair::getSecond)
+                  .collect(Collectors.groupingBy(Pair::getSecond, Collectors.toSet()));
+          throw new IllegalStateException(
+              String.format(
+                  "Facet field collision on field `%s`. Incompatible Display Name across entities. Multiple Display Names detected: %s",
+                  entry.getKey(), displayNameEntityMap));
+        }
+      }
+
+      _filtersToDisplayName =
+          annotationMap.entrySet().stream()
+              .flatMap(
+                  entry ->
+                      entry.getValue().stream()
+                          .flatMap(
+                              annotation ->
+                                  getFacetFieldDisplayNameFromAnnotation(entry.getKey(), annotation)
+                                      .stream()))
+              .collect(
+                  Collectors.toMap(Pair::getFirst, p -> p.getSecond().getSecond(), mapMerger()));
+      _filtersToDisplayName.put(INDEX_VIRTUAL_FIELD, "Type");
+    }
+
+    return _filtersToDisplayName;
+  }
+
+  private Map<EntitySpec, List<SearchableAnnotation>> getSearchableAnnotations() {
     return _entitySpecs.stream()
-        .map(EntitySpec::getSearchableFieldSpecs)
-        .flatMap(List::stream)
-        .map(SearchableFieldSpec::getSearchableAnnotation)
-        .collect(Collectors.toList());
+        .map(
+            spec ->
+                Pair.of(
+                    spec,
+                    spec.getSearchableFieldSpecs().stream()
+                        .map(SearchableFieldSpec::getSearchableAnnotation)
+                        .collect(Collectors.toList())))
+        .collect(Collectors.toMap(Pair::getKey, Pair::getValue));
   }
 
   @VisibleForTesting
@@ -659,11 +712,11 @@ public class SearchRequestHandler {
   }
 
   private String computeDisplayName(String name) {
-    if (_filtersToDisplayName.containsKey(name)) {
-      return _filtersToDisplayName.get(name);
+    if (getFacetToDisplayNames().containsKey(name)) {
+      return getFacetToDisplayNames().get(name);
     } else if (name.contains(AGGREGATION_SEPARATOR_CHAR)) {
       return Arrays.stream(name.split(AGGREGATION_SEPARATOR_CHAR))
-          .map(_filtersToDisplayName::get)
+          .map(i -> getFacetToDisplayNames().get(i))
           .collect(Collectors.joining(AGGREGATION_SEPARATOR_CHAR));
     }
     return name;
@@ -906,7 +959,7 @@ public class SearchRequestHandler {
       aggregationMetadata.add(
           buildAggregationMetadata(
               finalFacetField,
-              _filtersToDisplayName.getOrDefault(finalFacetField, finalFacetField),
+              getFacetToDisplayNames().getOrDefault(finalFacetField, finalFacetField),
               new LongMap(
                   criterion.getValues().stream().collect(Collectors.toMap(i -> i, i -> 0L))),
               new FilterValueArray(
@@ -940,17 +993,22 @@ public class SearchRequestHandler {
         .setFilterValues(filterValues);
   }
 
-  private List<Pair<String, String>> getFacetFieldDisplayNameFromAnnotation(
-      @Nonnull final SearchableAnnotation annotation) {
-    final List<Pair<String, String>> facetsFromAnnotation = new ArrayList<>();
+  private List<Pair<String, Pair<String, String>>> getFacetFieldDisplayNameFromAnnotation(
+      @Nonnull EntitySpec entitySpec, @Nonnull final SearchableAnnotation annotation) {
+    final List<Pair<String, Pair<String, String>>> facetsFromAnnotation = new ArrayList<>();
     // Case 1: Default Keyword field
     if (annotation.isAddToFilters()) {
-      facetsFromAnnotation.add(Pair.of(annotation.getFieldName(), annotation.getFilterName()));
+      facetsFromAnnotation.add(
+          Pair.of(
+              annotation.getFieldName(),
+              Pair.of(entitySpec.getName(), annotation.getFilterName())));
     }
     // Case 2: HasX boolean field
     if (annotation.isAddHasValuesToFilters() && annotation.getHasValuesFieldName().isPresent()) {
       facetsFromAnnotation.add(
-          Pair.of(annotation.getHasValuesFieldName().get(), annotation.getHasValuesFilterName()));
+          Pair.of(
+              annotation.getHasValuesFieldName().get(),
+              Pair.of(entitySpec.getName(), annotation.getHasValuesFilterName())));
     }
     return facetsFromAnnotation;
   }

@@ -12,7 +12,7 @@ import javax.annotation.Nonnull;
 /** Base interface for defining a candidate source for recommendation module */
 public interface RecommendationSourceWithOffline extends RecommendationSource {
 
-  EntityService getEntityService();
+  EntityService<?> getEntityService();
 
   /** Whether or not to fetch recommendations from offline source */
   boolean shouldFetchFromOffline();

@@ -28,8 +28,10 @@ public class TopTagsSource extends EntitySearchAggregationSource
           Constants.RECOMMENDATION_MODULE_ENTITY_NAME);
 
   public TopTagsSource(
-      EntitySearchService entitySearchService, EntityService entityService, boolean fetchOffline) {
-    super(entitySearchService);
+      EntitySearchService entitySearchService,
+      EntityService<?> entityService,
+      boolean fetchOffline) {
+    super(entitySearchService, entityService.getEntityRegistry());
     _entityService = entityService;
     _fetchOffline = fetchOffline;
   }
