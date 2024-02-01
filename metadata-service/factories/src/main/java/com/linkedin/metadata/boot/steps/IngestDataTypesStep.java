@@ -11,12 +11,12 @@ import com.linkedin.datatype.DataTypeInfo;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.models.AspectSpec;
-import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
-import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeProposal;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.ClassPathResource;
@@ -62,30 +62,29 @@ public class IngestDataTypesStep implements BootstrapStep {
 
     log.info("Ingesting {} data types types", dataTypesObj.size());
     int numIngested = 0;
+
+    Map<Urn, JsonNode> urnDataTypesMap = new HashMap<>();
     for (final JsonNode roleObj : dataTypesObj) {
       final Urn urn = Urn.createFromString(roleObj.get("urn").asText());
-      final DataTypeInfo info =
-          RecordUtils.toRecordTemplate(DataTypeInfo.class, roleObj.get("info").toString());
-      log.info(String.format("Ingesting default data type with urn %s", urn));
-      ingestDataType(urn, info);
-      numIngested++;
+      urnDataTypesMap.put(urn, roleObj);
+    }
+
+    Set<Urn> existingUrns = _entityService.exists(urnDataTypesMap.keySet());
+
+    for (final Map.Entry<Urn, JsonNode> entry : urnDataTypesMap.entrySet()) {
+      if (!existingUrns.contains(entry.getKey())) {
+        final DataTypeInfo info =
+            RecordUtils.toRecordTemplate(
+                DataTypeInfo.class, entry.getValue().get("info").toString());
+        log.info(String.format("Ingesting default data type with urn %s", entry.getKey()));
+        ingestDataType(entry.getKey(), info);
+        numIngested++;
+      }
     }
     log.info("Ingested {} new data types", numIngested);
   }
 
   private void ingestDataType(final Urn dataTypeUrn, final DataTypeInfo info) throws Exception {
-    // Write key
-    final MetadataChangeProposal keyAspectProposal = new MetadataChangeProposal();
-    final AspectSpec keyAspectSpec = _entityService.getKeyAspectSpec(dataTypeUrn.getEntityType());
-    GenericAspect keyAspect =
-        GenericRecordUtils.serializeAspect(
-            EntityKeyUtils.convertUrnToEntityKey(dataTypeUrn, keyAspectSpec));
-    keyAspectProposal.setAspect(keyAspect);
-    keyAspectProposal.setAspectName(keyAspectSpec.getName());
-    keyAspectProposal.setEntityType(DATA_TYPE_ENTITY_NAME);
-    keyAspectProposal.setChangeType(ChangeType.UPSERT);
-    keyAspectProposal.setEntityUrn(dataTypeUrn);
-
     final MetadataChangeProposal proposal = new MetadataChangeProposal();
     proposal.setEntityUrn(dataTypeUrn);
     proposal.setEntityType(DATA_TYPE_ENTITY_NAME);

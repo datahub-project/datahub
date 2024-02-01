@@ -11,6 +11,7 @@ import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.AuthorizerChain;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.UpdateAspectResult;
@@ -67,13 +68,15 @@ public class EntitiesControllerTest {
           IllegalAccessException {
     EntityRegistry mockEntityRegistry = new MockEntityRegistry();
     AspectDao aspectDao = Mockito.mock(AspectDao.class);
-    Mockito.when(
-            aspectDao.runInTransactionWithRetry(
-                ArgumentMatchers.<Function<Transaction, UpdateAspectResult>>any(), any(), anyInt()))
+    when(aspectDao.runInTransactionWithRetry(
+            ArgumentMatchers.<Function<Transaction, List<UpdateAspectResult>>>any(),
+            any(AspectsBatch.class),
+            anyInt()))
         .thenAnswer(
             i ->
-                ((Function<Transaction, UpdateAspectResult>) i.getArgument(0))
-                    .apply(Mockito.mock(Transaction.class)));
+                List.of(
+                    ((Function<Transaction, List<UpdateAspectResult>>) i.getArgument(0))
+                        .apply(Mockito.mock(Transaction.class))));
 
     EventProducer mockEntityEventProducer = Mockito.mock(EventProducer.class);
     UpdateIndicesService mockUpdateIndicesService = mock(UpdateIndicesService.class);

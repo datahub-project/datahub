@@ -107,10 +107,6 @@ public class UpgradeDefaultBrowsePathsStepTest {
     final EntityService<?> mockService = Mockito.mock(EntityService.class);
     final EntityRegistry registry = new TestEntityRegistry();
     Mockito.when(mockService.getEntityRegistry()).thenReturn(registry);
-    Mockito.when(mockService.buildDefaultBrowsePath(Mockito.eq(testUrn1)))
-        .thenReturn(new BrowsePaths().setPaths(new StringArray(ImmutableList.of("/prod/kafka"))));
-    Mockito.when(mockService.buildDefaultBrowsePath(Mockito.eq(testUrn2)))
-        .thenReturn(new BrowsePaths().setPaths(new StringArray(ImmutableList.of("/prod/kafka"))));
 
     final Urn upgradeEntityUrn = Urn.createFromString(UPGRADE_URN);
     Mockito.when(

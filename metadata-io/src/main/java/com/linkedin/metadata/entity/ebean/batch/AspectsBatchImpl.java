@@ -11,6 +11,7 @@ import com.linkedin.metadata.aspect.plugins.validation.AspectRetriever;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
+import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -26,7 +27,7 @@ import lombok.extern.slf4j.Slf4j;
 @Builder(toBuilder = true)
 public class AspectsBatchImpl implements AspectsBatch {
 
-  private final List<? extends BatchItem> items;
+  private final Collection<? extends BatchItem> items;
 
   /**
    * Convert patches to upserts, apply hooks at the aspect and batch level.

@@ -54,7 +54,8 @@ public class CassandraAspectMigrationsDaoTest extends AspectMigrationsDaoTest<Ca
             _testEntityRegistry,
             true,
             _mockUpdateIndicesService,
-            preProcessHooks);
+            preProcessHooks,
+            true);
     _retentionService = new CassandraRetentionService(_entityServiceImpl, session, 1000);
     _entityServiceImpl.setRetentionService(_retentionService);
 
