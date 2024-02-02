@@ -3,7 +3,7 @@ const test_id = Math.floor(Math.random() * 100000);
 const datasetUrn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,climate.daily_temperature,PROD)";
 const datasetName = "daily_temperature";
 const group_name = `Test group ${test_id}`;
-const username = Cypress.env('ADMIN_USERNAME'); 
+const username = Cypress.env('ADMIN_USERNAME');
 
 describe("group subscription test", () => {
     beforeEach(() => {
@@ -105,12 +105,12 @@ describe("group subscription test", () => {
       cy.clickOptionWithTestId("connect-to-slack-button");
       cy.waitTextVisible("Updated Slack Settings!");
 
-      // Remove a group
+      // Remove a group -- todo remove this if it continues to fail
       cy.visit("/settings/identities/groups");
       cy.clickOptionWithTestId("entity-header-dropdown")
       cy.clickOptionWithText("Delete");
       cy.clickOptionWithText("Yes");
-      cy.waitTextVisible("Deleted Group!"); 
+      cy.waitTextVisible("Deleted Group!");
       cy.ensureTextNotPresent(`Test group EDITED ${test_id}`);
     });
 });
