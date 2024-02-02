@@ -468,7 +468,7 @@ base_dev_requirements = {
     pytest_dep,
     "pytest-asyncio>=0.16.0",
     "pytest-cov>=2.8.1",
-    "pytest-docker>=1.0.1",
+    "pytest-docker>=1.1.0",
     deepdiff_dep,
     "requests-mock",
     "freezegun",
