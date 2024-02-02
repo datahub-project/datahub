@@ -311,8 +311,6 @@ plugins: Dict[str, Set[str]] = {
     "feast": {
         "feast~=0.35.0",
         "flask-openid>=1.3.0",
-        # typeguard 3.x, released on 2023-03-14, seems to cause issues with Feast.
-        "typeguard<3",
     },
     "glue": aws_common,
     # hdbcli is supported officially by SAP, sqlalchemy-hana is built on top but not officially supported
