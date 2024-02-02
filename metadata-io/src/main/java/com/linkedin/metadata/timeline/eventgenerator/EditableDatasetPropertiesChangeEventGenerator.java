@@ -4,6 +4,7 @@ import static com.linkedin.metadata.Constants.*;
 
 import com.datahub.util.RecordUtils;
 import com.github.fge.jsonpatch.JsonPatch;
+import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.dataset.EditableDatasetProperties;
