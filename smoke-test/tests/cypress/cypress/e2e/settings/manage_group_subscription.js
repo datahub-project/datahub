@@ -107,7 +107,7 @@ describe("group subscription test", () => {
 
       // Remove a group
       cy.visit("/settings/identities/groups");
-      cy.get(`[href="/group/urn:li:corpGroup:${test_id}"]`).next().click();
+      cy.clickOptionWithTestId("entity-header-dropdown")
       cy.clickOptionWithText("Delete");
       cy.clickOptionWithText("Yes");
       cy.waitTextVisible("Deleted Group!"); 
