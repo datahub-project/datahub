@@ -3,6 +3,7 @@ package com.linkedin.metadata.aspect.batch;
 import com.linkedin.metadata.aspect.plugins.validation.AspectRetriever;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -17,14 +18,14 @@ import javax.annotation.Nonnull;
  * SystemMetadata} and record/message created time
  */
 public interface AspectsBatch {
-  List<? extends BatchItem> getItems();
+  Collection<? extends BatchItem> getItems();
 
   /**
    * Returns MCP items. Can be patch, upsert, etc.
    *
    * @return batch items
    */
-  default List<? extends MCPBatchItem> getMCPItems() {
+  default Collection<? extends MCPBatchItem> getMCPItems() {
     return getItems().stream()
         .filter(item -> item instanceof MCPBatchItem)
         .map(item -> (MCPBatchItem) item)
@@ -50,22 +51,21 @@ public interface AspectsBatch {
 
   default Map<String, Set<String>> getUrnAspectsMap() {
     return getItems().stream()
-        .map(aspect -> Map.entry(aspect.getUrn().toString(), aspect.getAspectName()))
+        .map(aspect -> Pair.of(aspect.getUrn().toString(), aspect.getAspectName()))
         .collect(
             Collectors.groupingBy(
-                Map.Entry::getKey, Collectors.mapping(Map.Entry::getValue, Collectors.toSet())));
+                Pair::getKey, Collectors.mapping(Pair::getValue, Collectors.toSet())));
   }
 
   default Map<String, Set<String>> getNewUrnAspectsMap(
       Map<String, Set<String>> existingMap, List<? extends BatchItem> items) {
     Map<String, HashSet<String>> newItemsMap =
         items.stream()
-            .map(aspect -> Map.entry(aspect.getUrn().toString(), aspect.getAspectName()))
+            .map(aspect -> Pair.of(aspect.getUrn().toString(), aspect.getAspectName()))
             .collect(
                 Collectors.groupingBy(
-                    Map.Entry::getKey,
-                    Collectors.mapping(
-                        Map.Entry::getValue, Collectors.toCollection(HashSet::new))));
+                    Pair::getKey,
+                    Collectors.mapping(Pair::getValue, Collectors.toCollection(HashSet::new))));
 
     return newItemsMap.entrySet().stream()
         .filter(

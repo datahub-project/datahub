@@ -147,7 +147,7 @@ class Dataset(BaseModel):
             return make_data_platform_urn(self.platform)
         else:
             assert self.urn is not None  # validator should have filled this in
-            dataset_urn = DatasetUrn.create_from_string(self.urn)
+            dataset_urn = DatasetUrn.from_string(self.urn)
             return str(dataset_urn.get_data_platform_urn())
 
     @validator("urn", pre=True, always=True)

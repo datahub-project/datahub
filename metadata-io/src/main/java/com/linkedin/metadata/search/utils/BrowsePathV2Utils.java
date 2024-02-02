@@ -16,7 +16,6 @@ import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.EntityKeyUtils;
-import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -46,9 +45,8 @@ public class BrowsePathV2Utils {
       @Nonnull Urn urn,
       @Nonnull EntityRegistry entityRegistry,
       @Nonnull Character dataPlatformDelimiter,
-      @Nonnull EntityService entityService,
-      boolean useContainerPaths)
-      throws URISyntaxException {
+      @Nonnull EntityService<?> entityService,
+      boolean useContainerPaths) {
 
     BrowsePathsV2 result = new BrowsePathsV2();
     BrowsePathEntryArray browsePathEntries = new BrowsePathEntryArray();

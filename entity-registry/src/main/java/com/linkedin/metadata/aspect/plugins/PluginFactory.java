@@ -12,6 +12,7 @@ import io.github.classgraph.ClassGraph;
 import io.github.classgraph.ClassInfo;
 import io.github.classgraph.MethodInfo;
 import io.github.classgraph.ScanResult;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -40,7 +41,7 @@ public class PluginFactory {
   }
 
   public static PluginFactory withConfig(@Nullable PluginConfiguration pluginConfiguration) {
-    return PluginFactory.withCustomClasspath(pluginConfiguration, List.of());
+    return PluginFactory.withCustomClasspath(pluginConfiguration, Collections.emptyList());
   }
 
   public static PluginFactory empty() {
@@ -180,7 +181,7 @@ public class PluginFactory {
   private List<AspectPayloadValidator> buildAspectPayloadValidators(
       @Nullable PluginConfiguration pluginConfiguration) {
     return pluginConfiguration == null
-        ? List.of()
+        ? Collections.emptyList()
         : applyDisable(
             build(
                 AspectPayloadValidator.class,
@@ -190,7 +191,7 @@ public class PluginFactory {
 
   private List<MutationHook> buildMutationHooks(@Nullable PluginConfiguration pluginConfiguration) {
     return pluginConfiguration == null
-        ? List.of()
+        ? Collections.emptyList()
         : applyDisable(
             build(MutationHook.class, pluginConfiguration.getMutationHooks(), HOOK_PACKAGES));
   }
@@ -198,7 +199,7 @@ public class PluginFactory {
   private List<MCLSideEffect> buildMCLSideEffects(
       @Nullable PluginConfiguration pluginConfiguration) {
     return pluginConfiguration == null
-        ? List.of()
+        ? Collections.emptyList()
         : applyDisable(
             build(MCLSideEffect.class, pluginConfiguration.getMclSideEffects(), HOOK_PACKAGES));
   }
@@ -206,7 +207,7 @@ public class PluginFactory {
   private List<MCPSideEffect> buildMCPSideEffects(
       @Nullable PluginConfiguration pluginConfiguration) {
     return pluginConfiguration == null
-        ? List.of()
+        ? Collections.emptyList()
         : applyDisable(
             build(MCPSideEffect.class, pluginConfiguration.getMcpSideEffects(), HOOK_PACKAGES));
   }

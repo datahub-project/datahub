@@ -30,7 +30,6 @@ class DataProductPatchBuilder(MetadataPatchProposal):
     ) -> None:
         super().__init__(
             urn,
-            "dataProduct",
             system_metadata=system_metadata,
             audit_header=audit_header,
         )

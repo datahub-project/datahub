@@ -172,6 +172,7 @@ import com.linkedin.datahub.graphql.resolvers.ingest.secret.CreateSecretResolver
 import com.linkedin.datahub.graphql.resolvers.ingest.secret.DeleteSecretResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.secret.GetSecretValuesResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.secret.ListSecretsResolver;
+import com.linkedin.datahub.graphql.resolvers.ingest.secret.UpdateSecretResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.source.DeleteIngestionSourceResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.source.GetIngestionSourceResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.source.ListIngestionSourcesResolver;
@@ -889,7 +890,8 @@ public class GmsGraphQLEngine {
                     "scrollAcrossEntities",
                     new ScrollAcrossEntitiesResolver(this.entityClient, this.viewService))
                 .dataFetcher(
-                    "searchAcrossLineage", new SearchAcrossLineageResolver(this.entityClient))
+                    "searchAcrossLineage",
+                    new SearchAcrossLineageResolver(this.entityClient, this.entityRegistry))
                 .dataFetcher(
                     "scrollAcrossLineage", new ScrollAcrossLineageResolver(this.entityClient))
                 .dataFetcher(
@@ -1105,6 +1107,8 @@ public class GmsGraphQLEngine {
                 .dataFetcher(
                     "createSecret", new CreateSecretResolver(this.entityClient, this.secretService))
                 .dataFetcher("deleteSecret", new DeleteSecretResolver(this.entityClient))
+                .dataFetcher(
+                    "updateSecret", new UpdateSecretResolver(this.entityClient, this.secretService))
                 .dataFetcher(
                     "createAccessToken", new CreateAccessTokenResolver(this.statefulTokenService))
                 .dataFetcher(
