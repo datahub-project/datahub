@@ -1,5 +1,6 @@
 import dataclasses
 import enum
+import itertools
 import logging
 from collections import defaultdict
 from datetime import datetime
@@ -13,6 +14,7 @@ from datahub.metadata.urns import (
     CorpUserUrn,
     DataPlatformUrn,
     DatasetUrn,
+    QueryUrn,
     SchemaFieldUrn,
 )
 from datahub.sql_parsing.schema_resolver import SchemaResolver
@@ -21,6 +23,8 @@ from datahub.utilities.file_backed_collections import FileBackedDict
 
 logger = logging.getLogger(__name__)
 QueryId = str
+
+_DEFAULT_QUERY_URN = CorpUserUrn("_ingestion")
 
 
 class StoreQueriesSetting(enum.Enum):
@@ -44,6 +48,18 @@ class QueryMetadata:
     upstreams: List[str]  # this is direct upstreams, which may be temp tables
     column_lineage: List[ColumnLineageInfo]  # TODO add an internal representation?
     confidence_score: float
+
+    def make_created_audit_stamp(self) -> models.AuditStampClass:
+        return models.AuditStampClass(
+            time=self.latest_timestamp or 0,
+            actor=(self.actor or _DEFAULT_QUERY_URN).urn(),
+        )
+
+    def make_last_modified_audit_stamp(self) -> models.AuditStampClass:
+        return models.AuditStampClass(
+            time=self.latest_timestamp or 0,
+            actor=(self.actor or _DEFAULT_QUERY_URN).urn(),
+        )
 
 
 class SqlParsingAggregator:
@@ -378,6 +394,7 @@ class SqlParsingAggregator:
         )
         for upstream_urn, query_id in upstreams.items():
             required_queries.add(query_id)
+
             upstream_aspect.upstreams.append(
                 models.UpstreamClass(
                     dataset=upstream_urn,
@@ -388,6 +405,8 @@ class SqlParsingAggregator:
             )
         for downstream_column, upstream_columns in cll.items():
             query_id = next(iter(upstream_columns.values()))
+            required_queries.add(query_id)
+
             upstream_aspect.fineGrainedLineages.append(
                 models.FineGrainedLineageClass(
                     upstreamType=models.FineGrainedLineageUpstreamTypeClass.FIELD_SET,
@@ -402,15 +421,40 @@ class SqlParsingAggregator:
                     confidenceScore=queries_map[query_id].confidence_score,
                 )
             )
-            required_queries.update(upstream_columns.values())
 
         yield MetadataChangeProposalWrapper(
             entityUrn=downstream_urn,
             aspect=upstream_aspect,
         )
 
-        # add the required_queries to a global required queries list?
-        # or maybe just emit immediately?
+        for query_id in required_queries:
+            # TODO check if already emitted elsewhere
+            # TODO add to emitted queries list
+
+            # TODO respect self.generate_queries flag
+            query = queries_map[query_id]
+            yield from MetadataChangeProposalWrapper.construct_many(
+                entityUrn=QueryUrn(query_id).urn(),
+                aspects=[
+                    models.QueryPropertiesClass(
+                        statement=models.QueryStatementClass(
+                            value=query.raw_query_string,  # TODO replace with formatted query string
+                            language=models.QueryLanguageClass.SQL,
+                        ),
+                        source=models.QuerySourceClass.SYSTEM,
+                        created=query.make_created_audit_stamp(),
+                        lastModified=query.make_last_modified_audit_stamp(),
+                    ),
+                    models.QuerySubjectsClass(
+                        subjects=[
+                            models.QuerySubjectClass(entity=dataset_urn)
+                            for dataset_urn in itertools.chain(
+                                [downstream_urn], query.upstreams
+                            )
+                        ]
+                    ),
+                ],
+            )
 
     def _gen_usage_statistics_mcps(self) -> Iterable[MetadataChangeProposalWrapper]:
         # TODO
