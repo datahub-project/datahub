@@ -33,6 +33,7 @@ import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.key.AssertionKey;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.r2.RemoteInvocationException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -218,6 +219,7 @@ public class AssertionService extends BaseService {
       @Nullable final DatasetFilter filter,
       @Nullable final AssertionActions actions,
       @Nonnull final Authentication authentication) {
+
     Objects.requireNonNull(entityUrn, "entityUrn must not be null");
     Objects.requireNonNull(type, "type must not be null");
     Objects.requireNonNull(schedule, "schedule must not be null");
@@ -467,66 +469,191 @@ public class AssertionService extends BaseService {
   }
 
   /**
-   * Updates an existing Dataset or DataJob Freshness Assertion for native execution by DataHub.
-   * Assumes that the caller has already performed the required authorization.
+   * Updates an existing Dataset Freshness Assertion for native execution by DataHub. Assumes that
+   * the caller has already performed the required authorization.
    */
   @Nonnull
-  public Urn updateFreshnessAssertion(
+  public Urn upsertDatasetFreshnessAssertion(
       @Nonnull final Urn assertionUrn,
+      @Nonnull final Urn entityUrn,
       @Nonnull final FreshnessAssertionSchedule schedule,
       @Nullable final DatasetFilter filter,
       @Nullable final AssertionActions actions,
       @Nonnull final Authentication authentication) {
     Objects.requireNonNull(assertionUrn, "assertionUrn must not be null");
+    Objects.requireNonNull(entityUrn, "entityUrn must not be null");
     Objects.requireNonNull(schedule, "schedule must not be null");
     Objects.requireNonNull(authentication, "authentication must not be null");
 
-    // 1. Check whether the Assertion exists
-    AssertionInfo existingInfo = getAssertionInfo(assertionUrn);
+    final FreshnessAssertionInfo freshnessInfo =
+        new FreshnessAssertionInfo()
+            .setEntity(entityUrn)
+            .setType(FreshnessAssertionType.DATASET_CHANGE)
+            .setSchedule(schedule, SetMode.IGNORE_NULL)
+            .setFilter(filter, SetMode.IGNORE_NULL);
 
-    if (existingInfo == null) {
-      throw new IllegalArgumentException(
-          String.format(
-              "Failed to update Assertion. Assertion with urn %s does not exist.", assertionUrn));
-    }
-
-    if (!AssertionType.FRESHNESS.equals(existingInfo.getType())) {
-      throw new IllegalArgumentException(
-          String.format(
-              "Failed to update Assertion. Assertion with urn %s is not an Freshness assertion.",
-              assertionUrn));
-    }
-
-    if (!existingInfo.hasFreshnessAssertion()) {
-      throw new IllegalArgumentException(
-          String.format(
-              "Failed to update Assertion. Freshness Assertion with urn %s is malformed!",
-              assertionUrn));
-    }
-
-    FreshnessAssertionInfo existingFreshnessAssertion = existingInfo.getFreshnessAssertion();
-
-    // 2. Apply changes to existing Assertion Info
-    existingFreshnessAssertion.setSchedule(schedule, SetMode.IGNORE_NULL);
-    existingFreshnessAssertion.setFilter(filter, SetMode.IGNORE_NULL);
+    final AssertionInfo assertion = new AssertionInfo();
+    assertion.setFreshnessAssertion(freshnessInfo);
+    assertion.setType(AssertionType.FRESHNESS);
+    assertion.setSource(getNativeAssertionSource());
 
     final List<MetadataChangeProposal> aspects = new ArrayList<>();
     aspects.add(
         AspectUtils.buildMetadataChangeProposal(
-            assertionUrn, Constants.ASSERTION_INFO_ASPECT_NAME, existingInfo));
+            assertionUrn, Constants.ASSERTION_INFO_ASPECT_NAME, assertion));
     if (actions != null) {
       aspects.add(
           AspectUtils.buildMetadataChangeProposal(
               assertionUrn, Constants.ASSERTION_ACTIONS_ASPECT_NAME, actions));
     }
 
-    // 3. Ingest updates aspects
     try {
       this.entityClient.batchIngestProposals(aspects, authentication, false);
       return assertionUrn;
     } catch (Exception e) {
       throw new RuntimeException(
           String.format("Failed to update Freshness Assertion with urn %s", assertionUrn), e);
+    }
+  }
+
+  /**
+   * Updates an existing Dataset Volume Assertion for native execution by DataHub. Assumes that the
+   * caller has already performed the required authorization.
+   */
+  @Nonnull
+  public Urn upsertDatasetVolumeAssertion(
+      @Nonnull final Urn assertionUrn,
+      @Nonnull final Urn entityUrn,
+      @Nonnull final VolumeAssertionInfo info,
+      @Nullable final AssertionActions actions,
+      @Nonnull final Authentication authentication) {
+    Objects.requireNonNull(assertionUrn, "assertionUrn must not be null");
+    Objects.requireNonNull(entityUrn, "entityUrn must not be null");
+    Objects.requireNonNull(info.getType(), "type must not be null");
+    Objects.requireNonNull(info, "info must not be null");
+    Objects.requireNonNull(authentication, "authentication must not be null");
+
+    switch (info.getType()) {
+      case ROW_COUNT_TOTAL:
+        Objects.requireNonNull(info.getRowCountTotal(), "rowCountTotal must not be null");
+        break;
+      case ROW_COUNT_CHANGE:
+        Objects.requireNonNull(info.getRowCountChange(), "rowCountChange must not be null");
+        break;
+      default:
+        throw new IllegalArgumentException(
+            String.format(
+                "Failed to create Volume Assertion. Unsupported VolumeAssertionType %s",
+                info.getType()));
+    }
+
+    final AssertionInfo assertion = new AssertionInfo();
+    assertion.setVolumeAssertion(info);
+    assertion.setType(AssertionType.VOLUME);
+    assertion.setSource(getNativeAssertionSource());
+
+    final List<MetadataChangeProposal> aspects = new ArrayList<>();
+    aspects.add(
+        AspectUtils.buildMetadataChangeProposal(
+            assertionUrn, Constants.ASSERTION_INFO_ASPECT_NAME, assertion));
+    if (actions != null) {
+      aspects.add(
+          AspectUtils.buildMetadataChangeProposal(
+              assertionUrn, Constants.ASSERTION_ACTIONS_ASPECT_NAME, actions));
+    }
+
+    try {
+      this.entityClient.batchIngestProposals(aspects, authentication, false);
+      return assertionUrn;
+    } catch (Exception e) {
+      throw new RuntimeException(
+          String.format("Failed to update Volume Assertion with urn %s", assertionUrn), e);
+    }
+  }
+
+  /**
+   * Updates an existing Dataset Sql Assertion for native execution by DataHub. Assumes that the
+   * caller has already performed the required authorization.
+   */
+  @Nonnull
+  public Urn upsertDatasetSqlAssertion(
+      @Nonnull final Urn assertionUrn,
+      @Nonnull final Urn entityUrn,
+      @Nonnull final SqlAssertionType type,
+      @Nonnull final String description,
+      @Nonnull final SqlAssertionInfo info,
+      @Nullable final AssertionActions actions,
+      @Nonnull final Authentication authentication) {
+    Objects.requireNonNull(assertionUrn, "assertionUrn must not be null");
+    Objects.requireNonNull(entityUrn, "entityUrn must not be null");
+    Objects.requireNonNull(type, "type must not be null");
+    Objects.requireNonNull(description, "description must not be null");
+    Objects.requireNonNull(info, "info must not be null");
+    Objects.requireNonNull(authentication, "authentication must not be null");
+
+    final AssertionInfo assertion = new AssertionInfo();
+    assertion.setSqlAssertion(info);
+    assertion.setType(AssertionType.SQL);
+    assertion.setDescription(description);
+    assertion.setSource(getNativeAssertionSource());
+
+    final List<MetadataChangeProposal> aspects = new ArrayList<>();
+    aspects.add(
+        AspectUtils.buildMetadataChangeProposal(
+            assertionUrn, Constants.ASSERTION_INFO_ASPECT_NAME, assertion));
+    if (actions != null) {
+      aspects.add(
+          AspectUtils.buildMetadataChangeProposal(
+              assertionUrn, Constants.ASSERTION_ACTIONS_ASPECT_NAME, actions));
+    }
+
+    try {
+      this.entityClient.batchIngestProposals(aspects, authentication, false);
+      return assertionUrn;
+    } catch (Exception e) {
+      throw new RuntimeException(
+          String.format("Failed to upsert new SQL Assertion for entity with urn %s", entityUrn), e);
+    }
+  }
+
+  /**
+   * Updates an existing Dataset Field Assertion for native execution by DataHub. Assumes that the
+   * caller has already performed the required authorization.
+   */
+  @Nonnull
+  public Urn upsertDatasetFieldAssertion(
+      @Nonnull final Urn assertionUrn,
+      @Nonnull final Urn entityUrn,
+      @Nonnull final FieldAssertionInfo info,
+      @Nullable final AssertionActions actions,
+      @Nonnull final Authentication authentication) {
+    Objects.requireNonNull(assertionUrn, "assertionUrn must not be null");
+    Objects.requireNonNull(entityUrn, "entityUrn must not be null");
+    Objects.requireNonNull(info, "info must not be null");
+    Objects.requireNonNull(authentication, "authentication must not be null");
+
+    final AssertionInfo assertion = new AssertionInfo();
+    assertion.setFieldAssertion(info);
+    assertion.setType(AssertionType.FIELD);
+    assertion.setSource(getNativeAssertionSource());
+
+    final List<MetadataChangeProposal> aspects = new ArrayList<>();
+    aspects.add(
+        AspectUtils.buildMetadataChangeProposal(
+            assertionUrn, Constants.ASSERTION_INFO_ASPECT_NAME, assertion));
+    if (actions != null) {
+      aspects.add(
+          AspectUtils.buildMetadataChangeProposal(
+              assertionUrn, Constants.ASSERTION_ACTIONS_ASPECT_NAME, actions));
+    }
+
+    try {
+      this.entityClient.batchIngestProposals(aspects, authentication, false);
+      return assertionUrn;
+    } catch (Exception e) {
+      throw new RuntimeException(
+          String.format("Failed to create new Field Assertion for entity with urn %s", entityUrn),
+          e);
     }
   }
 
@@ -642,10 +769,18 @@ public class AssertionService extends BaseService {
   }
 
   @Nonnull
-  private Urn generateAssertionUrn() {
+  public Urn generateAssertionUrn() {
     final AssertionKey key = new AssertionKey();
     final String id = UUID.randomUUID().toString();
     key.setAssertionId(id);
     return EntityKeyUtils.convertEntityKeyToUrn(key, Constants.ASSERTION_ENTITY_NAME);
+  }
+
+  public void tryDeleteAssertion(Urn assertionUrn, Authentication authentication) {
+    try {
+      entityClient.deleteEntity(assertionUrn, authentication);
+    } catch (RemoteInvocationException ex) {
+      log.error(String.format("Failed to delete assertion with urn %s ", assertionUrn), ex);
+    }
   }
 }

@@ -13,6 +13,7 @@ import com.linkedin.datahub.graphql.generated.FieldMetricAssertionInput;
 import com.linkedin.datahub.graphql.generated.FieldTransformInput;
 import com.linkedin.datahub.graphql.generated.FieldValuesAssertionInput;
 import com.linkedin.datahub.graphql.generated.FieldValuesFailThresholdInput;
+import com.linkedin.datahub.graphql.generated.UpsertDatasetFieldAssertionMonitorInput;
 import javax.annotation.Nonnull;
 
 public class FieldAssertionUtils {
@@ -75,6 +76,47 @@ public class FieldAssertionUtils {
         new com.linkedin.assertion.FieldAssertionInfo();
     final Urn asserteeUrn = UrnUtils.getUrn(input.getEntityUrn());
 
+    result.setEntity(asserteeUrn);
+    result.setType(FieldAssertionType.valueOf(input.getType().toString()));
+    if (input.getFilter() != null) {
+      result.setFilter(AssertionUtils.createAssertionFilter(input.getFilter()));
+    }
+
+    switch (input.getType()) {
+      case FIELD_VALUES:
+        if (input.getFieldValuesAssertion() != null) {
+          result.setFieldValuesAssertion(
+              createFieldValuesAssertion(input.getFieldValuesAssertion()));
+        } else {
+          throw new DataHubGraphQLException(
+              "Invalid input. FieldValuesAssertion must be specified if FieldAssertionType is FIELD_VALUES.",
+              DataHubGraphQLErrorCode.BAD_REQUEST);
+        }
+        break;
+      case FIELD_METRIC:
+        if (input.getFieldMetricAssertion() != null) {
+          result.setFieldMetricAssertion(
+              createFieldMetricAssertion(input.getFieldMetricAssertion()));
+        } else {
+          throw new DataHubGraphQLException(
+              "Invalid input. FieldMetricAssertion must be specified if FieldAssertionType is FIELD_METRIC.",
+              DataHubGraphQLErrorCode.BAD_REQUEST);
+        }
+        break;
+      default:
+        throw new RuntimeException(
+            String.format("Unsupported FieldAssertionType %s provided", input.getType()));
+    }
+
+    return result;
+  }
+
+  @Nonnull
+  public static com.linkedin.assertion.FieldAssertionInfo createFieldAssertionInfo(
+      @Nonnull final UpsertDatasetFieldAssertionMonitorInput input) {
+    final com.linkedin.assertion.FieldAssertionInfo result =
+        new com.linkedin.assertion.FieldAssertionInfo();
+    final Urn asserteeUrn = UrnUtils.getUrn(input.getEntityUrn());
     result.setEntity(asserteeUrn);
     result.setType(FieldAssertionType.valueOf(input.getType().toString()));
     if (input.getFilter() != null) {

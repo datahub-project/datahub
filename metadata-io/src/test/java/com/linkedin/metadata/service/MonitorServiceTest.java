@@ -2,7 +2,7 @@ package com.linkedin.metadata.service;
 
 import static com.linkedin.metadata.Constants.*;
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 import com.datahub.authentication.Authentication;
@@ -80,6 +80,7 @@ public class MonitorServiceTest {
   private static final Urn TEST_MONITOR_URN = UrnUtils.getUrn("urn:li:monitor:test");
   private static final Urn TEST_NON_EXISTENT_MONITOR_URN =
       UrnUtils.getUrn("urn:li:monitor:test-non-existent");
+  private static final Urn TEST_BAD_STATE_MONITOR_URN = UrnUtils.getUrn("urn:li:monitor:bad-state");
   private static final Urn TEST_ASSERTION_URN = UrnUtils.getUrn("urn:li:assertion:test");
   private static final Urn TEST_ENTITY_URN = UrnUtils.getUrn("urn:li:dataset:test");
   private static final Urn TEST_CONNECTION_URN = UrnUtils.getUrn("urn:li:dataPlatform:test");
@@ -267,6 +268,281 @@ public class MonitorServiceTest {
   }
 
   @Test
+  public void testUpsertAssertionMonitorRequiredFields() throws Exception {
+    // Test data and mocks
+    EntityClient mockClient = createMockEntityClient();
+    Urn entityUrn = TEST_ENTITY_URN;
+    Urn assertionUrn = TEST_ASSERTION_URN;
+    Urn monitorUrn = TEST_MONITOR_URN;
+    CronSchedule schedule =
+        new CronSchedule().setCron("1 * * * *").setTimezone("America/Los_Angeles");
+    AssertionEvaluationParameters parameters =
+        new AssertionEvaluationParameters()
+            .setType(AssertionEvaluationParametersType.DATASET_FRESHNESS)
+            .setDatasetFreshnessParameters(
+                new DatasetFreshnessAssertionParameters()
+                    .setSourceType(DatasetFreshnessSourceType.AUDIT_LOG)
+                    .setAuditLog(
+                        new AuditLogSpec()
+                            .setUserName("test")
+                            .setOperationTypes(new StringArray())));
+    MonitorMode monitorMode = MonitorMode.ACTIVE;
+
+    Mockito.when(mockClient.exists(Mockito.eq(monitorUrn), Mockito.any(Authentication.class)))
+        .thenReturn(true);
+    Mockito.when(mockClient.exists(Mockito.eq(assertionUrn), Mockito.any(Authentication.class)))
+        .thenReturn(true);
+    Mockito.when(mockClient.exists(Mockito.eq(entityUrn), Mockito.any(Authentication.class)))
+        .thenReturn(true);
+    Mockito.doAnswer(
+            invocation -> {
+              List<MetadataChangeProposal> aspects = invocation.getArgument(0);
+              Assert.assertEquals(aspects.size(), 1);
+              MetadataChangeProposal proposal = aspects.get(0);
+              Assert.assertEquals(proposal.getAspectName(), MONITOR_INFO_ASPECT_NAME);
+              // Verify that the correct aspect was ingested.
+              MonitorInfo newMonitorInfo =
+                  GenericRecordUtils.deserializeAspect(
+                      proposal.getAspect().getValue(),
+                      proposal.getAspect().getContentType(),
+                      MonitorInfo.class);
+              Assert.assertEquals(newMonitorInfo.getType(), MonitorType.ASSERTION);
+              Assert.assertEquals(
+                  newMonitorInfo.getAssertionMonitor().getAssertions().get(0).getAssertion(),
+                  assertionUrn);
+              Assert.assertEquals(
+                  newMonitorInfo.getAssertionMonitor().getAssertions().get(0).getSchedule(),
+                  schedule);
+              Assert.assertEquals(
+                  newMonitorInfo.getAssertionMonitor().getAssertions().get(0).getParameters(),
+                  parameters);
+              Assert.assertEquals(newMonitorInfo.getStatus().getMode(), monitorMode);
+              return null;
+            })
+        .when(mockClient)
+        .batchIngestProposals(
+            Mockito.anyList(), Mockito.any(Authentication.class), Mockito.eq(false));
+
+    final MonitorService service =
+        new MonitorService(
+            TEST_HOST, TEST_PORT, false, mockClient, Mockito.mock(Authentication.class));
+
+    // Test method
+    Urn result =
+        service.upsertAssertionMonitor(
+            monitorUrn,
+            assertionUrn,
+            entityUrn,
+            schedule,
+            parameters,
+            monitorMode,
+            null,
+            Mockito.mock(Authentication.class));
+
+    // Assert result
+    Assert.assertEquals(result, TEST_MONITOR_URN);
+  }
+
+  @Test
+  public void testUpsertAssertionMonitorAllFields() throws Exception {
+    // Test data and mocks
+    EntityClient mockClient = createMockEntityClient();
+    Urn entityUrn = TEST_ENTITY_URN;
+    Urn assertionUrn = TEST_ASSERTION_URN;
+    Urn monitorUrn = TEST_MONITOR_URN;
+    CronSchedule schedule =
+        new CronSchedule().setCron("1 * * * *").setTimezone("America/Los_Angeles");
+    AssertionEvaluationParameters parameters =
+        new AssertionEvaluationParameters()
+            .setType(AssertionEvaluationParametersType.DATASET_FRESHNESS)
+            .setDatasetFreshnessParameters(
+                new DatasetFreshnessAssertionParameters()
+                    .setSourceType(DatasetFreshnessSourceType.AUDIT_LOG)
+                    .setAuditLog(
+                        new AuditLogSpec()
+                            .setUserName("test")
+                            .setOperationTypes(new StringArray())));
+    MonitorMode monitorMode = MonitorMode.ACTIVE;
+    String executorId = "testExecutorId";
+
+    Mockito.when(mockClient.exists(Mockito.eq(monitorUrn), Mockito.any(Authentication.class)))
+        .thenReturn(true);
+    Mockito.when(mockClient.exists(Mockito.eq(assertionUrn), Mockito.any(Authentication.class)))
+        .thenReturn(true);
+    Mockito.when(mockClient.exists(Mockito.eq(entityUrn), Mockito.any(Authentication.class)))
+        .thenReturn(true);
+    Mockito.doAnswer(
+            invocation -> {
+              List<MetadataChangeProposal> aspects = invocation.getArgument(0);
+              Assert.assertEquals(aspects.size(), 1);
+              MetadataChangeProposal proposal = aspects.get(0);
+              Assert.assertEquals(proposal.getAspectName(), MONITOR_INFO_ASPECT_NAME);
+              // Verify that the correct aspect was ingested.
+              MonitorInfo newMonitorInfo =
+                  GenericRecordUtils.deserializeAspect(
+                      proposal.getAspect().getValue(),
+                      proposal.getAspect().getContentType(),
+                      MonitorInfo.class);
+              Assert.assertEquals(newMonitorInfo.getType(), MonitorType.ASSERTION);
+              Assert.assertEquals(
+                  newMonitorInfo.getAssertionMonitor().getAssertions().get(0).getAssertion(),
+                  assertionUrn);
+              Assert.assertEquals(
+                  newMonitorInfo.getAssertionMonitor().getAssertions().get(0).getSchedule(),
+                  schedule);
+              Assert.assertEquals(
+                  newMonitorInfo.getAssertionMonitor().getAssertions().get(0).getParameters(),
+                  parameters);
+              Assert.assertEquals(newMonitorInfo.getStatus().getMode(), monitorMode);
+              Assert.assertEquals(newMonitorInfo.getExecutorId(), executorId);
+              return null;
+            })
+        .when(mockClient)
+        .batchIngestProposals(
+            Mockito.anyList(), Mockito.any(Authentication.class), Mockito.eq(false));
+
+    final MonitorService service =
+        new MonitorService(
+            TEST_HOST, TEST_PORT, false, mockClient, Mockito.mock(Authentication.class));
+
+    // Test method
+    Urn result =
+        service.upsertAssertionMonitor(
+            monitorUrn,
+            assertionUrn,
+            entityUrn,
+            schedule,
+            parameters,
+            monitorMode,
+            executorId,
+            Mockito.mock(Authentication.class));
+
+    // Assert result
+    Assert.assertEquals(result, TEST_MONITOR_URN);
+  }
+
+  @Test
+  public void testUpsertAssertionMonitorAssertionDoesNotExist() throws Exception {
+    // Test data and mocks
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    Urn entityUrn = TEST_ENTITY_URN;
+    Urn assertionUrn = TEST_ASSERTION_URN;
+    Urn monitorUrn = TEST_MONITOR_URN;
+    CronSchedule schedule =
+        new CronSchedule().setCron("1 * * * *").setTimezone("America/Los_Angeles");
+    AssertionEvaluationParameters parameters =
+        new AssertionEvaluationParameters()
+            .setType(AssertionEvaluationParametersType.DATASET_FRESHNESS)
+            .setDatasetFreshnessParameters(
+                new DatasetFreshnessAssertionParameters()
+                    .setSourceType(DatasetFreshnessSourceType.AUDIT_LOG)
+                    .setAuditLog(
+                        new AuditLogSpec()
+                            .setUserName("test")
+                            .setOperationTypes(new StringArray())));
+
+    final MonitorService service =
+        new MonitorService(
+            TEST_HOST, TEST_PORT, false, mockClient, Mockito.mock(Authentication.class));
+
+    // Method should throw because the assertion does not exist.
+    Assert.assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            service.upsertAssertionMonitor(
+                monitorUrn,
+                assertionUrn,
+                entityUrn,
+                schedule,
+                parameters,
+                MonitorMode.ACTIVE,
+                null,
+                Mockito.mock(Authentication.class)));
+  }
+
+  @Test
+  public void testUpsertAssertionMonitorEntityDoesNotExist() throws Exception {
+    // Test data and mocks
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    Urn entityUrn = TEST_ENTITY_URN;
+    Urn assertionUrn = TEST_ASSERTION_URN;
+    Urn monitorUrn = TEST_MONITOR_URN;
+    CronSchedule schedule =
+        new CronSchedule().setCron("1 * * * *").setTimezone("America/Los_Angeles");
+    AssertionEvaluationParameters parameters =
+        new AssertionEvaluationParameters()
+            .setType(AssertionEvaluationParametersType.DATASET_FRESHNESS)
+            .setDatasetFreshnessParameters(
+                new DatasetFreshnessAssertionParameters()
+                    .setSourceType(DatasetFreshnessSourceType.AUDIT_LOG)
+                    .setAuditLog(
+                        new AuditLogSpec()
+                            .setUserName("test")
+                            .setOperationTypes(new StringArray())));
+
+    final MonitorService service =
+        new MonitorService(
+            TEST_HOST, TEST_PORT, false, mockClient, Mockito.mock(Authentication.class));
+
+    Mockito.when(mockClient.exists(Mockito.eq(assertionUrn), Mockito.any(Authentication.class)))
+        .thenReturn(true);
+    Mockito.when(mockClient.exists(Mockito.eq(entityUrn), Mockito.any(Authentication.class)))
+        .thenReturn(false);
+
+    // Method should throw because the assertion does not exist.
+    Assert.assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            service.upsertAssertionMonitor(
+                monitorUrn,
+                assertionUrn,
+                entityUrn,
+                schedule,
+                parameters,
+                MonitorMode.ACTIVE,
+                null,
+                Mockito.mock(Authentication.class)));
+  }
+
+  @Test
+  public void testUpsertAssertionMonitorBadState() throws Exception {
+    // Test data and mocks
+    EntityClient mockClient = createMockEntityClient();
+    Urn entityUrn = TEST_ENTITY_URN;
+    Urn assertionUrn = TEST_ASSERTION_URN;
+    Urn monitorUrn = TEST_BAD_STATE_MONITOR_URN;
+
+    final MonitorService service =
+        new MonitorService(
+            TEST_HOST, TEST_PORT, false, mockClient, Mockito.mock(Authentication.class));
+
+    Mockito.when(mockClient.exists(Mockito.eq(assertionUrn), Mockito.any(Authentication.class)))
+        .thenReturn(true);
+    Mockito.when(mockClient.exists(Mockito.eq(entityUrn), Mockito.any(Authentication.class)))
+        .thenReturn(true);
+
+    // Method should throw because the monitor is in bad state.
+    Exception e =
+        Assert.expectThrows(
+            Exception.class,
+            () ->
+                service.upsertAssertionMonitor(
+                    monitorUrn,
+                    assertionUrn,
+                    entityUrn,
+                    new CronSchedule(),
+                    new AssertionEvaluationParameters(),
+                    MonitorMode.ACTIVE,
+                    null,
+                    mock(Authentication.class)));
+    assertEquals(
+        e.getMessage(),
+        String.format(
+            "Failed to update Assertion Monitor. Monitor with urn %s is not linked to any Assertion.",
+            monitorUrn, assertionUrn));
+  }
+
+  @Test
   private void testUpsertMonitorMode() throws Exception {
     final EntityClient mockClient = createMockEntityClient();
     final MonitorService service =
@@ -366,6 +642,23 @@ public class MonitorServiceTest {
                 .setEntityName(MONITOR_ENTITY_NAME)
                 .setAspects(new EnvelopedAspectMap(Collections.emptyMap())));
 
+    Mockito.when(
+            mockClient.getV2(
+                Mockito.eq(Constants.MONITOR_ENTITY_NAME),
+                Mockito.eq(TEST_BAD_STATE_MONITOR_URN),
+                Mockito.eq(ImmutableSet.of(Constants.MONITOR_INFO_ASPECT_NAME)),
+                Mockito.any(Authentication.class)))
+        .thenReturn(
+            new EntityResponse()
+                .setUrn(TEST_BAD_STATE_MONITOR_URN)
+                .setEntityName(MONITOR_ENTITY_NAME)
+                .setAspects(
+                    new EnvelopedAspectMap(
+                        ImmutableMap.of(
+                            MONITOR_INFO_ASPECT_NAME,
+                            new EnvelopedAspect()
+                                .setValue(new Aspect(mockBadMonitorInfo().data()))))));
+
     return mockClient;
   }
 
@@ -393,6 +686,14 @@ public class MonitorServiceTest {
                                                 new AuditLogSpec()
                                                     .setOperationTypes(new StringArray())
                                                     .setUserName("test"))))))));
+    info.setStatus(new MonitorStatus().setMode(MonitorMode.ACTIVE));
+    return info;
+  }
+
+  private static MonitorInfo mockBadMonitorInfo() throws Exception {
+    final MonitorInfo info = new MonitorInfo();
+    info.setType(MonitorType.ASSERTION);
+    info.setAssertionMonitor(new AssertionMonitor());
     info.setStatus(new MonitorStatus().setMode(MonitorMode.ACTIVE));
     return info;
   }

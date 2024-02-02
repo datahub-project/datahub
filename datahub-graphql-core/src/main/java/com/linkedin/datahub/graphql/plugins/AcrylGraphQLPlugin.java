@@ -44,7 +44,10 @@ import com.linkedin.datahub.graphql.resolvers.assertion.EntityAssertionsResolver
 import com.linkedin.datahub.graphql.resolvers.assertion.TestAssertionResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.UpdateAssertionActionsResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.UpdateDatasetAssertionResolver;
-import com.linkedin.datahub.graphql.resolvers.assertion.UpdateFreshnessAssertionResolver;
+import com.linkedin.datahub.graphql.resolvers.assertion.UpsertDatasetFieldAssertionMonitorResolver;
+import com.linkedin.datahub.graphql.resolvers.assertion.UpsertDatasetFreshnessAssertionMonitorResolver;
+import com.linkedin.datahub.graphql.resolvers.assertion.UpsertDatasetSqlAssertionMonitorResolver;
+import com.linkedin.datahub.graphql.resolvers.assertion.UpsertDatasetVolumeAssertionMonitorResolver;
 import com.linkedin.datahub.graphql.resolvers.connection.UpsertConnectionResolver;
 import com.linkedin.datahub.graphql.resolvers.constraint.ConstraintsResolver;
 import com.linkedin.datahub.graphql.resolvers.constraint.CreateTermConstraintResolver;
@@ -296,6 +299,22 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
                     "createFreshnessAssertion",
                     new CreateFreshnessAssertionResolver(assertionService))
                 .dataFetcher(
+                    "upsertDatasetFreshnessAssertionMonitor",
+                    new UpsertDatasetFreshnessAssertionMonitorResolver(
+                        assertionService, monitorService, graphClient))
+                .dataFetcher(
+                    "upsertDatasetVolumeAssertionMonitor",
+                    new UpsertDatasetVolumeAssertionMonitorResolver(
+                        assertionService, monitorService, graphClient))
+                .dataFetcher(
+                    "upsertDatasetSqlAssertionMonitor",
+                    new UpsertDatasetSqlAssertionMonitorResolver(
+                        assertionService, monitorService, graphClient))
+                .dataFetcher(
+                    "upsertDatasetFieldAssertionMonitor",
+                    new UpsertDatasetFieldAssertionMonitorResolver(
+                        assertionService, monitorService, graphClient))
+                .dataFetcher(
                     "createVolumeAssertion", new CreateVolumeAssertionResolver(assertionService))
                 .dataFetcher(
                     "createFieldAssertion", new CreateFieldAssertionResolver(assertionService))
@@ -303,9 +322,6 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
                 .dataFetcher("testAssertion", new TestAssertionResolver(monitorService))
                 .dataFetcher(
                     "updateDatasetAssertion", new UpdateDatasetAssertionResolver(assertionService))
-                .dataFetcher(
-                    "updateFreshnessAssertion",
-                    new UpdateFreshnessAssertionResolver(assertionService))
                 .dataFetcher(
                     "updateAssertionActions", new UpdateAssertionActionsResolver(assertionService))
                 .dataFetcher(
