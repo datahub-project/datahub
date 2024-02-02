@@ -19,6 +19,7 @@ import GlossaryNodeEntity from './entity/glossaryNode/GlossaryNodeEntity';
 import { DataPlatformEntity } from './entity/dataPlatform/DataPlatformEntity';
 import { DataProductEntity } from './entity/dataProduct/DataProductEntity';
 import { DataPlatformInstanceEntity } from './entity/dataPlatformInstance/DataPlatformInstanceEntity';
+import { ERModelRelationEntity } from './entity/ermodelrelations/ERModelRelationEntity'
 import { RoleEntity } from './entity/Access/RoleEntity';
 
 export default function buildEntityRegistry() {
@@ -44,5 +45,6 @@ export default function buildEntityRegistry() {
     registry.register(new DataPlatformEntity());
     registry.register(new DataProductEntity());
     registry.register(new DataPlatformInstanceEntity());
+    registry.register(new ERModelRelationEntity())
     return registry;
 }
