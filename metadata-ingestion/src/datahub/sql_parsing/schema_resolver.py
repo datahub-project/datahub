@@ -12,6 +12,7 @@ from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIdentifier
 from datahub.metadata.schema_classes import SchemaFieldClass, SchemaMetadataClass
+from datahub.metadata.urns import DataPlatformUrn
 from datahub.sql_parsing._models import _TableName
 from datahub.sql_parsing.sql_parsing_common import PLATFORMS_WITH_CASE_SENSITIVE_TABLES
 from datahub.utilities.file_backed_collections import ConnectionWrapper, FileBackedDict
@@ -40,8 +41,8 @@ class SchemaResolver(Closeable):
         graph: Optional[DataHubGraph] = None,
         _cache_filename: Optional[pathlib.Path] = None,
     ):
-        # TODO handle platforms when prefixed with urn:li:dataPlatform:
-        self.platform = platform
+        # Also supports platform with an urn prefix.
+        self.platform = DataPlatformUrn(platform).platform_name
         self.platform_instance = platform_instance
         self.env = env
 

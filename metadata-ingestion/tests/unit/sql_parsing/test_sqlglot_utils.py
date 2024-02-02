@@ -10,6 +10,7 @@ from datahub.sql_parsing.sqlglot_lineage import (
 from datahub.sql_parsing.sqlglot_utils import (
     generalize_query,
     get_dialect,
+    get_query_fingerprint,
     is_dialect_instance,
 )
 
@@ -103,3 +104,13 @@ def test_query_generalization():
         )
         == "INSERT INTO MyTable (Column1, Column2, Column3) VALUES (?), (?), (?), (?)"
     )
+
+
+def test_query_fingerprint():
+    assert get_query_fingerprint(
+        "select * /* everything */ from foo where ts = 34", dialect="redshift"
+    ) == get_query_fingerprint("SELECT * FROM foo where ts = 38", dialect="redshift")
+
+    assert get_query_fingerprint(
+        "select 1 + 1", dialect="postgres"
+    ) != get_query_fingerprint("select 2", dialect="postgres")

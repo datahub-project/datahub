@@ -50,7 +50,7 @@ class SqlParsingAggregator:
     def __init__(
         self,
         *,
-        platform: DataPlatformUrn,
+        platform: str,
         platform_instance: Optional[str],
         env: str,
         graph: Optional[DataHubGraph] = None,
@@ -63,7 +63,7 @@ class SqlParsingAggregator:
         is_temp_table: Optional[Callable[[str], bool]] = None,
         store_queries: StoreQueriesSetting = StoreQueriesSetting.DISABLED,
     ) -> None:
-        self.platform = platform
+        self.platform = DataPlatformUrn(platform)
         self.platform_instance = platform_instance
         self.env = env
 
@@ -90,7 +90,7 @@ class SqlParsingAggregator:
         self._schema_resolver: SchemaResolver
         if graph is None:
             self._schema_resolver = SchemaResolver(
-                platform=self.platform.urn(),
+                platform=self.platform.platform_name,
                 platform_instance=self.platform_instance,
                 env=self.env,
             )
@@ -407,11 +407,11 @@ class SqlParsingAggregator:
 
     def _gen_usage_statistics_mcps(self) -> Iterable[MetadataChangeProposalWrapper]:
         # TODO
-        pass
+        yield from []
 
     def _gen_operation_mcps(self) -> Iterable[MetadataChangeProposalWrapper]:
         # TODO
-        pass
+        yield from []
 
 
 # TODO: add a reporter type
