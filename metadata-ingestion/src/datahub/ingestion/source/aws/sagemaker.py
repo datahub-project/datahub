@@ -82,7 +82,7 @@ class SagemakerSource(Source):
                 env=self.env,
                 report=self.report,
                 job_type_filter=self.source_config.extract_jobs,
-                aws_region=self.source_config.aws_region,
+                aws_region=self.sagemaker_client.meta.region_name,
             )
             yield from job_processor.get_workunits()
 
@@ -98,7 +98,7 @@ class SagemakerSource(Source):
                 model_image_to_jobs=model_image_to_jobs,
                 model_name_to_jobs=model_name_to_jobs,
                 lineage=lineage,
-                aws_region=self.source_config.aws_region,
+                aws_region=self.sagemaker_client.meta.region_name,
             )
             yield from model_processor.get_workunits()
 

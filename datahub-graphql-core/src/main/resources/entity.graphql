@@ -7068,6 +7068,11 @@ type AssertionInfo {
     Dataset-specific assertion information
     """
     datasetAssertion: DatasetAssertionInfo
+
+    """
+    An optional human-readable description of the assertion
+    """
+    description: String
 }
 
 """
@@ -11208,6 +11213,11 @@ enum QuerySource {
   The query was provided manually, e.g. from the UI.
   """
   MANUAL
+
+  """
+  The query was extracted by the system, e.g. from a dashboard.
+  """
+  SYSTEM
 }
 
 """

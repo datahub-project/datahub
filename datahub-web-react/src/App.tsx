@@ -1,20 +1,19 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import Cookies from 'js-cookie';
 import { message } from 'antd';
 import { BrowserRouter as Router } from 'react-router-dom';
 import { ApolloClient, ApolloProvider, createHttpLink, InMemoryCache, ServerError } from '@apollo/client';
 import { onError } from '@apollo/client/link/error';
-import { ThemeProvider } from 'styled-components';
 import { Helmet, HelmetProvider } from 'react-helmet-async';
 import './App.less';
 import { Routes } from './app/Routes';
-import { Theme } from './conf/theme/types';
-import defaultThemeConfig from './conf/theme/theme_light.config.json';
 import { PageRoutes } from './conf/Global';
 import { isLoggedInVar } from './app/auth/checkAuthStatus';
 import { GlobalCfg } from './conf';
 import possibleTypesResult from './possibleTypes.generated';
 import { ErrorCodes } from './app/shared/constants';
+import CustomThemeProvider from './CustomThemeProvider';
+import { useCustomTheme } from './customThemeContext';
 
 /*
     Construct Apollo Client
@@ -71,33 +70,16 @@ const client = new ApolloClient({
 });
 
 export const InnerApp: React.VFC = () => {
-    const [dynamicThemeConfig, setDynamicThemeConfig] = useState<Theme>(defaultThemeConfig);
-
-    useEffect(() => {
-        if (import.meta.env.DEV) {
-            import(/* @vite-ignore */ `./conf/theme/${import.meta.env.REACT_APP_THEME_CONFIG}`).then((theme) => {
-                setDynamicThemeConfig(theme);
-            });
-        } else {
-            // Send a request to the server to get the theme config.
-            fetch(`/assets/conf/theme/${import.meta.env.REACT_APP_THEME_CONFIG}`)
-                .then((response) => response.json())
-                .then((theme) => {
-                    setDynamicThemeConfig(theme);
-                });
-        }
-    }, []);
-
     return (
         <HelmetProvider>
-            <Helmet>
-                <title>{dynamicThemeConfig.content.title}</title>
-            </Helmet>
-            <ThemeProvider theme={dynamicThemeConfig}>
+            <CustomThemeProvider>
+                <Helmet>
+                    <title>{useCustomTheme().theme?.content.title}</title>
+                </Helmet>
                 <Router>
                     <Routes />
                 </Router>
-            </ThemeProvider>
+            </CustomThemeProvider>
         </HelmetProvider>
     );
 };

@@ -32,7 +32,7 @@ from sqlalchemy.engine.base import Connection, Engine
 from sqlalchemy.engine.url import make_url
 
 import datahub.emitter.mce_builder as builder
-from datahub.cli.cli_utils import get_boolean_env_variable
+from datahub.cli.env_utils import get_boolean_env_variable
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.emitter.serialization_helper import pre_json_transform

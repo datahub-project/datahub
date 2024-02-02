@@ -18,10 +18,14 @@ dependencies {
   api project(path: ':li-utils', configuration: "dataTemplate")
   dataModel project(':li-utils')
 
+  // Newer Spring libraries require JDK17 classes, allow for JDK11
+  compileOnly externalDependency.springBootAutoconfigureJdk11
+  compileOnly externalDependency.annotationApi
+  compileOnly externalDependency.javaxValidation
+
   compileOnly externalDependency.lombok
   annotationProcessor externalDependency.lombok
-  compileOnly externalDependency.swaggerAnnotations
-  compileOnly externalDependency.springBootStarterValidation
+  api externalDependency.swaggerAnnotations
   compileOnly externalDependency.jacksonCore
   compileOnly externalDependency.jacksonDataBind
 

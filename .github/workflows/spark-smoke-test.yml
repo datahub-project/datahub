@@ -42,8 +42,12 @@ jobs:
           cache: "pip"
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
+      - name: Disk Check
+        run: df -h . && docker images
       - name: Remove images
         run: docker image prune -a -f || true
+      - name: Disk Check
+        run: df -h . && docker images
       - name: Smoke test
         run: |
           ./gradlew :metadata-integration:java:spark-lineage:integrationTest \
@@ -54,12 +58,24 @@ jobs:
              -x :datahub-web-react:yarnBuild \
              -x :datahub-web-react:distZip \
              -x :datahub-web-react:jar
+      - name: store logs
+        if: failure()
+        run: |
+          docker ps -a
+          docker logs datahub-gms >& gms-${{ matrix.test_strategy }}.log || true
+          docker logs datahub-actions >& actions-${{ matrix.test_strategy }}.log || true
+          docker logs broker >& broker-${{ matrix.test_strategy }}.log || true
+          docker logs mysql >& mysql-${{ matrix.test_strategy }}.log || true
+          docker logs elasticsearch >& elasticsearch-${{ matrix.test_strategy }}.log || true
+          docker logs datahub-frontend-react >& frontend-${{ matrix.test_strategy }}.log || true
       - name: Upload logs
         uses: actions/upload-artifact@v3
         if: failure()
         with:
           name: docker logs
-          path: "docker/build/container-logs/*.log"
+          path: |
+            "**/build/container-logs/*.log"
+            "*.log"
       - uses: actions/upload-artifact@v3
         if: always()
         with:
