@@ -3,7 +3,9 @@ from typing import Optional
 
 from datahub.metadata.schema_classes import OperationTypeClass
 
-TABLE_CASE_SENSITIVE_PLATFORMS = {"bigquery"}
+PLATFORMS_WITH_CASE_SENSITIVE_TABLES = {
+    "bigquery",
+}
 
 DIALECTS_WITH_CASE_INSENSITIVE_COLS = {
     # Column identifiers are case-insensitive in BigQuery, so we need to

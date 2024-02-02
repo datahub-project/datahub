@@ -13,7 +13,7 @@ from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIdentifier
 from datahub.metadata.schema_classes import SchemaFieldClass, SchemaMetadataClass
 from datahub.sql_parsing._models import _TableName
-from datahub.sql_parsing.sql_parsing_common import TABLE_CASE_SENSITIVE_PLATFORMS
+from datahub.sql_parsing.sql_parsing_common import PLATFORMS_WITH_CASE_SENSITIVE_TABLES
 from datahub.utilities.file_backed_collections import ConnectionWrapper, FileBackedDict
 from datahub.utilities.urns.field_paths import get_simple_field_path_from_v2_field_path
 
@@ -102,7 +102,7 @@ class SchemaResolver(Closeable):
             if schema_info:
                 return urn_lower, schema_info
 
-        if self.platform in TABLE_CASE_SENSITIVE_PLATFORMS:
+        if self.platform in PLATFORMS_WITH_CASE_SENSITIVE_TABLES:
             return urn, None
         else:
             return urn_lower, None
