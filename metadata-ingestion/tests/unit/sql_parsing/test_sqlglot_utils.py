@@ -3,11 +3,13 @@ import textwrap
 import sqlglot
 
 from datahub.sql_parsing.sql_parsing_common import QueryType
+from datahub.sql_parsing.sql_parsing_utils import (
+    generalize_query,
+    get_dialect,
+    is_dialect_instance,
+)
 from datahub.sql_parsing.sqlglot_lineage import (
     _UPDATE_ARGS_NOT_SUPPORTED_BY_SELECT,
-    _get_dialect,
-    _is_dialect_instance,
-    generalize_query,
     get_query_type_of_sql,
 )
 
@@ -17,14 +19,14 @@ def test_update_from_select():
 
 
 def test_is_dialect_instance():
-    snowflake = _get_dialect("snowflake")
+    snowflake = get_dialect("snowflake")
 
-    assert _is_dialect_instance(snowflake, "snowflake")
-    assert not _is_dialect_instance(snowflake, "bigquery")
+    assert is_dialect_instance(snowflake, "snowflake")
+    assert not is_dialect_instance(snowflake, "bigquery")
 
-    redshift = _get_dialect("redshift")
-    assert _is_dialect_instance(redshift, ["redshift", "snowflake"])
-    assert _is_dialect_instance(redshift, ["postgres", "snowflake"])
+    redshift = get_dialect("redshift")
+    assert is_dialect_instance(redshift, ["redshift", "snowflake"])
+    assert is_dialect_instance(redshift, ["postgres", "snowflake"])
 
 
 def test_query_types():

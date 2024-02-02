@@ -1,9 +1,8 @@
 import functools
-import hashlib
 import itertools
 import logging
 from collections import defaultdict
-from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
+from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
 import pydantic.dataclasses
 import sqlglot
@@ -30,7 +29,12 @@ from datahub.sql_parsing.sql_parsing_common import (
     DIALECTS_WITH_DEFAULT_UPPERCASE_COLS,
     QueryType,
 )
-from datahub.sql_parsing.sql_utils import DialectOrStr
+from datahub.sql_parsing.sql_parsing_utils import (
+    DialectOrStr,
+    get_dialect,
+    get_query_fingerprint,
+    is_dialect_instance,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -63,14 +67,14 @@ def _is_temp_table(table: sqlglot.exp.Table, dialect: sqlglot.Dialect) -> bool:
     identifier: sqlglot.exp.Identifier = table.this
 
     return identifier.args.get("temporary") or (
-        _is_dialect_instance(dialect, "redshift") and identifier.name.startswith("#")
+        is_dialect_instance(dialect, "redshift") and identifier.name.startswith("#")
     )
 
 
 def get_query_type_of_sql(
     expression: sqlglot.exp.Expression, dialect: DialectOrStr
 ) -> Tuple[QueryType, dict]:
-    dialect = _get_dialect(dialect)
+    dialect = get_dialect(dialect)
     query_type_props: Dict[str, Any] = {}
 
     # For creates, we need to look at the inner expression.
@@ -110,74 +114,6 @@ def get_query_type_of_sql(
         if isinstance(expression, cls):
             return query_type, query_type_props
     return QueryType.UNKNOWN, {}
-
-
-def generalize_query(expression: sqlglot.exp.ExpOrStr, dialect: DialectOrStr) -> str:
-    """
-    Generalize a SQL query, to be usable for fingerprinting.
-
-    The generalized query will strip comments and normalize things like
-    whitespace and keyword casing. It will also replace things like date
-    literals with placeholders so they don't affect the fingerprint.
-
-    Args:
-        expression: The SQL query to generalize.
-        dialect: The SQL dialect to use.
-
-    Returns:
-        The generalized SQL query.
-    """
-
-    # Similar to sql-metadata's query normalization.
-    #   Implementation: https://github.com/macbre/sql-metadata/blob/master/sql_metadata/generalizator.py
-    #   Tests: https://github.com/macbre/sql-metadata/blob/master/test/test_normalization.py
-    #
-    # Note that this is somewhat different from SQLGlot's normalization
-    # https://tobikodata.com/are_these_sql_queries_the_same.html
-    # which is used to determine if queries are functionally equivalent.
-
-    dialect = _get_dialect(dialect)
-    expression = sqlglot.maybe_parse(expression, dialect=dialect)
-
-    def _simplify_node_expressions(node: sqlglot.exp.Expression) -> None:
-        # Replace all literals in the expressions with a single placeholder.
-        is_last_literal = True
-        for i, expression in reversed(list(enumerate(node.expressions))):
-            if isinstance(expression, sqlglot.exp.Literal):
-                if is_last_literal:
-                    node.expressions[i] = sqlglot.exp.Placeholder()
-                    is_last_literal = False
-                else:
-                    node.expressions.pop(i)
-
-            elif isinstance(expression, sqlglot.exp.Tuple):
-                _simplify_node_expressions(expression)
-
-    def _strip_expression(
-        node: sqlglot.exp.Expression,
-    ) -> Optional[sqlglot.exp.Expression]:
-        node.comments = None
-
-        if isinstance(node, (sqlglot.exp.In, sqlglot.exp.Values)):
-            _simplify_node_expressions(node)
-        elif isinstance(node, sqlglot.exp.Literal):
-            return sqlglot.exp.Placeholder()
-
-        return node
-
-    return expression.transform(_strip_expression, copy=True).sql(dialect=dialect)
-
-
-def get_query_fingerprint(
-    expression: sqlglot.exp.ExpOrStr, dialect: DialectOrStr
-) -> str:
-    dialect = _get_dialect(dialect)
-    expression_sql = generalize_query(expression, dialect=dialect)
-
-    # Once we move to Python 3.9+, we can set `usedforsecurity=False`.
-    fingerprint = hashlib.sha256(expression_sql.encode("utf-8")).hexdigest()
-
-    return fingerprint
 
 
 class _ColumnRef(_FrozenModel):
@@ -370,7 +306,7 @@ def _column_level_lineage(  # noqa: C901
 
     column_lineage: List[_ColumnLineageInfo] = []
 
-    use_case_insensitive_cols = _is_dialect_instance(
+    use_case_insensitive_cols = is_dialect_instance(
         dialect, DIALECTS_WITH_CASE_INSENSITIVE_COLS
     )
 
@@ -389,7 +325,7 @@ def _column_level_lineage(  # noqa: C901
                 col_normalized = (
                     # This is required to match Sqlglot's behavior.
                     col.upper()
-                    if _is_dialect_instance(
+                    if is_dialect_instance(
                         dialect, DIALECTS_WITH_DEFAULT_UPPERCASE_COLS
                     )
                     else col.lower()
@@ -524,7 +460,7 @@ def _column_level_lineage(  # noqa: C901
                 # Otherwise, we can't process it.
                 continue
 
-            if _is_dialect_instance(dialect, "bigquery") and output_col.lower() in {
+            if is_dialect_instance(dialect, "bigquery") and output_col.lower() in {
                 "_partitiontime",
                 "_partitiondate",
             }:
@@ -803,60 +739,20 @@ def _translate_internal_column_lineage(
     )
 
 
-def _get_dialect_str(platform: str) -> str:
-    # TODO: convert datahub platform names to sqlglot dialect
-    if platform == "presto-on-hive":
-        return "hive"
-    elif platform == "mssql":
-        return "tsql"
-    elif platform == "athena":
-        return "trino"
-    elif platform == "mysql":
-        # In sqlglot v20+, MySQL is now case-sensitive by default, which is the
-        # default behavior on Linux. However, MySQL's default case sensitivity
-        # actually depends on the underlying OS.
-        # For us, it's simpler to just assume that it's case-insensitive, and
-        # let the fuzzy resolution logic handle it.
-        return "mysql, normalization_strategy = lowercase"
-    else:
-        return platform
-
-
-def _get_dialect(platform: DialectOrStr) -> sqlglot.Dialect:
-    if isinstance(platform, sqlglot.Dialect):
-        return platform
-    return sqlglot.Dialect.get_or_raise(_get_dialect_str(platform))
-
-
-def _is_dialect_instance(
-    dialect: sqlglot.Dialect, platforms: Union[str, Iterable[str]]
-) -> bool:
-    if isinstance(platforms, str):
-        platforms = [platforms]
-    else:
-        platforms = list(platforms)
-
-    dialects = [sqlglot.Dialect.get_or_raise(platform) for platform in platforms]
-
-    if any(isinstance(dialect, dialect_class.__class__) for dialect_class in dialects):
-        return True
-    return False
-
-
 def _sqlglot_lineage_inner(
     sql: sqlglot.exp.ExpOrStr,
     schema_resolver: SchemaResolver,
     default_db: Optional[str] = None,
     default_schema: Optional[str] = None,
 ) -> SqlParsingResult:
-    dialect = _get_dialect(schema_resolver.platform)
-    if _is_dialect_instance(dialect, "snowflake"):
+    dialect = get_dialect(schema_resolver.platform)
+    if is_dialect_instance(dialect, "snowflake"):
         # in snowflake, table identifiers must be uppercased to match sqlglot's behavior.
         if default_db:
             default_db = default_db.upper()
         if default_schema:
             default_schema = default_schema.upper()
-    if _is_dialect_instance(dialect, "redshift") and not default_schema:
+    if is_dialect_instance(dialect, "redshift") and not default_schema:
         # On Redshift, there's no "USE SCHEMA <schema>" command. The default schema
         # is public, and "current schema" is the one at the front of the search path.
         # See https://docs.aws.amazon.com/redshift/latest/dg/r_search_path.html
@@ -1081,7 +977,7 @@ def detach_ctes(
     key in the cte_mapping.
     """
 
-    dialect = _get_dialect(platform)
+    dialect = get_dialect(platform)
     statement = _parse_statement(sql, dialect=dialect)
 
     def replace_cte_refs(node: sqlglot.exp.Expression) -> sqlglot.exp.Expression:
