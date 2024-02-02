@@ -56,11 +56,12 @@ def parse_statement(
 
 def generalize_query(expression: sqlglot.exp.ExpOrStr, dialect: DialectOrStr) -> str:
     """
-    Generalize a SQL query, to be usable for fingerprinting.
+    Generalize/normalize a SQL query.
 
     The generalized query will strip comments and normalize things like
     whitespace and keyword casing. It will also replace things like date
-    literals with placeholders so they don't affect the fingerprint.
+    literals with placeholders so that the generalized query can be used
+    for query fingerprinting.
 
     Args:
         expression: The SQL query to generalize.
@@ -113,6 +114,26 @@ def generalize_query(expression: sqlglot.exp.ExpOrStr, dialect: DialectOrStr) ->
 def get_query_fingerprint(
     expression: sqlglot.exp.ExpOrStr, dialect: DialectOrStr
 ) -> str:
+    """Get a fingerprint for a SQL query.
+
+    The fingerprint is a SHA-256 hash of the generalized query.
+
+    If two queries have the same fingerprint, they should have the same table
+    and column lineage. The only exception is if the query uses an indirection
+    function like Snowflake's `IDENTIFIER`.
+
+    Queries that are functionally equivalent equivalent may not have the same
+    same fingerprint. For example, `SELECT 1+1` and `SELECT 2` have different
+    fingerprints.
+
+    Args:
+        expression: The SQL query to fingerprint.
+        dialect: The SQL dialect to use.
+
+    Returns:
+        The fingerprint for the SQL query.
+    """
+
     dialect = get_dialect(dialect)
     expression_sql = generalize_query(expression, dialect=dialect)
 
