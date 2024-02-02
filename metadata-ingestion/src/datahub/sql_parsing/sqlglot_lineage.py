@@ -225,10 +225,14 @@ def _table_level_lineage(
         # the `this` on the INSERT part isn't a table.
         if isinstance(expr.this, sqlglot.exp.Table)
     } | {
-        # For CREATE DDL statements, the table name is nested inside
-        # a Schema object.
+        # For statements that include a column list, like
+        # CREATE DDL statements and `INSERT INTO table (col1, col2) SELECT ...`
+        # the table name is nested inside a Schema object.
         _TableName.from_sqlglot_table(expr.this.this)
-        for expr in statement.find_all(sqlglot.exp.Create)
+        for expr in statement.find_all(
+            sqlglot.exp.Create,
+            sqlglot.exp.Insert,
+        )
         if isinstance(expr.this, sqlglot.exp.Schema)
         and isinstance(expr.this.this, sqlglot.exp.Table)
     }

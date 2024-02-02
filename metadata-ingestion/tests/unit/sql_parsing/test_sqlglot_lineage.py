@@ -133,6 +133,16 @@ limit 100;
     )
 
 
+def test_insert_with_column_list():
+    assert_sql_result(
+        """\
+insert into downstream (a, c) select a, c from upstream2
+""",
+        dialect="redshift",
+        expected_file=RESOURCE_DIR / "test_insert_with_column_list.json",
+    )
+
+
 def test_select_with_full_col_name():
     # In this case, `widget` is a struct column.
     # This also tests the `default_db` functionality.
