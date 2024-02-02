@@ -35,6 +35,7 @@ class RedshiftReport(ProfilingSqlReport, IngestionStageReport, BaseTimeWindowRep
     num_lineage_tables_dropped: int = 0
     num_lineage_dropped_query_parser: int = 0
     num_lineage_dropped_not_support_copy_path: int = 0
+    num_lineage_processed_temp_tables = 0
 
     lineage_start_time: Optional[datetime] = None
     lineage_end_time: Optional[datetime] = None
@@ -43,6 +44,7 @@ class RedshiftReport(ProfilingSqlReport, IngestionStageReport, BaseTimeWindowRep
     usage_start_time: Optional[datetime] = None
     usage_end_time: Optional[datetime] = None
     stateful_usage_ingestion_enabled: bool = False
+    num_unresolved_temp_columns: int = 0
 
     def report_dropped(self, key: str) -> None:
         self.filtered.append(key)
