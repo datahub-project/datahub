@@ -2,16 +2,11 @@ package com.linkedin.metadata.entity;
 
 import static com.linkedin.metadata.Constants.APP_SOURCE;
 import static com.linkedin.metadata.Constants.ASPECT_LATEST_VERSION;
-import static com.linkedin.metadata.Constants.BROWSE_PATHS_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.BROWSE_PATHS_V2_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.DEFAULT_RUN_ID;
 import static com.linkedin.metadata.Constants.FORCE_INDEXING_KEY;
 import static com.linkedin.metadata.Constants.STATUS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.SYSTEM_ACTOR;
 import static com.linkedin.metadata.Constants.UI_SOURCE;
-import static com.linkedin.metadata.search.utils.BrowsePathUtils.buildDataPlatformUrn;
-import static com.linkedin.metadata.search.utils.BrowsePathUtils.getDefaultBrowsePath;
 import static com.linkedin.metadata.utils.GenericRecordUtils.entityResponseToAspectMap;
 import static com.linkedin.metadata.utils.PegasusUtils.constructMCL;
 import static com.linkedin.metadata.utils.PegasusUtils.getDataTemplateClassFromSchema;
@@ -25,8 +20,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Streams;
 import com.linkedin.common.AuditStamp;
-import com.linkedin.common.BrowsePaths;
-import com.linkedin.common.BrowsePathsV2;
 import com.linkedin.common.Status;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.VersionedUrn;
@@ -38,10 +31,8 @@ import com.linkedin.data.template.DataTemplateUtil;
 import com.linkedin.data.template.GetMode;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.SetMode;
-import com.linkedin.data.template.StringArray;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.data.template.UnionTemplate;
-import com.linkedin.dataplatform.DataPlatformInfo;
 import com.linkedin.entity.AspectType;
 import com.linkedin.entity.Entity;
 import com.linkedin.entity.EntityResponse;
@@ -57,6 +48,7 @@ import com.linkedin.metadata.aspect.batch.MCPBatchItem;
 import com.linkedin.metadata.aspect.batch.SystemAspect;
 import com.linkedin.metadata.aspect.batch.UpsertItem;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
+import com.linkedin.metadata.aspect.utils.DefaultAspectsUtil;
 import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
@@ -72,10 +64,8 @@ import com.linkedin.metadata.models.RelationshipFieldSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.run.AspectRowSummary;
-import com.linkedin.metadata.search.utils.BrowsePathV2Utils;
 import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.snapshot.Snapshot;
-import com.linkedin.metadata.utils.DataPlatformInstanceUtils;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.PegasusUtils;
@@ -166,6 +156,7 @@ public class EntityServiceImpl implements EntityService<MCPUpsertBatchItem> {
   protected static final int MAX_KEYS_PER_QUERY = 500;
 
   private final Integer ebeanMaxTransactionRetry;
+  private final boolean enableBrowseV2;
 
   public EntityServiceImpl(
       @Nonnull final AspectDao aspectDao,
@@ -173,7 +164,8 @@ public class EntityServiceImpl implements EntityService<MCPUpsertBatchItem> {
       @Nonnull final EntityRegistry entityRegistry,
       final boolean alwaysEmitChangeLog,
       @Nullable final UpdateIndicesService updateIndicesService,
-      final PreProcessHooks preProcessHooks) {
+      final PreProcessHooks preProcessHooks,
+      final boolean enableBrowsePathV2) {
     this(
         aspectDao,
         producer,
@@ -181,7 +173,8 @@ public class EntityServiceImpl implements EntityService<MCPUpsertBatchItem> {
         alwaysEmitChangeLog,
         updateIndicesService,
         preProcessHooks,
-        DEFAULT_MAX_TRANSACTION_RETRY);
+        DEFAULT_MAX_TRANSACTION_RETRY,
+        enableBrowsePathV2);
   }
 
   public EntityServiceImpl(
@@ -191,7 +184,8 @@ public class EntityServiceImpl implements EntityService<MCPUpsertBatchItem> {
       final boolean alwaysEmitChangeLog,
       @Nullable final UpdateIndicesService updateIndicesService,
       final PreProcessHooks preProcessHooks,
-      @Nullable final Integer retry) {
+      @Nullable final Integer retry,
+      final boolean enableBrowseV2) {
 
     _aspectDao = aspectDao;
     _producer = producer;
@@ -204,6 +198,7 @@ public class EntityServiceImpl implements EntityService<MCPUpsertBatchItem> {
     }
     _preProcessHooks = preProcessHooks;
     ebeanMaxTransactionRetry = retry != null ? retry : DEFAULT_MAX_TRANSACTION_RETRY;
+    this.enableBrowseV2 = enableBrowseV2;
   }
 
   @Override
@@ -622,7 +617,7 @@ public class EntityServiceImpl implements EntityService<MCPUpsertBatchItem> {
                     MCPUpsertBatchItem.builder()
                         .urn(entityUrn)
                         .aspectName(pair.getKey())
-                        .aspect(pair.getValue())
+                        .recordTemplate(pair.getValue())
                         .systemMetadata(systemMetadata)
                         .auditStamp(auditStamp)
                         .build(this))
@@ -670,162 +665,166 @@ public class EntityServiceImpl implements EntityService<MCPUpsertBatchItem> {
       log.warn(String.format("Batch contains duplicates: %s", aspectsBatch));
     }
 
-    return _aspectDao.runInTransactionWithRetry(
-        (tx) -> {
-          // Read before write is unfortunate, however batch it
-          final Map<String, Set<String>> urnAspects = aspectsBatch.getUrnAspectsMap();
-          // read #1
-          final Map<String, Map<String, SystemAspect>> latestAspects =
-              toSystemEntityAspects(_aspectDao.getLatestAspects(urnAspects));
-          // read #2
-          final Map<String, Map<String, Long>> nextVersions =
-              _aspectDao.getNextVersions(urnAspects);
+    return _aspectDao
+        .runInTransactionWithRetry(
+            (tx) -> {
+              // Read before write is unfortunate, however batch it
+              final Map<String, Set<String>> urnAspects = aspectsBatch.getUrnAspectsMap();
+              // read #1
+              final Map<String, Map<String, SystemAspect>> latestAspects =
+                  toSystemEntityAspects(_aspectDao.getLatestAspects(urnAspects));
+              // read #2
+              final Map<String, Map<String, Long>> nextVersions =
+                  _aspectDao.getNextVersions(urnAspects);
 
-          // 1. Convert patches to full upserts
-          // 2. Run any entity/aspect level hooks
-          Pair<Map<String, Set<String>>, List<UpsertItem>> updatedItems =
-              aspectsBatch.toUpsertBatchItems(latestAspects, this);
+              // 1. Convert patches to full upserts
+              // 2. Run any entity/aspect level hooks
+              Pair<Map<String, Set<String>>, List<UpsertItem>> updatedItems =
+                  aspectsBatch.toUpsertBatchItems(latestAspects, this);
 
-          // Fetch additional information if needed
-          final Map<String, Map<String, SystemAspect>> updatedLatestAspects;
-          final Map<String, Map<String, Long>> updatedNextVersions;
-          if (!updatedItems.getFirst().isEmpty()) {
-            Map<String, Map<String, SystemAspect>> newLatestAspects =
-                toSystemEntityAspects(_aspectDao.getLatestAspects(updatedItems.getFirst()));
-            Map<String, Map<String, Long>> newNextVersions =
-                _aspectDao.getNextVersions(updatedItems.getFirst());
-            // merge
-            updatedLatestAspects = aspectsBatch.merge(latestAspects, newLatestAspects);
-            updatedNextVersions = aspectsBatch.merge(nextVersions, newNextVersions);
-          } else {
-            updatedLatestAspects = latestAspects;
-            updatedNextVersions = nextVersions;
-          }
+              // Fetch additional information if needed
+              final Map<String, Map<String, SystemAspect>> updatedLatestAspects;
+              final Map<String, Map<String, Long>> updatedNextVersions;
+              if (!updatedItems.getFirst().isEmpty()) {
+                Map<String, Map<String, SystemAspect>> newLatestAspects =
+                    toSystemEntityAspects(_aspectDao.getLatestAspects(updatedItems.getFirst()));
+                Map<String, Map<String, Long>> newNextVersions =
+                    _aspectDao.getNextVersions(updatedItems.getFirst());
+                // merge
+                updatedLatestAspects = aspectsBatch.merge(latestAspects, newLatestAspects);
+                updatedNextVersions = aspectsBatch.merge(nextVersions, newNextVersions);
+              } else {
+                updatedLatestAspects = latestAspects;
+                updatedNextVersions = nextVersions;
+              }
 
-          // do final pre-commit checks with previous aspect value
-          updatedItems
-              .getSecond()
-              .forEach(
-                  item -> {
-                    SystemAspect previousAspect =
-                        updatedLatestAspects
-                            .getOrDefault(item.getUrn().toString(), Map.of())
-                            .get(item.getAspectSpec().getName());
-                    try {
-                      item.validatePreCommit(
-                          previousAspect == null
-                              ? null
-                              : previousAspect.getRecordTemplate(_entityRegistry),
-                          this);
-                    } catch (AspectValidationException e) {
-                      throw new RuntimeException(e);
-                    }
-                  });
-
-          // Database Upsert results
-          List<UpdateAspectResult> upsertResults =
-              updatedItems.getSecond().stream()
-                  .map(
+              // do final pre-commit checks with previous aspect value
+              updatedItems
+                  .getSecond()
+                  .forEach(
                       item -> {
-                        final String urnStr = item.getUrn().toString();
-                        final SystemAspect latest =
+                        SystemAspect previousAspect =
                             updatedLatestAspects
-                                .getOrDefault(urnStr, Map.of())
-                                .get(item.getAspectName());
-                        final long nextVersion =
-                            updatedNextVersions
-                                .getOrDefault(urnStr, Map.of())
-                                .getOrDefault(item.getAspectName(), 0L);
-
-                        final UpdateAspectResult result;
-                        if (overwrite || latest == null) {
-                          result =
-                              ingestAspectToLocalDB(
-                                      tx,
-                                      item.getUrn(),
-                                      item.getAspectName(),
-                                      item.getAspect(),
-                                      item.getAuditStamp(),
-                                      item.getSystemMetadata(),
-                                      latest == null
-                                          ? null
-                                          : ((EntityAspect.EntitySystemAspect) latest).asRaw(),
-                                      nextVersion)
-                                  .toBuilder()
-                                  .request(item)
-                                  .build();
-
-                          // support inner-batch upserts
-                          latestAspects
-                              .computeIfAbsent(urnStr, key -> new HashMap<>())
-                              .put(item.getAspectName(), item.toLatestEntityAspect());
-                          nextVersions
-                              .computeIfAbsent(urnStr, key -> new HashMap<>())
-                              .put(item.getAspectName(), nextVersion + 1);
-                        } else {
-                          RecordTemplate oldValue = latest.getRecordTemplate(_entityRegistry);
-                          SystemMetadata oldMetadata = latest.getSystemMetadata();
-                          result =
-                              UpdateAspectResult.<MCPUpsertBatchItem>builder()
-                                  .urn(item.getUrn())
-                                  .request(item)
-                                  .oldValue(oldValue)
-                                  .newValue(oldValue)
-                                  .oldSystemMetadata(oldMetadata)
-                                  .newSystemMetadata(oldMetadata)
-                                  .operation(MetadataAuditOperation.UPDATE)
-                                  .auditStamp(item.getAuditStamp())
-                                  .maxVersion(latest.getVersion())
-                                  .build();
+                                .getOrDefault(item.getUrn().toString(), Map.of())
+                                .get(item.getAspectSpec().getName());
+                        try {
+                          item.validatePreCommit(
+                              previousAspect == null
+                                  ? null
+                                  : previousAspect.getRecordTemplate(_entityRegistry),
+                              this);
+                        } catch (AspectValidationException e) {
+                          throw new RuntimeException(e);
                         }
+                      });
 
-                        return result;
-                      })
-                  .collect(Collectors.toList());
+              // Database Upsert results
+              List<UpdateAspectResult> upsertResults =
+                  updatedItems.getSecond().stream()
+                      .map(
+                          item -> {
+                            final String urnStr = item.getUrn().toString();
+                            final SystemAspect latest =
+                                updatedLatestAspects
+                                    .getOrDefault(urnStr, Map.of())
+                                    .get(item.getAspectName());
+                            final long nextVersion =
+                                updatedNextVersions
+                                    .getOrDefault(urnStr, Map.of())
+                                    .getOrDefault(item.getAspectName(), 0L);
 
-          // commit upserts prior to retention or kafka send, if supported by impl
-          if (tx != null) {
-            tx.commitAndContinue();
-          }
+                            final UpdateAspectResult result;
+                            if (overwrite || latest == null) {
+                              result =
+                                  ingestAspectToLocalDB(
+                                          tx,
+                                          item.getUrn(),
+                                          item.getAspectName(),
+                                          item.getRecordTemplate(),
+                                          item.getAuditStamp(),
+                                          item.getSystemMetadata(),
+                                          latest == null
+                                              ? null
+                                              : ((EntityAspect.EntitySystemAspect) latest).asRaw(),
+                                          nextVersion)
+                                      .toBuilder()
+                                      .request(item)
+                                      .build();
 
-          // Retention optimization and tx
-          if (_retentionService != null) {
-            List<RetentionService.RetentionContext> retentionBatch =
-                upsertResults.stream()
-                    // Only consider retention when there was a previous version
-                    .filter(
-                        result ->
-                            latestAspects.containsKey(result.getUrn().toString())
-                                && latestAspects
-                                    .get(result.getUrn().toString())
-                                    .containsKey(result.getRequest().getAspectName()))
-                    .filter(
-                        result -> {
-                          RecordTemplate oldAspect = result.getOldValue();
-                          RecordTemplate newAspect = result.getNewValue();
-                          // Apply retention policies if there was an update to existing aspect
-                          // value
-                          return oldAspect != newAspect
-                              && oldAspect != null
-                              && _retentionService != null;
-                        })
-                    .map(
-                        result ->
-                            RetentionService.RetentionContext.builder()
-                                .urn(result.getUrn())
-                                .aspectName(result.getRequest().getAspectName())
-                                .maxVersion(Optional.of(result.getMaxVersion()))
-                                .build())
-                    .collect(Collectors.toList());
-            _retentionService.applyRetentionWithPolicyDefaults(retentionBatch);
-          } else {
-            log.warn("Retention service is missing!");
-          }
+                              // support inner-batch upserts
+                              latestAspects
+                                  .computeIfAbsent(urnStr, key -> new HashMap<>())
+                                  .put(item.getAspectName(), item.toLatestEntityAspect());
+                              nextVersions
+                                  .computeIfAbsent(urnStr, key -> new HashMap<>())
+                                  .put(item.getAspectName(), nextVersion + 1);
+                            } else {
+                              RecordTemplate oldValue = latest.getRecordTemplate(_entityRegistry);
+                              SystemMetadata oldMetadata = latest.getSystemMetadata();
+                              result =
+                                  UpdateAspectResult.<MCPUpsertBatchItem>builder()
+                                      .urn(item.getUrn())
+                                      .request(item)
+                                      .oldValue(oldValue)
+                                      .newValue(oldValue)
+                                      .oldSystemMetadata(oldMetadata)
+                                      .newSystemMetadata(oldMetadata)
+                                      .operation(MetadataAuditOperation.UPDATE)
+                                      .auditStamp(item.getAuditStamp())
+                                      .maxVersion(latest.getVersion())
+                                      .build();
+                            }
 
-          return upsertResults;
-        },
-        aspectsBatch,
-        DEFAULT_MAX_TRANSACTION_RETRY);
+                            return result;
+                          })
+                      .collect(Collectors.toList());
+
+              // commit upserts prior to retention or kafka send, if supported by impl
+              if (tx != null) {
+                tx.commitAndContinue();
+              }
+
+              // Retention optimization and tx
+              if (_retentionService != null) {
+                List<RetentionService.RetentionContext> retentionBatch =
+                    upsertResults.stream()
+                        // Only consider retention when there was a previous version
+                        .filter(
+                            result ->
+                                latestAspects.containsKey(result.getUrn().toString())
+                                    && latestAspects
+                                        .get(result.getUrn().toString())
+                                        .containsKey(result.getRequest().getAspectName()))
+                        .filter(
+                            result -> {
+                              RecordTemplate oldAspect = result.getOldValue();
+                              RecordTemplate newAspect = result.getNewValue();
+                              // Apply retention policies if there was an update to existing aspect
+                              // value
+                              return oldAspect != newAspect
+                                  && oldAspect != null
+                                  && _retentionService != null;
+                            })
+                        .map(
+                            result ->
+                                RetentionService.RetentionContext.builder()
+                                    .urn(result.getUrn())
+                                    .aspectName(result.getRequest().getAspectName())
+                                    .maxVersion(Optional.of(result.getMaxVersion()))
+                                    .build())
+                        .collect(Collectors.toList());
+                _retentionService.applyRetentionWithPolicyDefaults(retentionBatch);
+              } else {
+                log.warn("Retention service is missing!");
+              }
+
+              return upsertResults;
+            },
+            aspectsBatch,
+            DEFAULT_MAX_TRANSACTION_RETRY)
+        .stream()
+        .flatMap(List::stream)
+        .collect(Collectors.toList());
   }
 
   /**
@@ -921,7 +920,7 @@ public class EntityServiceImpl implements EntityService<MCPUpsertBatchItem> {
                 MCPUpsertBatchItem.builder()
                     .urn(urn)
                     .aspectName(aspectName)
-                    .aspect(newValue)
+                    .recordTemplate(newValue)
                     .systemMetadata(systemMetadata)
                     .auditStamp(auditStamp)
                     .build(this))
@@ -965,7 +964,6 @@ public class EntityServiceImpl implements EntityService<MCPUpsertBatchItem> {
    */
   @Override
   public Set<IngestResult> ingestProposal(AspectsBatch aspectsBatch, final boolean async) {
-
     Stream<IngestResult> timeseriesIngestResults = ingestTimeseriesProposal(aspectsBatch);
     Stream<IngestResult> nonTimeseriesIngestResults =
         async ? ingestProposalAsync(aspectsBatch) : ingestProposalSync(aspectsBatch);
@@ -1005,7 +1003,7 @@ public class EntityServiceImpl implements EntityService<MCPUpsertBatchItem> {
                         conditionallyProduceMCLAsync(
                             null,
                             null,
-                            item.getAspect(),
+                            item.getRecordTemplate(),
                             item.getSystemMetadata(),
                             item.getMetadataChangeProposal(),
                             item.getUrn(),
@@ -1082,10 +1080,17 @@ public class EntityServiceImpl implements EntityService<MCPUpsertBatchItem> {
   }
 
   private Stream<IngestResult> ingestProposalSync(AspectsBatch aspectsBatch) {
+    Set<BatchItem> items = new HashSet<>(aspectsBatch.getItems());
+
+    // Generate additional items as needed
+    items.addAll(DefaultAspectsUtil.getAdditionalChanges(aspectsBatch, this, enableBrowseV2));
+
+    AspectsBatch withDefaults = AspectsBatchImpl.builder().items(items).build();
+
     AspectsBatchImpl nonTimeseries =
         AspectsBatchImpl.builder()
             .items(
-                aspectsBatch.getItems().stream()
+                withDefaults.getItems().stream()
                     .filter(item -> !item.getAspectSpec().isTimeseries())
                     .collect(Collectors.toList()))
             .build();
@@ -1542,116 +1547,6 @@ public class EntityServiceImpl implements EntityService<MCPUpsertBatchItem> {
                         .collect(Collectors.toList())));
   }
 
-  /**
-   * Returns true if entityType should have some aspect as per its definition but aspects given does
-   * not have that aspect
-   */
-  private boolean isAspectMissing(String entityType, String aspectName, Set<String> aspects) {
-    return _entityRegistry.getEntitySpec(entityType).getAspectSpecMap().containsKey(aspectName)
-        && !aspects.contains(aspectName);
-  }
-
-  @Override
-  public Pair<Boolean, List<Pair<String, RecordTemplate>>> generateDefaultAspectsOnFirstWrite(
-      @Nonnull final Urn urn, Map<String, RecordTemplate> includedAspects) {
-    List<Pair<String, RecordTemplate>> returnAspects = new ArrayList<>();
-
-    final String keyAspectName = getKeyAspectName(urn);
-    final Map<String, RecordTemplate> latestAspects =
-        new HashMap<>(getLatestAspectsForUrn(urn, Set.of(keyAspectName)));
-
-    // key aspect: does not exist in database && is being written
-    boolean generateDefaults =
-        !latestAspects.containsKey(keyAspectName) && includedAspects.containsKey(keyAspectName);
-
-    // conditionally generate defaults
-    if (generateDefaults) {
-      String entityType = urnToEntityName(urn);
-      Set<String> aspectsToGet = new HashSet<>();
-
-      boolean shouldCheckBrowsePath =
-          isAspectMissing(entityType, BROWSE_PATHS_ASPECT_NAME, includedAspects.keySet());
-      if (shouldCheckBrowsePath) {
-        aspectsToGet.add(BROWSE_PATHS_ASPECT_NAME);
-      }
-
-      boolean shouldCheckBrowsePathV2 =
-          isAspectMissing(entityType, BROWSE_PATHS_V2_ASPECT_NAME, includedAspects.keySet());
-      if (shouldCheckBrowsePathV2) {
-        aspectsToGet.add(BROWSE_PATHS_V2_ASPECT_NAME);
-      }
-
-      boolean shouldCheckDataPlatform =
-          isAspectMissing(entityType, DATA_PLATFORM_INSTANCE_ASPECT_NAME, includedAspects.keySet());
-      if (shouldCheckDataPlatform) {
-        aspectsToGet.add(DATA_PLATFORM_INSTANCE_ASPECT_NAME);
-      }
-
-      // fetch additional aspects
-      latestAspects.putAll(getLatestAspectsForUrn(urn, aspectsToGet));
-
-      if (shouldCheckBrowsePath
-          && latestAspects.get(BROWSE_PATHS_ASPECT_NAME) == null
-          && !includedAspects.containsKey(BROWSE_PATHS_ASPECT_NAME)) {
-        try {
-          BrowsePaths generatedBrowsePath = buildDefaultBrowsePath(urn);
-          returnAspects.add(Pair.of(BROWSE_PATHS_ASPECT_NAME, generatedBrowsePath));
-        } catch (URISyntaxException e) {
-          log.error("Failed to parse urn: {}", urn);
-        }
-      }
-
-      if (shouldCheckBrowsePathV2
-          && latestAspects.get(BROWSE_PATHS_V2_ASPECT_NAME) == null
-          && !includedAspects.containsKey(BROWSE_PATHS_V2_ASPECT_NAME)) {
-        try {
-          BrowsePathsV2 generatedBrowsePathV2 = buildDefaultBrowsePathV2(urn, false);
-          returnAspects.add(Pair.of(BROWSE_PATHS_V2_ASPECT_NAME, generatedBrowsePathV2));
-        } catch (URISyntaxException e) {
-          log.error("Failed to parse urn: {}", urn);
-        }
-      }
-
-      if (shouldCheckDataPlatform
-          && latestAspects.get(DATA_PLATFORM_INSTANCE_ASPECT_NAME) == null
-          && !includedAspects.containsKey(DATA_PLATFORM_INSTANCE_ASPECT_NAME)) {
-        RecordTemplate keyAspect = includedAspects.get(keyAspectName);
-        DataPlatformInstanceUtils.buildDataPlatformInstance(entityType, keyAspect)
-            .ifPresent(
-                aspect -> returnAspects.add(Pair.of(DATA_PLATFORM_INSTANCE_ASPECT_NAME, aspect)));
-      }
-    }
-
-    return Pair.of(latestAspects.containsKey(keyAspectName), returnAspects);
-  }
-
-  @Override
-  public List<Pair<String, RecordTemplate>> generateDefaultAspectsIfMissing(
-      @Nonnull final Urn urn, Map<String, RecordTemplate> includedAspects) {
-
-    final String keyAspectName = getKeyAspectName(urn);
-
-    if (includedAspects.containsKey(keyAspectName)) {
-      return generateDefaultAspectsOnFirstWrite(urn, includedAspects).getValue();
-    } else {
-      // No key aspect being written, generate it and potentially suggest writing it later
-      HashMap<String, RecordTemplate> includedWithKeyAspect = new HashMap<>(includedAspects);
-      Pair<String, RecordTemplate> keyAspect =
-          Pair.of(keyAspectName, EntityUtils.buildKeyAspect(_entityRegistry, urn));
-      includedWithKeyAspect.put(keyAspect.getKey(), keyAspect.getValue());
-
-      Pair<Boolean, List<Pair<String, RecordTemplate>>> returnAspects =
-          generateDefaultAspectsOnFirstWrite(urn, includedWithKeyAspect);
-
-      // missing key aspect in database, add it
-      if (!returnAspects.getFirst()) {
-        returnAspects.getValue().add(keyAspect);
-      }
-
-      return returnAspects.getValue();
-    }
-  }
-
   private void ingestSnapshotUnion(
       @Nonnull final Snapshot snapshotUnion,
       @Nonnull final AuditStamp auditStamp,
@@ -1664,10 +1559,11 @@ public class EntityServiceImpl implements EntityService<MCPUpsertBatchItem> {
 
     log.info("INGEST urn {} with system metadata {}", urn.toString(), systemMetadata.toString());
     aspectRecordsToIngest.addAll(
-        generateDefaultAspectsIfMissing(
+        DefaultAspectsUtil.generateDefaultAspects(
+            this,
             urn,
-            aspectRecordsToIngest.stream()
-                .collect(Collectors.toMap(Pair::getKey, Pair::getValue))));
+            aspectRecordsToIngest.stream().map(Pair::getFirst).collect(Collectors.toSet()),
+            enableBrowseV2));
 
     AspectsBatchImpl aspectsBatch =
         AspectsBatchImpl.builder()
@@ -1678,7 +1574,7 @@ public class EntityServiceImpl implements EntityService<MCPUpsertBatchItem> {
                             MCPUpsertBatchItem.builder()
                                 .urn(urn)
                                 .aspectName(pair.getKey())
-                                .aspect(pair.getValue())
+                                .recordTemplate(pair.getValue())
                                 .auditStamp(auditStamp)
                                 .systemMetadata(systemMetadata)
                                 .build(this))
@@ -1948,6 +1844,7 @@ public class EntityServiceImpl implements EntityService<MCPUpsertBatchItem> {
    */
   @Override
   public Set<Urn> exists(@Nonnull final Collection<Urn> urns, boolean includeSoftDeleted) {
+
     final Set<EntityAspectIdentifier> dbKeys =
         urns.stream()
             .map(
@@ -1960,7 +1857,6 @@ public class EntityServiceImpl implements EntityService<MCPUpsertBatchItem> {
                             .getName(),
                         ASPECT_LATEST_VERSION))
             .collect(Collectors.toSet());
-
     final Map<EntityAspectIdentifier, EntityAspect> aspects = _aspectDao.batchGet(dbKeys);
     final Set<String> existingUrnStrings =
         aspects.values().stream()
@@ -2395,79 +2291,6 @@ public class EntityServiceImpl implements EntityService<MCPUpsertBatchItem> {
         .auditStamp(auditStamp)
         .maxVersion(versionOfOld)
         .build();
-  }
-
-  /**
-   * Builds the default browse path aspects for a subset of well-supported entities.
-   *
-   * <p>This method currently supports datasets, charts, dashboards, data flows, data jobs, and
-   * glossary terms.
-   */
-  @Nonnull
-  @Override
-  public BrowsePaths buildDefaultBrowsePath(final @Nonnull Urn urn) throws URISyntaxException {
-    Character dataPlatformDelimiter = getDataPlatformDelimiter(urn);
-    String defaultBrowsePath =
-        getDefaultBrowsePath(urn, this.getEntityRegistry(), dataPlatformDelimiter);
-    StringArray browsePaths = new StringArray();
-    browsePaths.add(defaultBrowsePath);
-    BrowsePaths browsePathAspect = new BrowsePaths();
-    browsePathAspect.setPaths(browsePaths);
-    return browsePathAspect;
-  }
-
-  /**
-   * Builds the default browse path V2 aspects for all entities.
-   *
-   * <p>This method currently supports datasets, charts, dashboards, and data jobs best. Everything
-   * else will have a basic "Default" folder added to their browsePathV2.
-   */
-  @Nonnull
-  @Override
-  public BrowsePathsV2 buildDefaultBrowsePathV2(final @Nonnull Urn urn, boolean useContainerPaths)
-      throws URISyntaxException {
-    Character dataPlatformDelimiter = getDataPlatformDelimiter(urn);
-    return BrowsePathV2Utils.getDefaultBrowsePathV2(
-        urn, this.getEntityRegistry(), dataPlatformDelimiter, this, useContainerPaths);
-  }
-
-  /** Returns a delimiter on which the name of an asset may be split. */
-  private Character getDataPlatformDelimiter(Urn urn) {
-    // Attempt to construct the appropriate Data Platform URN
-    Urn dataPlatformUrn = buildDataPlatformUrn(urn, this.getEntityRegistry());
-    if (dataPlatformUrn != null) {
-      // Attempt to resolve the delimiter from Data Platform Info
-      DataPlatformInfo dataPlatformInfo = getDataPlatformInfo(dataPlatformUrn);
-      if (dataPlatformInfo != null && dataPlatformInfo.hasDatasetNameDelimiter()) {
-        return dataPlatformInfo.getDatasetNameDelimiter().charAt(0);
-      }
-    }
-    // Else, fallback to a default delimiter (period) if one cannot be resolved.
-    return '.';
-  }
-
-  @Nullable
-  private DataPlatformInfo getDataPlatformInfo(Urn urn) {
-    try {
-      final EntityResponse entityResponse =
-          getEntityV2(
-              Constants.DATA_PLATFORM_ENTITY_NAME,
-              urn,
-              ImmutableSet.of(Constants.DATA_PLATFORM_INFO_ASPECT_NAME));
-      if (entityResponse != null
-          && entityResponse.hasAspects()
-          && entityResponse.getAspects().containsKey(Constants.DATA_PLATFORM_INFO_ASPECT_NAME)) {
-        return new DataPlatformInfo(
-            entityResponse
-                .getAspects()
-                .get(Constants.DATA_PLATFORM_INFO_ASPECT_NAME)
-                .getValue()
-                .data());
-      }
-    } catch (Exception e) {
-      log.warn(String.format("Failed to find Data Platform Info for urn %s", urn));
-    }
-    return null;
   }
 
   private static boolean shouldAspectEmitChangeLog(@Nonnull final AspectSpec aspectSpec) {

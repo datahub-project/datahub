@@ -90,10 +90,17 @@ class MetabaseSource(Source):
     """
     This plugin extracts Charts, dashboards, and associated metadata. This plugin is in beta and has only been tested
     on PostgreSQL and H2 database.
-    ### Dashboard
 
-    [/api/dashboard](https://www.metabase.com/docs/latest/api-documentation.html#dashboard) endpoint is used to
-    retrieve the following dashboard information.
+    ### Collection
+
+    [/api/collection](https://www.metabase.com/docs/latest/api/collection) endpoint is used to
+    retrieve the available collections.
+
+    [/api/collection/<COLLECTION_ID>/items?models=dashboard](https://www.metabase.com/docs/latest/api/collection#get-apicollectioniditems) endpoint is used to retrieve a given collection and list their dashboards.
+
+     ### Dashboard
+
+    [/api/dashboard/<DASHBOARD_ID>](https://www.metabase.com/docs/latest/api/dashboard) endpoint is used to retrieve a given Dashboard and grab its information.
 
     - Title and description
     - Last edited by
@@ -187,19 +194,29 @@ class MetabaseSource(Source):
 
     def emit_dashboard_mces(self) -> Iterable[MetadataWorkUnit]:
         try:
-            dashboard_response = self.session.get(
-                f"{self.config.connect_uri}/api/dashboard"
+            collections_response = self.session.get(
+                f"{self.config.connect_uri}/api/collection/"
             )
-            dashboard_response.raise_for_status()
-            dashboards = dashboard_response.json()
+            collections_response.raise_for_status()
+            collections = collections_response.json()
 
-            for dashboard_info in dashboards:
-                dashboard_snapshot = self.construct_dashboard_from_api_data(
-                    dashboard_info
+            for collection in collections:
+                collection_dashboards_response = self.session.get(
+                    f"{self.config.connect_uri}/api/collection/{collection['id']}/items?models=dashboard"
                 )
-                if dashboard_snapshot is not None:
-                    mce = MetadataChangeEvent(proposedSnapshot=dashboard_snapshot)
-                    yield MetadataWorkUnit(id=dashboard_snapshot.urn, mce=mce)
+                collection_dashboards_response.raise_for_status()
+                collection_dashboards = collection_dashboards_response.json()
+
+                if not collection_dashboards.get("data"):
+                    continue
+
+                for dashboard_info in collection_dashboards.get("data"):
+                    dashboard_snapshot = self.construct_dashboard_from_api_data(
+                        dashboard_info
+                    )
+                    if dashboard_snapshot is not None:
+                        mce = MetadataChangeEvent(proposedSnapshot=dashboard_snapshot)
+                        yield MetadataWorkUnit(id=dashboard_snapshot.urn, mce=mce)
 
         except HTTPError as http_error:
             self.report.report_failure(
@@ -254,10 +271,10 @@ class MetabaseSource(Source):
         )
 
         chart_urns = []
-        cards_data = dashboard_details.get("ordered_cards", "{}")
+        cards_data = dashboard_details.get("dashcards", {})
         for card_info in cards_data:
             chart_urn = builder.make_chart_urn(
-                self.platform, card_info.get("card_id", "")
+                self.platform, card_info.get("card").get("id", "")
             )
             chart_urns.append(chart_urn)
 

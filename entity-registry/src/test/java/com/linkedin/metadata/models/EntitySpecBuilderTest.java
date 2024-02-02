@@ -189,7 +189,7 @@ public class EntitySpecBuilderTest {
         testEntityInfo.getPegasusSchema().getFullName());
 
     // Assert on Searchable Fields
-    assertEquals(testEntityInfo.getSearchableFieldSpecs().size(), 11);
+    assertEquals(testEntityInfo.getSearchableFieldSpecs().size(), 12);
     assertEquals(
         "customProperties",
         testEntityInfo
@@ -338,6 +338,20 @@ public class EntitySpecBuilderTest {
         testEntityInfo
             .getSearchableFieldSpecMap()
             .get(new PathSpec("doubleField").toString())
+            .getSearchableAnnotation()
+            .getFieldType());
+    assertEquals(
+        "removed",
+        testEntityInfo
+            .getSearchableFieldSpecMap()
+            .get(new PathSpec("removed").toString())
+            .getSearchableAnnotation()
+            .getFieldName());
+    assertEquals(
+        SearchableAnnotation.FieldType.BOOLEAN,
+        testEntityInfo
+            .getSearchableFieldSpecMap()
+            .get(new PathSpec("removed").toString())
             .getSearchableAnnotation()
             .getFieldType());
 
