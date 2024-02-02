@@ -190,6 +190,7 @@ def get_owners(owners: Owners, owner_type: str) -> models.OwnershipClass:
             )
             for o in owners.groups
         ]
+        
     return models.OwnershipClass(owners=owners_meta)
 
 
