@@ -146,25 +146,52 @@ def make_glossary_term_urn(
     return "urn:li:glossaryTerm:" + create_id(path, default_id, enable_auto_id)
 
 
-def get_owners(owners: Owners) -> models.OwnershipClass:
+# NOTE: Disabling this section for ING-499 [https://linear.app/acryl-data/issue/ING-499/add-owner-type-in-yaml-business-glossary-ingestion-plugin]
+#  def get_owners(owners: Owners) -> models.OwnershipClass:
+#     owners_meta: List[models.OwnerClass] = []
+#     if owners.users is not None:
+#         owners_meta = owners_meta + [
+#             models.OwnerClass(
+#                 owner=make_user_urn(o),
+#                 type=models.OwnershipTypeClass.DEVELOPER,
+#             )
+#             for o in owners.users
+#         ]
+#     if owners.groups is not None:
+#         owners_meta = owners_meta + [
+#             models.OwnerClass(
+#                 owner=make_group_urn(o),
+#                 type=models.OwnershipTypeClass.DEVELOPER,
+#             )
+#             for o in owners.groups
+#         ]
+#     return models.OwnershipClass(owners=owners_meta)
+
+def get_owners(owners: Owners, owner_type: str) -> models.OwnershipClass:
     owners_meta: List[models.OwnerClass] = []
+    valid_owner_types = [getattr(models.OwnershipTypeClass, attr) for attr in dir(models.OwnershipTypeClass) if not callable(getattr(models.OwnershipTypeClass, attr)) and not attr.startswith("__")]
+
+    if owner_type not in valid_owner_types:
+        raise ValueError(f"Invalid owner type: {owner_type}. Valid owner types are: {', '.join(valid_owner_types)}")
+
     if owners.users is not None:
-        owners_meta = owners_meta + [
+        owners_meta += [
             models.OwnerClass(
                 owner=make_user_urn(o),
-                type=models.OwnershipTypeClass.DEVELOPER,
+                type=owner_type,
             )
             for o in owners.users
         ]
     if owners.groups is not None:
-        owners_meta = owners_meta + [
+        owners_meta += [
             models.OwnerClass(
                 owner=make_group_urn(o),
-                type=models.OwnershipTypeClass.DEVELOPER,
+                type=owner_type,
             )
             for o in owners.groups
         ]
     return models.OwnershipClass(owners=owners_meta)
+
 
 
 def get_mces(
