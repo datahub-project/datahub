@@ -1,7 +1,5 @@
 import pytest
-from datahub.emitter.mce_builder import (
-    make_dataset_urn,
-)
+from datahub.emitter.mce_builder import make_dataset_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DataHubGraph, DataHubGraphConfig
 from datahub.metadata.schema_classes import StatusClass
