@@ -18,10 +18,11 @@ from datahub.ingestion.source.redshift.lineage import (
 from datahub.ingestion.source.redshift.redshift_schema import TempTableRow
 from datahub.ingestion.source.redshift.report import RedshiftReport
 from datahub.metadata._schema_classes import NumberTypeClass, SchemaFieldDataTypeClass
+from datahub.sql_parsing.schema_resolver import SchemaResolver
+from datahub.sql_parsing.sql_parsing_common import QueryType
 from datahub.sql_parsing.sqlglot_lineage import (
     ColumnLineageInfo,
     DownstreamColumnRef,
-    QueryType,
     SqlParsingDebugInfo,
     SqlParsingResult,
 )
@@ -223,7 +224,7 @@ def mock_graph() -> DataHubGraph:
 
     graph = MagicMock()
 
-    graph._make_schema_resolver.return_value = sqlglot_l.SchemaResolver(
+    graph._make_schema_resolver.return_value = SchemaResolver(
         platform="redshift",
         env="PROD",
         platform_instance=None,
@@ -296,7 +297,7 @@ def test_collapse_temp_recursive_cll_lineage():
         session_id="abc",
         create_command="CREATE TABLE #player_price",
         parsed_result=SqlParsingResult(
-            query_type=QueryType.CREATE,
+            query_type=QueryType.CREATE_TABLE_AS_SELECT,
             in_tables=[
                 "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_activity_temp,PROD)"
             ],
@@ -348,7 +349,7 @@ def test_collapse_temp_recursive_cll_lineage():
         session_id="abc",
         create_command="CREATE TABLE #player_activity_temp",
         parsed_result=SqlParsingResult(
-            query_type=QueryType.CREATE,
+            query_type=QueryType.CREATE_TABLE_AS_SELECT,
             in_tables=[
                 "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.player_activity,PROD)"
             ],
@@ -460,7 +461,7 @@ def test_collapse_temp_recursive_with_compex_column_cll_lineage():
         session_id="abc",
         create_command="CREATE TABLE #player_price",
         parsed_result=SqlParsingResult(
-            query_type=QueryType.CREATE,
+            query_type=QueryType.CREATE_TABLE_AS_SELECT,
             in_tables=[
                 "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_activity_temp,PROD)"
             ],
@@ -516,7 +517,7 @@ def test_collapse_temp_recursive_with_compex_column_cll_lineage():
         session_id="abc",
         create_command="CREATE TABLE #player_activity_temp",
         parsed_result=SqlParsingResult(
-            query_type=QueryType.CREATE,
+            query_type=QueryType.CREATE_TABLE_AS_SELECT,
             in_tables=[
                 "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.player_activity,PROD)"
             ],
@@ -659,7 +660,7 @@ def test_collapse_temp_recursive_cll_lineage_with_circular_reference():
         session_id="abc",
         create_command="CREATE TABLE #player_price",
         parsed_result=SqlParsingResult(
-            query_type=QueryType.CREATE,
+            query_type=QueryType.CREATE_TABLE_AS_SELECT,
             in_tables=[
                 "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_activity_temp,PROD)"
             ],
@@ -711,7 +712,7 @@ def test_collapse_temp_recursive_cll_lineage_with_circular_reference():
         session_id="abc",
         create_command="CREATE TABLE #player_activity_temp",
         parsed_result=SqlParsingResult(
-            query_type=QueryType.CREATE,
+            query_type=QueryType.CREATE_TABLE_AS_SELECT,
             in_tables=[
                 "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.player_activity,PROD)"
             ],

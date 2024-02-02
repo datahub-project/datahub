@@ -2,9 +2,9 @@ import textwrap
 
 import sqlglot
 
+from datahub.sql_parsing.sql_parsing_common import QueryType
 from datahub.sql_parsing.sqlglot_lineage import (
     _UPDATE_ARGS_NOT_SUPPORTED_BY_SELECT,
-    QueryType,
     _get_dialect,
     _is_dialect_instance,
     generalize_query,

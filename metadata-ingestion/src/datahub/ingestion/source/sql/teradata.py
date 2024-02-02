@@ -57,7 +57,8 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     BytesTypeClass,
     TimeTypeClass,
 )
-from datahub.sql_parsing.sqlglot_lineage import SchemaResolver, sqlglot_lineage
+from datahub.sql_parsing.schema_resolver import SchemaResolver
+from datahub.sql_parsing.sqlglot_lineage import sqlglot_lineage
 
 logger: logging.Logger = logging.getLogger(__name__)
 

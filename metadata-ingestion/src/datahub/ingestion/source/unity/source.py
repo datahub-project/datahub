@@ -103,8 +103,8 @@ from datahub.metadata.schema_classes import (
     UpstreamClass,
     UpstreamLineageClass,
 )
+from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.sql_parsing.sqlglot_lineage import (
-    SchemaResolver,
     SqlParsingResult,
     sqlglot_lineage,
     view_definition_lineage_helper,

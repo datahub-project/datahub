@@ -9,11 +9,8 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 from datahub.metadata.urns import CorpUserUrn, DataPlatformUrn, DatasetUrn
-from datahub.sql_parsing.sqlglot_lineage import (
-    ColumnLineageInfo,
-    SchemaResolver,
-    sqlglot_lineage,
-)
+from datahub.sql_parsing.schema_resolver import SchemaResolver
+from datahub.sql_parsing.sqlglot_lineage import ColumnLineageInfo, sqlglot_lineage
 from datahub.utilities.file_backed_collections import FileBackedDict
 
 logger = logging.getLogger(__name__)

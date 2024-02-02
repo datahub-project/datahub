@@ -1,10 +1,7 @@
-import contextlib
-import enum
 import functools
 import hashlib
 import itertools
 import logging
-import pathlib
 from collections import defaultdict
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
 
@@ -15,39 +12,29 @@ import sqlglot.lineage
 import sqlglot.optimizer.annotate_types
 import sqlglot.optimizer.optimizer
 import sqlglot.optimizer.qualify
-from pydantic import BaseModel
-from typing_extensions import TypedDict
 
-from datahub.configuration.pydantic_migration_helpers import PYDANTIC_VERSION_2
-from datahub.emitter.mce_builder import (
-    DEFAULT_ENV,
-    make_dataset_urn_with_platform_instance,
-)
-from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.graph.client import DataHubGraph
-from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIdentifier
 from datahub.metadata.schema_classes import (
     ArrayTypeClass,
     BooleanTypeClass,
     DateTypeClass,
     NumberTypeClass,
-    OperationTypeClass,
-    SchemaFieldClass,
     SchemaFieldDataTypeClass,
-    SchemaMetadataClass,
     StringTypeClass,
     TimeTypeClass,
 )
-from datahub.utilities.file_backed_collections import ConnectionWrapper, FileBackedDict
-from datahub.utilities.urns.field_paths import get_simple_field_path_from_v2_field_path
+from datahub.sql_parsing._models import _FrozenModel, _ParserBaseModel, _TableName
+from datahub.sql_parsing.schema_resolver import SchemaInfo, SchemaResolver
+from datahub.sql_parsing.sql_parsing_common import (
+    DIALECTS_WITH_CASE_INSENSITIVE_COLS,
+    DIALECTS_WITH_DEFAULT_UPPERCASE_COLS,
+    QueryType,
+)
+from datahub.sql_parsing.sql_utils import DialectOrStr
 
 logger = logging.getLogger(__name__)
 
 Urn = str
-DialectOrStr = Union[sqlglot.Dialect, str]
-
-# A lightweight table schema: column -> type mapping.
-SchemaInfo = Dict[str, str]
 
 SQL_PARSE_RESULT_CACHE_SIZE = 1000
 
@@ -72,51 +59,6 @@ RULES_BEFORE_TYPE_ANNOTATION: tuple = tuple(
 assert 0 < len(RULES_BEFORE_TYPE_ANNOTATION) < len(sqlglot.optimizer.optimizer.RULES)
 
 
-class GraphQLSchemaField(TypedDict):
-    fieldPath: str
-    nativeDataType: str
-
-
-class GraphQLSchemaMetadata(TypedDict):
-    fields: List[GraphQLSchemaField]
-
-
-class QueryType(enum.Enum):
-    UNKNOWN = "UNKNOWN"
-
-    CREATE_DDL = "CREATE_DDL"
-    CREATE_VIEW = "CREATE_VIEW"
-    CREATE_TABLE_AS_SELECT = "CREATE_TABLE_AS_SELECT"
-    CREATE_OTHER = "CREATE_OTHER"
-
-    SELECT = "SELECT"
-    INSERT = "INSERT"
-    UPDATE = "UPDATE"
-    DELETE = "DELETE"
-    MERGE = "MERGE"
-
-    def is_create(self) -> bool:
-        return self in {
-            QueryType.CREATE_DDL,
-            QueryType.CREATE_VIEW,
-            QueryType.CREATE_TABLE_AS_SELECT,
-            QueryType.CREATE_OTHER,
-        }
-
-    def to_operation_type(self) -> Optional[str]:
-        if self.is_create():
-            return OperationTypeClass.CREATE
-
-        query_to_operation_mapping = {
-            QueryType.SELECT: None,
-            QueryType.INSERT: OperationTypeClass.INSERT,
-            QueryType.UPDATE: OperationTypeClass.UPDATE,
-            QueryType.DELETE: OperationTypeClass.DELETE,
-            QueryType.MERGE: OperationTypeClass.UPDATE,
-        }
-        return query_to_operation_mapping.get(self, OperationTypeClass.UNKNOWN)
-
-
 def _is_temp_table(table: sqlglot.exp.Table, dialect: sqlglot.Dialect) -> bool:
     identifier: sqlglot.exp.Identifier = table.this
 
@@ -129,7 +71,7 @@ def get_query_type_of_sql(
     expression: sqlglot.exp.Expression, dialect: DialectOrStr
 ) -> Tuple[QueryType, dict]:
     dialect = _get_dialect(dialect)
-    query_type_props = {}
+    query_type_props: Dict[str, Any] = {}
 
     # For creates, we need to look at the inner expression.
     if isinstance(expression, sqlglot.exp.Create):
@@ -223,9 +165,7 @@ def generalize_query(expression: sqlglot.exp.ExpOrStr, dialect: DialectOrStr) ->
 
         return node
 
-    expression = expression.transform(_strip_expression, copy=True)
-
-    return expression.sql(dialect=dialect)
+    return expression.transform(_strip_expression, copy=True).sql(dialect=dialect)
 
 
 def get_query_fingerprint(
@@ -238,76 +178,6 @@ def get_query_fingerprint(
     fingerprint = hashlib.sha256(expression_sql.encode("utf-8")).hexdigest()
 
     return fingerprint
-
-
-class _ParserBaseModel(
-    BaseModel,
-    arbitrary_types_allowed=True,
-    json_encoders={
-        SchemaFieldDataTypeClass: lambda v: v.to_obj(),
-    },
-):
-    def json(self, *args: Any, **kwargs: Any) -> str:
-        if PYDANTIC_VERSION_2:
-            return super().model_dump_json(*args, **kwargs)  # type: ignore
-        else:
-            return super().json(*args, **kwargs)
-
-
-@functools.total_ordering
-class _FrozenModel(_ParserBaseModel, frozen=True):
-    def __lt__(self, other: "_FrozenModel") -> bool:
-        # TODO: The __fields__ attribute is deprecated in Pydantic v2.
-        for field in self.__fields__:
-            self_v = getattr(self, field)
-            other_v = getattr(other, field)
-            if self_v != other_v:
-                return self_v < other_v
-
-        return False
-
-
-class _TableName(_FrozenModel):
-    database: Optional[str] = None
-    db_schema: Optional[str] = None
-    table: str
-
-    def as_sqlglot_table(self) -> sqlglot.exp.Table:
-        return sqlglot.exp.Table(
-            catalog=(
-                sqlglot.exp.Identifier(this=self.database) if self.database else None
-            ),
-            db=sqlglot.exp.Identifier(this=self.db_schema) if self.db_schema else None,
-            this=sqlglot.exp.Identifier(this=self.table),
-        )
-
-    def qualified(
-        self,
-        dialect: sqlglot.Dialect,
-        default_db: Optional[str] = None,
-        default_schema: Optional[str] = None,
-    ) -> "_TableName":
-        database = self.database or default_db
-        db_schema = self.db_schema or default_schema
-
-        return _TableName(
-            database=database,
-            db_schema=db_schema,
-            table=self.table,
-        )
-
-    @classmethod
-    def from_sqlglot_table(
-        cls,
-        table: sqlglot.exp.Table,
-        default_db: Optional[str] = None,
-        default_schema: Optional[str] = None,
-    ) -> "_TableName":
-        return cls(
-            database=table.catalog or default_db,
-            db_schema=table.db or default_schema,
-            table=table.this.name,
-        )
 
 
 class _ColumnRef(_FrozenModel):
@@ -457,170 +327,6 @@ def _table_level_lineage(
     return tables, modified
 
 
-TABLE_CASE_SENSITIVE_PLATFORMS = {"bigquery"}
-
-
-class SchemaResolver(Closeable):
-    def __init__(
-        self,
-        *,
-        platform: str,
-        platform_instance: Optional[str] = None,
-        env: str = DEFAULT_ENV,
-        graph: Optional[DataHubGraph] = None,
-        _cache_filename: Optional[pathlib.Path] = None,
-    ):
-        # TODO handle platforms when prefixed with urn:li:dataPlatform:
-        self.platform = platform
-        self.platform_instance = platform_instance
-        self.env = env
-
-        self.graph = graph
-
-        # Init cache, potentially restoring from a previous run.
-        shared_conn = None
-        if _cache_filename:
-            shared_conn = ConnectionWrapper(filename=_cache_filename)
-        self._schema_cache: FileBackedDict[Optional[SchemaInfo]] = FileBackedDict(
-            shared_connection=shared_conn,
-        )
-
-    def get_urns(self) -> Set[str]:
-        return set(self._schema_cache.keys())
-
-    def schema_count(self) -> int:
-        return len(self._schema_cache)
-
-    def get_urn_for_table(self, table: _TableName, lower: bool = False) -> str:
-        # TODO: Validate that this is the correct 2/3 layer hierarchy for the platform.
-
-        table_name = ".".join(
-            filter(None, [table.database, table.db_schema, table.table])
-        )
-
-        platform_instance = self.platform_instance
-
-        if lower:
-            table_name = table_name.lower()
-            platform_instance = platform_instance.lower() if platform_instance else None
-
-        if self.platform == "bigquery":
-            # Normalize shard numbers and other BigQuery weirdness.
-            with contextlib.suppress(IndexError):
-                table_name = BigqueryTableIdentifier.from_string_name(
-                    table_name
-                ).get_table_name()
-
-        urn = make_dataset_urn_with_platform_instance(
-            platform=self.platform,
-            platform_instance=platform_instance,
-            env=self.env,
-            name=table_name,
-        )
-        return urn
-
-    def resolve_table(self, table: _TableName) -> Tuple[str, Optional[SchemaInfo]]:
-        urn = self.get_urn_for_table(table)
-
-        schema_info = self._resolve_schema_info(urn)
-        if schema_info:
-            return urn, schema_info
-
-        urn_lower = self.get_urn_for_table(table, lower=True)
-        if urn_lower != urn:
-            schema_info = self._resolve_schema_info(urn_lower)
-            if schema_info:
-                return urn_lower, schema_info
-
-        if self.platform in TABLE_CASE_SENSITIVE_PLATFORMS:
-            return urn, None
-        else:
-            return urn_lower, None
-
-    def has_urn(self, urn: str) -> bool:
-        return urn in self._schema_cache
-
-    def _resolve_schema_info(self, urn: str) -> Optional[SchemaInfo]:
-        if urn in self._schema_cache:
-            return self._schema_cache[urn]
-
-        # TODO: For bigquery partitioned tables, add the pseudo-column _PARTITIONTIME
-        # or _PARTITIONDATE where appropriate.
-
-        if self.graph:
-            schema_info = self._fetch_schema_info(self.graph, urn)
-            if schema_info:
-                self._save_to_cache(urn, schema_info)
-                return schema_info
-
-        self._save_to_cache(urn, None)
-        return None
-
-    def add_schema_metadata(
-        self, urn: str, schema_metadata: SchemaMetadataClass
-    ) -> None:
-        schema_info = self._convert_schema_aspect_to_info(schema_metadata)
-        self._save_to_cache(urn, schema_info)
-
-    def add_raw_schema_info(self, urn: str, schema_info: SchemaInfo) -> None:
-        self._save_to_cache(urn, schema_info)
-
-    def add_graphql_schema_metadata(
-        self, urn: str, schema_metadata: GraphQLSchemaMetadata
-    ) -> None:
-        schema_info = self.convert_graphql_schema_metadata_to_info(schema_metadata)
-        self._save_to_cache(urn, schema_info)
-
-    def _save_to_cache(self, urn: str, schema_info: Optional[SchemaInfo]) -> None:
-        self._schema_cache[urn] = schema_info
-
-    def _fetch_schema_info(self, graph: DataHubGraph, urn: str) -> Optional[SchemaInfo]:
-        aspect = graph.get_aspect(urn, SchemaMetadataClass)
-        if not aspect:
-            return None
-
-        return self._convert_schema_aspect_to_info(aspect)
-
-    @classmethod
-    def _convert_schema_aspect_to_info(
-        cls, schema_metadata: SchemaMetadataClass
-    ) -> SchemaInfo:
-        return cls._convert_schema_field_list_to_info(schema_metadata.fields)
-
-    @classmethod
-    def _convert_schema_field_list_to_info(
-        cls, schema_fields: List[SchemaFieldClass]
-    ) -> SchemaInfo:
-        return {
-            get_simple_field_path_from_v2_field_path(col.fieldPath): (
-                # The actual types are more of a "nice to have".
-                col.nativeDataType
-                or "str"
-            )
-            for col in schema_fields
-            # TODO: We can't generate lineage to columns nested within structs yet.
-            if "." not in get_simple_field_path_from_v2_field_path(col.fieldPath)
-        }
-
-    @classmethod
-    def convert_graphql_schema_metadata_to_info(
-        cls, schema: GraphQLSchemaMetadata
-    ) -> SchemaInfo:
-        return {
-            get_simple_field_path_from_v2_field_path(field["fieldPath"]): (
-                # The actual types are more of a "nice to have".
-                field["nativeDataType"]
-                or "str"
-            )
-            for field in schema["fields"]
-            # TODO: We can't generate lineage to columns nested within structs yet.
-            if "." not in get_simple_field_path_from_v2_field_path(field["fieldPath"])
-        }
-
-    def close(self) -> None:
-        self._schema_cache.close()
-
-
 # TODO: Once PEP 604 is supported (Python 3.10), we can unify these into a
 # single type. See https://peps.python.org/pep-0604/#isinstance-and-issubclass.
 _SupportedColumnLineageTypes = Union[
@@ -630,26 +336,6 @@ _SupportedColumnLineageTypes = Union[
     sqlglot.exp.DerivedTable,
 ]
 _SupportedColumnLineageTypesTuple = (sqlglot.exp.Subqueryable, sqlglot.exp.DerivedTable)
-
-DIALECTS_WITH_CASE_INSENSITIVE_COLS = {
-    # Column identifiers are case-insensitive in BigQuery, so we need to
-    # do a normalization step beforehand to make sure it's resolved correctly.
-    "bigquery",
-    # Our snowflake source lowercases column identifiers, so we are forced
-    # to do fuzzy (case-insensitive) resolution instead of exact resolution.
-    "snowflake",
-    # Teradata column names are case-insensitive.
-    # A name, even when enclosed in double quotation marks, is not case sensitive. For example, CUSTOMER and Customer are the same.
-    # See more below:
-    # https://documentation.sas.com/doc/en/pgmsascdc/9.4_3.5/acreldb/n0ejgx4895bofnn14rlguktfx5r3.htm
-    "teradata",
-}
-DIALECTS_WITH_DEFAULT_UPPERCASE_COLS = {
-    # In some dialects, column identifiers are effectively case insensitive
-    # because they are automatically converted to uppercase. Most other systems
-    # automatically lowercase unquoted identifiers.
-    "snowflake",
-}
 
 
 class UnsupportedStatementTypeError(TypeError):

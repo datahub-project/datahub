@@ -3,9 +3,11 @@ from typing import List, Optional
 
 import sqlparse
 
-import datahub.sql_parsing.sqlglot_lineage as sqlglot_l
 from datahub.ingestion.api.common import PipelineContext
-from datahub.sql_parsing.sqlglot_lineage import SqlParsingResult
+from datahub.sql_parsing.sqlglot_lineage import (
+    SqlParsingResult,
+    create_lineage_sql_parsed_result,
+)
 
 SPECIAL_CHARACTERS = ["#(lf)", "(lf)"]
 
@@ -67,7 +69,7 @@ def parse_custom_sql(
 
     logger.debug(f"Processing native query = {sql_query}")
 
-    return sqlglot_l.create_lineage_sql_parsed_result(
+    return create_lineage_sql_parsed_result(
         query=sql_query,
         default_schema=schema,
         default_db=database,

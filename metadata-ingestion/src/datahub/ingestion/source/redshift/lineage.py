@@ -48,6 +48,7 @@ from datahub.metadata.schema_classes import (
     UpstreamClass,
     UpstreamLineageClass,
 )
+from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.utilities import memory_footprint
 from datahub.utilities.dedup_list import deduplicate_list
 from datahub.utilities.urns import dataset_urn
@@ -174,12 +175,10 @@ class RedshiftLineageExtractor:
         if self.context.graph is None:  # to silent lint
             return
 
-        schema_resolver: sqlglot_l.SchemaResolver = (
-            self.context.graph._make_schema_resolver(
-                platform=LineageDatasetPlatform.REDSHIFT.value,
-                platform_instance=self.config.platform_instance,
-                env=self.config.env,
-            )
+        schema_resolver: SchemaResolver = self.context.graph._make_schema_resolver(
+            platform=LineageDatasetPlatform.REDSHIFT.value,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
         )
 
         dataset_vs_columns: Dict[str, List[SchemaField]] = {}
@@ -201,7 +200,7 @@ class RedshiftLineageExtractor:
             if (
                 result is None
                 or result.column_lineage is None
-                or result.query_type != sqlglot_l.QueryType.CREATE
+                or not result.query_type.is_create()
                 or not result.out_tables
             ):
                 logger.debug(f"Unsupported temp table query found: {table.query_text}")

@@ -50,9 +50,9 @@ if TYPE_CHECKING:
     from datahub.ingestion.source.state.entity_removal_state import (
         GenericCheckpointState,
     )
+    from datahub.sql_parsing.schema_resolver import SchemaResolver
     from datahub.sql_parsing.sqlglot_lineage import (
         GraphQLSchemaMetadata,
-        SchemaResolver,
         SqlParsingResult,
     )
 
@@ -1005,7 +1005,7 @@ class DataHubGraph(DatahubRestEmitter):
         env: str,
         include_graph: bool = True,
     ) -> "SchemaResolver":
-        from datahub.sql_parsing.sqlglot_lineage import SchemaResolver
+        from datahub.sql_parsing.schema_resolver import SchemaResolver
 
         return SchemaResolver(
             platform=platform,
