@@ -19,12 +19,10 @@ public class BusinessAttributesMapper {
             @Nonnull final com.linkedin.businessattribute.BusinessAttributeAssociation businessAttribute,
             @Nonnull final Urn entityUrn
     ) {
-        _logger.info("inside mapper");
         return INSTANCE.apply(businessAttribute, entityUrn);
     }
 
     private BusinessAttributes apply(@Nonnull com.linkedin.businessattribute.BusinessAttributeAssociation businessAttributes, @Nonnull Urn entityUrn) {
-        _logger.info("before try block::{}", businessAttributes.getDestinationUrn());
         final BusinessAttributeAssociation businessAttributeAssociation = new BusinessAttributeAssociation();
         final BusinessAttributes result = new BusinessAttributes();
         final BusinessAttribute businessAttribute = new BusinessAttribute();

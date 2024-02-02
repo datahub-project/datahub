@@ -41,9 +41,7 @@ public class EditableSchemaFieldInfoMapper {
         if (input.hasGlossaryTerms()) {
             result.setGlossaryTerms(GlossaryTermsMapper.map(input.getGlossaryTerms(), entityUrn));
         }
-        _logger.info("inside info mapper before");
         if (input.hasBusinessAttribute()) {
-            _logger.info("inside info mapper after: {}, entity urn: {}", input.getBusinessAttribute().getDestinationUrn(), entityUrn);
             result.setBusinessAttributes(BusinessAttributesMapper.map(input.getBusinessAttribute(), entityUrn));
         }
         return result;

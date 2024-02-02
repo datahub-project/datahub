@@ -74,7 +74,8 @@ public class EntityChangeEventGeneratorHook implements MetadataChangeLogHook {
           Constants.GLOSSARY_TERM_KEY_ASPECT_NAME,
           Constants.DOMAIN_KEY_ASPECT_NAME,
           Constants.TAG_KEY_ASPECT_NAME,
-          Constants.STATUS_ASPECT_NAME);
+          Constants.STATUS_ASPECT_NAME,
+          Constants.BUSINESS_ATTRIBUTE_KEY_ASPECT_NAME);
   /**
    * The list of change types that are supported for generating semantic change events.
    */

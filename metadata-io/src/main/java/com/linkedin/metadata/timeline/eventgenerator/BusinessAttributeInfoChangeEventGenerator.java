@@ -12,6 +12,7 @@ import com.linkedin.metadata.timeline.data.SemanticChangeType;
 
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 public class BusinessAttributeInfoChangeEventGenerator extends EntityChangeEventGenerator<BusinessAttributeInfo> {
@@ -89,13 +90,16 @@ public class BusinessAttributeInfoChangeEventGenerator extends EntityChangeEvent
 
     private ChangeEvent createChangeEvent(BusinessAttributeInfo businessAttributeInfo, String entityUrn,
                                           ChangeOperation operation, String format, AuditStamp auditStamp, String... descriptions) {
+        List<String> args = new ArrayList<>();
+        args.add(0, businessAttributeInfo.getFieldPath());
+        Arrays.stream(descriptions).forEach(val -> args.add(val));
         return ChangeEvent.builder()
                 .modifier(businessAttributeInfo.getFieldPath())
                 .entityUrn(entityUrn)
                 .category(ChangeCategory.DOCUMENTATION)
                 .operation(operation)
                 .semVerChange(SemanticChangeType.MINOR)
-                .description(String.format(format, businessAttributeInfo.getFieldPath(), descriptions))
+                .description(String.format(format, args.toArray()))
                 .auditStamp(auditStamp)
                 .build();
     }

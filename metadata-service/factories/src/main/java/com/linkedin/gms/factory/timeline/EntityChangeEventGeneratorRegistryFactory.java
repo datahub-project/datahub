@@ -72,6 +72,7 @@ public class EntityChangeEventGeneratorRegistryFactory {
     registry.register(CORP_GROUP_KEY_ASPECT_NAME, new EntityKeyChangeEventGenerator<>());
     registry.register(STATUS_ASPECT_NAME, new StatusChangeEventGenerator());
     registry.register(DEPRECATION_ASPECT_NAME, new DeprecationChangeEventGenerator());
+    registry.register(BUSINESS_ATTRIBUTE_KEY_ASPECT_NAME, new EntityKeyChangeEventGenerator<>());
 
     // Assertion differs
     registry.register(ASSERTION_RUN_EVENT_ASPECT_NAME, new AssertionRunEventChangeEventGenerator());
