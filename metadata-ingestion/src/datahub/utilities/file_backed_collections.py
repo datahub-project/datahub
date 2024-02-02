@@ -8,6 +8,7 @@ import sqlite3
 import tempfile
 from dataclasses import dataclass, field
 from datetime import datetime
+from enum import Enum
 from types import TracebackType
 from typing import (
     Any,
@@ -26,6 +27,8 @@ from typing import (
     Union,
 )
 
+from typing_extensions import Final
+
 from datahub.ingestion.api.closeable import Closeable
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -40,6 +43,16 @@ _DEFAULT_MEMORY_CACHE_EVICTION_BATCH_SIZE = 200
 SqliteValue = Union[int, float, str, bytes, datetime, None]
 
 _VT = TypeVar("_VT")
+
+
+class Unset(Enum):
+    token = 0
+
+
+# It's pretty annoying to create a true sentinel that works with typing.
+# https://peps.python.org/pep-0484/#support-for-singleton-types-in-unions
+# Can't wait for https://peps.python.org/pep-0661/
+_unset: Final = Unset.token
 
 
 class ConnectionWrapper:
@@ -227,10 +240,14 @@ class FileBackedDict(MutableMapping[str, _VT], Closeable, Generic[_VT]):
     def _add_to_cache(self, key: str, value: _VT, dirty: bool) -> None:
         self._active_object_cache[key] = value, dirty
 
-        if len(self._active_object_cache) > self.cache_max_size:
+        if self.cache_max_size == 0:
+            self._prune_cache(len(self._active_object_cache))
+        elif len(self._active_object_cache) > self.cache_max_size:
             # Try to prune in batches rather than one at a time.
+            # However, we don't want to prune the thing we just added,
+            # in case there's a mark_dirty() call immediately after.
             num_items_to_prune = min(
-                len(self._active_object_cache), self.cache_eviction_batch_size
+                len(self._active_object_cache) - 1, self.cache_eviction_batch_size
             )
             self._prune_cache(num_items_to_prune)
 
@@ -277,6 +294,27 @@ class FileBackedDict(MutableMapping[str, _VT], Closeable, Generic[_VT]):
     def __setitem__(self, key: str, value: _VT) -> None:
         self._add_to_cache(key, value, True)
 
+    def for_mutation(
+        self,
+        /,
+        key: str,
+        default: Union[_VT, Unset] = _unset,
+    ) -> _VT:
+        # If key is in the dictionary, this is similar to __getitem__ + mark_dirty.
+        # If key is not in the dictionary, this is similar to __setitem__.
+        assert self.cache_max_size > 0, "Cache must be enabled to use getsetdefault"
+
+        try:
+            value = self[key]
+            self.mark_dirty(key)
+            return value
+        except KeyError:
+            if default is _unset:
+                raise
+
+            self[key] = default
+            return default
+
     def __delitem__(self, key: str) -> None:
         in_cache = False
         if key in self._active_object_cache:
@@ -290,7 +328,14 @@ class FileBackedDict(MutableMapping[str, _VT], Closeable, Generic[_VT]):
             raise KeyError(key)
 
     def mark_dirty(self, key: str) -> None:
-        if key in self._active_object_cache and not self._active_object_cache[key][1]:
+        if key not in self._active_object_cache:
+            breakpoint()
+            raise ValueError(
+                f"key {key} not in active object cache, which means any dirty value "
+                "is already persisted or lost"
+            )
+
+        if not self._active_object_cache[key][1]:
             self._active_object_cache[key] = self._active_object_cache[key][0], True
 
     def __iter__(self) -> Iterator[str]:
