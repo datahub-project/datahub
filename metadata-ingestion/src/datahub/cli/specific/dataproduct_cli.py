@@ -338,7 +338,7 @@ def add_owner(urn: str, owner: str, owner_type: str) -> None:
     dataproduct_patcher: DataProductPatchBuilder = DataProduct.get_patch_builder(urn)
     owner_type, owner_type_urn = validate_ownership_type(owner_type)
     dataproduct_patcher.add_owner(
-        owner=OwnerClass(owner=_get_owner_urn(owner), type=owner_type)
+        owner=OwnerClass(owner=_get_owner_urn(owner), type=owner_type, typeUrn=owner_type_urn)
     )
     with get_default_graph() as graph:
         _abort_if_non_existent_urn(graph, urn, "add owners")
