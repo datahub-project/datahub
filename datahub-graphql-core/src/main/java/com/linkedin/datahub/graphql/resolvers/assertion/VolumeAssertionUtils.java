@@ -14,6 +14,7 @@ import com.linkedin.datahub.graphql.generated.IncrementingSegmentRowCountTotalIn
 import com.linkedin.datahub.graphql.generated.IncrementingSegmentSpecInput;
 import com.linkedin.datahub.graphql.generated.RowCountChangeInput;
 import com.linkedin.datahub.graphql.generated.RowCountTotalInput;
+import com.linkedin.datahub.graphql.generated.UpsertDatasetVolumeAssertionMonitorInput;
 import javax.annotation.Nonnull;
 
 public class VolumeAssertionUtils {
@@ -96,6 +97,65 @@ public class VolumeAssertionUtils {
         new com.linkedin.assertion.VolumeAssertionInfo();
     final Urn asserteeUrn = UrnUtils.getUrn(input.getEntityUrn());
 
+    result.setEntity(asserteeUrn);
+    result.setType(VolumeAssertionType.valueOf(input.getType().toString()));
+    if (input.getFilter() != null) {
+      result.setFilter(AssertionUtils.createAssertionFilter(input.getFilter()));
+    }
+
+    switch (input.getType()) {
+      case ROW_COUNT_TOTAL:
+        if (input.getRowCountTotal() != null) {
+          result.setRowCountTotal(createRowCountTotal(input.getRowCountTotal()));
+        } else {
+          throw new DataHubGraphQLException(
+              "Invalid input. RowCountTotal is required if VolumeAssertionType is ROW_COUNT_TOTAL.",
+              DataHubGraphQLErrorCode.BAD_REQUEST);
+        }
+        break;
+      case ROW_COUNT_CHANGE:
+        if (input.getRowCountChange() != null) {
+          result.setRowCountChange(createRowCountChange(input.getRowCountChange()));
+        } else {
+          throw new DataHubGraphQLException(
+              "Invalid input. RowCountChange is required if VolumeAssertionType is ROW_COUNT_CHANGE.",
+              DataHubGraphQLErrorCode.BAD_REQUEST);
+        }
+        break;
+      case INCREMENTING_SEGMENT_ROW_COUNT_TOTAL:
+        if (input.getIncrementingSegmentRowCountTotal() != null) {
+          result.setIncrementingSegmentRowCountTotal(
+              createIncrementingSegmentRowCountTotal(input.getIncrementingSegmentRowCountTotal()));
+        } else {
+          throw new DataHubGraphQLException(
+              "Invalid input. IncrementingSegmentRowCountTotal is required if VolumeAssertionType is INCREMENTING_SEGMENT_ROW_COUNT_TOTAL.",
+              DataHubGraphQLErrorCode.BAD_REQUEST);
+        }
+        break;
+      case INCREMENTING_SEGMENT_ROW_COUNT_CHANGE:
+        if (input.getIncrementingSegmentRowCountChange() != null) {
+          result.setIncrementingSegmentRowCountChange(
+              createIncrementingSegmentRowCountChange(
+                  input.getIncrementingSegmentRowCountChange()));
+        } else {
+          throw new DataHubGraphQLException(
+              "Invalid input. IncrementingSegmentRowCountChange is required if VolumeAssertionType is INCREMENTING_SEGMENT_ROW_COUNT_CHANGE.",
+              DataHubGraphQLErrorCode.BAD_REQUEST);
+        }
+        break;
+      default:
+        throw new RuntimeException(
+            String.format("Unsupported Volume Assertion Type %s provided", input.getType()));
+    }
+    return result;
+  }
+
+  @Nonnull
+  public static com.linkedin.assertion.VolumeAssertionInfo createVolumeAssertionInfo(
+      @Nonnull final UpsertDatasetVolumeAssertionMonitorInput input) {
+    final com.linkedin.assertion.VolumeAssertionInfo result =
+        new com.linkedin.assertion.VolumeAssertionInfo();
+    final Urn asserteeUrn = UrnUtils.getUrn(input.getEntityUrn());
     result.setEntity(asserteeUrn);
     result.setType(VolumeAssertionType.valueOf(input.getType().toString()));
     if (input.getFilter() != null) {

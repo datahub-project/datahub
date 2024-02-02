@@ -10,20 +10,28 @@ import com.linkedin.assertion.AssertionActionArray;
 import com.linkedin.assertion.AssertionActionType;
 import com.linkedin.assertion.AssertionActions;
 import com.linkedin.assertion.AssertionInfo;
+import com.linkedin.assertion.AssertionSourceType;
 import com.linkedin.assertion.AssertionStdAggregation;
 import com.linkedin.assertion.AssertionStdOperator;
 import com.linkedin.assertion.AssertionStdParameter;
 import com.linkedin.assertion.AssertionStdParameterType;
 import com.linkedin.assertion.AssertionStdParameters;
 import com.linkedin.assertion.AssertionType;
+import com.linkedin.assertion.AssertionValueChangeType;
 import com.linkedin.assertion.DatasetAssertionInfo;
 import com.linkedin.assertion.DatasetAssertionScope;
+import com.linkedin.assertion.FieldAssertionInfo;
+import com.linkedin.assertion.FieldAssertionType;
+import com.linkedin.assertion.FieldMetricAssertion;
+import com.linkedin.assertion.FieldMetricType;
 import com.linkedin.assertion.FixedIntervalSchedule;
 import com.linkedin.assertion.FreshnessAssertionInfo;
 import com.linkedin.assertion.FreshnessAssertionSchedule;
 import com.linkedin.assertion.FreshnessAssertionScheduleType;
 import com.linkedin.assertion.FreshnessAssertionType;
 import com.linkedin.assertion.RowCountTotal;
+import com.linkedin.assertion.SqlAssertionInfo;
+import com.linkedin.assertion.SqlAssertionType;
 import com.linkedin.assertion.VolumeAssertionInfo;
 import com.linkedin.assertion.VolumeAssertionType;
 import com.linkedin.common.AssertionsSummary;
@@ -42,6 +50,7 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.schema.SchemaFieldSpec;
 import com.linkedin.timeseries.CalendarInterval;
 import java.util.Collections;
 import java.util.List;
@@ -55,6 +64,15 @@ public class AssertionServiceTest {
   private static final Urn TEST_ASSERTION_URN = UrnUtils.getUrn("urn:li:assertion:test");
   private static final Urn TEST_FRESHNESS_ASSERTION_URN =
       UrnUtils.getUrn("urn:li:assertion:test-dataset-freshness");
+
+  private static final Urn TEST_VOLUME_ASSERTION_URN =
+      UrnUtils.getUrn("urn:li:assertion:test-dataset-volume");
+
+  private static final Urn TEST_SQL_ASSERTION_URN =
+      UrnUtils.getUrn("urn:li:assertion:test-dataset-sql");
+
+  private static final Urn TEST_FIELD_ASSERTION_URN =
+      UrnUtils.getUrn("urn:li:assertion:test-dataset-field");
   private static final Urn TEST_NON_EXISTENT_ASSERTION_URN =
       UrnUtils.getUrn("urn:li:assertion:test-non-existant");
   private static final Urn TEST_DATASET_URN =
@@ -430,7 +448,7 @@ public class AssertionServiceTest {
   }
 
   @Test
-  public void testUpdateFreshnessAssertionRequiredFields() throws Exception {
+  public void testUpsertDatasetFreshnessAssertionRequiredFields() throws Exception {
     // Test data and mocks
     EntityClient mockClient = createMockEntityClient();
     Urn assertionUrn = TEST_FRESHNESS_ASSERTION_URN;
@@ -443,6 +461,21 @@ public class AssertionServiceTest {
             invocation -> {
               List<MetadataChangeProposal> aspects = invocation.getArgument(0);
               Assert.assertEquals(aspects.size(), 1);
+              MetadataChangeProposal proposal = aspects.get(0);
+              Assert.assertEquals(proposal.getAspectName(), ASSERTION_INFO_ASPECT_NAME);
+              // Verify that the correct aspect was ingested.
+              AssertionInfo newAssertionInfo =
+                  GenericRecordUtils.deserializeAspect(
+                      proposal.getAspect().getValue(),
+                      proposal.getAspect().getContentType(),
+                      AssertionInfo.class);
+              Assert.assertEquals(newAssertionInfo.getType(), AssertionType.FRESHNESS);
+              Assert.assertEquals(
+                  newAssertionInfo.getFreshnessAssertion().getType(),
+                  FreshnessAssertionType.DATASET_CHANGE);
+              Assert.assertEquals(newAssertionInfo.getFreshnessAssertion().getSchedule(), schedule);
+              Assert.assertEquals(
+                  newAssertionInfo.getSource().getType(), AssertionSourceType.NATIVE);
               return null;
             })
         .when(mockClient)
@@ -454,15 +487,20 @@ public class AssertionServiceTest {
 
     // Test method
     Urn result =
-        service.updateFreshnessAssertion(
-            assertionUrn, schedule, null, null, Mockito.mock(Authentication.class));
+        service.upsertDatasetFreshnessAssertion(
+            assertionUrn,
+            TEST_DATASET_URN,
+            schedule,
+            null,
+            null,
+            Mockito.mock(Authentication.class));
 
     // Assert result
     Assert.assertEquals(result, TEST_FRESHNESS_ASSERTION_URN);
   }
 
   @Test
-  public void testUpdateFreshnessAssertionAllFields() throws Exception {
+  public void testUpsertDatasetFreshnessAssertionAllFields() throws Exception {
     // Test data and mocks
     EntityClient mockClient = createMockEntityClient();
     Urn assertionUrn = TEST_FRESHNESS_ASSERTION_URN;
@@ -482,6 +520,33 @@ public class AssertionServiceTest {
             invocation -> {
               List<MetadataChangeProposal> aspects = invocation.getArgument(0);
               Assert.assertEquals(aspects.size(), 2);
+              MetadataChangeProposal proposal = aspects.get(0);
+              Assert.assertEquals(proposal.getAspectName(), ASSERTION_INFO_ASPECT_NAME);
+
+              // Verify that the correct aspects were ingested.
+              AssertionInfo newAssertionInfo =
+                  GenericRecordUtils.deserializeAspect(
+                      proposal.getAspect().getValue(),
+                      proposal.getAspect().getContentType(),
+                      AssertionInfo.class);
+              Assert.assertEquals(newAssertionInfo.getType(), AssertionType.FRESHNESS);
+              Assert.assertEquals(
+                  newAssertionInfo.getFreshnessAssertion().getType(),
+                  FreshnessAssertionType.DATASET_CHANGE);
+              Assert.assertEquals(newAssertionInfo.getFreshnessAssertion().getSchedule(), schedule);
+              Assert.assertEquals(newAssertionInfo.getFreshnessAssertion().getFilter(), filter);
+              Assert.assertEquals(
+                  newAssertionInfo.getSource().getType(), AssertionSourceType.NATIVE);
+
+              MetadataChangeProposal proposal2 = aspects.get(1);
+              Assert.assertEquals(proposal2.getAspectName(), ASSERTION_ACTIONS_ASPECT_NAME);
+              // Verify that the correct aspect was ingested.
+              AssertionActions newAssertionActions =
+                  GenericRecordUtils.deserializeAspect(
+                      proposal2.getAspect().getValue(),
+                      proposal2.getAspect().getContentType(),
+                      AssertionActions.class);
+              Assert.assertEquals(newAssertionActions, actions);
               return null;
             })
         .when(mockClient)
@@ -493,11 +558,434 @@ public class AssertionServiceTest {
 
     // Test method
     Urn result =
-        service.updateFreshnessAssertion(
-            assertionUrn, schedule, filter, actions, Mockito.mock(Authentication.class));
+        service.upsertDatasetFreshnessAssertion(
+            assertionUrn,
+            TEST_DATASET_URN,
+            schedule,
+            filter,
+            actions,
+            Mockito.mock(Authentication.class));
 
     // Assert result
     Assert.assertEquals(result, TEST_FRESHNESS_ASSERTION_URN);
+  }
+
+  @Test
+  public void testUpsertDatasetVolumeAssertionRequiredFields() throws Exception {
+    // Test data and mocks
+    EntityClient mockClient = createMockEntityClient();
+    Urn assertionUrn = TEST_VOLUME_ASSERTION_URN;
+    VolumeAssertionType volumeAssertionType = VolumeAssertionType.ROW_COUNT_TOTAL;
+    RowCountTotal rowCountTotal =
+        new RowCountTotal()
+            .setOperator(AssertionStdOperator.EQUAL_TO)
+            .setParameters(new AssertionStdParameters());
+    VolumeAssertionInfo info =
+        new VolumeAssertionInfo()
+            .setRowCountTotal(rowCountTotal)
+            .setType(VolumeAssertionType.ROW_COUNT_TOTAL);
+
+    Mockito.doAnswer(
+            invocation -> {
+              List<MetadataChangeProposal> aspects = invocation.getArgument(0);
+              Assert.assertEquals(aspects.size(), 1);
+              MetadataChangeProposal proposal = aspects.get(0);
+              Assert.assertEquals(proposal.getAspectName(), ASSERTION_INFO_ASPECT_NAME);
+              // Verify that the correct aspect was ingested.
+              AssertionInfo newAssertionInfo =
+                  GenericRecordUtils.deserializeAspect(
+                      proposal.getAspect().getValue(),
+                      proposal.getAspect().getContentType(),
+                      AssertionInfo.class);
+              Assert.assertEquals(newAssertionInfo.getType(), AssertionType.VOLUME);
+              Assert.assertEquals(
+                  newAssertionInfo.getVolumeAssertion().getType(), volumeAssertionType);
+              Assert.assertEquals(newAssertionInfo.getVolumeAssertion(), info);
+              Assert.assertEquals(
+                  newAssertionInfo.getSource().getType(), AssertionSourceType.NATIVE);
+              return null;
+            })
+        .when(mockClient)
+        .batchIngestProposals(
+            Mockito.anyList(), Mockito.any(Authentication.class), Mockito.eq(false));
+
+    final AssertionService service =
+        new AssertionService(mockClient, Mockito.mock(Authentication.class));
+
+    // Test method
+    Urn result =
+        service.upsertDatasetVolumeAssertion(
+            assertionUrn, TEST_DATASET_URN, info, null, Mockito.mock(Authentication.class));
+
+    // Assert result
+    Assert.assertEquals(result.getEntityType(), "assertion");
+  }
+
+  @Test
+  public void testUpsertDatasetVolumeAssertionAllFields() throws Exception {
+    // Test data and mocks
+    EntityClient mockClient = createMockEntityClient();
+    Urn assertionUrn = TEST_VOLUME_ASSERTION_URN;
+    VolumeAssertionType volumeAssertionType = VolumeAssertionType.ROW_COUNT_TOTAL;
+    AssertionStdParameters parameters =
+        new AssertionStdParameters()
+            .setValue(
+                new AssertionStdParameter()
+                    .setType(AssertionStdParameterType.NUMBER)
+                    .setValue("1"));
+    RowCountTotal rowCountTotal =
+        new RowCountTotal().setOperator(AssertionStdOperator.EQUAL_TO).setParameters(parameters);
+    DatasetFilter filter =
+        new DatasetFilter().setType(DatasetFilterType.SQL).setSql("some_condition = True");
+    VolumeAssertionInfo info =
+        new VolumeAssertionInfo()
+            .setRowCountTotal(rowCountTotal)
+            .setType(VolumeAssertionType.ROW_COUNT_TOTAL)
+            .setFilter(filter);
+    AssertionActions actions =
+        new AssertionActions()
+            .setOnSuccess(new AssertionActionArray())
+            .setOnFailure(new AssertionActionArray());
+
+    Mockito.doAnswer(
+            invocation -> {
+              List<MetadataChangeProposal> aspects = invocation.getArgument(0);
+              Assert.assertEquals(aspects.size(), 2);
+
+              MetadataChangeProposal proposal = aspects.get(0);
+              Assert.assertEquals(proposal.getAspectName(), ASSERTION_INFO_ASPECT_NAME);
+              // Verify that the correct aspects were ingested.
+              AssertionInfo newAssertionInfo =
+                  GenericRecordUtils.deserializeAspect(
+                      proposal.getAspect().getValue(),
+                      proposal.getAspect().getContentType(),
+                      AssertionInfo.class);
+              Assert.assertEquals(newAssertionInfo.getType(), AssertionType.VOLUME);
+              Assert.assertEquals(
+                  newAssertionInfo.getVolumeAssertion().getType(), volumeAssertionType);
+              Assert.assertEquals(newAssertionInfo.getVolumeAssertion(), info);
+              Assert.assertEquals(
+                  newAssertionInfo.getSource().getType(), AssertionSourceType.NATIVE);
+
+              MetadataChangeProposal proposal2 = aspects.get(1);
+              Assert.assertEquals(proposal2.getAspectName(), ASSERTION_ACTIONS_ASPECT_NAME);
+              // Verify that the correct aspect was ingested.
+              AssertionActions newAssertionActions =
+                  GenericRecordUtils.deserializeAspect(
+                      proposal2.getAspect().getValue(),
+                      proposal2.getAspect().getContentType(),
+                      AssertionActions.class);
+              Assert.assertEquals(newAssertionActions, actions);
+              return null;
+            })
+        .when(mockClient)
+        .batchIngestProposals(
+            Mockito.anyList(), Mockito.any(Authentication.class), Mockito.eq(false));
+
+    final AssertionService service =
+        new AssertionService(mockClient, Mockito.mock(Authentication.class));
+
+    // Test method
+    Urn result =
+        service.upsertDatasetVolumeAssertion(
+            assertionUrn, TEST_DATASET_URN, info, actions, Mockito.mock(Authentication.class));
+
+    // Assert result
+    Assert.assertEquals(result.getEntityType(), "assertion");
+  }
+
+  @Test
+  public void testUpsertDatasetSqlAssertionRequiredFields() throws Exception {
+    // Test data and mocks
+    EntityClient mockClient = createMockEntityClient();
+    Urn assertionUrn = TEST_SQL_ASSERTION_URN;
+    SqlAssertionType sqlAssertionType = SqlAssertionType.METRIC;
+    String description = "Test assertion description";
+    AssertionStdParameters parameters =
+        new AssertionStdParameters()
+            .setValue(
+                new AssertionStdParameter()
+                    .setType(AssertionStdParameterType.NUMBER)
+                    .setValue("1"));
+    SqlAssertionInfo info =
+        new SqlAssertionInfo()
+            .setChangeType(AssertionValueChangeType.ABSOLUTE)
+            .setType(sqlAssertionType)
+            .setOperator(AssertionStdOperator.EQUAL_TO)
+            .setParameters(parameters)
+            .setEntity(TEST_DATASET_URN)
+            .setStatement("SELECT COUNT(*) FROM table WHERE some_condition = True");
+
+    Mockito.doAnswer(
+            invocation -> {
+              List<MetadataChangeProposal> aspects = invocation.getArgument(0);
+              Assert.assertEquals(aspects.size(), 1);
+
+              MetadataChangeProposal proposal = aspects.get(0);
+              Assert.assertEquals(proposal.getAspectName(), ASSERTION_INFO_ASPECT_NAME);
+              // Verify that the correct aspects were ingested.
+              AssertionInfo newAssertionInfo =
+                  GenericRecordUtils.deserializeAspect(
+                      proposal.getAspect().getValue(),
+                      proposal.getAspect().getContentType(),
+                      AssertionInfo.class);
+              Assert.assertEquals(newAssertionInfo.getType(), AssertionType.SQL);
+              Assert.assertEquals(newAssertionInfo.getDescription(), description);
+              Assert.assertEquals(newAssertionInfo.getSqlAssertion().getType(), sqlAssertionType);
+              Assert.assertEquals(newAssertionInfo.getSqlAssertion(), info);
+              Assert.assertEquals(
+                  newAssertionInfo.getSource().getType(), AssertionSourceType.NATIVE);
+
+              return null;
+            })
+        .when(mockClient)
+        .batchIngestProposals(
+            Mockito.anyList(), Mockito.any(Authentication.class), Mockito.eq(false));
+
+    final AssertionService service =
+        new AssertionService(mockClient, Mockito.mock(Authentication.class));
+
+    // Test method
+    Urn result =
+        service.upsertDatasetSqlAssertion(
+            assertionUrn,
+            TEST_DATASET_URN,
+            sqlAssertionType,
+            description,
+            info,
+            null,
+            Mockito.mock(Authentication.class));
+
+    // Assert result
+    Assert.assertEquals(result.getEntityType(), "assertion");
+  }
+
+  @Test
+  public void testUpsertDatasetSqlAssertionAllFields() throws Exception {
+    // Test data and mocks
+    EntityClient mockClient = createMockEntityClient();
+    Urn assertionUrn = TEST_SQL_ASSERTION_URN;
+    SqlAssertionType sqlAssertionType = SqlAssertionType.METRIC;
+    String description = "Test assertion description";
+    AssertionStdParameters parameters =
+        new AssertionStdParameters()
+            .setValue(
+                new AssertionStdParameter()
+                    .setType(AssertionStdParameterType.NUMBER)
+                    .setValue("1"));
+    SqlAssertionInfo info =
+        new SqlAssertionInfo()
+            .setChangeType(AssertionValueChangeType.ABSOLUTE)
+            .setType(sqlAssertionType)
+            .setOperator(AssertionStdOperator.EQUAL_TO)
+            .setParameters(parameters)
+            .setEntity(TEST_DATASET_URN)
+            .setStatement("SELECT COUNT(*) FROM table WHERE some_condition = True");
+    AssertionActions actions =
+        new AssertionActions()
+            .setOnSuccess(new AssertionActionArray())
+            .setOnFailure(new AssertionActionArray());
+
+    Mockito.doAnswer(
+            invocation -> {
+              List<MetadataChangeProposal> aspects = invocation.getArgument(0);
+              Assert.assertEquals(aspects.size(), 2);
+
+              MetadataChangeProposal proposal = aspects.get(0);
+              Assert.assertEquals(proposal.getAspectName(), ASSERTION_INFO_ASPECT_NAME);
+              // Verify that the correct aspects were ingested.
+              AssertionInfo newAssertionInfo =
+                  GenericRecordUtils.deserializeAspect(
+                      proposal.getAspect().getValue(),
+                      proposal.getAspect().getContentType(),
+                      AssertionInfo.class);
+              Assert.assertEquals(newAssertionInfo.getType(), AssertionType.SQL);
+              Assert.assertEquals(newAssertionInfo.getDescription(), description);
+              Assert.assertEquals(newAssertionInfo.getSqlAssertion().getType(), sqlAssertionType);
+              Assert.assertEquals(newAssertionInfo.getSqlAssertion(), info);
+              Assert.assertEquals(
+                  newAssertionInfo.getSource().getType(), AssertionSourceType.NATIVE);
+
+              MetadataChangeProposal proposal2 = aspects.get(1);
+              Assert.assertEquals(proposal2.getAspectName(), ASSERTION_ACTIONS_ASPECT_NAME);
+              // Verify that the correct aspect was ingested.
+              AssertionActions newAssertionActions =
+                  GenericRecordUtils.deserializeAspect(
+                      proposal2.getAspect().getValue(),
+                      proposal2.getAspect().getContentType(),
+                      AssertionActions.class);
+              Assert.assertEquals(newAssertionActions, actions);
+              return null;
+            })
+        .when(mockClient)
+        .batchIngestProposals(
+            Mockito.anyList(), Mockito.any(Authentication.class), Mockito.eq(false));
+
+    final AssertionService service =
+        new AssertionService(mockClient, Mockito.mock(Authentication.class));
+
+    // Test method
+    Urn result =
+        service.upsertDatasetSqlAssertion(
+            assertionUrn,
+            TEST_DATASET_URN,
+            sqlAssertionType,
+            description,
+            info,
+            actions,
+            Mockito.mock(Authentication.class));
+
+    // Assert result
+    Assert.assertEquals(result.getEntityType(), "assertion");
+  }
+
+  @Test
+  public void testUpsertDatasetFieldAssertionRequiredFields() throws Exception {
+    // Test data and mocks
+    EntityClient mockClient = createMockEntityClient();
+    Urn assertionUrn = TEST_FIELD_ASSERTION_URN;
+
+    DatasetFilter filter =
+        new DatasetFilter().setType(DatasetFilterType.SQL).setSql("some_condition = True");
+    AssertionStdParameters parameters =
+        new AssertionStdParameters()
+            .setValue(
+                new AssertionStdParameter()
+                    .setType(AssertionStdParameterType.NUMBER)
+                    .setValue("1"));
+    SchemaFieldSpec field =
+        new SchemaFieldSpec().setPath("x").setType("NUMBER").setNativeType("NUMBER(38,0)");
+    FieldAssertionType fieldAssertionType = FieldAssertionType.FIELD_METRIC;
+    FieldAssertionInfo info =
+        new FieldAssertionInfo()
+            .setEntity(TEST_DATASET_URN)
+            .setType(fieldAssertionType)
+            .setFilter(filter)
+            .setFieldMetricAssertion(
+                new FieldMetricAssertion()
+                    .setField(field)
+                    .setMetric(FieldMetricType.MAX)
+                    .setOperator(AssertionStdOperator.EQUAL_TO)
+                    .setParameters(parameters));
+
+    Mockito.doAnswer(
+            invocation -> {
+              List<MetadataChangeProposal> aspects = invocation.getArgument(0);
+              Assert.assertEquals(aspects.size(), 1);
+
+              MetadataChangeProposal proposal = aspects.get(0);
+              Assert.assertEquals(proposal.getAspectName(), ASSERTION_INFO_ASPECT_NAME);
+              // Verify that the correct aspects were ingested.
+              AssertionInfo newAssertionInfo =
+                  GenericRecordUtils.deserializeAspect(
+                      proposal.getAspect().getValue(),
+                      proposal.getAspect().getContentType(),
+                      AssertionInfo.class);
+              Assert.assertEquals(newAssertionInfo.getType(), AssertionType.FIELD);
+
+              Assert.assertEquals(
+                  newAssertionInfo.getFieldAssertion().getType(), fieldAssertionType);
+              Assert.assertEquals(newAssertionInfo.getFieldAssertion(), info);
+              Assert.assertEquals(
+                  newAssertionInfo.getSource().getType(), AssertionSourceType.NATIVE);
+
+              return null;
+            })
+        .when(mockClient)
+        .batchIngestProposals(
+            Mockito.anyList(), Mockito.any(Authentication.class), Mockito.eq(false));
+
+    final AssertionService service =
+        new AssertionService(mockClient, Mockito.mock(Authentication.class));
+
+    // Test method
+    Urn result =
+        service.upsertDatasetFieldAssertion(
+            assertionUrn, TEST_DATASET_URN, info, null, Mockito.mock(Authentication.class));
+
+    // Assert result
+    Assert.assertEquals(result.getEntityType(), "assertion");
+  }
+
+  @Test
+  public void testUpsertDatasetFieldAssertionAllFields() throws Exception {
+    // Test data and mocks
+    EntityClient mockClient = createMockEntityClient();
+    Urn assertionUrn = TEST_SQL_ASSERTION_URN;
+
+    DatasetFilter filter =
+        new DatasetFilter().setType(DatasetFilterType.SQL).setSql("some_condition = True");
+    AssertionStdParameters parameters =
+        new AssertionStdParameters()
+            .setValue(
+                new AssertionStdParameter()
+                    .setType(AssertionStdParameterType.NUMBER)
+                    .setValue("1"));
+    SchemaFieldSpec field =
+        new SchemaFieldSpec().setPath("x").setType("NUMBER").setNativeType("NUMBER(38,0)");
+    FieldAssertionType fieldAssertionType = FieldAssertionType.FIELD_METRIC;
+    FieldAssertionInfo info =
+        new FieldAssertionInfo()
+            .setEntity(TEST_DATASET_URN)
+            .setType(fieldAssertionType)
+            .setFilter(filter)
+            .setFieldMetricAssertion(
+                new FieldMetricAssertion()
+                    .setField(field)
+                    .setMetric(FieldMetricType.MAX)
+                    .setOperator(AssertionStdOperator.EQUAL_TO)
+                    .setParameters(parameters));
+    AssertionActions actions =
+        new AssertionActions()
+            .setOnSuccess(new AssertionActionArray())
+            .setOnFailure(new AssertionActionArray());
+
+    Mockito.doAnswer(
+            invocation -> {
+              List<MetadataChangeProposal> aspects = invocation.getArgument(0);
+              Assert.assertEquals(aspects.size(), 2);
+
+              MetadataChangeProposal proposal = aspects.get(0);
+              Assert.assertEquals(proposal.getAspectName(), ASSERTION_INFO_ASPECT_NAME);
+              // Verify that the correct aspects were ingested.
+              AssertionInfo newAssertionInfo =
+                  GenericRecordUtils.deserializeAspect(
+                      proposal.getAspect().getValue(),
+                      proposal.getAspect().getContentType(),
+                      AssertionInfo.class);
+              Assert.assertEquals(newAssertionInfo.getType(), AssertionType.FIELD);
+
+              Assert.assertEquals(
+                  newAssertionInfo.getFieldAssertion().getType(), fieldAssertionType);
+              Assert.assertEquals(newAssertionInfo.getFieldAssertion(), info);
+              Assert.assertEquals(
+                  newAssertionInfo.getSource().getType(), AssertionSourceType.NATIVE);
+
+              MetadataChangeProposal proposal2 = aspects.get(1);
+              Assert.assertEquals(proposal2.getAspectName(), ASSERTION_ACTIONS_ASPECT_NAME);
+              // Verify that the correct aspect was ingested.
+              AssertionActions newAssertionActions =
+                  GenericRecordUtils.deserializeAspect(
+                      proposal2.getAspect().getValue(),
+                      proposal2.getAspect().getContentType(),
+                      AssertionActions.class);
+              Assert.assertEquals(newAssertionActions, actions);
+              return null;
+            })
+        .when(mockClient)
+        .batchIngestProposals(
+            Mockito.anyList(), Mockito.any(Authentication.class), Mockito.eq(false));
+
+    final AssertionService service =
+        new AssertionService(mockClient, Mockito.mock(Authentication.class));
+
+    // Test method
+    Urn result =
+        service.upsertDatasetFieldAssertion(
+            assertionUrn, TEST_DATASET_URN, info, actions, Mockito.mock(Authentication.class));
+
+    // Assert result
+    Assert.assertEquals(result.getEntityType(), "assertion");
   }
 
   @Test
@@ -647,6 +1135,46 @@ public class AssertionServiceTest {
                             ASSERTION_INFO_ASPECT_NAME,
                             new EnvelopedAspect()
                                 .setValue(new Aspect(mockFreshnessAssertionInfo().data()))))));
+    Mockito.when(
+            mockClient.getV2(
+                Mockito.eq(Constants.ASSERTION_ENTITY_NAME),
+                Mockito.eq(TEST_VOLUME_ASSERTION_URN),
+                Mockito.eq(
+                    ImmutableSet.of(
+                        ASSERTION_INFO_ASPECT_NAME,
+                        ASSERTION_ACTIONS_ASPECT_NAME,
+                        DATA_PLATFORM_INSTANCE_ASPECT_NAME)),
+                Mockito.any(Authentication.class)))
+        .thenReturn(
+            new EntityResponse()
+                .setUrn(TEST_VOLUME_ASSERTION_URN)
+                .setEntityName(ASSERTION_ENTITY_NAME)
+                .setAspects(
+                    new EnvelopedAspectMap(
+                        ImmutableMap.of(
+                            ASSERTION_INFO_ASPECT_NAME,
+                            new EnvelopedAspect()
+                                .setValue(new Aspect(mockVolumeAssertionInfo().data()))))));
+    Mockito.when(
+            mockClient.getV2(
+                Mockito.eq(Constants.ASSERTION_ENTITY_NAME),
+                Mockito.eq(TEST_SQL_ASSERTION_URN),
+                Mockito.eq(
+                    ImmutableSet.of(
+                        ASSERTION_INFO_ASPECT_NAME,
+                        ASSERTION_ACTIONS_ASPECT_NAME,
+                        DATA_PLATFORM_INSTANCE_ASPECT_NAME)),
+                Mockito.any(Authentication.class)))
+        .thenReturn(
+            new EntityResponse()
+                .setUrn(TEST_SQL_ASSERTION_URN)
+                .setEntityName(ASSERTION_ENTITY_NAME)
+                .setAspects(
+                    new EnvelopedAspectMap(
+                        ImmutableMap.of(
+                            ASSERTION_INFO_ASPECT_NAME,
+                            new EnvelopedAspect()
+                                .setValue(new Aspect(mockSqlAssertionInfo().data()))))));
 
     // Init for assertions summary
     Mockito.when(
@@ -705,6 +1233,20 @@ public class AssertionServiceTest {
     final AssertionInfo info = new AssertionInfo();
     info.setType(AssertionType.FRESHNESS);
     info.setFreshnessAssertion(new FreshnessAssertionInfo().setEntity(TEST_DATASET_URN));
+    return info;
+  }
+
+  private static AssertionInfo mockVolumeAssertionInfo() throws Exception {
+    final AssertionInfo info = new AssertionInfo();
+    info.setType(AssertionType.VOLUME);
+    info.setVolumeAssertion(new VolumeAssertionInfo().setEntity(TEST_DATASET_URN));
+    return info;
+  }
+
+  private static AssertionInfo mockSqlAssertionInfo() throws Exception {
+    final AssertionInfo info = new AssertionInfo();
+    info.setType(AssertionType.SQL);
+    info.setSqlAssertion(new SqlAssertionInfo().setEntity(TEST_DATASET_URN));
     return info;
   }
 

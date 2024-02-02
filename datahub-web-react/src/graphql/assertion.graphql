@@ -284,12 +284,6 @@ mutation createFieldAssertion($input: CreateFieldAssertionInput!) {
     }
 }
 
-mutation updateFreshnessAssertion($urn: String!, $input: UpdateFreshnessAssertionInput!) {
-    updateFreshnessAssertion(urn: $urn, input: $input) {
-        ...assertionDetails
-    }
-}
-
 mutation updateAssertionActions($urn: String!, $input: AssertionActionsInput!) {
     updateAssertionActions(urn: $urn, input: $input) {
         ...assertionDetails

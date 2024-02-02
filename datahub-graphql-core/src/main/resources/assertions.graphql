@@ -38,20 +38,78 @@ extend type Mutation {
   ): Assertion!
 
   """
-  Update an existing Freshness Assertion
-  """
-  updateFreshnessAssertion(
-    urn: String!
-    input: UpdateFreshnessAssertionInput!
-  ): Assertion!
-
-  """
   Update the actions for a given assertion.
   """
   updateAssertionActions(
     urn: String!
     input: AssertionActionsInput!
   ): Assertion!
+
+  """
+  Create or Update a Freshness Assertion
+  """
+  upsertDatasetFreshnessAssertionMonitor(
+    """
+    The urn of assertion
+    Provide only if updating an existing Freshness Assertion
+    """
+    assertionUrn: String,
+
+    """
+    Input for creating or updating a Freshness assertion.
+    """
+    input: UpsertDatasetFreshnessAssertionMonitorInput!
+  ): Assertion!
+
+  """
+  Create or Update a Freshness Assertion
+  """
+  upsertDatasetVolumeAssertionMonitor(
+
+    """
+    The urn of assertion
+    Provide only if updating an existing Volume Assertion
+    """
+    assertionUrn: String,
+
+    """
+    Input for creating or updating a Volume assertion.
+    """
+    input: UpsertDatasetVolumeAssertionMonitorInput!
+  ): Assertion!
+
+  """
+  Create or Update a new SQL Assertion
+  """
+  upsertDatasetSqlAssertionMonitor(
+    """
+    The urn of assertion
+    Provide only if updating an existing SQL Assertion
+    """
+    assertionUrn: String,
+
+    """
+    Input for creating or updating an SQL assertion.
+    """
+    input: UpsertDatasetSqlAssertionMonitorInput!
+  ): Assertion!
+
+  """
+  Create or Update a new Field Assertion
+  """
+  upsertDatasetFieldAssertionMonitor(
+    """
+    The urn of assertion
+    Provide only if updating an existing Field Assertion
+    """
+    assertionUrn: String,
+
+    """
+    Input for creating or updating an SQL assertion.
+    """
+    input: UpsertDatasetFieldAssertionMonitorInput!
+  ): Assertion!
+
 }
 
 """
@@ -160,16 +218,213 @@ input UpdateDatasetAssertionInput {
 }
 
 """
-Input for updating an Freshness Assertion
+Input to upsert a Freshness Assertion
 """
-input UpdateFreshnessAssertionInput {
+input UpsertDatasetFreshnessAssertionMonitorInput {
+  """
+  The urn of the dataset that the assertion is related to
+  Required if creating new Freshness Assertion
+  """
+  entityUrn: String
+
   """
   The Freshness assertion's schedule
   """
   schedule: FreshnessAssertionScheduleInput!
 
   """
+  A cron schedule dictating when the assertion is evaluated.
+  """
+  evaluationSchedule: CronScheduleInput!
+
+  """
   Optional filter clause
+  If not provided, there is no filter, and the full table is under consideration.
+  """
+  filter: DatasetFilterInput
+
+  """
+  Optional actions to apply on success or failure of the assertion
+  If not provided for update operation, no change is made to existing actions.
+  """
+  actions: AssertionActionsInput
+
+  """
+  The parameters required to evaluate a dataset freshness assertion.
+  """
+  evaluationParameters: DatasetFreshnessAssertionParametersInput!
+
+  """
+  Information about the current status of a Monitor.
+  """
+  mode: MonitorMode!
+
+  """
+  Advanced: The executor ID of the remote monitor service, if any.
+  """
+  executorId: String
+}
+
+"""
+Input to upsert a Volume Assertion
+"""
+input UpsertDatasetVolumeAssertionMonitorInput {
+  """
+  The urn of the dataset that the assertion is related to
+  Required if creating new Volume Assertion
+  """
+  entityUrn: String
+
+  """
+  The type of the volume assertion being monitored.
+  """
+  type: VolumeAssertionType!
+
+  """
+  Parameters for a FAILURE Assertion Result if the asset's row count does not meet
+  specific requirements. Required if type is 'ROW_COUNT_TOTAL'
+  """
+  rowCountTotal: RowCountTotalInput
+
+  """
+  Parameters for a FAILURE Assertion Result if the asset's row count delta does not meet
+  specific requirements. Required if type is 'ROW_COUNT_CHANGE'
+  """
+  rowCountChange: RowCountChangeInput
+
+  """
+  Parameters for a FAILURE Assertion Result if the asset's latest incrementing segment row count total
+  does not meet specific requirements. Required if type is 'INCREMENTING_SEGMENT_ROW_COUNT_TOTAL'
+  """
+  incrementingSegmentRowCountTotal: IncrementingSegmentRowCountTotalInput
+
+  """
+  Parameters for a FAILURE Assertion Result if the asset's incrementing segment row count delta
+  does not meet specific requirements. Required if type is 'INCREMENTING_SEGMENT_ROW_COUNT_CHANGE'
+  """
+  incrementingSegmentRowCountChange: IncrementingSegmentRowCountChangeInput
+
+  """
+  A definition of the specific filters that should be applied, when performing monitoring.
+  If not provided, there is no filter, and the full table is under consideration.
+  """
+  filter: DatasetFilterInput
+
+  """
+  Optional actions to apply on success or failure of the assertion
+  If not provided for update operation, no change is made to existing actions.
+  """
+  actions: AssertionActionsInput
+
+  """
+  A cron schedule dictating when the assertion is evaluated.
+  """
+  evaluationSchedule: CronScheduleInput!
+
+  """
+  The parameters required to evaluate a dataset volume assertion.
+  """
+  evaluationParameters: DatasetVolumeAssertionParametersInput!
+
+  """
+  Information about the current status of a Monitor.
+  """
+  mode: MonitorMode!
+
+  """
+  Advanced: The executor ID of the remote monitor service, if any.
+  """
+  executorId: String
+}
+
+"""
+Input to upsert a new SQL Assertion.
+"""
+input UpsertDatasetSqlAssertionMonitorInput {
+  """
+  The entity targeted by this SQL check.
+  """
+  entityUrn: String!
+
+  """
+  An optional human-readable description of the assertion
+  """
+  description: String
+
+  """
+  The type of the volume assertion being monitored.
+  """
+  type: SqlAssertionType!
+
+  """
+  The SQL statement to be executed when evaluating the assertion.
+  """
+  statement: String!
+
+  """
+  The type of the value used to evaluate the assertion: a fixed absolute value or a relative percentage.
+  Required if the type is METRIC_CHANGE.
+  """
+  changeType: AssertionValueChangeType
+
+  """
+  The operator you'd like to apply to the result of the SQL query.
+  """
+  operator: AssertionStdOperator!
+
+  """
+  The parameters you'd like to provide as input to the operator.
+  """
+  parameters: AssertionStdParametersInput!
+
+  """
+  Optional actions to apply on success or failure of the assertion
+  """
+  actions: AssertionActionsInput
+
+  """
+  A cron schedule dictating when the assertion is evaluated.
+  """
+  evaluationSchedule: CronScheduleInput!
+
+  """
+  Information about the current status of a Monitor.
+  """
+  mode: MonitorMode!
+
+  """
+  Advanced: The executor ID of the remote monitor service, if any.
+  """
+  executorId: String
+}
+
+"""
+Input to upsert a new Field Assertion.
+"""
+input UpsertDatasetFieldAssertionMonitorInput {
+  """
+  The type of the field assertion being monitored.
+  """
+  type: FieldAssertionType!
+
+  """
+  The entity targeted by this Field check.
+  """
+  entityUrn: String!
+
+  """
+  The definition of an assertion that validates individual values of a field / column for a set of rows.
+  """
+  fieldValuesAssertion: FieldValuesAssertionInput
+
+  """
+  The definition of an assertion that validates a common metric obtained about a field / column for a set of rows.
+  """
+  fieldMetricAssertion: FieldMetricAssertionInput
+
+  """
+  A definition of the specific filters that should be applied, when performing monitoring.
+  If not provided, there is no filter, and the full table is under consideration.
   """
   filter: DatasetFilterInput
 
@@ -177,6 +432,26 @@ input UpdateFreshnessAssertionInput {
   Optional actions to apply on success or failure of the assertion
   """
   actions: AssertionActionsInput
+
+  """
+  A cron schedule dictating when the assertion is evaluated.
+  """
+  evaluationSchedule: CronScheduleInput!
+
+  """
+  The parameters required to evaluate a dataset field assertion.
+  """
+  evaluationParameters: DatasetFieldAssertionParametersInput!
+
+  """
+  Information about the current status of a Monitor.
+  """
+  mode: MonitorMode!
+
+  """
+  Advanced: The executor ID of the remote monitor service, if any.
+  """
+  executorId: String
 }
 
 """

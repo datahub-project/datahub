@@ -10,6 +10,7 @@ import com.linkedin.assertion.SqlAssertionInfo;
 import com.linkedin.assertion.VolumeAssertionInfo;
 import com.linkedin.common.CronSchedule;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.template.GetMode;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
@@ -209,6 +210,92 @@ public class MonitorService extends BaseService {
   }
 
   /**
+   * Updates an existing Dataset or DataJob Freshness Monitor for native execution by DataHub.
+   * Assumes that the caller has already performed the required authorization.
+   *
+   * <p>Throws an exception if the provided assertion urn does not exist.
+   */
+  public Urn upsertAssertionMonitor(
+      @Nonnull final Urn monitorUrn,
+      @Nonnull final Urn assertionUrn,
+      @Nonnull final Urn entityUrn,
+      @Nonnull final CronSchedule schedule,
+      @Nonnull final AssertionEvaluationParameters parameters,
+      @Nonnull final MonitorMode mode,
+      @Nullable final String executorId,
+      @Nonnull final Authentication authentication)
+      throws Exception {
+    Objects.requireNonNull(monitorUrn, "monitorUrn must not be null");
+    Objects.requireNonNull(entityUrn, "entityUrn must not be null");
+    Objects.requireNonNull(assertionUrn, "assertionUrn must not be null");
+    Objects.requireNonNull(schedule, "schedule must not be null");
+    Objects.requireNonNull(parameters, "parameters must not be null");
+    Objects.requireNonNull(authentication, "authentication must not be null");
+
+    // Verify that the target assertion actually exists.
+    validateEntity(assertionUrn, authentication);
+
+    // Verify that the target entity actually exists.
+    validateEntity(entityUrn, authentication);
+
+    MonitorInfo maybeExistingInfo = getMonitorInfo(monitorUrn);
+
+    if (maybeExistingInfo != null) {
+      AssertionMonitor assertionMonitor = maybeExistingInfo.getAssertionMonitor();
+      if (assertionMonitor == null
+          || assertionMonitor.getAssertions(GetMode.NULL) == null
+          || assertionMonitor.getAssertions().isEmpty()) {
+        throw new Exception(
+            String.format(
+                "Failed to update Assertion Monitor. Monitor with urn %s is not linked to any Assertion.",
+                monitorUrn, assertionUrn));
+      }
+      AssertionEvaluationSpecArray existingAssertions =
+          maybeExistingInfo.getAssertionMonitor().getAssertions();
+      Urn existingAssertionUrn = existingAssertions.get(0).getAssertion();
+
+      if (!assertionUrn.equals(existingAssertionUrn)) {
+        throw new IllegalArgumentException(
+            String.format(
+                "Failed to update Assertion Monitor. Assertion with urn %s is not linked to Monitor with urn %s.",
+                assertionUrn, monitorUrn));
+      }
+    }
+
+    final MonitorInfo monitorInfo = new MonitorInfo();
+    monitorInfo.setType(MonitorType.ASSERTION);
+
+    monitorInfo.setStatus(new MonitorStatus().setMode(mode));
+
+    final AssertionMonitor assertionMonitor = new AssertionMonitor();
+    assertionMonitor.setAssertions(
+        new AssertionEvaluationSpecArray(
+            ImmutableList.of(
+                new AssertionEvaluationSpec()
+                    .setAssertion(assertionUrn)
+                    .setSchedule(schedule)
+                    .setParameters(parameters))));
+    monitorInfo.setAssertionMonitor(assertionMonitor);
+
+    if (executorId != null) {
+      monitorInfo.setExecutorId(executorId);
+    }
+
+    final List<MetadataChangeProposal> aspects = new ArrayList<>();
+    aspects.add(
+        AspectUtils.buildMetadataChangeProposal(
+            monitorUrn, Constants.MONITOR_INFO_ASPECT_NAME, monitorInfo));
+
+    try {
+      this.entityClient.batchIngestProposals(aspects, authentication, false);
+      return monitorUrn;
+    } catch (Exception e) {
+      throw new RuntimeException(
+          String.format("Failed to upsert Monitor with urn %s", monitorUrn), e);
+    }
+  }
+
+  /**
    * Upserts the mode of a particular monitor, to enable or disable it's operation.
    *
    * <p>If the monitor does not yet have an info aspect, a default will be minted for the provided
@@ -254,7 +341,7 @@ public class MonitorService extends BaseService {
     }
   }
 
-  private void validateEntity(
+  public void validateEntity(
       @Nonnull final Urn entityUrn, @Nonnull final Authentication authentication) throws Exception {
     if (!this.entityClient.exists(entityUrn, authentication)) {
       throw new IllegalArgumentException(
@@ -265,7 +352,7 @@ public class MonitorService extends BaseService {
   }
 
   @Nonnull
-  private Urn generateMonitorUrn(@Nonnull final Urn entityUrn) {
+  public Urn generateMonitorUrn(@Nonnull final Urn entityUrn) {
     final MonitorKey key = new MonitorKey();
     final String id = UUID.randomUUID().toString();
     key.setEntity(entityUrn);

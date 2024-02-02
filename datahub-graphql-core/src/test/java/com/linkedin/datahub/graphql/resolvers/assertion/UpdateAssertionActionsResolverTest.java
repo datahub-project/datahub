@@ -168,15 +168,6 @@ public class UpdateAssertionActionsResolverTest {
   private AssertionService initMockService() {
     AssertionService service = Mockito.mock(AssertionService.class);
     Mockito.when(
-            service.updateFreshnessAssertion(
-                Mockito.any(),
-                Mockito.any(),
-                Mockito.any(),
-                Mockito.any(),
-                Mockito.any(Authentication.class)))
-        .thenReturn(TEST_ASSERTION_URN);
-
-    Mockito.when(
             service.getAssertionEntityResponse(
                 Mockito.eq(TEST_ASSERTION_URN), Mockito.any(Authentication.class)))
         .thenReturn(

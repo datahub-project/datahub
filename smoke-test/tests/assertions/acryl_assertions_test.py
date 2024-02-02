@@ -4,13 +4,24 @@ import urllib
 
 import pytest
 import tenacity
-from datahub.emitter.mce_builder import (make_data_job_urn, make_dataset_urn,
-                                         make_schema_field_urn)
-
+from datahub.emitter.mce_builder import (
+    make_data_job_urn,
+    make_dataset_urn,
+    make_schema_field_urn,
+)
+from datahub.ingestion.graph.client import DataHubGraph, DataHubGraphConfig
 import requests_wrapper as requests
-from tests.utils import (delete_urns_from_file, get_frontend_url, get_gms_url,
-                         get_sleep_info, ingest_file_via_rest,
-                         wait_for_healthcheck_util)
+from tests.utils import (
+    delete_urns_from_file,
+    get_frontend_url,
+    get_gms_url,
+    get_sleep_info,
+    ingest_file_via_rest,
+    wait_for_healthcheck_util,
+    delete_urn,
+)
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.metadata.schema_classes import StatusClass
 
 restli_default_headers = {
     "X-RestLi-Protocol-Version": "2.0.0",
@@ -23,7 +34,13 @@ TEST_DATASET_URN = make_dataset_urn(platform="postgres", name="foo")
 @pytest.fixture(scope="session")
 def wait_for_healthchecks():
     wait_for_healthcheck_util()
+    mcpw = MetadataChangeProposalWrapper(
+        entityUrn=TEST_DATASET_URN, aspect=StatusClass(removed=False)
+    )
+    with DataHubGraph(DataHubGraphConfig()) as graph:
+        graph.emit(mcpw)
     yield
+    delete_urn(TEST_DATASET_URN)
 
 
 @pytest.mark.dependency()
@@ -38,8 +55,7 @@ def test_create_update_delete_dataset_assertion(frontend_session):
 
 
 @pytest.mark.dependency(depends=["test_healthchecks"])
-def test_create_update_delete_freshness_assertion(frontend_session):
-
+def test_create_delete_freshness_assertion(frontend_session):
     json = {
         "query": """mutation createFreshnessAssertion($input: CreateFreshnessAssertionInput!) {\n
             createFreshnessAssertion(input: $input) {\n
@@ -72,24 +88,103 @@ def test_create_update_delete_freshness_assertion(frontend_session):
 
     assertion_urn = res_data["data"]["createFreshnessAssertion"]["urn"]
 
-    # Update the assertion
+    # Delete the assertion
     json = {
-        "query": """mutation updateFreshnessAssertion($urn: String!, $input: UpdateFreshnessAssertionInput!) {\n
-            updateFreshnessAssertion(urn: $urn, input: $input) {\n
+        "query": """mutation deleteAssertion($urn: String!) {\n
+            deleteAssertion(urn: $urn)
+        },""",
+        "variables": {"urn": assertion_urn},
+    }
+
+    response = frontend_session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
+    response.raise_for_status()
+    res_data = response.json()
+
+    assert res_data
+    assert res_data["data"]
+    assert res_data["data"]["deleteAssertion"] is True
+
+
+@pytest.mark.dependency(depends=["test_healthchecks"])
+def test_create_update_delete_dataset_freshness_assertion_monitor(frontend_session):
+    # Create the assertion
+    json = {
+        "query": """mutation upsertDatasetFreshnessAssertionMonitor($input: UpsertDatasetFreshnessAssertionMonitorInput!) {\n
+            upsertDatasetFreshnessAssertionMonitor(input: $input) {\n
                 urn\n
             }\n
         }""",
         "variables": {
-            "urn": assertion_urn,
             "input": {
+                "entityUrn": TEST_DATASET_URN,
                 "schedule": {
-                    "type": "FIXED_INTERVAL",
-                    "fixedInterval": {"unit": "DAY", "multiple": 2},
+                    "type": "CRON",
+                    "cron": {
+                        "cron": "0 */8 * * *",
+                        "timezone": "America / Los Angeles",
+                    },
                 },
                 "actions": {
                     "onSuccess": [{"type": "RESOLVE_INCIDENT"}],
                     "onFailure": [{"type": "RAISE_INCIDENT"}],
                 },
+                "evaluationSchedule": {
+                    "timezone": "America/Los_Angeles",
+                    "cron": "0 */8 * * *",
+                },
+                "evaluationParameters": {"sourceType": "INFORMATION_SCHEMA"},
+                "mode": "ACTIVE",
+            }
+        },
+    }
+
+    response = frontend_session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
+    response.raise_for_status()
+    res_data = response.json()
+
+    assert res_data
+    assert res_data["data"]
+    assert res_data["data"]["upsertDatasetFreshnessAssertionMonitor"]
+
+    assertion_urn = res_data["data"]["upsertDatasetFreshnessAssertionMonitor"]["urn"]
+
+    # update the assertion
+    json = {
+        "query": """mutation upsertDatasetFreshnessAssertionMonitor($assertionUrn:String, $input: UpsertDatasetFreshnessAssertionMonitorInput!) {\n
+            upsertDatasetFreshnessAssertionMonitor(assertionUrn: $assertionUrn, input: $input) {\n
+                urn\n
+                monitor: relationships(
+                    input: {types: "Evaluates", direction: INCOMING, start: 0, count: 1}
+                ) {
+                  relationships {
+                      entity {
+                      urn
+                    }
+                  }
+                }
+            }\n
+        }""",
+        "variables": {
+            "assertionUrn": assertion_urn,
+            "input": {
+                "entityUrn": TEST_DATASET_URN,
+                "schedule": {
+                    "type": "CRON",
+                    "cron": {
+                        "cron": "0 */6 * * *",
+                        "timezone": "America / Los Angeles",
+                    },
+                },
+                "actions": {
+                    "onSuccess": [{"type": "RESOLVE_INCIDENT"}],
+                    "onFailure": [{"type": "RAISE_INCIDENT"}],
+                },
+                "evaluationSchedule": {
+                    "timezone": "America/Los_Angeles",
+                    "cron": "0 */6 * * *",
+                },
+                "evaluationParameters": {"sourceType": "INFORMATION_SCHEMA"},
+                "mode": "ACTIVE",
             },
         },
     }
@@ -100,9 +195,15 @@ def test_create_update_delete_freshness_assertion(frontend_session):
 
     assert res_data
     assert res_data["data"]
-    assert res_data["data"]["updateFreshnessAssertion"]
+    assert res_data["data"]["upsertDatasetFreshnessAssertionMonitor"]
 
-    assertion_urn = res_data["data"]["updateFreshnessAssertion"]["urn"]
+    assert (
+        res_data["data"]["upsertDatasetFreshnessAssertionMonitor"]["urn"]
+        == assertion_urn
+    )
+    monitor_urn = res_data["data"]["upsertDatasetFreshnessAssertionMonitor"]["monitor"][
+        "relationships"
+    ][0]["entity"]["urn"]
 
     # Delete the assertion
     json = {
@@ -119,3 +220,406 @@ def test_create_update_delete_freshness_assertion(frontend_session):
     assert res_data
     assert res_data["data"]
     assert res_data["data"]["deleteAssertion"] is True
+
+    # Delete the monitor
+    json = {
+        "query": """mutation deleteMonitor($urn: String!) {\n
+            deleteMonitor(urn: $urn)
+        },""",
+        "variables": {"urn": monitor_urn},
+    }
+
+    response = frontend_session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
+    response.raise_for_status()
+    res_data = response.json()
+
+    assert res_data
+    assert res_data["data"]
+    assert res_data["data"]["deleteMonitor"] is True
+
+
+@pytest.mark.dependency(depends=["test_healthchecks"])
+def test_create_update_delete_dataset_volume_assertion_monitor(frontend_session):
+    # Create the assertion
+    json = {
+        "query": """mutation upsertDatasetVolumeAssertionMonitor($input: UpsertDatasetVolumeAssertionMonitorInput!) {\n
+            upsertDatasetVolumeAssertionMonitor(input: $input) {\n
+                urn\n
+            }\n
+        }""",
+        "variables": {
+            "input": {
+                "entityUrn": TEST_DATASET_URN,
+                "type": "ROW_COUNT_CHANGE",
+                "rowCountChange": {
+                    "type": "ABSOLUTE",
+                    "operator": "LESS_THAN_OR_EQUAL_TO",
+                    "parameters": {"value": {"value": "10", "type": "NUMBER"}},
+                },
+                "actions": {
+                    "onSuccess": [{"type": "RESOLVE_INCIDENT"}],
+                    "onFailure": [{"type": "RAISE_INCIDENT"}],
+                },
+                "evaluationSchedule": {
+                    "timezone": "America/Los_Angeles",
+                    "cron": "0 */8 * * *",
+                },
+                "evaluationParameters": {"sourceType": "INFORMATION_SCHEMA"},
+                "mode": "ACTIVE",
+            }
+        },
+    }
+
+    response = frontend_session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
+    response.raise_for_status()
+    res_data = response.json()
+
+    assert res_data
+    assert res_data["data"]
+    assert res_data["data"]["upsertDatasetVolumeAssertionMonitor"]
+
+    assertion_urn = res_data["data"]["upsertDatasetVolumeAssertionMonitor"]["urn"]
+
+    # update the assertion
+    json = {
+        "query": """mutation upsertDatasetVolumeAssertionMonitor($assertionUrn:String, $input: UpsertDatasetVolumeAssertionMonitorInput!) {\n
+            upsertDatasetVolumeAssertionMonitor(assertionUrn: $assertionUrn, input: $input) {\n
+                urn\n
+                monitor: relationships(
+                    input: {types: "Evaluates", direction: INCOMING, start: 0, count: 1}
+                ) {
+                  relationships {
+                      entity {
+                      urn
+                    }
+                  }
+                }
+            }\n
+        }""",
+        "variables": {
+            "assertionUrn": assertion_urn,
+            "input": {
+                "entityUrn": TEST_DATASET_URN,
+                "type": "ROW_COUNT_TOTAL",
+                "rowCountTotal": {
+                    "operator": "LESS_THAN_OR_EQUAL_TO",
+                    "parameters": {"value": {"value": "1000", "type": "NUMBER"}},
+                },
+                "actions": {
+                    "onSuccess": [{"type": "RESOLVE_INCIDENT"}],
+                    "onFailure": [{"type": "RAISE_INCIDENT"}],
+                },
+                "evaluationSchedule": {
+                    "timezone": "America/Los_Angeles",
+                    "cron": "0 */8 * * *",
+                },
+                "evaluationParameters": {"sourceType": "INFORMATION_SCHEMA"},
+                "mode": "ACTIVE",
+            },
+        },
+    }
+
+    response = frontend_session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
+    response.raise_for_status()
+    res_data = response.json()
+
+    assert res_data
+    assert res_data["data"]
+    assert res_data["data"]["upsertDatasetVolumeAssertionMonitor"]
+
+    assert (
+        res_data["data"]["upsertDatasetVolumeAssertionMonitor"]["urn"] == assertion_urn
+    )
+    monitor_urn = res_data["data"]["upsertDatasetVolumeAssertionMonitor"]["monitor"][
+        "relationships"
+    ][0]["entity"]["urn"]
+
+    # Delete the assertion
+    json = {
+        "query": """mutation deleteAssertion($urn: String!) {\n
+            deleteAssertion(urn: $urn)
+        },""",
+        "variables": {"urn": assertion_urn},
+    }
+
+    response = frontend_session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
+    response.raise_for_status()
+    res_data = response.json()
+
+    assert res_data
+    assert res_data["data"]
+    assert res_data["data"]["deleteAssertion"] is True
+
+    # Delete the monitor
+    json = {
+        "query": """mutation deleteMonitor($urn: String!) {\n
+            deleteMonitor(urn: $urn)
+        },""",
+        "variables": {"urn": monitor_urn},
+    }
+
+    response = frontend_session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
+    response.raise_for_status()
+    res_data = response.json()
+
+    assert res_data
+    assert res_data["data"]
+    assert res_data["data"]["deleteMonitor"] is True
+
+
+@pytest.mark.dependency(depends=["test_healthchecks"])
+def test_create_update_delete_dataset_sql_assertion_monitor(frontend_session):
+    # Create the assertion
+    json = {
+        "query": """mutation upsertDatasetSqlAssertionMonitor($input: UpsertDatasetSqlAssertionMonitorInput!) {\n
+            upsertDatasetSqlAssertionMonitor(input: $input) {\n
+                urn\n
+            }\n
+        }""",
+        "variables": {
+            "input": {
+                "entityUrn": TEST_DATASET_URN,
+                "description": "Custom sql assertion",
+                "type": "METRIC",
+                "statement": "select x from table",
+                "operator": "LESS_THAN_OR_EQUAL_TO",
+                "parameters": {"value": {"value": "1000", "type": "NUMBER"}},
+                "actions": {
+                    "onSuccess": [{"type": "RESOLVE_INCIDENT"}],
+                    "onFailure": [{"type": "RAISE_INCIDENT"}],
+                },
+                "evaluationSchedule": {
+                    "timezone": "America/Los_Angeles",
+                    "cron": "0 */8 * * *",
+                },
+                "mode": "ACTIVE",
+            }
+        },
+    }
+
+    response = frontend_session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
+    response.raise_for_status()
+    res_data = response.json()
+
+    assert res_data
+    assert res_data["data"]
+    assert res_data["data"]["upsertDatasetSqlAssertionMonitor"]
+
+    assertion_urn = res_data["data"]["upsertDatasetSqlAssertionMonitor"]["urn"]
+
+    # update the assertion
+    json = {
+        "query": """mutation upsertDatasetSqlAssertionMonitor($assertionUrn:String, $input: UpsertDatasetSqlAssertionMonitorInput!) {\n
+            upsertDatasetSqlAssertionMonitor(assertionUrn: $assertionUrn, input: $input) {\n
+                urn\n
+                monitor: relationships(
+                    input: {types: "Evaluates", direction: INCOMING, start: 0, count: 1}
+                ) {
+                  relationships {
+                      entity {
+                      urn
+                    }
+                  }
+                }
+            }\n
+        }""",
+        "variables": {
+            "assertionUrn": assertion_urn,
+            "input": {
+                "entityUrn": TEST_DATASET_URN,
+                "description": "Custom sql assertion",
+                "type": "METRIC_CHANGE",
+                "changeType": "ABSOLUTE",
+                "statement": "select x from table",
+                "operator": "LESS_THAN_OR_EQUAL_TO",
+                "parameters": {"value": {"value": "1000", "type": "NUMBER"}},
+                "actions": {
+                    "onSuccess": [{"type": "RESOLVE_INCIDENT"}],
+                    "onFailure": [{"type": "RAISE_INCIDENT"}],
+                },
+                "evaluationSchedule": {
+                    "timezone": "America/Los_Angeles",
+                    "cron": "0 */8 * * *",
+                },
+                "mode": "ACTIVE",
+            },
+        },
+    }
+
+    response = frontend_session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
+    response.raise_for_status()
+    res_data = response.json()
+
+    assert res_data
+    assert res_data["data"]
+    assert res_data["data"]["upsertDatasetSqlAssertionMonitor"]
+
+    assert res_data["data"]["upsertDatasetSqlAssertionMonitor"]["urn"] == assertion_urn
+    monitor_urn = res_data["data"]["upsertDatasetSqlAssertionMonitor"]["monitor"][
+        "relationships"
+    ][0]["entity"]["urn"]
+
+    # Delete the assertion
+    json = {
+        "query": """mutation deleteAssertion($urn: String!) {\n
+            deleteAssertion(urn: $urn)
+        },""",
+        "variables": {"urn": assertion_urn},
+    }
+
+    response = frontend_session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
+    response.raise_for_status()
+    res_data = response.json()
+
+    assert res_data
+    assert res_data["data"]
+    assert res_data["data"]["deleteAssertion"] is True
+
+    # Delete the monitor
+    json = {
+        "query": """mutation deleteMonitor($urn: String!) {\n
+            deleteMonitor(urn: $urn)
+        },""",
+        "variables": {"urn": monitor_urn},
+    }
+
+    response = frontend_session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
+    response.raise_for_status()
+    res_data = response.json()
+
+    assert res_data
+    assert res_data["data"]
+    assert res_data["data"]["deleteMonitor"] is True
+
+
+@pytest.mark.dependency(depends=["test_healthchecks"])
+def test_create_update_delete_dataset_field_assertion_monitor(frontend_session):
+    # Create the assertion
+    json = {
+        "query": """mutation upsertDatasetFieldAssertionMonitor($input: UpsertDatasetFieldAssertionMonitorInput!) {\n
+            upsertDatasetFieldAssertionMonitor(input: $input) {\n
+                urn\n
+            }\n
+        }""",
+        "variables": {
+            "input": {
+                "entityUrn": TEST_DATASET_URN,
+                "type": "FIELD_VALUES",
+                "fieldValuesAssertion": {
+                    "field": {"path": "x", "type": "NUMBER", "nativeType": "NUMBER"},
+                    "operator": "LESS_THAN_OR_EQUAL_TO",
+                    "parameters": {"value": {"value": "10", "type": "NUMBER"}},
+                    "excludeNulls": True,
+                    "failThreshold": {"type": "COUNT", "value": "0"},
+                },
+                "actions": {
+                    "onSuccess": [{"type": "RESOLVE_INCIDENT"}],
+                    "onFailure": [{"type": "RAISE_INCIDENT"}],
+                },
+                "evaluationSchedule": {
+                    "timezone": "America/Los_Angeles",
+                    "cron": "0 */8 * * *",
+                },
+                "evaluationParameters": {"sourceType": "ALL_ROWS_QUERY"},
+                "mode": "ACTIVE",
+            }
+        },
+    }
+
+    response = frontend_session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
+    response.raise_for_status()
+    res_data = response.json()
+
+    assert res_data
+    assert res_data["data"]
+    assert res_data["data"]["upsertDatasetFieldAssertionMonitor"]
+
+    assertion_urn = res_data["data"]["upsertDatasetFieldAssertionMonitor"]["urn"]
+
+    # update the assertion
+    json = {
+        "query": """mutation upsertDatasetFieldAssertionMonitor($assertionUrn:String, $input: UpsertDatasetFieldAssertionMonitorInput!) {\n
+            upsertDatasetFieldAssertionMonitor(assertionUrn: $assertionUrn, input: $input) {\n
+                urn\n
+                monitor: relationships(
+                    input: {types: "Evaluates", direction: INCOMING, start: 0, count: 1}
+                ) {
+                  relationships {
+                      entity {
+                      urn
+                    }
+                  }
+                }
+            }\n
+        }""",
+        "variables": {
+            "assertionUrn": assertion_urn,
+            "input": {
+                "entityUrn": TEST_DATASET_URN,
+                "type": "FIELD_METRIC",
+                "fieldMetricAssertion": {
+                    "metric": "MAX",
+                    "field": {"path": "x", "type": "NUMBER", "nativeType": "NUMBER"},
+                    "operator": "LESS_THAN_OR_EQUAL_TO",
+                    "parameters": {"value": {"value": "10", "type": "NUMBER"}},
+                },
+                "actions": {
+                    "onSuccess": [{"type": "RESOLVE_INCIDENT"}],
+                    "onFailure": [{"type": "RAISE_INCIDENT"}],
+                },
+                "evaluationSchedule": {
+                    "timezone": "America/Los_Angeles",
+                    "cron": "0 */8 * * *",
+                },
+                "evaluationParameters": {"sourceType": "CHANGED_ROWS_QUERY"},
+                "mode": "ACTIVE",
+            },
+        },
+    }
+
+    response = frontend_session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
+    response.raise_for_status()
+    res_data = response.json()
+
+    assert res_data
+    assert res_data["data"]
+    assert res_data["data"]["upsertDatasetFieldAssertionMonitor"]
+
+    assert (
+        res_data["data"]["upsertDatasetFieldAssertionMonitor"]["urn"] == assertion_urn
+    )
+    monitor_urn = res_data["data"]["upsertDatasetFieldAssertionMonitor"]["monitor"][
+        "relationships"
+    ][0]["entity"]["urn"]
+
+    # Delete the assertion
+    json = {
+        "query": """mutation deleteAssertion($urn: String!) {\n
+            deleteAssertion(urn: $urn)
+        },""",
+        "variables": {"urn": assertion_urn},
+    }
+
+    response = frontend_session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
+    response.raise_for_status()
+    res_data = response.json()
+
+    assert res_data
+    assert res_data["data"]
+    assert res_data["data"]["deleteAssertion"] is True
+
+    # Delete the monitor
+    json = {
+        "query": """mutation deleteMonitor($urn: String!) {\n
+            deleteMonitor(urn: $urn)
+        },""",
+        "variables": {"urn": monitor_urn},
+    }
+
+    response = frontend_session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
+    response.raise_for_status()
+    res_data = response.json()
+
+    assert res_data
+    assert res_data["data"]
+    assert res_data["data"]["deleteMonitor"] is True

@@ -9,6 +9,8 @@ import com.google.common.collect.ImmutableSet;
 import com.linkedin.assertion.FreshnessFieldKind;
 import com.linkedin.assertion.FreshnessFieldSpec;
 import com.linkedin.common.CronSchedule;
+import com.linkedin.common.EntityRelationship;
+import com.linkedin.common.EntityRelationships;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.data.template.StringArray;
@@ -27,7 +29,9 @@ import com.linkedin.datahub.graphql.generated.FreshnessFieldSpecInput;
 import com.linkedin.datahub.graphql.generated.SystemMonitorType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.authorization.PoliciesConfig;
+import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.key.MonitorKey;
+import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.monitor.AssertionEvaluationParameters;
 import com.linkedin.monitor.AssertionEvaluationParametersType;
@@ -39,8 +43,10 @@ import com.linkedin.monitor.DatasetFreshnessAssertionParameters;
 import com.linkedin.monitor.DatasetFreshnessSourceType;
 import com.linkedin.monitor.DatasetVolumeAssertionParameters;
 import com.linkedin.monitor.DatasetVolumeSourceType;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 
 public class MonitorUtils {
@@ -48,6 +54,7 @@ public class MonitorUtils {
   // Entity types that have system monitors enabled.
   public static final Set<String> ENTITY_TYPES_WITH_SYSTEM_MONITORS =
       ImmutableSet.of(Constants.DATASET_ENTITY_NAME);
+  private static final String EVALUATES_RELATIONSHIP_NAME = "Evaluates";
 
   /**
    * Converts the URN for an entity and the type of a system monitor into a unique monitor urn,
@@ -267,4 +274,53 @@ public class MonitorUtils {
   }
 
   private MonitorUtils() {}
+
+  public static @Nonnull AssertionEvaluationParameters createFreshnessAssertionEvaluationParameters(
+      @Nonnull DatasetFreshnessAssertionParametersInput datasetFreshnessParameters) {
+    AssertionEvaluationParameters parameters = new AssertionEvaluationParameters();
+    parameters.setType(AssertionEvaluationParametersType.DATASET_FRESHNESS);
+    parameters.setDatasetFreshnessParameters(
+        createDatasetFreshnessParameters(datasetFreshnessParameters));
+    return parameters;
+  }
+
+  public static @Nonnull AssertionEvaluationParameters createVolumeAssertionEvaluationParameters(
+      @Nonnull DatasetVolumeAssertionParametersInput datasetVolumeParameters) {
+    AssertionEvaluationParameters parameters = new AssertionEvaluationParameters();
+    parameters.setType(AssertionEvaluationParametersType.DATASET_VOLUME);
+    parameters.setDatasetVolumeParameters(createDatasetVolumeParameters(datasetVolumeParameters));
+    return parameters;
+  }
+
+  public static @Nonnull AssertionEvaluationParameters createFieldAssertionEvaluationParameters(
+      @Nonnull DatasetFieldAssertionParametersInput datasetFieldParameters) {
+    AssertionEvaluationParameters parameters = new AssertionEvaluationParameters();
+    parameters.setType(AssertionEvaluationParametersType.DATASET_FIELD);
+    parameters.setDatasetFieldParameters(createDatasetFieldParameters(datasetFieldParameters));
+    return parameters;
+  }
+
+  public static @Nonnull Urn getMonitorUrnForAssertion(GraphClient graphClient, Urn assertionUrn) {
+    final EntityRelationships relationships =
+        graphClient.getRelatedEntities(
+            assertionUrn.toString(),
+            ImmutableList.of(EVALUATES_RELATIONSHIP_NAME),
+            RelationshipDirection.INCOMING,
+            0,
+            1,
+            null);
+
+    final List<Urn> monitorUrns =
+        relationships.getRelationships().stream()
+            .map(EntityRelationship::getEntity)
+            .collect(Collectors.toList());
+    if (!monitorUrns.isEmpty()) {
+      return monitorUrns.get(0);
+    } else {
+      throw new RuntimeException(
+          String.format(
+              "Failed to upsert Assertion. Monitor for assertion %s does not exist.",
+              assertionUrn));
+    }
+  }
 }
