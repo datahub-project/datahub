@@ -309,7 +309,7 @@ plugins: Dict[str, Set[str]] = {
     # https://github.com/elastic/elasticsearch-py/issues/1639#issuecomment-883587433
     "elasticsearch": {"elasticsearch==7.13.4"},
     "feast": {
-        "feast~=0.35.0",
+        "feast>=0.34.0,<1",
         "flask-openid>=1.3.0",
     },
     "glue": aws_common,
