@@ -44,21 +44,22 @@ export function usePolicy(
 
     const [deletePolicy, { error: deletePolicyError }] = useDeletePolicyMutation();
 
-    const toFilterInput = (filter: PolicyMatchFilter): PolicyMatchFilterInput => {
+    const toFilterInput = (filter: PolicyMatchFilter,state?:string | undefined): PolicyMatchFilterInput => {
+        console.log({state})
         return {
             criteria: filter.criteria?.map((criterion): PolicyMatchCriterionInput => {
                 return {
                     field: criterion.field,
                     values: criterion.values.map((criterionValue) =>
-                        criterion.field === 'TAG' ? (criterionValue as any) : criterionValue.value,
-                    ),
+                    criterion.field === 'TAG' && state !=='TOGGLE' ? (criterionValue as any) : criterionValue.value,
+                ),
                     condition: criterion.condition,
                 };
             }),
         };
     };
 
-    const toPolicyInput = (policy: Omit<Policy, 'urn'>): PolicyUpdateInput => {
+    const toPolicyInput = (policy: Omit<Policy, 'urn'>,state?:string | undefined): PolicyUpdateInput => {
         let policyInput: PolicyUpdateInput = {
             type: policy.type,
             name: policy.name,
@@ -81,7 +82,7 @@ export function usePolicy(
                 allResources: policy.resources.allResources,
             };
             if (policy.resources.filter) {
-                resourceFilter = { ...resourceFilter, filter: toFilterInput(policy.resources.filter) };
+                resourceFilter = { ...resourceFilter, filter: toFilterInput(policy.resources.filter,state) };
             }
             // Add the resource filters.
             policyInput = {
@@ -153,7 +154,7 @@ export function usePolicy(
         updatePolicy({
             variables: {
                 urn: policy?.urn as string, // There must be a focus policy urn.
-                input: toPolicyInput(newPolicy),
+                input: toPolicyInput(newPolicy,'TOGGLE'),
             },
         }).then(()=>{
             const updatePolicies= {
