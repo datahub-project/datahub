@@ -32,7 +32,9 @@
         "SET_WRITEABLE_PRIVILEGE",
         "APPLY_RETENTION_PRIVILEGE",
         "MANAGE_GLOBAL_OWNERSHIP_TYPES",
-        "GET_ANALYTICS_PRIVILEGE"
+        "GET_ANALYTICS_PRIVILEGE",
+        "CREATE_BUSINESS_ATTRIBUTE",
+        "MANAGE_BUSINESS_ATTRIBUTE"
       ],
       "displayName":"Root User - All Platform Privileges",
       "description":"Grants full platform privileges to root datahub super user.",
@@ -173,7 +175,9 @@
         "SET_WRITEABLE_PRIVILEGE",
         "APPLY_RETENTION_PRIVILEGE",
         "MANAGE_GLOBAL_OWNERSHIP_TYPES",
-        "GET_ANALYTICS_PRIVILEGE"
+        "GET_ANALYTICS_PRIVILEGE",
+        "CREATE_BUSINESS_ATTRIBUTE",
+        "MANAGE_BUSINESS_ATTRIBUTE"
       ],
       "displayName":"Admins - Platform Policy",
       "description":"Admins have all platform privileges.",
@@ -211,6 +215,7 @@
         "EDIT_DATASET_COL_TAGS",
         "EDIT_DATASET_COL_GLOSSARY_TERMS",
         "EDIT_DATASET_COL_DESCRIPTION",
+        "EDIT_DATASET_COL_BUSINESS_ATTRIBUTE_PRIVILEGE",
         "VIEW_DATASET_USAGE",
         "VIEW_DATASET_PROFILE",
         "EDIT_TAG_COLOR",
@@ -253,7 +258,8 @@
         "MANAGE_DOMAINS",
         "MANAGE_GLOBAL_ANNOUNCEMENTS",
         "MANAGE_GLOSSARIES",
-        "MANAGE_TAGS"
+        "MANAGE_TAGS",
+        "MANAGE_BUSINESS_ATTRIBUTE"
       ],
       "displayName":"Editors - Platform Policy",
       "description":"Editors can manage ingestion and view analytics.",
@@ -289,6 +295,7 @@
         "EDIT_DATASET_COL_TAGS",
         "EDIT_DATASET_COL_GLOSSARY_TERMS",
         "EDIT_DATASET_COL_DESCRIPTION",
+        "EDIT_DATASET_COL_BUSINESS_ATTRIBUTE_PRIVILEGE",
         "VIEW_DATASET_USAGE",
         "VIEW_DATASET_PROFILE",
         "EDIT_TAG_COLOR",
@@ -434,6 +441,7 @@
         "EDIT_DATASET_COL_TAGS",
         "EDIT_DATASET_COL_GLOSSARY_TERMS",
         "EDIT_DATASET_COL_DESCRIPTION",
+        "EDIT_DATASET_COL_BUSINESS_ATTRIBUTE_PRIVILEGE",
         "VIEW_DATASET_USAGE",
         "VIEW_DATASET_PROFILE",
         "EDIT_TAG_COLOR",
