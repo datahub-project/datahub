@@ -324,7 +324,7 @@ export const CreateERModelRelationModal = ({
         <Modal
             title={
                 <div className="footer-parent-div">
-                    <p className="ermodelrelation-title">ERModelRelation parameters</p>
+                    <p className="ermodelrelation-title">ER-Model-Relation Parameters</p>
                     <div>
                         <Button onClick={onCancelSelect} className="cancel-btn" size="large">
                             Cancel
@@ -352,7 +352,7 @@ export const CreateERModelRelationModal = ({
                 <p className="all-content-heading">Table 2</p>
                 <p className="all-information">{table2NameBusiness}</p>
                 <div className="techNameDisplay">{table2NameTech !== table2NameBusiness && table2NameTech}</div>
-                <p className="all-content-heading">ERModelRelation name</p>
+                <p className="all-content-heading">ER-Model-Relation name</p>
                 <Form
                     form={form}
                     layout="vertical"
@@ -368,7 +368,7 @@ export const CreateERModelRelationModal = ({
                         rules={[
                             {
                                 required: true,
-                                message: `ERModelRelation name is required.`,
+                                message: `ER-Model-Relation name is required.`,
                             },
                             {
                                 validator: (_, value) =>
@@ -376,7 +376,7 @@ export const CreateERModelRelationModal = ({
                                         return result === true && !isEditing
                                             ? Promise.reject(
                                                   new Error(
-                                                      'This ermodelrelation name already exists. A unique name for each ermodelrelation is required.',
+                                                      'This ER-Model-Relation name already exists. A unique name for each ER-Model-Relation is required.',
                                                   ),
                                               )
                                             : Promise.resolve();
@@ -398,11 +398,11 @@ export const CreateERModelRelationModal = ({
                     <Button type="link" className="add-btn-link" onClick={handleAdd}>
                         <PlusOutlined /> Add Row
                     </Button>
-                    <p className="all-content-heading">ERModelRelation details</p>
+                    <p className="all-content-heading">ER-Model-Relation details</p>
                     <Form.Item style={{ margin: 0 }} name="ermodelrelationDetails">
                         <TextArea
                             className="ermodelrelation-details-ta"
-                            placeholder="Please enter ermodelrelation details here"
+                            placeholder="Please enter ER-Model-Relation details here"
                             onChange={(e) => setDetails(e.target.value)}
                         />
                     </Form.Item>

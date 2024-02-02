@@ -52,7 +52,7 @@ export const RelationshipsTab = () => {
     const tabs = [
         {
             key: 'ermodelrelationsTab',
-            tab: 'ERModelRelations',
+            tab: 'ER-Model-Relations',
         },
     ];
     const {
@@ -125,7 +125,7 @@ export const RelationshipsTab = () => {
                     )}
                     {loadingERModelRelation && (
                         <div>
-                            ERModelRelations <LoadingOutlined />
+                            ER-Model-Relations <LoadingOutlined />
                         </div>
                     )}
                 </>
@@ -248,7 +248,7 @@ export const RelationshipsTab = () => {
                             setermodelrelationModalVisible(true);
                         }}
                     >
-                        <PlusOutlined /> Add ERModelRelation
+                        <PlusOutlined /> Add ER-Model-Relation
                     </Button>
                 </div>{' '}
                 <br />
