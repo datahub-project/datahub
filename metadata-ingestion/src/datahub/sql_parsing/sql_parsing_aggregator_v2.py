@@ -43,6 +43,7 @@ class QueryMetadata:
 
     upstreams: List[str]  # this is direct upstreams, which may be temp tables
     column_lineage: List[ColumnLineageInfo]  # TODO add an internal representation?
+    confidence_score: float
 
 
 class SqlParsingAggregator:
@@ -266,7 +267,11 @@ class SqlParsingAggregator:
                 query_metadata.actor = user or query_metadata.actor
 
                 # An invariant of the fingerprinting is that if two queries have the
-                # same fingerprint, they must also have the same lineage.
+                # same fingerprint, they must also have the same lineage. We overwrite
+                # here just in case more schemas got registered in the interim.
+                query_metadata.upstreams = upstreams
+                query_metadata.column_lineage = column_lineage
+                query_metadata.confidence_score = parsed.debug_info.confidence
             else:
                 self._query_map[query_fingerprint] = QueryMetadata(
                     query_id=query_fingerprint,
@@ -277,6 +282,7 @@ class SqlParsingAggregator:
                     actor=user,
                     upstreams=upstreams,
                     column_lineage=column_lineage,
+                    confidence_score=parsed.debug_info.confidence,
                 )
 
             self._lineage_map.for_mutation(out_table, set()).add(query_fingerprint)
@@ -381,6 +387,7 @@ class SqlParsingAggregator:
                 )
             )
         for downstream_column, upstream_columns in cll.items():
+            query_id = next(iter(upstream_columns.values()))
             upstream_aspect.fineGrainedLineages.append(
                 models.FineGrainedLineageClass(
                     upstreamType=models.FineGrainedLineageUpstreamTypeClass.FIELD_SET,
@@ -392,7 +399,7 @@ class SqlParsingAggregator:
                         SchemaFieldUrn(downstream_urn, downstream_column).urn()
                     ],
                     # TODO query id
-                    # TODO confidence score
+                    confidenceScore=queries_map[query_id].confidence_score,
                 )
             )
             required_queries.update(upstream_columns.values())
