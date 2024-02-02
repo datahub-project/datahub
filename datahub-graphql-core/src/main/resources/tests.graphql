@@ -44,6 +44,7 @@ Definition of the test
 type TestDefinition {
   """
   JSON-based def for the test
+  Deprecated! JSON representation is no longer supported.
   """
   json: String
 }
@@ -209,6 +210,7 @@ input UpdateTestInput {
 input TestDefinitionInput {
   """
   The string representation of the Test
+  Deprecated! JSON representation is no longer supported.
   """
   json: String
 }

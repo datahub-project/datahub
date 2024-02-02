@@ -1,36 +1,36 @@
 package com.linkedin.metadata.service;
 
+import static com.linkedin.metadata.Constants.*;
+
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
-import lombok.extern.slf4j.Slf4j;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.Objects;
 import java.util.Set;
-
-import static com.linkedin.metadata.Constants.*;
-
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import lombok.extern.slf4j.Slf4j;
 
 /**
- * This class is used to permit easy CRUD operations on a Query
- * Currently it supports creating and removing a Query.
+ * This class is used to permit easy CRUD operations on a Query. Currently it supports creating and
+ * removing a Query.
  *
- * Note that no Authorization is performed within the service. The expectation
- * is that the caller has already verified the permissions of the active Actor.
- *
+ * <p>Note that no Authorization is performed within the service. The expectation is that the caller
+ * has already verified the permissions of the active Actor.
  */
 @Slf4j
 public class ERModelRelationService extends BaseService {
 
-  public ERModelRelationService(@Nonnull EntityClient entityClient, @Nonnull Authentication systemAuthentication) {
+  public ERModelRelationService(
+      @Nonnull EntityClient entityClient, @Nonnull Authentication systemAuthentication) {
     super(entityClient, systemAuthentication);
   }
-  static final Set<String> ASPECTS_TO_RESOLVE = ImmutableSet.of(
+
+  static final Set<String> ASPECTS_TO_RESOLVE =
+      ImmutableSet.of(
           ERMODELRELATION_KEY_ASPECT_NAME,
           ERMODELRELATION_PROPERTIES_ASPECT_NAME,
           EDITABLE_ERMODELRELATION_PROPERTIES_ASPECT_NAME,
@@ -38,19 +38,20 @@ public class ERModelRelationService extends BaseService {
           OWNERSHIP_ASPECT_NAME,
           STATUS_ASPECT_NAME,
           GLOBAL_TAGS_ASPECT_NAME,
-          GLOSSARY_TERMS_ASPECT_NAME
-  );
+          GLOSSARY_TERMS_ASPECT_NAME);
+
   /**
-   * Returns an instance of {@link EntityResponse} for the specified ERModelRelation urn,
-   * or null if one cannot be found.
+   * Returns an instance of {@link EntityResponse} for the specified ERModelRelation urn, or null if
+   * one cannot be found.
    *
    * @param ermodelrelationUrn the urn of the Query
    * @param authentication the authentication to use
-   *
-   * @return an instance of {@link EntityResponse} for the ERModelRelation, null if it does not exist.
+   * @return an instance of {@link EntityResponse} for the ERModelRelation, null if it does not
+   *     exist.
    */
   @Nullable
-  public EntityResponse getERModelRelationResponse(@Nonnull final Urn ermodelrelationUrn, @Nonnull final Authentication authentication) {
+  public EntityResponse getERModelRelationResponse(
+      @Nonnull final Urn ermodelrelationUrn, @Nonnull final Authentication authentication) {
     Objects.requireNonNull(ermodelrelationUrn, "ermodelrelationUrn must not be null");
     Objects.requireNonNull(authentication, "authentication must not be null");
     try {
@@ -58,10 +59,10 @@ public class ERModelRelationService extends BaseService {
           Constants.ERMODELRELATION_ENTITY_NAME,
           ermodelrelationUrn,
           ASPECTS_TO_RESOLVE,
-          authentication
-      );
+          authentication);
     } catch (Exception e) {
-      throw new RuntimeException(String.format("Failed to retrieve Query with urn %s", ermodelrelationUrn), e);
+      throw new RuntimeException(
+          String.format("Failed to retrieve Query with urn %s", ermodelrelationUrn), e);
     }
   }
 }

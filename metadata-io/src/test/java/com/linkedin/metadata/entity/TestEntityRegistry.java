@@ -1,11 +1,11 @@
 package com.linkedin.metadata.entity;
 
+import com.linkedin.metadata.aspect.patch.template.AspectTemplateEngine;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.EntitySpecBuilder;
 import com.linkedin.metadata.models.EventSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.models.registry.template.AspectTemplateEngine;
 import com.linkedin.metadata.snapshot.Snapshot;
 import java.util.Collections;
 import java.util.HashMap;
@@ -14,16 +14,15 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
-
 public class TestEntityRegistry implements EntityRegistry {
 
   private final Map<String, EntitySpec> entityNameToSpec;
 
   public TestEntityRegistry() {
-    entityNameToSpec = new EntitySpecBuilder(EntitySpecBuilder.AnnotationExtractionMode.IGNORE_ASPECT_FIELDS)
-        .buildEntitySpecs(new Snapshot().schema())
-        .stream()
-        .collect(Collectors.toMap(spec -> spec.getName().toLowerCase(), spec -> spec));
+    entityNameToSpec =
+        new EntitySpecBuilder(EntitySpecBuilder.AnnotationExtractionMode.IGNORE_ASPECT_FIELDS)
+            .buildEntitySpecs(new Snapshot().schema()).stream()
+                .collect(Collectors.toMap(spec -> spec.getName().toLowerCase(), spec -> spec));
   }
 
   @Nonnull

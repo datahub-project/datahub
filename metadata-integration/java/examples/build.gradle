@@ -1,20 +1,9 @@
-apply plugin: 'java'
-apply plugin: 'jacoco'
-
-
-tasks.withType(JavaCompile).configureEach {
-    javaCompiler = javaToolchains.compilerFor {
-        languageVersion = JavaLanguageVersion.of(8)
-    }
-}
-tasks.withType(Test).configureEach {
-    javaLauncher = javaToolchains.launcherFor {
-        languageVersion = JavaLanguageVersion.of(8)
-    }
+plugins {
+  id 'java'
+  id 'jacoco'
 }
 
 dependencies {
-
   implementation externalDependency.slf4jApi
   compileOnly externalDependency.lombok
   annotationProcessor externalDependency.lombok
@@ -22,8 +11,6 @@ dependencies {
   implementation externalDependency.typesafeConfig
   implementation externalDependency.opentracingJdbc
 
-  implementation project(path: ':li-utils')
-  implementation project(path: ':metadata-models')
   implementation project(path: ':metadata-integration:java:datahub-client', configuration: 'shadow')
   implementation externalDependency.httpAsyncClient
 

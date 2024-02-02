@@ -253,6 +253,7 @@ export const EntityProfile = <T, U>({
                 visible: () => true,
                 enabled: () => true,
             },
+            getDynamicName: () => '',
         })) || [];
 
     const visibleTabs = [...sortedTabs, ...autoRenderTabs].filter((tab) =>

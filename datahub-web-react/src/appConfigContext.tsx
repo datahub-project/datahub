@@ -51,6 +51,7 @@ export const DEFAULT_APP_CONFIG = {
         ermodelrelationFeatureEnabled: false,
         showAccessManagement: false,
         nestedDomainsEnabled: true,
+        platformBrowseV2: false,
     },
 };
 

@@ -166,7 +166,7 @@ function NodeItem(props: Props) {
                             ))}
                             {!hideTerms &&
                                 (childTerms as GlossaryTerm[]).map((child) => (
-                                    <TermItem term={child} isSelecting={isSelecting} selectTerm={selectTerm} />
+                                    <TermItem term={child} isSelecting={isSelecting} selectTerm={selectTerm} includeActiveTabPath />
                                 ))}
                         </ChildrenWrapper>
                     )}

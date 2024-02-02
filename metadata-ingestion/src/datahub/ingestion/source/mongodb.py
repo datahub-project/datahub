@@ -102,7 +102,7 @@ class MongoDBConfig(
     )
     schemaSamplingSize: Optional[PositiveInt] = Field(
         default=1000,
-        description="Number of documents to use when inferring schema size. If set to `0`, all documents will be scanned.",
+        description="Number of documents to use when inferring schema size. If set to `null`, all documents will be scanned.",
     )
     useRandomSampling: bool = Field(
         default=True,
@@ -225,13 +225,15 @@ def construct_schema_pymongo(
         ]
     if use_random_sampling:
         # get sample documents in collection
-        aggregations.append({"$sample": {"size": sample_size}})
+        if sample_size:
+            aggregations.append({"$sample": {"size": sample_size}})
         documents = collection.aggregate(
             aggregations,
             allowDiskUse=True,
         )
     else:
-        aggregations.append({"$limit": sample_size})
+        if sample_size:
+            aggregations.append({"$limit": sample_size})
         documents = collection.aggregate(aggregations, allowDiskUse=True)
 
     return construct_schema(list(documents), delimiter)
@@ -377,6 +379,8 @@ class MongoDBSource(StatefulIngestionSourceBase):
                     platform_instance=self.config.platform_instance,
                 )
 
+                # Initialize data_platform_instance with a default value
+                data_platform_instance = None
                 if self.config.platform_instance:
                     data_platform_instance = DataPlatformInstanceClass(
                         platform=make_data_platform_urn(platform),
@@ -417,7 +421,7 @@ class MongoDBSource(StatefulIngestionSourceBase):
                         )
                         collection_fields = sorted(
                             collection_schema.values(),
-                            key=lambda x: x["count"],
+                            key=lambda x: (x["count"], x["delimited_name"]),
                             reverse=True,
                         )[0:max_schema_size]
                         # Add this information to the custom properties so user can know they are looking at downsampled schema

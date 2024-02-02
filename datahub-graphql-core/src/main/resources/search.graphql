@@ -1139,7 +1139,7 @@ type QuickFilter {
 }
 
 """
-Freshness stats for a query result. 
+Freshness stats for a query result.
 Captures whether the query was served out of a cache, what the staleness was, etc.
 """
 type FreshnessStats {
@@ -1154,7 +1154,7 @@ type FreshnessStats {
   In case an index was consulted, this reflects the freshness of the index
   """
   systemFreshness: [SystemFreshness]
-  
+
 }
 
 type SystemFreshness {
@@ -1176,9 +1176,14 @@ Input required for browse queries
 """
 input BrowseV2Input {
   """
-  The browse entity type
+  The browse entity type - deprecated use types instead
   """
-  type: EntityType!
+  type: EntityType
+
+  """
+  The browse entity type - deprecated use types instead. If not provided, all types will be used.
+  """
+  types: [EntityType!]
 
   """
   The browse path V2 - a list with each entry being part of the browse path V2

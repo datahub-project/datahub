@@ -19,6 +19,7 @@ import { useGetRecommendations } from '../recommendation';
 import { FORBIDDEN_URN_CHARS_REGEX, handleBatchError } from '../../entity/shared/utils';
 import { TagTermLabel } from './TagTermLabel';
 import { ENTER_KEY_CODE } from '../constants';
+import { getModalDomContainer } from '../../../utils/focus';
 
 export enum OperationType {
     ADD,
@@ -448,6 +449,7 @@ export default function EditTagTermsModal({
                     </Button>
                 </>
             }
+            getContainer={getModalDomContainer}
         >
             <ClickOutside onClickOutside={() => setIsFocusedOnInput(false)}>
                 <TagSelect

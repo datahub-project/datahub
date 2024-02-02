@@ -57,7 +57,10 @@ task installPackage(type: Exec, dependsOn: installPackageOnly) {
 }
 
 task codegen(type: Exec, dependsOn: [environmentSetup, installPackage, ':metadata-events:mxe-schemas:build']) {
-  inputs.files(project.fileTree(dir: "../metadata-events/mxe-schemas/src/", include: "**/*.avsc"))
+  inputs.files(
+    project.fileTree(dir: "../metadata-events/mxe-schemas/src/", include: "**/*.avsc"),
+    project.fileTree(dir: "scripts"),
+  )
   outputs.dir('src/datahub/metadata')
   commandLine 'bash', '-c', "source ${venv_name}/bin/activate && ./scripts/codegen.sh"
 }
@@ -67,6 +70,7 @@ task customPackageGenerate(type: Exec, dependsOn: [environmentSetup, installPack
   def package_version = project.findProperty('package_version')
   commandLine 'bash', '-c',
     "source ${venv_name}/bin/activate && " +
+    "pip install build && " +
     "./scripts/custom_package_codegen.sh '${package_name}' '${package_version}'"
 }
 

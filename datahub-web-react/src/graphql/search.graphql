@@ -13,6 +13,10 @@ fragment autoCompleteFields on Entity {
         properties {
             name
             qualifiedName
+            lastModified {
+                time
+                actor
+            }
         }
         parentContainers {
             ...parentContainersFields
@@ -39,6 +43,10 @@ fragment autoCompleteFields on Entity {
                         description
                         qualifiedName
                         externalUrl
+                        lastModified {
+                            time
+                            actor
+                        }
                     }
                 }
             }
@@ -336,6 +344,10 @@ fragment nonSiblingsDatasetSearchFields on Dataset {
             value
         }
         externalUrl
+        lastModified {
+            time
+            actor
+        }
     }
     ownership {
         ...ownershipFields
@@ -626,6 +638,9 @@ fragment searchResultFields on Entity {
         }
         dataPlatformInstance {
             ...dataPlatformInstanceFields
+        }
+        subTypes {
+            typeNames
         }
         lastRun: runs(start: 0, count: 1) {
             count

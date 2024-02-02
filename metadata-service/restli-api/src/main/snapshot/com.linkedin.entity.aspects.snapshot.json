@@ -319,6 +319,7 @@
         "default" : { },
         "Searchable" : {
           "/*" : {
+            "fieldType" : "TEXT",
             "queryByDefault" : true
           }
         }
@@ -993,6 +994,11 @@
         "filterNameOverride" : "Glossary Term",
         "hasValuesFieldName" : "hasGlossaryTerms"
       }
+    }, {
+      "name" : "actor",
+      "type" : "Urn",
+      "doc" : "The user URN which will be credited for adding associating this term to the entity",
+      "optional" : true
     }, {
       "name" : "context",
       "type" : "string",
@@ -2049,6 +2055,7 @@
     "name" : "GlossaryNodeInfo",
     "namespace" : "com.linkedin.glossary",
     "doc" : "Properties associated with a GlossaryNode",
+    "include" : [ "com.linkedin.common.CustomProperties" ],
     "fields" : [ {
       "name" : "definition",
       "type" : "string",
@@ -3993,6 +4000,7 @@
     "path" : "/aspects",
     "schema" : "com.linkedin.metadata.aspect.VersionedAspect",
     "doc" : "Single unified resource for fetching, updating, searching, & browsing DataHub entities\n\ngenerated from: com.linkedin.metadata.resources.entity.AspectResource",
+    "resourceClass" : "com.linkedin.metadata.resources.entity.AspectResource",
     "collection" : {
       "identifier" : {
         "name" : "aspectsId",
@@ -4001,6 +4009,7 @@
       "supports" : [ "get" ],
       "methods" : [ {
         "method" : "get",
+        "javaMethodName" : "get",
         "doc" : "Retrieves the value for an entity that is made up of latest versions of specified aspects.\n TODO: Get rid of this and migrate to getAspect.",
         "parameters" : [ {
           "name" : "aspect",
@@ -4014,6 +4023,7 @@
       } ],
       "actions" : [ {
         "name" : "getCount",
+        "javaMethodName" : "getCount",
         "parameters" : [ {
           "name" : "aspect",
           "type" : "string"
@@ -4025,6 +4035,7 @@
         "returns" : "int"
       }, {
         "name" : "getTimeseriesAspectValues",
+        "javaMethodName" : "getTimeseriesAspectValues",
         "parameters" : [ {
           "name" : "urn",
           "type" : "string"
@@ -4062,6 +4073,7 @@
         "returns" : "com.linkedin.aspect.GetTimeseriesAspectValuesResponse"
       }, {
         "name" : "ingestProposal",
+        "javaMethodName" : "ingestProposal",
         "parameters" : [ {
           "name" : "proposal",
           "type" : "com.linkedin.mxe.MetadataChangeProposal"
@@ -4073,6 +4085,7 @@
         "returns" : "string"
       }, {
         "name" : "restoreIndices",
+        "javaMethodName" : "restoreIndices",
         "parameters" : [ {
           "name" : "aspect",
           "type" : "string",

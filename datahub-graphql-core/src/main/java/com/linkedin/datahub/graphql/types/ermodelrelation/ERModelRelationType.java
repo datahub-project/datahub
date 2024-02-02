@@ -1,5 +1,8 @@
 package com.linkedin.datahub.graphql.types.ermodelrelation;
 
+import static com.linkedin.datahub.graphql.Constants.*;
+import static com.linkedin.metadata.Constants.*;
+
 import com.datahub.authorization.ConjunctivePrivilegeGroup;
 import com.datahub.authorization.DisjunctivePrivilegeGroup;
 import com.google.common.collect.ImmutableList;
@@ -14,11 +17,11 @@ import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
 import com.linkedin.datahub.graphql.generated.BrowsePath;
 import com.linkedin.datahub.graphql.generated.BrowseResults;
+import com.linkedin.datahub.graphql.generated.ERModelRelation;
+import com.linkedin.datahub.graphql.generated.ERModelRelationUpdateInput;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
-import com.linkedin.datahub.graphql.generated.ERModelRelation;
-import com.linkedin.datahub.graphql.generated.ERModelRelationUpdateInput;
 import com.linkedin.datahub.graphql.generated.SearchResults;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.BrowsableEntityType;
@@ -47,24 +50,21 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
-import static com.linkedin.datahub.graphql.Constants.*;
-import static com.linkedin.metadata.Constants.*;
+public class ERModelRelationType
+    implements com.linkedin.datahub.graphql.types.EntityType<ERModelRelation, String>,
+        BrowsableEntityType<ERModelRelation, String>,
+        SearchableEntityType<ERModelRelation, String> {
 
-
-public class ERModelRelationType implements com.linkedin.datahub.graphql.types.EntityType<ERModelRelation, String>,
-                                 BrowsableEntityType<ERModelRelation, String>, SearchableEntityType<ERModelRelation, String> {
-
-
-  static final Set<String> ASPECTS_TO_RESOLVE = ImmutableSet.of(
-      ERMODELRELATION_KEY_ASPECT_NAME,
-      ERMODELRELATION_PROPERTIES_ASPECT_NAME,
-      EDITABLE_ERMODELRELATION_PROPERTIES_ASPECT_NAME,
-      INSTITUTIONAL_MEMORY_ASPECT_NAME,
-      OWNERSHIP_ASPECT_NAME,
-      STATUS_ASPECT_NAME,
-      GLOBAL_TAGS_ASPECT_NAME,
-      GLOSSARY_TERMS_ASPECT_NAME
-  );
+  static final Set<String> ASPECTS_TO_RESOLVE =
+      ImmutableSet.of(
+          ERMODELRELATION_KEY_ASPECT_NAME,
+          ERMODELRELATION_PROPERTIES_ASPECT_NAME,
+          EDITABLE_ERMODELRELATION_PROPERTIES_ASPECT_NAME,
+          INSTITUTIONAL_MEMORY_ASPECT_NAME,
+          OWNERSHIP_ASPECT_NAME,
+          STATUS_ASPECT_NAME,
+          GLOBAL_TAGS_ASPECT_NAME,
+          GLOSSARY_TERMS_ASPECT_NAME);
 
   private static final Set<String> FACET_FIELDS = ImmutableSet.of("name");
   private static final String ENTITY_NAME = "ermodelrelation";
@@ -72,9 +72,11 @@ public class ERModelRelationType implements com.linkedin.datahub.graphql.types.E
   private final EntityClient _entityClient;
   private final FeatureFlags _featureFlags;
 
-  public ERModelRelationType(final EntityClient entityClient, final FeatureFlags featureFlags)  {
+  public ERModelRelationType(final EntityClient entityClient, final FeatureFlags featureFlags) {
     _entityClient = entityClient;
-    _featureFlags = featureFlags; // TODO: check if ERModelRelation Feture is Enabled and throw error when called
+    _featureFlags =
+        featureFlags; // TODO: check if ERModelRelation Feture is Enabled and throw error when
+    // called
   }
 
   @Override
@@ -93,29 +95,31 @@ public class ERModelRelationType implements com.linkedin.datahub.graphql.types.E
   }
 
   @Override
-  public List<DataFetcherResult<ERModelRelation>> batchLoad(@Nonnull final List<String> urns, @Nonnull final QueryContext context)
-      throws Exception {
-    final List<Urn> ermodelrelationUrns = urns.stream()
-        .map(UrnUtils::getUrn)
-        .collect(Collectors.toList());
+  public List<DataFetcherResult<ERModelRelation>> batchLoad(
+      @Nonnull final List<String> urns, @Nonnull final QueryContext context) throws Exception {
+    final List<Urn> ermodelrelationUrns =
+        urns.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
 
     try {
-      final Map<Urn, EntityResponse> entities = _entityClient.batchGetV2(
-          ERMODELRELATION_ENTITY_NAME,
-          new HashSet<>(ermodelrelationUrns),
-          ASPECTS_TO_RESOLVE,
-          context.getAuthentication());
+      final Map<Urn, EntityResponse> entities =
+          _entityClient.batchGetV2(
+              ERMODELRELATION_ENTITY_NAME,
+              new HashSet<>(ermodelrelationUrns),
+              ASPECTS_TO_RESOLVE,
+              context.getAuthentication());
 
       final List<EntityResponse> gmsResults = new ArrayList<>();
       for (Urn urn : ermodelrelationUrns) {
         gmsResults.add(entities.getOrDefault(urn, null));
       }
       return gmsResults.stream()
-          .map(gmsResult ->
-              gmsResult == null ? null : DataFetcherResult.<ERModelRelation>newResult()
-                  .data(ERModelRelationMapper.map(gmsResult))
-                  .build()
-          )
+          .map(
+              gmsResult ->
+                  gmsResult == null
+                      ? null
+                      : DataFetcherResult.<ERModelRelation>newResult()
+                          .data(ERModelRelationMapper.map(gmsResult))
+                          .build())
           .collect(Collectors.toList());
     } catch (Exception e) {
       throw new RuntimeException("Failed to load ermodelrelation entity", e);
@@ -124,85 +128,113 @@ public class ERModelRelationType implements com.linkedin.datahub.graphql.types.E
 
   @Nonnull
   @Override
-  public BrowseResults browse(@Nonnull List<String> path, @Nullable List<FacetFilterInput> filters, int start,
-      int count, @Nonnull QueryContext context) throws Exception {
+  public BrowseResults browse(
+      @Nonnull List<String> path,
+      @Nullable List<FacetFilterInput> filters,
+      int start,
+      int count,
+      @Nonnull QueryContext context)
+      throws Exception {
     final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
-    final String pathStr = path.size() > 0 ? BROWSE_PATH_DELIMITER + String.join(BROWSE_PATH_DELIMITER, path) : "";
-    final BrowseResult result = _entityClient.browse(
-        "ermodelrelation",
-        pathStr,
-        facetFilters,
-        start,
-        count,
-        context.getAuthentication());
+    final String pathStr =
+        path.size() > 0 ? BROWSE_PATH_DELIMITER + String.join(BROWSE_PATH_DELIMITER, path) : "";
+    final BrowseResult result =
+        _entityClient.browse(
+            "ermodelrelation", pathStr, facetFilters, start, count, context.getAuthentication());
     return BrowseResultMapper.map(result);
   }
 
   @Nonnull
   @Override
-  public List<BrowsePath> browsePaths(@Nonnull String urn, @Nonnull QueryContext context) throws Exception {
-    final StringArray result = _entityClient.getBrowsePaths(UrnUtils.getUrn(urn), context.getAuthentication());
+  public List<BrowsePath> browsePaths(@Nonnull String urn, @Nonnull QueryContext context)
+      throws Exception {
+    final StringArray result =
+        _entityClient.getBrowsePaths(UrnUtils.getUrn(urn), context.getAuthentication());
     return BrowsePathsMapper.map(result);
   }
 
   @Override
-  public SearchResults search(@Nonnull String query, @Nullable List<FacetFilterInput> filters,
-      int start, int count, @Nonnull QueryContext context) throws Exception {
+  public SearchResults search(
+      @Nonnull String query,
+      @Nullable List<FacetFilterInput> filters,
+      int start,
+      int count,
+      @Nonnull QueryContext context)
+      throws Exception {
     final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
-    final SearchResult searchResult = _entityClient.search(ENTITY_NAME, query, facetFilters, start,
-        count, context.getAuthentication(), new SearchFlags().setFulltext(true));
+    final SearchResult searchResult =
+        _entityClient.search(
+            ENTITY_NAME,
+            query,
+            facetFilters,
+            start,
+            count,
+            context.getAuthentication(),
+            new SearchFlags().setFulltext(true));
     return UrnSearchResultsMapper.map(searchResult);
-
   }
 
   @Override
-  public AutoCompleteResults autoComplete(@Nonnull String query, @Nullable String field,
-      @Nullable Filter filters, int limit, @Nonnull QueryContext context) throws Exception {
-    final AutoCompleteResult result = _entityClient.autoComplete(ENTITY_NAME, query, filters, limit, context.getAuthentication());
+  public AutoCompleteResults autoComplete(
+      @Nonnull String query,
+      @Nullable String field,
+      @Nullable Filter filters,
+      int limit,
+      @Nonnull QueryContext context)
+      throws Exception {
+    final AutoCompleteResult result =
+        _entityClient.autoComplete(ENTITY_NAME, query, filters, limit, context.getAuthentication());
     return AutoCompleteResultsMapper.map(result);
   }
 
-  public static boolean canUpdateERModelRelation(@Nonnull QueryContext context, ERModelRelationUrn resourceUrn, ERModelRelationUpdateInput updateInput) {
-    final ConjunctivePrivilegeGroup editPrivilegesGroup = new ConjunctivePrivilegeGroup(ImmutableList.of(
-            PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType()
-    ));
+  public static boolean canUpdateERModelRelation(
+      @Nonnull QueryContext context,
+      ERModelRelationUrn resourceUrn,
+      ERModelRelationUpdateInput updateInput) {
+    final ConjunctivePrivilegeGroup editPrivilegesGroup =
+        new ConjunctivePrivilegeGroup(
+            ImmutableList.of(PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType()));
     List<String> specificPrivileges = new ArrayList<>();
     if (updateInput.getEditableProperties() != null) {
       specificPrivileges.add(PoliciesConfig.EDIT_ENTITY_DOCS_PRIVILEGE.getType());
     }
-    final ConjunctivePrivilegeGroup specificPrivilegeGroup = new ConjunctivePrivilegeGroup(specificPrivileges);
+    final ConjunctivePrivilegeGroup specificPrivilegeGroup =
+        new ConjunctivePrivilegeGroup(specificPrivileges);
 
-    // If you either have all entity privileges, or have the specific privileges required, you are authorized.
-    DisjunctivePrivilegeGroup orPrivilegeGroups = new DisjunctivePrivilegeGroup(ImmutableList.of(
-            editPrivilegesGroup,
-            specificPrivilegeGroup
-    ));
+    // If you either have all entity privileges, or have the specific privileges required, you are
+    // authorized.
+    DisjunctivePrivilegeGroup orPrivilegeGroups =
+        new DisjunctivePrivilegeGroup(
+            ImmutableList.of(editPrivilegesGroup, specificPrivilegeGroup));
     return AuthorizationUtils.isAuthorized(
-            context.getAuthorizer(),
-            context.getActorUrn(),
-            resourceUrn.getEntityType(),
-            resourceUrn.toString(),
-            orPrivilegeGroups);
+        context.getAuthorizer(),
+        context.getActorUrn(),
+        resourceUrn.getEntityType(),
+        resourceUrn.toString(),
+        orPrivilegeGroups);
   }
-  public static boolean canCreateERModelRelation(@Nonnull QueryContext context, Urn datasetAUrn, Urn datasetBUrn) {
-    final ConjunctivePrivilegeGroup editPrivilegesGroup = new ConjunctivePrivilegeGroup(ImmutableList.of(
-            PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType()
-    ));
-    final ConjunctivePrivilegeGroup createPrivilegesGroup = new ConjunctivePrivilegeGroup(ImmutableList.of(
-            PoliciesConfig.CREATE_ERMODELRELATION_PRIVILEGE.getType()
-    ));
-    // If you either have all entity privileges, or have the specific privileges required, you are authorized.
-    DisjunctivePrivilegeGroup orPrivilegeGroups = new DisjunctivePrivilegeGroup(ImmutableList.of(
-            editPrivilegesGroup,
-            createPrivilegesGroup
-    ));
-    boolean datasetAPrivilege = AuthorizationUtils.isAuthorized(
+
+  public static boolean canCreateERModelRelation(
+      @Nonnull QueryContext context, Urn datasetAUrn, Urn datasetBUrn) {
+    final ConjunctivePrivilegeGroup editPrivilegesGroup =
+        new ConjunctivePrivilegeGroup(
+            ImmutableList.of(PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType()));
+    final ConjunctivePrivilegeGroup createPrivilegesGroup =
+        new ConjunctivePrivilegeGroup(
+            ImmutableList.of(PoliciesConfig.CREATE_ERMODELRELATION_PRIVILEGE.getType()));
+    // If you either have all entity privileges, or have the specific privileges required, you are
+    // authorized.
+    DisjunctivePrivilegeGroup orPrivilegeGroups =
+        new DisjunctivePrivilegeGroup(ImmutableList.of(editPrivilegesGroup, createPrivilegesGroup));
+    boolean datasetAPrivilege =
+        AuthorizationUtils.isAuthorized(
             context.getAuthorizer(),
             context.getActorUrn(),
             datasetAUrn.getEntityType(),
             datasetAUrn.toString(),
             orPrivilegeGroups);
-    boolean datasetBPrivilege = AuthorizationUtils.isAuthorized(
+    boolean datasetBPrivilege =
+        AuthorizationUtils.isAuthorized(
             context.getAuthorizer(),
             context.getActorUrn(),
             datasetBUrn.getEntityType(),
@@ -211,4 +243,3 @@ public class ERModelRelationType implements com.linkedin.datahub.graphql.types.E
     return datasetAPrivilege && datasetBPrivilege;
   }
 }
-

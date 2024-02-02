@@ -1,7 +1,8 @@
 plugins {
+    id 'java'
     id "io.github.kobylynskyi.graphql.codegen" version "4.1.1"
 }
-apply plugin: 'java'
+
 
 dependencies {
     implementation project(':metadata-service:restli-client')
@@ -11,6 +12,7 @@ dependencies {
     implementation project(':metadata-service:services')
     implementation project(':metadata-io')
     implementation project(':metadata-utils')
+    implementation project(':metadata-models')
 
     implementation externalDependency.graphqlJava
     implementation externalDependency.graphqlJavaScalars
@@ -39,11 +41,14 @@ graphqlCodegen {
         "$projectDir/src/main/resources/auth.graphql".toString(),
         "$projectDir/src/main/resources/timeline.graphql".toString(),
         "$projectDir/src/main/resources/tests.graphql".toString(),
+        "$projectDir/src/main/resources/properties.graphql".toString(),
         "$projectDir/src/main/resources/step.graphql".toString(),
         "$projectDir/src/main/resources/lineage.graphql".toString(),
+        "$projectDir/src/main/resources/forms.graphql".toString()
     ]
     outputDir = new File("$projectDir/src/mainGeneratedGraphQL/java")
     packageName = "com.linkedin.datahub.graphql.generated"
+    generateToString = true
     generateApis = true
     generateParameterizedFieldsResolvers = false
     modelValidationAnnotation = "@javax.annotation.Nonnull"

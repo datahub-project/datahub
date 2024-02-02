@@ -20,12 +20,21 @@ export default function GlossaryRoutes() {
     const entityRegistry = useEntityRegistry();
     const [entityData, setEntityData] = useState<GenericEntityProperties | null>(null);
     const [urnsToUpdate, setUrnsToUpdate] = useState<string[]>([]);
+    const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true);
 
     const isAtRootGlossary = window.location.pathname === PageRoutes.GLOSSARY;
 
     return (
         <GlossaryEntityContext.Provider
-            value={{ isInGlossaryContext: true, entityData, setEntityData, urnsToUpdate, setUrnsToUpdate }}
+            value={{
+                isInGlossaryContext: true,
+                entityData,
+                setEntityData,
+                urnsToUpdate,
+                setUrnsToUpdate,
+                isSidebarOpen,
+                setIsSidebarOpen,
+            }}
         >
             {!isAtRootGlossary && <GlossaryEntitiesPath />}
             <ContentWrapper>
