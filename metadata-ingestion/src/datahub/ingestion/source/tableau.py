@@ -1806,6 +1806,8 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
         workbook: Optional[dict] = None,
         is_embedded_ds: bool = False,
     ) -> Iterable[MetadataWorkUnit]:
+        logger.debug(f"Parameters: datasource={datasource}\n\n workbook={workbook}\n\n is_embedded_ds={is_embedded_ds}\n\n")
+        
         datasource_info = workbook
         if not is_embedded_ds:
             datasource_info = datasource
@@ -1865,7 +1867,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
         dataset_snapshot.aspects.append(dataset_props)
 
         # Upstream Tables
-        if datasource.get(c.UPSTREAM_TABLES) or datasource.get(c.UPSTREAM_DATA_SOURCES):
+        if datasource.get(c.UPSTREAM_TABLES) or datasource.get(c.UPSTREAM_DATA_SOURCES) or datasource.get(c.FIELDS):
             # datasource -> db table relations
             (
                 upstream_tables,
