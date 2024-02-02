@@ -3,14 +3,14 @@ import textwrap
 import sqlglot
 
 from datahub.sql_parsing.sql_parsing_common import QueryType
-from datahub.sql_parsing.sql_parsing_utils import (
-    generalize_query,
-    get_dialect,
-    is_dialect_instance,
-)
 from datahub.sql_parsing.sqlglot_lineage import (
     _UPDATE_ARGS_NOT_SUPPORTED_BY_SELECT,
     get_query_type_of_sql,
+)
+from datahub.sql_parsing.sqlglot_utils import (
+    generalize_query,
+    get_dialect,
+    is_dialect_instance,
 )
 
 

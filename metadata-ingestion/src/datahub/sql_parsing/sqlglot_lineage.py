@@ -29,11 +29,12 @@ from datahub.sql_parsing.sql_parsing_common import (
     DIALECTS_WITH_DEFAULT_UPPERCASE_COLS,
     QueryType,
 )
-from datahub.sql_parsing.sql_parsing_utils import (
+from datahub.sql_parsing.sqlglot_utils import (
     DialectOrStr,
     get_dialect,
     get_query_fingerprint,
     is_dialect_instance,
+    parse_statement,
 )
 
 logger = logging.getLogger(__name__)
@@ -205,15 +206,6 @@ class SqlParsingResult(_ParserBaseModel):
                 table_error=error,
             ),
         )
-
-
-def _parse_statement(
-    sql: sqlglot.exp.ExpOrStr, dialect: sqlglot.Dialect
-) -> sqlglot.Expression:
-    statement: sqlglot.Expression = sqlglot.maybe_parse(
-        sql, dialect=dialect, error_level=sqlglot.ErrorLevel.RAISE
-    )
-    return statement
 
 
 def _table_level_lineage(
@@ -762,7 +754,7 @@ def _sqlglot_lineage_inner(
         pass
 
     logger.debug("Parsing lineage from sql statement: %s", sql)
-    statement = _parse_statement(sql, dialect=dialect)
+    statement = parse_statement(sql, dialect=dialect)
 
     original_statement = statement.copy()
     # logger.debug(
@@ -955,59 +947,6 @@ def sqlglot_lineage(
         )
     except Exception as e:
         return SqlParsingResult.make_from_error(e)
-
-
-def detach_ctes(
-    sql: sqlglot.exp.ExpOrStr, platform: str, cte_mapping: Dict[str, str]
-) -> sqlglot.exp.Expression:
-    """Replace CTE references with table references.
-
-    For example, with cte_mapping = {"__cte_0": "_my_cte_table"}, the following SQL
-
-    WITH __cte_0 AS (SELECT * FROM table1) SELECT * FROM table2 JOIN __cte_0 ON table2.id = __cte_0.id
-
-    is transformed into
-
-    WITH __cte_0 AS (SELECT * FROM table1) SELECT * FROM table2 JOIN _my_cte_table ON table2.id = _my_cte_table.id
-
-    Note that the original __cte_0 definition remains in the query, but is simply not referenced.
-    The query optimizer should be able to remove it.
-
-    This method makes a major assumption: that no other table/column has the same name as a
-    key in the cte_mapping.
-    """
-
-    dialect = get_dialect(platform)
-    statement = _parse_statement(sql, dialect=dialect)
-
-    def replace_cte_refs(node: sqlglot.exp.Expression) -> sqlglot.exp.Expression:
-        if (
-            isinstance(node, sqlglot.exp.Identifier)
-            and node.parent
-            and not isinstance(node.parent.parent, sqlglot.exp.CTE)
-            and node.name in cte_mapping
-        ):
-            full_new_name = cte_mapping[node.name]
-            table_expr = sqlglot.maybe_parse(
-                full_new_name, dialect=dialect, into=sqlglot.exp.Table
-            )
-
-            parent = node.parent
-
-            # We expect node.parent to be a Table or Column, both of which support catalog/db/name.
-            # However, we check the parent's arg_types to be safe.
-            if "catalog" in parent.arg_types and table_expr.catalog:
-                parent.set("catalog", table_expr.catalog)
-            if "db" in parent.arg_types and table_expr.db:
-                parent.set("db", table_expr.db)
-
-            new_node = sqlglot.exp.Identifier(this=table_expr.name)
-
-            return new_node
-        else:
-            return node
-
-    return statement.transform(replace_cte_refs, copy=False)
 
 
 def create_lineage_sql_parsed_result(

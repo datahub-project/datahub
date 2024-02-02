@@ -112,9 +112,9 @@ from datahub.sql_parsing.sqlglot_lineage import (
     SchemaInfo,
     SqlParsingDebugInfo,
     SqlParsingResult,
-    detach_ctes,
     sqlglot_lineage,
 )
+from datahub.sql_parsing.sqlglot_utils import detach_ctes
 from datahub.utilities.mapping import Constants, OperationProcessor
 from datahub.utilities.time import datetime_to_ts_millis
 from datahub.utilities.topological_sort import topological_sort
