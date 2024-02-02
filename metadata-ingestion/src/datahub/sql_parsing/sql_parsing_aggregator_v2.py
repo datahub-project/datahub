@@ -1,6 +1,7 @@
 import dataclasses
 import enum
 import logging
+from collections import defaultdict
 from datetime import datetime
 from typing import Callable, Dict, Iterable, List, Optional, Set
 
@@ -8,7 +9,12 @@ import datahub.metadata.schema_classes as models
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
-from datahub.metadata.urns import CorpUserUrn, DataPlatformUrn, DatasetUrn
+from datahub.metadata.urns import (
+    CorpUserUrn,
+    DataPlatformUrn,
+    DatasetUrn,
+    SchemaFieldUrn,
+)
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.sql_parsing.sqlglot_lineage import ColumnLineageInfo, sqlglot_lineage
 from datahub.utilities.file_backed_collections import FileBackedDict
@@ -36,9 +42,7 @@ class QueryMetadata:
     actor: Optional[CorpUserUrn]
 
     upstreams: List[str]  # this is direct upstreams, which may be temp tables
-    column_lineage: Optional[
-        List[ColumnLineageInfo]
-    ]  # TODO add an internal representation?
+    column_lineage: List[ColumnLineageInfo]  # TODO add an internal representation?
 
 
 class SqlParsingAggregator:
@@ -200,6 +204,7 @@ class SqlParsingAggregator:
 
         # Note: this assumes that queries come in order of increasing timestamps
 
+        # TODO load in any temp tables for this session into the schema resolver
         parsed = sqlglot_lineage(
             query,
             schema_resolver=self._schema_resolver,
@@ -216,6 +221,7 @@ class SqlParsingAggregator:
 
         if not parsed.out_tables:
             # TODO - this is just a SELECT statement, so it only counts towards usage
+            # TODO we need a full list of columns referenced, not just the out tables
             breakpoint()
 
             return
@@ -223,6 +229,9 @@ class SqlParsingAggregator:
         out_table = parsed.out_tables[0]
         query_fingerprint = parsed.query_fingerprint
         assert query_fingerprint is not None
+
+        upstreams = parsed.in_tables
+        column_lineage = parsed.column_lineage
 
         if (
             is_known_temp_table
@@ -234,13 +243,30 @@ class SqlParsingAggregator:
             or not self._schema_resolver.has_urn(out_table)
         ):
             # handle temp table
+
+            # TODO add to query_map
+
+            self._temp_lineage_map.for_mutation(session_id, {})[
+                out_table
+            ] = query_fingerprint
             breakpoint()
 
         else:
             # Non-temp tables -> immediately generate lineage.
 
             if query_fingerprint in self._query_map:
-                pass
+                query_metadata = self._query_map.for_mutation(query_fingerprint)
+
+                # This assumes that queries come in order of increasing timestamps,
+                # so the current query is more authoritative than the previous one.
+                query_metadata.session_id = session_id
+                query_metadata.latest_timestamp = (
+                    query_timestamp or query_metadata.latest_timestamp
+                )
+                query_metadata.actor = user or query_metadata.actor
+
+                # An invariant of the fingerprinting is that if two queries have the
+                # same fingerprint, they must also have the same lineage.
             else:
                 self._query_map[query_fingerprint] = QueryMetadata(
                     query_id=query_fingerprint,
@@ -249,8 +275,11 @@ class SqlParsingAggregator:
                     type=models.DatasetLineageTypeClass.TRANSFORMED,
                     latest_timestamp=query_timestamp,
                     actor=user,
-                    # TODO upstreams + CLL info
+                    upstreams=upstreams,
+                    column_lineage=column_lineage,
                 )
+
+            self._lineage_map.for_mutation(out_table, set()).add(query_fingerprint)
 
             # TODO: what happens if a CREATE VIEW query gets passed into this method
 
@@ -259,6 +288,7 @@ class SqlParsingAggregator:
     def add_lineage(self) -> None:
         # A secondary mechanism for adding non-SQL-based lineage
         # e.g. redshift external tables might use this when pointing at s3
+        # TODO
         pass
 
     def gen_metadata(self) -> Iterable[MetadataChangeProposalWrapper]:
@@ -272,6 +302,115 @@ class SqlParsingAggregator:
         # the parsing of view definitions is deferred until this method,
         # since all the view schemas will be registered at this point
         # the temp table resolution happens at generation time, not add query time
+
+        # TODO process all views -> inject into the lineage map
+
+        for downstream_urn in self._lineage_map:
+            yield from self._gen_lineage_for_downstream(downstream_urn)
+
+    @classmethod
+    def _query_type_precedence(cls, query_type: models.DatasetLineageTypeClass) -> int:
+        query_precedence = [
+            models.DatasetLineageTypeClass.COPY,
+            models.DatasetLineageTypeClass.VIEW,
+            models.DatasetLineageTypeClass.TRANSFORMED,
+        ]
+
+        idx = query_precedence.index(query_type)
+        if idx == -1:
+            return len(query_precedence)
+        return idx
+
+    def _gen_lineage_for_downstream(
+        self, downstream_urn: str
+    ) -> Iterable[MetadataChangeProposalWrapper]:
+        query_ids = self._lineage_map[downstream_urn]
+        queries: List[QueryMetadata] = [
+            self._query_map[query_id] for query_id in query_ids
+        ]
+
+        # TODO for some of these queries, they need to be recursively resolved
+        # if they have temp tables listed in their upstreams
+
+        # TODO - should we sort by timestamp here? lineage_map using a set loses order info
+        queries = sorted(
+            queries,
+            key=lambda query: (
+                self._query_type_precedence(query.type),
+                -(query.latest_timestamp or 0),
+            ),
+        )
+
+        queries_map: Dict[QueryId, QueryMetadata] = {
+            query.query_id: query for query in queries
+        }
+
+        # mapping of upstream urn -> query id that produced it
+        upstreams: Dict[str, QueryId] = {}
+        # mapping of downstream column -> { upstream column -> query id that produced it }
+        cll: Dict[str, Dict[SchemaFieldUrn, QueryId]] = defaultdict(dict)
+        # TODO replace column ref with schema field urn?
+
+        for query in queries:
+            # Using setdefault to respect the precedence of queries.
+
+            for upstream in query.upstreams:
+                upstreams.setdefault(upstream, query.query_id)
+
+            for lineage_info in query.column_lineage:
+                for upstream_ref in lineage_info.upstreams:
+                    cll[lineage_info.downstream.column].setdefault(
+                        SchemaFieldUrn(upstream_ref.table, upstream_ref.column),
+                        query.query_id,
+                    )
+
+        # Finally, we can build our lineage edge.
+        required_queries = set()
+        upstream_aspect = models.UpstreamLineageClass(
+            upstreams=[],
+            fineGrainedLineages=[],
+        )
+        for upstream_urn, query_id in upstreams.items():
+            required_queries.add(query_id)
+            upstream_aspect.upstreams.append(
+                models.UpstreamClass(
+                    dataset=upstream_urn,
+                    type=queries_map[query_id].type,
+                    # TODO audit stamp
+                    # TODO query id
+                )
+            )
+        for downstream_column, upstream_columns in cll.items():
+            upstream_aspect.fineGrainedLineages.append(
+                models.FineGrainedLineageClass(
+                    upstreamType=models.FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                    upstreams=[
+                        upstream_column.urn() for upstream_column in upstream_columns
+                    ],
+                    downstreamType=models.FineGrainedLineageDownstreamTypeClass.FIELD,
+                    downstreams=[
+                        SchemaFieldUrn(downstream_urn, downstream_column).urn()
+                    ],
+                    # TODO query id
+                    # TODO confidence score
+                )
+            )
+            required_queries.update(upstream_columns.values())
+
+        yield MetadataChangeProposalWrapper(
+            entityUrn=downstream_urn,
+            aspect=upstream_aspect,
+        )
+
+        # add the required_queries to a global required queries list?
+        # or maybe just emit immediately?
+
+    def _gen_usage_statistics_mcps(self) -> Iterable[MetadataChangeProposalWrapper]:
+        # TODO
+        pass
+
+    def _gen_operation_mcps(self) -> Iterable[MetadataChangeProposalWrapper]:
+        # TODO
         pass
 
 
