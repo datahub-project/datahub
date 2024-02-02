@@ -57,7 +57,7 @@ public class EditableDatasetPropertiesChangeEventGenerator
           .operation(ChangeOperation.ADD)
           .semVerChange(SemanticChangeType.MINOR)
           .description(String.format(DESCRIPTION_ADDED, entityUrn, targetDescription))
-          .parameters(String.format(DESCRIPTION_ADDED, entityUrn, targetDescription))
+          .parameters(buildParameters(String.format(DESCRIPTION_ADDED, entityUrn, targetDescription)))
           .auditStamp(auditStamp)
           .build();
     } else if (baseDescription != null && targetDescription == null) {
@@ -68,7 +68,7 @@ public class EditableDatasetPropertiesChangeEventGenerator
           .operation(ChangeOperation.REMOVE)
           .semVerChange(SemanticChangeType.MINOR)
           .description(String.format(DESCRIPTION_REMOVED, entityUrn, baseDescription))
-          .parameters(String.format(DESCRIPTION_REMOVED, entityUrn, baseDescription))
+          .parameters(buildParameters(String.format(DESCRIPTION_REMOVED, entityUrn, baseDescription)))
           .auditStamp(auditStamp)
           .build();
     } else if (baseDescription != null
@@ -82,8 +82,8 @@ public class EditableDatasetPropertiesChangeEventGenerator
           .semVerChange(SemanticChangeType.MINOR)
           .description(
               String.format(DESCRIPTION_CHANGED, entityUrn, baseDescription, targetDescription))
-          .parameters(
-              String.format(DESCRIPTION_CHANGED, entityUrn, baseDescription, targetDescription))
+          .parameters(buildParameters(
+              String.format(DESCRIPTION_CHANGED, entityUrn, baseDescription, targetDescription)))
           .auditStamp(auditStamp)
           .build();
     }
