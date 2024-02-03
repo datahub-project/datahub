@@ -286,7 +286,7 @@ class SqlParsingAggregator:
                 # same fingerprint, they must also have the same lineage. We overwrite
                 # here just in case more schemas got registered in the interim.
                 query_metadata.upstreams = upstreams
-                query_metadata.column_lineage = column_lineage
+                query_metadata.column_lineage = column_lineage or []
                 query_metadata.confidence_score = parsed.debug_info.confidence
             else:
                 self._query_map[query_fingerprint] = QueryMetadata(
@@ -297,7 +297,7 @@ class SqlParsingAggregator:
                     latest_timestamp=query_timestamp,
                     actor=user,
                     upstreams=upstreams,
-                    column_lineage=column_lineage,
+                    column_lineage=column_lineage or [],
                     confidence_score=parsed.debug_info.confidence,
                 )
 
@@ -388,10 +388,7 @@ class SqlParsingAggregator:
 
         # Finally, we can build our lineage edge.
         required_queries = set()
-        upstream_aspect = models.UpstreamLineageClass(
-            upstreams=[],
-            fineGrainedLineages=[],
-        )
+        upstream_aspect = models.UpstreamLineageClass(upstreams=[])
         for upstream_urn, query_id in upstreams.items():
             required_queries.add(query_id)
 
@@ -403,6 +400,7 @@ class SqlParsingAggregator:
                     # TODO query id
                 )
             )
+        upstream_aspect.fineGrainedLineages = []
         for downstream_column, upstream_columns in cll.items():
             query_id = next(iter(upstream_columns.values()))
             required_queries.add(query_id)

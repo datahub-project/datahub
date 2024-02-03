@@ -54,13 +54,18 @@ class SchemaResolver(Closeable):
             shared_conn = ConnectionWrapper(filename=_cache_filename)
         self._schema_cache: FileBackedDict[Optional[SchemaInfo]] = FileBackedDict(
             shared_connection=shared_conn,
+            extra_columns={"is_missing": lambda v: v is None},
         )
 
     def get_urns(self) -> Set[str]:
-        return set(self._schema_cache.keys())
+        return set(k for k, v in self._schema_cache.items() if v is not None)
 
     def schema_count(self) -> int:
-        return len(self._schema_cache)
+        return int(
+            self._schema_cache.sql_query(
+                f"SELECT COUNT(*) FROM {self._schema_cache.tablename} WHERE is_missing"
+            )[0][0]
+        )
 
     def get_urn_for_table(self, table: _TableName, lower: bool = False) -> str:
         # TODO: Validate that this is the correct 2/3 layer hierarchy for the platform.
@@ -109,7 +114,7 @@ class SchemaResolver(Closeable):
             return urn_lower, None
 
     def has_urn(self, urn: str) -> bool:
-        return urn in self._schema_cache
+        return self._schema_cache.get(urn) is not None
 
     def _resolve_schema_info(self, urn: str) -> Optional[SchemaInfo]:
         if urn in self._schema_cache:

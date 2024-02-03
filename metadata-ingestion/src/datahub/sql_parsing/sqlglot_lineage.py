@@ -28,6 +28,7 @@ from datahub.sql_parsing.sql_parsing_common import (
     DIALECTS_WITH_CASE_INSENSITIVE_COLS,
     DIALECTS_WITH_DEFAULT_UPPERCASE_COLS,
     QueryType,
+    QueryTypeProps,
 )
 from datahub.sql_parsing.sqlglot_utils import (
     DialectOrStr,
@@ -74,9 +75,9 @@ def _is_temp_table(table: sqlglot.exp.Table, dialect: sqlglot.Dialect) -> bool:
 
 def get_query_type_of_sql(
     expression: sqlglot.exp.Expression, dialect: DialectOrStr
-) -> Tuple[QueryType, dict]:
+) -> Tuple[QueryType, QueryTypeProps]:
     dialect = get_dialect(dialect)
-    query_type_props: Dict[str, Any] = {}
+    query_type_props: QueryTypeProps = {}
 
     # For creates, we need to look at the inner expression.
     if isinstance(expression, sqlglot.exp.Create):
@@ -181,7 +182,7 @@ class SqlParsingDebugInfo(_ParserBaseModel):
 
 class SqlParsingResult(_ParserBaseModel):
     query_type: QueryType = QueryType.UNKNOWN
-    query_type_props: dict = {}
+    query_type_props: QueryTypeProps = {}
     query_fingerprint: Optional[str] = None
 
     in_tables: List[Urn]

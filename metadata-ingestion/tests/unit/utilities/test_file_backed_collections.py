@@ -55,6 +55,12 @@ def test_file_dict() -> None:
     assert cache["key-3"] == 99
     cache["key-3"] = 3
 
+    # Test in operator
+    assert "key-3" in cache
+    assert "key-99" in cache
+    assert "missing" not in cache
+    assert "missing" not in cache
+
     # Test deleting keys, in and out of cache
     del cache["key-0"]
     del cache["key-99"]

@@ -1,6 +1,8 @@
 import enum
 from typing import Optional
 
+from typing_extensions import TypedDict
+
 from datahub.metadata.schema_classes import OperationTypeClass
 
 PLATFORMS_WITH_CASE_SENSITIVE_TABLES = {
@@ -62,3 +64,8 @@ class QueryType(enum.Enum):
             QueryType.MERGE: OperationTypeClass.UPDATE,
         }
         return query_to_operation_mapping.get(self, OperationTypeClass.UNKNOWN)
+
+
+class QueryTypeProps(TypedDict, total=False):
+    kind: str  # used for create statements
+    temporary: bool
