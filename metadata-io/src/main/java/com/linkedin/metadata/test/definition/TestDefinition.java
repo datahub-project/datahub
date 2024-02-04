@@ -24,4 +24,10 @@ public class TestDefinition {
 
   /** Actions to run on failure / success of a particular test. */
   private final TestActions actions;
+
+  /** md5 hash of the test definition */
+  private final String md5;
+
+  /** Raw string representation of the test definition */
+  private final String rawDefinition;
 }

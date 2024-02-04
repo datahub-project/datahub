@@ -72,6 +72,16 @@
                     }
                   },
                   "doc" : "The type of the result"
+                }, {
+                  "name" : "testDefinitionMd5",
+                  "type" : "string",
+                  "doc" : "The md5 of the test definition that was used to compute this result.\nSee TestInfo.testDefinition.md5 for more information.",
+                  "optional" : true
+                }, {
+                  "name" : "lastComputed",
+                  "type" : "com.linkedin.common.AuditStamp",
+                  "doc" : "The audit stamp of when the result was computed, including the actor who computed it.",
+                  "optional" : true
                 } ]
               }
             },
@@ -87,6 +97,10 @@
                 "fieldName" : "failingTests",
                 "fieldType" : "URN",
                 "hasValuesFieldName" : "hasFailingTests"
+              },
+              "/*/testDefinitionMd5" : {
+                "fieldName" : "testDefinitionsMd5",
+                "fieldType" : "keyword"
               }
             }
           }, {
@@ -107,6 +121,10 @@
                 "fieldName" : "passingTests",
                 "fieldType" : "URN",
                 "hasValuesFieldName" : "hasPassingTests"
+              },
+              "/*/testDefinitionMd5" : {
+                "fieldName" : "testDefinitionsMd5",
+                "fieldType" : "keyword"
               }
             }
           } ],
@@ -136,6 +154,11 @@
       "name" : "json",
       "type" : "string",
       "doc" : "JSON format configuration for the test",
+      "optional" : true
+    }, {
+      "name" : "md5",
+      "type" : "string",
+      "doc" : "MD5 hash of the test definition.\nComputed by the server.\nUsed to stamp test results accurately.\nSee TestResult for more details.",
       "optional" : true
     } ]
   }, "com.linkedin.test.TestDefinitionType", {

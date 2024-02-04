@@ -11,10 +11,12 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.test.action.ActionApplier;
 import com.linkedin.metadata.test.definition.TestDefinitionParser;
 import com.linkedin.metadata.test.eval.PredicateEvaluator;
 import com.linkedin.metadata.test.query.QueryEngine;
+import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.test.TestDefinition;
 import com.linkedin.test.TestDefinitionType;
 import com.linkedin.test.TestInfo;
@@ -30,6 +32,9 @@ import org.testng.annotations.Test;
 public class TestEngineTest {
 
   final EntityService mockEntityService = Mockito.mock(EntityService.class);
+
+  final TimeseriesAspectService mockTimeseriesAspectService =
+      Mockito.mock(TimeseriesAspectService.class);
   final TestFetcher mockTestFetcher = Mockito.mock(TestFetcher.class);
   final QueryEngine mockQueryEngine = Mockito.mock(QueryEngine.class);
   final ActionApplier mockActionApplier = Mockito.mock(ActionApplier.class);
@@ -107,9 +112,13 @@ public class TestEngineTest {
             TestEngineTest.class.getClassLoader().getResourceAsStream("entity-registry.yml"));
     when(mockEntityService.getEntityRegistry()).thenReturn(entityRegistry);
 
+    final EntitySearchService mockSearchService = Mockito.mock(EntitySearchService.class);
+
     return new TestEngine(
         TestOperationContexts.systemContextNoSearchAuthorization(entityRegistry),
         mockEntityService,
+        mockSearchService,
+        mockTimeseriesAspectService,
         mockTestFetcher,
         new TestDefinitionParser(spyPredicateEvaluator),
         mockQueryEngine,

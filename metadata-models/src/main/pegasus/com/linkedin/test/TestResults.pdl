@@ -15,6 +15,10 @@ record TestResults {
       "fieldType": "URN",
       "fieldName": "failingTests"
       "hasValuesFieldName": "hasFailingTests",
+    },
+    "/*/testDefinitionMd5": {
+      "fieldType": "KEYWORD",
+      "fieldName": "failingTestDefinitionMd5"
     }
   }
   @Relationship = {
@@ -33,6 +37,10 @@ record TestResults {
       "fieldType": "URN",
       "fieldName": "passingTests",
       "hasValuesFieldName": "hasPassingTests",
+    },
+    "/*/testDefinitionMd5": {
+      "fieldType": "KEYWORD",
+      "fieldName": "passingTestDefinitionMd5"
     }
   }
   @Relationship = {

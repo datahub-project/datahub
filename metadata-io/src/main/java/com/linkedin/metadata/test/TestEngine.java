@@ -7,11 +7,16 @@ import com.google.common.collect.ImmutableList;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.SetMode;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.aspect.patch.builder.TestResultsPatchBuilder;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
+import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.search.EntitySearchService;
+import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.test.action.ActionApplier;
 import com.linkedin.metadata.test.action.ActionParameters;
 import com.linkedin.metadata.test.definition.TestAction;
@@ -21,12 +26,17 @@ import com.linkedin.metadata.test.definition.ValidationResult;
 import com.linkedin.metadata.test.definition.operator.Predicate;
 import com.linkedin.metadata.test.eval.PredicateEvaluator;
 import com.linkedin.metadata.test.exception.TestDefinitionParsingException;
+import com.linkedin.metadata.test.executor.elastic.ElasticSearchTestExecutor;
 import com.linkedin.metadata.test.query.QueryEngine;
 import com.linkedin.metadata.test.query.TestQuery;
 import com.linkedin.metadata.test.query.TestQueryResponse;
 import com.linkedin.metadata.test.util.TestUtils;
+import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.test.BatchTestRunEvent;
+import com.linkedin.test.BatchTestRunResult;
+import com.linkedin.test.BatchTestRunStatus;
 import com.linkedin.test.TestResult;
 import com.linkedin.test.TestResultArray;
 import com.linkedin.test.TestResultType;
@@ -40,6 +50,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -49,7 +60,9 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -62,16 +75,21 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class TestEngine {
   private final EntityService _entityService;
+
+  private final EntitySearchService _searchService;
+
   private final QueryEngine _queryEngine;
   private final PredicateEvaluator _predicateEvaluator;
   private final TestDefinitionParser _testDefinitionParser;
   private final ActionApplier _actionApplier;
 
   // Maps test urn to deserialized test definition
-  // Not concurrent data structure because writes are always against the entire thing.
+  // Not concurrent data structure because writes are always against the entire
+  // thing.
   private final Map<Urn, TestDefinition> _testCache = new HashMap<>();
   // Maps entity type to list of tests that target the entity type
-  // Not concurrent data structure because writes are always against the entire thing.
+  // Not concurrent data structure because writes are always against the entire
+  // thing.
   private final Map<String, Set<TestDefinition>> _testPerEntityTypeCache = new HashMap<>();
 
   // Shared lock for both cache hashmaps
@@ -82,6 +100,10 @@ public class TestEngine {
   private final TestRefreshRunnable _testRefreshRunnable;
   private final Set<String> _supportedEntityTypes;
   private final boolean isPartialFetcher;
+
+  private final ElasticSearchTestExecutor _elasticSearchTestExecutor;
+
+  private final TimeseriesAspectService _timeseriesAspectService;
 
   // TODO: Make this configurable
   private static final Integer MAX_ENTITIES_EVALUATED_IN_SINGLE_EXECUTION = 10000;
@@ -109,6 +131,8 @@ public class TestEngine {
   public TestEngine(
       @Nonnull OperationContext systemOpContext,
       EntityService<?> entityService,
+      EntitySearchService searchService,
+      TimeseriesAspectService timeseriesAspectService,
       TestFetcher testFetcher,
       TestDefinitionParser testDefinitionParser,
       QueryEngine queryEngine,
@@ -118,6 +142,7 @@ public class TestEngine {
       final int refreshIntervalSeconds) {
 
     _entityService = entityService;
+    _searchService = searchService;
     _queryEngine = queryEngine;
     _predicateEvaluator = predicateEvaluator;
     _testDefinitionParser = testDefinitionParser;
@@ -141,6 +166,10 @@ public class TestEngine {
       loadTests();
     }
     _supportedEntityTypes = TestUtils.getSupportedEntityTypes(entityService.getEntityRegistry());
+    _elasticSearchTestExecutor =
+        new ElasticSearchTestExecutor(
+            searchService, timeseriesAspectService, entityService.getEntityRegistry());
+    _timeseriesAspectService = timeseriesAspectService;
   }
 
   /**
@@ -298,12 +327,14 @@ public class TestEngine {
               .collect(Collectors.toSet());
     }
 
+    HashMap<Urn, BatchTestRunResult> batchedTestRunResults = new HashMap<>();
     // Step 2: Evaluate all tests for entity
-    Map<Urn, TestResults> results = batchEvaluateTests(entityUrns, testDefinitions);
+    Map<Urn, TestResults> results =
+        batchEvaluateTests(entityUrns, testDefinitions, batchedTestRunResults);
 
     // Step 3 (Optional): Write results to DataHub
     if (!EvaluationMode.EVALUATE_ONLY.equals(mode)) {
-      batchIngestResults(results, mode, partial);
+      batchIngestResults(results, mode, partial, batchedTestRunResults, null);
       batchApplyActions(results);
     }
 
@@ -315,11 +346,13 @@ public class TestEngine {
    *
    * @param urns the urns to be tested
    * @param tests the test definitions to be evaluated
-   * @return a map of urn to the corresponding test results.
+   * @return a map of entity urn to the corresponding test results.
    */
   @WithSpan
   private Map<Urn, TestResults> batchEvaluateTests(
-      @Nonnull final Set<Urn> urns, @Nonnull final Set<TestDefinition> tests) {
+      @Nonnull final Set<Urn> urns,
+      @Nonnull final Set<TestDefinition> tests,
+      @Nonnull Map<Urn, BatchTestRunResult> batchTestRunResults) {
     // Get a map of test definition -> urns which match select conditions
     Map<TestDefinition, Set<Urn>> eligibleTestsPerEntity = getEligibleEntitiesPerTest(urns, tests);
 
@@ -341,7 +374,17 @@ public class TestEngine {
       Map<Urn, Map<TestQuery, TestQueryResponse>> rulesQueryResponses =
           batchQuery(urnsToTest, ImmutableList.of(testDefinition.getRules()));
 
-      // For each entity, evaluate whether it passes the test using the query evaluation results
+      if (!batchTestRunResults.containsKey(testDefinition.getUrn())) {
+        batchTestRunResults.put(
+            testDefinition.getUrn(),
+            new BatchTestRunResult()
+                .setPassingCount(0)
+                .setFailingCount(0)
+                .setTestDefinition(testDefinition.getRawDefinition()));
+      }
+
+      // For each entity, evaluate whether it passes the test using the query
+      // evaluation results
       for (Urn urn : urnsToTest) {
 
         // Run the test!
@@ -357,7 +400,16 @@ public class TestEngine {
               .add(
                   new TestResult()
                       .setTest(testDefinition.getUrn())
-                      .setType(TestResultType.SUCCESS));
+                      .setType(TestResultType.SUCCESS)
+                      .setTestDefinitionMd5(testDefinition.getMd5(), SetMode.IGNORE_NULL)
+                      .setLastComputed(
+                          new AuditStamp()
+                              .setTime(System.currentTimeMillis())
+                              .setActor(UrnUtils.getUrn(Constants.SYSTEM_ACTOR))));
+          batchTestRunResults
+              .get(testDefinition.getUrn())
+              .setPassingCount(
+                  batchTestRunResults.get(testDefinition.getUrn()).getPassingCount() + 1);
         } else {
           finalTestResults
               .get(urn)
@@ -365,7 +417,16 @@ public class TestEngine {
               .add(
                   new TestResult()
                       .setTest(testDefinition.getUrn())
-                      .setType(TestResultType.FAILURE));
+                      .setType(TestResultType.FAILURE)
+                      .setTestDefinitionMd5(testDefinition.getMd5(), SetMode.IGNORE_NULL)
+                      .setLastComputed(
+                          new AuditStamp()
+                              .setTime(System.currentTimeMillis())
+                              .setActor(UrnUtils.getUrn(Constants.SYSTEM_ACTOR))));
+          batchTestRunResults
+              .get(testDefinition.getUrn())
+              .setPassingCount(
+                  batchTestRunResults.get(testDefinition.getUrn()).getFailingCount() + 1);
         }
       }
     }
@@ -383,7 +444,8 @@ public class TestEngine {
   private Map<TestDefinition, Set<Urn>> getEligibleEntitiesPerTest(
       @Nonnull Set<Urn> urns, @Nonnull Set<TestDefinition> tests) {
     // First batch evaluate all queries in the targeting rules
-    // Always make sure we batch queries together as much as possible to reduce calls
+    // Always make sure we batch queries together as much as possible to reduce
+    // calls
     Map<Urn, Map<TestQuery, TestQueryResponse>> selectConditionQueryResponse =
         batchQuery(urns, getPredicatesFromSelectConditions(tests));
     Map<TestDefinition, Set<Urn>> eligibleTestsPerEntity = new HashMap<>();
@@ -425,7 +487,8 @@ public class TestEngine {
     // Validate 'rules' block queries.
     queries.addAll(_predicateEvaluator.extractQueriesForPredicate(testDefinition.getRules()));
 
-    // Verify that each defined query is valid. If multiple are invalid, merge the error messages
+    // Verify that each defined query is valid. If multiple are invalid, merge the
+    // error messages
     List<ValidationResult> invalidResults =
         queries.stream()
             .map(query -> _queryEngine.validateQuery(query, entityTypes))
@@ -513,6 +576,22 @@ public class TestEngine {
     return _predicateEvaluator.evaluatePredicate(selectConditions, targetingRulesQueryResponses);
   }
 
+  private TestResultArray computeUpdated(
+      TestResultArray previousResults, TestResultArray newResults) {
+    TestResultArray updatedResults = new TestResultArray();
+    for (TestResult newResult : newResults) {
+      if (previousResults.stream()
+          .noneMatch(
+              r ->
+                  (r.getTest().equals(newResult.getTest())
+                      && Objects.equals(
+                          r.getTestDefinitionMd5(), newResult.getTestDefinitionMd5())))) {
+        updatedResults.add(newResult);
+      }
+    }
+    return updatedResults;
+  }
+
   /**
    * Overwrites test results into GMS for a given urn.
    *
@@ -520,20 +599,72 @@ public class TestEngine {
    * @param mode Evaluation mode
    */
   private void batchIngestResults(
-      @Nonnull Map<Urn, TestResults> testResults, EvaluationMode mode, boolean partial) {
-    final List<MetadataChangeProposal> mcps;
+      @Nonnull Map<Urn, TestResults> testResults,
+      EvaluationMode mode,
+      boolean partial,
+      @Nonnull Map<Urn, BatchTestRunResult> batchTestRunResults,
+      @Nullable Map<Urn, TestResults> previousResults) {
+    final Stream<MetadataChangeProposal> mcps;
+    Stream<MetadataChangeProposal> removalMcps = Stream.empty();
 
     if (partial) {
+      if (previousResults != null) {
+        // For the entities that were ONLY present in the previous results, we need to remove
+        // the test results. For entities that are common, the test result update will automatically
+        // remove
+        // the old test results.
+        Set<Urn> onlyInPrevious =
+            previousResults.keySet().stream()
+                .filter(urn -> !testResults.containsKey(urn))
+                .collect(Collectors.toSet());
+        log.info("Only in previous: {}", onlyInPrevious);
+        removalMcps =
+            onlyInPrevious.stream()
+                .map(
+                    urn -> {
+                      final TestResultsPatchBuilder builder =
+                          new TestResultsPatchBuilder().urn(urn);
+                      previousResults
+                          .get(urn)
+                          .getPassing()
+                          .forEach(
+                              testResult ->
+                                  builder.removePassing(testResult.getTest(), testResult));
+                      previousResults
+                          .get(urn)
+                          .getFailing()
+                          .forEach(
+                              testResult ->
+                                  builder.removeFailing(testResult.getTest(), testResult));
+                      return builder.build();
+                    });
+      }
+
       mcps =
           testResults.entrySet().stream()
               .map(
-                  entry ->
-                      new TestResultsPatchBuilder()
-                          .urn(entry.getKey())
-                          .updateTestResults(entry.getValue()))
+                  entry -> {
+                    final TestResultsPatchBuilder builder =
+                        new TestResultsPatchBuilder().urn(entry.getKey());
+                    if (previousResults != null && previousResults.containsKey(entry.getKey())) {
+                      TestResults finalTestResults =
+                          new TestResults()
+                              .setPassing(
+                                  computeUpdated(
+                                      previousResults.get(entry.getKey()).getPassing(),
+                                      entry.getValue().getPassing()))
+                              .setFailing(
+                                  computeUpdated(
+                                      previousResults.get(entry.getKey()).getFailing(),
+                                      entry.getValue().getFailing()));
+                      builder.updateTestResults(finalTestResults);
+                    } else {
+                      builder.updateTestResults(entry.getValue());
+                    }
+                    return builder;
+                  })
               .filter(TestResultsPatchBuilder::hasPatchOperations)
-              .map(TestResultsPatchBuilder::build)
-              .collect(Collectors.toList());
+              .map(TestResultsPatchBuilder::build);
     } else {
       mcps =
           testResults.entrySet().stream()
@@ -546,18 +677,40 @@ public class TestEngine {
                     proposal.setAspect(GenericRecordUtils.serializeAspect(entry.getValue()));
                     proposal.setChangeType(ChangeType.UPSERT);
                     return proposal;
-                  })
-              .collect(Collectors.toList());
+                  });
     }
 
-    if (!mcps.isEmpty()) {
+    if (!testResults.isEmpty()) {
       AuditStamp auditStamp =
           new AuditStamp()
               .setActor(UrnUtils.getUrn(Constants.SYSTEM_ACTOR))
               .setTime(System.currentTimeMillis());
 
+      Stream<MetadataChangeProposal> reportingMCPs =
+          batchTestRunResults.entrySet().stream()
+              .map(
+                  entry -> {
+                    final MetadataChangeProposal proposal = new MetadataChangeProposal();
+                    proposal.setEntityUrn(entry.getKey());
+                    proposal.setEntityType(entry.getKey().getEntityType());
+                    proposal.setAspectName("batchTestRunEvent");
+                    proposal.setAspect(
+                        GenericRecordUtils.serializeAspect(
+                            new BatchTestRunEvent()
+                                .setTimestampMillis(System.currentTimeMillis())
+                                .setStatus(BatchTestRunStatus.COMPLETE)
+                                .setResult(entry.getValue())));
+                    proposal.setChangeType(ChangeType.UPSERT);
+                    log.info("Reporting Batch Test Result: {}", entry.getValue());
+                    return proposal;
+                  });
+
+      List<MetadataChangeProposal> allMCPs =
+          Stream.concat(Stream.concat(mcps, removalMcps), reportingMCPs)
+              .collect(Collectors.toList());
+      log.info("Total number of mcps = {}", allMCPs.size());
       AspectsBatchImpl batch =
-          AspectsBatchImpl.builder().mcps(mcps, auditStamp, _entityService).build();
+          AspectsBatchImpl.builder().mcps(allMCPs, auditStamp, _entityService).build();
 
       _entityService.ingestProposal(batch, mode != EvaluationMode.SYNC);
     }
@@ -570,7 +723,8 @@ public class TestEngine {
    * apply the action to all entity URNs in the set using an {@link ActionApplier}.
    */
   private void batchApplyActions(@Nonnull final Map<Urn, TestResults> entityUrnToResults) {
-    // First, aggregate by Action -> URNs, so we can batch the action execution itself.
+    // First, aggregate by Action -> URNs, so we can batch the action execution
+    // itself.
     Map<TestAction, Set<Urn>> actionToEntityUrns = new HashMap<>();
     for (Map.Entry<Urn, TestResults> entry : entityUrnToResults.entrySet()) {
       addActionsToEntityMap(
@@ -627,6 +781,125 @@ public class TestEngine {
     }
   }
 
+  private Optional<BatchTestRunEvent> getLastExecution(Urn testUrn) {
+    List<EnvelopedAspect> lastComputed =
+        this._timeseriesAspectService.getAspectValues(
+            testUrn, "test", "batchTestRunEvent", null, null, 1, null);
+    if (!lastComputed.isEmpty()) {
+      EnvelopedAspect envelopedAspect = lastComputed.get(0);
+      BatchTestRunEvent batchTestRunEvent =
+          GenericRecordUtils.deserializeAspect(
+              envelopedAspect.getAspect().getValue(), "application/json", BatchTestRunEvent.class);
+      return Optional.of(batchTestRunEvent);
+    } else {
+      return Optional.empty();
+    }
+  }
+
+  private Map<Urn, TestResults> getMaterializedResults(
+      Urn testUrn,
+      TestDefinition testDefinition,
+      Map<Urn, BatchTestRunResult> oldBatchTestRunResults) {
+    Filter passingFilter = TestUtils.buildTestPassingFilter(testUrn, testDefinition.getMd5());
+    Filter failingFilter = TestUtils.buildTestFailingFilter(testUrn, testDefinition.getMd5());
+    Map<Urn, TestResults> results = new HashMap<>();
+    ScrollResult scrollResult =
+        this._searchService.scroll(
+            testDefinition.getOn().getEntityTypes(), passingFilter, null, 1000, null, "1m");
+    scrollResult
+        .getEntities()
+        .forEach(
+            (entity) -> {
+              log.info("Old Passing entity: {} ", entity.getEntity().toString());
+              Urn urn = entity.getEntity();
+              TestResults testResults =
+                  new TestResults()
+                      .setPassing(new TestResultArray())
+                      .setFailing(new TestResultArray());
+              testResults
+                  .getPassing()
+                  .add(
+                      new TestResult()
+                          .setTest(testUrn)
+                          .setType(TestResultType.SUCCESS)
+                          .setTestDefinitionMd5(testDefinition.getMd5(), SetMode.IGNORE_NULL));
+              results.put(urn, testResults);
+            });
+    while (scrollResult.getNumEntities() == 1000) {
+      String scrollId = scrollResult.getScrollId();
+      scrollResult =
+          this._searchService.scroll(
+              testDefinition.getOn().getEntityTypes(), passingFilter, null, 1000, scrollId, "1m");
+      scrollResult
+          .getEntities()
+          .forEach(
+              (entity) -> {
+                log.info("Old Passing entity: {} ", entity.getEntity().toString());
+                Urn urn = entity.getEntity();
+                TestResults testResults =
+                    new TestResults()
+                        .setPassing(new TestResultArray())
+                        .setFailing(new TestResultArray());
+                testResults
+                    .getPassing()
+                    .add(
+                        new TestResult()
+                            .setTest(testUrn)
+                            .setType(TestResultType.SUCCESS)
+                            .setTestDefinitionMd5(testDefinition.getMd5(), SetMode.IGNORE_NULL));
+                results.put(urn, testResults);
+              });
+    }
+    scrollResult =
+        this._searchService.scroll(
+            testDefinition.getOn().getEntityTypes(), failingFilter, null, 1000, null, "1m");
+    scrollResult
+        .getEntities()
+        .forEach(
+            (entity) -> {
+              log.info("Old Failing entity: {} ", entity.getEntity().toString());
+              Urn urn = entity.getEntity();
+              TestResults testResults =
+                  new TestResults()
+                      .setPassing(new TestResultArray())
+                      .setFailing(new TestResultArray());
+              testResults
+                  .getFailing()
+                  .add(
+                      new TestResult()
+                          .setTest(testUrn)
+                          .setType(TestResultType.FAILURE)
+                          .setTestDefinitionMd5(testDefinition.getMd5(), SetMode.IGNORE_NULL));
+              results.put(urn, testResults);
+            });
+    while (scrollResult.getNumEntities() == 1000) {
+      String scrollId = scrollResult.getScrollId();
+      scrollResult =
+          this._searchService.scroll(
+              testDefinition.getOn().getEntityTypes(), failingFilter, null, 1000, scrollId, "1m");
+      scrollResult
+          .getEntities()
+          .forEach(
+              (entity) -> {
+                log.info("Old Failing entity: {} ", entity.getEntity().toString());
+                Urn urn = entity.getEntity();
+                TestResults testResults =
+                    new TestResults()
+                        .setPassing(new TestResultArray())
+                        .setFailing(new TestResultArray());
+                testResults
+                    .getFailing()
+                    .add(
+                        new TestResult()
+                            .setTest(testUrn)
+                            .setType(TestResultType.FAILURE)
+                            .setTestDefinitionMd5(testDefinition.getMd5(), SetMode.IGNORE_NULL));
+                results.put(urn, testResults);
+              });
+    }
+    return results;
+  }
+
   /**
    * Evaluates a single test
    *
@@ -649,47 +922,136 @@ public class TestEngine {
       log.warn("Test {} does not exist: Skipping", testUrn);
       return null;
     }
-    final Set<Urn> candidateUrns = new HashSet<>();
-    testDefinition
-        .getOn()
-        .getEntityTypes()
-        .forEach(
-            typeName ->
-                candidateUrns.addAll(
-                    _entityService
-                        .listUrns(typeName, 0, MAX_ENTITIES_EVALUATED_IN_SINGLE_EXECUTION)
-                        .getEntities()));
 
-    if (candidateUrns.size() > MAX_ENTITIES_EVALUATED_IN_SINGLE_EXECUTION) {
-      log.warn(
-          "Test {} has too many entities to evaluate: {}. Will truncate to {} entities.",
-          testUrn,
-          candidateUrns.size(),
-          MAX_ENTITIES_EVALUATED_IN_SINGLE_EXECUTION);
+    // First retrieve the last execution of this test
+    final Optional<BatchTestRunEvent> lastExecution = getLastExecution(testUrn);
+    Map<Urn, TestResults> oldResults = null;
+    if (lastExecution.isPresent()) {
+      log.info("Last execution of test {} found: {}", testUrn, lastExecution.get());
+      if (lastExecution.get().getResult().getTestDefinition() != null) {
+        TestDefinition oldTestDefinition =
+            this._testDefinitionParser.deserialize(
+                testUrn, lastExecution.get().getResult().getTestDefinition());
+        // if (!oldTestDefinition.getMd5().equals(testDefinition.getMd5())) {
+        final Map<Urn, BatchTestRunResult> oldBatchTestRunResults = new HashMap<>();
+        oldBatchTestRunResults.put(
+            testUrn,
+            new BatchTestRunResult()
+                .setPassingCount(0)
+                .setFailingCount(0)
+                .setTestDefinition(oldTestDefinition.getRawDefinition()));
+        log.info("Fetching old results");
+        oldResults = getMaterializedResults(testUrn, oldTestDefinition, oldBatchTestRunResults);
+        log.info("Old results size for test {} = {}", testUrn, oldResults.size());
+        oldResults.forEach(
+            (urn, testResults) -> {
+              log.info("Entity {} results: {}", urn, testResults);
+            });
+      }
+    } else {
+      log.info("No last execution of test {} found", testUrn);
     }
-    Set<Urn> urnsToTest =
-        candidateUrns.stream()
-            .limit(MAX_ENTITIES_EVALUATED_IN_SINGLE_EXECUTION)
-            .collect(Collectors.toSet());
 
-    final Map<Urn, TestResults> results = batchEvaluateTests(urnsToTest, Set.of(testDefinition));
+    log.info("Evaluating single test {} with mode {}", testUrn, mode);
+
+    final Map<Urn, BatchTestRunResult> batchTestRunResults = new HashMap<>();
+    batchTestRunResults.put(
+        testUrn,
+        new BatchTestRunResult()
+            .setPassingCount(0)
+            .setFailingCount(0)
+            .setTestDefinition(testDefinition.getRawDefinition()));
+    log.info("BatchTestRunResult pre eval: {}", batchTestRunResults.get(testUrn));
+
+    final Map<Urn, TestResults> results =
+        getUrnTestResultsMap(testUrn, testDefinition, batchTestRunResults);
+    log.info("BatchTestRunResult post eval: {}", batchTestRunResults.get(testUrn));
     // (Optional): Write results to DataHub
     if (!EvaluationMode.EVALUATE_ONLY.equals(mode)) {
       log.info(
           "Mode: {}: Writing {} results to DataHub for test {}",
           mode,
-          testUrn,
-          results.keySet().size());
-      batchIngestResults(results, mode, true);
+          results.keySet().size(),
+          testUrn);
+      batchIngestResults(results, mode, true, batchTestRunResults, oldResults);
       log.info(
           "Mode {}: Applying {} results to DataHub for test {}",
           mode,
-          testUrn,
-          results.keySet().size());
+          results.keySet().size(),
+          testUrn);
       batchApplyActions(results);
       log.info("Mode {}: Test {} evaluation done", mode, testUrn);
     }
     log.debug("Test {} has been evaluated. Results keys = {}", testUrn, results.keySet().size());
+    return results;
+  }
+
+  private Map<Urn, TestResults> getUrnTestResultsMap(
+      Urn testUrn,
+      TestDefinition testDefinition,
+      Map<Urn, BatchTestRunResult> batchTestRunResults) {
+    final Map<Urn, TestResults> results;
+    // Prefer ElasticSearchTestExecutor if it can execute the test
+    if (_elasticSearchTestExecutor.canEvaluate(testDefinition)) {
+      log.info("ElasticSearchTestExecutor can execute test {}", testUrn);
+      results =
+          _elasticSearchTestExecutor.evaluate(testDefinition, batchTestRunResults.get(testUrn));
+      log.info("Test results size for test {} is {}", testUrn, results.size());
+    } else {
+      final Set<Urn> candidateUrns = new HashSet<>();
+      if (_elasticSearchTestExecutor.canSelect(testDefinition)) {
+        log.info("ElasticSearchTestExecutor can select test {}", testUrn);
+        candidateUrns.addAll(_elasticSearchTestExecutor.select(testDefinition));
+      } else {
+        log.info("ElasticSearchTestExecutor cannot select test {}", testUrn);
+        testDefinition
+            .getOn()
+            .getEntityTypes()
+            .forEach(
+                typeName ->
+                    candidateUrns.addAll(
+                        _entityService
+                            .listUrns(typeName, 0, MAX_ENTITIES_EVALUATED_IN_SINGLE_EXECUTION)
+                            .getEntities()));
+      }
+
+      if (candidateUrns.size() >= MAX_ENTITIES_EVALUATED_IN_SINGLE_EXECUTION) {
+        log.warn(
+            "Test {} has too many entities to evaluate: {}. Will truncate to {} entities.",
+            testUrn,
+            candidateUrns.size(),
+            MAX_ENTITIES_EVALUATED_IN_SINGLE_EXECUTION);
+      }
+      Set<Urn> urnsToTest =
+          candidateUrns.stream()
+              .limit(MAX_ENTITIES_EVALUATED_IN_SINGLE_EXECUTION)
+              .collect(Collectors.toSet());
+
+      results = batchEvaluateTests(urnsToTest, Set.of(testDefinition), batchTestRunResults);
+    }
+
+    results.keySet().stream()
+        .limit(1)
+        .forEach(
+            urn -> {
+              StringBuilder sb = new StringBuilder();
+              TestResults urnResults = results.get(urn);
+              sb.append("Passing: ");
+              urnResults
+                  .getPassing()
+                  .forEach(
+                      passing -> {
+                        sb.append(passing.toString()).append(",");
+                      });
+              sb.append("; Failing: ");
+              urnResults
+                  .getFailing()
+                  .forEach(
+                      failing -> {
+                        sb.append(failing.toString()).append(",");
+                      });
+              log.info("Entity {} results: {}", urn, sb.toString());
+            });
     return results;
   }
 

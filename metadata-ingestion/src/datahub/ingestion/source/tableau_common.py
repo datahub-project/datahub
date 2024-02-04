@@ -533,14 +533,14 @@ def get_platform(connection_type: str) -> str:
     elif connection_type in ("webdata-direct:oracle-eloqua", "oracle"):
         platform = "oracle"
     elif connection_type in ("tbio", "teradata"):
-        platform = "teradata"
+        return "teradata"
     elif connection_type in ("sqlserver"):
-        platform = "mssql"
+        return "mssql"
     elif connection_type in ("athena"):
-        platform = "athena"
+        return "athena"
     elif connection_type.endswith("_jdbc"):
         # e.g. convert trino_jdbc -> trino
-        platform = connection_type[: -len("_jdbc")]
+        return connection_type[: -len("_jdbc")]
     else:
         platform = connection_type
     return platform

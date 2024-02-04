@@ -1,0 +1,12 @@
+on:
+  types:
+    - container
+  conditions:
+    and:
+      - property: globalTags.tags.tag
+        operator: contains_any
+        values:
+          - "urn:li:tag:NeedsDocumentation"
+          - "urn:li:tag:Legacy"
+rules:
+  and: []

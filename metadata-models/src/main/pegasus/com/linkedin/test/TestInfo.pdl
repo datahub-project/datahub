@@ -52,6 +52,14 @@ record TestInfo {
        * JSON format configuration for the test
        */
        json: optional string
+
+      /**
+      * MD5 hash of the test definition.
+      * Computed by the server.
+      * Used to stamp test results accurately.
+      * See TestResult for more details.
+      */
+      md5: optional string
     }
 
     /**

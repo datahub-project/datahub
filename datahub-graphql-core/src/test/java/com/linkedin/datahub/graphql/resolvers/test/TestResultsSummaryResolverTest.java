@@ -12,6 +12,7 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.TestResultsSummary;
+import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
@@ -20,6 +21,7 @@ import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.utils.ESUtils;
+import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import graphql.schema.DataFetchingEnvironment;
 import javax.annotation.Nonnull;
 import org.mockito.Mockito;
@@ -33,6 +35,8 @@ public class TestResultsSummaryResolverTest {
   public void testGetSuccess() throws Exception {
     // Create resolver
     EntitySearchService mockService = Mockito.mock(EntitySearchService.class);
+    TimeseriesAspectService mockTsService = Mockito.mock(TimeseriesAspectService.class);
+    EntityService mockEntityService = Mockito.mock(EntityService.class);
 
     // set up passing mock
     Mockito.when(
@@ -54,7 +58,8 @@ public class TestResultsSummaryResolverTest {
                 Mockito.eq(MAX_AGGREGATION_LIMIT)))
         .thenReturn(ImmutableMap.of(TEST_URN.toString(), 20L));
 
-    TestResultsSummaryResolver resolver = new TestResultsSummaryResolver(mockService);
+    TestResultsSummaryResolver resolver =
+        new TestResultsSummaryResolver(mockService, mockEntityService, mockTsService);
 
     com.linkedin.datahub.graphql.generated.Test parentTest =
         new com.linkedin.datahub.graphql.generated.Test();
@@ -75,6 +80,8 @@ public class TestResultsSummaryResolverTest {
   public void testGetServiceError() throws Exception {
     // Create resolver
     EntitySearchService mockService = Mockito.mock(EntitySearchService.class);
+    EntityService mockEntityService = Mockito.mock(EntityService.class);
+    TimeseriesAspectService mockTsService = Mockito.mock(TimeseriesAspectService.class);
 
     // set up passing mock
     Mockito.when(
@@ -96,7 +103,8 @@ public class TestResultsSummaryResolverTest {
                 Mockito.eq(MAX_AGGREGATION_LIMIT)))
         .thenThrow(new RuntimeException("Error!"));
 
-    TestResultsSummaryResolver resolver = new TestResultsSummaryResolver(mockService);
+    TestResultsSummaryResolver resolver =
+        new TestResultsSummaryResolver(mockService, mockEntityService, mockTsService);
 
     com.linkedin.datahub.graphql.generated.Test parentTest =
         new com.linkedin.datahub.graphql.generated.Test();

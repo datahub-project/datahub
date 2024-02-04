@@ -519,6 +519,10 @@ public class ESUtils {
                 toKeywordField(criterion.getField(), isTimeseries),
                 "*" + ESUtils.escapeReservedCharacters(criterion.getValue().trim()))
             .queryName(fieldName);
+      } else if (condition == Condition.IN) {
+        return QueryBuilders.termsQuery(
+                toKeywordField(criterion.getField(), isTimeseries), criterion.getValues())
+            .queryName(fieldName);
       }
     }
     throw new UnsupportedOperationException("Unsupported condition: " + condition);

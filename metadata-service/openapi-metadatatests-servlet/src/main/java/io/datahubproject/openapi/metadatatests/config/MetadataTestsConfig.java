@@ -7,6 +7,7 @@ import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.test.action.ActionApplier;
 import com.linkedin.metadata.test.eval.PredicateEvaluator;
 import com.linkedin.metadata.test.query.QueryEngine;
+import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.openapi.entities.EntitiesController;
 import io.datahubproject.openapi.generated.ScrollTestEntityResponseV2;
@@ -28,6 +29,7 @@ public class MetadataTestsConfig {
       final EntityService<?> entityService,
       final SearchService searchService,
       final EntitySearchService entitySearchService,
+      final TimeseriesAspectService timeseriesAspectService,
       final EntitiesController entitiesController,
       final AuthorizerChain authorizationChain,
       final QueryEngine queryEngine,
@@ -49,6 +51,7 @@ public class MetadataTestsConfig {
         systemOpContext,
         entityService,
         entitySearchService,
+        timeseriesAspectService,
         testApiDelegate,
         authorizationChain,
         queryEngine,
