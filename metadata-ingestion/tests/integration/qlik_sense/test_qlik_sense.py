@@ -186,6 +186,38 @@ def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
                 ],
             },
         },
+        "https://iq37k6byr9lgam8.us.qlikcloud.com/api/v1/users/657b5abe656297cec3d8b205": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "id": "657b5abe656297cec3d8b205",
+                "tenantId": "ysA4KqhDrbdy36hO9wwo4HUvPxeaKT7A",
+                "status": "active",
+                "subject": "auth0|fd95ee6facf82e692d2eac4ccb5ddb18ef05c22a7575fcc4d26d7bc9aefedb4f",
+                "name": "Shubham jagtap",
+                "email": "Shubham.Jagtap@gslab.com",
+                "roles": [
+                    "TenantAdmin",
+                    "AnalyticsAdmin",
+                    "AuditAdmin",
+                    "DataAdmin",
+                    "Developer",
+                    "SharedSpaceCreator",
+                    "PrivateAnalyticsContentCreator",
+                    "DataServicesContributor",
+                ],
+                "groups": [],
+                "createdAt": "2023-12-14T19:42:54.417Z",
+                "lastUpdatedAt": "2024-01-25T06:28:22.629Z",
+                "created": "2023-12-14T19:42:54.417Z",
+                "lastUpdated": "2024-01-25T06:28:22.629Z",
+                "links": {
+                    "self": {
+                        "href": "https://iq37k6byr9lgam8.us.qlikcloud.com/api/v1/users/657b5abe656297cec3d8b205"
+                    }
+                },
+            },
+        },
         "https://iq37k6byr9lgam8.us.qlikcloud.com/api/v1/data-sets/659d8aef92df266ef3aa5a7c": {
             "method": "GET",
             "status_code": 200,
@@ -747,8 +779,8 @@ def test_platform_instance_ingest(
                 "config": {
                     **default_config(),
                     "platform_instance": "qlik_sense_platform",
-                    "app_dataset_source_to_platform_instance": {
-                        "harshal-playground-306419.test_dataset.test_table": {
+                    "data_connection_to_platform_instance": {
+                        "Google_BigQuery_harshal-playground-306419": {
                             "platform_instance": "google-cloud",
                             "env": "DEV",
                         }

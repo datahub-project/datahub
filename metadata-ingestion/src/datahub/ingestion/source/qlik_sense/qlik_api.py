@@ -24,6 +24,7 @@ logger = logging.getLogger(__name__)
 class QlikAPI:
     def __init__(self, config: QlikSourceConfig) -> None:
         self.spaces: Dict = {}
+        self.users: Dict = {}
         self.config = config
         self.session = requests.Session()
         self.session.headers.update(
@@ -72,6 +73,21 @@ class QlikAPI:
             self._log_http_error(
                 message=f"Unable to fetch dataset with id {dataset_id}"
             )
+        return None
+
+    def get_user_name(self, user_id: str) -> Optional[str]:
+        try:
+            if user_id in self.users:
+                # To avoid fetching same user details again
+                return self.users[user_id]
+            else:
+                response = self.session.get(f"{self.rest_api_url}/users/{user_id}")
+                response.raise_for_status()
+                user_name = response.json()[Constant.NAME]
+                self.users[user_id] = user_name
+                return user_name
+        except Exception:
+            self._log_http_error(message=f"Unable to fetch user with id {user_id}")
         return None
 
     def _get_sheet(

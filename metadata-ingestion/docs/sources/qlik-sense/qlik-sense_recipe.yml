@@ -14,10 +14,10 @@ source:
 
     ingest_owner: true
     
-    # Optional -- This mapping is optional and only required to configure platform-instance for Qlik app dataset upstream source table
-    # A mapping of the Qlik app dataset upstream source to platform instance. Use <database>.<schema>.<table> as key.
-    # app_dataset_source_to_platform_instance:
-    #   <database>.<schema>.<table>:
+    # Optional -- This mapping is optional and only required to configure platform-instance for Qlik app dataset upstream source tables
+    # A mapping of the Qlik app dataset upstream tables from data connection to platform instance. Use 'data_connection_name' as key.
+    # data_connection_to_platform_instance:
+    #   data_connection_name:
     #     platform_instance: cloud_instance
     #     env: DEV
 

@@ -171,14 +171,17 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         """
         Map Qlik space to Datahub container
         """
+        owner_username: Optional[str] = None
+        if space.ownerId:
+            owner_username = self.qlik_api.get_user_name(space.ownerId)
         yield from gen_containers(
             container_key=self._gen_space_key(space.id),
             name=space.name,
             description=space.description,
             sub_types=[BIContainerSubTypes.QLIK_SPACE],
             extra_properties={Constant.TYPE: str(space.type)},
-            owner_urn=builder.make_user_urn(space.ownerId)
-            if self.config.ingest_owner and space.ownerId
+            owner_urn=builder.make_user_urn(owner_username)
+            if self.config.ingest_owner and owner_username
             else None,
             created=int(space.createdAt.timestamp() * 1000),
             last_modified=int(space.updatedAt.timestamp() * 1000),
@@ -190,12 +193,12 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         ).as_workunit()
 
     def _gen_entity_owner_aspect(
-        self, entity_urn: str, owner_id: str
+        self, entity_urn: str, user_name: str
     ) -> MetadataWorkUnit:
         aspect = OwnershipClass(
             owners=[
                 OwnerClass(
-                    owner=builder.make_user_urn(owner_id),
+                    owner=builder.make_user_urn(user_name),
                     type=OwnershipTypeClass.DATAOWNER,
                 )
             ]
@@ -281,8 +284,9 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             if dpi_aspect:
                 yield dpi_aspect
 
-            if self.config.ingest_owner:
-                yield self._gen_entity_owner_aspect(dashboard_urn, sheet.ownerId)
+            owner_username = self.qlik_api.get_user_name(sheet.ownerId)
+            if self.config.ingest_owner and owner_username:
+                yield self._gen_entity_owner_aspect(dashboard_urn, owner_username)
 
             yield from self._gen_charts_workunit(sheet.charts)
 
@@ -292,8 +296,8 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         dataset_identifier = self._get_app_dataset_identifier(dataset)
         dataset_urn = self._gen_qlik_dataset_urn(dataset_identifier)
         upstream_dataset_platform_detail = (
-            self.config.app_dataset_source_to_platform_instance.get(
-                dataset_identifier,
+            self.config.data_connection_to_platform_instance.get(
+                dataset.dataconnectorName,
                 PlatformDetail(
                     env=self.config.env, platform_instance=self.config.platform_instance
                 ),
@@ -339,7 +343,9 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         ).as_workunit()
 
     def _get_app_dataset_identifier(self, dataset: QlikAppDataset) -> str:
-        return f"{dataset.databaseName}.{dataset.schemaName}.{dataset.tableName}"
+        return (
+            f"{dataset.databaseName}.{dataset.schemaName}.{dataset.tableName}".lower()
+        )
 
     def _gen_app_dataset_workunit(
         self, datasets: List[QlikAppDataset], app_id: str
@@ -375,6 +381,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         """
         Map Qlik App to Datahub container
         """
+        owner_username = self.qlik_api.get_user_name(app.ownerId)
         yield from gen_containers(
             container_key=self._gen_app_key(app.id),
             name=app.qTitle,
@@ -382,8 +389,8 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             sub_types=[BIContainerSubTypes.QLIK_APP],
             parent_container_key=self._gen_space_key(app.spaceId),
             extra_properties={Constant.QRI: app.qri, Constant.USAGE: app.qUsage},
-            owner_urn=builder.make_user_urn(app.ownerId)
-            if self.config.ingest_owner
+            owner_urn=builder.make_user_urn(owner_username)
+            if self.config.ingest_owner and owner_username
             else None,
             created=int(app.createdAt.timestamp() * 1000),
             last_modified=int(app.updatedAt.timestamp() * 1000),
@@ -427,7 +434,6 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                     if field.dataType
                     else NullType()
                 ),
-                # NOTE: nativeDataType will not be in sync with older connector
                 nativeDataType=field.dataType if field.dataType else "",
                 nullable=field.nullable,
                 isPartOfKey=field.primaryKey,
@@ -496,8 +502,9 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         if dpi_aspect:
             yield dpi_aspect
 
-        if self.config.ingest_owner:
-            yield self._gen_entity_owner_aspect(dataset_urn, dataset.ownerId)
+        owner_username = self.qlik_api.get_user_name(dataset.ownerId)
+        if self.config.ingest_owner and owner_username:
+            yield self._gen_entity_owner_aspect(dataset_urn, owner_username)
 
         yield MetadataChangeProposalWrapper(
             entityUrn=dataset_urn,

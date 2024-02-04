@@ -21,20 +21,6 @@ logger = logging.getLogger(__name__)
 QLIK_DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%S.%fZ"
 
 
-class WebSocketRequest:
-    """
-    Web socket send request dict
-    """
-
-    OPEN_DOC = {
-        "jsonrpc": "2.0",
-        "id": 1,
-        "handle": -1,
-        "method": "OpenDoc",
-        "params": {"qDocName": "f0714ca7-7093-49e4-8b58-47bb38563647"},
-    }
-
-
 class Constant:
     """
     keys used in qlik plugin
@@ -122,8 +108,9 @@ class QlikSourceConfig(
         default=True,
         description="Ingest Owner from source. This will override Owner info entered from UI",
     )
-    # Qlik app dataset upstream source to platform instance mapping
-    app_dataset_source_to_platform_instance: Dict[str, PlatformDetail] = pydantic.Field(
+    # Qlik app dataset upstream tables from data connection to platform instance mapping
+    data_connection_to_platform_instance: Dict[str, PlatformDetail] = pydantic.Field(
         default={},
-        description="A mapping of the Qlik app dataset upstream source to platform instance. Use <database>.<schema>.<table> as key.",
+        description="A mapping of the Qlik app dataset upstream tables from data connection to platform instance."
+        "Use 'data_connection_name' as key.",
     )
