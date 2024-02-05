@@ -7,12 +7,16 @@ import com.linkedin.datahub.graphql.generated.Domain;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
+import com.linkedin.datahub.graphql.types.structuredproperty.StructuredPropertiesMapper;
 import com.linkedin.domain.DomainProperties;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.key.DomainKey;
+import com.linkedin.structured.StructuredProperties;
+
+import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTIES_ASPECT_NAME;
 
 public class DomainMapper {
 
@@ -51,6 +55,12 @@ public class DomainMapper {
       result.setInstitutionalMemory(
           InstitutionalMemoryMapper.map(
               new InstitutionalMemory(envelopedInstitutionalMemory.getValue().data()), entityUrn));
+    }
+
+    final EnvelopedAspect envelopedStructuredProps = aspects.get(STRUCTURED_PROPERTIES_ASPECT_NAME);
+    if (envelopedStructuredProps != null) {
+      result.setStructuredProperties(
+          StructuredPropertiesMapper.map(new StructuredProperties(envelopedStructuredProps.getValue().data())));
     }
 
     return result;

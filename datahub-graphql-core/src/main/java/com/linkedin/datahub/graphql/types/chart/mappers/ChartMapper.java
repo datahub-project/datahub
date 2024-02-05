@@ -43,6 +43,7 @@ import com.linkedin.datahub.graphql.types.common.mappers.util.SystemMetadataUtil
 import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
+import com.linkedin.datahub.graphql.types.structuredproperty.StructuredPropertiesMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
 import com.linkedin.domain.Domains;
 import com.linkedin.entity.EntityResponse;
@@ -50,6 +51,8 @@ import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.key.ChartKey;
 import com.linkedin.metadata.key.DataPlatformKey;
 import com.linkedin.metadata.utils.EntityKeyUtils;
+import com.linkedin.structured.StructuredProperties;
+
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 
@@ -121,6 +124,11 @@ public class ChartMapper implements ModelMapper<EntityResponse, Chart> {
     mappingHelper.mapToResult(
         SUB_TYPES_ASPECT_NAME,
         (dashboard, dataMap) -> dashboard.setSubTypes(SubTypesMapper.map(new SubTypes(dataMap))));
+    mappingHelper.mapToResult(
+        STRUCTURED_PROPERTIES_ASPECT_NAME,
+        ((chart, dataMap) ->
+            chart.setStructuredProperties(
+                StructuredPropertiesMapper.map(new StructuredProperties(dataMap)))));
     return mappingHelper.getResult();
   }
 

@@ -28,6 +28,7 @@ import com.linkedin.datahub.graphql.types.common.mappers.util.SystemMetadataUtil
 import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
+import com.linkedin.datahub.graphql.types.structuredproperty.StructuredPropertiesMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
 import com.linkedin.domain.Domains;
 import com.linkedin.entity.EntityResponse;
@@ -35,6 +36,8 @@ import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.key.MLFeatureKey;
 import com.linkedin.ml.metadata.EditableMLFeatureProperties;
 import com.linkedin.ml.metadata.MLFeatureProperties;
+import com.linkedin.structured.StructuredProperties;
+
 import javax.annotation.Nonnull;
 
 /** Maps Pegasus {@link RecordTemplate} objects to objects conforming to the GQL schema. */
@@ -97,6 +100,11 @@ public class MLFeatureMapper implements ModelMapper<EntityResponse, MLFeature> {
         BROWSE_PATHS_V2_ASPECT_NAME,
         (entity, dataMap) ->
             entity.setBrowsePathV2(BrowsePathsV2Mapper.map(new BrowsePathsV2(dataMap))));
+    mappingHelper.mapToResult(
+        STRUCTURED_PROPERTIES_ASPECT_NAME,
+        ((mlFeature, dataMap) ->
+            mlFeature.setStructuredProperties(
+                StructuredPropertiesMapper.map(new StructuredProperties(dataMap)))));
 
     return mappingHelper.getResult();
   }

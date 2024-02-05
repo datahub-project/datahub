@@ -35,12 +35,15 @@ import com.linkedin.datahub.graphql.types.common.mappers.util.SystemMetadataUtil
 import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
+import com.linkedin.datahub.graphql.types.structuredproperty.StructuredPropertiesMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
 import com.linkedin.datajob.EditableDataJobProperties;
 import com.linkedin.domain.Domains;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.key.DataJobKey;
+import com.linkedin.structured.StructuredProperties;
+
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 
@@ -119,6 +122,8 @@ public class DataJobMapper implements ModelMapper<EntityResponse, DataJob> {
                 result.setBrowsePathV2(BrowsePathsV2Mapper.map(new BrowsePathsV2(data)));
               } else if (SUB_TYPES_ASPECT_NAME.equals(name)) {
                 result.setSubTypes(SubTypesMapper.map(new SubTypes(data)));
+              } else if (STRUCTURED_PROPERTIES_ASPECT_NAME.equals(name)) {
+                result.setStructuredProperties(StructuredPropertiesMapper.map(new StructuredProperties(data)));
               }
             });
 

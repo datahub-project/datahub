@@ -17,11 +17,14 @@ import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
 import com.linkedin.datahub.graphql.types.glossary.GlossaryTermUtils;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
+import com.linkedin.datahub.graphql.types.structuredproperty.StructuredPropertiesMapper;
 import com.linkedin.domain.Domains;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.glossary.GlossaryTermInfo;
 import com.linkedin.metadata.key.GlossaryTermKey;
+import com.linkedin.structured.StructuredProperties;
+
 import javax.annotation.Nonnull;
 
 /**
@@ -74,6 +77,11 @@ public class GlossaryTermMapper implements ModelMapper<EntityResponse, GlossaryT
         (dataset, dataMap) ->
             dataset.setInstitutionalMemory(
                 InstitutionalMemoryMapper.map(new InstitutionalMemory(dataMap), entityUrn)));
+    mappingHelper.mapToResult(
+        STRUCTURED_PROPERTIES_ASPECT_NAME,
+        ((entity, dataMap) ->
+            entity.setStructuredProperties(
+                StructuredPropertiesMapper.map(new StructuredProperties(dataMap)))));
 
     // If there's no name property, resort to the legacy name computation.
     if (result.getGlossaryTermInfo() != null && result.getGlossaryTermInfo().getName() == null) {
