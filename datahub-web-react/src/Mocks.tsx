@@ -1,44 +1,45 @@
-import { GetDatasetDocument, UpdateDatasetDocument, GetDatasetSchemaDocument } from './graphql/dataset.generated';
-import { GetDataFlowDocument } from './graphql/dataFlow.generated';
-import { GetDataJobDocument } from './graphql/dataJob.generated';
-import { GetBrowsePathsDocument, GetBrowseResultsDocument } from './graphql/browse.generated';
+import {GetDatasetDocument, GetDatasetSchemaDocument, UpdateDatasetDocument} from './graphql/dataset.generated';
+import {GetDataFlowDocument} from './graphql/dataFlow.generated';
+import {GetDataJobDocument} from './graphql/dataJob.generated';
+import {GetBrowsePathsDocument, GetBrowseResultsDocument} from './graphql/browse.generated';
 import {
-    GetAutoCompleteResultsDocument,
     GetAutoCompleteMultipleResultsDocument,
+    GetAutoCompleteResultsDocument,
     GetSearchResultsDocument,
-    GetSearchResultsQuery,
     GetSearchResultsForMultipleDocument,
     GetSearchResultsForMultipleQuery,
+    GetSearchResultsQuery,
 } from './graphql/search.generated';
-import { GetUserDocument } from './graphql/user.generated';
+import {GetUserDocument} from './graphql/user.generated';
 import {
-    Dataset,
+    AppConfig,
+    BusinessAttribute,
+    Container,
     DataFlow,
     DataJob,
-    GlossaryTerm,
-    GlossaryNode,
+    Dataset,
     EntityType,
-    PlatformType,
+    FilterOperator,
+    GlossaryNode,
+    GlossaryTerm,
     MlModel,
     MlModelGroup,
-    SchemaFieldDataType,
-    ScenarioType,
+    PlatformPrivileges,
+    PlatformType,
     RecommendationRenderType,
     RelationshipDirection,
-    Container,
-    PlatformPrivileges,
-    FilterOperator,
-    AppConfig,
+    ScenarioType,
+    SchemaFieldDataType,
 } from './types.generated';
-import { GetTagDocument } from './graphql/tag.generated';
-import { GetMlModelDocument } from './graphql/mlModel.generated';
-import { GetMlModelGroupDocument } from './graphql/mlModelGroup.generated';
-import { GetGlossaryTermDocument, GetGlossaryTermQuery } from './graphql/glossaryTerm.generated';
-import { GetEntityCountsDocument, AppConfigDocument } from './graphql/app.generated';
-import { GetMeDocument } from './graphql/me.generated';
-import { ListRecommendationsDocument } from './graphql/recommendations.generated';
-import { FetchedEntity } from './app/lineage/types';
-import { DEFAULT_APP_CONFIG } from './appConfigContext';
+import {GetTagDocument} from './graphql/tag.generated';
+import {GetMlModelDocument} from './graphql/mlModel.generated';
+import {GetMlModelGroupDocument} from './graphql/mlModelGroup.generated';
+import {GetGlossaryTermDocument, GetGlossaryTermQuery} from './graphql/glossaryTerm.generated';
+import {AppConfigDocument, GetEntityCountsDocument} from './graphql/app.generated';
+import {GetMeDocument} from './graphql/me.generated';
+import {ListRecommendationsDocument} from './graphql/recommendations.generated';
+import {FetchedEntity} from './app/lineage/types';
+import {DEFAULT_APP_CONFIG} from './appConfigContext';
 
 export const user1 = {
     username: 'sdas',
@@ -1321,6 +1322,92 @@ export const dataJob1 = {
     deprecation: null,
 } as DataJob;
 
+export const businessAttribute = {
+    urn: 'urn:li:businessAttribute:ba1',
+    type: EntityType.BusinessAttribute,
+    __typename: 'BusinessAttribute',
+    properties: {
+        name: 'TestBusinessAtt-2',
+        description: 'lorem upsum updated 12',
+        created: {
+            time: 1705857132786
+        },
+        lastModified: {
+            time: 1705857132786
+        },
+        glossaryTerms: {
+            terms: [
+                {
+                    term: {
+                        urn: 'urn:li:glossaryTerm:1'
+                    },
+                    associatedUrn: 'urn:li:businessAttribute:ba1'
+                }
+            ],
+            __typename: 'GlossaryTerms',
+        },
+        tags: {
+            __typename: 'GlobalTags',
+            tags: [
+                {
+                    tag: {
+                        urn: 'urn:li:tag:abc-sample-tag',
+                        __typename: 'Tag'
+                    },
+                    __typename: 'TagAssociation',
+                    associatedUrn: 'urn:li:businessAttribute:ba1'
+                },
+                {
+                    tag: {
+                        urn: 'urn:li:tag:TestTag',
+                        __typename: 'Tag'
+                    },
+                    __typename: 'TagAssociation',
+                    associatedUrn: 'urn:li:businessAttribute:ba1'
+                }
+            ]
+        },
+        customProperties: [
+            {
+                key: 'prop2',
+                value: 'val2',
+                __typename: 'CustomPropertiesEntry'
+            },
+            {
+                key: 'prop1',
+                value: 'val1',
+                __typename: 'CustomPropertiesEntry'
+            },
+            {
+                key: 'prop3',
+                value: 'val3',
+                __typename: 'CustomPropertiesEntry'
+            }
+        ]
+    },
+    ownership: {
+        owners: [
+            {
+                owner: {
+                    ...user1,
+                },
+                associatedUrn: 'urn:li:businessAttribute:ba',
+                type: 'DATAOWNER',
+            },
+            {
+                owner: {
+                    ...user2,
+                },
+                associatedUrn: 'urn:li:businessAttribute:ba',
+                type: 'DELEGATE',
+            },
+        ],
+        lastModified: {
+            time: 0,
+        },
+    },
+} as BusinessAttribute;
+
 export const dataJob2 = {
     __typename: 'DataJob',
     urn: 'urn:li:dataJob:2',
@@ -1686,7 +1773,7 @@ export const recommendationModules = [
 ];
 
 /*
-    Define mock data to be returned by Apollo MockProvider. 
+    Define mock data to be returned by Apollo MockProvider.
 */
 export const mocks = [
     {

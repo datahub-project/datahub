@@ -43,11 +43,13 @@ public class RemoveBusinessAttributeResolver implements DataFetcher<CompletableF
         if (!isAuthorizeToUpdateDataset(context, Urn.createFromString(resourceRefInput.getResourceUrn()))) {
             throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
         }
-        if (!_entityClient.exists(businessAttributeUrn, context.getAuthentication())) {
-            throw new RuntimeException(String.format("This urn does not exist: %s", businessAttributeUrn));
-        }
         return CompletableFuture.supplyAsync(() -> {
             try {
+                if (!businessAttributeUrn.getEntityType().equals("businessAttribute")) {
+                    log.error("Failed to remove {}. It is not a business attribute urn.", businessAttributeUrn.toString());
+                    return false;
+                }
+
                 validateInputResource(resourceRefInput, context);
 
                 removeBusinessAttribute(resourceRefInput, context);

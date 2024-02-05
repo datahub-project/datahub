@@ -65,9 +65,13 @@ export const BusinessAttributeDataTypeSection = ({ readOnly }: Props) => {
             <SidebarHeader
                 title="Data Type"
                 actions={
-                    originalDescription &&
                     !readOnly && (
-                        <Button onClick={handleEditClick} type="text" shape="circle">
+                        <Button
+                            data-testid="edit-data-type-button"
+                            onClick={handleEditClick}
+                            type="text"
+                            shape="circle"
+                        >
                             <EditOutlined />
                         </Button>
                     )
@@ -75,7 +79,11 @@ export const BusinessAttributeDataTypeSection = ({ readOnly }: Props) => {
             />
             {originalDescription}
             {isEditing && (
-                <DataTypeSelect placeholder="A data type for business attribute" onChange={handleChange}>
+                <DataTypeSelect
+                    data-testid="add-data-type-option"
+                    placeholder="A data type for business attribute"
+                    onChange={handleChange}
+                >
                     {DATA_TYPES.map((dataType: SchemaFieldDataType) => (
                         <Select.Option key={dataType} value={dataType}>
                             {dataType}
