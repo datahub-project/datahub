@@ -1,6 +1,6 @@
 import contextlib
 import pathlib
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Dict, List, Optional, Protocol, Set, Tuple
 
 from typing_extensions import TypedDict
 
@@ -31,7 +31,17 @@ class GraphQLSchemaMetadata(TypedDict):
     fields: List[GraphQLSchemaField]
 
 
-class SchemaResolver(Closeable):
+class SchemaResolverInterface(Protocol):
+
+    @property
+    def platform(self) -> str:
+        pass
+
+    def resolve_table(self, table: _TableName) -> Tuple[str, Optional[SchemaInfo]]:
+        pass
+
+
+class SchemaResolver(Closeable, SchemaResolverInterface):
     def __init__(
         self,
         *,
@@ -195,3 +205,16 @@ class SchemaResolver(Closeable):
 
     def close(self) -> None:
         self._schema_cache.close()
+
+
+class _SchemaResolverWithTemp(SchemaResolverInterface):
+
+    def __init__(self, schema_resolver: SchemaResolver):
+        self._schema_resolver = schema_resolver
+
+    @property
+    def platform(self) -> str:
+        return self._schema_resolver.platform
+
+    def resolve_table(self, table: _TableName) -> Tuple[str, Optional[SchemaInfo]]:
+        return self._schema_resolver.resolve_table(table)
