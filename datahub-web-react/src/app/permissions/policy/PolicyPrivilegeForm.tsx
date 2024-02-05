@@ -35,7 +35,7 @@ type Props = {
     setResources: (resources: ResourceFilter) => void;
     selectedTags?: any[];
     setSelectedTags: (data: any) => void;
-    setIsEditSTate: (data: boolean) => void;
+    setEditState: (data: boolean) => void;
     isEditState: boolean;
     privileges: Array<string>;
     setPrivileges: (newPrivs: Array<string>) => void;
@@ -82,7 +82,7 @@ export default function PolicyPrivilegeForm({
     setPrivileges,
     setSelectedTags,
     selectedTags,
-    setIsEditSTate,
+    setEditState,
     isEditState,
     focusPolicyUrn,
 }: Props) {
@@ -360,8 +360,8 @@ export default function PolicyPrivilegeForm({
     });
     const tagResult = !inputValue || inputValue.length === 0 ? recommendedData : tagSearchResults;
     useEffect(() => {
-        if (focusPolicyUrn && isEditState && setIsEditSTate && editTags && newTag) {
-            setIsEditSTate(false);
+        if (focusPolicyUrn && isEditState && setEditState && editTags && newTag) {
+            setEditState(false);
             const filter = resources.filter || {
                 criteria: [],
             };
@@ -372,7 +372,7 @@ export default function PolicyPrivilegeForm({
             });
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [focusPolicyUrn, isEditState, setIsEditSTate, editTags, newTag]);
+    }, [focusPolicyUrn, isEditState, setEditState, editTags, newTag]);
 
     const onSelectValue = (urn: string) => {
         const filter = resources.filter || {

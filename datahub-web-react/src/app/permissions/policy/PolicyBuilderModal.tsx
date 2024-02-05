@@ -44,7 +44,7 @@ export default function PolicyBuilderModal({ policy, setPolicy, visible, onClose
     // Step control-flow.
     const [activeStepIndex, setActiveStepIndex] = useState(0);
     const [selectedTags, setSelectedTags] = useState<any[]>([]);
-    const [isEditState,setIsEditSTate] = useState(true)
+    const [isEditState,setEditState] = useState(true)
 
     // Go to next step
     const next = () => {
@@ -102,7 +102,7 @@ export default function PolicyBuilderModal({ policy, setPolicy, visible, onClose
                 }}
                 setSelectedTags={setSelectedTags}
                 selectedTags={selectedTags}
-                setIsEditSTate={setIsEditSTate}
+                setEditState={setEditState}
                 isEditState={isEditState}
                 privileges={policy.privileges}
                 setPrivileges={(privileges: string[]) => setPolicy({ ...policy, privileges })}
