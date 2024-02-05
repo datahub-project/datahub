@@ -573,30 +573,6 @@ class JsonSchemaTranslator:
         MapTypeClass: _field_from_complex_type,
         NullTypeClass: _field_from_primitive,
     }
-
-    @classmethod
-    def extract_descriptions_from_schema(cls, schema: Dict[str, Union[str, Dict]]) -> List[Optional[str]]:
-        """
-        Extracts descriptions from a JSON schema.
-
-        Args:
-            schema (Dict[str, Union[str, Dict]]): The JSON schema.
-
-        Returns:
-            List[Optional[str]]: List of descriptions corresponding to properties.
-        """
-        def extract_description(property_schema: Dict[str, Union[str, Dict]]) -> Optional[str]:
-            return property_schema.get("description")
-
-        descriptions = []
-        properties = schema.get("properties", {})
-
-        for _, property_schema in properties.items():
-            if isinstance(property_schema, dict):
-                description = extract_description(property_schema)
-                descriptions.append(description)
-
-        return descriptions
     
     @classmethod
     def get_fields(
@@ -658,29 +634,7 @@ class JsonSchemaTranslator:
                 base_field_path=FieldPath(is_key_schema=is_key_schema),
             )
 
-    @classmethod
-    def extract_descriptions_from_schema(cls, schema: Dict[str, Union[str, Dict]]) -> List[Optional[str]]:
-        """
-        Extracts descriptions from a JSON schema.
-
-        Args:
-            schema (Dict[str, Union[str, Dict]]): The JSON schema.
-
-        Returns:
-            List[Optional[str]]: List of descriptions corresponding to properties.
-        """
-        def extract_description(property_schema: Dict[str, Union[str, Dict]]) -> Optional[str]:
-            return JsonSchemaTranslator._get_description_from_any_schema(property_schema)
-
-        descriptions = []
-        properties = schema.get("properties", {})
-
-        for _, property_schema in properties.items():
-            if isinstance(property_schema, dict):
-                description = extract_description(property_schema)
-                descriptions.append(description)
-
-        return descriptions
+   
     @staticmethod
     def _get_id_from_any_schema(schema_dict: Dict[Any, Any]) -> Optional[str]:
         return schema_dict.get("$id", schema_dict.get("id"))
