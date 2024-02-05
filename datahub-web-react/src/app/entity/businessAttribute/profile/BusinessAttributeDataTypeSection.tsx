@@ -65,7 +65,6 @@ export const BusinessAttributeDataTypeSection = ({ readOnly }: Props) => {
             <SidebarHeader
                 title="Data Type"
                 actions={
-                    originalDescription &&
                     !readOnly && (
                         <Button
                             data-testid="edit-data-type-button"
