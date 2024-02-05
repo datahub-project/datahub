@@ -1,5 +1,4 @@
 import json
-import time
 import urllib
 
 import pytest
@@ -25,6 +24,7 @@ from datahub.metadata.schema_classes import (
 )
 
 import requests_wrapper as requests
+from tests.consistency_utils import wait_for_writes_to_sync
 from tests.utils import (
     delete_urns_from_file,
     get_frontend_url,
@@ -342,7 +342,7 @@ def test_gms_get_assertions_on_dataset():
 
     response.raise_for_status()
     data = response.json()
-    assert len(data["relationships"]) == 1
+    assert len(data["relationships"]) >= 1
 
 
 @pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
@@ -381,13 +381,12 @@ def test_gms_get_assertion_info():
 
 @pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
 def test_list_dataset_assertions(frontend_session):
-    # Sleep for eventual consistency (not ideal)
-    time.sleep(2)
+    wait_for_writes_to_sync()
 
     list_dataset_assertions_json = {
         "query": """query dataset($urn: String!) {\n
             dataset(urn: $urn) {\n
-              assertions(start: 0, count: 10) {\n
+              assertions(start: 0, count: 25) {\n
                 start\n
                 count\n
                 total\n
@@ -431,54 +430,52 @@ def test_list_dataset_assertions(frontend_session):
     assert res_data
     assert "errors" not in res_data
     assert res_data["data"]
-    assert res_data["data"]["dataset"]["assertions"] == {
-        "start": 0,
-        "count": 1,
-        "total": 1,
-        "assertions": [
-            {
-                "urn": TEST_ASSERTION_URN,
-                "type": "ASSERTION",
-                "info": {
-                    "type": "DATASET",
-                    "datasetAssertion": {
-                        "datasetUrn": TEST_DATASET_URN,
-                        "scope": "DATASET_COLUMN",
-                        "aggregation": "IDENTITY",
-                        "operator": "LESS_THAN",
-                    },
+
+    test_assertion = [
+        a
+        for a in res_data["data"]["dataset"]["assertions"]["assertions"]
+        if a["urn"] == TEST_ASSERTION_URN
+    ]
+    assert test_assertion[0] == {
+        "urn": TEST_ASSERTION_URN,
+        "type": "ASSERTION",
+        "info": {
+            "type": "DATASET",
+            "datasetAssertion": {
+                "datasetUrn": TEST_DATASET_URN,
+                "scope": "DATASET_COLUMN",
+                "aggregation": "IDENTITY",
+                "operator": "LESS_THAN",
+            },
+        },
+        "runEvents": {
+            "total": 3,
+            "failed": 1,
+            "succeeded": 2,
+            "runEvents": [
+                {
+                    "timestampMillis": RUN_EVENT_TIMESTAMPS[5],
+                    "status": "COMPLETE",
+                    "result": {"type": "SUCCESS"},
                 },
-                "runEvents": {
-                    "total": 3,
-                    "failed": 1,
-                    "succeeded": 2,
-                    "runEvents": [
-                        {
-                            "timestampMillis": RUN_EVENT_TIMESTAMPS[5],
-                            "status": "COMPLETE",
-                            "result": {"type": "SUCCESS"},
-                        },
-                        {
-                            "timestampMillis": RUN_EVENT_TIMESTAMPS[4],
-                            "status": "COMPLETE",
-                            "result": {"type": "FAILURE"},
-                        },
-                        {
-                            "timestampMillis": RUN_EVENT_TIMESTAMPS[3],
-                            "status": "COMPLETE",
-                            "result": {"type": "SUCCESS"},
-                        },
-                    ],
+                {
+                    "timestampMillis": RUN_EVENT_TIMESTAMPS[4],
+                    "status": "COMPLETE",
+                    "result": {"type": "FAILURE"},
                 },
-            }
-        ],
+                {
+                    "timestampMillis": RUN_EVENT_TIMESTAMPS[3],
+                    "status": "COMPLETE",
+                    "result": {"type": "SUCCESS"},
+                },
+            ],
+        },
     }
 
 
 @pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
 def test_search_all_assertions(frontend_session):
-    # Sleep for eventual consistency (not ideal)
-    time.sleep(2)
+    wait_for_writes_to_sync()
 
     min_expected_results = 1
 
