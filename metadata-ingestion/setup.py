@@ -245,6 +245,10 @@ delta_lake = {
 
 powerbi_report_server = {"requests", "requests_ntlm"}
 
+slack = {
+    "slack-sdk==3.18.1"
+}
+
 databricks = {
     # 0.1.11 appears to have authentication issues with azure databricks
     "databricks-sdk>=0.9.0",
@@ -367,6 +371,7 @@ plugins: Dict[str, Set[str]] = {
     "snowflake": snowflake_common | usage_common | sqlglot_lib,
     "sqlalchemy": sql_common,
     "sql-queries": usage_common | sqlglot_lib,
+    "slack": slack,
     "superset": {
         "requests",
         "sqlalchemy",
@@ -503,6 +508,7 @@ base_dev_requirements = {
             "redshift",
             "s3",
             "snowflake",
+            "slack",
             "tableau",
             "teradata",
             "trino",
@@ -543,6 +549,7 @@ full_test_dev_requirements = {
             "kafka-connect",
             "ldap",
             "mongodb",
+            "slack",
             "mssql",
             "mysql",
             "mariadb",
@@ -597,6 +604,7 @@ entry_points = {
         "postgres = datahub.ingestion.source.sql.postgres:PostgresSource",
         "redash = datahub.ingestion.source.redash:RedashSource",
         "redshift = datahub.ingestion.source.redshift.redshift:RedshiftSource",
+        "slack = datahub.ingestion.source.slack.slack_source:SlackSource",
         "snowflake = datahub.ingestion.source.snowflake.snowflake_v2:SnowflakeV2Source",
         "superset = datahub.ingestion.source.superset:SupersetSource",
         "tableau = datahub.ingestion.source.tableau:TableauSource",
