@@ -2,7 +2,7 @@ import json
 import logging
 import unittest.mock
 from hashlib import md5
-from typing import Any, Callable, Dict, Iterable, List, Optional, Type, Union
+from typing import Any, Callable, Dict, Iterable, List, Optional, Type
 
 import jsonref
 import jsonschema
@@ -573,7 +573,7 @@ class JsonSchemaTranslator:
         MapTypeClass: _field_from_complex_type,
         NullTypeClass: _field_from_primitive,
     }
-    
+
     @classmethod
     def get_fields(
         cls,
@@ -634,7 +634,6 @@ class JsonSchemaTranslator:
                 base_field_path=FieldPath(is_key_schema=is_key_schema),
             )
 
-   
     @staticmethod
     def _get_id_from_any_schema(schema_dict: Dict[Any, Any]) -> Optional[str]:
         return schema_dict.get("$id", schema_dict.get("id"))

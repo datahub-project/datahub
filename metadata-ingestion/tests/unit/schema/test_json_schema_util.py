@@ -153,6 +153,7 @@ def test_json_schema_with_recursion():
         },
     }
     fields = list(JsonSchemaTranslator.get_fields_from_schema(schema))
+   
     expected_field_paths = [
         {
             "path": "[version=2.0].[type=TreeNode].[type=integer].value",
@@ -160,6 +161,10 @@ def test_json_schema_with_recursion():
         },
         {
             "path": "[version=2.0].[type=TreeNode].[type=array].[type=TreeNode].children",
+            "type": ArrayTypeClass,
+        },
+        {
+            "path": "[version=2.0].[type=TreeNode].[type=array].children",
             "type": ArrayTypeClass,
         },
     ]
@@ -374,6 +379,8 @@ def test_nested_arrays():
     expected_field_paths: List[str] = [
         "[version=2.0].[type=NestedArray].[type=array].[type=array].[type=Foo].ar",
         "[version=2.0].[type=NestedArray].[type=array].[type=array].[type=Foo].ar.[type=integer].a",
+        "[version=2.0].[type=NestedArray].[type=array].[type=array].ar",
+        "[version=2.0].[type=NestedArray].[type=array].ar"
     ]
     assert_field_paths_match(fields, expected_field_paths)
     assert isinstance(fields[0].type.type, ArrayTypeClass)
@@ -496,6 +503,7 @@ def test_needs_disambiguation_nested_union_of_records_with_same_field_name():
         },
     }
     fields = list(JsonSchemaTranslator.get_fields_from_schema(schema))
+
     expected_field_paths: List[str] = [
         "[version=2.0].[type=ABFooUnion].[type=union].a",
         "[version=2.0].[type=ABFooUnion].[type=union].[type=A].a",
@@ -504,8 +512,11 @@ def test_needs_disambiguation_nested_union_of_records_with_same_field_name():
         "[version=2.0].[type=ABFooUnion].[type=union].[type=B].a.[type=string].f",
         "[version=2.0].[type=ABFooUnion].[type=union].[type=array].[type=array].[type=Foo].a",
         "[version=2.0].[type=ABFooUnion].[type=union].[type=array].[type=array].[type=Foo].a.[type=integer].f",
+        "[version=2.0].[type=ABFooUnion].[type=union].[type=array].[type=array].a",
+        "[version=2.0].[type=ABFooUnion].[type=union].[type=array].a"
     ]
     assert_field_paths_match(fields, expected_field_paths)
+
 
 
 def test_datahub_json_schemas_parses_okay(tmp_path):
@@ -580,6 +591,8 @@ def test_key_schema_handling():
         "[version=2.0].[key=True].[type=ABFooUnion].[type=union].[type=B].a.[type=string].f",
         "[version=2.0].[key=True].[type=ABFooUnion].[type=union].[type=array].[type=array].[type=Foo].a",
         "[version=2.0].[key=True].[type=ABFooUnion].[type=union].[type=array].[type=array].[type=Foo].a.[type=number].f",
+        "[version=2.0].[key=True].[type=ABFooUnion].[type=union].[type=array].[type=array].a",
+        "[version=2.0].[key=True].[type=ABFooUnion].[type=union].[type=array].a"
     ]
     assert_field_paths_match(fields, expected_field_paths)
     for f in fields:
@@ -665,6 +678,7 @@ def test_simple_array():
     fields = list(JsonSchemaTranslator.get_fields_from_schema(schema))
     expected_field_paths: List[str] = [
         "[version=2.0].[type=ObjectWithArray].[type=array].[type=string].ar",
+        "[version=2.0].[type=ObjectWithArray].[type=array].ar"
     ]
     assert_field_paths_match(fields, expected_field_paths)
     assert isinstance(fields[0].type.type, ArrayTypeClass)
@@ -860,15 +874,17 @@ def test_description_extraction():
             }
         },
     }
-    fields = list(JsonSchemaTranslator.get_fields_from_schema(schema))   
+    fields = list(JsonSchemaTranslator.get_fields_from_schema(schema))
     expected_field_paths: List[str] = [
         "[version=2.0].[type=object].[type=array].[type=string].bar",
-        "[version=2.0].[type=object].[type=array].bar"
+        "[version=2.0].[type=object].[type=array].bar",
     ]
     assert_field_paths_match(fields, expected_field_paths)
     assert_fields_are_valid(fields)
     # Additional check for the description extraction
-    array_field = next(field for field in fields if field.fieldPath == "[version=2.0].[type=object].[type=array].bar")
+    array_field = next(
+        field
+        for field in fields
+        if field.fieldPath == "[version=2.0].[type=object].[type=array].bar"
+    )
     assert array_field.description == "XYZ"
-
-    
