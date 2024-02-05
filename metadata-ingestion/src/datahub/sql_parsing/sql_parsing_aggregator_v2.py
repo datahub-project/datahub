@@ -18,13 +18,18 @@ from datahub.metadata.urns import (
     SchemaFieldUrn,
 )
 from datahub.sql_parsing.schema_resolver import SchemaResolver
-from datahub.sql_parsing.sqlglot_lineage import ColumnLineageInfo, sqlglot_lineage
+from datahub.sql_parsing.sqlglot_lineage import (
+    ColumnLineageInfo,
+    infer_output_schema,
+    sqlglot_lineage,
+)
 from datahub.utilities.file_backed_collections import FileBackedDict
 
 logger = logging.getLogger(__name__)
 QueryId = str
 
 _DEFAULT_QUERY_URN = CorpUserUrn("_ingestion")
+_MISSING_SESSION_ID = "__MISSING_SESSION_ID"
 
 
 class StoreQueriesSetting(enum.Enum):
@@ -40,7 +45,7 @@ class QueryMetadata:
     raw_query_string: str
     # formatted_query_string: str  # TODO add this
 
-    session_id: Optional[str]
+    session_id: str  # will be _MISSING_SESSION_ID if not present
     type: str
     latest_timestamp: Optional[datetime]
     actor: Optional[CorpUserUrn]
@@ -132,7 +137,7 @@ class SqlParsingAggregator:
         self._temp_lineage_map = FileBackedDict[Dict[str, QueryId]]()
 
         # Map of query ID -> schema fields, only for query IDs that generate temp tables.
-        self._inferred_temp_schemas = FileBackedDict[List[models.SchemaFieldClass]]
+        self._inferred_temp_schemas = FileBackedDict[List[models.SchemaFieldClass]]()
 
         # TODO list of query IDs that we actually want in operations
 
@@ -220,7 +225,20 @@ class SqlParsingAggregator:
         # If it produces lineage to a non-temp table, it also produces an operation.
         # Either way, it generates usage.
 
+        session_id = session_id or _MISSING_SESSION_ID
+
         # Note: this assumes that queries come in order of increasing timestamps
+
+        # If we have a session id, load in the temp tables for that session.
+        schema_resolver = self._schema_resolver
+        if session_id in self._temp_lineage_map:
+            temp_table_schemas: Dict[str, List[models.SchemaFieldClass]] = {}
+            for temp_table_urn, query_id in self._temp_lineage_map[session_id].items():
+                schema = self._inferred_temp_schemas.get(query_id)
+                temp_table_schemas[temp_table_urn] = schema
+
+            if temp_table_schemas:
+                schema_resolver = schema_resolver.with_temp_tables(temp_table_schemas)
 
         # TODO load in any temp tables for this session into the schema resolver
         parsed = sqlglot_lineage(
@@ -263,53 +281,47 @@ class SqlParsingAggregator:
                 and not self._schema_resolver.has_urn(out_table)
             )
         ):
-            # handle temp table
+            # Infer the schema of the output table and track it for later.
+            self._inferred_temp_schemas[query_fingerprint] = infer_output_schema(parsed)
 
-            # TODO add to query_map
-
+            # Also track the lineage for the temp table, for merging purposes later.
             self._temp_lineage_map.for_mutation(session_id, {})[
                 out_table
             ] = query_fingerprint
-            breakpoint()
 
         else:
-            # Non-temp tables -> immediately generate lineage.
-
-            if query_fingerprint in self._query_map:
-                query_metadata = self._query_map.for_mutation(query_fingerprint)
-
-                # This assumes that queries come in order of increasing timestamps,
-                # so the current query is more authoritative than the previous one.
-                query_metadata.session_id = session_id
-                query_metadata.latest_timestamp = (
-                    query_timestamp or query_metadata.latest_timestamp
-                )
-                query_metadata.actor = user or query_metadata.actor
-
-                # An invariant of the fingerprinting is that if two queries have the
-                # same fingerprint, they must also have the same lineage. We overwrite
-                # here just in case more schemas got registered in the interim.
-                query_metadata.upstreams = upstreams
-                query_metadata.column_lineage = column_lineage or []
-                query_metadata.confidence_score = parsed.debug_info.confidence
-            else:
-                self._query_map[query_fingerprint] = QueryMetadata(
-                    query_id=query_fingerprint,
-                    raw_query_string=query,
-                    session_id=session_id,
-                    type=models.DatasetLineageTypeClass.TRANSFORMED,
-                    latest_timestamp=query_timestamp,
-                    actor=user,
-                    upstreams=upstreams,
-                    column_lineage=column_lineage or [],
-                    confidence_score=parsed.debug_info.confidence,
-                )
-
+            # Non-temp tables immediately generate lineage.
             self._lineage_map.for_mutation(out_table, set()).add(query_fingerprint)
 
-            # TODO: what happens if a CREATE VIEW query gets passed into this method
+        if query_fingerprint in self._query_map:
+            query_metadata = self._query_map.for_mutation(query_fingerprint)
 
-            pass
+            # This assumes that queries come in order of increasing timestamps,
+            # so the current query is more authoritative than the previous one.
+            query_metadata.session_id = session_id
+            query_metadata.latest_timestamp = (
+                query_timestamp or query_metadata.latest_timestamp
+            )
+            query_metadata.actor = user or query_metadata.actor
+
+            # An invariant of the fingerprinting is that if two queries have the
+            # same fingerprint, they must also have the same lineage. We overwrite
+            # here just in case more schemas got registered in the interim.
+            query_metadata.upstreams = upstreams
+            query_metadata.column_lineage = column_lineage or []
+            query_metadata.confidence_score = parsed.debug_info.confidence
+        else:
+            self._query_map[query_fingerprint] = QueryMetadata(
+                query_id=query_fingerprint,
+                raw_query_string=query,
+                session_id=session_id,
+                type=models.DatasetLineageTypeClass.TRANSFORMED,
+                latest_timestamp=query_timestamp,
+                actor=user,
+                upstreams=upstreams,
+                column_lineage=column_lineage or [],
+                confidence_score=parsed.debug_info.confidence,
+            )
 
     def add_lineage(self) -> None:
         # A secondary mechanism for adding non-SQL-based lineage

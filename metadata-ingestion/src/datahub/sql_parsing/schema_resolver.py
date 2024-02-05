@@ -2,7 +2,7 @@ import contextlib
 import pathlib
 from typing import Dict, List, Optional, Protocol, Set, Tuple
 
-from typing_extensions import TypedDict
+from typing_extensions import TypedDict, override
 
 from datahub.emitter.mce_builder import (
     DEFAULT_ENV,
@@ -52,7 +52,7 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         _cache_filename: Optional[pathlib.Path] = None,
     ):
         # Also supports platform with an urn prefix.
-        self.platform = DataPlatformUrn(platform).platform_name
+        self._platform = DataPlatformUrn(platform).platform_name
         self.platform_instance = platform_instance
         self.env = env
 
@@ -66,6 +66,10 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
             shared_connection=shared_conn,
             extra_columns={"is_missing": lambda v: v is None},
         )
+
+    @property
+    def platform(self) -> str:
+        return self._platform
 
     def get_urns(self) -> Set[str]:
         return set(k for k, v in self._schema_cache.items() if v is not None)
@@ -157,6 +161,18 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         schema_info = self.convert_graphql_schema_metadata_to_info(schema_metadata)
         self._save_to_cache(urn, schema_info)
 
+    def with_temp_tables(
+        self, temp_tables: Dict[str, List[SchemaFieldClass]]
+    ) -> SchemaResolverInterface:
+        extra_schemas = {
+            urn: self._convert_schema_field_list_to_info(fields)
+            for urn, fields in temp_tables.items()
+        }
+
+        return _SchemaResolverWithExtras(
+            base_resolver=self, extra_schemas=extra_schemas
+        )
+
     def _save_to_cache(self, urn: str, schema_info: Optional[SchemaInfo]) -> None:
         self._schema_cache[urn] = schema_info
 
@@ -207,14 +223,19 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         self._schema_cache.close()
 
 
-class _SchemaResolverWithTemp(SchemaResolverInterface):
-
-    def __init__(self, schema_resolver: SchemaResolver):
-        self._schema_resolver = schema_resolver
+class _SchemaResolverWithExtras(SchemaResolverInterface):
+    def __init__(
+        self, base_resolver: SchemaResolver, extra_schemas: Dict[str, SchemaInfo]
+    ):
+        self._base_resolver = base_resolver
+        self._extra_schemas = extra_schemas
 
     @property
     def platform(self) -> str:
-        return self._schema_resolver.platform
+        return self._base_resolver.platform
 
-    def resolve_table(self, table: _TableName) -> Tuple[str, Optional[SchemaInfo]]:
-        return self._schema_resolver.resolve_table(table)
+    @override
+    def _resolve_schema_info(self, urn: str) -> Optional[SchemaInfo]:
+        if urn in self._extra_schemas:
+            return self._extra_schemas[urn]
+        return self._base_resolver._resolve_schema_info(urn)

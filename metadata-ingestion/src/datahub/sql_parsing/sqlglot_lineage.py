@@ -25,7 +25,11 @@ from datahub.metadata.schema_classes import (
     TimeTypeClass,
 )
 from datahub.sql_parsing._models import _FrozenModel, _ParserBaseModel, _TableName
-from datahub.sql_parsing.schema_resolver import SchemaInfo, SchemaResolver
+from datahub.sql_parsing.schema_resolver import (
+    SchemaInfo,
+    SchemaResolver,
+    SchemaResolverInterface,
+)
 from datahub.sql_parsing.sql_parsing_common import (
     DIALECTS_WITH_CASE_INSENSITIVE_COLS,
     DIALECTS_WITH_DEFAULT_UPPERCASE_COLS,
@@ -740,7 +744,7 @@ def _translate_internal_column_lineage(
 
 def _sqlglot_lineage_inner(
     sql: sqlglot.exp.ExpOrStr,
-    schema_resolver: SchemaResolver,
+    schema_resolver: SchemaResolverInterface,
     default_db: Optional[str] = None,
     default_schema: Optional[str] = None,
 ) -> SqlParsingResult:
@@ -892,7 +896,7 @@ def _sqlglot_lineage_inner(
 @functools.lru_cache(maxsize=SQL_PARSE_RESULT_CACHE_SIZE)
 def sqlglot_lineage(
     sql: str,
-    schema_resolver: SchemaResolver,
+    schema_resolver: SchemaResolverInterface,
     default_db: Optional[str] = None,
     default_schema: Optional[str] = None,
 ) -> SqlParsingResult:
