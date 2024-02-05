@@ -34,11 +34,11 @@ class GraphQLSchemaMetadata(TypedDict):
 class SchemaResolverInterface(Protocol):
 
     @property
-    def platform(self) -> str:
-        pass
+    def platform(self) -> str: ...  # noqa: E704
 
-    def resolve_table(self, table: _TableName) -> Tuple[str, Optional[SchemaInfo]]:
-        pass
+    def resolve_table(  # noqa: E704
+        self, table: _TableName
+    ) -> Tuple[str, Optional[SchemaInfo]]: ...
 
 
 class SchemaResolver(Closeable, SchemaResolverInterface):

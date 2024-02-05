@@ -225,11 +225,12 @@ class SqlParsingAggregator:
         # If it produces lineage to a non-temp table, it also produces an operation.
         # Either way, it generates usage.
 
-        session_id = session_id or _MISSING_SESSION_ID
-
         # Note: this assumes that queries come in order of increasing timestamps
 
-        # If we have a session id, load in the temp tables for that session.
+        # All queries with no session ID are assumed to be part of the same session.
+        session_id = session_id or _MISSING_SESSION_ID
+
+        # Load in the temp tables for this session.
         schema_resolver = self._schema_resolver
         if session_id in self._temp_lineage_map:
             temp_table_schemas: Dict[str, List[models.SchemaFieldClass]] = {}
@@ -364,11 +365,9 @@ class SqlParsingAggregator:
     ) -> Iterable[MetadataChangeProposalWrapper]:
         query_ids = self._lineage_map[downstream_urn]
         queries: List[QueryMetadata] = [
-            self._query_map[query_id] for query_id in query_ids
+            self._resolve_query_with_temp_tables(self._query_map[query_id])
+            for query_id in query_ids
         ]
-
-        # TODO for some of these queries, they need to be recursively resolved
-        # if they have temp tables listed in their upstreams
 
         # TODO - should we sort by timestamp here? lineage_map using a set loses order info
         queries = sorted(
@@ -387,7 +386,6 @@ class SqlParsingAggregator:
         upstreams: Dict[str, QueryId] = {}
         # mapping of downstream column -> { upstream column -> query id that produced it }
         cll: Dict[str, Dict[SchemaFieldUrn, QueryId]] = defaultdict(dict)
-        # TODO replace column ref with schema field urn?
 
         for query in queries:
             # Using setdefault to respect the precedence of queries.
@@ -418,7 +416,9 @@ class SqlParsingAggregator:
             )
         upstream_aspect.fineGrainedLineages = []
         for downstream_column, upstream_columns in cll.items():
-            query_id = next(iter(upstream_columns.values()))
+            query_id = next(
+                iter(upstream_columns.values())
+            )  # TODO this drops other query ids
             required_queries.add(query_id)
 
             upstream_aspect.fineGrainedLineages.append(
@@ -469,6 +469,27 @@ class SqlParsingAggregator:
                     ),
                 ],
             )
+
+    def _resolve_query_with_temp_tables(
+        self, query: QueryMetadata, recursive_visited_tables: Optional[Set[str]] = None
+    ) -> QueryMetadata:
+
+        current_upstreams = query.upstreams
+
+        upstream_queries = set()
+        for upstream in current_upstreams:
+            upstream_query_id = self._temp_lineage_map.get(query.session_id, {}).get(
+                upstream
+            )
+            if upstream_query_id:
+                upstream_queries.add(upstream_query_id)
+
+        if not upstream_queries:
+            # Fast path - no temp tables.
+            return query
+
+        # TODO
+        return query
 
     def _gen_usage_statistics_mcps(self) -> Iterable[MetadataChangeProposalWrapper]:
         # TODO

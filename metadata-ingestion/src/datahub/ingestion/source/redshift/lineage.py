@@ -4,7 +4,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Dict, List, Optional, Set, Tuple, Union, cast
+from typing import Dict, List, Optional, Set, Tuple, Union
 from urllib.parse import urlparse
 
 import humanfriendly
@@ -31,7 +31,6 @@ from datahub.ingestion.source.redshift.report import RedshiftReport
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
     RedundantLineageRunSkipHandler,
 )
-from datahub.metadata._schema_classes import SchemaFieldDataTypeClass
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     FineGrainedLineage,
     FineGrainedLineageDownstreamType,
@@ -48,10 +47,10 @@ from datahub.metadata.schema_classes import (
     UpstreamClass,
     UpstreamLineageClass,
 )
+from datahub.metadata.urns import DatasetUrn
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.utilities import memory_footprint
 from datahub.utilities.dedup_list import deduplicate_list
-from datahub.utilities.urns import dataset_urn
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -138,9 +137,7 @@ def parse_alter_table_rename(default_schema: str, query: str) -> Tuple[str, str,
 
 
 def split_qualified_table_name(urn: str) -> Tuple[str, str, str]:
-    qualified_table_name = dataset_urn.DatasetUrn.create_from_string(
-        urn
-    ).get_entity_id()[1]
+    qualified_table_name = DatasetUrn.from_string(urn).name
 
     # -3 because platform instance is optional and that can cause the split to have more than 3 elements
     db, schema, table = qualified_table_name.split(".")[-3:]
@@ -218,23 +215,14 @@ class RedshiftLineageExtractor:
                 or table.parsed_result.column_lineage is None
             ):
                 continue
-            for column_lineage in table.parsed_result.column_lineage:
-                if column_lineage.downstream.table not in dataset_vs_columns:
-                    dataset_vs_columns[cast(str, column_lineage.downstream.table)] = []
-                    # Initialise the temp table urn, we later need this to merge CLL
 
-                dataset_vs_columns[cast(str, column_lineage.downstream.table)].append(
-                    SchemaField(
-                        fieldPath=column_lineage.downstream.column,
-                        type=cast(
-                            SchemaFieldDataTypeClass,
-                            column_lineage.downstream.column_type,
-                        ),
-                        nativeDataType=cast(
-                            str, column_lineage.downstream.native_column_type
-                        ),
-                    )
-                )
+            # Initialise the temp table urn, we later need this to merge CLL
+            downstream_urn = table.urn
+            if downstream_urn not in dataset_vs_columns:
+                dataset_vs_columns[downstream_urn] = []
+            dataset_vs_columns[downstream_urn].extend(
+                sqlglot_l.infer_output_schema(table.parsed_result)
+            )
 
         # Add datasets, and it's respective fields in schema_resolver, so that later schema_resolver would be able
         # correctly generates the upstreams for temporary tables
