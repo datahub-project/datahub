@@ -7,7 +7,7 @@ from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.graph.filters import RemovedStatusFilter
 from datahub.ingestion.source.datahub.config import DataHubSourceConfig
 from datahub.ingestion.source.datahub.report import DataHubSourceReport
-from datahub.metadata._schema_classes import _Aspect
+from datahub.metadata.schema_classes import _Aspect
 
 logger = logging.getLogger(__name__)
 

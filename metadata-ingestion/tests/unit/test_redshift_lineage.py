@@ -17,7 +17,7 @@ from datahub.ingestion.source.redshift.lineage import (
 )
 from datahub.ingestion.source.redshift.redshift_schema import TempTableRow
 from datahub.ingestion.source.redshift.report import RedshiftReport
-from datahub.metadata._schema_classes import NumberTypeClass, SchemaFieldDataTypeClass
+from datahub.metadata.schema_classes import NumberTypeClass, SchemaFieldDataTypeClass
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.sql_parsing.sql_parsing_common import QueryType
 from datahub.sql_parsing.sqlglot_lineage import (
