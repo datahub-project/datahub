@@ -213,6 +213,7 @@ class SqlParsingAggregator:
         usage_multiplier: int = 1,
         # TODO: not 100% sure about this flag - it'd basically be here for redshift
         is_known_temp_table: bool = False,
+        require_out_table_schema: bool = False,
     ) -> None:
         # This may or may not generate lineage.
         # If it produces lineage to a temp table, that gets logged in a separate lineage map
@@ -257,7 +258,10 @@ class SqlParsingAggregator:
                 and parsed.query_type_props.get("temporary")
             )
             or (self.is_temp_table and self.is_temp_table(out_table))
-            or not self._schema_resolver.has_urn(out_table)
+            or (
+                require_out_table_schema
+                and not self._schema_resolver.has_urn(out_table)
+            )
         ):
             # handle temp table
 

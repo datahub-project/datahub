@@ -112,6 +112,7 @@ from datahub.sql_parsing.sqlglot_lineage import (
     SchemaInfo,
     SqlParsingDebugInfo,
     SqlParsingResult,
+    infer_output_schema,
     sqlglot_lineage,
 )
 from datahub.sql_parsing.sqlglot_utils import detach_ctes
@@ -1031,17 +1032,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
             # If we didn't fetch the schema from the graph, use the inferred schema.
             inferred_schema_fields = None
-            if sql_result and sql_result.column_lineage:
-                inferred_schema_fields = [
-                    SchemaField(
-                        fieldPath=column_lineage.downstream.column,
-                        type=column_lineage.downstream.column_type
-                        or SchemaFieldDataType(type=NullTypeClass()),
-                        nativeDataType=column_lineage.downstream.native_column_type
-                        or "",
-                    )
-                    for column_lineage in sql_result.column_lineage
-                ]
+            if sql_result:
+                inferred_schema_fields = infer_output_schema(sql_result)
 
             # Conditionally add the inferred schema to the schema resolver.
             if (

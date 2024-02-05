@@ -17,7 +17,9 @@ from datahub.metadata.schema_classes import (
     ArrayTypeClass,
     BooleanTypeClass,
     DateTypeClass,
+    NullTypeClass,
     NumberTypeClass,
+    SchemaFieldClass,
     SchemaFieldDataTypeClass,
     StringTypeClass,
     TimeTypeClass,
@@ -991,6 +993,25 @@ def create_lineage_sql_parsed_result(
     finally:
         if needs_close:
             schema_resolver.close()
+
+
+def infer_output_schema(result: SqlParsingResult) -> Optional[List[SchemaFieldClass]]:
+    if result.column_lineage is None:
+        return None
+
+    output_schema = []
+    for column_info in result.column_lineage:
+        output_schema.append(
+            SchemaFieldClass(
+                fieldPath=column_info.downstream.column,
+                type=(
+                    column_info.downstream.column_type
+                    or SchemaFieldDataTypeClass(type=NullTypeClass())
+                ),
+                nativeDataType=column_info.downstream.native_column_type or "",
+            )
+        )
+    return output_schema
 
 
 def view_definition_lineage_helper(
