@@ -298,6 +298,7 @@ export const dataset1 = {
     browsePathV2: { path: [{ name: 'test', entity: null }], __typename: 'BrowsePathV2' },
     autoRenderAspects: [],
     structuredProperties: null,
+    forms: null,
 };
 
 export const dataset2 = {
@@ -395,6 +396,7 @@ export const dataset2 = {
     browsePathV2: { path: [{ name: 'test', entity: null }], __typename: 'BrowsePathV2' },
     autoRenderAspects: [],
     structuredProperties: null,
+    forms: null,
 };
 
 export const dataset3 = {
@@ -629,6 +631,7 @@ export const dataset3 = {
     lastProfile: null,
     lastOperation: null,
     structuredProperties: null,
+    forms: null,
 } as Dataset;
 
 export const dataset3WithSchema = {
