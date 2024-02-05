@@ -40,7 +40,6 @@ import com.linkedin.metadata.key.DataFlowKey;
 import com.linkedin.metadata.key.DataPlatformKey;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.structured.StructuredProperties;
-
 import javax.annotation.Nonnull;
 
 public class DataFlowMapper implements ModelMapper<EntityResponse, DataFlow> {

@@ -43,7 +43,6 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.key.DataJobKey;
 import com.linkedin.structured.StructuredProperties;
-
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 
@@ -123,7 +122,8 @@ public class DataJobMapper implements ModelMapper<EntityResponse, DataJob> {
               } else if (SUB_TYPES_ASPECT_NAME.equals(name)) {
                 result.setSubTypes(SubTypesMapper.map(new SubTypes(data)));
               } else if (STRUCTURED_PROPERTIES_ASPECT_NAME.equals(name)) {
-                result.setStructuredProperties(StructuredPropertiesMapper.map(new StructuredProperties(data)));
+                result.setStructuredProperties(
+                    StructuredPropertiesMapper.map(new StructuredProperties(data)));
               }
             });
 

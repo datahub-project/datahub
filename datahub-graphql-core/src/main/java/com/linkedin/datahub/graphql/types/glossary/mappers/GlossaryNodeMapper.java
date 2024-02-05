@@ -18,7 +18,6 @@ import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.glossary.GlossaryNodeInfo;
 import com.linkedin.metadata.key.GlossaryNodeKey;
 import com.linkedin.structured.StructuredProperties;
-
 import javax.annotation.Nonnull;
 
 public class GlossaryNodeMapper implements ModelMapper<EntityResponse, GlossaryNode> {

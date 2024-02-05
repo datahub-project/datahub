@@ -24,7 +24,6 @@ import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.glossary.GlossaryTermInfo;
 import com.linkedin.metadata.key.GlossaryTermKey;
 import com.linkedin.structured.StructuredProperties;
-
 import javax.annotation.Nonnull;
 
 /**

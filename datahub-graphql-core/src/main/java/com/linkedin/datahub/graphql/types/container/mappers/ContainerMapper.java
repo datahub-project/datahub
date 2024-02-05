@@ -35,7 +35,6 @@ import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.Constants;
 import com.linkedin.structured.StructuredProperties;
-
 import javax.annotation.Nullable;
 
 public class ContainerMapper {
@@ -145,7 +144,8 @@ public class ContainerMapper {
     final EnvelopedAspect envelopedStructuredProps = aspects.get(STRUCTURED_PROPERTIES_ASPECT_NAME);
     if (envelopedStructuredProps != null) {
       result.setStructuredProperties(
-          StructuredPropertiesMapper.map(new StructuredProperties(envelopedStructuredProps.getValue().data())));
+          StructuredPropertiesMapper.map(
+              new StructuredProperties(envelopedStructuredProps.getValue().data())));
     }
 
     return result;

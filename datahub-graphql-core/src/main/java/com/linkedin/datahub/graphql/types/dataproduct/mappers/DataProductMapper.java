@@ -31,7 +31,6 @@ import com.linkedin.domain.Domains;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.structured.StructuredProperties;
-
 import javax.annotation.Nonnull;
 
 public class DataProductMapper implements ModelMapper<EntityResponse, DataProduct> {

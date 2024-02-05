@@ -18,7 +18,6 @@ import com.linkedin.identity.CorpGroupEditableInfo;
 import com.linkedin.identity.CorpGroupInfo;
 import com.linkedin.metadata.key.CorpGroupKey;
 import com.linkedin.structured.StructuredProperties;
-
 import javax.annotation.Nonnull;
 
 /**

@@ -52,7 +52,6 @@ import com.linkedin.metadata.key.ChartKey;
 import com.linkedin.metadata.key.DataPlatformKey;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.structured.StructuredProperties;
-
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 

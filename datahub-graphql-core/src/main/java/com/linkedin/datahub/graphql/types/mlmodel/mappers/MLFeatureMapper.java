@@ -37,7 +37,6 @@ import com.linkedin.metadata.key.MLFeatureKey;
 import com.linkedin.ml.metadata.EditableMLFeatureProperties;
 import com.linkedin.ml.metadata.MLFeatureProperties;
 import com.linkedin.structured.StructuredProperties;
-
 import javax.annotation.Nonnull;
 
 /** Maps Pegasus {@link RecordTemplate} objects to objects conforming to the GQL schema. */

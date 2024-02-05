@@ -27,7 +27,6 @@ import com.linkedin.identity.CorpUserSettings;
 import com.linkedin.identity.CorpUserStatus;
 import com.linkedin.metadata.key.CorpUserKey;
 import com.linkedin.structured.StructuredProperties;
-
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 

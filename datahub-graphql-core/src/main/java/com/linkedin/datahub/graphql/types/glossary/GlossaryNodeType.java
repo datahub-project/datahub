@@ -30,7 +30,10 @@ public class GlossaryNodeType
 
   static final Set<String> ASPECTS_TO_RESOLVE =
       ImmutableSet.of(
-          GLOSSARY_NODE_KEY_ASPECT_NAME, GLOSSARY_NODE_INFO_ASPECT_NAME, OWNERSHIP_ASPECT_NAME, STRUCTURED_PROPERTIES_ASPECT_NAME);
+          GLOSSARY_NODE_KEY_ASPECT_NAME,
+          GLOSSARY_NODE_INFO_ASPECT_NAME,
+          OWNERSHIP_ASPECT_NAME,
+          STRUCTURED_PROPERTIES_ASPECT_NAME);
 
   private final EntityClient _entityClient;
 

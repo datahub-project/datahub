@@ -49,7 +49,6 @@ import com.linkedin.ml.metadata.QuantitativeAnalyses;
 import com.linkedin.ml.metadata.SourceCode;
 import com.linkedin.ml.metadata.TrainingData;
 import com.linkedin.structured.StructuredProperties;
-
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 
