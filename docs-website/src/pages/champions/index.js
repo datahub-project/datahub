@@ -166,7 +166,7 @@ const championSections = [
         bio: (
           <>
             <p>
-            Reliably provides direction to community members and contributed 5 pull request, including improvements on athena ingestion (support for nested schemas), and rest emitter            
+            Reliably provides direction to community members and submitted 5 pull request, including improvements on athena ingestion (support for nested schemas) and rest emitter. 
             </p>
           </>
         ),
