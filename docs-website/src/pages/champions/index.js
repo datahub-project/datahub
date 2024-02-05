@@ -166,7 +166,7 @@ const championSections = [
         bio: (
           <>
             <p>
-            Reliably provided dirxection to Community Members across all support channels in Slack.
+            Reliably provides direction to community members and contributed 5 pull request, including improvements on athena ingestion (support for nested schemas), and rest emitter            
             </p>
           </>
         ),
