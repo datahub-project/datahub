@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
 const NOOP = (_: boolean) => {};
 
@@ -9,25 +9,39 @@ const useToggle = ({ initialValue = false, closeDelay = 0, openDelay = 0, onTogg
     const isClosing = transition === 'closing';
     const isTransitioning = transition !== null;
 
-    const toggle = () => {
-        if (isOpen) {
+    const toggleClose = useMemo(
+        () => () => {
             setTransition('closing');
             window.setTimeout(() => {
                 setIsOpen(false);
                 setTransition(null);
                 onToggle(false);
             }, closeDelay);
-        } else {
+        },
+        [closeDelay, onToggle],
+    );
+
+    const toggleOpen = useMemo(
+        () => () => {
             setTransition('opening');
             window.setTimeout(() => {
                 setIsOpen(true);
                 setTransition(null);
                 onToggle(true);
             }, openDelay);
+        },
+        [openDelay, onToggle],
+    );
+
+    const toggle = () => {
+        if (isOpen) {
+            toggleClose();
+        } else {
+            toggleOpen();
         }
     };
 
-    return { isOpen, isClosing, isOpening, isTransitioning, toggle } as const;
+    return { isOpen, isClosing, isOpening, isTransitioning, toggle, toggleOpen, toggleClose } as const;
 };
 
 export default useToggle;

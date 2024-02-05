@@ -1,14 +1,17 @@
 import logging
 from abc import abstractmethod
 from typing import Any, Dict, Optional
-from urllib.parse import quote_plus
 
 import pydantic
 from pydantic import Field
+from sqlalchemy.engine import URL
 
-from datahub.configuration.common import AllowDenyPattern, ConfigModel
-from datahub.configuration.pydantic_field_deprecation import pydantic_field_deprecated
-from datahub.configuration.source_common import DatasetSourceConfigMixin
+from datahub.configuration.common import AllowDenyPattern, ConfigModel, LineageConfig
+from datahub.configuration.source_common import (
+    DatasetSourceConfigMixin,
+    LowerCaseDatasetUrnConfigMixin,
+)
+from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
@@ -21,7 +24,12 @@ from datahub.ingestion.source_config.operation_config import is_profiling_enable
 logger: logging.Logger = logging.getLogger(__name__)
 
 
-class SQLCommonConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
+class SQLCommonConfig(
+    StatefulIngestionConfigBase,
+    DatasetSourceConfigMixin,
+    LowerCaseDatasetUrnConfigMixin,
+    LineageConfig,
+):
     options: dict = pydantic.Field(
         default_factory=dict,
         description="Any options specified here will be passed to [SQLAlchemy.create_engine](https://docs.sqlalchemy.org/en/14/core/engines.html#sqlalchemy.create_engine) as kwargs.",
@@ -63,6 +71,22 @@ class SQLCommonConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
         description="If the source supports it, include table lineage to the underlying storage location.",
     )
 
+    include_view_lineage: bool = Field(
+        default=True,
+        description="Populates view->view and table->view lineage using DataHub's sql parser.",
+    )
+
+    include_view_column_lineage: bool = Field(
+        default=True,
+        description="Populates column-level lineage for  view->view and table->view lineage using DataHub's sql parser."
+        " Requires `include_view_lineage` to be enabled.",
+    )
+
+    use_file_backed_cache: bool = Field(
+        default=True,
+        description="Whether to use a file backed cache for the view definitions.",
+    )
+
     profiling: GEProfilingConfig = GEProfilingConfig()
     # Custom Stateful Ingestion settings
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
@@ -83,12 +107,18 @@ class SQLCommonConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
             values["view_pattern"] = table_pattern
         return values
 
-    @pydantic.root_validator()
+    @pydantic.root_validator(skip_on_failure=True)
     def ensure_profiling_pattern_is_passed_to_profiling(
         cls, values: Dict[str, Any]
     ) -> Dict[str, Any]:
         profiling: Optional[GEProfilingConfig] = values.get("profiling")
-        if profiling is not None and profiling.enabled:
+        # Note: isinstance() check is required here as unity-catalog source reuses
+        # SQLCommonConfig with different profiling config than GEProfilingConfig
+        if (
+            profiling is not None
+            and isinstance(profiling, GEProfilingConfig)
+            and profiling.enabled
+        ):
             profiling._allow_deny_patterns = values["profile_pattern"]
         return values
 
@@ -105,10 +135,6 @@ class SQLAlchemyConnectionConfig(ConfigModel):
     host_port: str = Field(description="host URL")
     database: Optional[str] = Field(default=None, description="database (catalog)")
 
-    database_alias: Optional[str] = Field(
-        default=None,
-        description="[Deprecated] Alias to apply to database when ingesting.",
-    )
     scheme: str = Field(description="scheme")
     sqlalchemy_uri: Optional[str] = Field(
         default=None,
@@ -118,13 +144,14 @@ class SQLAlchemyConnectionConfig(ConfigModel):
     # Duplicate of SQLCommonConfig.options
     options: dict = pydantic.Field(
         default_factory=dict,
-        description="Any options specified here will be passed to [SQLAlchemy.create_engine](https://docs.sqlalchemy.org/en/14/core/engines.html#sqlalchemy.create_engine) as kwargs.",
+        description=(
+            "Any options specified here will be passed to "
+            "[SQLAlchemy.create_engine](https://docs.sqlalchemy.org/en/14/core/engines.html#sqlalchemy.create_engine) as kwargs."
+            " To set connection arguments in the URL, specify them under `connect_args`."
+        ),
     )
 
-    _database_alias_deprecation = pydantic_field_deprecated(
-        "database_alias",
-        message="database_alias is deprecated. Use platform_instance instead.",
-    )
+    _database_alias_removed = pydantic_removed_field("database_alias")
 
     def get_sql_alchemy_url(
         self, uri_opts: Optional[Dict[str, Any]] = None, database: Optional[str] = None
@@ -154,21 +181,26 @@ def make_sqlalchemy_uri(
     db: Optional[str],
     uri_opts: Optional[Dict[str, Any]] = None,
 ) -> str:
-    url = f"{scheme}://"
-    if username is not None:
-        url += f"{quote_plus(username)}"
-        if password is not None:
-            url += f":{quote_plus(password)}"
-        url += "@"
-    if at is not None:
-        url += f"{at}"
-    if db is not None:
-        url += f"/{db}"
-    if uri_opts is not None:
-        if db is None:
-            url += "/"
-        params = "&".join(
-            f"{key}={quote_plus(value)}" for (key, value) in uri_opts.items() if value
+    host: Optional[str] = None
+    port: Optional[int] = None
+    if at:
+        try:
+            host, port_str = at.rsplit(":", 1)
+            port = int(port_str)
+        except ValueError:
+            host = at
+            port = None
+    if uri_opts:
+        uri_opts = {k: v for k, v in uri_opts.items() if v is not None}
+
+    return str(
+        URL.create(
+            drivername=scheme,
+            username=username,
+            password=password,
+            host=host,
+            port=port,
+            database=db,
+            query=uri_opts or {},
         )
-        url = f"{url}?{params}"
-    return url
+    )

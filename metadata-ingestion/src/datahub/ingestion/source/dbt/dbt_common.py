@@ -1,11 +1,11 @@
-import json
+import itertools
 import logging
 import re
 from abc import abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import auto
-from typing import Any, Callable, ClassVar, Dict, Iterable, List, Optional, Tuple, Union
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import pydantic
 from pydantic import root_validator, validator
@@ -18,8 +18,8 @@ from datahub.configuration.common import (
     ConfigurationError,
     LineageConfig,
 )
-from datahub.configuration.pydantic_field_deprecation import pydantic_field_deprecated
 from datahub.configuration.source_common import DatasetSourceConfigMixin
+from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
 from datahub.emitter import mce_builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -31,9 +31,18 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
+from datahub.ingestion.api.incremental_lineage_helper import (
+    convert_upstream_lineage_to_patch,
+)
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
+from datahub.ingestion.source.dbt.dbt_tests import (
+    DBTTest,
+    DBTTestResult,
+    make_assertion_from_test,
+    make_assertion_result_from_test,
+)
 from datahub.ingestion.source.sql.sql_types import (
     ATHENA_SQL_TYPES_MAP,
     BIGQUERY_TYPES_MAP,
@@ -62,6 +71,9 @@ from datahub.metadata.com.linkedin.pegasus2avro.common import (
 )
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     DatasetLineageTypeClass,
+    FineGrainedLineage,
+    FineGrainedLineageDownstreamType,
+    FineGrainedLineageUpstreamType,
     UpstreamClass,
     UpstreamLineage,
 )
@@ -81,20 +93,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     TimeTypeClass,
 )
 from datahub.metadata.schema_classes import (
-    AssertionInfoClass,
-    AssertionResultClass,
-    AssertionResultTypeClass,
-    AssertionRunEventClass,
-    AssertionRunStatusClass,
-    AssertionStdAggregationClass,
-    AssertionStdOperatorClass,
-    AssertionStdParameterClass,
-    AssertionStdParametersClass,
-    AssertionStdParameterTypeClass,
-    AssertionTypeClass,
     DataPlatformInstanceClass,
-    DatasetAssertionInfoClass,
-    DatasetAssertionScopeClass,
     DatasetPropertiesClass,
     GlobalTagsClass,
     GlossaryTermsClass,
@@ -108,9 +107,17 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
     ViewPropertiesClass,
 )
-from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.utilities.mapping import Constants, OperationProcessor
+from datahub.utilities.sqlglot_lineage import (
+    SchemaInfo,
+    SchemaResolver,
+    SqlParsingDebugInfo,
+    SqlParsingResult,
+    detach_ctes,
+    sqlglot_lineage,
+)
 from datahub.utilities.time import datetime_to_ts_millis
+from datahub.utilities.topological_sort import topological_sort
 
 logger = logging.getLogger(__name__)
 DBT_PLATFORM = "dbt"
@@ -118,7 +125,9 @@ DBT_PLATFORM = "dbt"
 
 @dataclass
 class DBTSourceReport(StaleEntityRemovalSourceReport):
-    pass
+    sql_statements_parsed: int = 0
+    sql_parser_detach_ctes_failures: int = 0
+    sql_parser_skipped_missing_code: int = 0
 
 
 class EmitDirective(ConfigEnum):
@@ -158,7 +167,7 @@ class DBTEntitiesEnabled(ConfigModel):
         description="Emit metadata for test results when set to Yes or Only",
     )
 
-    @root_validator
+    @root_validator(skip_on_failure=True)
     def process_only_directive(cls, values):
         # Checks that at most one is set to ONLY, and then sets the others to NO.
 
@@ -214,7 +223,9 @@ class DBTCommonConfig(
         default=False,
         description="Use model identifier instead of model name if defined (if not, default to model name).",
     )
-    _deprecate_use_identifiers = pydantic_field_deprecated("use_identifiers")
+    _deprecate_use_identifiers = pydantic_field_deprecated(
+        "use_identifiers", warn_if_value_is_not=False
+    )
 
     entities_enabled: DBTEntitiesEnabled = Field(
         DBTEntitiesEnabled(),
@@ -235,7 +246,7 @@ class DBTCommonConfig(
         default={},
         description="mapping rules that will be executed against dbt column meta properties. Refer to the section below on dbt meta automated mappings.",
     )
-    enable_meta_mapping = Field(
+    enable_meta_mapping: bool = Field(
         default=True,
         description="When enabled, applies the mappings that are defined through the meta_mapping directives.",
     )
@@ -243,7 +254,7 @@ class DBTCommonConfig(
         default={},
         description="mapping rules that will be executed against dbt query_tag meta properties. Refer to the section below on dbt meta automated mappings.",
     )
-    enable_query_tag_mapping = Field(
+    enable_query_tag_mapping: bool = Field(
         default=True,
         description="When enabled, applies the mappings that are defined through the `query_tag_mapping` directives.",
     )
@@ -277,6 +288,28 @@ class DBTCommonConfig(
         default=False,
         description="When enabled, converts column URNs to lowercase to ensure cross-platform compatibility. "
         "If `target_platform` is Snowflake, the default is True.",
+    )
+    use_compiled_code: bool = Field(
+        default=False,
+        description="When enabled, uses the compiled dbt code instead of the raw dbt node definition.",
+    )
+    test_warnings_are_errors: bool = Field(
+        default=False,
+        description="When enabled, dbt test warnings will be treated as failures.",
+    )
+    infer_dbt_schemas: bool = Field(
+        default=True,
+        description="When enabled, schemas will be inferred from the dbt node definition.",
+    )
+    include_column_lineage: bool = Field(
+        default=True,
+        description="When enabled, column-level lineage will be extracted from the dbt node definition. Requires `infer_dbt_schemas` to be enabled. "
+        "If you run into issues where the column name casing does not match up with properly, providing a datahub_api or using the rest sink will improve accuracy.",
+    )
+    # override default value to True.
+    incremental_lineage: bool = Field(
+        default=True,
+        description="When enabled, emits incremental/patch lineage for non-dbt entities. When disabled, re-states lineage on each run.",
     )
 
     @validator("target_platform")
@@ -333,6 +366,17 @@ class DBTCommonConfig(
                         )
         return meta_mapping
 
+    @validator("include_column_lineage")
+    def validate_include_column_lineage(
+        cls, include_column_lineage: bool, values: Dict
+    ) -> bool:
+        if include_column_lineage and not values.get("infer_dbt_schemas"):
+            raise ValueError(
+                "`infer_dbt_schemas` must be enabled to use `include_column_lineage`"
+            )
+
+        return include_column_lineage
+
 
 @dataclass
 class DBTColumn:
@@ -344,6 +388,16 @@ class DBTColumn:
 
     meta: Dict[str, Any] = field(default_factory=dict)
     tags: List[str] = field(default_factory=list)
+
+    datahub_data_type: Optional[SchemaFieldDataType] = None
+
+
+@dataclass
+class DBTColumnLineageInfo:
+    upstream_dbt_name: str
+
+    upstream_col: str
+    downstream_col: str
 
 
 @dataclass
@@ -376,7 +430,9 @@ class DBTNode:
     owner: Optional[str]
 
     columns: List[DBTColumn] = field(default_factory=list)
-    upstream_nodes: List[str] = field(default_factory=list)
+    upstream_nodes: List[str] = field(default_factory=list)  # list of upstream dbt_name
+    upstream_cll: List[DBTColumnLineageInfo] = field(default_factory=list)
+    cll_debug_info: Optional[SqlParsingDebugInfo] = None
 
     meta: Dict[str, Any] = field(default_factory=dict)
     query_tag: Dict[str, Any] = field(default_factory=dict)
@@ -387,17 +443,23 @@ class DBTNode:
     test_info: Optional["DBTTest"] = None  # only populated if node_type == 'test'
     test_result: Optional["DBTTestResult"] = None
 
+    @staticmethod
+    def _join_parts(parts: List[Optional[str]]) -> str:
+        joined = ".".join([part for part in parts if part])
+        assert joined
+        return joined
+
     def get_db_fqn(self) -> str:
-        if self.database:
-            fqn = f"{self.database}.{self.schema}.{self.name}"
-        else:
-            fqn = f"{self.schema}.{self.name}"
+        # Database might be None, but schema and name should always be present.
+        fqn = self._join_parts([self.database, self.schema, self.name])
         return fqn.replace('"', "")
 
     def get_urn(
         self,
         target_platform: str,
         env: str,
+        # If target_platform = dbt, this is the dbt platform instance.
+        # Otherwise, it's the target platform instance.
         data_platform_instance: Optional[str],
     ) -> str:
         db_fqn = self.get_db_fqn()
@@ -409,6 +471,80 @@ class DBTNode:
             platform_instance=data_platform_instance,
             env=env,
         )
+
+    def is_ephemeral_model(self) -> bool:
+        return self.materialization == "ephemeral"
+
+    def get_fake_ephemeral_table_name(self) -> str:
+        assert self.is_ephemeral_model()
+
+        # Similar to get_db_fqn.
+        fqn = self._join_parts(
+            [self.database, self.schema, f"__datahub__dbt__ephemeral__{self.name}"]
+        )
+        return fqn.replace('"', "")
+
+    def get_urn_for_upstream_lineage(
+        self,
+        dbt_platform_instance: Optional[str],
+        target_platform: str,
+        target_platform_instance: Optional[str],
+        env: str,
+    ) -> str:
+        """
+        Get the urn to use when referencing this node in a dbt node's upstream lineage.
+
+        If the node is a source or an ephemeral dbt node, we should point at the dbt node.
+        Otherwise, the node is materialized in the target platform, and so lineage should
+        point there.
+        """
+        # TODO: This logic shouldn't live in the DBTNode class. It should be moved to the source.
+
+        platform_value = DBT_PLATFORM
+        platform_instance_value = dbt_platform_instance
+
+        materialized = self.materialization
+        if materialized in {
+            "view",
+            "materialized_view",
+            "table",
+            "incremental",
+            "snapshot",
+        }:
+            # upstream urns point to the target platform
+            platform_value = target_platform
+            platform_instance_value = target_platform_instance
+
+        return self.get_urn(
+            target_platform=platform_value,
+            env=env,
+            data_platform_instance=platform_instance_value,
+        )
+
+    @property
+    def exists_in_target_platform(self):
+        return not (self.is_ephemeral_model() or self.node_type == "test")
+
+    def columns_setdefault(self, schema_fields: List[SchemaField]) -> None:
+        """
+        Update the column list if they are not already set.
+        """
+
+        if self.columns:
+            # If we already have columns, don't overwrite them.
+            return
+
+        self.columns = [
+            DBTColumn(
+                name=schema_field.fieldPath,
+                comment="",
+                description="",
+                index=i,
+                data_type=schema_field.nativeDataType,
+                datahub_data_type=schema_field.type,
+            )
+            for i, schema_field in enumerate(schema_fields)
+        ]
 
 
 def get_custom_properties(node: DBTNode) -> Dict[str, str]:
@@ -435,6 +571,31 @@ def get_custom_properties(node: DBTNode) -> Dict[str, str]:
     return custom_properties
 
 
+def _get_dbt_cte_names(name: str, target_platform: str) -> List[str]:
+    # Match the dbt CTE naming scheme:
+    # The default is defined here https://github.com/dbt-labs/dbt-core/blob/4122f6c308c88be4a24c1ea490802239a4c1abb8/core/dbt/adapters/base/relation.py#L222
+    # However, since this PR https://github.com/dbt-labs/dbt-core/pull/2712, it's also possible
+    # for adapters to override this default. Only a handful actually do though:
+    # https://github.com/search?type=code&q=add_ephemeral_prefix+path:/%5Edbt%5C/adapters%5C//
+
+    # Regardless, we need to keep the original name to work with older dbt versions.
+    default_cte_name = f"__dbt__cte__{name}"
+
+    adapter_cte_names = {
+        "hive": f"tmp__dbt__cte__{name}",
+        "oracle": f"dbt__cte__{name}__",
+        "netezza": f"dbt__cte__{name}",
+        "exasol": f"dbt__CTE__{name}",
+        "db2": f"DBT_CTE__{name}",  # ibm db2
+    }
+
+    cte_names = [default_cte_name]
+    if target_platform in adapter_cte_names:
+        cte_names.append(adapter_cte_names[target_platform])
+
+    return cte_names
+
+
 def get_upstreams(
     upstreams: List[str],
     all_nodes: Dict[str, DBTNode],
@@ -455,21 +616,12 @@ def get_upstreams(
         upstream_manifest_node = all_nodes[upstream]
 
         # This logic creates lineages among dbt nodes.
-        platform_value = DBT_PLATFORM
-        platform_instance_value = platform_instance
-
-        materialized = upstream_manifest_node.materialization
-
-        if materialized in {"view", "table", "incremental", "snapshot"}:
-            # upstream urns point to the target platform
-            platform_value = target_platform
-            platform_instance_value = target_platform_instance
-
         upstream_urns.append(
-            upstream_manifest_node.get_urn(
-                platform_value,
-                environment,
-                platform_instance_value,
+            upstream_manifest_node.get_urn_for_upstream_lineage(
+                dbt_platform_instance=platform_instance,
+                target_platform=target_platform,
+                target_platform_instance=target_platform_instance,
+                env=environment,
             )
         )
     return upstream_urns
@@ -541,140 +693,15 @@ def get_column_type(
     return SchemaFieldDataType(type=TypeClass())
 
 
-@dataclass
-class AssertionParams:
-    scope: Union[DatasetAssertionScopeClass, str]
-    operator: Union[AssertionStdOperatorClass, str]
-    aggregation: Union[AssertionStdAggregationClass, str]
-    parameters: Optional[Callable[[Dict[str, str]], AssertionStdParametersClass]] = None
-    logic_fn: Optional[Callable[[Dict[str, str]], Optional[str]]] = None
-
-
-def _get_name_for_relationship_test(kw_args: Dict[str, str]) -> Optional[str]:
-    """
-    Try to produce a useful string for the name of a relationship constraint.
-    Return None if we fail to
-    """
-    destination_ref = kw_args.get("to")
-    source_ref = kw_args.get("model")
-    column_name = kw_args.get("column_name")
-    dest_field_name = kw_args.get("field")
-    if not destination_ref or not source_ref or not column_name or not dest_field_name:
-        # base assertions are violated, bail early
-        return None
-    m = re.match(r"^ref\(\'(.*)\'\)$", destination_ref)
-    if m:
-        destination_table = m.group(1)
-    else:
-        destination_table = destination_ref
-    m = re.search(r"ref\(\'(.*)\'\)", source_ref)
-    if m:
-        source_table = m.group(1)
-    else:
-        source_table = source_ref
-    return f"{source_table}.{column_name} referential integrity to {destination_table}.{dest_field_name}"
-
-
-@dataclass
-class DBTTest:
-    qualified_test_name: str
-    column_name: Optional[str]
-    kw_args: dict
-
-    TEST_NAME_TO_ASSERTION_MAP: ClassVar[Dict[str, AssertionParams]] = {
-        "not_null": AssertionParams(
-            scope=DatasetAssertionScopeClass.DATASET_COLUMN,
-            operator=AssertionStdOperatorClass.NOT_NULL,
-            aggregation=AssertionStdAggregationClass.IDENTITY,
-        ),
-        "unique": AssertionParams(
-            scope=DatasetAssertionScopeClass.DATASET_COLUMN,
-            operator=AssertionStdOperatorClass.EQUAL_TO,
-            aggregation=AssertionStdAggregationClass.UNIQUE_PROPOTION,
-            parameters=lambda _: AssertionStdParametersClass(
-                value=AssertionStdParameterClass(
-                    value="1.0",
-                    type=AssertionStdParameterTypeClass.NUMBER,
-                )
-            ),
-        ),
-        "accepted_values": AssertionParams(
-            scope=DatasetAssertionScopeClass.DATASET_COLUMN,
-            operator=AssertionStdOperatorClass.IN,
-            aggregation=AssertionStdAggregationClass.IDENTITY,
-            parameters=lambda kw_args: AssertionStdParametersClass(
-                value=AssertionStdParameterClass(
-                    value=json.dumps(kw_args.get("values")),
-                    type=AssertionStdParameterTypeClass.SET,
-                ),
-            ),
-        ),
-        "relationships": AssertionParams(
-            scope=DatasetAssertionScopeClass.DATASET_COLUMN,
-            operator=AssertionStdOperatorClass._NATIVE_,
-            aggregation=AssertionStdAggregationClass.IDENTITY,
-            parameters=lambda kw_args: AssertionStdParametersClass(
-                value=AssertionStdParameterClass(
-                    value=json.dumps(kw_args.get("values")),
-                    type=AssertionStdParameterTypeClass.SET,
-                ),
-            ),
-            logic_fn=_get_name_for_relationship_test,
-        ),
-        "dbt_expectations.expect_column_values_to_not_be_null": AssertionParams(
-            scope=DatasetAssertionScopeClass.DATASET_COLUMN,
-            operator=AssertionStdOperatorClass.NOT_NULL,
-            aggregation=AssertionStdAggregationClass.IDENTITY,
-        ),
-        "dbt_expectations.expect_column_values_to_be_between": AssertionParams(
-            scope=DatasetAssertionScopeClass.DATASET_COLUMN,
-            operator=AssertionStdOperatorClass.BETWEEN,
-            aggregation=AssertionStdAggregationClass.IDENTITY,
-            parameters=lambda x: AssertionStdParametersClass(
-                minValue=AssertionStdParameterClass(
-                    value=str(x.get("min_value", "unknown")),
-                    type=AssertionStdParameterTypeClass.NUMBER,
-                ),
-                maxValue=AssertionStdParameterClass(
-                    value=str(x.get("max_value", "unknown")),
-                    type=AssertionStdParameterTypeClass.NUMBER,
-                ),
-            ),
-        ),
-        "dbt_expectations.expect_column_values_to_be_in_set": AssertionParams(
-            scope=DatasetAssertionScopeClass.DATASET_COLUMN,
-            operator=AssertionStdOperatorClass.IN,
-            aggregation=AssertionStdAggregationClass.IDENTITY,
-            parameters=lambda kw_args: AssertionStdParametersClass(
-                value=AssertionStdParameterClass(
-                    value=json.dumps(kw_args.get("value_set")),
-                    type=AssertionStdParameterTypeClass.SET,
-                ),
-            ),
-        ),
-    }
-
-
-@dataclass
-class DBTTestResult:
-    invocation_id: str
-
-    status: str
-    execution_time: datetime
-
-    native_results: Dict[str, str]
-
-
-def string_map(input_map: Dict[str, Any]) -> Dict[str, str]:
-    return {k: str(v) for k, v in input_map.items()}
-
-
 @platform_name("dbt")
 @config_class(DBTCommonConfig)
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
 @capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
-@capability(SourceCapability.USAGE_STATS, "", supported=False)
+@capability(
+    SourceCapability.LINEAGE_FINE,
+    "Enabled by default, configure using `include_column_lineage`",
+)
 class DBTSourceBase(StatefulIngestionSourceBase):
     def __init__(self, config: DBTCommonConfig, ctx: PipelineContext, platform: str):
         super().__init__(config, ctx)
@@ -701,18 +728,22 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             assertion_urn = mce_builder.make_assertion_urn(
                 mce_builder.datahub_guid(
                     {
-                        "platform": DBT_PLATFORM,
-                        "name": node.dbt_name,
-                        "instance": self.config.platform_instance,
-                        **(
-                            # Ideally we'd include the env unconditionally. However, we started out
-                            # not including env in the guid, so we need to maintain backwards compatibility
-                            # with existing PROD assertions.
-                            {"env": self.config.env}
-                            if self.config.env != mce_builder.DEFAULT_ENV
-                            and self.config.include_env_in_assertion_guid
-                            else {}
-                        ),
+                        k: v
+                        for k, v in {
+                            "platform": DBT_PLATFORM,
+                            "name": node.dbt_name,
+                            "instance": self.config.platform_instance,
+                            **(
+                                # Ideally we'd include the env unconditionally. However, we started out
+                                # not including env in the guid, so we need to maintain backwards compatibility
+                                # with existing PROD assertions.
+                                {"env": self.config.env}
+                                if self.config.env != mce_builder.DEFAULT_ENV
+                                and self.config.include_env_in_assertion_guid
+                                else {}
+                            ),
+                        }.items()
+                        if v is not None
                     }
                 )
             )
@@ -731,12 +762,13 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 target_platform=self.config.target_platform,
                 target_platform_instance=self.config.target_platform_instance,
                 environment=self.config.env,
-                platform_instance=None,
+                platform_instance=self.config.platform_instance,
             )
 
+            # In case a dbt test depends on multiple tables, we create separate assertions for each.
             for upstream_urn in sorted(upstream_urns):
                 if self.config.entities_enabled.can_emit_node_type("test"):
-                    yield self._make_assertion_from_test(
+                    yield make_assertion_from_test(
                         custom_props,
                         node,
                         assertion_urn,
@@ -745,128 +777,16 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
                 if node.test_result:
                     if self.config.entities_enabled.can_emit_test_results:
-                        yield self._make_assertion_result_from_test(
-                            node, assertion_urn, upstream_urn
+                        yield make_assertion_result_from_test(
+                            node,
+                            assertion_urn,
+                            upstream_urn,
+                            test_warnings_are_errors=self.config.test_warnings_are_errors,
                         )
                     else:
                         logger.debug(
                             f"Skipping test result {node.name} emission since it is turned off."
                         )
-
-    def _make_assertion_from_test(
-        self,
-        extra_custom_props: Dict[str, str],
-        node: DBTNode,
-        assertion_urn: str,
-        upstream_urn: str,
-    ) -> MetadataWorkUnit:
-        assert node.test_info
-        qualified_test_name = node.test_info.qualified_test_name
-        column_name = node.test_info.column_name
-        kw_args = node.test_info.kw_args
-
-        if qualified_test_name in DBTTest.TEST_NAME_TO_ASSERTION_MAP:
-            assertion_params = DBTTest.TEST_NAME_TO_ASSERTION_MAP[qualified_test_name]
-            assertion_info = AssertionInfoClass(
-                type=AssertionTypeClass.DATASET,
-                customProperties=extra_custom_props,
-                datasetAssertion=DatasetAssertionInfoClass(
-                    dataset=upstream_urn,
-                    scope=assertion_params.scope,
-                    operator=assertion_params.operator,
-                    fields=[
-                        mce_builder.make_schema_field_urn(upstream_urn, column_name)
-                    ]
-                    if (
-                        assertion_params.scope
-                        == DatasetAssertionScopeClass.DATASET_COLUMN
-                        and column_name
-                    )
-                    else [],
-                    nativeType=node.name,
-                    aggregation=assertion_params.aggregation,
-                    parameters=assertion_params.parameters(kw_args)
-                    if assertion_params.parameters
-                    else None,
-                    logic=assertion_params.logic_fn(kw_args)
-                    if assertion_params.logic_fn
-                    else None,
-                    nativeParameters=string_map(kw_args),
-                ),
-            )
-        elif column_name:
-            # no match with known test types, column-level test
-            assertion_info = AssertionInfoClass(
-                type=AssertionTypeClass.DATASET,
-                customProperties=extra_custom_props,
-                datasetAssertion=DatasetAssertionInfoClass(
-                    dataset=upstream_urn,
-                    scope=DatasetAssertionScopeClass.DATASET_COLUMN,
-                    operator=AssertionStdOperatorClass._NATIVE_,
-                    fields=[
-                        mce_builder.make_schema_field_urn(upstream_urn, column_name)
-                    ],
-                    nativeType=node.name,
-                    logic=node.compiled_code if node.compiled_code else node.raw_code,
-                    aggregation=AssertionStdAggregationClass._NATIVE_,
-                    nativeParameters=string_map(kw_args),
-                ),
-            )
-        else:
-            # no match with known test types, default to row-level test
-            assertion_info = AssertionInfoClass(
-                type=AssertionTypeClass.DATASET,
-                customProperties=extra_custom_props,
-                datasetAssertion=DatasetAssertionInfoClass(
-                    dataset=upstream_urn,
-                    scope=DatasetAssertionScopeClass.DATASET_ROWS,
-                    operator=AssertionStdOperatorClass._NATIVE_,
-                    logic=node.compiled_code if node.compiled_code else node.raw_code,
-                    nativeType=node.name,
-                    aggregation=AssertionStdAggregationClass._NATIVE_,
-                    nativeParameters=string_map(kw_args),
-                ),
-            )
-
-        wu = MetadataChangeProposalWrapper(
-            entityUrn=assertion_urn,
-            aspect=assertion_info,
-        ).as_workunit()
-
-        return wu
-
-    def _make_assertion_result_from_test(
-        self,
-        node: DBTNode,
-        assertion_urn: str,
-        upstream_urn: str,
-    ) -> MetadataWorkUnit:
-        assert node.test_result
-        test_result = node.test_result
-
-        assertionResult = AssertionRunEventClass(
-            timestampMillis=int(test_result.execution_time.timestamp() * 1000.0),
-            assertionUrn=assertion_urn,
-            asserteeUrn=upstream_urn,
-            runId=test_result.invocation_id,
-            result=AssertionResultClass(
-                type=AssertionResultTypeClass.SUCCESS
-                if test_result.status == "pass"
-                else AssertionResultTypeClass.FAILURE,
-                nativeResults=test_result.native_results,
-            ),
-            status=AssertionRunStatusClass.COMPLETE,
-        )
-
-        event = MetadataChangeProposalWrapper(
-            entityUrn=assertion_urn,
-            aspect=assertionResult,
-        )
-        wu = MetadataWorkUnit(
-            id=f"{assertion_urn}-assertionRunEvent-{upstream_urn}",
-            mcp=event,
-        )
-        return wu
 
     @abstractmethod
     def load_nodes(self) -> Tuple[List[DBTNode], Dict[str, Optional[str]]]:
@@ -880,28 +800,30 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
-        if self.config.write_semantics == "PATCH" and not self.ctx.graph:
-            raise ConfigurationError(
-                "With PATCH semantics, dbt source requires a datahub_api to connect to. "
-                "Consider using the datahub-rest sink or provide a datahub_api: configuration on your ingestion recipe."
-            )
+        if self.config.write_semantics == "PATCH":
+            self.ctx.require_graph("Using dbt with write_semantics=PATCH")
 
         all_nodes, additional_custom_props = self.load_nodes()
 
         all_nodes_map = {node.dbt_name: node for node in all_nodes}
-        nodes = self.filter_nodes(all_nodes)
-
         additional_custom_props_filtered = {
             key: value
             for key, value in additional_custom_props.items()
             if value is not None
         }
 
+        # We need to run this before filtering nodes, because the info generated
+        # for a filtered node may be used by an unfiltered node.
+        # NOTE: This method mutates the DBTNode objects directly.
+        self._infer_schemas_and_update_cll(all_nodes_map)
+
+        nodes = self._filter_nodes(all_nodes)
         non_test_nodes = [
             dataset_node for dataset_node in nodes if dataset_node.node_type != "test"
         ]
         test_nodes = [test_node for test_node in nodes if test_node.node_type == "test"]
 
+        logger.info(f"Creating dbt metadata for {len(nodes)} nodes")
         yield from self.create_platform_mces(
             non_test_nodes,
             additional_custom_props_filtered,
@@ -910,6 +832,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             self.config.platform_instance,
         )
 
+        logger.info(f"Updating {self.config.target_platform} metadata")
         yield from self.create_platform_mces(
             non_test_nodes,
             additional_custom_props_filtered,
@@ -924,7 +847,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             all_nodes_map,
         )
 
-    def filter_nodes(self, all_nodes: List[DBTNode]) -> List[DBTNode]:
+    def _filter_nodes(self, all_nodes: List[DBTNode]) -> List[DBTNode]:
         nodes = []
         for node in all_nodes:
             key = node.dbt_name
@@ -935,6 +858,202 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             nodes.append(node)
 
         return nodes
+
+    @staticmethod
+    def _to_schema_info(schema_fields: List[SchemaField]) -> SchemaInfo:
+        return {column.fieldPath: column.nativeDataType for column in schema_fields}
+
+    def _infer_schemas_and_update_cll(self, all_nodes_map: Dict[str, DBTNode]) -> None:
+        """Annotate the DBTNode objects with schema information and column-level lineage.
+
+        Note that this mutates the DBTNode objects directly.
+
+        This method does the following:
+        1. Iterate over the dbt nodes in topological order.
+        2. For each node, either load the schema from the graph or from the dbt catalog info.
+           We also add this schema to the schema resolver.
+        3. Run sql parser to infer the schema + generate column lineage.
+        4. Write the schema and column lineage back to the DBTNode object.
+        5. If we haven't already added the node's schema to the schema resolver, do that.
+        """
+
+        if not self.config.infer_dbt_schemas:
+            if self.config.include_column_lineage:
+                raise ConfigurationError(
+                    "`infer_dbt_schemas` must be enabled to use `include_column_lineage`"
+                )
+            return
+
+        graph = self.ctx.graph
+
+        schema_resolver = SchemaResolver(
+            platform=self.config.target_platform,
+            platform_instance=self.config.target_platform_instance,
+            env=self.config.env,
+        )
+
+        target_platform_urn_to_dbt_name: Dict[str, str] = {}
+
+        # Iterate over the dbt nodes in topological order.
+        # This ensures that we process upstream nodes before downstream nodes.
+        for dbt_name in topological_sort(
+            list(all_nodes_map.keys()),
+            edges=list(
+                (upstream, node.dbt_name)
+                for node in all_nodes_map.values()
+                for upstream in node.upstream_nodes
+                if upstream in all_nodes_map
+            ),
+        ):
+            node = all_nodes_map[dbt_name]
+            logger.debug(f"Processing CLL/schemas for {node.dbt_name}")
+
+            target_node_urn = None
+            should_fetch_target_node_schema = False
+            if node.exists_in_target_platform:
+                target_node_urn = node.get_urn(
+                    self.config.target_platform,
+                    self.config.env,
+                    self.config.target_platform_instance,
+                )
+                should_fetch_target_node_schema = True
+            elif node.is_ephemeral_model():
+                # For ephemeral nodes, we "pretend" that they exist in the target platform
+                # for schema resolution purposes.
+                target_node_urn = mce_builder.make_dataset_urn_with_platform_instance(
+                    platform=self.config.target_platform,
+                    name=node.get_fake_ephemeral_table_name(),
+                    platform_instance=self.config.target_platform_instance,
+                    env=self.config.env,
+                )
+            if target_node_urn:
+                target_platform_urn_to_dbt_name[target_node_urn] = node.dbt_name
+
+            # Our schema resolver preference is:
+            # 1. graph
+            # 2. dbt catalog
+            # 3. inferred
+            # Exception: if convert_column_urns_to_lowercase is enabled, swap 1 and 2.
+            # Cases 1 and 2 are handled here, and case 3 is handled after schema inference has occurred.
+            schema_fields: Optional[List[SchemaField]] = None
+
+            # Fetch the schema from the graph.
+            if target_node_urn and should_fetch_target_node_schema and graph:
+                schema_metadata = graph.get_aspect(target_node_urn, SchemaMetadata)
+                if schema_metadata:
+                    schema_fields = schema_metadata.fields
+
+            # Otherwise, load the schema from the dbt catalog.
+            # Note that this might get the casing wrong relative to DataHub, but
+            # has a more up-to-date column list.
+            if node.columns and (
+                not schema_fields or self.config.convert_column_urns_to_lowercase
+            ):
+                schema_fields = [
+                    SchemaField(
+                        fieldPath=column.name.lower()
+                        if self.config.convert_column_urns_to_lowercase
+                        else column.name,
+                        type=column.datahub_data_type
+                        or SchemaFieldDataType(type=NullTypeClass()),
+                        nativeDataType=column.data_type,
+                    )
+                    for column in node.columns
+                ]
+
+            # Add the node to the schema resolver, so that we can get column
+            # casing to match the upstream platform.
+            added_to_schema_resolver = False
+            if target_node_urn and schema_fields:
+                schema_resolver.add_raw_schema_info(
+                    target_node_urn, self._to_schema_info(schema_fields)
+                )
+                added_to_schema_resolver = True
+
+            # Run sql parser to infer the schema + generate column lineage.
+            sql_result = None
+            if node.compiled_code:
+                try:
+                    # Add CTE stops based on the upstreams list.
+                    preprocessed_sql = detach_ctes(
+                        node.compiled_code,
+                        platform=schema_resolver.platform,
+                        cte_mapping={
+                            cte_name: upstream_node.get_fake_ephemeral_table_name()
+                            for upstream_node in [
+                                all_nodes_map[upstream_node_name]
+                                for upstream_node_name in node.upstream_nodes
+                                if upstream_node_name in all_nodes_map
+                            ]
+                            if upstream_node.is_ephemeral_model()
+                            for cte_name in _get_dbt_cte_names(
+                                upstream_node.name, schema_resolver.platform
+                            )
+                        },
+                    )
+                except Exception as e:
+                    self.report.sql_parser_detach_ctes_failures += 1
+                    logger.debug(
+                        f"Failed to detach CTEs from compiled code. {node.dbt_name} will not have column lineage."
+                    )
+                    sql_result = SqlParsingResult.make_from_error(e)
+                else:
+                    sql_result = sqlglot_lineage(
+                        preprocessed_sql, schema_resolver=schema_resolver
+                    )
+                    self.report.sql_statements_parsed += 1
+            else:
+                self.report.sql_parser_skipped_missing_code += 1
+
+            # Save the column lineage.
+            if self.config.include_column_lineage and sql_result:
+                # We only save the debug info here. We'll report errors based on it later, after
+                # applying the configured node filters.
+                node.cll_debug_info = sql_result.debug_info
+
+                if sql_result.column_lineage:
+                    node.upstream_cll = [
+                        DBTColumnLineageInfo(
+                            upstream_dbt_name=target_platform_urn_to_dbt_name[
+                                upstream_column.table
+                            ],
+                            upstream_col=upstream_column.column,
+                            downstream_col=column_lineage_info.downstream.column,
+                        )
+                        for column_lineage_info in sql_result.column_lineage
+                        for upstream_column in column_lineage_info.upstreams
+                        # Only include the CLL if the table in in the upstream list.
+                        if target_platform_urn_to_dbt_name.get(upstream_column.table)
+                        in node.upstream_nodes
+                    ]
+
+            # If we didn't fetch the schema from the graph, use the inferred schema.
+            inferred_schema_fields = None
+            if sql_result and sql_result.column_lineage:
+                inferred_schema_fields = [
+                    SchemaField(
+                        fieldPath=column_lineage.downstream.column,
+                        type=column_lineage.downstream.column_type
+                        or SchemaFieldDataType(type=NullTypeClass()),
+                        nativeDataType=column_lineage.downstream.native_column_type
+                        or "",
+                    )
+                    for column_lineage in sql_result.column_lineage
+                ]
+
+            # Conditionally add the inferred schema to the schema resolver.
+            if (
+                not added_to_schema_resolver
+                and target_node_urn
+                and inferred_schema_fields
+            ):
+                schema_resolver.add_raw_schema_info(
+                    target_node_urn, self._to_schema_info(inferred_schema_fields)
+                )
+
+            # Save the inferred schema fields into the dbt node.
+            if inferred_schema_fields:
+                node.columns_setdefault(inferred_schema_fields)
 
     def create_platform_mces(
         self,
@@ -991,7 +1110,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 )  # mutates meta_aspects
 
             if mce_platform == DBT_PLATFORM:
-                aspects = self._generate_base_aspects(
+                aspects = self._generate_base_dbt_aspects(
                     node, additional_custom_props_filtered, mce_platform, meta_aspects
                 )
 
@@ -1003,8 +1122,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     aspects.append(upstream_lineage_class)
 
                 # add view properties aspect
-                if node.raw_code and node.language == "sql":
-                    view_prop_aspect = self._create_view_properties_aspect(node)
+                view_prop_aspect = self._create_view_properties_aspect(node)
+                if view_prop_aspect:
                     aspects.append(view_prop_aspect)
 
                 # emit subtype mcp
@@ -1015,7 +1134,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             else:
                 # We are creating empty node for platform and only add lineage/keyaspect.
                 aspects = []
-                if node.materialization == "ephemeral" or node.node_type == "test":
+                if not node.exists_in_target_platform:
                     continue
 
                 # This code block is run when we are generating entities of platform type.
@@ -1028,19 +1147,15 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                         self.config.platform_instance,
                     )
                     upstreams_lineage_class = get_upstream_lineage([upstream_dbt_urn])
-                    if self.config.incremental_lineage:
-                        patch_builder: DatasetPatchBuilder = DatasetPatchBuilder(
-                            urn=node_datahub_urn
+                    if not is_primary_source and self.config.incremental_lineage:
+                        # We only generate incremental lineage for non-dbt nodes.
+                        wu = convert_upstream_lineage_to_patch(
+                            urn=node_datahub_urn,
+                            aspect=upstreams_lineage_class,
+                            system_metadata=None,
                         )
-                        for upstream in upstreams_lineage_class.upstreams:
-                            patch_builder.add_upstream_lineage(upstream)
-
-                        for mcp in patch_builder.build():
-                            yield MetadataWorkUnit(
-                                id=f"upstreamLineage-for-{node_datahub_urn}",
-                                mcp_raw=mcp,
-                                is_primary_source=is_primary_source,
-                            )
+                        wu.is_primary_source = is_primary_source
+                        yield wu
                     else:
                         aspects.append(upstreams_lineage_class)
 
@@ -1129,18 +1244,25 @@ class DBTSourceBase(StatefulIngestionSourceBase):
     def get_external_url(self, node: DBTNode) -> Optional[str]:
         pass
 
-    def _create_view_properties_aspect(self, node: DBTNode) -> ViewPropertiesClass:
+    def _create_view_properties_aspect(
+        self, node: DBTNode
+    ) -> Optional[ViewPropertiesClass]:
+        view_logic = (
+            node.compiled_code if self.config.use_compiled_code else node.raw_code
+        )
+
+        if node.language != "sql" or not view_logic:
+            return None
+
         materialized = node.materialization in {"table", "incremental", "snapshot"}
-        # this function is only called when raw sql is present. assert is added to satisfy lint checks
-        assert node.raw_code is not None
         view_properties = ViewPropertiesClass(
             materialized=materialized,
             viewLanguage="SQL",
-            viewLogic=node.raw_code,
+            viewLogic=view_logic,
         )
         return view_properties
 
-    def _generate_base_aspects(
+    def _generate_base_dbt_aspects(
         self,
         node: DBTNode,
         additional_custom_props_filtered: Dict[str, str],
@@ -1148,8 +1270,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         meta_aspects: Dict[str, Any],
     ) -> List[Any]:
         """
-        There are some common aspects that get generated for both dbt node and platform node depending on whether dbt
-        node creation is enabled or not.
+        Some common aspects that get generated for dbt nodes.
         """
 
         # create an empty list of aspects and keep adding to it. Initializing with Any to avoid a
@@ -1188,9 +1309,15 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         ):
             aspects.append(meta_aspects.get(Constants.ADD_TERM_OPERATION))
 
+        # add meta links aspect
+        meta_links_aspect = meta_aspects.get(Constants.ADD_DOC_LINK_OPERATION)
+        if meta_links_aspect and self.config.enable_meta_mapping:
+            aspects.append(meta_links_aspect)
+
         # add schema metadata aspect
         schema_metadata = self.get_schema_metadata(self.report, node, mce_platform)
         aspects.append(schema_metadata)
+
         return aspects
 
     def get_schema_metadata(
@@ -1250,7 +1377,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             field = SchemaField(
                 fieldPath=field_name,
                 nativeDataType=column.data_type,
-                type=get_column_type(
+                type=column.datahub_data_type
+                or get_column_type(
                     report, node.dbt_name, column.data_type, node.dbt_adapter
                 ),
                 description=description,
@@ -1356,27 +1484,78 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         """
         This method creates lineage amongst dbt nodes. A dbt node can be linked to other dbt nodes or a platform node.
         """
-        upstream_urns = get_upstreams(
-            node.upstream_nodes,
-            all_nodes_map,
-            self.config.target_platform,
-            self.config.target_platform_instance,
-            self.config.env,
-            self.config.platform_instance,
-        )
 
         # if a node is of type source in dbt, its upstream lineage should have the corresponding table/view
         # from the platform. This code block is executed when we are generating entities of type "dbt".
         if node.node_type == "source":
-            upstream_urns.append(
+            upstream_urns = [
                 node.get_urn(
                     self.config.target_platform,
                     self.config.env,
                     self.config.target_platform_instance,
                 )
+            ]
+            cll = None
+        else:
+            upstream_urns = get_upstreams(
+                node.upstream_nodes,
+                all_nodes_map,
+                self.config.target_platform,
+                self.config.target_platform_instance,
+                self.config.env,
+                self.config.platform_instance,
             )
+
+            node_urn = node.get_urn(
+                target_platform=DBT_PLATFORM,
+                env=self.config.env,
+                data_platform_instance=self.config.platform_instance,
+            )
+
+            def _translate_dbt_name_to_upstream_urn(dbt_name: str) -> str:
+                return all_nodes_map[dbt_name].get_urn_for_upstream_lineage(
+                    dbt_platform_instance=self.config.platform_instance,
+                    target_platform=self.config.target_platform,
+                    target_platform_instance=self.config.target_platform_instance,
+                    env=self.config.env,
+                )
+
+            if node.cll_debug_info and node.cll_debug_info.error:
+                self.report.report_warning(
+                    node.dbt_name,
+                    f"Error parsing column lineage: {node.cll_debug_info.error}",
+                )
+            cll = [
+                FineGrainedLineage(
+                    upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
+                    downstreamType=FineGrainedLineageDownstreamType.FIELD_SET,
+                    upstreams=[
+                        mce_builder.make_schema_field_urn(
+                            _translate_dbt_name_to_upstream_urn(
+                                upstream_column.upstream_dbt_name
+                            ),
+                            upstream_column.upstream_col,
+                        )
+                        for upstream_column in upstreams
+                    ],
+                    downstreams=[
+                        mce_builder.make_schema_field_urn(node_urn, downstream)
+                    ],
+                    confidenceScore=node.cll_debug_info.confidence
+                    if node.cll_debug_info
+                    else None,
+                )
+                for downstream, upstreams in itertools.groupby(
+                    node.upstream_cll, lambda x: x.downstream_col
+                )
+            ]
+
         if upstream_urns:
             upstreams_lineage_class = get_upstream_lineage(upstream_urns)
+
+            if self.config.include_column_lineage and cll:
+                upstreams_lineage_class.fineGrainedLineages = cll
+
             return upstreams_lineage_class
         return None
 

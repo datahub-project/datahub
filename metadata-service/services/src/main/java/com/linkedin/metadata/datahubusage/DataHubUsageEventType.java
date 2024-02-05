@@ -2,7 +2,6 @@ package com.linkedin.metadata.datahubusage;
 
 import lombok.Getter;
 
-
 @Getter
 public enum DataHubUsageEventType {
   PAGE_VIEW_EVENT("PageViewEvent"),
@@ -44,6 +43,7 @@ public enum DataHubUsageEventType {
   CREATE_RESET_CREDENTIALS_LINK_EVENT("CreateResetCredentialsLinkEvent"),
   DELETE_ENTITY_EVENT("DeleteEntityEvent"),
   SELECT_USER_ROLE_EVENT("SelectUserRoleEvent"),
+  SELECT_GROUP_ROLE_EVENT("SelectGroupRoleEvent"),
   BATCH_SELECT_USER_ROLE_EVENT("BatchSelectUserRoleEvent"),
   CREATE_POLICY_EVENT("CreatePolicyEvent"),
   UPDATE_POLICY_EVENT("UpdatePolicyEvent"),
@@ -53,6 +53,7 @@ public enum DataHubUsageEventType {
   SHOW_STANDARD_HOME_PAGE_EVENT("ShowStandardHomepageEvent"),
   CREATE_GLOSSARY_ENTITY_EVENT("CreateGlossaryEntityEvent"),
   CREATE_DOMAIN_EVENT("CreateDomainEvent"),
+  MOVE_DOMAIN_EVENT("MoveDomainEvent"),
   CREATE_INGESTION_SOURCE_EVENT("CreateIngestionSourceEvent"),
   UPDATE_INGESTION_SOURCE_EVENT("UpdateIngestionSourceEvent"),
   DELETE_INGESTION_SOURCE_EVENT("DeleteIngestionSourceEvent"),
@@ -66,6 +67,8 @@ public enum DataHubUsageEventType {
   MANUALLY_DELETE_LINEAGE_EVENT("ManuallyDeleteLineageEvent"),
   LINEAGE_GRAPH_TIME_RANGE_SELECTION_EVENT("LineageGraphTimeRangeSelectionEvent"),
   LINEAGE_TAB_TIME_RANGE_SELECTION_EVENT("LineageTabTimeRangeSelectionEvent"),
+  VISUAL_LINEAGE_EXPAND_GRAPH_EVENT("VisualLineageExpandGraphEvent"),
+  VISUAL_LINEAGE_VIEW_EVENT("VisualLineageViewEvent"),
   CREATE_QUERY_EVENT("CreateQueryEvent"),
   DELETE_QUERY_EVENT("DeleteQueryEvent"),
   UPDATE_QUERY_EVENT("UpdateQueryEvent"),

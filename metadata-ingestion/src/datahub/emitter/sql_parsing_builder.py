@@ -20,6 +20,7 @@ from datahub.metadata.schema_classes import (
     UpstreamClass,
     UpstreamLineageClass,
 )
+from datahub.utilities.file_backed_collections import FileBackedDict
 from datahub.utilities.sqlglot_lineage import ColumnLineageInfo, SqlParsingResult
 
 logger = logging.getLogger(__name__)
@@ -80,10 +81,10 @@ class SqlParsingBuilder:
     generate_operations: bool = True
     usage_config: Optional[BaseUsageConfig] = None
 
-    # TODO: Make inner dict a FileBackedDict and make LineageEdge frozen
+    # Maps downstream urn -> upstream urn -> LineageEdge
     # Builds up a single LineageEdge for each upstream -> downstream pair
-    _lineage_map: Dict[DatasetUrn, Dict[DatasetUrn, LineageEdge]] = field(
-        default_factory=lambda: defaultdict(dict), init=False
+    _lineage_map: FileBackedDict[Dict[DatasetUrn, LineageEdge]] = field(
+        default_factory=FileBackedDict, init=False
     )
 
     # TODO: Replace with FileBackedDict approach like in BigQuery usage
@@ -92,7 +93,7 @@ class SqlParsingBuilder:
     def __post_init__(self) -> None:
         if self.usage_config:
             self._usage_aggregator = UsageAggregator(self.usage_config)
-        else:
+        elif self.generate_usage_statistics:
             logger.info("No usage config provided, not generating usage statistics")
             self.generate_usage_statistics = False
 
@@ -106,6 +107,7 @@ class SqlParsingBuilder:
         user: Optional[UserUrn] = None,
         custom_operation_type: Optional[str] = None,
         include_urns: Optional[Set[DatasetUrn]] = None,
+        include_column_lineage: bool = True,
     ) -> Iterable[MetadataWorkUnit]:
         """Process a single query and yield any generated workunits.
 
@@ -127,11 +129,14 @@ class SqlParsingBuilder:
 
         if self.generate_lineage:
             for downstream_urn in downstreams_to_ingest:
-                _merge_lineage_data(
+                # Set explicitly so that FileBackedDict registers any mutations
+                self._lineage_map[downstream_urn] = _merge_lineage_data(
                     downstream_urn=downstream_urn,
                     upstream_urns=result.in_tables,
-                    column_lineage=result.column_lineage,
-                    upstream_edges=self._lineage_map[downstream_urn],
+                    column_lineage=result.column_lineage
+                    if include_column_lineage
+                    else None,
+                    upstream_edges=self._lineage_map.get(downstream_urn, {}),
                     query_timestamp=query_timestamp,
                     is_view_ddl=is_view_ddl,
                     user=user,
@@ -167,11 +172,12 @@ class SqlParsingBuilder:
         user: Optional[UserUrn] = None,
     ) -> None:
         """Manually add a single upstream -> downstream lineage edge, e.g. if sql parsing fails."""
-        _merge_lineage_data(
+        # Set explicitly so that FileBackedDict registers any mutations
+        self._lineage_map[downstream_urn] = _merge_lineage_data(
             downstream_urn=downstream_urn,
             upstream_urns=upstream_urns,
             column_lineage=None,
-            upstream_edges=self._lineage_map[downstream_urn],
+            upstream_edges=self._lineage_map.get(downstream_urn, {}),
             query_timestamp=timestamp,
             is_view_ddl=is_view_ddl,
             user=user,
@@ -179,17 +185,21 @@ class SqlParsingBuilder:
 
     def gen_workunits(self) -> Iterable[MetadataWorkUnit]:
         if self.generate_lineage:
-            yield from self._gen_lineage_workunits()
+            for mcp in self._gen_lineage_mcps():
+                yield mcp.as_workunit()
         if self.generate_usage_statistics:
             yield from self._gen_usage_statistics_workunits()
 
-    def _gen_lineage_workunits(self) -> Iterable[MetadataWorkUnit]:
+    def _gen_lineage_mcps(self) -> Iterable[MetadataChangeProposalWrapper]:
         for downstream_urn in self._lineage_map:
             upstreams: List[UpstreamClass] = []
             fine_upstreams: List[FineGrainedLineageClass] = []
-            for upstream_urn, edge in self._lineage_map[downstream_urn].items():
+            for edge in self._lineage_map[downstream_urn].values():
                 upstreams.append(edge.gen_upstream_aspect())
                 fine_upstreams.extend(edge.gen_fine_grained_lineage_aspects())
+
+            if not upstreams:
+                continue
 
             upstream_lineage = UpstreamLineageClass(
                 upstreams=sorted(upstreams, key=lambda x: x.dataset),
@@ -201,7 +211,7 @@ class SqlParsingBuilder:
             )
             yield MetadataChangeProposalWrapper(
                 entityUrn=downstream_urn, aspect=upstream_lineage
-            ).as_workunit()
+            )
 
     def _gen_usage_statistics_workunits(self) -> Iterable[MetadataWorkUnit]:
         yield from self._usage_aggregator.generate_workunits(
@@ -218,7 +228,7 @@ def _merge_lineage_data(
     query_timestamp: Optional[datetime],
     is_view_ddl: bool,
     user: Optional[UserUrn],
-) -> None:
+) -> Dict[str, LineageEdge]:
     for upstream_urn in upstream_urns:
         edge = upstream_edges.setdefault(
             upstream_urn,
@@ -247,6 +257,8 @@ def _merge_lineage_data(
                     continue
                 column_map = upstream_edges[upstream_column_info.table].column_map
                 column_map[cl.downstream.column].add(upstream_column_info.column)
+
+    return upstream_edges
 
 
 def _compute_upstream_fields(

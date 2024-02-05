@@ -1,14 +1,13 @@
 package com.linkedin.metadata.kafka.elasticsearch;
 
-import org.elasticsearch.common.xcontent.DeprecationHandler;
-import org.elasticsearch.common.xcontent.NamedXContentRegistry;
-import org.elasticsearch.common.xcontent.XContentBuilder;
-import org.elasticsearch.common.xcontent.XContentFactory;
-import org.elasticsearch.common.xcontent.XContentParser;
-import org.elasticsearch.common.xcontent.XContentType;
-
 import java.io.IOException;
 import javax.annotation.Nullable;
+import org.opensearch.common.xcontent.XContentFactory;
+import org.opensearch.common.xcontent.XContentType;
+import org.opensearch.core.xcontent.DeprecationHandler;
+import org.opensearch.core.xcontent.NamedXContentRegistry;
+import org.opensearch.core.xcontent.XContentBuilder;
+import org.opensearch.core.xcontent.XContentParser;
 
 public class JsonElasticEvent extends ElasticEvent {
   private final String _document;
@@ -23,8 +22,12 @@ public class JsonElasticEvent extends ElasticEvent {
     XContentBuilder builder = null;
     try {
       builder = XContentFactory.jsonBuilder().prettyPrint();
-      XContentParser parser = XContentFactory.xContent(XContentType.JSON)
-          .createParser(NamedXContentRegistry.EMPTY, DeprecationHandler.THROW_UNSUPPORTED_OPERATION, _document);
+      XContentParser parser =
+          XContentFactory.xContent(XContentType.JSON)
+              .createParser(
+                  NamedXContentRegistry.EMPTY,
+                  DeprecationHandler.THROW_UNSUPPORTED_OPERATION,
+                  _document);
       builder.copyCurrentStructure(parser);
     } catch (IOException e) {
       e.printStackTrace();

@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql.types.common.mappers;
 
+import static com.linkedin.metadata.Constants.*;
+
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.generated.Assertion;
 import com.linkedin.datahub.graphql.generated.Chart;
@@ -28,17 +30,16 @@ import com.linkedin.datahub.graphql.generated.MLModelGroup;
 import com.linkedin.datahub.graphql.generated.MLPrimaryKey;
 import com.linkedin.datahub.graphql.generated.Notebook;
 import com.linkedin.datahub.graphql.generated.OwnershipTypeEntity;
+import com.linkedin.datahub.graphql.generated.QueryEntity;
 import com.linkedin.datahub.graphql.generated.Role;
 import com.linkedin.datahub.graphql.generated.SchemaFieldEntity;
+import com.linkedin.datahub.graphql.generated.StructuredPropertyEntity;
 import com.linkedin.datahub.graphql.generated.Tag;
 import com.linkedin.datahub.graphql.generated.Test;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import javax.annotation.Nonnull;
 
-import static com.linkedin.metadata.Constants.*;
-
-
-public class UrnToEntityMapper implements ModelMapper<com.linkedin.common.urn.Urn, Entity>  {
+public class UrnToEntityMapper implements ModelMapper<com.linkedin.common.urn.Urn, Entity> {
   public static final UrnToEntityMapper INSTANCE = new UrnToEntityMapper();
 
   public static Entity map(@Nonnull final com.linkedin.common.urn.Urn urn) {
@@ -192,6 +193,16 @@ public class UrnToEntityMapper implements ModelMapper<com.linkedin.common.urn.Ur
       partialEntity = new OwnershipTypeEntity();
       ((OwnershipTypeEntity) partialEntity).setUrn(input.toString());
       ((OwnershipTypeEntity) partialEntity).setType(EntityType.CUSTOM_OWNERSHIP_TYPE);
+    }
+    if (input.getEntityType().equals(STRUCTURED_PROPERTY_ENTITY_NAME)) {
+      partialEntity = new StructuredPropertyEntity();
+      ((StructuredPropertyEntity) partialEntity).setUrn(input.toString());
+      ((StructuredPropertyEntity) partialEntity).setType(EntityType.STRUCTURED_PROPERTY);
+    }
+    if (input.getEntityType().equals(QUERY_ENTITY_NAME)) {
+      partialEntity = new QueryEntity();
+      ((QueryEntity) partialEntity).setUrn(input.toString());
+      ((QueryEntity) partialEntity).setType(EntityType.QUERY);
     }
     return partialEntity;
   }

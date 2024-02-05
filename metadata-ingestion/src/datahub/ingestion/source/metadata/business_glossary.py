@@ -71,6 +71,7 @@ class GlossaryNodeConfig(ConfigModel):
     terms: Optional[List["GlossaryTermConfig"]]
     nodes: Optional[List["GlossaryNodeConfig"]]
     knowledge_links: Optional[List[KnowledgeCard]]
+    custom_properties: Optional[Dict[str, str]]
 
     # Private fields.
     _urn: str
@@ -113,7 +114,7 @@ def create_id(path: List[str], default_id: Optional[str], enable_auto_id: bool) 
 
     id_: str = ".".join(path)
 
-    if UrnEncoder.contains_reserved_char(id_):
+    if UrnEncoder.contains_extended_reserved_char(id_):
         enable_auto_id = True
 
     if enable_auto_id:
@@ -252,6 +253,7 @@ def get_mces_from_node(
         definition=glossaryNode.description,
         parentNode=parentNode,
         name=glossaryNode.name,
+        customProperties=glossaryNode.custom_properties,
     )
     node_owners = parentOwners
     if glossaryNode.owners is not None:
@@ -495,7 +497,7 @@ class BusinessGlossaryFileSource(Source):
     def load_glossary_config(
         cls, file_name: Union[str, pathlib.Path]
     ) -> BusinessGlossaryConfig:
-        config = load_config_file(file_name)
+        config = load_config_file(file_name, resolve_env_vars=True)
         glossary_cfg = BusinessGlossaryConfig.parse_obj(config)
         return glossary_cfg
 

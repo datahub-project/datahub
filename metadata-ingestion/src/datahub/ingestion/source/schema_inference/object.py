@@ -1,7 +1,7 @@
 from collections import Counter
 from typing import Any, Counter as CounterType, Dict, Sequence, Tuple, Union
 
-from mypy_extensions import TypedDict
+from typing_extensions import TypedDict
 
 
 class BasicSchemaDescription(TypedDict):
@@ -16,7 +16,7 @@ class SchemaDescription(BasicSchemaDescription):
     nullable: bool  # if field is ever missing
 
 
-def is_field_nullable(doc: Dict[str, Any], field_path: Tuple) -> bool:
+def is_field_nullable(doc: Dict[str, Any], field_path: Tuple[str, ...]) -> bool:
     """
     Check if a nested field is nullable in a document from a collection.
 
@@ -54,7 +54,10 @@ def is_field_nullable(doc: Dict[str, Any], field_path: Tuple) -> bool:
             # count empty lists of nested objects as nullable
             if len(value) == 0:
                 return True
-            return any(is_field_nullable(x, remaining_fields) for x in doc[field])
+            return any(
+                isinstance(x, dict) and is_field_nullable(x, remaining_fields)
+                for x in doc[field]
+            )
 
         # any other types to check?
         # raise ValueError("Nested type not 'list' or 'dict' encountered")

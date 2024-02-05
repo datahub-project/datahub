@@ -1,0 +1,41 @@
+{
+  "ignorePatterns": [
+    {
+      "pattern": "^https?://demo\\.datahubproject\\.io"
+    },
+    {
+      "pattern": "^http://localhost"
+    },
+    {
+      "pattern": "^/docs"
+    },
+    {
+      "pattern": "^/integrations"
+    },
+    {
+      "pattern": "^https?://www.linkedin.com"
+    },
+    {
+      "pattern": "\\.md(#.*)?$"
+    },
+    {
+      "pattern": "\\.json$"
+    },
+    {
+      "pattern": "\\.txt$"
+    },
+    {
+      "pattern": "\\.java$"
+    },
+    {
+      "pattern": "^https://oauth2.googleapis.com/token"
+    },
+    {
+      "pattern": "^https://login.microsoftonline.com/common/oauth2/na$"
+    },
+    {
+      "pattern": "^https://github.com/datahub-project/datahub/assets/15873986/2f47d033-6c2b-483a-951d-e6d6b807f0d0%22%3E$"
+    }
+  ],
+  "aliveStatusCodes": [200, 206, 0, 999]
+}

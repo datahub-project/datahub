@@ -10,9 +10,12 @@ import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.models.AspectSpec;
+import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.GenericAspect;
+import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataChangeProposal;
 import java.util.Collections;
 import java.util.HashMap;
@@ -25,57 +28,67 @@ import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.joda.time.DateTimeUtils;
 
-
 @Slf4j
 public class AspectUtils {
 
-  private AspectUtils() {
-  }
+  private AspectUtils() {}
 
-  public static final Set<ChangeType> SUPPORTED_TYPES = Set.of(ChangeType.UPSERT, ChangeType.CREATE, ChangeType.PATCH);
+  public static final Set<ChangeType> SUPPORTED_TYPES =
+      Set.of(ChangeType.UPSERT, ChangeType.CREATE, ChangeType.PATCH);
 
   public static List<MetadataChangeProposal> getAdditionalChanges(
-          @Nonnull MetadataChangeProposal metadataChangeProposal,
-          @Nonnull EntityService entityService,
-          boolean onPrimaryKeyInsertOnly) {
+      @Nonnull MetadataChangeProposal metadataChangeProposal,
+      @Nonnull EntityService<?> entityService,
+      boolean onPrimaryKeyInsertOnly) {
 
     // No additional changes for unsupported operations
     if (!SUPPORTED_TYPES.contains(metadataChangeProposal.getChangeType())) {
       return Collections.emptyList();
     }
 
-    final Urn urn = EntityKeyUtils.getUrnFromProposal(metadataChangeProposal,
+    final Urn urn =
+        EntityKeyUtils.getUrnFromProposal(
+            metadataChangeProposal,
             entityService.getKeyAspectSpec(metadataChangeProposal.getEntityType()));
 
     final Map<String, RecordTemplate> includedAspects;
     if (metadataChangeProposal.getChangeType() != ChangeType.PATCH) {
-      RecordTemplate aspectRecord = GenericRecordUtils.deserializeAspect(metadataChangeProposal.getAspect().getValue(),
-              metadataChangeProposal.getAspect().getContentType(), entityService.getEntityRegistry()
-                      .getEntitySpec(urn.getEntityType()).getAspectSpec(metadataChangeProposal.getAspectName()));
+      RecordTemplate aspectRecord =
+          GenericRecordUtils.deserializeAspect(
+              metadataChangeProposal.getAspect().getValue(),
+              metadataChangeProposal.getAspect().getContentType(),
+              entityService
+                  .getEntityRegistry()
+                  .getEntitySpec(urn.getEntityType())
+                  .getAspectSpec(metadataChangeProposal.getAspectName()));
       includedAspects = ImmutableMap.of(metadataChangeProposal.getAspectName(), aspectRecord);
     } else {
       includedAspects = ImmutableMap.of();
     }
 
     if (onPrimaryKeyInsertOnly) {
-      return entityService.generateDefaultAspectsOnFirstWrite(urn, includedAspects)
-              .getValue()
-              .stream()
-              .map(entry -> getProposalFromAspect(entry.getKey(), entry.getValue(), metadataChangeProposal))
-              .filter(Objects::nonNull)
-              .collect(Collectors.toList());
+      return entityService
+          .generateDefaultAspectsOnFirstWrite(urn, includedAspects)
+          .getValue()
+          .stream()
+          .map(
+              entry ->
+                  getProposalFromAspect(entry.getKey(), entry.getValue(), metadataChangeProposal))
+          .filter(Objects::nonNull)
+          .collect(Collectors.toList());
     } else {
-      return entityService.generateDefaultAspectsIfMissing(urn, includedAspects)
-              .stream()
-              .map(entry -> getProposalFromAspect(entry.getKey(), entry.getValue(), metadataChangeProposal))
-              .filter(Objects::nonNull)
-              .collect(Collectors.toList());
+      return entityService.generateDefaultAspectsIfMissing(urn, includedAspects).stream()
+          .map(
+              entry ->
+                  getProposalFromAspect(entry.getKey(), entry.getValue(), metadataChangeProposal))
+          .filter(Objects::nonNull)
+          .collect(Collectors.toList());
     }
   }
 
   public static List<MetadataChangeProposal> getAdditionalChanges(
-          @Nonnull MetadataChangeProposal metadataChangeProposal,
-          @Nonnull EntityService entityService) {
+      @Nonnull MetadataChangeProposal metadataChangeProposal,
+      @Nonnull EntityService<?> entityService) {
 
     return getAdditionalChanges(metadataChangeProposal, entityService, false);
   }
@@ -85,12 +98,10 @@ public class AspectUtils {
       Set<Urn> urns,
       String aspectName,
       EntityClient entityClient,
-      Authentication authentication) throws Exception {
-    final Map<Urn, EntityResponse> gmsResponse = entityClient.batchGetV2(
-        entity,
-        urns,
-        ImmutableSet.of(aspectName),
-        authentication);
+      Authentication authentication)
+      throws Exception {
+    final Map<Urn, EntityResponse> gmsResponse =
+        entityClient.batchGetV2(entity, urns, ImmutableSet.of(aspectName), authentication);
     final Map<Urn, Aspect> finalResult = new HashMap<>();
     for (Urn urn : urns) {
       EntityResponse response = gmsResponse.get(urn);
@@ -101,8 +112,8 @@ public class AspectUtils {
     return finalResult;
   }
 
-  private static MetadataChangeProposal getProposalFromAspect(String aspectName, RecordTemplate aspect,
-      MetadataChangeProposal original) {
+  private static MetadataChangeProposal getProposalFromAspect(
+      String aspectName, RecordTemplate aspect, MetadataChangeProposal original) {
     MetadataChangeProposal proposal = new MetadataChangeProposal();
     GenericAspect genericAspect = GenericRecordUtils.serializeAspect(aspect);
     // Set net new fields
@@ -110,7 +121,8 @@ public class AspectUtils {
     proposal.setAspectName(aspectName);
 
     // Set fields determined from original
-    // Additional changes should never be set as PATCH, if a PATCH is coming across it should be an UPSERT
+    // Additional changes should never be set as PATCH, if a PATCH is coming across it should be an
+    // UPSERT
     proposal.setChangeType(original.getChangeType());
     if (ChangeType.PATCH.equals(proposal.getChangeType())) {
       proposal.setChangeType(ChangeType.UPSERT);
@@ -128,7 +140,7 @@ public class AspectUtils {
     if (original.getAuditHeader() != null) {
       proposal.setAuditHeader(original.getAuditHeader());
     }
-    
+
     proposal.setEntityType(original.getEntityType());
 
     return proposal;
@@ -145,8 +157,11 @@ public class AspectUtils {
     return proposal;
   }
 
-  public static MetadataChangeProposal buildMetadataChangeProposal(@Nonnull String entityType,
-      @Nonnull RecordTemplate keyAspect, @Nonnull String aspectName, @Nonnull RecordTemplate aspect) {
+  public static MetadataChangeProposal buildMetadataChangeProposal(
+      @Nonnull String entityType,
+      @Nonnull RecordTemplate keyAspect,
+      @Nonnull String aspectName,
+      @Nonnull RecordTemplate aspect) {
     final MetadataChangeProposal proposal = new MetadataChangeProposal();
     proposal.setEntityType(entityType);
     proposal.setEntityKeyAspect(GenericRecordUtils.serializeAspect(keyAspect));
@@ -161,5 +176,42 @@ public class AspectUtils {
     auditStamp.setTime(DateTimeUtils.currentTimeMillis());
     auditStamp.setActor(actor);
     return auditStamp;
+  }
+
+  public static AspectSpec validateAspect(MetadataChangeLog mcl, EntitySpec entitySpec) {
+    if (!mcl.hasAspectName()
+        || (!ChangeType.DELETE.equals(mcl.getChangeType()) && !mcl.hasAspect())) {
+      throw new UnsupportedOperationException(
+          String.format(
+              "Aspect and aspect name is required for create and update operations. changeType: %s entityName: %s hasAspectName: %s hasAspect: %s",
+              mcl.getChangeType(), entitySpec.getName(), mcl.hasAspectName(), mcl.hasAspect()));
+    }
+
+    AspectSpec aspectSpec = entitySpec.getAspectSpec(mcl.getAspectName());
+
+    if (aspectSpec == null) {
+      throw new RuntimeException(
+          String.format(
+              "Unknown aspect %s for entity %s", mcl.getAspectName(), mcl.getEntityType()));
+    }
+
+    return aspectSpec;
+  }
+
+  public static AspectSpec validateAspect(MetadataChangeProposal mcp, EntitySpec entitySpec) {
+    if (!mcp.hasAspectName() || !mcp.hasAspect()) {
+      throw new UnsupportedOperationException(
+          "Aspect and aspect name is required for create and update operations");
+    }
+
+    AspectSpec aspectSpec = entitySpec.getAspectSpec(mcp.getAspectName());
+
+    if (aspectSpec == null) {
+      throw new RuntimeException(
+          String.format(
+              "Unknown aspect %s for entity %s", mcp.getAspectName(), mcp.getEntityType()));
+    }
+
+    return aspectSpec;
   }
 }

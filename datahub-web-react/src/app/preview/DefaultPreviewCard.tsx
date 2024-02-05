@@ -14,10 +14,10 @@ import {
     CorpUser,
     Deprecation,
     Domain,
-    ParentNodesResult,
     EntityPath,
     DataProduct,
     Health,
+    Entity,
 } from '../../types.generated';
 import TagTermGroup from '../shared/tags/TagTermGroup';
 import { ANTD_GRAY } from '../entity/shared/constants';
@@ -114,6 +114,7 @@ const TagContainer = styled.div`
     margin-left: 0px;
     margin-top: 3px;
     flex-wrap: wrap;
+    margin-right: 8px;
 `;
 
 const TagSeparator = styled.div`
@@ -191,7 +192,7 @@ interface Props {
     // how the listed node is connected to the source node
     degree?: number;
     parentContainers?: ParentContainersResult | null;
-    parentNodes?: ParentNodesResult | null;
+    parentEntities?: Entity[] | null;
     previewType?: Maybe<PreviewType>;
     paths?: EntityPath[];
     health?: Health[];
@@ -231,7 +232,7 @@ export default function DefaultPreviewCard({
     onClick,
     degree,
     parentContainers,
-    parentNodes,
+    parentEntities,
     platforms,
     logoUrls,
     previewType,
@@ -268,7 +269,7 @@ export default function DefaultPreviewCard({
 
     return (
         <PreviewContainer data-testid={dataTestID} onMouseDown={onPreventMouseDown}>
-            <LeftColumn expandWidth={!shouldShowRightColumn}>
+            <LeftColumn key='left-column' expandWidth={!shouldShowRightColumn}>
                 <TitleContainer>
                     <PlatformContentView
                         platformName={platform}
@@ -280,7 +281,7 @@ export default function DefaultPreviewCard({
                         typeIcon={typeIcon}
                         entityType={type}
                         parentContainers={parentContainers?.containers}
-                        parentNodes={parentNodes?.nodes}
+                        parentEntities={parentEntities}
                         parentContainersRef={contentRef}
                         areContainersTruncated={isContentTruncated}
                     />
@@ -370,7 +371,7 @@ export default function DefaultPreviewCard({
                 )}
             </LeftColumn>
             {shouldShowRightColumn && (
-                <RightColumn>
+                <RightColumn key='right-column'>
                     {topUsers && topUsers?.length > 0 && (
                         <>
                             <UserListContainer>

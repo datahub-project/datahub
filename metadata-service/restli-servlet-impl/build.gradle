@@ -1,5 +1,7 @@
-apply plugin: 'java'
-apply plugin: 'pegasus'
+plugins {
+  id 'java-library'
+  id 'pegasus'
+}
 
 sourceSets {
   integTest {
@@ -48,7 +50,7 @@ dependencies {
   implementation externalDependency.dropwizardMetricsCore
   implementation externalDependency.dropwizardMetricsJmx
 
-  compileOnly externalDependency.lombok
+  implementation externalDependency.lombok
   implementation externalDependency.neo4jJavaDriver
   implementation externalDependency.opentelemetryAnnotations
 

@@ -1,4 +1,6 @@
-apply plugin: 'java'
+plugins {
+  id 'java'
+}
 
 
 compileJava {
@@ -24,4 +26,5 @@ dependencies {
   annotationProcessor externalDependency.lombok
 
   testImplementation externalDependency.mockito
+  testImplementation externalDependency.testng
 }

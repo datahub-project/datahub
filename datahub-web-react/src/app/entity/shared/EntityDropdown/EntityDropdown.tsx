@@ -9,6 +9,7 @@ import {
     LinkOutlined,
     MoreOutlined,
     PlusOutlined,
+    CopyOutlined,
 } from '@ant-design/icons';
 import { Redirect } from 'react-router';
 import { EntityType } from '../../../../types.generated';
@@ -20,7 +21,10 @@ import { ANTD_GRAY } from '../constants';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import useDeleteEntity from './useDeleteEntity';
 import { getEntityProfileDeleteRedirectPath } from '../../../shared/deleteUtils';
-import { isDeleteDisabled } from './utils';
+import { shouldDisplayChildDeletionWarning, isDeleteDisabled, isMoveDisabled } from './utils';
+import { useUserContext } from '../../../context/useUserContext';
+import MoveDomainModal from './MoveDomainModal';
+import { useIsNestedDomainsEnabled } from '../../../useAppConfig';
 
 export enum EntityMenuItems {
     COPY_URL,
@@ -29,6 +33,7 @@ export enum EntityMenuItems {
     ADD_TERM_GROUP,
     DELETE,
     MOVE,
+    CLONE,
 }
 
 export const MenuIcon = styled(MoreOutlined)<{ fontSize?: number }>`
@@ -89,8 +94,10 @@ function EntityDropdown(props: Props) {
         options,
     } = props;
 
+    const me = useUserContext();
     const entityRegistry = useEntityRegistry();
     const [updateDeprecation] = useUpdateDeprecationMutation();
+    const isNestedDomainsEnabled = useIsNestedDomainsEnabled();
     const { onDeleteEntity, hasBeenDeleted } = useDeleteEntity(
         urn,
         entityType,
@@ -102,6 +109,7 @@ function EntityDropdown(props: Props) {
 
     const [isCreateTermModalVisible, setIsCreateTermModalVisible] = useState(false);
     const [isCreateNodeModalVisible, setIsCreateNodeModalVisible] = useState(false);
+    const [isCloneEntityModalVisible, setIsCloneEntityModalVisible] = useState<boolean>(false);
     const [isDeprecationModalVisible, setIsDeprecationModalVisible] = useState(false);
     const [isMoveModalVisible, setIsMoveModalVisible] = useState(false);
 
@@ -131,9 +139,9 @@ function EntityDropdown(props: Props) {
 
     const pageUrl = window.location.href;
     const isGlossaryEntity = entityType === EntityType.GlossaryNode || entityType === EntityType.GlossaryTerm;
-    const entityHasChildren = !!entityData?.children?.total;
-    const canManageGlossaryEntity = !!entityData?.privileges?.canManageEntity;
+    const isDomainEntity = entityType === EntityType.Domain;
     const canCreateGlossaryEntity = !!entityData?.privileges?.canManageChildren;
+    const isDomainMoveHidden = !isNestedDomainsEnabled && isDomainEntity;
 
     /**
      * A default path to redirect to if the entity is deleted.
@@ -172,6 +180,7 @@ function EntityDropdown(props: Props) {
                         )}
                         {menuItems.has(EntityMenuItems.ADD_TERM) && (
                             <StyledMenuItem
+                                data-testid="entity-menu-add-term-button"
                                 key="2"
                                 disabled={!canCreateGlossaryEntity}
                                 onClick={() => setIsCreateTermModalVisible(true)}
@@ -192,10 +201,11 @@ function EntityDropdown(props: Props) {
                                 </MenuItem>
                             </StyledMenuItem>
                         )}
-                        {menuItems.has(EntityMenuItems.MOVE) && (
+                        {!isDomainMoveHidden && menuItems.has(EntityMenuItems.MOVE) && (
                             <StyledMenuItem
+                                data-testid="entity-menu-move-button"
                                 key="4"
-                                disabled={!canManageGlossaryEntity}
+                                disabled={isMoveDisabled(entityType, entityData, me.platformPrivileges)}
                                 onClick={() => setIsMoveModalVisible(true)}
                             >
                                 <MenuItem>
@@ -206,23 +216,33 @@ function EntityDropdown(props: Props) {
                         {menuItems.has(EntityMenuItems.DELETE) && (
                             <StyledMenuItem
                                 key="5"
-                                disabled={isDeleteDisabled(entityType, entityData)}
+                                disabled={isDeleteDisabled(entityType, entityData, me.platformPrivileges)}
                                 onClick={onDeleteEntity}
                             >
                                 <Tooltip
-                                    title={`Can't delete ${entityRegistry.getEntityName(
-                                        entityType,
-                                    )} with child entities.`}
-                                    overlayStyle={
-                                        isGlossaryEntity && canManageGlossaryEntity && entityHasChildren
-                                            ? {}
-                                            : { display: 'none' }
+                                    title={
+                                        shouldDisplayChildDeletionWarning(entityType, entityData, me.platformPrivileges)
+                                            ? `Can't delete ${entityRegistry.getEntityName(entityType)} with ${
+                                                  isDomainEntity ? 'sub-domain' : 'child'
+                                              } entities.`
+                                            : undefined
                                     }
                                 >
-                                    <MenuItem>
+                                    <MenuItem data-testid="entity-menu-delete-button">
                                         <DeleteOutlined /> &nbsp;Delete
                                     </MenuItem>
                                 </Tooltip>
+                            </StyledMenuItem>
+                        )}
+                        {menuItems.has(EntityMenuItems.CLONE) && (
+                            <StyledMenuItem
+                                key="6"
+                                disabled={!entityData?.privileges?.canManageEntity}
+                                onClick={() => setIsCloneEntityModalVisible(true)}
+                            >
+                                <MenuItem>
+                                    <CopyOutlined /> &nbsp;Clone
+                                </MenuItem>
                             </StyledMenuItem>
                         )}
                     </Menu>
@@ -245,6 +265,14 @@ function EntityDropdown(props: Props) {
                     refetchData={refetchForNodes}
                 />
             )}
+            {isCloneEntityModalVisible && (
+                <CreateGlossaryEntityModal
+                    entityType={entityType}
+                    onClose={() => setIsCloneEntityModalVisible(false)}
+                    refetchData={entityType === EntityType.GlossaryTerm ? refetchForTerms : refetchForNodes}
+                    isCloning
+                />
+            )}
             {isDeprecationModalVisible && (
                 <UpdateDeprecationModal
                     urns={[urn]}
@@ -252,7 +280,10 @@ function EntityDropdown(props: Props) {
                     refetch={refetchForEntity}
                 />
             )}
-            {isMoveModalVisible && <MoveGlossaryEntityModal onClose={() => setIsMoveModalVisible(false)} />}
+            {isMoveModalVisible && isGlossaryEntity && (
+                <MoveGlossaryEntityModal onClose={() => setIsMoveModalVisible(false)} />
+            )}
+            {isMoveModalVisible && isDomainEntity && <MoveDomainModal onClose={() => setIsMoveModalVisible(false)} />}
             {hasBeenDeleted && !onDelete && deleteRedirectPath && <Redirect to={deleteRedirectPath} />}
         </>
     );

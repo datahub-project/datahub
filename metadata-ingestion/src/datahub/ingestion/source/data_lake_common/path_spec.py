@@ -18,7 +18,14 @@ logging.getLogger("py4j").setLevel(logging.ERROR)
 logger: logging.Logger = logging.getLogger(__name__)
 
 SUPPORTED_FILE_TYPES: List[str] = ["csv", "tsv", "json", "parquet", "avro"]
-SUPPORTED_COMPRESSIONS: List[str] = ["gz", "bz2"]
+
+# These come from the smart_open library.
+SUPPORTED_COMPRESSIONS: List[str] = [
+    "gz",
+    "bz2",
+    # We have a monkeypatch on smart_open that aliases .gzip to .gz.
+    "gzip",
+]
 
 
 class PathSpec(ConfigModel):
@@ -54,6 +61,11 @@ class PathSpec(ConfigModel):
     sample_files: bool = Field(
         default=True,
         description="Not listing all the files but only taking a handful amount of sample file to infer the schema. File count and file size calculation will be disabled. This can affect performance significantly if enabled",
+    )
+
+    allow_double_stars: bool = Field(
+        default=False,
+        description="Allow double stars in the include path. This can affect performance significantly if enabled",
     )
 
     def allowed(self, path: str) -> bool:
@@ -119,11 +131,18 @@ class PathSpec(ConfigModel):
     def get_named_vars(self, path: str) -> Union[None, parse.Result, parse.Match]:
         return self.compiled_include.parse(path)
 
-    @pydantic.validator("include")
-    def validate_no_double_stars(cls, v: str) -> str:
-        if "**" in v:
+    @pydantic.root_validator()
+    def validate_no_double_stars(cls, values: Dict) -> Dict:
+        if "include" not in values:
+            return values
+
+        if (
+            values.get("include")
+            and "**" in values["include"]
+            and not values.get("allow_double_stars")
+        ):
             raise ValueError("path_spec.include cannot contain '**'")
-        return v
+        return values
 
     @pydantic.validator("file_types", always=True)
     def validate_file_types(cls, v: Optional[List[str]]) -> List[str]:
@@ -207,7 +226,7 @@ class PathSpec(ConfigModel):
         logger.debug(f"Setting _glob_include: {glob_include}")
         return glob_include
 
-    @pydantic.root_validator()
+    @pydantic.root_validator(skip_on_failure=True)
     def validate_path_spec(cls, values: Dict) -> Dict[str, Any]:
         # validate that main fields are populated
         required_fields = ["include", "file_types", "default_extension"]

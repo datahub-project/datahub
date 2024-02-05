@@ -1,6 +1,6 @@
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
-# Configure Slack Notifications
+# Configure Slack For Notifications
 
 <FeatureAvailability saasOnly />
 
@@ -71,13 +71,13 @@ To enable the integration with slack
 - Enter a **Default Slack Channel** - this is where all notifications will be routed unless 
 - Click **Update** to save your settings
 
-![](https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/integrations/slack/slack_add_token.png)
+<img width="60%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/integrations/slack/slack_add_token.png"/>
 
 To enable and disable specific types of notifications, or configure custom routing for notifications,  start by navigating to **Settings > Notifications**.
 To enable or disable a specific notification type in Slack, simply click the check mark. By default, all notification types are enabled.
 To customize the channel where notifications are send, click the button to the right of the check box.
 
-![](https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/integrations/slack/slack_channel.png)
+<img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/integrations/slack/slack_channel.png"/>
 
 If provided, a custom channel will be used to route notifications of the given type. If not provided, the default channel will be used. 
 That's it! You should begin to receive notifications on Slack. Note that it may take up to 1 minute for notification settings to take effect after saving. 
@@ -88,6 +88,8 @@ For now we support sending notifications to
 - Slack Channel ID (e.g. `C029A3M079U`)
 - Slack Channel Name (e.g. `#troubleshoot`)
 - Specific Users (aka Direct Messages or DMs) via user ID 
+
+By default, the Slack app will be able to send notifications to public channels. If you want to send notifications to private channels or DMs, you will need to invite the Slack app to those channels.
 
 ## How to find Team ID and Channel ID in Slack
 

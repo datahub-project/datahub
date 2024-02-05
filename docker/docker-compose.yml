@@ -36,13 +36,15 @@ services:
     container_name: datahub-gms
     hostname: datahub-gms
     image: ${DATAHUB_GMS_IMAGE:-linkedin/datahub-gms}:${DATAHUB_VERSION:-head}
+    environment:
+      - KAFKA_CONSUMER_STOP_ON_DESERIALIZATION_ERROR=${KAFKA_CONSUMER_STOP_ON_DESERIALIZATION_ERROR:-true}
     ports:
     - ${DATAHUB_MAPPED_GMS_PORT:-8080}:8080
     build:
         context: ../
         dockerfile: docker/datahub-gms/Dockerfile
     healthcheck:
-      test: curl -sS --fail http://datahub-gms:${DATAHUB_MAPPED_GMS_PORT:-8080}/health
+      test: curl -sS --fail http://datahub-gms:${DATAHUB_GMS_PORT:-8080}/health
       start_period: 90s
       interval: 1s
       retries: 3
@@ -83,6 +85,9 @@ services:
       context: ../
       dockerfile: docker/elasticsearch-setup/Dockerfile
     env_file: elasticsearch-setup/env/docker.env
+    environment:
+      - ELASTICSEARCH_USE_SSL=${ELASTICSEARCH_USE_SSL:-false}
+      - USE_AWS_ELASTICSEARCH=${USE_AWS_ELASTICSEARCH:-false}
     depends_on:
       elasticsearch:
         condition: service_healthy
@@ -109,19 +114,19 @@ services:
   elasticsearch:
     container_name: elasticsearch
     hostname: elasticsearch
-    image: elasticsearch:7.10.1
+    image: ${DATAHUB_SEARCH_IMAGE:-elasticsearch}:${DATAHUB_SEARCH_TAG:-7.10.1}
     ports:
     - ${DATAHUB_MAPPED_ELASTIC_PORT:-9200}:9200
     env_file: elasticsearch/env/docker.env
     environment:
     - discovery.type=single-node
-    - xpack.security.enabled=false
+    - ${XPACK_SECURITY_ENABLED:-xpack.security.enabled=false}
     deploy:
       resources:
         limits:
           memory: 1G
     healthcheck:
-      test: curl -sS --fail http://elasticsearch:$${DATAHUB_MAPPED_ELASTIC_PORT:-9200}/_cluster/health?wait_for_status=yellow&timeout=0s
+      test: curl -sS --fail http://elasticsearch:$${DATAHUB_ELASTIC_PORT:-9200}/_cluster/health?wait_for_status=yellow&timeout=0s
       start_period: 20s
       interval: 1s
       retries: 3
@@ -137,7 +142,7 @@ services:
     - ${DATAHUB_MAPPED_NEO4J_BOLT_PORT:-7687}:7687
     env_file: neo4j/env/docker.env
     healthcheck:
-      test: wget http://neo4j:$${DATAHUB_MAPPED_NEO4J_HTTP_PORT:-7474}
+      test: wget http://neo4j:$${DATAHUB_NEO4J_HTTP_PORT:-7474}
       start_period: 5s
       interval: 1s
       retries: 5
@@ -152,7 +157,7 @@ services:
     - ${DATAHUB_MAPPED_SCHEMA_REGISTRY_PORT:-8081}:8081
     env_file: schema-registry/env/docker.env
     healthcheck:
-      test: nc -z schema-registry ${DATAHUB_MAPPED_SCHEMA_REGISTRY_PORT:-8081}
+      test: nc -z schema-registry ${DATAHUB_SCHEMA_REGISTRY_PORT:-8081}
       start_period: 60s
       interval: 1s
       retries: 3
@@ -168,7 +173,7 @@ services:
     - ${DATAHUB_MAPPED_KAFKA_BROKER_PORT:-9092}:9092
     env_file: broker/env/docker.env
     healthcheck:
-      test: nc -z broker $${DATAHUB_MAPPED_KAFKA_BROKER_PORT:-9092}
+      test: nc -z broker $${DATAHUB_KAFKA_BROKER_PORT:-9092}
       start_period: 60s
       interval: 1s
       retries: 5
@@ -186,13 +191,16 @@ services:
     - ${DATAHUB_MAPPED_ZK_PORT:-2181}:2181
     env_file: zookeeper/env/docker.env
     healthcheck:
-      test: echo srvr | nc zookeeper $${DATAHUB_MAPPED_ZK_PORT:-2181}
+      test: echo srvr | nc zookeeper $${DATAHUB_ZK_PORT:-2181}
       start_period: 10s
       interval: 5s
       retries: 3
       timeout: 5s
     volumes:
-    - zkdata:/var/lib/zookeeper
+    # See https://stackoverflow.com/a/61008432 for why we need two volumes.
+    # See also: https://docs.confluent.io/platform/current/installation/docker/operations/external-volumes.html#data-volumes-for-kafka-and-zk
+    - zkdata:/var/lib/zookeeper/data
+    - zklogs:/var/lib/zookeeper/log
 networks:
   default:
     name: datahub_network
@@ -201,3 +209,4 @@ volumes:
   neo4jdata:
   broker:
   zkdata:
+  zklogs:

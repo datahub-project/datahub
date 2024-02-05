@@ -4,6 +4,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.common import GlobalTags
 from datahub.metadata.schema_classes import (
     GlobalTagsClass,
     GlossaryTermsClass,
+    InstitutionalMemoryClass,
     OwnerClass,
     OwnershipClass,
     OwnershipSourceTypeClass,
@@ -173,7 +174,11 @@ def test_operation_processor_advanced_matching_owners():
 
 
 def test_operation_processor_ownership_category():
-    raw_props = {"user_owner": "@test_user", "business_owner": "alice"}
+    raw_props = {
+        "user_owner": "@test_user",
+        "business_owner": "alice",
+        "architect": "bob",
+    }
     processor = OperationProcessor(
         operation_defs={
             "user_owner": {
@@ -192,6 +197,14 @@ def test_operation_processor_ownership_category():
                     "owner_category": OwnershipTypeClass.BUSINESS_OWNER,
                 },
             },
+            "architect": {
+                "match": ".*",
+                "operation": "add_owner",
+                "config": {
+                    "owner_type": "user",
+                    "owner_category": "urn:li:ownershipType:architect",
+                },
+            },
         },
         owner_source_type="SOURCE_CONTROL",
     )
@@ -199,7 +212,7 @@ def test_operation_processor_ownership_category():
     assert "add_owner" in aspect_map
 
     ownership_aspect: OwnershipClass = aspect_map["add_owner"]
-    assert len(ownership_aspect.owners) == 2
+    assert len(ownership_aspect.owners) == 3
     new_owner: OwnerClass = ownership_aspect.owners[0]
     assert new_owner.owner == "urn:li:corpGroup:test_user"
     assert new_owner.source and new_owner.source.type == "SOURCE_CONTROL"
@@ -209,6 +222,12 @@ def test_operation_processor_ownership_category():
     assert new_owner.owner == "urn:li:corpuser:alice"
     assert new_owner.source and new_owner.source.type == "SOURCE_CONTROL"
     assert new_owner.type and new_owner.type == OwnershipTypeClass.BUSINESS_OWNER
+
+    new_owner = ownership_aspect.owners[2]
+    assert new_owner.owner == "urn:li:corpuser:bob"
+    assert new_owner.source and new_owner.source.type == "SOURCE_CONTROL"
+    assert new_owner.type == OwnershipTypeClass.DATAOWNER  # dummy value
+    assert new_owner.typeUrn == "urn:li:ownershipType:architect"
 
 
 def test_operation_processor_advanced_matching_tags():
@@ -231,3 +250,91 @@ def test_operation_processor_advanced_matching_tags():
     tag_aspect: GlobalTagsClass = aspect_map["add_tag"]
     assert len(tag_aspect.tags) == 1
     assert tag_aspect.tags[0].tag == "urn:li:tag:case_4567"
+
+
+def test_operation_processor_institutional_memory():
+    raw_props = {
+        "documentation_link": "https://test.com/documentation#ignore-this",
+    }
+    processor = OperationProcessor(
+        operation_defs={
+            "documentation_link": {
+                "match": r"(?:https?)?\:\/\/\w*[^#]*",
+                "operation": "add_doc_link",
+                "config": {"link": "{{ $match }}", "description": "test"},
+            },
+        },
+    )
+    aspect_map = processor.process(raw_props)
+    assert "add_doc_link" in aspect_map
+
+    doc_link_aspect: InstitutionalMemoryClass = aspect_map["add_doc_link"]
+
+    assert doc_link_aspect.elements[0].url == "https://test.com/documentation"
+    assert doc_link_aspect.elements[0].description == "test"
+
+
+def test_operation_processor_institutional_memory_no_description():
+    raw_props = {
+        "documentation_link": "test.com/documentation#ignore-this",
+    }
+    processor = OperationProcessor(
+        operation_defs={
+            "documentation_link": {
+                "match": r"(?:https?)?\:\/\/\w*[^#]*",
+                "operation": "add_doc_link",
+                "config": {"link": "{{ $match }}"},
+            },
+        },
+    )
+    # we require a description, so this should stay empty
+    aspect_map = processor.process(raw_props)
+    assert aspect_map == {}
+
+
+def test_operation_processor_matching_nested_props():
+    raw_props = {
+        "gdpr": {
+            "pii": True,
+        },
+    }
+    processor = OperationProcessor(
+        operation_defs={
+            "gdpr.pii": {
+                "match": True,
+                "operation": "add_tag",
+                "config": {"tag": "pii"},
+            },
+        },
+        owner_source_type="SOURCE_CONTROL",
+        match_nested_props=True,
+    )
+    aspect_map = processor.process(raw_props)
+    assert "add_tag" in aspect_map
+
+    tag_aspect: GlobalTagsClass = aspect_map["add_tag"]
+    assert len(tag_aspect.tags) == 1
+    assert tag_aspect.tags[0].tag == "urn:li:tag:pii"
+
+
+def test_operation_processor_matching_dot_props():
+    raw_props = {
+        "gdpr.pii": True,
+    }
+    processor = OperationProcessor(
+        operation_defs={
+            "gdpr.pii": {
+                "match": True,
+                "operation": "add_tag",
+                "config": {"tag": "pii"},
+            },
+        },
+        owner_source_type="SOURCE_CONTROL",
+        match_nested_props=True,
+    )
+    aspect_map = processor.process(raw_props)
+    assert "add_tag" in aspect_map
+
+    tag_aspect: GlobalTagsClass = aspect_map["add_tag"]
+    assert len(tag_aspect.tags) == 1
+    assert tag_aspect.tags[0].tag == "urn:li:tag:pii"

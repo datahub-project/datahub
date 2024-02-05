@@ -5,8 +5,8 @@ import pydantic
 from pydantic.fields import Field
 
 from datahub.configuration.common import AllowDenyPattern
-from datahub.configuration.pydantic_field_deprecation import pydantic_field_deprecated
 from datahub.configuration.source_common import DatasetSourceConfigMixin
+from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
 from datahub.ingestion.source.data_lake_common.config import PathSpecsConfigMixin
@@ -75,7 +75,10 @@ class DataLakeSourceConfig(
         default=100,
         description="Maximum number of rows to use when inferring schemas for TSV and CSV files.",
     )
-
+    add_partition_columns_to_schema: bool = Field(
+        default=False,
+        description="Whether to add partition fields to the schema.",
+    )
     verify_ssl: Union[bool, str] = Field(
         default=True,
         description="Either a boolean, in which case it controls whether we verify the server's TLS certificate, or a string, in which case it must be a path to a CA bundle to use.",
@@ -88,6 +91,11 @@ class DataLakeSourceConfig(
 
     _rename_path_spec_to_plural = pydantic_renamed_field(
         "path_spec", "path_specs", lambda path_spec: [path_spec]
+    )
+
+    sort_schema_fields: bool = Field(
+        default=False,
+        description="Whether to sort schema fields by fieldPath when inferring schemas.",
     )
 
     def is_profiling_enabled(self) -> bool:
@@ -141,7 +149,7 @@ class DataLakeSourceConfig(
             raise ValueError("platform must not be empty")
         return platform
 
-    @pydantic.root_validator()
+    @pydantic.root_validator(skip_on_failure=True)
     def ensure_profiling_pattern_is_passed_to_profiling(
         cls, values: Dict[str, Any]
     ) -> Dict[str, Any]:

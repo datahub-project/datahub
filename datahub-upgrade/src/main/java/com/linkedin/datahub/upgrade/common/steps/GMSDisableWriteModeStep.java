@@ -1,20 +1,19 @@
 package com.linkedin.datahub.upgrade.common.steps;
 
-import com.datahub.authentication.Authentication;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
-import com.linkedin.entity.client.RestliEntityClient;
+import com.linkedin.entity.client.SystemEntityClient;
 import java.util.function.Function;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
-
+@Slf4j
 @RequiredArgsConstructor
 public class GMSDisableWriteModeStep implements UpgradeStep {
 
-  private final Authentication _systemAuthentication;
-  private final RestliEntityClient _entityClient;
+  private final SystemEntityClient entityClient;
 
   @Override
   public String id() {
@@ -30,9 +29,9 @@ public class GMSDisableWriteModeStep implements UpgradeStep {
   public Function<UpgradeContext, UpgradeStepResult> executable() {
     return (context) -> {
       try {
-        _entityClient.setWritable(false, _systemAuthentication);
+        entityClient.setWritable(false);
       } catch (Exception e) {
-        e.printStackTrace();
+        log.error("Failed to turn write mode off in GMS", e);
         context.report().addLine("Failed to turn write mode off in GMS");
         return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
       }

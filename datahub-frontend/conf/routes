@@ -36,11 +36,18 @@ PUT           /openapi/*path                                                   c
 HEAD          /openapi/*path                                                   controllers.Application.proxy(path: String, request: Request)
 PATCH         /openapi/*path                                                   controllers.Application.proxy(path: String, request: Request)
 
-# Map static resources from the /public folder to the /assets URL path
-GET           /assets/*file                                                    controllers.Assets.at(path="/public", file)
 
 # Analytics route
 POST          /track                                                           controllers.TrackingController.track(request: Request)
 
-# Wildcard route accepts any routes and delegates to serveAsset which in turn serves the React Bundle
+# Map static resources from the /public folder to the /assets URL path
+GET           /assets/icons/favicon.ico                                        controllers.RedirectController.favicon(request: Request)
+
+# Known React asset routes
+GET           /assets/*file                                                    controllers.Assets.at(path="/public/assets", file)
+GET           /node_modules/*file                                              controllers.Assets.at(path="/public/node_modules", file)
+GET           /manifest.json                                                   controllers.Assets.at(path="/public", file="manifest.json")
+GET           /robots.txt                                                      controllers.Assets.at(path="/public", file="robots.txt")
+
+# Wildcard route accepts any routes and delegates to serveAsset which in turn serves the React Bundle's index.html
 GET           /*path                                                           controllers.Application.index(path)

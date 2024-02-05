@@ -1,0 +1,29 @@
+  .townhall-season {
+    color: white;
+    border: 1px solid transparent;
+    background-image: linear-gradient(to right, #1890ff 0%, #9c27b0 100%);
+    background-origin: border-box;
+    opacity: 90%;
+
+    &:hover {
+      opacity: 100%;
+      background: linear-gradient(to right, #1890ff 0%, #9c27b0 100%);
+      background-image: linear-gradient(to right, #1890ff 0%, #9c27b0 100%);
+      background-origin: border-box;
+    }
+  }
+
+  .non-townhall-season {
+    color: white;
+    border: 1px solid transparent;
+    background-image: linear-gradient(to right, #1890ff 0%, #48DBFB 100%);
+    background-origin: border-box;
+    opacity: 90%;
+
+    &:hover {
+      opacity: 100%;
+      background: linear-gradient(to right, #1890ff 0%, #48DBFB 100%);
+      background-image: linear-gradient(to right, #1890ff 0%, #48DBFB 100%);
+      background-origin: border-box;
+    }
+  }

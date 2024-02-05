@@ -82,6 +82,20 @@ fragment parentNodesFields on ParentNodesResult {
     }
 }
 
+fragment parentDomainsFields on ParentDomainsResult {
+    count
+    domains {
+        urn
+        type
+        ... on Domain {
+            properties {
+                name
+                description
+            }
+        }
+    }
+}
+
 fragment ownershipFields on Ownership {
     owners {
         owner {
@@ -226,6 +240,15 @@ fragment nonRecursiveDatasetFields on Dataset {
             value
         }
         externalUrl
+        lastModified {
+            time
+            actor
+        }
+    }
+    structuredProperties {
+        properties {
+            ...structuredPropertiesFields
+        }
     }
     editableProperties {
         description
@@ -318,6 +341,9 @@ fragment nonRecursiveDataJobFields on DataJob {
     deprecation {
         ...deprecationFields
     }
+    subTypes {
+        typeNames
+    }
 }
 
 fragment dataJobFields on DataJob {
@@ -371,6 +397,9 @@ fragment dataJobFields on DataJob {
     }
     browsePathV2 {
         ...browsePathV2Fields
+    }
+    subTypes {
+        typeNames
     }
 }
 
@@ -685,6 +714,15 @@ fragment schemaFieldFields on SchemaField {
     glossaryTerms {
         ...glossaryTerms
     }
+    schemaFieldEntity {
+        urn
+        type
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
+    }
 }
 
 fragment schemaMetadataFields on SchemaMetadata {
@@ -929,6 +967,23 @@ fragment parentContainerFields on Container {
     properties {
         name
     }
+    subTypes {
+        typeNames
+    }
+}
+
+fragment domainEntitiesFields on Domain {
+    entities(input: { start: 0, count: 0 }) {
+        total
+    }
+    dataProducts: entities(
+        input: { start: 0, count: 0, filters: [{ field: "_entityType", value: "DATA_PRODUCT" }] }
+    ) {
+        total
+    }
+    children: relationships(input: { types: ["IsPartOf"], direction: INCOMING, start: 0, count: 0 }) {
+        total
+    }
 }
 
 fragment entityDomain on DomainAssociation {
@@ -939,6 +994,10 @@ fragment entityDomain on DomainAssociation {
             name
             description
         }
+        parentDomains {
+            ...parentDomainsFields
+        }
+        ...domainEntitiesFields
     }
     associatedUrn
 }
@@ -1115,5 +1174,78 @@ fragment entityDisplayNameFields on Entity {
     }
     ... on DataPlatformInstance {
         instanceId
+    }
+}
+
+fragment structuredPropertyFields on StructuredPropertyEntity {
+    urn
+    type
+    definition {
+        displayName
+        qualifiedName
+        description
+        cardinality
+        valueType {
+            info {
+                type
+                displayName
+            }
+        }
+        entityTypes {
+            info {
+                type
+            }
+        }
+        cardinality
+        typeQualifier {
+            allowedTypes {
+                urn
+                type
+                info {
+                    type
+                    displayName
+                }
+            }
+        }
+        allowedValues {
+            value {
+                ... on StringValue {
+                    stringValue
+                }
+                ... on NumberValue {
+                    numberValue
+                }
+            }
+            description
+        }
+    }
+}
+
+fragment structuredPropertiesFields on StructuredPropertiesEntry {
+    structuredProperty {
+        ...structuredPropertyFields
+    }
+    values {
+        ... on StringValue {
+            stringValue
+        }
+        ... on NumberValue {
+            numberValue
+        }
+    }
+    valueEntities {
+        urn
+        type
+        ...entityDisplayNameFields
+    }
+}
+
+fragment autoRenderAspectFields on RawAspect {
+    aspectName
+    payload
+    renderSpec {
+        displayType
+        displayName
+        key
     }
 }

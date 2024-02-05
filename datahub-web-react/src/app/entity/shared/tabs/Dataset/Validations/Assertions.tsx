@@ -35,6 +35,8 @@ const getAssertionsStatusSummary = (assertions: Array<Assertion>) => {
 
 /**
  * Component used for rendering the Validations Tab on the Dataset Page.
+ *
+ * TODO: Note that only the legacy DATASET assertions are supported for viewing as of today.
  */
 export const Assertions = () => {
     const { urn, entityData } = useEntityData();
@@ -47,7 +49,9 @@ export const Assertions = () => {
     const assertions =
         (combinedData && combinedData.dataset?.assertions?.assertions?.map((assertion) => assertion as Assertion)) ||
         [];
-    const filteredAssertions = assertions.filter((assertion) => !removedUrns.includes(assertion.urn));
+    const filteredAssertions = assertions.filter(
+        (assertion) => !removedUrns.includes(assertion.urn) && !!assertion.info?.datasetAssertion,
+    );
 
     // Pre-sort the list of assertions based on which has been most recently executed.
     assertions.sort(sortAssertions);

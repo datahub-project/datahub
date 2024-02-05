@@ -1,5 +1,7 @@
-apply plugin: 'java-library'
-apply plugin: 'org.hidetake.swagger.generator'
+plugins {
+  id 'java-library'
+  id 'pegasus'
+}
 
 configurations {
   enhance
@@ -8,9 +10,9 @@ configurations {
 dependencies {
   implementation project(':entity-registry')
   api project(':metadata-utils')
-  api project(':metadata-events:mxe-avro-1.7')
+  api project(':metadata-events:mxe-avro')
   api project(':metadata-events:mxe-registration')
-  api project(':metadata-events:mxe-utils-avro-1.7')
+  api project(':metadata-events:mxe-utils-avro')
   api project(':metadata-models')
   api project(':metadata-service:restli-client')
   api project(':metadata-service:configuration')
@@ -22,16 +24,21 @@ dependencies {
   implementation externalDependency.guava
   implementation externalDependency.reflections
   implementation externalDependency.jsonPatch
-  api externalDependency.dgraph4j exclude group: 'com.google.guava', module: 'guava'
+  api(externalDependency.dgraph4j) {
+    exclude group: 'com.google.guava', module: 'guava'
+    exclude group: 'io.grpc', module: 'grpc-protobuf'
+  }
   implementation externalDependency.slf4jApi
   runtimeOnly externalDependency.logbackClassic
   compileOnly externalDependency.lombok
   implementation externalDependency.commonsCollections
   api externalDependency.datastaxOssNativeProtocol
-  api externalDependency.datastaxOssCore
+  api(externalDependency.datastaxOssCore) {
+    exclude group: 'com.fasterxml.jackson.core'
+  }
   api externalDependency.datastaxOssQueryBuilder
   api externalDependency.elasticSearchRest
-  api externalDependency.elasticSearchTransport
+  api externalDependency.elasticSearchJava
   implementation externalDependency.javatuples
   api externalDependency.javaxValidation
   runtimeOnly externalDependency.jna
@@ -41,8 +48,8 @@ dependencies {
   implementation externalDependency.ebeanDdl
   implementation externalDependency.opentelemetryAnnotations
   implementation externalDependency.resilience4j
-  api externalDependency.springContext
-  implementation externalDependency.swaggerAnnotations
+  // Newer Spring libraries require JDK17 classes, allow for JDK11
+  compileOnly externalDependency.springBootAutoconfigureJdk11
   implementation(externalDependency.mixpanel) {
     exclude group: 'org.json', module: 'json'
   }
@@ -57,6 +64,12 @@ dependencies {
   testImplementation externalDependency.h2
   testImplementation externalDependency.mysqlConnector
   testImplementation externalDependency.neo4jHarness
+  testImplementation (externalDependency.neo4jApocCore) {
+    exclude group: 'org.yaml', module: 'snakeyaml'
+  }
+  testImplementation (externalDependency.neo4jApocCommon) {
+    exclude group: 'org.yaml', module: 'snakeyaml'
+  }
   testImplementation externalDependency.mockito
   testImplementation externalDependency.mockitoInline
   testImplementation externalDependency.iStackCommons
@@ -64,6 +77,7 @@ dependencies {
   testImplementation externalDependency.testContainers
   testImplementation externalDependency.testContainersJunit
   testImplementation externalDependency.testContainersElasticsearch
+  testImplementation externalDependency.testContainersOpenSearch
   testImplementation externalDependency.testContainersCassandra
   testImplementation externalDependency.lombok
   testImplementation externalDependency.springBootTest
@@ -97,18 +111,27 @@ dependencies {
     implementation(externalDependency.snappy) {
       because("previous versions are vulnerable to CVE-2023-34453 through CVE-2023-34455")
     }
+    implementation(externalDependency.grpcProtobuf) {
+      because("CVE-2023-1428, CVE-2023-32731")
+    }
   }
 }
 
 test {
-  // https://docs.gradle.org/current/userguide/performance.html
-  maxParallelForks = Runtime.runtime.availableProcessors().intdiv(2) ?: 1
+  doFirst {
+    // override, testng controlling parallelization
+    // increasing >1 will merely run all tests extra times
+    maxParallelForks = 1
+  }
+  useTestNG() {
+    suites 'src/test/resources/testng.xml'
+  }
   testLogging.showStandardStreams = true
   testLogging.exceptionFormat = 'full'
 }
 
 tasks.withType(Test) {
-    enableAssertions = false
+  enableAssertions = false
 }
 
 project.compileJava {

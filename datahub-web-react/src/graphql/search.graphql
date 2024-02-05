@@ -13,6 +13,10 @@ fragment autoCompleteFields on Entity {
         properties {
             name
             qualifiedName
+            lastModified {
+                time
+                actor
+            }
         }
         parentContainers {
             ...parentContainersFields
@@ -39,6 +43,10 @@ fragment autoCompleteFields on Entity {
                         description
                         qualifiedName
                         externalUrl
+                        lastModified {
+                            time
+                            actor
+                        }
                     }
                 }
             }
@@ -105,6 +113,9 @@ fragment autoCompleteFields on Entity {
         parentContainers {
             ...parentContainersFields
         }
+        subTypes {
+            typeNames
+        }
     }
     ... on DataFlow {
         orchestrator
@@ -154,6 +165,9 @@ fragment autoCompleteFields on Entity {
     ... on Domain {
         properties {
             name
+        }
+        parentDomains {
+            ...parentDomainsFields
         }
     }
     ... on DataProduct {
@@ -330,6 +344,10 @@ fragment nonSiblingsDatasetSearchFields on Dataset {
             value
         }
         externalUrl
+        lastModified {
+            time
+            actor
+        }
     }
     ownership {
         ...ownershipFields
@@ -547,6 +565,9 @@ fragment searchResultFields on Entity {
                 }
             }
         }
+        subTypes {
+            typeNames
+        }
     }
     ... on DataFlow {
         flowId
@@ -618,6 +639,9 @@ fragment searchResultFields on Entity {
         dataPlatformInstance {
             ...dataPlatformInstanceFields
         }
+        subTypes {
+            typeNames
+        }
         lastRun: runs(start: 0, count: 1) {
             count
             start
@@ -671,6 +695,10 @@ fragment searchResultFields on Entity {
         ownership {
             ...ownershipFields
         }
+        parentDomains {
+            ...parentDomainsFields
+        }
+        ...domainEntitiesFields
     }
     ... on Container {
         properties {
@@ -824,6 +852,9 @@ fragment facetFields on FacetMetadata {
             ... on Domain {
                 properties {
                     name
+                }
+                parentDomains {
+                    ...parentDomainsFields
                 }
             }
             ... on Container {

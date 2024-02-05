@@ -221,6 +221,7 @@ class GlueSourceReport(StaleEntityRemovalSourceReport):
     SourceCapability.DELETION_DETECTION,
     "Enabled by default when stateful ingestion is turned on.",
 )
+@capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
 class GlueSource(StatefulIngestionSourceBase):
     """
     Note: if you also have files in S3 that you'd like to ingest, we recommend you use Glue's built-in data catalog. See [here](../../../../docs/generated/ingestion/sources/s3.md) for a quick guide on how to set up a crawler on Glue and ingest the outputs with DataHub.
@@ -832,9 +833,8 @@ class GlueSource(StatefulIngestionSourceBase):
                 **{k: v for k, v in kwargs.items() if v}
             )
 
-            partition_keys = response["Table"]["PartitionKeys"]
-
             # check if this table is partitioned
+            partition_keys = response["Table"].get("PartitionKeys")
             if partition_keys:
                 # ingest data profile with partitions
                 # for cross-account ingestion
@@ -851,7 +851,7 @@ class GlueSource(StatefulIngestionSourceBase):
                 partition_keys = [k["Name"] for k in partition_keys]
 
                 for p in partitions:
-                    table_stats = p["Parameters"]
+                    table_stats = p.get("Parameters", {})
                     column_stats = p["StorageDescriptor"]["Columns"]
 
                     # only support single partition key

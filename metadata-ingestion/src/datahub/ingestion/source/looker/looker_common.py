@@ -1,9 +1,8 @@
-from __future__ import print_function
-
 import datetime
 import itertools
 import logging
 import re
+from contextlib import contextmanager
 from dataclasses import dataclass, field as dataclasses_field
 from enum import Enum
 from functools import lru_cache
@@ -11,6 +10,7 @@ from typing import (
     TYPE_CHECKING,
     Dict,
     Iterable,
+    Iterator,
     List,
     Optional,
     Sequence,
@@ -81,9 +81,6 @@ from datahub.metadata.schema_classes import (
     EnumTypeClass,
     FineGrainedLineageClass,
     GlobalTagsClass,
-    OwnerClass,
-    OwnershipClass,
-    OwnershipTypeClass,
     SchemaMetadataClass,
     StatusClass,
     SubTypesClass,
@@ -391,7 +388,7 @@ class LookerUtil:
 
         # if still not found, log and continue
         if type_class is None:
-            logger.info(
+            logger.debug(
                 f"The type '{native_type}' is not recognized for field type, setting as NullTypeClass.",
             )
             type_class = NullTypeClass
@@ -453,17 +450,9 @@ class LookerUtil:
     @staticmethod
     def _get_tag_mce_for_urn(tag_urn: str) -> MetadataChangeEvent:
         assert tag_urn in LookerUtil.tag_definitions
-        ownership = OwnershipClass(
-            owners=[
-                OwnerClass(
-                    owner="urn:li:corpuser:datahub",
-                    type=OwnershipTypeClass.DATAOWNER,
-                )
-            ]
-        )
         return MetadataChangeEvent(
             proposedSnapshot=TagSnapshotClass(
-                urn=tag_urn, aspects=[ownership, LookerUtil.tag_definitions[tag_urn]]
+                urn=tag_urn, aspects=[LookerUtil.tag_definitions[tag_urn]]
             )
         )
 
@@ -839,7 +828,7 @@ class LookerExplore:
                 )
             else:
                 logger.warning(
-                    f"Failed to extract explore {explore_name} from model {model}.", e
+                    f"Failed to extract explore {explore_name} from model {model}: {e}"
                 )
 
         except AssertionError:
@@ -1026,7 +1015,7 @@ class LookerExploreRegistry:
         self.report = report
         self.source_config = source_config
 
-    @lru_cache()
+    @lru_cache(maxsize=200)
     def get_explore(self, model: str, explore: str) -> Optional[LookerExplore]:
         looker_explore = LookerExplore.from_api(
             model,
@@ -1070,6 +1059,7 @@ class LookerDashboardSourceReport(StaleEntityRemovalSourceReport):
     dashboards_scanned_for_usage: int = 0
     charts_scanned_for_usage: int = 0
     charts_with_activity: LossySet[str] = dataclasses_field(default_factory=LossySet)
+    accessed_dashboards: int = 0
     dashboards_with_activity: LossySet[str] = dataclasses_field(
         default_factory=LossySet
     )
@@ -1077,6 +1067,10 @@ class LookerDashboardSourceReport(StaleEntityRemovalSourceReport):
     _looker_explore_registry: Optional[LookerExploreRegistry] = None
     total_explores: int = 0
     explores_scanned: int = 0
+
+    resolved_user_ids: int = 0
+    email_ids_missing: int = 0  # resolved users with missing email addresses
+
     _looker_api: Optional[LookerAPI] = None
     query_latency: Dict[str, datetime.timedelta] = dataclasses_field(
         default_factory=dict
@@ -1131,6 +1125,14 @@ class LookerDashboardSourceReport(StaleEntityRemovalSourceReport):
     def report_stage_end(self, stage_name: str) -> None:
         if self.stage_latency[-1].name == stage_name:
             self.stage_latency[-1].end_time = datetime.datetime.now()
+
+    @contextmanager
+    def report_stage(self, stage_name: str) -> Iterator[None]:
+        try:
+            self.report_stage_start(stage_name)
+            yield
+        finally:
+            self.report_stage_end(stage_name)
 
     def compute_stats(self) -> None:
         if self.total_dashboards:
