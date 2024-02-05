@@ -1142,10 +1142,10 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                     and upstream_table_id in table_id_to_urn.keys()
                 ):
                     parent_dataset_urn = table_id_to_urn[upstream_table_id]
-                    if self.is_snowflake_urn(parent_dataset_urn):
-                        # This is required for column level lineage to work correctly as
-                        # DataHub Snowflake source lowercases all field names in the schema.
-                        name = name.lower()
+                    if self.is_snowflake_urn(parent_dataset_urn) and not self.config.ingest_tables_external:
+                       # This is required for column level lineage to work correctly as
+                       # DataHub Snowflake source lowercases all field names in the schema.
+                       name = name.lower()
                     input_columns.append(
                         builder.make_schema_field_urn(
                             parent_urn=parent_dataset_urn,
