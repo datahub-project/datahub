@@ -481,9 +481,6 @@ class TableauSourceReport(StaleEntityRemovalSourceReport):
 class TableauSource(StatefulIngestionSourceBase, TestableSource):
     platform = "tableau"
 
-    def __hash__(self):
-        return id(self)
-
     def __init__(
         self,
         config: TableauConfig,

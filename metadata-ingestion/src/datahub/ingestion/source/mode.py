@@ -162,9 +162,6 @@ class ModeSource(Source):
     report: SourceReport
     platform = "mode"
 
-    def __hash__(self):
-        return id(self)
-
     def __init__(self, ctx: PipelineContext, config: ModeConfig):
         super().__init__(ctx)
         self.config = config
@@ -631,9 +628,11 @@ class ModeSource(Source):
         source_tables = self._get_source_from_query(query.get("raw_query"))
         datasource_urn = self._get_datasource_urn(
             platform=platform,
-            platform_instance=self.config.platform_instance_map.get(platform)
-            if platform and self.config.platform_instance_map
-            else None,
+            platform_instance=(
+                self.config.platform_instance_map.get(platform)
+                if platform and self.config.platform_instance_map
+                else None
+            ),
             database=db_name,
             source_tables=source_tables,
         )

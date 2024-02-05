@@ -1,6 +1,7 @@
 import functools
 import urllib.parse
 from abc import abstractmethod
+from collections.abc import Hashable
 from typing import ClassVar, Dict, List, Optional, Type, TypeVar
 
 from deprecated import deprecated
@@ -46,7 +47,7 @@ _UrnSelf = TypeVar("_UrnSelf", bound="Urn")
 
 
 @functools.total_ordering
-class Urn:
+class Urn(Hashable):
     """
     URNs are globally unique identifiers used to refer to entities.
 

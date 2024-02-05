@@ -145,9 +145,6 @@ class MetabaseSource(Source):
     report: SourceReport
     platform = "metabase"
 
-    def __hash__(self):
-        return id(self)
-
     def __init__(self, ctx: PipelineContext, config: MetabaseConfig):
         super().__init__(ctx)
         self.config = config

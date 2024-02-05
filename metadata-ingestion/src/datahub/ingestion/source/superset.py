@@ -172,9 +172,6 @@ class SupersetSource(StatefulIngestionSourceBase):
     platform = "superset"
     stale_entity_removal_handler: StaleEntityRemovalHandler
 
-    def __hash__(self):
-        return id(self)
-
     def __init__(self, ctx: PipelineContext, config: SupersetConfig):
         super().__init__(config, ctx)
         self.config = config
