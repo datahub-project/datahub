@@ -41,8 +41,8 @@ def test_setup():
     session, gms_host = get_session_and_host()
 
     try:
-        assert "browsePaths" not in get_aspects_for_entity(
-            entity_urn=dataset_urn, aspects=["browsePaths"], typed=False
+        assert "institutionalMemory" not in get_aspects_for_entity(
+            entity_urn=dataset_urn, aspects=["institutionalMemory"], typed=False
         )
         assert "editableDatasetProperties" not in get_aspects_for_entity(
             entity_urn=dataset_urn, aspects=["editableDatasetProperties"], typed=False
@@ -55,8 +55,8 @@ def test_setup():
         "tests/delete/cli_test_data.json"
     ).config.run_id
 
-    assert "browsePaths" in get_aspects_for_entity(
-        entity_urn=dataset_urn, aspects=["browsePaths"], typed=False
+    assert "institutionalMemory" in get_aspects_for_entity(
+        entity_urn=dataset_urn, aspects=["institutionalMemory"], typed=False
     )
 
     yield
@@ -70,8 +70,8 @@ def test_setup():
 
     wait_for_writes_to_sync()
 
-    assert "browsePaths" not in get_aspects_for_entity(
-        entity_urn=dataset_urn, aspects=["browsePaths"], typed=False
+    assert "institutionalMemory" not in get_aspects_for_entity(
+        entity_urn=dataset_urn, aspects=["institutionalMemory"], typed=False
     )
     assert "editableDatasetProperties" not in get_aspects_for_entity(
         entity_urn=dataset_urn, aspects=["editableDatasetProperties"], typed=False

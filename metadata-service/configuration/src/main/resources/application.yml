@@ -141,6 +141,10 @@ ebean:
   waitTimeoutMillis: ${EBEAN_WAIT_TIMEOUT_MILLIS:1000}
   autoCreateDdl: ${EBEAN_AUTOCREATE:false}
   postgresUseIamAuth: ${EBEAN_POSTGRES_USE_AWS_IAM_AUTH:false}
+  locking:
+    enabled: ${EBEAN_LOCKING_ENABLED:true}
+    durationSeconds: ${EBEAN_LOCKING_DURATION_SECONDS:60}
+    maximumLocks: ${EBEAN_LOCKING_MAXIMUM_LOCKS:20000}
 
 # Only required if entityService.impl is cassandra
 cassandra:

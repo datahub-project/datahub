@@ -22,9 +22,11 @@ import com.linkedin.metadata.search.AggregationMetadataArray;
 import com.linkedin.metadata.search.FilterValueArray;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.search.elasticsearch.query.request.AggregationQueryBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.request.AutocompleteRequestHandler;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchAfterWrapper;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchRequestHandler;
+import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.opentelemetry.extension.annotations.WithSpan;
@@ -317,7 +319,7 @@ public class ESSearchDAO {
       int limit) {
     List<EntitySpec> entitySpecs;
     if (entityNames == null || entityNames.isEmpty()) {
-      entitySpecs = new ArrayList<>(entityRegistry.getEntitySpecs().values());
+      entitySpecs = QueryUtils.getQueryByDefaultEntitySpecs(entityRegistry);
     } else {
       entitySpecs =
           entityNames.stream().map(entityRegistry::getEntitySpec).collect(Collectors.toList());
@@ -341,7 +343,7 @@ public class ESSearchDAO {
         MetricUtils.timer(this.getClass(), "aggregateByValue_search").time()) {
       final SearchResponse searchResponse = client.search(searchRequest, RequestOptions.DEFAULT);
       // extract results, validated against document model as well
-      return SearchRequestHandler.extractAggregationsFromResponse(searchResponse, field);
+      return AggregationQueryBuilder.extractAggregationsFromResponse(searchResponse, field);
     } catch (Exception e) {
       log.error("Aggregation query failed", e);
       throw new ESQueryException("Aggregation query failed:", e);

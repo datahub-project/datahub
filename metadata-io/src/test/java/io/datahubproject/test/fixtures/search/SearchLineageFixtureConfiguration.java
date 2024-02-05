@@ -234,7 +234,7 @@ public class SearchLineageFixtureConfiguration {
     PreProcessHooks preProcessHooks = new PreProcessHooks();
     preProcessHooks.setUiEnabled(true);
     return new JavaEntityClient(
-        new EntityServiceImpl(null, null, entityRegistry, true, null, preProcessHooks),
+        new EntityServiceImpl(null, null, entityRegistry, true, null, preProcessHooks, true),
         null,
         entitySearchService,
         cachingEntitySearchService,
