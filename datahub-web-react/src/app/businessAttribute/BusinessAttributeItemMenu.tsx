@@ -2,7 +2,7 @@ import React from 'react';
 import { DeleteOutlined } from '@ant-design/icons';
 import { Dropdown, Menu, message, Modal } from 'antd';
 import { MenuIcon } from '../entity/shared/EntityDropdown/EntityDropdown';
-import { useDeletePostMutation } from '../../graphql/post.generated';
+import { useDeleteBusinessAttributeMutation } from '../../graphql/businessAttribute.generated';
 
 type Props = {
     urn: string;
@@ -11,10 +11,10 @@ type Props = {
 };
 
 export default function BusinessAttributeItemMenu({ title, urn, onDelete }: Props) {
-    const [deletePostMutation] = useDeletePostMutation();
+    const [deleteBusinessAttributeMutation] = useDeleteBusinessAttributeMutation();
 
     const deletePost = () => {
-        deletePostMutation({
+        deleteBusinessAttributeMutation({
             variables: {
                 urn,
             },
