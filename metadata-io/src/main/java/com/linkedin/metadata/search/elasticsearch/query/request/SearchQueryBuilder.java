@@ -135,12 +135,12 @@ public class SearchQueryBuilder {
           query.startsWith(STRUCTURED_QUERY_PREFIX)
               ? query.substring(STRUCTURED_QUERY_PREFIX.length())
               : query;
+      getStructuredQuery(customQueryConfig, entitySpecs, withoutQueryPrefix)
+          .ifPresent(finalQuery::should);
       if (exactMatchConfiguration.isEnableStructured()) {
         getPrefixAndExactMatchQuery(customQueryConfig, entitySpecs, withoutQueryPrefix)
             .ifPresent(finalQuery::should);
       }
-      getStructuredQuery(customQueryConfig, entitySpecs, withoutQueryPrefix)
-          .ifPresent(finalQuery::should);
     }
 
     return finalQuery;
