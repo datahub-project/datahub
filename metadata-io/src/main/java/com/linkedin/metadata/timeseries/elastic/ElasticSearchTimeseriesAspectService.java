@@ -14,7 +14,7 @@ import com.linkedin.data.ByteString;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
-import com.linkedin.metadata.models.SearchableFieldSpec;
+import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.Criterion;
@@ -296,7 +296,7 @@ public class ElasticSearchTimeseriesAspectService
                 ESUtils.buildFilterQuery(
                     filter,
                     true,
-                    _entityRegistry.getEntitySpec(entityName).getSearchableFieldSpecMap()));
+                    _entityRegistry.getEntitySpec(entityName).getSearchableFieldTypes()));
     CountRequest countRequest = new CountRequest();
     countRequest.query(filterQueryBuilder);
     countRequest.indices(indexName);
@@ -319,10 +319,11 @@ public class ElasticSearchTimeseriesAspectService
       @Nullable final Integer limit,
       @Nullable final Filter filter,
       @Nullable final SortCriterion sort) {
-    Map<String, Set<SearchableFieldSpec>> searchableFields =
-        _entityRegistry.getEntitySpec(entityName).getSearchableFieldSpecMap();
+    Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes =
+        _entityRegistry.getEntitySpec(entityName).getSearchableFieldTypes();
     final BoolQueryBuilder filterQueryBuilder =
-        QueryBuilders.boolQuery().must(ESUtils.buildFilterQuery(filter, true, searchableFields));
+        QueryBuilders.boolQuery()
+            .must(ESUtils.buildFilterQuery(filter, true, searchableFieldTypes));
     filterQueryBuilder.must(QueryBuilders.matchQuery("urn", urn.toString()));
     // NOTE: We are interested only in the un-exploded rows as only they carry the `event` payload.
     filterQueryBuilder.mustNot(QueryBuilders.termQuery(MappingsBuilder.IS_EXPLODED_FIELD, true));
@@ -333,7 +334,7 @@ public class ElasticSearchTimeseriesAspectService
               .setCondition(Condition.GREATER_THAN_OR_EQUAL_TO)
               .setValue(startTimeMillis.toString());
       filterQueryBuilder.must(
-          ESUtils.getQueryBuilderFromCriterion(startTimeCriterion, true, searchableFields));
+          ESUtils.getQueryBuilderFromCriterion(startTimeCriterion, true, searchableFieldTypes));
     }
     if (endTimeMillis != null) {
       Criterion endTimeCriterion =
@@ -342,7 +343,7 @@ public class ElasticSearchTimeseriesAspectService
               .setCondition(Condition.LESS_THAN_OR_EQUAL_TO)
               .setValue(endTimeMillis.toString());
       filterQueryBuilder.must(
-          ESUtils.getQueryBuilderFromCriterion(endTimeCriterion, true, searchableFields));
+          ESUtils.getQueryBuilderFromCriterion(endTimeCriterion, true, searchableFieldTypes));
     }
     final SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
     searchSourceBuilder.query(filterQueryBuilder);
@@ -412,7 +413,7 @@ public class ElasticSearchTimeseriesAspectService
     final String indexName = _indexConvention.getTimeseriesAspectIndexName(entityName, aspectName);
     final BoolQueryBuilder filterQueryBuilder =
         ESUtils.buildFilterQuery(
-            filter, true, _entityRegistry.getEntitySpec(entityName).getSearchableFieldSpecMap());
+            filter, true, _entityRegistry.getEntitySpec(entityName).getSearchableFieldTypes());
 
     final Optional<DeleteAspectValuesResult> result =
         _bulkProcessor
@@ -440,7 +441,7 @@ public class ElasticSearchTimeseriesAspectService
     final String indexName = _indexConvention.getTimeseriesAspectIndexName(entityName, aspectName);
     final BoolQueryBuilder filterQueryBuilder =
         ESUtils.buildFilterQuery(
-            filter, true, _entityRegistry.getEntitySpec(entityName).getSearchableFieldSpecMap());
+            filter, true, _entityRegistry.getEntitySpec(entityName).getSearchableFieldTypes());
     final int batchSize = options.getBatchSize() > 0 ? options.getBatchSize() : DEFAULT_LIMIT;
     TimeValue timeout =
         options.getTimeoutSeconds() > 0
@@ -466,7 +467,7 @@ public class ElasticSearchTimeseriesAspectService
     final String indexName = _indexConvention.getTimeseriesAspectIndexName(entityName, aspectName);
     final BoolQueryBuilder filterQueryBuilder =
         ESUtils.buildFilterQuery(
-            filter, true, _entityRegistry.getEntitySpec(entityName).getSearchableFieldSpecMap());
+            filter, true, _entityRegistry.getEntitySpec(entityName).getSearchableFieldTypes());
     try {
       return this.reindexAsync(indexName, filterQueryBuilder, options);
     } catch (Exception e) {
@@ -515,10 +516,11 @@ public class ElasticSearchTimeseriesAspectService
       @Nullable Long startTimeMillis,
       @Nullable Long endTimeMillis) {
 
-    Map<String, Set<SearchableFieldSpec>> searchableFields =
-        _entityRegistry.getEntitySpec(entityName).getSearchableFieldSpecMap();
+    Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes =
+        _entityRegistry.getEntitySpec(entityName).getSearchableFieldTypes();
     final BoolQueryBuilder filterQueryBuilder =
-        QueryBuilders.boolQuery().filter(ESUtils.buildFilterQuery(filter, true, searchableFields));
+        QueryBuilders.boolQuery()
+            .filter(ESUtils.buildFilterQuery(filter, true, searchableFieldTypes));
 
     if (startTimeMillis != null) {
       Criterion startTimeCriterion =
@@ -527,7 +529,7 @@ public class ElasticSearchTimeseriesAspectService
               .setCondition(Condition.GREATER_THAN_OR_EQUAL_TO)
               .setValue(startTimeMillis.toString());
       filterQueryBuilder.filter(
-          ESUtils.getQueryBuilderFromCriterion(startTimeCriterion, true, searchableFields));
+          ESUtils.getQueryBuilderFromCriterion(startTimeCriterion, true, searchableFieldTypes));
     }
     if (endTimeMillis != null) {
       Criterion endTimeCriterion =
@@ -536,7 +538,7 @@ public class ElasticSearchTimeseriesAspectService
               .setCondition(Condition.LESS_THAN_OR_EQUAL_TO)
               .setValue(endTimeMillis.toString());
       filterQueryBuilder.filter(
-          ESUtils.getQueryBuilderFromCriterion(endTimeCriterion, true, searchableFields));
+          ESUtils.getQueryBuilderFromCriterion(endTimeCriterion, true, searchableFieldTypes));
     }
 
     SearchResponse response =

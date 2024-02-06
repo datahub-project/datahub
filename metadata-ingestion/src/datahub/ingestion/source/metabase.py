@@ -6,7 +6,7 @@ from typing import Dict, Iterable, List, Optional, Tuple, Union
 import dateutil.parser as dp
 import pydantic
 import requests
-from pydantic import Field, validator
+from pydantic import Field, root_validator, validator
 from requests.models import HTTPError
 
 import datahub.emitter.mce_builder as builder
@@ -53,6 +53,10 @@ class MetabaseConfig(DatasetLineageProviderConfigBase):
     # See the Metabase /api/session endpoint for details
     # https://www.metabase.com/docs/latest/api-documentation.html#post-apisession
     connect_uri: str = Field(default="localhost:3000", description="Metabase host URL.")
+    display_uri: Optional[str] = Field(
+        default=None,
+        description="optional URL to use in links (if `connect_uri` is only for ingestion)",
+    )
     username: Optional[str] = Field(default=None, description="Metabase username.")
     password: Optional[pydantic.SecretStr] = Field(
         default=None, description="Metabase password."
@@ -76,9 +80,16 @@ class MetabaseConfig(DatasetLineageProviderConfigBase):
         description="Default schema name to use when schema is not provided in an SQL query",
     )
 
-    @validator("connect_uri")
+    @validator("connect_uri", "display_uri")
     def remove_trailing_slash(cls, v):
         return config_clean.remove_trailing_slashes(v)
+
+    @root_validator(skip_on_failure=True)
+    def default_display_uri_to_connect_uri(cls, values):
+        base = values.get("display_uri")
+        if base is None:
+            values["display_uri"] = values.get("connect_uri")
+        return values
 
 
 @platform_name("Metabase")
@@ -90,10 +101,17 @@ class MetabaseSource(Source):
     """
     This plugin extracts Charts, dashboards, and associated metadata. This plugin is in beta and has only been tested
     on PostgreSQL and H2 database.
-    ### Dashboard
 
-    [/api/dashboard](https://www.metabase.com/docs/latest/api-documentation.html#dashboard) endpoint is used to
-    retrieve the following dashboard information.
+    ### Collection
+
+    [/api/collection](https://www.metabase.com/docs/latest/api/collection) endpoint is used to
+    retrieve the available collections.
+
+    [/api/collection/<COLLECTION_ID>/items?models=dashboard](https://www.metabase.com/docs/latest/api/collection#get-apicollectioniditems) endpoint is used to retrieve a given collection and list their dashboards.
+
+     ### Dashboard
+
+    [/api/dashboard/<DASHBOARD_ID>](https://www.metabase.com/docs/latest/api/dashboard) endpoint is used to retrieve a given Dashboard and grab its information.
 
     - Title and description
     - Last edited by
@@ -187,19 +205,29 @@ class MetabaseSource(Source):
 
     def emit_dashboard_mces(self) -> Iterable[MetadataWorkUnit]:
         try:
-            dashboard_response = self.session.get(
-                f"{self.config.connect_uri}/api/dashboard"
+            collections_response = self.session.get(
+                f"{self.config.connect_uri}/api/collection/"
             )
-            dashboard_response.raise_for_status()
-            dashboards = dashboard_response.json()
+            collections_response.raise_for_status()
+            collections = collections_response.json()
 
-            for dashboard_info in dashboards:
-                dashboard_snapshot = self.construct_dashboard_from_api_data(
-                    dashboard_info
+            for collection in collections:
+                collection_dashboards_response = self.session.get(
+                    f"{self.config.connect_uri}/api/collection/{collection['id']}/items?models=dashboard"
                 )
-                if dashboard_snapshot is not None:
-                    mce = MetadataChangeEvent(proposedSnapshot=dashboard_snapshot)
-                    yield MetadataWorkUnit(id=dashboard_snapshot.urn, mce=mce)
+                collection_dashboards_response.raise_for_status()
+                collection_dashboards = collection_dashboards_response.json()
+
+                if not collection_dashboards.get("data"):
+                    continue
+
+                for dashboard_info in collection_dashboards.get("data"):
+                    dashboard_snapshot = self.construct_dashboard_from_api_data(
+                        dashboard_info
+                    )
+                    if dashboard_snapshot is not None:
+                        mce = MetadataChangeEvent(proposedSnapshot=dashboard_snapshot)
+                        yield MetadataWorkUnit(id=dashboard_snapshot.urn, mce=mce)
 
         except HTTPError as http_error:
             self.report.report_failure(
@@ -222,7 +250,7 @@ class MetabaseSource(Source):
         self, dashboard_info: dict
     ) -> Optional[DashboardSnapshot]:
         dashboard_id = dashboard_info.get("id", "")
-        dashboard_url = f"{self.config.connect_uri}/api/dashboard/{dashboard_id}"
+        dashboard_url = f"{self.config.display_uri}/api/dashboard/{dashboard_id}"
         try:
             dashboard_response = self.session.get(dashboard_url)
             dashboard_response.raise_for_status()
@@ -254,10 +282,10 @@ class MetabaseSource(Source):
         )
 
         chart_urns = []
-        cards_data = dashboard_details.get("ordered_cards", "{}")
+        cards_data = dashboard_details.get("dashcards", {})
         for card_info in cards_data:
             chart_urn = builder.make_chart_urn(
-                self.platform, card_info.get("card_id", "")
+                self.platform, card_info.get("card").get("id", "")
             )
             chart_urns.append(chart_urn)
 
@@ -280,7 +308,7 @@ class MetabaseSource(Source):
 
     @lru_cache(maxsize=None)
     def _get_ownership(self, creator_id: int) -> Optional[OwnershipClass]:
-        user_info_url = f"{self.config.connect_uri}/api/user/{creator_id}"
+        user_info_url = f"{self.config.display_uri}/api/user/{creator_id}"
         try:
             user_info_response = self.session.get(user_info_url)
             user_info_response.raise_for_status()
@@ -345,7 +373,7 @@ class MetabaseSource(Source):
         :param int datasource_id: Numeric datasource ID received from Metabase API
         :return: dict with info or empty dict
         """
-        card_url = f"{self.config.connect_uri}/api/card/{card_id}"
+        card_url = f"{self.config.display_uri}/api/card/{card_id}"
         try:
             card_response = self.session.get(card_url)
             card_response.raise_for_status()

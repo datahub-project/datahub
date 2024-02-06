@@ -3,7 +3,9 @@ package com.linkedin.metadata.models;
 import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.schema.TyperefDataSchema;
 import com.linkedin.metadata.models.annotation.EntityAnnotation;
+import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -39,16 +41,39 @@ public interface EntitySpec {
         .collect(Collectors.toList());
   }
 
-  default Map<String, Set<SearchableFieldSpec>> getSearchableFieldSpecMap() {
-    return getSearchableFieldSpecs().stream()
-        .collect(
-            Collectors.toMap(
-                searchableFieldSpec -> searchableFieldSpec.getSearchableAnnotation().getFieldName(),
-                searchableFieldSpec -> new HashSet<>(Collections.singleton(searchableFieldSpec)),
-                (set1, set2) -> {
-                  set1.addAll(set2);
-                  return set1;
-                }));
+  default Map<String, Set<SearchableAnnotation.FieldType>> getSearchableFieldTypes() {
+    // Get additional fields and mint SearchableFieldSpecs for them
+    Map<String, Set<SearchableAnnotation.FieldType>> fieldSpecMap = new HashMap<>();
+    for (SearchableFieldSpec fieldSpec : getSearchableFieldSpecs()) {
+      SearchableAnnotation searchableAnnotation = fieldSpec.getSearchableAnnotation();
+      if (searchableAnnotation.getNumValuesFieldName().isPresent()) {
+        String fieldName = searchableAnnotation.getNumValuesFieldName().get();
+        Set<SearchableAnnotation.FieldType> fieldSet = new HashSet<>();
+        fieldSet.add(SearchableAnnotation.FieldType.COUNT);
+        fieldSpecMap.put(fieldName, fieldSet);
+      }
+      if (searchableAnnotation.getHasValuesFieldName().isPresent()) {
+        String fieldName = searchableAnnotation.getHasValuesFieldName().get();
+        Set<SearchableAnnotation.FieldType> fieldSet = new HashSet<>();
+        fieldSet.add(SearchableAnnotation.FieldType.BOOLEAN);
+        fieldSpecMap.put(fieldName, fieldSet);
+      }
+    }
+    fieldSpecMap.putAll(
+        getSearchableFieldSpecs().stream()
+            .collect(
+                Collectors.toMap(
+                    searchableFieldSpec ->
+                        searchableFieldSpec.getSearchableAnnotation().getFieldName(),
+                    searchableFieldSpec ->
+                        new HashSet<>(
+                            Collections.singleton(
+                                searchableFieldSpec.getSearchableAnnotation().getFieldType())),
+                    (set1, set2) -> {
+                      set1.addAll(set2);
+                      return set1;
+                    })));
+    return fieldSpecMap;
   }
 
   default List<SearchScoreFieldSpec> getSearchScoreFieldSpecs() {
