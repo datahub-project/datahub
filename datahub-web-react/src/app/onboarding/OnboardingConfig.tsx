@@ -1,6 +1,7 @@
 import { BusinessGlossaryOnboardingConfig } from './config/BusinessGlossaryOnboardingConfig';
 import { DomainsOnboardingConfig } from './config/DomainsOnboardingConfig';
 import { EntityProfileOnboardingConfig } from './config/EntityProfileOnboardingConfig';
+import { FormOnboardingConfig } from './config/FormOnboardingConfig';
 import { GroupsOnboardingConfig } from './config/GroupsOnboardingConfig';
 import { HomePageOnboardingConfig } from './config/HomePageOnboardingConfig';
 import { IngestionOnboardingConfig } from './config/IngestionOnboardingConfig';
@@ -23,6 +24,7 @@ const ALL_ONBOARDING_CONFIGS: OnboardingStep[][] = [
     RolesOnboardingConfig,
     PoliciesOnboardingConfig,
     LineageGraphOnboardingConfig,
+    FormOnboardingConfig,
 ];
 export const OnboardingConfig: OnboardingStep[] = ALL_ONBOARDING_CONFIGS.reduce(
     (acc, config) => [...acc, ...config],

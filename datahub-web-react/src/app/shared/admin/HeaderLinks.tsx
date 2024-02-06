@@ -17,7 +17,7 @@ import { Button, Dropdown, Menu, Tooltip } from 'antd';
 import { useAppConfig } from '../../useAppConfig';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import { HOME_PAGE_INGESTION_ID } from '../../onboarding/config/HomePageOnboardingConfig';
-import { useUpdateEducationStepIdsAllowlist } from '../../onboarding/useUpdateEducationStepIdsAllowlist';
+import { useToggleEducationStepIdsAllowList } from '../../onboarding/useToggleEducationStepIdsAllowList';
 import { useUserContext } from '../../context/useUserContext';
 import { PageRoutes } from '../../../conf/Global';
 import DomainIcon from '../../domain/DomainIcon';
@@ -98,7 +98,7 @@ export function HeaderLinks(props: Props) {
     const showDatasetHealth = config?.featureFlags?.datasetHealthDashboardEnabled;
     const showObserve = showDatasetHealth;
 
-    useUpdateEducationStepIdsAllowlist(!!showIngestion, HOME_PAGE_INGESTION_ID);
+    useToggleEducationStepIdsAllowList(!!showIngestion, HOME_PAGE_INGESTION_ID);
 
     return (
         <LinksWrapper areLinksHidden={areLinksHidden}>

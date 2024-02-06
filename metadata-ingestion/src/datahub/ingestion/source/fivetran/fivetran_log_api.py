@@ -158,10 +158,12 @@ class FivetranLogAPI:
             return None
         user_details = self._query(
             self.fivetran_log_query.get_user_query(user_id=user_id)
-        )[0]
-        return (
-            f"{user_details[Constant.GIVEN_NAME]} {user_details[Constant.FAMILY_NAME]}"
         )
+
+        if not user_details:
+            return None
+
+        return f"{user_details[0][Constant.GIVEN_NAME]} {user_details[0][Constant.FAMILY_NAME]}"
 
     def get_allowed_connectors_list(
         self, connector_patterns: AllowDenyPattern, report: FivetranSourceReport

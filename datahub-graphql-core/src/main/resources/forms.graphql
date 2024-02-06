@@ -275,20 +275,6 @@ input SubmitFormPromptInput {
     structuredPropertyParams: StructuredPropertyInputParams
 }
 
-"""
-Input for responding to a singular prompt in a form for a batch of entities
-"""
-input BatchSubmitFormPromptInput {
-    """
-    The urns of the entities this prompt submission is for
-    """
-    assetUrns: [String!]!
-
-    """
-    Input for responding to a specific prompt on a form
-    """
-    input: SubmitFormPromptInput
-}
 
 """
 Input for collecting structured property values to apply to entities
@@ -389,19 +375,4 @@ input VerifyFormInput {
     The urn of the entity that is having a form verified on it
     """
     entityUrn: String!
-}
-
-"""
-Input for verifying a batch of entities for a give form
-"""
-input BatchVerifyFormInput {
-    """
-    The urns of the entities getting verified for this form
-    """
-    assetUrns: [String!]!
-
-    """
-    The urn of the form being verified on the given entities
-    """
-    formUrn: String!
 }

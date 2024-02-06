@@ -299,9 +299,13 @@ class ElasticsearchSourceConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
 
     profiling: ElasticProfiling = Field(
         default_factory=ElasticProfiling,
+        description="Configs to ingest data profiles from ElasticSearch.",
     )
     collapse_urns: CollapseUrns = Field(
         default_factory=CollapseUrns,
+        description="""List of regex patterns to remove from the name of the URN. All of the indices before removal of URNs are considered as the same dataset. These are applied in order for each URN.
+        The main case where you would want to have multiple of these if the name where you are trying to remove suffix from have different formats.
+        e.g. ending with -YYYY-MM-DD as well as ending -epochtime would require you to have 2 regex patterns to remove the suffixes across all URNs.""",
     )
 
     def is_profiling_enabled(self) -> bool:

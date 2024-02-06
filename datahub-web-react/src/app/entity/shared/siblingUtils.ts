@@ -129,6 +129,9 @@ const customMerge = (isPrimary, key) => {
     if (key === 'activeIncidents') {
         return (secondary, primary) => ({ ...primary, total: primary.total + secondary.total });
     }
+    if (key === 'forms') {
+        return (_secondary, primary) => primary;
+    }
     if (
         key === 'tags' ||
         key === 'terms' ||
