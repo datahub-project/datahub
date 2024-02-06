@@ -399,6 +399,9 @@ class SqlParsingAggregator:
             for query_id in query_ids
         ]
 
+        # Sort the queries by highest precedence first, then by latest timestamp.
+        # Tricky: by converting the timestamp to a number, we also can ignore the
+        # differences between naive and aware datetimes.
         queries = sorted(
             queries,
             key=lambda query: (
@@ -673,7 +676,10 @@ class SqlParsingAggregator:
             timestampMillis=make_ts_millis(datetime.now(tz=timezone.utc)),
             operationType=operation_type,
             lastUpdatedTimestamp=make_ts_millis(query.latest_timestamp),
-            actor=(query.actor or _DEFAULT_USER_URN).urn(),
+            actor=query.actor.urn() if query.actor else None,
+            customProperties={
+                "query_urn": self._query_urn(query_id),
+            },
         )
         yield MetadataChangeProposalWrapper(entityUrn=downstream_urn, aspect=aspect)
 

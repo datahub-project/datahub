@@ -13,7 +13,7 @@
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "created": {
-                        "time": 28820000,
+                        "time": 20000,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.upstream2,PROD)",
@@ -26,7 +26,7 @@
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "created": {
-                        "time": 28820000,
+                        "time": 20000,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.upstream1,PROD)",
