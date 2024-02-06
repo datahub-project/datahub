@@ -264,7 +264,7 @@ public class BrowseV2ResolverTest {
                 Mockito.eq(start),
                 Mockito.eq(limit),
                 Mockito.any(Authentication.class),
-                Mockito.any(SearchFlags.class)))
+                Mockito.nullable(SearchFlags.class)))
         .thenReturn(result);
     return client;
   }
