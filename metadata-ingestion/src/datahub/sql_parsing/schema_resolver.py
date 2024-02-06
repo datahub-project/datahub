@@ -40,6 +40,10 @@ class SchemaResolverInterface(Protocol):
         self, table: _TableName
     ) -> Tuple[str, Optional[SchemaInfo]]: ...
 
+    def __hash__(self) -> int:
+        # Mainly to make lru_cache happy in methods that accept a schema resolver.
+        return id(self)
+
 
 class SchemaResolver(Closeable, SchemaResolverInterface):
     def __init__(

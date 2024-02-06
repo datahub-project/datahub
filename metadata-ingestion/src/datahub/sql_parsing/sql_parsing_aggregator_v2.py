@@ -362,7 +362,7 @@ class SqlParsingAggregator:
             yield from self._gen_lineage_for_downstream(downstream_urn)
 
     @classmethod
-    def _query_type_precedence(cls, query_type: models.DatasetLineageTypeClass) -> int:
+    def _query_type_precedence(cls, query_type: str) -> int:
         query_precedence = [
             models.DatasetLineageTypeClass.COPY,
             models.DatasetLineageTypeClass.VIEW,
@@ -519,7 +519,11 @@ class SqlParsingAggregator:
         ) -> QueryLineageInfo:
             if query.query_id in recursion_path:
                 # This is a cycle, so we just return the query as-is.
-                return query
+                return QueryLineageInfo(
+                    upstreams=query.upstreams,
+                    column_lineage=query.column_lineage,
+                    confidence_score=query.confidence_score,
+                )
             recursion_path = [*recursion_path, query.query_id]
             composed_of_queries.add(query.query_id)
 
