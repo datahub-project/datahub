@@ -19,8 +19,7 @@ def test_basic_lineage(pytestconfig: pytest.Config) -> None:
         platform="redshift",
         platform_instance=None,
         env=builder.DEFAULT_ENV,
-        generate_view_lineage=True,
-        generate_observed_lineage=True,
+        generate_lineage=True,
         generate_usage_statistics=False,
         generate_operations=False,
     )
@@ -46,8 +45,7 @@ def test_overlapping_inserts(pytestconfig: pytest.Config) -> None:
         platform="redshift",
         platform_instance=None,
         env=builder.DEFAULT_ENV,
-        generate_view_lineage=True,
-        generate_observed_lineage=True,
+        generate_lineage=True,
         generate_usage_statistics=False,
         generate_operations=False,
     )
@@ -80,8 +78,7 @@ def test_temp_table(pytestconfig: pytest.Config) -> None:
         platform="redshift",
         platform_instance=None,
         env=builder.DEFAULT_ENV,
-        generate_view_lineage=True,
-        generate_observed_lineage=True,
+        generate_lineage=True,
         generate_usage_statistics=False,
         generate_operations=False,
     )
