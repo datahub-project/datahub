@@ -1,3 +1,7 @@
+"""
+For helper methods to contain manipulation of the config file in local system.
+"""
+
 import logging
 import os
 import sys
@@ -9,9 +13,6 @@ from pydantic import BaseModel, ValidationError
 
 from datahub.cli.env_utils import get_boolean_env_variable
 
-__help__ = (
-    "For helper methods to contain manipulation of the config file in local system."
-)
 log = logging.getLogger(__name__)
 
 DEFAULT_GMS_HOST = "http://localhost:8080"
