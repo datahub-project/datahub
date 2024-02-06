@@ -52,11 +52,11 @@ from datahub.ingestion.source.sql.two_tier_sql_source import (
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 from datahub.ingestion.source_report.ingestion_stage import IngestionStageReport
 from datahub.ingestion.source_report.time_window import BaseTimeWindowReport
-from datahub.metadata.schema_classes import SchemaMetadataClass
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     BytesTypeClass,
     TimeTypeClass,
 )
+from datahub.metadata.schema_classes import SchemaMetadataClass
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.sql_parsing.sqlglot_lineage import sqlglot_lineage
 

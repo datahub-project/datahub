@@ -56,7 +56,7 @@ class QueryMetadata:
     actor: Optional[CorpUserUrn]
 
     upstreams: List[str]  # this is direct upstreams, which may be temp tables
-    column_lineage: List[ColumnLineageInfo]  # TODO add an internal representation?
+    column_lineage: List[ColumnLineageInfo]
     confidence_score: float
 
     def make_created_audit_stamp(self) -> models.AuditStampClass:

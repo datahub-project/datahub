@@ -1,10 +1,10 @@
 from collections.abc import MutableSet
-from typing import Dict, Iterable, Iterator, Optional, TypeVar
+from typing import Dict, Generic, Iterable, Iterator, Optional, TypeVar
 
 T = TypeVar("T")
 
 
-class OrderedSet(MutableSet[T]):
+class OrderedSet(MutableSet[T], Generic[T]):
     """Ordered set implementation.
 
     This is a fairly naive implementation - it uses a dict to store the items, and ignores the dict values.
