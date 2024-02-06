@@ -1657,7 +1657,8 @@ public class GmsGraphQLEngine {
             typeWiring.dataFetcher(
                 "actor",
                 new LoadableTypeResolver<>(
-                    corpUserType, (env) -> ((ResolvedAuditStamp) env.getSource()).getActor().getUrn())));
+                    corpUserType,
+                    (env) -> ((ResolvedAuditStamp) env.getSource()).getActor().getUrn())));
   }
 
   /**
