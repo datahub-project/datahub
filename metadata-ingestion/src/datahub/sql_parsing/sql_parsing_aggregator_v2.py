@@ -3,11 +3,11 @@ import enum
 import itertools
 import logging
 from collections import defaultdict
-from datetime import datetime
-from typing import Callable, Dict, Iterable, List, Optional, Set
+from datetime import datetime, timezone
+from typing import Callable, Dict, Iterable, List, Optional
 
 import datahub.metadata.schema_classes as models
-from datahub.emitter.mce_builder import make_ts_millis
+from datahub.emitter.mce_builder import get_sys_time, make_ts_millis
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
@@ -18,18 +18,20 @@ from datahub.metadata.urns import (
     QueryUrn,
     SchemaFieldUrn,
 )
-from datahub.sql_parsing.schema_resolver import SchemaResolver
+from datahub.sql_parsing.schema_resolver import SchemaResolver, SchemaResolverInterface
 from datahub.sql_parsing.sqlglot_lineage import (
     ColumnLineageInfo,
+    ColumnRef,
     infer_output_schema,
     sqlglot_lineage,
 )
 from datahub.utilities.file_backed_collections import FileBackedDict
+from datahub.utilities.ordered_set import OrderedSet
 
 logger = logging.getLogger(__name__)
 QueryId = str
 
-_DEFAULT_QUERY_URN = CorpUserUrn("_ingestion")
+_DEFAULT_USER_URN = CorpUserUrn("_ingestion")
 _MISSING_SESSION_ID = "__MISSING_SESSION_ID"
 
 
@@ -43,8 +45,8 @@ class StoreQueriesSetting(enum.Enum):
 class QueryMetadata:
     query_id: QueryId
 
-    raw_query_string: str
-    # formatted_query_string: str  # TODO add this
+    # raw_query_string: str
+    formatted_query_string: str
 
     session_id: str  # will be _MISSING_SESSION_ID if not present
     type: str
@@ -58,13 +60,14 @@ class QueryMetadata:
     def make_created_audit_stamp(self) -> models.AuditStampClass:
         return models.AuditStampClass(
             time=make_ts_millis(self.latest_timestamp) or 0,
-            actor=(self.actor or _DEFAULT_QUERY_URN).urn(),
+            actor=(self.actor or _DEFAULT_USER_URN).urn(),
         )
 
     def make_last_modified_audit_stamp(self) -> models.AuditStampClass:
         return models.AuditStampClass(
-            time=make_ts_millis(self.latest_timestamp) or 0,
-            actor=(self.actor or _DEFAULT_QUERY_URN).urn(),
+            time=make_ts_millis(self.latest_timestamp or datetime.now(tz=timezone.utc))
+            or 0,
+            actor=(self.actor or _DEFAULT_USER_URN).urn(),
         )
 
 
@@ -130,7 +133,7 @@ class SqlParsingAggregator:
         self._query_map = FileBackedDict[QueryMetadata]()
 
         # Map of downstream urn -> { query ids }
-        self._lineage_map = FileBackedDict[Set[QueryId]]()
+        self._lineage_map = FileBackedDict[OrderedSet[QueryId]]()
 
         # Map of session ID -> {temp table name -> query id}
         # Needs to use the query_map to find the info about the query.
@@ -232,20 +235,22 @@ class SqlParsingAggregator:
         session_id = session_id or _MISSING_SESSION_ID
 
         # Load in the temp tables for this session.
-        schema_resolver = self._schema_resolver
+        schema_resolver: SchemaResolverInterface = self._schema_resolver
         if session_id in self._temp_lineage_map:
             temp_table_schemas: Dict[str, List[models.SchemaFieldClass]] = {}
             for temp_table_urn, query_id in self._temp_lineage_map[session_id].items():
                 schema = self._inferred_temp_schemas.get(query_id)
-                temp_table_schemas[temp_table_urn] = schema
+                if schema is not None:
+                    temp_table_schemas[temp_table_urn] = schema
 
             if temp_table_schemas:
-                schema_resolver = schema_resolver.with_temp_tables(temp_table_schemas)
+                schema_resolver = self._schema_resolver.with_temp_tables(
+                    temp_table_schemas
+                )
 
-        # TODO load in any temp tables for this session into the schema resolver
         parsed = sqlglot_lineage(
             query,
-            schema_resolver=self._schema_resolver,
+            schema_resolver=schema_resolver,
             default_db=default_db,
             default_schema=default_schema,
         )
@@ -284,7 +289,9 @@ class SqlParsingAggregator:
             )
         ):
             # Infer the schema of the output table and track it for later.
-            self._inferred_temp_schemas[query_fingerprint] = infer_output_schema(parsed)
+            inferred_schema = infer_output_schema(parsed)
+            if inferred_schema is not None:
+                self._inferred_temp_schemas[query_fingerprint] = inferred_schema
 
             # Also track the lineage for the temp table, for merging purposes later.
             self._temp_lineage_map.for_mutation(session_id, {})[
@@ -293,7 +300,9 @@ class SqlParsingAggregator:
 
         else:
             # Non-temp tables immediately generate lineage.
-            self._lineage_map.for_mutation(out_table, set()).add(query_fingerprint)
+            self._lineage_map.for_mutation(out_table, OrderedSet()).add(
+                query_fingerprint
+            )
 
         if query_fingerprint in self._query_map:
             query_metadata = self._query_map.for_mutation(query_fingerprint)
@@ -315,7 +324,7 @@ class SqlParsingAggregator:
         else:
             self._query_map[query_fingerprint] = QueryMetadata(
                 query_id=query_fingerprint,
-                raw_query_string=query,
+                formatted_query_string=query,  # TODO replace with formatted query string
                 session_id=session_id,
                 type=models.DatasetLineageTypeClass.TRANSFORMED,
                 latest_timestamp=query_timestamp,
@@ -370,7 +379,6 @@ class SqlParsingAggregator:
             for query_id in query_ids
         ]
 
-        # TODO - should we sort by timestamp here? lineage_map using a set loses order info
         queries = sorted(
             queries,
             key=lambda query: (
@@ -402,7 +410,7 @@ class SqlParsingAggregator:
                     )
 
         # Finally, we can build our lineage edge.
-        required_queries = set()
+        required_queries = OrderedSet[str]()
         upstream_aspect = models.UpstreamLineageClass(upstreams=[])
         for upstream_urn, query_id in upstreams.items():
             required_queries.add(query_id)
@@ -412,7 +420,11 @@ class SqlParsingAggregator:
                     dataset=upstream_urn,
                     type=queries_map[query_id].type,
                     query=self._query_urn(query_id),
-                    # TODO audit stamp
+                    created=query.make_created_audit_stamp(),
+                    auditStamp=models.AuditStampClass(
+                        time=get_sys_time(),
+                        actor=_DEFAULT_USER_URN.urn(),
+                    ),
                 )
             )
         upstream_aspect.fineGrainedLineages = []
@@ -457,7 +469,7 @@ class SqlParsingAggregator:
                 aspects=[
                     models.QueryPropertiesClass(
                         statement=models.QueryStatementClass(
-                            value=query.raw_query_string,  # TODO replace with formatted query string
+                            value=query.formatted_query_string,
                             language=models.QueryLanguageClass.SQL,
                         ),
                         source=models.QuerySourceClass.SYSTEM,
@@ -478,45 +490,132 @@ class SqlParsingAggregator:
     def _query_urn(self, query_id: QueryId) -> str:
         return QueryUrn(query_id).urn()
 
+    def _composite_query_id(self, composed_of_queries: Iterable[QueryId]) -> str:
+        # TODO fix this
+        breakpoint()
+        return f"composite_{'adfadf'}"
+
     def _resolve_query_with_temp_tables(
         self,
-        query: QueryMetadata,
-        recursive_visited_queries: Optional[Set[QueryId]] = None,
+        base_query: QueryMetadata,
     ) -> QueryMetadata:
 
-        # Prevent infinite recursion on cyclic temp tables.
-        if recursive_visited_queries is None:
-            recursive_visited_queries = set()
-        elif query.query_id in recursive_visited_queries:
-            return query
-        else:
-            # TODO: this makes the recursion less efficient because we might
-            # process the same query_id multiple times.
-            recursive_visited_queries = recursive_visited_queries.copy()
-        recursive_visited_queries.add(query.query_id)
+        session_id = base_query.session_id
 
-        temp_upstream_queries: Dict[str, QueryId] = {}
-        for upstream in query.upstreams:
-            upstream_query_id = self._temp_lineage_map.get(query.session_id, {}).get(
-                upstream
-            )
-            if upstream_query_id:
-                upstream_query = self._query_map.get(upstream_query_id)
-                if upstream_query:
-                    temp_upstream_queries[upstream] = (
-                        self._resolve_query_with_temp_tables(
-                            upstream_query, recursive_visited_queries
+        composed_of_queries = OrderedSet[QueryId]()
+
+        @dataclasses.dataclass
+        class QueryLineageInfo:
+            upstreams: List[str]  # this is direct upstreams, with no temp tables
+            column_lineage: List[ColumnLineageInfo]
+            confidence_score: float
+
+        def _recurse_into_query(
+            query: QueryMetadata, recursion_path: List[QueryId]
+        ) -> QueryLineageInfo:
+            if query.query_id in recursion_path:
+                # This is a cycle, so we just return the query as-is.
+                return query
+            recursion_path = [*recursion_path, query.query_id]
+            composed_of_queries.add(query.query_id)
+
+            # Find all the temp tables that this query depends on.
+            temp_upstream_queries: Dict[str, QueryLineageInfo] = {}
+            for upstream in query.upstreams:
+                upstream_query_id = self._temp_lineage_map.get(session_id, {}).get(
+                    upstream
+                )
+                if upstream_query_id:
+                    upstream_query = self._query_map.get(upstream_query_id)
+                    if upstream_query:
+                        temp_upstream_queries[upstream] = _recurse_into_query(
+                            upstream_query, recursion_path
                         )
+
+            # Compute merged upstreams.
+            new_upstreams = OrderedSet[str]()
+            for upstream in query.upstreams:
+                if upstream in temp_upstream_queries:
+                    new_upstreams.update(temp_upstream_queries[upstream].upstreams)
+                else:
+                    new_upstreams.add(upstream)
+
+            # Compute merged column lineage.
+            new_cll = []
+            for lineage_info in query.column_lineage:
+                new_column_upstreams: List[ColumnRef] = []
+                for existing_col_upstream in lineage_info.upstreams:
+                    if existing_col_upstream.table in temp_upstream_queries:
+                        new_column_upstreams.extend(
+                            [
+                                temp_col_upstream
+                                for temp_lineage_info in temp_upstream_queries[
+                                    existing_col_upstream.table
+                                ].column_lineage
+                                for temp_col_upstream in temp_lineage_info.upstreams
+                                if temp_lineage_info.downstream.column
+                                == existing_col_upstream.column
+                            ]
+                        )
+                    else:
+                        new_column_upstreams.append(existing_col_upstream)
+
+                new_cll.append(
+                    ColumnLineageInfo(
+                        downstream=lineage_info.downstream,
+                        upstreams=new_column_upstreams,
                     )
+                )
 
-        # Fast path - no temp tables.
-        if not temp_upstream_queries:
-            return query
+            # Compute merged confidence score.
+            new_confidence_score = min(
+                [
+                    query.confidence_score,
+                    *[
+                        temp_upstream_query.confidence_score
+                        for temp_upstream_query in temp_upstream_queries.values()
+                    ],
+                ]
+            )
 
-        current_upstreams = query.upstreams
-        current_cll = query.column_lineage
-        # TODO
-        return query
+            return QueryLineageInfo(
+                upstreams=list(new_upstreams),
+                column_lineage=new_cll,
+                confidence_score=new_confidence_score,
+            )
+
+        resolved_lineage_info = _recurse_into_query(base_query, [])
+
+        # Fast path if there were no temp tables.
+        if len(composed_of_queries) == 1:
+            breakpoint()
+            return base_query
+
+        # If this query does actually depend on temp tables:
+        # - Clone the query into a new object
+        # - Generate a new composite fingerprint
+        # - Update the lineage info
+        # - Update the query text to combine the queries
+
+        composite_query_id = self._composite_query_id(composed_of_queries)
+        merged_query_text = "\n\n".join(
+            [
+                self._query_map[query_id].formatted_query_string
+                for query_id in composed_of_queries
+            ]
+            + [base_query.formatted_query_string]
+        )
+
+        resolved_query = dataclasses.replace(
+            base_query,
+            query_id=composite_query_id,
+            formatted_query_string=merged_query_text,
+            upstreams=resolved_lineage_info.upstreams,
+            column_lineage=resolved_lineage_info.column_lineage,
+            confidence_score=resolved_lineage_info.confidence_score,
+        )
+
+        return resolved_query
 
     def _gen_usage_statistics_mcps(self) -> Iterable[MetadataChangeProposalWrapper]:
         # TODO

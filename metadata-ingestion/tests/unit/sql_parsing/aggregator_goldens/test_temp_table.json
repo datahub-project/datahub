@@ -9,8 +9,12 @@
             "upstreams": [
                 {
                     "auditStamp": {
+                        "time": 1707197958517,
+                        "actor": "urn:li:corpuser:_ingestion"
+                    },
+                    "created": {
                         "time": 0,
-                        "actor": "urn:li:corpuser:unknown"
+                        "actor": "urn:li:corpuser:_ingestion"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.foo,PROD)",
                     "type": "TRANSFORMED",
@@ -72,8 +76,12 @@
             "upstreams": [
                 {
                     "auditStamp": {
+                        "time": 1707197945127,
+                        "actor": "urn:li:corpuser:_ingestion"
+                    },
+                    "created": {
                         "time": 0,
-                        "actor": "urn:li:corpuser:unknown"
+                        "actor": "urn:li:corpuser:_ingestion"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.bar,PROD)",
                     "type": "TRANSFORMED",
@@ -145,69 +153,6 @@
                 },
                 {
                     "entity": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.bar,PROD)"
-                }
-            ]
-        }
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.foo_session2,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "upstreamLineage",
-    "aspect": {
-        "json": {
-            "upstreams": [
-                {
-                    "auditStamp": {
-                        "time": 0,
-                        "actor": "urn:li:corpuser:unknown"
-                    },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.foo,PROD)",
-                    "type": "TRANSFORMED",
-                    "query": "urn:li:query:dd06511a6d5d6ceff8df056c4257783bad98b21bcb69fb9abb7c566ba9e3ea50"
-                }
-            ],
-            "fineGrainedLineages": []
-        }
-    }
-},
-{
-    "entityType": "query",
-    "entityUrn": "urn:li:query:dd06511a6d5d6ceff8df056c4257783bad98b21bcb69fb9abb7c566ba9e3ea50",
-    "changeType": "UPSERT",
-    "aspectName": "queryProperties",
-    "aspect": {
-        "json": {
-            "statement": {
-                "value": "create table foo_session2 as select * from foo",
-                "language": "SQL"
-            },
-            "source": "SYSTEM",
-            "created": {
-                "time": 0,
-                "actor": "urn:li:corpuser:_ingestion"
-            },
-            "lastModified": {
-                "time": 0,
-                "actor": "urn:li:corpuser:_ingestion"
-            }
-        }
-    }
-},
-{
-    "entityType": "query",
-    "entityUrn": "urn:li:query:dd06511a6d5d6ceff8df056c4257783bad98b21bcb69fb9abb7c566ba9e3ea50",
-    "changeType": "UPSERT",
-    "aspectName": "querySubjects",
-    "aspect": {
-        "json": {
-            "subjects": [
-                {
-                    "entity": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.foo_session2,PROD)"
-                },
-                {
-                    "entity": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.foo,PROD)"
                 }
             ]
         }
