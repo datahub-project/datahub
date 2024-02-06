@@ -1,6 +1,5 @@
 package com.linkedin.metadata.kafka;
 
-import com.linkedin.entity.client.SystemRestliEntityClient;
 import com.linkedin.gms.factory.auth.SystemAuthenticationFactory;
 import com.linkedin.metadata.dao.producer.KafkaHealthChecker;
 import com.linkedin.metadata.entity.EntityServiceImpl;
@@ -21,8 +20,6 @@ public class MaeConsumerApplicationTestConfiguration {
   @MockBean private KafkaHealthChecker kafkaHealthChecker;
 
   @MockBean private EntityServiceImpl _entityServiceImpl;
-
-  @MockBean private SystemRestliEntityClient restliEntityClient;
 
   @MockBean private Database ebeanServer;
 

@@ -396,6 +396,26 @@ public class CustomDataQualityRulesMCLSideEffect extends MCLSideEffect {
 
         return timeseriesOptional.stream();
     }
+
+    private Optional<DataQualityRuleEvent> buildEvent(MetadataChangeLog originMCP) {
+        if (originMCP.getAspect() != null) {
+            DataQualityRuleEvent event = new DataQualityRuleEvent();
+            if (event.getActor() != null) {
+                event.setActor(event.getActor());
+            }
+            event.setEventTimestamp(originMCP.getSystemMetadata().getLastObserved());
+            event.setTimestampMillis(originMCP.getSystemMetadata().getLastObserved());
+            if (originMCP.getPreviousAspectValue() == null) {
+                event.setEventType("RuleCreated");
+            } else {
+                event.setEventType("RuleUpdated");
+            }
+            event.setAffectedDataset(originMCP.getEntityUrn());
+
+            return Optional.of(event);
+        }
+        return Optional.empty();
+    }
 }
 ```
 

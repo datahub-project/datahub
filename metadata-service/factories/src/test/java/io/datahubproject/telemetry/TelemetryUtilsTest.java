@@ -12,7 +12,7 @@ import org.testng.annotations.Test;
 
 public class TelemetryUtilsTest {
 
-  EntityService _entityService;
+  EntityService<?> _entityService;
 
   @BeforeMethod
   public void init() {

@@ -1,9 +1,9 @@
 package io.datahubproject.examples;
 
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.metadata.aspect.patch.builder.DatasetPropertiesPatchBuilder;
 import com.linkedin.mxe.MetadataChangeProposal;
 import datahub.client.MetadataWriteResponse;
-import datahub.client.patch.dataset.DatasetPropertiesPatchBuilder;
 import datahub.client.rest.RestEmitter;
 import java.io.IOException;
 import java.util.HashMap;

@@ -8,6 +8,7 @@ import com.linkedin.data.DataMap;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.GlossaryNode;
 import com.linkedin.datahub.graphql.generated.GlossaryNodeProperties;
+import com.linkedin.datahub.graphql.types.common.mappers.CustomPropertiesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
@@ -36,7 +37,8 @@ public class GlossaryNodeMapper implements ModelMapper<EntityResponse, GlossaryN
     MappingHelper<GlossaryNode> mappingHelper = new MappingHelper<>(aspectMap, result);
     mappingHelper.mapToResult(
         GLOSSARY_NODE_INFO_ASPECT_NAME,
-        (glossaryNode, dataMap) -> glossaryNode.setProperties(mapGlossaryNodeProperties(dataMap)));
+        (glossaryNode, dataMap) ->
+            glossaryNode.setProperties(mapGlossaryNodeProperties(dataMap, entityUrn)));
     mappingHelper.mapToResult(GLOSSARY_NODE_KEY_ASPECT_NAME, this::mapGlossaryNodeKey);
     mappingHelper.mapToResult(
         OWNERSHIP_ASPECT_NAME,
@@ -46,12 +48,17 @@ public class GlossaryNodeMapper implements ModelMapper<EntityResponse, GlossaryN
     return mappingHelper.getResult();
   }
 
-  private GlossaryNodeProperties mapGlossaryNodeProperties(@Nonnull DataMap dataMap) {
+  private GlossaryNodeProperties mapGlossaryNodeProperties(
+      @Nonnull DataMap dataMap, @Nonnull final Urn entityUrn) {
     GlossaryNodeInfo glossaryNodeInfo = new GlossaryNodeInfo(dataMap);
     GlossaryNodeProperties result = new GlossaryNodeProperties();
     result.setDescription(glossaryNodeInfo.getDefinition());
     if (glossaryNodeInfo.hasName()) {
       result.setName(glossaryNodeInfo.getName());
+    }
+    if (glossaryNodeInfo.hasCustomProperties()) {
+      result.setCustomProperties(
+          CustomPropertiesMapper.map(glossaryNodeInfo.getCustomProperties(), entityUrn));
     }
     return result;
   }

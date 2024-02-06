@@ -49,6 +49,9 @@ POST          /admin/dashboard/*path                                         con
 # Analytics route
 POST          /track                                                           controllers.TrackingController.track(request: Request)
 
+# Map static resources from the /public folder to the /assets URL path
+GET           /assets/icons/favicon.ico                                        controllers.RedirectController.favicon(request: Request)
+
 # Known React asset routes
 GET           /assets/*file                                                    controllers.Assets.at(path="/public/assets", file)
 GET           /node_modules/*file                                              controllers.Assets.at(path="/public/node_modules", file)

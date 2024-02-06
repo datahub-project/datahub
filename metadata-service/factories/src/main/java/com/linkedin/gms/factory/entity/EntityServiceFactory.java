@@ -43,21 +43,21 @@ public class EntityServiceFactory {
       @Qualifier("entityAspectDao") AspectDao aspectDao,
       EntityRegistry entityRegistry,
       ConfigurationProvider configurationProvider,
-      UpdateIndicesService updateIndicesService) {
+      UpdateIndicesService updateIndicesService,
+      @Value("${featureFlags.showBrowseV2}") final boolean enableBrowsePathV2) {
 
     final KafkaEventProducer eventProducer =
         new KafkaEventProducer(producer, convention, kafkaHealthChecker);
     FeatureFlags featureFlags = configurationProvider.getFeatureFlags();
-    EntityService entityService =
-        new EntityServiceImpl(
-            aspectDao,
-            eventProducer,
-            entityRegistry,
-            featureFlags.isAlwaysEmitChangeLog(),
-            updateIndicesService,
-            featureFlags.getPreProcessHooks(),
-            _ebeanMaxTransactionRetry);
 
-    return entityService;
+    return new EntityServiceImpl(
+        aspectDao,
+        eventProducer,
+        entityRegistry,
+        featureFlags.isAlwaysEmitChangeLog(),
+        updateIndicesService,
+        featureFlags.getPreProcessHooks(),
+        _ebeanMaxTransactionRetry,
+        enableBrowsePathV2);
   }
 }

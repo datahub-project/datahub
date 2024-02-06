@@ -7,6 +7,7 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.timeseries.BatchWriteOperationsOptions;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.metadata.timeseries.TimeseriesScrollResult;
 import com.linkedin.timeseries.AggregationSpec;
 import com.linkedin.timeseries.DeleteAspectValuesResult;
 import com.linkedin.timeseries.GenericTable;
@@ -117,5 +118,19 @@ public class MockTimeseriesAspectService implements TimeseriesAspectService {
   @Override
   public List<TimeseriesIndexSizeResult> getIndexSizes() {
     return List.of();
+  }
+
+  @Nonnull
+  @Override
+  public TimeseriesScrollResult scrollAspects(
+      @Nonnull String entityName,
+      @Nonnull String aspectName,
+      @Nullable Filter filter,
+      @Nonnull List<SortCriterion> sortCriterion,
+      @Nullable String scrollId,
+      int count,
+      @Nullable Long startTimeMillis,
+      @Nullable Long endTimeMillis) {
+    return TimeseriesScrollResult.builder().build();
   }
 }

@@ -54,10 +54,9 @@ public class RestoreFromParquetStep implements UpgradeStep {
   private AtomicInteger _numRows = new AtomicInteger(0);
   private ConcurrentHashMap<String, AtomicInteger> _entityCounts = new ConcurrentHashMap<>();
 
-  public RestoreFromParquetStep(
-      final EntityService<?> entityService, final EntityRegistry entityRegistry) {
+  public RestoreFromParquetStep(final EntityService<?> entityService) {
     _entityService = entityService;
-    _entityRegistry = entityRegistry;
+    _entityRegistry = entityService.getEntityRegistry();
     _backupReaders =
         ImmutableBiMap.of(
             LocalParquetReader.READER_NAME,

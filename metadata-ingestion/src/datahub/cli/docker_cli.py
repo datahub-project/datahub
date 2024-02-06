@@ -21,7 +21,7 @@ import requests
 from expandvars import expandvars
 from requests_file import FileAdapter
 
-from datahub.cli.cli_utils import DATAHUB_ROOT_FOLDER
+from datahub.cli.config_utils import DATAHUB_ROOT_FOLDER
 from datahub.cli.docker_check import (
     DATAHUB_COMPOSE_LEGACY_VOLUME_FILTERS,
     DATAHUB_COMPOSE_PROJECT_FILTER,

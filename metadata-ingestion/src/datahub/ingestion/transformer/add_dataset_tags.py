@@ -69,7 +69,6 @@ class AddDatasetTags(DatasetTagsTransformer):
     def handle_end_of_stream(
         self,
     ) -> List[Union[MetadataChangeProposalWrapper, MetadataChangeProposalClass]]:
-
         mcps: List[
             Union[MetadataChangeProposalWrapper, MetadataChangeProposalClass]
         ] = []

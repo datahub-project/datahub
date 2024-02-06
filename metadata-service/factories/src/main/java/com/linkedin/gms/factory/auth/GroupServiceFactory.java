@@ -1,7 +1,7 @@
 package com.linkedin.gms.factory.auth;
 
 import com.datahub.authentication.group.GroupService;
-import com.linkedin.metadata.client.JavaEntityClient;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.spring.YamlPropertySourceFactory;
@@ -18,11 +18,7 @@ import org.springframework.context.annotation.Scope;
 public class GroupServiceFactory {
   @Autowired
   @Qualifier("entityService")
-  private EntityService _entityService;
-
-  @Autowired
-  @Qualifier("javaEntityClient")
-  private JavaEntityClient _javaEntityClient;
+  private EntityService<?> _entityService;
 
   @Autowired
   @Qualifier("graphClient")
@@ -31,7 +27,8 @@ public class GroupServiceFactory {
   @Bean(name = "groupService")
   @Scope("singleton")
   @Nonnull
-  protected GroupService getInstance() throws Exception {
-    return new GroupService(this._javaEntityClient, this._entityService, this._graphClient);
+  protected GroupService getInstance(@Qualifier("entityClient") final EntityClient entityClient)
+      throws Exception {
+    return new GroupService(entityClient, _entityService, _graphClient);
   }
 }

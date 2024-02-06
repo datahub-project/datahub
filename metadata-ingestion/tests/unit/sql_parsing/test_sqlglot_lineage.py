@@ -3,7 +3,6 @@ import pathlib
 import pytest
 
 from datahub.testing.check_sql_parser_result import assert_sql_result
-from datahub.utilities.sqlglot_lineage import _UPDATE_ARGS_NOT_SUPPORTED_BY_SELECT
 
 RESOURCE_DIR = pathlib.Path(__file__).parent / "goldens"
 
@@ -802,10 +801,6 @@ WHERE orderkey = 3
     )
 
 
-def test_update_from_select():
-    assert _UPDATE_ARGS_NOT_SUPPORTED_BY_SELECT == {"returning", "this"}
-
-
 def test_snowflake_update_from_table():
     # Can create these tables with the following SQL:
     """
@@ -996,4 +991,31 @@ AS
         dialect="redshift",
         expected_file=RESOURCE_DIR
         / "test_redshift_materialized_view_auto_refresh.json",
+    )
+
+
+def test_redshift_temp_table_shortcut():
+    # On redshift, tables starting with # are temporary tables.
+    assert_sql_result(
+        """
+CREATE TABLE #my_custom_name
+distkey (1)
+sortkey (1,2)
+AS
+WITH cte AS (
+SELECT *
+FROM other_schema.table1
+)
+SELECT * FROM cte
+""",
+        dialect="redshift",
+        default_db="my_db",
+        default_schema="my_schema",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:redshift,my_db.other_schema.table1,PROD)": {
+                "col1": "INTEGER",
+                "col2": "INTEGER",
+            },
+        },
+        expected_file=RESOURCE_DIR / "test_redshift_temp_table_shortcut.json",
     )

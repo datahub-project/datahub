@@ -11,7 +11,7 @@ public class BackfillBrowsePathsV2Config {
 
   @Bean
   public BackfillBrowsePathsV2 backfillBrowsePathsV2(
-      EntityService entityService, SearchService searchService) {
+      EntityService<?> entityService, SearchService searchService) {
     return new BackfillBrowsePathsV2(entityService, searchService);
   }
 }

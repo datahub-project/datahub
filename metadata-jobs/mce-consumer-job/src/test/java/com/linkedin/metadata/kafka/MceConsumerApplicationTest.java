@@ -22,7 +22,7 @@ public class MceConsumerApplicationTest extends AbstractTestNGSpringContextTests
 
   @Autowired private TestRestTemplate restTemplate;
 
-  @Autowired private EntityService _mockEntityService;
+  @Autowired private EntityService<?> _mockEntityService;
 
   @Autowired private KafkaHealthIndicator kafkaHealthIndicator;
 

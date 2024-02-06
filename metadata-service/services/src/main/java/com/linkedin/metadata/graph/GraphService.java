@@ -5,6 +5,7 @@ import com.linkedin.metadata.models.registry.LineageRegistry;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.query.filter.RelationshipFilter;
+import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.utils.QueryUtils;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
@@ -322,4 +323,18 @@ public interface GraphService {
   default boolean supportsMultiHop() {
     return false;
   }
+
+  @Nonnull
+  RelatedEntitiesScrollResult scrollRelatedEntities(
+      @Nullable List<String> sourceTypes,
+      @Nonnull Filter sourceEntityFilter,
+      @Nullable List<String> destinationTypes,
+      @Nonnull Filter destinationEntityFilter,
+      @Nonnull List<String> relationshipTypes,
+      @Nonnull RelationshipFilter relationshipFilter,
+      @Nonnull List<SortCriterion> sortCriterion,
+      @Nullable String scrollId,
+      int count,
+      @Nullable Long startTimeMillis,
+      @Nullable Long endTimeMillis);
 }

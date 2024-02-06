@@ -34,7 +34,7 @@ import org.springframework.core.io.Resource;
 public class IngestOwnershipTypesStep implements BootstrapStep {
 
   private static final ObjectMapper JSON_MAPPER = new ObjectMapper();
-  private final EntityService _entityService;
+  private final EntityService<?> _entityService;
   private final Resource _ownershipTypesResource;
 
   @Override
@@ -100,11 +100,7 @@ public class IngestOwnershipTypesStep implements BootstrapStep {
 
     _entityService.ingestProposal(
         AspectsBatchImpl.builder()
-            .mcps(
-                List.of(keyAspectProposal, proposal),
-                auditStamp,
-                _entityService.getEntityRegistry(),
-                _entityService.getSystemEntityClient())
+            .mcps(List.of(keyAspectProposal, proposal), auditStamp, _entityService)
             .build(),
         false);
   }

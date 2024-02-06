@@ -1,27 +1,16 @@
-import json
-import time
-import urllib
-
 import pytest
-import tenacity
-from datahub.emitter.mce_builder import (
-    make_data_job_urn,
-    make_dataset_urn,
-    make_schema_field_urn,
-)
-from datahub.ingestion.graph.client import DataHubGraph, DataHubGraphConfig
-import requests_wrapper as requests
-from tests.utils import (
-    delete_urns_from_file,
-    get_frontend_url,
-    get_gms_url,
-    get_sleep_info,
-    ingest_file_via_rest,
-    wait_for_healthcheck_util,
-    delete_urn,
-)
+from datahub.emitter.mce_builder import make_dataset_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.graph.client import DataHubGraph, DataHubGraphConfig
 from datahub.metadata.schema_classes import StatusClass
+
+from tests.consistency_utils import wait_for_writes_to_sync
+from tests.utils import (
+    delete_urn,
+    get_frontend_url,
+    get_sleep_info,
+    wait_for_healthcheck_util,
+)
 
 restli_default_headers = {
     "X-RestLi-Protocol-Version": "2.0.0",
@@ -147,6 +136,8 @@ def test_create_update_delete_dataset_freshness_assertion_monitor(frontend_sessi
     assert res_data["data"]["upsertDatasetFreshnessAssertionMonitor"]
 
     assertion_urn = res_data["data"]["upsertDatasetFreshnessAssertionMonitor"]["urn"]
+
+    wait_for_writes_to_sync()
 
     # update the assertion
     json = {
@@ -280,6 +271,8 @@ def test_create_update_delete_dataset_volume_assertion_monitor(frontend_session)
 
     assertion_urn = res_data["data"]["upsertDatasetVolumeAssertionMonitor"]["urn"]
 
+    wait_for_writes_to_sync()
+
     # update the assertion
     json = {
         "query": """mutation upsertDatasetVolumeAssertionMonitor($assertionUrn:String, $input: UpsertDatasetVolumeAssertionMonitorInput!) {\n
@@ -406,6 +399,8 @@ def test_create_update_delete_dataset_sql_assertion_monitor(frontend_session):
     assert res_data["data"]["upsertDatasetSqlAssertionMonitor"]
 
     assertion_urn = res_data["data"]["upsertDatasetSqlAssertionMonitor"]["urn"]
+
+    wait_for_writes_to_sync()
 
     # update the assertion
     json = {
@@ -535,6 +530,8 @@ def test_create_update_delete_dataset_field_assertion_monitor(frontend_session):
     assert res_data["data"]["upsertDatasetFieldAssertionMonitor"]
 
     assertion_urn = res_data["data"]["upsertDatasetFieldAssertionMonitor"]["urn"]
+
+    wait_for_writes_to_sync()
 
     # update the assertion
     json = {

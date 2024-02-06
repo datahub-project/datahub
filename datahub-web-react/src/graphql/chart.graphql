@@ -106,6 +106,9 @@ query getChart($urn: String!) {
         subTypes {
             typeNames
         }
+        autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
+            ...autoRenderAspectFields
+        }
         termProposals: proposals(type: TERM_ASSOCIATION) {
             ...proposalsFragment
         }

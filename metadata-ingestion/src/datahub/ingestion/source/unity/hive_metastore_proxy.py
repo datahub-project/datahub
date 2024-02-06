@@ -55,7 +55,6 @@ TABLE_STAT_LIST = {ROWS, BYTES}
 
 
 class HiveMetastoreProxy(Closeable):
-    # TODO: Support for view lineage using SQL parsing
     # Why not use hive ingestion source directly here ?
     # 1. hive ingestion source assumes 2-level namespace heirarchy and currently
     #    there is no other intermediate interface except sqlalchemy inspector
@@ -187,7 +186,6 @@ class HiveMetastoreProxy(Closeable):
         )
 
     def _get_column_profile(self, column: str, ref: TableReference) -> ColumnProfile:
-
         props = self._column_describe_extended(ref.schema, ref.table, column)
         col_stats = {}
         for prop in props:

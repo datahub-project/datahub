@@ -6,7 +6,6 @@ import com.linkedin.metadata.aspect.batch.UpsertItem;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.validation.AspectRetriever;
 import com.linkedin.metadata.entity.ebean.batch.MCPUpsertBatchItem;
-import com.linkedin.metadata.models.registry.EntityRegistry;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 
@@ -18,16 +17,16 @@ public class CustomDataQualityRulesMCPSideEffect extends MCPSideEffect {
 
   @Override
   protected Stream<UpsertItem> applyMCPSideEffect(
-      UpsertItem input, EntityRegistry entityRegistry, @Nonnull AspectRetriever aspectRetriever) {
+      UpsertItem input, @Nonnull AspectRetriever aspectRetriever) {
     // Mirror aspects to another URN in SQL & Search
     Urn mirror = UrnUtils.getUrn(input.getUrn().toString().replace(",PROD)", ",DEV)"));
     return Stream.of(
         MCPUpsertBatchItem.builder()
             .urn(mirror)
             .aspectName(input.getAspectName())
-            .aspect(input.getAspect())
+            .recordTemplate(input.getRecordTemplate())
             .auditStamp(input.getAuditStamp())
             .systemMetadata(input.getSystemMetadata())
-            .build(entityRegistry, aspectRetriever));
+            .build(aspectRetriever));
   }
 }

@@ -36,14 +36,16 @@ const LastIngestedSection = styled.div`
 
 type Props = {
     sidebarSections: EntitySidebarSection[];
+    topSection?: EntitySidebarSection;
 };
 
-export const EntitySidebar = <T,>({ sidebarSections }: Props) => {
+export const EntitySidebar = <T,>({ sidebarSections, topSection }: Props) => {
     const { entityData } = useEntityData();
     const baseEntity = useBaseEntity<T>();
 
     return (
         <>
+            {topSection && <topSection.component key={`${topSection.component}`} properties={topSection.properties} />}
             {entityData?.lastIngested && (
                 <LastIngestedSection>
                     <LastIngested lastIngested={entityData.lastIngested} />

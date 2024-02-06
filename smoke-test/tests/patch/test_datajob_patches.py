@@ -3,14 +3,19 @@ import uuid
 from datahub.emitter.mce_builder import make_data_job_urn, make_dataset_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DataHubGraph, DataHubGraphConfig
-from datahub.metadata.schema_classes import (DataJobInfoClass,
-                                             DataJobInputOutputClass,
-                                             EdgeClass)
+from datahub.metadata.schema_classes import (
+    DataJobInfoClass,
+    DataJobInputOutputClass,
+    EdgeClass,
+)
 from datahub.specific.datajob import DataJobPatchBuilder
 
 from tests.patch.common_patch_tests import (
-    helper_test_custom_properties_patch, helper_test_dataset_tags_patch,
-    helper_test_entity_terms_patch, helper_test_ownership_patch)
+    helper_test_custom_properties_patch,
+    helper_test_dataset_tags_patch,
+    helper_test_entity_terms_patch,
+    helper_test_ownership_patch,
+)
 
 
 def _make_test_datajob_urn(
@@ -76,10 +81,12 @@ def test_datajob_inputoutput_dataset_patch(wait_for_healthchecks):
 
     with DataHubGraph(DataHubGraphConfig()) as graph:
         graph.emit_mcp(mcpw)
-        inputoutput_lineage_read: DataJobInputOutputClass = graph.get_aspect(
+        inputoutput_lineage_read = graph.get_aspect(
             entity_urn=datajob_urn,
             aspect_type=DataJobInputOutputClass,
         )
+        assert inputoutput_lineage_read is not None
+        assert inputoutput_lineage_read.inputDatasetEdges is not None
         assert (
             inputoutput_lineage_read.inputDatasetEdges[0].destinationUrn
             == other_dataset_urn
@@ -97,6 +104,8 @@ def test_datajob_inputoutput_dataset_patch(wait_for_healthchecks):
             entity_urn=datajob_urn,
             aspect_type=DataJobInputOutputClass,
         )
+        assert inputoutput_lineage_read is not None
+        assert inputoutput_lineage_read.inputDatasetEdges is not None
         assert len(inputoutput_lineage_read.inputDatasetEdges) == 2
         assert (
             inputoutput_lineage_read.inputDatasetEdges[0].destinationUrn
@@ -119,6 +128,8 @@ def test_datajob_inputoutput_dataset_patch(wait_for_healthchecks):
             entity_urn=datajob_urn,
             aspect_type=DataJobInputOutputClass,
         )
+        assert inputoutput_lineage_read is not None
+        assert inputoutput_lineage_read.inputDatasetEdges is not None
         assert len(inputoutput_lineage_read.inputDatasetEdges) == 1
         assert (
             inputoutput_lineage_read.inputDatasetEdges[0].destinationUrn

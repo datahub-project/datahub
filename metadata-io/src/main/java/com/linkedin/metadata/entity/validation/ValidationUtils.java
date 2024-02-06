@@ -67,12 +67,12 @@ public class ValidationUtils {
 
   public static void validateRecordTemplate(
       ChangeType changeType,
-      EntityRegistry entityRegistry,
       EntitySpec entitySpec,
       AspectSpec aspectSpec,
       Urn urn,
       @Nullable RecordTemplate aspect,
       @Nonnull AspectRetriever aspectRetriever) {
+    EntityRegistry entityRegistry = aspectRetriever.getEntityRegistry();
     EntityRegistryUrnValidator validator = new EntityRegistryUrnValidator(entityRegistry);
     validator.setCurrentEntitySpec(entitySpec);
     Consumer<ValidationResult> resultFunction =
@@ -83,6 +83,7 @@ public class ValidationUtils {
                   + "\n Cause: "
                   + validationResult.getMessages());
         };
+
     RecordTemplateValidator.validate(
         EntityUtils.buildKeyAspect(entityRegistry, urn), resultFunction, validator);
 

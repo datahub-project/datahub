@@ -7,8 +7,10 @@ import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.shared.ElasticSearchIndexed;
 import com.linkedin.metadata.timeseries.BatchWriteOperationsOptions;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
+import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.util.Pair;
 import java.io.IOException;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -90,5 +92,11 @@ public class TimeseriesAspectIndexBuilders implements ElasticSearchIndexed {
               }
             })
         .collect(Collectors.toList());
+  }
+
+  @Override
+  public List<ReindexConfig> buildReindexConfigsWithAllStructProps(
+      Collection<StructuredPropertyDefinition> properties) throws IOException {
+    return buildReindexConfigs();
   }
 }

@@ -1,14 +1,16 @@
 import json
 import os
-from time import sleep
 
 import pytest
-from datahub.cli.cli_utils import get_aspects_for_entity
-from datahub.cli.ingest_cli import get_session_and_host
+from datahub.cli.cli_utils import get_aspects_for_entity, get_session_and_host
 
-from tests.utils import (delete_urns_from_file, get_datahub_graph,
-                         ingest_file_via_rest, wait_for_healthcheck_util,
-                         wait_for_writes_to_sync)
+from tests.utils import (
+    delete_urns_from_file,
+    get_datahub_graph,
+    ingest_file_via_rest,
+    wait_for_healthcheck_util,
+    wait_for_writes_to_sync,
+)
 
 # Disable telemetry
 os.environ["DATAHUB_TELEMETRY_ENABLED"] = "false"
@@ -39,8 +41,8 @@ def test_setup():
     session, gms_host = get_session_and_host()
 
     try:
-        assert "browsePaths" not in get_aspects_for_entity(
-            entity_urn=dataset_urn, aspects=["browsePaths"], typed=False
+        assert "institutionalMemory" not in get_aspects_for_entity(
+            entity_urn=dataset_urn, aspects=["institutionalMemory"], typed=False
         )
         assert "editableDatasetProperties" not in get_aspects_for_entity(
             entity_urn=dataset_urn, aspects=["editableDatasetProperties"], typed=False
@@ -53,8 +55,8 @@ def test_setup():
         "tests/delete/cli_test_data.json"
     ).config.run_id
 
-    assert "browsePaths" in get_aspects_for_entity(
-        entity_urn=dataset_urn, aspects=["browsePaths"], typed=False
+    assert "institutionalMemory" in get_aspects_for_entity(
+        entity_urn=dataset_urn, aspects=["institutionalMemory"], typed=False
     )
 
     yield
@@ -68,8 +70,8 @@ def test_setup():
 
     wait_for_writes_to_sync()
 
-    assert "browsePaths" not in get_aspects_for_entity(
-        entity_urn=dataset_urn, aspects=["browsePaths"], typed=False
+    assert "institutionalMemory" not in get_aspects_for_entity(
+        entity_urn=dataset_urn, aspects=["institutionalMemory"], typed=False
     )
     assert "editableDatasetProperties" not in get_aspects_for_entity(
         entity_urn=dataset_urn, aspects=["editableDatasetProperties"], typed=False

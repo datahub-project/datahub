@@ -28,6 +28,7 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.boot.kafka.DataHubUpgradeKafkaListener;
+import com.linkedin.metadata.client.EntityClientAspectRetriever;
 import com.linkedin.metadata.config.SystemUpdateConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.graph.Edge;
@@ -121,9 +122,10 @@ public class UpdateIndicesHookTest {
             _mockEntitySearchService,
             _mockTimeseriesAspectService,
             _mockSystemMetadataService,
-            ENTITY_REGISTRY,
             _searchDocumentTransformer,
             _mockEntityIndexBuilders);
+    _updateIndicesService.initializeAspectRetriever(
+        EntityClientAspectRetriever.builder().entityRegistry(ENTITY_REGISTRY).build());
     _updateIndicesHook = new UpdateIndicesHook(_updateIndicesService, true);
   }
 
@@ -198,9 +200,10 @@ public class UpdateIndicesHookTest {
             _mockEntitySearchService,
             _mockTimeseriesAspectService,
             _mockSystemMetadataService,
-            mockEntityRegistry,
             _searchDocumentTransformer,
             _mockEntityIndexBuilders);
+    _updateIndicesService.initializeAspectRetriever(
+        EntityClientAspectRetriever.builder().entityRegistry(mockEntityRegistry).build());
     _updateIndicesHook = new UpdateIndicesHook(_updateIndicesService, true);
 
     _updateIndicesHook.invoke(event);

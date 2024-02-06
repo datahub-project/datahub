@@ -25,7 +25,7 @@ public class IngestDefaultGlobalSettingsStepTest {
 
   @Test
   public void testExecuteValidSettingsNoExistingSettings() throws Exception {
-    final EntityService entityService = mock(EntityService.class);
+    final EntityService<?> entityService = mock(EntityService.class);
     configureEntityServiceMock(entityService, null);
 
     final IngestDefaultGlobalSettingsStep step =
@@ -49,7 +49,7 @@ public class IngestDefaultGlobalSettingsStepTest {
   public void testExecuteValidSettingsExistingSettings() throws Exception {
 
     // Verify that the user provided settings overrides are NOT overwritten.
-    final EntityService entityService = mock(EntityService.class);
+    final EntityService<?> entityService = mock(EntityService.class);
     final GlobalSettingsInfo existingSettings =
         new GlobalSettingsInfo()
             .setViews(
@@ -77,7 +77,7 @@ public class IngestDefaultGlobalSettingsStepTest {
 
   @Test
   public void testExecuteInvalidJsonSettings() throws Exception {
-    final EntityService entityService = mock(EntityService.class);
+    final EntityService<?> entityService = mock(EntityService.class);
     configureEntityServiceMock(entityService, null);
 
     final IngestDefaultGlobalSettingsStep step =
@@ -92,7 +92,7 @@ public class IngestDefaultGlobalSettingsStepTest {
 
   @Test
   public void testExecuteInvalidModelSettings() throws Exception {
-    final EntityService entityService = mock(EntityService.class);
+    final EntityService<?> entityService = mock(EntityService.class);
     configureEntityServiceMock(entityService, null);
 
     final IngestDefaultGlobalSettingsStep step =
@@ -106,7 +106,7 @@ public class IngestDefaultGlobalSettingsStepTest {
   }
 
   private static void configureEntityServiceMock(
-      final EntityService mockService, final GlobalSettingsInfo settingsInfo) {
+      final EntityService<?> mockService, final GlobalSettingsInfo settingsInfo) {
     Mockito.when(
             mockService.getAspect(
                 Mockito.eq(GLOBAL_SETTINGS_URN),

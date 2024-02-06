@@ -1,0 +1,45 @@
+## This file is used to define a dataset and provide metadata for it
+- id: user.clicks
+  platform: hive
+  # - urn: urn:li:dataset:(urn:li:dataPlatform:hive,user.clicks,PROD) # use urn instead of id and platform
+  subtype: Table
+  schema:
+    file: examples/structured_properties/click_event.avsc
+    fields:
+      - id: ip
+      - urn: urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,user.clicks,PROD),ip)
+        structured_properties: # structured properties for schema fields/columns go here
+          io.acryl.dataManagement.deprecationDate: "2023-01-01"
+          io.acryl.dataManagement.certifier: urn:li:corpuser:john.doe@example.com
+          io.acryl.dataManagement.replicationSLA: 90
+  structured_properties: # dataset level structured properties go here
+    io.acryl.privacy.retentionTime: 365
+    projectNames:
+      - Tracking
+      - DataHub
+- id: ClickEvent
+  platform: events
+  subtype: Topic
+  description: |
+    This is a sample event that is generated when a user clicks on a link.
+    Do not use this event for any purpose other than testing.
+  properties:
+    project_name: Tracking
+    namespace: org.acryl.tracking
+    version: 1.0.0
+    retention: 30
+  structured_properties:
+    io.acryl.dataManagement.certifier: urn:li:corpuser:john.doe@example.com
+  schema:
+    file: examples/structured_properties/click_event.avsc
+  downstreams:
+    - urn:li:dataset:(urn:li:dataPlatform:hive,user.clicks,PROD)
+- id: user.clicks
+  platform: snowflake
+  schema:
+    fields:
+      - id: user_id
+        structured_properties:
+          io.acryl.dataManagement.deprecationDate: "2023-01-01"
+  structured_properties:
+    io.acryl.dataManagement.replicationSLA: 90

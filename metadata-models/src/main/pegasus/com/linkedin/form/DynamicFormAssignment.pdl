@@ -1,0 +1,19 @@
+namespace com.linkedin.form
+
+import com.linkedin.metadata.query.filter.Filter
+
+/**
+ * Information about how a form is assigned to entities dynamically. Provide a filter to
+ * match a set of entities instead of explicitly applying a form to specific entities.
+ */
+@Aspect = {
+  "name": "dynamicFormAssignment"
+}
+record DynamicFormAssignment {
+  /**
+   * The filter applied when assigning this form to entities. Entities that match this filter
+   * will have this form applied to them. Right now this filter only supports filtering by
+   * platform, entity type, container, and domain through the UI.
+   */
+  filter: Filter
+}

@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.ingest.execution;
 
 import static com.linkedin.datahub.graphql.resolvers.ingest.IngestTestUtils.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.testng.Assert.*;
 
 import com.datahub.authentication.Authentication;
@@ -46,7 +47,7 @@ public class RollbackIngestionResolverTest {
 
     assertThrows(RuntimeException.class, () -> resolver.get(mockEnv).join());
     Mockito.verify(mockClient, Mockito.times(0))
-        .rollbackIngestion(Mockito.eq(RUN_ID), Mockito.any(Authentication.class));
+        .rollbackIngestion(Mockito.eq(RUN_ID), any(), any(Authentication.class));
   }
 
   @Test
@@ -58,7 +59,7 @@ public class RollbackIngestionResolverTest {
     resolver.rollbackIngestion(RUN_ID, mockContext).get();
 
     Mockito.verify(mockClient, Mockito.times(1))
-        .rollbackIngestion(Mockito.eq(RUN_ID), Mockito.any(Authentication.class));
+        .rollbackIngestion(Mockito.eq(RUN_ID), any(), any(Authentication.class));
   }
 
   @Test
@@ -66,7 +67,7 @@ public class RollbackIngestionResolverTest {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     Mockito.doThrow(RuntimeException.class)
         .when(mockClient)
-        .rollbackIngestion(Mockito.any(), Mockito.any(Authentication.class));
+        .rollbackIngestion(any(), any(), any(Authentication.class));
 
     RollbackIngestionResolver resolver = new RollbackIngestionResolver(mockClient);
 

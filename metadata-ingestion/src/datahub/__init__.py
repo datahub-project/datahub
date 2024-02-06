@@ -16,16 +16,9 @@ def nice_version_name() -> str:
     return __version__
 
 
-if sys.version_info < (3, 7):
+if sys.version_info < (3, 8):
     warnings.warn(
-        "DataHub requires Python 3.7 or newer. "
-        "Please upgrade your Python version to continue using DataHub.",
-        FutureWarning,
-        stacklevel=2,
-    )
-elif sys.version_info < (3, 8):
-    warnings.warn(
-        "DataHub will require Python 3.8 or newer soon. "
+        "DataHub requires Python 3.8 or newer. "
         "Please upgrade your Python version to continue using DataHub.",
         FutureWarning,
         stacklevel=2,

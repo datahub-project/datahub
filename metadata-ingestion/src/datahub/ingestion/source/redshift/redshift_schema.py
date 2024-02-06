@@ -9,6 +9,7 @@ from datahub.ingestion.source.redshift.query import RedshiftQuery
 from datahub.ingestion.source.sql.sql_generic import BaseColumn, BaseTable
 from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
 from datahub.utilities.hive_schema_to_avro import get_schema_fields_for_hive_column
+from datahub.utilities.sqlglot_lineage import SqlParsingResult
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -78,6 +79,26 @@ class LineageRow:
     target_table: Optional[str]
     ddl: Optional[str]
     filename: Optional[str]
+
+
+@dataclass
+class TempTableRow:
+    transaction_id: int
+    session_id: str
+    query_text: str
+    create_command: str
+    start_time: datetime
+    urn: Optional[str]
+    parsed_result: Optional[SqlParsingResult] = None
+
+
+@dataclass
+class AlterTableRow:
+    # TODO unify this type with TempTableRow
+    transaction_id: int
+    session_id: str
+    query_text: str
+    start_time: datetime
 
 
 # this is a class to be a proxy to query Redshift
@@ -359,9 +380,62 @@ class RedshiftDataDictionary:
                     target_table=row[field_names.index("target_table")]
                     if "target_table" in field_names
                     else None,
-                    ddl=row[field_names.index("ddl")] if "ddl" in field_names else None,
+                    # See https://docs.aws.amazon.com/redshift/latest/dg/r_STL_QUERYTEXT.html
+                    # for why we need to remove the \\n.
+                    ddl=row[field_names.index("ddl")].replace("\\n", "\n")
+                    if "ddl" in field_names
+                    else None,
                     filename=row[field_names.index("filename")]
                     if "filename" in field_names
                     else None,
+                )
+            rows = cursor.fetchmany()
+
+    @staticmethod
+    def get_temporary_rows(
+        conn: redshift_connector.Connection,
+        query: str,
+    ) -> Iterable[TempTableRow]:
+        cursor = conn.cursor()
+
+        cursor.execute(query)
+
+        field_names = [i[0] for i in cursor.description]
+
+        rows = cursor.fetchmany()
+        while rows:
+            for row in rows:
+                yield TempTableRow(
+                    transaction_id=row[field_names.index("transaction_id")],
+                    session_id=row[field_names.index("session_id")],
+                    # See https://docs.aws.amazon.com/redshift/latest/dg/r_STL_QUERYTEXT.html
+                    # for why we need to replace the \n with a newline.
+                    query_text=row[field_names.index("query_text")].replace(
+                        r"\n", "\n"
+                    ),
+                    create_command=row[field_names.index("create_command")],
+                    start_time=row[field_names.index("start_time")],
+                    urn=None,
+                )
+            rows = cursor.fetchmany()
+
+    @staticmethod
+    def get_alter_table_commands(
+        conn: redshift_connector.Connection,
+        query: str,
+    ) -> Iterable[AlterTableRow]:
+        # TODO: unify this with get_temporary_rows
+        cursor = RedshiftDataDictionary.get_query_result(conn, query)
+
+        field_names = [i[0] for i in cursor.description]
+
+        rows = cursor.fetchmany()
+        while rows:
+            for row in rows:
+                yield AlterTableRow(
+                    transaction_id=row[field_names.index("transaction_id")],
+                    session_id=row[field_names.index("session_id")],
+                    query_text=row[field_names.index("query_text")],
+                    start_time=row[field_names.index("start_time")],
                 )
             rows = cursor.fetchmany()

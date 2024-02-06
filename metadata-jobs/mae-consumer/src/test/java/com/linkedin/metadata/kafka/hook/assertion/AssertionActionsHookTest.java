@@ -2,6 +2,8 @@ package com.linkedin.metadata.kafka.hook.assertion;
 
 import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.kafka.hook.EntityRegistryTestUtil.ENTITY_REGISTRY;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
@@ -38,7 +40,7 @@ import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.incident.IncidentInfo;
 import com.linkedin.incident.IncidentSource;
@@ -70,11 +72,11 @@ public class AssertionActionsHookTest {
 
   @Test
   public void testInvokeNotEnabled() throws Exception {
-    EntityClient entityClient = Mockito.mock(EntityClient.class);
-    Authentication authentication = Mockito.mock(Authentication.class);
+    SystemEntityClient entityClient = mock(SystemEntityClient.class);
+    when(entityClient.getSystemAuthentication()).thenReturn(mock(Authentication.class));
 
     final AssertionActionsHook hook =
-        new AssertionActionsHook(ENTITY_REGISTRY, entityClient, authentication, false);
+        new AssertionActionsHook(ENTITY_REGISTRY, entityClient, false);
 
     final MetadataChangeLog event =
         buildMetadataChangeLog(
@@ -95,11 +97,10 @@ public class AssertionActionsHookTest {
 
   @Test
   public void testInvokeNotEligibleChange() throws Exception {
-    EntityClient entityClient = Mockito.mock(EntityClient.class);
-    Authentication authentication = Mockito.mock(Authentication.class);
+    SystemEntityClient entityClient = mock(SystemEntityClient.class);
+    when(entityClient.getSystemAuthentication()).thenReturn(mock(Authentication.class));
 
-    final AssertionActionsHook hook =
-        new AssertionActionsHook(ENTITY_REGISTRY, entityClient, authentication, true);
+    final AssertionActionsHook hook = new AssertionActionsHook(ENTITY_REGISTRY, entityClient, true);
 
     // Case 1: Incorrect aspect --- Assertion Info
     MetadataChangeLog event =
@@ -164,8 +165,8 @@ public class AssertionActionsHookTest {
 
   @Test
   public void testInvokeAssertionRunEventSuccessNoActions() throws Exception {
-    EntityClient entityClient =
-        mockEntityClient(
+    SystemEntityClient entityClient =
+        mockSystemEntityClient(
             null,
             null,
             TEST_ASSERTION_URN,
@@ -178,10 +179,8 @@ public class AssertionActionsHookTest {
             new AssertionActions()
                 .setOnFailure(new AssertionActionArray())
                 .setOnSuccess(new AssertionActionArray()));
-    Authentication authentication = Mockito.mock(Authentication.class);
 
-    final AssertionActionsHook hook =
-        new AssertionActionsHook(ENTITY_REGISTRY, entityClient, authentication, true);
+    final AssertionActionsHook hook = new AssertionActionsHook(ENTITY_REGISTRY, entityClient, true);
 
     MetadataChangeLog event =
         buildMetadataChangeLog(
@@ -228,8 +227,8 @@ public class AssertionActionsHookTest {
   @Test
   public void testInvokeAssertionRunEventSuccessActionsNoIncident() throws Exception {
 
-    EntityClient entityClient =
-        mockEntityClient(
+    SystemEntityClient entityClient =
+        mockSystemEntityClient(
             null,
             null,
             TEST_ASSERTION_URN,
@@ -245,10 +244,8 @@ public class AssertionActionsHookTest {
                     new AssertionActionArray(
                         ImmutableList.of(
                             new AssertionAction().setType(AssertionActionType.RESOLVE_INCIDENT)))));
-    Authentication authentication = Mockito.mock(Authentication.class);
 
-    final AssertionActionsHook hook =
-        new AssertionActionsHook(ENTITY_REGISTRY, entityClient, authentication, true);
+    final AssertionActionsHook hook = new AssertionActionsHook(ENTITY_REGISTRY, entityClient, true);
 
     MetadataChangeLog event =
         buildMetadataChangeLog(
@@ -312,8 +309,8 @@ public class AssertionActionsHookTest {
                     .setType(IncidentSourceType.ASSERTION_FAILURE))
             .setCreated(new AuditStamp().setActor(UrnUtils.getUrn(SYSTEM_ACTOR)).setTime(0L));
 
-    EntityClient entityClient =
-        mockEntityClient(
+    SystemEntityClient entityClient =
+        mockSystemEntityClient(
             TEST_INCIDENT_URN,
             activeIncidentInfo,
             TEST_ASSERTION_URN,
@@ -329,10 +326,8 @@ public class AssertionActionsHookTest {
                     new AssertionActionArray(
                         ImmutableList.of(
                             new AssertionAction().setType(AssertionActionType.RESOLVE_INCIDENT)))));
-    Authentication authentication = Mockito.mock(Authentication.class);
 
-    final AssertionActionsHook hook =
-        new AssertionActionsHook(ENTITY_REGISTRY, entityClient, authentication, true);
+    final AssertionActionsHook hook = new AssertionActionsHook(ENTITY_REGISTRY, entityClient, true);
 
     MetadataChangeLog event =
         buildMetadataChangeLog(
@@ -388,8 +383,8 @@ public class AssertionActionsHookTest {
 
   @Test
   public void testInvokeInferredAssertionRunEventSuccessNoAnomaly() throws Exception {
-    EntityClient entityClient =
-        mockEntityClient(
+    SystemEntityClient entityClient =
+        mockSystemEntityClient(
             null,
             null,
             TEST_ASSERTION_URN,
@@ -402,10 +397,8 @@ public class AssertionActionsHookTest {
                     new DatasetAssertionInfo()
                         .setDataset(TEST_DATASET_URN)
                         .setScope(DatasetAssertionScope.DATASET_COLUMN)));
-    Authentication authentication = Mockito.mock(Authentication.class);
 
-    final AssertionActionsHook hook =
-        new AssertionActionsHook(ENTITY_REGISTRY, entityClient, authentication, true);
+    final AssertionActionsHook hook = new AssertionActionsHook(ENTITY_REGISTRY, entityClient, true);
 
     MetadataChangeLog event =
         buildMetadataChangeLog(
@@ -467,8 +460,8 @@ public class AssertionActionsHookTest {
             .setCreated(new AuditStamp().setActor(UrnUtils.getUrn(SYSTEM_ACTOR)).setTime(0L))
             .setType(AnomalyType.DATASET_COLUMN);
 
-    EntityClient entityClient =
-        mockEntityClient(
+    SystemEntityClient entityClient =
+        mockSystemEntityClient(
             TEST_ANOMALY_URN,
             activeAnomalyInfo,
             TEST_ASSERTION_URN,
@@ -481,10 +474,8 @@ public class AssertionActionsHookTest {
                     new DatasetAssertionInfo()
                         .setDataset(TEST_DATASET_URN)
                         .setScope(DatasetAssertionScope.DATASET_COLUMN)));
-    Authentication authentication = Mockito.mock(Authentication.class);
 
-    final AssertionActionsHook hook =
-        new AssertionActionsHook(ENTITY_REGISTRY, entityClient, authentication, true);
+    final AssertionActionsHook hook = new AssertionActionsHook(ENTITY_REGISTRY, entityClient, true);
 
     MetadataChangeLog event =
         buildMetadataChangeLog(
@@ -538,8 +529,8 @@ public class AssertionActionsHookTest {
 
   @Test
   public void testInvokeAssertionRunEventFailureNoActions() throws Exception {
-    EntityClient entityClient =
-        mockEntityClient(
+    SystemEntityClient entityClient =
+        mockSystemEntityClient(
             null,
             null,
             TEST_ASSERTION_URN,
@@ -552,10 +543,8 @@ public class AssertionActionsHookTest {
             new AssertionActions()
                 .setOnFailure(new AssertionActionArray())
                 .setOnSuccess(new AssertionActionArray()));
-    Authentication authentication = Mockito.mock(Authentication.class);
 
-    final AssertionActionsHook hook =
-        new AssertionActionsHook(ENTITY_REGISTRY, entityClient, authentication, true);
+    final AssertionActionsHook hook = new AssertionActionsHook(ENTITY_REGISTRY, entityClient, true);
 
     MetadataChangeLog event =
         buildMetadataChangeLog(
@@ -601,8 +590,8 @@ public class AssertionActionsHookTest {
 
   @Test
   public void testInvokeAssertionRunEventFailureActionsNoIncident() throws Exception {
-    EntityClient entityClient =
-        mockEntityClient(
+    SystemEntityClient entityClient =
+        mockSystemEntityClient(
             null,
             null,
             TEST_ASSERTION_URN,
@@ -618,10 +607,8 @@ public class AssertionActionsHookTest {
                     new AssertionActionArray(
                         ImmutableList.of(
                             new AssertionAction().setType(AssertionActionType.RAISE_INCIDENT)))));
-    Authentication authentication = Mockito.mock(Authentication.class);
 
-    final AssertionActionsHook hook =
-        new AssertionActionsHook(ENTITY_REGISTRY, entityClient, authentication, true);
+    final AssertionActionsHook hook = new AssertionActionsHook(ENTITY_REGISTRY, entityClient, true);
 
     MetadataChangeLog event =
         buildMetadataChangeLog(
@@ -706,8 +693,8 @@ public class AssertionActionsHookTest {
                     .setType(IncidentSourceType.ASSERTION_FAILURE))
             .setType(IncidentType.DATASET_COLUMN);
 
-    EntityClient entityClient =
-        mockEntityClient(
+    SystemEntityClient entityClient =
+        mockSystemEntityClient(
             TEST_INCIDENT_URN,
             activeIncidentInfo,
             TEST_ASSERTION_URN,
@@ -723,10 +710,8 @@ public class AssertionActionsHookTest {
                     new AssertionActionArray(
                         ImmutableList.of(
                             new AssertionAction().setType(AssertionActionType.RAISE_INCIDENT)))));
-    Authentication authentication = Mockito.mock(Authentication.class);
 
-    final AssertionActionsHook hook =
-        new AssertionActionsHook(ENTITY_REGISTRY, entityClient, authentication, true);
+    final AssertionActionsHook hook = new AssertionActionsHook(ENTITY_REGISTRY, entityClient, true);
 
     MetadataChangeLog event =
         buildMetadataChangeLog(
@@ -773,8 +758,8 @@ public class AssertionActionsHookTest {
   @Test
   public void testInvokeInferredAssertionRunEventFailureNoAnomaly() throws Exception {
 
-    EntityClient entityClient =
-        mockEntityClient(
+    SystemEntityClient entityClient =
+        mockSystemEntityClient(
             null,
             null,
             TEST_ASSERTION_URN,
@@ -787,10 +772,8 @@ public class AssertionActionsHookTest {
                     new DatasetAssertionInfo()
                         .setDataset(TEST_DATASET_URN)
                         .setScope(DatasetAssertionScope.DATASET_COLUMN)));
-    Authentication authentication = Mockito.mock(Authentication.class);
 
-    final AssertionActionsHook hook =
-        new AssertionActionsHook(ENTITY_REGISTRY, entityClient, authentication, true);
+    final AssertionActionsHook hook = new AssertionActionsHook(ENTITY_REGISTRY, entityClient, true);
 
     MetadataChangeLog event =
         buildMetadataChangeLog(
@@ -867,8 +850,8 @@ public class AssertionActionsHookTest {
                     .setType(AnomalySourceType.INFERRED_ASSERTION_FAILURE))
             .setType(AnomalyType.DATASET_COLUMN);
 
-    EntityClient entityClient =
-        mockEntityClient(
+    SystemEntityClient entityClient =
+        mockSystemEntityClient(
             TEST_ANOMALY_URN,
             activeAnomalyInfo,
             TEST_ASSERTION_URN,
@@ -881,10 +864,8 @@ public class AssertionActionsHookTest {
                     new DatasetAssertionInfo()
                         .setDataset(TEST_DATASET_URN)
                         .setScope(DatasetAssertionScope.DATASET_COLUMN)));
-    Authentication authentication = Mockito.mock(Authentication.class);
 
-    final AssertionActionsHook hook =
-        new AssertionActionsHook(ENTITY_REGISTRY, entityClient, authentication, true);
+    final AssertionActionsHook hook = new AssertionActionsHook(ENTITY_REGISTRY, entityClient, true);
 
     MetadataChangeLog event =
         buildMetadataChangeLog(
@@ -946,8 +927,8 @@ public class AssertionActionsHookTest {
                     .setType(IncidentSourceType.ASSERTION_FAILURE))
             .setType(IncidentType.DATASET_COLUMN);
 
-    EntityClient entityClient =
-        mockEntityClient(
+    SystemEntityClient entityClient =
+        mockSystemEntityClient(
             TEST_INCIDENT_URN,
             activeIncidentInfo,
             TEST_ASSERTION_URN,
@@ -960,10 +941,8 @@ public class AssertionActionsHookTest {
             new AssertionActions()
                 .setOnSuccess(new AssertionActionArray())
                 .setOnFailure(new AssertionActionArray()));
-    Authentication authentication = Mockito.mock(Authentication.class);
 
-    final AssertionActionsHook hook =
-        new AssertionActionsHook(ENTITY_REGISTRY, entityClient, authentication, true);
+    final AssertionActionsHook hook = new AssertionActionsHook(ENTITY_REGISTRY, entityClient, true);
 
     MetadataChangeLog event =
         buildMetadataChangeLog(
@@ -1019,8 +998,8 @@ public class AssertionActionsHookTest {
                     .setType(IncidentSourceType.ASSERTION_FAILURE))
             .setType(IncidentType.DATASET_COLUMN);
 
-    EntityClient entityClient =
-        mockEntityClient(
+    SystemEntityClient entityClient =
+        mockSystemEntityClient(
             TEST_INCIDENT_URN,
             activeIncidentInfo,
             TEST_ASSERTION_URN,
@@ -1033,10 +1012,8 @@ public class AssertionActionsHookTest {
             new AssertionActions()
                 .setOnSuccess(new AssertionActionArray())
                 .setOnFailure(new AssertionActionArray()));
-    Authentication authentication = Mockito.mock(Authentication.class);
 
-    final AssertionActionsHook hook =
-        new AssertionActionsHook(ENTITY_REGISTRY, entityClient, authentication, true);
+    final AssertionActionsHook hook = new AssertionActionsHook(ENTITY_REGISTRY, entityClient, true);
 
     MetadataChangeLog event =
         buildMetadataChangeLog(
@@ -1092,8 +1069,8 @@ public class AssertionActionsHookTest {
                     .setType(AnomalySourceType.INFERRED_ASSERTION_FAILURE))
             .setType(AnomalyType.DATASET_COLUMN);
 
-    EntityClient entityClient =
-        mockEntityClient(
+    SystemEntityClient entityClient =
+        mockSystemEntityClient(
             TEST_ANOMALY_URN,
             activeAnomalyInfo,
             TEST_ASSERTION_URN,
@@ -1103,10 +1080,8 @@ public class AssertionActionsHookTest {
                     new DatasetAssertionInfo()
                         .setDataset(TEST_DATASET_URN)
                         .setScope(DatasetAssertionScope.DATASET_COLUMN)));
-    Authentication authentication = Mockito.mock(Authentication.class);
 
-    final AssertionActionsHook hook =
-        new AssertionActionsHook(ENTITY_REGISTRY, entityClient, authentication, true);
+    final AssertionActionsHook hook = new AssertionActionsHook(ENTITY_REGISTRY, entityClient, true);
 
     MetadataChangeLog event =
         buildMetadataChangeLog(
@@ -1162,8 +1137,8 @@ public class AssertionActionsHookTest {
                     .setType(AnomalySourceType.INFERRED_ASSERTION_FAILURE))
             .setType(AnomalyType.DATASET_COLUMN);
 
-    EntityClient entityClient =
-        mockEntityClient(
+    SystemEntityClient entityClient =
+        mockSystemEntityClient(
             TEST_ANOMALY_URN,
             activeAnomalyInfo,
             TEST_ASSERTION_URN,
@@ -1173,10 +1148,8 @@ public class AssertionActionsHookTest {
                     new DatasetAssertionInfo()
                         .setDataset(TEST_DATASET_URN)
                         .setScope(DatasetAssertionScope.DATASET_COLUMN)));
-    Authentication authentication = Mockito.mock(Authentication.class);
 
-    final AssertionActionsHook hook =
-        new AssertionActionsHook(ENTITY_REGISTRY, entityClient, authentication, true);
+    final AssertionActionsHook hook = new AssertionActionsHook(ENTITY_REGISTRY, entityClient, true);
 
     MetadataChangeLog event =
         buildMetadataChangeLog(
@@ -1215,22 +1188,22 @@ public class AssertionActionsHookTest {
         .deleteEntityReferences(Mockito.eq(TEST_ANOMALY_URN), Mockito.any(Authentication.class));
   }
 
-  private EntityClient mockEntityClient(
+  private SystemEntityClient mockSystemEntityClient(
       Urn incidentUrn,
       IncidentInfo incidentInfo,
       Urn assertionUrn,
       AssertionInfo assertionInfo,
       AssertionActions assertionActions)
       throws Exception {
-    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    SystemEntityClient mockClient = mock(SystemEntityClient.class);
+    when(mockClient.getSystemAuthentication()).thenReturn(mock(Authentication.class));
 
     if (incidentUrn != null) {
-      Mockito.when(
-              mockClient.getV2(
-                  Mockito.eq(INCIDENT_ENTITY_NAME),
-                  Mockito.eq(incidentUrn),
-                  Mockito.eq(ImmutableSet.of(INCIDENT_INFO_ASPECT_NAME)),
-                  Mockito.any(Authentication.class)))
+      when(mockClient.getV2(
+              Mockito.eq(INCIDENT_ENTITY_NAME),
+              Mockito.eq(incidentUrn),
+              Mockito.eq(ImmutableSet.of(INCIDENT_INFO_ASPECT_NAME)),
+              Mockito.any(Authentication.class)))
           .thenReturn(
               new EntityResponse()
                   .setUrn(incidentUrn)
@@ -1245,16 +1218,15 @@ public class AssertionActionsHookTest {
     }
 
     if (assertionUrn != null) {
-      Mockito.when(
-              mockClient.getV2(
-                  Mockito.eq(ASSERTION_ENTITY_NAME),
-                  Mockito.eq(assertionUrn),
-                  Mockito.eq(
-                      ImmutableSet.of(
-                          ASSERTION_INFO_ASPECT_NAME,
-                          ASSERTION_ACTIONS_ASPECT_NAME,
-                          DATA_PLATFORM_INSTANCE_ASPECT_NAME)),
-                  Mockito.any(Authentication.class)))
+      when(mockClient.getV2(
+              Mockito.eq(ASSERTION_ENTITY_NAME),
+              Mockito.eq(assertionUrn),
+              Mockito.eq(
+                  ImmutableSet.of(
+                      ASSERTION_INFO_ASPECT_NAME,
+                      ASSERTION_ACTIONS_ASPECT_NAME,
+                      DATA_PLATFORM_INSTANCE_ASPECT_NAME)),
+              Mockito.any(Authentication.class)))
           .thenReturn(
               new EntityResponse()
                   .setUrn(assertionUrn)
@@ -1277,16 +1249,15 @@ public class AssertionActionsHookTest {
             ? new SearchEntityArray(Collections.emptyList())
             : new SearchEntityArray(ImmutableList.of(new SearchEntity().setEntity(incidentUrn)));
 
-    Mockito.when(
-            mockClient.search(
-                Mockito.eq(INCIDENT_ENTITY_NAME),
-                Mockito.eq("*"),
-                Mockito.any(Filter.class),
-                Mockito.eq(null),
-                Mockito.anyInt(),
-                Mockito.anyInt(),
-                Mockito.any(Authentication.class),
-                Mockito.any(SearchFlags.class)))
+    when(mockClient.search(
+            Mockito.eq(INCIDENT_ENTITY_NAME),
+            Mockito.eq("*"),
+            Mockito.any(Filter.class),
+            Mockito.eq(null),
+            Mockito.anyInt(),
+            Mockito.anyInt(),
+            Mockito.any(Authentication.class),
+            Mockito.any(SearchFlags.class)))
         .thenReturn(
             new SearchResult()
                 .setNumEntities(1)
@@ -1297,18 +1268,18 @@ public class AssertionActionsHookTest {
     return mockClient;
   }
 
-  private EntityClient mockEntityClient(
+  private SystemEntityClient mockSystemEntityClient(
       Urn anomalyUrn, AnomalyInfo anomalyInfo, Urn assertionUrn, AssertionInfo assertionInfo)
       throws Exception {
-    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    SystemEntityClient mockClient = mock(SystemEntityClient.class);
+    when(mockClient.getSystemAuthentication()).thenReturn(mock(Authentication.class));
 
     if (anomalyUrn != null) {
-      Mockito.when(
-              mockClient.getV2(
-                  Mockito.eq(ANOMALY_ENTITY_NAME),
-                  Mockito.eq(anomalyUrn),
-                  Mockito.eq(ImmutableSet.of(ANOMALY_INFO_ASPECT_NAME)),
-                  Mockito.any(Authentication.class)))
+      when(mockClient.getV2(
+              Mockito.eq(ANOMALY_ENTITY_NAME),
+              Mockito.eq(anomalyUrn),
+              Mockito.eq(ImmutableSet.of(ANOMALY_INFO_ASPECT_NAME)),
+              Mockito.any(Authentication.class)))
           .thenReturn(
               new EntityResponse()
                   .setUrn(anomalyUrn)
@@ -1323,16 +1294,15 @@ public class AssertionActionsHookTest {
     }
 
     if (assertionUrn != null) {
-      Mockito.when(
-              mockClient.getV2(
-                  Mockito.eq(ASSERTION_ENTITY_NAME),
-                  Mockito.eq(assertionUrn),
-                  Mockito.eq(
-                      ImmutableSet.of(
-                          ASSERTION_INFO_ASPECT_NAME,
-                          ASSERTION_ACTIONS_ASPECT_NAME,
-                          DATA_PLATFORM_INSTANCE_ASPECT_NAME)),
-                  Mockito.any(Authentication.class)))
+      when(mockClient.getV2(
+              Mockito.eq(ASSERTION_ENTITY_NAME),
+              Mockito.eq(assertionUrn),
+              Mockito.eq(
+                  ImmutableSet.of(
+                      ASSERTION_INFO_ASPECT_NAME,
+                      ASSERTION_ACTIONS_ASPECT_NAME,
+                      DATA_PLATFORM_INSTANCE_ASPECT_NAME)),
+              Mockito.any(Authentication.class)))
           .thenReturn(
               new EntityResponse()
                   .setUrn(assertionUrn)
@@ -1351,16 +1321,15 @@ public class AssertionActionsHookTest {
             ? new SearchEntityArray(Collections.emptyList())
             : new SearchEntityArray(ImmutableList.of(new SearchEntity().setEntity(anomalyUrn)));
 
-    Mockito.when(
-            mockClient.search(
-                Mockito.eq(ANOMALY_ENTITY_NAME),
-                Mockito.eq("*"),
-                Mockito.any(Filter.class),
-                Mockito.eq(null),
-                Mockito.anyInt(),
-                Mockito.anyInt(),
-                Mockito.any(Authentication.class),
-                Mockito.any(SearchFlags.class)))
+    when(mockClient.search(
+            Mockito.eq(ANOMALY_ENTITY_NAME),
+            Mockito.eq("*"),
+            Mockito.any(Filter.class),
+            Mockito.eq(null),
+            Mockito.anyInt(),
+            Mockito.anyInt(),
+            Mockito.any(Authentication.class),
+            Mockito.any(SearchFlags.class)))
         .thenReturn(
             new SearchResult()
                 .setNumEntities(1)

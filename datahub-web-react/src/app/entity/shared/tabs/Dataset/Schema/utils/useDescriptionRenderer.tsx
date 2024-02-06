@@ -62,6 +62,7 @@ export default function useDescriptionRenderer(editableSchemaMetadata: EditableS
                         },
                     }).then(refresh)
                 }
+                isReadOnly
             />
         );
     };

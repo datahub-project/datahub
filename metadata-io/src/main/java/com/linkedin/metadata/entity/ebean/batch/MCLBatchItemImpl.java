@@ -30,9 +30,9 @@ public class MCLBatchItemImpl implements MCLBatchItem {
 
   @Nonnull private final MetadataChangeLog metadataChangeLog;
 
-  @Nullable private final RecordTemplate aspect;
+  @Nullable private final RecordTemplate recordTemplate;
 
-  @Nullable private final RecordTemplate previousAspect;
+  @Nullable private final RecordTemplate previousRecordTemplate;
 
   // derived
   private final EntitySpec entitySpec;
@@ -40,18 +40,24 @@ public class MCLBatchItemImpl implements MCLBatchItem {
 
   public static class MCLBatchItemImplBuilder {
 
-    public MCLBatchItemImpl build(
-        MetadataChangeLog metadataChangeLog,
-        EntityRegistry entityRegistry,
-        AspectRetriever aspectRetriever) {
-      return MCLBatchItemImpl.builder()
-          .metadataChangeLog(metadataChangeLog)
-          .build(entityRegistry, aspectRetriever);
+    // Ensure use of other builders
+    private MCLBatchItemImpl build() {
+      return null;
     }
 
-    public MCLBatchItemImpl build(EntityRegistry entityRegistry, AspectRetriever aspectRetriever) {
+    public MCLBatchItemImpl build(
+        MetadataChangeLog metadataChangeLog, AspectRetriever aspectRetriever) {
+      return MCLBatchItemImpl.builder().metadataChangeLog(metadataChangeLog).build(aspectRetriever);
+    }
+
+    public MCLBatchItemImpl build(AspectRetriever aspectRetriever) {
+      EntityRegistry entityRegistry = aspectRetriever.getEntityRegistry();
+
       log.debug("entity type = {}", this.metadataChangeLog.getEntityType());
-      entitySpec(entityRegistry.getEntitySpec(this.metadataChangeLog.getEntityType()));
+      entitySpec(
+          aspectRetriever
+              .getEntityRegistry()
+              .getEntitySpec(this.metadataChangeLog.getEntityType()));
       aspectSpec(validateAspect(this.metadataChangeLog, this.entitySpec));
 
       Urn urn = this.metadataChangeLog.getEntityUrn();
@@ -75,7 +81,6 @@ public class MCLBatchItemImpl implements MCLBatchItem {
       // validate new
       ValidationUtils.validateRecordTemplate(
           this.metadataChangeLog.getChangeType(),
-          entityRegistry,
           this.entitySpec,
           this.aspectSpec,
           urn,

@@ -248,9 +248,9 @@ public class EntitySpecBuilder {
       // Extract SearchScore Field Specs
       final SearchScoreFieldSpecExtractor searchScoreFieldSpecExtractor =
           new SearchScoreFieldSpecExtractor();
-      final DataSchemaRichContextTraverser searcScoreFieldSpecTraverser =
+      final DataSchemaRichContextTraverser searchScoreFieldSpecTraverser =
           new DataSchemaRichContextTraverser(searchScoreFieldSpecExtractor);
-      searcScoreFieldSpecTraverser.traverse(processedSearchScoreResult.getResultSchema());
+      searchScoreFieldSpecTraverser.traverse(processedSearchScoreResult.getResultSchema());
 
       final SchemaAnnotationProcessor.SchemaAnnotationProcessResult processedRelationshipResult =
           SchemaAnnotationProcessor.process(

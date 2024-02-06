@@ -58,14 +58,12 @@ def run_ingest(
     mocked_functions_reference,
     recipe,
 ):
-
     with patch(
         "datahub.ingestion.source.identity.okta.OktaClient"
     ) as MockClient, patch(
         "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
         mock_datahub_graph,
     ) as mock_checkpoint:
-
         mock_checkpoint.return_value = mock_datahub_graph
 
         mocked_functions_reference(MockClient=MockClient)
@@ -277,7 +275,6 @@ def overwrite_group_in_mocked_data(test_resources_dir, MockClient):
 def _init_mock_okta_client(
     test_resources_dir, MockClient, mock_users_json=None, mock_groups_json=None
 ):
-
     okta_users_json_file = (
         test_resources_dir / "okta_users.json"
         if mock_users_json is None

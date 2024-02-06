@@ -97,4 +97,10 @@ record TestEntityInfo includes CustomProperties {
       "fieldType": "DOUBLE"
     }
     doubleField: optional double
+
+    @Searchable = {
+      "fieldName": "removed",
+      "fieldType": "BOOLEAN"
+    }
+    removed: optional boolean
 }

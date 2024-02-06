@@ -7,7 +7,7 @@ import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.EntityResponse;
-import com.linkedin.entity.client.SystemRestliEntityClient;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.r2.RemoteInvocationException;
@@ -24,7 +24,7 @@ import lombok.extern.slf4j.Slf4j;
 public class EntityHydrator {
 
   private final EntityRegistry _entityRegistry;
-  private final SystemRestliEntityClient _entityClient;
+  private final SystemEntityClient entityClient;
   private final ChartHydrator _chartHydrator = new ChartHydrator();
   private final CorpUserHydrator _corpUserHydrator = new CorpUserHydrator();
   private final DashboardHydrator _dashboardHydrator = new DashboardHydrator();
@@ -55,7 +55,7 @@ public class EntityHydrator {
                           .collect(Collectors.toSet()))
               .orElse(Set.of());
       entityResponse =
-          _entityClient.batchGetV2(Collections.singleton(urnObj), aspectNames).get(urnObj);
+          entityClient.batchGetV2(Collections.singleton(urnObj), aspectNames).get(urnObj);
     } catch (RemoteInvocationException | URISyntaxException e) {
       log.error("Error while calling GMS to hydrate entity for urn {}", urn);
       return Optional.empty();

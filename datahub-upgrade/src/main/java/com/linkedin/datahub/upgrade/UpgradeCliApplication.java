@@ -1,5 +1,7 @@
 package com.linkedin.datahub.upgrade;
 
+import com.linkedin.gms.factory.auth.AuthorizerChainFactory;
+import com.linkedin.gms.factory.auth.DataHubAuthorizerFactory;
 import com.linkedin.gms.factory.telemetry.ScheduledAnalyticsFactory;
 import org.springframework.boot.WebApplicationType;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -19,7 +21,11 @@ import org.springframework.context.annotation.FilterType;
     excludeFilters = {
       @ComponentScan.Filter(
           type = FilterType.ASSIGNABLE_TYPE,
-          classes = ScheduledAnalyticsFactory.class)
+          classes = {
+            ScheduledAnalyticsFactory.class,
+            AuthorizerChainFactory.class,
+            DataHubAuthorizerFactory.class
+          })
     })
 public class UpgradeCliApplication {
   public static void main(String[] args) {

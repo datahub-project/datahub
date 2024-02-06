@@ -12,6 +12,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.Status;
+import com.linkedin.common.UrnArray;
 import com.linkedin.common.VersionedUrn;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.TupleKey;
@@ -29,6 +30,7 @@ import com.linkedin.dataset.UpstreamLineage;
 import com.linkedin.entity.Entity;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.identity.CorpUserInfo;
 import com.linkedin.metadata.AspectGenerationUtils;
@@ -58,6 +60,12 @@ import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.retention.DataHubRetentionConfig;
 import com.linkedin.retention.Retention;
 import com.linkedin.retention.VersionBasedRetention;
+import com.linkedin.structured.PrimitivePropertyValue;
+import com.linkedin.structured.PrimitivePropertyValueArray;
+import com.linkedin.structured.StructuredProperties;
+import com.linkedin.structured.StructuredPropertyDefinition;
+import com.linkedin.structured.StructuredPropertyValueAssignment;
+import com.linkedin.structured.StructuredPropertyValueAssignmentArray;
 import com.linkedin.util.Pair;
 import jakarta.annotation.Nonnull;
 import java.util.ArrayList;
@@ -67,6 +75,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.junit.Assert;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
@@ -98,6 +108,8 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
   protected final EntityRegistry _configEntityRegistry =
       new ConfigEntityRegistry(
           Snapshot.class.getClassLoader().getResourceAsStream("entity-registry.yml"));
+  protected final AspectSpec structuredPropertiesDefinitionAspect =
+      _configEntityRegistry.getAspectSpecs().get(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME);
   protected final EntityRegistry _testEntityRegistry =
       new MergedEntityRegistry(_snapshotEntityRegistry).apply(_configEntityRegistry);
   protected EventProducer _mockProducer;
@@ -844,31 +856,31 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
             MCPUpsertBatchItem.builder()
                 .urn(entityUrn1)
                 .aspectName(aspectName)
-                .aspect(writeAspect1)
+                .recordTemplate(writeAspect1)
                 .systemMetadata(metadata1)
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(_testEntityRegistry, _entityServiceImpl.getSystemEntityClient()),
+                .build(_entityServiceImpl),
             MCPUpsertBatchItem.builder()
                 .urn(entityUrn2)
                 .aspectName(aspectName)
-                .aspect(writeAspect2)
+                .recordTemplate(writeAspect2)
                 .auditStamp(TEST_AUDIT_STAMP)
                 .systemMetadata(metadata1)
-                .build(_testEntityRegistry, _entityServiceImpl.getSystemEntityClient()),
+                .build(_entityServiceImpl),
             MCPUpsertBatchItem.builder()
                 .urn(entityUrn3)
                 .aspectName(aspectName)
-                .aspect(writeAspect3)
+                .recordTemplate(writeAspect3)
                 .auditStamp(TEST_AUDIT_STAMP)
                 .systemMetadata(metadata1)
-                .build(_testEntityRegistry, _entityServiceImpl.getSystemEntityClient()),
+                .build(_entityServiceImpl),
             MCPUpsertBatchItem.builder()
                 .urn(entityUrn1)
                 .aspectName(aspectName)
-                .aspect(writeAspect1Overwrite)
+                .recordTemplate(writeAspect1Overwrite)
                 .systemMetadata(metadata2)
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(_testEntityRegistry, _entityServiceImpl.getSystemEntityClient()));
+                .build(_entityServiceImpl));
     _entityServiceImpl.ingestAspects(AspectsBatchImpl.builder().items(items).build(), true, true);
 
     // this should no-op since this run has been overwritten
@@ -923,24 +935,24 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
             MCPUpsertBatchItem.builder()
                 .urn(entityUrn1)
                 .aspectName(aspectName)
-                .aspect(writeAspect1)
+                .recordTemplate(writeAspect1)
                 .systemMetadata(metadata1)
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(_testEntityRegistry, _entityServiceImpl.getSystemEntityClient()),
+                .build(_entityServiceImpl),
             MCPUpsertBatchItem.builder()
                 .urn(entityUrn1)
                 .aspectName(keyAspectName)
-                .aspect(writeKey1)
+                .recordTemplate(writeKey1)
                 .systemMetadata(metadata1)
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(_testEntityRegistry, _entityServiceImpl.getSystemEntityClient()),
+                .build(_entityServiceImpl),
             MCPUpsertBatchItem.builder()
                 .urn(entityUrn1)
                 .aspectName(aspectName)
-                .aspect(writeAspect1Overwrite)
+                .recordTemplate(writeAspect1Overwrite)
                 .systemMetadata(metadata2)
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(_testEntityRegistry, _entityServiceImpl.getSystemEntityClient()));
+                .build(_entityServiceImpl));
     _entityServiceImpl.ingestAspects(AspectsBatchImpl.builder().items(items).build(), true, true);
 
     // this should no-op since the key should have been written in the furst run
@@ -1003,38 +1015,38 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
             MCPUpsertBatchItem.builder()
                 .urn(entityUrn1)
                 .aspectName(aspectName)
-                .aspect(writeAspect1)
+                .recordTemplate(writeAspect1)
                 .systemMetadata(metadata1)
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(_testEntityRegistry, _entityServiceImpl.getSystemEntityClient()),
+                .build(_entityServiceImpl),
             MCPUpsertBatchItem.builder()
                 .urn(entityUrn1)
                 .aspectName(keyAspectName)
-                .aspect(writeKey1)
+                .recordTemplate(writeKey1)
                 .auditStamp(TEST_AUDIT_STAMP)
                 .systemMetadata(metadata1)
-                .build(_testEntityRegistry, _entityServiceImpl.getSystemEntityClient()),
+                .build(_entityServiceImpl),
             MCPUpsertBatchItem.builder()
                 .urn(entityUrn2)
                 .aspectName(aspectName)
-                .aspect(writeAspect2)
+                .recordTemplate(writeAspect2)
                 .auditStamp(TEST_AUDIT_STAMP)
                 .systemMetadata(metadata1)
-                .build(_testEntityRegistry, _entityServiceImpl.getSystemEntityClient()),
+                .build(_entityServiceImpl),
             MCPUpsertBatchItem.builder()
                 .urn(entityUrn3)
                 .aspectName(aspectName)
-                .aspect(writeAspect3)
+                .recordTemplate(writeAspect3)
                 .systemMetadata(metadata1)
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(_testEntityRegistry, _entityServiceImpl.getSystemEntityClient()),
+                .build(_entityServiceImpl),
             MCPUpsertBatchItem.builder()
                 .urn(entityUrn1)
                 .aspectName(aspectName)
-                .aspect(writeAspect1Overwrite)
+                .recordTemplate(writeAspect1Overwrite)
                 .systemMetadata(metadata2)
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(_testEntityRegistry, _entityServiceImpl.getSystemEntityClient()));
+                .build(_entityServiceImpl));
     _entityServiceImpl.ingestAspects(AspectsBatchImpl.builder().items(items).build(), true, true);
 
     // this should no-op since the key should have been written in the furst run
@@ -1070,10 +1082,10 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
             MCPUpsertBatchItem.builder()
                 .urn(entityUrn)
                 .aspectName(aspectName)
-                .aspect(writeAspect1)
+                .recordTemplate(writeAspect1)
                 .auditStamp(TEST_AUDIT_STAMP)
                 .systemMetadata(metadata1)
-                .build(_testEntityRegistry, _entityServiceImpl.getSystemEntityClient()));
+                .build(_entityServiceImpl));
     _entityServiceImpl.ingestAspects(AspectsBatchImpl.builder().items(items).build(), true, true);
 
     // Validate retrieval of CorpUserInfo Aspect #1
@@ -1101,10 +1113,10 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
             MCPUpsertBatchItem.builder()
                 .urn(entityUrn)
                 .aspectName(aspectName)
-                .aspect(writeAspect2)
+                .recordTemplate(writeAspect2)
                 .auditStamp(TEST_AUDIT_STAMP)
                 .systemMetadata(metadata2)
-                .build(_testEntityRegistry, _entityServiceImpl.getSystemEntityClient()));
+                .build(_entityServiceImpl));
     _entityServiceImpl.ingestAspects(AspectsBatchImpl.builder().items(items).build(), true, true);
 
     // Validate retrieval of CorpUserInfo Aspect #2
@@ -1147,10 +1159,10 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
             MCPUpsertBatchItem.builder()
                 .urn(entityUrn)
                 .aspectName(aspectName)
-                .aspect(writeAspect1)
+                .recordTemplate(writeAspect1)
                 .auditStamp(TEST_AUDIT_STAMP)
                 .systemMetadata(metadata1)
-                .build(_testEntityRegistry, _entityServiceImpl.getSystemEntityClient()));
+                .build(_entityServiceImpl));
     _entityServiceImpl.ingestAspects(AspectsBatchImpl.builder().items(items).build(), true, true);
 
     // Validate retrieval of CorpUserInfo Aspect #1
@@ -1167,10 +1179,10 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
             MCPUpsertBatchItem.builder()
                 .urn(entityUrn)
                 .aspectName(aspectName)
-                .aspect(writeAspect2)
+                .recordTemplate(writeAspect2)
                 .systemMetadata(metadata2)
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(_testEntityRegistry, _entityServiceImpl.getSystemEntityClient()));
+                .build(_entityServiceImpl));
     _entityServiceImpl.ingestAspects(AspectsBatchImpl.builder().items(items).build(), true, true);
 
     // Validate retrieval of CorpUserInfo Aspect #2
@@ -1212,10 +1224,10 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
             MCPUpsertBatchItem.builder()
                 .urn(entityUrn)
                 .aspectName(aspectName)
-                .aspect(writeAspect1)
+                .recordTemplate(writeAspect1)
                 .systemMetadata(metadata1)
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(_testEntityRegistry, _entityServiceImpl.getSystemEntityClient()));
+                .build(_entityServiceImpl));
     _entityServiceImpl.ingestAspects(AspectsBatchImpl.builder().items(items).build(), true, true);
 
     // Validate retrieval of CorpUserInfo Aspect #1
@@ -1243,10 +1255,10 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
             MCPUpsertBatchItem.builder()
                 .urn(entityUrn)
                 .aspectName(aspectName)
-                .aspect(writeAspect2)
+                .recordTemplate(writeAspect2)
                 .systemMetadata(metadata2)
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(_testEntityRegistry, _entityServiceImpl.getSystemEntityClient()));
+                .build(_entityServiceImpl));
     _entityServiceImpl.ingestAspects(AspectsBatchImpl.builder().items(items).build(), true, true);
 
     // Validate retrieval of CorpUserInfo Aspect #2
@@ -1296,45 +1308,45 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
             MCPUpsertBatchItem.builder()
                 .urn(entityUrn)
                 .aspectName(aspectName)
-                .aspect(writeAspect1)
+                .recordTemplate(writeAspect1)
                 .systemMetadata(metadata1)
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(_testEntityRegistry, _entityServiceImpl.getSystemEntityClient()),
+                .build(_entityServiceImpl),
             MCPUpsertBatchItem.builder()
                 .urn(entityUrn)
                 .aspectName(aspectName)
-                .aspect(writeAspect1a)
+                .recordTemplate(writeAspect1a)
                 .systemMetadata(metadata1)
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(_testEntityRegistry, _entityServiceImpl.getSystemEntityClient()),
+                .build(_entityServiceImpl),
             MCPUpsertBatchItem.builder()
                 .urn(entityUrn)
                 .aspectName(aspectName)
-                .aspect(writeAspect1b)
+                .recordTemplate(writeAspect1b)
                 .systemMetadata(metadata1)
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(_testEntityRegistry, _entityServiceImpl.getSystemEntityClient()),
+                .build(_entityServiceImpl),
             MCPUpsertBatchItem.builder()
                 .urn(entityUrn)
                 .aspectName(aspectName2)
-                .aspect(writeAspect2)
+                .recordTemplate(writeAspect2)
                 .systemMetadata(metadata1)
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(_testEntityRegistry, _entityServiceImpl.getSystemEntityClient()),
+                .build(_entityServiceImpl),
             MCPUpsertBatchItem.builder()
                 .urn(entityUrn)
                 .aspectName(aspectName2)
-                .aspect(writeAspect2a)
+                .recordTemplate(writeAspect2a)
                 .systemMetadata(metadata1)
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(_testEntityRegistry, _entityServiceImpl.getSystemEntityClient()),
+                .build(_entityServiceImpl),
             MCPUpsertBatchItem.builder()
                 .urn(entityUrn)
                 .aspectName(aspectName2)
-                .aspect(writeAspect2b)
+                .recordTemplate(writeAspect2b)
                 .systemMetadata(metadata1)
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(_testEntityRegistry, _entityServiceImpl.getSystemEntityClient()));
+                .build(_entityServiceImpl));
     _entityServiceImpl.ingestAspects(AspectsBatchImpl.builder().items(items).build(), true, true);
 
     assertEquals(_entityServiceImpl.getAspect(entityUrn, aspectName, 1), writeAspect1);
@@ -1363,17 +1375,17 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
             MCPUpsertBatchItem.builder()
                 .urn(entityUrn)
                 .aspectName(aspectName)
-                .aspect(writeAspect1c)
+                .recordTemplate(writeAspect1c)
                 .systemMetadata(metadata1)
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(_testEntityRegistry, _entityServiceImpl.getSystemEntityClient()),
+                .build(_entityServiceImpl),
             MCPUpsertBatchItem.builder()
                 .urn(entityUrn)
                 .aspectName(aspectName2)
-                .aspect(writeAspect2c)
+                .recordTemplate(writeAspect2c)
                 .systemMetadata(metadata1)
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(_testEntityRegistry, _entityServiceImpl.getSystemEntityClient()));
+                .build(_entityServiceImpl));
     _entityServiceImpl.ingestAspects(AspectsBatchImpl.builder().items(items).build(), true, true);
 
     assertNull(_entityServiceImpl.getAspect(entityUrn, aspectName, 1));
@@ -1631,10 +1643,196 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     genericAspect.setContentType("application/json");
     gmce.setAspect(genericAspect);
     _entityServiceImpl.ingestProposal(gmce, TEST_AUDIT_STAMP, false);
+
+    ArgumentCaptor<MetadataChangeLog> captor = ArgumentCaptor.forClass(MetadataChangeLog.class);
+    ArgumentCaptor<AspectSpec> aspectSpecCaptor = ArgumentCaptor.forClass(AspectSpec.class);
+    verify(_mockProducer, times(4))
+        .produceMetadataChangeLog(
+            Mockito.eq(entityUrn), aspectSpecCaptor.capture(), captor.capture());
+    assertEquals(UI_SOURCE, captor.getValue().getSystemMetadata().getProperties().get(APP_SOURCE));
+    assertEquals(
+        aspectSpecCaptor.getAllValues().stream()
+            .map(AspectSpec::getName)
+            .collect(Collectors.toSet()),
+        Set.of(
+            "browsePathsV2",
+            "editableDatasetProperties",
+            // "browsePaths",
+            "dataPlatformInstance",
+            "datasetKey"));
+  }
+
+  @Test
+  public void testStructuredPropertyIngestProposal() throws Exception {
+    String urnStr = "urn:li:dataset:(urn:li:dataPlatform:looker,sample_dataset_unique,PROD)";
+    Urn entityUrn = UrnUtils.getUrn(urnStr);
+
+    // Ingest one structured property definition
+    String definitionAspectName = "propertyDefinition";
+    Urn firstPropertyUrn = UrnUtils.getUrn("urn:li:structuredProperty:firstStructuredProperty");
+    MetadataChangeProposal gmce = new MetadataChangeProposal();
+    gmce.setEntityUrn(firstPropertyUrn);
+    gmce.setChangeType(ChangeType.UPSERT);
+    gmce.setEntityType("structuredProperty");
+    gmce.setAspectName(definitionAspectName);
+    StructuredPropertyDefinition structuredPropertyDefinition =
+        new StructuredPropertyDefinition()
+            .setQualifiedName("firstStructuredProperty")
+            .setValueType(Urn.createFromString(DATA_TYPE_URN_PREFIX + "string"))
+            .setEntityTypes(new UrnArray(Urn.createFromString(ENTITY_TYPE_URN_PREFIX + "dataset")));
+    JacksonDataTemplateCodec dataTemplateCodec = new JacksonDataTemplateCodec();
+    byte[] definitionSerialized =
+        dataTemplateCodec.dataTemplateToBytes(structuredPropertyDefinition);
+    GenericAspect genericAspect = new GenericAspect();
+    genericAspect.setValue(ByteString.unsafeWrap(definitionSerialized));
+    genericAspect.setContentType("application/json");
+    gmce.setAspect(genericAspect);
+    _entityServiceImpl.ingestProposal(gmce, TEST_AUDIT_STAMP, false);
+
     ArgumentCaptor<MetadataChangeLog> captor = ArgumentCaptor.forClass(MetadataChangeLog.class);
     verify(_mockProducer, times(1))
-        .produceMetadataChangeLog(Mockito.eq(entityUrn), Mockito.any(), captor.capture());
-    assertEquals(UI_SOURCE, captor.getValue().getSystemMetadata().getProperties().get(APP_SOURCE));
+        .produceMetadataChangeLog(
+            Mockito.eq(firstPropertyUrn),
+            Mockito.eq(structuredPropertiesDefinitionAspect),
+            captor.capture());
+    assertEquals(
+        _entityServiceImpl.getAspect(firstPropertyUrn, definitionAspectName, 0),
+        structuredPropertyDefinition);
+
+    Urn secondPropertyUrn = UrnUtils.getUrn("urn:li:structuredProperty:secondStructuredProperty");
+    assertNull(_entityServiceImpl.getAspect(secondPropertyUrn, definitionAspectName, 0));
+    assertEquals(
+        _entityServiceImpl.getAspect(firstPropertyUrn, definitionAspectName, 0),
+        structuredPropertyDefinition);
+    Set<StructuredPropertyDefinition> defs =
+        _aspectDao
+            .streamAspects(
+                STRUCTURED_PROPERTY_ENTITY_NAME, STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME)
+            .map(
+                entityAspect ->
+                    EntityUtils.toAspectRecord(
+                        STRUCTURED_PROPERTY_ENTITY_NAME,
+                        STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME,
+                        entityAspect.getMetadata(),
+                        _testEntityRegistry))
+            .map(recordTemplate -> (StructuredPropertyDefinition) recordTemplate)
+            .collect(Collectors.toSet());
+    assertEquals(defs.size(), 1);
+    assertEquals(defs, Set.of(structuredPropertyDefinition));
+
+    SystemEntityClient mockSystemEntityClient = Mockito.mock(SystemEntityClient.class);
+    Mockito.when(
+            mockSystemEntityClient.getLatestAspectObject(firstPropertyUrn, "propertyDefinition"))
+        .thenReturn(new com.linkedin.entity.Aspect(structuredPropertyDefinition.data()));
+
+    // Add a value for that property
+    PrimitivePropertyValueArray propertyValues = new PrimitivePropertyValueArray();
+    propertyValues.add(PrimitivePropertyValue.create("hello"));
+    StructuredPropertyValueAssignment assignment =
+        new StructuredPropertyValueAssignment()
+            .setPropertyUrn(firstPropertyUrn)
+            .setValues(propertyValues);
+    StructuredProperties structuredProperties =
+        new StructuredProperties()
+            .setProperties(new StructuredPropertyValueAssignmentArray(assignment));
+    MetadataChangeProposal asgnMce = new MetadataChangeProposal();
+    asgnMce.setEntityUrn(entityUrn);
+    asgnMce.setChangeType(ChangeType.UPSERT);
+    asgnMce.setEntityType("dataset");
+    asgnMce.setAspectName("structuredProperties");
+    JacksonDataTemplateCodec asgnTemplateCodec = new JacksonDataTemplateCodec();
+    byte[] asgnSerialized = asgnTemplateCodec.dataTemplateToBytes(structuredProperties);
+    GenericAspect asgnGenericAspect = new GenericAspect();
+    asgnGenericAspect.setValue(ByteString.unsafeWrap(asgnSerialized));
+    asgnGenericAspect.setContentType("application/json");
+    asgnMce.setAspect(asgnGenericAspect);
+    _entityServiceImpl.ingestProposal(asgnMce, TEST_AUDIT_STAMP, false);
+    assertEquals(
+        _entityServiceImpl.getAspect(entityUrn, "structuredProperties", 0), structuredProperties);
+
+    // Ingest second structured property definition
+    MetadataChangeProposal gmce2 = new MetadataChangeProposal();
+    gmce2.setEntityUrn(secondPropertyUrn);
+    gmce2.setChangeType(ChangeType.UPSERT);
+    gmce2.setEntityType("structuredProperty");
+    gmce2.setAspectName(definitionAspectName);
+    StructuredPropertyDefinition secondDefinition =
+        new StructuredPropertyDefinition()
+            .setQualifiedName("secondStructuredProperty")
+            .setValueType(Urn.createFromString(DATA_TYPE_URN_PREFIX + "number"))
+            .setEntityTypes(new UrnArray(Urn.createFromString(ENTITY_TYPE_URN_PREFIX + "dataset")));
+    JacksonDataTemplateCodec secondDataTemplate = new JacksonDataTemplateCodec();
+    byte[] secondDefinitionSerialized = secondDataTemplate.dataTemplateToBytes(secondDefinition);
+    GenericAspect secondGenericAspect = new GenericAspect();
+    secondGenericAspect.setValue(ByteString.unsafeWrap(secondDefinitionSerialized));
+    secondGenericAspect.setContentType("application/json");
+    gmce2.setAspect(secondGenericAspect);
+    _entityServiceImpl.ingestProposal(gmce2, TEST_AUDIT_STAMP, false);
+    ArgumentCaptor<MetadataChangeLog> secondCaptor =
+        ArgumentCaptor.forClass(MetadataChangeLog.class);
+    verify(_mockProducer, times(1))
+        .produceMetadataChangeLog(
+            Mockito.eq(secondPropertyUrn),
+            Mockito.eq(structuredPropertiesDefinitionAspect),
+            secondCaptor.capture());
+    assertEquals(
+        _entityServiceImpl.getAspect(firstPropertyUrn, definitionAspectName, 0),
+        structuredPropertyDefinition);
+    assertEquals(
+        _entityServiceImpl.getAspect(secondPropertyUrn, definitionAspectName, 0), secondDefinition);
+    defs =
+        _aspectDao
+            .streamAspects(
+                STRUCTURED_PROPERTY_ENTITY_NAME, STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME)
+            .map(
+                entityAspect ->
+                    EntityUtils.toAspectRecord(
+                        STRUCTURED_PROPERTY_ENTITY_NAME,
+                        STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME,
+                        entityAspect.getMetadata(),
+                        _testEntityRegistry))
+            .map(recordTemplate -> (StructuredPropertyDefinition) recordTemplate)
+            .collect(Collectors.toSet());
+    assertEquals(defs.size(), 2);
+    assertEquals(defs, Set.of(secondDefinition, structuredPropertyDefinition));
+
+    Mockito.when(
+            mockSystemEntityClient.getLatestAspectObject(secondPropertyUrn, "propertyDefinition"))
+        .thenReturn(new com.linkedin.entity.Aspect(secondDefinition.data()));
+
+    // Get existing value for first structured property
+    assertEquals(
+        _entityServiceImpl.getAspect(entityUrn, "structuredProperties", 0), structuredProperties);
+
+    // Add a value for second property
+    propertyValues = new PrimitivePropertyValueArray();
+    propertyValues.add(PrimitivePropertyValue.create(15.0));
+    StructuredPropertyValueAssignment secondAssignment =
+        new StructuredPropertyValueAssignment()
+            .setPropertyUrn(secondPropertyUrn)
+            .setValues(propertyValues);
+    StructuredProperties secondPropertyArr =
+        new StructuredProperties()
+            .setProperties(
+                new StructuredPropertyValueAssignmentArray(assignment, secondAssignment));
+    MetadataChangeProposal asgn2Mce = new MetadataChangeProposal();
+    asgn2Mce.setEntityUrn(entityUrn);
+    asgn2Mce.setChangeType(ChangeType.UPSERT);
+    asgn2Mce.setEntityType("dataset");
+    asgn2Mce.setAspectName("structuredProperties");
+    JacksonDataTemplateCodec asgnTemplateCodec2 = new JacksonDataTemplateCodec();
+    byte[] asgnSerialized2 = asgnTemplateCodec2.dataTemplateToBytes(secondPropertyArr);
+    GenericAspect asgnGenericAspect2 = new GenericAspect();
+    asgnGenericAspect2.setValue(ByteString.unsafeWrap(asgnSerialized2));
+    asgnGenericAspect2.setContentType("application/json");
+    asgn2Mce.setAspect(asgnGenericAspect2);
+    _entityServiceImpl.ingestProposal(asgn2Mce, TEST_AUDIT_STAMP, false);
+    StructuredProperties expectedProperties =
+        new StructuredProperties()
+            .setProperties(
+                new StructuredPropertyValueAssignmentArray(assignment, secondAssignment));
+    assertEquals(
+        _entityServiceImpl.getAspect(entityUrn, "structuredProperties", 0), expectedProperties);
   }
 
   @Nonnull

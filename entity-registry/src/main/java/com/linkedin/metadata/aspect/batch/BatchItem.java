@@ -2,11 +2,13 @@ package com.linkedin.metadata.aspect.batch;
 
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.mxe.SystemMetadata;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 public interface BatchItem {
   /**
@@ -63,4 +65,12 @@ public interface BatchItem {
    */
   @Nonnull
   AspectSpec getAspectSpec();
+
+  /**
+   * The aspect's record template. Null when patch
+   *
+   * @return record template if it exists
+   */
+  @Nullable
+  RecordTemplate getRecordTemplate();
 }

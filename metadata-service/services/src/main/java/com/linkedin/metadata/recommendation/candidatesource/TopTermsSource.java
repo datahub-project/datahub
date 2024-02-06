@@ -16,7 +16,7 @@ import lombok.extern.slf4j.Slf4j;
 public class TopTermsSource extends EntitySearchAggregationSource
     implements RecommendationSourceWithOffline {
 
-  private final EntityService _entityService;
+  private final EntityService<?> _entityService;
   private final boolean _fetchOffline;
 
   private static final String TERMS = "glossaryTerms";
@@ -28,8 +28,10 @@ public class TopTermsSource extends EntitySearchAggregationSource
           Constants.RECOMMENDATION_MODULE_ENTITY_NAME);
 
   public TopTermsSource(
-      EntitySearchService entitySearchService, EntityService entityService, boolean fetchOffline) {
-    super(entitySearchService);
+      EntitySearchService entitySearchService,
+      EntityService<?> entityService,
+      boolean fetchOffline) {
+    super(entitySearchService, entityService.getEntityRegistry());
     _entityService = entityService;
     _fetchOffline = fetchOffline;
   }

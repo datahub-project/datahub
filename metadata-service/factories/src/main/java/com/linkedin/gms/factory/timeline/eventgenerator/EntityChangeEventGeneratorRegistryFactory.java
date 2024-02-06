@@ -2,8 +2,7 @@ package com.linkedin.gms.factory.timeline.eventgenerator;
 
 import static com.linkedin.metadata.Constants.*;
 
-import com.datahub.authentication.Authentication;
-import com.linkedin.entity.client.SystemRestliEntityClient;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.timeline.eventgenerator.ActionRequestInfoChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.ActionRequestStatusChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.AssertionRunEventChangeEventGenerator;
@@ -35,12 +34,10 @@ public class EntityChangeEventGeneratorRegistryFactory {
   @Autowired ApplicationContext applicationContext;
 
   @Bean(name = "entityChangeEventGeneratorRegistry")
-  @DependsOn({"restliEntityClient", "systemAuthentication"})
+  @DependsOn({"systemEntityClient"})
   @Nonnull
   protected EntityChangeEventGeneratorRegistry entityChangeEventGeneratorRegistry() {
-    final SystemRestliEntityClient entityClient =
-        applicationContext.getBean(SystemRestliEntityClient.class);
-    final Authentication systemAuthentication = applicationContext.getBean(Authentication.class);
+    final SystemEntityClient entityClient = applicationContext.getBean(SystemEntityClient.class);
     final EntityChangeEventGeneratorRegistry registry = new EntityChangeEventGeneratorRegistry();
     registry.register(SCHEMA_METADATA_ASPECT_NAME, new SchemaMetadataChangeEventGenerator());
     registry.register(

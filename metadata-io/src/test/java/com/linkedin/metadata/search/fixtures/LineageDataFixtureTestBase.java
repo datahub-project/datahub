@@ -10,7 +10,9 @@ import com.linkedin.metadata.search.LineageSearchResult;
 import com.linkedin.metadata.search.LineageSearchService;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchService;
+import com.linkedin.util.Pair;
 import java.net.URISyntaxException;
+import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.annotations.Test;
@@ -49,16 +51,17 @@ public abstract class LineageDataFixtureTestBase extends AbstractTestNGSpringCon
         Urn.createFromString(
             "urn:li:dataset:(urn:li:dataPlatform:9cf8c96,e3859789eed1cef55288b44f016ee08290d9fd08973e565c112d8,PROD)");
 
-    // 1 hops
-    LineageSearchResult lineageResult = lineage(getLineageService(), testUrn, 1);
-    assertEquals(lineageResult.getEntities().size(), 10);
-
-    // 2 hops
-    lineageResult = lineage(getLineageService(), testUrn, 2);
-    assertEquals(lineageResult.getEntities().size(), 5);
-
-    // 3 hops
-    lineageResult = lineage(getLineageService(), testUrn, 3);
-    assertEquals(lineageResult.getEntities().size(), 12);
+    Stream<Pair<Integer, Integer>> hopsExpectedResultsStream =
+        Stream.of(
+            Pair.of(1, 10), // Hop 1 -> 10 results
+            Pair.of(2, 5), // Hop 2 -> 5 results
+            Pair.of(3, 12) // Hop 3 -> 12 results
+            );
+    hopsExpectedResultsStream.forEach(
+        hopsExpectedResults -> {
+          LineageSearchResult lineageResult =
+              lineage(getLineageService(), testUrn, hopsExpectedResults.getFirst());
+          assertEquals(lineageResult.getEntities().size(), hopsExpectedResults.getSecond());
+        });
   }
 }

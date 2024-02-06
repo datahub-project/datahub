@@ -10,7 +10,7 @@ x-datahub-integrations-service: &datahub-integrations-service
 
 x-datahub-integrations-service-dev: &datahub-integrations-service-dev
   <<: *datahub-integrations-service
-  image: ${DATAHUB_INTEGRATIONS_IMAGE:-${DATAHUB_REPO:-795586375822.dkr.ecr.us-west-2.amazonaws.com}/datahub-integrations-service}:${DATAHUB_INTEGRATIONS_VERSION:-head}
+  image: ${DATAHUB_INTEGRATIONS_IMAGE:-${DATAHUB_REPO:-795586375822.dkr.ecr.us-west-2.amazonaws.com}/datahub-integrations-service}:${DATAHUB_INTEGRATIONS_VERSION:-debug}
   volumes:
     - ./datahub-integrations-service/start.sh:/start_datahub_integrations_service.sh
     - ../../metadata-ingestion/src:/metadata-ingestion/src
@@ -29,7 +29,7 @@ x-datahub-monitors-service: &datahub-monitors-service
 
 x-datahub-monitors-service-dev: &datahub-monitors-service-dev
   <<: *datahub-monitors-service
-  image: ${DATAHUB_MONITORS_IMAGE:-${DATAHUB_REPO:-795586375822.dkr.ecr.us-west-2.amazonaws.com}/datahub-monitors-service}:${DATAHUB_MONITORS_VERSION:-head}
+  image: ${DATAHUB_MONITORS_IMAGE:-${DATAHUB_REPO:-795586375822.dkr.ecr.us-west-2.amazonaws.com}/datahub-monitors-service}:${DATAHUB_MONITORS_VERSION:-debug}
   volumes:
     - ./datahub-monitors-service/start.sh:/start_datahub_monitors_service.sh
     - ../../metadata-ingestion/src:/metadata-ingestion/src

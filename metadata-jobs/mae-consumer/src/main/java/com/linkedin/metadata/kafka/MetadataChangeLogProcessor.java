@@ -11,6 +11,7 @@ import com.linkedin.metadata.kafka.hook.UpdateIndicesHook;
 import com.linkedin.metadata.kafka.hook.assertion.AssertionActionsHook;
 import com.linkedin.metadata.kafka.hook.assertion.AssertionsSummaryHook;
 import com.linkedin.metadata.kafka.hook.event.EntityChangeEventGeneratorHook;
+import com.linkedin.metadata.kafka.hook.form.FormAssignmentHook;
 import com.linkedin.metadata.kafka.hook.incident.IncidentsSummaryHook;
 import com.linkedin.metadata.kafka.hook.ingestion.IngestionSchedulerHook;
 import com.linkedin.metadata.kafka.hook.siblings.SiblingAssociationHook;
@@ -40,6 +41,8 @@ import org.springframework.stereotype.Component;
   IngestionSchedulerHook.class,
   EntityChangeEventGeneratorHook.class,
   KafkaEventConsumerFactory.class,
+  SiblingAssociationHook.class,
+  FormAssignmentHook.class,
   SiblingAssociationHook.class,
   MetadataTestHook.class,
   AssertionsSummaryHook.class,
@@ -103,7 +106,7 @@ public class MetadataChangeLogProcessor {
       // Here - plug in additional "custom processor hooks"
       for (MetadataChangeLogHook hook : this.hooks) {
         if (!hook.isEnabled()) {
-          log.debug("Skipping disabled hook {}", hook.getClass());
+          log.debug(String.format("Skipping disabled hook %s", hook.getClass()));
           continue;
         }
         try (Timer.Context ignored =
@@ -111,7 +114,7 @@ public class MetadataChangeLogProcessor {
                 .time()) {
           hook.invoke(event);
         } catch (Exception e) {
-          // Just skip this hook and continue. - Note that this represents "at most once"
+          // Just skip this hook and continue. - Note that this represents "at most once"//
           // processing.
           MetricUtils.counter(this.getClass(), hook.getClass().getSimpleName() + "_failure").inc();
           log.error(

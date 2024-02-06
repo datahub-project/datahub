@@ -624,11 +624,6 @@ extend type AssertionInfo {
   The source or origin of the Assertion definition.
   """
   source: AssertionSource
-
-  """
-  An optional human-readable description of the assertion
-  """
-  description: String
 }
 
 extend type Assertion {

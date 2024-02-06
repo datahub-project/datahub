@@ -87,6 +87,10 @@ public class AssertionMapper {
           mapDatasetAssertionInfo(gmsAssertionInfo.getDatasetAssertion());
       assertionInfo.setDatasetAssertion(datasetAssertion);
     }
+    // Description
+    if (gmsAssertionInfo.hasDescription()) {
+      assertionInfo.setDescription(gmsAssertionInfo.getDescription());
+    }
     // FRESHNESS Assertions
     if (gmsAssertionInfo.hasFreshnessAssertion()) {
       FreshnessAssertionInfo freshnessAssertionInfo =
@@ -121,10 +125,6 @@ public class AssertionMapper {
     // Source Type
     if (gmsAssertionInfo.hasSource()) {
       assertionInfo.setSource(mapSource(gmsAssertionInfo.getSource()));
-    }
-    // Description
-    if (gmsAssertionInfo.hasDescription()) {
-      assertionInfo.setDescription(gmsAssertionInfo.getDescription());
     }
     return assertionInfo;
   }

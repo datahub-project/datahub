@@ -4,6 +4,7 @@ import com.linkedin.datahub.upgrade.system.SystemUpdate;
 import com.linkedin.datahub.upgrade.system.elasticsearch.BuildIndices;
 import com.linkedin.datahub.upgrade.system.elasticsearch.CleanIndices;
 import com.linkedin.datahub.upgrade.system.entity.steps.BackfillBrowsePathsV2;
+import com.linkedin.datahub.upgrade.system.via.ReindexDataJobViaNodesCLL;
 import com.linkedin.gms.factory.common.TopicConventionFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.kafka.DataHubKafkaProducerFactory;
@@ -34,11 +35,17 @@ public class SystemUpdateConfig {
       @Qualifier("duheKafkaEventProducer") final KafkaEventProducer kafkaEventProducer,
       final GitVersion gitVersion,
       @Qualifier("revision") String revision,
-      final BackfillBrowsePathsV2 backfillBrowsePathsV2) {
+      final BackfillBrowsePathsV2 backfillBrowsePathsV2,
+      final ReindexDataJobViaNodesCLL reindexDataJobViaNodesCLL) {
 
     String version = String.format("%s-%s", gitVersion.getVersion(), revision);
     return new SystemUpdate(
-        buildIndices, cleanIndices, kafkaEventProducer, version, backfillBrowsePathsV2);
+        buildIndices,
+        cleanIndices,
+        kafkaEventProducer,
+        version,
+        backfillBrowsePathsV2,
+        reindexDataJobViaNodesCLL);
   }
 
   @Value("#{systemEnvironment['DATAHUB_REVISION'] ?: '0'}")

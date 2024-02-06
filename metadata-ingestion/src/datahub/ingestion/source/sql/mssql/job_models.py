@@ -16,7 +16,7 @@ class ProcedureDependency:
     name: str
     type: str
     env: str
-    server: str
+    server: Optional[str]
     source: str = "mssql"
 
 
@@ -34,7 +34,7 @@ class ProcedureLineageStream:
 @dataclass
 class MSSQLJob:
     db: str
-    platform_instance: str
+    platform_instance: Optional[str]
     name: str
     env: str
     source: str = "mssql"
@@ -42,7 +42,7 @@ class MSSQLJob:
 
     @property
     def formatted_name(self) -> str:
-        return f"{self.formatted_platform_instance}.{self.name.replace(',', '-')}"
+        return self.name.replace(",", "-")
 
     @property
     def full_type(self) -> str:
@@ -53,10 +53,6 @@ class MSSQLJob:
         return self.source
 
     @property
-    def formatted_platform_instance(self) -> str:
-        return self.platform_instance.replace(".", "/")
-
-    @property
     def cluster(self) -> str:
         return f"{self.env}"
 
@@ -64,7 +60,7 @@ class MSSQLJob:
 @dataclass
 class MSSQLProceduresContainer:
     db: str
-    platform_instance: str
+    platform_instance: Optional[str]
     name: str
     env: str
     source: str = "mssql"
@@ -72,15 +68,11 @@ class MSSQLProceduresContainer:
 
     @property
     def formatted_name(self) -> str:
-        return f"{self.formatted_platform_instance}.{self.name.replace(',', '-')}"
+        return self.name.replace(",", "-")
 
     @property
     def orchestrator(self) -> str:
         return self.source
-
-    @property
-    def formatted_platform_instance(self) -> str:
-        return self.platform_instance.replace(".", "/")
 
     @property
     def cluster(self) -> str:
@@ -149,7 +141,7 @@ class JobStep:
 
     @property
     def full_name(self) -> str:
-        return f"{self.formatted_name}.{self.formatted_name}"
+        return self.formatted_name
 
 
 @dataclass
@@ -172,6 +164,9 @@ class MSSQLDataJob:
             flow_id=self.entity.flow.formatted_name,
             job_id=self.entity.formatted_name,
             cluster=self.entity.flow.cluster,
+            platform_instance=self.entity.flow.platform_instance
+            if self.entity.flow.platform_instance
+            else None,
         )
 
     def add_property(
@@ -228,6 +223,9 @@ class MSSQLDataFlow:
             orchestrator=self.entity.orchestrator,
             flow_id=self.entity.formatted_name,
             cluster=self.entity.cluster,
+            platform_instance=self.entity.platform_instance
+            if self.entity.platform_instance
+            else None,
         )
 
     @property

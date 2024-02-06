@@ -145,6 +145,10 @@ mutation createSecret($input: CreateSecretInput!) {
     createSecret(input: $input)
 }
 
+mutation updateSecret($input: UpdateSecretInput!) {
+    updateSecret(input: $input)
+}
+
 mutation deleteSecret($urn: String!) {
     deleteSecret(urn: $urn)
 }

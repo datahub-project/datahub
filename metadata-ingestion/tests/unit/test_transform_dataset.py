@@ -648,22 +648,35 @@ def test_extract_owners_from_tags():
                 )
             ]
         )
+
         transformer = ExtractOwnersFromTagsTransformer.create(
             config,
             PipelineContext(run_id="test"),
         )
-        transformed = list(
+
+        record_envelops: List[RecordEnvelope] = list(
             transformer.transform(
                 [
                     RecordEnvelope(dataset, metadata={}),
+                    RecordEnvelope(record=EndOfStream(), metadata={}),
                 ]
             )
         )
-        owners_aspect = transformed[0].record.proposedSnapshot.aspects[0]
+
+        assert len(record_envelops) == 3
+
+        mcp: MetadataChangeProposalWrapper = record_envelops[1].record
+
+        owners_aspect = cast(OwnershipClass, mcp.aspect)
+
         owners = owners_aspect.owners
+
         owner = owners[0]
-        if expected_owner_type is not None:
-            assert owner.type == expected_owner_type
+
+        assert expected_owner_type is not None
+
+        assert owner.type == expected_owner_type
+
         assert owner.owner == expected_owner
 
     _test_owner(
@@ -672,6 +685,7 @@ def test_extract_owners_from_tags():
             "tag_prefix": "owner:",
         },
         expected_owner="urn:li:corpuser:foo",
+        expected_owner_type=OwnershipTypeClass.TECHNICAL_OWNER,
     )
     _test_owner(
         tag="abcdef-owner:foo",
@@ -679,6 +693,7 @@ def test_extract_owners_from_tags():
             "tag_prefix": ".*owner:",
         },
         expected_owner="urn:li:corpuser:foo",
+        expected_owner_type=OwnershipTypeClass.TECHNICAL_OWNER,
     )
     _test_owner(
         tag="owner:foo",
@@ -687,6 +702,7 @@ def test_extract_owners_from_tags():
             "is_user": False,
         },
         expected_owner="urn:li:corpGroup:foo",
+        expected_owner_type=OwnershipTypeClass.TECHNICAL_OWNER,
     )
     _test_owner(
         tag="owner:foo",
@@ -695,6 +711,7 @@ def test_extract_owners_from_tags():
             "email_domain": "example.com",
         },
         expected_owner="urn:li:corpuser:foo@example.com",
+        expected_owner_type=OwnershipTypeClass.TECHNICAL_OWNER,
     )
     _test_owner(
         tag="owner:foo",

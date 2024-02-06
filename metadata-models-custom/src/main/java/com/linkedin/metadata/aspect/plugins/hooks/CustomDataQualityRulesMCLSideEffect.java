@@ -4,7 +4,6 @@ import com.linkedin.metadata.aspect.batch.MCLBatchItem;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.validation.AspectRetriever;
 import com.linkedin.metadata.entity.ebean.batch.MCLBatchItemImpl;
-import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.mycompany.dq.DataQualityRuleEvent;
@@ -20,9 +19,7 @@ public class CustomDataQualityRulesMCLSideEffect extends MCLSideEffect {
 
   @Override
   protected Stream<MCLBatchItem> applyMCLSideEffect(
-      @Nonnull MCLBatchItem input,
-      @Nonnull EntityRegistry entityRegistry,
-      @Nonnull AspectRetriever aspectRetriever) {
+      @Nonnull MCLBatchItem input, @Nonnull AspectRetriever aspectRetriever) {
 
     // Generate Timeseries event aspect based on non-Timeseries aspect
     MetadataChangeLog originMCP = input.getMetadataChangeLog();
@@ -42,9 +39,7 @@ public class CustomDataQualityRulesMCLSideEffect extends MCLSideEffect {
                 })
             .map(
                 eventMCP ->
-                    MCLBatchItemImpl.builder()
-                        .metadataChangeLog(eventMCP)
-                        .build(entityRegistry, aspectRetriever));
+                    MCLBatchItemImpl.builder().metadataChangeLog(eventMCP).build(aspectRetriever));
 
     return timeseriesOptional.stream();
   }

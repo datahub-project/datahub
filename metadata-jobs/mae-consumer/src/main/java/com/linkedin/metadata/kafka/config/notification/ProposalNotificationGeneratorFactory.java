@@ -1,13 +1,10 @@
 package com.linkedin.metadata.kafka.config.notification;
 
-import com.datahub.authentication.Authentication;
 import com.datahub.notification.provider.SettingsProvider;
 import com.datahub.notification.recipient.SlackNotificationRecipientBuilder;
-import com.linkedin.entity.client.RestliEntityClient;
-import com.linkedin.gms.factory.auth.SystemAuthenticationFactory;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.gms.factory.common.GraphClientFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
-import com.linkedin.gms.factory.entity.RestliEntityClientFactory;
 import com.linkedin.gms.factory.notifications.SettingsProviderFactory;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.graph.GraphClient;
@@ -23,12 +20,7 @@ import org.springframework.context.annotation.PropertySource;
 import org.springframework.context.annotation.Scope;
 
 @Configuration
-@Import({
-  SystemAuthenticationFactory.class,
-  RestliEntityClientFactory.class,
-  GraphClientFactory.class,
-  SettingsProviderFactory.class
-})
+@Import({GraphClientFactory.class, SettingsProviderFactory.class})
 @PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
 public class ProposalNotificationGeneratorFactory {
 
@@ -41,16 +33,8 @@ public class ProposalNotificationGeneratorFactory {
   private GraphClient _graphClient;
 
   @Autowired
-  @Qualifier("restliEntityClient")
-  private RestliEntityClient _entityClient;
-
-  @Autowired
   @Qualifier("settingsProvider")
   private SettingsProvider _settingsProvider;
-
-  @Autowired
-  @Qualifier("systemAuthentication")
-  private Authentication _systemAuthentication;
 
   @Autowired
   @Qualifier("slackNotificationRecipientBuilder")
@@ -63,13 +47,13 @@ public class ProposalNotificationGeneratorFactory {
   @Bean(name = "proposalNotificationGenerator")
   @Scope("singleton")
   @Nonnull
-  protected ProposalNotificationGenerator getInstance() {
+  protected ProposalNotificationGenerator getInstance(final SystemEntityClient systemEntityClient) {
     return new ProposalNotificationGenerator(
         _eventProducer,
-        _entityClient,
+        systemEntityClient,
         _graphClient,
         _settingsProvider,
-        _systemAuthentication,
+        systemEntityClient.getSystemAuthentication(),
         _slackNotificationRecipientBuilder,
         _configProvider.getFeatureFlags());
   }

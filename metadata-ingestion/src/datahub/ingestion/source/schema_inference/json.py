@@ -48,7 +48,7 @@ class JsonInferrer(SchemaInferenceBase):
         schema = construct_schema(datastore, delimiter=".")
         fields: List[SchemaField] = []
 
-        for schema_field in sorted(schema.values(), key=lambda x: x["delimited_name"]):
+        for schema_field in schema.values():
             mapped_type = _field_type_mapping.get(schema_field["type"], NullTypeClass)
 
             native_type = schema_field["type"]

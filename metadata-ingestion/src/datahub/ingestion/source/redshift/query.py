@@ -1,9 +1,14 @@
 from datetime import datetime
+from typing import List
 
 redshift_datetime_format = "%Y-%m-%d %H:%M:%S"
 
 
 class RedshiftQuery:
+    CREATE_TEMP_TABLE_CLAUSE = "create temp table"
+    CREATE_TEMPORARY_TABLE_CLAUSE = "create temporary table"
+    CREATE_TABLE_CLAUSE = "create table"
+
     list_databases: str = """SELECT datname FROM pg_database
         WHERE (datname <> ('padb_harvest')::name)
         AND (datname <> ('template0')::name)
@@ -97,7 +102,7 @@ SELECT  schemaname as schema_name,
             NULL as table_description
         FROM pg_catalog.svv_external_tables
         ORDER BY "schema",
-                "relname";
+                "relname"
 """
     list_columns: str = """
             SELECT
@@ -379,7 +384,8 @@ SELECT  schemaname as schema_name,
                     target_schema,
                     target_table,
                     username,
-                    querytxt as ddl
+                    query as query_id,
+                    LISTAGG(CASE WHEN LEN(RTRIM(querytxt)) = 0 THEN querytxt ELSE RTRIM(querytxt) END) WITHIN GROUP (ORDER BY sequence) as ddl
                 from
                         (
                     select
@@ -388,7 +394,9 @@ SELECT  schemaname as schema_name,
                         sti.table as target_table,
                         sti.database as cluster,
                         usename as username,
-                        querytxt,
+                        text as querytxt,
+                        sq.query,
+                        sequence,
                         si.starttime as starttime
                     from
                         stl_insert as si
@@ -396,19 +404,20 @@ SELECT  schemaname as schema_name,
                         sti.table_id = tbl
                     left join svl_user_info sui on
                         si.userid = sui.usesysid
-                    left join stl_query sq on
+                    left join STL_QUERYTEXT sq on
                         si.query = sq.query
                     left join stl_load_commits slc on
                         slc.query = si.query
                     where
                         sui.usename <> 'rdsdb'
-                        and sq.aborted = 0
                         and slc.query IS NULL
                         and cluster = '{db_name}'
                         and si.starttime >= '{start_time}'
                         and si.starttime < '{end_time}'
+                        and sequence < 320
                     ) as target_tables
-                    order by cluster, target_schema, target_table, starttime asc
+                    group by cluster, query_id, target_schema, target_table, username, starttime
+                    order by cluster, query_id, target_schema, target_table, starttime asc
                 """.format(
             # We need the original database name for filtering
             db_name=db_name,
@@ -443,3 +452,118 @@ SELECT  schemaname as schema_name,
             start_time=start_time.strftime(redshift_datetime_format),
             end_time=end_time.strftime(redshift_datetime_format),
         )
+
+    @staticmethod
+    def get_temp_table_clause(table_name: str) -> List[str]:
+        return [
+            f"{RedshiftQuery.CREATE_TABLE_CLAUSE} {table_name}",
+            f"{RedshiftQuery.CREATE_TEMP_TABLE_CLAUSE} {table_name}",
+            f"{RedshiftQuery.CREATE_TEMPORARY_TABLE_CLAUSE} {table_name}",
+        ]
+
+    @staticmethod
+    def temp_table_ddl_query(start_time: datetime, end_time: datetime) -> str:
+        start_time_str: str = start_time.strftime(redshift_datetime_format)
+
+        end_time_str: str = end_time.strftime(redshift_datetime_format)
+
+        return rf"""-- DataHub Redshift Source temp table DDL query
+            select
+                *
+            from
+                (
+                select
+                    session_id,
+                    transaction_id,
+                    start_time,
+                    userid,
+                    REGEXP_REPLACE(REGEXP_SUBSTR(REGEXP_REPLACE(query_text,'\\\\n','\\n'), '(CREATE(?:[\\n\\s\\t]+(?:temp|temporary))?(?:[\\n\\s\\t]+)table(?:[\\n\\s\\t]+)[^\\n\\s\\t()-]+)', 0, 1, 'ipe'),'[\\n\\s\\t]+',' ',1,'p') as create_command,
+                    query_text,
+                    row_number() over (
+                        partition by TRIM(query_text)
+                        order by start_time desc
+                    ) rn
+                from
+                    (
+                    select
+                        pid as session_id,
+                        xid as transaction_id,
+                        starttime as start_time,
+                        type,
+                        query_text,
+                        userid
+                    from
+                        (
+                        select
+                            starttime,
+                            pid,
+                            xid,
+                            type,
+                            userid,
+                            LISTAGG(case
+                                when LEN(RTRIM(text)) = 0 then text
+                                else RTRIM(text)
+                            end,
+                            '') within group (
+                                order by sequence
+                            ) as query_text
+                        from
+                            SVL_STATEMENTTEXT
+                        where
+                            type in ('DDL', 'QUERY')
+                            AND        starttime >= '{start_time_str}'
+                            AND        starttime < '{end_time_str}'
+                            -- See https://stackoverflow.com/questions/72770890/redshift-result-size-exceeds-listagg-limit-on-svl-statementtext
+                            AND sequence < 320
+                        group by
+                            starttime,
+                            pid,
+                            xid,
+                            type,
+                            userid
+                        order by
+                            starttime,
+                            pid,
+                            xid,
+                            type,
+                            userid
+                            asc)
+                    where
+                        type in ('DDL', 'QUERY')
+                )
+                where
+                    (create_command ilike 'create temp table %'
+                        or create_command ilike 'create temporary table %'
+                        -- we want to get all the create table statements and not just temp tables if non temp table is created and dropped in the same transaction
+                        or create_command ilike 'create table %')
+                    -- Redshift creates temp tables with the following names: volt_tt_%. We need to filter them out.
+                    and query_text not ilike 'CREATE TEMP TABLE volt_tt_%'
+                    and create_command not like 'CREATE TEMP TABLE volt_tt_'
+                    -- We need to filter out our query and it was not possible earlier when we did not have any comment in the query
+                    and query_text not ilike '%https://stackoverflow.com/questions/72770890/redshift-result-size-exceeds-listagg-limit-on-svl-statementtext%'
+
+            )
+            where
+                rn = 1;
+            """
+
+    @staticmethod
+    def alter_table_rename_query(
+        db_name: str, start_time: datetime, end_time: datetime
+    ) -> str:
+        start_time_str: str = start_time.strftime(redshift_datetime_format)
+        end_time_str: str = end_time.strftime(redshift_datetime_format)
+
+        return f"""
+            SELECT  transaction_id,
+                    session_id,
+                    start_time,
+                    query_text
+            FROM       sys_query_history SYS
+            WHERE      SYS.status = 'success'
+            AND        SYS.query_type = 'DDL'
+            AND        SYS.database_name = '{db_name}'
+            AND        SYS.start_time >= '{start_time_str}'
+            AND        SYS.end_time < '{end_time_str}'
+            AND        SYS.query_text ILIKE 'alter table % rename to %'
+        """

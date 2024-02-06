@@ -22,7 +22,6 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
-import com.linkedin.entity.client.RestliEntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetchingEnvironment;
@@ -74,7 +73,7 @@ public class MutableTypeBatchResolverTest {
 
   @Test
   public void testGetSuccess() throws Exception {
-    EntityClient mockClient = Mockito.mock(RestliEntityClient.class);
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
     BatchMutableType<DatasetUpdateInput, BatchDatasetUpdateInput, Dataset> batchMutableType =
         new DatasetType(mockClient);
 
@@ -167,7 +166,7 @@ public class MutableTypeBatchResolverTest {
 
   @Test
   public void testGetFailureUnauthorized() throws Exception {
-    EntityClient mockClient = Mockito.mock(RestliEntityClient.class);
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
     BatchMutableType<DatasetUpdateInput, BatchDatasetUpdateInput, Dataset> batchMutableType =
         new DatasetType(mockClient);
 

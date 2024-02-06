@@ -20,6 +20,7 @@ public class FeatureFlags {
   private boolean showAcrylInfo = false;
   private boolean showAccessManagement = false;
   private boolean nestedDomainsEnabled = false;
+  private boolean schemaFieldEntityFetchEnabled = false;
   private boolean dataContractsEnabled = false;
   private boolean documentationAiEnabled = false;
 }

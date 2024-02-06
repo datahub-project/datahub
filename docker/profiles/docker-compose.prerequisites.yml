@@ -117,10 +117,10 @@ services:
     restart: on-failure
     healthcheck:
       test: mysqladmin ping -h mysql -u $$MYSQL_USER --password=$$MYSQL_PASSWORD
-      start_period: 10s
-      interval: 1s
-      retries: 3
-      timeout: 5s
+      start_period: 20s
+      interval: 2s
+      timeout: 10s
+      retries: 5
     volumes:
       - ./mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
       - mysqldata:/var/lib/mysql

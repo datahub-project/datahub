@@ -248,20 +248,9 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
     return RestliUtil.toTask(() -> {
       log.debug("Proposal: {}", metadataChangeProposal);
       try {
-        final AspectsBatch batch;
-        if (asyncBool) {
-          // if async we'll expand the getAdditionalChanges later, no need to do this early
-          batch = AspectsBatchImpl.builder()
-                  .mcps(List.of(metadataChangeProposal), auditStamp, _entityService.getEntityRegistry(), _entityService.getSystemEntityClient())
-                  .build();
-        } else {
-          Stream<MetadataChangeProposal> proposalStream = Stream.concat(Stream.of(metadataChangeProposal),
-                  AspectUtils.getAdditionalChanges(metadataChangeProposal, _entityService).stream());
-
-          batch = AspectsBatchImpl.builder()
-                  .mcps(proposalStream.collect(Collectors.toList()), auditStamp, _entityService.getEntityRegistry(), _entityService.getSystemEntityClient())
-                  .build();
-        }
+        final AspectsBatch batch = AspectsBatchImpl.builder()
+                .mcps(List.of(metadataChangeProposal), auditStamp, _entityService)
+                .build();
 
         Set<IngestResult> results =
                 _entityService.ingestProposal(batch, asyncBool);

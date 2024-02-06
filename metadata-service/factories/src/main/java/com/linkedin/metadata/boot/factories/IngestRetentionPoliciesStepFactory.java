@@ -26,7 +26,7 @@ public class IngestRetentionPoliciesStepFactory {
 
   @Autowired
   @Qualifier("entityService")
-  private EntityService _entityService;
+  private EntityService<?> _entityService;
 
   @Value("${entityService.retention.enabled}")
   private Boolean _enableRetention;

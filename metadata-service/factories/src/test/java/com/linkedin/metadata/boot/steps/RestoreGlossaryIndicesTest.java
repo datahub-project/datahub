@@ -40,7 +40,7 @@ public class RestoreGlossaryIndicesTest {
           "urn:li:%s:%s", Constants.DATA_HUB_UPGRADE_ENTITY_NAME, "restore-glossary-indices-ui");
 
   private void mockGetTermInfo(
-      Urn glossaryTermUrn, EntitySearchService mockSearchService, EntityService mockService)
+      Urn glossaryTermUrn, EntitySearchService mockSearchService, EntityService<?> mockService)
       throws Exception {
     Map<String, EnvelopedAspect> termInfoAspects = new HashMap<>();
     termInfoAspects.put(
@@ -79,7 +79,7 @@ public class RestoreGlossaryIndicesTest {
   }
 
   private void mockGetNodeInfo(
-      Urn glossaryNodeUrn, EntitySearchService mockSearchService, EntityService mockService)
+      Urn glossaryNodeUrn, EntitySearchService mockSearchService, EntityService<?> mockService)
       throws Exception {
     Map<String, EnvelopedAspect> nodeInfoAspects = new HashMap<>();
     nodeInfoAspects.put(
@@ -140,7 +140,7 @@ public class RestoreGlossaryIndicesTest {
         Urn.createFromString("urn:li:glossaryTerm:11115397daf94708a8822b8106cfd451");
     final Urn glossaryNodeUrn =
         Urn.createFromString("urn:li:glossaryNode:22225397daf94708a8822b8106cfd451");
-    final EntityService mockService = Mockito.mock(EntityService.class);
+    final EntityService<?> mockService = Mockito.mock(EntityService.class);
     final EntitySearchService mockSearchService = Mockito.mock(EntitySearchService.class);
     final EntityRegistry mockRegistry = Mockito.mock(EntityRegistry.class);
 
@@ -215,7 +215,7 @@ public class RestoreGlossaryIndicesTest {
         Urn.createFromString("urn:li:glossaryTerm:11115397daf94708a8822b8106cfd451");
     final Urn glossaryNodeUrn =
         Urn.createFromString("urn:li:glossaryNode:22225397daf94708a8822b8106cfd451");
-    final EntityService mockService = Mockito.mock(EntityService.class);
+    final EntityService<?> mockService = Mockito.mock(EntityService.class);
     final EntitySearchService mockSearchService = Mockito.mock(EntitySearchService.class);
     final EntityRegistry mockRegistry = Mockito.mock(EntityRegistry.class);
 
@@ -298,7 +298,7 @@ public class RestoreGlossaryIndicesTest {
         Urn.createFromString("urn:li:glossaryTerm:11115397daf94708a8822b8106cfd451");
     final Urn glossaryNodeUrn =
         Urn.createFromString("urn:li:glossaryNode:22225397daf94708a8822b8106cfd451");
-    final EntityService mockService = Mockito.mock(EntityService.class);
+    final EntityService<?> mockService = Mockito.mock(EntityService.class);
     final EntitySearchService mockSearchService = Mockito.mock(EntitySearchService.class);
     final EntityRegistry mockRegistry = Mockito.mock(EntityRegistry.class);
 

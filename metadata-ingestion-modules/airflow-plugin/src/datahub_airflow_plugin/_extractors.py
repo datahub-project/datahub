@@ -199,8 +199,8 @@ def _sql_extractor_extract(self: "SqlExtractor") -> TaskMetadata:
         platform=platform,
         platform_instance=None,
         env=builder.DEFAULT_ENV,
-        database=default_database,
-        schema=default_schema,
+        default_db=default_database,
+        default_schema=default_schema,
     )
     self.log.debug(f"Got sql lineage {sql_parsing_result}")
 

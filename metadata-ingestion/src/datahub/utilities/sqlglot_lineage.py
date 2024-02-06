@@ -1037,6 +1037,14 @@ def _sqlglot_lineage_inner(
             default_db = default_db.upper()
         if default_schema:
             default_schema = default_schema.upper()
+    if _is_dialect_instance(dialect, "redshift") and not default_schema:
+        # On Redshift, there's no "USE SCHEMA <schema>" command. The default schema
+        # is public, and "current schema" is the one at the front of the search path.
+        # See https://docs.aws.amazon.com/redshift/latest/dg/r_search_path.html
+        # and https://stackoverflow.com/questions/9067335/how-does-the-search-path-influence-identifier-resolution-and-the-current-schema?noredirect=1&lq=1
+        # default_schema = "public"
+        # TODO: Re-enable this.
+        pass
 
     logger.debug("Parsing lineage from sql statement: %s", sql)
     statement = _parse_statement(sql, dialect=dialect)
@@ -1280,35 +1288,35 @@ def detach_ctes(
 
 def create_lineage_sql_parsed_result(
     query: str,
-    database: Optional[str],
+    default_db: Optional[str],
     platform: str,
     platform_instance: Optional[str],
     env: str,
-    schema: Optional[str] = None,
+    default_schema: Optional[str] = None,
     graph: Optional[DataHubGraph] = None,
 ) -> SqlParsingResult:
-    needs_close = False
-    try:
-        if graph:
-            schema_resolver = graph._make_schema_resolver(
-                platform=platform,
-                platform_instance=platform_instance,
-                env=env,
-            )
-        else:
-            needs_close = True
-            schema_resolver = SchemaResolver(
-                platform=platform,
-                platform_instance=platform_instance,
-                env=env,
-                graph=None,
-            )
+    if graph:
+        needs_close = False
+        schema_resolver = graph._make_schema_resolver(
+            platform=platform,
+            platform_instance=platform_instance,
+            env=env,
+        )
+    else:
+        needs_close = True
+        schema_resolver = SchemaResolver(
+            platform=platform,
+            platform_instance=platform_instance,
+            env=env,
+            graph=None,
+        )
 
+    try:
         return sqlglot_lineage(
             query,
             schema_resolver=schema_resolver,
-            default_db=database,
-            default_schema=schema,
+            default_db=default_db,
+            default_schema=default_schema,
         )
     except Exception as e:
         return SqlParsingResult.make_from_error(e)

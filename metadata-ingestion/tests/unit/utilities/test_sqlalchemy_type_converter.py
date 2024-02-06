@@ -65,7 +65,6 @@ def test_get_avro_schema_for_sqlalchemy_map_column():
 
 
 def test_get_avro_schema_for_sqlalchemy_struct_column() -> None:
-
     schema_fields = get_schema_fields_for_sqlalchemy_column(
         column_name="test", column_type=STRUCT(("test", types.INTEGER()))
     )

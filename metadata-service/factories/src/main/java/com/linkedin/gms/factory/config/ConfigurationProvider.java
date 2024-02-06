@@ -5,6 +5,7 @@ import com.datahub.authorization.AuthorizationConfiguration;
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.metadata.config.ChromeExtensionConfiguration;
 import com.linkedin.metadata.config.DataHubConfiguration;
+import com.linkedin.metadata.config.EbeanConfiguration;
 import com.linkedin.metadata.config.IngestionConfiguration;
 import com.linkedin.metadata.config.IntegrationsServiceConfiguration;
 import com.linkedin.metadata.config.MonitorServiceConfiguration;
@@ -65,10 +66,10 @@ public class ConfigurationProvider {
   /** System Update configurations */
   private SystemUpdateConfiguration systemUpdate;
 
-  // fork related configs go below this line
   /** The base URL where DataHub is hosted. */
   private String baseUrl;
 
+  // fork related configs go below this line
   /** Event mirroring related configs */
   private EventSinksConfiguration eventSinks;
 
@@ -83,6 +84,12 @@ public class ConfigurationProvider {
 
   /** Configuration for the health check server */
   private HealthCheckConfiguration healthCheck;
+
+  /** Structured properties related configurations */
+  private StructuredPropertiesConfiguration structuredProperties;
+
+  /** Ebean related configuration */
+  private EbeanConfiguration ebean;
 
   /** Configuration for the integrations service. */
   private IntegrationsServiceConfiguration integrationsService;

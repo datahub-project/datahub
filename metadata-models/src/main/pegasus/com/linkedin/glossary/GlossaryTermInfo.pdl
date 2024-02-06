@@ -3,6 +3,7 @@ namespace com.linkedin.glossary
 import com.linkedin.common.Url
 import com.linkedin.common.GlossaryNodeUrn
 import com.linkedin.common.CustomProperties
+import com.linkedin.schema.PrimitiveValueDataType
 
 /**
  * Properties associated with a GlossaryTerm
@@ -76,4 +77,5 @@ record GlossaryTermInfo includes CustomProperties {
    */
   @deprecated
   rawSchema: optional string
+
 }

@@ -249,6 +249,11 @@ type VisualConfig {
   faviconUrl: String
 
   """
+  Custom app title to show in the browser tab
+  """
+  appTitle: String
+
+  """
   Boolean flag disabling viewing the Business Glossary page for users without the 'Manage Glossaries' privilege
   """
   hideGlossary: Boolean

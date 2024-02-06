@@ -3,6 +3,7 @@ package com.linkedin.metadata.timeline;
 import static org.mockito.Mockito.mock;
 
 import com.linkedin.metadata.EbeanTestUtils;
+import com.linkedin.metadata.config.EbeanConfiguration;
 import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.entity.EntityServiceImpl;
 import com.linkedin.metadata.entity.ebean.EbeanAspectDao;
@@ -29,7 +30,7 @@ public class EbeanTimelineServiceTest extends TimelineServiceTest<EbeanAspectDao
   public void setupTest() {
     Database server =
         EbeanTestUtils.createTestServer(EbeanTimelineServiceTest.class.getSimpleName());
-    _aspectDao = new EbeanAspectDao(server);
+    _aspectDao = new EbeanAspectDao(server, EbeanConfiguration.testDefault);
     _aspectDao.setConnectionValidated(true);
     _entityTimelineService = new TimelineServiceImpl(_aspectDao, _testEntityRegistry);
     _mockProducer = mock(EventProducer.class);
@@ -42,7 +43,8 @@ public class EbeanTimelineServiceTest extends TimelineServiceTest<EbeanAspectDao
             _testEntityRegistry,
             true,
             _mockUpdateIndicesService,
-            preProcessHooks);
+            preProcessHooks,
+            true);
   }
 
   /**

@@ -1,6 +1,9 @@
 query getMLFeatureTable($urn: String!) {
     mlFeatureTable(urn: $urn) {
         ...nonRecursiveMLFeatureTable
+        autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
+            ...autoRenderAspectFields
+        }
         termProposals: proposals(type: TERM_ASSOCIATION) {
             ...proposalsFragment
         }

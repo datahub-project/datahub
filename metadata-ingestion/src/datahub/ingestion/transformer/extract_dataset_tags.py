@@ -34,7 +34,7 @@ class ExtractDatasetTags(DatasetTagsTransformer):
 
     def _get_tags_to_add(self, entity_urn: str) -> List[TagAssociationClass]:
         if self.config.extract_tags_from == ExtractTagsOption.URN:
-            urn = DatasetUrn.create_from_string(entity_urn)
+            urn = DatasetUrn.from_string(entity_urn)
             match = re.search(self.config.extract_tags_regex, urn.get_dataset_name())
             if match:
                 captured_group = match.group(1)
