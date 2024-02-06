@@ -212,6 +212,7 @@ class RedshiftLineageExtractor:
         for table in self.temp_tables.values():
             if (
                 table.parsed_result is None
+                or table.urn is None
                 or table.parsed_result.column_lineage is None
             ):
                 continue
@@ -221,7 +222,7 @@ class RedshiftLineageExtractor:
             if downstream_urn not in dataset_vs_columns:
                 dataset_vs_columns[downstream_urn] = []
             dataset_vs_columns[downstream_urn].extend(
-                sqlglot_l.infer_output_schema(table.parsed_result)
+                sqlglot_l.infer_output_schema(table.parsed_result) or []
             )
 
         # Add datasets, and it's respective fields in schema_resolver, so that later schema_resolver would be able

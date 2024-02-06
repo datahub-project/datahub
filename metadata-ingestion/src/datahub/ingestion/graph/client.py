@@ -50,11 +50,11 @@ if TYPE_CHECKING:
     from datahub.ingestion.source.state.entity_removal_state import (
         GenericCheckpointState,
     )
-    from datahub.sql_parsing.schema_resolver import SchemaResolver
-    from datahub.sql_parsing.sqlglot_lineage import (
+    from datahub.sql_parsing.schema_resolver import (
         GraphQLSchemaMetadata,
-        SqlParsingResult,
+        SchemaResolver,
     )
+    from datahub.sql_parsing.sqlglot_lineage import SqlParsingResult
 
 
 logger = logging.getLogger(__name__)
