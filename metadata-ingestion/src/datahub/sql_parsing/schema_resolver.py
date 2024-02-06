@@ -2,7 +2,7 @@ import contextlib
 import pathlib
 from typing import Dict, List, Optional, Protocol, Set, Tuple
 
-from typing_extensions import TypedDict, override
+from typing_extensions import TypedDict
 
 from datahub.emitter.mce_builder import (
     DEFAULT_ENV,
@@ -122,10 +122,13 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
             if schema_info:
                 return urn_lower, schema_info
 
-        if self.platform in PLATFORMS_WITH_CASE_SENSITIVE_TABLES:
-            return urn, None
-        else:
+        if self._prefers_urn_lower():
             return urn_lower, None
+        else:
+            return urn, None
+
+    def _prefers_urn_lower(self) -> bool:
+        return self.platform not in PLATFORMS_WITH_CASE_SENSITIVE_TABLES
 
     def has_urn(self, urn: str) -> bool:
         return self._schema_cache.get(urn) is not None
@@ -162,10 +165,14 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         self._save_to_cache(urn, schema_info)
 
     def with_temp_tables(
-        self, temp_tables: Dict[str, List[SchemaFieldClass]]
+        self, temp_tables: Dict[str, Optional[List[SchemaFieldClass]]]
     ) -> SchemaResolverInterface:
         extra_schemas = {
-            urn: self._convert_schema_field_list_to_info(fields)
+            urn: (
+                self._convert_schema_field_list_to_info(fields)
+                if fields is not None
+                else None
+            )
             for urn, fields in temp_tables.items()
         }
 
@@ -225,7 +232,9 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
 
 class _SchemaResolverWithExtras(SchemaResolverInterface):
     def __init__(
-        self, base_resolver: SchemaResolver, extra_schemas: Dict[str, SchemaInfo]
+        self,
+        base_resolver: SchemaResolver,
+        extra_schemas: Dict[str, Optional[SchemaInfo]],
     ):
         self._base_resolver = base_resolver
         self._extra_schemas = extra_schemas
@@ -234,8 +243,10 @@ class _SchemaResolverWithExtras(SchemaResolverInterface):
     def platform(self) -> str:
         return self._base_resolver.platform
 
-    @override
-    def _resolve_schema_info(self, urn: str) -> Optional[SchemaInfo]:
+    def resolve_table(self, table: _TableName) -> Tuple[str, Optional[SchemaInfo]]:
+        urn = self._base_resolver.get_urn_for_table(
+            table, lower=self._base_resolver._prefers_urn_lower()
+        )
         if urn in self._extra_schemas:
-            return self._extra_schemas[urn]
-        return self._base_resolver._resolve_schema_info(urn)
+            return urn, self._extra_schemas[urn]
+        return self._base_resolver.resolve_table(table)
