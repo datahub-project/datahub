@@ -1,4 +1,5 @@
 import pathlib
+from datetime import datetime
 
 import pytest
 
@@ -51,11 +52,13 @@ def test_overlapping_inserts(pytestconfig: pytest.Config) -> None:
         query="insert into downstream (a, b) select a, b from upstream1",
         default_db="dev",
         default_schema="public",
+        query_timestamp=datetime.fromtimestamp(20),
     )
     aggregator.add_observed_query(
         query="insert into downstream (a, c) select a, c from upstream2",
         default_db="dev",
         default_schema="public",
+        query_timestamp=datetime.fromtimestamp(25),
     )
 
     mcps = list(aggregator.gen_metadata())

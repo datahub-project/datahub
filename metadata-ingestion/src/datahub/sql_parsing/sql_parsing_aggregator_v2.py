@@ -7,6 +7,7 @@ from datetime import datetime
 from typing import Callable, Dict, Iterable, List, Optional, Set
 
 import datahub.metadata.schema_classes as models
+from datahub.emitter.mce_builder import make_ts_millis
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
@@ -56,13 +57,13 @@ class QueryMetadata:
 
     def make_created_audit_stamp(self) -> models.AuditStampClass:
         return models.AuditStampClass(
-            time=self.latest_timestamp or 0,
+            time=make_ts_millis(self.latest_timestamp) or 0,
             actor=(self.actor or _DEFAULT_QUERY_URN).urn(),
         )
 
     def make_last_modified_audit_stamp(self) -> models.AuditStampClass:
         return models.AuditStampClass(
-            time=self.latest_timestamp or 0,
+            time=make_ts_millis(self.latest_timestamp) or 0,
             actor=(self.actor or _DEFAULT_QUERY_URN).urn(),
         )
 
@@ -374,7 +375,7 @@ class SqlParsingAggregator:
             queries,
             key=lambda query: (
                 self._query_type_precedence(query.type),
-                -(query.latest_timestamp or 0),
+                -(make_ts_millis(query.latest_timestamp) or 0),
             ),
         )
 
@@ -410,31 +411,35 @@ class SqlParsingAggregator:
                 models.UpstreamClass(
                     dataset=upstream_urn,
                     type=queries_map[query_id].type,
+                    query=self._query_urn(query_id),
                     # TODO audit stamp
-                    # TODO query id
                 )
             )
         upstream_aspect.fineGrainedLineages = []
-        for downstream_column, upstream_columns in cll.items():
-            query_id = next(
-                iter(upstream_columns.values())
-            )  # TODO this drops other query ids
-            required_queries.add(query_id)
+        for downstream_column, all_upstream_columns in cll.items():
+            # Group by query ID.
+            for query_id, upstream_columns_for_query in itertools.groupby(
+                sorted(all_upstream_columns.items(), key=lambda x: x[1]),
+                key=lambda x: x[1],
+            ):
+                upstream_columns = [x[0] for x in upstream_columns_for_query]
+                required_queries.add(query_id)
 
-            upstream_aspect.fineGrainedLineages.append(
-                models.FineGrainedLineageClass(
-                    upstreamType=models.FineGrainedLineageUpstreamTypeClass.FIELD_SET,
-                    upstreams=[
-                        upstream_column.urn() for upstream_column in upstream_columns
-                    ],
-                    downstreamType=models.FineGrainedLineageDownstreamTypeClass.FIELD,
-                    downstreams=[
-                        SchemaFieldUrn(downstream_urn, downstream_column).urn()
-                    ],
-                    # TODO query id
-                    confidenceScore=queries_map[query_id].confidence_score,
+                upstream_aspect.fineGrainedLineages.append(
+                    models.FineGrainedLineageClass(
+                        upstreamType=models.FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                        upstreams=[
+                            upstream_column.urn()
+                            for upstream_column in upstream_columns
+                        ],
+                        downstreamType=models.FineGrainedLineageDownstreamTypeClass.FIELD,
+                        downstreams=[
+                            SchemaFieldUrn(downstream_urn, downstream_column).urn()
+                        ],
+                        query=self._query_urn(query_id),
+                        confidenceScore=queries_map[query_id].confidence_score,
+                    )
                 )
-            )
 
         yield MetadataChangeProposalWrapper(
             entityUrn=downstream_urn,
@@ -448,7 +453,7 @@ class SqlParsingAggregator:
             # TODO respect self.generate_queries flag
             query = queries_map[query_id]
             yield from MetadataChangeProposalWrapper.construct_many(
-                entityUrn=QueryUrn(query_id).urn(),
+                entityUrn=self._query_urn(query_id),
                 aspects=[
                     models.QueryPropertiesClass(
                         statement=models.QueryStatementClass(
@@ -470,24 +475,46 @@ class SqlParsingAggregator:
                 ],
             )
 
+    def _query_urn(self, query_id: QueryId) -> str:
+        return QueryUrn(query_id).urn()
+
     def _resolve_query_with_temp_tables(
-        self, query: QueryMetadata, recursive_visited_tables: Optional[Set[str]] = None
+        self,
+        query: QueryMetadata,
+        recursive_visited_queries: Optional[Set[QueryId]] = None,
     ) -> QueryMetadata:
 
-        current_upstreams = query.upstreams
+        # Prevent infinite recursion on cyclic temp tables.
+        if recursive_visited_queries is None:
+            recursive_visited_queries = set()
+        elif query.query_id in recursive_visited_queries:
+            return query
+        else:
+            # TODO: this makes the recursion less efficient because we might
+            # process the same query_id multiple times.
+            recursive_visited_queries = recursive_visited_queries.copy()
+        recursive_visited_queries.add(query.query_id)
 
-        upstream_queries = set()
-        for upstream in current_upstreams:
+        temp_upstream_queries: Dict[str, QueryId] = {}
+        for upstream in query.upstreams:
             upstream_query_id = self._temp_lineage_map.get(query.session_id, {}).get(
                 upstream
             )
             if upstream_query_id:
-                upstream_queries.add(upstream_query_id)
+                upstream_query = self._query_map.get(upstream_query_id)
+                if upstream_query:
+                    temp_upstream_queries[upstream] = (
+                        self._resolve_query_with_temp_tables(
+                            upstream_query, recursive_visited_queries
+                        )
+                    )
 
-        if not upstream_queries:
-            # Fast path - no temp tables.
+        # Fast path - no temp tables.
+        if not temp_upstream_queries:
             return query
 
+        current_upstreams = query.upstreams
+        current_cll = query.column_lineage
         # TODO
         return query
 

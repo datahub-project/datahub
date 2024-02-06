@@ -13,7 +13,8 @@
                         "actor": "urn:li:corpuser:unknown"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.bar,PROD)",
-                    "type": "TRANSFORMED"
+                    "type": "TRANSFORMED",
+                    "query": "urn:li:query:cbdb3e148ea7fdae81815da4dd64f57873fb9c3d7d4bfad4e83b3d1ebd3c45c2"
                 }
             ],
             "fineGrainedLineages": [
@@ -26,7 +27,8 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.foo,PROD),a)"
                     ],
-                    "confidenceScore": 0.2
+                    "confidenceScore": 0.2,
+                    "query": "urn:li:query:cbdb3e148ea7fdae81815da4dd64f57873fb9c3d7d4bfad4e83b3d1ebd3c45c2"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -37,7 +39,8 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.foo,PROD),b)"
                     ],
-                    "confidenceScore": 0.2
+                    "confidenceScore": 0.2,
+                    "query": "urn:li:query:cbdb3e148ea7fdae81815da4dd64f57873fb9c3d7d4bfad4e83b3d1ebd3c45c2"
                 }
             ]
         }

@@ -13,7 +13,8 @@
                         "actor": "urn:li:corpuser:unknown"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.foo,PROD)",
-                    "type": "TRANSFORMED"
+                    "type": "TRANSFORMED",
+                    "query": "urn:li:query:3e85e6f353c7fa33d6514cb090482852064d23df6491c9a8ae28be0d990a3c71"
                 }
             ],
             "fineGrainedLineages": []
@@ -75,7 +76,8 @@
                         "actor": "urn:li:corpuser:unknown"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.bar,PROD)",
-                    "type": "TRANSFORMED"
+                    "type": "TRANSFORMED",
+                    "query": "urn:li:query:8b3a079997d562bdb1b14eb500e6123c4b00bb0263565dcaa0b66170e72602a1"
                 }
             ],
             "fineGrainedLineages": [
@@ -88,7 +90,8 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.foo,PROD),a)"
                     ],
-                    "confidenceScore": 0.35
+                    "confidenceScore": 0.35,
+                    "query": "urn:li:query:8b3a079997d562bdb1b14eb500e6123c4b00bb0263565dcaa0b66170e72602a1"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -99,7 +102,8 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.foo,PROD),b)"
                     ],
-                    "confidenceScore": 0.35
+                    "confidenceScore": 0.35,
+                    "query": "urn:li:query:8b3a079997d562bdb1b14eb500e6123c4b00bb0263565dcaa0b66170e72602a1"
                 }
             ]
         }
@@ -160,7 +164,8 @@
                         "actor": "urn:li:corpuser:unknown"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.foo,PROD)",
-                    "type": "TRANSFORMED"
+                    "type": "TRANSFORMED",
+                    "query": "urn:li:query:dd06511a6d5d6ceff8df056c4257783bad98b21bcb69fb9abb7c566ba9e3ea50"
                 }
             ],
             "fineGrainedLineages": []
