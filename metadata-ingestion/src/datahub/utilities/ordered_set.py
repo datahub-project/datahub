@@ -1,5 +1,4 @@
-from collections.abc import MutableSet
-from typing import Dict, Generic, Iterable, Iterator, Optional, TypeVar
+from typing import Dict, Generic, Iterable, Iterator, MutableSet, Optional, TypeVar
 
 T = TypeVar("T")
 
