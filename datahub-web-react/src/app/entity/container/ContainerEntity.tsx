@@ -8,7 +8,7 @@ import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab'
 import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
 import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
-import { useGetContainerQuery } from '../../../graphql/container.generated';
+import { GetContainerQuery, useGetContainerQuery } from '../../../graphql/container.generated';
 import { ContainerEntitiesTab } from './ContainerEntitiesTab';
 import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
@@ -63,11 +63,13 @@ export class ContainerEntity implements Entity<Container> {
 
     getCollectionName = () => 'Containers';
 
+    useEntityQuery = useGetContainerQuery;
+
     renderProfile = (urn: string) => (
         <EntityProfile
             urn={urn}
             entityType={EntityType.Container}
-            useEntityQuery={useGetContainerQuery}
+            useEntityQuery={this.useEntityQuery}
             useUpdateQuery={undefined}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
             tabs={[
@@ -84,33 +86,35 @@ export class ContainerEntity implements Entity<Container> {
                     component: PropertiesTab,
                 },
             ]}
-            sidebarSections={[
-                {
-                    component: SidebarAboutSection,
-                },
-                {
-                    component: SidebarOwnerSection,
-                },
-                {
-                    component: SidebarTagsSection,
-                    properties: {
-                        hasTags: true,
-                        hasTerms: true,
-                    },
-                },
-                {
-                    component: SidebarDomainSection,
-                },
-                {
-                    component: DataProductSection,
-                },
-                // TODO: Add back once entity-level recommendations are complete.
-                // {
-                //    component: SidebarRecommendationsSection,
-                // },
-            ]}
+            sidebarSections={this.getSidebarSections()}
         />
     );
+
+    getSidebarSections = () => [
+        {
+            component: SidebarAboutSection,
+        },
+        {
+            component: SidebarOwnerSection,
+        },
+        {
+            component: SidebarTagsSection,
+            properties: {
+                hasTags: true,
+                hasTerms: true,
+            },
+        },
+        {
+            component: SidebarDomainSection,
+        },
+        {
+            component: DataProductSection,
+        },
+        // TODO: Add back once entity-level recommendations are complete.
+        // {
+        //    component: SidebarRecommendationsSection,
+        // },
+    ];
 
     renderPreview = (_: PreviewType, data: Container) => {
         const genericProperties = this.getGenericEntityProperties(data);
@@ -195,7 +199,7 @@ export class ContainerEntity implements Entity<Container> {
         <EmbeddedProfile
             urn={urn}
             entityType={EntityType.Container}
-            useEntityQuery={useGetContainerQuery}
+            useEntityQuery={this.useEntityQuery}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
         />
     );

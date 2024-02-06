@@ -169,25 +169,7 @@ fragment nonSiblingDatasetFields on Dataset {
         canEditQueries
     }
     forms {
-        completedForms {
-            ...formAssociationFields
-        }
-        incompleteForms {
-            ...formAssociationFields
-        }
-        verifications {
-            form {
-                urn
-            }
-            lastModified {
-                time
-                actor {
-                    urn
-                    type
-                    ...entityDisplayNameFields
-                }
-            }
-        }
+        ...formsFields
     }
 }
 

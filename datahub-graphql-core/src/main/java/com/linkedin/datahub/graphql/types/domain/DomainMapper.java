@@ -1,7 +1,9 @@
 package com.linkedin.datahub.graphql.types.domain;
 
+import static com.linkedin.metadata.Constants.FORMS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTIES_ASPECT_NAME;
 
+import com.linkedin.common.Forms;
 import com.linkedin.common.InstitutionalMemory;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.urn.Urn;
@@ -9,6 +11,7 @@ import com.linkedin.datahub.graphql.generated.Domain;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
+import com.linkedin.datahub.graphql.types.form.FormsMapper;
 import com.linkedin.datahub.graphql.types.structuredproperty.StructuredPropertiesMapper;
 import com.linkedin.domain.DomainProperties;
 import com.linkedin.entity.EntityResponse;
@@ -62,6 +65,12 @@ public class DomainMapper {
       result.setStructuredProperties(
           StructuredPropertiesMapper.map(
               new StructuredProperties(envelopedStructuredProps.getValue().data())));
+    }
+
+    final EnvelopedAspect envelopedForms = aspects.get(FORMS_ASPECT_NAME);
+    if (envelopedForms != null) {
+      result.setForms(
+          FormsMapper.map(new Forms(envelopedForms.getValue().data()), entityUrn.toString()));
     }
 
     return result;

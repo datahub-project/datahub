@@ -7,6 +7,7 @@ import { EntityAndType, GenericEntityProperties } from '../types';
 import { getFormAssociation, isFormVerificationType } from '../containers/profile/sidebar/FormInfo/utils';
 import usePrevious from '../../../shared/usePrevious';
 import { SCHEMA_FIELD_PROMPT_TYPES } from './constants';
+import { useEntityRegistry } from '../../../useEntityRegistry';
 
 interface Props {
     children: React.ReactNode;
@@ -14,6 +15,7 @@ interface Props {
 }
 
 export default function EntityFormContextProvider({ children, formUrn }: Props) {
+    const entityRegistry = useEntityRegistry();
     const { entityData, refetch: refetchEntityProfile, loading: profileLoading } = useEntityContext();
     const formAssociation = getFormAssociation(formUrn, entityData);
     const initialPromptId =
@@ -40,13 +42,18 @@ export default function EntityFormContextProvider({ children, formUrn }: Props) 
         }
     }, [formUrn, previousFormUrn, initialPromptId]);
 
+    const query = entityRegistry.getEntityQuery(selectedEntity.type);
     const {
         data: fetchedData,
         refetch,
         loading,
-    } = useGetDatasetQuery({
-        variables: { urn: selectedEntity.urn },
-    });
+    } = query
+        ? query({
+              variables: { urn: selectedEntity.urn },
+          })
+        : useGetDatasetQuery({
+              variables: { urn: selectedEntity.urn },
+          });
 
     const isOnEntityProfilePage = selectedEntity.urn === entityData?.urn;
     const selectedEntityData = isOnEntityProfilePage ? entityData : (fetchedData?.dataset as GenericEntityProperties);
