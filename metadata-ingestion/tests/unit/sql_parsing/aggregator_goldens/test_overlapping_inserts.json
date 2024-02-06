@@ -9,8 +9,12 @@
             "upstreams": [
                 {
                     "auditStamp": {
-                        "time": 0,
-                        "actor": "urn:li:corpuser:unknown"
+                        "time": 1707182625000,
+                        "actor": "urn:li:corpuser:_ingestion"
+                    },
+                    "created": {
+                        "time": 28820000,
+                        "actor": "urn:li:corpuser:_ingestion"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.upstream2,PROD)",
                     "type": "TRANSFORMED",
@@ -18,8 +22,12 @@
                 },
                 {
                     "auditStamp": {
-                        "time": 0,
-                        "actor": "urn:li:corpuser:unknown"
+                        "time": 1707182625000,
+                        "actor": "urn:li:corpuser:_ingestion"
+                    },
+                    "created": {
+                        "time": 28820000,
+                        "actor": "urn:li:corpuser:_ingestion"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.upstream1,PROD)",
                     "type": "TRANSFORMED",

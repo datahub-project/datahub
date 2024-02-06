@@ -3,7 +3,7 @@ from datahub.utilities.ordered_set import OrderedSet
 
 def test_ordered_set():
     # Test initialization
-    ordered_set = OrderedSet()
+    ordered_set: OrderedSet[int] = OrderedSet()
     assert len(ordered_set) == 0
 
     # Test adding items
@@ -35,6 +35,10 @@ def test_ordered_set():
     # Test iteration
     items = list(ordered_set)
     assert items == [1, 3, 4, 5, 6]
+
+    # Test reverse iteration
+    items = list(reversed(ordered_set))
+    assert items == [6, 5, 4, 3, 1]
 
     # Test string representation
     assert repr(ordered_set) == "OrderedSet([1, 3, 4, 5, 6])"

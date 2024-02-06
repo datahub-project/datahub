@@ -36,3 +36,6 @@ class OrderedSet(MutableSet[T], Generic[T]):
 
     def __iter__(self) -> Iterator[T]:
         return iter(self._data)
+
+    def __reversed__(self) -> Iterator[T]:
+        return reversed(list(self._data))

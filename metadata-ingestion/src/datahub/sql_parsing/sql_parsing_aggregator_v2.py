@@ -606,7 +606,7 @@ class SqlParsingAggregator:
         merged_query_text = ";\n\n".join(
             [
                 self._query_map[query_id].formatted_query_string
-                for query_id in composed_of_queries
+                for query_id in reversed(composed_of_queries)
             ]
         )
 

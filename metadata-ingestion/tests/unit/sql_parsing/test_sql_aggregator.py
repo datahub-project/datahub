@@ -2,6 +2,7 @@ import pathlib
 from datetime import datetime
 
 import pytest
+from freezegun import freeze_time
 
 import datahub.emitter.mce_builder as builder
 from datahub.metadata.urns import DatasetUrn
@@ -9,8 +10,10 @@ from datahub.sql_parsing.sql_parsing_aggregator_v2 import SqlParsingAggregator
 from tests.test_helpers import mce_helpers
 
 RESOURCE_DIR = pathlib.Path(__file__).parent / "aggregator_goldens"
+FROZEN_TIME = "2024-02-06 01:23:45"
 
 
+@freeze_time(FROZEN_TIME)
 def test_basic_lineage(pytestconfig: pytest.Config) -> None:
     aggregator = SqlParsingAggregator(
         platform="redshift",
@@ -37,6 +40,7 @@ def test_basic_lineage(pytestconfig: pytest.Config) -> None:
     )
 
 
+@freeze_time(FROZEN_TIME)
 def test_overlapping_inserts(pytestconfig: pytest.Config) -> None:
     aggregator = SqlParsingAggregator(
         platform="redshift",
@@ -70,6 +74,7 @@ def test_overlapping_inserts(pytestconfig: pytest.Config) -> None:
     )
 
 
+@freeze_time(FROZEN_TIME)
 def test_temp_table(pytestconfig: pytest.Config) -> None:
     aggregator = SqlParsingAggregator(
         platform="redshift",
