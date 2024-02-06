@@ -92,6 +92,7 @@ def get_query_type_of_sql(
 
         kind = expression.args.get("kind")
         if kind:
+            kind = kind.upper()
             query_type_props["kind"] = kind
 
         target = expression.this
@@ -101,9 +102,9 @@ def get_query_type_of_sql(
         ) or _is_temp_table(target, dialect=dialect):
             query_type_props["temporary"] = True
 
-        if kind and "TABLE" in kind.upper():
+        if kind and "TABLE" in kind:
             return QueryType.CREATE_TABLE_AS_SELECT, query_type_props
-        elif kind and "VIEW" in kind.upper():
+        elif kind and "VIEW" in kind:
             return QueryType.CREATE_VIEW, query_type_props
 
         return QueryType.CREATE_OTHER, query_type_props
