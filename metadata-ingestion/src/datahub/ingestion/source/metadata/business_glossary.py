@@ -34,8 +34,9 @@ GlossaryNodeInterface = TypeVar(
 
 
 class Owners(ConfigModel):
-    users: Optional[List[str]] = None
-    groups: Optional[List[str]] = None
+    users: Optional[List[str]]
+    groups: Optional[List[str]]
+    type: Optional[str]
 
 
 class KnowledgeCard(ConfigModel):
@@ -147,7 +148,7 @@ def make_glossary_term_urn(
 
 
 # NOTE: Disabling this section for ING-499 [https://linear.app/acryl-data/issue/ING-499/add-owner-type-in-yaml-business-glossary-ingestion-plugin]
-#  def get_owners(owners: Owners) -> models.OwnershipClass:
+# def get_owners(owners: Owners) -> models.OwnershipClass:
 #     owners_meta: List[models.OwnerClass] = []
 #     if owners.users is not None:
 #         owners_meta = owners_meta + [
@@ -167,32 +168,48 @@ def make_glossary_term_urn(
 #         ]
 #     return models.OwnershipClass(owners=owners_meta)
 
-def get_owners(owners: Owners, owner_type: str) -> models.OwnershipClass:
+
+def get_owners(owners: Owners) -> models.OwnershipClass:
     owners_meta: List[models.OwnerClass] = []
-    valid_owner_types = [getattr(models.OwnershipTypeClass, attr) for attr in dir(models.OwnershipTypeClass) if not callable(getattr(models.OwnershipTypeClass, attr)) and not attr.startswith("__")]
 
-    if owner_type not in valid_owner_types:
-        raise ValueError(f"Invalid owner type: {owner_type}. Valid owner types are: {', '.join(valid_owner_types)}")
+    # Get all the valid owner types from the OwnershipTypeClass
+    valid_owner_types = [
+        attr
+        for attr in dir(models.OwnershipTypeClass)
+        if not callable(getattr(models.OwnershipTypeClass, attr))
+        and not attr.startswith("__")
+    ]
 
+    # Ensure the provided owner type is valid
+    if owners.type is not None and owners.type not in valid_owner_types:
+        raise ValueError(
+            f"Invalid owner type: {owners.type}. Valid owner types are: {', '.join(valid_owner_types)}"
+        )
+
+    # Iterate through users and groups to create owners with the specified type
     if owners.users is not None:
         owners_meta += [
             models.OwnerClass(
                 owner=make_user_urn(o),
-                type=owner_type,
+                type=getattr(
+                    models.OwnershipTypeClass, owners.type or "DEVELOPER"
+                ),  # Dynamically get the type
             )
             for o in owners.users
         ]
+
     if owners.groups is not None:
         owners_meta += [
             models.OwnerClass(
                 owner=make_group_urn(o),
-                type=owner_type,
+                type=getattr(
+                    models.OwnershipTypeClass, owners.type or "DEVELOPER"
+                ),  # Dynamically get the type
             )
             for o in owners.groups
         ]
-        
-    return models.OwnershipClass(owners=owners_meta)
 
+    return models.OwnershipClass(owners=owners_meta)
 
 
 def get_mces(
