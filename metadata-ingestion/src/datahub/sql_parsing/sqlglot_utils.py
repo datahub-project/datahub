@@ -111,6 +111,11 @@ def generalize_query(expression: sqlglot.exp.ExpOrStr, dialect: DialectOrStr) ->
     return expression.transform(_strip_expression, copy=True).sql(dialect=dialect)
 
 
+def generate_hash(text: str) -> str:
+    # Once we move to Python 3.9+, we can set `usedforsecurity=False`.
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
 def get_query_fingerprint(
     expression: sqlglot.exp.ExpOrStr, dialect: DialectOrStr
 ) -> str:
@@ -136,9 +141,7 @@ def get_query_fingerprint(
 
     dialect = get_dialect(dialect)
     expression_sql = generalize_query(expression, dialect=dialect)
-
-    # Once we move to Python 3.9+, we can set `usedforsecurity=False`.
-    fingerprint = hashlib.sha256(expression_sql.encode("utf-8")).hexdigest()
+    fingerprint = generate_hash(expression_sql)
 
     return fingerprint
 

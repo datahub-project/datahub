@@ -111,8 +111,8 @@ def test_temp_table(pytestconfig: pytest.Config) -> None:
         session_id="session3",
     )
 
-    # foo_session2 should come from the temp foo table, have columns a and c, and depend on bar.b and bar.c
-    # foo_session3 should come from the true foo table, have columns a and b, and depend on bar.b
+    # foo_session2 should come from bar (via temp table foo), have columns a and c, and depend on bar.{a,b,c}
+    # foo_session3 should come from foo, have columns a and b, and depend on bar.b
 
     mcps = list(aggregator.gen_metadata())
 

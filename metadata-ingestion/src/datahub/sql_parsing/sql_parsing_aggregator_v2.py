@@ -1,6 +1,7 @@
 import dataclasses
 import enum
 import itertools
+import json
 import logging
 from collections import defaultdict
 from datetime import datetime, timezone
@@ -25,6 +26,7 @@ from datahub.sql_parsing.sqlglot_lineage import (
     infer_output_schema,
     sqlglot_lineage,
 )
+from datahub.sql_parsing.sqlglot_utils import generate_hash
 from datahub.utilities.file_backed_collections import FileBackedDict
 from datahub.utilities.ordered_set import OrderedSet
 
@@ -237,11 +239,11 @@ class SqlParsingAggregator:
         # Load in the temp tables for this session.
         schema_resolver: SchemaResolverInterface = self._schema_resolver
         if session_id in self._temp_lineage_map:
-            temp_table_schemas: Dict[str, List[models.SchemaFieldClass]] = {}
+            temp_table_schemas: Dict[str, Optional[List[models.SchemaFieldClass]]] = {}
             for temp_table_urn, query_id in self._temp_lineage_map[session_id].items():
-                schema = self._inferred_temp_schemas.get(query_id)
-                if schema is not None:
-                    temp_table_schemas[temp_table_urn] = schema
+                temp_table_schemas[temp_table_urn] = self._inferred_temp_schemas.get(
+                    query_id
+                )
 
             if temp_table_schemas:
                 schema_resolver = self._schema_resolver.with_temp_tables(
@@ -257,8 +259,10 @@ class SqlParsingAggregator:
 
         if parsed.debug_info.table_error:
             # TODO replace with better error reporting + logging
+            breakpoint()
             logger.debug(
-                f"Error parsing query {query}: {parsed.debug_info.table_error}"
+                f"Error parsing query {query}: {parsed.debug_info.table_error}",
+                exc_info=parsed.debug_info.table_error,
             )
             return
 
@@ -491,9 +495,9 @@ class SqlParsingAggregator:
         return QueryUrn(query_id).urn()
 
     def _composite_query_id(self, composed_of_queries: Iterable[QueryId]) -> str:
-        # TODO fix this
-        breakpoint()
-        return f"composite_{'adfadf'}"
+        composed_of_queries = list(composed_of_queries)
+        combined = json.dumps(composed_of_queries)
+        return f"composite_{generate_hash(combined)}"
 
     def _resolve_query_with_temp_tables(
         self,
@@ -588,7 +592,6 @@ class SqlParsingAggregator:
 
         # Fast path if there were no temp tables.
         if len(composed_of_queries) == 1:
-            breakpoint()
             return base_query
 
         # If this query does actually depend on temp tables:
@@ -598,12 +601,11 @@ class SqlParsingAggregator:
         # - Update the query text to combine the queries
 
         composite_query_id = self._composite_query_id(composed_of_queries)
-        merged_query_text = "\n\n".join(
+        merged_query_text = ";\n\n".join(
             [
                 self._query_map[query_id].formatted_query_string
                 for query_id in composed_of_queries
             ]
-            + [base_query.formatted_query_string]
         )
 
         resolved_query = dataclasses.replace(
