@@ -153,3 +153,53 @@ def test_dataproduct_patch_yaml(
         )
         is False
     )
+
+
+@freeze_time(FROZEN_TIME)
+def test_dataproduct_ownership_type_urn_from_yaml(
+    pytestconfig: pytest.Config,
+    tmp_path: Path,
+    test_resources_dir: Path,
+    base_mock_graph: MockDataHubGraph,
+) -> None:
+    data_product_file = test_resources_dir / "dataproduct_ownership_type_urn.yaml"
+    mock_graph = base_mock_graph
+    data_product = DataProduct.from_yaml(data_product_file, mock_graph)
+
+    for mcp in data_product.generate_mcp(upsert=False):
+        mock_graph.emit(mcp)
+
+    output_file = tmp_path / "test_dataproduct_out.json"
+    mock_graph.sink_to_file(output_file)
+    golden_file = test_resources_dir / "golden_dataproduct_out_ownership_type_urn.json"
+    check_golden_file(pytestconfig, output_file, golden_file)
+
+
+@freeze_time(FROZEN_TIME)
+def test_dataproduct_ownership_type_urn_patch_yaml(
+    tmp_path: Path, test_resources_dir: Path, base_mock_graph: MockDataHubGraph
+) -> None:
+    mock_graph = base_mock_graph
+    source_file = test_resources_dir / "golden_dataproduct_out_ownership_type_urn.json"
+    mock_graph.import_file(source_file)
+
+    data_product_file = (
+        test_resources_dir / "dataproduct_ownership_type_urn_different_owner.yaml"
+    )
+    original_data_product: DataProduct = DataProduct.from_yaml(
+        data_product_file, mock_graph
+    )
+
+    data_product: DataProduct = DataProduct.from_datahub(
+        mock_graph, id="urn:li:dataProduct:pet_of_the_week"
+    )
+
+    dataproduct_output_file = (
+        tmp_path / "patch_dataproduct_ownership_type_urn_different_owner.yaml"
+    )
+    data_product.patch_yaml(original_data_product, dataproduct_output_file)
+
+    assert not check_yaml_golden_file(
+        str(dataproduct_output_file),
+        str(test_resources_dir / "dataproduct_ownership_type_urn.yaml"),
+    )

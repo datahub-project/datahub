@@ -1,6 +1,7 @@
 package com.linkedin.metadata.recommendation.candidatesource;
 
 import com.linkedin.common.urn.Urn;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.recommendation.RecommendationRenderType;
 import com.linkedin.metadata.recommendation.RecommendationRequestContext;
 import com.linkedin.metadata.recommendation.ScenarioType;
@@ -13,8 +14,9 @@ public class DomainsCandidateSource extends EntitySearchAggregationSource {
 
   private static final String DOMAINS = "domains";
 
-  public DomainsCandidateSource(EntitySearchService entitySearchService) {
-    super(entitySearchService);
+  public DomainsCandidateSource(
+      EntitySearchService entitySearchService, EntityRegistry entityRegistry) {
+    super(entitySearchService, entityRegistry);
   }
 
   @Override

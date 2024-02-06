@@ -1,4 +1,5 @@
 import datetime
+from functools import partial
 from unittest import mock
 from unittest.mock import MagicMock
 
@@ -18,24 +19,28 @@ from tests.test_helpers import mce_helpers
 
 FROZEN_TIME = "2022-06-07 17:00:00"
 
+default_connector_query_results = [
+    {
+        "connector_id": "calendar_elected",
+        "connecting_user_id": "reapply_phone",
+        "connector_type_id": "postgres",
+        "connector_name": "postgres",
+        "paused": False,
+        "sync_frequency": 1440,
+        "destination_id": "interval_unconstitutional",
+    },
+]
 
-def default_query_results(query):
+
+def default_query_results(
+    query, connector_query_results=default_connector_query_results
+):
     fivetran_log_query = FivetranLogQuery()
     fivetran_log_query.set_db("test")
     if query == fivetran_log_query.use_database("test_database"):
         return []
     elif query == fivetran_log_query.get_connectors_query():
-        return [
-            {
-                "connector_id": "calendar_elected",
-                "connecting_user_id": "reapply_phone",
-                "connector_type_id": "postgres",
-                "connector_name": "postgres",
-                "paused": False,
-                "sync_frequency": 1440,
-                "destination_id": "interval_unconstitutional",
-            },
-        ]
+        return connector_query_results
     elif query == fivetran_log_query.get_table_lineage_query("calendar_elected"):
         return [
             {
@@ -127,6 +132,92 @@ def test_fivetran_with_snowflake_dest(pytestconfig, tmp_path):
     ) as mock_create_engine:
         connection_magic_mock = MagicMock()
         connection_magic_mock.execute.side_effect = default_query_results
+
+        mock_create_engine.return_value = connection_magic_mock
+
+        pipeline = Pipeline.create(
+            {
+                "run_id": "powerbi-test",
+                "source": {
+                    "type": "fivetran",
+                    "config": {
+                        "fivetran_log_config": {
+                            "destination_platform": "snowflake",
+                            "snowflake_destination_config": {
+                                "account_id": "testid",
+                                "warehouse": "test_wh",
+                                "username": "test",
+                                "password": "test@123",
+                                "database": "test_database",
+                                "role": "testrole",
+                                "log_schema": "test",
+                            },
+                        },
+                        "connector_patterns": {
+                            "allow": [
+                                "postgres",
+                            ]
+                        },
+                        "sources_to_database": {
+                            "calendar_elected": "postgres_db",
+                        },
+                        "sources_to_platform_instance": {
+                            "calendar_elected": {
+                                "env": "DEV",
+                            }
+                        },
+                    },
+                },
+                "sink": {
+                    "type": "file",
+                    "config": {
+                        "filename": f"{output_file}",
+                    },
+                },
+            }
+        )
+
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=f"{output_file}",
+        golden_path=f"{golden_file}",
+    )
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration
+def test_fivetran_with_snowflake_dest_and_null_connector_user(pytestconfig, tmp_path):
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/fivetran"
+
+    # Run the metadata ingestion pipeline.
+    output_file = tmp_path / "fivetran_test_events.json"
+    golden_file = (
+        test_resources_dir / "fivetran_snowflake_empty_connection_user_golden.json"
+    )
+
+    with mock.patch(
+        "datahub.ingestion.source.fivetran.fivetran_log_api.create_engine"
+    ) as mock_create_engine:
+        connection_magic_mock = MagicMock()
+
+        connector_query_results = [
+            {
+                "connector_id": "calendar_elected",
+                "connecting_user_id": None,
+                "connector_type_id": "postgres",
+                "connector_name": "postgres",
+                "paused": False,
+                "sync_frequency": 1440,
+                "destination_id": "interval_unconstitutional",
+            },
+        ]
+
+        connection_magic_mock.execute.side_effect = partial(
+            default_query_results, connector_query_results=connector_query_results
+        )
 
         mock_create_engine.return_value = connection_magic_mock
 

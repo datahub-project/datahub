@@ -186,8 +186,6 @@ snowflake_common = {
     "cryptography",
     "msal",
     "acryl-datahub-classify==0.0.9",
-    # spacy version restricted to reduce backtracking, used by acryl-datahub-classify,
-    "spacy==3.4.3",
 }
 
 trino = {
@@ -309,10 +307,8 @@ plugins: Dict[str, Set[str]] = {
     # https://github.com/elastic/elasticsearch-py/issues/1639#issuecomment-883587433
     "elasticsearch": {"elasticsearch==7.13.4"},
     "feast": {
-        "feast~=0.35.0",
+        "feast>=0.34.0,<1",
         "flask-openid>=1.3.0",
-        # typeguard 3.x, released on 2023-03-14, seems to cause issues with Feast.
-        "typeguard<3",
     },
     "glue": aws_common,
     # hdbcli is supported officially by SAP, sqlalchemy-hana is built on top but not officially supported
@@ -468,7 +464,7 @@ base_dev_requirements = {
     pytest_dep,
     "pytest-asyncio>=0.16.0",
     "pytest-cov>=2.8.1",
-    "pytest-docker>=1.0.1",
+    "pytest-docker>=1.1.0",
     deepdiff_dep,
     "requests-mock",
     "freezegun",
