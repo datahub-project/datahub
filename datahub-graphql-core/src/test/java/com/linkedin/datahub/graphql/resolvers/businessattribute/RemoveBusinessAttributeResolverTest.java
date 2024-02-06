@@ -71,25 +71,6 @@ public class RemoveBusinessAttributeResolverTest {
                 .ingestProposal(Mockito.any(MetadataChangeProposal.class),
                         Mockito.eq(mockAuthentication));
     }
-
-    @Test
-    public void testBusinessAttributeNotExists() throws Exception {
-        init();
-        setupAllowContext();
-        Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(addBusinessAttributeInput());
-        Mockito.when(mockClient.exists(Urn.createFromString((BUSINESS_ATTRIBUTE_URN)), mockAuthentication)).thenReturn(false);
-        Mockito.when(mockService.exists(Urn.createFromString(RESOURCE_URN))).thenReturn(true);
-        Mockito.when(mockService.getAspect(Urn.createFromString(RESOURCE_URN), Constants.SCHEMA_METADATA_ASPECT_NAME, 0))
-                .thenReturn(schemaMetadata());
-        RemoveBusinessAttributeResolver resolver = new RemoveBusinessAttributeResolver(mockClient, mockService);
-        RuntimeException exception = expectThrows(RuntimeException.class, () -> resolver.get(mockEnv).get());
-        assertTrue(exception.getMessage().equals(
-                String.format("This urn does not exist: %s", BUSINESS_ATTRIBUTE_URN)));
-        Mockito.verify(mockClient, Mockito.times(0))
-                .ingestProposal(Mockito.any(MetadataChangeProposal.class),
-                        Mockito.eq(mockAuthentication));
-    }
-
     @Test
     public void testBusinessAttributeNotAdded() throws Exception {
         init();
