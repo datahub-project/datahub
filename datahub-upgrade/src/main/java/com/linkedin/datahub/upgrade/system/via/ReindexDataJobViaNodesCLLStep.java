@@ -21,11 +21,9 @@ public class ReindexDataJobViaNodesCLLStep implements UpgradeStep {
   private static final String UPGRADE_ID = "via-node-cll-reindex-datajob";
   private static final Urn UPGRADE_ID_URN = BootstrapStep.getUpgradeUrn(UPGRADE_ID);
 
-  private static final Integer BATCH_SIZE = 5000;
+  private final EntityService<?> _entityService;
 
-  private final EntityService _entityService;
-
-  public ReindexDataJobViaNodesCLLStep(EntityService entityService) {
+  public ReindexDataJobViaNodesCLLStep(EntityService<?> entityService) {
     _entityService = entityService;
   }
 
@@ -41,7 +39,7 @@ public class ReindexDataJobViaNodesCLLStep implements UpgradeStep {
       context.report().addLine("Rows migrated: " + result.rowsMigrated);
       context.report().addLine("Rows ignored: " + result.ignored);
       try {
-        BootstrapStep.setUpgradeResult(UPGRADE_ID_URN, _entityService);
+        BootstrapStep.setUpgradeResultNoGMS(UPGRADE_ID_URN, _entityService);
         context.report().addLine("State updated: " + UPGRADE_ID_URN);
       } catch (URISyntaxException e) {
         throw new RuntimeException(e);
