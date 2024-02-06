@@ -21,6 +21,7 @@ import com.linkedin.metadata.browse.BrowseResultGroupV2;
 import com.linkedin.metadata.browse.BrowseResultGroupV2Array;
 import com.linkedin.metadata.browse.BrowseResultMetadata;
 import com.linkedin.metadata.browse.BrowseResultV2;
+import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Criterion;
@@ -262,7 +263,8 @@ public class BrowseV2ResolverTest {
                 Mockito.eq(query),
                 Mockito.eq(start),
                 Mockito.eq(limit),
-                Mockito.any(Authentication.class)))
+                Mockito.any(Authentication.class),
+                Mockito.any(SearchFlags.class)))
         .thenReturn(result);
     return client;
   }
