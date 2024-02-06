@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import TYPE_CHECKING, Dict, List, Any
+from typing import TYPE_CHECKING, Dict, List
 
 from datahub.api.entities.dataprocess.dataprocess_instance import InstanceRunResult
 

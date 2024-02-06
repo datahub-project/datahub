@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import TYPE_CHECKING, Dict, List, Optional, Set, Tuple, Union, cast, Any
+from typing import TYPE_CHECKING, Dict, List, Optional, Set, Tuple, Union, cast
 
 from airflow.configuration import conf
 from datahub.api.entities.datajob import DataFlow, DataJob
@@ -13,7 +13,7 @@ from datahub.utilities.urns.data_flow_urn import DataFlowUrn
 from datahub.utilities.urns.data_job_urn import DataJobUrn
 
 from datahub_airflow_plugin._airflow_compat import AIRFLOW_PATCHED
-from datahub_airflow_plugin._config import DatajobUrl, DatahubLineageConfig
+from datahub_airflow_plugin._config import DatahubLineageConfig, DatajobUrl
 
 assert AIRFLOW_PATCHED
 
@@ -209,7 +209,7 @@ class AirflowGenerator:
         set_dependencies: bool = True,
         capture_owner: bool = True,
         capture_tags: bool = True,
-        config: DatahubLineageConfig = None,
+        config: DatahubLineageConfig = DatajobUrl.TASKINSTANCE,
     ) -> DataJob:
         """
 
@@ -297,7 +297,7 @@ class AirflowGenerator:
         task: "Operator",
         dag: "DAG",
         data_job: Optional[DataJob] = None,
-        config: DatahubLineageConfig = None,
+        config: DatahubLineageConfig = DatajobUrl.TASKINSTANCE,
     ) -> DataProcessInstance:
         if data_job is None:
             data_job = AirflowGenerator.generate_datajob(
