@@ -843,11 +843,11 @@ class BigqueryLineageExtractor:
                             upstream_lineage, temp_table_upstream
                         )
 
-                        upstreams[ref_temp_table_upstream] = (
-                            _merge_lineage_edge_columns(
-                                upstreams.get(ref_temp_table_upstream),
-                                collapsed_lineage,
-                            )
+                        upstreams[
+                            ref_temp_table_upstream
+                        ] = _merge_lineage_edge_columns(
+                            upstreams.get(ref_temp_table_upstream),
+                            collapsed_lineage,
                         )
             else:
                 upstreams[upstream_table_ref] = _merge_lineage_edge_columns(

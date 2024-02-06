@@ -84,11 +84,13 @@ def get_sys_time() -> int:
 
 
 @overload
-def make_ts_millis(ts: None) -> None: ...  # noqa: E704
+def make_ts_millis(ts: None) -> None:
+    ...
 
 
 @overload
-def make_ts_millis(ts: datetime) -> int: ...  # noqa: E704
+def make_ts_millis(ts: datetime) -> int:
+    ...
 
 
 def make_ts_millis(ts: Optional[datetime]) -> Optional[int]:

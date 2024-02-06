@@ -32,13 +32,12 @@ class GraphQLSchemaMetadata(TypedDict):
 
 
 class SchemaResolverInterface(Protocol):
-
     @property
-    def platform(self) -> str: ...  # noqa: E704
+    def platform(self) -> str:
+        ...
 
-    def resolve_table(  # noqa: E704
-        self, table: _TableName
-    ) -> Tuple[str, Optional[SchemaInfo]]: ...
+    def resolve_table(self, table: _TableName) -> Tuple[str, Optional[SchemaInfo]]:
+        ...
 
     def __hash__(self) -> int:
         # Mainly to make lru_cache happy in methods that accept a schema resolver.

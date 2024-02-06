@@ -74,7 +74,6 @@ class QueryMetadata:
 
 
 class SqlParsingAggregator:
-
     def __init__(
         self,
         *,
@@ -259,7 +258,6 @@ class SqlParsingAggregator:
 
         if parsed.debug_info.table_error:
             # TODO replace with better error reporting + logging
-            breakpoint()
             logger.debug(
                 f"Error parsing query {query}: {parsed.debug_info.table_error}",
                 exc_info=parsed.debug_info.table_error,

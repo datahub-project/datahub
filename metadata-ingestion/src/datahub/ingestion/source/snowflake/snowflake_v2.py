@@ -258,9 +258,9 @@ class SnowflakeV2Source(
 
         self.usage_extractor: Optional[SnowflakeUsageExtractor] = None
         if self.config.include_usage_stats or self.config.include_operational_stats:
-            redundant_usage_run_skip_handler: Optional[RedundantUsageRunSkipHandler] = (
-                None
-            )
+            redundant_usage_run_skip_handler: Optional[
+                RedundantUsageRunSkipHandler
+            ] = None
             if self.config.enable_stateful_usage_ingestion:
                 redundant_usage_run_skip_handler = RedundantUsageRunSkipHandler(
                     source=self,
@@ -645,9 +645,9 @@ class SnowflakeV2Source(
             )
             return None
         else:
-            ischema_databases: List[SnowflakeDatabase] = (
-                self.get_databases_from_ischema(databases)
-            )
+            ischema_databases: List[
+                SnowflakeDatabase
+            ] = self.get_databases_from_ischema(databases)
 
             if len(ischema_databases) == 0:
                 self.report_error(

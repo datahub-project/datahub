@@ -224,9 +224,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         )
         self.sql_parser_schema_resolver = self._init_schema_resolver()
 
-        redundant_lineage_run_skip_handler: Optional[RedundantLineageRunSkipHandler] = (
-            None
-        )
+        redundant_lineage_run_skip_handler: Optional[
+            RedundantLineageRunSkipHandler
+        ] = None
         if self.config.enable_stateful_lineage_ingestion:
             redundant_lineage_run_skip_handler = RedundantLineageRunSkipHandler(
                 source=self,

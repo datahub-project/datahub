@@ -457,14 +457,11 @@ class TeradataSource(TwoTierSQLAlchemySource):
 
     LINEAGE_QUERY_DATABASE_FILTER: str = """and default_database IN ({databases})"""
 
-    LINEAGE_TIMESTAMP_BOUND_QUERY: str = (
-        """
+    LINEAGE_TIMESTAMP_BOUND_QUERY: str = """
     SELECT MIN(CollectTimeStamp) as "min_ts", MAX(CollectTimeStamp) as "max_ts" from DBC.DBQLogTbl
     """.strip()
-    )
 
-    QUERY_TEXT_QUERY: str = (
-        """
+    QUERY_TEXT_QUERY: str = """
     SELECT
         s.QueryID as "query_id",
         UserName as "user",
@@ -499,10 +496,8 @@ class TeradataSource(TwoTierSQLAlchemySource):
         {databases_filter}
     ORDER BY "query_id", "row_no"
     """.strip()
-    )
 
-    TABLES_AND_VIEWS_QUERY: str = (
-        """
+    TABLES_AND_VIEWS_QUERY: str = """
 SELECT
     t.DatabaseName,
     t.TableName as name,
@@ -568,7 +563,6 @@ WHERE DatabaseName NOT IN (
 AND t.TableKind in ('T', 'V', 'Q', 'O')
 ORDER by DatabaseName, TableName;
      """.strip()
-    )
 
     _tables_cache: MutableMapping[str, List[TeradataTable]] = defaultdict(list)
 

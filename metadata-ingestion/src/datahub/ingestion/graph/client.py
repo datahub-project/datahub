@@ -203,9 +203,7 @@ class DataHubGraph(DatahubRestEmitter):
                 'Cannot get a timeseries aspect using "get_aspect". Use "get_latest_timeseries_value" instead.'
             )
 
-        url: str = (
-            f"{self._gms_server}/aspects/{Urn.url_encode(entity_urn)}?aspect={aspect}&version={version}"
-        )
+        url: str = f"{self._gms_server}/aspects/{Urn.url_encode(entity_urn)}?aspect={aspect}&version={version}"
         response = self._session.get(url)
         if response.status_code == 404:
             # not found

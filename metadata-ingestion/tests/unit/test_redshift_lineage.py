@@ -256,9 +256,7 @@ def test_collapse_temp_lineage():
 
     print(lineage_extractor._lineage_map)
 
-    target_urn: str = (
-        "urn:li:dataset:(urn:li:dataPlatform:redshift,test.public.player_price_with_hike_v6,PROD)"
-    )
+    target_urn: str = "urn:li:dataset:(urn:li:dataPlatform:redshift,test.public.player_price_with_hike_v6,PROD)"
 
     assert lineage_extractor._lineage_map.get(target_urn) is not None
 

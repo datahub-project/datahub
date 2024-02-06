@@ -891,9 +891,9 @@ class Mapper:
         # Convert tiles to charts
         ds_mcps, chart_mcps = self.to_datahub_chart(dashboard.tiles, workspace)
         # Lets convert dashboard to datahub dashboard
-        dashboard_mcps: List[MetadataChangeProposalWrapper] = (
-            self.to_datahub_dashboard_mcp(dashboard, workspace, chart_mcps, user_mcps)
-        )
+        dashboard_mcps: List[
+            MetadataChangeProposalWrapper
+        ] = self.to_datahub_dashboard_mcp(dashboard, workspace, chart_mcps, user_mcps)
 
         # Now add MCPs in sequence
         mcps.extend(ds_mcps)
