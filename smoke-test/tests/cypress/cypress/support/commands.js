@@ -183,10 +183,10 @@ Cypress.Commands.add("addViaFormModal", (text, modelHeader) => {
   cy.get(".ant-modal-footer > button:nth-child(2)").click();
 });
 
-Cypress.Commands.add("addViaModal", (text, modelHeader,value) => {
+Cypress.Commands.add("addViaModal", (text, modelHeader, value, dataTestId) => {
   cy.waitTextVisible(modelHeader);
   cy.get(".ant-input-affix-wrapper > input[type='text']").first().type(text);
-  cy.get(".ant-modal-footer > button:nth-child(2)").click();
+  cy.get('[data-testid="' + dataTestId + '"]').click();
   cy.contains(value).should('be.visible');
 });
 
@@ -216,6 +216,10 @@ Cypress.Commands.add( 'multiSelect', (within_data_id , text) => {
   cy.openMultiSelect(within_data_id);
   cy.waitTextVisible(text);
   cy.clickOptionWithText(text);
+});
+
+Cypress.Commands.add("getWithTestId", (id) => {
+  return cy.get(selectorWithtestId(id));
 });
 
 Cypress.Commands.add("enterTextInTestId", (id, text) => {

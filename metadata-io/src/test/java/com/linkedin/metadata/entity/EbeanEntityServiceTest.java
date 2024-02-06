@@ -13,6 +13,7 @@ import com.linkedin.identity.CorpUserInfo;
 import com.linkedin.metadata.AspectGenerationUtils;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.EbeanTestUtils;
+import com.linkedin.metadata.config.EbeanConfiguration;
 import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.entity.ebean.EbeanAspectDao;
 import com.linkedin.metadata.entity.ebean.EbeanRetentionService;
@@ -63,7 +64,7 @@ public class EbeanEntityServiceTest
     Database server = EbeanTestUtils.createTestServer(EbeanEntityServiceTest.class.getSimpleName());
 
     _mockProducer = mock(EventProducer.class);
-    _aspectDao = new EbeanAspectDao(server);
+    _aspectDao = new EbeanAspectDao(server, EbeanConfiguration.testDefault);
 
     _mockUpdateIndicesService = mock(UpdateIndicesService.class);
     PreProcessHooks preProcessHooks = new PreProcessHooks();
@@ -75,7 +76,8 @@ public class EbeanEntityServiceTest
             _testEntityRegistry,
             false,
             _mockUpdateIndicesService,
-            preProcessHooks);
+            preProcessHooks,
+            true);
     _retentionService = new EbeanRetentionService(_entityServiceImpl, server, 1000);
     _entityServiceImpl.setRetentionService(_retentionService);
   }
@@ -121,24 +123,24 @@ public class EbeanEntityServiceTest
             MCPUpsertBatchItem.builder()
                 .urn(entityUrn1)
                 .aspectName(aspectName)
-                .aspect(writeAspect1)
+                .recordTemplate(writeAspect1)
                 .systemMetadata(metadata1)
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(_testEntityRegistry, _entityServiceImpl.getSystemEntityClient()),
+                .build(_entityServiceImpl),
             MCPUpsertBatchItem.builder()
                 .urn(entityUrn2)
                 .aspectName(aspectName)
-                .aspect(writeAspect2)
+                .recordTemplate(writeAspect2)
                 .systemMetadata(metadata1)
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(_testEntityRegistry, _entityServiceImpl.getSystemEntityClient()),
+                .build(_entityServiceImpl),
             MCPUpsertBatchItem.builder()
                 .urn(entityUrn3)
                 .aspectName(aspectName)
-                .aspect(writeAspect3)
+                .recordTemplate(writeAspect3)
                 .systemMetadata(metadata1)
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(_testEntityRegistry, _entityServiceImpl.getSystemEntityClient()));
+                .build(_entityServiceImpl));
     _entityServiceImpl.ingestAspects(AspectsBatchImpl.builder().items(items).build(), true, true);
 
     // List aspects
@@ -190,24 +192,24 @@ public class EbeanEntityServiceTest
             MCPUpsertBatchItem.builder()
                 .urn(entityUrn1)
                 .aspectName(aspectName)
-                .aspect(writeAspect1)
+                .recordTemplate(writeAspect1)
                 .systemMetadata(metadata1)
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(_testEntityRegistry, _entityServiceImpl.getSystemEntityClient()),
+                .build(_entityServiceImpl),
             MCPUpsertBatchItem.builder()
                 .urn(entityUrn2)
                 .aspectName(aspectName)
-                .aspect(writeAspect2)
+                .recordTemplate(writeAspect2)
                 .systemMetadata(metadata1)
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(_testEntityRegistry, _entityServiceImpl.getSystemEntityClient()),
+                .build(_entityServiceImpl),
             MCPUpsertBatchItem.builder()
                 .urn(entityUrn3)
                 .aspectName(aspectName)
-                .aspect(writeAspect3)
+                .recordTemplate(writeAspect3)
                 .systemMetadata(metadata1)
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(_testEntityRegistry, _entityServiceImpl.getSystemEntityClient()));
+                .build(_entityServiceImpl));
     _entityServiceImpl.ingestAspects(AspectsBatchImpl.builder().items(items).build(), true, true);
 
     // List aspects urns
@@ -311,6 +313,12 @@ public class EbeanEntityServiceTest
     Set<Triple<String, String, Long>> additions =
         actualAspectIds.stream()
             .filter(id -> !generatedAspectIds.contains(id))
+            // Exclude default aspects
+            .filter(
+                id ->
+                    !Set.of("browsePaths", "browsePathsV2", "dataPlatformInstance")
+                        .contains(id.getMiddle()))
+            .filter(id -> !id.getMiddle().endsWith("Key"))
             .collect(Collectors.toSet());
     assertEquals(
         additions.size(), 0, String.format("Expected no additional aspects. Found: %s", additions));
@@ -361,6 +369,12 @@ public class EbeanEntityServiceTest
     Set<Triple<String, String, Long>> additions =
         actualAspectIds.stream()
             .filter(id -> !generatedAspectIds.contains(id))
+            // Exclude default aspects
+            .filter(
+                id ->
+                    !Set.of("browsePaths", "browsePathsV2", "dataPlatformInstance")
+                        .contains(id.getMiddle()))
+            .filter(id -> !id.getMiddle().endsWith("Key"))
             .collect(Collectors.toSet());
     assertEquals(
         additions.size(), 0, String.format("Expected no additional aspects. Found: %s", additions));
@@ -451,13 +465,7 @@ public class EbeanEntityServiceTest
           auditStamp.setActor(Urn.createFromString(Constants.DATAHUB_ACTOR));
           auditStamp.setTime(System.currentTimeMillis());
           AspectsBatchImpl batch =
-              AspectsBatchImpl.builder()
-                  .mcps(
-                      mcps,
-                      auditStamp,
-                      entityService.getEntityRegistry(),
-                      entityService.getSystemEntityClient())
-                  .build();
+              AspectsBatchImpl.builder().mcps(mcps, auditStamp, entityService).build();
           entityService.ingestProposal(batch, false);
         }
       } catch (InterruptedException | URISyntaxException ie) {

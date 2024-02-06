@@ -1,13 +1,21 @@
 package com.linkedin.metadata.search.elasticsearch.indexbuilder;
 
+import static com.linkedin.metadata.Constants.ENTITY_TYPE_URN_PREFIX;
+import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_MAPPING_FIELD;
+import static com.linkedin.metadata.models.StructuredPropertyUtils.sanitizeStructuredPropertyFQN;
 import static com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder.*;
 
 import com.google.common.collect.ImmutableMap;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.metadata.models.LogicalValueType;
 import com.linkedin.metadata.models.SearchScoreFieldSpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation.FieldType;
 import com.linkedin.metadata.search.utils.ESUtils;
+import com.linkedin.structured.StructuredPropertyDefinition;
+import java.net.URISyntaxException;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -48,6 +56,53 @@ public class MappingsBuilder {
 
   private MappingsBuilder() {}
 
+  /**
+   * Builds mappings from entity spec and a collection of structured properties for the entity.
+   *
+   * @param entitySpec entity's spec
+   * @param structuredProperties structured properties for the entity
+   * @return mappings
+   */
+  public static Map<String, Object> getMappings(
+      @Nonnull final EntitySpec entitySpec,
+      Collection<StructuredPropertyDefinition> structuredProperties) {
+    Map<String, Object> mappings = getMappings(entitySpec);
+
+    String entityName = entitySpec.getEntityAnnotation().getName();
+    Map<String, Object> structuredPropertiesForEntity =
+        getMappingsForStructuredProperty(
+            structuredProperties.stream()
+                .filter(
+                    prop -> {
+                      try {
+                        return prop.getEntityTypes()
+                            .contains(Urn.createFromString(ENTITY_TYPE_URN_PREFIX + entityName));
+                      } catch (URISyntaxException e) {
+                        return false;
+                      }
+                    })
+                .collect(Collectors.toSet()));
+
+    if (!structuredPropertiesForEntity.isEmpty()) {
+      HashMap<String, Map<String, Object>> props =
+          (HashMap<String, Map<String, Object>>)
+              ((Map<String, Object>) mappings.get(PROPERTIES))
+                  .computeIfAbsent(
+                      STRUCTURED_PROPERTY_MAPPING_FIELD,
+                      (key) -> new HashMap<>(Map.of(PROPERTIES, new HashMap<>())));
+
+      props.merge(
+          PROPERTIES,
+          structuredPropertiesForEntity,
+          (oldValue, newValue) -> {
+            HashMap<String, Object> merged = new HashMap<>(oldValue);
+            merged.putAll(newValue);
+            return merged.isEmpty() ? null : merged;
+          });
+    }
+    return mappings;
+  }
+
   public static Map<String, Object> getMappings(@Nonnull final EntitySpec entitySpec) {
     Map<String, Object> mappings = new HashMap<>();
 
@@ -87,6 +142,30 @@ public class MappingsBuilder {
 
   private static Map<String, Object> getMappingsForRunId() {
     return ImmutableMap.<String, Object>builder().put(TYPE, ESUtils.KEYWORD_FIELD_TYPE).build();
+  }
+
+  public static Map<String, Object> getMappingsForStructuredProperty(
+      Collection<StructuredPropertyDefinition> properties) {
+    return properties.stream()
+        .map(
+            property -> {
+              Map<String, Object> mappingForField = new HashMap<>();
+              String valueType = property.getValueType().getId();
+              if (valueType.equalsIgnoreCase(LogicalValueType.STRING.name())) {
+                mappingForField = getMappingsForKeyword();
+              } else if (valueType.equalsIgnoreCase(LogicalValueType.RICH_TEXT.name())) {
+                mappingForField = getMappingsForSearchText(FieldType.TEXT_PARTIAL);
+              } else if (valueType.equalsIgnoreCase(LogicalValueType.DATE.name())) {
+                mappingForField.put(TYPE, ESUtils.DATE_FIELD_TYPE);
+              } else if (valueType.equalsIgnoreCase(LogicalValueType.URN.name())) {
+                mappingForField = getMappingsForUrn();
+              } else if (valueType.equalsIgnoreCase(LogicalValueType.NUMBER.name())) {
+                mappingForField.put(TYPE, ESUtils.DOUBLE_FIELD_TYPE);
+              }
+              return Map.entry(
+                  sanitizeStructuredPropertyFQN(property.getQualifiedName()), mappingForField);
+            })
+        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
   }
 
   private static Map<String, Object> getMappingsForField(

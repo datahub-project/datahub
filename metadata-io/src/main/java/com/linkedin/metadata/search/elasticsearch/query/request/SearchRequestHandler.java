@@ -1,7 +1,6 @@
 package com.linkedin.metadata.search.elasticsearch.query.request;
 
 import static com.linkedin.metadata.search.utils.ESUtils.NAME_SUGGESTION;
-import static com.linkedin.metadata.search.utils.ESUtils.toFacetField;
 import static com.linkedin.metadata.search.utils.SearchUtils.applyDefaultSearchFlags;
 import static com.linkedin.metadata.utils.SearchUtil.*;
 
@@ -10,22 +9,16 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.DoubleMap;
-import com.linkedin.data.template.LongMap;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import com.linkedin.metadata.query.SearchFlags;
-import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
-import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
-import com.linkedin.metadata.query.filter.Criterion;
-import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.AggregationMetadata;
 import com.linkedin.metadata.search.AggregationMetadataArray;
-import com.linkedin.metadata.search.FilterValueArray;
 import com.linkedin.metadata.search.MatchedField;
 import com.linkedin.metadata.search.MatchedFieldArray;
 import com.linkedin.metadata.search.ScrollResult;
@@ -37,13 +30,11 @@ import com.linkedin.metadata.search.SearchSuggestion;
 import com.linkedin.metadata.search.SearchSuggestionArray;
 import com.linkedin.metadata.search.features.Features;
 import com.linkedin.metadata.search.utils.ESUtils;
-import com.linkedin.metadata.utils.SearchUtil;
 import com.linkedin.util.Pair;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -51,13 +42,11 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.BinaryOperator;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang.StringUtils;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.common.text.Text;
@@ -66,12 +55,7 @@ import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.search.SearchHit;
-import org.opensearch.search.aggregations.Aggregation;
 import org.opensearch.search.aggregations.AggregationBuilders;
-import org.opensearch.search.aggregations.Aggregations;
-import org.opensearch.search.aggregations.bucket.missing.ParsedMissing;
-import org.opensearch.search.aggregations.bucket.terms.ParsedTerms;
-import org.opensearch.search.aggregations.bucket.terms.Terms;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.search.fetch.subphase.highlight.HighlightBuilder;
 import org.opensearch.search.fetch.subphase.highlight.HighlightField;
@@ -88,14 +72,14 @@ public class SearchRequestHandler {
           .setSkipHighlighting(false);
   private static final Map<List<EntitySpec>, SearchRequestHandler> REQUEST_HANDLER_BY_ENTITY_NAME =
       new ConcurrentHashMap<>();
-  private static final String URN_FILTER = "urn";
   private final List<EntitySpec> _entitySpecs;
   private final Set<String> _defaultQueryFieldNames;
   private final HighlightBuilder _highlights;
-  private final Map<String, String> _filtersToDisplayName;
+
   private final SearchConfiguration _configs;
   private final SearchQueryBuilder _searchQueryBuilder;
   private final AggregationQueryBuilder _aggregationQueryBuilder;
+  private final Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes;
 
   private SearchRequestHandler(
       @Nonnull EntitySpec entitySpec,
@@ -109,17 +93,28 @@ public class SearchRequestHandler {
       @Nonnull SearchConfiguration configs,
       @Nullable CustomSearchConfiguration customSearchConfiguration) {
     _entitySpecs = entitySpecs;
-    List<SearchableAnnotation> annotations = getSearchableAnnotations();
+    Map<EntitySpec, List<SearchableAnnotation>> entitySearchAnnotations =
+        getSearchableAnnotations();
+    List<SearchableAnnotation> annotations =
+        entitySearchAnnotations.values().stream()
+            .flatMap(List::stream)
+            .collect(Collectors.toList());
     _defaultQueryFieldNames = getDefaultQueryFieldNames(annotations);
-    _filtersToDisplayName =
-        annotations.stream()
-            .flatMap(annotation -> getFacetFieldDisplayNameFromAnnotation(annotation).stream())
-            .collect(Collectors.toMap(Pair::getFirst, Pair::getSecond, mapMerger()));
-    _filtersToDisplayName.put(INDEX_VIRTUAL_FIELD, "Type");
     _highlights = getHighlights();
     _searchQueryBuilder = new SearchQueryBuilder(configs, customSearchConfiguration);
-    _aggregationQueryBuilder = new AggregationQueryBuilder(configs, annotations);
+    _aggregationQueryBuilder = new AggregationQueryBuilder(configs, entitySearchAnnotations);
     _configs = configs;
+    searchableFieldTypes =
+        _entitySpecs.stream()
+            .flatMap(entitySpec -> entitySpec.getSearchableFieldTypes().entrySet().stream())
+            .collect(
+                Collectors.toMap(
+                    Map.Entry::getKey,
+                    Map.Entry::getValue,
+                    (set1, set2) -> {
+                      set1.addAll(set2);
+                      return set1;
+                    }));
   }
 
   public static SearchRequestHandler getBuilder(
@@ -140,12 +135,16 @@ public class SearchRequestHandler {
         k -> new SearchRequestHandler(entitySpecs, configs, customSearchConfiguration));
   }
 
-  private List<SearchableAnnotation> getSearchableAnnotations() {
+  private Map<EntitySpec, List<SearchableAnnotation>> getSearchableAnnotations() {
     return _entitySpecs.stream()
-        .map(EntitySpec::getSearchableFieldSpecs)
-        .flatMap(List::stream)
-        .map(SearchableFieldSpec::getSearchableAnnotation)
-        .collect(Collectors.toList());
+        .map(
+            spec ->
+                Pair.of(
+                    spec,
+                    spec.getSearchableFieldSpecs().stream()
+                        .map(SearchableFieldSpec::getSearchableAnnotation)
+                        .collect(Collectors.toList())))
+        .collect(Collectors.toMap(Pair::getKey, Pair::getValue));
   }
 
   @VisibleForTesting
@@ -158,18 +157,14 @@ public class SearchRequestHandler {
         .collect(Collectors.toSet());
   }
 
-  // If values are not equal, throw error
-  private BinaryOperator<String> mapMerger() {
-    return (s1, s2) -> {
-      if (!StringUtils.equals(s1, s2)) {
-        throw new IllegalStateException(String.format("Unable to merge values %s and %s", s1, s2));
-      }
-      return s1;
-    };
+  public BoolQueryBuilder getFilterQuery(@Nullable Filter filter) {
+    return getFilterQuery(filter, searchableFieldTypes);
   }
 
-  public static BoolQueryBuilder getFilterQuery(@Nullable Filter filter) {
-    BoolQueryBuilder filterQuery = ESUtils.buildFilterQuery(filter, false);
+  public static BoolQueryBuilder getFilterQuery(
+      @Nullable Filter filter,
+      Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes) {
+    BoolQueryBuilder filterQuery = ESUtils.buildFilterQuery(filter, false, searchableFieldTypes);
 
     return filterSoftDeletedByDefault(filter, filterQuery);
   }
@@ -309,42 +304,6 @@ public class SearchRequestHandler {
   }
 
   /**
-   * Returns a {@link SearchRequest} given filters to be applied to search query and sort criterion
-   * to be applied to search results.
-   *
-   * <p>TODO: Used in batch ingestion from ingestion scheduler
-   *
-   * @param filters {@link Filter} list of conditions with fields and values
-   * @param sortCriterion {@link SortCriterion} to be applied to the search results
-   * @param sort sort values from last result of previous request
-   * @param pitId the Point In Time Id of the previous request
-   * @param keepAlive string representation of time to keep point in time alive
-   * @param size the number of search hits to return
-   * @return {@link SearchRequest} that contains the filtered query
-   */
-  @Nonnull
-  public SearchRequest getFilterRequest(
-      @Nullable Filter filters,
-      @Nullable SortCriterion sortCriterion,
-      @Nullable Object[] sort,
-      @Nullable String pitId,
-      @Nonnull String keepAlive,
-      int size) {
-    SearchRequest searchRequest = new SearchRequest();
-
-    BoolQueryBuilder filterQuery = getFilterQuery(filters);
-    final SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
-    searchSourceBuilder.query(filterQuery);
-    searchSourceBuilder.size(size);
-
-    ESUtils.setSearchAfter(searchSourceBuilder, sort, pitId, keepAlive);
-    ESUtils.buildSortOrder(searchSourceBuilder, sortCriterion, _entitySpecs);
-    searchRequest.source(searchSourceBuilder);
-
-    return searchRequest;
-  }
-
-  /**
    * Get search request to aggregate and get document counts per field value
    *
    * @param field Field to aggregate by
@@ -353,7 +312,7 @@ public class SearchRequestHandler {
    * @return {@link SearchRequest} that contains the aggregation query
    */
   @Nonnull
-  public static SearchRequest getAggregationRequest(
+  public SearchRequest getAggregationRequest(
       @Nonnull String field, @Nullable Filter filter, int limit) {
     SearchRequest searchRequest = new SearchRequest();
     BoolQueryBuilder filterQuery = getFilterQuery(filter);
@@ -539,7 +498,7 @@ public class SearchRequestHandler {
         new SearchResultMetadata().setAggregations(new AggregationMetadataArray());
 
     final List<AggregationMetadata> aggregationMetadataList =
-        extractAggregationMetadata(searchResponse, filter);
+        _aggregationQueryBuilder.extractAggregationMetadata(searchResponse, filter);
     searchResultMetadata.setAggregations(new AggregationMetadataArray(aggregationMetadataList));
 
     final List<SearchSuggestion> searchSuggestions = extractSearchSuggestions(searchResponse);
@@ -568,300 +527,5 @@ public class SearchRequestHandler {
       }
     }
     return searchSuggestions;
-  }
-
-  private String computeDisplayName(String name) {
-    if (_filtersToDisplayName.containsKey(name)) {
-      return _filtersToDisplayName.get(name);
-    } else if (name.contains(AGGREGATION_SEPARATOR_CHAR)) {
-      return Arrays.stream(name.split(AGGREGATION_SEPARATOR_CHAR))
-          .map(_filtersToDisplayName::get)
-          .collect(Collectors.joining(AGGREGATION_SEPARATOR_CHAR));
-    }
-    return name;
-  }
-
-  private List<AggregationMetadata> extractAggregationMetadata(
-      @Nonnull SearchResponse searchResponse, @Nullable Filter filter) {
-    final List<AggregationMetadata> aggregationMetadataList = new ArrayList<>();
-    if (searchResponse.getAggregations() == null) {
-      return addFiltersToAggregationMetadata(aggregationMetadataList, filter);
-    }
-    for (Map.Entry<String, Aggregation> entry :
-        searchResponse.getAggregations().getAsMap().entrySet()) {
-      if (entry.getValue() instanceof ParsedTerms) {
-        processTermAggregations(entry, aggregationMetadataList);
-      }
-      if (entry.getValue() instanceof ParsedMissing) {
-        processMissingAggregations(entry, aggregationMetadataList);
-      }
-    }
-    return addFiltersToAggregationMetadata(aggregationMetadataList, filter);
-  }
-
-  private void processTermAggregations(
-      final Map.Entry<String, Aggregation> entry,
-      final List<AggregationMetadata> aggregationMetadataList) {
-    final Map<String, Long> oneTermAggResult =
-        extractTermAggregations(
-            (ParsedTerms) entry.getValue(), entry.getKey().equals(INDEX_VIRTUAL_FIELD));
-    if (oneTermAggResult.isEmpty()) {
-      return;
-    }
-    final AggregationMetadata aggregationMetadata =
-        new AggregationMetadata()
-            .setName(entry.getKey())
-            .setDisplayName(computeDisplayName(entry.getKey()))
-            .setAggregations(new LongMap(oneTermAggResult))
-            .setFilterValues(
-                new FilterValueArray(
-                    SearchUtil.convertToFilters(oneTermAggResult, Collections.emptySet())));
-    aggregationMetadataList.add(aggregationMetadata);
-  }
-
-  private void processMissingAggregations(
-      final Map.Entry<String, Aggregation> entry,
-      final List<AggregationMetadata> aggregationMetadataList) {
-    ParsedMissing parsedMissing = (ParsedMissing) entry.getValue();
-    Long docCount = parsedMissing.getDocCount();
-    LongMap longMap = new LongMap();
-    longMap.put(entry.getKey(), docCount);
-    final AggregationMetadata aggregationMetadata =
-        new AggregationMetadata()
-            .setName(entry.getKey())
-            .setDisplayName(computeDisplayName(entry.getKey()))
-            .setAggregations(longMap)
-            .setFilterValues(
-                new FilterValueArray(SearchUtil.convertToFilters(longMap, Collections.emptySet())));
-    aggregationMetadataList.add(aggregationMetadata);
-  }
-
-  @WithSpan
-  public static Map<String, Long> extractAggregationsFromResponse(
-      @Nonnull SearchResponse searchResponse, @Nonnull String aggregationName) {
-    if (searchResponse.getAggregations() == null) {
-      return Collections.emptyMap();
-    }
-
-    Aggregation aggregation = searchResponse.getAggregations().get(aggregationName);
-    if (aggregation == null) {
-      return Collections.emptyMap();
-    }
-    if (aggregation instanceof ParsedTerms terms) {
-      return extractTermAggregations(terms, aggregationName.equals("_entityType"));
-    } else if (aggregation instanceof ParsedMissing missing) {
-      return Collections.singletonMap(missing.getName(), missing.getDocCount());
-    }
-    throw new UnsupportedOperationException(
-        "Unsupported aggregation type: " + aggregation.getClass().getName());
-  }
-
-  /**
-   * Adds nested sub-aggregation values to the aggregated results
-   *
-   * @param aggs The aggregations to traverse. Could be null (base case)
-   * @return A map from names to aggregation count values
-   */
-  @Nonnull
-  private static Map<String, Long> recursivelyAddNestedSubAggs(@Nullable Aggregations aggs) {
-    final Map<String, Long> aggResult = new HashMap<>();
-
-    if (aggs != null) {
-      for (Map.Entry<String, Aggregation> entry : aggs.getAsMap().entrySet()) {
-        if (entry.getValue() instanceof ParsedTerms terms) {
-          recurseTermsAgg(terms, aggResult, false);
-        } else if (entry.getValue() instanceof ParsedMissing missing) {
-          recurseMissingAgg(missing, aggResult);
-        } else {
-          throw new UnsupportedOperationException(
-              "Unsupported aggregation type: " + entry.getValue().getClass().getName());
-        }
-      }
-    }
-    return aggResult;
-  }
-
-  private static void recurseTermsAgg(
-      ParsedTerms terms, Map<String, Long> aggResult, boolean includeZeroes) {
-    List<? extends Terms.Bucket> bucketList = terms.getBuckets();
-    bucketList.forEach(bucket -> processTermBucket(bucket, aggResult, includeZeroes));
-  }
-
-  private static void processTermBucket(
-      Terms.Bucket bucket, Map<String, Long> aggResult, boolean includeZeroes) {
-    String key = bucket.getKeyAsString();
-    // Gets filtered sub aggregation doc count if exist
-    Map<String, Long> subAggs = recursivelyAddNestedSubAggs(bucket.getAggregations());
-    subAggs.forEach(
-        (entryKey, entryValue) ->
-            aggResult.put(
-                String.format("%s%s%s", key, AGGREGATION_SEPARATOR_CHAR, entryKey), entryValue));
-    long docCount = bucket.getDocCount();
-    if (includeZeroes || docCount > 0) {
-      aggResult.put(key, docCount);
-    }
-  }
-
-  private static void recurseMissingAgg(ParsedMissing missing, Map<String, Long> aggResult) {
-    Map<String, Long> subAggs = recursivelyAddNestedSubAggs(missing.getAggregations());
-    subAggs.forEach(
-        (key, value) ->
-            aggResult.put(
-                String.format("%s%s%s", missing.getName(), AGGREGATION_SEPARATOR_CHAR, key),
-                value));
-    long docCount = missing.getDocCount();
-    if (docCount > 0) {
-      aggResult.put(missing.getName(), docCount);
-    }
-  }
-
-  /**
-   * Extracts term aggregations give a parsed term.
-   *
-   * @param terms an abstract parse term, input can be either ParsedStringTerms ParsedLongTerms
-   * @return a map with aggregation key and corresponding doc counts
-   */
-  @Nonnull
-  private static Map<String, Long> extractTermAggregations(
-      @Nonnull ParsedTerms terms, boolean includeZeroes) {
-
-    final Map<String, Long> aggResult = new HashMap<>();
-    recurseTermsAgg(terms, aggResult, includeZeroes);
-
-    return aggResult;
-  }
-
-  /** Injects the missing conjunctive filters into the aggregations list. */
-  public List<AggregationMetadata> addFiltersToAggregationMetadata(
-      @Nonnull final List<AggregationMetadata> originalMetadata, @Nullable final Filter filter) {
-    if (filter == null) {
-      return originalMetadata;
-    }
-    if (filter.getOr() != null) {
-      addOrFiltersToAggregationMetadata(filter.getOr(), originalMetadata);
-    } else if (filter.getCriteria() != null) {
-      addCriteriaFiltersToAggregationMetadata(filter.getCriteria(), originalMetadata);
-    }
-    return originalMetadata;
-  }
-
-  void addOrFiltersToAggregationMetadata(
-      @Nonnull final ConjunctiveCriterionArray or,
-      @Nonnull final List<AggregationMetadata> originalMetadata) {
-    for (ConjunctiveCriterion conjunction : or) {
-      // For each item in the conjunction, inject an empty aggregation if necessary
-      addCriteriaFiltersToAggregationMetadata(conjunction.getAnd(), originalMetadata);
-    }
-  }
-
-  private void addCriteriaFiltersToAggregationMetadata(
-      @Nonnull final CriterionArray criteria,
-      @Nonnull final List<AggregationMetadata> originalMetadata) {
-    for (Criterion criterion : criteria) {
-      addCriterionFiltersToAggregationMetadata(criterion, originalMetadata);
-    }
-  }
-
-  private void addCriterionFiltersToAggregationMetadata(
-      @Nonnull final Criterion criterion,
-      @Nonnull final List<AggregationMetadata> aggregationMetadata) {
-
-    // We should never see duplicate aggregation for the same field in aggregation metadata list.
-    final Map<String, AggregationMetadata> aggregationMetadataMap =
-        aggregationMetadata.stream()
-            .collect(Collectors.toMap(AggregationMetadata::getName, agg -> agg));
-
-    // Map a filter criterion to a facet field (e.g. domains.keyword -> domains)
-    final String finalFacetField = toFacetField(criterion.getField());
-
-    if (finalFacetField == null) {
-      log.warn(
-          String.format(
-              "Found invalid filter field for entity search. Invalid or unrecognized facet %s",
-              criterion.getField()));
-      return;
-    }
-
-    // We don't want to add urn filters to the aggregations we return as a sidecar to search
-    // results.
-    // They are automatically added by searchAcrossLineage and we dont need them to show up in the
-    // filter panel.
-    if (finalFacetField.equals(URN_FILTER)) {
-      return;
-    }
-
-    if (aggregationMetadataMap.containsKey(finalFacetField)) {
-      /*
-       * If we already have aggregations for the facet field, simply inject any missing values counts into the set.
-       * If there are no results for a particular facet value, it will NOT be in the original aggregation set returned by
-       * Elasticsearch.
-       */
-      AggregationMetadata originalAggMetadata = aggregationMetadataMap.get(finalFacetField);
-      if (criterion.hasValues()) {
-        criterion
-            .getValues()
-            .forEach(
-                value ->
-                    addMissingAggregationValueToAggregationMetadata(value, originalAggMetadata));
-      } else {
-        addMissingAggregationValueToAggregationMetadata(criterion.getValue(), originalAggMetadata);
-      }
-    } else {
-      /*
-       * If we do not have ANY aggregation for the facet field, then inject a new aggregation metadata object for the
-       * facet field.
-       * If there are no results for a particular facet, it will NOT be in the original aggregation set returned by
-       * Elasticsearch.
-       */
-      aggregationMetadata.add(
-          buildAggregationMetadata(
-              finalFacetField,
-              _filtersToDisplayName.getOrDefault(finalFacetField, finalFacetField),
-              new LongMap(
-                  criterion.getValues().stream().collect(Collectors.toMap(i -> i, i -> 0L))),
-              new FilterValueArray(
-                  criterion.getValues().stream()
-                      .map(value -> createFilterValue(value, 0L, true))
-                      .collect(Collectors.toList()))));
-    }
-  }
-
-  private void addMissingAggregationValueToAggregationMetadata(
-      @Nonnull final String value, @Nonnull final AggregationMetadata originalMetadata) {
-    if (originalMetadata.getAggregations().entrySet().stream()
-            .noneMatch(entry -> value.equals(entry.getKey()))
-        || originalMetadata.getFilterValues().stream()
-            .noneMatch(entry -> entry.getValue().equals(value))) {
-      // No aggregation found for filtered value -- inject one!
-      originalMetadata.getAggregations().put(value, 0L);
-      originalMetadata.getFilterValues().add(createFilterValue(value, 0L, true));
-    }
-  }
-
-  private AggregationMetadata buildAggregationMetadata(
-      @Nonnull final String facetField,
-      @Nonnull final String displayName,
-      @Nonnull final LongMap aggValues,
-      @Nonnull final FilterValueArray filterValues) {
-    return new AggregationMetadata()
-        .setName(facetField)
-        .setDisplayName(displayName)
-        .setAggregations(aggValues)
-        .setFilterValues(filterValues);
-  }
-
-  private List<Pair<String, String>> getFacetFieldDisplayNameFromAnnotation(
-      @Nonnull final SearchableAnnotation annotation) {
-    final List<Pair<String, String>> facetsFromAnnotation = new ArrayList<>();
-    // Case 1: Default Keyword field
-    if (annotation.isAddToFilters()) {
-      facetsFromAnnotation.add(Pair.of(annotation.getFieldName(), annotation.getFilterName()));
-    }
-    // Case 2: HasX boolean field
-    if (annotation.isAddHasValuesToFilters() && annotation.getHasValuesFieldName().isPresent()) {
-      facetsFromAnnotation.add(
-          Pair.of(annotation.getHasValuesFieldName().get(), annotation.getHasValuesFilterName()));
-    }
-    return facetsFromAnnotation;
   }
 }

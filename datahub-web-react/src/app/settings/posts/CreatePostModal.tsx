@@ -13,6 +13,7 @@ import { useEnterKeyListener } from '../../shared/useEnterKeyListener';
 import { MediaType, PostContentType, PostType } from '../../../types.generated';
 import { useCreatePostMutation, useUpdatePostMutation } from '../../../graphql/mutations.generated';
 import { PostEntry } from './PostsListColumns';
+import handleGraphQLError from '../../shared/handleGraphQLError';
 
 type Props = {
     editData: PostEntry;
@@ -84,10 +85,12 @@ export default function CreatePostModal({ onClose, onCreate, editData, onEdit }:
                     form.resetFields();
                 }
             })
-            .catch((e) => {
-                message.destroy();
-                message.error({ content: 'Failed to create Post! An unknown error occured.', duration: 3 });
-                console.error('Failed to create Post:', e.message);
+            .catch((error) => {
+                handleGraphQLError({
+                    error,
+                    defaultMessage: 'Failed to create Post! An unexpected error occurred',
+                    permissionMessage: 'Unauthorized to create Post. Please contact your DataHub administrator.',
+                });
             });
         onClose();
     };

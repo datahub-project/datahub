@@ -8,6 +8,7 @@ import com.linkedin.metadata.recommendation.RecommendationContent;
 import com.linkedin.metadata.recommendation.RecommendationParams;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 
@@ -29,7 +30,7 @@ public interface EntityRecommendationSource extends RecommendationSource {
         entityUrns.stream()
             .map(UrnUtils::getUrn)
             .filter(urn -> getSupportedEntityTypes().contains(urn.getEntityType()))
-            .toList();
+            .collect(Collectors.toList());
     Set<Urn> existingNonRemoved = entityService.exists(entities, false);
 
     return entities.stream().filter(existingNonRemoved::contains).map(this::buildContent);

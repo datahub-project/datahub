@@ -28,7 +28,7 @@ public class IngestDataPlatformInstancesStep implements BootstrapStep {
 
   private static final int BATCH_SIZE = 1000;
 
-  private final EntityService<MCPUpsertBatchItem> _entityService;
+  private final EntityService<?> _entityService;
   private final AspectMigrationsDao _migrationsDao;
 
   @Override
@@ -79,10 +79,9 @@ public class IngestDataPlatformInstancesStep implements BootstrapStep {
               MCPUpsertBatchItem.builder()
                   .urn(urn)
                   .aspectName(DATA_PLATFORM_INSTANCE_ASPECT_NAME)
-                  .aspect(dataPlatformInstance.get())
+                  .recordTemplate(dataPlatformInstance.get())
                   .auditStamp(aspectAuditStamp)
-                  .build(
-                      _entityService.getEntityRegistry(), _entityService.getSystemEntityClient()));
+                  .build(_entityService));
         }
       }
 

@@ -1,6 +1,5 @@
 package com.linkedin.metadata.kafka;
 
-import com.linkedin.gms.factory.entity.RestliEntityClientFactory;
 import com.linkedin.gms.factory.telemetry.ScheduledAnalyticsFactory;
 import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import org.springframework.boot.SpringApplication;
@@ -22,6 +21,7 @@ import org.springframework.context.annotation.PropertySource;
       "com.linkedin.gms.factory.config",
       "com.linkedin.gms.factory.entity",
       "com.linkedin.gms.factory.entityregistry",
+      "com.linkedin.gms.factory.entityclient",
       "com.linkedin.gms.factory.kafka",
       "com.linkedin.gms.factory.search",
       "com.linkedin.gms.factory.secret",
@@ -30,12 +30,14 @@ import org.springframework.context.annotation.PropertySource;
       "com.linkedin.metadata.restli",
       "com.linkedin.metadata.kafka",
       "com.linkedin.metadata.dao.producer",
+      "com.linkedin.gms.factory.form",
+      "com.linkedin.metadata.dao.producer",
       "io.datahubproject.metadata.jobs.common.health.kafka"
     },
     excludeFilters = {
       @ComponentScan.Filter(
           type = FilterType.ASSIGNABLE_TYPE,
-          classes = {ScheduledAnalyticsFactory.class, RestliEntityClientFactory.class})
+          classes = {ScheduledAnalyticsFactory.class})
     })
 @PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
 public class MceConsumerApplication {

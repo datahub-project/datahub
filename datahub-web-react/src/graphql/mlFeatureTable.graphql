@@ -1,5 +1,8 @@
 query getMLFeatureTable($urn: String!) {
     mlFeatureTable(urn: $urn) {
         ...nonRecursiveMLFeatureTable
+        autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
+            ...autoRenderAspectFields
+        }
     }
 }

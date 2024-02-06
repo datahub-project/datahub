@@ -31,7 +31,7 @@ public class IngestDataPlatformsStep implements BootstrapStep {
 
   private static final String PLATFORM_ASPECT_NAME = "dataPlatformInfo";
 
-  private final EntityService<MCPUpsertBatchItem> _entityService;
+  private final EntityService<?> _entityService;
 
   @Override
   public String name() {
@@ -86,14 +86,12 @@ public class IngestDataPlatformsStep implements BootstrapStep {
                     return MCPUpsertBatchItem.builder()
                         .urn(urn)
                         .aspectName(PLATFORM_ASPECT_NAME)
-                        .aspect(info)
+                        .recordTemplate(info)
                         .auditStamp(
                             new AuditStamp()
                                 .setActor(Urn.createFromString(Constants.SYSTEM_ACTOR))
                                 .setTime(System.currentTimeMillis()))
-                        .build(
-                            _entityService.getEntityRegistry(),
-                            _entityService.getSystemEntityClient());
+                        .build(_entityService);
                   } catch (URISyntaxException e) {
                     throw new RuntimeException(e);
                   }

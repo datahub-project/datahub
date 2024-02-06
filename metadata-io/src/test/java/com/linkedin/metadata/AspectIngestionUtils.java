@@ -38,10 +38,10 @@ public class AspectIngestionUtils {
           MCPUpsertBatchItem.builder()
               .urn(urn)
               .aspectName(aspectName)
-              .aspect(aspect)
+              .recordTemplate(aspect)
               .auditStamp(AspectGenerationUtils.createAuditStamp())
               .systemMetadata(AspectGenerationUtils.createSystemMetadata())
-              .build(entityService.getEntityRegistry(), entityService.getSystemEntityClient()));
+              .build(entityService));
     }
     entityService.ingestAspects(AspectsBatchImpl.builder().items(items).build(), true, true);
     return aspects;
@@ -68,10 +68,10 @@ public class AspectIngestionUtils {
           MCPUpsertBatchItem.builder()
               .urn(urn)
               .aspectName(aspectName)
-              .aspect(aspect)
+              .recordTemplate(aspect)
               .auditStamp(AspectGenerationUtils.createAuditStamp())
               .systemMetadata(AspectGenerationUtils.createSystemMetadata())
-              .build(entityService.getEntityRegistry(), entityService.getSystemEntityClient()));
+              .build(entityService));
     }
     entityService.ingestAspects(AspectsBatchImpl.builder().items(items).build(), true, true);
     return aspects;
@@ -99,10 +99,10 @@ public class AspectIngestionUtils {
           MCPUpsertBatchItem.builder()
               .urn(urn)
               .aspectName(aspectName)
-              .aspect(aspect)
+              .recordTemplate(aspect)
               .auditStamp(AspectGenerationUtils.createAuditStamp())
               .systemMetadata(AspectGenerationUtils.createSystemMetadata())
-              .build(entityService.getEntityRegistry(), entityService.getSystemEntityClient()));
+              .build(entityService));
     }
     entityService.ingestAspects(AspectsBatchImpl.builder().items(items).build(), true, true);
     return aspects;

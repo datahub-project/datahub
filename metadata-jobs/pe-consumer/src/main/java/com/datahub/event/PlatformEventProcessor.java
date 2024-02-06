@@ -46,7 +46,7 @@ public class PlatformEventProcessor {
   public void consume(final ConsumerRecord<String, GenericRecord> consumerRecord) {
     try (Timer.Context i = MetricUtils.timer(this.getClass(), "consume").time()) {
 
-      log.info("Consuming a Platform Event");
+      log.debug("Consuming a Platform Event");
 
       kafkaLagStats.update(System.currentTimeMillis() - consumerRecord.timestamp());
       final GenericRecord record = consumerRecord.value();
