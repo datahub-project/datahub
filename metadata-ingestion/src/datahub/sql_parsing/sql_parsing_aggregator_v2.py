@@ -3,6 +3,8 @@ import enum
 import itertools
 import json
 import logging
+import pathlib
+import tempfile
 from collections import defaultdict
 from datetime import datetime, timezone
 from typing import Callable, Dict, Iterable, List, Optional, Set, cast
@@ -30,7 +32,11 @@ from datahub.sql_parsing.sqlglot_lineage import (
     sqlglot_lineage,
 )
 from datahub.sql_parsing.sqlglot_utils import generate_hash
-from datahub.utilities.file_backed_collections import FileBackedDict
+from datahub.utilities.file_backed_collections import (
+    ConnectionWrapper,
+    FileBackedDict,
+    FileBackedList,
+)
 from datahub.utilities.lossy_collections import LossyDict, LossyList
 from datahub.utilities.ordered_set import OrderedSet
 
@@ -42,7 +48,7 @@ _DEFAULT_USER_URN = CorpUserUrn("_ingestion")
 _MISSING_SESSION_ID = "__MISSING_SESSION_ID"
 
 
-class StoreQueriesSetting(enum.Enum):
+class QueryLogSetting(enum.Enum):
     DISABLED = "DISABLED"
     STORE_ALL = "STORE_ALL"
     STORE_FAILED = "STORE_FAILED"
@@ -82,6 +88,7 @@ class QueryMetadata:
 @dataclasses.dataclass
 class SqlAggregatorReport(Report):
     _aggregator: "SqlParsingAggregator"
+    query_log_path: Optional[str] = None
 
     num_observed_queries: int = 0
     # num_view_definitions: int = 0  # TODO
@@ -127,7 +134,7 @@ class SqlParsingAggregator:
         generate_operations: bool = False,
         usage_config: Optional[BaseUsageConfig] = None,
         is_temp_table: Optional[Callable[[UrnStr], bool]] = None,
-        store_queries: StoreQueriesSetting = StoreQueriesSetting.DISABLED,
+        query_log: QueryLogSetting = QueryLogSetting.DISABLED,
     ) -> None:
         self.platform = DataPlatformUrn(platform)
         self.platform_instance = platform_instance
@@ -149,9 +156,7 @@ class SqlParsingAggregator:
         # can be used by BQ where we have a "temp_table_dataset_prefix"
         self.is_temp_table = is_temp_table
 
-        self.store_queries = (
-            store_queries  # TODO: implement + make the name more descriptive
-        )
+        self.query_log = query_log
 
         # Set up the schema resolver.
         self._schema_resolver: SchemaResolver
@@ -170,19 +175,44 @@ class SqlParsingAggregator:
         # In particular, it must be true that if two queries have the same fingerprint,
         # they must generate the same lineage.
 
+        if self.query_log != QueryLogSetting.DISABLED:
+            # Initialize and log a file to store the queries.
+            query_log_path = pathlib.Path(tempfile.mkdtemp()) / "query_log.db"
+
+            # By providing a filename explicitly here, we also ensure that the file
+            # is not automatically deleted on exit.
+            self._shared_connection = ConnectionWrapper(filename=query_log_path)
+
+            self.report.query_log_path = str(query_log_path)
+        else:
+            self._shared_connection = None
+
+        # Stores the logged queries.
+        self._logged_queries = FileBackedList[str](
+            shared_connection=self._shared_connection, tablename="stored_queries"
+        )
+
         # Map of query_id -> QueryMetadata
-        self._query_map = FileBackedDict[QueryMetadata]()
+        self._query_map = FileBackedDict[QueryMetadata](
+            shared_connection=self._shared_connection, tablename="query_map"
+        )
 
         # Map of downstream urn -> { query ids }
-        self._lineage_map = FileBackedDict[OrderedSet[QueryId]]()
+        self._lineage_map = FileBackedDict[OrderedSet[QueryId]](
+            shared_connection=self._shared_connection, tablename="lineage_map"
+        )
 
         # Map of session ID -> {temp table name -> query id}
         # Needs to use the query_map to find the info about the query.
         # This assumes that a temp table is created at most once per session.
-        self._temp_lineage_map = FileBackedDict[Dict[UrnStr, QueryId]]()
+        self._temp_lineage_map = FileBackedDict[Dict[UrnStr, QueryId]](
+            shared_connection=self._shared_connection, tablename="temp_lineage_map"
+        )
 
         # Map of query ID -> schema fields, only for query IDs that generate temp tables.
-        self._inferred_temp_schemas = FileBackedDict[List[models.SchemaFieldClass]]()
+        self._inferred_temp_schemas = FileBackedDict[List[models.SchemaFieldClass]](
+            shared_connection=self._shared_connection, tablename="inferred_temp_schemas"
+        )
 
         # Usage aggregator. This will only be initialized if usage statistics are enabled.
         # TODO: Replace with FileBackedDict.
@@ -265,10 +295,12 @@ class SqlParsingAggregator:
         is_known_temp_table: bool = False,
         require_out_table_schema: bool = False,
     ) -> None:
-        # This may or may not generate lineage.
-        # If it produces lineage to a temp table, that gets logged in a separate lineage map
-        # If it produces lineage to a non-temp table, it also produces an operation.
-        # Either way, it generates usage.
+        """Add an observed query to the aggregator.
+
+        This will always generate usage. If it's a mutation query, it will also generate
+        lineage and an operation. If it's a temp table, the lineage gets logged in a separate
+        map, which will get used in subsequent queries with the same session ID.
+        """
 
         # Note: this assumes that queries come in order of increasing timestamps
         self.report.num_observed_queries += 1
@@ -448,7 +480,7 @@ class SqlParsingAggregator:
         # Tricky: by converting the timestamp to a number, we also can ignore the
         # differences between naive and aware datetimes.
         queries = sorted(
-            queries,
+            reversed(queries),
             key=lambda query: (
                 self._query_type_precedence(query.lineage_type),
                 -(make_ts_millis(query.latest_timestamp) or 0),

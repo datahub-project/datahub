@@ -440,7 +440,7 @@ class FileBackedList(Generic[_VT]):
 
     def __init__(
         self,
-        connection: Optional[ConnectionWrapper] = None,
+        shared_connection: Optional[ConnectionWrapper] = None,
         tablename: str = _DEFAULT_TABLE_NAME,
         serializer: Callable[[_VT], SqliteValue] = _default_serializer,
         deserializer: Callable[[Any], _VT] = _default_deserializer,
@@ -450,10 +450,10 @@ class FileBackedList(Generic[_VT]):
     ) -> None:
         self._len = 0
         self._dict = FileBackedDict[_VT](
-            shared_connection=connection,
+            shared_connection=shared_connection,
+            tablename=tablename,
             serializer=serializer,
             deserializer=deserializer,
-            tablename=tablename,
             extra_columns=extra_columns or {},
             cache_max_size=cache_max_size or _DEFAULT_MEMORY_CACHE_MAX_SIZE,
             cache_eviction_batch_size=cache_eviction_batch_size
