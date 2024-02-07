@@ -104,7 +104,7 @@ class SlackSource(TestableSource):
         try:
             # https://api.slack.com/methods/users.profile.get
             user_profile_res = self.get_slack_client().users_profile_get(
-                token=self.config.bot_token.get_secret_value(), user=user_obj.slack_id
+                user=user_obj.slack_id
             )
             user_profile = user_profile_res.get("profile", {})
             user_obj.title = user_profile.get("title")
@@ -121,7 +121,7 @@ class SlackSource(TestableSource):
         try:
             # https://api.slack.com/methods/users.lookupByEmail
             user_info_res = self.get_slack_client().users_lookupByEmail(
-                token=self.config.bot_token.get_secret_value(), email=user_obj.email
+                email=user_obj.email
             )
             user_info = user_info_res.get("user", {})
             user_obj.slack_id = user_info.get("id")
