@@ -77,6 +77,7 @@ class SlackSource(TestableSource):
             self.populate_user_profile(user_obj)
             if user_obj.urn is None:
                 continue
+            logger.info(f"User: {user_obj}")
             corpuser_editable_info = (
                 self.ctx.graph.get_aspect(
                     entity_urn=user_obj.urn, aspect_type=CorpUserEditableInfoClass
