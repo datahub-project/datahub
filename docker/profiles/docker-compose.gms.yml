@@ -93,6 +93,7 @@ x-datahub-gms-service: &datahub-gms-service
   env_file: datahub-gms/env/docker.env
   environment: &datahub-gms-env
     <<: [*primary-datastore-mysql-env, *graph-datastore-search-env, *search-datastore-env, *datahub-quickstart-telemetry-env, *kafka-env]
+    METADATA_SERVICE_AUTH_ENABLED: false
   healthcheck:
     test: curl -sS --fail http://datahub-gms:${DATAHUB_GMS_PORT:-8080}/health
     start_period: 90s
