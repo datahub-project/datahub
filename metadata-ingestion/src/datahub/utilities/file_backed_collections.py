@@ -71,9 +71,11 @@ class ConnectionWrapper:
     filename: pathlib.Path
 
     _temp_directory: Optional[str]
+    _dependent_objects: List[Union["FileBackedList", "FileBackedDict"]]
 
     def __init__(self, filename: Optional[pathlib.Path] = None):
         self._temp_directory = None
+        self._dependent_objects = []
 
         # Warning: If filename is provided, the file will not be automatically cleaned up.
         if not filename:
@@ -113,6 +115,8 @@ class ConnectionWrapper:
         return self.conn.executemany(sql, parameters)
 
     def close(self) -> None:
+        for obj in self._dependent_objects:
+            obj.close()
         self.conn.close()
         if self._temp_directory:
             shutil.rmtree(self._temp_directory)
@@ -200,6 +204,7 @@ class FileBackedDict(MutableMapping[str, _VT], Closeable, Generic[_VT]):
 
         if self.shared_connection:
             self._conn = self.shared_connection
+            self.shared_connection._dependent_objects.append(self)
         else:
             self._conn = ConnectionWrapper()
 

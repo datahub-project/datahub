@@ -192,20 +192,17 @@ class SqlParsingAggregator:
         # In particular, it must be true that if two queries have the same fingerprint,
         # they must generate the same lineage.
 
+        self._shared_connection: Optional[ConnectionWrapper] = None
         if self.query_log != QueryLogSetting.DISABLED:
             # Initialize and log a file to store the queries.
             query_log_path = pathlib.Path(tempfile.mkdtemp()) / "query_log.db"
+            self.report.query_log_path = str(query_log_path)
 
             # By providing a filename explicitly here, we also ensure that the file
             # is not automatically deleted on exit.
             self._shared_connection = ConnectionWrapper(filename=query_log_path)
 
-            self.report.query_log_path = str(query_log_path)
-        else:
-            self._shared_connection = None
-
         # Stores the logged queries.
-        # TODO implement this functionality
         self._logged_queries = FileBackedList[str](
             shared_connection=self._shared_connection, tablename="stored_queries"
         )
@@ -469,7 +466,7 @@ class SqlParsingAggregator:
             QueryMetadata(
                 query_id=query_fingerprint,
                 formatted_query_string=view_definition.view_definition,
-                session_id=None,
+                session_id=_MISSING_SESSION_ID,
                 query_type=QueryType.CREATE_VIEW,
                 lineage_type=models.DatasetLineageTypeClass.VIEW,
                 latest_timestamp=None,
@@ -534,11 +531,14 @@ class SqlParsingAggregator:
         else:
             self._query_map[query_fingerprint] = new
 
+    """
     def add_lineage(self) -> None:
         # A secondary mechanism for adding non-SQL-based lineage
         # e.g. redshift external tables might use this when pointing at s3
-        # TODO
+
+        # TODO Add this once we have a use case for it
         pass
+    """
 
     def gen_metadata(self) -> Iterable[MetadataChangeProposalWrapper]:
         # diff from v1 - we generate operations here, and it also
@@ -849,7 +849,7 @@ class SqlParsingAggregator:
             resource_urn_builder=lambda urn: urn,
             user_urn_builder=lambda urn: urn,
         ):
-            # TODO: Eventually we should change the usage aggregator to return MCPWs directly.
+            # TODO: We should change the usage aggregator to return MCPWs directly.
             yield cast(MetadataChangeProposalWrapper, wu.metadata)
 
     def _gen_operation_mcps(self) -> Iterable[MetadataChangeProposalWrapper]:

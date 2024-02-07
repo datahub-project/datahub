@@ -6,7 +6,10 @@ from freezegun import freeze_time
 
 import datahub.emitter.mce_builder as builder
 from datahub.metadata.urns import CorpUserUrn, DatasetUrn
-from datahub.sql_parsing.sql_parsing_aggregator_v2 import SqlParsingAggregator
+from datahub.sql_parsing.sql_parsing_aggregator_v2 import (
+    QueryLogSetting,
+    SqlParsingAggregator,
+)
 from tests.test_helpers import mce_helpers
 
 RESOURCE_DIR = pathlib.Path(__file__).parent / "aggregator_goldens"
@@ -183,6 +186,7 @@ def test_view_lineage(pytestconfig: pytest.Config) -> None:
         generate_lineage=True,
         generate_usage_statistics=False,
         generate_operations=False,
+        query_log=QueryLogSetting.STORE_ALL,
     )
 
     aggregator.add_view_definition(
