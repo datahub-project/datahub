@@ -28,6 +28,7 @@ from datahub.sql_parsing.sql_parsing_common import QueryType
 from datahub.sql_parsing.sqlglot_lineage import (
     ColumnLineageInfo,
     ColumnRef,
+    SqlParsingResult,
     infer_output_schema,
     sqlglot_lineage,
 )
@@ -52,6 +53,15 @@ class QueryLogSetting(enum.Enum):
     DISABLED = "DISABLED"
     STORE_ALL = "STORE_ALL"
     STORE_FAILED = "STORE_FAILED"
+
+
+@dataclasses.dataclass
+class ViewDefinition:
+    # TODO view urn?
+
+    view_definition: str
+    default_db: Optional[str] = None
+    default_schema: Optional[str] = None
 
 
 @dataclasses.dataclass
@@ -91,16 +101,23 @@ class SqlAggregatorReport(Report):
     query_log_path: Optional[str] = None
 
     num_observed_queries: int = 0
-    # num_view_definitions: int = 0  # TODO
+    num_observed_queries_failed: int = 0
+    num_observed_queries_column_failed: int = 0
+    observed_query_parse_failures = LossyList[str]()
+
+    num_view_definitions: int = 0
+    num_views_failed: int = 0
+    num_views_column_failed: int = 0
+    views_parse_failures = LossyDict[UrnStr, str]()
 
     num_queries_with_temp_tables_in_session: int = 0
 
-    num_unique_query_fingerprints: int = 0
+    num_unique_query_fingerprints: Optional[int] = None
 
     # Lineage-related.
-    num_urns_with_lineage: int = 0
-    num_temp_sessions: int = 0
-    num_inferred_temp_schemas: int = 0
+    num_urns_with_lineage: Optional[int] = None
+    num_temp_sessions: Optional[int] = None
+    num_inferred_temp_schemas: Optional[int] = None
     queries_with_temp_upstreams: LossyDict[QueryId, LossyList] = dataclasses.field(
         default_factory=LossyDict
     )
@@ -188,6 +205,7 @@ class SqlParsingAggregator:
             self._shared_connection = None
 
         # Stores the logged queries.
+        # TODO implement this functionality
         self._logged_queries = FileBackedList[str](
             shared_connection=self._shared_connection, tablename="stored_queries"
         )
@@ -200,6 +218,11 @@ class SqlParsingAggregator:
         # Map of downstream urn -> { query ids }
         self._lineage_map = FileBackedDict[OrderedSet[QueryId]](
             shared_connection=self._shared_connection, tablename="lineage_map"
+        )
+
+        # Map of view urn -> view definition
+        self._view_definitions = FileBackedDict[ViewDefinition](
+            shared_connection=self._shared_connection, tablename="view_definitions"
         )
 
         # Map of session ID -> {temp table name -> query id}
@@ -266,20 +289,27 @@ class SqlParsingAggregator:
 
     def add_view_definition(
         self,
+        view_urn: DatasetUrn,
         view_definition: str,
         default_db: Optional[str] = None,
         default_schema: Optional[str] = None,
-        # used in case the query is "SELECT ..." and not
-        # "CREATE VIEW ... AS SELECT ..."
-        fallback_view_urn: Optional[DatasetUrn] = None,
     ) -> None:
-        # view definitions contribute to lineage, but not usage/operations
-        # if we have a view definition for a given table, observed queries are ignored
+        """Add a view definition to the aggregator.
 
-        # One critical detail here - unlike add_observed_query, add_view_definition
-        # only enqueues the view_definition. The actual query parsing and lineage
-        # generation happens at the time of gen_lineage.
-        pass
+        View definitions always contribute to lineage, but do not count towards
+        usage statistics or operations.
+
+        The actual processing of view definitions is deferred until output time,
+        since all schemas will be registered at that point.
+        """
+
+        self.report.num_view_definitions += 1
+
+        self._view_definitions[str(view_urn)] = ViewDefinition(
+            view_definition=view_definition,
+            default_db=default_db,
+            default_schema=default_schema,
+        )
 
     def add_observed_query(
         self,
@@ -300,9 +330,10 @@ class SqlParsingAggregator:
         This will always generate usage. If it's a mutation query, it will also generate
         lineage and an operation. If it's a temp table, the lineage gets logged in a separate
         map, which will get used in subsequent queries with the same session ID.
+
+        This assumes that queries come in order of increasing timestamps.
         """
 
-        # Note: this assumes that queries come in order of increasing timestamps
         self.report.num_observed_queries += 1
 
         # All queries with no session ID are assumed to be part of the same session.
@@ -323,24 +354,26 @@ class SqlParsingAggregator:
                 )
                 self.report.num_queries_with_temp_tables_in_session += 1
 
-        parsed = sqlglot_lineage(
+        # Run the SQL parser.
+        parsed = self._run_sql_parser(
             query,
-            schema_resolver=schema_resolver,
             default_db=default_db,
             default_schema=default_schema,
+            schema_resolver=schema_resolver,
         )
-
-        if parsed.debug_info.table_error:
-            # TODO replace with better error reporting + logging
-            logger.debug(
-                f"Error parsing query {query}: {parsed.debug_info.table_error}",
-                exc_info=parsed.debug_info.table_error,
+        if parsed.debug_info.error:
+            self.report.observed_query_parse_failures.append(
+                str(parsed.debug_info.error)
             )
-            return
+        if parsed.debug_info.table_error:
+            self.report.num_observed_queries_failed += 1
+            return  # we can't do anything with this query
+        elif parsed.debug_info.error:
+            self.report.num_observed_queries_column_failed += 1
 
         # Register the query's usage.
         if not self._usage_aggregator:
-            pass
+            pass  # usage is not enabled
         elif query_timestamp is None:
             self.report.usage_skipped_missing_timestamp += 1
         else:
@@ -356,16 +389,29 @@ class SqlParsingAggregator:
                     count=usage_multiplier,
                 )
 
-        # Register the query's lineage.
         if not parsed.out_tables:
             return
         out_table = parsed.out_tables[0]
         query_fingerprint = parsed.query_fingerprint
         assert query_fingerprint is not None
 
-        upstreams = parsed.in_tables
-        column_lineage = parsed.column_lineage
+        # Register the query.
+        self._add_to_query_map(
+            QueryMetadata(
+                query_id=query_fingerprint,
+                formatted_query_string=query,  # TODO replace with formatted query string
+                session_id=session_id,
+                query_type=parsed.query_type,
+                lineage_type=models.DatasetLineageTypeClass.TRANSFORMED,
+                latest_timestamp=query_timestamp,
+                actor=user,
+                upstreams=parsed.in_tables,
+                column_lineage=parsed.column_lineage or [],
+                confidence_score=parsed.debug_info.confidence,
+            )
+        )
 
+        # Register the query's lineage.
         if (
             is_known_temp_table
             or (
@@ -394,36 +440,99 @@ class SqlParsingAggregator:
                 query_fingerprint
             )
 
+    def _process_view_definition(
+        self, view_urn: UrnStr, view_definition: ViewDefinition
+    ) -> None:
+        # Run the SQL parser.
+        parsed = self._run_sql_parser(
+            view_definition.view_definition,
+            default_db=view_definition.default_db,
+            default_schema=view_definition.default_schema,
+            schema_resolver=self._schema_resolver,
+        )
+        if parsed.debug_info.error:
+            self.report.views_parse_failures[view_urn] = str(parsed.debug_info.error)
+        if parsed.debug_info.table_error:
+            self.report.num_views_failed += 1
+            return  # we can't do anything with this query
+        elif parsed.debug_info.error:
+            self.report.num_views_column_failed += 1
+
+        # Note that in some cases, the view definition will be a SELECT statement
+        # instead of a CREATE VIEW ... AS SELECT statement. In those cases, we can't
+        # trust the parsed query type or downstream urn.
+
+        query_fingerprint = self._view_query_id(view_urn)
+
+        # Register the query.
+        self._add_to_query_map(
+            QueryMetadata(
+                query_id=query_fingerprint,
+                formatted_query_string=view_definition.view_definition,
+                session_id=None,
+                query_type=QueryType.CREATE_VIEW,
+                lineage_type=models.DatasetLineageTypeClass.VIEW,
+                latest_timestamp=None,
+                actor=None,
+                upstreams=parsed.in_tables,
+                column_lineage=parsed.column_lineage or [],
+                confidence_score=parsed.debug_info.confidence,
+            )
+        )
+
+        # Register the query's lineage.
+        self._lineage_map.for_mutation(view_urn, OrderedSet()).add(query_fingerprint)
+
+    def _run_sql_parser(
+        self,
+        query: str,
+        default_db: Optional[str],
+        default_schema: Optional[str],
+        schema_resolver: SchemaResolverInterface,
+    ) -> SqlParsingResult:
+        parsed = sqlglot_lineage(
+            query,
+            schema_resolver=schema_resolver,
+            default_db=default_db,
+            default_schema=default_schema,
+        )
+
+        # Conditionally log the query.
+        if self.query_log == QueryLogSetting.STORE_ALL or (
+            self.query_log == QueryLogSetting.STORE_FAILED and parsed.debug_info.error
+        ):
+            self._logged_queries.append(query)
+
+        # Also add some extra logging.
+        if parsed.debug_info.error:
+            logger.debug(
+                f"Error parsing query {query}: {parsed.debug_info.error}",
+                exc_info=parsed.debug_info.error,
+            )
+
+        return parsed
+
+    def _add_to_query_map(self, new: QueryMetadata) -> None:
+        query_fingerprint = new.query_id
+
         if query_fingerprint in self._query_map:
-            query_metadata = self._query_map.for_mutation(query_fingerprint)
+            current = self._query_map.for_mutation(query_fingerprint)
 
             # This assumes that queries come in order of increasing timestamps,
             # so the current query is more authoritative than the previous one.
-            query_metadata.session_id = session_id
-            query_metadata.latest_timestamp = (
-                query_timestamp or query_metadata.latest_timestamp
-            )
-            query_metadata.actor = user or query_metadata.actor
+            current.formatted_query_string = new.formatted_query_string
+            current.session_id = new.session_id
+            current.latest_timestamp = new.latest_timestamp or current.latest_timestamp
+            current.actor = new.actor or current.actor
 
             # An invariant of the fingerprinting is that if two queries have the
             # same fingerprint, they must also have the same lineage. We overwrite
             # here just in case more schemas got registered in the interim.
-            query_metadata.upstreams = upstreams
-            query_metadata.column_lineage = column_lineage or []
-            query_metadata.confidence_score = parsed.debug_info.confidence
+            current.upstreams = new.upstreams
+            current.column_lineage = new.column_lineage
+            current.confidence_score = new.confidence_score
         else:
-            self._query_map[query_fingerprint] = QueryMetadata(
-                query_id=query_fingerprint,
-                formatted_query_string=query,  # TODO replace with formatted query string
-                session_id=session_id,
-                query_type=parsed.query_type,
-                lineage_type=models.DatasetLineageTypeClass.TRANSFORMED,
-                latest_timestamp=query_timestamp,
-                actor=user,
-                upstreams=upstreams,
-                column_lineage=column_lineage or [],
-                confidence_score=parsed.debug_info.confidence,
-            )
+            self._query_map[query_fingerprint] = new
 
     def add_lineage(self) -> None:
         # A secondary mechanism for adding non-SQL-based lineage
@@ -439,15 +548,17 @@ class SqlParsingAggregator:
         yield from self._gen_operation_mcps()
 
     def _gen_lineage_mcps(self) -> Iterable[MetadataChangeProposalWrapper]:
-        # the parsing of view definitions is deferred until this method,
-        # since all the view schemas will be registered at this point
-        # the temp table resolution happens at generation time, not add query time
-
         if not self.generate_lineage:
             return
 
-        # TODO process all views -> inject into the lineage map
+        # Process all views and inject them into the lineage map.
+        # The parsing of view definitions is deferred until this point
+        # to ensure the availability of all schema metadata.
+        for view_urn, view_definition in self._view_definitions.items():
+            self._process_view_definition(view_urn, view_definition)
+        self._view_definitions.clear()
 
+        # Generate lineage and queries.
         queries_generated: Set[QueryId] = set()
         for downstream_urn in self._lineage_map:
             yield from self._gen_lineage_for_downstream(
@@ -599,6 +710,9 @@ class SqlParsingAggregator:
         combined = json.dumps(composed_of_queries)
         return f"composite_{generate_hash(combined)}"
 
+    def _view_query_id(self, view_urn: UrnStr) -> str:
+        return f"view_{DatasetUrn.url_encode(view_urn)}"
+
     def _resolve_query_with_temp_tables(
         self,
         base_query: QueryMetadata,
@@ -728,13 +842,15 @@ class SqlParsingAggregator:
         return resolved_query
 
     def _gen_usage_statistics_mcps(self) -> Iterable[MetadataChangeProposalWrapper]:
-        if self._usage_aggregator:
-            for wu in self._usage_aggregator.generate_workunits(
-                resource_urn_builder=lambda urn: urn,
-                user_urn_builder=lambda urn: urn,
-            ):
-                # TODO: Eventually we should change the usage aggregator to return MCPWs directly.
-                yield cast(MetadataChangeProposalWrapper, wu.metadata)
+        if not self._usage_aggregator:
+            return
+
+        for wu in self._usage_aggregator.generate_workunits(
+            resource_urn_builder=lambda urn: urn,
+            user_urn_builder=lambda urn: urn,
+        ):
+            # TODO: Eventually we should change the usage aggregator to return MCPWs directly.
+            yield cast(MetadataChangeProposalWrapper, wu.metadata)
 
     def _gen_operation_mcps(self) -> Iterable[MetadataChangeProposalWrapper]:
         if not self.generate_operations:

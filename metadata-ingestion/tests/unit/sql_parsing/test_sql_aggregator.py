@@ -172,3 +172,42 @@ def test_aggregate_operations(pytestconfig: pytest.Config) -> None:
         outputs=mcps,
         golden_path=RESOURCE_DIR / "test_aggregate_operations.json",
     )
+
+
+@freeze_time(FROZEN_TIME)
+def test_view_lineage(pytestconfig: pytest.Config) -> None:
+    aggregator = SqlParsingAggregator(
+        platform="redshift",
+        platform_instance=None,
+        env=builder.DEFAULT_ENV,
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+    )
+
+    aggregator.add_view_definition(
+        view_urn=DatasetUrn("redshift", "dev.public.foo"),
+        view_definition="create view foo as select a, b from bar",
+        default_db="dev",
+        default_schema="public",
+    )
+
+    aggregator._schema_resolver.add_raw_schema_info(
+        urn=DatasetUrn("redshift", "dev.public.foo").urn(),
+        schema_info={"a": "int", "b": "int"},
+    )
+    aggregator._schema_resolver.add_raw_schema_info(
+        urn=DatasetUrn("redshift", "dev.public.bar").urn(),
+        schema_info={"a": "int", "b": "int"},
+    )
+
+    # Because we have schema information, despite it being registered after the view definition,
+    # the confidence score should be high.
+
+    mcps = list(aggregator.gen_metadata())
+
+    mce_helpers.check_goldens_stream(
+        pytestconfig,
+        outputs=mcps,
+        golden_path=RESOURCE_DIR / "test_view_lineage.json",
+    )
