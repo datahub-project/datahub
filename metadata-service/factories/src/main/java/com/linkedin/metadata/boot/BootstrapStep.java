@@ -4,15 +4,12 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.key.DataHubUpgradeKey;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.upgrade.DataHubUpgradeResult;
-import java.net.URISyntaxException;
-import java.util.List;
 import javax.annotation.Nonnull;
 
 /** A single step in the Bootstrap process. */
@@ -43,28 +40,6 @@ public interface BootstrapStep {
   }
 
   static void setUpgradeResult(Urn urn, EntityService<?> entityService) {
-    entityService.ingestProposal(buildMCP(urn), AuditStampUtils.createDefaultAuditStamp(), false);
-  }
-
-  /**
-   * If your upgrade step cannot depend on GMS (early stage system-update) Skips MCL because there
-   * is no available schema registry when using INTERNAL
-   *
-   * @param urn
-   * @param entityService
-   * @throws URISyntaxException
-   */
-  static void setUpgradeResultNoGMS(Urn urn, EntityService<?> entityService)
-      throws URISyntaxException {
-    entityService.ingestAspects(
-        AspectsBatchImpl.builder()
-            .mcps(List.of(buildMCP(urn)), AuditStampUtils.createDefaultAuditStamp(), entityService)
-            .build(),
-        false,
-        true);
-  }
-
-  private static MetadataChangeProposal buildMCP(Urn urn) {
     final DataHubUpgradeResult upgradeResult =
         new DataHubUpgradeResult().setTimestampMs(System.currentTimeMillis());
 
@@ -75,7 +50,6 @@ public interface BootstrapStep {
     upgradeProposal.setAspectName(Constants.DATA_HUB_UPGRADE_RESULT_ASPECT_NAME);
     upgradeProposal.setAspect(GenericRecordUtils.serializeAspect(upgradeResult));
     upgradeProposal.setChangeType(ChangeType.UPSERT);
-
-    return upgradeProposal;
+    entityService.ingestProposal(upgradeProposal, AuditStampUtils.createDefaultAuditStamp(), false);
   }
 }

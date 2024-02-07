@@ -16,6 +16,7 @@ import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.utils.DefaultAspectsUtil;
+import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Condition;
@@ -37,9 +38,8 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class BackfillBrowsePathsV2Step implements UpgradeStep {
 
-  public static final String BACKFILL_BROWSE_PATHS_V2 = "BACKFILL_BROWSE_PATHS_V2";
-  public static final String REPROCESS_DEFAULT_BROWSE_PATHS_V2 =
-      "REPROCESS_DEFAULT_BROWSE_PATHS_V2";
+  private static final String UPGRADE_ID = "BackfillBrowsePathsV2Step";
+  private static final Urn UPGRADE_ID_URN = BootstrapStep.getUpgradeUrn(UPGRADE_ID);
   public static final String DEFAULT_BROWSE_PATH_V2 = "␟Default";
 
   private static final Set<String> ENTITY_TYPES_TO_MIGRATE =
@@ -53,14 +53,22 @@ public class BackfillBrowsePathsV2Step implements UpgradeStep {
           Constants.ML_MODEL_GROUP_ENTITY_NAME,
           Constants.ML_FEATURE_TABLE_ENTITY_NAME,
           Constants.ML_FEATURE_ENTITY_NAME);
-  private static final Integer BATCH_SIZE = 5000;
 
-  private final EntityService<?> _entityService;
-  private final SearchService _searchService;
+  private final EntityService<?> entityService;
+  private final SearchService searchService;
 
-  public BackfillBrowsePathsV2Step(EntityService<?> entityService, SearchService searchService) {
-    _searchService = searchService;
-    _entityService = entityService;
+  private final boolean reprocessEnabled;
+  private final Integer batchSize;
+
+  public BackfillBrowsePathsV2Step(
+      EntityService<?> entityService,
+      SearchService searchService,
+      boolean reprocessEnabled,
+      Integer batchSize) {
+    this.searchService = searchService;
+    this.entityService = entityService;
+    this.reprocessEnabled = reprocessEnabled;
+    this.batchSize = batchSize;
   }
 
   @Override
@@ -78,11 +86,14 @@ public class BackfillBrowsePathsV2Step implements UpgradeStep {
           log.info(
               String.format(
                   "Upgrading batch %s-%s of browse paths for entity type %s",
-                  migratedCount, migratedCount + BATCH_SIZE, entityType));
+                  migratedCount, migratedCount + batchSize, entityType));
           scrollId = backfillBrowsePathsV2(entityType, auditStamp, scrollId);
-          migratedCount += BATCH_SIZE;
+          migratedCount += batchSize;
         } while (scrollId != null);
       }
+
+      BootstrapStep.setUpgradeResult(UPGRADE_ID_URN, entityService);
+
       return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.SUCCEEDED);
     };
   }
@@ -91,27 +102,27 @@ public class BackfillBrowsePathsV2Step implements UpgradeStep {
 
     final Filter filter;
 
-    if (System.getenv().containsKey(REPROCESS_DEFAULT_BROWSE_PATHS_V2)
-        && Boolean.parseBoolean(System.getenv(REPROCESS_DEFAULT_BROWSE_PATHS_V2))) {
+    if (reprocessEnabled) {
       filter = backfillDefaultBrowsePathsV2Filter();
     } else {
       filter = backfillBrowsePathsV2Filter();
     }
 
     final ScrollResult scrollResult =
-        _searchService.scrollAcrossEntities(
+        searchService.scrollAcrossEntities(
             ImmutableList.of(entityType),
             "*",
             filter,
             null,
             scrollId,
             null,
-            BATCH_SIZE,
+            batchSize,
             new SearchFlags()
                 .setFulltext(true)
                 .setSkipCache(true)
                 .setSkipHighlighting(true)
                 .setSkipAggregates(true));
+
     if (scrollResult.getNumEntities() == 0 || scrollResult.getEntities().size() == 0) {
       return null;
     }
@@ -183,7 +194,7 @@ public class BackfillBrowsePathsV2Step implements UpgradeStep {
 
   private void ingestBrowsePathsV2(Urn urn, AuditStamp auditStamp) throws Exception {
     BrowsePathsV2 browsePathsV2 =
-        DefaultAspectsUtil.buildDefaultBrowsePathV2(urn, true, _entityService);
+        DefaultAspectsUtil.buildDefaultBrowsePathV2(urn, true, entityService);
     log.debug(String.format("Adding browse path v2 for urn %s with value %s", urn, browsePathsV2));
     MetadataChangeProposal proposal = new MetadataChangeProposal();
     proposal.setEntityUrn(urn);
@@ -193,12 +204,12 @@ public class BackfillBrowsePathsV2Step implements UpgradeStep {
     proposal.setSystemMetadata(
         new SystemMetadata().setRunId(DEFAULT_RUN_ID).setLastObserved(System.currentTimeMillis()));
     proposal.setAspect(GenericRecordUtils.serializeAspect(browsePathsV2));
-    _entityService.ingestProposal(proposal, auditStamp, true);
+    entityService.ingestProposal(proposal, auditStamp, true);
   }
 
   @Override
   public String id() {
-    return "BackfillBrowsePathsV2Step";
+    return UPGRADE_ID;
   }
 
   /**
@@ -211,7 +222,22 @@ public class BackfillBrowsePathsV2Step implements UpgradeStep {
   }
 
   @Override
+  /**
+   * Returns whether the upgrade should be skipped. Uses previous run history or the environment
+   * variables REPROCESS_DEFAULT_BROWSE_PATHS_V2 & BACKFILL_BROWSE_PATHS_V2 to determine whether to
+   * skip.
+   */
   public boolean skip(UpgradeContext context) {
-    return !Boolean.parseBoolean(System.getenv(BACKFILL_BROWSE_PATHS_V2));
+    boolean envEnabled = Boolean.parseBoolean(System.getenv("BACKFILL_BROWSE_PATHS_V2"));
+
+    if (reprocessEnabled && envEnabled) {
+      return false;
+    }
+
+    boolean previouslyRun = entityService.exists(UPGRADE_ID_URN, true);
+    if (previouslyRun) {
+      log.info("{} was already run. Skipping.", id());
+    }
+    return (previouslyRun || !envEnabled);
   }
 }

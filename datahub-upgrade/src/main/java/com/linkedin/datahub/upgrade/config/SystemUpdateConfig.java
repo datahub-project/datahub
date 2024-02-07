@@ -8,6 +8,7 @@ import com.linkedin.datahub.upgrade.system.via.ReindexDataJobViaNodesCLL;
 import com.linkedin.gms.factory.common.TopicConventionFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.kafka.DataHubKafkaProducerFactory;
+import com.linkedin.gms.factory.kafka.schemaregistry.InternalSchemaRegistryFactory;
 import com.linkedin.gms.factory.kafka.schemaregistry.SchemaRegistryConfig;
 import com.linkedin.metadata.config.kafka.KafkaConfiguration;
 import com.linkedin.metadata.dao.producer.KafkaEventProducer;
@@ -21,9 +22,12 @@ import org.apache.kafka.clients.producer.Producer;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.kafka.KafkaProperties;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 
 @Slf4j
 @Configuration
@@ -73,5 +77,24 @@ public class SystemUpdateConfig {
             DataHubKafkaProducerFactory.buildProducerProperties(
                 duheSchemaRegistryConfig, kafkaConfiguration, properties));
     return new KafkaEventProducer(producer, topicConvention, kafkaHealthChecker);
+  }
+
+  /**
+   * The ReindexDataJobViaNodesCLLConfig step requires publishing to MCL. Overriding the default
+   * producer with this special producer which doesn't require an active registry.
+   *
+   * <p>Use when INTERNAL registry and is SYSTEM_UPDATE
+   *
+   * <p>This forces this producer into the EntityService
+   */
+  @Primary
+  @Bean(name = "kafkaEventProducer")
+  @Conditional(SystemUpdateCondition.class)
+  @ConditionalOnProperty(
+      name = "kafka.schemaRegistry.type",
+      havingValue = InternalSchemaRegistryFactory.TYPE)
+  protected KafkaEventProducer kafkaEventProducer(
+      @Qualifier("duheKafkaEventProducer") KafkaEventProducer kafkaEventProducer) {
+    return kafkaEventProducer;
   }
 }
