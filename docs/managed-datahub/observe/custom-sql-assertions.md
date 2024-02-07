@@ -297,6 +297,65 @@ This entity defines _when_ to run the check (Using CRON format - every 8th hour)
 
 After creating the monitor, the new assertion will start to be evaluated every 8 hours in your selected timezone.
 
+Alternatively you can use `upsertDatasetSqlAssertionMonitor` graphql endpoint for creating a Custom SQL Assertion and corresponding Monitor for a dataset. 
+
+```json
+mutation upsertDatasetSqlAssertionMonitor {
+  upsertDatasetSqlAssertionMonitor(
+    input: {
+      entityUrn: "<urn of entity being monitored>"
+      type: METRIC,
+      description: "<description of the custom assertion>",
+      statement: "<SQL query to be evaluated>",
+      operator: GREATER_THAN_OR_EQUAL_TO,
+      parameters: {
+        value: {
+          value: "100",
+          type: NUMBER
+        }
+      }
+      evaluationSchedule: {
+        timezone: "America/Los_Angeles"
+        cron: "0 */8 * * *"
+      }
+      mode: ACTIVE   
+    }
+  ) {
+    urn
+  }
+}
+```
+
+You can use same endpoint with assertion urn input to update an existing Custom SQL Assertion and corresponding Monitor.
+
+```json
+mutation upsertDatasetSqlAssertionMonitor {
+  upsertDatasetSqlAssertionMonitor(
+    assertionUrn: "<urn of assertion created in earlier query>"
+    input: {
+      entityUrn: "<urn of entity being monitored>"
+      type: METRIC,
+      description: "<description of the custom assertion>",
+      statement: "<SQL query to be evaluated>",
+      operator: GREATER_THAN_OR_EQUAL_TO,
+      parameters: {
+        value: {
+          value: "100",
+          type: NUMBER
+        }
+      }
+      evaluationSchedule: {
+        timezone: "America/Los_Angeles"
+        cron: "0 */6 * * *"
+      }
+      mode: ACTIVE   
+    }
+  ) {
+    urn
+  }
+}
+```
+
 You can delete assertions along with their monitors using GraphQL mutations: `deleteAssertion` and `deleteMonitor`.
 
 ### Tips
