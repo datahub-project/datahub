@@ -23,7 +23,7 @@ const EntitiesWrapper = styled.div`
 `;
 
 const EntityTitle = styled(Typography)`
-    margin: 11px 0 0 19px;
+    margin: 11px 0 12px 19px;
     font-size: 12px;
     font-weight: 400;
     color: #434863;
