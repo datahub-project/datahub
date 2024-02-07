@@ -19,7 +19,6 @@ from datahub.ingestion.api.source import (
     TestConnectionReport,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.metadata.schema_classes import ChangeTypeClass
 from datahub.specific.corpuser import CorpUserPatchBuilder
 from datahub.utilities.urns.urn import Urn
 

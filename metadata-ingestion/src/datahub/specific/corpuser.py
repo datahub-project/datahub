@@ -22,7 +22,7 @@ class CorpUserEditableInfoPatchHelper(Generic[T]):
         self._parent._add_patch(
             self.aspect_name,
             "add",
-            path=f"/slack",
+            path="/slack",
             value=value,
         )
         return self
