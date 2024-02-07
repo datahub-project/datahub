@@ -1,11 +1,7 @@
 package com.linkedin.gms.factory.kafka.schemaregistry;
 
-import com.linkedin.gms.factory.common.TopicConventionFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.kafka.KafkaConfiguration;
-import com.linkedin.metadata.registry.SchemaRegistryService;
-import com.linkedin.metadata.registry.SchemaRegistryServiceImpl;
-import com.linkedin.mxe.TopicConvention;
 import io.confluent.kafka.serializers.AbstractKafkaSchemaSerDeConfig;
 import io.confluent.kafka.serializers.KafkaAvroDeserializer;
 import io.confluent.kafka.serializers.KafkaAvroSerializer;
@@ -17,7 +13,6 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.DependsOn;
 
 @Slf4j
 @Configuration
@@ -44,12 +39,5 @@ public class InternalSchemaRegistryFactory {
         "Creating internal registry configuration for url {}",
         kafkaConfiguration.getSchemaRegistry().getUrl());
     return new SchemaRegistryConfig(KafkaAvroSerializer.class, KafkaAvroDeserializer.class, props);
-  }
-
-  @Bean(name = "schemaRegistryService")
-  @Nonnull
-  @DependsOn({TopicConventionFactory.TOPIC_CONVENTION_BEAN})
-  protected SchemaRegistryService schemaRegistryService(TopicConvention convention) {
-    return new SchemaRegistryServiceImpl(convention);
   }
 }

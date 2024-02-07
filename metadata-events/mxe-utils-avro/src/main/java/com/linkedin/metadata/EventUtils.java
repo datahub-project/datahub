@@ -57,7 +57,7 @@ public class EventUtils {
   private static final Schema ORIGINAL_MCP_AVRO_SCHEMA =
       getAvroSchemaFromResource("avro/com/linkedin/mxe/MetadataChangeProposal.avsc");
 
-  private static final Schema ORIGINAL_MCL_AVRO_SCHEMA =
+  public static final Schema ORIGINAL_MCL_AVRO_SCHEMA =
       getAvroSchemaFromResource("avro/com/linkedin/mxe/MetadataChangeLog.avsc");
 
   private static final Schema ORIGINAL_FMCL_AVRO_SCHEMA =

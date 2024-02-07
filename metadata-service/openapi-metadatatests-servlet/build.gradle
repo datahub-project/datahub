@@ -19,6 +19,8 @@ dependencies {
     implementation externalDependency.springWebMVC
     implementation externalDependency.springBeans
     implementation externalDependency.springContext
+    implementation externalDependency.servletApi
+    implementation externalDependency.jakartaAnnotations
 
     implementation externalDependency.reflections
     implementation externalDependency.slf4jApi
@@ -69,7 +71,8 @@ task openApiGenerate(type: GenerateSwaggerCode, dependsOn: 'copyOpenApiSchema') 
             'modelPropertyNaming': "original",
             'modelPackage'       : "io.datahubproject.openapi.generated",
             'apiPackage'         : "io.datahubproject.openapi.metadatatests.generated.controller",
-            'delegatePattern'    : "true"
+            'delegatePattern'    : "true",
+            'jakarta'            : "true"
     ]
 }
 tasks.getByName("compileJava").dependsOn(openApiGenerate)

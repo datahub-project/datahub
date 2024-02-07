@@ -479,7 +479,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     assertTrue(DataTemplateUtil.areEqual(writeAspect1, latestAspects.get(aspectName1)));
     assertTrue(DataTemplateUtil.areEqual(writeAspect2, latestAspects.get(aspectName2)));
 
-    verify(_mockProducer, times(2))
+    verify(_mockProducer, times(3))
         .produceMetadataChangeLog(Mockito.eq(entityUrn), Mockito.any(), Mockito.any());
 
     verifyNoMoreInteractions(_mockProducer);
@@ -772,6 +772,12 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         .produceMetadataChangeLog(
             Mockito.eq(entityUrn), Mockito.eq(corpUserInfoSpec), Mockito.any());
 
+    verify(_mockProducer, times(1))
+        .produceMetadataChangeLog(
+            Mockito.eq(entityUrn),
+            Mockito.eq(_testEntityRegistry.getEntitySpec("corpUser").getAspectSpec("corpUserKey")),
+            Mockito.any());
+
     verifyNoMoreInteractions(_mockProducer);
   }
 
@@ -823,6 +829,13 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
 
     readAspect1 = _entityServiceImpl.getVersionedAspect(entityUrn, aspectName, -1);
     assertFalse(DataTemplateUtil.areEqual(writtenVersionedAspect1, readAspect1));
+
+    // check key aspect
+    verify(_mockProducer, times(1))
+        .produceMetadataChangeLog(
+            Mockito.eq(entityUrn),
+            Mockito.eq(_testEntityRegistry.getEntitySpec("corpuser").getAspectSpec("corpUserKey")),
+            Mockito.any());
 
     verifyNoMoreInteractions(_mockProducer);
   }
@@ -1094,12 +1107,21 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
 
     ArgumentCaptor<MetadataChangeLog> mclCaptor = ArgumentCaptor.forClass(MetadataChangeLog.class);
     verify(_mockProducer, times(1))
-        .produceMetadataChangeLog(Mockito.eq(entityUrn), Mockito.any(), mclCaptor.capture());
+        .produceMetadataChangeLog(
+            Mockito.eq(entityUrn),
+            Mockito.eq(_testEntityRegistry.getEntitySpec("corpUser").getAspectSpec("corpUserInfo")),
+            mclCaptor.capture());
     MetadataChangeLog mcl = mclCaptor.getValue();
     assertEquals(mcl.getEntityType(), "corpuser");
     assertNull(mcl.getPreviousAspectValue());
     assertNull(mcl.getPreviousSystemMetadata());
     assertEquals(mcl.getChangeType(), ChangeType.UPSERT);
+
+    verify(_mockProducer, times(1))
+        .produceMetadataChangeLog(
+            Mockito.eq(entityUrn),
+            Mockito.eq(_testEntityRegistry.getEntitySpec("corpUser").getAspectSpec("corpUserKey")),
+            Mockito.any());
 
     verifyNoMoreInteractions(_mockProducer);
 
@@ -1201,7 +1223,16 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
             EntityUtils.parseSystemMetadata(readAspectDao1.getSystemMetadata()), metadata1));
 
     verify(_mockProducer, times(2))
-        .produceMetadataChangeLog(Mockito.eq(entityUrn), Mockito.any(), Mockito.any());
+        .produceMetadataChangeLog(
+            Mockito.eq(entityUrn),
+            Mockito.eq(_testEntityRegistry.getEntitySpec("corpUser").getAspectSpec("corpUserInfo")),
+            Mockito.any());
+
+    verify(_mockProducer, times(1))
+        .produceMetadataChangeLog(
+            Mockito.eq(entityUrn),
+            Mockito.eq(_testEntityRegistry.getEntitySpec("corpUser").getAspectSpec("corpUserKey")),
+            Mockito.any());
 
     verifyNoMoreInteractions(_mockProducer);
   }
@@ -1234,9 +1265,18 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     RecordTemplate readAspect1 = _entityServiceImpl.getLatestAspect(entityUrn, aspectName);
     assertTrue(DataTemplateUtil.areEqual(writeAspect1, readAspect1));
 
+    verify(_mockProducer, times(1))
+        .produceMetadataChangeLog(
+            Mockito.eq(entityUrn),
+            Mockito.eq(_testEntityRegistry.getEntitySpec("corpUser").getAspectSpec("corpUserKey")),
+            Mockito.any());
+
     ArgumentCaptor<MetadataChangeLog> mclCaptor = ArgumentCaptor.forClass(MetadataChangeLog.class);
     verify(_mockProducer, times(1))
-        .produceMetadataChangeLog(Mockito.eq(entityUrn), Mockito.any(), mclCaptor.capture());
+        .produceMetadataChangeLog(
+            Mockito.eq(entityUrn),
+            Mockito.eq(_testEntityRegistry.getEntitySpec("corpUser").getAspectSpec("corpUserInfo")),
+            mclCaptor.capture());
     MetadataChangeLog mcl = mclCaptor.getValue();
     assertEquals(mcl.getEntityType(), "corpuser");
     assertNull(mcl.getPreviousAspectValue());
