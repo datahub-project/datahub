@@ -5,6 +5,7 @@ import static com.linkedin.metadata.Constants.*;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.timeline.eventgenerator.AssertionRunEventChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.BusinessAttributeAssociationChangeEventGenerator;
+import com.linkedin.metadata.timeline.eventgenerator.BusinessAttributeInfoChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.DataProcessInstanceRunEventChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.DatasetPropertiesChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.DeprecationChangeEventGenerator;
@@ -20,7 +21,6 @@ import com.linkedin.metadata.timeline.eventgenerator.OwnershipChangeEventGenerat
 import com.linkedin.metadata.timeline.eventgenerator.SchemaMetadataChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.SingleDomainChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.StatusChangeEventGenerator;
-import com.linkedin.metadata.timeline.eventgenerator.BusinessAttributeInfoChangeEventGenerator;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
@@ -53,8 +53,10 @@ public class EntityChangeEventGeneratorRegistryFactory {
     registry.register(
         EDITABLE_DATASET_PROPERTIES_ASPECT_NAME,
         new EditableDatasetPropertiesChangeEventGenerator());
-    registry.register(BUSINESS_ATTRIBUTE_INFO_ASPECT_NAME, new BusinessAttributeInfoChangeEventGenerator());
-    registry.register(BUSINESS_ATTRIBUTE_ASSOCIATION, new BusinessAttributeAssociationChangeEventGenerator());
+    registry.register(
+        BUSINESS_ATTRIBUTE_INFO_ASPECT_NAME, new BusinessAttributeInfoChangeEventGenerator());
+    registry.register(
+        BUSINESS_ATTRIBUTE_ASSOCIATION, new BusinessAttributeAssociationChangeEventGenerator());
 
     // Entity Lifecycle Differs
     registry.register(DATASET_KEY_ASPECT_NAME, new EntityKeyChangeEventGenerator<>());

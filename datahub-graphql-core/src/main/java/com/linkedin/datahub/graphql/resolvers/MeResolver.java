@@ -86,9 +86,9 @@ public class MeResolver implements DataFetcher<CompletableFuture<AuthenticatedUs
             platformPrivileges.setManageGlobalAnnouncements(
                 AuthorizationUtils.canManageGlobalAnnouncements(context));
             platformPrivileges.setCreateBusinessAttributes(
-                    BusinessAttributeAuthorizationUtils.canCreateBusinessAttribute(context));
+                BusinessAttributeAuthorizationUtils.canCreateBusinessAttribute(context));
             platformPrivileges.setManageBusinessAttributes(
-                    BusinessAttributeAuthorizationUtils.canManageBusinessAttribute(context));
+                BusinessAttributeAuthorizationUtils.canManageBusinessAttribute(context));
             // Construct and return authenticated user object.
             final AuthenticatedUser authUser = new AuthenticatedUser();
             authUser.setCorpUser(corpUser);

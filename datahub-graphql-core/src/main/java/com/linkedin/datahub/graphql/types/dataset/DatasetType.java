@@ -293,27 +293,28 @@ public class DatasetType
         new ConjunctivePrivilegeGroup(
             ImmutableList.of(PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType()));
 
-        List<String> specificPrivileges = new ArrayList<>();
-        if (updateInput.getInstitutionalMemory() != null) {
-            specificPrivileges.add(PoliciesConfig.EDIT_ENTITY_DOC_LINKS_PRIVILEGE.getType());
-        }
-        if (updateInput.getOwnership() != null) {
-            specificPrivileges.add(PoliciesConfig.EDIT_ENTITY_OWNERS_PRIVILEGE.getType());
-        }
-        if (updateInput.getDeprecation() != null) {
-            specificPrivileges.add(PoliciesConfig.EDIT_ENTITY_STATUS_PRIVILEGE.getType());
-        }
-        if (updateInput.getEditableProperties() != null) {
-            specificPrivileges.add(PoliciesConfig.EDIT_ENTITY_DOCS_PRIVILEGE.getType());
-        }
-        if (updateInput.getGlobalTags() != null) {
-            specificPrivileges.add(PoliciesConfig.EDIT_ENTITY_TAGS_PRIVILEGE.getType());
-        }
-        if (updateInput.getEditableSchemaMetadata() != null) {
-            specificPrivileges.add(PoliciesConfig.EDIT_DATASET_COL_TAGS_PRIVILEGE.getType());
-            specificPrivileges.add(PoliciesConfig.EDIT_DATASET_COL_DESCRIPTION_PRIVILEGE.getType());
-            specificPrivileges.add(PoliciesConfig.EDIT_DATASET_COL_BUSINESS_ATTRIBUTE_PRIVILEGE.getType());
-        }
+    List<String> specificPrivileges = new ArrayList<>();
+    if (updateInput.getInstitutionalMemory() != null) {
+      specificPrivileges.add(PoliciesConfig.EDIT_ENTITY_DOC_LINKS_PRIVILEGE.getType());
+    }
+    if (updateInput.getOwnership() != null) {
+      specificPrivileges.add(PoliciesConfig.EDIT_ENTITY_OWNERS_PRIVILEGE.getType());
+    }
+    if (updateInput.getDeprecation() != null) {
+      specificPrivileges.add(PoliciesConfig.EDIT_ENTITY_STATUS_PRIVILEGE.getType());
+    }
+    if (updateInput.getEditableProperties() != null) {
+      specificPrivileges.add(PoliciesConfig.EDIT_ENTITY_DOCS_PRIVILEGE.getType());
+    }
+    if (updateInput.getGlobalTags() != null) {
+      specificPrivileges.add(PoliciesConfig.EDIT_ENTITY_TAGS_PRIVILEGE.getType());
+    }
+    if (updateInput.getEditableSchemaMetadata() != null) {
+      specificPrivileges.add(PoliciesConfig.EDIT_DATASET_COL_TAGS_PRIVILEGE.getType());
+      specificPrivileges.add(PoliciesConfig.EDIT_DATASET_COL_DESCRIPTION_PRIVILEGE.getType());
+      specificPrivileges.add(
+          PoliciesConfig.EDIT_DATASET_COL_BUSINESS_ATTRIBUTE_PRIVILEGE.getType());
+    }
 
     final ConjunctivePrivilegeGroup specificPrivilegeGroup =
         new ConjunctivePrivilegeGroup(specificPrivileges);

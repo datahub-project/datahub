@@ -78,7 +78,9 @@ public class EditableSchemaMetadataChangeEventGenerator
           getGlossaryTermChangeEvents(baseFieldInfo, targetFieldInfo, datasetFieldUrn, auditStamp));
     }
     if (changeCategory == ChangeCategory.BUSINESS_ATTRIBUTE) {
-      changeEvents.addAll(getBusinessAttributeAssociationChangeEvents(baseFieldInfo, targetFieldInfo, datasetFieldUrn, auditStamp));
+      changeEvents.addAll(
+          getBusinessAttributeAssociationChangeEvents(
+              baseFieldInfo, targetFieldInfo, datasetFieldUrn, auditStamp));
     }
     return changeEvents;
   }
@@ -264,24 +266,28 @@ public class EditableSchemaMetadataChangeEventGenerator
     return Collections.emptyList();
   }
 
-    private static List<ChangeEvent> getBusinessAttributeAssociationChangeEvents(EditableSchemaFieldInfo baseFieldInfo,
-                                                                                 EditableSchemaFieldInfo targetFieldInfo,
-                                                                                 Urn datasetFieldUrn, AuditStamp auditStamp) {
-        BusinessAttributeAssociation baseBusinessAttributeAssociation = (baseFieldInfo != null) ? baseFieldInfo.getBusinessAttribute() : null;
-        BusinessAttributeAssociation targetBusinessAttributeAssociation = (targetFieldInfo != null) ? targetFieldInfo.getBusinessAttribute() : null;
+  private static List<ChangeEvent> getBusinessAttributeAssociationChangeEvents(
+      EditableSchemaFieldInfo baseFieldInfo,
+      EditableSchemaFieldInfo targetFieldInfo,
+      Urn datasetFieldUrn,
+      AuditStamp auditStamp) {
+    BusinessAttributeAssociation baseBusinessAttributeAssociation =
+        (baseFieldInfo != null) ? baseFieldInfo.getBusinessAttribute() : null;
+    BusinessAttributeAssociation targetBusinessAttributeAssociation =
+        (targetFieldInfo != null) ? targetFieldInfo.getBusinessAttribute() : null;
 
-        // 1. Get EntityBusinessAttributeAssociationChangeEvent, then rebind into a SchemaFieldBusinessAttributeAssociationChangeEvent.
-        List<ChangeEvent> entityBusinessAttributeAssociationChangeEvents =
-                BusinessAttributeAssociationChangeEventGenerator.computeDiffs(baseBusinessAttributeAssociation,
-                        targetBusinessAttributeAssociation, datasetFieldUrn.toString(),
-                        auditStamp);
+    // 1. Get EntityBusinessAttributeAssociationChangeEvent, then rebind into a
+    // SchemaFieldBusinessAttributeAssociationChangeEvent.
+    List<ChangeEvent> entityBusinessAttributeAssociationChangeEvents =
+        BusinessAttributeAssociationChangeEventGenerator.computeDiffs(
+            baseBusinessAttributeAssociation,
+            targetBusinessAttributeAssociation,
+            datasetFieldUrn.toString(),
+            auditStamp);
 
-        return entityBusinessAttributeAssociationChangeEvents;
-    }
+    return entityBusinessAttributeAssociationChangeEvents;
+  }
 
-    @Override
-    public ChangeTransaction getSemanticDiff(EntityAspect previousValue, EntityAspect currentValue,
-                                             ChangeCategory element, JsonPatch rawDiff, boolean rawDiffsRequested) {
   @Override
   public ChangeTransaction getSemanticDiff(
       EntityAspect previousValue,
@@ -331,48 +337,41 @@ public class EditableSchemaMetadataChangeEventGenerator
         .build();
   }
 
-    @Override
-    public List<ChangeEvent> getChangeEvents(
-            @Nonnull Urn urn,
-            @Nonnull String entity,
-            @Nonnull String aspect,
-            @Nonnull Aspect<EditableSchemaMetadata> from,
-            @Nonnull Aspect<EditableSchemaMetadata> to,
-            @Nonnull AuditStamp auditStamp) {
-        final List<ChangeEvent> changeEvents = new ArrayList<>();
-        changeEvents.addAll(
+  @Override
+  public List<ChangeEvent> getChangeEvents(
+      @Nonnull Urn urn,
+      @Nonnull String entity,
+      @Nonnull String aspect,
+      @Nonnull Aspect<EditableSchemaMetadata> from,
+      @Nonnull Aspect<EditableSchemaMetadata> to,
+      @Nonnull AuditStamp auditStamp) {
+    final List<ChangeEvent> changeEvents = new ArrayList<>();
+    changeEvents.addAll(
         computeDiffs(
             from.getValue(),
             to.getValue(),
             urn.toString(),
             ChangeCategory.DOCUMENTATION,
             auditStamp));
-        changeEvents.addAll(
+    changeEvents.addAll(
         computeDiffs(
             from.getValue(), to.getValue(), urn.toString(), ChangeCategory.TAG, auditStamp));
-        changeEvents.addAll(
+    changeEvents.addAll(
         computeDiffs(
             from.getValue(),
             to.getValue(),
             urn.toString(),
             ChangeCategory.TECHNICAL_SCHEMA,
             auditStamp));
-        changeEvents.addAll(
+    changeEvents.addAll(
         computeDiffs(
             from.getValue(),
             to.getValue(),
             urn.toString(),
             ChangeCategory.GLOSSARY_TERM,
             auditStamp));
-        changeEvents.addAll(
-        computeDiffs(
-            from.getValue(),
-            to.getValue(),
-            urn.toString(),
-            ChangeCategory.BUSINESS_ATTRIBUTE,
-            auditStamp));
-        return changeEvents;
-    }
+    return changeEvents;
+  }
 
   private static Urn getDatasetFieldUrn(
       final EditableSchemaFieldInfo previous,

@@ -499,7 +499,8 @@ public class LabelUtils {
       // Case 1: Removing terms from a top-level entity
       Urn targetUrn = Urn.createFromString(resource.getResourceUrn());
       if (targetUrn.getEntityType().equals(Constants.BUSINESS_ATTRIBUTE_ENTITY_NAME)) {
-        return buildRemoveTermsToBusinessAttributeProposal(termUrns, resource, actor, entityService);
+        return buildRemoveTermsToBusinessAttributeProposal(
+            termUrns, resource, actor, entityService);
       }
       return buildRemoveTermsToEntityProposal(termUrns, resource, actor, entityService);
     } else {
@@ -634,68 +635,83 @@ public class LabelUtils {
   }
 
   private static MetadataChangeProposal buildAddTagsToBusinessAttributeProposal(
-          List<Urn> tagUrns,
-          ResourceRefInput resource,
-          Urn actor,
-          EntityService entityService
-  ) throws URISyntaxException {
+      List<Urn> tagUrns, ResourceRefInput resource, Urn actor, EntityService entityService)
+      throws URISyntaxException {
     BusinessAttributeInfo businessAttributeInfo =
-            (BusinessAttributeInfo) EntityUtils.getAspectFromEntity(resource.getResourceUrn(), Constants.BUSINESS_ATTRIBUTE_INFO_ASPECT_NAME,
-                    entityService, new GlobalTags());
+        (BusinessAttributeInfo)
+            EntityUtils.getAspectFromEntity(
+                resource.getResourceUrn(),
+                Constants.BUSINESS_ATTRIBUTE_INFO_ASPECT_NAME,
+                entityService,
+                new GlobalTags());
 
     if (!businessAttributeInfo.hasGlobalTags()) {
       businessAttributeInfo.setGlobalTags(new GlobalTags());
     }
     addTagsIfNotExists(businessAttributeInfo.getGlobalTags(), tagUrns);
-    return buildMetadataChangeProposalWithUrn(UrnUtils.getUrn(resource.getResourceUrn()), Constants.BUSINESS_ATTRIBUTE_INFO_ASPECT_NAME, businessAttributeInfo);
+    return buildMetadataChangeProposalWithUrn(
+        UrnUtils.getUrn(resource.getResourceUrn()),
+        Constants.BUSINESS_ATTRIBUTE_INFO_ASPECT_NAME,
+        businessAttributeInfo);
   }
 
   private static MetadataChangeProposal buildAddTermsToBusinessAttributeProposal(
-          List<Urn> termUrns,
-          ResourceRefInput resource,
-          Urn actor,
-          EntityService entityService
-  ) throws URISyntaxException {
+      List<Urn> termUrns, ResourceRefInput resource, Urn actor, EntityService entityService)
+      throws URISyntaxException {
     BusinessAttributeInfo businessAttributeInfo =
-            (BusinessAttributeInfo) EntityUtils.getAspectFromEntity(resource.getResourceUrn(), Constants.BUSINESS_ATTRIBUTE_INFO_ASPECT_NAME,
-                    entityService, new GlossaryTerms());
+        (BusinessAttributeInfo)
+            EntityUtils.getAspectFromEntity(
+                resource.getResourceUrn(),
+                Constants.BUSINESS_ATTRIBUTE_INFO_ASPECT_NAME,
+                entityService,
+                new GlossaryTerms());
     if (!businessAttributeInfo.hasGlossaryTerms()) {
       businessAttributeInfo.setGlossaryTerms(new GlossaryTerms());
     }
     businessAttributeInfo.getGlossaryTerms().setAuditStamp(EntityUtils.getAuditStamp(actor));
     addTermsIfNotExists(businessAttributeInfo.getGlossaryTerms(), termUrns);
-    return buildMetadataChangeProposalWithUrn(UrnUtils.getUrn(resource.getResourceUrn()), Constants.BUSINESS_ATTRIBUTE_INFO_ASPECT_NAME, businessAttributeInfo);
+    return buildMetadataChangeProposalWithUrn(
+        UrnUtils.getUrn(resource.getResourceUrn()),
+        Constants.BUSINESS_ATTRIBUTE_INFO_ASPECT_NAME,
+        businessAttributeInfo);
   }
 
   private static MetadataChangeProposal buildRemoveTagsToBusinessAttributeProposal(
-          List<Urn> tagUrns,
-          ResourceRefInput resource,
-          Urn actor,
-          EntityService entityService) {
+      List<Urn> tagUrns, ResourceRefInput resource, Urn actor, EntityService entityService) {
     BusinessAttributeInfo businessAttributeInfo =
-            (BusinessAttributeInfo) EntityUtils.getAspectFromEntity(resource.getResourceUrn(), Constants.BUSINESS_ATTRIBUTE_INFO_ASPECT_NAME,
-                    entityService, new GlobalTags());
+        (BusinessAttributeInfo)
+            EntityUtils.getAspectFromEntity(
+                resource.getResourceUrn(),
+                Constants.BUSINESS_ATTRIBUTE_INFO_ASPECT_NAME,
+                entityService,
+                new GlobalTags());
 
     if (!businessAttributeInfo.hasGlobalTags()) {
       businessAttributeInfo.setGlobalTags(new GlobalTags());
     }
     removeTagsIfExists(businessAttributeInfo.getGlobalTags(), tagUrns);
-    return buildMetadataChangeProposalWithUrn(UrnUtils.getUrn(resource.getResourceUrn()), Constants.BUSINESS_ATTRIBUTE_INFO_ASPECT_NAME, businessAttributeInfo);
+    return buildMetadataChangeProposalWithUrn(
+        UrnUtils.getUrn(resource.getResourceUrn()),
+        Constants.BUSINESS_ATTRIBUTE_INFO_ASPECT_NAME,
+        businessAttributeInfo);
   }
 
   private static MetadataChangeProposal buildRemoveTermsToBusinessAttributeProposal(
-          List<Urn> termUrns,
-          ResourceRefInput resource,
-          Urn actor,
-          EntityService entityService) {
+      List<Urn> termUrns, ResourceRefInput resource, Urn actor, EntityService entityService) {
     BusinessAttributeInfo businessAttributeInfo =
-            (BusinessAttributeInfo) EntityUtils.getAspectFromEntity(resource.getResourceUrn(), Constants.BUSINESS_ATTRIBUTE_INFO_ASPECT_NAME,
-                    entityService, new GlossaryTerms());
+        (BusinessAttributeInfo)
+            EntityUtils.getAspectFromEntity(
+                resource.getResourceUrn(),
+                Constants.BUSINESS_ATTRIBUTE_INFO_ASPECT_NAME,
+                entityService,
+                new GlossaryTerms());
     if (!businessAttributeInfo.hasGlossaryTerms()) {
       businessAttributeInfo.setGlossaryTerms(new GlossaryTerms());
     }
     removeTermsIfExists(businessAttributeInfo.getGlossaryTerms(), termUrns);
-    return buildMetadataChangeProposalWithUrn(UrnUtils.getUrn(resource.getResourceUrn()), Constants.BUSINESS_ATTRIBUTE_INFO_ASPECT_NAME, businessAttributeInfo);
+    return buildMetadataChangeProposalWithUrn(
+        UrnUtils.getUrn(resource.getResourceUrn()),
+        Constants.BUSINESS_ATTRIBUTE_INFO_ASPECT_NAME,
+        businessAttributeInfo);
   }
-
 }

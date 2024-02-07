@@ -112,39 +112,41 @@ public class PoliciesConfig {
           "Manage Ownership Types",
           "Create, update and delete Ownership Types.");
 
-  public static final Privilege CREATE_BUSINESS_ATTRIBUTE_PRIVILEGE = Privilege.of(
-      "CREATE_BUSINESS_ATTRIBUTE",
-      "Create Business Attribute",
-      "Create new Business Attribute.");
+  public static final Privilege CREATE_BUSINESS_ATTRIBUTE_PRIVILEGE =
+      Privilege.of(
+          "CREATE_BUSINESS_ATTRIBUTE",
+          "Create Business Attribute",
+          "Create new Business Attribute.");
 
-  public static final Privilege MANAGE_BUSINESS_ATTRIBUTE_PRIVILEGE = Privilege.of(
-      "MANAGE_BUSINESS_ATTRIBUTE",
-      "Manage Business Attribute",
-      "Create, update, delete Business Attribute");
+  public static final Privilege MANAGE_BUSINESS_ATTRIBUTE_PRIVILEGE =
+      Privilege.of(
+          "MANAGE_BUSINESS_ATTRIBUTE",
+          "Manage Business Attribute",
+          "Create, update, delete Business Attribute");
 
-  public static final List<Privilege> PLATFORM_PRIVILEGES = ImmutableList.of(
-      MANAGE_POLICIES_PRIVILEGE,
-      MANAGE_USERS_AND_GROUPS_PRIVILEGE,
-      VIEW_ANALYTICS_PRIVILEGE,
-      GET_ANALYTICS_PRIVILEGE,
-      MANAGE_DOMAINS_PRIVILEGE,
-      MANAGE_GLOBAL_ANNOUNCEMENTS_PRIVILEGE,
-      MANAGE_INGESTION_PRIVILEGE,
-      MANAGE_SECRETS_PRIVILEGE,
-      GENERATE_PERSONAL_ACCESS_TOKENS_PRIVILEGE,
-      MANAGE_ACCESS_TOKENS,
-      MANAGE_TESTS_PRIVILEGE,
-      MANAGE_GLOSSARIES_PRIVILEGE,
-      MANAGE_USER_CREDENTIALS_PRIVILEGE,
-      MANAGE_TAGS_PRIVILEGE,
-      CREATE_TAGS_PRIVILEGE,
-      CREATE_DOMAINS_PRIVILEGE,
-      CREATE_GLOBAL_ANNOUNCEMENTS_PRIVILEGE,
-      MANAGE_GLOBAL_VIEWS,
-      MANAGE_GLOBAL_OWNERSHIP_TYPES,
-      CREATE_BUSINESS_ATTRIBUTE_PRIVILEGE,
-      MANAGE_BUSINESS_ATTRIBUTE_PRIVILEGE
-  );
+  public static final List<Privilege> PLATFORM_PRIVILEGES =
+      ImmutableList.of(
+          MANAGE_POLICIES_PRIVILEGE,
+          MANAGE_USERS_AND_GROUPS_PRIVILEGE,
+          VIEW_ANALYTICS_PRIVILEGE,
+          GET_ANALYTICS_PRIVILEGE,
+          MANAGE_DOMAINS_PRIVILEGE,
+          MANAGE_GLOBAL_ANNOUNCEMENTS_PRIVILEGE,
+          MANAGE_INGESTION_PRIVILEGE,
+          MANAGE_SECRETS_PRIVILEGE,
+          GENERATE_PERSONAL_ACCESS_TOKENS_PRIVILEGE,
+          MANAGE_ACCESS_TOKENS,
+          MANAGE_TESTS_PRIVILEGE,
+          MANAGE_GLOSSARIES_PRIVILEGE,
+          MANAGE_USER_CREDENTIALS_PRIVILEGE,
+          MANAGE_TAGS_PRIVILEGE,
+          CREATE_TAGS_PRIVILEGE,
+          CREATE_DOMAINS_PRIVILEGE,
+          CREATE_GLOBAL_ANNOUNCEMENTS_PRIVILEGE,
+          MANAGE_GLOBAL_VIEWS,
+          MANAGE_GLOBAL_OWNERSHIP_TYPES,
+          CREATE_BUSINESS_ATTRIBUTE_PRIVILEGE,
+          MANAGE_BUSINESS_ATTRIBUTE_PRIVILEGE);
 
   // Resource Privileges //
 
@@ -394,11 +396,11 @@ public class PoliciesConfig {
           "Produce Platform Event API",
           "The ability to produce Platform Events using the API.");
 
-  public static final Privilege EDIT_DATASET_COL_BUSINESS_ATTRIBUTE_PRIVILEGE = Privilege.of(
+  public static final Privilege EDIT_DATASET_COL_BUSINESS_ATTRIBUTE_PRIVILEGE =
+      Privilege.of(
           "EDIT_DATASET_COL_BUSINESS_ATTRIBUTE_PRIVILEGE",
           "Edit Dataset Column Business Attribute",
-          "The ability to edit the column (field) business attribute associated with a dataset schema."
-  );
+          "The ability to edit the column (field) business attribute associated with a dataset schema.");
 
   public static final ResourcePrivileges DATASET_PRIVILEGES =
       ResourcePrivileges.of(
@@ -416,7 +418,8 @@ public class PoliciesConfig {
                       EDIT_ENTITY_ASSERTIONS_PRIVILEGE,
                       EDIT_LINEAGE_PRIVILEGE,
                       EDIT_ENTITY_EMBED_PRIVILEGE,
-                      EDIT_QUERIES_PRIVILEGE, EDIT_DATASET_COL_BUSINESS_ATTRIBUTE_PRIVILEGE))
+                      EDIT_QUERIES_PRIVILEGE,
+                      EDIT_DATASET_COL_BUSINESS_ATTRIBUTE_PRIVILEGE))
               .flatMap(Collection::stream)
               .collect(Collectors.toList()));
 
@@ -580,31 +583,35 @@ public class PoliciesConfig {
               EDIT_USER_PROFILE_PRIVILEGE,
               EDIT_ENTITY_PRIVILEGE));
 
-  public static final ResourcePrivileges BUSINESS_ATTRIBUTE_PRIVILEGES = ResourcePrivileges.of(
+  public static final ResourcePrivileges BUSINESS_ATTRIBUTE_PRIVILEGES =
+      ResourcePrivileges.of(
           "businessAttribute",
           "Business Attribute",
           "Business Attribute created on Datahub",
-          ImmutableList.of(VIEW_ENTITY_PAGE_PRIVILEGE, EDIT_ENTITY_OWNERS_PRIVILEGE, EDIT_ENTITY_DOCS_PRIVILEGE, EDIT_ENTITY_TAGS_PRIVILEGE,
-                  EDIT_ENTITY_GLOSSARY_TERMS_PRIVILEGE)
-  );
+          ImmutableList.of(
+              VIEW_ENTITY_PAGE_PRIVILEGE,
+              EDIT_ENTITY_OWNERS_PRIVILEGE,
+              EDIT_ENTITY_DOCS_PRIVILEGE,
+              EDIT_ENTITY_TAGS_PRIVILEGE,
+              EDIT_ENTITY_GLOSSARY_TERMS_PRIVILEGE));
 
-  public static final List<ResourcePrivileges> ENTITY_RESOURCE_PRIVILEGES = ImmutableList.of(
-      DATASET_PRIVILEGES,
-      DASHBOARD_PRIVILEGES,
-      CHART_PRIVILEGES,
-      DATA_FLOW_PRIVILEGES,
-      DATA_JOB_PRIVILEGES,
-      TAG_PRIVILEGES,
-      CONTAINER_PRIVILEGES,
-      DOMAIN_PRIVILEGES,
-      GLOSSARY_TERM_PRIVILEGES,
-      GLOSSARY_NODE_PRIVILEGES,
-      CORP_GROUP_PRIVILEGES,
-      CORP_USER_PRIVILEGES,
-      NOTEBOOK_PRIVILEGES,
-      DATA_PRODUCT_PRIVILEGES,
-      BUSINESS_ATTRIBUTE_PRIVILEGES
-  );
+  public static final List<ResourcePrivileges> ENTITY_RESOURCE_PRIVILEGES =
+      ImmutableList.of(
+          DATASET_PRIVILEGES,
+          DASHBOARD_PRIVILEGES,
+          CHART_PRIVILEGES,
+          DATA_FLOW_PRIVILEGES,
+          DATA_JOB_PRIVILEGES,
+          TAG_PRIVILEGES,
+          CONTAINER_PRIVILEGES,
+          DOMAIN_PRIVILEGES,
+          GLOSSARY_TERM_PRIVILEGES,
+          GLOSSARY_NODE_PRIVILEGES,
+          CORP_GROUP_PRIVILEGES,
+          CORP_USER_PRIVILEGES,
+          NOTEBOOK_PRIVILEGES,
+          DATA_PRODUCT_PRIVILEGES,
+          BUSINESS_ATTRIBUTE_PRIVILEGES);
 
   // Merge all entity specific resource privileges to create a superset of all resource privileges
   public static final ResourcePrivileges ALL_RESOURCE_PRIVILEGES =

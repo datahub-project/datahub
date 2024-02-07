@@ -28,49 +28,49 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
   private final EntityService _entityService;
   private final EntityClient _entityClient;
 
-    @Override
-    public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
-        final DescriptionUpdateInput input =
+  @Override
+  public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
+    final DescriptionUpdateInput input =
         bindArgument(environment.getArgument("input"), DescriptionUpdateInput.class);
-        Urn targetUrn = Urn.createFromString(input.getResourceUrn());
-        log.info("Updating description. input: {}", input.toString());
-        switch (targetUrn.getEntityType()) {
-            case Constants.DATASET_ENTITY_NAME:
-                return updateDatasetSchemaFieldDescription(targetUrn, input, environment.getContext());
-            case Constants.CONTAINER_ENTITY_NAME:
-                return updateContainerDescription(targetUrn, input, environment.getContext());
-            case Constants.DOMAIN_ENTITY_NAME:
-                return updateDomainDescription(targetUrn, input, environment.getContext());
-            case Constants.GLOSSARY_TERM_ENTITY_NAME:
-                return updateGlossaryTermDescription(targetUrn, input, environment.getContext());
-            case Constants.GLOSSARY_NODE_ENTITY_NAME:
-                return updateGlossaryNodeDescription(targetUrn, input, environment.getContext());
-            case Constants.TAG_ENTITY_NAME:
-                return updateTagDescription(targetUrn, input, environment.getContext());
-            case Constants.CORP_GROUP_ENTITY_NAME:
-                return updateCorpGroupDescription(targetUrn, input, environment.getContext());
-            case Constants.NOTEBOOK_ENTITY_NAME:
-                return updateNotebookDescription(targetUrn, input, environment.getContext());
-            case Constants.ML_MODEL_ENTITY_NAME:
-                return updateMlModelDescription(targetUrn, input, environment.getContext());
-            case Constants.ML_MODEL_GROUP_ENTITY_NAME:
-                return updateMlModelGroupDescription(targetUrn, input, environment.getContext());
-            case Constants.ML_FEATURE_TABLE_ENTITY_NAME:
-                return updateMlFeatureTableDescription(targetUrn, input, environment.getContext());
-            case Constants.ML_FEATURE_ENTITY_NAME:
-                return updateMlFeatureDescription(targetUrn, input, environment.getContext());
-            case Constants.ML_PRIMARY_KEY_ENTITY_NAME:
-                return updateMlPrimaryKeyDescription(targetUrn, input, environment.getContext());
-            case Constants.DATA_PRODUCT_ENTITY_NAME:
-                return updateDataProductDescription(targetUrn, input, environment.getContext());
-            case Constants.BUSINESS_ATTRIBUTE_ENTITY_NAME:
-                return updateBusinessAttributeDescription(targetUrn, input, environment.getContext());
-            default:
-                throw new RuntimeException(
-                        String.format(
+    Urn targetUrn = Urn.createFromString(input.getResourceUrn());
+    log.info("Updating description. input: {}", input.toString());
+    switch (targetUrn.getEntityType()) {
+      case Constants.DATASET_ENTITY_NAME:
+        return updateDatasetSchemaFieldDescription(targetUrn, input, environment.getContext());
+      case Constants.CONTAINER_ENTITY_NAME:
+        return updateContainerDescription(targetUrn, input, environment.getContext());
+      case Constants.DOMAIN_ENTITY_NAME:
+        return updateDomainDescription(targetUrn, input, environment.getContext());
+      case Constants.GLOSSARY_TERM_ENTITY_NAME:
+        return updateGlossaryTermDescription(targetUrn, input, environment.getContext());
+      case Constants.GLOSSARY_NODE_ENTITY_NAME:
+        return updateGlossaryNodeDescription(targetUrn, input, environment.getContext());
+      case Constants.TAG_ENTITY_NAME:
+        return updateTagDescription(targetUrn, input, environment.getContext());
+      case Constants.CORP_GROUP_ENTITY_NAME:
+        return updateCorpGroupDescription(targetUrn, input, environment.getContext());
+      case Constants.NOTEBOOK_ENTITY_NAME:
+        return updateNotebookDescription(targetUrn, input, environment.getContext());
+      case Constants.ML_MODEL_ENTITY_NAME:
+        return updateMlModelDescription(targetUrn, input, environment.getContext());
+      case Constants.ML_MODEL_GROUP_ENTITY_NAME:
+        return updateMlModelGroupDescription(targetUrn, input, environment.getContext());
+      case Constants.ML_FEATURE_TABLE_ENTITY_NAME:
+        return updateMlFeatureTableDescription(targetUrn, input, environment.getContext());
+      case Constants.ML_FEATURE_ENTITY_NAME:
+        return updateMlFeatureDescription(targetUrn, input, environment.getContext());
+      case Constants.ML_PRIMARY_KEY_ENTITY_NAME:
+        return updateMlPrimaryKeyDescription(targetUrn, input, environment.getContext());
+      case Constants.DATA_PRODUCT_ENTITY_NAME:
+        return updateDataProductDescription(targetUrn, input, environment.getContext());
+      case Constants.BUSINESS_ATTRIBUTE_ENTITY_NAME:
+        return updateBusinessAttributeDescription(targetUrn, input, environment.getContext());
+      default:
+        throw new RuntimeException(
+            String.format(
                 "Failed to update description. Unsupported resource type %s provided.", targetUrn));
-        }
     }
+  }
 
   private CompletableFuture<Boolean> updateContainerDescription(
       Urn targetUrn, DescriptionUpdateInput input, QueryContext context) {
@@ -423,54 +423,54 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
         });
   }
 
-    private CompletableFuture<Boolean> updateDataProductDescription(Urn targetUrn, DescriptionUpdateInput input,
-                                                                    QueryContext context) {
-        return CompletableFuture.supplyAsync(
+  private CompletableFuture<Boolean> updateDataProductDescription(
+      Urn targetUrn, DescriptionUpdateInput input, QueryContext context) {
+    return CompletableFuture.supplyAsync(
         () -> {
-            if (!DescriptionUtils.isAuthorizedToUpdateDescription(context, targetUrn)) {
-                throw new AuthorizationException(
-                        "Unauthorized to perform this action. Please contact your DataHub administrator.");
-            }
-            DescriptionUtils.validateLabelInput(targetUrn, _entityService);
+          if (!DescriptionUtils.isAuthorizedToUpdateDescription(context, targetUrn)) {
+            throw new AuthorizationException(
+                "Unauthorized to perform this action. Please contact your DataHub administrator.");
+          }
+          DescriptionUtils.validateLabelInput(targetUrn, _entityService);
 
-            try {
-                Urn actor = CorpuserUrn.createFromString(context.getActorUrn());
-                DescriptionUtils.updateDataProductDescription(
-                        input.getDescription(),
-                        targetUrn,
-                        actor,
-                        _entityService);
-                return true;
-            } catch (Exception e) {
-                log.error("Failed to perform update against input {}, {}", input.toString(), e.getMessage());
-                throw new RuntimeException(String.format("Failed to perform update against input %s", input.toString()), e);
-            }
+          try {
+            Urn actor = CorpuserUrn.createFromString(context.getActorUrn());
+            DescriptionUtils.updateDataProductDescription(
+                input.getDescription(), targetUrn, actor, _entityService);
+            return true;
+          } catch (Exception e) {
+            log.error(
+                "Failed to perform update against input {}, {}", input.toString(), e.getMessage());
+            throw new RuntimeException(
+                String.format("Failed to perform update against input %s", input.toString()), e);
+          }
         });
-    }
+  }
 
-    private CompletableFuture<Boolean> updateBusinessAttributeDescription(Urn targetUrn, DescriptionUpdateInput input,
-                                                                          QueryContext context) {
-        return CompletableFuture.supplyAsync(() -> {
-            //check if user has the rights to update description for business attribute
-            if (!DescriptionUtils.isAuthorizedToUpdateDescription(context, targetUrn)) {
-                throw new AuthorizationException(
-                        "Unauthorized to perform this action. Please contact your DataHub administrator.");
-            }
+  private CompletableFuture<Boolean> updateBusinessAttributeDescription(
+      Urn targetUrn, DescriptionUpdateInput input, QueryContext context) {
+    return CompletableFuture.supplyAsync(
+        () -> {
+          // check if user has the rights to update description for business attribute
+          if (!DescriptionUtils.isAuthorizedToUpdateDescription(context, targetUrn)) {
+            throw new AuthorizationException(
+                "Unauthorized to perform this action. Please contact your DataHub administrator.");
+          }
 
-            //validate label input
-            DescriptionUtils.validateLabelInput(targetUrn, _entityService);
+          // validate label input
+          DescriptionUtils.validateLabelInput(targetUrn, _entityService);
 
-            try {
-                Urn actor = CorpuserUrn.createFromString(context.getActorUrn());
-                DescriptionUtils.updateBusinessAttributeDescription(input.getDescription(),
-                        targetUrn,
-                        actor,
-                        _entityService);
-                return true;
-            } catch (Exception e) {
-                log.error("Failed to perform update against input {}, {}", input.toString(), e.getMessage());
-                throw new RuntimeException(String.format("Failed to perform update against input %s", input.toString()), e);
-            }
+          try {
+            Urn actor = CorpuserUrn.createFromString(context.getActorUrn());
+            DescriptionUtils.updateBusinessAttributeDescription(
+                input.getDescription(), targetUrn, actor, _entityService);
+            return true;
+          } catch (Exception e) {
+            log.error(
+                "Failed to perform update against input {}, {}", input.toString(), e.getMessage());
+            throw new RuntimeException(
+                String.format("Failed to perform update against input %s", input.toString()), e);
+          }
         });
-    }
+  }
 }

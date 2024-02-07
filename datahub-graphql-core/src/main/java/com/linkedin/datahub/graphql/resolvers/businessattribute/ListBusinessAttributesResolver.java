@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.businessattribute;
 
+import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
+
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.BusinessAttribute;
@@ -22,14 +24,10 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
-
-
-/**
- * Resolver used for listing Business Attributes.
- */
+/** Resolver used for listing Business Attributes. */
 @Slf4j
-public class ListBusinessAttributesResolver implements DataFetcher<CompletableFuture<ListBusinessAttributesResult>> {
+public class ListBusinessAttributesResolver
+    implements DataFetcher<CompletableFuture<ListBusinessAttributesResult>> {
 
   private static final Integer DEFAULT_START = 0;
   private static final Integer DEFAULT_COUNT = 20;
@@ -42,39 +40,45 @@ public class ListBusinessAttributesResolver implements DataFetcher<CompletableFu
   }
 
   @Override
-  public CompletableFuture<ListBusinessAttributesResult> get(final DataFetchingEnvironment environment) throws Exception {
+  public CompletableFuture<ListBusinessAttributesResult> get(
+      final DataFetchingEnvironment environment) throws Exception {
 
     final QueryContext context = environment.getContext();
-    final ListBusinessAttributesInput input = bindArgument(environment.getArgument("input"), ListBusinessAttributesInput.class);
+    final ListBusinessAttributesInput input =
+        bindArgument(environment.getArgument("input"), ListBusinessAttributesInput.class);
 
-    return CompletableFuture.supplyAsync(() -> {
-      final Integer start = input.getStart() == null ? DEFAULT_START : input.getStart();
-      final Integer count = input.getCount() == null ? DEFAULT_COUNT : input.getCount();
-      final String query = input.getQuery() == null ? DEFAULT_QUERY : input.getQuery();
+    return CompletableFuture.supplyAsync(
+        () -> {
+          final Integer start = input.getStart() == null ? DEFAULT_START : input.getStart();
+          final Integer count = input.getCount() == null ? DEFAULT_COUNT : input.getCount();
+          final String query = input.getQuery() == null ? DEFAULT_QUERY : input.getQuery();
 
-      try {
+          try {
 
-        final SearchResult gmsResult = _entityClient.search(
-                Constants.BUSINESS_ATTRIBUTE_ENTITY_NAME,
-                query,
-                Collections.emptyMap(),
-                start,
-                count,
-                context.getAuthentication(),
-                new SearchFlags().setFulltext(true));
+            final SearchResult gmsResult =
+                _entityClient.search(
+                    Constants.BUSINESS_ATTRIBUTE_ENTITY_NAME,
+                    query,
+                    Collections.emptyMap(),
+                    start,
+                    count,
+                    context.getAuthentication(),
+                    new SearchFlags().setFulltext(true));
 
-        final ListBusinessAttributesResult result = new ListBusinessAttributesResult();
-        result.setStart(gmsResult.getFrom());
-        result.setCount(gmsResult.getPageSize());
-        result.setTotal(gmsResult.getNumEntities());
-        result.setBusinessAttributes(mapUnresolvedBusinessAttributes(gmsResult.getEntities().stream()
-            .map(SearchEntity::getEntity)
-            .collect(Collectors.toList())));
-        return result;
-      } catch (Exception e) {
-        throw new RuntimeException("Failed to list Business Attributes", e);
-      }
-    });
+            final ListBusinessAttributesResult result = new ListBusinessAttributesResult();
+            result.setStart(gmsResult.getFrom());
+            result.setCount(gmsResult.getPageSize());
+            result.setTotal(gmsResult.getNumEntities());
+            result.setBusinessAttributes(
+                mapUnresolvedBusinessAttributes(
+                    gmsResult.getEntities().stream()
+                        .map(SearchEntity::getEntity)
+                        .collect(Collectors.toList())));
+            return result;
+          } catch (Exception e) {
+            throw new RuntimeException("Failed to list Business Attributes", e);
+          }
+        });
   }
 
   private List<BusinessAttribute> mapUnresolvedBusinessAttributes(final List<Urn> entityUrns) {

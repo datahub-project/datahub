@@ -5,13 +5,13 @@ import com.linkedin.datahub.graphql.types.businessattribute.mappers.BusinessAttr
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
 import com.linkedin.schema.EditableSchemaFieldInfo;
+import javax.annotation.Nonnull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-
 public class EditableSchemaFieldInfoMapper {
-    private static final Logger _logger = LoggerFactory.getLogger(EditableSchemaFieldInfoMapper.class.getName());
+  private static final Logger _logger =
+      LoggerFactory.getLogger(EditableSchemaFieldInfoMapper.class.getName());
 
   public static final EditableSchemaFieldInfoMapper INSTANCE = new EditableSchemaFieldInfoMapper();
 
@@ -38,8 +38,9 @@ public class EditableSchemaFieldInfoMapper {
       result.setGlossaryTerms(GlossaryTermsMapper.map(input.getGlossaryTerms(), entityUrn));
     }
     if (input.hasBusinessAttribute()) {
-        result.setBusinessAttributes(BusinessAttributesMapper.map(input.getBusinessAttribute(), entityUrn));
+      result.setBusinessAttributes(
+          BusinessAttributesMapper.map(input.getBusinessAttribute(), entityUrn));
     }
-        return result;
-    }
+    return result;
+  }
 }
