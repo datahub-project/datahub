@@ -67,6 +67,7 @@ class SlackSource(TestableSource):
     def get_workunits_internal(
         self,
     ) -> Iterable[MetadataWorkUnit]:
+        assert self.ctx.graph is not None
         auth_resp = self.get_slack_client().auth_test()
         logger.info("Successfully connected to Slack")
         logger.info(auth_resp.data)
@@ -87,11 +88,13 @@ class SlackSource(TestableSource):
             corpuser_editable_info.email = user_obj.email
             corpuser_editable_info.slack = user_obj.slack_id
             corpuser_editable_info.title = user_obj.title
-            corpuser_editable_info.pictureLink = user_obj.image_url
-            corpuser_editable_info.phone = user_obj.phone
+            if user_obj.image_url:
+                corpuser_editable_info.pictureLink = user_obj.image_url
+            if user_obj.phone:
+                corpuser_editable_info.phone = user_obj.phone
             yield MetadataWorkUnit(
                 id=f"{user_obj.urn}",
-                mcp_raw=MetadataChangeProposalWrapper(
+                mcp=MetadataChangeProposalWrapper(
                     entityUrn=user_obj.urn,
                     aspect=corpuser_editable_info,
                 ),
