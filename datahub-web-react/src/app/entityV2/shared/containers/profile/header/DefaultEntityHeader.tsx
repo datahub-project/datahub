@@ -30,15 +30,17 @@ export const TitleWrapper = styled.div`
 `;
 
 export const Row = styled.div`
-    padding: 12px 24px;
+    padding: 18px 14px 18px 26px;
     display: flex;
     flex-direction: row;
     justify-content: space-between;
-    align-items: center;
+    align-items: flex-start;
+    position: relative;
+    overflow: hidden;
 `;
 
 export const PlatformRow = styled(Row)`
-    padding: 0px 24px 12px 24px;
+    padding: 0px;
 `;
 
 export const LeftColumn = styled.div`
@@ -73,6 +75,21 @@ export const StyledDivider = styled(Divider)`
 // TODO: Fix the styles here to avoid requiring this.
 const SubHeader = styled.div`
     padding: 0px 24px 8px 24px;
+`;
+
+const EntityTitleWrapper = styled.div`
+    display: flex;
+    flex-direction: column;
+`;
+
+const GlossaryItemBadge = styled.span`
+    position: absolute;
+    left: -20px;
+    top: 4px;
+    width: 80px;
+    transform: rotate(-45deg);
+    padding: 8px;
+    opacity: 1;
 `;
 
 export type Props = {
@@ -124,6 +141,7 @@ export const DefaultEntityHeader = ({
     return (
         <>
             <Row>
+                <GlossaryItemBadge style={{ backgroundColor: 'rgba(255, 114, 113, 1)' }}> </GlossaryItemBadge>
                 <EntityBackButton />
                 <LeftColumn>
                     {(loading && <EntityTitleLoadingSection />) || (
@@ -151,7 +169,12 @@ export const DefaultEntityHeader = ({
                                         icon={displayProperties?.icon?.name}
                                     />
                                 )}
-                                <EntityName isNameEditable={showEditName} />
+                                <EntityTitleWrapper>
+                                    <PlatformRow>
+                                        {(loading && <EntityPlatformLoadingSection />) || <PlatformContent />}
+                                    </PlatformRow>
+                                    <EntityName isNameEditable={showEditName} />
+                                </EntityTitleWrapper>
                                 {entityData?.deprecation?.deprecated && (
                                     <DeprecationPill
                                         urn={urn}
@@ -170,11 +193,9 @@ export const DefaultEntityHeader = ({
                         {headerActionItems && (
                             <EntityActions urn={urn} actionItems={headerActionItems} refetchForEntity={refetch} />
                         )}
-                        {headerDropdownItems && <EntityMenuActions menuItems={headerDropdownItems} />}
                     </TopButtonsWrapper>
                 </RightColumn>
             </Row>
-            <PlatformRow>{(loading && <EntityPlatformLoadingSection />) || <PlatformContent />}</PlatformRow>
             {!!subHeader && (
                 <SubHeader>
                     <subHeader.component />

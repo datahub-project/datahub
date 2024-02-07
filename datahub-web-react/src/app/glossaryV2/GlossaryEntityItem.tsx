@@ -8,12 +8,22 @@ import { EntityType } from '../../types.generated';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { BusinessGlossaryEntitiesCardColors } from '../onboarding/config/BusinessGlossaryConfigV2';
 import FolderIcon from '../../images/folder-open.svg?react';
+import BookmarkIcon from '../../images/collections_bookmark.svg?react';
+import ArrowRightIcon from '../../images/arrow_right_alt.svg?react';
 
-const ItemWrapper = styled.div`
-    flex-basis: 24%;
-    & a {
-        display: block
-        height: 100%;
+const GlossaryItem = styled.div`
+    align-items: center;
+    color: #434863;
+    display: flex;
+    font-size: 14px;
+    font-weight: 400;
+    justify-content: space-between;
+    line-height: normal;
+    width: 100%;
+    height: 100%;
+
+    .anticon-folder {
+        margin-right: 8px;
     }
 `;
 
@@ -67,6 +77,8 @@ const GlossaryItemCard = styled.div`
     background: #fff;
     transition: 0.15s;
     height: 100%;
+    width: 100%;
+
     &:hover {
         transition: 0.15s;
         border-color: #5c3fd1;
@@ -123,6 +135,77 @@ const GlossaryItemCardDescription = styled(Typography)`
     -webkit-box-orient: vertical;
 `;
 
+const SmallDescription = styled(Typography)`
+    color: rgba(86, 102, 142, 0.5);
+    font-size: 10px;
+    line-height: 16px;
+    font-weight: 600;
+`;
+
+const EntityDetailsLeftColumn = styled.div`
+    display: flex;
+    gap: 15px;
+    align-items: center;
+`;
+
+const EntityDetailsRightColumn = styled.div`
+    margin-right: 5px;
+
+    svg {
+        visibility: hidden;
+    }
+`;
+
+const BookmarkIconWrapper = styled.div`
+    border: 1px solid #d9d9d9;
+    border-radius: 10px;
+    backround: #fff;
+    padding: 14px 11px 11px 13px;
+`;
+
+const EntityNameWrapper = styled.div`
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+`;
+
+const EntityDetailsWrapper = styled.div`
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    margin: 0 2px;
+    border-bottom: 1px solid #f6f7fa;
+    padding: 20px 23px 20px 20px;
+
+    &:hover > ${EntityDetailsLeftColumn} > ${BookmarkIconWrapper} > svg > g > path {
+        transition: 0.15s;
+        fill: rgba(216, 160, 75, 1);
+    }
+
+    &:hover > ${EntityDetailsRightColumn} > svg {
+        transition: 0.15s;
+        visibility: visible;
+    }
+
+    &:hover {
+        transition: 0.15s;
+        background-color: #f6f7fa;
+        border-radius: 4px;
+    }
+`;
+
+const ItemWrapper = styled.div`
+    transition: 0.15s;
+    width: 100%;
+
+    & a {
+        display: block;
+        width: 100%;
+        height: 100%;
+    }
+`;
+
 interface Props {
     name: string;
     description?: string;
@@ -138,30 +221,51 @@ function GlossaryEntityItem(props: Props) {
     const entityRegistry = useEntityRegistry();
 
     return (
-        <ItemWrapper>
+        <ItemWrapper style={{ flexBasis: type === EntityType.GlossaryNode ? '24%' : 'auto' }}>
             <Link to={`${entityRegistry.getEntityUrl(type, urn)}`}>
-                <GlossaryItemCard>
-                    <GlossaryItemCardHeader index={index}>
-                        <GlossaryCardHeader>{name?.match(/\b(\w)/g)?.join('')}</GlossaryCardHeader>
-                        <GlossaryItemBadge
-                            style={{ backgroundColor: `${BusinessGlossaryEntitiesCardColors[index % 15]}` }}
-                        >
-                            {' '}
-                        </GlossaryItemBadge>
-                        {type === EntityType.GlossaryNode && (
-                            <GlossaryItemCount>
-                                <CountWrapper>
-                                    <Icon component={FolderIcon} style={{ fontSize: '17px' }} />
-                                    <GlossaryItemCountDiv>{count}</GlossaryItemCountDiv>
-                                </CountWrapper>
-                            </GlossaryItemCount>
-                        )}
-                    </GlossaryItemCardHeader>
-                    <GlossaryItemCardDetails>
-                        <GlossaryItemCardTitle>{name}</GlossaryItemCardTitle>
-                        <GlossaryItemCardDescription>{description}</GlossaryItemCardDescription>
-                    </GlossaryItemCardDetails>
-                </GlossaryItemCard>
+                <GlossaryItem>
+                    {type === EntityType.GlossaryNode ? (
+                        <GlossaryItemCard>
+                            <GlossaryItemCardHeader
+                                index={index}
+                            >
+                                <GlossaryCardHeader>{name?.match(/\b(\w)/g)?.join('')}</GlossaryCardHeader>
+                                <GlossaryItemBadge
+                                    style={{ backgroundColor: `${BusinessGlossaryEntitiesCardColors[index % 15]}` }}
+                                >
+                                    {' '}
+                                </GlossaryItemBadge>
+                                {type === EntityType.GlossaryNode && (
+                                    <GlossaryItemCount>
+                                        <CountWrapper>
+                                            <Icon component={FolderIcon} style={{ fontSize: '17px' }} />
+                                            <GlossaryItemCountDiv>{count}</GlossaryItemCountDiv>
+                                        </CountWrapper>
+                                    </GlossaryItemCount>
+                                )}
+                            </GlossaryItemCardHeader>
+                            <GlossaryItemCardDetails>
+                                <GlossaryItemCardTitle>{name}</GlossaryItemCardTitle>
+                                <GlossaryItemCardDescription>{description}</GlossaryItemCardDescription>
+                            </GlossaryItemCardDetails>
+                        </GlossaryItemCard>
+                    ) : (
+                        <EntityDetailsWrapper>
+                            <EntityDetailsLeftColumn>
+                                <BookmarkIconWrapper>
+                                    <BookmarkIcon />
+                                </BookmarkIconWrapper>
+                                <EntityNameWrapper>
+                                    {name}
+                                    <SmallDescription>Amount of money available or owed</SmallDescription>
+                                </EntityNameWrapper>
+                            </EntityDetailsLeftColumn>
+                            <EntityDetailsRightColumn>
+                                <ArrowRightIcon />
+                            </EntityDetailsRightColumn>
+                        </EntityDetailsWrapper>
+                    )}
+                </GlossaryItem>
             </Link>
         </ItemWrapper>
     );

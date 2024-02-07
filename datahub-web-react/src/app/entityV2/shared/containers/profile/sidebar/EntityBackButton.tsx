@@ -3,20 +3,21 @@ import styled from 'styled-components';
 import { Button, Tooltip } from 'antd';
 import { useHistory } from 'react-router';
 import KeyboardBackspaceIcon from '@mui/icons-material/KeyboardBackspace';
-import { ANTD_GRAY } from '../../../constants';
+import { REDESIGN_COLORS } from '../../../constants';
 
 const StyledButton = styled(Button)`
-    height: 28px;
-    width: 28px;
-    color: ${ANTD_GRAY[7]};
+    height: 19px;
+    width: 19px;
+    color: ${REDESIGN_COLORS.HEADING_COLOR};
     padding: 0px;
     border-radius: 20px;
-    border: 1px solid ${ANTD_GRAY[5]};
+    border: 1px solid ${REDESIGN_COLORS.HEADING_COLOR};
     display: flex;
     align-items: center;
     justify-content: center;
     margin-left: -4px;
     margin-right: 10px;
+    margin-top: 2px;
 `;
 
 const StyledLeftOutlined = styled(KeyboardBackspaceIcon)`
@@ -49,7 +50,7 @@ export const EntityBackButton = () => {
     return (
         <Tooltip title="Go back" showArrow={false} placement="right">
             <StyledButton onClick={onGoBack}>
-                <StyledLeftOutlined />
+                <StyledLeftOutlined style={{ fontSize: '14px' }} />
             </StyledButton>
         </Tooltip>
     );

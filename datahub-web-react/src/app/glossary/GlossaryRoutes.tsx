@@ -44,7 +44,7 @@ export default function GlossaryRoutes() {
                 setIsSidebarOpen,
             }}
         >
-            {!isAtRootGlossary && <GlossaryEntitiesPath />}
+            {/* {!isAtRootGlossary && <GlossaryEntitiesPath />} */}
             <ContentWrapper>
                 <GlossarySidebar />
                 <Switch>

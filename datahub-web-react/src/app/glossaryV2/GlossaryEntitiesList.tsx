@@ -2,7 +2,7 @@ import React from 'react';
 import styled from 'styled-components/macro';
 import { GlossaryNodeFragment } from '../../graphql/fragments.generated';
 import { ChildGlossaryTermFragment } from '../../graphql/glossaryNode.generated';
-import { GlossaryNode, GlossaryTerm } from '../../types.generated';
+import { EntityType, GlossaryNode, GlossaryTerm } from '../../types.generated';
 import { useEntityRegistry } from '../useEntityRegistry';
 import GlossaryEntityItem from './GlossaryEntityItem';
 
@@ -18,7 +18,6 @@ const GlossaryEntityWrapper = styled.div<GlossaryEntityWrapperProps>`
 const EntitiesWrapper = styled.div`
     display: flex;
     overflow: auto;
-    padding: 25px 29px;
     flex-wrap: wrap;
     gap: 14px;
 `;
