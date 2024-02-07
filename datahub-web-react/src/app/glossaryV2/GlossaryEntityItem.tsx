@@ -170,13 +170,8 @@ const EntityNameWrapper = styled.div`
 `;
 
 const EntityDetailsWrapper = styled.div`
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
     width: 100%;
     margin: 0 2px;
-    border-bottom: 1px solid #f6f7fa;
-    padding: 20px 23px 20px 20px;
 
     &:hover > ${EntityDetailsLeftColumn} > ${BookmarkIconWrapper} > svg > g > path {
         transition: 0.15s;
@@ -193,6 +188,15 @@ const EntityDetailsWrapper = styled.div`
         background-color: #f6f7fa;
         border-radius: 4px;
     }
+`;
+
+const EntityDetails = styled.div`
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #f6f7fa;
+    padding: 20px 0 20px 0;
+    margin: 0 23px 0 19px;
 `;
 
 const ItemWrapper = styled.div`
@@ -251,18 +255,20 @@ function GlossaryEntityItem(props: Props) {
                         </GlossaryItemCard>
                     ) : (
                         <EntityDetailsWrapper>
-                            <EntityDetailsLeftColumn>
-                                <BookmarkIconWrapper>
-                                    <BookmarkIcon />
-                                </BookmarkIconWrapper>
-                                <EntityNameWrapper>
-                                    {name}
-                                    <SmallDescription>Amount of money available or owed</SmallDescription>
-                                </EntityNameWrapper>
-                            </EntityDetailsLeftColumn>
-                            <EntityDetailsRightColumn>
-                                <ArrowRightIcon />
-                            </EntityDetailsRightColumn>
+                            <EntityDetails>
+                                <EntityDetailsLeftColumn>
+                                    <BookmarkIconWrapper>
+                                        <BookmarkIcon />
+                                    </BookmarkIconWrapper>
+                                    <EntityNameWrapper>
+                                        {name}
+                                        <SmallDescription>Amount of money available or owed</SmallDescription>
+                                    </EntityNameWrapper>
+                                </EntityDetailsLeftColumn>
+                                <EntityDetailsRightColumn>
+                                    <ArrowRightIcon />
+                                </EntityDetailsRightColumn>
+                            </EntityDetails>
                         </EntityDetailsWrapper>
                     )}
                 </GlossaryItem>
