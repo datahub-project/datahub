@@ -146,7 +146,7 @@ class SqlParsingBuilder:
                 )
 
         if self.generate_usage_statistics and query_timestamp is not None:
-            upstream_fields = _compute_upstream_fields(result)
+            upstream_fields = compute_upstream_fields(result)
             for upstream_urn in upstreams_to_ingest:
                 self._usage_aggregator.aggregate_event(
                     resource=upstream_urn,
@@ -266,7 +266,7 @@ def _merge_lineage_data(
     return upstream_edges
 
 
-def _compute_upstream_fields(
+def compute_upstream_fields(
     result: SqlParsingResult,
 ) -> Dict[DatasetUrn, Set[DatasetUrn]]:
     upstream_fields: Dict[DatasetUrn, Set[DatasetUrn]] = defaultdict(set)

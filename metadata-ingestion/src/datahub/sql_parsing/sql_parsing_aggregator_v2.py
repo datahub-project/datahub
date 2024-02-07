@@ -5,12 +5,13 @@ import json
 import logging
 from collections import defaultdict
 from datetime import datetime, timezone
-from typing import Callable, Dict, Iterable, List, Optional, Set
+from typing import Callable, Dict, Iterable, List, Optional, Set, cast
 
 import datahub.metadata.schema_classes as models
 from datahub.emitter.mce_builder import get_sys_time, make_ts_millis
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.sql_parsing_builder import _compute_upstream_fields
+from datahub.emitter.sql_parsing_builder import compute_upstream_fields
+from datahub.ingestion.api.report import Report
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig, UsageAggregator
 from datahub.metadata.urns import (
@@ -30,6 +31,7 @@ from datahub.sql_parsing.sqlglot_lineage import (
 )
 from datahub.sql_parsing.sqlglot_utils import generate_hash
 from datahub.utilities.file_backed_collections import FileBackedDict
+from datahub.utilities.lossy_collections import LossyDict, LossyList
 from datahub.utilities.ordered_set import OrderedSet
 
 logger = logging.getLogger(__name__)
@@ -77,6 +79,40 @@ class QueryMetadata:
         )
 
 
+@dataclasses.dataclass
+class SqlAggregatorReport(Report):
+    _aggregator: "SqlParsingAggregator"
+
+    num_observed_queries: int = 0
+    # num_view_definitions: int = 0  # TODO
+
+    num_queries_with_temp_tables_in_session: int = 0
+
+    num_unique_query_fingerprints: int = 0
+
+    # Lineage-related.
+    num_urns_with_lineage: int = 0
+    num_temp_sessions: int = 0
+    num_inferred_temp_schemas: int = 0
+    queries_with_temp_upstreams: LossyDict[QueryId, LossyList] = dataclasses.field(
+        default_factory=LossyDict
+    )
+
+    num_queries_entities_generated: int = 0
+
+    # Usage-related.
+    usage_skipped_missing_timestamp: int = 0
+
+    def compute_stats(self) -> None:
+        self.num_unique_query_fingerprints = len(self._aggregator._query_map)
+
+        self.num_urns_with_lineage = len(self._aggregator._lineage_map)
+        self.num_temp_sessions = len(self._aggregator._temp_lineage_map)
+        self.num_inferred_temp_schemas = len(self._aggregator._inferred_temp_schemas)
+
+        return super().compute_stats()
+
+
 class SqlParsingAggregator:
     def __init__(
         self,
@@ -107,6 +143,8 @@ class SqlParsingAggregator:
         self.usage_config = usage_config
         if self.generate_usage_statistics and self.usage_config is None:
             raise ValueError("Usage statistics generation requires a usage config")
+
+        self.report = SqlAggregatorReport(_aggregator=self)
 
         # can be used by BQ where we have a "temp_table_dataset_prefix"
         self.is_temp_table = is_temp_table
@@ -233,6 +271,7 @@ class SqlParsingAggregator:
         # Either way, it generates usage.
 
         # Note: this assumes that queries come in order of increasing timestamps
+        self.report.num_observed_queries += 1
 
         # All queries with no session ID are assumed to be part of the same session.
         session_id = session_id or _MISSING_SESSION_ID
@@ -250,6 +289,7 @@ class SqlParsingAggregator:
                 schema_resolver = self._schema_resolver.with_temp_tables(
                     temp_table_schemas
                 )
+                self.report.num_queries_with_temp_tables_in_session += 1
 
         parsed = sqlglot_lineage(
             query,
@@ -267,16 +307,21 @@ class SqlParsingAggregator:
             return
 
         # Register the query's usage.
-        if self._usage_aggregator:
+        if not self._usage_aggregator:
+            pass
+        elif query_timestamp is None:
+            self.report.usage_skipped_missing_timestamp += 1
+        else:
             # TODO: We need a full list of columns referenced, not just the out tables.
-            upstream_fields = _compute_upstream_fields(parsed)
+            upstream_fields = compute_upstream_fields(parsed)
             for upstream_urn in parsed.in_tables:
                 self._usage_aggregator.aggregate_event(
                     resource=upstream_urn,
                     start_time=query_timestamp,
                     query=query,
-                    user=user,
+                    user=user.urn() if user else None,
                     fields=sorted(upstream_fields.get(upstream_urn, [])),
+                    count=usage_multiplier,
                 )
 
         # Register the query's lineage.
@@ -488,6 +533,7 @@ class SqlParsingAggregator:
             if query_id in queries_generated:
                 continue
             queries_generated.add(query_id)
+            self.report.num_queries_entities_generated += 1
 
             query = queries_map[query_id]
             yield from MetadataChangeProposalWrapper.construct_many(
@@ -627,6 +673,10 @@ class SqlParsingAggregator:
         # - Update the query text to combine the queries
 
         composite_query_id = self._composite_query_id(composed_of_queries)
+        self.report.queries_with_temp_upstreams.setdefault(
+            composite_query_id, LossyList()
+        ).extend(composed_of_queries)
+
         merged_query_text = ";\n\n".join(
             [
                 self._query_map[query_id].formatted_query_string
@@ -647,10 +697,12 @@ class SqlParsingAggregator:
 
     def _gen_usage_statistics_mcps(self) -> Iterable[MetadataChangeProposalWrapper]:
         if self._usage_aggregator:
-            yield from self._usage_aggregator.generate_workunits(
+            for wu in self._usage_aggregator.generate_workunits(
                 resource_urn_builder=lambda urn: urn,
                 user_urn_builder=lambda urn: urn,
-            )
+            ):
+                # TODO: Eventually we should change the usage aggregator to return MCPWs directly.
+                yield cast(MetadataChangeProposalWrapper, wu.metadata)
 
     def _gen_operation_mcps(self) -> Iterable[MetadataChangeProposalWrapper]:
         if not self.generate_operations:
@@ -682,7 +734,3 @@ class SqlParsingAggregator:
             },
         )
         yield MetadataChangeProposalWrapper(entityUrn=downstream_urn, aspect=aspect)
-
-
-# TODO: add a reporter type
-# TODO: add a way to pass in fallback lineage info if query parsing fails
