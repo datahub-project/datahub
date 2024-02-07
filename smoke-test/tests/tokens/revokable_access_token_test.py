@@ -131,6 +131,7 @@ def access_token_setup():
 @pytest.mark.dependency(depends=["test_healthchecks"])
 def test_admin_can_create_list_and_revoke_tokens(wait_for_healthchecks):
     admin_session = login_as(admin_user, admin_pass)
+    admin_user_urn = f"urn:li:corpuser:{admin_user}"
 
     # Using a super account, there should be no tokens
     res_data = listAccessTokens(admin_session)
@@ -140,18 +141,25 @@ def test_admin_can_create_list_and_revoke_tokens(wait_for_healthchecks):
     assert len(res_data["data"]["listAccessTokens"]["tokens"]) == 0
 
     # Using a super account, generate a token for itself.
-    res_data = generateAccessToken_v2(admin_session, f"urn:li:corpuser:{admin_user}")
+    res_data = generateAccessToken_v2(admin_session, admin_user_urn)
     assert res_data
     assert res_data["data"]
     assert res_data["data"]["createAccessToken"]
     assert res_data["data"]["createAccessToken"]["accessToken"]
     assert (
-        res_data["data"]["createAccessToken"]["metadata"]["actorUrn"]
-        == f"urn:li:corpuser:{admin_user}"
+        res_data["data"]["createAccessToken"]["metadata"]["actorUrn"] == admin_user_urn
     )
+    access_token = res_data["data"]["createAccessToken"]["accessToken"]
     admin_tokenId = res_data["data"]["createAccessToken"]["metadata"]["id"]
     # Sleep for eventual consistency
     wait_for_writes_to_sync()
+
+    res_data = getAccessTokenMetadata(admin_session, access_token)
+    assert res_data
+    assert res_data["data"]
+    assert res_data["getAccessTokenMetadata"]
+    assert res_data["getAccessTokenMetadata"]["ownerUrn"] == admin_user_urn
+    assert res_data["getAccessTokenMetadata"]["actorUrn"] == admin_user_urn
 
     # Using a super account, list the previously created token.
     res_data = listAccessTokens(admin_session)
@@ -160,12 +168,10 @@ def test_admin_can_create_list_and_revoke_tokens(wait_for_healthchecks):
     assert res_data["data"]["listAccessTokens"]["total"] is not None
     assert len(res_data["data"]["listAccessTokens"]["tokens"]) == 1
     assert (
-        res_data["data"]["listAccessTokens"]["tokens"][0]["actorUrn"]
-        == f"urn:li:corpuser:{admin_user}"
+        res_data["data"]["listAccessTokens"]["tokens"][0]["actorUrn"] == admin_user_urn
     )
     assert (
-        res_data["data"]["listAccessTokens"]["tokens"][0]["ownerUrn"]
-        == f"urn:li:corpuser:{admin_user}"
+        res_data["data"]["listAccessTokens"]["tokens"][0]["ownerUrn"] == admin_user_urn
     )
 
     # Check that the super account can revoke tokens that it created
@@ -464,6 +470,24 @@ def revokeAccessToken(session, tokenId):
         "variables": {"tokenId": tokenId},
     }
 
+    response = session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
+    response.raise_for_status()
+
+    return response.json()
+
+
+def getAccessTokenMetadata(session, token):
+    json = {
+        "query": """
+        query getAccessTokenMetadata($token: String!) {
+            getAccessTokenMetadata(token: $token) {
+                id
+                ownerUrn
+                actorUrn
+            }
+        }""",
+        "variables": {"token": token},
+    }
     response = session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
     response.raise_for_status()
 
