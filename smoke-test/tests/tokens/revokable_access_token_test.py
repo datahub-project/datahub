@@ -40,10 +40,10 @@ def custom_user_setup():
 
     # Test getting the invite token
     get_invite_token_json = {
-        "query": """query getInviteToken($input: GetInviteTokenInput!) {\n
-            getInviteToken(input: $input){\n
-              inviteToken\n
-            }\n
+        "query": """query getInviteToken($input: GetInviteTokenInput!) {
+            getInviteToken(input: $input){
+              inviteToken
+            }
         }""",
         "variables": {"input": {}},
     }
@@ -396,17 +396,17 @@ def test_non_admin_can_not_generate_tokens_for_others(wait_for_healthchecks):
 def generateAccessToken_v2(session, actorUrn):
     # Create new token
     json = {
-        "query": """mutation createAccessToken($input: CreateAccessTokenInput!) {\n
-            createAccessToken(input: $input) {\n
-              accessToken\n
-              metadata {\n
-                id\n
-                actorUrn\n
-                ownerUrn\n
-                name\n
-                description\n
+        "query": """mutation createAccessToken($input: CreateAccessTokenInput!) {
+            createAccessToken(input: $input) {
+              accessToken
+              metadata {
+                id
+                actorUrn
+                ownerUrn
+                name
+                description
               }
-            }\n
+            }
         }""",
         "variables": {
             "input": {
@@ -434,18 +434,18 @@ def listAccessTokens(session, filters=[]):
         input["filters"] = filters
 
     json = {
-        "query": """query listAccessTokens($input: ListAccessTokenInput!) {\n
-            listAccessTokens(input: $input) {\n
-              start\n
-              count\n
-              total\n
-              tokens {\n
-                urn\n
-                id\n
-                actorUrn\n
-                ownerUrn\n
-              }\n
-            }\n
+        "query": """query listAccessTokens($input: ListAccessTokenInput!) {
+            listAccessTokens(input: $input) {
+              start
+              count
+              total
+              tokens {
+                urn
+                id
+                actorUrn
+                ownerUrn
+              }
+            }
         }""",
         "variables": {"input": input},
     }
@@ -458,7 +458,7 @@ def listAccessTokens(session, filters=[]):
 def revokeAccessToken(session, tokenId):
     # Revoke token
     json = {
-        "query": """mutation revokeAccessToken($tokenId: String!) {\n
+        "query": """mutation revokeAccessToken($tokenId: String!) {
             revokeAccessToken(tokenId: $tokenId)
         }""",
         "variables": {"tokenId": tokenId},
@@ -473,7 +473,7 @@ def revokeAccessToken(session, tokenId):
 def removeUser(session, urn):
     # Remove user
     json = {
-        "query": """mutation removeUser($urn: String!) {\n
+        "query": """mutation removeUser($urn: String!) {
             removeUser(urn: $urn)
         }""",
         "variables": {"urn": urn},
@@ -493,13 +493,13 @@ def listUsers(session):
 
     # list users
     json = {
-        "query": """query listUsers($input: ListUsersInput!) {\n
-            listUsers(input: $input) {\n
-              start\n
-              count\n
-              total\n
-              users {\n
-                username\n
+        "query": """query listUsers($input: ListUsersInput!) {
+            listUsers(input: $input) {
+              start
+              count
+              total
+              users {
+                username
               }
             }
         }""",
