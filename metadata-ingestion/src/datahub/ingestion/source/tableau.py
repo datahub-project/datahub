@@ -1643,7 +1643,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
         ],
     ) -> Optional["SqlParsingResult"]:
         database_info = datasource.get(c.DATABASE) or {
-            c.NAME: c.UNKNOWN,
+            c.NAME: c.UNKNOWN.lower(),
             c.CONNECTION_TYPE: "databricks"
         }
 
@@ -1696,11 +1696,14 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
         self,
         in_tables_schemas: Dict[str, Set[str]]
     ):       
+        if not in_tables_schemas:
+            return
+        
         for table_urn, columns in in_tables_schemas.items():
             if table_urn in self.in_tables_schemas:
                 self.in_tables_schemas[table_urn].update(columns)
             else:
-                self.in_tables_schemas[table_urn] = columns
+                self.in_tables_schemas[table_urn] = { *columns }
     
     def _create_lineage_from_unsupported_csql(
         self, csql_urn: str, csql: dict, out_columns: List[Dict[Any, Any]]

@@ -145,7 +145,7 @@ class _FrozenModel(_ParserBaseModel, frozen=True):
         for field in self.__fields__:
             self_v = getattr(self, field)
             other_v = getattr(other, field)
-            if self_v != other_v:
+            if self_v is not None and other_v is not None and self_v != other_v:
                 return self_v < other_v
 
         return False
@@ -261,7 +261,7 @@ class SqlParsingResult(_ParserBaseModel):
 
     in_tables: List[Urn]
     out_tables: List[Urn]
-    in_tables_schemas: Dict[Urn, Set[str]]
+    in_tables_schemas: Optional[Dict[Urn, Set[str]]] = None
 
     column_lineage: Optional[List[ColumnLineageInfo]] = None
 
@@ -514,7 +514,7 @@ DIALECTS_WITH_CASE_INSENSITIVE_COLS = {
     # A name, even when enclosed in double quotation marks, is not case sensitive. For example, CUSTOMER and Customer are the same.
     # See more below:
     # https://documentation.sas.com/doc/en/pgmsascdc/9.4_3.5/acreldb/n0ejgx4895bofnn14rlguktfx5r3.htm
-    "teradata"
+    "teradata",
 }
 DIALECTS_WITH_DEFAULT_UPPERCASE_COLS = {
     # In some dialects, column identifiers are effectively case insensitive
@@ -743,6 +743,9 @@ def _column_level_lineage(  # noqa: C901
 
                     # Parse the column name out of the node name.
                     # Sqlglot calls .sql(), so we have to do the inverse.
+                    if node.name == '*':
+                        continue
+
                     normalized_col = sqlglot.parse_one(node.name).this.name
                     if node.subfield:
                         normalized_col = f"{normalized_col}.{node.subfield}"
@@ -795,6 +798,8 @@ def _column_level_lineage(  # noqa: C901
 
         # TODO: Also extract referenced columns (aka auxillary / non-SELECT lineage)
     except (sqlglot.errors.OptimizeError, ValueError) as e:
+        import traceback
+        d = traceback.format_exc()
         raise SqlUnderstandingError(
             f"sqlglot failed to compute some lineage: {e}"
         ) from e
@@ -962,9 +967,9 @@ def _translate_internal_lineage_to_in_tables_schemas(
         for upstream in cli.upstreams:
             upstream_table_urn = table_name_urn_mapping[upstream.table]
             if upstream_table_urn in table_urn_to_schema_map:
-                table_urn_to_schema_map[upstream_table_urn].append(upstream.column)
+                table_urn_to_schema_map[upstream_table_urn].add(upstream.column)
             else:
-                table_urn_to_schema_map[upstream_table_urn] = [upstream.column]
+                table_urn_to_schema_map[upstream_table_urn] = { upstream.column }
     
     return table_urn_to_schema_map
 
@@ -1013,6 +1018,9 @@ def _get_dialect_str(platform: str) -> str:
         return "tsql"
     elif platform == "athena":
         return "trino"
+    # TODO: define SalesForce SOQL dialect
+    elif platform == "salesforce":
+        return "databricks"
     elif platform == "mysql":
         # In sqlglot v20+, MySQL is now case-sensitive by default, which is the
         # default behavior on Linux. However, MySQL's default case sensitivity
@@ -1253,6 +1261,10 @@ def sqlglot_lineage(
             default_schema=default_schema,
         )
     except Exception as e:
+        import traceback
+        d = traceback.format_exc()
+        logger.debug(d)
+        logger.debug(SqlParsingResult.make_from_error(e))
         return SqlParsingResult.make_from_error(e)
 
 
@@ -1342,6 +1354,8 @@ def create_lineage_sql_parsed_result(
             default_schema=default_schema,
         )
     except Exception as e:
+        import traceback
+        d = traceback.format_exc()
         return SqlParsingResult.make_from_error(e)
     finally:
         if needs_close:
