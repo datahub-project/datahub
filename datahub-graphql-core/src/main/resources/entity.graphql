@@ -1839,6 +1839,12 @@ input AspectParams {
     Only fetch auto render aspects
     """
     autoRenderOnly: Boolean
+
+    """
+    Fetch using aspect names
+    If absent, returns all aspects matching other inputs
+    """
+    aspectNames: [String!]
 }
 
 
@@ -7000,6 +7006,12 @@ type Assertion implements EntityWithRelationships & Entity {
     Edges extending from this entity grouped by direction in the lineage graph
     """
     lineage(input: LineageInput!): EntityLineageResult
+
+    """
+    Experimental API.
+    For fetching extra aspects that do not have custom UI code yet
+    """
+    aspects(input: AspectParams): [RawAspect!]
 }
 
 """

@@ -9,6 +9,7 @@ import com.google.common.collect.ImmutableList;
 import com.linkedin.datahub.graphql.GmsGraphQLEngine;
 import com.linkedin.datahub.graphql.GmsGraphQLEngineArgs;
 import com.linkedin.datahub.graphql.GmsGraphQLPlugin;
+import com.linkedin.datahub.graphql.WeaklyTypedAspectsResolver;
 import com.linkedin.datahub.graphql.generated.ActionRequest;
 import com.linkedin.datahub.graphql.generated.Anomaly;
 import com.linkedin.datahub.graphql.generated.AnomalySource;
@@ -116,6 +117,7 @@ import com.linkedin.metadata.connection.ConnectionService;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.integration.IntegrationsService;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.secret.SecretService;
 import com.linkedin.metadata.service.AssertionService;
@@ -161,6 +163,7 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
   private UsageClient usageClient;
   private EntityClient entityClient;
   private GraphClient graphClient;
+  private EntityRegistry entityRegistry;
 
   private TestEngine testEngine;
   private boolean initialized;
@@ -175,6 +178,7 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
     this.graphClient = args.getGraphClient();
     this.entityClient = args.getEntityClient();
     this.entityService = args.getEntityService();
+    this.entityRegistry = args.getEntityRegistry();
     this.usageClient = args.getUsageClient();
     this.connectionService = args.getConnectionService();
     this.assertionService = args.getAssertionService();
@@ -572,10 +576,13 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
     builder.type(
         "Monitor",
         typeWiring ->
-            typeWiring.dataFetcher(
-                "entity",
-                new EntityTypeResolver(
-                    baseEngine.entityTypes, (env) -> ((Monitor) env.getSource()).getEntity())));
+            typeWiring
+                .dataFetcher(
+                    "entity",
+                    new EntityTypeResolver(
+                        baseEngine.entityTypes, (env) -> ((Monitor) env.getSource()).getEntity()))
+                .dataFetcher(
+                    "aspects", new WeaklyTypedAspectsResolver(entityClient, entityRegistry)));
     builder.type(
         "Query",
         typeWiring ->

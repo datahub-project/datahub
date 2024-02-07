@@ -162,6 +162,12 @@ type Monitor implements Entity {
     Edges extending from this entity
     """
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+    """
+    Experimental API.
+    For fetching extra aspects that do not have custom UI code yet
+    """
+    aspects(input: AspectParams): [RawAspect!]
 }
 
 """
