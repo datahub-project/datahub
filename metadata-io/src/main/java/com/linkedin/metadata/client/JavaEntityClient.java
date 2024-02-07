@@ -229,9 +229,11 @@ public class JavaEntityClient implements EntityClient {
       @Nonnull String input,
       int start,
       int count,
-      @Nonnull Authentication authentication) {
+      @Nonnull Authentication authentication,
+      @Nullable SearchFlags searchFlags) {
     // TODO: cache browseV2 results
-    return _entitySearchService.browseV2(entityName, path, filter, input, start, count);
+    return _entitySearchService.browseV2(
+        entityName, path, filter, input, start, count, searchFlags);
   }
 
   /**
@@ -253,9 +255,11 @@ public class JavaEntityClient implements EntityClient {
       @Nonnull String input,
       int start,
       int count,
-      @Nonnull Authentication authentication) {
+      @Nonnull Authentication authentication,
+      @Nullable SearchFlags searchFlags) {
     // TODO: cache browseV2 results
-    return _entitySearchService.browseV2(entityNames, path, filter, input, start, count);
+    return _entitySearchService.browseV2(
+        entityNames, path, filter, input, start, count, searchFlags);
   }
 
   @SneakyThrows

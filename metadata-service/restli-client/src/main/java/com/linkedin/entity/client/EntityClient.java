@@ -154,7 +154,8 @@ public interface EntityClient {
       @Nonnull String input,
       int start,
       int count,
-      @Nonnull Authentication authentication)
+      @Nonnull Authentication authentication,
+      @Nullable SearchFlags searchFlags)
       throws RemoteInvocationException;
 
   /**
@@ -176,7 +177,8 @@ public interface EntityClient {
       @Nonnull String input,
       int start,
       int count,
-      @Nonnull Authentication authentication)
+      @Nonnull Authentication authentication,
+      @Nullable SearchFlags searchFlags)
       throws RemoteInvocationException;
 
   @Deprecated

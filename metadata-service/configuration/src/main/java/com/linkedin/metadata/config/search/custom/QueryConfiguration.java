@@ -19,6 +19,13 @@ public class QueryConfiguration {
 
   private String queryRegex;
   @Builder.Default private boolean simpleQuery = true;
+
+  /**
+   * Used to determine if standard structured query logic should be applied when relevant, i.e.
+   * fullText flag is false. Will not be added in cases where simpleQuery would be the standard.
+   */
+  @Builder.Default private boolean structuredQuery = true;
+
   @Builder.Default private boolean exactMatchQuery = true;
   @Builder.Default private boolean prefixMatchQuery = true;
   private BoolQueryConfiguration boolQuery;
