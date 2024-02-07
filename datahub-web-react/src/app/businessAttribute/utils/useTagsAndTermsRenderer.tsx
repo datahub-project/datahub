@@ -5,6 +5,7 @@ import TagTermGroup from '../../shared/tags/TagTermGroup';
 export default function useTagsAndTermsRenderer(
     tagHoveredUrn: string | undefined,
     setTagHoveredUrn: (index: string | undefined) => void,
+    tagHoveredIndex: string | undefined,
     options: { showTags: boolean; showTerms: boolean },
     filterText: string,
     businessAttributeRefetch: () => Promise<any>,
@@ -23,8 +24,8 @@ export default function useTagsAndTermsRenderer(
                     editableGlossaryTerms={options.showTerms ? record.properties?.glossaryTerms : null}
                     canRemove
                     buttonProps={{ size: 'small' }}
-                    canAddTag={tagHoveredUrn === record.urn && options.showTags}
-                    canAddTerm={tagHoveredUrn === record.urn && options.showTerms}
+                    canAddTag={tagHoveredIndex === record.urn && options.showTags}
+                    canAddTerm={tagHoveredIndex === record.urn && options.showTerms}
                     onOpenModal={() => setTagHoveredUrn(undefined)}
                     entityUrn={urn}
                     entityType={EntityType.BusinessAttribute}

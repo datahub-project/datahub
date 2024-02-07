@@ -80,6 +80,7 @@ export const BusinessAttributes = () => {
     const start = (page - 1) * pageSize;
     const [query, setQuery] = useState<undefined | string>(undefined);
     const [tagHoveredUrn, setTagHoveredUrn] = useState<string | undefined>(undefined);
+    const [tagHoveredIndex, setTagHoveredIndex] = useState<string | undefined>(undefined);
 
     const {
         loading: businessAttributeLoading,
@@ -94,9 +95,11 @@ export const BusinessAttributes = () => {
         },
     });
     const descriptionRender = useDescriptionRenderer(businessAttributeRefetch);
+
     const tagRenderer = useTagsAndTermsRenderer(
         tagHoveredUrn,
         setTagHoveredUrn,
+        tagHoveredIndex,
         {
             showTags: true,
             showTerms: false,
@@ -108,6 +111,7 @@ export const BusinessAttributes = () => {
     const termRenderer = useTagsAndTermsRenderer(
         tagHoveredUrn,
         setTagHoveredUrn,
+        tagHoveredIndex,
         {
             showTags: false,
             showTerms: true,
@@ -115,19 +119,18 @@ export const BusinessAttributes = () => {
         query || '',
         businessAttributeRefetch,
     );
-
     const totalBusinessAttributes = businessAttributeData?.listBusinessAttributes?.total || 0;
     const businessAttributes = useMemo(
         () => businessAttributeData?.listBusinessAttributes?.businessAttributes || [],
         [businessAttributeData],
     );
-
     const onTagTermCell = (record: BusinessAttribute) => ({
         onMouseEnter: () => {
             setTagHoveredUrn(record.urn);
+            setTagHoveredIndex(record.urn);
         },
         onMouseLeave: () => {
-            setTagHoveredUrn(undefined);
+            setTagHoveredIndex(undefined);
         },
     });
 
