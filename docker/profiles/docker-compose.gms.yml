@@ -119,6 +119,7 @@ x-datahub-gms-service-dev: &datahub-gms-service-dev
     SEARCH_SERVICE_ENABLE_CACHE: false
     LINEAGE_SEARCH_CACHE_ENABLED: false
     SHOW_BROWSE_V2: true
+    METADATA_TESTS_ENABLED: true
   volumes:
     - ./datahub-gms/start.sh:/datahub/datahub-gms/scripts/start.sh
     - ./datahub-gms/jetty.xml:/datahub/datahub-gms/scripts/jetty.xml
