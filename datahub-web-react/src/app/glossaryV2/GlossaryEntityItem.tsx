@@ -169,16 +169,25 @@ const EntityNameWrapper = styled.div`
     gap: 2px;
 `;
 
+const EntityDetails = styled.div`
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #f6f7fa;
+    padding: 20px 0 20px 0;
+    margin: 0 23px 0 19px;
+`;
+
 const EntityDetailsWrapper = styled.div`
     width: 100%;
     margin: 0 2px;
 
-    &:hover > ${EntityDetailsLeftColumn} > ${BookmarkIconWrapper} > svg > g > path {
+    &:hover > ${EntityDetails} > ${EntityDetailsLeftColumn} > ${BookmarkIconWrapper} > svg > g > path {
         transition: 0.15s;
         fill: rgba(216, 160, 75, 1);
     }
 
-    &:hover > ${EntityDetailsRightColumn} > svg {
+    &:hover > ${EntityDetails} > ${EntityDetailsRightColumn} > svg {
         transition: 0.15s;
         visibility: visible;
     }
@@ -188,15 +197,6 @@ const EntityDetailsWrapper = styled.div`
         background-color: #f6f7fa;
         border-radius: 4px;
     }
-`;
-
-const EntityDetails = styled.div`
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    border-bottom: 1px solid #f6f7fa;
-    padding: 20px 0 20px 0;
-    margin: 0 23px 0 19px;
 `;
 
 const ItemWrapper = styled.div`
