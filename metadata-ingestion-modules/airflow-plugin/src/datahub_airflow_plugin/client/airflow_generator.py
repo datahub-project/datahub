@@ -209,7 +209,7 @@ class AirflowGenerator:
         set_dependencies: bool = True,
         capture_owner: bool = True,
         capture_tags: bool = True,
-        config: DatahubLineageConfig = DatajobUrl.TASKINSTANCE,
+        config: Optional[DatahubLineageConfig] = None,
     ) -> DataJob:
         """
 
@@ -297,7 +297,7 @@ class AirflowGenerator:
         task: "Operator",
         dag: "DAG",
         data_job: Optional[DataJob] = None,
-        config: DatahubLineageConfig = DatajobUrl.TASKINSTANCE,
+        config: Optional[DatahubLineageConfig] = None,
     ) -> DataProcessInstance:
         if data_job is None:
             data_job = AirflowGenerator.generate_datajob(
@@ -417,9 +417,12 @@ class AirflowGenerator:
         datajob: Optional[DataJob] = None,
         attempt: Optional[int] = None,
         emit_templates: bool = True,
+        config: Optional[DatahubLineageConfig] = None,
     ) -> DataProcessInstance:
         if datajob is None:
-            datajob = AirflowGenerator.generate_datajob(cluster, ti.task, dag)
+            datajob = AirflowGenerator.generate_datajob(
+                cluster, ti.task, dag, config=config
+            )
 
         assert dag_run.run_id
         dpi = DataProcessInstance.from_datajob(
@@ -490,6 +493,7 @@ class AirflowGenerator:
         end_timestamp_millis: Optional[int] = None,
         result: Optional[InstanceRunResult] = None,
         datajob: Optional[DataJob] = None,
+        config: Optional[DatahubLineageConfig] = None,
     ) -> DataProcessInstance:
         """
 
@@ -501,10 +505,13 @@ class AirflowGenerator:
         :param end_timestamp_millis: Optional[int]
         :param result: Optional[str] One of the result from datahub.metadata.schema_class.RunResultTypeClass
         :param datajob: Optional[DataJob]
+        :param config: Optional[DatahubLineageConfig]
         :return: DataProcessInstance
         """
         if datajob is None:
-            datajob = AirflowGenerator.generate_datajob(cluster, ti.task, dag)
+            datajob = AirflowGenerator.generate_datajob(
+                cluster, ti.task, dag, config=config
+            )
 
         if end_timestamp_millis is None:
             if ti.end_date:
