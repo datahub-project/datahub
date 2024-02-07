@@ -152,7 +152,7 @@ const EntityDetailsRightColumn = styled.div`
     margin-right: 5px;
 
     svg {
-        visibility: hidden;
+        display: none;
     }
 `;
 
@@ -189,7 +189,7 @@ const EntityDetailsWrapper = styled.div`
 
     &:hover > ${EntityDetails} > ${EntityDetailsRightColumn} > svg {
         transition: 0.15s;
-        visibility: visible;
+        display: block;
     }
 
     &:hover {
@@ -226,7 +226,7 @@ function GlossaryEntityItem(props: Props) {
 
     return (
         <ItemWrapper style={{ flexBasis: type === EntityType.GlossaryNode ? '24%' : 'auto' }}>
-            <Link to={`${entityRegistry.getEntityUrl(type, urn)}`}>
+            <Link to={`${entityRegistry.getEntityUrl(type, urn, { index: (index % 15).toString() })}`}>
                 <GlossaryItem>
                     {type === EntityType.GlossaryNode ? (
                         <GlossaryItemCard>

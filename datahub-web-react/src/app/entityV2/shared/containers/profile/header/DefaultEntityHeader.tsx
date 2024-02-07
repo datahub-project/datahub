@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import styled from 'styled-components/macro';
 import { Divider } from 'antd';
 
@@ -17,6 +17,7 @@ import { DisplayProperties, Domain, EntityType } from '../../../../../../types.g
 import { DomainColoredIcon } from '../../../links/DomainColoredIcon';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import { EntityBackButton } from '../sidebar/EntityBackButton';
+import { BusinessGlossaryEntitiesCardColors } from '../../../../../onboarding/config/BusinessGlossaryConfigV2';
 
 export const TitleWrapper = styled.div`
     display: flex;
@@ -136,12 +137,20 @@ export const DefaultEntityHeader = ({
     displayProperties,
 }: Props) => {
     const [showIconPicker, setShowIconPicker] = useState(false);
+    const [index, setIndex] = useState<number>(0);
     const entityRegistry = useEntityRegistry();
+
+    useEffect(() => {
+        const url = new URL(window.location.href);
+        setIndex(Number(url.searchParams.get('index')));
+    }, []);
 
     return (
         <>
             <Row>
-                <GlossaryItemBadge style={{ backgroundColor: 'rgba(255, 114, 113, 1)' }}> </GlossaryItemBadge>
+                <GlossaryItemBadge style={{ backgroundColor: `${BusinessGlossaryEntitiesCardColors[index % 15]}` }}>
+                    {' '}
+                </GlossaryItemBadge>
                 <EntityBackButton />
                 <LeftColumn>
                     {(loading && <EntityTitleLoadingSection />) || (
