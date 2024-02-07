@@ -3,6 +3,9 @@ import os
 import threading
 
 from datahub.configuration.kafka import KafkaConsumerConnectionConfig
+from datahub.configuration.config_loader import (
+    load_config_file,
+)
 from datahub_actions.pipeline.pipeline import (
     DEFAULT_FAILED_EVENTS_DIR,
     DEFAULT_FAILURE_MODE,
@@ -20,6 +23,7 @@ from datahub_monitors.config import (
     EMBEDDED_WORKER_ENABLED,
     EMBEDDED_WORKER_ID,
     INGESTION_ENABLED,
+    ACTIONS_PIPELINE_CONFIG_PATH,
 )
 
 from .action import MonitorServiceAction
@@ -31,14 +35,17 @@ def start_loop(loop: asyncio.AbstractEventLoop) -> None:
 
 
 def start_action_pipeline() -> None:
+    config_dict = load_config_file(ACTIONS_PIPELINE_CONFIG_PATH)
+    connection = config_dict.get("connection", {})
+
     source = KafkaEventSource(
         config=KafkaEventSourceConfig(
             connection=KafkaConsumerConnectionConfig(
-                bootstrap=os.getenv("KAFKA_BOOTSTRAP_SERVER", "broker:29092"),
-                schema_registry_url=os.getenv(
-                    "SCHEMA_REGISTRY_URL", "http://schema-registry:8081"
-                ),
-            )
+                bootstrap=connection.get("bootstrap", "broker:9092"),
+                schema_registry_url=connection.get("schema_registry_url", "http://schema-registry:8081"),
+                consumer_config=connection.get("consumer_config", {}),
+            ),
+            topic_routes=config_dict.get("topic_routes", None)
         ),
         ctx=PipelineContext(
             pipeline_name="monitors-service-action-pipeline",

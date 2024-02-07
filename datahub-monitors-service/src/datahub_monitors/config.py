@@ -18,3 +18,5 @@ DATAHUB_SERVER = (
     f"{os.environ.get('DATAHUB_GMS_PROTOCOL', 'http')}://"
     f"{os.environ.get('DATAHUB_GMS_HOST', 'localhost')}:{os.environ.get('DATAHUB_GMS_PORT', 8080)}"
 )
+
+ACTIONS_PIPELINE_CONFIG_PATH = os.environ.get("ACTIONS_PIPELINE_CONFIG_PATH", "/etc/datahub/actions-pipeline/config.yaml")
