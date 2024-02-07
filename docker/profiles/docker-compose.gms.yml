@@ -113,7 +113,7 @@ x-datahub-gms-service-dev: &datahub-gms-service-dev
   environment: &datahub-gms-dev-env
     <<: [*datahub-dev-telemetry-env, *datahub-gms-env]
     SKIP_ELASTICSEARCH_CHECK: false
-    METADATA_SERVICE_AUTH_ENABLED: false
+    METADATA_SERVICE_AUTH_ENABLED: true
     JAVA_TOOL_OPTIONS: '-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5001'
     BOOTSTRAP_SYSTEM_UPDATE_WAIT_FOR_SYSTEM_UPDATE: false
     SEARCH_SERVICE_ENABLE_CACHE: false
