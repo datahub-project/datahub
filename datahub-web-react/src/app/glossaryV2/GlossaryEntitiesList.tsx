@@ -41,7 +41,13 @@ function GlossaryEntitiesList(props: Props) {
 
     return (
         <GlossaryEntityWrapper termsTotal={termsTotal}>
-            <EntitiesWrapper>
+            <EntitiesWrapper
+                style={{
+                    padding: nodes[0]?.type === EntityType.GlossaryNode ? '25px 29px' : 0,
+                    gap: nodes[0]?.type === EntityType.GlossaryNode ? '14px' : 'unset',
+                }}
+            >
+                {nodes[0]?.type !== EntityType.GlossaryNode && <EntityTitle>Glossary Terms</EntityTitle>}
                 {nodes.map((node, index) => (
                     <GlossaryEntityItem
                         key={node.urn}
