@@ -15,6 +15,7 @@ import static com.linkedin.metadata.utils.PegasusUtils.urnToEntityName;
 import com.codahale.metrics.Timer;
 import com.datahub.util.RecordUtils;
 import com.datahub.util.exception.ModelConversionException;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterators;
@@ -146,7 +147,8 @@ public class EntityServiceImpl implements EntityService<MCPUpsertBatchItem> {
   private static final int DEFAULT_MAX_TRANSACTION_RETRY = 3;
 
   protected final AspectDao _aspectDao;
-  private final EventProducer _producer;
+
+  @VisibleForTesting @Getter private final EventProducer _producer;
   private final EntityRegistry _entityRegistry;
   private final Map<String, Set<String>> _entityToValidAspects;
   private RetentionService<MCPUpsertBatchItem> _retentionService;
@@ -637,10 +639,15 @@ public class EntityServiceImpl implements EntityService<MCPUpsertBatchItem> {
   @Override
   public List<UpdateAspectResult> ingestAspects(
       @Nonnull final AspectsBatch aspectsBatch, boolean emitMCL, boolean overwrite) {
+    Set<BatchItem> items = new HashSet<>(aspectsBatch.getItems());
+
+    // Generate additional items as needed
+    items.addAll(DefaultAspectsUtil.getAdditionalChanges(aspectsBatch, this, enableBrowseV2));
+    AspectsBatch withDefaults = AspectsBatchImpl.builder().items(items).build();
 
     Timer.Context ingestToLocalDBTimer =
         MetricUtils.timer(this.getClass(), "ingestAspectsToLocalDB").time();
-    List<UpdateAspectResult> ingestResults = ingestAspectsToLocalDB(aspectsBatch, overwrite);
+    List<UpdateAspectResult> ingestResults = ingestAspectsToLocalDB(withDefaults, overwrite);
     List<UpdateAspectResult> mclResults = emitMCL(ingestResults, emitMCL);
     ingestToLocalDBTimer.stop();
 
@@ -964,7 +971,7 @@ public class EntityServiceImpl implements EntityService<MCPUpsertBatchItem> {
    */
   @Override
   public Set<IngestResult> ingestProposal(AspectsBatch aspectsBatch, final boolean async) {
-    Stream<IngestResult> timeseriesIngestResults = ingestTimeseriesProposal(aspectsBatch);
+    Stream<IngestResult> timeseriesIngestResults = ingestTimeseriesProposal(aspectsBatch, async);
     Stream<IngestResult> nonTimeseriesIngestResults =
         async ? ingestProposalAsync(aspectsBatch) : ingestProposalSync(aspectsBatch);
 
@@ -978,7 +985,8 @@ public class EntityServiceImpl implements EntityService<MCPUpsertBatchItem> {
    * @param aspectsBatch timeseries upserts batch
    * @return returns ingest proposal result, however was never in the MCP topic
    */
-  private Stream<IngestResult> ingestTimeseriesProposal(AspectsBatch aspectsBatch) {
+  private Stream<IngestResult> ingestTimeseriesProposal(
+      AspectsBatch aspectsBatch, final boolean async) {
     List<? extends BatchItem> unsupported =
         aspectsBatch.getItems().stream()
             .filter(
@@ -992,6 +1000,20 @@ public class EntityServiceImpl implements EntityService<MCPUpsertBatchItem> {
               + unsupported.stream().map(BatchItem::getChangeType).collect(Collectors.toSet()));
     }
 
+    if (!async) {
+      // Create default non-timeseries aspects for timeseries aspects
+      List<BatchItem> timeseriesItems =
+          aspectsBatch.getItems().stream()
+              .filter(item -> item.getAspectSpec().isTimeseries())
+              .collect(Collectors.toList());
+
+      List<MCPBatchItem> defaultAspects =
+          DefaultAspectsUtil.getAdditionalChanges(
+              AspectsBatchImpl.builder().items(timeseriesItems).build(), this, enableBrowseV2);
+      ingestProposalSync(AspectsBatchImpl.builder().items(defaultAspects).build());
+    }
+
+    // Emit timeseries MCLs
     List<Pair<MCPUpsertBatchItem, Optional<Pair<Future<?>, Boolean>>>> timeseriesResults =
         aspectsBatch.getItems().stream()
             .filter(item -> item.getAspectSpec().isTimeseries())
@@ -1080,17 +1102,10 @@ public class EntityServiceImpl implements EntityService<MCPUpsertBatchItem> {
   }
 
   private Stream<IngestResult> ingestProposalSync(AspectsBatch aspectsBatch) {
-    Set<BatchItem> items = new HashSet<>(aspectsBatch.getItems());
-
-    // Generate additional items as needed
-    items.addAll(DefaultAspectsUtil.getAdditionalChanges(aspectsBatch, this, enableBrowseV2));
-
-    AspectsBatch withDefaults = AspectsBatchImpl.builder().items(items).build();
-
     AspectsBatchImpl nonTimeseries =
         AspectsBatchImpl.builder()
             .items(
-                withDefaults.getItems().stream()
+                aspectsBatch.getItems().stream()
                     .filter(item -> !item.getAspectSpec().isTimeseries())
                     .collect(Collectors.toList()))
             .build();
