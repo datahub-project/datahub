@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Dict
 from unittest.mock import patch
 
 import pytest
@@ -8,7 +8,7 @@ from tests.test_helpers import mce_helpers
 
 
 def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
-    api_vs_response = {
+    api_vs_response: Dict[str, Dict] = {
         "https://iq37k6byr9lgam8.us.qlikcloud.com/api/v1/api-keys": {
             "method": "GET",
             "status_code": 200,
@@ -411,17 +411,156 @@ def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
                 },
             },
         },
+        "https://iq37k6byr9lgam8.us.qlikcloud.com/api/v1/lineage-graphs/nodes/qri%3Aapp%3Asense%3A%2F%2Ff0714ca7-7093-49e4-8b58-47bb38563647/actions/expand?node=qri%3Aapp%3Asense%3A%2F%2Ff0714ca7-7093-49e4-8b58-47bb38563647&level=TABLE": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "graph": {
+                    "id": "",
+                    "directed": True,
+                    "type": "TABLE",
+                    "label": "Expansion for qri:app:sense://f0714ca7-7093-49e4-8b58-47bb38563647",
+                    "nodes": {
+                        "qri:app:sense://f0714ca7-7093-49e4-8b58-47bb38563647#FcJ-H2TvmAyI--l6fn0VQGPtHf8kB2rj7sj0_ysRHgc": {
+                            "label": "IPL_Matches_2022",
+                            "metadata": {"fields": 1, "type": "TABLE"},
+                        },
+                        "qri:app:sense://f0714ca7-7093-49e4-8b58-47bb38563647#Rrg6-1CeRbo4ews9o--QUP3tOXhm5moLizGY6_wCxJE": {
+                            "label": "test_table",
+                            "metadata": {"fields": 1, "type": "TABLE"},
+                        },
+                    },
+                    "edges": [
+                        {
+                            "relation": "from",
+                            "source": "qri:qdf:space://Ebw1EudUywmUi8p2bM7COr5OATHzuYxvT0BIrCc2irU#t91dFUED_ebvKHOjauxSOOCnlRZQTwEkNHv_bjUl7AY#FcJ-H2TvmAyI--l6fn0VQGPtHf8kB2rj7sj0_ysRHgc",
+                            "target": "qri:app:sense://f0714ca7-7093-49e4-8b58-47bb38563647#FcJ-H2TvmAyI--l6fn0VQGPtHf8kB2rj7sj0_ysRHgc",
+                        },
+                    ],
+                    "metadata": {},
+                }
+            },
+        },
+        "https://iq37k6byr9lgam8.us.qlikcloud.com/api/v1/lineage-graphs/nodes/qri%3Aapp%3Asense%3A%2F%2Ff0714ca7-7093-49e4-8b58-47bb38563647/actions/expand?node=qri%3Aapp%3Asense%3A%2F%2Ff0714ca7-7093-49e4-8b58-47bb38563647%23FcJ-H2TvmAyI--l6fn0VQGPtHf8kB2rj7sj0_ysRHgc&level=FIELD": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "graph": {
+                    "id": "",
+                    "directed": True,
+                    "type": "FIELD",
+                    "label": "Expansion for qri:app:sense://f0714ca7-7093-49e4-8b58-47bb38563647#FcJ-H2TvmAyI--l6fn0VQGPtHf8kB2rj7sj0_ysRHgc",
+                    "nodes": {
+                        "qri:app:sense://f0714ca7-7093-49e4-8b58-47bb38563647#FcJ-H2TvmAyI--l6fn0VQGPtHf8kB2rj7sj0_ysRHgc#-NAdo6895jVLliOXp13Do7e1kDNDDPwxZ0CDuGFJb8A": {
+                            "label": "City",
+                            "metadata": {"type": "FIELD"},
+                        },
+                        "qri:app:sense://f0714ca7-7093-49e4-8b58-47bb38563647#FcJ-H2TvmAyI--l6fn0VQGPtHf8kB2rj7sj0_ysRHgc#3DAdoo7e1kDNDDPwxZ0CD3Do7e1kDNDDPwxZ0CDuGFJ": {
+                            "label": "Date",
+                            "metadata": {"type": "FIELD"},
+                        },
+                    },
+                    "edges": [
+                        {
+                            "relation": "from",
+                            "source": "qri:qdf:space://Ebw1EudUywmUi8p2bM7COr5OATHzuYxvT0BIrCc2irU#fpA_oxHhnvRu-RrTC_INPo-TEykis1Y_6e-Qy0rKy2I#ti1Pyd82WD92n5Mafl23Gs1Pr_pwJ1tyFIWtaTJfslc#BcCb_mytkkVA-HSHbFLRYOHFY-O_55m8X_JG7DNzMNE",
+                            "target": "qri:app:sense://f0714ca7-7093-49e4-8b58-47bb38563647#FcJ-H2TvmAyI--l6fn0VQGPtHf8kB2rj7sj0_ysRHgc#-NAdo6895jVLliOXp13Do7e1kDNDDPwxZ0CDuGFJb8A",
+                        },
+                        {
+                            "relation": "from",
+                            "source": "qri:qdf:space://Ebw1EudUywmUi8p2bM7COr5OATHzuYxvT0BIrCc2irU#fpA_oxHhnvRu-RrTC_INPo-TEykis1Y_6e-Qy0rKy2I#ti1Pyd82WD92n5Mafl23Gs1Pr_pwJ1tyFIWtaTJfslc#BcCb_mytkkVA-HSHbFLRYOHFY-O_58X8X_JG7DNzMNE",
+                            "target": "qri:app:sense://f0714ca7-7093-49e4-8b58-47bb38563647#FcJ-H2TvmAyI--l6fn0VQGPtHf8kB2rj7sj0_ysRHgc#3DAdoo7e1kDNDDPwxZ0CD3Do7e1kDNDDPwxZ0CDuGFJ",
+                        },
+                    ],
+                    "metadata": {},
+                }
+            },
+        },
+        "https://iq37k6byr9lgam8.us.qlikcloud.com/api/v1/lineage-graphs/nodes/qri%3Aapp%3Asense%3A%2F%2Ff0714ca7-7093-49e4-8b58-47bb38563647/actions/expand?node=qri%3Aapp%3Asense%3A%2F%2Ff0714ca7-7093-49e4-8b58-47bb38563647%23Rrg6-1CeRbo4ews9o--QUP3tOXhm5moLizGY6_wCxJE&level=FIELD": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "graph": {
+                    "id": "",
+                    "directed": True,
+                    "type": "FIELD",
+                    "label": "Expansion for qri:app:sense://f0714ca7-7093-49e4-8b58-47bb38563647#Rrg6-1CeRbo4ews9o--QUP3tOXhm5moLizGY6_wCxJE",
+                    "nodes": {
+                        "qri:app:sense://f0714ca7-7093-49e4-8b58-47bb38563647#Rrg6-1CeRbo4ews9o--QUP3tOXhm5moLizGY6_wCxJE#gqNTf_Dbzn7sNdae3DoYnubxfYLzU6VT-aqWywvjzok": {
+                            "label": "name",
+                            "metadata": {"type": "FIELD"},
+                        }
+                    },
+                    "edges": [
+                        {
+                            "relation": "read",
+                            "source": "qri:qdf:space://Ebw1EudUywmUi8p2bM7COr5OATHzuYxvT0BIrCc2irU#JOKG8u7CvizvGXwrFsyXRU0yKr2rL2WFD5djpH9bj5Q#Rrg6-1CeRbo4ews9o--QUP3tOXhm5moLizGY6_wCxJE#gqNTf_Dbzn7sNdae3DoYnubxfYLzU6VT-aqWywvjzok",
+                            "target": "qri:app:sense://f0714ca7-7093-49e4-8b58-47bb38563647#Rrg6-1CeRbo4ews9o--QUP3tOXhm5moLizGY6_wCxJE#gqNTf_Dbzn7sNdae3DoYnubxfYLzU6VT-aqWywvjzok",
+                        }
+                    ],
+                    "metadata": {},
+                }
+            },
+        },
+        "https://iq37k6byr9lgam8.us.qlikcloud.com/api/v1/lineage-graphs/nodes/qri%3Aapp%3Asense%3A%2F%2Ff0714ca7-7093-49e4-8b58-47bb38563647/overview": {
+            "method": "POST",
+            "response_list": [
+                {
+                    "status_code": 200,
+                    "json": {
+                        "resources": [
+                            {
+                                "qri": "qri:app:sense://f0714ca7-7093-49e4-8b58-47bb38563647#FcJ-H2TvmAyI--l6fn0VQGPtHf8kB2rj7sj0_ysRHgc#-NAdo6895jVLliOXp13Do7e1kDNDDPwxZ0CDuGFJb8A",
+                                "lineage": [
+                                    {
+                                        "resourceLabel": "d7a6c03238b0c25b3d5c8631e1121807.qvd",
+                                        "resourceQRI": "qri:qdf:space://Ebw1EudUywmUi8p2bM7COr5OATHzuYxvT0BIrCc2irU#_s2Ws5RVxAArzAZlmghwjHNGq8ZnjagxptAl6jlZOaw",
+                                        "tableQRI": "qri:qdf:space://Ebw1EudUywmUi8p2bM7COr5OATHzuYxvT0BIrCc2irU#_s2Ws5RVxAArzAZlmghwjHNGq8ZnjagxptAl6jlZOaw#FcJ-H2TvmAyI--l6fn0VQGPtHf8kB2rj7sj0_ysRHgc",
+                                        "tableLabel": "IPL_Matches_2022",
+                                    },
+                                ],
+                            }
+                        ]
+                    },
+                },
+                {
+                    "status_code": 200,
+                    "json": {
+                        "resources": [
+                            {
+                                "qri": "qri:app:sense://f0714ca7-7093-49e4-8b58-47bb38563647#Rrg6-1CeRbo4ews9o--QUP3tOXhm5moLizGY6_wCxJE#gqNTf_Dbzn7sNdae3DoYnubxfYLzU6VT-aqWywvjzok",
+                                "lineage": [
+                                    {
+                                        "resourceLabel": "3fcbce17de9e55774ddedc345532c419.qvd",
+                                        "resourceQRI": "qri:qdf:space://Ebw1EudUywmUi8p2bM7COr5OATHzuYxvT0BIrCc2irU#JOKG8u7CvizvGXwrFsyXRU0yKr2rL2WFD5djpH9bj5Q",
+                                        "tableQRI": "qri:qdf:space://Ebw1EudUywmUi8p2bM7COr5OATHzuYxvT0BIrCc2irU#JOKG8u7CvizvGXwrFsyXRU0yKr2rL2WFD5djpH9bj5Q#Rrg6-1CeRbo4ews9o--QUP3tOXhm5moLizGY6_wCxJE",
+                                        "tableLabel": "test_table",
+                                    }
+                                ],
+                            }
+                        ]
+                    },
+                },
+            ],
+        },
     }
 
     api_vs_response.update(override_data)
 
     for url in api_vs_response.keys():
-        request_mock.register_uri(
-            api_vs_response[url]["method"],
-            url,
-            json=api_vs_response[url]["json"],
-            status_code=api_vs_response[url]["status_code"],
-        )
+        if api_vs_response[url].get("response_list"):
+            request_mock.register_uri(
+                api_vs_response[url]["method"],
+                url,
+                response_list=api_vs_response[url]["response_list"],
+            )
+        else:
+            request_mock.register_uri(
+                api_vs_response[url]["method"],
+                url,
+                json=api_vs_response[url]["json"],
+                status_code=api_vs_response[url]["status_code"],
+            )
 
 
 def mock_websocket_response(*args, **kwargs):
@@ -450,7 +589,7 @@ def mock_websocket_response(*args, **kwargs):
         return {
             "qLayout": {
                 "qTitle": "IPL_Matches_2022",
-                "qFileName": "e09a68e7-18c9-461d-b957-043e0c045dcd",
+                "qFileName": "f0714ca7-7093-49e4-8b58-47bb38563647",
                 "qLastReloadTime": "2024-01-15T11:06:53.070Z",
                 "qHasScript": True,
                 "qStateNames": [],
@@ -460,7 +599,7 @@ def mock_websocket_response(*args, **kwargs):
                 "qUnsupportedFeatures": [],
                 "qUsage": "ANALYTICS",
                 "encrypted": True,
-                "id": "e09a68e7-18c9-461d-b957-043e0c045dcd",
+                "id": "f0714ca7-7093-49e4-8b58-47bb38563647",
                 "published": False,
                 "owner": "auth0|fd95ee6facf82e692d2eac4ccb5ddb18ef05c22a7575fcc4d26d7bc9aefedb4f",
                 "ownerId": "657b5abe656297cec3d8b205",
@@ -595,6 +734,108 @@ def mock_websocket_response(*args, **kwargs):
     elif request == {
         "jsonrpc": "2.0",
         "id": 6,
+        "handle": 2,
+        "method": "GetChild",
+        "params": {"qId": "QYUUb"},
+    }:
+        return {
+            "qReturn": {
+                "qType": "GenericObject",
+                "qHandle": 3,
+                "qGenericType": "scatterplot",
+                "qGenericId": "QYUUb",
+            }
+        }
+    elif request == {
+        "jsonrpc": "2.0",
+        "id": 7,
+        "handle": 3,
+        "method": "GetLayout",
+        "params": {},
+    }:
+        return {
+            "qLayout": {
+                "qInfo": {"qId": "QYUUb", "qType": "scatterplot"},
+                "qMeta": {"privileges": ["read", "update", "delete"]},
+                "qSelectionInfo": {},
+                "qHyperCube": {
+                    "qSize": {"qcx": 3, "qcy": 5},
+                    "qDimensionInfo": [
+                        {
+                            "qFallbackTitle": "City",
+                            "qApprMaxGlyphCount": 11,
+                            "qCardinal": 5,
+                            "qSortIndicator": "A",
+                            "qGroupFallbackTitles": ["City"],
+                            "qGroupPos": 0,
+                            "qStateCounts": {
+                                "qLocked": 0,
+                                "qSelected": 0,
+                                "qOption": 5,
+                                "qDeselected": 0,
+                                "qAlternative": 0,
+                                "qExcluded": 0,
+                                "qSelectedExcluded": 0,
+                                "qLockedExcluded": 0,
+                            },
+                            "qTags": [
+                                "$ascii",
+                                "$text",
+                                "$geoname",
+                                "$relates_IPL_Matches_2022.City_GeoInfo",
+                            ],
+                            "qDimensionType": "D",
+                            "qGrouping": "N",
+                            "qNumFormat": {"qType": "U", "qnDec": 0, "qUseThou": 0},
+                            "qIsAutoFormat": True,
+                            "qGroupFieldDefs": ["City"],
+                            "qMin": "NaN",
+                            "qMax": "NaN",
+                            "qAttrExprInfo": [],
+                            "qAttrDimInfo": [],
+                            "qCardinalities": {
+                                "qCardinal": 5,
+                                "qHypercubeCardinal": 5,
+                                "qAllValuesCardinal": -1,
+                            },
+                            "autoSort": True,
+                            "cId": "FdErA",
+                            "othersLabel": "Others",
+                        }
+                    ],
+                    "qMeasureInfo": [
+                        {
+                            "qFallbackTitle": "Sum(Date)",
+                            "qApprMaxGlyphCount": 7,
+                            "qCardinal": 0,
+                            "qSortIndicator": "D",
+                            "qNumFormat": {"qType": "U", "qnDec": 0, "qUseThou": 0},
+                            "qMin": 89411,
+                            "qMax": 2144260,
+                            "qIsAutoFormat": True,
+                            "qAttrExprInfo": [],
+                            "qAttrDimInfo": [],
+                            "qTrendLines": [],
+                            "autoSort": True,
+                            "cId": "PtTpyG",
+                            "numFormatFromTemplate": True,
+                        },
+                    ],
+                },
+                "script": "",
+                "showTitles": True,
+                "title": "Test_chart",
+                "subtitle": "",
+                "footnote": "",
+                "disableNavMenu": False,
+                "showDetails": True,
+                "showDetailsExpression": False,
+                "visualization": "scatterplot",
+            }
+        }
+    elif request == {
+        "jsonrpc": "2.0",
+        "id": 8,
         "handle": 1,
         "method": "GetObject",
         "params": ["LoadModel"],
@@ -602,15 +843,15 @@ def mock_websocket_response(*args, **kwargs):
         return {
             "qReturn": {
                 "qType": "GenericObject",
-                "qHandle": 3,
+                "qHandle": 4,
                 "qGenericType": "LoadModel",
                 "qGenericId": "LoadModel",
             }
         }
     elif request == {
         "jsonrpc": "2.0",
-        "id": 7,
-        "handle": 3,
+        "id": 9,
+        "handle": 4,
         "method": "GetLayout",
         "params": {},
     }:
@@ -689,15 +930,51 @@ def mock_websocket_response(*args, **kwargs):
                         },
                         "selectStatement": "SELECT name\nFROM `harshal-playground-306419`.`test_dataset`.`test_table`;",
                         "caching": {"enabled": True, "type": "qvd"},
-                    }
+                    },
+                    {
+                        "dataconnectorName": "DataFiles",
+                        "dataconnectorPrefix": "test_space:",
+                        "boxType": "load-file",
+                        "databaseName": "IPL_Matches_2022.csv",
+                        "ownerName": "TYPE9_CSV",
+                        "tableName": "IPL_Matches_2022",
+                        "tableAlias": "IPL_Matches_2022",
+                        "key": "DataFiles:IPL_Matches_2022.csv:TYPE9_CSV:IPL_Matches_2022",
+                        "fields": [
+                            {
+                                "id": "dsd.IPL_Matches_2022.City",
+                                "name": "City",
+                                "alias": "City",
+                                "selected": True,
+                            },
+                            {
+                                "id": "dsd.IPL_Matches_2022.Date",
+                                "name": "Date",
+                                "alias": "Date",
+                                "selected": True,
+                            },
+                        ],
+                        "connectionInfo": {
+                            "type": {"isStorageProvider": False},
+                            "id": "87d7bc7e-77d8-40dc-a251-3a35ec107b4e",
+                            "name": "DataFiles",
+                            "typeName": "qix-datafiles.exe",
+                            "sourceConnectorID": "qix-datafiles.exe",
+                            "connectionString": 'CUSTOM CONNECT TO "provider=qix-datafiles.exe;path=test_space:datafiles;"',
+                            "space": "659d0e41d1b0ecce6eebc9b1",
+                            "dataconnectorPrefix": "test_space:",
+                            "caching": {"enabled": True, "type": "qvd"},
+                        },
+                        "id": "dsd.IPL_Matches_2022",
+                        "loadSelectStatement": "LOAD [ID] AS [ID],\n\t[City] AS [City],\n\t[Date] AS [Date],\n\t[Season] AS [Season],\n\t[MatchNumber] AS [MatchNumber],\n\t[Team1] AS [Team1],\n\t[Team2] AS [Team2],\n\t[Venue] AS [Venue],\n\t[TossWinner] AS [TossWinner],\n\t[TossDecision] AS [TossDecision],\n\t[SuperOver] AS [SuperOver],\n\t[WinningTeam] AS [WinningTeam],\n\t[WonBy] AS [WonBy],\n\t[Margin] AS [Margin],\n\t[method] AS [method],\n\t[Player_of_Match] AS [Player_of_Match],\n\t[Team1Players] AS [Team1Players],\n\t[Team2Players] AS [Team2Players],\n\t[Umpire1] AS [Umpire1],\n\t[Umpire2] AS [Umpire2]\nFROM [lib://DataFiles/IPL_Matches_2022.csv]\n(txt, codepage is 28591, embedded labels, delimiter is ',', msq);\n",
+                        "formatSpec": "(txt, codepage is 28591, embedded labels, delimiter is ',', msq)",
+                        "caching": {"enabled": True, "type": "qvd"},
+                    },
                 ],
                 "schemaVersion": 2.1,
             }
         }
     else:
-        import pdb
-
-        pdb.set_trace()
         return {}
 
 

@@ -1,6 +1,7 @@
 import logging
 import sys
 from typing import Any, Dict, List, Optional
+from urllib.parse import quote
 
 import requests
 
@@ -10,8 +11,8 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
     App,
     Chart,
     Item,
-    QlikAppDataset,
     QlikDataset,
+    QlikTable,
     Sheet,
     Space,
 )
@@ -60,18 +61,20 @@ class QlikAPI:
             self.spaces[PERSONAL_SPACE_DICT[Constant.ID]] = PERSONAL_SPACE_DICT[
                 Constant.NAME
             ]
-        except Exception:
-            self._log_http_error(message="Unable to fetch spaces")
+        except Exception as e:
+            self._log_http_error(message=f"Unable to fetch spaces. Exception: {e}")
         return spaces
 
-    def _get_dataset(self, dataset_id: str) -> Optional[QlikDataset]:
+    def _get_dataset(self, dataset_id: str, item_id: str) -> Optional[QlikDataset]:
         try:
             response = self.session.get(f"{self.rest_api_url}/data-sets/{dataset_id}")
             response.raise_for_status()
-            return QlikDataset.parse_obj(response.json())
-        except Exception:
+            response_dict = response.json()
+            response_dict[Constant.ITEMID] = item_id
+            return QlikDataset.parse_obj(response_dict)
+        except Exception as e:
             self._log_http_error(
-                message=f"Unable to fetch dataset with id {dataset_id}"
+                message=f"Unable to fetch dataset with id {dataset_id}. Exception: {e}"
             )
         return None
 
@@ -86,8 +89,28 @@ class QlikAPI:
                 user_name = response.json()[Constant.NAME]
                 self.users[user_id] = user_name
                 return user_name
-        except Exception:
-            self._log_http_error(message=f"Unable to fetch user with id {user_id}")
+        except Exception as e:
+            self._log_http_error(
+                message=f"Unable to fetch user with id {user_id}. Exception: {e}"
+            )
+        return None
+
+    def _get_chart(
+        self,
+        websocket_connection: WebsocketConnection,
+        chart_id: str,
+        sheet_id: str,
+    ) -> Optional[Chart]:
+        try:
+            websocket_connection.websocket_send_request(
+                method="GetChild", params={"qId": chart_id}
+            )
+            response = websocket_connection.websocket_send_request(method="GetLayout")
+            return Chart.parse_obj(response[Constant.QLAYOUT])
+        except Exception as e:
+            self._log_http_error(
+                message=f"Unable to fetch chart {chart_id} of sheet {sheet_id}. Exception: {e}"
+            )
         return None
 
     def _get_sheet(
@@ -102,33 +125,83 @@ class QlikAPI:
             response = websocket_connection.websocket_send_request(method="GetLayout")
             sheet_dict = response[Constant.QLAYOUT]
             sheet = Sheet.parse_obj(sheet_dict[Constant.QMETA])
+            i = 1
             for chart_dict in sheet_dict[Constant.QCHILDLIST][Constant.QITEMS]:
-                sheet.charts.append(Chart.parse_obj(chart_dict[Constant.QINFO]))
+                chart = self._get_chart(
+                    websocket_connection,
+                    chart_dict[Constant.QINFO][Constant.QID],
+                    sheet_id,
+                )
+                if chart:
+                    if not chart.title:
+                        chart.title = f"Object {i}"
+                        i += 1
+                    sheet.charts.append(chart)
+                websocket_connection.handle.pop()
             return sheet
-        except Exception:
-            self._log_http_error(message=f"Unable to fetch sheet with id {sheet_id}")
+        except Exception as e:
+            self._log_http_error(
+                message=f"Unable to fetch sheet with id {sheet_id}. Exception: {e}"
+            )
         return None
 
-    def _get_app_used_datasets(
-        self, websocket_connection: WebsocketConnection, app_id: str
-    ) -> List[QlikAppDataset]:
-        datasets: List[QlikAppDataset] = []
+    def _add_qri_of_tables(self, tables: List[QlikTable], app_id: str) -> None:
+        table_qri_dict: Dict[str, str] = {}
+        app_qri = quote(f"qri:app:sense://{app_id}", safe="")
         try:
-            websocket_connection.websocket_send_request(
+            response = self.session.get(
+                f"{self.rest_api_url}/lineage-graphs/nodes/{app_qri}/actions/expand?node={app_qri}&level=TABLE"
+            )
+            response.raise_for_status()
+            for table_node_qri in response.json()[Constant.GRAPH][Constant.NODES]:
+                table_node_qri = quote(table_node_qri, safe="")
+                response = self.session.get(
+                    f"{self.rest_api_url}/lineage-graphs/nodes/{app_qri}/actions/expand?node={table_node_qri}&level=FIELD"
+                )
+                response.raise_for_status()
+                field_node_qri = list(
+                    response.json()[Constant.GRAPH][Constant.NODES].keys()
+                )[0]
+                response = self.session.post(
+                    f"{self.rest_api_url}/lineage-graphs/nodes/{app_qri}/overview",
+                    json=[field_node_qri],
+                )
+                response.raise_for_status()
+                for each_lineage in response.json()[Constant.RESOURCES][0][
+                    Constant.LINEAGE
+                ]:
+                    table_qri_dict[each_lineage[Constant.TABLELABEL]] = each_lineage[
+                        Constant.TABLEQRI
+                    ]
+            for table in tables:
+                if table.tableName in table_qri_dict:
+                    table.tableQri = table_qri_dict[table.tableName]
+        except Exception as e:
+            self._log_http_error(
+                message=f"Unable to add QRI for tables of app {app_id}. Exception: {e}"
+            )
+
+    def _get_app_used_tables(
+        self, websocket_connection: WebsocketConnection, app_id: str
+    ) -> List[QlikTable]:
+        tables: List[QlikTable] = []
+        try:
+            response = websocket_connection.websocket_send_request(
                 method="GetObject",
                 params=["LoadModel"],
             )
+            if not response[Constant.QRETURN][Constant.QTYPE]:
+                return []
             response = websocket_connection.websocket_send_request(method="GetLayout")
             for table_dict in response[Constant.QLAYOUT][Constant.TABLES]:
-                # Condition to Add connection based table only
-                if table_dict["boxType"] == "blackbox":
-                    datasets.append(QlikAppDataset.parse_obj(table_dict))
+                tables.append(QlikTable.parse_obj(table_dict))
             websocket_connection.handle.pop()
-        except Exception:
+            self._add_qri_of_tables(tables, app_id)
+        except Exception as e:
             self._log_http_error(
-                message=f"Unable to fetch app used datasets for app {app_id}"
+                message=f"Unable to fetch tables used by app {app_id}. Exception: {e}"
             )
-        return datasets
+        return tables
 
     def _get_app_sheets(
         self, websocket_connection: WebsocketConnection, app_id: str
@@ -151,8 +224,10 @@ class QlikAPI:
                 if sheet:
                     sheets.append(sheet)
                 websocket_connection.handle.pop()
-        except Exception:
-            self._log_http_error(message=f"Unable to fetch sheets for app {app_id}")
+        except Exception as e:
+            self._log_http_error(
+                message=f"Unable to fetch sheets for app {app_id}. Exception: {e}"
+            )
         return sheets
 
     def _get_app(self, app_id: str) -> Optional[App]:
@@ -169,11 +244,13 @@ class QlikAPI:
             )
             app = App.parse_obj(response[Constant.QLAYOUT])
             app.sheets = self._get_app_sheets(websocket_connection, app_id)
-            app.datasets = self._get_app_used_datasets(websocket_connection, app_id)
+            app.tables = self._get_app_used_tables(websocket_connection, app_id)
             websocket_connection.close_websocket()
             return app
-        except Exception:
-            self._log_http_error(message=f"Unable to fetch app with id {app_id}")
+        except Exception as e:
+            self._log_http_error(
+                message=f"Unable to fetch app with id {app_id}. Exception: {e}"
+            )
         return None
 
     def get_items(self) -> List[Item]:
@@ -196,11 +273,12 @@ class QlikAPI:
                             items.append(app)
                     elif resource_type == Constant.DATASET:
                         dataset = self._get_dataset(
-                            dataset_id=item[Constant.RESOURCEID]
+                            dataset_id=item[Constant.RESOURCEID],
+                            item_id=item[Constant.ID],
                         )
                         if dataset:
                             items.append(dataset)
 
-        except Exception:
-            self._log_http_error(message="Unable to fetch items")
+        except Exception as e:
+            self._log_http_error(message=f"Unable to fetch items. Exception: {e}")
         return items

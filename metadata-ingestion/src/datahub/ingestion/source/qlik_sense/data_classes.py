@@ -61,6 +61,12 @@ class SpaceType(Enum):
     DATA = "data"
 
 
+# Qlik table box type
+class BoxType(Enum):
+    LOADFILE = "load-file"  # Table extracted from dataset
+    BLACKBOX = "blackbox"  # Table extracted from data connection
+
+
 PERSONAL_SPACE_DICT = {
     "id": Constant.PERSONAL_SPACE_ID,
     "name": Constant.PERSONAL_SPACE_NAME,
@@ -118,6 +124,7 @@ class QlikDataset(Item):
     type: str
     size: int
     rowCount: int
+    itemId: str
     datasetSchema: List[SchemaField]
 
     @root_validator(pre=True)
@@ -140,9 +147,26 @@ class QlikDataset(Item):
         return values
 
 
+class AxisProperty(BaseModel):
+    Title: str = Field(alias="qFallbackTitle")
+    Min: str = Field(alias="qMin")
+    Max: str = Field(alias="qMax")
+
+
 class Chart(BaseModel):
     qId: str
-    qType: str
+    visualization: str
+    title: str
+    subtitle: str
+    qDimension: List[AxisProperty]
+    qMeasure: List[AxisProperty]
+
+    @root_validator(pre=True)
+    def update_values(cls, values: Dict) -> Dict:
+        values[Constant.QID] = values[Constant.QINFO][Constant.QID]
+        values["qDimension"] = values["qHyperCube"]["qDimensionInfo"]
+        values["qMeasure"] = values["qHyperCube"]["qMeasureInfo"]
+        return values
 
 
 class Sheet(BaseModel):
@@ -165,28 +189,33 @@ class Sheet(BaseModel):
         return values
 
 
-class QlikAppDataset(BaseModel):
+class QlikTable(BaseModel):
     tableName: str
-    schemaName: str
     databaseName: str
+    type: BoxType = Field(alias="boxType")
     tableAlias: str
     dataconnectorid: str
     dataconnectorName: str
     dataconnectorPlatform: str
+    spaceId: str
     datasetSchema: List[SchemaField] = Field(alias="fields")
+    tableQri: Optional[str] = None
+    schemaName: Optional[str] = None
 
     @root_validator(pre=True)
     def update_values(cls, values: Dict) -> Dict:
-        values[Constant.DATABASENAME] = values[Constant.CONNECTORPROPERTIES][
-            Constant.TABLEQUALIFIERS
-        ][0]
-        values[Constant.SCHEMANAME] = values[Constant.CONNECTORPROPERTIES][
-            Constant.TABLEQUALIFIERS
-        ][1]
+        if values["boxType"] == BoxType.BLACKBOX.value:
+            values[Constant.DATABASENAME] = values[Constant.CONNECTORPROPERTIES][
+                Constant.TABLEQUALIFIERS
+            ][0]
+            values[Constant.SCHEMANAME] = values[Constant.CONNECTORPROPERTIES][
+                Constant.TABLEQUALIFIERS
+            ][1]
         values[Constant.DATACONNECTORID] = values[Constant.CONNECTIONINFO][Constant.ID]
         values[Constant.DATACONNECTORPLATFORM] = values[Constant.CONNECTIONINFO][
             Constant.SOURCECONNECTORID
         ]
+        values[Constant.SPACEID] = values[Constant.CONNECTIONINFO]["space"]
         return values
 
 
@@ -195,7 +224,7 @@ class App(Item):
     qri: str
     qUsage: str
     sheets: List[Sheet] = []
-    datasets: List[QlikAppDataset] = []
+    tables: List[QlikTable] = []
 
     @root_validator(pre=True)
     def update_values(cls, values: Dict) -> Dict:
