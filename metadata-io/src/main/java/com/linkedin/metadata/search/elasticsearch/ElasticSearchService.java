@@ -215,8 +215,9 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
       @Nullable Filter filter,
       @Nonnull String input,
       int start,
-      int count) {
-    return esBrowseDAO.browseV2(entityName, path, filter, input, start, count);
+      int count,
+      @Nullable SearchFlags searchFlags) {
+    return esBrowseDAO.browseV2(entityName, path, filter, input, start, count, searchFlags);
   }
 
   @Nonnull
@@ -227,8 +228,9 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
       @Nullable Filter filter,
       @Nonnull String input,
       int start,
-      int count) {
-    return esBrowseDAO.browseV2(entityNames, path, filter, input, start, count);
+      int count,
+      @Nullable SearchFlags searchFlags) {
+    return esBrowseDAO.browseV2(entityNames, path, filter, input, start, count, searchFlags);
   }
 
   @Nonnull

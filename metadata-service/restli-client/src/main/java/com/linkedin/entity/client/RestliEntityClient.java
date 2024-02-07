@@ -378,7 +378,8 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       @Nonnull String input,
       int start,
       int count,
-      @Nonnull Authentication authentication) {
+      @Nonnull Authentication authentication,
+      @Nullable SearchFlags searchFlags) {
     throw new NotImplementedException("BrowseV2 is not implemented in Restli yet");
   }
 
@@ -391,7 +392,8 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       @Nonnull String input,
       int start,
       int count,
-      @Nonnull Authentication authentication)
+      @Nonnull Authentication authentication,
+      @Nullable SearchFlags searchFlags)
       throws RemoteInvocationException {
     throw new NotImplementedException("BrowseV2 is not implemented in Restli yet");
   }
