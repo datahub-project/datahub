@@ -1,3 +1,4 @@
+import logging
 import textwrap
 from dataclasses import dataclass
 from typing import Iterable, Optional
@@ -23,6 +24,8 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.schema_classes import CorpUserEditableInfoClass
 from datahub.utilities.urns.urn import Urn
 
+logger: logging.Logger = logging.getLogger(__name__)
+
 
 @dataclass
 class CorpUser:
@@ -32,12 +35,11 @@ class CorpUser:
     title: Optional[str] = None
     image_url: Optional[str] = None
     phone: Optional[str] = None
-    start_date: Optional[str] = None
 
 
 class SlackSourceConfig(ConfigModel):
     bot_token: SecretStr = Field(
-        description="Bot token for the Slack workspace.",
+        description="Bot token for the Slack workspace. Needs `users:read`, `users:read.email` and `users.profile:read` scopes.",
     )
 
 
@@ -65,6 +67,9 @@ class SlackSource(TestableSource):
     def get_workunits_internal(
         self,
     ) -> Iterable[MetadataWorkUnit]:
+        auth_resp = self.get_slack_client().auth_test()
+        logger.info("Successfully connected to Slack")
+        logger.info(auth_resp.data)
         for user_obj in self.get_user_to_be_updated():
             self.populate_slack_id_from_email(user_obj)
             if user_obj.slack_id is None:
@@ -93,6 +98,7 @@ class SlackSource(TestableSource):
 
     def populate_user_profile(self, user_obj: CorpUser) -> None:
         try:
+            # https://api.slack.com/methods/users.profile.get
             user_profile_res = self.get_slack_client().users_profile_get(
                 token=self.config.bot_token.get_secret_value(), user=user_obj.slack_id
             )
@@ -109,6 +115,7 @@ class SlackSource(TestableSource):
         if user_obj.email is None:
             return
         try:
+            # https://api.slack.com/methods/users.lookupByEmail
             user_info_res = self.get_slack_client().users_lookupByEmail(
                 token=self.config.bot_token.get_secret_value(), email=user_obj.email
             )
