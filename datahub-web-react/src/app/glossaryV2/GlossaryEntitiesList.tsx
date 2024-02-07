@@ -1,5 +1,6 @@
 import React from 'react';
 import styled from 'styled-components/macro';
+import { Typography } from 'antd';
 import { GlossaryNodeFragment } from '../../graphql/fragments.generated';
 import { ChildGlossaryTermFragment } from '../../graphql/glossaryNode.generated';
 import { EntityType, GlossaryNode, GlossaryTerm } from '../../types.generated';
@@ -19,7 +20,13 @@ const EntitiesWrapper = styled.div`
     display: flex;
     overflow: auto;
     flex-wrap: wrap;
-    gap: 14px;
+`;
+
+const EntityTitle = styled(Typography)`
+    margin: 11px 0 0 19px;
+    font-size: 12px;
+    font-weight: 400;
+    color: #434863;
 `;
 
 interface Props {
