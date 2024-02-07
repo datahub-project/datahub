@@ -6,6 +6,7 @@ from pydantic import Field, SecretStr
 from slack_sdk import WebClient
 
 from datahub.configuration.common import ConfigModel
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -19,7 +20,7 @@ from datahub.ingestion.api.source import (
     TestConnectionReport,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.specific.corpuser import CorpUserPatchBuilder
+from datahub.metadata.schema_classes import CorpUserEditableInfoClass
 from datahub.utilities.urns.urn import Urn
 
 
@@ -31,6 +32,7 @@ class CorpUser:
     title: Optional[str] = None
     image_url: Optional[str] = None
     phone: Optional[str] = None
+    start_date: Optional[str] = None
 
 
 class SlackSourceConfig(ConfigModel):
@@ -68,13 +70,25 @@ class SlackSource(TestableSource):
             if user_obj.slack_id is None:
                 continue
             self.populate_user_profile(user_obj)
-            print(f"user: {user_obj}")
             if user_obj.urn is None:
                 continue
-            user_patcher = CorpUserPatchBuilder(urn=user_obj.urn)
-            user_patcher.editable_info_patch_helper.add_slack(user_obj.slack_id)
+            corpuser_editable_info = (
+                self.ctx.graph.get_aspect(
+                    entity_urn=user_obj.urn, aspect_type=CorpUserEditableInfoClass
+                )
+                or CorpUserEditableInfoClass()
+            )
+            corpuser_editable_info.email = user_obj.email
+            corpuser_editable_info.slack = user_obj.slack_id
+            corpuser_editable_info.title = user_obj.title
+            corpuser_editable_info.pictureLink = user_obj.image_url
+            corpuser_editable_info.phone = user_obj.phone
             yield MetadataWorkUnit(
-                id=f"{user_obj.urn}", mcp_raw=next(iter(user_patcher.build()))
+                id=f"{user_obj.urn}",
+                mcp_raw=MetadataChangeProposalWrapper(
+                    entityUrn=user_obj.urn,
+                    aspect=corpuser_editable_info,
+                ),
             )
 
     def populate_user_profile(self, user_obj: CorpUser) -> None:
@@ -143,9 +157,6 @@ class SlackSource(TestableSource):
                 if user_obj.urn is None:
                     continue
                 if editable_properties is not None:
-                    slack = editable_properties.get("slack")
-                    if slack is not None:
-                        continue
                     user_obj.email = editable_properties.get("email")
                 if user_obj.email is None:
                     urn_id = Urn.from_string(user_obj.urn).get_entity_id_as_string()
