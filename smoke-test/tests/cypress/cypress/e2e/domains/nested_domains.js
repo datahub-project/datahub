@@ -137,7 +137,7 @@ describe("Verify nested domains test functionalities", () => {
         clearAndDelete()
     })
     
-    it("Verify Right side panel functionalityies", () => {
+    it("Verify Right side panel functionalities", () => {
         cy.clickOptionWithText(domainName)
         cy.waitTextVisible("Filters")
         cy.clickOptionWithText("Add Documentation")
@@ -193,7 +193,7 @@ describe("Verify nested domains test functionalities", () => {
         cy.ensureTextNotPresent(domainName)
     })
     
-    it('Verify entities tab with adding and deleting assets and performimg some actions', () => {
+    it('Verify entities tab with adding and deleting assets and performing some actions', () => {
         cy.clickFirstOptionWithText('Marketing');
         cy.clickOptionWithText('Add assets');
         cy.waitTextVisible("Add assets to Domain");
