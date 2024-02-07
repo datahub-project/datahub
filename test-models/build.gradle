@@ -1,16 +1,8 @@
-apply plugin: 'pegasus'
-apply plugin: 'java-library'
+plugins {
+  id 'pegasus'
+  id 'java-library'
+}
 
-tasks.withType(JavaCompile).configureEach {
-  javaCompiler = javaToolchains.compilerFor {
-    languageVersion = JavaLanguageVersion.of(8)
-  }
-}
-tasks.withType(Test).configureEach {
-  javaLauncher = javaToolchains.launcherFor {
-    languageVersion = JavaLanguageVersion.of(8)
-  }
-}
 
 dependencies {
   implementation spec.product.pegasus.data

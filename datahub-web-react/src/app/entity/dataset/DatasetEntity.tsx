@@ -33,6 +33,7 @@ import DataProductSection from '../shared/containers/profile/sidebar/DataProduct
 import { getDataProduct } from '../shared/utils';
 import AccessManagement from '../shared/tabs/Dataset/AccessManagement/AccessManagement';
 import { matchedFieldPathsRenderer } from '../../search/matches/matchedFieldPathsRenderer';
+import { getLastUpdatedMs } from './shared/utils';
 
 const SUBTYPES = {
     VIEW: 'view',
@@ -189,50 +190,50 @@ export class DatasetEntity implements Entity<Dataset> {
                     },
                 },
             ]}
-            sidebarSections={[
-                {
-                    component: SidebarAboutSection,
-                },
-                {
-                    component: SidebarOwnerSection,
-                    properties: {
-                        defaultOwnerType: OwnershipType.TechnicalOwner,
-                    },
-                },
-                {
-                    component: SidebarSiblingsSection,
-                    display: {
-                        visible: (_, dataset: GetDatasetQuery) =>
-                            (dataset?.dataset?.siblings?.siblings?.length || 0) > 0,
-                    },
-                },
-                {
-                    component: SidebarViewDefinitionSection,
-                    display: {
-                        visible: (_, dataset: GetDatasetQuery) =>
-                            (dataset?.dataset?.viewProperties?.logic && true) || false,
-                    },
-                },
-                {
-                    component: SidebarTagsSection,
-                    properties: {
-                        hasTags: true,
-                        hasTerms: true,
-                    },
-                },
-                {
-                    component: SidebarDomainSection,
-                },
-                {
-                    component: DataProductSection,
-                },
-                // TODO: Add back once entity-level recommendations are complete.
-                // {
-                //    component: SidebarRecommendationsSection,
-                // },
-            ]}
+            sidebarSections={this.getSidebarSections()}
         />
     );
+
+    getSidebarSections = () => [
+        {
+            component: SidebarAboutSection,
+        },
+        {
+            component: SidebarOwnerSection,
+            properties: {
+                defaultOwnerType: OwnershipType.TechnicalOwner,
+            },
+        },
+        {
+            component: SidebarSiblingsSection,
+            display: {
+                visible: (_, dataset: GetDatasetQuery) => (dataset?.dataset?.siblings?.siblings?.length || 0) > 0,
+            },
+        },
+        {
+            component: SidebarViewDefinitionSection,
+            display: {
+                visible: (_, dataset: GetDatasetQuery) => (dataset?.dataset?.viewProperties?.logic && true) || false,
+            },
+        },
+        {
+            component: SidebarTagsSection,
+            properties: {
+                hasTags: true,
+                hasTerms: true,
+            },
+        },
+        {
+            component: SidebarDomainSection,
+        },
+        {
+            component: DataProductSection,
+        },
+        // TODO: Add back once entity-level recommendations are complete.
+        // {
+        //    component: SidebarRecommendationsSection,
+        // },
+    ];
 
     getOverridePropertiesFromEntity = (dataset?: Dataset | null): GenericEntityProperties => {
         // if dataset has subTypes filled out, pick the most specific subtype and return it
@@ -310,9 +311,7 @@ export class DatasetEntity implements Entity<Dataset> {
                 rowCount={(data as any).lastProfile?.length && (data as any).lastProfile[0].rowCount}
                 columnCount={(data as any).lastProfile?.length && (data as any).lastProfile[0].columnCount}
                 sizeInBytes={(data as any).lastProfile?.length && (data as any).lastProfile[0].sizeInBytes}
-                lastUpdatedMs={
-                    (data as any).lastOperation?.length && (data as any).lastOperation[0].lastUpdatedTimestamp
-                }
+                lastUpdatedMs={getLastUpdatedMs(data.properties, (data as any)?.lastOperation)}
                 health={data.health}
                 degree={(result as any).degree}
                 paths={(result as any).paths}

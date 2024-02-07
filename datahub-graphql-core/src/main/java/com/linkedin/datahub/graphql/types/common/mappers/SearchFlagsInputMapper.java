@@ -1,21 +1,24 @@
 package com.linkedin.datahub.graphql.types.common.mappers;
 
-
 import com.linkedin.datahub.graphql.generated.SearchFlags;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
-
+import com.linkedin.metadata.query.GroupingCriterionArray;
+import com.linkedin.metadata.query.GroupingSpec;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 
 /**
  * Maps GraphQL SearchFlags to Pegasus
  *
- * To be replaced by auto-generated mappers implementations
+ * <p>To be replaced by auto-generated mappers implementations
  */
-public class SearchFlagsInputMapper implements ModelMapper<SearchFlags, com.linkedin.metadata.query.SearchFlags> {
+public class SearchFlagsInputMapper
+    implements ModelMapper<SearchFlags, com.linkedin.metadata.query.SearchFlags> {
 
   public static final SearchFlagsInputMapper INSTANCE = new SearchFlagsInputMapper();
 
-  public static com.linkedin.metadata.query.SearchFlags map(@Nonnull final SearchFlags searchFlags) {
+  public static com.linkedin.metadata.query.SearchFlags map(
+      @Nonnull final SearchFlags searchFlags) {
     return INSTANCE.apply(searchFlags);
   }
 
@@ -41,6 +44,16 @@ public class SearchFlagsInputMapper implements ModelMapper<SearchFlags, com.link
     }
     if (searchFlags.getGetSuggestions() != null) {
       result.setGetSuggestions(searchFlags.getGetSuggestions());
+    }
+    if (searchFlags.getGroupingSpec() != null
+        && searchFlags.getGroupingSpec().getGroupingCriteria() != null) {
+      result.setGroupingSpec(
+          new GroupingSpec()
+              .setGroupingCriteria(
+                  new GroupingCriterionArray(
+                      searchFlags.getGroupingSpec().getGroupingCriteria().stream()
+                          .map(GroupingCriterionInputMapper::map)
+                          .collect(Collectors.toList()))));
     }
     return result;
   }

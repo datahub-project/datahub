@@ -24,7 +24,7 @@ source venv/bin/activate         # activate the environment
 Once inside the virtual environment, install `datahub` using the following commands
 
 ```shell
-# Requires Python 3.7+
+# Requires Python 3.8+
 python3 -m pip install --upgrade pip wheel setuptools
 python3 -m pip install --upgrade acryl-datahub
 # validate that the install was successful
@@ -98,6 +98,7 @@ Command Options:
   --preview-workunits       The number of workunits to produce for preview
   --strict-warnings         If enabled, ingestion runs with warnings will yield a non-zero error code
   --test-source-connection  When set, ingestion will only test the source connection details from the recipe
+  --no-progress             If enabled, mute intermediate progress ingestion reports
 ```
 #### ingest --dry-run
 
@@ -179,7 +180,7 @@ failure_log:
 ### init
 
 The init command is used to tell `datahub` about where your DataHub instance is located. The CLI will point to localhost DataHub by default.
-Running `datahub init` will allow you to customize the datahub instance you are communicating with.
+Running `datahub init` will allow you to customize the datahub instance you are communicating with. It has an optional `--use-password` option which allows to initialise the config using username, password. We foresee this mainly being used by admins as majority of organisations will be using SSO and there won't be any passwords to use.
 
 **_Note_**: Provide your GMS instance's host when the prompt asks you for the DataHub host.
 

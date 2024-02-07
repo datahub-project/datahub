@@ -120,6 +120,10 @@ mutation createPost($input: CreatePostInput!) {
     createPost(input: $input)
 }
 
+mutation updatePost($input: UpdatePostInput!) {
+    updatePost(input: $input)
+}
+
 mutation updateLineage($input: UpdateLineageInput!) {
     updateLineage(input: $input)
 }

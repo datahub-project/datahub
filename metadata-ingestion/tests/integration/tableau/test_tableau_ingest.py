@@ -28,7 +28,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
 )
 from datahub.metadata.schema_classes import MetadataChangeProposalClass, UpstreamClass
 from datahub.utilities.sqlglot_lineage import SqlParsingResult
-from tests.test_helpers import mce_helpers
+from tests.test_helpers import mce_helpers, test_connection_helpers
 from tests.test_helpers.state_helpers import (
     get_current_checkpoint_from_pipeline,
     validate_all_providers_have_committed_successfully,
@@ -288,6 +288,25 @@ def test_tableau_ingest(pytestconfig, tmp_path, mock_datahub_graph):
         mock_datahub_graph,
         pipeline_name="test_tableau_ingest",
     )
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration
+def test_tableau_test_connection_success():
+    with mock.patch("datahub.ingestion.source.tableau.Server"):
+        report = test_connection_helpers.run_test_connection(
+            TableauSource, config_source_default
+        )
+        test_connection_helpers.assert_basic_connectivity_success(report)
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration
+def test_tableau_test_connection_failure():
+    report = test_connection_helpers.run_test_connection(
+        TableauSource, config_source_default
+    )
+    test_connection_helpers.assert_basic_connectivity_failure(report, "Unable to login")
 
 
 @freeze_time(FROZEN_TIME)
@@ -793,16 +812,16 @@ def test_tableau_unsupported_csql(mock_datahub_graph):
         database_override_map={"production database": "prod"}
     )
 
-    with mock.patch("datahub.ingestion.source.tableau.sqlglot_l") as sqlglot_lineage:
-
-        sqlglot_lineage.create_lineage_sql_parsed_result.return_value = SqlParsingResult(  # type:ignore
+    with mock.patch(
+        "datahub.ingestion.source.tableau.create_lineage_sql_parsed_result",
+        return_value=SqlParsingResult(
             in_tables=[
                 "urn:li:dataset:(urn:li:dataPlatform:bigquery,my_bigquery_project.invent_dw.userdetail,PROD)"
             ],
             out_tables=[],
             column_lineage=None,
-        )
-
+        ),
+    ):
         source = TableauSource(config=config, ctx=context)
 
         lineage = source._create_lineage_from_unsupported_csql(

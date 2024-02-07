@@ -24,6 +24,7 @@ from openlineage.client.serde import Serde
 
 from datahub_airflow_plugin._airflow_shims import (
     HAS_AIRFLOW_DAG_LISTENER_API,
+    HAS_AIRFLOW_DATASET_LISTENER_API,
     Operator,
     get_task_inlets,
     get_task_outlets,
@@ -40,6 +41,7 @@ from datahub_airflow_plugin.entities import (
 
 _F = TypeVar("_F", bound=Callable[..., None])
 if TYPE_CHECKING:
+    from airflow.datasets import Dataset
     from airflow.models import DAG, DagRun, TaskInstance
     from sqlalchemy.orm import Session
 
@@ -296,6 +298,7 @@ class DataHubListener:
             logger.debug("Merging start datajob into finish datajob")
             datajob.inlets.extend(original_datajob.inlets)
             datajob.outlets.extend(original_datajob.outlets)
+            datajob.upstream_urns.extend(original_datajob.upstream_urns)
             datajob.fine_grained_lineages.extend(original_datajob.fine_grained_lineages)
 
             for k, v in original_datajob.properties.items():
@@ -304,6 +307,9 @@ class DataHubListener:
         # Deduplicate inlets/outlets.
         datajob.inlets = list(sorted(set(datajob.inlets), key=lambda x: str(x)))
         datajob.outlets = list(sorted(set(datajob.outlets), key=lambda x: str(x)))
+        datajob.upstream_urns = list(
+            sorted(set(datajob.upstream_urns), key=lambda x: str(x))
+        )
 
         # Write all other OL facets as DataHub properties.
         if task_metadata:
@@ -498,3 +504,23 @@ class DataHubListener:
             self.emitter.flush()
 
     # TODO: Add hooks for on_dag_run_success, on_dag_run_failed -> call AirflowGenerator.complete_dataflow
+
+    if HAS_AIRFLOW_DATASET_LISTENER_API:
+
+        @hookimpl
+        @run_in_thread
+        def on_dataset_created(self, dataset: "Dataset") -> None:
+            self._set_log_level()
+
+            logger.debug(
+                f"DataHub listener got notification about dataset create for {dataset}"
+            )
+
+        @hookimpl
+        @run_in_thread
+        def on_dataset_changed(self, dataset: "Dataset") -> None:
+            self._set_log_level()
+
+            logger.debug(
+                f"DataHub listener got notification about dataset change for {dataset}"
+            )

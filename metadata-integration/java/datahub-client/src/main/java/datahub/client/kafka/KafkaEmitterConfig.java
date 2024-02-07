@@ -1,12 +1,11 @@
 package datahub.client.kafka;
 
+import datahub.event.EventFormatter;
 import java.io.InputStream;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Properties;
 import java.util.function.Consumer;
-
-import datahub.event.EventFormatter;
 import lombok.Builder;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
@@ -18,24 +17,22 @@ public class KafkaEmitterConfig {
 
   public static final String CLIENT_VERSION_PROPERTY = "clientVersion";
 
+  @Builder.Default private final String bootstrap = "localhost:9092";
+  @Builder.Default private final String schemaRegistryUrl = "http://localhost:8081";
+
+  @Builder.Default private final Map<String, String> schemaRegistryConfig = Collections.emptyMap();
+  @Builder.Default private final Map<String, String> producerConfig = Collections.emptyMap();
+
   @Builder.Default
-  private final String bootstrap = "localhost:9092";
-  @Builder.Default
-  private final String schemaRegistryUrl = "http://localhost:8081";
-  
-  @Builder.Default
-  private final Map<String, String> schemaRegistryConfig = Collections.emptyMap();
-  @Builder.Default
-  private final Map<String, String> producerConfig = Collections.emptyMap();
-  
-  @Builder.Default
-  private final EventFormatter eventFormatter = new EventFormatter(EventFormatter.Format.PEGASUS_JSON);
-  
+  private final EventFormatter eventFormatter =
+      new EventFormatter(EventFormatter.Format.PEGASUS_JSON);
+
   public static class KafkaEmitterConfigBuilder {
 
     @SuppressWarnings("unused")
     private String getVersion() {
-      try (InputStream foo = this.getClass().getClassLoader().getResourceAsStream("client.properties")) {
+      try (InputStream foo =
+          this.getClass().getClassLoader().getResourceAsStream("client.properties")) {
         Properties properties = new Properties();
         properties.load(foo);
         return properties.getProperty(CLIENT_VERSION_PROPERTY, "unknown");
@@ -49,7 +46,5 @@ public class KafkaEmitterConfig {
       builderFunction.accept(this);
       return this;
     }
-
   }
-
 }

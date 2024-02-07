@@ -20,10 +20,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
-
-/**
- * GraphQL Resolver used for fetching the list of tests for an entity
- */
+/** GraphQL Resolver used for fetching the list of tests for an entity */
 @Slf4j
 public class TestResultsResolver implements DataFetcher<CompletableFuture<TestResults>> {
 
@@ -38,42 +35,44 @@ public class TestResultsResolver implements DataFetcher<CompletableFuture<TestRe
     final QueryContext context = environment.getContext();
     final Urn entityUrn = Urn.createFromString(((Entity) environment.getSource()).getUrn());
 
-    return CompletableFuture.supplyAsync(() -> {
+    return CompletableFuture.supplyAsync(
+        () -> {
+          final com.linkedin.test.TestResults gmsTestResults = getTestResults(entityUrn, context);
 
-      final com.linkedin.test.TestResults gmsTestResults = getTestResults(entityUrn, context);
+          if (gmsTestResults == null) {
+            return null;
+          }
 
-      if (gmsTestResults == null) {
-         return null;
-      }
-
-      TestResults testResults = new TestResults();
-      testResults.setPassing(mapTestResults(gmsTestResults.getPassing()));
-      testResults.setFailing(mapTestResults(gmsTestResults.getFailing()));
-      return testResults;
-    });
+          TestResults testResults = new TestResults();
+          testResults.setPassing(mapTestResults(gmsTestResults.getPassing()));
+          testResults.setFailing(mapTestResults(gmsTestResults.getFailing()));
+          return testResults;
+        });
   }
 
   @Nullable
-  private com.linkedin.test.TestResults getTestResults(final Urn entityUrn, final QueryContext context) {
+  private com.linkedin.test.TestResults getTestResults(
+      final Urn entityUrn, final QueryContext context) {
     try {
-      final EntityResponse entityResponse = _entityClient.getV2(
-          entityUrn.getEntityType(),
-          entityUrn,
-          ImmutableSet.of(Constants.TEST_RESULTS_ASPECT_NAME),
-          context.getAuthentication());
-      if (entityResponse.hasAspects() && entityResponse.getAspects().containsKey(Constants.TEST_RESULTS_ASPECT_NAME)) {
+      final EntityResponse entityResponse =
+          _entityClient.getV2(
+              entityUrn.getEntityType(),
+              entityUrn,
+              ImmutableSet.of(Constants.TEST_RESULTS_ASPECT_NAME),
+              context.getAuthentication());
+      if (entityResponse.hasAspects()
+          && entityResponse.getAspects().containsKey(Constants.TEST_RESULTS_ASPECT_NAME)) {
         return new com.linkedin.test.TestResults(
-            entityResponse.getAspects().get(Constants.TEST_RESULTS_ASPECT_NAME)
-                .getValue()
-                .data());
+            entityResponse.getAspects().get(Constants.TEST_RESULTS_ASPECT_NAME).getValue().data());
       }
       return null;
     } catch (Exception e) {
-     throw new RuntimeException("Failed to get test results", e);
+      throw new RuntimeException("Failed to get test results", e);
     }
   }
 
-  private List<TestResult> mapTestResults(final @Nonnull List<com.linkedin.test.TestResult> gmsResults) {
+  private List<TestResult> mapTestResults(
+      final @Nonnull List<com.linkedin.test.TestResult> gmsResults) {
     final List<TestResult> results = new ArrayList<>();
     for (com.linkedin.test.TestResult gmsResult : gmsResults) {
       results.add(mapTestResult(gmsResult));

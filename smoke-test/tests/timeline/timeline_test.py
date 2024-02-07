@@ -1,11 +1,12 @@
 import json
-from time import sleep
 
+import pytest
 from datahub.cli import timeline_cli
 from datahub.cli.cli_utils import guess_entity_type, post_entity
 
-from tests.utils import (get_datahub_graph, ingest_file_via_rest,
-                         wait_for_writes_to_sync)
+from tests.utils import get_datahub_graph, ingest_file_via_rest, wait_for_writes_to_sync
+
+pytestmark = pytest.mark.no_cypress_suite1
 
 
 def test_all():
@@ -182,7 +183,7 @@ def put(urn: str, aspect: str, aspect_data: str) -> None:
     entity_type = guess_entity_type(urn)
     with open(aspect_data) as fp:
         aspect_obj = json.load(fp)
-        status = post_entity(
+        post_entity(
             urn=urn,
             aspect_name=aspect,
             entity_type=entity_type,

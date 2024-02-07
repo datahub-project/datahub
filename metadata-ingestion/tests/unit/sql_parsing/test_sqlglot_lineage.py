@@ -3,57 +3,8 @@ import pathlib
 import pytest
 
 from datahub.testing.check_sql_parser_result import assert_sql_result
-from datahub.utilities.sqlglot_lineage import (
-    _UPDATE_ARGS_NOT_SUPPORTED_BY_SELECT,
-    detach_ctes,
-)
 
 RESOURCE_DIR = pathlib.Path(__file__).parent / "goldens"
-
-
-def test_detach_ctes_simple():
-    original = "WITH __cte_0 AS (SELECT * FROM table1) SELECT * FROM table2 JOIN __cte_0 ON table2.id = __cte_0.id"
-    detached_expr = detach_ctes(
-        original,
-        platform="snowflake",
-        cte_mapping={"__cte_0": "_my_cte_table"},
-    )
-    detached = detached_expr.sql(dialect="snowflake")
-
-    assert (
-        detached
-        == "WITH __cte_0 AS (SELECT * FROM table1) SELECT * FROM table2 JOIN _my_cte_table ON table2.id = _my_cte_table.id"
-    )
-
-
-def test_detach_ctes_with_alias():
-    original = "WITH __cte_0 AS (SELECT * FROM table1) SELECT * FROM table2 JOIN __cte_0 AS tablealias ON table2.id = tablealias.id"
-    detached_expr = detach_ctes(
-        original,
-        platform="snowflake",
-        cte_mapping={"__cte_0": "_my_cte_table"},
-    )
-    detached = detached_expr.sql(dialect="snowflake")
-
-    assert (
-        detached
-        == "WITH __cte_0 AS (SELECT * FROM table1) SELECT * FROM table2 JOIN _my_cte_table AS tablealias ON table2.id = tablealias.id"
-    )
-
-
-def test_detach_ctes_with_multipart_replacement():
-    original = "WITH __cte_0 AS (SELECT * FROM table1) SELECT * FROM table2 JOIN __cte_0 ON table2.id = __cte_0.id"
-    detached_expr = detach_ctes(
-        original,
-        platform="snowflake",
-        cte_mapping={"__cte_0": "my_db.my_schema.my_table"},
-    )
-    detached = detached_expr.sql(dialect="snowflake")
-
-    assert (
-        detached
-        == "WITH __cte_0 AS (SELECT * FROM table1) SELECT * FROM table2 JOIN my_db.my_schema.my_table ON table2.id = my_db.my_schema.my_table.id"
-    )
 
 
 def test_select_max():
@@ -850,10 +801,6 @@ WHERE orderkey = 3
     )
 
 
-def test_update_from_select():
-    assert _UPDATE_ARGS_NOT_SUPPORTED_BY_SELECT == {"returning", "this"}
-
-
 def test_snowflake_update_from_table():
     # Can create these tables with the following SQL:
     """
@@ -1022,4 +969,53 @@ UPDATE accounts SET (contact_first_name, contact_last_name) =
             },
         },
         expected_file=RESOURCE_DIR / "test_postgres_complex_update.json",
+    )
+
+
+def test_redshift_materialized_view_auto_refresh():
+    # Example query from the redshift docs: https://docs.aws.amazon.com/prescriptive-guidance/latest/materialized-views-redshift/refreshing-materialized-views.html
+    assert_sql_result(
+        """
+CREATE MATERIALIZED VIEW mv_total_orders
+AUTO REFRESH YES -- Add this clause to auto refresh the MV
+AS
+ SELECT c.cust_id,
+        c.first_name,
+        sum(o.amount) as total_amount
+ FROM orders o
+ JOIN customer c
+    ON c.cust_id = o.customer_id
+ GROUP BY c.cust_id,
+          c.first_name;
+""",
+        dialect="redshift",
+        expected_file=RESOURCE_DIR
+        / "test_redshift_materialized_view_auto_refresh.json",
+    )
+
+
+def test_redshift_temp_table_shortcut():
+    # On redshift, tables starting with # are temporary tables.
+    assert_sql_result(
+        """
+CREATE TABLE #my_custom_name
+distkey (1)
+sortkey (1,2)
+AS
+WITH cte AS (
+SELECT *
+FROM other_schema.table1
+)
+SELECT * FROM cte
+""",
+        dialect="redshift",
+        default_db="my_db",
+        default_schema="my_schema",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:redshift,my_db.other_schema.table1,PROD)": {
+                "col1": "INTEGER",
+                "col2": "INTEGER",
+            },
+        },
+        expected_file=RESOURCE_DIR / "test_redshift_temp_table_shortcut.json",
     )

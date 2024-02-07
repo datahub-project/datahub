@@ -1,0 +1,16 @@
+plugins {
+    id 'java-library'
+}
+
+dependencies {
+    implementation(project(':metadata-service:factories')) {
+        exclude group: 'org.neo4j.test'
+    }
+    implementation externalDependency.springActuator
+    implementation externalDependency.springKafka
+    implementation externalDependency.slf4jApi
+
+    compileOnly externalDependency.lombok
+
+    annotationProcessor externalDependency.lombok
+}

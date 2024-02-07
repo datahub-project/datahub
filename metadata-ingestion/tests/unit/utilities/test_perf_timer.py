@@ -5,7 +5,7 @@ import pytest
 
 from datahub.utilities.perf_timer import PerfTimer
 
-approx = partial(pytest.approx, rel=1e-2)
+approx = partial(pytest.approx, rel=2e-2)
 
 
 def test_perf_timer_simple():

@@ -12,9 +12,9 @@ describe('FilterRendererRegistry', () => {
         // Mock a FilterRenderer instance
         renderer = {
             field: 'mockField',
-            render: jest.fn().mockReturnValue(<div>Rendered</div>),
-            valueLabel: jest.fn().mockReturnValue(<div>ValueLabel</div>),
-            icon: jest.fn().mockReturnValue(<div>Icon</div>),
+            render: vi.fn().mockReturnValue(<div>Rendered</div>),
+            valueLabel: vi.fn().mockReturnValue(<div>ValueLabel</div>),
+            icon: vi.fn().mockReturnValue(<div>Icon</div>),
         };
 
         // Mock FilterRenderProps

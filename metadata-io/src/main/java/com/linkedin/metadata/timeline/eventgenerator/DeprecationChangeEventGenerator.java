@@ -12,14 +12,16 @@ import java.util.List;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
-
-/**
- * Differ responsible for determining whether an entity has been soft-deleted or soft-created.
- */
+/** Differ responsible for determining whether an entity has been soft-deleted or soft-created. */
 public class DeprecationChangeEventGenerator extends EntityChangeEventGenerator<Deprecation> {
   @Override
-  public List<ChangeEvent> getChangeEvents(@Nonnull Urn urn, @Nonnull String entity, @Nonnull String aspect,
-      @Nonnull Aspect<Deprecation> from, @Nonnull Aspect<Deprecation> to, @Nonnull AuditStamp auditStamp) {
+  public List<ChangeEvent> getChangeEvents(
+      @Nonnull Urn urn,
+      @Nonnull String entity,
+      @Nonnull String aspect,
+      @Nonnull Aspect<Deprecation> from,
+      @Nonnull Aspect<Deprecation> to,
+      @Nonnull AuditStamp auditStamp) {
     return computeDiffs(from.getValue(), to.getValue(), urn.toString(), auditStamp);
   }
 
@@ -31,19 +33,21 @@ public class DeprecationChangeEventGenerator extends EntityChangeEventGenerator<
 
     // Ensure that it is the deprecation status which has actually been changed.
 
-    // If the entity was not previously deprecated, but is now deprecated, then return a deprecated event.
+    // If the entity was not previously deprecated, but is now deprecated, then return a deprecated
+    // event.
     if (!isDeprecated(baseDeprecation) && isDeprecated(targetDeprecation)) {
       return Collections.singletonList(
           ChangeEvent.builder()
-            .category(ChangeCategory.DEPRECATION)
-            .operation(ChangeOperation.MODIFY)
-            .entityUrn(entityUrn)
-            .auditStamp(auditStamp)
-            .parameters(ImmutableMap.of("status", "DEPRECATED"))
-            .build());
+              .category(ChangeCategory.DEPRECATION)
+              .operation(ChangeOperation.MODIFY)
+              .entityUrn(entityUrn)
+              .auditStamp(auditStamp)
+              .parameters(ImmutableMap.of("status", "DEPRECATED"))
+              .build());
     }
 
-    // If the entity was previously deprecated, but is not not deprecated, then return a un-deprecated event.
+    // If the entity was previously deprecated, but is not not deprecated, then return a
+    // un-deprecated event.
     if (isDeprecated(baseDeprecation) && !isDeprecated(targetDeprecation)) {
       return Collections.singletonList(
           ChangeEvent.builder()

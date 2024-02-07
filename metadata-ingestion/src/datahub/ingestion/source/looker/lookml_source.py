@@ -49,6 +49,7 @@ from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceCapabi
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.git.git_import import GitClone
+from datahub.ingestion.source.looker.lkml_patched import load_lkml
 from datahub.ingestion.source.looker.looker_common import (
     CORPUSER_DATAHUB,
     LookerCommonConfig,
@@ -97,13 +98,6 @@ from datahub.utilities.sql_parser import SQLParser
 logger = logging.getLogger(__name__)
 
 _BASE_PROJECT_NAME = "__BASE"
-
-# Patch lkml to support the local_dependency and remote_dependency keywords.
-lkml.simple.PLURAL_KEYS = (
-    *lkml.simple.PLURAL_KEYS,
-    "local_dependency",
-    "remote_dependency",
-)
 
 _EXPLORE_FILE_EXTENSION = ".explore.lkml"
 _VIEW_FILE_EXTENSION = ".view.lkml"
@@ -301,13 +295,13 @@ class LookMLSourceConfig(
     ) -> Optional[pydantic.DirectoryPath]:
         if v is None:
             git_info: Optional[GitInfo] = values.get("git_info")
-            if git_info and git_info.deploy_key:
-                # We have git_info populated correctly, base folder is not needed
-                pass
+            if git_info:
+                if not git_info.deploy_key:
+                    logger.warning(
+                        "git_info is provided, but no SSH key is present. If the repo is not public, we'll fail to clone it."
+                    )
             else:
-                raise ValueError(
-                    "base_folder is not provided. Neither has a github deploy_key or deploy_key_file been provided"
-                )
+                raise ValueError("Neither base_folder nor git_info has been provided.")
         return v
 
 
@@ -384,10 +378,9 @@ class LookerModel:
         ]
         for included_file in explore_files:
             try:
-                with open(included_file, "r") as file:
-                    parsed = lkml.load(file)
-                    included_explores = parsed.get("explores", [])
-                    explores.extend(included_explores)
+                parsed = load_lkml(included_file)
+                included_explores = parsed.get("explores", [])
+                explores.extend(included_explores)
             except Exception as e:
                 reporter.report_warning(
                     path, f"Failed to load {included_file} due to {e}"
@@ -514,24 +507,23 @@ class LookerModel:
                     f"Will be loading {included_file}, traversed here via {traversal_path}"
                 )
                 try:
-                    with open(included_file, "r") as file:
-                        parsed = lkml.load(file)
-                        seen_so_far.add(included_file)
-                        if "includes" in parsed:  # we have more includes to resolve!
-                            resolved.extend(
-                                LookerModel.resolve_includes(
-                                    parsed["includes"],
-                                    resolved_project_name,
-                                    root_project_name,
-                                    base_projects_folder,
-                                    included_file,
-                                    reporter,
-                                    seen_so_far,
-                                    traversal_path=traversal_path
-                                    + "."
-                                    + pathlib.Path(included_file).stem,
-                                )
+                    parsed = load_lkml(included_file)
+                    seen_so_far.add(included_file)
+                    if "includes" in parsed:  # we have more includes to resolve!
+                        resolved.extend(
+                            LookerModel.resolve_includes(
+                                parsed["includes"],
+                                resolved_project_name,
+                                root_project_name,
+                                base_projects_folder,
+                                included_file,
+                                reporter,
+                                seen_so_far,
+                                traversal_path=traversal_path
+                                + "."
+                                + pathlib.Path(included_file).stem,
                             )
+                        )
                 except Exception as e:
                     reporter.report_warning(
                         path, f"Failed to load {included_file} due to {e}"
@@ -550,7 +542,7 @@ class LookerModel:
 @dataclass
 class LookerViewFile:
     absolute_file_path: str
-    connection: Optional[str]
+    connection: Optional[LookerConnectionDefinition]
     includes: List[str]
     resolved_includes: List[ProjectInclude]
     views: List[Dict]
@@ -648,21 +640,20 @@ class LookerViewFileLoader:
             self.reporter.report_failure(path, f"failed to load view file: {e}")
             return None
         try:
-            with open(path, "r") as file:
-                logger.debug(f"Loading viewfile {path}")
-                parsed = lkml.load(file)
-                looker_viewfile = LookerViewFile.from_looker_dict(
-                    absolute_file_path=path,
-                    looker_view_file_dict=parsed,
-                    project_name=project_name,
-                    root_project_name=self._root_project_name,
-                    base_projects_folder=self._base_projects_folder,
-                    raw_file_content=raw_file_content,
-                    reporter=reporter,
-                )
-                logger.debug(f"adding viewfile for path {path} to the cache")
-                self.viewfile_cache[path] = looker_viewfile
-                return looker_viewfile
+            logger.debug(f"Loading viewfile {path}")
+            parsed = load_lkml(path)
+            looker_viewfile = LookerViewFile.from_looker_dict(
+                absolute_file_path=path,
+                looker_view_file_dict=parsed,
+                project_name=project_name,
+                root_project_name=self._root_project_name,
+                base_projects_folder=self._base_projects_folder,
+                raw_file_content=raw_file_content,
+                reporter=reporter,
+            )
+            logger.debug(f"adding viewfile for path {path} to the cache")
+            self.viewfile_cache[path] = looker_viewfile
+            return looker_viewfile
         except Exception as e:
             self.reporter.report_failure(path, f"failed to load view file: {e}")
             return None
@@ -1455,7 +1446,7 @@ class LookerManifest:
 @support_status(SupportStatus.CERTIFIED)
 @capability(
     SourceCapability.PLATFORM_INSTANCE,
-    "Supported using the `connection_to_platform_map`",
+    "Use the `platform_instance` and `connection_to_platform_map` fields",
 )
 @capability(SourceCapability.LINEAGE_COARSE, "Supported by default")
 @capability(
@@ -1498,17 +1489,16 @@ class LookMLSource(StatefulIngestionSourceBase):
                 )
 
     def _load_model(self, path: str) -> LookerModel:
-        with open(path, "r") as file:
-            logger.debug(f"Loading model from file {path}")
-            parsed = lkml.load(file)
-            looker_model = LookerModel.from_looker_dict(
-                parsed,
-                _BASE_PROJECT_NAME,
-                self.source_config.project_name,
-                self.base_projects_folder,
-                path,
-                self.reporter,
-            )
+        logger.debug(f"Loading model from file {path}")
+        parsed = load_lkml(path)
+        looker_model = LookerModel.from_looker_dict(
+            parsed,
+            _BASE_PROJECT_NAME,
+            self.source_config.project_name,
+            self.base_projects_folder,
+            path,
+            self.reporter,
+        )
         return looker_model
 
     def _platform_names_have_2_parts(self, platform: str) -> bool:
@@ -1797,8 +1787,7 @@ class LookMLSource(StatefulIngestionSourceBase):
     def get_manifest_if_present(self, folder: pathlib.Path) -> Optional[LookerManifest]:
         manifest_file = folder / "manifest.lkml"
         if manifest_file.exists():
-            with manifest_file.open() as fp:
-                manifest_dict = lkml.load(fp)
+            manifest_dict = load_lkml(manifest_file)
 
             manifest = LookerManifest(
                 project_name=manifest_dict.get("project_name"),
@@ -1831,14 +1820,8 @@ class LookMLSource(StatefulIngestionSourceBase):
                 assert self.source_config.git_info
                 # we don't have a base_folder, so we need to clone the repo and process it locally
                 start_time = datetime.now()
-                git_clone = GitClone(tmp_dir)
-                # Github info deploy key is always populated
-                assert self.source_config.git_info.deploy_key
-                assert self.source_config.git_info.repo_ssh_locator
-                checkout_dir = git_clone.clone(
-                    ssh_key=self.source_config.git_info.deploy_key,
-                    repo_url=self.source_config.git_info.repo_ssh_locator,
-                    branch=self.source_config.git_info.branch_for_clone,
+                checkout_dir = self.source_config.git_info.clone(
+                    tmp_path=tmp_dir,
                 )
                 self.reporter.git_clone_latency = datetime.now() - start_time
                 self.source_config.base_folder = checkout_dir.resolve()
@@ -1853,29 +1836,20 @@ class LookMLSource(StatefulIngestionSourceBase):
             for project, p_ref in self.source_config.project_dependencies.items():
                 # If we were given GitHub info, we need to clone the project.
                 if isinstance(p_ref, GitInfo):
-                    assert p_ref.repo_ssh_locator
-
-                    p_cloner = GitClone(f"{tmp_dir}/_included_/{project}")
                     try:
-                        p_checkout_dir = p_cloner.clone(
-                            ssh_key=(
-                                # If a deploy key was provided, use it. Otherwise, fall back
-                                # to the main project deploy key.
-                                p_ref.deploy_key
-                                or (
-                                    self.source_config.git_info.deploy_key
-                                    if self.source_config.git_info
-                                    else None
-                                )
-                            ),
-                            repo_url=p_ref.repo_ssh_locator,
-                            branch=p_ref.branch_for_clone,
+                        p_checkout_dir = p_ref.clone(
+                            tmp_path=f"{tmp_dir}/_included_/{project}",
+                            # If a deploy key was provided, use it. Otherwise, fall back
+                            # to the main project deploy key, if present.
+                            fallback_deploy_key=self.source_config.git_info.deploy_key
+                            if self.source_config.git_info
+                            else None,
                         )
 
                         p_ref = p_checkout_dir.resolve()
                     except Exception as e:
                         logger.warning(
-                            f"Failed to clone remote project {project}. This can lead to failures in parsing lookml files later on: {e}",
+                            f"Failed to clone project dependency {project}. This can lead to failures in parsing lookml files later on: {e}",
                         )
                         visited_projects.add(project)
                         continue
@@ -1910,68 +1884,73 @@ class LookMLSource(StatefulIngestionSourceBase):
             return
 
         manifest = self.get_manifest_if_present(project_path)
-        if manifest:
-            # Special case handling if the root project has a name in the manifest file.
-            if project_name == _BASE_PROJECT_NAME and manifest.project_name:
-                if (
-                    self.source_config.project_name is not None
-                    and manifest.project_name != self.source_config.project_name
-                ):
-                    logger.warning(
-                        f"The project name in the manifest file '{manifest.project_name}'"
-                        f"does not match the configured project name '{self.source_config.project_name}'. "
-                        "This can lead to failures in LookML include resolution and lineage generation."
-                    )
-                elif self.source_config.project_name is None:
-                    self.source_config.project_name = manifest.project_name
+        if not manifest:
+            return
 
-            # Clone the remote project dependencies.
-            for remote_project in manifest.remote_dependencies:
-                if remote_project.name in project_visited:
-                    continue
+        # Special case handling if the root project has a name in the manifest file.
+        if project_name == _BASE_PROJECT_NAME and manifest.project_name:
+            if (
+                self.source_config.project_name is not None
+                and manifest.project_name != self.source_config.project_name
+            ):
+                logger.warning(
+                    f"The project name in the manifest file '{manifest.project_name}'"
+                    f"does not match the configured project name '{self.source_config.project_name}'. "
+                    "This can lead to failures in LookML include resolution and lineage generation."
+                )
+            elif self.source_config.project_name is None:
+                self.source_config.project_name = manifest.project_name
 
-                p_cloner = GitClone(f"{tmp_dir}/_remote_/{project_name}")
-                try:
-                    # TODO: For 100% correctness, we should be consulting
-                    # the manifest lock file for the exact ref to use.
+        # Clone the remote project dependencies.
+        for remote_project in manifest.remote_dependencies:
+            if remote_project.name in project_visited:
+                continue
+            if remote_project.name in self.base_projects_folder:
+                # In case a remote_dependency is specified in the project_dependencies config,
+                # we don't need to clone it again.
+                continue
 
-                    p_checkout_dir = p_cloner.clone(
-                        ssh_key=(
-                            self.source_config.git_info.deploy_key
-                            if self.source_config.git_info
-                            else None
-                        ),
-                        repo_url=remote_project.url,
-                    )
+            p_cloner = GitClone(f"{tmp_dir}/_remote_/{remote_project.name}")
+            try:
+                # TODO: For 100% correctness, we should be consulting
+                # the manifest lock file for the exact ref to use.
 
-                    self.base_projects_folder[
-                        remote_project.name
-                    ] = p_checkout_dir.resolve()
-                    repo = p_cloner.get_last_repo_cloned()
-                    assert repo
-                    remote_git_info = GitInfo(
-                        url_template=remote_project.url,
-                        repo="dummy/dummy",  # set to dummy values to bypass validation
-                        branch=repo.active_branch.name,
-                    )
-                    remote_git_info.repo = (
-                        ""  # set to empty because url already contains the full path
-                    )
-                    self.remote_projects_git_info[remote_project.name] = remote_git_info
+                p_checkout_dir = p_cloner.clone(
+                    ssh_key=(
+                        self.source_config.git_info.deploy_key
+                        if self.source_config.git_info
+                        else None
+                    ),
+                    repo_url=remote_project.url,
+                )
 
-                except Exception as e:
-                    logger.warning(
-                        f"Failed to clone remote project {project_name}. This can lead to failures in parsing lookml files later on",
-                        e,
-                    )
-                    project_visited.add(project_name)
-                else:
-                    self._recursively_check_manifests(
-                        tmp_dir, remote_project.name, project_visited
-                    )
+                self.base_projects_folder[
+                    remote_project.name
+                ] = p_checkout_dir.resolve()
+                repo = p_cloner.get_last_repo_cloned()
+                assert repo
+                remote_git_info = GitInfo(
+                    url_template=remote_project.url,
+                    repo="dummy/dummy",  # set to dummy values to bypass validation
+                    branch=repo.active_branch.name,
+                )
+                remote_git_info.repo = (
+                    ""  # set to empty because url already contains the full path
+                )
+                self.remote_projects_git_info[remote_project.name] = remote_git_info
 
-            for project in manifest.local_dependencies:
-                self._recursively_check_manifests(tmp_dir, project, project_visited)
+            except Exception as e:
+                logger.warning(
+                    f"Failed to clone remote project {project_name}. This can lead to failures in parsing lookml files later on: {e}",
+                )
+                project_visited.add(project_name)
+            else:
+                self._recursively_check_manifests(
+                    tmp_dir, remote_project.name, project_visited
+                )
+
+        for project in manifest.local_dependencies:
+            self._recursively_check_manifests(tmp_dir, project, project_visited)
 
     def get_internal_workunits(self) -> Iterable[MetadataWorkUnit]:  # noqa: C901
         assert self.source_config.base_folder
@@ -2070,10 +2049,9 @@ class LookMLSource(StatefulIngestionSourceBase):
                         )
                         logger.debug("Failed to process explore", exc_info=e)
 
-            processed_view_files = processed_view_map.get(model.connection)
-            if processed_view_files is None:
-                processed_view_map[model.connection] = set()
-                processed_view_files = processed_view_map[model.connection]
+            processed_view_files = processed_view_map.setdefault(
+                model.connection, set()
+            )
 
             project_name = self.get_project_name(model_name)
             logger.debug(f"Model: {model_name}; Includes: {model.resolved_includes}")

@@ -47,6 +47,7 @@ from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
     BigqueryProject,
     BigQuerySchemaApi,
     BigqueryTable,
+    BigqueryTableSnapshot,
     BigqueryView,
 )
 from datahub.ingestion.source.bigquery_v2.common import (
@@ -221,6 +222,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         self.bigquery_data_dictionary = BigQuerySchemaApi(
             self.report.schema_api_perf, self.config.get_bigquery_client()
         )
+        self.sql_parser_schema_resolver = self._init_schema_resolver()
 
         redundant_lineage_run_skip_handler: Optional[
             RedundantLineageRunSkipHandler
@@ -233,7 +235,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 run_id=self.ctx.run_id,
             )
 
-        # For database, schema, tables, views, etc
+        # For database, schema, tables, views, snapshots etc
         self.lineage_extractor = BigqueryLineageExtractor(
             config,
             self.report,
@@ -253,6 +255,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         self.usage_extractor = BigQueryUsageExtractor(
             config,
             self.report,
+            schema_resolver=self.sql_parser_schema_resolver,
             dataset_urn_builder=self.gen_dataset_urn_from_ref,
             redundant_run_skip_handler=redundant_usage_run_skip_handler,
         )
@@ -280,10 +283,12 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
         # Maps project -> view_ref, so we can find all views in a project
         self.view_refs_by_project: Dict[str, Set[str]] = defaultdict(set)
+        # Maps project -> snapshot_ref, so we can find all snapshots in a project
+        self.snapshot_refs_by_project: Dict[str, Set[str]] = defaultdict(set)
         # Maps view ref -> actual sql
         self.view_definitions: FileBackedDict[str] = FileBackedDict()
-
-        self.sql_parser_schema_resolver = self._init_schema_resolver()
+        # Maps snapshot ref -> Snapshot
+        self.snapshots_by_ref: FileBackedDict[BigqueryTableSnapshot] = FileBackedDict()
 
         self.add_config_to_report()
         atexit.register(cleanup, config)
@@ -302,6 +307,10 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             )
         else:
             return CapabilityReport(capable=True)
+
+    @property
+    def store_table_refs(self):
+        return self.config.include_table_lineage or self.config.include_usage_statistics
 
     @staticmethod
     def metadata_read_capability_test(
@@ -371,7 +380,10 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         report: BigQueryV2Report,
     ) -> CapabilityReport:
         usage_extractor = BigQueryUsageExtractor(
-            connection_conf, report, lambda ref: ""
+            connection_conf,
+            report,
+            schema_resolver=SchemaResolver(platform="bigquery"),
+            dataset_urn_builder=lambda ref: "",
         )
         for project_id in project_ids:
             try:
@@ -447,7 +459,10 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             self.config.lineage_parse_view_ddl or self.config.lineage_use_sql_parser
         )
         schema_ingestion_enabled = (
-            self.config.include_views and self.config.include_tables
+            self.config.include_schema_metadata
+            and self.config.include_tables
+            and self.config.include_views
+            and self.config.include_table_snapshots
         )
 
         if schema_resolution_required and not schema_ingestion_enabled:
@@ -545,10 +560,11 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         if not projects:
             return
 
-        for project_id in projects:
-            self.report.set_ingestion_stage(project_id.id, METADATA_EXTRACTION)
-            logger.info(f"Processing project: {project_id.id}")
-            yield from self._process_project(project_id)
+        if self.config.include_schema_metadata:
+            for project_id in projects:
+                self.report.set_ingestion_stage(project_id.id, METADATA_EXTRACTION)
+                logger.info(f"Processing project: {project_id.id}")
+                yield from self._process_project(project_id)
 
         if self.config.include_usage_statistics:
             yield from self.usage_extractor.get_usage_workunits(
@@ -561,6 +577,8 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 self.sql_parser_schema_resolver,
                 self.view_refs_by_project,
                 self.view_definitions,
+                self.snapshot_refs_by_project,
+                self.snapshots_by_ref,
                 self.table_refs,
             )
 
@@ -597,6 +615,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
     ) -> Iterable[MetadataWorkUnit]:
         db_tables: Dict[str, List[BigqueryTable]] = {}
         db_views: Dict[str, List[BigqueryView]] = {}
+        db_snapshots: Dict[str, List[BigqueryTableSnapshot]] = {}
 
         project_id = bigquery_project.id
         try:
@@ -645,9 +664,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 self.report.report_dropped(f"{bigquery_dataset.name}.*")
                 continue
             try:
-                # db_tables and db_views are populated in the this method
+                # db_tables, db_views, and db_snapshots are populated in the this method
                 yield from self._process_schema(
-                    project_id, bigquery_dataset, db_tables, db_views
+                    project_id, bigquery_dataset, db_tables, db_views, db_snapshots
                 )
 
             except Exception as e:
@@ -678,6 +697,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         bigquery_dataset: BigqueryDataset,
         db_tables: Dict[str, List[BigqueryTable]],
         db_views: Dict[str, List[BigqueryView]],
+        db_snapshots: Dict[str, List[BigqueryTableSnapshot]],
     ) -> Iterable[MetadataWorkUnit]:
         dataset_name = bigquery_dataset.name
 
@@ -686,7 +706,11 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         )
 
         columns = None
-        if self.config.include_tables or self.config.include_views:
+        if (
+            self.config.include_tables
+            or self.config.include_views
+            or self.config.include_table_snapshots
+        ):
             columns = self.bigquery_data_dictionary.get_columns_for_dataset(
                 project_id=project_id,
                 dataset_name=dataset_name,
@@ -707,7 +731,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                     project_id=project_id,
                     dataset_name=dataset_name,
                 )
-        elif self.config.include_table_lineage or self.config.include_usage_statistics:
+        elif self.store_table_refs:
             # Need table_refs to calculate lineage and usage
             for table_item in self.bigquery_data_dictionary.list_tables(
                 dataset_name, project_id
@@ -732,7 +756,10 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         if self.config.include_views:
             db_views[dataset_name] = list(
                 self.bigquery_data_dictionary.get_views_for_dataset(
-                    project_id, dataset_name, self.config.is_profiling_enabled()
+                    project_id,
+                    dataset_name,
+                    self.config.is_profiling_enabled(),
+                    self.report,
                 )
             )
 
@@ -741,6 +768,25 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 yield from self._process_view(
                     view=view,
                     columns=view_columns,
+                    project_id=project_id,
+                    dataset_name=dataset_name,
+                )
+
+        if self.config.include_table_snapshots:
+            db_snapshots[dataset_name] = list(
+                self.bigquery_data_dictionary.get_snapshots_for_dataset(
+                    project_id,
+                    dataset_name,
+                    self.config.is_profiling_enabled(),
+                    self.report,
+                )
+            )
+
+            for snapshot in db_snapshots[dataset_name]:
+                snapshot_columns = columns.get(snapshot.name, []) if columns else []
+                yield from self._process_snapshot(
+                    snapshot=snapshot,
+                    columns=snapshot_columns,
                     project_id=project_id,
                     dataset_name=dataset_name,
                 )
@@ -772,7 +818,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             self.report.report_dropped(table_identifier.raw_table_name())
             return
 
-        if self.config.include_table_lineage or self.config.include_usage_statistics:
+        if self.store_table_refs:
             self.table_refs.add(
                 str(BigQueryTableRef(table_identifier).get_sanitized_table_ref())
             )
@@ -821,7 +867,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             self.report.report_dropped(table_identifier.raw_table_name())
             return
 
-        if self.config.include_table_lineage or self.config.include_usage_statistics:
+        if self.store_table_refs:
             table_ref = str(
                 BigQueryTableRef(table_identifier).get_sanitized_table_ref()
             )
@@ -838,6 +884,48 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
         yield from self.gen_view_dataset_workunits(
             table=view,
+            columns=columns,
+            project_id=project_id,
+            dataset_name=dataset_name,
+        )
+
+    def _process_snapshot(
+        self,
+        snapshot: BigqueryTableSnapshot,
+        columns: List[BigqueryColumn],
+        project_id: str,
+        dataset_name: str,
+    ) -> Iterable[MetadataWorkUnit]:
+        table_identifier = BigqueryTableIdentifier(
+            project_id, dataset_name, snapshot.name
+        )
+
+        self.report.snapshots_scanned += 1
+
+        if not self.config.table_snapshot_pattern.allowed(
+            table_identifier.raw_table_name()
+        ):
+            self.report.report_dropped(table_identifier.raw_table_name())
+            return
+
+        snapshot.columns = columns
+        snapshot.column_count = len(columns)
+        if not snapshot.column_count:
+            logger.warning(
+                f"Snapshot doesn't have any column or unable to get columns for table: {table_identifier}"
+            )
+
+        if self.store_table_refs:
+            table_ref = str(
+                BigQueryTableRef(table_identifier).get_sanitized_table_ref()
+            )
+            self.table_refs.add(table_ref)
+            if snapshot.base_table_identifier:
+                self.snapshot_refs_by_project[project_id].add(table_ref)
+                self.snapshots_by_ref[table_ref] = snapshot
+
+        yield from self.gen_snapshot_dataset_workunits(
+            table=snapshot,
             columns=columns,
             project_id=project_id,
             dataset_name=dataset_name,
@@ -927,9 +1015,34 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             aspect=view_properties_aspect,
         ).as_workunit()
 
+    def gen_snapshot_dataset_workunits(
+        self,
+        table: BigqueryTableSnapshot,
+        columns: List[BigqueryColumn],
+        project_id: str,
+        dataset_name: str,
+    ) -> Iterable[MetadataWorkUnit]:
+        custom_properties: Dict[str, str] = {}
+        if table.ddl:
+            custom_properties["snapshot_ddl"] = table.ddl
+        if table.snapshot_time:
+            custom_properties["snapshot_time"] = str(table.snapshot_time)
+        if table.size_in_bytes:
+            custom_properties["size_in_bytes"] = str(table.size_in_bytes)
+        if table.rows_count:
+            custom_properties["rows_count"] = str(table.rows_count)
+        yield from self.gen_dataset_workunits(
+            table=table,
+            columns=columns,
+            project_id=project_id,
+            dataset_name=dataset_name,
+            sub_types=[DatasetSubTypes.BIGQUERY_TABLE_SNAPSHOT],
+            custom_properties=custom_properties,
+        )
+
     def gen_dataset_workunits(
         self,
-        table: Union[BigqueryTable, BigqueryView],
+        table: Union[BigqueryTable, BigqueryView, BigqueryTableSnapshot],
         columns: List[BigqueryColumn],
         project_id: str,
         dataset_name: str,
@@ -1031,6 +1144,13 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
     def gen_schema_fields(self, columns: List[BigqueryColumn]) -> List[SchemaField]:
         schema_fields: List[SchemaField] = []
 
+        # Below line affects HiveColumnToAvroConverter._STRUCT_TYPE_SEPARATOR in global scope
+        # TODO: Refractor this such that
+        # converter = HiveColumnToAvroConverter(struct_type_separator=" ");
+        # converter.get_schema_fields_for_hive_column(...)
+        original_struct_type_separator = (
+            HiveColumnToAvroConverter._STRUCT_TYPE_SEPARATOR
+        )
         HiveColumnToAvroConverter._STRUCT_TYPE_SEPARATOR = " "
         _COMPLEX_TYPE = re.compile("^(struct|array)")
         last_id = -1
@@ -1091,12 +1211,15 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 )
                 schema_fields.append(field)
             last_id = col.ordinal_position
+        HiveColumnToAvroConverter._STRUCT_TYPE_SEPARATOR = (
+            original_struct_type_separator
+        )
         return schema_fields
 
     def gen_schema_metadata(
         self,
         dataset_urn: str,
-        table: Union[BigqueryTable, BigqueryView],
+        table: Union[BigqueryTable, BigqueryView, BigqueryTableSnapshot],
         columns: List[BigqueryColumn],
         dataset_name: str,
     ) -> MetadataWorkUnit:

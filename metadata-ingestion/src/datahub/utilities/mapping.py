@@ -31,6 +31,23 @@ def _get_best_match(the_match: Match, group_name: str) -> str:
     return the_match.group(0)
 
 
+def _make_owner_category_list(
+    owner_type: OwnerType,
+    owner_category: Any,
+    owner_category_urn: Optional[str],
+    owner_ids: List[str],
+) -> List[Dict]:
+
+    return [
+        {
+            "urn": mce_builder.make_owner_urn(owner_id, owner_type),
+            "category": owner_category,
+            "categoryUrn": owner_category_urn,
+        }
+        for owner_id in owner_ids
+    ]
+
+
 _match_regexp = re.compile(r"{{\s*\$match\s*}}", flags=re.MULTILINE)
 
 
@@ -149,13 +166,26 @@ class OperationProcessor:
                     operation = self.get_operation_value(
                         operation_key, operation_type, operation_config, maybe_match
                     )
+
                     if operation_type == Constants.ADD_TERMS_OPERATION:
                         # add_terms operation is a special case where the operation value is a list of terms.
                         # We want to aggregate these values with the add_term operation.
                         operation_type = Constants.ADD_TERM_OPERATION
 
                     if operation:
-                        if isinstance(operation, (str, list)):
+                        if (
+                            isinstance(operation, list)
+                            and operation_type == Constants.ADD_OWNER_OPERATION
+                        ):
+                            operation_value_list = operations_map.get(
+                                operation_type, list()
+                            )
+                            cast(List, operation_value_list).extend(
+                                operation
+                            )  # cast to silent the lint
+                            operations_map[operation_type] = operation_value_list
+
+                        elif isinstance(operation, (str, list)):
                             operations_value_set = operations_map.get(
                                 operation_type, set()
                             )
@@ -184,13 +214,17 @@ class OperationProcessor:
             tag_aspect = mce_builder.make_global_tag_aspect_with_tag_list(
                 sorted(operation_map[Constants.ADD_TAG_OPERATION])
             )
+
             aspect_map[Constants.ADD_TAG_OPERATION] = tag_aspect
+
         if Constants.ADD_OWNER_OPERATION in operation_map:
+
             owner_aspect = OwnershipClass(
                 owners=[
                     OwnerClass(
                         owner=x.get("urn"),
                         type=x.get("category"),
+                        typeUrn=x.get("categoryUrn"),
                         source=OwnershipSourceClass(type=self.owner_source_type)
                         if self.owner_source_type
                         else None,
@@ -201,6 +235,7 @@ class OperationProcessor:
                     )
                 ]
             )
+
             aspect_map[Constants.ADD_OWNER_OPERATION] = owner_aspect
 
         if Constants.ADD_TERM_OPERATION in operation_map:
@@ -261,7 +296,7 @@ class OperationProcessor:
         operation_type: str,
         operation_config: Dict,
         match: Match,
-    ) -> Optional[Union[str, Dict, List[str]]]:
+    ) -> Optional[Union[str, Dict, List[str], List[Dict]]]:
         if (
             operation_type == Constants.ADD_TAG_OPERATION
             and operation_config[Constants.TAG]
@@ -277,23 +312,39 @@ class OperationProcessor:
             and operation_config[Constants.OWNER_TYPE]
         ):
             owner_id = _get_best_match(match, "owner")
+
+            owner_ids: List[str] = [_id.strip() for _id in owner_id.split(",")]
+
             owner_category = (
                 operation_config.get(Constants.OWNER_CATEGORY)
                 or OwnershipTypeClass.DATAOWNER
             )
-            owner_category = owner_category.upper()
+            owner_category_urn: Optional[str] = None
+            if owner_category.startswith("urn:li:"):
+                owner_category_urn = owner_category
+                owner_category = OwnershipTypeClass.DATAOWNER
+            else:
+                owner_category = owner_category.upper()
+
             if self.strip_owner_email_id:
-                owner_id = self.sanitize_owner_ids(owner_id)
-            if operation_config[Constants.OWNER_TYPE] == Constants.USER_OWNER:
-                return {
-                    "urn": mce_builder.make_owner_urn(owner_id, OwnerType.USER),
-                    "category": owner_category,
-                }
-            elif operation_config[Constants.OWNER_TYPE] == Constants.GROUP_OWNER:
-                return {
-                    "urn": mce_builder.make_owner_urn(owner_id, OwnerType.GROUP),
-                    "category": owner_category,
-                }
+                owner_ids = [
+                    self.sanitize_owner_ids(owner_id) for owner_id in owner_ids
+                ]
+
+            owner_type_mapping: Dict[str, OwnerType] = {
+                Constants.USER_OWNER: OwnerType.USER,
+                Constants.GROUP_OWNER: OwnerType.GROUP,
+            }
+            if operation_config[Constants.OWNER_TYPE] in owner_type_mapping:
+                return _make_owner_category_list(
+                    owner_ids=owner_ids,
+                    owner_category=owner_category,
+                    owner_category_urn=owner_category_urn,
+                    owner_type=owner_type_mapping[
+                        operation_config[Constants.OWNER_TYPE]
+                    ],
+                )
+
         elif (
             operation_type == Constants.ADD_TERM_OPERATION
             and operation_config[Constants.TERM]

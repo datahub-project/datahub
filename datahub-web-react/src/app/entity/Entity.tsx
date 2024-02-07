@@ -1,6 +1,6 @@
 import { EntityType, SearchResult } from '../../types.generated';
 import { FetchedEntity } from '../lineage/types';
-import { GenericEntityProperties } from './shared/types';
+import { EntitySidebarSection, GenericEntityProperties } from './shared/types';
 
 export enum PreviewType {
     /**
@@ -180,6 +180,11 @@ export interface Entity<T> {
      * Returns the profile component to be displayed in our Chrome extension
      */
     renderEmbeddedProfile?: (urn: string) => JSX.Element;
+
+    /**
+     * Returns the entity profile sidebar sections for an entity type. Only implemented on Datasets for now.
+     */
+    getSidebarSections?: () => EntitySidebarSection[];
 
     /**
      * Returns the url to be navigated to when clicked on Cards

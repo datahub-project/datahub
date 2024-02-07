@@ -1,6 +1,6 @@
 FROM acryldata/datahub-ingestion-base as base
 
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
     sudo \
     python3-dev \
     libgtk2.0-0 \
@@ -13,14 +13,16 @@ RUN apt-get update && apt-get install -y \
     libasound2 \
     libxtst6 \
     xauth \
-    xvfb
-
-RUN DEBIAN_FRONTEND=noninteractive apt-get install -y  openjdk-11-jdk
+    xvfb \
+    openjdk-17-jdk && \
+    rm -rf /var/lib/apt/lists/* /var/cache/apk/*
 
 COPY . /datahub-src
 ARG RELEASE_VERSION
-RUN cd /datahub-src/metadata-ingestion && \
-    sed -i.bak "s/__version__ = \"1!0.0.0.dev0\"/__version__ = \"$RELEASE_VERSION\"/" src/datahub/__init__.py && \
-    cat src/datahub/__init__.py && \
-    cd ../ && \
-    ./gradlew :metadata-ingestion:installAll
+RUN cd /datahub-src && \
+    sed -i.bak "s/__version__ = \"1\!0.0.0.dev0\"/__version__ = \"$(echo $RELEASE_VERSION|sed s/-/+/)\"/" metadata-ingestion/src/datahub/__init__.py && \
+    sed -i.bak "s/__version__ = \"1\!0.0.0.dev0\"/__version__ = \"$(echo $RELEASE_VERSION|sed s/-/+/)\"/" metadata-ingestion-modules/airflow-plugin/src/datahub_airflow_plugin/__init__.py && \
+    cat metadata-ingestion/src/datahub/__init__.py && \
+    ./gradlew :metadata-ingestion:codegen && \
+    pip install file:metadata-ingestion-modules/airflow-plugin#egg=acryl-datahub-airflow-plugin file:metadata-ingestion#egg=acryl-datahub
+

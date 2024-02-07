@@ -80,6 +80,14 @@ class BigQueryConnectionConfig(ConfigModel):
         else:
             return GCPLoggingClient(**client_options)
 
+    def get_sql_alchemy_url(self) -> str:
+        if self.project_on_behalf:
+            return f"bigquery://{self.project_on_behalf}"
+        # When project_id is not set, we will attempt to detect the project ID
+        # based on the credentials or environment variables.
+        # See https://github.com/mxmzdlv/pybigquery#authentication.
+        return "bigquery://"
+
 
 class BigQueryV2Config(
     BigQueryConnectionConfig,
@@ -92,6 +100,11 @@ class BigQueryV2Config(
     project_id_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for project_id to filter in ingestion.",
+    )
+
+    include_schema_metadata: bool = Field(
+        default=True,
+        description="Whether to ingest the BigQuery schema, i.e. projects, schemas, tables, and views.",
     )
 
     usage: BigQueryUsageConfig = Field(
@@ -133,6 +146,15 @@ class BigQueryV2Config(
         description="Whether to create a DataPlatformInstance aspect, equal to the BigQuery project id."
         " If enabled, will cause redundancy in the browse path for BigQuery entities in the UI,"
         " because the project id is represented as the top-level container.",
+    )
+
+    include_table_snapshots: Optional[bool] = Field(
+        default=True, description="Whether table snapshots should be ingested."
+    )
+
+    table_snapshot_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns for table snapshots to filter in ingestion. Specify regex to match the entire snapshot name in database.schema.snapshot format. e.g. to match all snapshots starting with customer in Customer database and public schema, use the regex 'Customer.public.customer.*'",
     )
 
     debug_include_full_payloads: bool = Field(
@@ -284,7 +306,7 @@ class BigQueryV2Config(
 
         return v
 
-    @root_validator(pre=False)
+    @root_validator(pre=False, skip_on_failure=True)
     def backward_compatibility_configs_set(cls, values: Dict) -> Dict:
         project_id = values.get("project_id")
         project_id_pattern = values.get("project_id_pattern")
@@ -350,14 +372,6 @@ class BigQueryV2Config(
 
     def get_table_pattern(self, pattern: List[str]) -> str:
         return "|".join(pattern) if pattern else ""
-
-    def get_sql_alchemy_url(self) -> str:
-        if self.project_on_behalf:
-            return f"bigquery://{self.project_on_behalf}"
-        # When project_id is not set, we will attempt to detect the project ID
-        # based on the credentials or environment variables.
-        # See https://github.com/mxmzdlv/pybigquery#authentication.
-        return "bigquery://"
 
     platform_instance_not_supported_for_bigquery = pydantic_removed_field(
         "platform_instance"

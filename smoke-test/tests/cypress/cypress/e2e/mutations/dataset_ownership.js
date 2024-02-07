@@ -8,7 +8,7 @@ const addOwner = (owner, type, elementId) => {
     cy.clickOptionWithTestId("add-owners-button");
     cy.contains("Search for users or groups...").click({ force: true });
     cy.focused().type(owner);
-    cy.clickOptionWithText(owner);
+    cy.get('.ant-select-item').contains(owner).click();
     cy.focused().blur();
     cy.waitTextVisible(owner);
     cy.get('[role="dialog"]').contains("Technical Owner").click();

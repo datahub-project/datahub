@@ -125,7 +125,9 @@ DBT_PLATFORM = "dbt"
 
 @dataclass
 class DBTSourceReport(StaleEntityRemovalSourceReport):
-    pass
+    sql_statements_parsed: int = 0
+    sql_parser_detach_ctes_failures: int = 0
+    sql_parser_skipped_missing_code: int = 0
 
 
 class EmitDirective(ConfigEnum):
@@ -300,7 +302,7 @@ class DBTCommonConfig(
         description="When enabled, schemas will be inferred from the dbt node definition.",
     )
     include_column_lineage: bool = Field(
-        default=False,
+        default=True,
         description="When enabled, column-level lineage will be extracted from the dbt node definition. Requires `infer_dbt_schemas` to be enabled. "
         "If you run into issues where the column name casing does not match up with properly, providing a datahub_api or using the rest sink will improve accuracy.",
     )
@@ -696,7 +698,10 @@ def get_column_type(
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
 @capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
-@capability(SourceCapability.LINEAGE_FINE, "Enabled using `include_column_lineage`")
+@capability(
+    SourceCapability.LINEAGE_FINE,
+    "Enabled by default, configure using `include_column_lineage`",
+)
 class DBTSourceBase(StatefulIngestionSourceBase):
     def __init__(self, config: DBTCommonConfig, ctx: PipelineContext, platform: str):
         super().__init__(config, ctx)
@@ -818,6 +823,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         ]
         test_nodes = [test_node for test_node in nodes if test_node.node_type == "test"]
 
+        logger.info(f"Creating dbt metadata for {len(nodes)} nodes")
         yield from self.create_platform_mces(
             non_test_nodes,
             additional_custom_props_filtered,
@@ -826,6 +832,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             self.config.platform_instance,
         )
 
+        logger.info(f"Updating {self.config.target_platform} metadata")
         yield from self.create_platform_mces(
             non_test_nodes,
             additional_custom_props_filtered,
@@ -899,6 +906,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             ),
         ):
             node = all_nodes_map[dbt_name]
+            logger.debug(f"Processing CLL/schemas for {node.dbt_name}")
 
             target_node_urn = None
             should_fetch_target_node_schema = False
@@ -984,15 +992,22 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                         },
                     )
                 except Exception as e:
+                    self.report.sql_parser_detach_ctes_failures += 1
+                    logger.debug(
+                        f"Failed to detach CTEs from compiled code. {node.dbt_name} will not have column lineage."
+                    )
                     sql_result = SqlParsingResult.make_from_error(e)
                 else:
                     sql_result = sqlglot_lineage(
                         preprocessed_sql, schema_resolver=schema_resolver
                     )
+                    self.report.sql_statements_parsed += 1
+            else:
+                self.report.sql_parser_skipped_missing_code += 1
 
             # Save the column lineage.
             if self.config.include_column_lineage and sql_result:
-                # We only save the debug info here. We're report errors based on it later, after
+                # We only save the debug info here. We'll report errors based on it later, after
                 # applying the configured node filters.
                 node.cll_debug_info = sql_result.debug_info
 
@@ -1314,8 +1329,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             "SOURCE_CONTROL",
             self.config.strip_user_ids_from_email,
         )
-
-        # TODO if infer_dbt_schemas, load from saved schemas too
 
         canonical_schema: List[SchemaField] = []
         for column in node.columns:
