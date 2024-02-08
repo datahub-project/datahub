@@ -461,6 +461,9 @@ public class GmsGraphQLEngine {
   private final EntityTypeType entityTypeType;
   private final FormType formType;
 
+  private final int graphQLQueryComplexityLimit;
+  private final int graphQLQueryDepthLimit;
+
   /** A list of GraphQL Plugins that extend the core engine */
   private final List<GmsGraphQLPlugin> graphQLPlugins;
 
@@ -564,6 +567,9 @@ public class GmsGraphQLEngine {
     this.dataTypeType = new DataTypeType(entityClient);
     this.entityTypeType = new EntityTypeType(entityClient);
     this.formType = new FormType(entityClient);
+
+    this.graphQLQueryComplexityLimit = args.graphQLQueryComplexityLimit;
+    this.graphQLQueryDepthLimit = args.graphQLQueryDepthLimit;
 
     // Init Lists
     this.entityTypes =
@@ -757,7 +763,9 @@ public class GmsGraphQLEngine {
     builder
         .addDataLoaders(loaderSuppliers(loadableTypes))
         .addDataLoader("Aspect", context -> createDataLoader(aspectType, context))
-        .configureRuntimeWiring(this::configureRuntimeWiring);
+        .configureRuntimeWiring(this::configureRuntimeWiring)
+        .setGraphQLQueryComplexityLimit(graphQLQueryComplexityLimit)
+        .setGraphQLQueryDepthLimit(graphQLQueryDepthLimit);
     return builder;
   }
 
