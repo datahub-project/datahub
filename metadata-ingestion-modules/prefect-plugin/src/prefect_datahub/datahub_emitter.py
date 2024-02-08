@@ -25,7 +25,7 @@ from prefect.context import FlowRunContext, TaskRunContext
 from prefect.settings import PREFECT_API_URL
 from pydantic import Field
 
-from prefect_datahub.dataset import _Entity
+from prefect_datahub.entities import _Entity
 
 ORCHESTRATOR = "prefect"
 

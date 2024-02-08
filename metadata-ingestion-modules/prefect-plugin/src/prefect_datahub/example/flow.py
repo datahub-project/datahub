@@ -1,7 +1,7 @@
 from prefect import flow, task
 
 from prefect_datahub.datahub_emitter import DatahubEmitter
-from prefect_datahub.dataset import Dataset
+from prefect_datahub.entities import Dataset
 
 datahub_emitter = DatahubEmitter.load("datahub-block")
 
