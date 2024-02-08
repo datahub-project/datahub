@@ -157,9 +157,9 @@ def test_admin_can_create_list_and_revoke_tokens(wait_for_healthchecks):
     res_data = getAccessTokenMetadata(admin_session, access_token)
     assert res_data
     assert res_data["data"]
-    assert res_data["getAccessTokenMetadata"]
-    assert res_data["getAccessTokenMetadata"]["ownerUrn"] == admin_user_urn
-    assert res_data["getAccessTokenMetadata"]["actorUrn"] == admin_user_urn
+    assert res_data["data"]["getAccessTokenMetadata"]
+    assert res_data["data"]["getAccessTokenMetadata"]["ownerUrn"] == admin_user_urn
+    assert res_data["data"]["getAccessTokenMetadata"]["actorUrn"] == admin_user_urn
 
     # Using a super account, list the previously created token.
     res_data = listAccessTokens(admin_session)
