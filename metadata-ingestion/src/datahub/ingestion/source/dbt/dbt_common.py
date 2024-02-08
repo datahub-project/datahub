@@ -184,17 +184,18 @@ class DBTEntitiesEnabled(ConfigModel):
 
         return values
 
-    def can_emit_node_type(self, node_type: str) -> bool:
+    def _node_type_allow_map(self):
         # Node type comes from dbt's node types.
-
-        node_type_allow_map = {
+        return {
             "model": self.models,
             "source": self.sources,
             "seed": self.seeds,
             "snapshot": self.snapshots,
             "test": self.test_definitions,
         }
-        allowed = node_type_allow_map.get(node_type)
+
+    def can_emit_node_type(self, node_type: str) -> bool:
+        allowed = self._node_type_allow_map().get(node_type)
         if allowed is None:
             return False
 
@@ -203,6 +204,11 @@ class DBTEntitiesEnabled(ConfigModel):
     @property
     def can_emit_test_results(self) -> bool:
         return self.test_results == EmitDirective.YES
+
+    def is_only_test_results(self) -> bool:
+        return self.test_results == EmitDirective.YES and all(
+            v == EmitDirective.NO for v in self._node_type_allow_map().values()
+        )
 
 
 class DBTCommonConfig(
@@ -877,6 +883,9 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         5. If we haven't already added the node's schema to the schema resolver, do that.
         """
 
+        if self.config.entities_enabled.is_only_test_results():
+            # If we're not emitting any other entities, so there's no need to infer schemas.
+            return
         if not self.config.infer_dbt_schemas:
             if self.config.include_column_lineage:
                 raise ConfigurationError(
