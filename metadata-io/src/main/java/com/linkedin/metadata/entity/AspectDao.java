@@ -148,11 +148,11 @@ public interface AspectDao {
       @Nonnull final Function<Transaction, T> block, final int maxTransactionRetry);
 
   @Nonnull
-  default <T> T runInTransactionWithRetry(
+  default <T> List<T> runInTransactionWithRetry(
       @Nonnull final Function<Transaction, T> block,
       AspectsBatch batch,
       final int maxTransactionRetry) {
-    return runInTransactionWithRetry(block, maxTransactionRetry);
+    return List.of(runInTransactionWithRetry(block, maxTransactionRetry));
   }
 
   default void incrementWriteMetrics(String aspectName, long count, long bytes) {
