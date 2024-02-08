@@ -8,45 +8,37 @@ ARG PIP_MIRROR_URL=null
 FROM $BASE_IMAGE:$DOCKER_VERSION as base
 USER 0
 
+FROM base as build
+
 COPY ./datahub-monitors-service /datahub-monitors-service
 COPY ./metadata-ingestion /metadata-ingestion
+COPY ./docker/datahub-monitors-service/start.sh /start_datahub_monitors_service.sh
+RUN chmod a+x /start_datahub_monitors_service.sh
+
+WORKDIR /datahub-monitors-service
 
 ARG RELEASE_VERSION
-WORKDIR /datahub-monitors-service
 RUN sed -i.bak "s/__version__ = \"1!0.0.0.dev0\"/__version__ = \"$RELEASE_VERSION\"/" src/datahub_monitors/__init__.py && \
-    cat src/datahub_monitors/__init__.py && \
     sed -i.bak "s/version = \"1!0.0.0.dev0\"/version = \"$RELEASE_VERSION\"/" pyproject.toml && \
-    chown -R datahub /datahub-monitors-service /metadata-ingestion
-
-USER datahub
-
-ENV POETRY_VIRTUALENVS_CREATE=false
-ENV POETRY_VIRTUALENVS_IN_PROJECT=false
-
-# Build only for production/non-development
-FROM base as build
+    cat src/datahub_monitors/__init__.py && \
+    chown -R datahub /metadata-ingestion /datahub-monitors-service
 
 ARG PIP_MIRROR_URL
 RUN if [ "${PIP_MIRROR_URL}" != "null" ] ; then pip config set global.index-url ${PIP_MIRROR_URL} ; fi
 
-# Why venv? https://github.com/python-poetry/poetry/issues/1214
-RUN pip install --no-cache --user poetry==1.4.2 && \
-    python3 -m venv /metadata-ingestion/.local && \
-    . /metadata-ingestion/.local/bin/activate && \
-    poetry config virtualenvs.create false && \
-    poetry install --no-interaction --no-ansi && \
-    poetry export --without-hashes && \
-    deactivate && \
-    pip install --no-cache --user -e "."
+USER datahub
+RUN pip install --no-cache --user -e .
 
-# Production Image Built From Build Image
+WORKDIR /datahub-ingestion
+RUN pip install --no-cache --user -e .
+
+## Production Image Built From Build Image
 FROM base as prod-install
 
+COPY --from=build /datahub-monitors-service /datahub-monitors-service
 COPY --from=build /datahub-ingestion/.local /datahub-ingestion/.local
+COPY --from=build /start_datahub_monitors_service.sh /start_datahub_monitors_service.sh
 
-COPY ./docker/datahub-monitors-service/start.sh /start_datahub_monitors_service.sh
-USER 0
-RUN chmod a+x /start_datahub_monitors_service.sh
 USER datahub
 
 FROM prod-install as dev-install
