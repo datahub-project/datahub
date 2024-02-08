@@ -214,7 +214,8 @@ public class GraphQLEngineFactory {
     args.setFeatureFlags(configProvider.getFeatureFlags());
     args.setFormService(formService);
     args.setDataProductService(dataProductService);
-    args.setGraphQLQueryComplexityLimit(configProvider.getGraphQL().getQuery().getComplexityLimit());
+    args.setGraphQLQueryComplexityLimit(
+        configProvider.getGraphQL().getQuery().getComplexityLimit());
     args.setGraphQLQueryDepthLimit(configProvider.getGraphQL().getQuery().getDepthLimit());
     return new GmsGraphQLEngine(args).builder().build();
   }

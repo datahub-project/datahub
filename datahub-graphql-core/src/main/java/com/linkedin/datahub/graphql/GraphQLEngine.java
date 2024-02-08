@@ -25,7 +25,6 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import lombok.Setter;
 import org.dataloader.DataLoader;
 import org.dataloader.DataLoaderRegistry;
 
@@ -192,7 +191,12 @@ public class GraphQLEngine {
 
     /** Builds a {@link GraphQLEngine}. */
     public GraphQLEngine build() {
-      return new GraphQLEngine(_schemas, _runtimeWiringBuilder.build(), _loaderSuppliers, graphQLQueryComplexityLimit, graphQLQueryDepthLimit);
+      return new GraphQLEngine(
+          _schemas,
+          _runtimeWiringBuilder.build(),
+          _loaderSuppliers,
+          graphQLQueryComplexityLimit,
+          graphQLQueryDepthLimit);
     }
   }
 
