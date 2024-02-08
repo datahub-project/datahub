@@ -125,8 +125,9 @@ class QlikAPI:
             response = websocket_connection.websocket_send_request(method="GetLayout")
             sheet_dict = response[Constant.QLAYOUT]
             sheet = Sheet.parse_obj(sheet_dict[Constant.QMETA])
-            i = 1
-            for chart_dict in sheet_dict[Constant.QCHILDLIST][Constant.QITEMS]:
+            for i, chart_dict in enumerate(
+                sheet_dict[Constant.QCHILDLIST][Constant.QITEMS]
+            ):
                 chart = self._get_chart(
                     websocket_connection,
                     chart_dict[Constant.QINFO][Constant.QID],
@@ -134,8 +135,7 @@ class QlikAPI:
                 )
                 if chart:
                     if not chart.title:
-                        chart.title = f"Object {i}"
-                        i += 1
+                        chart.title = f"Object {i+1} of Sheet '{sheet.title}'"
                     sheet.charts.append(chart)
                 websocket_connection.handle.pop()
             return sheet

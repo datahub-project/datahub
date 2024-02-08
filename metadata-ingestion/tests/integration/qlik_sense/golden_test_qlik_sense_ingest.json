@@ -521,6 +521,47 @@
     }
 },
 {
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(qlik-sense,QYUUb)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:43defedfcb41b246659c449a6f3ea8ac"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1707393018435,
+        "runId": "qlik-sense-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(qlik-sense,QYUUb)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:88cf1accecf63ec7669dc1ec7cb28704",
+                    "urn": "urn:li:container:88cf1accecf63ec7669dc1ec7cb28704"
+                },
+                {
+                    "id": "urn:li:container:43defedfcb41b246659c449a6f3ea8ac",
+                    "urn": "urn:li:container:43defedfcb41b246659c449a6f3ea8ac"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1707393018436,
+        "runId": "qlik-sense-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,qri:qdf:space://ebw1euduywmui8p2bm7cor5oathzuyxvt0bircc2iru#jokg8u7cvizvgxwrfsyxru0ykr2rl2wfd5djph9bj5q#rrg6-1cerbo4ews9o--qup3toxhm5molizgy6_wcxje,PROD)",
     "changeType": "UPSERT",
@@ -655,11 +696,24 @@
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:bigquery,harshal-playground-306419.test_dataset.test_table,PROD)",
                     "type": "COPY"
                 }
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,harshal-playground-306419.test_dataset.test_table,PROD),name)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:qlik-sense,qri:qdf:space://ebw1euduywmui8p2bm7cor5oathzuyxvt0bircc2iru#jokg8u7cvizvgxwrfsyxru0ykr2rl2wfd5djph9bj5q#rrg6-1cerbo4ews9o--qup3toxhm5molizgy6_wcxje,PROD),name)"
+                    ],
+                    "confidenceScore": 1.0
+                }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1707327443034,
+        "lastObserved": 1707393018442,
         "runId": "qlik-sense-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -833,14 +887,38 @@
                         "time": 0,
                         "actor": "urn:li:corpuser:unknown"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,659d0e41d1b0ecce6eebc9b1.IPL_Matches_2022.csv,PROD)",
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,659d0e41d1b0ecce6eebc9b1.ipl_matches_2022.csv,PROD)",
                     "type": "COPY"
+                }
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:qlik-sense,659d0e41d1b0ecce6eebc9b1.ipl_matches_2022.csv,PROD),City)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:qlik-sense,qri:qdf:space://ebw1euduywmui8p2bm7cor5oathzuyxvt0bircc2iru#_s2ws5rvxaarzazlmghwjhngq8znjagxptal6jlzoaw#fcj-h2tvmayi--l6fn0vqgpthf8kb2rj7sj0_ysrhgc,PROD),City)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:qlik-sense,659d0e41d1b0ecce6eebc9b1.ipl_matches_2022.csv,PROD),Date)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:qlik-sense,qri:qdf:space://ebw1euduywmui8p2bm7cor5oathzuyxvt0bircc2iru#_s2ws5rvxaarzazlmghwjhngq8znjagxptal6jlzoaw#fcj-h2tvmayi--l6fn0vqgpthf8kb2rj7sj0_ysrhgc,PROD),Date)"
+                    ],
+                    "confidenceScore": 1.0
                 }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1707327443043,
+        "lastObserved": 1707393018451,
         "runId": "qlik-sense-test",
         "lastRunId": "no-run-id-provided"
     }

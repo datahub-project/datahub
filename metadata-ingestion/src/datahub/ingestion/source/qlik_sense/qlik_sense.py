@@ -61,6 +61,9 @@ from datahub.metadata.com.linkedin.pegasus2avro.common import (
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     DatasetLineageType,
     DatasetProperties,
+    FineGrainedLineage,
+    FineGrainedLineageDownstreamType,
+    FineGrainedLineageUpstreamType,
     Upstream,
     UpstreamLineage,
 )
@@ -244,7 +247,9 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             entityUrn=dashboard_urn, aspect=dashboard_info_cls
         ).as_workunit()
 
-    def _gen_charts_workunit(self, charts: List[Chart]) -> Iterable[MetadataWorkUnit]:
+    def _gen_charts_workunit(
+        self, charts: List[Chart], app_id: str
+    ) -> Iterable[MetadataWorkUnit]:
         """
         Map Qlik Chart to Datahub Chart
         """
@@ -271,6 +276,12 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                     customProperties=custom_properties,
                 ),
             ).as_workunit()
+
+            yield from add_entity_to_container(
+                container_key=self._gen_app_key(app_id),
+                entity_type="chart",
+                entity_urn=chart_urn,
+            )
 
     def _gen_sheets_workunit(
         self, sheets: List[Sheet], app_id: str
@@ -299,7 +310,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             if self.config.ingest_owner and owner_username:
                 yield self._gen_entity_owner_aspect(dashboard_urn, owner_username)
 
-            yield from self._gen_charts_workunit(sheet.charts)
+            yield from self._gen_charts_workunit(sheet.charts, app_id)
 
     def _gen_app_table_upstream_lineage(
         self, dataset_urn: str, table: QlikTable
@@ -316,7 +327,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 )
             )
             upstream_dataset_urn = builder.make_dataset_urn_with_platform_instance(
-                name=f"{table.databaseName}.{table.schemaName}.{table.tableName}",
+                name=f"{table.databaseName}.{table.schemaName}.{table.tableName}".lower(),
                 platform=KNOWN_DATA_PLATFORM_MAPPING.get(
                     table.dataconnectorPlatform, table.dataconnectorPlatform
                 ),
@@ -325,9 +336,24 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             )
         elif table.type == BoxType.LOADFILE:
             upstream_dataset_urn = self._gen_qlik_dataset_urn(
-                f"{table.spaceId}.{table.databaseName}"
+                f"{table.spaceId}.{table.databaseName}".lower()
             )
+
         if upstream_dataset_urn:
+            # Generate finegrained lineage
+            fine_grained_lineages = [
+                FineGrainedLineage(
+                    upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
+                    upstreams=[
+                        builder.make_schema_field_urn(upstream_dataset_urn, field.name)
+                    ],
+                    downstreamType=FineGrainedLineageDownstreamType.FIELD,
+                    downstreams=[
+                        builder.make_schema_field_urn(dataset_urn, field.name)
+                    ],
+                )
+                for field in table.datasetSchema
+            ]
             return MetadataChangeProposalWrapper(
                 entityUrn=dataset_urn,
                 aspect=UpstreamLineage(
@@ -335,7 +361,8 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                         Upstream(
                             dataset=upstream_dataset_urn, type=DatasetLineageType.COPY
                         )
-                    ]
+                    ],
+                    fineGrainedLineages=fine_grained_lineages,
                 ),
             ).as_workunit()
         else:
