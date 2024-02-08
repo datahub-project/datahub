@@ -445,7 +445,7 @@ class DatabaseTable:
     parsed_columns: Optional[Set[str]] = None # maintains all columns encountered for this table during parsing SQL queries
 
     def update_table(
-        self, id: Optional[str], num_tbl_cols: Optional[int], path: Optional[str], parsed_columns: Optional[Set[str]]
+        self, id: Optional[str] = None, num_tbl_cols: Optional[int] = None, path: Optional[str] = None, parsed_columns: Optional[Set[str]] = None
     ) -> None:
         if path:
             if self.paths:
@@ -1689,7 +1689,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
         in_tables_schemas: Dict[str, Set[str]]
     ):       
         if not in_tables_schemas:
-            return
+            return        
         
         for table_urn, columns in in_tables_schemas.items():
             if table_urn in self.database_tables:
@@ -1721,7 +1721,9 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
             )
         
         logger.debug(f"Merging schemas inferred from {csql_urn}, schema={parsed_result.in_tables_schemas}")
+        logger.debug(f"Before merging schemas inferred from {csql_urn}, schema={self.database_tables}")
         self.enrich_database_tables_with_parsed_schemas(parsed_result.in_tables_schemas)
+        logger.debug(f"After merging schemas inferred from {csql_urn}, schema={self.database_tables}")
 
         upstream_tables = make_upstream_class(parsed_result)
 
@@ -1957,25 +1959,6 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
             yield from self.emit_datasource(datasource)
 
     def emit_upstream_tables(self) -> Iterable[MetadataWorkUnit]:
-        """
-        for in_table_urn, columns in self.in_tables_schemas.items():
-            logger.debug(f"Emmiting schema for database table {in_table_urn} columns {columns}")
-            fields = [SchemaField(col, SchemaFieldDataType(type=NullTypeClass()), c.UNKNOWN) for col in columns]
-            yield self.get_metadata_change_proposal(
-                in_table_urn,
-                aspect_name="schemaMetadata",
-                aspect=SchemaMetadata(
-                    schemaName="test",
-                    # TODO: is it important?
-                    platform=f"urn:li:dataPlatform:mssql",
-                    version=0,
-                    fields=fields,
-                    hash="",
-                    platformSchema=OtherSchema(rawSchema=""),                        
-                ),
-            )
-
-        """
         tableau_database_table_id_to_urn_map: Dict[str, str] = dict()
         for urn, tbl in self.database_tables.items():
             # only tables that came from Tableau metadata have id
@@ -1986,14 +1969,14 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
             f"{c.ID_WITH_IN}: {json.dumps(list(tableau_database_table_id_to_urn_map.keys()))}"
         )
 
-        for table in self.get_connection_objects(
+        for tableau_table in self.get_connection_objects(
             database_tables_graphql_query,
             c.DATABASE_TABLES_CONNECTION,
             tables_filter,
         ):
-            database_table = self.database_tables[tableau_database_table_id_to_urn_map[table[c.ID]]]
-            tableau_columns = table.get(c.COLUMNS, [])
-            is_embedded = table.get(c.IS_EMBEDDED) or False
+            database_table = self.database_tables[tableau_database_table_id_to_urn_map[tableau_table[c.ID]]]
+            tableau_columns = tableau_table.get(c.COLUMNS, [])
+            is_embedded = tableau_table.get(c.IS_EMBEDDED) or False
             if not is_embedded and not self.config.ingest_tables_external:
                 logger.debug(
                     f"Skipping external table {database_table.urn} as ingest_tables_external is set to False"
@@ -2001,9 +1984,11 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                 continue
             
             yield from self.emit_table(database_table, tableau_columns)
+        
+        logger.debug(f"{self.database_tables}")
 
-        for table in self.database_tables.values():
-            if table.id:
+        for database_table in self.database_tables.values():
+            if database_table.id:
                 logger.debug(
                     f"Skipping external table {database_table.urn} should have already been ingested from Tableau metadata"
                 )
@@ -2020,6 +2005,9 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
     def emit_table(
         self, database_table: DatabaseTable, tableau_columns: dict
     ) -> Iterable[MetadataWorkUnit]:
+        logger.debug(
+            f"Emiting external table {database_table} tableau_columns {tableau_columns}"
+        )
         dataset_snapshot = DatasetSnapshot(
             urn=database_table.urn,
             aspects=[],
@@ -2070,15 +2058,15 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                 fields.append(schema_field)
 
         if parsed_columns:
-            remaining_columns = parsed_columns.difference(map(lambda x: x.get(c.NAME), tableau_columns))
+            remaining_columns = parsed_columns.difference(map(lambda x: x.get(c.NAME), tableau_columns)) if tableau_columns else parsed_columns
             remaining_schema_fields = [
                 SchemaField(
-                    fieldPath=c,
+                    fieldPath=col,
                     type=SchemaFieldDataType(type=NullTypeClass()),
                     description="",
                     nativeDataType=c.UNKNOWN,
                 ) \
-                for c in remaining_columns
+                for col in remaining_columns
             ]
             fields.extend(remaining_schema_fields)
             
