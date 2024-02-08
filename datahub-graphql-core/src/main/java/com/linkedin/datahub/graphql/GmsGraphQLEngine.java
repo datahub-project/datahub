@@ -930,7 +930,7 @@ public class GmsGraphQLEngine {
                 .dataFetcher("listAccessTokens", new ListAccessTokensResolver(this.entityClient))
                 .dataFetcher(
                     "getAccessTokenMetadata",
-                    new GetAccessTokenMetadataResolver(statefulTokenService))
+                    new GetAccessTokenMetadataResolver(statefulTokenService, this.entityClient))
                 .dataFetcher("container", getResolver(containerType))
                 .dataFetcher("listDomains", new ListDomainsResolver(this.entityClient))
                 .dataFetcher("listSecrets", new ListSecretsResolver(this.entityClient))

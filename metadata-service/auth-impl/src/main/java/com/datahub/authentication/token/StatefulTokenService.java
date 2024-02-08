@@ -8,7 +8,6 @@ import com.linkedin.access.token.DataHubAccessTokenInfo;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
-import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
@@ -17,12 +16,7 @@ import com.linkedin.metadata.key.DataHubAccessTokenKey;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
-import java.util.Base64;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import javax.annotation.Nonnull;
@@ -59,8 +53,7 @@ public class StatefulTokenService extends StatelessTokenService {
                 new CacheLoader<String, Boolean>() {
                   @Override
                   public Boolean load(final String key) {
-                    final Urn accessUrn =
-                        Urn.createFromTuple(Constants.ACCESS_TOKEN_ENTITY_NAME, key);
+                    final Urn accessUrn = tokenUrnFromKey(key);
                     return !_entityService.exists(accessUrn, true);
                   }
                 });
@@ -174,10 +167,14 @@ public class StatefulTokenService extends StatelessTokenService {
     }
   }
 
+  public Urn tokenUrnFromKey(String tokenHash) {
+    return Urn.createFromTuple(Constants.ACCESS_TOKEN_ENTITY_NAME, tokenHash);
+  }
+
   public void revokeAccessToken(@Nonnull String hashedToken) throws TokenException {
     try {
       if (!_revokedTokenCache.get(hashedToken)) {
-        final Urn tokenUrn = Urn.createFromTuple(Constants.ACCESS_TOKEN_ENTITY_NAME, hashedToken);
+        final Urn tokenUrn = tokenUrnFromKey(hashedToken);
         _entityService.deleteUrn(tokenUrn);
         _revokedTokenCache.put(hashedToken, true);
         return;
@@ -195,16 +192,5 @@ public class StatefulTokenService extends StatelessTokenService {
     final byte[] concatBytes = ArrayUtils.addAll(inputBytes, saltingKeyBytes);
     final byte[] bytes = DigestUtils.sha256(concatBytes);
     return Base64.getEncoder().encodeToString(bytes);
-  }
-
-  @Nullable
-  public DataHubAccessTokenInfo getAccessTokenInfo(@Nonnull String accessToken) {
-    final Urn tokenUrn = Urn.createFromTuple(Constants.ACCESS_TOKEN_ENTITY_NAME, hash(accessToken));
-    final RecordTemplate recordTemplate =
-        _entityService.getAspect(tokenUrn, Constants.ACCESS_TOKEN_INFO_NAME, 0);
-    if (recordTemplate != null) {
-      return (DataHubAccessTokenInfo) recordTemplate;
-    }
-    return null;
   }
 }
