@@ -147,32 +147,9 @@ def make_glossary_term_urn(
     return "urn:li:glossaryTerm:" + create_id(path, default_id, enable_auto_id)
 
 
-# NOTE: Disabling this section for ING-499 [https://linear.app/acryl-data/issue/ING-499/add-owner-type-in-yaml-business-glossary-ingestion-plugin]
-# def get_owners(owners: Owners) -> models.OwnershipClass:
-#     owners_meta: List[models.OwnerClass] = []
-#     if owners.users is not None:
-#         owners_meta = owners_meta + [
-#             models.OwnerClass(
-#                 owner=make_user_urn(o),
-#                 type=models.OwnershipTypeClass.DEVELOPER,
-#             )
-#             for o in owners.users
-#         ]
-#     if owners.groups is not None:
-#         owners_meta = owners_meta + [
-#             models.OwnerClass(
-#                 owner=make_group_urn(o),
-#                 type=models.OwnershipTypeClass.DEVELOPER,
-#             )
-#             for o in owners.groups
-#         ]
-#     return models.OwnershipClass(owners=owners_meta)
-
-
 def get_owners(owners: Owners) -> models.OwnershipClass:
     owners_meta: List[models.OwnerClass] = []
 
-    # Get all the valid owner types from the OwnershipTypeClass
     valid_owner_types = [
         attr
         for attr in dir(models.OwnershipTypeClass)
@@ -180,13 +157,11 @@ def get_owners(owners: Owners) -> models.OwnershipClass:
         and not attr.startswith("__")
     ]
 
-    # Ensure the provided owner type is valid
     if owners.type is not None and owners.type not in valid_owner_types:
         raise ValueError(
             f"Invalid owner type: {owners.type}. Valid owner types are: {', '.join(valid_owner_types)}"
         )
 
-    # Iterate through users and groups to create owners with the specified type
     if owners.users is not None:
         owners_meta += [
             models.OwnerClass(
