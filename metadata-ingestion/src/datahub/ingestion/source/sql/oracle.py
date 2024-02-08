@@ -1,5 +1,6 @@
 import logging
 import re
+from collections import defaultdict
 from typing import Any, Dict, Iterable, List, NoReturn, Optional, Tuple, Union, cast
 from unittest.mock import patch
 
@@ -13,7 +14,6 @@ from sqlalchemy.dialects.oracle.base import ischema_names
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.sql import sqltypes
 from sqlalchemy.types import FLOAT, INTEGER, TIMESTAMP
-from sqlalchemy.util import defaultdict, py2k, warn
 
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -182,10 +182,14 @@ class OracleInspectorObjectWrapper:
         ]
 
     def get_columns(
-        self, table_name: Optional[str], schema: Optional[str] = None, dblink: str = ""
+        self, table_name: str, schema: Optional[str] = None, dblink: str = ""
     ) -> List[dict]:
 
-        table_name = self._inspector_instance.dialect.denormalize_name(table_name)
+        denormalized_table_name = self._inspector_instance.dialect.denormalize_name(
+            table_name
+        )
+        assert denormalized_table_name
+
         schema = self._inspector_instance.dialect.denormalize_name(
             schema or self.default_schema_name
         )
@@ -221,7 +225,7 @@ class OracleInspectorObjectWrapper:
         else:
             identity_cols = "NULL as default_on_null, NULL as identity_options"
 
-        params = {"table_name": table_name}
+        params = {"table_name": denormalized_table_name}
 
         text = """
             SELECT
@@ -286,9 +290,8 @@ class OracleInspectorObjectWrapper:
                 try:
                     coltype = ischema_names[coltype]()
                 except KeyError:
-                    warn(
-                        "Did not recognize type '%s' of column '%s'"
-                        % (coltype, colname)
+                    logger.warning(
+                        f"Did not recognize type {coltype} of column {colname}"
                     )
                     coltype = sqltypes.NULLTYPE
 
@@ -324,10 +327,13 @@ class OracleInspectorObjectWrapper:
             columns.append(cdict)
         return columns
 
-    def get_table_comment(
-        self, table_name: Optional[str], schema: Optional[str] = None
-    ) -> Dict:
-        table_name = self._inspector_instance.dialect.denormalize_name(table_name)
+    def get_table_comment(self, table_name: str, schema: Optional[str] = None) -> Dict:
+
+        denormalized_table_name = self._inspector_instance.dialect.denormalize_name(
+            table_name
+        )
+        assert denormalized_table_name
+
         schema = self._inspector_instance.dialect.denormalize_name(
             schema or self.default_schema_name
         )
@@ -343,13 +349,14 @@ class OracleInspectorObjectWrapper:
         """
 
         c = self._inspector_instance.bind.execute(
-            sql.text(COMMENT_SQL), dict(table_name=table_name, schema_name=schema)
+            sql.text(COMMENT_SQL),
+            dict(table_name=denormalized_table_name, schema_name=schema),
         )
 
         return {"text": c.scalar()}
 
     def _get_constraint_data(
-        self, table_name: Optional[str], schema: Optional[str] = None, dblink: str = ""
+        self, table_name: str, schema: Optional[str] = None, dblink: str = ""
     ) -> List[sqlalchemy.engine.Row]:
         params = {"table_name": table_name}
 
@@ -391,9 +398,14 @@ class OracleInspectorObjectWrapper:
         return constraint_data
 
     def get_pk_constraint(
-        self, table_name: Optional[str], schema: Optional[str] = None, dblink: str = ""
+        self, table_name: str, schema: Optional[str] = None, dblink: str = ""
     ) -> Dict:
-        table_name = self._inspector_instance.dialect.denormalize_name(table_name)
+
+        denormalized_table_name = self._inspector_instance.dialect.denormalize_name(
+            table_name
+        )
+        assert denormalized_table_name
+
         schema = self._inspector_instance.dialect.denormalize_name(
             schema or self.default_schema_name
         )
@@ -403,7 +415,9 @@ class OracleInspectorObjectWrapper:
 
         pkeys = []
         constraint_name = None
-        constraint_data = self._get_constraint_data(table_name, schema, dblink)
+        constraint_data = self._get_constraint_data(
+            denormalized_table_name, schema, dblink
+        )
 
         for row in constraint_data:
             (
@@ -426,10 +440,14 @@ class OracleInspectorObjectWrapper:
         return {"constrained_columns": pkeys, "name": constraint_name}
 
     def get_foreign_keys(
-        self, table_name: Optional[str], schema: Optional[str] = None, dblink: str = ""
+        self, table_name: str, schema: Optional[str] = None, dblink: str = ""
     ) -> List:
 
-        table_name = self._inspector_instance.dialect.denormalize_name(table_name)
+        denormalized_table_name = self._inspector_instance.dialect.denormalize_name(
+            table_name
+        )
+        assert denormalized_table_name
+
         schema = self._inspector_instance.dialect.denormalize_name(
             schema or self.default_schema_name
         )
@@ -439,7 +457,9 @@ class OracleInspectorObjectWrapper:
 
         requested_schema = schema  # to check later on
 
-        constraint_data = self._get_constraint_data(table_name, schema, dblink)
+        constraint_data = self._get_constraint_data(
+            denormalized_table_name, schema, dblink
+        )
 
         def fkey_rec():
             return {
@@ -469,16 +489,11 @@ class OracleInspectorObjectWrapper:
 
             if cons_type == "R":
                 if remote_table is None:
-                    # ticket 363
-                    warn(
-                        (
-                            "Got 'None' querying 'table_name' from "
-                            "dba_cons_columns%(dblink)s - does the user have "
-                            "proper rights to the table?"
-                        )
-                        % {"dblink": dblink}
+                    logger.warning(
+                        "Got 'None' querying 'table_name' from "
+                        f"dba_cons_columns{dblink} - does the user have "
+                        "proper rights to the table?"
                     )
-                    continue
 
                 rec = fkeys[cons_name]
                 rec["name"] = cons_name
@@ -507,9 +522,14 @@ class OracleInspectorObjectWrapper:
         return list(fkeys.values())
 
     def get_view_definition(
-        self, view_name: Optional[str], schema: Optional[str] = None
+        self, view_name: str, schema: Optional[str] = None
     ) -> Union[str, None]:
-        view_name = self._inspector_instance.dialect.denormalize_name(view_name)
+
+        denormalized_view_name = self._inspector_instance.dialect.denormalize_name(
+            view_name
+        )
+        assert denormalized_view_name
+
         schema = self._inspector_instance.dialect.denormalize_name(
             schema or self.default_schema_name
         )
@@ -517,7 +537,7 @@ class OracleInspectorObjectWrapper:
         if schema is None:
             schema = self._inspector_instance.dialect.default_schema_name
 
-        params = {"view_name": view_name}
+        params = {"view_name": denormalized_view_name}
         text = "SELECT text FROM dba_views WHERE view_name=:view_name"
 
         if schema is not None:
@@ -525,12 +545,8 @@ class OracleInspectorObjectWrapper:
             params["schema"] = schema
 
         rp = self._inspector_instance.bind.execute(sql.text(text), params).scalar()
-        if rp:
-            if py2k:
-                rp = rp.decode(self.encoding)
-            return rp
-        else:
-            return None
+
+        return rp
 
     def __getattr__(self, item: str) -> Any:
         # Map method call to wrapper class
