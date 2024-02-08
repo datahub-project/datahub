@@ -43,7 +43,7 @@ mypy_stubs = {
     "types-pytz",
 }
 
-base_dev_requirements = {
+dev_requirements = {
     *base_requirements,
     *mypy_stubs,
     "black==22.12.0",
@@ -66,20 +66,7 @@ base_dev_requirements = {
     "build",
     "twine",
     "packaging",
-    # Prefect block integration required packages
-    "mkdocs",
-    "mkdocs-material",
-    "mkdocstrings[python]",
-    "mock; python_version < '3.8'",
-    "mkdocs-gen-files",
-    "Pillow",
-    "flaky",
 }
-
-dev_requirements = {
-    *base_dev_requirements,
-}
-
 
 entry_points = {
     "prefect.block": "prefect-datahub = prefect_datahub.prefect_datahub:DatahubEmitter"
@@ -130,11 +117,5 @@ setuptools.setup(
     install_requires=list(base_requirements),
     extras_require={
         "dev": list(dev_requirements),
-        "datahub-kafka": [
-            f"acryl-datahub[datahub-kafka] == {package_metadata['__version__']}"
-        ],
-        "integration-tests": [
-            f"acryl-datahub[datahub-kafka] == {package_metadata['__version__']}",
-        ],
     },
 )
