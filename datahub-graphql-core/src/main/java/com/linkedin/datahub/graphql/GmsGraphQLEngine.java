@@ -186,6 +186,7 @@ import com.linkedin.datahub.graphql.resolvers.load.LoadableTypeBatchResolver;
 import com.linkedin.datahub.graphql.resolvers.load.LoadableTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.load.OwnerTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.load.TimeSeriesAspectResolver;
+import com.linkedin.datahub.graphql.resolvers.mutate.AddAccessRequestResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.AddLinkResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.AddOwnerResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.AddOwnersResolver;
@@ -1194,7 +1195,8 @@ public class GmsGraphQLEngine {
                     "createDynamicFormAssignment",
                     new CreateDynamicFormAssignmentResolver(this.formService))
                 .dataFetcher(
-                    "verifyForm", new VerifyFormResolver(this.formService, this.groupService)));
+                    "verifyForm", new VerifyFormResolver(this.formService, this.groupService))
+                .dataFetcher("addAccessRequest", new AddAccessRequestResolver(this.entityService)));
   }
 
   private void configureGenericEntityResolvers(final RuntimeWiring.Builder builder) {

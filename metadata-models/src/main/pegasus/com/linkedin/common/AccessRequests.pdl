@@ -1,0 +1,14 @@
+namespace com.linkedin.common
+
+/**
+ * List of the access requests associated with this entity.
+ */
+@Aspect = {
+  "name": "accessRequests"
+}
+record AccessRequests {
+  /**
+   * List of AccessRequest objects associated with the entity.
+   */
+  requests: array[AccessRequest]
+}

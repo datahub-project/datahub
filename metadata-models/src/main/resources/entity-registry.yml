@@ -44,6 +44,7 @@ entities:
       - access
       - structuredProperties
       - forms
+      - accessRequests
   - name: dataHubPolicy
     doc: DataHub Policies represent access policies granted to users or groups on metadata operations like edit, view etc.
     category: internal
@@ -215,6 +216,7 @@ entities:
       - status
       - domains
       - browsePathsV2
+      - accessRequests
   - name: tag
     category: core
     keyAspect: tagKey
@@ -459,6 +461,7 @@ entities:
       - dataProductProperties
       - institutionalMemory
       - status
+      - accessRequests
   - name: ownershipType
     doc: Ownership Type represents a user-created ownership category for a person or group who is responsible for an asset.
     category: core
