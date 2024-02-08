@@ -337,19 +337,9 @@ class SqlParsingAggregator:
         session_id = session_id or _MISSING_SESSION_ID
 
         # Load in the temp tables for this session.
-        schema_resolver: SchemaResolverInterface = self._schema_resolver
-        if session_id in self._temp_lineage_map:
-            temp_table_schemas: Dict[str, Optional[List[models.SchemaFieldClass]]] = {}
-            for temp_table_urn, query_id in self._temp_lineage_map[session_id].items():
-                temp_table_schemas[temp_table_urn] = self._inferred_temp_schemas.get(
-                    query_id
-                )
-
-            if temp_table_schemas:
-                schema_resolver = self._schema_resolver.with_temp_tables(
-                    temp_table_schemas
-                )
-                self.report.num_queries_with_temp_tables_in_session += 1
+        schema_resolver: SchemaResolverInterface = (
+            self._make_schema_resolver_for_session(session_id)
+        )
 
         # Run the SQL parser.
         parsed = self._run_sql_parser(
@@ -436,6 +426,25 @@ class SqlParsingAggregator:
             self._lineage_map.for_mutation(out_table, OrderedSet()).add(
                 query_fingerprint
             )
+
+    def _make_schema_resolver_for_session(
+        self, session_id: str
+    ) -> SchemaResolverInterface:
+        schema_resolver: SchemaResolverInterface = self._schema_resolver
+        if session_id in self._temp_lineage_map:
+            temp_table_schemas: Dict[str, Optional[List[models.SchemaFieldClass]]] = {}
+            for temp_table_urn, query_id in self._temp_lineage_map[session_id].items():
+                temp_table_schemas[temp_table_urn] = self._inferred_temp_schemas.get(
+                    query_id
+                )
+
+            if temp_table_schemas:
+                schema_resolver = self._schema_resolver.with_temp_tables(
+                    temp_table_schemas
+                )
+                self.report.num_queries_with_temp_tables_in_session += 1
+
+        return schema_resolver
 
     def _process_view_definition(
         self, view_urn: UrnStr, view_definition: ViewDefinition
@@ -702,21 +711,26 @@ class SqlParsingAggregator:
                 ],
             )
 
-    def _query_urn(self, query_id: QueryId) -> str:
+    @classmethod
+    def _query_urn(cls, query_id: QueryId) -> str:
         return QueryUrn(query_id).urn()
 
-    def _composite_query_id(self, composed_of_queries: Iterable[QueryId]) -> str:
+    @classmethod
+    def _composite_query_id(cls, composed_of_queries: Iterable[QueryId]) -> str:
         composed_of_queries = list(composed_of_queries)
         combined = json.dumps(composed_of_queries)
         return f"composite_{generate_hash(combined)}"
 
-    def _view_query_id(self, view_urn: UrnStr) -> str:
+    @classmethod
+    def _view_query_id(cls, view_urn: UrnStr) -> str:
         return f"view_{DatasetUrn.url_encode(view_urn)}"
 
     def _resolve_query_with_temp_tables(
         self,
         base_query: QueryMetadata,
     ) -> QueryMetadata:
+        # TODO: Add special handling for COPY operations, which should mirror the schema
+        # of the thing being copied in order to generate CLL.
 
         session_id = base_query.session_id
 
