@@ -16,10 +16,16 @@ const GlossaryEntityWrapper = styled.div<GlossaryEntityWrapperProps>`
     height: ${(props) => (props.termsTotal ? '70vh' : '80vh')};
 `;
 
-const EntitiesWrapper = styled.div`
+interface EntitiesWrapperProps {
+    type: EntityType;
+}
+
+const EntitiesWrapper = styled.div<EntitiesWrapperProps>`
     display: flex;
     overflow: auto;
     flex-wrap: wrap;
+    padding: ${(props) => (props.type === EntityType.GlossaryNode ? '25px 29px' : 0)};
+    gap: ${(props) => (props.type === EntityType.GlossaryNode ? '14px' : 'unset')};
 `;
 
 const EntityTitle = styled(Typography)`
@@ -41,12 +47,7 @@ function GlossaryEntitiesList(props: Props) {
 
     return (
         <GlossaryEntityWrapper termsTotal={termsTotal}>
-            <EntitiesWrapper
-                style={{
-                    padding: nodes[0]?.type === EntityType.GlossaryNode ? '25px 29px' : 0,
-                    gap: nodes[0]?.type === EntityType.GlossaryNode ? '14px' : 'unset',
-                }}
-            >
+            <EntitiesWrapper type={nodes[0]?.type}>
                 {nodes[0]?.type !== EntityType.GlossaryNode && <EntityTitle>Glossary Terms</EntityTitle>}
                 {nodes.map((node, index) => (
                     <GlossaryEntityItem

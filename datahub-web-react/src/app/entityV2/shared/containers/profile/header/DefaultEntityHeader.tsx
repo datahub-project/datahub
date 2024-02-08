@@ -83,7 +83,11 @@ const EntityTitleWrapper = styled.div`
     flex-direction: column;
 `;
 
-const GlossaryItemBadge = styled.span`
+interface GlossaryItemBadgeProps {
+    index: number;
+}
+
+const GlossaryItemBadge = styled.span<GlossaryItemBadgeProps>`
     position: absolute;
     left: -20px;
     top: 4px;
@@ -91,6 +95,7 @@ const GlossaryItemBadge = styled.span`
     transform: rotate(-45deg);
     padding: 8px;
     opacity: 1;
+    background-color: ${(props) => BusinessGlossaryEntitiesCardColors[props.index % 15]};
 `;
 
 export type Props = {
@@ -148,9 +153,7 @@ export const DefaultEntityHeader = ({
     return (
         <>
             <Row>
-                <GlossaryItemBadge style={{ backgroundColor: `${BusinessGlossaryEntitiesCardColors[index % 15]}` }}>
-                    {' '}
-                </GlossaryItemBadge>
+                <GlossaryItemBadge index={index} />
                 <EntityBackButton />
                 <LeftColumn>
                     {(loading && <EntityTitleLoadingSection />) || (

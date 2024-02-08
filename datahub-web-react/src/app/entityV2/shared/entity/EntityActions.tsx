@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Button, message } from 'antd';
+import styled from 'styled-components/macro';
 import { LinkOutlined, PlusOutlined } from '@ant-design/icons';
 import { SearchSelectModal } from '../components/styled/search/SearchSelectModal';
 import { useEntityRegistry } from '../../../useEntityRegistry';
@@ -10,7 +11,6 @@ import { useBatchSetDataProductMutation } from '../../../../graphql/dataProduct.
 import { useEntityContext, useEntityData } from '../EntityContext';
 import CreateGlossaryEntityModal from '../EntityDropdown/CreateGlossaryEntityModal';
 import { EntityType } from '../../../../types.generated';
-import styled from 'styled-components';
 
 export enum EntityActionItem {
     /**
@@ -35,30 +35,47 @@ export enum EntityActionItem {
     ADD_CHILD_GLOSSARY_NODE,
 }
 
-const styles = {
-    button: {
-        color: '#533FD1',
-        fontSize: '12px',
-        boxShadow: 'none',
-        borderColor: '#533FD1',
-        padding: '10px 20px',
-    },
-    primaryButton: {
-        color: '#FFFFFF',
-        fontSize: '12px',
-        boxShadow: 'none',
-        borderColor: '#533FD1',
-        backgroundColor: '#533FD1',
-        marginLeft: '9px',
-        padding: '10px 20px',
-    },
-};
-
 const ButtonWrapper = styled.div`
     margin-left: 8;
     & button:hover {
         opacity: 0.9;
     }
+`;
+
+const TransparentButton = styled(Button)`
+    color: #533fd1;
+    font-size: 12px;
+    box-shadow: none;
+    border-color: #533fd1;
+    padding: 10px 20px;
+
+    &:hover {
+        transition: 0.15s;
+        opacity: 0.9;
+        border-color: #533fd1;
+        color: #533fd1;
+    }
+`;
+
+const PrimaryButton = styled(Button)`
+    color: #ffffff;
+    font-size: 12px;
+    box-shadow: none;
+    border-color: #533fd1;
+    background-color: #533fd1;
+    margin-left: 9px;
+    padding: 10px 20px;
+
+    &:hover {
+        transition: 0.15s;
+        opacity: 0.9;
+        border-color: #533fd1;
+        background-color: #533fd1;
+    }
+`;
+
+const StyledPlusOutlined = styled(PlusOutlined)`
+    font-size: 12px;
 `;
 
 interface Props {
@@ -214,19 +231,14 @@ function EntityActions(props: Props) {
                     </Button>
                 )}
                 {actionItems.has(EntityActionItem.ADD_CHILD_GLOSSARY_TERM) && (
-                    <Button style={styles.button} size="large" onClick={() => setIsCreateNodeModalVisible(true)}>
-                        <PlusOutlined style={{ fontSize: '12px' }} /> Add Term Group
-                    </Button>
+                    <TransparentButton size="large" onClick={() => setIsCreateNodeModalVisible(true)}>
+                        <StyledPlusOutlined /> Add Term Group
+                    </TransparentButton>
                 )}
                 {actionItems.has(EntityActionItem.ADD_CHILD_GLOSSARY_NODE) && (
-                    <Button
-                        type="primary"
-                        size="large"
-                        style={styles.primaryButton}
-                        onClick={() => setIsCreateNodeModalVisible(true)}
-                    >
-                        <PlusOutlined style={{ fontSize: '12px' }} /> Add Term
-                    </Button>
+                    <PrimaryButton type="primary" size="large" onClick={() => setIsCreateTermModalVisible(true)}>
+                        <StyledPlusOutlined /> Add Glossary Term
+                    </PrimaryButton>
                 )}
             </ButtonWrapper>
             {isBatchAddGlossaryTermModalVisible && (

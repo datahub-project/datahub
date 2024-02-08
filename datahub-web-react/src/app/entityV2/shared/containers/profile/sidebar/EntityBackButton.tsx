@@ -18,11 +18,16 @@ const StyledButton = styled(Button)`
     margin-left: -4px;
     margin-right: 10px;
     margin-top: 2px;
+
+    &:hover {
+        color: #533fd1;
+        border-color: #533fd1;
+    }
 `;
 
 const StyledLeftOutlined = styled(KeyboardBackspaceIcon)`
     && {
-        font-size: 18px;
+        font-size: 14px;
         margin: 0px;
         padding 0px;
     }
@@ -50,7 +55,7 @@ export const EntityBackButton = () => {
     return (
         <Tooltip title="Go back" showArrow={false} placement="right">
             <StyledButton onClick={onGoBack}>
-                <StyledLeftOutlined style={{ fontSize: '14px' }} />
+                <StyledLeftOutlined />
             </StyledButton>
         </Tooltip>
     );
