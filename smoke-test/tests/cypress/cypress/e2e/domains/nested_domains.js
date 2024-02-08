@@ -45,7 +45,7 @@ const moveDomaintoParent = () => {
 
 const getDomainList = (domainName) =>{
     cy.contains('span.ant-typography-ellipsis', domainName)
-          .parent('.sc-dPaNzc')
+          .parent('[data-testid="domain-list-item"]')
           .find('[aria-label="right"]')
           .click();
     }
