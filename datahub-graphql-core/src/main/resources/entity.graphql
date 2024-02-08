@@ -1983,6 +1983,11 @@ type GlossaryTerm implements Entity {
     For fetching extra entities that do not have custom UI code yet
     """
     aspects(input: AspectParams): [RawAspect!]
+
+    """
+    Structured properties about this asset
+    """
+    structuredProperties: StructuredProperties
 }
 
 """
@@ -2126,6 +2131,11 @@ type GlossaryNode implements Entity {
     For fetching extra entities that do not have custom UI code yet
     """
     aspects(input: AspectParams): [RawAspect!]
+
+    """
+    Structured properties about this asset
+    """
+    structuredProperties: StructuredProperties
 }
 
 """
@@ -2537,6 +2547,11 @@ type Container implements Entity {
     For fetching extra entities that do not have custom UI code yet
     """
     aspects(input: AspectParams): [RawAspect!]
+
+    """
+    Structured properties about this asset
+    """
+    structuredProperties: StructuredProperties
 }
 
 """
@@ -3560,6 +3575,11 @@ type CorpUser implements Entity {
     For fetching extra aspects that do not have custom UI code yet
     """
     aspects(input: AspectParams): [RawAspect!]
+
+    """
+    Structured properties about this asset
+    """
+    structuredProperties: StructuredProperties
 }
 
 """
@@ -3926,6 +3946,11 @@ type CorpGroup implements Entity {
     For fetching extra entities that do not have custom UI code yet
     """
     aspects(input: AspectParams): [RawAspect!]
+
+    """
+    Structured properties about this asset
+    """
+    structuredProperties: StructuredProperties
 }
 
 """
@@ -5100,6 +5125,11 @@ type Dashboard implements EntityWithRelationships & Entity & BrowsableEntity {
     For fetching extra entities that do not have custom UI code yet
     """
     aspects(input: AspectParams): [RawAspect!]
+
+    """
+    Structured properties about this asset
+    """
+    structuredProperties: StructuredProperties
 }
 
 """
@@ -5416,6 +5446,11 @@ type Chart implements EntityWithRelationships & Entity & BrowsableEntity {
     For fetching extra entities that do not have custom UI code yet
     """
     aspects(input: AspectParams): [RawAspect!]
+
+    """
+    Structured properties about this asset
+    """
+    structuredProperties: StructuredProperties
 }
 
 """
@@ -5779,6 +5814,11 @@ type DataFlow implements EntityWithRelationships & Entity & BrowsableEntity {
     For fetching extra entities that do not have custom UI code yet
     """
     aspects(input: AspectParams): [RawAspect!]
+
+    """
+    Structured properties about this asset
+    """
+    structuredProperties: StructuredProperties
 }
 
 """
@@ -5985,6 +6025,11 @@ type DataJob implements EntityWithRelationships & Entity & BrowsableEntity {
     For fetching extra entities that do not have custom UI code yet
     """
     aspects(input: AspectParams): [RawAspect!]
+
+    """
+    Structured properties about this asset
+    """
+    structuredProperties: StructuredProperties
 }
 
 """
@@ -8936,6 +8981,11 @@ type MLModel implements EntityWithRelationships & Entity & BrowsableEntity {
     For fetching extra entities that do not have custom UI code yet
     """
     aspects(input: AspectParams): [RawAspect!]
+
+    """
+    Structured properties about this asset
+    """
+    structuredProperties: StructuredProperties
 }
 
 """
@@ -9053,6 +9103,11 @@ type MLModelGroup implements EntityWithRelationships & Entity & BrowsableEntity 
     For fetching extra entities that do not have custom UI code yet
     """
     aspects(input: AspectParams): [RawAspect!]
+
+    """
+    Structured properties about this asset
+    """
+    structuredProperties: StructuredProperties
 }
 
 type MLModelGroupProperties {
@@ -9183,6 +9238,11 @@ type MLFeature implements EntityWithRelationships & Entity {
     For fetching extra entities that do not have custom UI code yet
     """
     aspects(input: AspectParams): [RawAspect!]
+
+    """
+    Structured properties about this asset
+    """
+    structuredProperties: StructuredProperties
 }
 
 type MLHyperParam {
@@ -9358,6 +9418,11 @@ type MLPrimaryKey implements EntityWithRelationships & Entity {
     For fetching extra entities that do not have custom UI code yet
     """
     aspects(input: AspectParams): [RawAspect!]
+
+    """
+    Structured properties about this asset
+    """
+    structuredProperties: StructuredProperties
 }
 
 type MLPrimaryKeyProperties {
@@ -9491,6 +9556,11 @@ type MLFeatureTable implements EntityWithRelationships & Entity & BrowsableEntit
     For fetching extra entities that do not have custom UI code yet
     """
     aspects(input: AspectParams): [RawAspect!]
+
+    """
+    Structured properties about this asset
+    """
+    structuredProperties: StructuredProperties
 }
 
 type MLFeatureTableEditableProperties {
@@ -9888,6 +9958,11 @@ type Domain implements Entity {
     For fetching extra entities that do not have custom UI code yet
     """
     aspects(input: AspectParams): [RawAspect!]
+
+    """
+    Structured properties about this asset
+    """
+    structuredProperties: StructuredProperties
 }
 
 """
@@ -11276,6 +11351,11 @@ type DataProduct implements Entity {
     For fetching extra entities that do not have custom UI code yet
     """
     aspects(input: AspectParams): [RawAspect!]
+
+    """
+    Structured properties about this asset
+    """
+    structuredProperties: StructuredProperties
 }
 
 """
