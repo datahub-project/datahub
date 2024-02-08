@@ -230,9 +230,7 @@ function GlossaryEntityItem(props: Props) {
                 <GlossaryItem>
                     {type === EntityType.GlossaryNode ? (
                         <GlossaryItemCard>
-                            <GlossaryItemCardHeader
-                                index={index}
-                            >
+                            <GlossaryItemCardHeader index={index}>
                                 <GlossaryCardHeader>{name?.match(/\b(\w)/g)?.join('')}</GlossaryCardHeader>
                                 <GlossaryItemBadge
                                     style={{ backgroundColor: `${BusinessGlossaryEntitiesCardColors[index % 15]}` }}

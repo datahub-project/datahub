@@ -5,6 +5,7 @@ import { PageRoutes } from '../../conf/Global';
 import { GlossaryEntityContext } from '../entity/shared/GlossaryEntityContext';
 import { GenericEntityProperties } from '../entity/shared/types';
 import BusinessGlossaryPage from './BusinessGlossaryPage';
+import BusinessGlossaryPageV2 from '../glossaryV2/BusinessGlossaryPage';
 import GlossaryEntitiesPath from './GlossaryEntitiesPath';
 import { EntityPage } from '../entity/EntityPage';
 import GlossarySidebar from './GlossarySidebar';
@@ -32,6 +33,19 @@ export default function GlossaryRoutes() {
     const hideGlossary = !!appConfig?.config?.visualConfig?.hideGlossary;
     const showGlossary = shouldShowGlossary(canManageGlossary, hideGlossary);
 
+    const renderPage = (type1: boolean, type2: boolean) => {
+        if (type1) {
+            if (type2) {
+                return <BusinessGlossaryPageV2 />;
+            }
+            return <Redirect to="/" />;
+        }
+        if (type2) {
+            return <BusinessGlossaryPage />;
+        }
+        return <Redirect to="/" />;
+    };
+
     return (
         <GlossaryEntityContext.Provider
             value={{
@@ -55,10 +69,7 @@ export default function GlossaryRoutes() {
                             render={() => <EntityPage entityType={entity.type} />}
                         />
                     ))}
-                    <Route
-                        path={PageRoutes.GLOSSARY}
-                        render={() => (showGlossary ? <BusinessGlossaryPage /> : <Redirect to="/" />)}
-                    />
+                    <Route path={PageRoutes.GLOSSARY} render={() => renderPage(isThemeV2, showGlossary)} />
                 </Switch>
             </ContentWrapper>
         </GlossaryEntityContext.Provider>
