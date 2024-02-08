@@ -2436,7 +2436,9 @@ public class GmsGraphQLEngine {
                               ? assertion.getDataPlatformInstance().getUrn()
                               : null;
                         }))
-                .dataFetcher("runEvents", new AssertionRunEventResolver(entityClient)));
+                .dataFetcher("runEvents", new AssertionRunEventResolver(entityClient))
+                .dataFetcher(
+                    "aspects", new WeaklyTypedAspectsResolver(entityClient, entityRegistry)));
   }
 
   private void configurePolicyResolvers(final RuntimeWiring.Builder builder) {
