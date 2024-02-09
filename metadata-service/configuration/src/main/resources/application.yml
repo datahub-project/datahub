@@ -403,6 +403,11 @@ cache:
           propertyDefinition: 86400 # 1 day
           structuredPropertyKey: 86400 # 1 day
 
+graphQL:
+  query:
+    complexityLimit: ${GRAPHQL_QUERY_COMPLEXITY_LIMIT:2000}
+    depthLimit: ${GRAPHQL_QUERY_DEPTH_LIMIT:50}
+
 springdoc.api-docs.groups.enabled: true
 
 forms:
