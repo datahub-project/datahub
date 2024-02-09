@@ -30,6 +30,11 @@ query getUser($urn: String!, $groupsCount: Int!) {
         autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
             ...autoRenderAspectFields
         }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
         groups: relationships(
             input: {
                 types: ["IsMemberOfGroup", "IsMemberOfNativeGroup"]

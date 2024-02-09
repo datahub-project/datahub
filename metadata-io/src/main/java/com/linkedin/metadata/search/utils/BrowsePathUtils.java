@@ -29,8 +29,7 @@ public class BrowsePathUtils {
   public static String getDefaultBrowsePath(
       @Nonnull Urn urn,
       @Nonnull EntityRegistry entityRegistry,
-      @Nonnull Character dataPlatformDelimiter)
-      throws URISyntaxException {
+      @Nonnull Character dataPlatformDelimiter) {
 
     switch (urn.getEntityType()) {
       case Constants.DATASET_ENTITY_NAME:

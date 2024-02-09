@@ -1,8 +1,6 @@
 package com.linkedin.metadata.entity;
 
 import com.linkedin.common.AuditStamp;
-import com.linkedin.common.BrowsePaths;
-import com.linkedin.common.BrowsePathsV2;
 import com.linkedin.common.VersionedUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
@@ -255,34 +253,6 @@ public interface EntityService<U extends UpsertItem> extends AspectRetriever {
 
   String getKeyAspectName(@Nonnull final Urn urn);
 
-  /**
-   * Generate default aspects if not present in the database.
-   *
-   * @param urn entity urn
-   * @param includedAspects aspects being written
-   * @return additional aspects to be written
-   */
-  List<Pair<String, RecordTemplate>> generateDefaultAspectsIfMissing(
-      @Nonnull final Urn urn, Map<String, RecordTemplate> includedAspects);
-
-  /**
-   * Generate default aspects if the entity key aspect is NOT in the database **AND** the key aspect
-   * is being written, present in `includedAspects`.
-   *
-   * <p>Does not automatically create key aspects.
-   *
-   * @see EntityService#generateDefaultAspectsIfMissing if key aspects need autogeneration
-   *     <p>This version is more efficient in that it only generates additional writes when a new
-   *     entity is being minted for the first time. The drawback is that it will not automatically
-   *     add key aspects, in case the producer is not bothering to ensure that the entity exists
-   *     before writing non-key aspects.
-   * @param urn entity urn
-   * @param includedAspects aspects being written
-   * @return whether key aspect exists in database and the additional aspects to be written
-   */
-  Pair<Boolean, List<Pair<String, RecordTemplate>>> generateDefaultAspectsOnFirstWrite(
-      @Nonnull final Urn urn, Map<String, RecordTemplate> includedAspects);
-
   AspectSpec getKeyAspectSpec(@Nonnull final String entityName);
 
   Set<String> getEntityAspectNames(final String entityName);
@@ -338,18 +308,6 @@ public interface EntityService<U extends UpsertItem> extends AspectRetriever {
   }
 
   void setWritable(boolean canWrite);
-
-  BrowsePaths buildDefaultBrowsePath(final @Nonnull Urn urn) throws URISyntaxException;
-
-  /**
-   * Builds the default browse path V2 aspects for all entities.
-   *
-   * <p>This method currently supports datasets, charts, dashboards, and data jobs best. Everything
-   * else will have a basic "Default" folder added to their browsePathV2.
-   */
-  @Nonnull
-  BrowsePathsV2 buildDefaultBrowsePathV2(final @Nonnull Urn urn, boolean useContainerPaths)
-      throws URISyntaxException;
 
   RecordTemplate getLatestAspect(@Nonnull final Urn urn, @Nonnull final String aspectName);
 }

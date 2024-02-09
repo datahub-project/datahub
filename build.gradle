@@ -30,7 +30,7 @@ buildscript {
 
   ext.junitJupiterVersion = '5.6.1'
   // Releases: https://github.com/linkedin/rest.li/blob/master/CHANGELOG.md
-  ext.pegasusVersion = '29.48.4'
+  ext.pegasusVersion = '29.51.0'
   ext.mavenVersion = '3.6.3'
   ext.springVersion = '6.1.2'
   ext.springBootVersion = '3.2.1'
@@ -269,13 +269,14 @@ allprojects {
   apply plugin: 'eclipse'
   // apply plugin: 'org.gradlex.java-ecosystem-capabilities'
 
-  tasks.withType(Test).configureEach {
-    // https://docs.gradle.org/current/userguide/performance.html
-    maxParallelForks = Runtime.runtime.availableProcessors().intdiv(2) ?: 1
+  tasks.withType(Test).configureEach { task -> if (task.project.name != "metadata-io") {
+      // https://docs.gradle.org/current/userguide/performance.html
+      maxParallelForks = Runtime.runtime.availableProcessors().intdiv(2) ?: 1
 
-    if (project.configurations.getByName("testImplementation").getDependencies()
-            .any{ it.getName().contains("testng") }) {
-      useTestNG()
+      if (project.configurations.getByName("testImplementation").getDependencies()
+              .any { it.getName().contains("testng") }) {
+        useTestNG()
+      }
     }
   }
 

@@ -11,8 +11,6 @@ import javax.annotation.Nullable;
  * related data stored along with the aspect
  */
 public abstract class UpsertItem extends MCPBatchItem {
-  public abstract RecordTemplate getAspect();
-
   public abstract SystemAspect toLatestEntityAspect();
 
   public abstract void validatePreCommit(

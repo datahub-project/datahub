@@ -1,10 +1,7 @@
-import time
-
 import pytest
 import tenacity
 
-from tests.utils import (delete_urns_from_file, get_frontend_url, get_gms_url,
-                         get_sleep_info, ingest_file_via_rest)
+from tests.utils import get_frontend_url, get_sleep_info
 
 sleep_sec, sleep_times = get_sleep_info()
 
@@ -19,7 +16,6 @@ def test_healthchecks(wait_for_healthchecks):
     stop=tenacity.stop_after_attempt(sleep_times), wait=tenacity.wait_fixed(sleep_sec)
 )
 def _ensure_more_views(frontend_session, list_views_json, query_name, before_count):
-
     # Get new count of Views
     response = frontend_session.post(
         f"{get_frontend_url()}/api/v2/graphql", json=list_views_json
@@ -43,7 +39,6 @@ def _ensure_more_views(frontend_session, list_views_json, query_name, before_cou
     stop=tenacity.stop_after_attempt(sleep_times), wait=tenacity.wait_fixed(sleep_sec)
 )
 def _ensure_less_views(frontend_session, list_views_json, query_name, before_count):
-
     # Get new count of Views
     response = frontend_session.post(
         f"{get_frontend_url()}/api/v2/graphql", json=list_views_json
@@ -64,7 +59,6 @@ def _ensure_less_views(frontend_session, list_views_json, query_name, before_cou
 
 @pytest.mark.dependency(depends=["test_healthchecks"])
 def test_create_list_delete_global_view(frontend_session):
-
     # Get count of existing views
     list_global_views_json = {
         "query": """query listGlobalViews($input: ListGlobalViewsInput!) {\n
@@ -161,8 +155,6 @@ def test_create_list_delete_global_view(frontend_session):
         before_count=before_count,
     )
 
-    delete_json = {"urn": view_urn}
-
     # Delete the View
     delete_view_json = {
         "query": """mutation deleteView($urn: String!) {\n
@@ -190,7 +182,6 @@ def test_create_list_delete_global_view(frontend_session):
     depends=["test_healthchecks", "test_create_list_delete_global_view"]
 )
 def test_create_list_delete_personal_view(frontend_session):
-
     # Get count of existing views
     list_my_views_json = {
         "query": """query listMyViews($input: ListMyViewsInput!) {\n
@@ -314,7 +305,6 @@ def test_create_list_delete_personal_view(frontend_session):
     depends=["test_healthchecks", "test_create_list_delete_personal_view"]
 )
 def test_update_global_view(frontend_session):
-
     # First create a view
     new_view_name = "Test View"
     new_view_description = "Test Description"

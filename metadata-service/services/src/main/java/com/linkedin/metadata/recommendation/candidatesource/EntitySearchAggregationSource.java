@@ -2,6 +2,8 @@ package com.linkedin.metadata.recommendation.candidatesource;
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.recommendation.ContentParams;
@@ -10,6 +12,7 @@ import com.linkedin.metadata.recommendation.RecommendationParams;
 import com.linkedin.metadata.recommendation.RecommendationRequestContext;
 import com.linkedin.metadata.recommendation.SearchParams;
 import com.linkedin.metadata.search.EntitySearchService;
+import com.linkedin.metadata.search.utils.QueryUtils;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.net.URISyntaxException;
 import java.util.Collections;
@@ -35,7 +38,8 @@ import org.apache.commons.lang3.tuple.Pair;
 @Slf4j
 @RequiredArgsConstructor
 public abstract class EntitySearchAggregationSource implements RecommendationSource {
-  private final EntitySearchService _entitySearchService;
+  private final EntitySearchService entitySearchService;
+  private final EntityRegistry entityRegistry;
 
   /** Field to aggregate on */
   protected abstract String getSearchFieldName();
@@ -69,8 +73,8 @@ public abstract class EntitySearchAggregationSource implements RecommendationSou
   public List<RecommendationContent> getRecommendations(
       @Nonnull Urn userUrn, @Nullable RecommendationRequestContext requestContext) {
     Map<String, Long> aggregationResult =
-        _entitySearchService.aggregateByValue(
-            getEntityNames(), getSearchFieldName(), null, getMaxContent());
+        entitySearchService.aggregateByValue(
+            getEntityNames(entityRegistry), getSearchFieldName(), null, getMaxContent());
 
     if (aggregationResult.isEmpty()) {
       return Collections.emptyList();
@@ -110,9 +114,11 @@ public abstract class EntitySearchAggregationSource implements RecommendationSou
         .collect(Collectors.toList());
   }
 
-  protected List<String> getEntityNames() {
+  protected List<String> getEntityNames(EntityRegistry entityRegistry) {
     // By default, no list is applied which means searching across entities.
-    return null;
+    return QueryUtils.getQueryByDefaultEntitySpecs(entityRegistry).stream()
+        .map(EntitySpec::getName)
+        .collect(Collectors.toList());
   }
 
   // Get top K entries with the most count

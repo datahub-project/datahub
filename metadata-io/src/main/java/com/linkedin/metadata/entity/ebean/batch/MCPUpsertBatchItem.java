@@ -58,7 +58,7 @@ public class MCPUpsertBatchItem extends UpsertItem {
         recordTemplate != null ? recordTemplate : genericPatchTemplate.getDefault();
 
     try {
-      builder.aspect(genericPatchTemplate.applyPatch(currentValue));
+      builder.recordTemplate(genericPatchTemplate.applyPatch(currentValue));
     } catch (JsonPatchException | IOException e) {
       throw new RuntimeException(e);
     }
@@ -72,7 +72,7 @@ public class MCPUpsertBatchItem extends UpsertItem {
   // aspectName name of the aspect being inserted
   @Nonnull private final String aspectName;
 
-  @Nonnull private final RecordTemplate aspect;
+  @Nonnull private final RecordTemplate recordTemplate;
 
   @Nonnull private final SystemMetadata systemMetadata;
 
@@ -104,7 +104,7 @@ public class MCPUpsertBatchItem extends UpsertItem {
           entitySpec,
           aspectSpec,
           oldAspectValue,
-          aspect,
+          recordTemplate,
           oldSystemMetadata,
           systemMetadata,
           auditStamp,
@@ -116,7 +116,7 @@ public class MCPUpsertBatchItem extends UpsertItem {
   public SystemAspect toLatestEntityAspect() {
     EntityAspect latest = new EntityAspect();
     latest.setAspect(getAspectName());
-    latest.setMetadata(EntityUtils.toJsonAspect(getAspect()));
+    latest.setMetadata(EntityUtils.toJsonAspect(getRecordTemplate()));
     latest.setUrn(getUrn().toString());
     latest.setVersion(ASPECT_LATEST_VERSION);
     latest.setCreatedOn(new Timestamp(auditStamp.getTime()));
@@ -135,7 +135,7 @@ public class MCPUpsertBatchItem extends UpsertItem {
             .getAspectPayloadValidators(
                 getChangeType(), entitySpec.getName(), aspectSpec.getName())) {
       validator.validatePreCommit(
-          getChangeType(), urn, getAspectSpec(), previous, this.aspect, aspectRetriever);
+          getChangeType(), urn, getAspectSpec(), previous, this.recordTemplate, aspectRetriever);
     }
   }
 
@@ -167,13 +167,13 @@ public class MCPUpsertBatchItem extends UpsertItem {
           this.entitySpec,
           this.aspectSpec,
           this.urn,
-          this.aspect,
+          this.recordTemplate,
           aspectRetriever);
 
       return new MCPUpsertBatchItem(
           this.urn,
           this.aspectName,
-          this.aspect,
+          this.recordTemplate,
           SystemMetadataUtils.generateSystemMetadataIfEmpty(this.systemMetadata),
           this.auditStamp,
           this.metadataChangeProposal,
@@ -213,7 +213,7 @@ public class MCPUpsertBatchItem extends UpsertItem {
               SystemMetadataUtils.generateSystemMetadataIfEmpty(mcp.getSystemMetadata()))
           .metadataChangeProposal(mcp)
           .auditStamp(auditStamp)
-          .aspect(convertToRecordTemplate(mcp, aspectSpec))
+          .recordTemplate(convertToRecordTemplate(mcp, aspectSpec))
           .build(aspectRetriever);
     }
 
@@ -258,12 +258,12 @@ public class MCPUpsertBatchItem extends UpsertItem {
     return urn.equals(that.urn)
         && aspectName.equals(that.aspectName)
         && Objects.equals(systemMetadata, that.systemMetadata)
-        && aspect.equals(that.aspect);
+        && recordTemplate.equals(that.recordTemplate);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(urn, aspectName, systemMetadata, aspect);
+    return Objects.hash(urn, aspectName, systemMetadata, recordTemplate);
   }
 
   @Override
@@ -276,8 +276,8 @@ public class MCPUpsertBatchItem extends UpsertItem {
         + '\''
         + ", systemMetadata="
         + systemMetadata
-        + ", aspect="
-        + aspect
+        + ", recordTemplate="
+        + recordTemplate
         + '}';
   }
 }

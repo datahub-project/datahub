@@ -25,7 +25,4 @@ dependencies {
 
   compileOnly 'org.projectlombok:lombok:1.18.30'
   annotationProcessor 'org.projectlombok:lombok:1.18.30'
-
-  // pegasus dependency, overrides for tasks
-  implementation 'com.linkedin.pegasus:gradle-plugins:29.48.4'
 }

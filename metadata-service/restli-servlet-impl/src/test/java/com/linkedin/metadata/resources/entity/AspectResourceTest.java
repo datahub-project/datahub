@@ -53,7 +53,7 @@ public class AspectResourceTest {
     _updateIndicesService = mock(UpdateIndicesService.class);
     _preProcessHooks = mock(PreProcessHooks.class);
     _entityService = new EntityServiceImpl(_aspectDao, _producer, _entityRegistry, false,
-            _updateIndicesService, _preProcessHooks);
+            _updateIndicesService, _preProcessHooks, true);
     _authorizer = mock(Authorizer.class);
     _aspectResource.setAuthorizer(_authorizer);
     _aspectResource.setEntityService(_entityService);
@@ -84,13 +84,13 @@ public class AspectResourceTest {
     MCPUpsertBatchItem req = MCPUpsertBatchItem.builder()
             .urn(urn)
             .aspectName(mcp.getAspectName())
-            .aspect(mcp.getAspect())
+            .recordTemplate(mcp.getAspect())
             .auditStamp(new AuditStamp())
             .metadataChangeProposal(mcp)
             .build(_entityService);
     when(_aspectDao.runInTransactionWithRetry(any(), any(), anyInt()))
         .thenReturn(
-            List.of(
+            List.of(List.of(
                 UpdateAspectResult.builder()
                     .urn(urn)
                     .newValue(new DatasetProperties().setName("name1"))
@@ -120,9 +120,9 @@ public class AspectResourceTest {
                     .newValue(new DatasetProperties().setName("name5"))
                     .auditStamp(new AuditStamp())
                     .request(req)
-                    .build()));
+                    .build())));
     _aspectResource.ingestProposal(mcp, "false");
-    verify(_producer, times(5))
+    verify(_producer, times(10))
         .produceMetadataChangeLog(eq(urn), any(AspectSpec.class), any(MetadataChangeLog.class));
     verifyNoMoreInteractions(_producer);
   }
