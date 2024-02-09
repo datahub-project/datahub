@@ -2,9 +2,7 @@ import os
 import pathlib
 from typing import Any, Iterable
 
-import smart_open
-
-from datahub.ingestion.source.fs.fs_base import FileInfo, FileSystem
+from datahub.ingestion.fs.fs_base import FileInfo, FileSystem
 
 
 class LocalFileSystem(FileSystem):
@@ -13,7 +11,7 @@ class LocalFileSystem(FileSystem):
         return LocalFileSystem()
 
     def open(self, path: str, **kwargs: Any) -> Any:
-        return smart_open.open(path, mode="rb", transport_params=kwargs)
+        return pathlib.Path(path).open(mode="rb", transport_params=kwargs)
 
     def list(self, path: str) -> Iterable[FileInfo]:
         p = pathlib.Path(path)

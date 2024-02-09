@@ -35,5 +35,6 @@ class FileSystem(metaclass=ABCMeta):
 def get_path_schema(path: str) -> str:
     scheme = parse.urlparse(path).scheme
     if scheme == "":
+        # This makes the default schema "file" for local paths.
         scheme = "file"
     return scheme

@@ -245,9 +245,7 @@ delta_lake = {
 
 powerbi_report_server = {"requests", "requests_ntlm"}
 
-slack = {
-    "slack-sdk==3.18.1"
-}
+slack = {"slack-sdk==3.18.1"}
 
 databricks = {
     # 0.1.11 appears to have authentication issues with azure databricks
@@ -671,10 +669,10 @@ entry_points = {
         "file = datahub.ingestion.reporting.file_reporter:FileReporter",
     ],
     "datahub.custom_packages": [],
-    "datahub.ingestion.fs.plugins": [
-        "s3 = datahub.ingestion.source.fs.s3_fs:S3FileSystem",
-        "file = datahub.ingestion.source.fs.local_fs:LocalFileSystem",
-        "http = datahub.ingestion.source.fs.http_fs:HttpFileSystem",
+    "datahub.fs.plugins": [
+        "s3 = datahub.ingestion.fs.s3_fs:S3FileSystem",
+        "file = datahub.ingestion.fs.local_fs:LocalFileSystem",
+        "http = datahub.ingestion.fs.http_fs:HttpFileSystem",
     ],
 }
 

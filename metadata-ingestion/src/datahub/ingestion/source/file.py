@@ -32,8 +32,8 @@ from datahub.ingestion.api.source import (
 )
 from datahub.ingestion.api.source_helpers import auto_workunit_reporter
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.fs.fs_base import FileInfo, get_path_schema
-from datahub.ingestion.source.fs.fs_registry import fs_registry
+from datahub.ingestion.fs.fs_base import FileInfo, get_path_schema
+from datahub.ingestion.fs.fs_registry import fs_registry
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
     MetadataChangeProposal,
@@ -186,11 +186,11 @@ class GenericFileSource(TestableSource):
         schema = get_path_schema(path_str)
         fs_class = fs_registry.get(schema)
         fs = fs_class.create()
-        for file_status in fs.list(path_str):
-            if file_status.is_file and file_status.path.endswith(
+        for file_info in fs.list(path_str):
+            if file_info.is_file and file_info.path.endswith(
                 self.config.file_extension
             ):
-                yield file_status
+                yield file_info
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         # No super() call, as we don't want helpers that create / remove workunits

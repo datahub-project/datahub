@@ -3,7 +3,7 @@ from typing import Any, Iterable
 import requests
 import smart_open
 
-from datahub.ingestion.source.fs.fs_base import FileInfo, FileSystem
+from datahub.ingestion.fs.fs_base import FileInfo, FileSystem
 
 
 class HttpFileSystem(FileSystem):
