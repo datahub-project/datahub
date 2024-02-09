@@ -2,8 +2,12 @@ import time
 
 import pytest
 
-from tests.utils import (delete_urns_from_file, get_frontend_url, get_gms_url,
-                         ingest_file_via_rest)
+from tests.utils import (
+    delete_urns_from_file,
+    get_frontend_url,
+    get_gms_url,
+    ingest_file_via_rest,
+)
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -29,7 +33,6 @@ TEST_INCIDENT_URN = "urn:li:incident:test"
 
 @pytest.mark.dependency(depends=["test_healthchecks"])
 def test_list_dataset_incidents(frontend_session):
-
     # Sleep for eventual consistency (not ideal)
     time.sleep(2)
 
@@ -123,7 +126,6 @@ def test_list_dataset_incidents(frontend_session):
     ]
 )
 def test_raise_resolve_incident(frontend_session):
-
     # Raise new incident
     raise_incident_json = {
         "query": """mutation raiseIncident($input: RaiseIncidentInput!) {\n
