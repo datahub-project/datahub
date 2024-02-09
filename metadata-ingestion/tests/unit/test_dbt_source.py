@@ -256,6 +256,7 @@ def test_dbt_entity_emission_configuration_helpers():
     assert not config.entities_enabled.can_emit_node_type("source")
     assert not config.entities_enabled.can_emit_node_type("test")
     assert not config.entities_enabled.can_emit_test_results
+    assert not config.entities_enabled.is_only_test_results()
 
     config_dict = {
         "manifest_path": "dummy_path",
@@ -267,6 +268,7 @@ def test_dbt_entity_emission_configuration_helpers():
     assert config.entities_enabled.can_emit_node_type("source")
     assert config.entities_enabled.can_emit_node_type("test")
     assert config.entities_enabled.can_emit_test_results
+    assert not config.entities_enabled.is_only_test_results()
 
     config_dict = {
         "manifest_path": "dummy_path",
@@ -281,6 +283,7 @@ def test_dbt_entity_emission_configuration_helpers():
     assert not config.entities_enabled.can_emit_node_type("source")
     assert not config.entities_enabled.can_emit_node_type("test")
     assert config.entities_enabled.can_emit_test_results
+    assert config.entities_enabled.is_only_test_results()
 
     config_dict = {
         "manifest_path": "dummy_path",
@@ -298,6 +301,7 @@ def test_dbt_entity_emission_configuration_helpers():
     assert not config.entities_enabled.can_emit_node_type("source")
     assert config.entities_enabled.can_emit_node_type("test")
     assert config.entities_enabled.can_emit_test_results
+    assert not config.entities_enabled.is_only_test_results()
 
 
 def test_dbt_cloud_config_access_url():

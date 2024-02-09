@@ -14,6 +14,7 @@ import { EntityActionItem } from '../shared/entity/EntityActions';
 import DataProductsTab from './DataProductsTab/DataProductsTab';
 import { EntityProfileTab } from '../shared/constants';
 import DomainIcon from '../../domain/DomainIcon';
+import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
 
 /**
  * Definition of the DataHub Domain entity.
@@ -90,6 +91,10 @@ export class DomainEntity implements Entity<Domain> {
                     id: EntityProfileTab.DATA_PRODUCTS_TAB,
                     name: 'Data Products',
                     component: DataProductsTab,
+                },
+                {
+                    name: 'Properties',
+                    component: PropertiesTab,
                 },
             ]}
             sidebarSections={[

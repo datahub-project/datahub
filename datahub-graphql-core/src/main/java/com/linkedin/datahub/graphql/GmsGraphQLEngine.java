@@ -94,6 +94,7 @@ import com.linkedin.datahub.graphql.generated.QueryEntity;
 import com.linkedin.datahub.graphql.generated.QuerySubject;
 import com.linkedin.datahub.graphql.generated.QuickFilter;
 import com.linkedin.datahub.graphql.generated.RecommendationContent;
+import com.linkedin.datahub.graphql.generated.ResolvedAuditStamp;
 import com.linkedin.datahub.graphql.generated.SchemaField;
 import com.linkedin.datahub.graphql.generated.SchemaFieldEntity;
 import com.linkedin.datahub.graphql.generated.SearchAcrossLineageResult;
@@ -110,10 +111,7 @@ import com.linkedin.datahub.graphql.resolvers.MeResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.AssertionRunEventResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.DeleteAssertionResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.EntityAssertionsResolver;
-import com.linkedin.datahub.graphql.resolvers.auth.CreateAccessTokenResolver;
-import com.linkedin.datahub.graphql.resolvers.auth.GetAccessTokenResolver;
-import com.linkedin.datahub.graphql.resolvers.auth.ListAccessTokensResolver;
-import com.linkedin.datahub.graphql.resolvers.auth.RevokeAccessTokenResolver;
+import com.linkedin.datahub.graphql.resolvers.auth.*;
 import com.linkedin.datahub.graphql.resolvers.browse.BrowsePathsResolver;
 import com.linkedin.datahub.graphql.resolvers.browse.BrowseResolver;
 import com.linkedin.datahub.graphql.resolvers.browse.EntityBrowsePathsResolver;
@@ -471,6 +469,9 @@ public class GmsGraphQLEngine {
   private final EntityTypeType entityTypeType;
   private final FormType formType;
 
+  private final int graphQLQueryComplexityLimit;
+  private final int graphQLQueryDepthLimit;
+
   /** A list of GraphQL Plugins that extend the core engine */
   private final List<GmsGraphQLPlugin> graphQLPlugins;
 
@@ -576,6 +577,9 @@ public class GmsGraphQLEngine {
     this.dataTypeType = new DataTypeType(entityClient);
     this.entityTypeType = new EntityTypeType(entityClient);
     this.formType = new FormType(entityClient);
+
+    this.graphQLQueryComplexityLimit = args.graphQLQueryComplexityLimit;
+    this.graphQLQueryDepthLimit = args.graphQLQueryDepthLimit;
 
     // Init Lists
     this.entityTypes =
@@ -771,7 +775,9 @@ public class GmsGraphQLEngine {
     builder
         .addDataLoaders(loaderSuppliers(loadableTypes))
         .addDataLoader("Aspect", context -> createDataLoader(aspectType, context))
-        .configureRuntimeWiring(this::configureRuntimeWiring);
+        .configureRuntimeWiring(this::configureRuntimeWiring)
+        .setGraphQLQueryComplexityLimit(graphQLQueryComplexityLimit)
+        .setGraphQLQueryDepthLimit(graphQLQueryDepthLimit);
     return builder;
   }
 
@@ -943,6 +949,9 @@ public class GmsGraphQLEngine {
                 .dataFetcher("getEntityCounts", new EntityCountsResolver(this.entityClient))
                 .dataFetcher("getAccessToken", new GetAccessTokenResolver(statefulTokenService))
                 .dataFetcher("listAccessTokens", new ListAccessTokensResolver(this.entityClient))
+                .dataFetcher(
+                    "getAccessTokenMetadata",
+                    new GetAccessTokenMetadataResolver(statefulTokenService, this.entityClient))
                 .dataFetcher("container", getResolver(containerType))
                 .dataFetcher("listDomains", new ListDomainsResolver(this.entityClient))
                 .dataFetcher("listSecrets", new ListSecretsResolver(this.entityClient))
@@ -1661,7 +1670,8 @@ public class GmsGraphQLEngine {
             typeWiring.dataFetcher(
                 "actor",
                 new LoadableTypeResolver<>(
-                    corpUserType, (env) -> ((CorpUser) env.getSource()).getUrn())));
+                    corpUserType,
+                    (env) -> ((ResolvedAuditStamp) env.getSource()).getActor().getUrn())));
   }
 
   /**
@@ -2507,7 +2517,9 @@ public class GmsGraphQLEngine {
                               ? assertion.getDataPlatformInstance().getUrn()
                               : null;
                         }))
-                .dataFetcher("runEvents", new AssertionRunEventResolver(entityClient)));
+                .dataFetcher("runEvents", new AssertionRunEventResolver(entityClient))
+                .dataFetcher(
+                    "aspects", new WeaklyTypedAspectsResolver(entityClient, entityRegistry)));
   }
 
   private void configurePolicyResolvers(final RuntimeWiring.Builder builder) {

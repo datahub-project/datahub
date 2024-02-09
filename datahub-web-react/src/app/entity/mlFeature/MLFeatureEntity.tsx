@@ -17,6 +17,7 @@ import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
 import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
 import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
 import { getDataProduct } from '../shared/utils';
+import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
 
 /**
  * Definition of the DataHub MLFeature entity.
@@ -84,6 +85,10 @@ export class MLFeatureEntity implements Entity<MlFeature> {
                 {
                     name: 'Lineage',
                     component: LineageTab,
+                },
+                {
+                    name: 'Properties',
+                    component: PropertiesTab,
                 },
             ]}
             sidebarSections={[

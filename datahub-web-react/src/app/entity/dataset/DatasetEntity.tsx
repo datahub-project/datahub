@@ -199,50 +199,50 @@ export class DatasetEntity implements Entity<Dataset> {
                     },
                 },
             ]}
-            sidebarSections={[
-                {
-                    component: SidebarAboutSection,
-                },
-                {
-                    component: SidebarOwnerSection,
-                    properties: {
-                        defaultOwnerType: OwnershipType.TechnicalOwner,
-                    },
-                },
-                {
-                    component: SidebarSiblingsSection,
-                    display: {
-                        visible: (_, dataset: GetDatasetQuery) =>
-                            (dataset?.dataset?.siblings?.siblings?.length || 0) > 0,
-                    },
-                },
-                {
-                    component: SidebarViewDefinitionSection,
-                    display: {
-                        visible: (_, dataset: GetDatasetQuery) =>
-                            (dataset?.dataset?.viewProperties?.logic && true) || false,
-                    },
-                },
-                {
-                    component: SidebarTagsSection,
-                    properties: {
-                        hasTags: true,
-                        hasTerms: true,
-                    },
-                },
-                {
-                    component: SidebarDomainSection,
-                },
-                {
-                    component: DataProductSection,
-                },
-                // TODO: Add back once entity-level recommendations are complete.
-                // {
-                //    component: SidebarRecommendationsSection,
-                // },
-            ]}
+            sidebarSections={this.getSidebarSections()}
         />
     );
+
+    getSidebarSections = () => [
+        {
+            component: SidebarAboutSection,
+        },
+        {
+            component: SidebarOwnerSection,
+            properties: {
+                defaultOwnerType: OwnershipType.TechnicalOwner,
+            },
+        },
+        {
+            component: SidebarSiblingsSection,
+            display: {
+                visible: (_, dataset: GetDatasetQuery) => (dataset?.dataset?.siblings?.siblings?.length || 0) > 0,
+            },
+        },
+        {
+            component: SidebarViewDefinitionSection,
+            display: {
+                visible: (_, dataset: GetDatasetQuery) => (dataset?.dataset?.viewProperties?.logic && true) || false,
+            },
+        },
+        {
+            component: SidebarTagsSection,
+            properties: {
+                hasTags: true,
+                hasTerms: true,
+            },
+        },
+        {
+            component: SidebarDomainSection,
+        },
+        {
+            component: DataProductSection,
+        },
+        // TODO: Add back once entity-level recommendations are complete.
+        // {
+        //    component: SidebarRecommendationsSection,
+        // },
+    ];
 
     getOverridePropertiesFromEntity = (dataset?: Dataset | null): GenericEntityProperties => {
         // if dataset has subTypes filled out, pick the most specific subtype and return it
