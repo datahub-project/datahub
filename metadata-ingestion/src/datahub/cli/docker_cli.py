@@ -16,7 +16,6 @@ from typing import Dict, List, Optional
 
 import click
 import click_spinner
-import pydantic
 import requests
 from expandvars import expandvars
 from requests_file import FileAdapter
@@ -39,6 +38,7 @@ from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.sample_data import BOOTSTRAP_MCES_FILE, download_sample_data
 
 logger = logging.getLogger(__name__)
+_ClickPositiveInt = click.IntRange(min=1)
 
 NEO4J_AND_ELASTIC_QUICKSTART_COMPOSE_FILE = (
     "docker/quickstart/docker-compose.quickstart.yml"
@@ -159,11 +159,11 @@ def should_use_neo4j_for_graph_service(graph_service_override: Optional[str]) ->
 def _set_environment_variables(
     version: Optional[str],
     mysql_version: Optional[str],
-    mysql_port: Optional[pydantic.PositiveInt],
-    zk_port: Optional[pydantic.PositiveInt],
-    kafka_broker_port: Optional[pydantic.PositiveInt],
-    schema_registry_port: Optional[pydantic.PositiveInt],
-    elastic_port: Optional[pydantic.PositiveInt],
+    mysql_port: Optional[int],
+    zk_port: Optional[int],
+    kafka_broker_port: Optional[int],
+    schema_registry_port: Optional[int],
+    elastic_port: Optional[int],
     kafka_setup: Optional[bool],
 ) -> None:
     if version is not None:
@@ -475,35 +475,35 @@ def detect_quickstart_arch(arch: Optional[str]) -> Architectures:
 )
 @click.option(
     "--mysql-port",
-    type=pydantic.PositiveInt,
+    type=_ClickPositiveInt,
     is_flag=False,
     default=None,
     help="If there is an existing mysql instance running on port 3306, set this to a free port to avoid port conflicts on startup",
 )
 @click.option(
     "--zk-port",
-    type=pydantic.PositiveInt,
+    type=_ClickPositiveInt,
     is_flag=False,
     default=None,
     help="If there is an existing zookeeper instance running on port 2181, set this to a free port to avoid port conflicts on startup",
 )
 @click.option(
     "--kafka-broker-port",
-    type=pydantic.PositiveInt,
+    type=_ClickPositiveInt,
     is_flag=False,
     default=None,
     help="If there is an existing Kafka broker running on port 9092, set this to a free port to avoid port conflicts on startup",
 )
 @click.option(
     "--schema-registry-port",
-    type=pydantic.PositiveInt,
+    type=_ClickPositiveInt,
     is_flag=False,
     default=None,
     help="If there is an existing process running on port 8081, set this to a free port to avoid port conflicts with Kafka schema registry on startup",
 )
 @click.option(
     "--elastic-port",
-    type=pydantic.PositiveInt,
+    type=_ClickPositiveInt,
     is_flag=False,
     default=None,
     help="If there is an existing Elasticsearch instance running on port 9092, set this to a free port to avoid port conflicts on startup",
@@ -599,11 +599,11 @@ def quickstart(  # noqa: C901
     quickstart_compose_file: List[pathlib.Path],
     dump_logs_on_failure: bool,
     graph_service_impl: Optional[str],
-    mysql_port: Optional[pydantic.PositiveInt],
-    zk_port: Optional[pydantic.PositiveInt],
-    kafka_broker_port: Optional[pydantic.PositiveInt],
-    schema_registry_port: Optional[pydantic.PositiveInt],
-    elastic_port: Optional[pydantic.PositiveInt],
+    mysql_port: Optional[int],
+    zk_port: Optional[int],
+    kafka_broker_port: Optional[int],
+    schema_registry_port: Optional[int],
+    elastic_port: Optional[int],
     stop: bool,
     backup: bool,
     backup_file: str,
