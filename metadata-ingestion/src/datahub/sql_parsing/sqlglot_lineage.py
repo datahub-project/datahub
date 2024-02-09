@@ -1,11 +1,8 @@
-import contextlib
-import enum
 import functools
 import itertools
 import logging
-import pathlib
 from collections import defaultdict
-from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
+from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
 import pydantic.dataclasses
 import sqlglot
@@ -14,37 +11,42 @@ import sqlglot.lineage
 import sqlglot.optimizer.annotate_types
 import sqlglot.optimizer.optimizer
 import sqlglot.optimizer.qualify
-from pydantic import BaseModel
-from typing_extensions import TypedDict
 
-from datahub.configuration.pydantic_migration_helpers import PYDANTIC_VERSION_2
-from datahub.emitter.mce_builder import (
-    DEFAULT_ENV,
-    make_dataset_urn_with_platform_instance,
-)
-from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.graph.client import DataHubGraph
-from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIdentifier
 from datahub.metadata.schema_classes import (
     ArrayTypeClass,
     BooleanTypeClass,
     DateTypeClass,
+    NullTypeClass,
     NumberTypeClass,
-    OperationTypeClass,
+    SchemaFieldClass,
     SchemaFieldDataTypeClass,
-    SchemaMetadataClass,
     StringTypeClass,
     TimeTypeClass,
 )
-from datahub.utilities.file_backed_collections import ConnectionWrapper, FileBackedDict
-from datahub.utilities.urns.field_paths import get_simple_field_path_from_v2_field_path
+from datahub.sql_parsing._models import _FrozenModel, _ParserBaseModel, _TableName
+from datahub.sql_parsing.schema_resolver import (
+    SchemaInfo,
+    SchemaResolver,
+    SchemaResolverInterface,
+)
+from datahub.sql_parsing.sql_parsing_common import (
+    DIALECTS_WITH_CASE_INSENSITIVE_COLS,
+    DIALECTS_WITH_DEFAULT_UPPERCASE_COLS,
+    QueryType,
+    QueryTypeProps,
+)
+from datahub.sql_parsing.sqlglot_utils import (
+    DialectOrStr,
+    get_dialect,
+    get_query_fingerprint,
+    is_dialect_instance,
+    parse_statement,
+)
 
 logger = logging.getLogger(__name__)
 
 Urn = str
-
-# A lightweight table schema: column -> type mapping.
-SchemaInfo = Dict[str, str]
 
 SQL_PARSE_RESULT_CACHE_SIZE = 1000
 
@@ -69,46 +71,51 @@ RULES_BEFORE_TYPE_ANNOTATION: tuple = tuple(
 assert 0 < len(RULES_BEFORE_TYPE_ANNOTATION) < len(sqlglot.optimizer.optimizer.RULES)
 
 
-class GraphQLSchemaField(TypedDict):
-    fieldPath: str
-    nativeDataType: str
+def _is_temp_table(table: sqlglot.exp.Table, dialect: sqlglot.Dialect) -> bool:
+    identifier: sqlglot.exp.Identifier = table.this
+
+    return identifier.args.get("temporary") or (
+        is_dialect_instance(dialect, "redshift") and identifier.name.startswith("#")
+    )
 
 
-class GraphQLSchemaMetadata(TypedDict):
-    fields: List[GraphQLSchemaField]
+def _get_create_type_from_kind(kind: Optional[str]) -> QueryType:
+    if kind and "TABLE" in kind:
+        return QueryType.CREATE_TABLE_AS_SELECT
+    elif kind and "VIEW" in kind:
+        return QueryType.CREATE_VIEW
+    else:
+        return QueryType.CREATE_OTHER
 
 
-class QueryType(enum.Enum):
-    CREATE = "CREATE"
-    SELECT = "SELECT"
-    INSERT = "INSERT"
-    UPDATE = "UPDATE"
-    DELETE = "DELETE"
-    MERGE = "MERGE"
+def get_query_type_of_sql(
+    expression: sqlglot.exp.Expression, dialect: DialectOrStr
+) -> Tuple[QueryType, QueryTypeProps]:
+    dialect = get_dialect(dialect)
+    query_type_props: QueryTypeProps = {}
 
-    UNKNOWN = "UNKNOWN"
+    # For creates, we need to look at the inner expression.
+    if isinstance(expression, sqlglot.exp.Create):
+        if _is_create_table_ddl(expression):
+            return QueryType.CREATE_DDL, query_type_props
 
-    def to_operation_type(self) -> Optional[str]:
-        if self == QueryType.CREATE:
-            return OperationTypeClass.CREATE
-        elif self == QueryType.INSERT:
-            return OperationTypeClass.INSERT
-        elif self == QueryType.UPDATE:
-            return OperationTypeClass.UPDATE
-        elif self == QueryType.DELETE:
-            return OperationTypeClass.DELETE
-        elif self == QueryType.MERGE:
-            return OperationTypeClass.UPDATE
-        elif self == QueryType.SELECT:
-            return None
-        else:
-            return OperationTypeClass.UNKNOWN
+        kind = expression.args.get("kind")
+        if kind:
+            kind = kind.upper()
+            query_type_props["kind"] = kind
 
+        target = expression.this
+        if any(
+            isinstance(prop, sqlglot.exp.TemporaryProperty)
+            for prop in (expression.args.get("properties") or [])
+        ) or _is_temp_table(target, dialect=dialect):
+            query_type_props["temporary"] = True
 
-def get_query_type_of_sql(expression: sqlglot.exp.Expression) -> QueryType:
+        query_type = _get_create_type_from_kind(kind)
+        return query_type, query_type_props
+
     # UPGRADE: Once we use Python 3.10, replace this with a match expression.
     mapping = {
-        sqlglot.exp.Create: QueryType.CREATE,
         sqlglot.exp.Select: QueryType.SELECT,
         sqlglot.exp.Insert: QueryType.INSERT,
         sqlglot.exp.Update: QueryType.UPDATE,
@@ -119,78 +126,8 @@ def get_query_type_of_sql(expression: sqlglot.exp.Expression) -> QueryType:
 
     for cls, query_type in mapping.items():
         if isinstance(expression, cls):
-            return query_type
-    return QueryType.UNKNOWN
-
-
-class _ParserBaseModel(
-    BaseModel,
-    arbitrary_types_allowed=True,
-    json_encoders={
-        SchemaFieldDataTypeClass: lambda v: v.to_obj(),
-    },
-):
-    def json(self, *args: Any, **kwargs: Any) -> str:
-        if PYDANTIC_VERSION_2:
-            return super().model_dump_json(*args, **kwargs)  # type: ignore
-        else:
-            return super().json(*args, **kwargs)
-
-
-@functools.total_ordering
-class _FrozenModel(_ParserBaseModel, frozen=True):
-    def __lt__(self, other: "_FrozenModel") -> bool:
-        # TODO: The __fields__ attribute is deprecated in Pydantic v2.
-        for field in self.__fields__:
-            self_v = getattr(self, field)
-            other_v = getattr(other, field)
-            if self_v != other_v:
-                return self_v < other_v
-
-        return False
-
-
-class _TableName(_FrozenModel):
-    database: Optional[str] = None
-    db_schema: Optional[str] = None
-    table: str
-
-    def as_sqlglot_table(self) -> sqlglot.exp.Table:
-        return sqlglot.exp.Table(
-            catalog=sqlglot.exp.Identifier(this=self.database)
-            if self.database
-            else None,
-            db=sqlglot.exp.Identifier(this=self.db_schema) if self.db_schema else None,
-            this=sqlglot.exp.Identifier(this=self.table),
-        )
-
-    def qualified(
-        self,
-        dialect: sqlglot.Dialect,
-        default_db: Optional[str] = None,
-        default_schema: Optional[str] = None,
-    ) -> "_TableName":
-        database = self.database or default_db
-        db_schema = self.db_schema or default_schema
-
-        return _TableName(
-            database=database,
-            db_schema=db_schema,
-            table=self.table,
-        )
-
-    @classmethod
-    def from_sqlglot_table(
-        cls,
-        table: sqlglot.exp.Table,
-        default_db: Optional[str] = None,
-        default_schema: Optional[str] = None,
-    ) -> "_TableName":
-        return cls(
-            database=table.catalog or default_db,
-            db_schema=table.db or default_schema,
-            table=table.this.name,
-        )
+            return query_type, query_type_props
+    return QueryType.UNKNOWN, {}
 
 
 class _ColumnRef(_FrozenModel):
@@ -257,6 +194,8 @@ class SqlParsingDebugInfo(_ParserBaseModel):
 
 class SqlParsingResult(_ParserBaseModel):
     query_type: QueryType = QueryType.UNKNOWN
+    query_type_props: QueryTypeProps = {}
+    query_fingerprint: Optional[str] = None
 
     in_tables: List[Urn]
     out_tables: List[Urn]
@@ -282,15 +221,6 @@ class SqlParsingResult(_ParserBaseModel):
         )
 
 
-def _parse_statement(
-    sql: sqlglot.exp.ExpOrStr, dialect: sqlglot.Dialect
-) -> sqlglot.Expression:
-    statement: sqlglot.Expression = sqlglot.maybe_parse(
-        sql, dialect=dialect, error_level=sqlglot.ErrorLevel.RAISE
-    )
-    return statement
-
-
 def _table_level_lineage(
     statement: sqlglot.Expression, dialect: sqlglot.Dialect
 ) -> Tuple[Set[_TableName], Set[_TableName]]:
@@ -308,10 +238,14 @@ def _table_level_lineage(
         # the `this` on the INSERT part isn't a table.
         if isinstance(expr.this, sqlglot.exp.Table)
     } | {
-        # For CREATE DDL statements, the table name is nested inside
-        # a Schema object.
+        # For statements that include a column list, like
+        # CREATE DDL statements and `INSERT INTO table (col1, col2) SELECT ...`
+        # the table name is nested inside a Schema object.
         _TableName.from_sqlglot_table(expr.this.this)
-        for expr in statement.find_all(sqlglot.exp.Create)
+        for expr in statement.find_all(
+            sqlglot.exp.Create,
+            sqlglot.exp.Insert,
+        )
         if isinstance(expr.this, sqlglot.exp.Schema)
         and isinstance(expr.this.this, sqlglot.exp.Table)
     }
@@ -338,158 +272,6 @@ def _table_level_lineage(
     return tables, modified
 
 
-TABLE_CASE_SENSITIVE_PLATFORMS = {"bigquery"}
-
-
-class SchemaResolver(Closeable):
-    def __init__(
-        self,
-        *,
-        platform: str,
-        platform_instance: Optional[str] = None,
-        env: str = DEFAULT_ENV,
-        graph: Optional[DataHubGraph] = None,
-        _cache_filename: Optional[pathlib.Path] = None,
-    ):
-        # TODO handle platforms when prefixed with urn:li:dataPlatform:
-        self.platform = platform
-        self.platform_instance = platform_instance
-        self.env = env
-
-        self.graph = graph
-
-        # Init cache, potentially restoring from a previous run.
-        shared_conn = None
-        if _cache_filename:
-            shared_conn = ConnectionWrapper(filename=_cache_filename)
-        self._schema_cache: FileBackedDict[Optional[SchemaInfo]] = FileBackedDict(
-            shared_connection=shared_conn,
-        )
-
-    def get_urns(self) -> Set[str]:
-        return set(self._schema_cache.keys())
-
-    def get_urn_for_table(self, table: _TableName, lower: bool = False) -> str:
-        # TODO: Validate that this is the correct 2/3 layer hierarchy for the platform.
-
-        table_name = ".".join(
-            filter(None, [table.database, table.db_schema, table.table])
-        )
-
-        platform_instance = self.platform_instance
-
-        if lower:
-            table_name = table_name.lower()
-            platform_instance = platform_instance.lower() if platform_instance else None
-
-        if self.platform == "bigquery":
-            # Normalize shard numbers and other BigQuery weirdness.
-            with contextlib.suppress(IndexError):
-                table_name = BigqueryTableIdentifier.from_string_name(
-                    table_name
-                ).get_table_name()
-
-        urn = make_dataset_urn_with_platform_instance(
-            platform=self.platform,
-            platform_instance=platform_instance,
-            env=self.env,
-            name=table_name,
-        )
-        return urn
-
-    def resolve_table(self, table: _TableName) -> Tuple[str, Optional[SchemaInfo]]:
-        urn = self.get_urn_for_table(table)
-
-        schema_info = self._resolve_schema_info(urn)
-        if schema_info:
-            return urn, schema_info
-
-        urn_lower = self.get_urn_for_table(table, lower=True)
-        if urn_lower != urn:
-            schema_info = self._resolve_schema_info(urn_lower)
-            if schema_info:
-                return urn_lower, schema_info
-
-        if self.platform in TABLE_CASE_SENSITIVE_PLATFORMS:
-            return urn, None
-        else:
-            return urn_lower, None
-
-    def _resolve_schema_info(self, urn: str) -> Optional[SchemaInfo]:
-        if urn in self._schema_cache:
-            return self._schema_cache[urn]
-
-        # TODO: For bigquery partitioned tables, add the pseudo-column _PARTITIONTIME
-        # or _PARTITIONDATE where appropriate.
-
-        if self.graph:
-            schema_info = self._fetch_schema_info(self.graph, urn)
-            if schema_info:
-                self._save_to_cache(urn, schema_info)
-                return schema_info
-
-        self._save_to_cache(urn, None)
-        return None
-
-    def add_schema_metadata(
-        self, urn: str, schema_metadata: SchemaMetadataClass
-    ) -> None:
-        schema_info = self._convert_schema_aspect_to_info(schema_metadata)
-        self._save_to_cache(urn, schema_info)
-
-    def add_raw_schema_info(self, urn: str, schema_info: SchemaInfo) -> None:
-        self._save_to_cache(urn, schema_info)
-
-    def add_graphql_schema_metadata(
-        self, urn: str, schema_metadata: GraphQLSchemaMetadata
-    ) -> None:
-        schema_info = self.convert_graphql_schema_metadata_to_info(schema_metadata)
-        self._save_to_cache(urn, schema_info)
-
-    def _save_to_cache(self, urn: str, schema_info: Optional[SchemaInfo]) -> None:
-        self._schema_cache[urn] = schema_info
-
-    def _fetch_schema_info(self, graph: DataHubGraph, urn: str) -> Optional[SchemaInfo]:
-        aspect = graph.get_aspect(urn, SchemaMetadataClass)
-        if not aspect:
-            return None
-
-        return self._convert_schema_aspect_to_info(aspect)
-
-    @classmethod
-    def _convert_schema_aspect_to_info(
-        cls, schema_metadata: SchemaMetadataClass
-    ) -> SchemaInfo:
-        return {
-            get_simple_field_path_from_v2_field_path(col.fieldPath): (
-                # The actual types are more of a "nice to have".
-                col.nativeDataType
-                or "str"
-            )
-            for col in schema_metadata.fields
-            # TODO: We can't generate lineage to columns nested within structs yet.
-            if "." not in get_simple_field_path_from_v2_field_path(col.fieldPath)
-        }
-
-    @classmethod
-    def convert_graphql_schema_metadata_to_info(
-        cls, schema: GraphQLSchemaMetadata
-    ) -> SchemaInfo:
-        return {
-            get_simple_field_path_from_v2_field_path(field["fieldPath"]): (
-                # The actual types are more of a "nice to have".
-                field["nativeDataType"]
-                or "str"
-            )
-            for field in schema["fields"]
-            # TODO: We can't generate lineage to columns nested within structs yet.
-            if "." not in get_simple_field_path_from_v2_field_path(field["fieldPath"])
-        }
-
-    def close(self) -> None:
-        self._schema_cache.close()
-
-
 # TODO: Once PEP 604 is supported (Python 3.10), we can unify these into a
 # single type. See https://peps.python.org/pep-0604/#isinstance-and-issubclass.
 _SupportedColumnLineageTypes = Union[
@@ -499,26 +281,6 @@ _SupportedColumnLineageTypes = Union[
     sqlglot.exp.DerivedTable,
 ]
 _SupportedColumnLineageTypesTuple = (sqlglot.exp.Subqueryable, sqlglot.exp.DerivedTable)
-
-DIALECTS_WITH_CASE_INSENSITIVE_COLS = {
-    # Column identifiers are case-insensitive in BigQuery, so we need to
-    # do a normalization step beforehand to make sure it's resolved correctly.
-    "bigquery",
-    # Our snowflake source lowercases column identifiers, so we are forced
-    # to do fuzzy (case-insensitive) resolution instead of exact resolution.
-    "snowflake",
-    # Teradata column names are case-insensitive.
-    # A name, even when enclosed in double quotation marks, is not case sensitive. For example, CUSTOMER and Customer are the same.
-    # See more below:
-    # https://documentation.sas.com/doc/en/pgmsascdc/9.4_3.5/acreldb/n0ejgx4895bofnn14rlguktfx5r3.htm
-    "teradata",
-}
-DIALECTS_WITH_DEFAULT_UPPERCASE_COLS = {
-    # In some dialects, column identifiers are effectively case insensitive
-    # because they are automatically converted to uppercase. Most other systems
-    # automatically lowercase unquoted identifiers.
-    "snowflake",
-}
 
 
 class UnsupportedStatementTypeError(TypeError):
@@ -553,7 +315,7 @@ def _column_level_lineage(  # noqa: C901
 
     column_lineage: List[_ColumnLineageInfo] = []
 
-    use_case_insensitive_cols = _is_dialect_instance(
+    use_case_insensitive_cols = is_dialect_instance(
         dialect, DIALECTS_WITH_CASE_INSENSITIVE_COLS
     )
 
@@ -572,7 +334,7 @@ def _column_level_lineage(  # noqa: C901
                 col_normalized = (
                     # This is required to match Sqlglot's behavior.
                     col.upper()
-                    if _is_dialect_instance(
+                    if is_dialect_instance(
                         dialect, DIALECTS_WITH_DEFAULT_UPPERCASE_COLS
                     )
                     else col.lower()
@@ -707,7 +469,7 @@ def _column_level_lineage(  # noqa: C901
                 # Otherwise, we can't process it.
                 continue
 
-            if _is_dialect_instance(dialect, "bigquery") and output_col.lower() in {
+            if is_dialect_instance(dialect, "bigquery") and output_col.lower() in {
                 "_partitiontime",
                 "_partitiondate",
             }:
@@ -962,18 +724,18 @@ def _translate_internal_column_lineage(
         downstream=DownstreamColumnRef(
             table=downstream_urn,
             column=raw_column_lineage.downstream.column,
-            column_type=_translate_sqlglot_type(
-                raw_column_lineage.downstream.column_type.this
-            )
-            if raw_column_lineage.downstream.column_type
-            else None,
-            native_column_type=raw_column_lineage.downstream.column_type.sql(
-                dialect=dialect
-            )
-            if raw_column_lineage.downstream.column_type
-            and raw_column_lineage.downstream.column_type.this
-            != sqlglot.exp.DataType.Type.UNKNOWN
-            else None,
+            column_type=(
+                _translate_sqlglot_type(raw_column_lineage.downstream.column_type.this)
+                if raw_column_lineage.downstream.column_type
+                else None
+            ),
+            native_column_type=(
+                raw_column_lineage.downstream.column_type.sql(dialect=dialect)
+                if raw_column_lineage.downstream.column_type
+                and raw_column_lineage.downstream.column_type.this
+                != sqlglot.exp.DataType.Type.UNKNOWN
+                else None
+            ),
         ),
         upstreams=[
             ColumnRef(
@@ -986,58 +748,20 @@ def _translate_internal_column_lineage(
     )
 
 
-def _get_dialect_str(platform: str) -> str:
-    # TODO: convert datahub platform names to sqlglot dialect
-    if platform == "presto-on-hive":
-        return "hive"
-    elif platform == "mssql":
-        return "tsql"
-    elif platform == "athena":
-        return "trino"
-    elif platform == "mysql":
-        # In sqlglot v20+, MySQL is now case-sensitive by default, which is the
-        # default behavior on Linux. However, MySQL's default case sensitivity
-        # actually depends on the underlying OS.
-        # For us, it's simpler to just assume that it's case-insensitive, and
-        # let the fuzzy resolution logic handle it.
-        return "mysql, normalization_strategy = lowercase"
-    else:
-        return platform
-
-
-def _get_dialect(platform: str) -> sqlglot.Dialect:
-    return sqlglot.Dialect.get_or_raise(_get_dialect_str(platform))
-
-
-def _is_dialect_instance(
-    dialect: sqlglot.Dialect, platforms: Union[str, Iterable[str]]
-) -> bool:
-    if isinstance(platforms, str):
-        platforms = [platforms]
-    else:
-        platforms = list(platforms)
-
-    dialects = [sqlglot.Dialect.get_or_raise(platform) for platform in platforms]
-
-    if any(isinstance(dialect, dialect_class.__class__) for dialect_class in dialects):
-        return True
-    return False
-
-
 def _sqlglot_lineage_inner(
     sql: sqlglot.exp.ExpOrStr,
-    schema_resolver: SchemaResolver,
+    schema_resolver: SchemaResolverInterface,
     default_db: Optional[str] = None,
     default_schema: Optional[str] = None,
 ) -> SqlParsingResult:
-    dialect = _get_dialect(schema_resolver.platform)
-    if _is_dialect_instance(dialect, "snowflake"):
+    dialect = get_dialect(schema_resolver.platform)
+    if is_dialect_instance(dialect, "snowflake"):
         # in snowflake, table identifiers must be uppercased to match sqlglot's behavior.
         if default_db:
             default_db = default_db.upper()
         if default_schema:
             default_schema = default_schema.upper()
-    if _is_dialect_instance(dialect, "redshift") and not default_schema:
+    if is_dialect_instance(dialect, "redshift") and not default_schema:
         # On Redshift, there's no "USE SCHEMA <schema>" command. The default schema
         # is public, and "current schema" is the one at the front of the search path.
         # See https://docs.aws.amazon.com/redshift/latest/dg/r_search_path.html
@@ -1047,7 +771,7 @@ def _sqlglot_lineage_inner(
         pass
 
     logger.debug("Parsing lineage from sql statement: %s", sql)
-    statement = _parse_statement(sql, dialect=dialect)
+    statement = parse_statement(sql, dialect=dialect)
 
     original_statement = statement.copy()
     # logger.debug(
@@ -1102,10 +826,13 @@ def _sqlglot_lineage_inner(
     total_tables_discovered = len(tables | modified)
     total_schemas_resolved = len(table_name_schema_mapping)
     debug_info = SqlParsingDebugInfo(
-        confidence=0.9 if total_tables_discovered == total_schemas_resolved
-        # If we're missing any schema info, our confidence will be in the 0.2-0.5 range depending
-        # on how many tables we were able to resolve.
-        else 0.2 + 0.3 * total_schemas_resolved / total_tables_discovered,
+        confidence=(
+            0.9
+            if total_tables_discovered == total_schemas_resolved
+            # If we're missing any schema info, our confidence will be in the 0.2-0.5 range depending
+            # on how many tables we were able to resolve.
+            else 0.2 + 0.3 * total_schemas_resolved / total_tables_discovered
+        ),
         tables_discovered=total_tables_discovered,
         table_schemas_resolved=total_schemas_resolved,
     )
@@ -1157,8 +884,14 @@ def _sqlglot_lineage_inner(
             for internal_col_lineage in column_lineage
         ]
 
+    query_type, query_type_props = get_query_type_of_sql(
+        original_statement, dialect=dialect
+    )
+    query_fingerprint = get_query_fingerprint(original_statement, dialect=dialect)
     return SqlParsingResult(
-        query_type=get_query_type_of_sql(original_statement),
+        query_type=query_type,
+        query_type_props=query_type_props,
+        query_fingerprint=query_fingerprint,
         in_tables=in_urns,
         out_tables=out_urns,
         column_lineage=column_lineage_urns,
@@ -1169,7 +902,7 @@ def _sqlglot_lineage_inner(
 @functools.lru_cache(maxsize=SQL_PARSE_RESULT_CACHE_SIZE)
 def sqlglot_lineage(
     sql: str,
-    schema_resolver: SchemaResolver,
+    schema_resolver: SchemaResolverInterface,
     default_db: Optional[str] = None,
     default_schema: Optional[str] = None,
 ) -> SqlParsingResult:
@@ -1233,59 +966,6 @@ def sqlglot_lineage(
         return SqlParsingResult.make_from_error(e)
 
 
-def detach_ctes(
-    sql: sqlglot.exp.ExpOrStr, platform: str, cte_mapping: Dict[str, str]
-) -> sqlglot.exp.Expression:
-    """Replace CTE references with table references.
-
-    For example, with cte_mapping = {"__cte_0": "_my_cte_table"}, the following SQL
-
-    WITH __cte_0 AS (SELECT * FROM table1) SELECT * FROM table2 JOIN __cte_0 ON table2.id = __cte_0.id
-
-    is transformed into
-
-    WITH __cte_0 AS (SELECT * FROM table1) SELECT * FROM table2 JOIN _my_cte_table ON table2.id = _my_cte_table.id
-
-    Note that the original __cte_0 definition remains in the query, but is simply not referenced.
-    The query optimizer should be able to remove it.
-
-    This method makes a major assumption: that no other table/column has the same name as a
-    key in the cte_mapping.
-    """
-
-    dialect = _get_dialect(platform)
-    statement = _parse_statement(sql, dialect=dialect)
-
-    def replace_cte_refs(node: sqlglot.exp.Expression) -> sqlglot.exp.Expression:
-        if (
-            isinstance(node, sqlglot.exp.Identifier)
-            and node.parent
-            and not isinstance(node.parent.parent, sqlglot.exp.CTE)
-            and node.name in cte_mapping
-        ):
-            full_new_name = cte_mapping[node.name]
-            table_expr = sqlglot.maybe_parse(
-                full_new_name, dialect=dialect, into=sqlglot.exp.Table
-            )
-
-            parent = node.parent
-
-            # We expect node.parent to be a Table or Column, both of which support catalog/db/name.
-            # However, we check the parent's arg_types to be safe.
-            if "catalog" in parent.arg_types and table_expr.catalog:
-                parent.set("catalog", table_expr.catalog)
-            if "db" in parent.arg_types and table_expr.db:
-                parent.set("db", table_expr.db)
-
-            new_node = sqlglot.exp.Identifier(this=table_expr.name)
-
-            return new_node
-        else:
-            return node
-
-    return statement.transform(replace_cte_refs, copy=False)
-
-
 def create_lineage_sql_parsed_result(
     query: str,
     default_db: Optional[str],
@@ -1323,6 +1003,25 @@ def create_lineage_sql_parsed_result(
     finally:
         if needs_close:
             schema_resolver.close()
+
+
+def infer_output_schema(result: SqlParsingResult) -> Optional[List[SchemaFieldClass]]:
+    if result.column_lineage is None:
+        return None
+
+    output_schema = []
+    for column_info in result.column_lineage:
+        output_schema.append(
+            SchemaFieldClass(
+                fieldPath=column_info.downstream.column,
+                type=(
+                    column_info.downstream.column_type
+                    or SchemaFieldDataTypeClass(type=NullTypeClass())
+                ),
+                nativeDataType=column_info.downstream.native_column_type or "",
+            )
+        )
+    return output_schema
 
 
 def view_definition_lineage_helper(

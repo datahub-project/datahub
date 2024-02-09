@@ -50,11 +50,11 @@ if TYPE_CHECKING:
     from datahub.ingestion.source.state.entity_removal_state import (
         GenericCheckpointState,
     )
-    from datahub.utilities.sqlglot_lineage import (
+    from datahub.sql_parsing.schema_resolver import (
         GraphQLSchemaMetadata,
         SchemaResolver,
-        SqlParsingResult,
     )
+    from datahub.sql_parsing.sqlglot_lineage import SqlParsingResult
 
 
 logger = logging.getLogger(__name__)
@@ -1003,7 +1003,7 @@ class DataHubGraph(DatahubRestEmitter):
         env: str,
         include_graph: bool = True,
     ) -> "SchemaResolver":
-        from datahub.utilities.sqlglot_lineage import SchemaResolver
+        from datahub.sql_parsing.schema_resolver import SchemaResolver
 
         return SchemaResolver(
             platform=platform,
@@ -1055,7 +1055,7 @@ class DataHubGraph(DatahubRestEmitter):
         default_db: Optional[str] = None,
         default_schema: Optional[str] = None,
     ) -> "SqlParsingResult":
-        from datahub.utilities.sqlglot_lineage import sqlglot_lineage
+        from datahub.sql_parsing.sqlglot_lineage import sqlglot_lineage
 
         # Cache the schema resolver to make bulk parsing faster.
         schema_resolver = self._make_schema_resolver(

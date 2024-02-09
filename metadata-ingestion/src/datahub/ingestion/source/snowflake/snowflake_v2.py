@@ -133,10 +133,10 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     TimeType,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.tag import TagProperties
+from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.utilities.file_backed_collections import FileBackedDict
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.registries.domain_registry import DomainRegistry
-from datahub.utilities.sqlglot_lineage import SchemaResolver
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -1091,9 +1091,11 @@ class SnowflakeV2Source(
             yield dpi_aspect
 
         subTypes = SubTypes(
-            typeNames=[DatasetSubTypes.VIEW]
-            if isinstance(table, SnowflakeView)
-            else [DatasetSubTypes.TABLE]
+            typeNames=(
+                [DatasetSubTypes.VIEW]
+                if isinstance(table, SnowflakeView)
+                else [DatasetSubTypes.TABLE]
+            )
         )
 
         yield MetadataChangeProposalWrapper(
@@ -1139,27 +1141,37 @@ class SnowflakeV2Source(
     ) -> DatasetProperties:
         return DatasetProperties(
             name=table.name,
-            created=TimeStamp(time=int(table.created.timestamp() * 1000))
-            if table.created is not None
-            else None,
-            lastModified=TimeStamp(time=int(table.last_altered.timestamp() * 1000))
-            if table.last_altered is not None
-            else TimeStamp(time=int(table.created.timestamp() * 1000))
-            if table.created is not None
-            else None,
+            created=(
+                TimeStamp(time=int(table.created.timestamp() * 1000))
+                if table.created is not None
+                else None
+            ),
+            lastModified=(
+                TimeStamp(time=int(table.last_altered.timestamp() * 1000))
+                if table.last_altered is not None
+                else (
+                    TimeStamp(time=int(table.created.timestamp() * 1000))
+                    if table.created is not None
+                    else None
+                )
+            ),
             description=table.comment,
             qualifiedName=f"{db_name}.{schema_name}.{table.name}",
             customProperties={},
-            externalUrl=self.get_external_url_for_table(
-                table.name,
-                schema_name,
-                db_name,
-                SnowflakeObjectDomain.TABLE
-                if isinstance(table, SnowflakeTable)
-                else SnowflakeObjectDomain.VIEW,
-            )
-            if self.config.include_external_url
-            else None,
+            externalUrl=(
+                self.get_external_url_for_table(
+                    table.name,
+                    schema_name,
+                    db_name,
+                    (
+                        SnowflakeObjectDomain.TABLE
+                        if isinstance(table, SnowflakeTable)
+                        else SnowflakeObjectDomain.VIEW
+                    ),
+                )
+                if self.config.include_external_url
+                else None
+            ),
         )
 
     def gen_tag_workunits(self, tag: SnowflakeTag) -> Iterable[MetadataWorkUnit]:
@@ -1203,21 +1215,25 @@ class SnowflakeV2Source(
                     nativeDataType=col.get_precise_native_type(),
                     description=col.comment,
                     nullable=col.is_nullable,
-                    isPartOfKey=col.name in table.pk.column_names
-                    if isinstance(table, SnowflakeTable) and table.pk is not None
-                    else None,
-                    globalTags=GlobalTags(
-                        [
-                            TagAssociation(
-                                make_tag_urn(
-                                    self.snowflake_identifier(tag.identifier())
+                    isPartOfKey=(
+                        col.name in table.pk.column_names
+                        if isinstance(table, SnowflakeTable) and table.pk is not None
+                        else None
+                    ),
+                    globalTags=(
+                        GlobalTags(
+                            [
+                                TagAssociation(
+                                    make_tag_urn(
+                                        self.snowflake_identifier(tag.identifier())
+                                    )
                                 )
-                            )
-                            for tag in table.column_tags[col.name]
-                        ]
-                    )
-                    if col.name in table.column_tags
-                    else None,
+                                for tag in table.column_tags[col.name]
+                            ]
+                        )
+                        if col.name in table.column_tags
+                        else None
+                    ),
                 )
                 for col in table.columns
             ],
@@ -1288,9 +1304,11 @@ class SnowflakeV2Source(
                 self.classification_handler.classify_schema_fields(
                     dataset_name,
                     schema_metadata,
-                    table.sample_data.to_dict(orient="list")
-                    if table.sample_data is not None
-                    else {},
+                    (
+                        table.sample_data.to_dict(orient="list")
+                        if table.sample_data is not None
+                        else {}
+                    ),
                 )
             except Exception as e:
                 logger.debug(
@@ -1325,21 +1343,31 @@ class SnowflakeV2Source(
             sub_types=[DatasetContainerSubTypes.DATABASE],
             domain_registry=self.domain_registry,
             domain_config=self.config.domain,
-            external_url=self.get_external_url_for_database(database.name)
-            if self.config.include_external_url
-            else None,
+            external_url=(
+                self.get_external_url_for_database(database.name)
+                if self.config.include_external_url
+                else None
+            ),
             description=database.comment,
-            created=int(database.created.timestamp() * 1000)
-            if database.created is not None
-            else None,
-            last_modified=int(database.last_altered.timestamp() * 1000)
-            if database.last_altered is not None
-            else int(database.created.timestamp() * 1000)
-            if database.created is not None
-            else None,
-            tags=[self.snowflake_identifier(tag.identifier()) for tag in database.tags]
-            if database.tags
-            else None,
+            created=(
+                int(database.created.timestamp() * 1000)
+                if database.created is not None
+                else None
+            ),
+            last_modified=(
+                int(database.last_altered.timestamp() * 1000)
+                if database.last_altered is not None
+                else (
+                    int(database.created.timestamp() * 1000)
+                    if database.created is not None
+                    else None
+                )
+            ),
+            tags=(
+                [self.snowflake_identifier(tag.identifier()) for tag in database.tags]
+                if database.tags
+                else None
+            ),
         )
 
     def gen_schema_containers(
@@ -1371,20 +1399,30 @@ class SnowflakeV2Source(
             sub_types=[DatasetContainerSubTypes.SCHEMA],
             domain_registry=self.domain_registry,
             description=schema.comment,
-            external_url=self.get_external_url_for_schema(schema.name, db_name)
-            if self.config.include_external_url
-            else None,
-            created=int(schema.created.timestamp() * 1000)
-            if schema.created is not None
-            else None,
-            last_modified=int(schema.last_altered.timestamp() * 1000)
-            if schema.last_altered is not None
-            else int(schema.created.timestamp() * 1000)
-            if schema.created is not None
-            else None,
-            tags=[self.snowflake_identifier(tag.identifier()) for tag in schema.tags]
-            if schema.tags
-            else None,
+            external_url=(
+                self.get_external_url_for_schema(schema.name, db_name)
+                if self.config.include_external_url
+                else None
+            ),
+            created=(
+                int(schema.created.timestamp() * 1000)
+                if schema.created is not None
+                else None
+            ),
+            last_modified=(
+                int(schema.last_altered.timestamp() * 1000)
+                if schema.last_altered is not None
+                else (
+                    int(schema.created.timestamp() * 1000)
+                    if schema.created is not None
+                    else None
+                )
+            ),
+            tags=(
+                [self.snowflake_identifier(tag.identifier()) for tag in schema.tags]
+                if schema.tags
+                else None
+            ),
         )
 
     def get_tables_for_schema(
