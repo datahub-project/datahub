@@ -60,7 +60,8 @@ export default function LinkInput() {
     }
 
     function updateLinkContent(content: string) {
-        setLink(`${linkPrefix}${content}`);
+        const contentWithoutPrefix = getLinkWithoutPrefix(content);
+        setLink(`${linkPrefix}${contentWithoutPrefix}`);
     }
 
     return (
