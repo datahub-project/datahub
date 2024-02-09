@@ -58,7 +58,7 @@ def request_call(
         return requests.get(
             url, headers=headers, auth=HTTPBasicAuth(username, password)
         )
-    elif token:
+    elif token is not None:
         headers["Authorization"] = f"{token}"
         return requests.get(url, proxies=proxies, headers=headers)
     else:
@@ -74,12 +74,9 @@ def get_swag_json(
     proxies: Optional[dict] = None,
 ) -> Dict:
     tot_url = url + swagger_file
-    if token:
-        response = request_call(url=tot_url, token=token, proxies=proxies)
-    else:
-        response = request_call(
-            url=tot_url, username=username, password=password, proxies=proxies
-        )
+    response = request_call(
+        url=tot_url, token=token, username=username, password=password, proxies=proxies
+    )
 
     if response.status_code != 200:
         raise Exception(f"Unable to retrieve {tot_url}, error {response.status_code}")
