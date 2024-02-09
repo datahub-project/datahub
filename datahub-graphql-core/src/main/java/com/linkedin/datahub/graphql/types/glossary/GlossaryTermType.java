@@ -58,7 +58,8 @@ public class GlossaryTermType
           STATUS_ASPECT_NAME,
           BROWSE_PATHS_ASPECT_NAME,
           DOMAINS_ASPECT_NAME,
-          DEPRECATION_ASPECT_NAME);
+          DEPRECATION_ASPECT_NAME,
+          STRUCTURED_PROPERTIES_ASPECT_NAME);
 
   private final EntityClient _entityClient;
 

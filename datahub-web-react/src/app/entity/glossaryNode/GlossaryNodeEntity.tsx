@@ -11,6 +11,7 @@ import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
 import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
 import ChildrenTab from './ChildrenTab';
 import { Preview } from './preview/Preview';
+import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
 
 class GlossaryNodeEntity implements Entity<GlossaryNode> {
     type: EntityType = EntityType.GlossaryNode;
@@ -68,6 +69,10 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
                         properties: {
                             hideLinksButton: true,
                         },
+                    },
+                    {
+                        name: 'Properties',
+                        component: PropertiesTab,
                     },
                 ]}
                 sidebarSections={[

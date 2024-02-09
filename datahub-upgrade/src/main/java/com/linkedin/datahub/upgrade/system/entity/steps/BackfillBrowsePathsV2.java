@@ -11,8 +11,20 @@ public class BackfillBrowsePathsV2 implements Upgrade {
 
   private final List<UpgradeStep> _steps;
 
-  public BackfillBrowsePathsV2(EntityService<?> entityService, SearchService searchService) {
-    _steps = ImmutableList.of(new BackfillBrowsePathsV2Step(entityService, searchService));
+  public BackfillBrowsePathsV2(
+      EntityService<?> entityService,
+      SearchService searchService,
+      boolean enabled,
+      boolean reprocessEnabled,
+      Integer batchSize) {
+    if (enabled) {
+      _steps =
+          ImmutableList.of(
+              new BackfillBrowsePathsV2Step(
+                  entityService, searchService, reprocessEnabled, batchSize));
+    } else {
+      _steps = ImmutableList.of();
+    }
   }
 
   @Override

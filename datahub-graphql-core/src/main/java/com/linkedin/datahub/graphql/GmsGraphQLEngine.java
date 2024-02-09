@@ -109,10 +109,7 @@ import com.linkedin.datahub.graphql.resolvers.MeResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.AssertionRunEventResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.DeleteAssertionResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.EntityAssertionsResolver;
-import com.linkedin.datahub.graphql.resolvers.auth.CreateAccessTokenResolver;
-import com.linkedin.datahub.graphql.resolvers.auth.GetAccessTokenResolver;
-import com.linkedin.datahub.graphql.resolvers.auth.ListAccessTokensResolver;
-import com.linkedin.datahub.graphql.resolvers.auth.RevokeAccessTokenResolver;
+import com.linkedin.datahub.graphql.resolvers.auth.*;
 import com.linkedin.datahub.graphql.resolvers.browse.BrowsePathsResolver;
 import com.linkedin.datahub.graphql.resolvers.browse.BrowseResolver;
 import com.linkedin.datahub.graphql.resolvers.browse.EntityBrowsePathsResolver;
@@ -931,6 +928,9 @@ public class GmsGraphQLEngine {
                 .dataFetcher("getEntityCounts", new EntityCountsResolver(this.entityClient))
                 .dataFetcher("getAccessToken", new GetAccessTokenResolver(statefulTokenService))
                 .dataFetcher("listAccessTokens", new ListAccessTokensResolver(this.entityClient))
+                .dataFetcher(
+                    "getAccessTokenMetadata",
+                    new GetAccessTokenMetadataResolver(statefulTokenService, this.entityClient))
                 .dataFetcher("container", getResolver(containerType))
                 .dataFetcher("listDomains", new ListDomainsResolver(this.entityClient))
                 .dataFetcher("listSecrets", new ListSecretsResolver(this.entityClient))
@@ -1643,7 +1643,8 @@ public class GmsGraphQLEngine {
             typeWiring.dataFetcher(
                 "actor",
                 new LoadableTypeResolver<>(
-                    corpUserType, (env) -> ((ResolvedAuditStamp) env.getSource()).getActor().getUrn())));
+                    corpUserType,
+                    (env) -> ((ResolvedAuditStamp) env.getSource()).getActor().getUrn())));
   }
 
   /**
@@ -2435,7 +2436,9 @@ public class GmsGraphQLEngine {
                               ? assertion.getDataPlatformInstance().getUrn()
                               : null;
                         }))
-                .dataFetcher("runEvents", new AssertionRunEventResolver(entityClient)));
+                .dataFetcher("runEvents", new AssertionRunEventResolver(entityClient))
+                .dataFetcher(
+                    "aspects", new WeaklyTypedAspectsResolver(entityClient, entityRegistry)));
   }
 
   private void configurePolicyResolvers(final RuntimeWiring.Builder builder) {

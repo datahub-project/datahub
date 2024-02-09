@@ -30,6 +30,11 @@ query getDomain($urn: String!) {
         autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
             ...autoRenderAspectFields
         }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
         ...domainEntitiesFields
     }
 }
