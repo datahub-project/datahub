@@ -1,9 +1,8 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import styled from 'styled-components';
-import { Alert, Button, Divider, Empty, message, Modal, Pagination, Typography } from 'antd';
+import { Alert, Button, Divider, Empty, message, Modal, Pagination, Select, Typography } from 'antd';
 import { DeleteOutlined, InfoCircleOutlined, PlusOutlined } from '@ant-design/icons';
 import { red } from '@ant-design/colors';
-
 import { FacetFilterInput } from '../../types.generated';
 import { useListAccessTokensQuery, useRevokeAccessTokenMutation } from '../../graphql/auth.generated';
 import { Message } from '../shared/Message';
@@ -15,6 +14,8 @@ import { scrollToTop } from '../shared/searchUtils';
 import analytics, { EventType } from '../analytics';
 import { useUserContext } from '../context/useUserContext';
 import { useAppConfig } from '../useAppConfig';
+import { useListUsersQuery } from '../../graphql/user.generated';
+import { OwnerLabel } from '../shared/OwnerLabel';
 
 const SourceContainer = styled.div`
     width: 100%;
@@ -48,6 +49,16 @@ const StyledAlert = styled(Alert)`
     margin-bottom: 20px;
 `;
 
+const StyledSelectOwner = styled(Select)`
+    margin-right: 15px;
+    width: 200px;
+`;
+
+const StyledSelect = styled(Select)`
+    margin-right: 15px;
+    min-width: 75px;
+`;
+
 const StyledInfoCircleOutlined = styled(InfoCircleOutlined)`
     margin-right: 8px;
 `;
@@ -74,12 +85,26 @@ const NeverExpireText = styled.span`
     color: ${red[5]};
 `;
 
+const SelectContainer = styled.div`
+    display: flex;
+    align-items: flex-start;
+`;
+
 const DEFAULT_PAGE_SIZE = 10;
+
+export enum StatusType {
+    ALL,
+    ACTIVE,
+    INACTIVE,
+}
 
 export const AccessTokens = () => {
     const [isCreatingToken, setIsCreatingToken] = useState(false);
     const [removedTokens, setRemovedTokens] = useState<string[]>([]);
-
+    const [statusFilter, setStatusFilter] = useState(StatusType.ACTIVE);
+    const [owner, setOwner] = useState('All');
+    const [filters, setFilters] = useState([]);
+    const [query, setQuery] = useState<undefined | string>(undefined);
     // Current User Urn
     const authenticatedUser = useUserContext();
     const currentUserUrn = authenticatedUser?.user?.urn || '';
@@ -88,13 +113,15 @@ export const AccessTokens = () => {
     const canGeneratePersonalAccessTokens =
         isTokenAuthEnabled && authenticatedUser?.platformPrivileges?.generatePersonalAccessTokens;
 
+    const canManageToken = authenticatedUser?.platformPrivileges?.manageTokens;
+
     // Access Tokens list paging.
     const [page, setPage] = useState(1);
     const pageSize = DEFAULT_PAGE_SIZE;
     const start = (page - 1) * pageSize;
 
     // Filters for Access Tokens list
-    const filters: Array<FacetFilterInput> = [
+    const filtersCurrentUser: Array<FacetFilterInput> = [
         {
             field: 'ownerUrn',
             values: [currentUserUrn],
@@ -113,14 +140,71 @@ export const AccessTokens = () => {
             input: {
                 start,
                 count: pageSize,
-                filters,
+                filters: canManageToken ? filters : filtersCurrentUser,
             },
         },
+    });
+
+    const { data: usersData } = useListUsersQuery({
+        skip: !canGeneratePersonalAccessTokens || !canManageToken,
+        variables: {
+            input: {
+                start,
+                count: 10,
+                query: (query?.length && query) || undefined,
+            },
+        },
+        fetchPolicy: 'no-cache',
+    });
+
+    useEffect(() => {
+        if (canManageToken) {
+            if (owner && owner !== 'All') {
+                const filterData = {
+                    field: 'ownerUrn',
+                    values: [owner],
+                };
+                setFilters(filterData as any);
+            } else {
+                setFilters([]);
+            }
+        }
+    }, [canManageToken, owner]);
+
+    const renderSearchResult = (entity: any) => {
+        const {
+            editableProperties,
+            info: { displayName },
+        } = entity;
+        const avatarUrl = editableProperties?.pictureLink || undefined;
+        return (
+            <Select.Option value={entity.urn} key={entity.urn}>
+                <OwnerLabel name={displayName} avatarUrl={avatarUrl} type={entity.type} />
+            </Select.Option>
+        );
+    };
+    const ownerResult = usersData?.listUsers?.users;
+
+    const ownerSearchOptions = ownerResult?.map((result) => {
+        return renderSearchResult(result);
     });
 
     const totalTokens = tokensData?.listAccessTokens.total || 0;
     const tokens = useMemo(() => tokensData?.listAccessTokens.tokens || [], [tokensData]);
     const filteredTokens = tokens.filter((token) => !removedTokens.includes(token.id));
+
+    const filteredTokenStatus = useMemo(() => {
+        switch (statusFilter) {
+            case StatusType.ACTIVE:
+                return filteredTokens.filter(
+                    (token) => !token.expiresAt || (token.expiresAt && new Date(token.expiresAt) > new Date()),
+                );
+            case StatusType.INACTIVE:
+                return filteredTokens.filter((token) => token.expiresAt && new Date(token.expiresAt) <= new Date());
+            default:
+                return filteredTokens;
+        }
+    }, [filteredTokens, statusFilter]);
 
     // Any time a access token  is removed or created, refetch the list.
     const [revokeAccessToken, { error: revokeTokenError }] = useRevokeAccessTokenMutation();
@@ -158,7 +242,7 @@ export const AccessTokens = () => {
         });
     };
 
-    const tableData = filteredTokens?.map((token) => ({
+    const tableData = filteredTokenStatus?.map((token) => ({
         urn: token.urn,
         type: token.type,
         id: token.id,
@@ -197,6 +281,17 @@ export const AccessTokens = () => {
             },
         },
         {
+            title: 'Owner',
+            dataIndex: 'ownerUrn',
+            key: 'ownerUrn',
+            render: (ownerUrn: string) => {
+                if (!ownerUrn) return '';
+                const displayName = ownerUrn.replace('urn:li:corpuser:', '');
+                const link = `/user/${ownerUrn}/owner of`;
+                return <a href={link}>{displayName}</a>;
+            },
+        },
+        {
             title: '',
             dataIndex: '',
             key: 'x',
@@ -214,6 +309,8 @@ export const AccessTokens = () => {
             ),
         },
     ];
+
+    const filterColumns = canManageToken ? tableColumns : tableColumns.filter((column) => column.key !== 'ownerUrn');
 
     const onChangePage = (newPage: number) => {
         scrollToTop();
@@ -264,9 +361,53 @@ export const AccessTokens = () => {
                         <PlusOutlined /> Generate new token
                     </Button>
                 </div>
+                <SelectContainer>
+                    {canGeneratePersonalAccessTokens && canManageToken && (
+                        <>
+                            <StyledSelectOwner
+                                showSearch
+                                placeholder="Search for owner"
+                                optionFilterProp="children"
+                                allowClear
+                                filterOption={false}
+                                defaultActiveFirstOption={false}
+                                onSelect={(ownerData: any) => {
+                                    setOwner(ownerData);
+                                }}
+                                onClear={() => {
+                                    setQuery('');
+                                    setOwner('All');
+                                }}
+                                onSearch={(value: string) => {
+                                    setQuery(value.trim());
+                                }}
+                                style={{ width: 200 }}
+                            >
+                                {ownerSearchOptions}
+                            </StyledSelectOwner>
+                        </>
+                    )}
+                    {canGeneratePersonalAccessTokens && (
+                        <StyledSelect
+                            value={statusFilter}
+                            onChange={(selection) => setStatusFilter(selection as StatusType)}
+                            style={{ width: 100 }}
+                        >
+                            <Select.Option value={StatusType.ALL} key={StatusType.ALL}>
+                                All Tokens
+                            </Select.Option>
+                            <Select.Option value={StatusType.ACTIVE} key={StatusType.ACTIVE}>
+                                Active
+                            </Select.Option>
+                            <Select.Option value={StatusType.INACTIVE} key={StatusType.INACTIVE}>
+                                Inactive
+                            </Select.Option>
+                        </StyledSelect>
+                    )}
+                </SelectContainer>
             </TabToolbar>
             <StyledTable
-                columns={tableColumns}
+                columns={filterColumns}
                 dataSource={tableData}
                 rowKey="urn"
                 locale={{
