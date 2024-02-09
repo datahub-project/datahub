@@ -316,10 +316,12 @@ class JsonSchemaTranslator:
 
     @staticmethod
     def _get_description_from_any_schema(schema: Dict) -> str:
-        # we do a redundant `if description in schema` check to guard against the scenario that schema is not a dictionary
-        description = (
-            (schema.get("description") or "") if "description" in schema else ""
-        )
+        description = ""
+        if "description" in schema:
+            description = str(schema.get("description"))
+        elif "const" in schema:
+            schema_const = schema.get("const")
+            description = f"Const value: {schema_const}"
         if JsonSchemaTranslator._INJECT_DEFAULTS_INTO_DESCRIPTION:
             default = schema.get("default")
             if default is not None:
@@ -598,7 +600,8 @@ class JsonSchemaTranslator:
                     jsonref_schema_dict = schema_dict
                 else:
                     # first validate the schema using a json validator
-                    jsonschema.Draft7Validator.check_schema(schema_dict)
+                    validator = jsonschema.validators.validator_for(schema_dict)
+                    validator.check_schema(schema_dict)
                     # then apply jsonref
                     jsonref_schema_dict = jsonref.loads(schema_string)
             except Exception as e:

@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql.types.domain;
 
+import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTIES_ASPECT_NAME;
+
 import com.linkedin.common.InstitutionalMemory;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.urn.Urn;
@@ -7,13 +9,14 @@ import com.linkedin.datahub.graphql.generated.Domain;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
+import com.linkedin.datahub.graphql.types.structuredproperty.StructuredPropertiesMapper;
 import com.linkedin.domain.DomainProperties;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.key.DomainKey;
-
+import com.linkedin.structured.StructuredProperties;
 
 public class DomainMapper {
 
@@ -33,30 +36,45 @@ public class DomainMapper {
       return null;
     }
 
-    final EnvelopedAspect envelopedDomainProperties = aspects.get(Constants.DOMAIN_PROPERTIES_ASPECT_NAME);
+    final EnvelopedAspect envelopedDomainProperties =
+        aspects.get(Constants.DOMAIN_PROPERTIES_ASPECT_NAME);
     if (envelopedDomainProperties != null) {
-      result.setProperties(mapDomainProperties(new DomainProperties(envelopedDomainProperties.getValue().data())));
+      result.setProperties(
+          mapDomainProperties(new DomainProperties(envelopedDomainProperties.getValue().data())));
     }
 
     final EnvelopedAspect envelopedOwnership = aspects.get(Constants.OWNERSHIP_ASPECT_NAME);
     if (envelopedOwnership != null) {
-      result.setOwnership(OwnershipMapper.map(new Ownership(envelopedOwnership.getValue().data()), entityUrn));
+      result.setOwnership(
+          OwnershipMapper.map(new Ownership(envelopedOwnership.getValue().data()), entityUrn));
     }
 
-    final EnvelopedAspect envelopedInstitutionalMemory = aspects.get(Constants.INSTITUTIONAL_MEMORY_ASPECT_NAME);
+    final EnvelopedAspect envelopedInstitutionalMemory =
+        aspects.get(Constants.INSTITUTIONAL_MEMORY_ASPECT_NAME);
     if (envelopedInstitutionalMemory != null) {
-      result.setInstitutionalMemory(InstitutionalMemoryMapper.map(new InstitutionalMemory(envelopedInstitutionalMemory.getValue().data()), entityUrn));
+      result.setInstitutionalMemory(
+          InstitutionalMemoryMapper.map(
+              new InstitutionalMemory(envelopedInstitutionalMemory.getValue().data()), entityUrn));
+    }
+
+    final EnvelopedAspect envelopedStructuredProps = aspects.get(STRUCTURED_PROPERTIES_ASPECT_NAME);
+    if (envelopedStructuredProps != null) {
+      result.setStructuredProperties(
+          StructuredPropertiesMapper.map(
+              new StructuredProperties(envelopedStructuredProps.getValue().data())));
     }
 
     return result;
   }
 
-  private static com.linkedin.datahub.graphql.generated.DomainProperties mapDomainProperties(final DomainProperties gmsProperties) {
-    final com.linkedin.datahub.graphql.generated.DomainProperties propertiesResult = new com.linkedin.datahub.graphql.generated.DomainProperties();
+  private static com.linkedin.datahub.graphql.generated.DomainProperties mapDomainProperties(
+      final DomainProperties gmsProperties) {
+    final com.linkedin.datahub.graphql.generated.DomainProperties propertiesResult =
+        new com.linkedin.datahub.graphql.generated.DomainProperties();
     propertiesResult.setName(gmsProperties.getName());
     propertiesResult.setDescription(gmsProperties.getDescription());
     return propertiesResult;
   }
 
-  private DomainMapper() { }
+  private DomainMapper() {}
 }

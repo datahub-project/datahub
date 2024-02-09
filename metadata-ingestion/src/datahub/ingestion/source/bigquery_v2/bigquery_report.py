@@ -25,12 +25,20 @@ class BigQuerySchemaApiPerfReport(Report):
     get_tables_for_dataset: PerfTimer = field(default_factory=PerfTimer)
     list_tables: PerfTimer = field(default_factory=PerfTimer)
     get_views_for_dataset: PerfTimer = field(default_factory=PerfTimer)
+    get_snapshots_for_dataset: PerfTimer = field(default_factory=PerfTimer)
 
 
 @dataclass
 class BigQueryAuditLogApiPerfReport(Report):
     get_exported_log_entries: PerfTimer = field(default_factory=PerfTimer)
     list_log_entries: PerfTimer = field(default_factory=PerfTimer)
+
+
+@dataclass
+class BigQueryProcessingPerfReport(Report):
+    sql_parsing_sec: PerfTimer = field(default_factory=PerfTimer)
+    store_usage_event_sec: PerfTimer = field(default_factory=PerfTimer)
+    usage_state_size: Optional[str] = None
 
 
 @dataclass
@@ -112,6 +120,8 @@ class BigQueryV2Report(ProfilingSqlReport, IngestionStageReport, BaseTimeWindowR
     num_usage_query_hash_collisions: int = 0
     num_operational_stats_workunits_emitted: int = 0
 
+    snapshots_scanned: int = 0
+
     num_view_definitions_parsed: int = 0
     num_view_definitions_failed_parsing: int = 0
     num_view_definitions_failed_column_parsing: int = 0
@@ -120,8 +130,6 @@ class BigQueryV2Report(ProfilingSqlReport, IngestionStageReport, BaseTimeWindowR
     read_reasons_stat: Counter[str] = field(default_factory=collections.Counter)
     operation_types_stat: Counter[str] = field(default_factory=collections.Counter)
 
-    usage_state_size: Optional[str] = None
-
     exclude_empty_projects: Optional[bool] = None
 
     schema_api_perf: BigQuerySchemaApiPerfReport = field(
@@ -129,6 +137,9 @@ class BigQueryV2Report(ProfilingSqlReport, IngestionStageReport, BaseTimeWindowR
     )
     audit_log_api_perf: BigQueryAuditLogApiPerfReport = field(
         default_factory=BigQueryAuditLogApiPerfReport
+    )
+    processing_perf: BigQueryProcessingPerfReport = field(
+        default_factory=BigQueryProcessingPerfReport
     )
 
     lineage_start_time: Optional[datetime] = None

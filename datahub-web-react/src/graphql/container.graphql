@@ -54,5 +54,13 @@ query getContainer($urn: String!) {
         status {
             removed
         }
+        autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
+            ...autoRenderAspectFields
+        }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
     }
 }

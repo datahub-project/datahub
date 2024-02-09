@@ -2,7 +2,6 @@ package com.linkedin.metadata.datahubusage;
 
 import lombok.Getter;
 
-
 @Getter
 public enum DataHubUsageEventType {
   PAGE_VIEW_EVENT("PageViewEvent"),
@@ -44,6 +43,7 @@ public enum DataHubUsageEventType {
   CREATE_RESET_CREDENTIALS_LINK_EVENT("CreateResetCredentialsLinkEvent"),
   DELETE_ENTITY_EVENT("DeleteEntityEvent"),
   SELECT_USER_ROLE_EVENT("SelectUserRoleEvent"),
+  SELECT_GROUP_ROLE_EVENT("SelectGroupRoleEvent"),
   BATCH_SELECT_USER_ROLE_EVENT("BatchSelectUserRoleEvent"),
   CREATE_POLICY_EVENT("CreatePolicyEvent"),
   UPDATE_POLICY_EVENT("UpdatePolicyEvent"),

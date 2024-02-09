@@ -20,6 +20,7 @@ import humanfriendly
 from google.cloud.datacatalog import lineage_v1
 from google.cloud.logging_v2.client import Client as GCPLoggingClient
 
+from datahub.configuration.pattern_utils import is_schema_allowed
 from datahub.emitter import mce_builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -36,7 +37,10 @@ from datahub.ingestion.source.bigquery_v2.bigquery_audit_log_api import (
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
-from datahub.ingestion.source.bigquery_v2.bigquery_schema import BigQuerySchemaApi
+from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
+    BigQuerySchemaApi,
+    BigqueryTableSnapshot,
+)
 from datahub.ingestion.source.bigquery_v2.common import BQ_DATETIME_FORMAT
 from datahub.ingestion.source.bigquery_v2.queries import (
     BQ_FILTER_RULE_TEMPLATE_V2_LINEAGE,
@@ -55,14 +59,11 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
 )
 from datahub.specific.dataset import DatasetPatchBuilder
+from datahub.sql_parsing.schema_resolver import SchemaResolver
+from datahub.sql_parsing.sqlglot_lineage import SqlParsingResult, sqlglot_lineage
 from datahub.utilities import memory_footprint
 from datahub.utilities.file_backed_collections import FileBackedDict
 from datahub.utilities.perf_timer import PerfTimer
-from datahub.utilities.sqlglot_lineage import (
-    SchemaResolver,
-    SqlParsingResult,
-    sqlglot_lineage,
-)
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -174,7 +175,7 @@ def make_lineage_edges_from_parsing_result(
             table_name = str(
                 BigQueryTableRef.from_bigquery_table(
                     BigqueryTableIdentifier.from_string_name(
-                        DatasetUrn.create_from_string(table_urn).get_dataset_name()
+                        DatasetUrn.from_string(table_urn).name
                     )
                 )
             )
@@ -195,6 +196,28 @@ def make_lineage_edges_from_parsing_result(
         )
 
     return list(table_edges.values())
+
+
+def make_lineage_edge_for_snapshot(
+    snapshot: BigqueryTableSnapshot,
+) -> Optional[LineageEdge]:
+    if snapshot.base_table_identifier:
+        base_table_name = str(
+            BigQueryTableRef.from_bigquery_table(snapshot.base_table_identifier)
+        )
+        return LineageEdge(
+            table=base_table_name,
+            column_mapping=frozenset(
+                LineageEdgeColumnMapping(
+                    out_column=column.field_path,
+                    in_columns=frozenset([column.field_path]),
+                )
+                for column in snapshot.columns
+            ),
+            auditStamp=datetime.now(timezone.utc),
+            type=DatasetLineageTypeClass.TRANSFORMED,
+        )
+    return None
 
 
 class BigqueryLineageExtractor:
@@ -255,27 +278,35 @@ class BigqueryLineageExtractor:
         sql_parser_schema_resolver: SchemaResolver,
         view_refs_by_project: Dict[str, Set[str]],
         view_definitions: FileBackedDict[str],
+        snapshot_refs_by_project: Dict[str, Set[str]],
+        snapshots_by_ref: FileBackedDict[BigqueryTableSnapshot],
         table_refs: Set[str],
     ) -> Iterable[MetadataWorkUnit]:
         if not self._should_ingest_lineage():
             return
-        views_skip_audit_log_lineage: Set[str] = set()
-        if self.config.lineage_parse_view_ddl:
-            view_lineage: Dict[str, Set[LineageEdge]] = {}
-            for project in projects:
+        datasets_skip_audit_log_lineage: Set[str] = set()
+        dataset_lineage: Dict[str, Set[LineageEdge]] = {}
+        for project in projects:
+            self.populate_snapshot_lineage(
+                dataset_lineage,
+                snapshot_refs_by_project[project],
+                snapshots_by_ref,
+            )
+
+            if self.config.lineage_parse_view_ddl:
                 self.populate_view_lineage_with_sql_parsing(
-                    view_lineage,
+                    dataset_lineage,
                     view_refs_by_project[project],
                     view_definitions,
                     sql_parser_schema_resolver,
                     project,
                 )
 
-                views_skip_audit_log_lineage.update(view_lineage.keys())
-                for lineage_key in view_lineage.keys():
-                    yield from self.gen_lineage_workunits_for_table(
-                        view_lineage, BigQueryTableRef.from_string_name(lineage_key)
-                    )
+            datasets_skip_audit_log_lineage.update(dataset_lineage.keys())
+            for lineage_key in dataset_lineage.keys():
+                yield from self.gen_lineage_workunits_for_table(
+                    dataset_lineage, BigQueryTableRef.from_string_name(lineage_key)
+                )
 
         if self.config.use_exported_bigquery_audit_metadata:
             projects = ["*"]  # project_id not used when using exported metadata
@@ -285,7 +316,7 @@ class BigqueryLineageExtractor:
             yield from self.generate_lineage(
                 project,
                 sql_parser_schema_resolver,
-                views_skip_audit_log_lineage,
+                datasets_skip_audit_log_lineage,
                 table_refs,
             )
 
@@ -299,7 +330,7 @@ class BigqueryLineageExtractor:
         self,
         project_id: str,
         sql_parser_schema_resolver: SchemaResolver,
-        views_skip_audit_log_lineage: Set[str],
+        datasets_skip_audit_log_lineage: Set[str],
         table_refs: Set[str],
     ) -> Iterable[MetadataWorkUnit]:
         logger.info(f"Generate lineage for {project_id}")
@@ -337,7 +368,7 @@ class BigqueryLineageExtractor:
             # as they may contain indirectly referenced tables.
             if (
                 lineage_key not in table_refs
-                or lineage_key in views_skip_audit_log_lineage
+                or lineage_key in datasets_skip_audit_log_lineage
             ):
                 continue
 
@@ -385,6 +416,17 @@ class BigqueryLineageExtractor:
                     lineage_type=DatasetLineageTypeClass.VIEW,
                 )
             )
+
+    def populate_snapshot_lineage(
+        self,
+        snapshot_lineage: Dict[str, Set[LineageEdge]],
+        snapshot_refs: Set[str],
+        snapshots_by_ref: FileBackedDict[BigqueryTableSnapshot],
+    ) -> None:
+        for snapshot in snapshot_refs:
+            lineage_edge = make_lineage_edge_for_snapshot(snapshots_by_ref[snapshot])
+            if lineage_edge:
+                snapshot_lineage[snapshot] = {lineage_edge}
 
     def gen_lineage_workunits_for_table(
         self, lineage: Dict[str, Set[LineageEdge]], table_ref: BigQueryTableRef
@@ -548,7 +590,7 @@ class BigqueryLineageExtractor:
         # handle the case where the read happens within our time range but the query
         # completion event is delayed and happens after the configured end time.
         corrected_start_time = self.start_time - self.config.max_query_duration
-        corrected_end_time = self.end_time + -self.config.max_query_duration
+        corrected_end_time = self.end_time + self.config.max_query_duration
         self.report.log_entry_start_time = corrected_start_time
         self.report.log_entry_end_time = corrected_end_time
 
@@ -683,8 +725,11 @@ class BigqueryLineageExtractor:
                 self.report.num_skipped_lineage_entries_missing_data[e.project_id] += 1
                 continue
 
-            if not self.config.dataset_pattern.allowed(
-                destination_table.table_identifier.dataset
+            if not is_schema_allowed(
+                self.config.dataset_pattern,
+                destination_table.table_identifier.dataset,
+                destination_table.table_identifier.project_id,
+                self.config.match_fully_qualified_names,
             ) or not self.config.table_pattern.allowed(
                 destination_table.table_identifier.get_table_name()
             ):
@@ -890,8 +935,8 @@ class BigqueryLineageExtractor:
             for entry in self.audit_log_api.get_bigquery_log_entries_via_gcp_logging(
                 gcp_logging_client,
                 filter=BQ_FILTER_RULE_TEMPLATE_V2_LINEAGE.format(
-                    self.start_time.strftime(BQ_DATETIME_FORMAT),
-                    self.end_time.strftime(BQ_DATETIME_FORMAT),
+                    start_time=self.start_time.strftime(BQ_DATETIME_FORMAT),
+                    end_time=self.end_time.strftime(BQ_DATETIME_FORMAT),
                 ),
                 log_page_size=self.config.log_page_size,
                 limit=1,

@@ -27,6 +27,7 @@ from typing import (
 
 import sqlalchemy as sa
 import sqlalchemy.sql.compiler
+from great_expectations.core.profiler_types_mapping import ProfilerTypeMapping
 from great_expectations.core.util import convert_to_json_serializable
 from great_expectations.data_context import AbstractDataContext, BaseDataContext
 from great_expectations.data_context.types.base import (
@@ -77,7 +78,25 @@ MYSQL = "mysql"
 SNOWFLAKE = "snowflake"
 BIGQUERY = "bigquery"
 REDSHIFT = "redshift"
+DATABRICKS = "databricks"
 TRINO = "trino"
+
+# Type names for Databricks, to match Title Case types in sqlalchemy
+ProfilerTypeMapping.INT_TYPE_NAMES.append("Integer")
+ProfilerTypeMapping.INT_TYPE_NAMES.append("SmallInteger")
+ProfilerTypeMapping.INT_TYPE_NAMES.append("BigInteger")
+ProfilerTypeMapping.FLOAT_TYPE_NAMES.append("Float")
+ProfilerTypeMapping.FLOAT_TYPE_NAMES.append("Numeric")
+ProfilerTypeMapping.STRING_TYPE_NAMES.append("String")
+ProfilerTypeMapping.STRING_TYPE_NAMES.append("Text")
+ProfilerTypeMapping.STRING_TYPE_NAMES.append("Unicode")
+ProfilerTypeMapping.STRING_TYPE_NAMES.append("UnicodeText")
+ProfilerTypeMapping.BOOLEAN_TYPE_NAMES.append("Boolean")
+ProfilerTypeMapping.DATETIME_TYPE_NAMES.append("Date")
+ProfilerTypeMapping.DATETIME_TYPE_NAMES.append("DateTime")
+ProfilerTypeMapping.DATETIME_TYPE_NAMES.append("Time")
+ProfilerTypeMapping.DATETIME_TYPE_NAMES.append("Interval")
+ProfilerTypeMapping.BINARY_TYPE_NAMES.append("LargeBinary")
 
 # The reason for this wacky structure is quite fun. GE basically assumes that
 # the config structures were generated directly from YML and further assumes that
@@ -406,22 +425,52 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
     def _get_dataset_column_min(
         self, column_profile: DatasetFieldProfileClass, column: str
     ) -> None:
-        if self.config.include_field_min_value:
+        if not self.config.include_field_min_value:
+            return
+        try:
             column_profile.min = str(self.dataset.get_column_min(column))
+        except Exception as e:
+            logger.debug(
+                f"Caught exception while attempting to get column min for column {column}. {e}"
+            )
+            self.report.report_warning(
+                "Profiling - Unable to get column min",
+                f"{self.dataset_name}.{column}",
+            )
 
     @_run_with_query_combiner
     def _get_dataset_column_max(
         self, column_profile: DatasetFieldProfileClass, column: str
     ) -> None:
-        if self.config.include_field_max_value:
+        if not self.config.include_field_max_value:
+            return
+        try:
             column_profile.max = str(self.dataset.get_column_max(column))
+        except Exception as e:
+            logger.debug(
+                f"Caught exception while attempting to get column max for column {column}. {e}"
+            )
+            self.report.report_warning(
+                "Profiling - Unable to get column max",
+                f"{self.dataset_name}.{column}",
+            )
 
     @_run_with_query_combiner
     def _get_dataset_column_mean(
         self, column_profile: DatasetFieldProfileClass, column: str
     ) -> None:
-        if self.config.include_field_mean_value:
+        if not self.config.include_field_mean_value:
+            return
+        try:
             column_profile.mean = str(self.dataset.get_column_mean(column))
+        except Exception as e:
+            logger.debug(
+                f"Caught exception while attempting to get column mean for column {column}. {e}"
+            )
+            self.report.report_warning(
+                "Profiling - Unable to get column mean",
+                f"{self.dataset_name}.{column}",
+            )
 
     @_run_with_query_combiner
     def _get_dataset_column_median(
@@ -629,7 +678,14 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
         self.query_combiner.flush()
 
         assert profile.rowCount is not None
-        row_count: int = profile.rowCount
+        row_count: int  # used for null counts calculation
+        if profile.partitionSpec and "SAMPLE" in profile.partitionSpec.partition:
+            # Querying exact row count of sample using `_get_dataset_rows`.
+            # We are not using `self.config.sample_size` directly as actual row count
+            # in sample may be slightly different (more or less) than configured `sample_size`.
+            self._get_dataset_rows(profile)
+
+        row_count = profile.rowCount
 
         for column_spec in columns_profiling_queue:
             column = column_spec.column
@@ -657,6 +713,9 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                         column_profile.uniqueProportion = min(
                             1, unique_count / non_null_count
                         )
+
+            if not profile.rowCount:
+                continue
 
             self._get_dataset_column_sample_values(column_profile, column)
 
@@ -781,7 +840,7 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
             sample_pc = 100 * self.config.sample_size / profile.rowCount
             sql = (
                 f"SELECT * FROM {str(self.dataset._table)} "
-                + f"TABLESAMPLE SYSTEM ({sample_pc:.3f} percent)"
+                + f"TABLESAMPLE SYSTEM ({sample_pc:.8f} percent)"
             )
             temp_table_name = create_bigquery_temp_table(
                 self,
@@ -1133,7 +1192,7 @@ class DatahubGEProfiler:
             },
         )
 
-        if platform == BIGQUERY:
+        if platform == BIGQUERY or platform == DATABRICKS:
             # This is done as GE makes the name as DATASET.TABLE
             # but we want it to be PROJECT.DATASET.TABLE instead for multi-project setups
             name_parts = pretty_name.split(".")
@@ -1222,9 +1281,13 @@ def create_bigquery_temp_table(
         # temporary table dance. However, that would require either a) upgrading to
         # use GE's batch v3 API or b) bypassing GE altogether.
 
-        query_job: Optional[
-            "google.cloud.bigquery.job.query.QueryJob"
-        ] = cursor._query_job
+        query_job: Optional["google.cloud.bigquery.job.query.QueryJob"] = (
+            # In google-cloud-bigquery 3.15.0, the _query_job attribute was
+            # made public and renamed to query_job.
+            cursor.query_job
+            if hasattr(cursor, "query_job")
+            else cursor._query_job  # type: ignore[attr-defined]
+        )
         assert query_job
         temp_destination_table = query_job.destination
         bigquery_temp_table = f"{temp_destination_table.project}.{temp_destination_table.dataset_id}.{temp_destination_table.table_id}"

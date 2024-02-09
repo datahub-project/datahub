@@ -1,6 +1,14 @@
 query getDataProduct($urn: String!) {
     dataProduct(urn: $urn) {
         ...dataProductFields
+        autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
+            ...autoRenderAspectFields
+        }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
     }
 }
 

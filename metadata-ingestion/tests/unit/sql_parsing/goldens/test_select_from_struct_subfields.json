@@ -1,5 +1,7 @@
 {
     "query_type": "SELECT",
+    "query_type_props": {},
+    "query_fingerprint": "eb98657e75b827086b921f27b2b468629b88a972e208ded05ce7478b494c6eb0",
     "in_tables": [
         "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-bq-proj.data_reporting.abcde_transformed,PROD)"
     ],
@@ -14,7 +16,7 @@
                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                     }
                 },
-                "native_column_type": "DECIMAL"
+                "native_column_type": "NUMERIC"
             },
             "upstreams": [
                 {

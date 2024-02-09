@@ -1,7 +1,9 @@
 import json
 import logging
 import os
+import pathlib
 import re
+import tempfile
 from typing import (
     Any,
     Callable,
@@ -16,6 +18,7 @@ from typing import (
 )
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.sink.file import write_metadata_file
 from datahub.metadata.schema_classes import MetadataChangeEventClass
 from datahub.testing.compare_metadata_json import (
     assert_metadata_files_equal,
@@ -88,6 +91,23 @@ def check_golden_file(
         copy_output=copy_output,
         ignore_paths=ignore_paths,
     )
+
+
+def check_goldens_stream(
+    pytestconfig: PytestConfig,
+    outputs: List,
+    golden_path: Union[str, os.PathLike],
+    ignore_paths: Sequence[str] = (),
+) -> None:
+    with tempfile.NamedTemporaryFile() as f:
+        write_metadata_file(pathlib.Path(f.name), outputs)
+
+        check_golden_file(
+            pytestconfig=pytestconfig,
+            output_path=f.name,
+            golden_path=golden_path,
+            ignore_paths=ignore_paths,
+        )
 
 
 def _get_field_for_entity_type_in_mce(entity_type: str) -> str:

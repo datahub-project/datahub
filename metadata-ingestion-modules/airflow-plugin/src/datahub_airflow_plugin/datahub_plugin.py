@@ -6,8 +6,8 @@ from airflow.plugins_manager import AirflowPlugin
 
 from datahub_airflow_plugin._airflow_compat import AIRFLOW_PATCHED
 from datahub_airflow_plugin._airflow_shims import (
-    HAS_AIRFLOW_DAG_LISTENER_API,
     HAS_AIRFLOW_LISTENER_API,
+    NEEDS_AIRFLOW_LISTENER_MODULE,
 )
 
 assert AIRFLOW_PATCHED
@@ -50,7 +50,7 @@ class DatahubPlugin(AirflowPlugin):
     name = "datahub_plugin"
 
     if _USE_AIRFLOW_LISTENER_INTERFACE:
-        if HAS_AIRFLOW_DAG_LISTENER_API:
+        if not NEEDS_AIRFLOW_LISTENER_MODULE:
             from datahub_airflow_plugin.datahub_listener import (  # type: ignore[misc]
                 get_airflow_plugin_listener,
             )
@@ -60,8 +60,6 @@ class DatahubPlugin(AirflowPlugin):
         else:
             # On Airflow < 2.5, we need the listener to be a module.
             # This is just a quick shim layer to make that work.
-            # The DAG listener API was added at the same time as this method
-            # was fixed, so we're reusing the same check variable.
             #
             # Related Airflow change: https://github.com/apache/airflow/pull/27113.
             import datahub_airflow_plugin._datahub_listener_module as _listener_module  # type: ignore[misc]

@@ -1,3 +1,4 @@
+import doctest
 import os
 
 import pytest
@@ -79,6 +80,17 @@ def test_github_branch():
         branch="main",
     )
     assert config.branch_for_clone == "main"
+
+
+def test_sanitize_repo_url():
+    import datahub.ingestion.source.git.git_import
+
+    assert (
+        doctest.testmod(
+            datahub.ingestion.source.git.git_import, raise_on_error=True
+        ).attempted
+        == 3
+    )
 
 
 def test_git_clone_public(tmp_path):

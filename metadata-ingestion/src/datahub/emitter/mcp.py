@@ -1,6 +1,6 @@
 import dataclasses
 import json
-from typing import TYPE_CHECKING, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, List, Optional, Sequence, Tuple, Union
 
 from datahub.emitter.aspect import ASPECT_MAP, JSON_CONTENT_TYPE, TIMESERIES_ASPECT_MAP
 from datahub.emitter.serialization_helper import post_json_transform, pre_json_transform
@@ -100,7 +100,7 @@ class MetadataChangeProposalWrapper:
 
     @classmethod
     def construct_many(
-        cls, entityUrn: str, aspects: List[Optional[_Aspect]]
+        cls, entityUrn: str, aspects: Sequence[Optional[_Aspect]]
     ) -> List["MetadataChangeProposalWrapper"]:
         return [cls(entityUrn=entityUrn, aspect=aspect) for aspect in aspects if aspect]
 
@@ -240,7 +240,7 @@ class MetadataChangeProposalWrapper:
         return mcp
 
     def as_workunit(
-        self, *, treat_errors_as_warnings: bool = False
+        self, *, treat_errors_as_warnings: bool = False, is_primary_source: bool = True
     ) -> "MetadataWorkUnit":
         from datahub.ingestion.api.workunit import MetadataWorkUnit
 
@@ -254,10 +254,12 @@ class MetadataChangeProposalWrapper:
                 id=f"{self.entityUrn}-{self.aspectName}-{ts}",
                 mcp=self,
                 treat_errors_as_warnings=treat_errors_as_warnings,
+                is_primary_source=is_primary_source,
             )
 
         return MetadataWorkUnit(
             id=f"{self.entityUrn}-{self.aspectName}",
             mcp=self,
             treat_errors_as_warnings=treat_errors_as_warnings,
+            is_primary_source=is_primary_source,
         )

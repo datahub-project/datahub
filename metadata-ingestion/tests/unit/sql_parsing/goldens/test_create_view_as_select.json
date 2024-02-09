@@ -1,5 +1,9 @@
 {
-    "query_type": "CREATE",
+    "query_type": "CREATE_VIEW",
+    "query_type_props": {
+        "kind": "VIEW"
+    },
+    "query_fingerprint": "00400d6c706790ec92f8f1a9fbe41e05573168b071f32f9dac714180c3ef3b86",
     "in_tables": [
         "urn:li:dataset:(urn:li:dataPlatform:oracle,scott.emp,PROD)"
     ],
@@ -30,7 +34,7 @@
                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                     }
                 },
-                "native_column_type": "BIGINT"
+                "native_column_type": "NUMBER"
             },
             "upstreams": []
         },

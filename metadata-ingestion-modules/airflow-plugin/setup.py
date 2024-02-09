@@ -14,20 +14,14 @@ def get_long_description():
     return pathlib.Path(os.path.join(root, "README.md")).read_text()
 
 
-_version = package_metadata["__version__"]
+_version: str = package_metadata["__version__"]
 _self_pin = f"=={_version}" if not _version.endswith("dev0") else ""
 
 
-rest_common = {"requests", "requests_file"}
-
 base_requirements = {
-    # Compatibility.
-    "dataclasses>=0.6; python_version < '3.7'",
-    "mypy_extensions>=0.4.3",
+    f"acryl-datahub[datahub-rest]{_self_pin}",
     # Actual dependencies.
-    "pydantic>=1.5.1",
     "apache-airflow >= 2.0.2",
-    *rest_common,
 }
 
 plugins: Dict[str, Set[str]] = {
@@ -42,9 +36,8 @@ plugins: Dict[str, Set[str]] = {
     },
     "plugin-v1": set(),
     "plugin-v2": {
-        # The v2 plugin requires Python 3.8+.
         f"acryl-datahub[sql-parser]{_self_pin}",
-        "openlineage-airflow==1.2.0; python_version >= '3.8'",
+        "openlineage-airflow==1.2.0",
     },
 }
 
@@ -101,6 +94,10 @@ integration_test_requirements = {
     f"acryl-datahub[testing-utils]{_self_pin}",
     # Extra requirements for loading our test dags.
     "apache-airflow[snowflake]>=2.0.2",
+    # Connexion's new version breaks Airflow:
+    # See https://github.com/apache/airflow/issues/35234.
+    # TODO: We should transition to using Airflow's constraints file.
+    "connexion<3",
     # https://github.com/snowflakedb/snowflake-sqlalchemy/issues/350
     # Eventually we want to set this to "snowflake-sqlalchemy>=1.4.3".
     # However, that doesn't work with older versions of Airflow. Instead
@@ -140,7 +137,6 @@ setuptools.setup(
         "Programming Language :: Python",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3 :: Only",
-        "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
@@ -157,7 +153,7 @@ setuptools.setup(
     ],
     # Package info.
     zip_safe=False,
-    python_requires=">=3.7",
+    python_requires=">=3.8",
     package_data={
         "datahub_airflow_plugin": ["py.typed"],
     },

@@ -74,8 +74,8 @@ class DataProcessInstance:
     )
 
     def __post_init__(self):
-        self.urn = DataProcessInstanceUrn.create_from_id(
-            dataprocessinstance_id=DataProcessInstanceKey(
+        self.urn = DataProcessInstanceUrn(
+            id=DataProcessInstanceKey(
                 cluster=self.cluster,
                 orchestrator=self.orchestrator,
                 id=self.id,
@@ -220,12 +220,10 @@ class DataProcessInstance:
             self._emit_mcp(mcp, emitter, callback)
 
     def generate_mcp(
-        self, created_ts_millis: Optional[int] = None
+        self, created_ts_millis: Optional[int] = None, materialize_iolets: bool = True
     ) -> Iterable[MetadataChangeProposalWrapper]:
-        """
-        Generates mcps from the object
-        :rtype: Iterable[MetadataChangeProposalWrapper]
-        """
+        """Generates mcps from the object"""
+
         mcp = MetadataChangeProposalWrapper(
             entityUrn=str(self.urn),
             aspect=DataProcessInstanceProperties(
@@ -253,7 +251,7 @@ class DataProcessInstance:
         )
         yield mcp
 
-        yield from self.generate_inlet_outlet_mcp()
+        yield from self.generate_inlet_outlet_mcp(materialize_iolets=materialize_iolets)
 
     @staticmethod
     def _emit_mcp(
@@ -329,7 +327,9 @@ class DataProcessInstance:
         dpi._template_object = dataflow
         return dpi
 
-    def generate_inlet_outlet_mcp(self) -> Iterable[MetadataChangeProposalWrapper]:
+    def generate_inlet_outlet_mcp(
+        self, materialize_iolets: bool
+    ) -> Iterable[MetadataChangeProposalWrapper]:
         if self.inlets:
             mcp = MetadataChangeProposalWrapper(
                 entityUrn=str(self.urn),
@@ -349,10 +349,9 @@ class DataProcessInstance:
             yield mcp
 
         # Force entity materialization
-        for iolet in self.inlets + self.outlets:
-            mcp = MetadataChangeProposalWrapper(
-                entityUrn=str(iolet),
-                aspect=StatusClass(removed=False),
-            )
-
-            yield mcp
+        if materialize_iolets:
+            for iolet in self.inlets + self.outlets:
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=str(iolet),
+                    aspect=StatusClass(removed=False),
+                )

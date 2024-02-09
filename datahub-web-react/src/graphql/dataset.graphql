@@ -112,13 +112,7 @@ fragment nonSiblingDatasetFields on Dataset {
     }
     ...viewProperties
     autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
-        aspectName
-        payload
-        renderSpec {
-            displayType
-            displayName
-            key
-        }
+        ...autoRenderAspectFields
     }
     status {
         removed
@@ -173,6 +167,27 @@ fragment nonSiblingDatasetFields on Dataset {
         canEditLineage
         canEditEmbed
         canEditQueries
+    }
+    forms {
+        completedForms {
+            ...formAssociationFields
+        }
+        incompleteForms {
+            ...formAssociationFields
+        }
+        verifications {
+            form {
+                urn
+            }
+            lastModified {
+                time
+                actor {
+                    urn
+                    type
+                    ...entityDisplayNameFields
+                }
+            }
+        }
     }
 }
 

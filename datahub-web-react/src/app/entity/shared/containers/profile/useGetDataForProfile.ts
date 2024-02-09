@@ -32,6 +32,7 @@ export default function useGetDataForProfile<T>({ urn, entityType, useEntityQuer
         refetch,
     } = useEntityQuery({
         variables: { urn },
+        fetchPolicy: 'cache-first',
     });
 
     const dataPossiblyCombinedWithSiblings = isHideSiblingMode

@@ -13,7 +13,7 @@ import { Button, Dropdown, Menu, Tooltip } from 'antd';
 import { useAppConfig } from '../../useAppConfig';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import { HOME_PAGE_INGESTION_ID } from '../../onboarding/config/HomePageOnboardingConfig';
-import { useUpdateEducationStepIdsAllowlist } from '../../onboarding/useUpdateEducationStepIdsAllowlist';
+import { useToggleEducationStepIdsAllowList } from '../../onboarding/useToggleEducationStepIdsAllowList';
 import { useUserContext } from '../../context/useUserContext';
 import DomainIcon from '../../domain/DomainIcon';
 
@@ -73,9 +73,8 @@ export function HeaderLinks(props: Props) {
     const showSettings = true;
     const showIngestion =
         isIngestionEnabled && me && me.platformPrivileges?.manageIngestion && me.platformPrivileges?.manageSecrets;
-    const showDomains = me?.platformPrivileges?.createDomains || me?.platformPrivileges?.manageDomains;
 
-    useUpdateEducationStepIdsAllowlist(!!showIngestion, HOME_PAGE_INGESTION_ID);
+    useToggleEducationStepIdsAllowList(!!showIngestion, HOME_PAGE_INGESTION_ID);
 
     return (
         <LinksWrapper areLinksHidden={areLinksHidden}>
@@ -106,22 +105,20 @@ export function HeaderLinks(props: Props) {
                                 <NavTitleDescription>View and modify your data dictionary</NavTitleDescription>
                             </Link>
                         </MenuItem>
-                        {showDomains && (
-                            <MenuItem key="1">
-                                <Link to="/domains">
-                                    <NavTitleContainer>
-                                        <DomainIcon
-                                            style={{
-                                                fontSize: 14,
-                                                fontWeight: 'bold',
-                                            }}
-                                        />
-                                        <NavTitleText>Domains</NavTitleText>
-                                    </NavTitleContainer>
-                                    <NavTitleDescription>Manage related groups of data assets</NavTitleDescription>
-                                </Link>
-                            </MenuItem>
-                        )}
+                        <MenuItem key="1">
+                            <Link to="/domains">
+                                <NavTitleContainer>
+                                    <DomainIcon
+                                        style={{
+                                            fontSize: 14,
+                                            fontWeight: 'bold',
+                                        }}
+                                    />
+                                    <NavTitleText>Domains</NavTitleText>
+                                </NavTitleContainer>
+                                <NavTitleDescription>Manage related groups of data assets</NavTitleDescription>
+                            </Link>
+                        </MenuItem>
                     </Menu>
                 }
             >

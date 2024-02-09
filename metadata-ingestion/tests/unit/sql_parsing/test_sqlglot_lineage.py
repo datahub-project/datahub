@@ -33,8 +33,7 @@ FROM mytable
                 "col2": "NUMBER",
             },
         },
-        # Shared with the test above.
-        expected_file=RESOURCE_DIR / "test_select_max.json",
+        expected_file=RESOURCE_DIR / "test_select_max_with_schema.json",
     )
 
 
@@ -131,6 +130,16 @@ limit 100;
 """,
         dialect="hive",
         expected_file=RESOURCE_DIR / "test_insert_as_select.json",
+    )
+
+
+def test_insert_with_column_list():
+    assert_sql_result(
+        """\
+insert into downstream (a, c) select a, c from upstream2
+""",
+        dialect="redshift",
+        expected_file=RESOURCE_DIR / "test_insert_with_column_list.json",
     )
 
 
@@ -629,6 +638,84 @@ LIMIT 10
     )
 
 
+def test_snowflake_unused_cte():
+    # For this, we expect table level lineage to include table1, but CLL should not.
+    assert_sql_result(
+        """
+WITH cte1 AS (
+    SELECT col1, col2
+    FROM table1
+    WHERE col1 = 'value1'
+), cte2 AS (
+    SELECT col3, col4
+    FROM table2
+    WHERE col2 = 'value2'
+)
+SELECT cte1.col1, table3.col6
+FROM cte1
+JOIN table3 ON table3.col5 = cte1.col2
+""",
+        dialect="snowflake",
+        expected_file=RESOURCE_DIR / "test_snowflake_unused_cte.json",
+    )
+
+
+def test_snowflake_cte_name_collision():
+    # In this example, output col1 should come from table3 and not table1, since the cte is unused.
+    # We'll still generate table-level lineage that includes table1.
+    assert_sql_result(
+        """
+WITH cte_alias AS (
+    SELECT col1, col2
+    FROM table1
+)
+SELECT table2.col2, cte_alias.col1
+FROM table2
+JOIN table3 AS cte_alias ON cte_alias.col2 = cte_alias.col2
+""",
+        dialect="snowflake",
+        default_db="my_db",
+        default_schema="my_schema",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.table1,PROD)": {
+                "col1": "NUMBER(38,0)",
+                "col2": "VARCHAR(16777216)",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.table2,PROD)": {
+                "col2": "VARCHAR(16777216)",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.table3,PROD)": {
+                "col1": "VARCHAR(16777216)",
+                "col2": "VARCHAR(16777216)",
+            },
+        },
+        expected_file=RESOURCE_DIR / "test_snowflake_cte_name_collision.json",
+    )
+
+
+def test_snowflake_full_table_name_col_reference():
+    assert_sql_result(
+        """
+SELECT
+    my_db.my_schema.my_table.id,
+    case when my_db.my_schema.my_table.id > 100 then 1 else 0 end as id_gt_100,
+    my_db.my_schema.my_table.struct_field.field1 as struct_field1,
+FROM my_db.my_schema.my_table
+""",
+        dialect="snowflake",
+        default_db="my_db",
+        default_schema="my_schema",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.my_db.my_schema.my_table,PROD)": {
+                "id": "NUMBER(38,0)",
+                "struct_field": "struct",
+            },
+        },
+        expected_file=RESOURCE_DIR
+        / "test_snowflake_full_table_name_col_reference.json",
+    )
+
+
 # TODO: Add a test for setting platform_instance or env
 
 
@@ -671,4 +758,273 @@ create table demo_user.test_lineage2 as
             },
         },
         expected_file=RESOURCE_DIR / "test_teradata_default_normalization.json",
+    )
+
+
+def test_teradata_strange_operators():
+    # This is a test for the following operators:
+    # - `SEL` (select)
+    # - `EQ` (equals)
+    # - `MINUS` (except)
+    assert_sql_result(
+        """
+sel col1, col2 from dbc.table1
+where col1 eq 'value1'
+minus
+select col1, col2 from dbc.table2
+""",
+        dialect="teradata",
+        default_schema="dbc",
+        expected_file=RESOURCE_DIR / "test_teradata_strange_operators.json",
+    )
+
+
+@pytest.mark.skip("sqlglot doesn't support this cast syntax yet")
+def test_teradata_cast_syntax():
+    assert_sql_result(
+        """
+SELECT my_table.date_col MONTH(4) AS month_col
+FROM my_table
+""",
+        dialect="teradata",
+        default_schema="dbc",
+        expected_file=RESOURCE_DIR / "test_teradata_cast_syntax.json",
+    )
+
+
+def test_snowflake_update_hardcoded():
+    assert_sql_result(
+        """
+UPDATE snowflake_sample_data.tpch_sf1.orders
+SET orderkey = 1, totalprice = 2
+WHERE orderkey = 3
+""",
+        dialect="snowflake",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_sample_data.tpch_sf1.orders,PROD)": {
+                "orderkey": "NUMBER(38,0)",
+                "totalprice": "NUMBER(12,2)",
+            },
+        },
+        expected_file=RESOURCE_DIR / "test_snowflake_update_hardcoded.json",
+    )
+
+
+def test_snowflake_update_from_table():
+    # Can create these tables with the following SQL:
+    """
+    -- Create or replace my_table
+    CREATE OR REPLACE TABLE my_table (
+        id INT IDENTITY PRIMARY KEY,
+        col1 VARCHAR(50),
+        col2 VARCHAR(50)
+    );
+
+    -- Create or replace table1
+    CREATE OR REPLACE TABLE table1 (
+        id INT IDENTITY PRIMARY KEY,
+        col1 VARCHAR(50),
+        col2 VARCHAR(50)
+    );
+
+    -- Create or replace table2
+    CREATE OR REPLACE TABLE table2 (
+        id INT IDENTITY PRIMARY KEY,
+        col2 VARCHAR(50)
+    );
+
+    -- Insert data into my_table
+    INSERT INTO my_table (col1, col2)
+    VALUES ('foo', 'bar'),
+           ('baz', 'qux');
+
+    -- Insert data into table1
+    INSERT INTO table1 (col1, col2)
+    VALUES ('foo', 'bar'),
+           ('baz', 'qux');
+
+    -- Insert data into table2
+    INSERT INTO table2 (col2)
+    VALUES ('bar'),
+           ('qux');
+    """
+
+    assert_sql_result(
+        """
+UPDATE my_table
+SET
+    col1 = t1.col1 || t1.col2,
+    col2 = t1.col1 || t2.col2
+FROM table1 t1
+JOIN table2 t2 ON t1.id = t2.id
+WHERE my_table.id = t1.id;
+""",
+        dialect="snowflake",
+        default_db="my_db",
+        default_schema="my_schema",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.my_table,PROD)": {
+                "id": "NUMBER(38,0)",
+                "col1": "VARCHAR(16777216)",
+                "col2": "VARCHAR(16777216)",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.table1,PROD)": {
+                "id": "NUMBER(38,0)",
+                "col1": "VARCHAR(16777216)",
+                "col2": "VARCHAR(16777216)",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.table2,PROD)": {
+                "id": "NUMBER(38,0)",
+                "col1": "VARCHAR(16777216)",
+                "col2": "VARCHAR(16777216)",
+            },
+        },
+        expected_file=RESOURCE_DIR / "test_snowflake_update_from_table.json",
+    )
+
+
+def test_snowflake_update_self():
+    assert_sql_result(
+        """
+UPDATE snowflake_sample_data.tpch_sf1.orders
+SET orderkey = orderkey + 1
+""",
+        dialect="snowflake",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_sample_data.tpch_sf1.orders,PROD)": {
+                "orderkey": "NUMBER(38,0)",
+                "totalprice": "NUMBER(12,2)",
+            },
+        },
+        expected_file=RESOURCE_DIR / "test_snowflake_update_self.json",
+    )
+
+
+def test_postgres_select_subquery():
+    assert_sql_result(
+        """
+SELECT
+    a,
+    b,
+    (SELECT c FROM table2 WHERE table2.id = table1.id) as c
+FROM table1
+""",
+        dialect="postgres",
+        default_db="my_db",
+        default_schema="my_schema",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.table1,PROD)": {
+                "id": "INTEGER",
+                "a": "INTEGER",
+                "b": "INTEGER",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.table2,PROD)": {
+                "id": "INTEGER",
+                "c": "INTEGER",
+            },
+        },
+        expected_file=RESOURCE_DIR / "test_postgres_select_subquery.json",
+    )
+
+
+@pytest.mark.skip(reason="We can't parse column-list syntax with sub-selects yet")
+def test_postgres_update_subselect():
+    assert_sql_result(
+        """
+UPDATE accounts SET sales_person_name =
+    (SELECT name FROM employees
+     WHERE employees.id = accounts.sales_person_id)
+""",
+        dialect="postgres",
+        default_db="my_db",
+        default_schema="my_schema",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.accounts,PROD)": {
+                "id": "INTEGER",
+                "sales_person_id": "INTEGER",
+                "sales_person_name": "VARCHAR(16777216)",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.employees,PROD)": {
+                "id": "INTEGER",
+                "name": "VARCHAR(16777216)",
+            },
+        },
+        expected_file=RESOURCE_DIR / "test_postgres_update_subselect.json",
+    )
+
+
+@pytest.mark.skip(reason="We can't parse column-list syntax with sub-selects yet")
+def test_postgres_complex_update():
+    # Example query from the postgres docs:
+    # https://www.postgresql.org/docs/current/sql-update.html
+    assert_sql_result(
+        """
+UPDATE accounts SET (contact_first_name, contact_last_name) =
+    (SELECT first_name, last_name FROM employees
+     WHERE employees.id = accounts.sales_person);
+""",
+        dialect="postgres",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.accounts,PROD)": {
+                "id": "INTEGER",
+                "contact_first_name": "VARCHAR(16777216)",
+                "contact_last_name": "VARCHAR(16777216)",
+                "sales_person": "INTEGER",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.employees,PROD)": {
+                "id": "INTEGER",
+                "first_name": "VARCHAR(16777216)",
+                "last_name": "VARCHAR(16777216)",
+            },
+        },
+        expected_file=RESOURCE_DIR / "test_postgres_complex_update.json",
+    )
+
+
+def test_redshift_materialized_view_auto_refresh():
+    # Example query from the redshift docs: https://docs.aws.amazon.com/prescriptive-guidance/latest/materialized-views-redshift/refreshing-materialized-views.html
+    assert_sql_result(
+        """
+CREATE MATERIALIZED VIEW mv_total_orders
+AUTO REFRESH YES -- Add this clause to auto refresh the MV
+AS
+ SELECT c.cust_id,
+        c.first_name,
+        sum(o.amount) as total_amount
+ FROM orders o
+ JOIN customer c
+    ON c.cust_id = o.customer_id
+ GROUP BY c.cust_id,
+          c.first_name;
+""",
+        dialect="redshift",
+        expected_file=RESOURCE_DIR
+        / "test_redshift_materialized_view_auto_refresh.json",
+    )
+
+
+def test_redshift_temp_table_shortcut():
+    # On redshift, tables starting with # are temporary tables.
+    assert_sql_result(
+        """
+CREATE TABLE #my_custom_name
+distkey (1)
+sortkey (1,2)
+AS
+WITH cte AS (
+SELECT *
+FROM other_schema.table1
+)
+SELECT * FROM cte
+""",
+        dialect="redshift",
+        default_db="my_db",
+        default_schema="my_schema",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:redshift,my_db.other_schema.table1,PROD)": {
+                "col1": "INTEGER",
+                "col2": "INTEGER",
+            },
+        },
+        expected_file=RESOURCE_DIR / "test_redshift_temp_table_shortcut.json",
     )

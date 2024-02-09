@@ -147,6 +147,7 @@ export class DataJobEntity implements Entity<DataJob> {
             <Preview
                 urn={data.urn}
                 name={data.properties?.name || ''}
+                subType={data.subTypes?.typeNames?.[0]}
                 description={data.editableProperties?.description || data.properties?.description}
                 platformName={getDataJobPlatformName(data)}
                 platformLogo={data?.dataFlow?.platform?.properties?.logoUrl || ''}
@@ -166,6 +167,7 @@ export class DataJobEntity implements Entity<DataJob> {
             <Preview
                 urn={data.urn}
                 name={data.properties?.name || ''}
+                subType={data.subTypes?.typeNames?.[0]}
                 description={data.editableProperties?.description || data.properties?.description}
                 platformName={getDataJobPlatformName(data)}
                 platformLogo={data?.dataFlow?.platform?.properties?.logoUrl || ''}

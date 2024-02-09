@@ -19,4 +19,4 @@ The key in this map must be string, not integer although  Metabase API provides 
 If `database_id_to_instance_map` is not specified, `platform_instance_map` is used for platform instance mapping. If none of the above are specified, platform instance is not used when constructing `urn` when searching for dataset relations.
 ## Compatibility
 
-Metabase version [v0.41.2](https://www.metabase.com/start/oss/)
+Metabase version [v0.48.3](https://www.metabase.com/start/oss/)

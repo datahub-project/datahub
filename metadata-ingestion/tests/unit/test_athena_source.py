@@ -9,7 +9,7 @@ from sqlalchemy_bigquery import STRUCT
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.aws.s3_util import make_s3_urn
 from datahub.ingestion.source.sql.athena import CustomAthenaRestDialect
-from datahub.ingestion.source.sql.sql_types import MapType
+from datahub.utilities.sqlalchemy_type_converter import MapType
 
 FROZEN_TIME = "2020-04-14 07:00:00"
 
@@ -166,7 +166,6 @@ def test_get_column_type_map():
 
 
 def test_column_type_struct():
-
     result = CustomAthenaRestDialect()._get_column_type(type_="struct<test:string>")
 
     assert isinstance(result, STRUCT)
@@ -175,8 +174,15 @@ def test_column_type_struct():
     assert isinstance(result._STRUCT_fields[0][1], types.String)
 
 
-def test_column_type_complex_combination():
+def test_column_type_decimal():
+    result = CustomAthenaRestDialect()._get_column_type(type_="decimal(10,2)")
 
+    assert isinstance(result, types.DECIMAL)
+    assert 10 == result.precision
+    assert 2 == result.scale
+
+
+def test_column_type_complex_combination():
     result = CustomAthenaRestDialect()._get_column_type(
         type_="struct<id:string,name:string,choices:array<struct<id:string,label:string>>>"
     )

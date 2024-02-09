@@ -6,7 +6,6 @@ import java.util.Optional;
 import javax.annotation.Nonnull;
 import lombok.Value;
 
-
 @Value
 public class GitVersion {
   String version;

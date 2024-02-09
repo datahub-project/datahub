@@ -228,7 +228,7 @@ http://localhost:8080/openapi/timeline/v1/urn%3Ali%3Adataset%3A%28urn%3Ali%3Adat
 	REMOVE GLOSSARY_TERM dataset:hive:testTimelineDataset (urn:li:glossaryTerm:SavingsAccount): The GlossaryTerm 'SavingsAccount' for the entity 'urn:li:dataset:(urn:li:dataPlatform:hive,testTimelineDataset,PROD)' has been removed.
 ```
 
-# Explore the API
+## Explore the API
 
 The API is browse-able via the UI through through the dropdown.
 Here are a few screenshots showing how to navigate to it. You can try out the API and send example requests.
@@ -243,7 +243,7 @@ Here are a few screenshots showing how to navigate to it. You can try out the AP
 </p>
 
 
-# Future Work
+## Future Work
 
 - Supporting versions as start and end parameters as part of the call to the timeline API
 - Supporting entities beyond Datasets

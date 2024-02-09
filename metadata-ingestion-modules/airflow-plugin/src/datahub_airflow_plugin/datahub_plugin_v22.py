@@ -18,11 +18,16 @@ from datahub_airflow_plugin._airflow_shims import (
 )
 from datahub_airflow_plugin._config import get_lineage_config
 from datahub_airflow_plugin.client.airflow_generator import AirflowGenerator
+from datahub_airflow_plugin.entities import (
+    entities_to_datajob_urn_list,
+    entities_to_dataset_urn_list,
+)
 from datahub_airflow_plugin.hooks.datahub import DatahubGenericHook
 from datahub_airflow_plugin.lineage.datahub import DatahubLineageConfig
 
 TASK_ON_FAILURE_CALLBACK = "on_failure_callback"
 TASK_ON_SUCCESS_CALLBACK = "on_success_callback"
+TASK_ON_RETRY_CALLBACK = "on_retry_callback"
 
 
 def get_task_inlets_advanced(task: BaseOperator, context: Any) -> Iterable[Any]:
@@ -93,7 +98,8 @@ def datahub_task_status_callback(context, status):
 
     # This code is from the original airflow lineage code ->
     # https://github.com/apache/airflow/blob/main/airflow/lineage/__init__.py
-    inlets = get_task_inlets_advanced(task, context)
+    task_inlets = get_task_inlets_advanced(task, context)
+    task_outlets = get_task_outlets(task)
 
     emitter = (
         DatahubGenericHook(config.datahub_conn_id).get_underlying_hook().make_emitter()
@@ -114,14 +120,17 @@ def datahub_task_status_callback(context, status):
         dag=dag,
         capture_tags=config.capture_tags_info,
         capture_owner=config.capture_ownership_info,
+        config=config,
     )
-
-    for inlet in inlets:
-        datajob.inlets.append(inlet.urn)
-
-    task_outlets = get_task_outlets(task)
-    for outlet in task_outlets:
-        datajob.outlets.append(outlet.urn)
+    datajob.inlets.extend(
+        entities_to_dataset_urn_list([let.urn for let in task_inlets])
+    )
+    datajob.outlets.extend(
+        entities_to_dataset_urn_list([let.urn for let in task_outlets])
+    )
+    datajob.upstream_urns.extend(
+        entities_to_datajob_urn_list([let.urn for let in task_inlets])
+    )
 
     task.log.info(f"Emitting Datahub Datajob: {datajob}")
     datajob.emit(emitter, callback=_make_emit_callback(task.log))
@@ -135,6 +144,7 @@ def datahub_task_status_callback(context, status):
             dag_run=context["dag_run"],
             datajob=datajob,
             start_timestamp_millis=int(ti.start_date.timestamp() * 1000),
+            config=config,
         )
 
         task.log.info(f"Emitted Start Datahub Dataprocess Instance: {dpi}")
@@ -168,7 +178,8 @@ def datahub_pre_execution(context):
 
     # This code is from the original airflow lineage code ->
     # https://github.com/apache/airflow/blob/main/airflow/lineage/__init__.py
-    inlets = get_task_inlets_advanced(task, context)
+    task_inlets = get_task_inlets_advanced(task, context)
+    task_outlets = get_task_outlets(task)
 
     datajob = AirflowGenerator.generate_datajob(
         cluster=config.cluster,
@@ -176,15 +187,17 @@ def datahub_pre_execution(context):
         dag=dag,
         capture_tags=config.capture_tags_info,
         capture_owner=config.capture_ownership_info,
+        config=config,
     )
-
-    for inlet in inlets:
-        datajob.inlets.append(inlet.urn)
-
-    task_outlets = get_task_outlets(task)
-
-    for outlet in task_outlets:
-        datajob.outlets.append(outlet.urn)
+    datajob.inlets.extend(
+        entities_to_dataset_urn_list([let.urn for let in task_inlets])
+    )
+    datajob.outlets.extend(
+        entities_to_dataset_urn_list([let.urn for let in task_outlets])
+    )
+    datajob.upstream_urns.extend(
+        entities_to_datajob_urn_list([let.urn for let in task_inlets])
+    )
 
     task.log.info(f"Emitting Datahub dataJob {datajob}")
     datajob.emit(emitter, callback=_make_emit_callback(task.log))
@@ -198,6 +211,7 @@ def datahub_pre_execution(context):
             dag_run=context["dag_run"],
             datajob=datajob,
             start_timestamp_millis=int(ti.start_date.timestamp() * 1000),
+            config=config,
         )
 
         task.log.info(f"Emitting Datahub Dataprocess Instance: {dpi}")
@@ -259,6 +273,28 @@ def _wrap_on_success_callback(on_success_callback):
     return custom_on_success_callback
 
 
+def _wrap_on_retry_callback(on_retry_callback):
+    def custom_on_retry_callback(context):
+        config = get_lineage_config()
+        if config.enabled:
+            context["_datahub_config"] = config
+            try:
+                datahub_task_status_callback(
+                    context, status=InstanceRunResult.UP_FOR_RETRY
+                )
+            except Exception as e:
+                if not config.graceful_exceptions:
+                    raise e
+                else:
+                    print(f"Exception: {traceback.format_exc()}")
+
+        # Call original policy
+        if on_retry_callback:
+            on_retry_callback(context)
+
+    return custom_on_retry_callback
+
+
 def task_policy(task: Union[BaseOperator, MappedOperator]) -> None:
     task.log.debug(f"Setting task policy for Dag: {task.dag_id} Task: {task.task_id}")
     # task.add_inlets(["auto"])
@@ -274,7 +310,14 @@ def task_policy(task: Union[BaseOperator, MappedOperator]) -> None:
         on_success_callback_prop: property = getattr(
             MappedOperator, TASK_ON_SUCCESS_CALLBACK
         )
-        if not on_failure_callback_prop.fset or not on_success_callback_prop.fset:
+        on_retry_callback_prop: property = getattr(
+            MappedOperator, TASK_ON_RETRY_CALLBACK
+        )
+        if (
+            not on_failure_callback_prop.fset
+            or not on_success_callback_prop.fset
+            or not on_retry_callback_prop.fset
+        ):
             task.log.debug(
                 "Using MappedOperator's partial_kwargs instead of callback properties"
             )
@@ -284,10 +327,14 @@ def task_policy(task: Union[BaseOperator, MappedOperator]) -> None:
             task.partial_kwargs[TASK_ON_SUCCESS_CALLBACK] = _wrap_on_success_callback(
                 task.on_success_callback
             )
+            task.partial_kwargs[TASK_ON_RETRY_CALLBACK] = _wrap_on_retry_callback(
+                task.on_retry_callback
+            )
             return
 
     task.on_failure_callback = _wrap_on_failure_callback(task.on_failure_callback)  # type: ignore
     task.on_success_callback = _wrap_on_success_callback(task.on_success_callback)  # type: ignore
+    task.on_retry_callback = _wrap_on_retry_callback(task.on_retry_callback)  # type: ignore
     # task.pre_execute = _wrap_pre_execution(task.pre_execute)
 
 

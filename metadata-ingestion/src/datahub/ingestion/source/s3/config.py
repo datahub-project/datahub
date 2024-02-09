@@ -93,6 +93,11 @@ class DataLakeSourceConfig(
         "path_spec", "path_specs", lambda path_spec: [path_spec]
     )
 
+    sort_schema_fields: bool = Field(
+        default=False,
+        description="Whether to sort schema fields by fieldPath when inferring schemas.",
+    )
+
     def is_profiling_enabled(self) -> bool:
         return self.profiling.enabled and is_profiling_enabled(
             self.profiling.operation_config
@@ -144,7 +149,7 @@ class DataLakeSourceConfig(
             raise ValueError("platform must not be empty")
         return platform
 
-    @pydantic.root_validator()
+    @pydantic.root_validator(skip_on_failure=True)
     def ensure_profiling_pattern_is_passed_to_profiling(
         cls, values: Dict[str, Any]
     ) -> Dict[str, Any]:

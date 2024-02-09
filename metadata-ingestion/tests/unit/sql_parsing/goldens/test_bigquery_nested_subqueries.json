@@ -1,5 +1,7 @@
 {
     "query_type": "SELECT",
+    "query_type_props": {},
+    "query_fingerprint": "4a9acda021e0e969af81bf41690fcb383e0e1009e1716945087cb92d90a137b8",
     "in_tables": [
         "urn:li:dataset:(urn:li:dataPlatform:bigquery,bq-proj.dataset.table1,PROD)"
     ],
@@ -14,7 +16,7 @@
                         "com.linkedin.pegasus2avro.schema.StringType": {}
                     }
                 },
-                "native_column_type": "TEXT"
+                "native_column_type": "STRING"
             },
             "upstreams": [
                 {
@@ -32,7 +34,7 @@
                         "com.linkedin.pegasus2avro.schema.StringType": {}
                     }
                 },
-                "native_column_type": "TEXT"
+                "native_column_type": "STRING"
             },
             "upstreams": [
                 {

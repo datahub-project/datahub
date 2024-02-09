@@ -13,6 +13,13 @@ module.exports = {
   projectName: "datahub", // Usually your repo name.
   staticDirectories: ["static", "genStatic"],
   stylesheets: ["https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700&display=swap"],
+  scripts: [
+    {
+      src: "https://tools.luckyorange.com/core/lo.js?site-id=28ea8a38",
+      async: true,
+      defer: true,
+    },
+  ],
   noIndex: isSaas,
   customFields: {
     isSaas: isSaas,
@@ -50,43 +57,63 @@ module.exports = {
           position: "right",
         },
         {
-          to: "https://demo.datahubproject.io/",
-          label: "Demo",
+          type: "dropdown",
+          label: "Community",
           position: "right",
+          items: [
+            {
+              to: "/slack",
+              label: "Join Slack",
+            },
+            {
+              to: "/events",
+              label: "Events",
+            },
+            {
+              to: "/champions",
+              label: "Champions",
+            },
+          ],
         },
         {
-          href: "https://blog.datahubproject.io/",
-          label: "Blog",
+          type: "dropdown",
+          label: "Resources",
           position: "right",
-        },
-        {
-          href: "https://feature-requests.datahubproject.io/roadmap",
-          label: "Roadmap",
-          position: "right",
+          items: [
+            {
+              href: "https://demo.datahubproject.io/",
+              label: "Demo",
+            },
+            {
+              href: "https://www.acryldata.io/blog",
+              label: "Blog",
+            },
+            {
+              href: "https://feature-requests.datahubproject.io/roadmap",
+              label: "Roadmap",
+            },
+            {
+              href: "https://github.com/datahub-project/datahub",
+              label: "GitHub",
+            },
+            {
+              href: "https://www.youtube.com/channel/UC3qFQC5IiwR5fvWEqi_tJ5w",
+              label: "YouTube",
+            },
+            {
+              href: "https://www.youtube.com/playlist?list=PLdCtLs64vZvGCKMQC2dJEZ6cUqWsREbFi",
+              label: "Case Studies",
+            },
+            {
+              href: "https://www.youtube.com/playlist?list=PLdCtLs64vZvErAXMiqUYH9e63wyDaMBgg",
+              label: "DataHub Basics",
+            },
+          ],
         },
         {
           type: "docsVersionDropdown",
-          position: "right",
+          position: "left",
           dropdownActiveClassDisabled: true,
-        },
-        {
-          href: "https://slack.datahubproject.io",
-          "aria-label": "Slack",
-          position: "right",
-          className: "item__icon item__slack",
-        },
-        {
-          href: "https://github.com/datahub-project/datahub",
-          "aria-label": "GitHub",
-          position: "right",
-          className: "item__icon item__github",
-        },
-
-        {
-          href: "https://www.youtube.com/channel/UC3qFQC5IiwR5fvWEqi_tJ5w",
-          "aria-label": "YouTube",
-          position: "right",
-          className: "item__icon item__youtube",
         },
       ],
     },

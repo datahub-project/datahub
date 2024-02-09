@@ -1,8 +1,3 @@
-import sys
-
-if sys.version_info < (3, 8):
-    raise ImportError("Iceberg is only supported on Python 3.8+")
-
 import json
 import logging
 import uuid

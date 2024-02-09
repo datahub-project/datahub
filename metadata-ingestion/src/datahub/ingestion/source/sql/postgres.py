@@ -98,15 +98,13 @@ class ViewLineageEntry(BaseModel):
 
 
 class BasePostgresConfig(BasicSQLAlchemyConfig):
-    scheme = Field(default="postgresql+psycopg2", description="database scheme")
-    schema_pattern = Field(default=AllowDenyPattern(deny=["information_schema"]))
+    scheme: str = Field(default="postgresql+psycopg2", description="database scheme")
+    schema_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern(deny=["information_schema"])
+    )
 
 
 class PostgresConfig(BasePostgresConfig):
-    include_view_lineage = Field(
-        default=False, description="Include table lineage for views"
-    )
-
     database_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description=(
@@ -141,7 +139,6 @@ class PostgresSource(SQLAlchemySource):
     - Metadata for databases, schemas, views, and tables
     - Column types associated with each table
     - Also supports PostGIS extensions
-    - database_alias (optional) can be used to change the name of database to be ingested
     - Table, row, and column statistics via optional SQL profiling
     """
 
@@ -183,9 +180,10 @@ class PostgresSource(SQLAlchemySource):
     def get_workunits_internal(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
         yield from super().get_workunits_internal()
 
-        for inspector in self.get_inspectors():
-            if self.config.include_view_lineage:
-                yield from self._get_view_lineage_workunits(inspector)
+        if self.views_failed_parsing:
+            for inspector in self.get_inspectors():
+                if self.config.include_view_lineage:
+                    yield from self._get_view_lineage_workunits(inspector)
 
     def _get_view_lineage_elements(
         self, inspector: Inspector
@@ -245,11 +243,14 @@ class PostgresSource(SQLAlchemySource):
             dependent_view, dependent_schema = key
 
             # Construct a lineage object.
+            view_identifier = self.get_identifier(
+                schema=dependent_schema, entity=dependent_view, inspector=inspector
+            )
+            if view_identifier not in self.views_failed_parsing:
+                return
             urn = mce_builder.make_dataset_urn_with_platform_instance(
                 platform=self.platform,
-                name=self.get_identifier(
-                    schema=dependent_schema, entity=dependent_view, inspector=inspector
-                ),
+                name=view_identifier,
                 platform_instance=self.config.platform_instance,
                 env=self.config.env,
             )
@@ -269,8 +270,6 @@ class PostgresSource(SQLAlchemySource):
     ) -> str:
         regular = f"{schema}.{entity}"
         if self.config.database:
-            if self.config.database_alias:
-                return f"{self.config.database_alias}.{regular}"
             return f"{self.config.database}.{regular}"
         current_database = self.get_db_name(inspector)
         return f"{current_database}.{regular}"

@@ -1,22 +1,24 @@
 package com.linkedin.datahub.graphql.types.glossary.mappers;
 
+import static com.linkedin.metadata.Constants.*;
+
 import com.linkedin.common.Ownership;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.GlossaryNode;
 import com.linkedin.datahub.graphql.generated.GlossaryNodeProperties;
+import com.linkedin.datahub.graphql.types.common.mappers.CustomPropertiesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
+import com.linkedin.datahub.graphql.types.structuredproperty.StructuredPropertiesMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.glossary.GlossaryNodeInfo;
 import com.linkedin.metadata.key.GlossaryNodeKey;
-
+import com.linkedin.structured.StructuredProperties;
 import javax.annotation.Nonnull;
-
-import static com.linkedin.metadata.Constants.*;
 
 public class GlossaryNodeMapper implements ModelMapper<EntityResponse, GlossaryNode> {
 
@@ -35,21 +37,35 @@ public class GlossaryNodeMapper implements ModelMapper<EntityResponse, GlossaryN
 
     EnvelopedAspectMap aspectMap = entityResponse.getAspects();
     MappingHelper<GlossaryNode> mappingHelper = new MappingHelper<>(aspectMap, result);
-    mappingHelper.mapToResult(GLOSSARY_NODE_INFO_ASPECT_NAME, (glossaryNode, dataMap) ->
-        glossaryNode.setProperties(mapGlossaryNodeProperties(dataMap)));
+    mappingHelper.mapToResult(
+        GLOSSARY_NODE_INFO_ASPECT_NAME,
+        (glossaryNode, dataMap) ->
+            glossaryNode.setProperties(mapGlossaryNodeProperties(dataMap, entityUrn)));
     mappingHelper.mapToResult(GLOSSARY_NODE_KEY_ASPECT_NAME, this::mapGlossaryNodeKey);
-    mappingHelper.mapToResult(OWNERSHIP_ASPECT_NAME, (glossaryNode, dataMap) ->
-        glossaryNode.setOwnership(OwnershipMapper.map(new Ownership(dataMap), entityUrn)));
+    mappingHelper.mapToResult(
+        OWNERSHIP_ASPECT_NAME,
+        (glossaryNode, dataMap) ->
+            glossaryNode.setOwnership(OwnershipMapper.map(new Ownership(dataMap), entityUrn)));
+    mappingHelper.mapToResult(
+        STRUCTURED_PROPERTIES_ASPECT_NAME,
+        ((entity, dataMap) ->
+            entity.setStructuredProperties(
+                StructuredPropertiesMapper.map(new StructuredProperties(dataMap)))));
 
     return mappingHelper.getResult();
   }
 
-  private GlossaryNodeProperties mapGlossaryNodeProperties(@Nonnull DataMap dataMap) {
+  private GlossaryNodeProperties mapGlossaryNodeProperties(
+      @Nonnull DataMap dataMap, @Nonnull final Urn entityUrn) {
     GlossaryNodeInfo glossaryNodeInfo = new GlossaryNodeInfo(dataMap);
     GlossaryNodeProperties result = new GlossaryNodeProperties();
     result.setDescription(glossaryNodeInfo.getDefinition());
     if (glossaryNodeInfo.hasName()) {
       result.setName(glossaryNodeInfo.getName());
+    }
+    if (glossaryNodeInfo.hasCustomProperties()) {
+      result.setCustomProperties(
+          CustomPropertiesMapper.map(glossaryNodeInfo.getCustomProperties(), entityUrn));
     }
     return result;
   }

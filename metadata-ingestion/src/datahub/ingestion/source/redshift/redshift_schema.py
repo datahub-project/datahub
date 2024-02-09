@@ -8,6 +8,7 @@ import redshift_connector
 from datahub.ingestion.source.redshift.query import RedshiftQuery
 from datahub.ingestion.source.sql.sql_generic import BaseColumn, BaseTable
 from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
+from datahub.sql_parsing.sqlglot_lineage import SqlParsingResult
 from datahub.utilities.hive_schema_to_avro import get_schema_fields_for_hive_column
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -40,6 +41,7 @@ class RedshiftTable(BaseTable):
 @dataclass
 class RedshiftView(BaseTable):
     type: Optional[str] = None
+    materialized: bool = False
     columns: List[RedshiftColumn] = field(default_factory=list)
     last_altered: Optional[datetime] = None
     size_in_bytes: Optional[int] = None
@@ -66,6 +68,7 @@ class RedshiftExtraTableMeta:
     estimated_visible_rows: Optional[int] = None
     skew_rows: Optional[float] = None
     last_accessed: Optional[datetime] = None
+    is_materialized: bool = False
 
 
 @dataclass
@@ -76,6 +79,26 @@ class LineageRow:
     target_table: Optional[str]
     ddl: Optional[str]
     filename: Optional[str]
+
+
+@dataclass
+class TempTableRow:
+    transaction_id: int
+    session_id: str
+    query_text: str
+    create_command: str
+    start_time: datetime
+    urn: Optional[str]
+    parsed_result: Optional[SqlParsingResult] = None
+
+
+@dataclass
+class AlterTableRow:
+    # TODO unify this type with TempTableRow
+    transaction_id: int
+    session_id: str
+    query_text: str
+    start_time: datetime
 
 
 # this is a class to be a proxy to query Redshift
@@ -148,6 +171,7 @@ class RedshiftDataDictionary:
                 ],
                 skew_rows=meta[field_names.index("skew_rows")],
                 last_accessed=meta[field_names.index("last_accessed")],
+                is_materialized=meta[field_names.index("is_materialized")],
             )
             if table_meta.schema not in table_enrich:
                 table_enrich.setdefault(table_meta.schema, {})
@@ -173,42 +197,23 @@ class RedshiftDataDictionary:
         logger.info(f"Fetched {len(db_tables)} tables/views from Redshift")
         for table in db_tables:
             schema = table[field_names.index("schema")]
+            table_name = table[field_names.index("relname")]
+
             if table[field_names.index("tabletype")] not in [
                 "MATERIALIZED VIEW",
                 "VIEW",
             ]:
                 if schema not in tables:
                     tables.setdefault(schema, [])
-                table_name = table[field_names.index("relname")]
 
-                creation_time: Optional[datetime] = None
-                if table[field_names.index("creation_time")]:
-                    creation_time = table[field_names.index("creation_time")].replace(
-                        tzinfo=timezone.utc
-                    )
-
-                last_altered: Optional[datetime] = None
-                size_in_bytes: Optional[int] = None
-                rows_count: Optional[int] = None
-                if schema in enriched_table and table_name in enriched_table[schema]:
-                    if enriched_table[schema][table_name].last_accessed:
-                        # Mypy seems to be not clever enough to understand the above check
-                        last_accessed = enriched_table[schema][table_name].last_accessed
-                        assert last_accessed
-                        last_altered = last_accessed.replace(tzinfo=timezone.utc)
-                    elif creation_time:
-                        last_altered = creation_time
-
-                    if enriched_table[schema][table_name].size:
-                        # Mypy seems to be not clever enough to understand the above check
-                        size = enriched_table[schema][table_name].size
-                        if size:
-                            size_in_bytes = size * 1024 * 1024
-
-                    if enriched_table[schema][table_name].estimated_visible_rows:
-                        rows = enriched_table[schema][table_name].estimated_visible_rows
-                        assert rows
-                        rows_count = int(rows)
+                (
+                    creation_time,
+                    last_altered,
+                    rows_count,
+                    size_in_bytes,
+                ) = RedshiftDataDictionary.get_table_stats(
+                    enriched_table, field_names, schema, table
+                )
 
                 tables[schema].append(
                     RedshiftTable(
@@ -231,16 +236,37 @@ class RedshiftDataDictionary:
             else:
                 if schema not in views:
                     views[schema] = []
+                (
+                    creation_time,
+                    last_altered,
+                    rows_count,
+                    size_in_bytes,
+                ) = RedshiftDataDictionary.get_table_stats(
+                    enriched_table=enriched_table,
+                    field_names=field_names,
+                    schema=schema,
+                    table=table,
+                )
+
+                materialized = False
+                if schema in enriched_table and table_name in enriched_table[schema]:
+                    if enriched_table[schema][table_name].is_materialized:
+                        materialized = True
 
                 views[schema].append(
                     RedshiftView(
                         type=table[field_names.index("tabletype")],
                         name=table[field_names.index("relname")],
                         ddl=table[field_names.index("view_definition")],
-                        created=table[field_names.index("creation_time")],
+                        created=creation_time,
                         comment=table[field_names.index("table_description")],
+                        last_altered=last_altered,
+                        size_in_bytes=size_in_bytes,
+                        rows_count=rows_count,
+                        materialized=materialized,
                     )
                 )
+
         for schema_key, schema_tables in tables.items():
             logger.info(
                 f"In schema: {schema_key} discovered {len(schema_tables)} tables"
@@ -249,6 +275,39 @@ class RedshiftDataDictionary:
             logger.info(f"In schema: {schema_key} discovered {len(schema_views)} views")
 
         return tables, views
+
+    @staticmethod
+    def get_table_stats(enriched_table, field_names, schema, table):
+        table_name = table[field_names.index("relname")]
+
+        creation_time: Optional[datetime] = None
+        if table[field_names.index("creation_time")]:
+            creation_time = table[field_names.index("creation_time")].replace(
+                tzinfo=timezone.utc
+            )
+        last_altered: Optional[datetime] = None
+        size_in_bytes: Optional[int] = None
+        rows_count: Optional[int] = None
+        if schema in enriched_table and table_name in enriched_table[schema]:
+            if enriched_table[schema][table_name].last_accessed:
+                # Mypy seems to be not clever enough to understand the above check
+                last_accessed = enriched_table[schema][table_name].last_accessed
+                assert last_accessed
+                last_altered = last_accessed.replace(tzinfo=timezone.utc)
+            elif creation_time:
+                last_altered = creation_time
+
+            if enriched_table[schema][table_name].size:
+                # Mypy seems to be not clever enough to understand the above check
+                size = enriched_table[schema][table_name].size
+                if size:
+                    size_in_bytes = size * 1024 * 1024
+
+            if enriched_table[schema][table_name].estimated_visible_rows:
+                rows = enriched_table[schema][table_name].estimated_visible_rows
+                assert rows
+                rows_count = int(rows)
+        return creation_time, last_altered, rows_count, size_in_bytes
 
     @staticmethod
     def get_schema_fields_for_column(
@@ -309,21 +368,86 @@ class RedshiftDataDictionary:
         while rows:
             for row in rows:
                 yield LineageRow(
-                    source_schema=row[field_names.index("source_schema")]
-                    if "source_schema" in field_names
-                    else None,
-                    source_table=row[field_names.index("source_table")]
-                    if "source_table" in field_names
-                    else None,
-                    target_schema=row[field_names.index("target_schema")]
-                    if "target_schema" in field_names
-                    else None,
-                    target_table=row[field_names.index("target_table")]
-                    if "target_table" in field_names
-                    else None,
-                    ddl=row[field_names.index("ddl")] if "ddl" in field_names else None,
-                    filename=row[field_names.index("filename")]
-                    if "filename" in field_names
-                    else None,
+                    source_schema=(
+                        row[field_names.index("source_schema")]
+                        if "source_schema" in field_names
+                        else None
+                    ),
+                    source_table=(
+                        row[field_names.index("source_table")]
+                        if "source_table" in field_names
+                        else None
+                    ),
+                    target_schema=(
+                        row[field_names.index("target_schema")]
+                        if "target_schema" in field_names
+                        else None
+                    ),
+                    target_table=(
+                        row[field_names.index("target_table")]
+                        if "target_table" in field_names
+                        else None
+                    ),
+                    # See https://docs.aws.amazon.com/redshift/latest/dg/r_STL_QUERYTEXT.html
+                    # for why we need to remove the \\n.
+                    ddl=(
+                        row[field_names.index("ddl")].replace("\\n", "\n")
+                        if "ddl" in field_names
+                        else None
+                    ),
+                    filename=(
+                        row[field_names.index("filename")]
+                        if "filename" in field_names
+                        else None
+                    ),
+                )
+            rows = cursor.fetchmany()
+
+    @staticmethod
+    def get_temporary_rows(
+        conn: redshift_connector.Connection,
+        query: str,
+    ) -> Iterable[TempTableRow]:
+        cursor = conn.cursor()
+
+        cursor.execute(query)
+
+        field_names = [i[0] for i in cursor.description]
+
+        rows = cursor.fetchmany()
+        while rows:
+            for row in rows:
+                yield TempTableRow(
+                    transaction_id=row[field_names.index("transaction_id")],
+                    session_id=row[field_names.index("session_id")],
+                    # See https://docs.aws.amazon.com/redshift/latest/dg/r_STL_QUERYTEXT.html
+                    # for why we need to replace the \n with a newline.
+                    query_text=row[field_names.index("query_text")].replace(
+                        r"\n", "\n"
+                    ),
+                    create_command=row[field_names.index("create_command")],
+                    start_time=row[field_names.index("start_time")],
+                    urn=None,
+                )
+            rows = cursor.fetchmany()
+
+    @staticmethod
+    def get_alter_table_commands(
+        conn: redshift_connector.Connection,
+        query: str,
+    ) -> Iterable[AlterTableRow]:
+        # TODO: unify this with get_temporary_rows
+        cursor = RedshiftDataDictionary.get_query_result(conn, query)
+
+        field_names = [i[0] for i in cursor.description]
+
+        rows = cursor.fetchmany()
+        while rows:
+            for row in rows:
+                yield AlterTableRow(
+                    transaction_id=row[field_names.index("transaction_id")],
+                    session_id=row[field_names.index("session_id")],
+                    query_text=row[field_names.index("query_text")],
+                    start_time=row[field_names.index("start_time")],
                 )
             rows = cursor.fetchmany()

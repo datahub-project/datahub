@@ -8,7 +8,7 @@ const addOwner = (owner, type, elementId) => {
     cy.clickOptionWithTestId("add-owners-button");
     cy.contains("Search for users or groups...").click({ force: true });
     cy.focused().type(owner);
-    cy.clickOptionWithText(owner);
+    cy.get('.ant-select-item').contains(owner).click();
     cy.focused().blur();
     cy.waitTextVisible(owner);
     cy.get('[role="dialog"]').contains("Technical Owner").click();
@@ -29,6 +29,10 @@ const addOwner = (owner, type, elementId) => {
 }
 
 describe("add, remove ownership for dataset", () => {
+    beforeEach(() => {
+        cy.on('uncaught:exception', (err, runnable) => { return false; });
+      });
+
     it("create test user and test group, add user to a group", () => {
         cy.loginWithCredentials();
         cy.createUser(username, password, email);

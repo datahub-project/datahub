@@ -1,5 +1,8 @@
 package com.linkedin.datahub.graphql.resolvers.domain;
 
+import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
+import static com.linkedin.metadata.Constants.*;
+
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -18,18 +21,14 @@ import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
-import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
-import static com.linkedin.metadata.Constants.*;
-
-
 /**
- * Resolver used for listing all Domains defined within DataHub. Requires the MANAGE_DOMAINS platform privilege.
+ * Resolver used for listing all Domains defined within DataHub. Requires the MANAGE_DOMAINS
+ * platform privilege.
  */
 public class ListDomainsResolver implements DataFetcher<CompletableFuture<ListDomainsResult>> {
   private static final Integer DEFAULT_START = 0;
@@ -43,47 +42,56 @@ public class ListDomainsResolver implements DataFetcher<CompletableFuture<ListDo
   }
 
   @Override
-  public CompletableFuture<ListDomainsResult> get(final DataFetchingEnvironment environment) throws Exception {
+  public CompletableFuture<ListDomainsResult> get(final DataFetchingEnvironment environment)
+      throws Exception {
 
     final QueryContext context = environment.getContext();
 
-    return CompletableFuture.supplyAsync(() -> {
+    return CompletableFuture.supplyAsync(
+        () -> {
+          final ListDomainsInput input =
+              bindArgument(environment.getArgument("input"), ListDomainsInput.class);
+          final Integer start = input.getStart() == null ? DEFAULT_START : input.getStart();
+          final Integer count = input.getCount() == null ? DEFAULT_COUNT : input.getCount();
+          final String query = input.getQuery() == null ? DEFAULT_QUERY : input.getQuery();
+          final Urn parentDomainUrn =
+              input.getParentDomain() != null ? UrnUtils.getUrn(input.getParentDomain()) : null;
+          final Filter filter = DomainUtils.buildParentDomainFilter(parentDomainUrn);
 
-        final ListDomainsInput input = bindArgument(environment.getArgument("input"), ListDomainsInput.class);
-        final Integer start = input.getStart() == null ? DEFAULT_START : input.getStart();
-        final Integer count = input.getCount() == null ? DEFAULT_COUNT : input.getCount();
-        final String query = input.getQuery() == null ? DEFAULT_QUERY : input.getQuery();
-        final Urn parentDomainUrn = input.getParentDomain() != null ? UrnUtils.getUrn(input.getParentDomain()) : null;
-        final Filter filter = DomainUtils.buildParentDomainFilter(parentDomainUrn);
+          try {
+            // First, get all domain Urns.
+            final SearchResult gmsResult =
+                _entityClient.search(
+                    Constants.DOMAIN_ENTITY_NAME,
+                    query,
+                    filter,
+                    new SortCriterion()
+                        .setField(DOMAIN_CREATED_TIME_INDEX_FIELD_NAME)
+                        .setOrder(SortOrder.DESCENDING),
+                    start,
+                    count,
+                    context.getAuthentication(),
+                    new SearchFlags().setFulltext(true));
 
-        try {
-          // First, get all domain Urns.
-          final SearchResult gmsResult = _entityClient.search(
-                  Constants.DOMAIN_ENTITY_NAME,
-                  query,
-                  filter,
-                  new SortCriterion().setField(DOMAIN_CREATED_TIME_INDEX_FIELD_NAME).setOrder(SortOrder.DESCENDING),
-                  start,
-                  count,
-                  context.getAuthentication(),
-                  new SearchFlags().setFulltext(true));
-
-          // Now that we have entities we can bind this to a result.
-          final ListDomainsResult result = new ListDomainsResult();
-          result.setStart(gmsResult.getFrom());
-          result.setCount(gmsResult.getPageSize());
-          result.setTotal(gmsResult.getNumEntities());
-          result.setDomains(mapUnresolvedDomains(gmsResult.getEntities().stream()
-              .map(SearchEntity::getEntity)
-              .collect(Collectors.toList())));
-          return result;
-        } catch (Exception e) {
-          throw new RuntimeException("Failed to list domains", e);
-        }
-    });
+            // Now that we have entities we can bind this to a result.
+            final ListDomainsResult result = new ListDomainsResult();
+            result.setStart(gmsResult.getFrom());
+            result.setCount(gmsResult.getPageSize());
+            result.setTotal(gmsResult.getNumEntities());
+            result.setDomains(
+                mapUnresolvedDomains(
+                    gmsResult.getEntities().stream()
+                        .map(SearchEntity::getEntity)
+                        .collect(Collectors.toList())));
+            return result;
+          } catch (Exception e) {
+            throw new RuntimeException("Failed to list domains", e);
+          }
+        });
   }
 
-  // This method maps urns returned from the list endpoint into Partial Domain objects which will be resolved be a separate Batch resolver.
+  // This method maps urns returned from the list endpoint into Partial Domain objects which will be
+  // resolved be a separate Batch resolver.
   private List<Domain> mapUnresolvedDomains(final List<Urn> entityUrns) {
     final List<Domain> results = new ArrayList<>();
     for (final Urn urn : entityUrns) {
