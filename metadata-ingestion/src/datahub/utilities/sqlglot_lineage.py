@@ -958,18 +958,21 @@ def _translate_sqlglot_type(
     return SchemaFieldDataTypeClass(type=TypeClass())
 
 
-def _translate_internal_lineage_to_in_tables_schemas(
+def _transform_to_in_tables_schemas(
     table_name_urn_mapping: Dict[_TableName, str],
-    raw_lineage: List[_ColumnLineageInfo]
+    raw_lineage: List[_ColumnLineageInfo],
+    in_tables: List[str]
 ) -> Dict[Urn, Set[str]]:
-    table_urn_to_schema_map = {}
-    for cli in raw_lineage:
-        for upstream in cli.upstreams:
-            upstream_table_urn = table_name_urn_mapping[upstream.table]
-            if upstream_table_urn in table_urn_to_schema_map:
-                table_urn_to_schema_map[upstream_table_urn].add(upstream.column)
-            else:
-                table_urn_to_schema_map[upstream_table_urn] = { upstream.column }
+    table_urn_to_schema_map = { it: set() for it in in_tables }
+
+    if raw_lineage:
+        for cli in raw_lineage:
+            for upstream in cli.upstreams:
+                upstream_table_urn = table_name_urn_mapping[upstream.table]
+                if upstream_table_urn in table_urn_to_schema_map:
+                    table_urn_to_schema_map[upstream_table_urn].add(upstream.column)
+                else:
+                    table_urn_to_schema_map[upstream_table_urn] = { upstream.column }
     
     return table_urn_to_schema_map
 
@@ -1183,9 +1186,9 @@ def _sqlglot_lineage_inner(
             for internal_col_lineage in column_lineage
         ]
 
-        in_tables_schemas = _translate_internal_lineage_to_in_tables_schemas(
-            table_name_urn_mapping, column_lineage
-        )
+    in_tables_schemas = _transform_to_in_tables_schemas(
+        table_name_urn_mapping, column_lineage, in_urns
+    )
 
     return SqlParsingResult(
         query_type=get_query_type_of_sql(original_statement),
