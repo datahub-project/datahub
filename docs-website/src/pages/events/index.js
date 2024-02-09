@@ -20,10 +20,12 @@ function Events() {
                                 allowFullScreen={true}
                                 aria-hidden="false"
                                 tabIndex="0"
-                                border="1px solid #bfcbda88"
-                                border-radius="10px"
-                                width="100%"
-                                height="600px" 
+                                style={{
+                                    border:"1px solid #bfcbda88",
+                                    borderRadius:"10px",
+                                    width:"100%",
+                                    height:"600px",
+                                }}
                             ></iframe>
                         </div> 
                     </div>
