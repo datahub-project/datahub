@@ -84,7 +84,7 @@ class OpenApiConfig(ConfigModel):
 
     @validator("bearer_token", always=True)
     def ensure_only_one_token(
-        cls, bearer_token: Optional[str], values
+        cls, bearer_token: Optional[str], values: Dict
     ) -> Optional[str]:
         if bearer_token is not None and values.get("token") is not None:
             raise ConfigurationError(
@@ -97,8 +97,11 @@ class OpenApiConfig(ConfigModel):
             if self.token:
                 pass
             elif self.bearer_token:
+                # TRICKY: To avoid passing a bunch of different token types around, we set the
+                # token's value to the properly formatted bearer token.
+                # TODO: We should just create a requests.Session and set all the auth
+                # details there once, and then use that session for all requests.
                 self.token = f"Bearer {self.bearer_token}"
-                ...
             else:
                 assert (
                     "url_complement" in self.get_token.keys()
@@ -131,7 +134,6 @@ class OpenApiConfig(ConfigModel):
             sw_dict = get_swag_json(
                 self.url,
                 token=self.token,
-                bearer_token=self.bearer_token,
                 swagger_file=self.swagger_file,
                 proxies=self.proxies,
             )  # load the swagger file
@@ -301,11 +303,10 @@ class APISource(Source, ABC):
                 "{" not in endpoint_k
             ):  # if the API does not explicitly require parameters
                 tot_url = clean_url(config.url + self.url_basepath + endpoint_k)
-                if config.token or config.bearer_token:
+                if config.token:
                     response = request_call(
                         tot_url,
                         token=config.token,
-                        bearer_token=config.bearer_token,
                         proxies=config.proxies,
                     )
                 else:
@@ -332,11 +333,10 @@ class APISource(Source, ABC):
                     # start guessing...
                     url_guess = try_guessing(endpoint_k, root_dataset_samples)
                     tot_url = clean_url(config.url + self.url_basepath + url_guess)
-                    if config.token or config.bearer_token:
+                    if config.token:
                         response = request_call(
                             tot_url,
                             token=config.token,
-                            bearer_token=config.bearer_token,
                             proxies=config.proxies,
                         )
                     else:
@@ -363,11 +363,10 @@ class APISource(Source, ABC):
                         raw_url=endpoint_k, attr_list=config.forced_examples[endpoint_k]
                     )
                     tot_url = clean_url(config.url + self.url_basepath + composed_url)
-                    if config.token or config.bearer_token:
+                    if config.token:
                         response = request_call(
                             tot_url,
                             token=config.token,
-                            bearer_token=config.bearer_token,
                             proxies=config.proxies,
                         )
                     else:

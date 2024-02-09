@@ -49,7 +49,6 @@ def flatten2list(d: dict) -> list:
 def request_call(
     url: str,
     token: Optional[str] = None,
-    bearer_token: Optional[str] = None,
     username: Optional[str] = None,
     password: Optional[str] = None,
     proxies: Optional[dict] = None,
@@ -59,10 +58,6 @@ def request_call(
         return requests.get(
             url, headers=headers, auth=HTTPBasicAuth(username, password)
         )
-
-    elif bearer_token:
-        headers["Authorization"] = f"Bearer {bearer_token}"
-        return requests.get(url, proxies=proxies, headers=headers)
     elif token:
         headers["Authorization"] = f"{token}"
         return requests.get(url, proxies=proxies, headers=headers)
@@ -73,17 +68,14 @@ def request_call(
 def get_swag_json(
     url: str,
     token: Optional[str] = None,
-    bearer_token: Optional[str] = None,
     username: Optional[str] = None,
     password: Optional[str] = None,
     swagger_file: str = "",
     proxies: Optional[dict] = None,
 ) -> Dict:
     tot_url = url + swagger_file
-    if token or bearer_token:
-        response = request_call(
-            url=tot_url, token=token, bearer_token=bearer_token, proxies=proxies
-        )
+    if token:
+        response = request_call(url=tot_url, token=token, proxies=proxies)
     else:
         response = request_call(
             url=tot_url, username=username, password=password, proxies=proxies
