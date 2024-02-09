@@ -25,6 +25,7 @@ from datahub.cli.config_utils import DATAHUB_ROOT_FOLDER
 from datahub.cli.docker_check import (
     DATAHUB_COMPOSE_LEGACY_VOLUME_FILTERS,
     DATAHUB_COMPOSE_PROJECT_FILTER,
+    DOCKER_COMPOSE_PROJECT_NAME,
     DockerComposeVersionError,
     QuickstartStatus,
     check_docker_quickstart,
@@ -252,7 +253,7 @@ def _attempt_stop(quickstart_compose_file: List[pathlib.Path]) -> None:
                 ("-f", f"{path}") for path in compose_files_for_stopping
             ),
             "-p",
-            "datahub",
+            DOCKER_COMPOSE_PROJECT_NAME,
         ]
         try:
             logger.debug(f"Executing {base_command} stop")
@@ -396,7 +397,7 @@ DATAHUB_MAE_CONSUMER_PORT=9091
                     "-c",
                     "docker pull acryldata/datahub-upgrade:"
                     + "${DATAHUB_VERSION:-head}"
-                    + f" && docker run --network datahub_network --env-file {env_fp.name} "
+                    + f" && docker run --network {DOCKER_COMPOSE_PROJECT_NAME}_network --env-file {env_fp.name} "
                     + "acryldata/datahub-upgrade:${DATAHUB_VERSION:-head}"
                     + " -u RestoreIndices -a clean",
                 ],
@@ -694,7 +695,7 @@ def quickstart(  # noqa: C901
             ("-f", f"{path}") for path in quickstart_compose_file
         ),
         "-p",
-        "datahub",
+        DOCKER_COMPOSE_PROJECT_NAME,
     ]
 
     # Pull and possibly build the latest containers.
