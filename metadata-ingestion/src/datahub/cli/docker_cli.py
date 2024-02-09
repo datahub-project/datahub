@@ -1022,22 +1022,24 @@ def nuke(keep_data: bool) -> None:
     """Remove all Docker containers, networks, and volumes associated with DataHub."""
 
     with get_docker_client() as client:
-        click.echo("Removing containers in the datahub project")
+        click.echo(f"Removing containers in the {DOCKER_COMPOSE_PROJECT_NAME} project")
         for container in client.containers.list(
             all=True, filters=DATAHUB_COMPOSE_PROJECT_FILTER
         ):
             container.remove(v=True, force=True)
 
         if keep_data:
-            click.echo("Skipping deleting data volumes in the datahub project")
+            click.echo(
+                f"Skipping deleting data volumes in the {DOCKER_COMPOSE_PROJECT_NAME} project"
+            )
         else:
-            click.echo("Removing volumes in the datahub project")
+            click.echo(f"Removing volumes in the {DOCKER_COMPOSE_PROJECT_NAME} project")
             for filter in DATAHUB_COMPOSE_LEGACY_VOLUME_FILTERS + [
                 DATAHUB_COMPOSE_PROJECT_FILTER
             ]:
                 for volume in client.volumes.list(filters=filter):
                     volume.remove(force=True)
 
-        click.echo("Removing networks in the datahub project")
+        click.echo(f"Removing networks in the {DOCKER_COMPOSE_PROJECT_NAME} project")
         for network in client.networks.list(filters=DATAHUB_COMPOSE_PROJECT_FILTER):
             network.remove()
