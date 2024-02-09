@@ -63,13 +63,14 @@ class TestPipeline(object):
             {
                 "source": {
                     "type": "file",
-                    "config": {"filename": "test_file.json"},
+                    "config": {"path": "test_file.json"},
                 },
             }
         )
         # assert that the default sink config is for a DatahubRestSink
         assert isinstance(pipeline.config.sink, DynamicTypedConfig)
         assert pipeline.config.sink.type == "datahub-rest"
+        assert isinstance(pipeline.config.sink.config, dict)
         assert pipeline.config.sink.config["server"] == "http://localhost:8080"
         # token value is read from ~/.datahubenv which may be None or not
 
@@ -89,7 +90,7 @@ class TestPipeline(object):
             {
                 "source": {
                     "type": "file",
-                    "config": {"filename": "test_events.json"},
+                    "config": {"path": "test_events.json"},
                 },
                 "sink": {
                     "type": "datahub-rest",
@@ -127,7 +128,7 @@ class TestPipeline(object):
             {
                 "source": {
                     "type": "file",
-                    "config": {"filename": "test_events.json"},
+                    "config": {"path": "test_events.json"},
                 },
                 "sink": {
                     "type": "datahub-rest",
