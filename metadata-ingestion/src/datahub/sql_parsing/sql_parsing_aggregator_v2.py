@@ -639,7 +639,9 @@ class SqlParsingAggregator:
                 models.UpstreamClass(
                     dataset=upstream_urn,
                     type=queries_map[query_id].lineage_type,
-                    query=self._query_urn(query_id),
+                    query=(
+                        self._query_urn(query_id) if self.generate_queries else None
+                    ),
                     created=query.make_created_audit_stamp(),
                     auditStamp=models.AuditStampClass(
                         time=get_sys_time(),
@@ -668,7 +670,9 @@ class SqlParsingAggregator:
                         downstreams=[
                             SchemaFieldUrn(downstream_urn, downstream_column).urn()
                         ],
-                        query=self._query_urn(query_id),
+                        query=(
+                            self._query_urn(query_id) if self.generate_queries else None
+                        ),
                         confidenceScore=queries_map[query_id].confidence_score,
                     )
                 )
