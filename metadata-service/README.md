@@ -10,7 +10,7 @@ DataHub Metadata Service is a service written in Java consisting of multiple ser
 
 ## Pre-requisites
 
-Follow the [main developer guide](../../docs/developers.md) to set up your development environment and install the required dependencies.
+Follow the [main developer guide](../docs/developers.md) to set up your development environment and install the required dependencies.
 
 ## Build
 `DataHub Metadata Service` is already built as part of top level build:
