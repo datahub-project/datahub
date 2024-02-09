@@ -11,7 +11,9 @@ class LocalFileSystem(FileSystem):
         return LocalFileSystem()
 
     def open(self, path: str, **kwargs: Any) -> Any:
-        return pathlib.Path(path).open(mode="rb", transport_params=kwargs)
+        # Local does not support any additional kwargs
+        assert not kwargs
+        return pathlib.Path(path).open(mode="rb")
 
     def list(self, path: str) -> Iterable[FileInfo]:
         p = pathlib.Path(path)
