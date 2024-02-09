@@ -1,16 +1,15 @@
 package com.linkedin.metadata.boot;
 
-import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.key.DataHubUpgradeKey;
+import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.upgrade.DataHubUpgradeResult;
-import java.net.URISyntaxException;
 import javax.annotation.Nonnull;
 
 /** A single step in the Bootstrap process. */
@@ -40,23 +39,9 @@ public interface BootstrapStep {
         new DataHubUpgradeKey().setId(upgradeId), Constants.DATA_HUB_UPGRADE_ENTITY_NAME);
   }
 
-  static void setUpgradeResult(Urn urn, EntityService<?> entityService) throws URISyntaxException {
-    final AuditStamp auditStamp =
-        new AuditStamp()
-            .setActor(Urn.createFromString(Constants.SYSTEM_ACTOR))
-            .setTime(System.currentTimeMillis());
+  static void setUpgradeResult(Urn urn, EntityService<?> entityService) {
     final DataHubUpgradeResult upgradeResult =
         new DataHubUpgradeResult().setTimestampMs(System.currentTimeMillis());
-
-    // Workaround because entity service does not auto-generate the key aspect for us
-    final MetadataChangeProposal keyProposal = new MetadataChangeProposal();
-    final DataHubUpgradeKey upgradeKey = new DataHubUpgradeKey().setId(urn.getId());
-    keyProposal.setEntityUrn(urn);
-    keyProposal.setEntityType(Constants.DATA_HUB_UPGRADE_ENTITY_NAME);
-    keyProposal.setAspectName(Constants.DATA_HUB_UPGRADE_KEY_ASPECT_NAME);
-    keyProposal.setAspect(GenericRecordUtils.serializeAspect(upgradeKey));
-    keyProposal.setChangeType(ChangeType.UPSERT);
-    entityService.ingestProposal(keyProposal, auditStamp, false);
 
     // Ingest the upgrade result
     final MetadataChangeProposal upgradeProposal = new MetadataChangeProposal();
@@ -65,6 +50,6 @@ public interface BootstrapStep {
     upgradeProposal.setAspectName(Constants.DATA_HUB_UPGRADE_RESULT_ASPECT_NAME);
     upgradeProposal.setAspect(GenericRecordUtils.serializeAspect(upgradeResult));
     upgradeProposal.setChangeType(ChangeType.UPSERT);
-    entityService.ingestProposal(upgradeProposal, auditStamp, false);
+    entityService.ingestProposal(upgradeProposal, AuditStampUtils.createDefaultAuditStamp(), false);
   }
 }
