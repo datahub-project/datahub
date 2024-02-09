@@ -14,6 +14,6 @@ jobs:
           exempt-protected-branches: true
           operations-per-run: 10
           days-before-branch-stale: 365
-          # (days after branch is considered stale) before-branch-delete
-          days-before-branch-delete: 7
-          dry-run: true # Check out the console output before setting this to false
+          # (days when branch is noticed as stale)
+          days-before-branch-delete: 0
+          dry-run: false
