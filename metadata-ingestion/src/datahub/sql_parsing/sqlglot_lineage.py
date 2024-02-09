@@ -79,6 +79,15 @@ def _is_temp_table(table: sqlglot.exp.Table, dialect: sqlglot.Dialect) -> bool:
     )
 
 
+def _get_create_type_from_kind(kind: Optional[str]) -> QueryType:
+    if kind and "TABLE" in kind:
+        return QueryType.CREATE_TABLE_AS_SELECT
+    elif kind and "VIEW" in kind:
+        return QueryType.CREATE_VIEW
+    else:
+        return QueryType.CREATE_OTHER
+
+
 def get_query_type_of_sql(
     expression: sqlglot.exp.Expression, dialect: DialectOrStr
 ) -> Tuple[QueryType, QueryTypeProps]:
@@ -102,12 +111,8 @@ def get_query_type_of_sql(
         ) or _is_temp_table(target, dialect=dialect):
             query_type_props["temporary"] = True
 
-        if kind and "TABLE" in kind:
-            return QueryType.CREATE_TABLE_AS_SELECT, query_type_props
-        elif kind and "VIEW" in kind:
-            return QueryType.CREATE_VIEW, query_type_props
-
-        return QueryType.CREATE_OTHER, query_type_props
+        query_type = _get_create_type_from_kind(kind)
+        return query_type, query_type_props
 
     # UPGRADE: Once we use Python 3.10, replace this with a match expression.
     mapping = {

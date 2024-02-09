@@ -334,7 +334,6 @@ class FileBackedDict(MutableMapping[str, _VT], Closeable, Generic[_VT]):
 
     def mark_dirty(self, key: str) -> None:
         if key not in self._active_object_cache:
-            breakpoint()
             raise ValueError(
                 f"key {key} not in active object cache, which means any dirty value "
                 "is already persisted or lost"
