@@ -281,7 +281,7 @@ def _backup(backup_file: str) -> int:
         [
             "bash",
             "-c",
-            f"docker exec {DOCKER_COMPOSE_PROJECT_NAME}-mysql-1 mysqldump -u root -pdatahub datahub > {resolved_backup_file}",
+            f"docker exec mysql mysqldump -u root -pdatahub datahub > {resolved_backup_file}",
         ]
     )
     logger.info(
@@ -321,7 +321,7 @@ def _restore(
                 [
                     "bash",
                     "-c",
-                    f"docker exec -i {DOCKER_COMPOSE_PROJECT_NAME}-mysql-1 bash -c 'mysql -uroot -pdatahub datahub '",
+                    "docker exec -i mysql bash -c 'mysql -uroot -pdatahub datahub '",
                 ],
                 stdin=fp,
                 stdout=subprocess.PIPE,
