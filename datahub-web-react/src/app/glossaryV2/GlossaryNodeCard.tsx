@@ -91,7 +91,7 @@ const GlossaryItemBadge = styled.span<GlossaryItemBadgeProps>`
     transform: rotate(-45deg);
     padding: 10px;
     opacity: 1;
-    backgroundcolor: ${(props) => `${BusinessGlossaryEntitiesCardColors[props.index % 15]}`};
+    background-color: ${(props) => `${BusinessGlossaryEntitiesCardColors[props.index % 15]}`};
 `;
 
 const GlossaryItemCardDetails = styled.div`
