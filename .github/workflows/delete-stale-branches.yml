@@ -1,0 +1,19 @@
+name: Delete stale branches
+on:
+  schedule:
+    - cron: "30 1 * * *"
+  workflow_dispatch:
+
+jobs:
+  remove-stale-branches:
+    name: Remove Stale Branches
+    runs-on: ubuntu-latest
+    steps:
+      - uses: fpicalausa/remove-stale-branches@v1.6.0
+        with:
+          exempt-protected-branches: true
+          operations-per-run: 10
+          days-before-branch-stale: 365
+          # (days after branch is considered stale) before-branch-delete
+          days-before-branch-delete: 7
+          dry-run: true # Check out the console output before setting this to false
