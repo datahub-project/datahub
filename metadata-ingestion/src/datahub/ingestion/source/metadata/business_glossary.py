@@ -10,7 +10,12 @@ from pydantic.fields import Field
 import datahub.metadata.schema_classes as models
 from datahub.configuration.common import ConfigModel
 from datahub.configuration.config_loader import load_config_file
-from datahub.emitter.mce_builder import datahub_guid, make_group_urn, make_user_urn
+from datahub.emitter.mce_builder import (
+    datahub_guid,
+    make_group_urn,
+    make_user_urn,
+    validate_ownership_type,
+)
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -34,6 +39,7 @@ GlossaryNodeInterface = TypeVar(
 
 
 class Owners(ConfigModel):
+    type: str = models.OwnershipTypeClass.DEVELOPER
     users: Optional[List[str]] = None
     groups: Optional[List[str]] = None
 
@@ -147,12 +153,14 @@ def make_glossary_term_urn(
 
 
 def get_owners(owners: Owners) -> models.OwnershipClass:
+    ownership_type, ownership_type_urn = validate_ownership_type(owners.type)
     owners_meta: List[models.OwnerClass] = []
     if owners.users is not None:
         owners_meta = owners_meta + [
             models.OwnerClass(
                 owner=make_user_urn(o),
-                type=models.OwnershipTypeClass.DEVELOPER,
+                type=ownership_type,
+                typeUrn=ownership_type_urn,
             )
             for o in owners.users
         ]
@@ -160,7 +168,8 @@ def get_owners(owners: Owners) -> models.OwnershipClass:
         owners_meta = owners_meta + [
             models.OwnerClass(
                 owner=make_group_urn(o),
-                type=models.OwnershipTypeClass.DEVELOPER,
+                type=ownership_type,
+                typeUrn=ownership_type_urn,
             )
             for o in owners.groups
         ]

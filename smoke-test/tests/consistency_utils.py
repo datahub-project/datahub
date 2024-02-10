@@ -22,7 +22,7 @@ def wait_for_writes_to_sync(max_timeout_in_sec: int = 120) -> None:
     while not lag_zero and (time.time() - start_time) < max_timeout_in_sec:
         time.sleep(1)  # micro-sleep
         completed_process = subprocess.run(
-            "docker exec broker /bin/kafka-consumer-groups --bootstrap-server broker:29092 --group generic-mae-consumer-job-client --describe | grep -v LAG | awk '{print $6}'",
+            "docker exec datahub-broker-1 /bin/kafka-consumer-groups --bootstrap-server broker:29092 --group generic-mae-consumer-job-client --describe | grep -v LAG | awk '{print $6}'",
             capture_output=True,
             shell=True,
             text=True,

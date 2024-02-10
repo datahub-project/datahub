@@ -8,7 +8,7 @@ Currently, this project only supports aspects defined in PDL to existing or newl
 
 ## Pre-Requisites
 
-Before proceeding further, make sure you understand the DataHub Metadata Model concepts defined [here](docs/modeling/metadata-model.md) and extending the model defined [here](docs/modeling/extending-the-metadata-model.md). 
+Before proceeding further, make sure you understand the DataHub Metadata Model concepts defined [here](/docs/modeling/metadata-model.md) and extending the model defined [here](/docs/modeling/extending-the-metadata-model.md). 
 
 ## Create your new aspect(s)
 

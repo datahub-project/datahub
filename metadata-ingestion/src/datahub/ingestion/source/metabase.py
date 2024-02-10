@@ -41,8 +41,8 @@ from datahub.metadata.schema_classes import (
     OwnershipClass,
     OwnershipTypeClass,
 )
+from datahub.sql_parsing.sqlglot_lineage import create_lineage_sql_parsed_result
 from datahub.utilities import config_clean
-from datahub.utilities.sqlglot_lineage import create_lineage_sql_parsed_result
 
 logger = logging.getLogger(__name__)
 
@@ -160,9 +160,11 @@ class MetabaseSource(Source):
             None,
             {
                 "username": self.config.username,
-                "password": self.config.password.get_secret_value()
-                if self.config.password
-                else None,
+                "password": (
+                    self.config.password.get_secret_value()
+                    if self.config.password
+                    else None
+                ),
             },
         )
 
@@ -493,9 +495,11 @@ class MetabaseSource(Source):
         metrics, dimensions = [], []
         for meta_data in result_metadata:
             display_name = meta_data.get("display_name", "") or ""
-            metrics.append(display_name) if "aggregation" in meta_data.get(
-                "field_ref", ""
-            ) else dimensions.append(display_name)
+            (
+                metrics.append(display_name)
+                if "aggregation" in meta_data.get("field_ref", "")
+                else dimensions.append(display_name)
+            )
 
         filters = (card_details.get("dataset_query", {}).get("query", {})).get(
             "filter", []
