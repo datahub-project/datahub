@@ -17,7 +17,7 @@ def get_coverage_arg(test_name) {
 
 task checkPythonVersion(type: Exec) {
   commandLine python_executable, '-c',
-    'import sys; assert (3, 11) > sys.version_info >= (3, 7), f"Python version {sys.version_info[:2]} not allowed"'
+    'import sys; assert (3, 11) > sys.version_info >= (3, 8), f"Python version {sys.version_info[:2]} not allowed"'
 }
 
 task environmentSetup(type: Exec, dependsOn: checkPythonVersion) {
@@ -142,7 +142,7 @@ task testQuick(type: Exec, dependsOn: [installDev, ':metadata-models:generateJso
   outputs.dir("${venv_name}")
   def cvg_arg = get_coverage_arg("quick")
   commandLine 'bash', '-c',
-    "source ${venv_name}/bin/activate && pytest ${cvg_arg} tests/unit --durations=20 -m 'not integration' -vv --continue-on-collection-errors --junit-xml=junit.quick.xml"
+    "source ${venv_name}/bin/activate && pytest ${cvg_arg} tests/unit --random-order --durations=20 -m 'not integration' -vv --continue-on-collection-errors --junit-xml=junit.quick.xml"
 }
 
 task installDevTest(type: Exec, dependsOn: [install]) {

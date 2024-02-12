@@ -7,7 +7,6 @@ import static com.linkedin.metadata.search.elasticsearch.query.request.SearchFie
 import static com.linkedin.metadata.search.utils.SearchUtils.isUrn;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.StructuredPropertyUtils;
@@ -18,11 +17,13 @@ import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
@@ -32,6 +33,7 @@ import org.opensearch.common.unit.TimeValue;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
+import org.opensearch.index.query.RangeQueryBuilder;
 import org.opensearch.search.builder.PointInTimeBuilder;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.search.sort.FieldSortBuilder;
@@ -76,6 +78,13 @@ public class ESUtils {
           SearchableAnnotation.FieldType.BROWSE_PATH_V2,
           SearchableAnnotation.FieldType.URN,
           SearchableAnnotation.FieldType.URN_PARTIAL);
+
+  public static final Set<Condition> RANGE_QUERY_CONDITIONS =
+      Set.of(
+          Condition.GREATER_THAN,
+          Condition.GREATER_THAN_OR_EQUAL_TO,
+          Condition.LESS_THAN,
+          Condition.LESS_THAN_OR_EQUAL_TO);
   public static final String ENTITY_NAME_FIELD = "_entityName";
   public static final String NAME_SUGGESTION = "nameSuggestion";
 
@@ -100,9 +109,6 @@ public class ESUtils {
         }
       };
 
-  // TODO - This has been expanded for has* in another branch
-  public static final Set<String> BOOLEAN_FIELDS = ImmutableSet.of("removed");
-
   /*
    * Refer to https://www.elastic.co/guide/en/elasticsearch/reference/current/regexp-syntax.html for list of reserved
    * characters in an Elasticsearch regular expression.
@@ -123,7 +129,10 @@ public class ESUtils {
    * @return built filter query
    */
   @Nonnull
-  public static BoolQueryBuilder buildFilterQuery(@Nullable Filter filter, boolean isTimeseries) {
+  public static BoolQueryBuilder buildFilterQuery(
+      @Nullable Filter filter,
+      boolean isTimeseries,
+      final Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes) {
     BoolQueryBuilder finalQueryBuilder = QueryBuilders.boolQuery();
     if (filter == null) {
       return finalQueryBuilder;
@@ -134,7 +143,8 @@ public class ESUtils {
           .getOr()
           .forEach(
               or ->
-                  finalQueryBuilder.should(ESUtils.buildConjunctiveFilterQuery(or, isTimeseries)));
+                  finalQueryBuilder.should(
+                      ESUtils.buildConjunctiveFilterQuery(or, isTimeseries, searchableFieldTypes)));
     } else if (filter.getCriteria() != null) {
       // Otherwise, build boolean query from the deprecated "criteria" field.
       log.warn("Received query Filter with a deprecated field 'criteria'. Use 'or' instead.");
@@ -146,7 +156,8 @@ public class ESUtils {
                 if (!criterion.getValue().trim().isEmpty()
                     || criterion.hasValues()
                     || criterion.getCondition() == Condition.IS_NULL) {
-                  andQueryBuilder.must(getQueryBuilderFromCriterion(criterion, isTimeseries));
+                  andQueryBuilder.must(
+                      getQueryBuilderFromCriterion(criterion, isTimeseries, searchableFieldTypes));
                 }
               });
       finalQueryBuilder.should(andQueryBuilder);
@@ -156,7 +167,9 @@ public class ESUtils {
 
   @Nonnull
   public static BoolQueryBuilder buildConjunctiveFilterQuery(
-      @Nonnull ConjunctiveCriterion conjunctiveCriterion, boolean isTimeseries) {
+      @Nonnull ConjunctiveCriterion conjunctiveCriterion,
+      boolean isTimeseries,
+      Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes) {
     final BoolQueryBuilder andQueryBuilder = new BoolQueryBuilder();
     conjunctiveCriterion
         .getAnd()
@@ -167,9 +180,11 @@ public class ESUtils {
                   || criterion.hasValues()) {
                 if (!criterion.isNegated()) {
                   // `filter` instead of `must` (enables caching and bypasses scoring)
-                  andQueryBuilder.filter(getQueryBuilderFromCriterion(criterion, isTimeseries));
+                  andQueryBuilder.filter(
+                      getQueryBuilderFromCriterion(criterion, isTimeseries, searchableFieldTypes));
                 } else {
-                  andQueryBuilder.mustNot(getQueryBuilderFromCriterion(criterion, isTimeseries));
+                  andQueryBuilder.mustNot(
+                      getQueryBuilderFromCriterion(criterion, isTimeseries, searchableFieldTypes));
                 }
               }
             });
@@ -205,7 +220,9 @@ public class ESUtils {
    */
   @Nonnull
   public static QueryBuilder getQueryBuilderFromCriterion(
-      @Nonnull final Criterion criterion, boolean isTimeseries) {
+      @Nonnull final Criterion criterion,
+      boolean isTimeseries,
+      final Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes) {
     final String fieldName = toFacetField(criterion.getField());
     if (fieldName.startsWith(STRUCTURED_PROPERTY_MAPPING_FIELD)) {
       criterion.setField(fieldName);
@@ -224,10 +241,11 @@ public class ESUtils {
 
     if (maybeFieldToExpand.isPresent()) {
       return getQueryBuilderFromCriterionForFieldToExpand(
-          maybeFieldToExpand.get(), criterion, isTimeseries);
+          maybeFieldToExpand.get(), criterion, isTimeseries, searchableFieldTypes);
     }
 
-    return getQueryBuilderFromCriterionForSingleField(criterion, isTimeseries);
+    return getQueryBuilderFromCriterionForSingleField(
+        criterion, isTimeseries, searchableFieldTypes);
   }
 
   public static String getElasticTypeForFieldType(SearchableAnnotation.FieldType fieldType) {
@@ -243,6 +261,8 @@ public class ESUtils {
       return DATE_FIELD_TYPE;
     } else if (fieldType == SearchableAnnotation.FieldType.OBJECT) {
       return OBJECT_FIELD_TYPE;
+    } else if (fieldType == SearchableAnnotation.FieldType.DOUBLE) {
+      return DOUBLE_FIELD_TYPE;
     } else {
       log.warn("FieldType {} has no mappings implemented", fieldType);
       return null;
@@ -378,7 +398,7 @@ public class ESUtils {
 
   @Nonnull
   public static String toKeywordField(
-      @Nonnull final String filterField, @Nonnull final boolean skipKeywordSuffix) {
+      @Nonnull final String filterField, final boolean skipKeywordSuffix) {
     return skipKeywordSuffix
             || KEYWORD_FIELDS.contains(filterField)
             || PATH_HIERARCHY_FIELDS.contains(filterField)
@@ -428,7 +448,8 @@ public class ESUtils {
   private static QueryBuilder getQueryBuilderFromCriterionForFieldToExpand(
       @Nonnull final List<String> fields,
       @Nonnull final Criterion criterion,
-      final boolean isTimeseries) {
+      final boolean isTimeseries,
+      final Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes) {
     final BoolQueryBuilder orQueryBuilder = new BoolQueryBuilder();
     for (String field : fields) {
       Criterion criterionToQuery = new Criterion();
@@ -442,14 +463,17 @@ public class ESUtils {
       }
       criterionToQuery.setField(toKeywordField(field, isTimeseries));
       orQueryBuilder.should(
-          getQueryBuilderFromCriterionForSingleField(criterionToQuery, isTimeseries));
+          getQueryBuilderFromCriterionForSingleField(
+              criterionToQuery, isTimeseries, searchableFieldTypes));
     }
     return orQueryBuilder;
   }
 
   @Nonnull
   private static QueryBuilder getQueryBuilderFromCriterionForSingleField(
-      @Nonnull Criterion criterion, @Nonnull boolean isTimeseries) {
+      @Nonnull Criterion criterion,
+      boolean isTimeseries,
+      final Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes) {
     final Condition condition = criterion.getCondition();
     final String fieldName = toFacetField(criterion.getField());
 
@@ -463,24 +487,11 @@ public class ESUtils {
           .queryName(fieldName);
     } else if (criterion.hasValues() || criterion.hasValue()) {
       if (condition == Condition.EQUAL) {
-        return buildEqualsConditionFromCriterion(fieldName, criterion, isTimeseries);
-        // TODO: Support multi-match on the following operators (using new 'values' field)
-      } else if (condition == Condition.GREATER_THAN) {
-        return QueryBuilders.rangeQuery(criterion.getField())
-            .gt(criterion.getValue().trim())
-            .queryName(fieldName);
-      } else if (condition == Condition.GREATER_THAN_OR_EQUAL_TO) {
-        return QueryBuilders.rangeQuery(criterion.getField())
-            .gte(criterion.getValue().trim())
-            .queryName(fieldName);
-      } else if (condition == Condition.LESS_THAN) {
-        return QueryBuilders.rangeQuery(criterion.getField())
-            .lt(criterion.getValue().trim())
-            .queryName(fieldName);
-      } else if (condition == Condition.LESS_THAN_OR_EQUAL_TO) {
-        return QueryBuilders.rangeQuery(criterion.getField())
-            .lte(criterion.getValue().trim())
-            .queryName(fieldName);
+        return buildEqualsConditionFromCriterion(
+            fieldName, criterion, isTimeseries, searchableFieldTypes);
+      } else if (RANGE_QUERY_CONDITIONS.contains(condition)) {
+        return buildRangeQueryFromCriterion(
+            criterion, fieldName, searchableFieldTypes, condition, isTimeseries);
       } else if (condition == Condition.CONTAIN) {
         return QueryBuilders.wildcardQuery(
                 toKeywordField(criterion.getField(), isTimeseries),
@@ -504,13 +515,15 @@ public class ESUtils {
   private static QueryBuilder buildEqualsConditionFromCriterion(
       @Nonnull final String fieldName,
       @Nonnull final Criterion criterion,
-      final boolean isTimeseries) {
+      final boolean isTimeseries,
+      final Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes) {
     /*
      * If the newer 'values' field of Criterion.pdl is set, then we
      * handle using the following code to allow multi-match.
      */
     if (!criterion.getValues().isEmpty()) {
-      return buildEqualsConditionFromCriterionWithValues(fieldName, criterion, isTimeseries);
+      return buildEqualsConditionFromCriterionWithValues(
+          fieldName, criterion, isTimeseries, searchableFieldTypes);
     }
     /*
      * Otherwise, we are likely using the deprecated 'value' field.
@@ -526,19 +539,89 @@ public class ESUtils {
   private static QueryBuilder buildEqualsConditionFromCriterionWithValues(
       @Nonnull final String fieldName,
       @Nonnull final Criterion criterion,
-      final boolean isTimeseries) {
-    if (BOOLEAN_FIELDS.contains(fieldName) && criterion.getValues().size() == 1) {
-      // Handle special-cased Boolean fields.
-      // here we special case boolean fields we recognize the names of and hard-cast
-      // the first provided value to a boolean to do the comparison.
-      // Ideally, we should detect the type of the field from the entity-registry in order
-      // to determine how to cast.
+      final boolean isTimeseries,
+      final Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes) {
+    Set<String> fieldTypes = getFieldTypes(searchableFieldTypes, fieldName);
+    if (fieldTypes.size() > 1) {
+      log.warn(
+          "Multiple field types for field name {}, determining best fit for set: {}",
+          fieldName,
+          fieldTypes);
+    }
+    if (fieldTypes.contains(BOOLEAN_FIELD_TYPE) && criterion.getValues().size() == 1) {
       return QueryBuilders.termQuery(fieldName, Boolean.parseBoolean(criterion.getValues().get(0)))
           .queryName(fieldName);
+    } else if (fieldTypes.contains(LONG_FIELD_TYPE) || fieldTypes.contains(DATE_FIELD_TYPE)) {
+      List<Long> longValues =
+          criterion.getValues().stream().map(Long::parseLong).collect(Collectors.toList());
+      return QueryBuilders.termsQuery(fieldName, longValues).queryName(fieldName);
+    } else if (fieldTypes.contains(DOUBLE_FIELD_TYPE)) {
+      List<Double> doubleValues =
+          criterion.getValues().stream().map(Double::parseDouble).collect(Collectors.toList());
+      return QueryBuilders.termsQuery(fieldName, doubleValues).queryName(fieldName);
     }
     return QueryBuilders.termsQuery(
             toKeywordField(criterion.getField(), isTimeseries), criterion.getValues())
         .queryName(fieldName);
+  }
+
+  private static Set<String> getFieldTypes(
+      Map<String, Set<SearchableAnnotation.FieldType>> searchableFields, String fieldName) {
+    Set<SearchableAnnotation.FieldType> fieldTypes =
+        searchableFields.getOrDefault(fieldName, Collections.emptySet());
+    Set<String> finalFieldTypes =
+        fieldTypes.stream().map(ESUtils::getElasticTypeForFieldType).collect(Collectors.toSet());
+    if (fieldTypes.size() > 1) {
+      log.warn(
+          "Multiple field types for field name {}, determining best fit for set: {}",
+          fieldName,
+          fieldTypes);
+    }
+    return finalFieldTypes;
+  }
+
+  private static RangeQueryBuilder buildRangeQueryFromCriterion(
+      Criterion criterion,
+      String fieldName,
+      Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes,
+      Condition condition,
+      boolean isTimeseries) {
+    Set<String> fieldTypes = getFieldTypes(searchableFieldTypes, fieldName);
+
+    // Determine criterion value, range query only accepts single value so take first value in
+    // values if multiple
+    String criterionValueString;
+    if (!criterion.getValues().isEmpty()) {
+      criterionValueString = criterion.getValues().get(0).trim();
+    } else {
+      criterionValueString = criterion.getValue().trim();
+    }
+    Object criterionValue;
+    String documentFieldName;
+    if (fieldTypes.contains(BOOLEAN_FIELD_TYPE)) {
+      criterionValue = Boolean.parseBoolean(criterionValueString);
+      documentFieldName = criterion.getField();
+    } else if (fieldTypes.contains(LONG_FIELD_TYPE) || fieldTypes.contains(DATE_FIELD_TYPE)) {
+      criterionValue = Long.parseLong(criterionValueString);
+      documentFieldName = criterion.getField();
+    } else if (fieldTypes.contains(DOUBLE_FIELD_TYPE)) {
+      criterionValue = Double.parseDouble(criterionValueString);
+      documentFieldName = criterion.getField();
+    } else {
+      criterionValue = criterionValueString;
+      documentFieldName = toKeywordField(criterion.getField(), isTimeseries);
+    }
+
+    // Set up QueryBuilder based on condition
+    if (condition == Condition.GREATER_THAN) {
+      return QueryBuilders.rangeQuery(documentFieldName).gt(criterionValue).queryName(fieldName);
+    } else if (condition == Condition.GREATER_THAN_OR_EQUAL_TO) {
+      return QueryBuilders.rangeQuery(documentFieldName).gte(criterionValue).queryName(fieldName);
+    } else if (condition == Condition.LESS_THAN) {
+      return QueryBuilders.rangeQuery(documentFieldName).lt(criterionValue).queryName(fieldName);
+    } else /*if (condition == Condition.LESS_THAN_OR_EQUAL_TO)*/ {
+      return QueryBuilders.rangeQuery(documentFieldName).lte(criterionValue).queryName(fieldName);
+    }
   }
 
   /**

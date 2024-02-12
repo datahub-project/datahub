@@ -50,11 +50,11 @@ if TYPE_CHECKING:
     from datahub.ingestion.source.state.entity_removal_state import (
         GenericCheckpointState,
     )
-    from datahub.utilities.sqlglot_lineage import (
+    from datahub.sql_parsing.schema_resolver import (
         GraphQLSchemaMetadata,
         SchemaResolver,
-        SqlParsingResult,
     )
+    from datahub.sql_parsing.sqlglot_lineage import SqlParsingResult
 
 
 logger = logging.getLogger(__name__)
@@ -83,6 +83,7 @@ DataHubGraphConfig = DatahubClientConfig
 class RelatedEntity:
     urn: str
     relationship_type: str
+    via: Optional[str] = None
 
 
 def _graphql_entity_type(entity_type: str) -> str:
@@ -833,6 +834,7 @@ class DataHubGraph(DatahubRestEmitter):
                 yield RelatedEntity(
                     urn=related_entity["urn"],
                     relationship_type=related_entity["relationshipType"],
+                    via=related_entity.get("via"),
                 )
             done = response.get("count", 0) == 0 or response.get("count", 0) < len(
                 response.get("entities", [])
@@ -840,9 +842,9 @@ class DataHubGraph(DatahubRestEmitter):
             start = start + response.get("count", 0)
 
     def exists(self, entity_urn: str) -> bool:
-        entity_urn_parsed: Urn = Urn.create_from_string(entity_urn)
+        entity_urn_parsed: Urn = Urn.from_string(entity_urn)
         try:
-            key_aspect_class = KEY_ASPECTS.get(entity_urn_parsed.get_type())
+            key_aspect_class = KEY_ASPECTS.get(entity_urn_parsed.entity_type)
             if key_aspect_class:
                 result = self.get_aspect(entity_urn, key_aspect_class)
                 return result is not None
@@ -1001,7 +1003,7 @@ class DataHubGraph(DatahubRestEmitter):
         env: str,
         include_graph: bool = True,
     ) -> "SchemaResolver":
-        from datahub.utilities.sqlglot_lineage import SchemaResolver
+        from datahub.sql_parsing.schema_resolver import SchemaResolver
 
         return SchemaResolver(
             platform=platform,
@@ -1053,7 +1055,7 @@ class DataHubGraph(DatahubRestEmitter):
         default_db: Optional[str] = None,
         default_schema: Optional[str] = None,
     ) -> "SqlParsingResult":
-        from datahub.utilities.sqlglot_lineage import sqlglot_lineage
+        from datahub.sql_parsing.sqlglot_lineage import sqlglot_lineage
 
         # Cache the schema resolver to make bulk parsing faster.
         schema_resolver = self._make_schema_resolver(

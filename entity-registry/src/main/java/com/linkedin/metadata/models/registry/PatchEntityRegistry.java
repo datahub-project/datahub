@@ -71,19 +71,17 @@ public class PatchEntityRegistry implements EntityRegistry {
   @Override
   public String toString() {
     StringBuilder sb = new StringBuilder("PatchEntityRegistry[" + "identifier=" + identifier + ';');
-    entityNameToSpec.entrySet().stream()
-        .forEach(
-            entry ->
-                sb.append("[entityName=")
-                    .append(entry.getKey())
-                    .append(";aspects=[")
-                    .append(
-                        entry.getValue().getAspectSpecs().stream()
-                            .map(spec -> spec.getName())
-                            .collect(Collectors.joining(",")))
-                    .append("]]"));
-    eventNameToSpec.entrySet().stream()
-        .forEach(entry -> sb.append("[eventName=").append(entry.getKey()).append("]"));
+    entityNameToSpec.forEach(
+        (key1, value1) ->
+            sb.append("[entityName=")
+                .append(key1)
+                .append(";aspects=[")
+                .append(
+                    value1.getAspectSpecs().stream()
+                        .map(AspectSpec::getName)
+                        .collect(Collectors.joining(",")))
+                .append("]]"));
+    eventNameToSpec.forEach((key, value) -> sb.append("[eventName=").append(key).append("]"));
     return sb.toString();
   }
 
@@ -119,7 +117,7 @@ public class PatchEntityRegistry implements EntityRegistry {
               .filter(Files::isRegularFile)
               .filter(f -> f.endsWith("entity-registry.yml") || f.endsWith("entity-registry.yaml"))
               .collect(Collectors.toList());
-      if (yamlFiles.size() == 0) {
+      if (yamlFiles.isEmpty()) {
         throw new EntityRegistryException(
             String.format(
                 "Did not find an entity registry (entity-registry.yaml/yml) under %s",
@@ -175,7 +173,7 @@ public class PatchEntityRegistry implements EntityRegistry {
       entities = OBJECT_MAPPER.readValue(configFileStream, Entities.class);
       this.pluginFactory = PluginFactory.withCustomClasspath(entities.getPlugins(), classLoaders);
     } catch (IOException e) {
-      e.printStackTrace();
+      log.error("Unable to read Patch configuration.", e);
       throw new IllegalArgumentException(
           String.format(
               "Error while reading config file in path %s: %s", configFileStream, e.getMessage()));

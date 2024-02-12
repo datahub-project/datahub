@@ -33,8 +33,7 @@ FROM mytable
                 "col2": "NUMBER",
             },
         },
-        # Shared with the test above.
-        expected_file=RESOURCE_DIR / "test_select_max.json",
+        expected_file=RESOURCE_DIR / "test_select_max_with_schema.json",
     )
 
 
@@ -131,6 +130,16 @@ limit 100;
 """,
         dialect="hive",
         expected_file=RESOURCE_DIR / "test_insert_as_select.json",
+    )
+
+
+def test_insert_with_column_list():
+    assert_sql_result(
+        """\
+insert into downstream (a, c) select a, c from upstream2
+""",
+        dialect="redshift",
+        expected_file=RESOURCE_DIR / "test_insert_with_column_list.json",
     )
 
 

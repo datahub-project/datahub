@@ -154,7 +154,8 @@ public interface EntityClient {
       @Nonnull String input,
       int start,
       int count,
-      @Nonnull Authentication authentication)
+      @Nonnull Authentication authentication,
+      @Nullable SearchFlags searchFlags)
       throws RemoteInvocationException;
 
   /**
@@ -176,7 +177,8 @@ public interface EntityClient {
       @Nonnull String input,
       int start,
       int count,
-      @Nonnull Authentication authentication)
+      @Nonnull Authentication authentication,
+      @Nullable SearchFlags searchFlags)
       throws RemoteInvocationException;
 
   @Deprecated
@@ -381,6 +383,7 @@ public interface EntityClient {
    * @param endTimeMillis end time to filter to
    * @param startTimeMillis start time to filter from
    * @param searchFlags configuration flags for the search request
+   * @param authentication a reference to an authentication
    * @return a {@link SearchResult} that contains a list of matched documents and related search
    *     result metadata
    */

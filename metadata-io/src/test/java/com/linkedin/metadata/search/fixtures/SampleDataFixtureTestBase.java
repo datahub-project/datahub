@@ -14,8 +14,10 @@ import static org.testng.Assert.assertTrue;
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
 import com.linkedin.datahub.graphql.types.chart.ChartType;
 import com.linkedin.datahub.graphql.types.container.ContainerType;
@@ -45,6 +47,7 @@ import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.r2.RemoteInvocationException;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -64,6 +67,7 @@ import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.search.sort.FieldSortBuilder;
 import org.opensearch.search.sort.SortBuilder;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
+import org.testng.AssertJUnit;
 import org.testng.annotations.Test;
 
 public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringContextTests {
@@ -1934,6 +1938,56 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
     assertTrue(
         result.getEntities().size() > 2,
         String.format("%s - Expected search results to have at least two results", query));
+  }
+
+  @Test
+  public void testFilterOnHasValuesField() {
+    AssertJUnit.assertNotNull(getSearchService());
+    Filter filter =
+        new Filter()
+            .setOr(
+                new ConjunctiveCriterionArray(
+                    new ConjunctiveCriterion()
+                        .setAnd(
+                            new CriterionArray(
+                                ImmutableList.of(
+                                    new Criterion()
+                                        .setField("hasOwners")
+                                        .setValue("")
+                                        .setValues(new StringArray(ImmutableList.of("true"))))))));
+    SearchResult searchResult =
+        searchAcrossEntities(
+            getSearchService(),
+            "*",
+            SEARCHABLE_ENTITIES,
+            filter,
+            Collections.singletonList(DATASET_ENTITY_NAME));
+    assertEquals(searchResult.getEntities().size(), 8);
+  }
+
+  @Test
+  public void testFilterOnNumValuesField() {
+    AssertJUnit.assertNotNull(getSearchService());
+    Filter filter =
+        new Filter()
+            .setOr(
+                new ConjunctiveCriterionArray(
+                    new ConjunctiveCriterion()
+                        .setAnd(
+                            new CriterionArray(
+                                ImmutableList.of(
+                                    new Criterion()
+                                        .setField("numInputDatasets")
+                                        .setValue("")
+                                        .setValues(new StringArray(ImmutableList.of("1"))))))));
+    SearchResult searchResult =
+        searchAcrossEntities(
+            getSearchService(),
+            "*",
+            SEARCHABLE_ENTITIES,
+            filter,
+            Collections.singletonList(DATA_JOB_ENTITY_NAME));
+    assertEquals(searchResult.getEntities().size(), 4);
   }
 
   private Stream<AnalyzeResponse.AnalyzeToken> getTokens(AnalyzeRequest request)

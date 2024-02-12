@@ -58,7 +58,7 @@ public class MergedEntityRegistry implements EntityRegistry {
       validationResult.setValid(false);
       validationResult
           .getValidationFailures()
-          .add(String.format("Key aspect is missing in entity {}", entitySpec.getName()));
+          .add(String.format("Key aspect is missing in entity %s", entitySpec.getName()));
     }
   }
 
@@ -86,7 +86,7 @@ public class MergedEntityRegistry implements EntityRegistry {
     }
 
     // Merge Event Specs
-    if (patchEntityRegistry.getEventSpecs().size() > 0) {
+    if (!patchEntityRegistry.getEventSpecs().isEmpty()) {
       eventNameToSpec.putAll(patchEntityRegistry.getEventSpecs());
     }
     // TODO: Validate that the entity registries don't have conflicts among each other
@@ -116,19 +116,18 @@ public class MergedEntityRegistry implements EntityRegistry {
     if (existingEntitySpec != null) {
       existingEntitySpec
           .getAspectSpecMap()
-          .entrySet()
           .forEach(
-              aspectSpecEntry -> {
-                if (newEntitySpec.hasAspect(aspectSpecEntry.getKey())) {
+              (key, value) -> {
+                if (newEntitySpec.hasAspect(key)) {
                   CompatibilityResult result =
                       CompatibilityChecker.checkCompatibility(
-                          aspectSpecEntry.getValue().getPegasusSchema(),
-                          newEntitySpec.getAspectSpec(aspectSpecEntry.getKey()).getPegasusSchema(),
+                          value.getPegasusSchema(),
+                          newEntitySpec.getAspectSpec(key).getPegasusSchema(),
                           new CompatibilityOptions());
                   if (result.isError()) {
                     log.error(
                         "{} schema is not compatible with previous schema due to {}",
-                        aspectSpecEntry.getKey(),
+                        key,
                         result.getMessages());
                     // we want to continue processing all aspects to collect all failures
                     validationResult.setValid(false);
@@ -137,11 +136,11 @@ public class MergedEntityRegistry implements EntityRegistry {
                         .add(
                             String.format(
                                 "%s schema is not compatible with previous schema due to %s",
-                                aspectSpecEntry.getKey(), result.getMessages()));
+                                key, result.getMessages()));
                   } else {
                     log.info(
                         "{} schema is compatible with previous schema due to {}",
-                        aspectSpecEntry.getKey(),
+                        key,
                         result.getMessages());
                   }
                 }
@@ -222,7 +221,7 @@ public class MergedEntityRegistry implements EntityRegistry {
 
   @Setter
   @Getter
-  private class ValidationResult {
+  private static class ValidationResult {
     boolean valid = true;
     List<String> validationFailures = new ArrayList<>();
   }
