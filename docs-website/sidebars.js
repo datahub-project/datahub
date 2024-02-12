@@ -6,6 +6,7 @@ module.exports = {
   // modelers
   // developers
   // operators
+  // touch
 
   overviewSidebar: [
     {
