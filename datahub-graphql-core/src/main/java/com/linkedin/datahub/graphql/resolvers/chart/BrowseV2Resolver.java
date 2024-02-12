@@ -18,6 +18,7 @@ import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.browse.BrowseResultV2;
+import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.service.FormService;
 import com.linkedin.metadata.service.ViewService;
@@ -52,6 +53,7 @@ public class BrowseV2Resolver implements DataFetcher<CompletableFuture<BrowseRes
     final int start = input.getStart() != null ? input.getStart() : DEFAULT_START;
     final int count = input.getCount() != null ? input.getCount() : DEFAULT_COUNT;
     final String query = input.getQuery() != null ? input.getQuery() : "*";
+    final SearchFlags searchFlags = mapInputFlags(input.getSearchFlags());
     // escape forward slash since it is a reserved character in Elasticsearch
     final String sanitizedQuery = ResolverUtils.escapeForwardSlash(query);
 
@@ -83,7 +85,8 @@ public class BrowseV2Resolver implements DataFetcher<CompletableFuture<BrowseRes
                     sanitizedQuery,
                     start,
                     count,
-                    context.getAuthentication());
+                    context.getAuthentication(),
+                    searchFlags);
             return mapBrowseResults(browseResults);
           } catch (Exception e) {
             throw new RuntimeException("Failed to execute browse V2", e);

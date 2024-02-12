@@ -223,6 +223,7 @@ public interface EntitySearchService {
    * @param input search query
    * @param start start offset of first group
    * @param count max number of results requested
+   * @param searchFlags configuration options for search
    */
   @Nonnull
   public BrowseResultV2 browseV2(
@@ -231,7 +232,8 @@ public interface EntitySearchService {
       @Nullable Filter filter,
       @Nonnull String input,
       int start,
-      int count);
+      int count,
+      @Nullable SearchFlags searchFlags);
 
   /**
    * Gets browse snapshot of a given path
@@ -242,6 +244,7 @@ public interface EntitySearchService {
    * @param input search query
    * @param start start offset of first group
    * @param count max number of results requested
+   * @param searchFlags configuration options for search
    */
   @Nonnull
   public BrowseResultV2 browseV2(
@@ -250,7 +253,8 @@ public interface EntitySearchService {
       @Nullable Filter filter,
       @Nonnull String input,
       int start,
-      int count);
+      int count,
+      @Nullable SearchFlags searchFlags);
 
   /**
    * Gets a list of paths for a given urn.
