@@ -174,12 +174,13 @@ export const AccessTokens = () => {
     const renderSearchResult = (entity: any) => {
         const {
             editableProperties,
-            info: { displayName },
+            info,
         } = entity;
+        const displayNameSearchResult = info ? info?.displayName : '';
         const avatarUrl = editableProperties?.pictureLink || undefined;
         return (
             <Select.Option value={entity.urn} key={entity.urn}>
-                <OwnerLabel name={displayName} avatarUrl={avatarUrl} type={entity.type} />
+                <OwnerLabel name={displayNameSearchResult} avatarUrl={avatarUrl} type={entity.type} />
             </Select.Option>
         );
     };
@@ -286,9 +287,10 @@ export const AccessTokens = () => {
             key: 'ownerUrn',
             render: (ownerUrn: string) => {
                 if (!ownerUrn) return '';
-                const displayName = ownerUrn.replace('urn:li:corpuser:', '');
+                const displayName = ownerUrn?.replace('urn:li:corpuser:', '');
                 const link = `/user/${ownerUrn}/owner of`;
-                return <a href={link}>{displayName}</a>;
+                const ownerName = displayName || '';
+                return <a href={link}>{ownerName}</a>;
             },
         },
         {
