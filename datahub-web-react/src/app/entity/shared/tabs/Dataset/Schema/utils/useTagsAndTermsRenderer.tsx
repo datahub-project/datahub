@@ -60,9 +60,9 @@ export default function useTagsAndTermsRenderer(
         }
         return (
             <TagTermGroup
-                uneditableTags={options.showTags ? tags : null}
+                uneditableTags={options.showTags ? newTags : null}
                 editableTags={options.showTags ? relevantEditableFieldInfo?.globalTags : null}
-                uneditableGlossaryTerms={options.showTerms ? record.glossaryTerms : null}
+                uneditableGlossaryTerms={options.showTerms ? newRecord.glossaryTerms : null}
                 editableGlossaryTerms={options.showTerms ? relevantEditableFieldInfo?.glossaryTerms : null}
                 canRemove={canEdit}
                 buttonProps={{ size: 'small' }}

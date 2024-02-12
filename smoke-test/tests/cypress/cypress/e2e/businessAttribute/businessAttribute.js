@@ -7,7 +7,7 @@ describe("businessAttribute", () => {
         cy.goToBusinessAttributeList();
 
         cy.clickOptionWithText("Create Business Attribute");
-        cy.addViaModal(businessAttribute, "Create Business Attribute");
+        cy.addViaModal(businessAttribute, "Create Business Attribute", businessAttribute, "create-business-attribute-button");
 
         cy.wait(3000);
         cy.goToBusinessAttributeList().contains(businessAttribute).should("be.visible");
@@ -80,6 +80,7 @@ describe("businessAttribute", () => {
 
         cy.wait(3000);
 
+        cy.clickOptionWithText("event_name");
         cy.get('[data-testid="schema-field-event_name-businessAttribute"]').within(() =>
             cy
                 .get("span[aria-label=close]")

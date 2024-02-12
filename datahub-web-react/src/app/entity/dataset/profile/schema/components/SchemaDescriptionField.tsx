@@ -11,6 +11,7 @@ import SchemaEditableContext from '../../../../../shared/SchemaEditableContext';
 import { useEntityData } from '../../../../shared/EntityContext';
 import analytics, { EventType, EntityActionType } from '../../../../../analytics';
 import { Editor } from '../../../../shared/tabs/Documentation/components/editor/Editor';
+import { ANTD_GRAY } from '../../../../shared/constants';
 
 const EditIcon = styled(EditOutlined)`
     cursor: pointer;
@@ -77,9 +78,25 @@ const StyledViewer = styled(Editor)`
     }
 `;
 
+const AttributeDescription = styled.div`
+    margin-top: 8px;
+    color: ${ANTD_GRAY[7]};
+`;
+
+const StyledAttributeViewer = styled(Editor)`
+    padding-right: 8px;
+    display: block;
+    .remirror-editor.ProseMirror {
+        padding: 0;
+        color: ${ANTD_GRAY[7]};
+    }
+`;
+
 type Props = {
     onExpanded: (expanded: boolean) => void;
+    onBAExpanded?: (expanded: boolean) => void;
     expanded: boolean;
+    baExpanded?: boolean;
     description: string;
     original?: string | null;
     onUpdate: (
@@ -87,24 +104,31 @@ type Props = {
     ) => Promise<FetchResult<UpdateDatasetMutation, Record<string, any>, Record<string, any>> | void>;
     isEdited?: boolean;
     isReadOnly?: boolean;
+    businessAttributeDescription?: string;
 };
 
 const ABBREVIATED_LIMIT = 80;
 
 export default function DescriptionField({
     expanded,
+    baExpanded,
     onExpanded: handleExpanded,
+    onBAExpanded: handleBAExpanded,
     description,
     onUpdate,
     isEdited = false,
     original,
     isReadOnly,
+    businessAttributeDescription,
 }: Props) {
     const [showAddModal, setShowAddModal] = useState(false);
     const overLimit = removeMarkdown(description).length > 80;
     const isSchemaEditable = React.useContext(SchemaEditableContext) && !isReadOnly;
     const onCloseModal = () => setShowAddModal(false);
     const { urn, entityType } = useEntityData();
+    const attributeDescriptionOverLimit = businessAttributeDescription
+        ? removeMarkdown(businessAttributeDescription).length > 80
+        : false;
 
     const sendAnalytics = () => {
         analytics.event({
@@ -199,6 +223,54 @@ export default function DescriptionField({
                     + Add Description
                 </AddNewDescription>
             )}
+            <AttributeDescription>
+                {baExpanded || !attributeDescriptionOverLimit ? (
+                    <>
+                        {!!businessAttributeDescription && (
+                            <StyledAttributeViewer content={businessAttributeDescription} readOnly />
+                        )}
+                        {!!businessAttributeDescription && (
+                            <ExpandedActions>
+                                {attributeDescriptionOverLimit && (
+                                    <ReadLessText
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            if (handleBAExpanded) {
+                                                handleBAExpanded(false);
+                                            }
+                                        }}
+                                    >
+                                        Read Less
+                                    </ReadLessText>
+                                )}
+                            </ExpandedActions>
+                        )}
+                    </>
+                ) : (
+                    <>
+                        <StripMarkdownText
+                            limit={ABBREVIATED_LIMIT}
+                            readMore={
+                                <>
+                                    <Typography.Link
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            if (handleBAExpanded) {
+                                                handleBAExpanded(true);
+                                            }
+                                        }}
+                                    >
+                                        Read More
+                                    </Typography.Link>
+                                </>
+                            }
+                            shouldWrap
+                        >
+                            {businessAttributeDescription}
+                        </StripMarkdownText>
+                    </>
+                )}
+            </AttributeDescription>
         </DescriptionContainer>
     );
 }

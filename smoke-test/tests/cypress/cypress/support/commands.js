@@ -285,8 +285,8 @@ Cypress.Commands.add('addTermToBusinessAttribute', (urn, attribute_name, term) =
 
 Cypress.Commands.add('addAttributeToDataset', (urn, dataset_name, businessAttribute) => {
   cy.goToDataset(urn, dataset_name);
-  cy.contains("Business Attributes");
-  cy.mouseover('[data-testid="schema-field-event_name-businessAttribute"]');
+  cy.clickOptionWithText("event_name");
+  cy.contains("Business Attribute");
   cy.get('[data-testid="schema-field-event_name-businessAttribute"]').within(() =>
       cy.contains("Add Attribute").click()
   );

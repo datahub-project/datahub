@@ -13,6 +13,7 @@ export default function useDescriptionRenderer(editableSchemaMetadata: EditableS
     const schemaRefetch = useSchemaRefetch();
     const [updateDescription] = useUpdateDescriptionMutation();
     const [expandedRows, setExpandedRows] = useState({});
+    const [expandedBARows, setExpandedBARows] = useState({});
 
     const refresh: any = () => {
         refetch?.();
@@ -26,13 +27,20 @@ export default function useDescriptionRenderer(editableSchemaMetadata: EditableS
         const displayedDescription = relevantEditableFieldInfo?.description || description;
         const sanitizedDescription = DOMPurify.sanitize(displayedDescription);
         const original = record.description ? DOMPurify.sanitize(record.description) : undefined;
+        const businessAttributeDescription =
+            relevantEditableFieldInfo?.businessAttributes?.businessAttribute?.businessAttribute?.properties
+                ?.description || '';
 
         const handleExpandedRows = (expanded) => setExpandedRows((prev) => ({ ...prev, [index]: expanded }));
+        const handleBAExpandedRows = (expanded) => setExpandedBARows((prev) => ({ ...prev, [index]: expanded }));
 
         return (
             <DescriptionField
+                businessAttributeDescription={businessAttributeDescription}
                 onExpanded={handleExpandedRows}
+                onBAExpanded={handleBAExpandedRows}
                 expanded={!!expandedRows[index]}
+                baExpanded={!!expandedBARows[index]}
                 description={sanitizedDescription}
                 original={original}
                 isEdited={!!relevantEditableFieldInfo?.description}

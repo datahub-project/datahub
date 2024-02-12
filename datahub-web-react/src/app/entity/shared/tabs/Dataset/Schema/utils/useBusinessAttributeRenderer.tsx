@@ -7,9 +7,8 @@ import BusinessAttributeGroup from '../../../../../../shared/businessAttribute/B
 
 export default function useBusinessAttributeRenderer(
     editableSchemaMetadata: EditableSchemaMetadata | null | undefined,
-    attributeHoveredIndex: string | undefined,
-    setAttributeHoveredIndex: (index: string | undefined) => void,
     filterText: string,
+    canEdit: boolean,
 ) {
     const urn = useMutationUrn();
     const refetch = useRefetch();
@@ -26,20 +25,17 @@ export default function useBusinessAttributeRenderer(
         );
 
         return (
-            <div data-testid={`schema-field-${record.fieldPath}-businessAttribute`}>
-                <BusinessAttributeGroup
-                    businessAttribute={relevantEditableFieldInfo?.businessAttributes?.businessAttribute}
-                    canRemove
-                    buttonProps={{ size: 'small' }}
-                    canAddAttribute={attributeHoveredIndex === record.fieldPath}
-                    onOpenModal={() => setAttributeHoveredIndex(undefined)}
-                    entityUrn={urn}
-                    entityType={EntityType.Dataset}
-                    entitySubresource={record.fieldPath}
-                    highlightText={filterText}
-                    refetch={refresh}
-                />
-            </div>
+            <BusinessAttributeGroup
+                businessAttribute={relevantEditableFieldInfo?.businessAttributes?.businessAttribute}
+                canRemove={canEdit}
+                buttonProps={{ size: 'small' }}
+                canAddAttribute={canEdit}
+                entityUrn={urn}
+                entityType={EntityType.Dataset}
+                entitySubresource={record.fieldPath}
+                highlightText={filterText}
+                refetch={refresh}
+            />
         );
     };
 }

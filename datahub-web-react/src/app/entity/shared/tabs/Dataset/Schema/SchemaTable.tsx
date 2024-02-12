@@ -123,25 +123,11 @@ export default function SchemaTable({
     );
     const businessAttributeRenderer = useBusinessAttributeRenderer(
         editableSchemaMetadata,
-        attributeHoveredIndex,
-        setAttributeHoveredIndex,
         filterText,
+        false,
     );
     const schemaTitleRenderer = useSchemaTitleRenderer(schemaMetadata, setSelectedFkFieldPath, filterText);
     const schemaBlameRenderer = useSchemaBlameRenderer(schemaFieldBlameList);
-
-    const onAttributeCell = (record: SchemaField) => ({
-        onMouseEnter: () => {
-            if (editMode) {
-                setAttributeHoveredIndex(record.fieldPath);
-            }
-        },
-        onMouseLeave: () => {
-            if (editMode) {
-                setAttributeHoveredIndex(undefined);
-            }
-        },
-    });
 
     const fieldColumn = {
         width: '22%',
@@ -181,11 +167,10 @@ export default function SchemaTable({
 
     const businessAttributeColumn = {
         width: '18%',
-        title: 'Business Attributes',
+        title: 'Business Attribute',
         dataIndex: 'businessAttribute',
         key: 'businessAttribute',
         render: businessAttributeRenderer,
-        onCell: onAttributeCell,
     };
 
     const blameColumn = {

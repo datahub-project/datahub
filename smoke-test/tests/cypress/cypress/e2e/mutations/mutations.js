@@ -161,6 +161,7 @@ describe("mutations", () => {
     cy.viewport(2000, 800);
 
     cy.goToDataset("urn:li:dataset:(urn:li:dataPlatform:hive,cypress_logging_events,PROD)", "cypress_logging_events");
+    cy.clickOptionWithText("event_data");
     cy.get('[data-testid="schema-field-event_data-businessAttribute"]').trigger(
         "mouseover",
         { force: true }
@@ -169,15 +170,19 @@ describe("mutations", () => {
         cy.contains("Add Attribute").click({ force: true })
     );
 
-    cy.selectOptionInAttributeModal("test");
+    cy.selectOptionInAttributeModal("cypressTestAttribute");
 
-    cy.contains("test");
+    cy.contains("cypressTestAttribute");
 
-    cy.get(
-        'a[href="/business-attribute/urn:li:businessAttribute:37c81832-06e0-40b1-a682-858e1dd0d449"]'
-    ).within(() => cy.get("span[aria-label=close]").click({ force: true }));
+    cy.get('[data-testid="schema-field-event_data-businessAttribute"]').
+    within(() =>
+        cy
+            .get("span[aria-label=close]")
+            .trigger("mouseover", { force: true })
+            .click({ force: true })
+    );
     cy.contains("Yes").click({ force: true });
 
-    cy.contains("test").should("not.exist");
+    cy.contains("cypressTestAttribute").should("not.exist");
   });
 });
