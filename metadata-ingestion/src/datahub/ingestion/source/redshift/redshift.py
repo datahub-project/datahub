@@ -1,3 +1,4 @@
+import itertools
 import logging
 from collections import defaultdict
 from functools import partial
@@ -994,43 +995,30 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
     ) -> Iterable[MetadataWorkUnit]:
         logger.info(f"Generate lineage for {database}")
         for schema in self.db_tables[database]:
-            for table in self.db_tables[database][schema]:
-                if (
-                    database not in self.db_schemas
-                    or schema not in self.db_schemas[database]
-                ):
-                    logger.warning(
-                        f"Either database {database} or {schema} exists in the lineage but was not discovered earlier. Something went wrong."
-                    )
-                    continue
-                datahub_dataset_name = f"{database}.{schema}.{table.name}"
+            if (
+                database not in self.db_schemas
+                or schema not in self.db_schemas[database]
+            ):
+                logger.warning(
+                    f"Either database {database} or {schema} exists in the lineage but was not discovered earlier. Something went wrong."
+                )
+                continue
+
+            for table_or_view in itertools.chain(
+                self.db_tables[database][schema], self.db_views[database][schema]
+            ):
+                datahub_dataset_name = f"{database}.{schema}.{table_or_view.name}"
                 dataset_urn = self.gen_dataset_urn(datahub_dataset_name)
 
                 lineage_info = lineage_extractor.get_lineage(
-                    table,
+                    table_or_view,
                     dataset_urn,
                     self.db_schemas[database][schema],
                 )
                 if lineage_info:
                     yield from gen_lineage(
                         dataset_urn,
-                        lineage_info,
-                        incremental_lineage=False,  # incremental lineage generation is taken care by auto_incremental_lineage
-                    )
-
-        for schema in self.db_views[database]:
-            for view in self.db_views[database][schema]:
-                datahub_dataset_name = f"{database}.{schema}.{view.name}"
-                dataset_urn = self.gen_dataset_urn(datahub_dataset_name)
-                lineage_info = lineage_extractor.get_lineage(
-                    view,
-                    dataset_urn,
-                    self.db_schemas[database][schema],
-                )
-                if lineage_info:
-                    yield from gen_lineage(
-                        dataset_urn,
-                        lineage_info,
+                        (lineage_info, {}),
                         incremental_lineage=False,  # incremental lineage generation is taken care by auto_incremental_lineage
                     )
 
