@@ -176,7 +176,7 @@ export const AccessTokens = () => {
             editableProperties,
             info,
         } = entity;
-        const displayNameSearchResult = info ? info?.displayName : '';
+        const displayNameSearchResult = info?.displayName || editableProperties?.displayName || entity.username;
         const avatarUrl = editableProperties?.pictureLink || undefined;
         return (
             <Select.Option value={entity.urn} key={entity.urn}>
