@@ -1,6 +1,4 @@
 import logging
-import threading
-from concurrent.futures import ThreadPoolExecutor
 from typing import List, Optional
 
 from acryl.executor.request.execution_request import ExecutionRequest
@@ -21,8 +19,8 @@ class ExecutionRequestScheduler:
     """Class for scheduling and executing execution_request_ids based on a CRON schedule."""
 
     execution_request_ids: List[str]
-    executor: ThreadPoolExecutor
     scheduler: BackgroundScheduler
+    assertion_executor: AssertionExecutor
     default_schedule: str = "0 * * * *"  # TODO: Make this configurable.
     default_timezone: str = "America/Los_Angeles"
 
@@ -44,15 +42,19 @@ class ExecutionRequestScheduler:
             if execution_requests is not None
             else []
         )
-        self.executor = ThreadPoolExecutor(max_workers=10)
         self.scheduler = BackgroundScheduler()
+        self.assertion_executor = AssertionExecutor()
         self.scheduler.start()
         if default_schedule is not None:
             self.default_schedule = default_schedule
         if default_timezone is not None:
             self.default_timezone = default_timezone
 
-    def wrapped_evaluate(
+    def shutdown(self) -> None:
+        self.scheduler.shutdown()
+        self.assertion_executor.shutdown()
+
+    def submit_execution_request(
         self,
         execution_request: ExecutionRequest,
     ) -> None:
@@ -66,14 +68,8 @@ class ExecutionRequestScheduler:
                 emit_execution_request_input(execution_request)
             else:
                 if EMBEDDED_WORKER_ENABLED:
-                    thread = threading.Thread(
-                        target=self._evaluate_execution_request,
-                        args=(execution_request,),
-                    )
-                    thread.start()
-                    logger.info(
-                        "started task _evaluate_execution_request on a local thread"
-                    )
+                    # submit request to the thread pool for async execution
+                    self.assertion_executor.execute(execution_request)
                 else:
                     # before we try to send a task over celery, we make sure we have valid SQS creds
                     update_celery_credentials(app, False, execution_request.executor_id)
@@ -92,21 +88,6 @@ class ExecutionRequestScheduler:
             logger.exception(
                 f"Failed to evaluate scheduled execution_request with exec_id {execution_request.exec_id}! This means that no execution_request results will be produced and could indicate missing data."
             )
-
-    def _evaluate_execution_request(self, execution_request: ExecutionRequest) -> None:
-        assertion_executor = AssertionExecutor()
-        assertion_executor.execute(execution_request)
-
-    def submit_execution_request(
-        self,
-        execution_request: ExecutionRequest,
-    ) -> None:
-        """
-        Submit an execution_request to the thread pool for evaluation.
-
-        :param execution_request: The execution_request to be evaluated.
-        """
-        self.executor.submit(self.wrapped_evaluate, execution_request)
 
     def schedule_execution_request(
         self,

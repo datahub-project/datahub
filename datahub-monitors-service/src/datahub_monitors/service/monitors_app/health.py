@@ -15,6 +15,7 @@ health_router = fastapi.APIRouter(
 @health_router.get("/health")
 def health() -> Dict:
     """Determines whether the service is healthy. In the future, we'll introduce additional logic here."""
+    global manager
     if manager is not None:
         return {"healthy": True}
     return {"healthy": False}

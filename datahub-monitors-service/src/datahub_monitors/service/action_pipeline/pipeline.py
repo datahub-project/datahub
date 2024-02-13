@@ -1,6 +1,8 @@
-import asyncio
 import os
-import threading
+import asyncio
+from threading import Thread
+
+from typing import Callable, List
 
 from datahub.configuration.kafka import KafkaConsumerConnectionConfig
 from datahub.configuration.config_loader import (
@@ -28,13 +30,7 @@ from datahub_monitors.config import (
 
 from .action import MonitorServiceAction
 
-
-def start_loop(loop: asyncio.AbstractEventLoop) -> None:
-    asyncio.set_event_loop(loop)
-    loop.run_forever()
-
-
-def start_action_pipeline() -> None:
+def start_async_action_pipeline(sighandler: List[Callable]) -> None:
     config_dict = load_config_file(ACTIONS_PIPELINE_CONFIG_PATH)
     connection = config_dict.get("connection", {})
 
@@ -52,8 +48,11 @@ def start_action_pipeline() -> None:
             graph=create_datahub_graph(),
         ),
     )
+
     action = MonitorServiceAction(
-        EMBEDDED_WORKER_ENABLED, INGESTION_ENABLED, EMBEDDED_WORKER_ID
+        EMBEDDED_WORKER_ENABLED,
+        INGESTION_ENABLED,
+        EMBEDDED_WORKER_ID
     )
 
     pipeline = Pipeline(
@@ -66,15 +65,14 @@ def start_action_pipeline() -> None:
         failed_events_dir=DEFAULT_FAILED_EVENTS_DIR,
     )
 
-    # thanks chatGPT!
-    new_loop = asyncio.new_event_loop()
+    # uvicorn overrides global event loop implementation to uvloop. uvloop does not work correctly with create_subprocess_exec(),
+    # which is used in acryl-executor. See https://github.com/MagicStack/uvloop/issues/508 for repro case. As a workaround,
+    # we reset event_loop implementation back to python's native.
+    asyncio.set_event_loop_policy(None)
 
-    # Start the event loop in a new thread
-    t = threading.Thread(target=start_loop, args=(new_loop,))
-    t.start()
+    # setup sigint handlers
+    sighandler.append(action.shutdown)
+    sighandler.append(pipeline.stop)
 
-    def start_action_pipeline() -> None:
-        asyncio.run_coroutine_threadsafe(pipeline.start(), new_loop)
-
-    # Call the function to run the async function
-    start_action_pipeline()
+    pt = Thread(target = pipeline.run)
+    pt.start()

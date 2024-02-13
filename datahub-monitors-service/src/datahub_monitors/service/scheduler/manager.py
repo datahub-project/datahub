@@ -58,6 +58,9 @@ class ExecutionRequestManager:
                 minutes=fetcher.config.refresh_interval,
             )
 
+    def shutdown(self) -> None:
+        self.bg_scheduler.shutdown()
+
     def schedule_execution_request(
         self,
         fetcher_id: str,

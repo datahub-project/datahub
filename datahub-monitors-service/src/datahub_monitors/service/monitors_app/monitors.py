@@ -1,5 +1,6 @@
 import logging
 import os
+from typing import Callable, List
 
 from datahub_monitors.common.constants import (
     LIST_INGESTION_REFRESH_INTERVAL_MINUTES,
@@ -48,8 +49,10 @@ def get_ingestion_config() -> FetcherConfig:
     )
 
 
-def start_async_execution_request_manager() -> None:
+def start_async_execution_request_manager(sighandler: List[Callable]) -> None:
     try:
+        global manager
+
         # Create DataHub Client
         graph = create_datahub_graph()
 
@@ -64,6 +67,9 @@ def start_async_execution_request_manager() -> None:
         manager = ExecutionRequestManager(
             [monitor_fetcher, ingestion_fetcher], scheduler
         )
+
+        sighandler.append(scheduler.shutdown)
+        sighandler.append(manager.shutdown)
 
         logger.info("Successfully created monitor manager! Starting the monitors...")
 

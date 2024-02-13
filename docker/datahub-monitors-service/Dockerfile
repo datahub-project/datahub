@@ -26,7 +26,8 @@ RUN sed -i.bak "s/__version__ = \"1!0.0.0.dev0\"/__version__ = \"$RELEASE_VERSIO
 ARG PIP_MIRROR_URL
 RUN if [ "${PIP_MIRROR_URL}" != "null" ] ; then pip config set global.index-url ${PIP_MIRROR_URL} ; fi
 
-USER datahub
+ENV HOME=/datahub-ingestion
+#USER datahub
 RUN pip install --no-cache --user -e .
 
 WORKDIR /datahub-ingestion
@@ -35,11 +36,13 @@ RUN pip install --no-cache --user -e .
 ## Production Image Built From Build Image
 FROM base as prod-install
 
+RUN apt-get update && apt-get install -y vim
+
 COPY --from=build /datahub-monitors-service /datahub-monitors-service
 COPY --from=build /datahub-ingestion/.local /datahub-ingestion/.local
 COPY --from=build /start_datahub_monitors_service.sh /start_datahub_monitors_service.sh
 
-USER datahub
+#USER datahub
 
 FROM prod-install as dev-install
 
@@ -51,6 +54,7 @@ ENV EXTRA_UVICORN_ARGS="--reload --reload-dir /datahub-monitors-service/src/data
 
 FROM ${APP_ENV}-install as final
 
+ENV HOME=/datahub-ingestion
 HEALTHCHECK --start-period=2m --retries=4 CMD curl --fail http://localhost:9004/health || exit 1
 ENTRYPOINT []
 CMD dockerize -wait ${DATAHUB_GMS_PROTOCOL:-http}://$DATAHUB_GMS_HOST:$DATAHUB_GMS_PORT/health -timeout 240s /start_datahub_monitors_service.sh
