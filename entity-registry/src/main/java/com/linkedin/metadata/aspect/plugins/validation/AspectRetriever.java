@@ -22,6 +22,8 @@ public interface AspectRetriever {
         .get(aspectName);
   }
 
+  boolean exists(@Nonnull Urn urn) throws RemoteInvocationException, URISyntaxException;
+
   /**
    * Returns for each URN, the map of aspectName to Aspect
    *

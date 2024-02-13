@@ -60,7 +60,7 @@ public class IngestDataTypesStepTest {
 
     Assert.assertThrows(RuntimeException.class, step::execute);
 
-    verify(entityService, times(1)).exists(any());
+    verify(entityService, times(1)).exists(any(Collection.class));
 
     // Verify no additional interactions
     verifyNoMoreInteractions(entityService);

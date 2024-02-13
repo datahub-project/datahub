@@ -32,6 +32,11 @@ public class StructuredPropertiesValidatorTest {
       this._propertyDefinition = defToReturn;
     }
 
+    @Override
+    public boolean exists(@Nonnull Urn urn) throws RemoteInvocationException, URISyntaxException {
+      return false;
+    }
+
     @Nonnull
     @Override
     public Map<Urn, Map<String, Aspect>> getLatestAspectObjects(

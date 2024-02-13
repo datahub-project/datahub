@@ -28,6 +28,12 @@ public class EntityClientAspectRetriever implements AspectRetriever {
 
   @Nonnull
   @Override
+  public boolean exists(@Nonnull Urn urn) throws RemoteInvocationException, URISyntaxException {
+    return entityClient.exists(urn);
+  }
+
+  @Nonnull
+  @Override
   public Map<Urn, Map<String, Aspect>> getLatestAspectObjects(
       Set<Urn> urns, Set<String> aspectNames) throws RemoteInvocationException, URISyntaxException {
     return entityClient.getLatestAspects(urns, aspectNames);

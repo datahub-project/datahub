@@ -19,8 +19,10 @@ import com.linkedin.metadata.config.search.custom.QueryConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.SearchScoreFieldSpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
+import com.linkedin.metadata.models.SearchableRefFieldSpec;
 import com.linkedin.metadata.models.annotation.SearchScoreAnnotation;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.utils.ESUtils;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -86,6 +88,7 @@ public class SearchQueryBuilder {
   private final WordGramConfiguration wordGramConfiguration;
 
   private final CustomizedQueryHandler customizedQueryHandler;
+  private EntityRegistry entityRegistry;
 
   public SearchQueryBuilder(
       @Nonnull SearchConfiguration searchConfiguration,
@@ -94,6 +97,10 @@ public class SearchQueryBuilder {
     this.partialConfiguration = searchConfiguration.getPartial();
     this.wordGramConfiguration = searchConfiguration.getWordGram();
     this.customizedQueryHandler = CustomizedQueryHandler.builder(customSearchConfiguration).build();
+  }
+
+  public void setEntityRegistry(EntityRegistry entityRegistry) {
+    this.entityRegistry = entityRegistry;
   }
 
   public QueryBuilder buildQuery(
@@ -256,6 +263,14 @@ public class SearchQueryBuilder {
                   .build());
         }
       }
+    }
+
+    List<SearchableRefFieldSpec> searchableRefFieldSpecs = entitySpec.getSearchableRefFieldSpecs();
+    for (SearchableRefFieldSpec refFieldSpec : searchableRefFieldSpecs) {
+      int depth = refFieldSpec.getSearchableRefAnnotation().getDepth();
+      Set<SearchFieldConfig> searchFieldConfig =
+          SearchFieldConfig.detectSubFieldType(refFieldSpec, depth, entityRegistry);
+      fields.addAll(searchFieldConfig);
     }
     return fields;
   }

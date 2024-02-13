@@ -39,6 +39,7 @@ public class EntityIndexBuilders implements ElasticSearchIndexed {
   @Override
   public List<ReindexConfig> buildReindexConfigs() {
     Map<String, Object> settings = settingsBuilder.getSettings();
+    MappingsBuilder.setEntityRegistry(entityRegistry);
     return entityRegistry.getEntitySpecs().values().stream()
         .map(
             entitySpec -> {
@@ -57,6 +58,7 @@ public class EntityIndexBuilders implements ElasticSearchIndexed {
   public List<ReindexConfig> buildReindexConfigsWithAllStructProps(
       Collection<StructuredPropertyDefinition> properties) {
     Map<String, Object> settings = settingsBuilder.getSettings();
+    MappingsBuilder.setEntityRegistry(entityRegistry);
     return entityRegistry.getEntitySpecs().values().stream()
         .map(
             entitySpec -> {
@@ -81,6 +83,7 @@ public class EntityIndexBuilders implements ElasticSearchIndexed {
   public List<ReindexConfig> buildReindexConfigsWithNewStructProp(
       StructuredPropertyDefinition property) {
     Map<String, Object> settings = settingsBuilder.getSettings();
+    MappingsBuilder.setEntityRegistry(entityRegistry);
     return entityRegistry.getEntitySpecs().values().stream()
         .map(
             entitySpec -> {

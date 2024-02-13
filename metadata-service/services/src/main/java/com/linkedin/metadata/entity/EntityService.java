@@ -303,6 +303,10 @@ public interface EntityService<U extends UpsertItem> extends AspectRetriever {
     return exists(urns, true);
   }
 
+  default boolean exists(@Nonnull Urn urn) {
+    return exists(urn, true);
+  }
+
   default boolean exists(@Nonnull Urn urn, boolean includeSoftDelete) {
     return exists(List.of(urn), includeSoftDelete).contains(urn);
   }

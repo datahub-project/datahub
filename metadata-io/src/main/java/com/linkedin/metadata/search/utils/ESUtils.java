@@ -108,7 +108,8 @@ public class ESUtils {
           put("description", ImmutableList.of("description", "editedDescription"));
           put(
               "businessAttribute",
-              ImmutableList.of("editedFieldBusinessAttribute", "businessAttribute"));
+              ImmutableList.of(
+                  "editedFieldBusinessAttributeRef", "editedFieldBusinessAttributeRef.urn"));
         }
       };
 
