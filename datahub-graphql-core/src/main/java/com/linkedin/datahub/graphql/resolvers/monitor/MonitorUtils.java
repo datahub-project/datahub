@@ -48,6 +48,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 public class MonitorUtils {
 
@@ -300,7 +301,20 @@ public class MonitorUtils {
     return parameters;
   }
 
-  public static @Nonnull Urn getMonitorUrnForAssertion(GraphClient graphClient, Urn assertionUrn) {
+  public static @Nonnull Urn getMonitorUrnForAssertionOrThrow(
+      GraphClient graphClient, Urn assertionUrn) {
+    Urn monitorUrnForAssertion = getMonitorUrnForAssertion(graphClient, assertionUrn);
+
+    if (monitorUrnForAssertion == null) {
+      throw new RuntimeException(
+          String.format(
+              "Failed to upsert Assertion. Monitor for assertion %s does not exist.",
+              assertionUrn));
+    }
+    return monitorUrnForAssertion;
+  }
+
+  public static @Nullable Urn getMonitorUrnForAssertion(GraphClient graphClient, Urn assertionUrn) {
     final EntityRelationships relationships =
         graphClient.getRelatedEntities(
             assertionUrn.toString(),
@@ -316,11 +330,27 @@ public class MonitorUtils {
             .collect(Collectors.toList());
     if (!monitorUrns.isEmpty()) {
       return monitorUrns.get(0);
-    } else {
-      throw new RuntimeException(
-          String.format(
-              "Failed to upsert Assertion. Monitor for assertion %s does not exist.",
-              assertionUrn));
     }
+    return null;
+  }
+
+  public static @Nullable Urn getAssertionUrnForMonitor(GraphClient graphClient, Urn monitorUrn) {
+    final EntityRelationships relationships =
+        graphClient.getRelatedEntities(
+            monitorUrn.toString(),
+            ImmutableList.of(EVALUATES_RELATIONSHIP_NAME),
+            RelationshipDirection.OUTGOING,
+            0,
+            1,
+            null);
+
+    final List<Urn> assertionUrns =
+        relationships.getRelationships().stream()
+            .map(EntityRelationship::getEntity)
+            .collect(Collectors.toList());
+    if (!assertionUrns.isEmpty()) {
+      return assertionUrns.get(0);
+    }
+    return null;
   }
 }

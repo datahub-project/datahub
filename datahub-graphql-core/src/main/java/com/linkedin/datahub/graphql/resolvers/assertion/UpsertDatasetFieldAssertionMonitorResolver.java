@@ -66,7 +66,7 @@ public class UpsertDatasetFieldAssertionMonitorResolver
       // assertionUrn.
       assertionUrn = UrnUtils.getUrn(maybeAssertionUrn);
       entityUrn = getEntityUrnForFieldAssertion(assertionUrn, input);
-      monitorUrn = getMonitorUrnForAssertion(_graphClient, assertionUrn);
+      monitorUrn = getMonitorUrnForAssertionOrThrow(_graphClient, assertionUrn);
     }
 
     // upsert assertion

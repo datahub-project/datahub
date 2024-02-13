@@ -26,6 +26,7 @@ import lombok.extern.slf4j.Slf4j;
 public class AssertionUtils {
 
   private static final int MAX_SQL_PREVIEW_LENGTH = 50;
+  private static String EVALUATES_RELATIONSHIP_NAME = "Evaluates";
 
   public static String buildAssertionDescription(
       @Nonnull final Urn assertionUrn, @Nonnull final AssertionInfo info) {

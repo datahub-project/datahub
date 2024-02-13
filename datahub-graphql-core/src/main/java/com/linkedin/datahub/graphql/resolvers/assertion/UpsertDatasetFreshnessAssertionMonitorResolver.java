@@ -68,7 +68,7 @@ public class UpsertDatasetFreshnessAssertionMonitorResolver
       log.debug(String.format("Updating assertion with urn %s ...", maybeAssertionUrn));
       assertionUrn = UrnUtils.getUrn(maybeAssertionUrn);
       entityUrn = getEntityUrnForFreshnessAssertion(assertionUrn, input);
-      monitorUrn = getMonitorUrnForAssertion(_graphClient, assertionUrn);
+      monitorUrn = getMonitorUrnForAssertionOrThrow(_graphClient, assertionUrn);
     }
 
     // upsert assertion

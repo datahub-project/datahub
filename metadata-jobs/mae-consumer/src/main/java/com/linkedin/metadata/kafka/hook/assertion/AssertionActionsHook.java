@@ -146,7 +146,7 @@ public class AssertionActionsHook implements MetadataChangeLogHook {
       @Nonnull final SystemEntityClient systemEntityClient,
       @Nonnull @Value("${assertionActions.hook.enabled:true}") Boolean isEnabled) {
     _entityRegistry = Objects.requireNonNull(entityRegistry, "entityRegistry is required");
-    _entityClient = Objects.requireNonNull(systemEntityClient, "entityClient is entityClient");
+    _entityClient = Objects.requireNonNull(systemEntityClient, "entityClient is required");
     _authentication =
         Objects.requireNonNull(
             systemEntityClient.getSystemAuthentication(), "authentication is required");

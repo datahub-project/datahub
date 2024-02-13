@@ -66,7 +66,7 @@ public class UpsertDatasetVolumeAssertionMonitorResolver
       // assertionUrn.
       assertionUrn = UrnUtils.getUrn(maybeAssertionUrn);
       entityUrn = getEntityUrnForVolumeAssertion(assertionUrn, input);
-      monitorUrn = getMonitorUrnForAssertion(_graphClient, assertionUrn);
+      monitorUrn = getMonitorUrnForAssertionOrThrow(_graphClient, assertionUrn);
     }
 
     // upsert assertion

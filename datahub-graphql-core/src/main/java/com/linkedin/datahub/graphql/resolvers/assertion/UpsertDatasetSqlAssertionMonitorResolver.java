@@ -69,7 +69,7 @@ public class UpsertDatasetSqlAssertionMonitorResolver
       // assertionUrn.
       assertionUrn = UrnUtils.getUrn(maybeAssertionUrn);
       entityUrn = getEntityUrnForSqlAssertion(assertionUrn, input);
-      monitorUrn = getMonitorUrnForAssertion(_graphClient, assertionUrn);
+      monitorUrn = getMonitorUrnForAssertionOrThrow(_graphClient, assertionUrn);
     }
 
     // upsert assertion

@@ -42,5 +42,11 @@ entities:
     category: core
     keyAspect: schemaFieldKey
     aspects: []
+  - name: monitor
+    category: core
+    keyAspect: monitorKey
+    aspects:
+      - monitorInfo
+      - monitorTimeseriesState
 events:
   - name: entityChangeEvent
