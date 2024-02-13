@@ -261,6 +261,8 @@ public class ESUtils {
       return DATE_FIELD_TYPE;
     } else if (fieldType == SearchableAnnotation.FieldType.OBJECT) {
       return OBJECT_FIELD_TYPE;
+    } else if (fieldType == SearchableAnnotation.FieldType.DOUBLE) {
+      return DOUBLE_FIELD_TYPE;
     } else {
       log.warn("FieldType {} has no mappings implemented", fieldType);
       return null;
