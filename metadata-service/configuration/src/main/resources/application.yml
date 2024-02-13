@@ -402,6 +402,13 @@ cache:
         structuredProperty:
           propertyDefinition: 86400 # 1 day
           structuredPropertyKey: 86400 # 1 day
+        chart:
+          usageFeatures: 21600 # 6hrs
+        dataset:
+          usageFeatures: 21600 # 6hrs
+          storageFeatures: 21600 # 6hrs
+        dashboard:
+          dashboardUsageStatistics: 21600 # 6hrs
 
 graphQL:
   query:

@@ -219,5 +219,13 @@ public class AuthorizationUtils {
     return AuthUtil.isAuthorized(authorizer, actor, Optional.of(resourceSpec), privilegeGroup);
   }
 
+  public static boolean isViewDatasetUsageAuthorized(
+      final Urn resourceUrn, final QueryContext context) {
+    return isAuthorized(
+        context,
+        Optional.of(new EntitySpec(resourceUrn.getEntityType(), resourceUrn.toString())),
+        PoliciesConfig.VIEW_DATASET_USAGE_PRIVILEGE);
+  }
+
   private AuthorizationUtils() {}
 }
