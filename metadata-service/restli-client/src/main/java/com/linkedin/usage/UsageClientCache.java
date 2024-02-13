@@ -42,7 +42,7 @@ public class UsageClientCache {
       // batch loads data from usage client
       Function<Iterable<? extends Key>, Map<Key, UsageQueryResult>> loader =
           (Iterable<? extends Key> keys) ->
-              StreamSupport.stream(keys.spliterator(), true)
+              StreamSupport.stream(keys.spliterator(), false)
                   .map(k -> Map.entry(k, loadFunction.apply(k.getResource(), k.getRange())))
                   .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 

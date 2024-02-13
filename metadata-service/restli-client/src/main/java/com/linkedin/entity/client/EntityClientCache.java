@@ -94,7 +94,7 @@ public class EntityClientCache {
       Function<Iterable<? extends Key>, Map<Key, EnvelopedAspect>> loader =
           (Iterable<? extends Key> keys) -> {
             Map<String, Set<Key>> keysByEntity =
-                StreamSupport.stream(keys.spliterator(), true)
+                StreamSupport.stream(keys.spliterator(), false)
                     .collect(Collectors.groupingBy(Key::getEntityName, Collectors.toSet()));
 
             Map<Key, EnvelopedAspect> results =

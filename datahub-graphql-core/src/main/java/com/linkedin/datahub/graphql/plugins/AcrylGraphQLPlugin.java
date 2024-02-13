@@ -113,6 +113,7 @@ import com.linkedin.datahub.graphql.types.incident.IncidentType;
 import com.linkedin.datahub.graphql.types.monitor.MonitorType;
 import com.linkedin.datahub.graphql.types.tag.TagType;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.connection.ConnectionService;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphClient;
@@ -162,6 +163,7 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
   // Clients
   private UsageClient usageClient;
   private EntityClient entityClient;
+  private SystemEntityClient systemEntityClient;
   private GraphClient graphClient;
   private EntityRegistry entityRegistry;
 
@@ -177,6 +179,7 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
 
     this.graphClient = args.getGraphClient();
     this.entityClient = args.getEntityClient();
+    this.systemEntityClient = args.getSystemEntityClient();
     this.entityService = args.getEntityService();
     this.entityRegistry = args.getEntityRegistry();
     this.usageClient = args.getUsageClient();
@@ -648,7 +651,7 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
             typeWiring
                 .dataFetcher(
                     "statsSummary",
-                    new DatasetStatsSummaryResolver(this.entityClient, this.usageClient))
+                    new DatasetStatsSummaryResolver(this.systemEntityClient, this.usageClient))
                 .dataFetcher("health", new AcrylDatasetHealthResolver(entityClient))
                 .dataFetcher("testResults", new EntityTestResultsResolver(entityClient))
                 .dataFetcher(

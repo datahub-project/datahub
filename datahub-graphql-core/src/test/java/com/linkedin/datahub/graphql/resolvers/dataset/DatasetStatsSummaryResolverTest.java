@@ -18,8 +18,7 @@ import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
-import com.linkedin.entity.client.EntityClient;
-import com.linkedin.metadata.Constants;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.search.features.StorageFeatures;
 import com.linkedin.metadata.search.features.UsageFeatures;
 import com.linkedin.usage.UsageClient;
@@ -73,7 +72,7 @@ public class DatasetStatsSummaryResolverTest {
         .thenReturn(testResult);
 
     // Execute resolver
-    EntityClient mockEntityClient = initMockEntityClient();
+    SystemEntityClient mockEntityClient = initMockEntityClient();
     DatasetStatsSummaryResolver resolver =
         new DatasetStatsSummaryResolver(mockEntityClient, mockClient);
     QueryContext mockContext = Mockito.mock(QueryContext.class);
@@ -104,16 +103,6 @@ public class DatasetStatsSummaryResolverTest {
             mockClient.getUsageStats(
                 Mockito.eq(TEST_DATASET_URN), Mockito.eq(UsageTimeRange.MONTH)))
         .thenReturn(newResult);
-
-    // Then verify that the new result is _not_ returned (cache hit)
-    DatasetStatsSummary cachedResult = resolver.get(mockEnv).get();
-    Assert.assertEquals((int) cachedResult.getQueryCountLast30Days(), 10);
-    Assert.assertEquals((int) cachedResult.getTopUsersLast30Days().size(), 2);
-    Assert.assertEquals(
-        (String) cachedResult.getTopUsersLast30Days().get(0).getUrn(), TEST_USER_URN_2);
-    Assert.assertEquals(
-        (String) cachedResult.getTopUsersLast30Days().get(1).getUrn(), TEST_USER_URN_1);
-    Assert.assertEquals((int) cachedResult.getUniqueUserCountLast30Days(), 5);
   }
 
   @Test
@@ -138,7 +127,8 @@ public class DatasetStatsSummaryResolverTest {
     mockStorageFeatures.setSizeInBytes(5);
     mockStorageFeatures.setSizeInBytesPercentile(10L);
 
-    EntityClient mockEntityClient = initMockEntityClient(mockUsageFeatures, mockStorageFeatures);
+    SystemEntityClient mockEntityClient =
+        initMockEntityClient(mockUsageFeatures, mockStorageFeatures);
     DatasetStatsSummaryResolver resolver =
         new DatasetStatsSummaryResolver(mockEntityClient, mockClient);
     QueryContext mockContext = Mockito.mock(QueryContext.class);
@@ -214,7 +204,7 @@ public class DatasetStatsSummaryResolverTest {
         .thenThrow(RuntimeException.class);
 
     // Execute resolver
-    EntityClient mockEntityClient = initMockEntityClient();
+    SystemEntityClient mockEntityClient = initMockEntityClient();
     DatasetStatsSummaryResolver resolver =
         new DatasetStatsSummaryResolver(mockEntityClient, mockClient);
     QueryContext mockContext = Mockito.mock(QueryContext.class);
@@ -230,18 +220,16 @@ public class DatasetStatsSummaryResolverTest {
     Assert.assertNull(result);
   }
 
-  private EntityClient initMockEntityClient(
+  private SystemEntityClient initMockEntityClient(
       @Nonnull final UsageFeatures usageFeatures, @Nonnull final StorageFeatures storageFeatures)
       throws Exception {
-    EntityClient client = Mockito.mock(EntityClient.class);
+    SystemEntityClient client = Mockito.mock(SystemEntityClient.class);
     Urn testUrn = UrnUtils.getUrn(TEST_DATASET_URN);
     Mockito.when(
             client.getV2(
-                Mockito.eq(Constants.DATASET_ENTITY_NAME),
                 Mockito.eq(testUrn),
                 Mockito.eq(
-                    ImmutableSet.of(USAGE_FEATURES_ASPECT_NAME, STORAGE_FEATURES_ASPECT_NAME)),
-                Mockito.any(Authentication.class)))
+                    ImmutableSet.of(USAGE_FEATURES_ASPECT_NAME, STORAGE_FEATURES_ASPECT_NAME))))
         .thenReturn(
             new EntityResponse()
                 .setUrn(testUrn)
@@ -256,16 +244,14 @@ public class DatasetStatsSummaryResolverTest {
     return client;
   }
 
-  private EntityClient initMockEntityClient() throws Exception {
-    EntityClient client = Mockito.mock(EntityClient.class);
+  private SystemEntityClient initMockEntityClient() throws Exception {
+    SystemEntityClient client = Mockito.mock(SystemEntityClient.class);
     Urn testUrn = UrnUtils.getUrn(TEST_DATASET_URN);
     Mockito.when(
             client.getV2(
-                Mockito.eq(Constants.DATASET_ENTITY_NAME),
                 Mockito.eq(testUrn),
                 Mockito.eq(
-                    ImmutableSet.of(USAGE_FEATURES_ASPECT_NAME, STORAGE_FEATURES_ASPECT_NAME)),
-                Mockito.any(Authentication.class)))
+                    ImmutableSet.of(USAGE_FEATURES_ASPECT_NAME, STORAGE_FEATURES_ASPECT_NAME))))
         .thenReturn(null);
     return client;
   }
