@@ -305,7 +305,6 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
 
     def __init__(self, config: RedshiftConfig, ctx: PipelineContext):
         super().__init__(config, ctx)
-        self.lineage_extractor: Optional[RedshiftLineageExtractor] = None
         self.catalog_metadata: Dict = {}
         self.config: RedshiftConfig = config
         self.report: RedshiftReport = RedshiftReport()
@@ -899,7 +898,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         if not self._should_ingest_lineage():
             return
 
-        self.lineage_extractor = RedshiftLineageExtractor(
+        lineage_extractor = RedshiftLineageExtractor(
             config=self.config,
             report=self.report,
             context=self.ctx,
@@ -907,14 +906,16 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         )
 
         with PerfTimer() as timer:
-            self.lineage_extractor.populate_lineage(
+            lineage_extractor.populate_lineage(
                 database=database, connection=connection, all_tables=all_tables
             )
 
             self.report.lineage_extraction_sec[f"{database}"] = round(
                 timer.elapsed_seconds(), 2
             )
-            yield from self.generate_lineage(database)
+            yield from self.generate_lineage(
+                database, lineage_extractor=lineage_extractor
+            )
 
             if self.redundant_lineage_run_skip_handler:
                 # Update the checkpoint state for this run.
@@ -939,9 +940,9 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
 
         return True
 
-    def generate_lineage(self, database: str) -> Iterable[MetadataWorkUnit]:
-        assert self.lineage_extractor
-
+    def generate_lineage(
+        self, database: str, lineage_extractor: RedshiftLineageExtractor
+    ) -> Iterable[MetadataWorkUnit]:
         logger.info(f"Generate lineage for {database}")
         for schema in self.db_tables[database]:
             for table in self.db_tables[database][schema]:
@@ -956,7 +957,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                 datahub_dataset_name = f"{database}.{schema}.{table.name}"
                 dataset_urn = self.gen_dataset_urn(datahub_dataset_name)
 
-                lineage_info = self.lineage_extractor.get_lineage(
+                lineage_info = lineage_extractor.get_lineage(
                     table,
                     dataset_urn,
                     self.db_schemas[database][schema],
@@ -972,7 +973,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             for view in self.db_views[database][schema]:
                 datahub_dataset_name = f"{database}.{schema}.{view.name}"
                 dataset_urn = self.gen_dataset_urn(datahub_dataset_name)
-                lineage_info = self.lineage_extractor.get_lineage(
+                lineage_info = lineage_extractor.get_lineage(
                     view,
                     dataset_urn,
                     self.db_schemas[database][schema],
