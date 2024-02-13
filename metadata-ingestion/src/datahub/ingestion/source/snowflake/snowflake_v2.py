@@ -133,7 +133,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     TimeType,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.tag import TagProperties
-from datahub.sql_parsing.schema_resolver import SchemaResolver
+from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
 from datahub.utilities.file_backed_collections import FileBackedDict
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.registries.domain_registry import DomainRegistry
@@ -236,9 +236,18 @@ class SnowflakeV2Source(
 
         # For database, schema, tables, views, etc
         self.data_dictionary = SnowflakeDataDictionary()
-
         self.lineage_extractor: Optional[SnowflakeLineageExtractor] = None
+        self.aggregator: Optional[SqlParsingAggregator] = None
+
         if self.config.include_table_lineage:
+            self.aggregator = SqlParsingAggregator(
+                platform=self.platform,
+                platform_instance=self.config.platform_instance,
+                env=self.config.env,
+                graph=self.ctx.graph,
+            )
+            self.report.sql_aggregator = self.aggregator.report
+
             redundant_lineage_run_skip_handler: Optional[
                 RedundantLineageRunSkipHandler
             ] = None
@@ -254,6 +263,7 @@ class SnowflakeV2Source(
                 self.report,
                 dataset_urn_builder=self.gen_dataset_urn,
                 redundant_run_skip_handler=redundant_lineage_run_skip_handler,
+                sql_aggregator=self.aggregator,
             )
 
         self.usage_extractor: Optional[SnowflakeUsageExtractor] = None
@@ -304,8 +314,6 @@ class SnowflakeV2Source(
 
         self.view_definitions: FileBackedDict[str] = FileBackedDict()
         self.add_config_to_report()
-
-        self.sql_parser_schema_resolver = self._init_schema_resolver()
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "Source":
@@ -491,24 +499,6 @@ class SnowflakeV2Source(
 
         return _report
 
-    def _init_schema_resolver(self) -> SchemaResolver:
-        if not self.config.include_technical_schema and self.config.parse_view_ddl:
-            if self.ctx.graph:
-                return self.ctx.graph.initialize_schema_resolver_from_datahub(
-                    platform=self.platform,
-                    platform_instance=self.config.platform_instance,
-                    env=self.config.env,
-                )
-            else:
-                logger.warning(
-                    "Failed to load schema info from DataHub as DataHubGraph is missing.",
-                )
-        return SchemaResolver(
-            platform=self.platform,
-            platform_instance=self.config.platform_instance,
-            env=self.config.env,
-        )
-
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         return [
             *super().get_workunit_processors(),
@@ -600,7 +590,6 @@ class SnowflakeV2Source(
             yield from self.lineage_extractor.get_workunits(
                 discovered_tables=discovered_tables,
                 discovered_views=discovered_views,
-                schema_resolver=self.sql_parser_schema_resolver,
                 view_definitions=self.view_definitions,
             )
 
@@ -1240,10 +1229,8 @@ class SnowflakeV2Source(
             foreignKeys=foreign_keys,
         )
 
-        if self.config.parse_view_ddl:
-            self.sql_parser_schema_resolver.add_schema_metadata(
-                urn=dataset_urn, schema_metadata=schema_metadata
-            )
+        if self.aggregator and self.config.parse_view_ddl:
+            self.aggregator.register_schema(urn=dataset_urn, schema=schema_metadata)
 
         return schema_metadata
 
@@ -1689,7 +1676,8 @@ class SnowflakeV2Source(
         super().close()
         StatefulIngestionSourceBase.close(self)
         self.view_definitions.close()
-        self.sql_parser_schema_resolver.close()
+        # Do we not need to close filebackeddicts opened explicitly ?
+        # self.aggregator.close()
         if self.lineage_extractor:
             self.lineage_extractor.close()
         if self.usage_extractor:
