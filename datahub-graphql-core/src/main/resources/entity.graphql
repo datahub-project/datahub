@@ -1993,6 +1993,11 @@ type GlossaryTerm implements Entity {
     Structured properties about this asset
     """
     structuredProperties: StructuredProperties
+
+    """
+    The forms associated with the Dataset
+    """
+    forms: Forms
 }
 
 """
@@ -2141,6 +2146,11 @@ type GlossaryNode implements Entity {
     Structured properties about this asset
     """
     structuredProperties: StructuredProperties
+
+    """
+    The forms associated with the Dataset
+    """
+    forms: Forms
 }
 
 """
@@ -2557,6 +2567,11 @@ type Container implements Entity {
     Structured properties about this asset
     """
     structuredProperties: StructuredProperties
+
+    """
+    The forms associated with the Dataset
+    """
+    forms: Forms
 }
 
 """
@@ -2936,6 +2951,11 @@ type SchemaFieldEntity implements Entity {
     Structured properties on this schema field
     """
     structuredProperties: StructuredProperties
+
+    """
+    The forms associated with the Dataset
+    """
+    forms: Forms
 
     """
     Granular API for querying edges extending from this entity
@@ -3585,6 +3605,11 @@ type CorpUser implements Entity {
     Structured properties about this asset
     """
     structuredProperties: StructuredProperties
+
+    """
+    The forms associated with the Dataset
+    """
+    forms: Forms
 }
 
 """
@@ -3956,6 +3981,11 @@ type CorpGroup implements Entity {
     Structured properties about this asset
     """
     structuredProperties: StructuredProperties
+
+    """
+    The forms associated with the Dataset
+    """
+    forms: Forms
 }
 
 """
@@ -5140,6 +5170,11 @@ type Dashboard implements EntityWithRelationships & Entity & BrowsableEntity {
     Experimental! The resolved health statuses of the asset
     """
     health: [Health!]
+
+    """
+    The forms associated with the Dataset
+    """
+    forms: Forms
 }
 
 """
@@ -5466,6 +5501,11 @@ type Chart implements EntityWithRelationships & Entity & BrowsableEntity {
     Experimental! The resolved health statuses of the asset
     """
     health: [Health!]
+
+    """
+    The forms associated with the Dataset
+    """
+    forms: Forms
 }
 
 """
@@ -5839,6 +5879,11 @@ type DataFlow implements EntityWithRelationships & Entity & BrowsableEntity {
     Experimental! The resolved health statuses of the asset
     """
     health: [Health!]
+
+    """
+    The forms associated with the Dataset
+    """
+    forms: Forms
 }
 
 """
@@ -6055,6 +6100,11 @@ type DataJob implements EntityWithRelationships & Entity & BrowsableEntity {
     Experimental! The resolved health statuses of the asset
     """
     health: [Health!]
+
+    """
+    The forms associated with the Dataset
+    """
+    forms: Forms
 }
 
 """
@@ -9011,6 +9061,11 @@ type MLModel implements EntityWithRelationships & Entity & BrowsableEntity {
     Structured properties about this asset
     """
     structuredProperties: StructuredProperties
+
+    """
+    The forms associated with the Dataset
+    """
+    forms: Forms
 }
 
 """
@@ -9133,6 +9188,11 @@ type MLModelGroup implements EntityWithRelationships & Entity & BrowsableEntity 
     Structured properties about this asset
     """
     structuredProperties: StructuredProperties
+
+    """
+    The forms associated with the Dataset
+    """
+    forms: Forms
 }
 
 type MLModelGroupProperties {
@@ -9268,6 +9328,11 @@ type MLFeature implements EntityWithRelationships & Entity {
     Structured properties about this asset
     """
     structuredProperties: StructuredProperties
+
+    """
+    The forms associated with the Dataset
+    """
+    forms: Forms
 }
 
 type MLHyperParam {
@@ -9448,6 +9513,11 @@ type MLPrimaryKey implements EntityWithRelationships & Entity {
     Structured properties about this asset
     """
     structuredProperties: StructuredProperties
+
+    """
+    The forms associated with the Dataset
+    """
+    forms: Forms
 }
 
 type MLPrimaryKeyProperties {
@@ -9586,6 +9656,11 @@ type MLFeatureTable implements EntityWithRelationships & Entity & BrowsableEntit
     Structured properties about this asset
     """
     structuredProperties: StructuredProperties
+
+    """
+    The forms associated with the Dataset
+    """
+    forms: Forms
 }
 
 type MLFeatureTableEditableProperties {
@@ -9988,6 +10063,11 @@ type Domain implements Entity {
     Structured properties about this asset
     """
     structuredProperties: StructuredProperties
+
+    """
+    The forms associated with the Dataset
+    """
+    forms: Forms
 }
 
 """
@@ -11386,6 +11466,11 @@ type DataProduct implements Entity {
     Structured properties about this asset
     """
     structuredProperties: StructuredProperties
+
+    """
+    The forms associated with the Dataset
+    """
+    forms: Forms
 }
 
 """

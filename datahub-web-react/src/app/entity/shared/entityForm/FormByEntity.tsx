@@ -8,11 +8,6 @@ import EntityContext, { useEntityContext } from '../EntityContext';
 import EntityInfo from '../containers/profile/sidebar/EntityInfo/EntityInfo';
 import { useEntityFormContext } from './EntityFormContext';
 import ProgressBar from './ProgressBar';
-import { OnboardingTour } from '../../../onboarding/OnboardingTour';
-import {
-    FORM_QUESTION_VIEW_BUTTON,
-    WELCOME_TO_BULK_BY_ENTITY_ID,
-} from '../../../onboarding/config/FormOnboardingConfig';
 
 const ContentWrapper = styled.div`
     background-color: ${ANTD_GRAY_V2[1]};
@@ -53,7 +48,6 @@ export default function FormByEntity({ formUrn }: Props) {
                 refetch,
             }}
         >
-            <OnboardingTour stepIds={[WELCOME_TO_BULK_BY_ENTITY_ID, FORM_QUESTION_VIEW_BUTTON]} />
             <ContentWrapper>
                 <ProgressBar formUrn={formUrn} />
                 <FlexWrapper>

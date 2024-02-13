@@ -87,11 +87,13 @@ export class DatasetEntity implements Entity<Dataset> {
 
     getCollectionName = () => 'Datasets';
 
+    useEntityQuery = useGetDatasetQuery;
+
     renderProfile = (urn: string) => (
         <EntityProfile
             urn={urn}
             entityType={EntityType.Dataset}
-            useEntityQuery={useGetDatasetQuery}
+            useEntityQuery={this.useEntityQuery}
             useUpdateQuery={useUpdateDatasetMutation}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
             headerDropdownItems={new Set([EntityMenuItems.UPDATE_DEPRECATION, EntityMenuItems.RAISE_INCIDENT])}
@@ -373,7 +375,7 @@ export class DatasetEntity implements Entity<Dataset> {
         <EmbeddedProfile
             urn={urn}
             entityType={EntityType.Dataset}
-            useEntityQuery={useGetDatasetQuery}
+            useEntityQuery={this.useEntityQuery}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
         />
     );
