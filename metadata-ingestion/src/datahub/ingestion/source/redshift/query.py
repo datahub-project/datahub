@@ -358,12 +358,12 @@ SELECT  schemaname as schema_name,
             join stl_scan sc on
                 sc.query = unl.query and
                 sc.starttime >= '{start_time}' and
-                sc.endtime < '{end_time}'
+                sc.starttime < '{end_time}'
             join SVV_TABLE_INFO sti on
                 sti.table_id = sc.tbl
             where
                 unl.start_time >= '{start_time}' and
-                unl.end_time < '{end_time}' and
+                unl.start_time < '{end_time}' and
                 sti.database = '{db_name}'
               and sc.type in (1, 2, 3)
             order by cluster, source_schema, source_table, filename, unl.start_time asc
