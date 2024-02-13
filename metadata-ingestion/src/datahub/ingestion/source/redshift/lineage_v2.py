@@ -1,7 +1,10 @@
 from datetime import datetime
-from typing import Optional, Tuple
+from typing import Iterable, Optional, Tuple
+
+import redshift_connector
 
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.redshift.config import RedshiftConfig
 from datahub.ingestion.source.redshift.report import RedshiftReport
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
@@ -34,6 +37,7 @@ class RedshiftSqlLineageV2:
             generate_operations=True,
             graph=self.context.graph,
         )
+        self.report.sql_aggregator = self.aggregator.report
 
         self.redundant_run_skip_handler = redundant_run_skip_handler
         self.start_time, self.end_time = (
@@ -50,5 +54,10 @@ class RedshiftSqlLineageV2:
         else:
             return self.config.start_time, self.config.end_time
 
-    def generate(self):
+    def build(self, database: str, connection: redshift_connector.Connection) -> None:
+        # TODO
+        pass
+
+    def generate(self) -> Iterable[MetadataWorkUnit]:
+        # TODO
         pass

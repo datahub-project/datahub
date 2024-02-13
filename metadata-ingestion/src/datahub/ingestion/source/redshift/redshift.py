@@ -957,13 +957,20 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         if not self._should_ingest_lineage():
             return
 
-        # TODO
+        with PerfTimer() as timer:
+            lineage_extractor.build(database=database, connection=connection)
+
+            self.report.lineage_extraction_sec[f"{database}"] = round(
+                timer.elapsed_seconds(), 2
+            )
+
+            yield from lineage_extractor.generate()
+
         if self.redundant_lineage_run_skip_handler:
             # Update the checkpoint state for this run.
             self.redundant_lineage_run_skip_handler.update_state(
-                self.config.start_time, self.config.end_time
+                lineage_extractor.start_time, lineage_extractor.end_time
             )
-        pass
 
     def _should_ingest_lineage(self) -> bool:
         if (
