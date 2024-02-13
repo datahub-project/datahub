@@ -6,15 +6,19 @@ from typing import Dict, Optional
 from datahub.metadata.schema_classes import (
     AssertionDryRunEventClass,
     AssertionDryRunResultClass,
+    AssertionEvaluationParametersClass,
+    AssertionInfoClass,
     AssertionResultClass,
     AssertionResultErrorClass,
     AssertionResultTypeClass,
     AssertionRunEventClass,
     AssertionRunStatusClass,
+    MonitorInfoClass,
 )
 
 from datahub_monitors.types import (
     Assertion,
+    AssertionEvaluationContext,
     AssertionEvaluationResult,
     AssertionEvaluationResultError,
     AssertionResultType,
@@ -27,8 +31,11 @@ logger = logging.getLogger(__name__)
 def build_assertion_run_event(
     assertion: Assertion,
     assertion_evaluation_result: AssertionEvaluationResult,
+    context: Optional[AssertionEvaluationContext] = None,
 ) -> AssertionRunEventClass:
-    event_result = build_assertion_result(assertion, assertion_evaluation_result)
+    event_result = build_assertion_result(
+        assertion, assertion_evaluation_result, context
+    )
 
     now_ms = int(time.time() * 1000)
     return AssertionRunEventClass(
@@ -42,7 +49,9 @@ def build_assertion_run_event(
 
 
 def build_assertion_result(
-    assertion: Assertion, result: AssertionEvaluationResult
+    assertion: Assertion,
+    result: AssertionEvaluationResult,
+    context: Optional[AssertionEvaluationContext],
 ) -> AssertionResultClass:
     logger.info(
         f"Attempting to produce Assertion Run Event for assertion run with urn {assertion.urn}. Result {result.type}"
@@ -69,17 +78,57 @@ def build_assertion_result(
         error = build_assertion_result_error(result.error)
 
     return AssertionResultClass(
-        type=AssertionResultTypeClass.SUCCESS
-        if result.type == AssertionResultType.SUCCESS
-        else AssertionResultTypeClass.FAILURE
-        if result.type == AssertionResultType.FAILURE
-        else AssertionResultTypeClass.INIT
-        if result.type == AssertionResultType.INIT
-        else AssertionResultTypeClass.ERROR,
+        type=(
+            AssertionResultTypeClass.SUCCESS
+            if result.type == AssertionResultType.SUCCESS
+            else (
+                AssertionResultTypeClass.FAILURE
+                if result.type == AssertionResultType.FAILURE
+                else (
+                    AssertionResultTypeClass.INIT
+                    if result.type == AssertionResultType.INIT
+                    else AssertionResultTypeClass.ERROR
+                )
+            )
+        ),
         rowCount=row_count,
         nativeResults=native_results,
         error=error,
+        assertion=get_assertion_info(assertion),
+        parameters=get_parameters_from_context(context),
     )
+
+
+def get_assertion_info(assertion: Assertion) -> Optional[AssertionInfoClass]:
+    if (
+        assertion.raw_info_aspect
+        and assertion.raw_info_aspect[0].aspectName == "assertionInfo"
+    ):
+        aspect_str = assertion.raw_info_aspect[0].payload
+        try:
+            info = AssertionInfoClass.from_obj(json.loads(aspect_str))
+            return info
+        except Exception as e:
+            logger.error(f"Unable to save assertion info due to error {e}")
+    return None
+
+
+def get_parameters_from_context(
+    context: Optional[AssertionEvaluationContext],
+) -> Optional[AssertionEvaluationParametersClass]:
+    if context and context.monitor_info:
+        aspect_str = context.monitor_info.payload
+        try:
+            monitor_info_aspect = MonitorInfoClass.from_obj(json.loads(aspect_str))
+            if (
+                monitor_info_aspect.assertionMonitor
+                and monitor_info_aspect.assertionMonitor.assertions
+            ):
+                info = monitor_info_aspect.assertionMonitor.assertions[0].parameters
+                return info
+        except Exception as e:
+            logger.error(f"Unable to save assertion parameters due to error {e}")
+    return None
 
 
 def build_assertion_dry_run_event(
@@ -127,13 +176,19 @@ def build_assertion_dry_run_result(
         error = build_assertion_result_error(result.error)
 
     return AssertionDryRunResultClass(
-        type=AssertionResultTypeClass.SUCCESS
-        if result.type == AssertionResultType.SUCCESS
-        else AssertionResultTypeClass.FAILURE
-        if result.type == AssertionResultType.FAILURE
-        else AssertionResultTypeClass.INIT
-        if result.type == AssertionResultType.INIT
-        else AssertionResultTypeClass.ERROR,
+        type=(
+            AssertionResultTypeClass.SUCCESS
+            if result.type == AssertionResultType.SUCCESS
+            else (
+                AssertionResultTypeClass.FAILURE
+                if result.type == AssertionResultType.FAILURE
+                else (
+                    AssertionResultTypeClass.INIT
+                    if result.type == AssertionResultType.INIT
+                    else AssertionResultTypeClass.ERROR
+                )
+            )
+        ),
         rowCount=row_count,
         nativeResults=native_results,
         error=error,

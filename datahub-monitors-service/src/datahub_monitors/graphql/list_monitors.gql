@@ -189,6 +189,12 @@ fragment AssertionDetails on Assertion {
       type
     }
   }
+  rawInfoAspect: aspects(
+      input: { aspectNames : [ "assertionInfo" ] }
+  ){
+    aspectName
+    payload
+  }
   relationships(
     input: { types: "Asserts", direction: OUTGOING, start: 0, count: 1 }
   ) {
@@ -257,6 +263,12 @@ fragment MonitorSearchResults on SearchResults {
               }
             }
           }
+        }
+        rawInfoAspect: aspects(
+            input: { aspectNames : [ "monitorInfo" ] }
+        ){
+          aspectName
+          payload
         }
       }
     }

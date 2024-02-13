@@ -689,6 +689,16 @@ class FieldAssertion(PermissiveBaseModel):
     filter: Optional[DatasetFilter] = None
 
 
+class RawAspect(PermissiveBaseModel):
+    """Payload representing data about a single aspect"""
+
+    # The name of the aspect
+    aspectName: str
+
+    # JSON string containing the aspect's payload
+    payload: str
+
+
 class AssertionEntity(PermissiveBaseModel):
     """A unique identifier for the assertee (e.g. dataset urn). This represents the unique coordinates inside the data platform"""
 
@@ -812,6 +822,9 @@ class Assertion(PermissiveBaseModel):
 
     # How the assertion was sourced
     source_type: Optional[AssertionSourceType] = Field(alias="sourceType")
+
+    # list with raw assertionInfo aspect
+    raw_info_aspect: Optional[List[RawAspect]] = Field(alias="rawInfoAspect")
 
     @root_validator(pre=True)
     def extract(cls, values: Dict[str, Any]) -> Dict[str, Any]:
@@ -956,6 +969,8 @@ class Monitor(PermissiveBaseModel):
 
     mode: MonitorMode
 
+    raw_info_aspect: Optional[List[RawAspect]] = Field(alias="rawInfoAspect")
+
     @root_validator(pre=True)
     def extract_info(cls, values: Dict[str, Any]) -> Dict[str, Any]:
         if "info" in values:
@@ -975,9 +990,17 @@ class AssertionEvaluationContext:
 
     monitor_urn: Optional[str] = Field(alias="monitorUrn")
 
-    def __init__(self, dry_run: bool = False, monitor_urn: Optional[str] = None):
+    monitor_info: Optional[RawAspect] = None
+
+    def __init__(
+        self,
+        dry_run: bool = False,
+        monitor_urn: Optional[str] = None,
+        monitor_info: Optional[RawAspect] = None,
+    ):
         self.dry_run = dry_run
         self.monitor_urn = monitor_urn
+        self.monitor_info = monitor_info
 
 
 class AssertionEvaluationResultError:

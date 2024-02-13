@@ -81,7 +81,14 @@ class MonitorManager:
             self.scheduled_monitors[monitor.urn] = monitor
             for assertion_spec in assertion_specs:
                 context = AssertionEvaluationContext(
-                    dry_run=dry_run, monitor_urn=monitor.urn
+                    dry_run=dry_run,
+                    monitor_urn=monitor.urn,
+                    monitor_info=(
+                        monitor.raw_info_aspect[0]
+                        if monitor.raw_info_aspect
+                        and monitor.raw_info_aspect[0].aspectName == "monitorInfo"
+                        else None
+                    ),
                 )
                 self.schedule_assertion_evaluation(
                     assertion_spec, context, monitor.mode

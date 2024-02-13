@@ -37,7 +37,7 @@ class AssertionRunEventResultHandler(AssertionResultHandler):
 
         now_ms = int(time.time() * 1000)
         run_id = f"native-{assertion.urn}-{str(now_ms)}"
-        run_event = build_assertion_run_event(assertion, result)
+        run_event = build_assertion_run_event(assertion, result, context)
 
         mcpw = MetadataChangeProposalWrapper(
             entityUrn=assertion.urn,
