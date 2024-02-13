@@ -37,7 +37,12 @@ public class WeaklyTypedAspectsResolver implements DataFetcher<CompletableFuture
   private static final JacksonDataCodec CODEC = new JacksonDataCodec();
 
   private boolean shouldReturnAspect(AspectSpec aspectSpec, AspectParams params) {
-    return !params.getAutoRenderOnly() || aspectSpec.isAutoRender();
+    return (params.getAutoRenderOnly() == null
+            || !params.getAutoRenderOnly()
+            || aspectSpec.isAutoRender())
+        && (params.getAspectNames() == null
+            || params.getAspectNames().isEmpty()
+            || params.getAspectNames().contains(aspectSpec.getName()));
   }
 
   @Override

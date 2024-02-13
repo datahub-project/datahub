@@ -35,7 +35,8 @@ from datahub.ingestion.api.source_helpers import auto_workunit_reporter
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
-from datahub.utilities.sqlglot_lineage import SchemaResolver, sqlglot_lineage
+from datahub.sql_parsing.schema_resolver import SchemaResolver
+from datahub.sql_parsing.sqlglot_lineage import sqlglot_lineage
 
 logger = logging.getLogger(__name__)
 
@@ -219,9 +220,11 @@ class QueryEntry:
     ) -> "QueryEntry":
         return cls(
             query=entry_dict["query"],
-            timestamp=datetime.fromtimestamp(entry_dict["timestamp"], tz=timezone.utc)
-            if "timestamp" in entry_dict
-            else None,
+            timestamp=(
+                datetime.fromtimestamp(entry_dict["timestamp"], tz=timezone.utc)
+                if "timestamp" in entry_dict
+                else None
+            ),
             user=make_user_urn(entry_dict["user"]) if "user" in entry_dict else None,
             operation_type=entry_dict.get("operation_type"),
             downstream_tables=[

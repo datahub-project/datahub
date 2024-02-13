@@ -1,5 +1,7 @@
 {
     "query_type": "SELECT",
+    "query_type_props": {},
+    "query_fingerprint": "312006fbb9ac30c190e1d15a23c84de1c3ba1f4eb4b8fac208be0f72b1a3b239",
     "in_tables": [
         "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_sample_data.tpch_sf1.orders,PROD)"
     ],

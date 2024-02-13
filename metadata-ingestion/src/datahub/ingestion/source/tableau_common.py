@@ -33,7 +33,7 @@ from datahub.metadata.schema_classes import (
     TagAssociationClass,
     UpstreamClass,
 )
-from datahub.utilities.sqlglot_lineage import ColumnLineageInfo, SqlParsingResult
+from datahub.sql_parsing.sqlglot_lineage import ColumnLineageInfo, SqlParsingResult
 
 logger = logging.getLogger(__name__)
 
@@ -399,6 +399,9 @@ published_datasource_graphql_query = """
     description
     uri
     projectName
+    tags {
+        name
+    }
 }
         """
 
@@ -492,15 +495,17 @@ def tableau_field_to_schema_field(field, ingest_tags):
             field.get("description", ""), field.get("formula")
         ),
         nativeDataType=nativeDataType,
-        globalTags=get_tags_from_params(
-            [
-                field.get("role", ""),
-                field.get("__typename", ""),
-                field.get("aggregation", ""),
-            ]
-        )
-        if ingest_tags
-        else None,
+        globalTags=(
+            get_tags_from_params(
+                [
+                    field.get("role", ""),
+                    field.get("__typename", ""),
+                    field.get("aggregation", ""),
+                ]
+            )
+            if ingest_tags
+            else None
+        ),
     )
 
     return schema_field

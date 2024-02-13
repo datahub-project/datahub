@@ -142,12 +142,12 @@ from datahub.metadata.schema_classes import (
     SubTypesClass,
     ViewPropertiesClass,
 )
-from datahub.utilities import config_clean
-from datahub.utilities.sqlglot_lineage import (
+from datahub.sql_parsing.sqlglot_lineage import (
     ColumnLineageInfo,
     SqlParsingResult,
     create_lineage_sql_parsed_result,
 )
+from datahub.utilities import config_clean
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -754,11 +754,13 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
     def get_data_platform_instance(self) -> DataPlatformInstanceClass:
         return DataPlatformInstanceClass(
             platform=builder.make_data_platform_urn(self.platform),
-            instance=builder.make_dataplatform_instance_urn(
-                self.platform, self.config.platform_instance
-            )
-            if self.config.platform_instance
-            else None,
+            instance=(
+                builder.make_dataplatform_instance_urn(
+                    self.platform, self.config.platform_instance
+                )
+                if self.config.platform_instance
+                else None
+            ),
         )
 
     def get_connection_object_page(
@@ -1817,8 +1819,15 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
             aspects=[self.get_data_platform_instance()],
         )
 
-        # Browse path
+        # Tags
+        if datasource_info:
+            tags = self.get_tags(datasource_info)
+            if tags:
+                dataset_snapshot.aspects.append(
+                    builder.make_global_tag_aspect_with_tag_list(tags)
+                )
 
+        # Browse path
         if browse_path and is_embedded_ds and workbook and workbook.get(c.NAME):
             browse_path = (
                 f"{browse_path}/{workbook[c.NAME].replace('/', REPLACE_SLASH_CHAR)}"
@@ -2193,9 +2202,11 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
             description="",
             title=sheet.get(c.NAME) or "",
             lastModified=last_modified,
-            externalUrl=sheet_external_url
-            if self.config.ingest_external_links_for_charts
-            else None,
+            externalUrl=(
+                sheet_external_url
+                if self.config.ingest_external_links_for_charts
+                else None
+            ),
             inputs=sorted(datasource_urn),
             customProperties=self.get_custom_props_from_dict(sheet, [c.LUID]),
         )
@@ -2470,9 +2481,11 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
             title=title,
             charts=chart_urns,
             lastModified=last_modified,
-            dashboardUrl=dashboard_external_url
-            if self.config.ingest_external_links_for_dashboards
-            else None,
+            dashboardUrl=(
+                dashboard_external_url
+                if self.config.ingest_external_links_for_dashboards
+                else None
+            ),
             customProperties=self.get_custom_props_from_dict(dashboard, [c.LUID]),
         )
         dashboard_snapshot.aspects.append(dashboard_info_class)
@@ -2603,9 +2616,11 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                 name=project.name,
                 description=project.description,
                 sub_types=[c.PROJECT],
-                parent_container_key=self.gen_project_key(project.parent_id)
-                if project.parent_id
-                else None,
+                parent_container_key=(
+                    self.gen_project_key(project.parent_id)
+                    if project.parent_id
+                    else None
+                ),
             )
             if (
                 project.parent_id is not None

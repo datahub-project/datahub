@@ -1,20 +1,22 @@
 {
     "query_type": "SELECT",
+    "query_type_props": {},
+    "query_fingerprint": "58d404ff045cd7d48c59383145619c04dbbc8ead2ffdf2b7236b7546e81e27fc",
     "in_tables": [
         "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_sample_data.tpch_sf1.orders,PROD)"
     ],
     "out_tables": [],
     "in_tables_schemas": {
         "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_sample_data.tpch_sf1.orders,PROD)": [
-            "clerk",
-            "orderstatus",
             "orderpriority",
+            "totalprice",
             "comment",
             "orderkey",
-            "orderdate",
-            "custkey",
             "shippriority",
-            "totalprice"
+            "custkey",
+            "orderstatus",
+            "orderdate",
+            "clerk"
         ]
     },
     "column_lineage": [

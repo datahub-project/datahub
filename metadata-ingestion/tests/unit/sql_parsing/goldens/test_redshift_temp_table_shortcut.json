@@ -1,5 +1,10 @@
 {
-    "query_type": "CREATE",
+    "query_type": "CREATE_TABLE_AS_SELECT",
+    "query_type_props": {
+        "kind": "TABLE",
+        "temporary": true
+    },
+    "query_fingerprint": "252f5a0232a14a4533919960412ad2681c14b14b8045c046b23ac3d2411c4c5e",
     "in_tables": [
         "urn:li:dataset:(urn:li:dataPlatform:redshift,my_db.other_schema.table1,PROD)"
     ],
@@ -8,8 +13,8 @@
     ],
     "in_tables_schemas": {
         "urn:li:dataset:(urn:li:dataPlatform:redshift,my_db.other_schema.table1,PROD)": [
-            "col1",
-            "col2"
+            "col2",
+            "col1"
         ]
     },
     "column_lineage": [

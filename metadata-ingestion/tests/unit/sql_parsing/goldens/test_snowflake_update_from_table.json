@@ -1,5 +1,7 @@
 {
     "query_type": "UPDATE",
+    "query_type_props": {},
+    "query_fingerprint": "a18081be3e7d4ab35c3357efb3c9e7acb66a1d4f000367e1db48dbdf00c5b3c3",
     "in_tables": [
         "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.my_table,PROD)",
         "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.table1,PROD)",
@@ -11,8 +13,8 @@
     "in_tables_schemas": {
         "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.my_table,PROD)": [],
         "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.table1,PROD)": [
-            "col1",
-            "col2"
+            "col2",
+            "col1"
         ],
         "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.table2,PROD)": [
             "col2"

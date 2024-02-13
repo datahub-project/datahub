@@ -1,13 +1,15 @@
 {
     "query_type": "SELECT",
+    "query_type_props": {},
+    "query_fingerprint": "68b038ff09626bbe2c4bc79be39ce51b50937457008e08461cdd6ed3b6ae3f2e",
     "in_tables": [
         "urn:li:dataset:(urn:li:dataPlatform:bigquery,bq-proj.dataset.table_yyyymmdd,PROD)"
     ],
     "out_tables": [],
     "in_tables_schemas": {
         "urn:li:dataset:(urn:li:dataPlatform:bigquery,bq-proj.dataset.table_yyyymmdd,PROD)": [
-            "col1",
-            "col2"
+            "col2",
+            "col1"
         ]
     },
     "column_lineage": [

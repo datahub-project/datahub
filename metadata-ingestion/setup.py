@@ -1,4 +1,3 @@
-import sys
 from typing import Dict, Set
 
 import setuptools
@@ -11,7 +10,6 @@ with open("./src/datahub/__init__.py") as fp:
 base_requirements = {
     # Typing extension should be >=3.10.0.2 ideally but we can't restrict due to a Airflow 2.1 dependency conflict.
     "typing_extensions>=3.7.4.3",
-    "mypy_extensions>=0.4.3",
     # Actual dependencies.
     "typing-inspect",
     # pydantic 1.8.2 is incompatible with mypy 0.910.
@@ -48,9 +46,7 @@ framework_common = {
     "click-spinner",
     "requests_file",
     "jsonref",
-    # jsonschema drops python 3.7 support in v4.18.0
-    "jsonschema<=4.17.3; python_version < '3.8'",
-    "jsonschema; python_version >= '3.8'",
+    "jsonschema",
     "ruamel.yaml",
 }
 
@@ -190,8 +186,6 @@ snowflake_common = {
     "cryptography",
     "msal",
     "acryl-datahub-classify==0.0.9",
-    # spacy version restricted to reduce backtracking, used by acryl-datahub-classify,
-    "spacy==3.4.3",
 }
 
 trino = {
@@ -234,7 +228,8 @@ s3_base = {
     # ujson 5.2.0 has the JSONDecodeError exception type, which we need for error handling.
     "ujson>=5.2.0",
     "smart-open[s3]>=5.2.1",
-    "moto[s3]",
+    # moto 5.0.0 drops support for Python 3.7
+    "moto[s3]<5.0.0",
     *path_spec_common,
 }
 
@@ -249,6 +244,10 @@ delta_lake = {
 }
 
 powerbi_report_server = {"requests", "requests_ntlm"}
+
+slack = {
+    "slack-sdk==3.18.1"
+}
 
 databricks = {
     # 0.1.11 appears to have authentication issues with azure databricks
@@ -312,10 +311,8 @@ plugins: Dict[str, Set[str]] = {
     # https://github.com/elastic/elasticsearch-py/issues/1639#issuecomment-883587433
     "elasticsearch": {"elasticsearch==7.13.4"},
     "feast": {
-        "feast~=0.35.0",
+        "feast>=0.34.0,<1",
         "flask-openid>=1.3.0",
-        # typeguard 3.x, released on 2023-03-14, seems to cause issues with Feast.
-        "typeguard<3",
     },
     "glue": aws_common,
     # hdbcli is supported officially by SAP, sqlalchemy-hana is built on top but not officially supported
@@ -374,6 +371,7 @@ plugins: Dict[str, Set[str]] = {
     "snowflake": snowflake_common | usage_common | sqlglot_lib,
     "sqlalchemy": sql_common,
     "sql-queries": usage_common | sqlglot_lib,
+    "slack": slack,
     "superset": {
         "requests",
         "sqlalchemy",
@@ -462,7 +460,7 @@ base_dev_requirements = {
     "black==22.12.0",
     "coverage>=5.1",
     "faker>=18.4.0",
-    "flake8>=3.8.3",  # DEPRECATION: Once we drop Python 3.7, we can pin to 6.x.
+    "flake8>=6.0.0",
     "flake8-tidy-imports>=4.3.0",
     "flake8-bugbear==23.3.12",
     "isort>=5.7.0",
@@ -471,7 +469,8 @@ base_dev_requirements = {
     pytest_dep,
     "pytest-asyncio>=0.16.0",
     "pytest-cov>=2.8.1",
-    "pytest-docker>=1.0.1",
+    "pytest-docker>=1.1.0",
+    "pytest-random-order~=1.1.0",
     deepdiff_dep,
     "requests-mock",
     "freezegun",
@@ -488,9 +487,9 @@ base_dev_requirements = {
             "delta-lake",
             "druid",
             "elasticsearch",
-            "feast" if sys.version_info >= (3, 8) else None,
-            "iceberg" if sys.version_info >= (3, 8) else None,
-            "mlflow" if sys.version_info >= (3, 8) else None,
+            "feast",
+            "iceberg",
+            "mlflow",
             "json-schema",
             "ldap",
             "looker",
@@ -510,6 +509,7 @@ base_dev_requirements = {
             "redshift",
             "s3",
             "snowflake",
+            "slack",
             "tableau",
             "teradata",
             "trino",
@@ -543,14 +543,15 @@ full_test_dev_requirements = {
             "clickhouse",
             "delta-lake",
             "druid",
-            "feast" if sys.version_info >= (3, 8) else None,
+            "feast",
             "hana",
             "hive",
-            "iceberg" if sys.version_info >= (3, 8) else None,
+            "iceberg",
             "kafka-connect",
             "ldap",
             "mongodb",
-            "mssql" if sys.version_info >= (3, 8) else None,
+            "slack",
+            "mssql",
             "mysql",
             "mariadb",
             "redash",
@@ -604,6 +605,7 @@ entry_points = {
         "postgres = datahub.ingestion.source.sql.postgres:PostgresSource",
         "redash = datahub.ingestion.source.redash:RedashSource",
         "redshift = datahub.ingestion.source.redshift.redshift:RedshiftSource",
+        "slack = datahub.ingestion.source.slack.slack:SlackSource",
         "snowflake = datahub.ingestion.source.snowflake.snowflake_v2:SnowflakeV2Source",
         "superset = datahub.ingestion.source.superset:SupersetSource",
         "tableau = datahub.ingestion.source.tableau:TableauSource",
@@ -698,7 +700,6 @@ See the [DataHub docs](https://datahubproject.io/docs/metadata-ingestion).
         "Programming Language :: Python",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3 :: Only",
-        "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
@@ -715,7 +716,7 @@ See the [DataHub docs](https://datahubproject.io/docs/metadata-ingestion).
     ],
     # Package info.
     zip_safe=False,
-    python_requires=">=3.7",
+    python_requires=">=3.8",
     package_dir={"": "src"},
     packages=setuptools.find_namespace_packages(where="./src"),
     package_data={

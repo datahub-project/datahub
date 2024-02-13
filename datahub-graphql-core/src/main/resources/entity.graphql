@@ -1763,6 +1763,12 @@ input AspectParams {
     Only fetch auto render aspects
     """
     autoRenderOnly: Boolean
+
+    """
+    Fetch using aspect names
+    If absent, returns all aspects matching other inputs
+    """
+    aspectNames: [String!]
 }
 
 
@@ -1977,6 +1983,11 @@ type GlossaryTerm implements Entity {
     For fetching extra entities that do not have custom UI code yet
     """
     aspects(input: AspectParams): [RawAspect!]
+
+    """
+    Structured properties about this asset
+    """
+    structuredProperties: StructuredProperties
 }
 
 """
@@ -2120,6 +2131,11 @@ type GlossaryNode implements Entity {
     For fetching extra entities that do not have custom UI code yet
     """
     aspects(input: AspectParams): [RawAspect!]
+
+    """
+    Structured properties about this asset
+    """
+    structuredProperties: StructuredProperties
 }
 
 """
@@ -2531,6 +2547,11 @@ type Container implements Entity {
     For fetching extra entities that do not have custom UI code yet
     """
     aspects(input: AspectParams): [RawAspect!]
+
+    """
+    Structured properties about this asset
+    """
+    structuredProperties: StructuredProperties
 }
 
 """
@@ -3554,6 +3575,11 @@ type CorpUser implements Entity {
     For fetching extra aspects that do not have custom UI code yet
     """
     aspects(input: AspectParams): [RawAspect!]
+
+    """
+    Structured properties about this asset
+    """
+    structuredProperties: StructuredProperties
 }
 
 """
@@ -3920,6 +3946,11 @@ type CorpGroup implements Entity {
     For fetching extra entities that do not have custom UI code yet
     """
     aspects(input: AspectParams): [RawAspect!]
+
+    """
+    Structured properties about this asset
+    """
+    structuredProperties: StructuredProperties
 }
 
 """
@@ -5094,6 +5125,11 @@ type Dashboard implements EntityWithRelationships & Entity & BrowsableEntity {
     For fetching extra entities that do not have custom UI code yet
     """
     aspects(input: AspectParams): [RawAspect!]
+
+    """
+    Structured properties about this asset
+    """
+    structuredProperties: StructuredProperties
 }
 
 """
@@ -5410,6 +5446,11 @@ type Chart implements EntityWithRelationships & Entity & BrowsableEntity {
     For fetching extra entities that do not have custom UI code yet
     """
     aspects(input: AspectParams): [RawAspect!]
+
+    """
+    Structured properties about this asset
+    """
+    structuredProperties: StructuredProperties
 }
 
 """
@@ -5773,6 +5814,11 @@ type DataFlow implements EntityWithRelationships & Entity & BrowsableEntity {
     For fetching extra entities that do not have custom UI code yet
     """
     aspects(input: AspectParams): [RawAspect!]
+
+    """
+    Structured properties about this asset
+    """
+    structuredProperties: StructuredProperties
 }
 
 """
@@ -5979,6 +6025,11 @@ type DataJob implements EntityWithRelationships & Entity & BrowsableEntity {
     For fetching extra entities that do not have custom UI code yet
     """
     aspects(input: AspectParams): [RawAspect!]
+
+    """
+    Structured properties about this asset
+    """
+    structuredProperties: StructuredProperties
 }
 
 """
@@ -6788,6 +6839,12 @@ type Assertion implements EntityWithRelationships & Entity {
     Edges extending from this entity grouped by direction in the lineage graph
     """
     lineage(input: LineageInput!): EntityLineageResult
+
+    """
+    Experimental API.
+    For fetching extra aspects that do not have custom UI code yet
+    """
+    aspects(input: AspectParams): [RawAspect!]
 }
 
 """
@@ -8924,6 +8981,11 @@ type MLModel implements EntityWithRelationships & Entity & BrowsableEntity {
     For fetching extra entities that do not have custom UI code yet
     """
     aspects(input: AspectParams): [RawAspect!]
+
+    """
+    Structured properties about this asset
+    """
+    structuredProperties: StructuredProperties
 }
 
 """
@@ -9041,6 +9103,11 @@ type MLModelGroup implements EntityWithRelationships & Entity & BrowsableEntity 
     For fetching extra entities that do not have custom UI code yet
     """
     aspects(input: AspectParams): [RawAspect!]
+
+    """
+    Structured properties about this asset
+    """
+    structuredProperties: StructuredProperties
 }
 
 type MLModelGroupProperties {
@@ -9171,6 +9238,11 @@ type MLFeature implements EntityWithRelationships & Entity {
     For fetching extra entities that do not have custom UI code yet
     """
     aspects(input: AspectParams): [RawAspect!]
+
+    """
+    Structured properties about this asset
+    """
+    structuredProperties: StructuredProperties
 }
 
 type MLHyperParam {
@@ -9346,6 +9418,11 @@ type MLPrimaryKey implements EntityWithRelationships & Entity {
     For fetching extra entities that do not have custom UI code yet
     """
     aspects(input: AspectParams): [RawAspect!]
+
+    """
+    Structured properties about this asset
+    """
+    structuredProperties: StructuredProperties
 }
 
 type MLPrimaryKeyProperties {
@@ -9479,6 +9556,11 @@ type MLFeatureTable implements EntityWithRelationships & Entity & BrowsableEntit
     For fetching extra entities that do not have custom UI code yet
     """
     aspects(input: AspectParams): [RawAspect!]
+
+    """
+    Structured properties about this asset
+    """
+    structuredProperties: StructuredProperties
 }
 
 type MLFeatureTableEditableProperties {
@@ -9876,6 +9958,11 @@ type Domain implements Entity {
     For fetching extra entities that do not have custom UI code yet
     """
     aspects(input: AspectParams): [RawAspect!]
+
+    """
+    Structured properties about this asset
+    """
+    structuredProperties: StructuredProperties
 }
 
 """
@@ -10948,6 +11035,11 @@ enum QuerySource {
   The query was provided manually, e.g. from the UI.
   """
   MANUAL
+
+  """
+  The query was extracted by the system, e.g. from a dashboard.
+  """
+  SYSTEM
 }
 
 """
@@ -11259,6 +11351,11 @@ type DataProduct implements Entity {
     For fetching extra entities that do not have custom UI code yet
     """
     aspects(input: AspectParams): [RawAspect!]
+
+    """
+    Structured properties about this asset
+    """
+    structuredProperties: StructuredProperties
 }
 
 """
