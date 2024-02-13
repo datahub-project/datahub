@@ -1,0 +1,25 @@
+namespace com.linkedin.monitor
+
+/**
+ * EvaluationTimeWindow is a record that represents the time window in which an assertion is valid.
+ */
+record EvaluationTimeWindow {
+/**
+ * The validFromMillis parameter of an assertion
+ *
+ * This parameter represents the start time of the validity period for an assertion.
+ * It is defined in milliseconds since the Unix Epoch (January 1, 1970, 00:00:00 GMT).
+ * It is optional, meaning that if it is not provided, the assertion is considered valid from the moment it is created.
+ */
+  fromMillis: optional long
+
+/**
+ * The validToMillis parameter of an assertion
+ *
+ * This parameter represents the end time of the validity period for an assertion.
+ * It is defined in milliseconds since the Unix Epoch (January 1, 1970, 00:00:00 GMT).
+ * It is optional, meaning that if it is not provided, the assertion is considered valid indefinitely.
+ */
+  toMillis: optional long
+}
+

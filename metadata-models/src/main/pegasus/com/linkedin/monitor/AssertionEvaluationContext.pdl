@@ -1,0 +1,19 @@
+namespace com.linkedin.monitor
+
+/**
+ * The context in which an assertion is evaluated.
+ */
+record AssertionEvaluationContext {
+
+    /**
+    * The embedded assertion to evaluate which will overwrite the referenced assertion
+    * if present and if the EmbeddedAssertion's evaluationTimeWindow period is valid.
+     * This is useful for defining multiple versions of an assertion for the monitor in advance and
+     * defining evaluationTimeWindow about which specific assertion should be running at a given time.
+     *
+     * Currently used for Smart Assertions
+    */
+
+    embeddedAssertions: optional array[EmbeddedAssertion]
+
+}

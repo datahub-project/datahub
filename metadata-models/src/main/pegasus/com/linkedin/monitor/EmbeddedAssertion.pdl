@@ -1,0 +1,18 @@
+namespace com.linkedin.monitor
+
+import com.linkedin.assertion.AssertionInfo
+
+/**
+ * Embedded assertion to be evaluated
+ */
+record EmbeddedAssertion {
+    /**
+    * Specs for each assertion to evaluate
+    */
+    assertion: AssertionInfo
+
+    /**
+    * Validity period of the assertion evaluation spec
+    */
+    evaluationTimeWindow: optional EvaluationTimeWindow
+}
