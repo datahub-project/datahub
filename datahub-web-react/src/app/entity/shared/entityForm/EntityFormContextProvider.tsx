@@ -43,17 +43,14 @@ export default function EntityFormContextProvider({ children, formUrn }: Props) 
     }, [formUrn, previousFormUrn, initialPromptId]);
 
     const query = entityRegistry.getEntityQuery(selectedEntity.type);
+    const entityQuery = query || useGetDatasetQuery;
     const {
         data: fetchedData,
         refetch,
         loading,
-    } = query
-        ? query({
-              variables: { urn: selectedEntity.urn },
-          })
-        : useGetDatasetQuery({
-              variables: { urn: selectedEntity.urn },
-          });
+    } = entityQuery({
+        variables: { urn: selectedEntity.urn },
+    });
 
     const isOnEntityProfilePage = selectedEntity.urn === entityData?.urn;
     const selectedEntityData = isOnEntityProfilePage ? entityData : (fetchedData?.dataset as GenericEntityProperties);

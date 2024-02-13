@@ -1,3 +1,4 @@
+import { QueryHookOptions, QueryResult } from '@apollo/client';
 import React from 'react';
 import { Entity as EntityInterface, EntityType, Exact, SearchResult } from '../../types.generated';
 import { FetchedEntity } from '../lineage/types';
@@ -6,7 +7,6 @@ import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from './Enti
 import { GLOSSARY_ENTITY_TYPES } from './shared/constants';
 import { EntitySidebarSection, GenericEntityProperties } from './shared/types';
 import { dictToQueryStringParams, getFineGrainedLineageWithSiblings, urlEncodeUrn } from './shared/utils';
-import { QueryHookOptions, QueryResult } from '@apollo/client';
 
 function validatedGet<K, V>(key: K, map: Map<K, V>): V {
     if (map.has(key)) {
