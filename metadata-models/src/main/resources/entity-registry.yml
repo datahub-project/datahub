@@ -89,6 +89,7 @@ entities:
       - dataPlatformInstance
       - browsePathsV2
       - structuredProperties
+      - subTypes
   - name: dataProcess
     keyAspect: dataProcessKey
     aspects:
@@ -461,6 +462,8 @@ entities:
       - queryProperties
       - querySubjects
       - status
+      - dataPlatformInstance
+      - subTypes
   - name: dataProduct
     category: core
     keyAspect: dataProductKey

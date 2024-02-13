@@ -89,6 +89,7 @@ import com.linkedin.datahub.graphql.generated.OwnershipTypeEntity;
 import com.linkedin.datahub.graphql.generated.ParentDomainsResult;
 import com.linkedin.datahub.graphql.generated.PolicyMatchCriterionValue;
 import com.linkedin.datahub.graphql.generated.QueryEntity;
+import com.linkedin.datahub.graphql.generated.QueryProperties;
 import com.linkedin.datahub.graphql.generated.QuerySubject;
 import com.linkedin.datahub.graphql.generated.QuickFilter;
 import com.linkedin.datahub.graphql.generated.RecommendationContent;
@@ -2537,8 +2538,26 @@ public class GmsGraphQLEngine {
         .type(
             "QueryEntity",
             typeWiring ->
+                typeWiring
+                    .dataFetcher(
+                        "relationships", new EntityRelationshipsResultResolver(graphClient))
+                    .dataFetcher(
+                        "platform",
+                        new LoadableTypeResolver<>(
+                            dataPlatformType,
+                            (env) -> {
+                              final QueryEntity query = env.getSource();
+                              return query.getPlatform() != null
+                                  ? query.getPlatform().getUrn()
+                                  : null;
+                            })))
+        .type(
+            "QueryProperties",
+            typeWiring ->
                 typeWiring.dataFetcher(
-                    "relationships", new EntityRelationshipsResultResolver(graphClient)))
+                    "origin",
+                    new EntityTypeResolver(
+                        entityTypes, (env) -> ((QueryProperties) env.getSource()).getOrigin())))
         .type(
             "ListQueriesResult",
             typeWiring ->

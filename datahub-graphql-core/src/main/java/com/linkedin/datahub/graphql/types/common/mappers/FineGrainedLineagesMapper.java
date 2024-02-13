@@ -45,6 +45,12 @@ public class FineGrainedLineagesMapper {
                 .map(FineGrainedLineagesMapper::mapDatasetSchemaField)
                 .collect(Collectors.toList()));
       }
+      if (fineGrainedLineage.hasQuery()) {
+        resultEntry.setQuery(fineGrainedLineage.getQuery().toString());
+      }
+      if (fineGrainedLineage.hasTransformOperation()) {
+        resultEntry.setTransformOperation(fineGrainedLineage.getTransformOperation());
+      }
       result.add(resultEntry);
     }
     return result;
