@@ -39,6 +39,7 @@ from datahub.ingestion.source.common.subtypes import (
 )
 from datahub.ingestion.source.redshift.config import RedshiftConfig
 from datahub.ingestion.source.redshift.lineage import RedshiftLineageExtractor
+from datahub.ingestion.source.redshift.lineage_v2 import RedshiftSqlLineageV2
 from datahub.ingestion.source.redshift.profile import RedshiftProfiler
 from datahub.ingestion.source.redshift.redshift_schema import (
     RedshiftColumn,
@@ -412,20 +413,44 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             memory_footprint.total_size(self.db_views)
         )
 
-        yield from self.process_schemas(connection, database)
+        if self.config.use_lineage_v2:
+            lineage_extractor = RedshiftSqlLineageV2(
+                config=self.config,
+                report=self.report,
+                context=self.ctx,
+                redundant_run_skip_handler=self.redundant_lineage_run_skip_handler,
+            )
 
-        all_tables = self.get_all_tables()
+            yield from lineage_extractor.aggregator.register_schemas_from_stream(
+                self.process_schemas(connection, database)
+            )
 
-        if self.config.include_table_lineage or self.config.include_copy_lineage:
             self.report.report_ingestion_stage_start(LINEAGE_EXTRACTION)
-            yield from self.extract_lineage(
-                connection=connection, all_tables=all_tables, database=database
+            yield from self.extract_lineage_usage_v2(
+                connection=connection,
+                database=database,
+                lineage_extractor=lineage_extractor,
             )
 
-        if self.config.include_usage_statistics:
-            yield from self.extract_usage(
-                connection=connection, all_tables=all_tables, database=database
-            )
+        else:
+            yield from self.process_schemas(connection, database)
+
+            all_tables = self.get_all_tables()
+
+            if (
+                self.config.include_table_lineage
+                or self.config.include_view_lineage
+                or self.config.include_copy_lineage
+            ):
+                self.report.report_ingestion_stage_start(LINEAGE_EXTRACTION)
+                yield from self.extract_lineage(
+                    connection=connection, all_tables=all_tables, database=database
+                )
+
+            if self.config.include_usage_statistics:
+                yield from self.extract_usage(
+                    connection=connection, all_tables=all_tables, database=database
+                )
 
         if self.config.is_profiling_enabled():
             self.report.report_ingestion_stage_start(PROFILING)
@@ -922,6 +947,23 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                 self.redundant_lineage_run_skip_handler.update_state(
                     self.config.start_time, self.config.end_time
                 )
+
+    def extract_lineage_usage_v2(
+        self,
+        connection: redshift_connector.Connection,
+        database: str,
+        lineage_extractor: RedshiftSqlLineageV2,
+    ) -> Iterable[MetadataWorkUnit]:
+        if not self._should_ingest_lineage():
+            return
+
+        # TODO
+        if self.redundant_lineage_run_skip_handler:
+            # Update the checkpoint state for this run.
+            self.redundant_lineage_run_skip_handler.update_state(
+                self.config.start_time, self.config.end_time
+            )
+        pass
 
     def _should_ingest_lineage(self) -> bool:
         if (

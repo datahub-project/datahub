@@ -94,6 +94,11 @@ class RedshiftConfig(
         description="The default schema to use if the sql parser fails to parse the schema with `sql_based` lineage collector",
     )
 
+    use_lineage_v2: bool = Field(
+        default=False,
+        description="Whether to use the new SQL-based lineage and usage collector.",
+    )
+
     include_table_lineage: bool = Field(
         default=True, description="Whether table lineage should be ingested."
     )
