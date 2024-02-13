@@ -1301,7 +1301,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
             op = field_type  # BinField, CombinedField, etc
 
         return op
-    
+
     def emit_custom_sql_datasources(self) -> Iterable[MetadataWorkUnit]:
         custom_sql_filter = (
             f"{c.ID_WITH_IN}: {json.dumps(self.custom_sql_ids_being_used)}"
