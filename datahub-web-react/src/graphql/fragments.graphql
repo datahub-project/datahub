@@ -245,6 +245,11 @@ fragment nonRecursiveDatasetFields on Dataset {
             actor
         }
     }
+    structuredProperties {
+        properties {
+            ...structuredPropertiesFields
+        }
+    }
     editableProperties {
         description
     }
@@ -709,6 +714,15 @@ fragment schemaFieldFields on SchemaField {
     glossaryTerms {
         ...glossaryTerms
     }
+    schemaFieldEntity {
+        urn
+        type
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
+    }
 }
 
 fragment schemaMetadataFields on SchemaMetadata {
@@ -1163,6 +1177,69 @@ fragment entityDisplayNameFields on Entity {
     }
 }
 
+fragment structuredPropertyFields on StructuredPropertyEntity {
+    urn
+    type
+    definition {
+        displayName
+        qualifiedName
+        description
+        cardinality
+        valueType {
+            info {
+                type
+                displayName
+            }
+        }
+        entityTypes {
+            info {
+                type
+            }
+        }
+        cardinality
+        typeQualifier {
+            allowedTypes {
+                urn
+                type
+                info {
+                    type
+                    displayName
+                }
+            }
+        }
+        allowedValues {
+            value {
+                ... on StringValue {
+                    stringValue
+                }
+                ... on NumberValue {
+                    numberValue
+                }
+            }
+            description
+        }
+    }
+}
+
+fragment structuredPropertiesFields on StructuredPropertiesEntry {
+    structuredProperty {
+        ...structuredPropertyFields
+    }
+    values {
+        ... on StringValue {
+            stringValue
+        }
+        ... on NumberValue {
+            numberValue
+        }
+    }
+    valueEntities {
+        urn
+        type
+        ...entityDisplayNameFields
+    }
+}
+
 fragment autoRenderAspectFields on RawAspect {
     aspectName
     payload
@@ -1170,5 +1247,69 @@ fragment autoRenderAspectFields on RawAspect {
         displayType
         displayName
         key
+    }
+}
+
+fragment formAssociationFields on FormAssociation {
+    associatedUrn
+    incompletePrompts {
+        ...formPromptAssociationFields
+    }
+    completedPrompts {
+        ...formPromptAssociationFields
+    }
+    form {
+        urn
+        type
+        info {
+            name
+            description
+            type
+            prompts {
+                id
+                formUrn
+                title
+                description
+                type
+                required
+                structuredPropertyParams {
+                    structuredProperty {
+                        ...structuredPropertyFields
+                    }
+                }
+            }
+            actors {
+                owners
+                isAssignedToMe
+            }
+        }
+        ownership {
+            ...ownershipFields
+        }
+    }
+}
+
+fragment formPromptAssociationFields on FormPromptAssociation {
+    id
+    lastModified {
+        time
+        actor {
+            urn
+            type
+            ...entityDisplayNameFields
+        }
+    }
+    fieldAssociations {
+        completedFieldPrompts {
+            fieldPath
+            lastModified {
+                time
+                actor {
+                    urn
+                    type
+                    ...entityDisplayNameFields
+                }
+            }
+        }
     }
 }

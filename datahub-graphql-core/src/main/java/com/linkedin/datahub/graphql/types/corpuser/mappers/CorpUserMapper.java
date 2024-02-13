@@ -15,6 +15,7 @@ import com.linkedin.datahub.graphql.generated.DataHubView;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.types.common.mappers.CustomPropertiesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
+import com.linkedin.datahub.graphql.types.structuredproperty.StructuredPropertiesMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
@@ -25,6 +26,7 @@ import com.linkedin.identity.CorpUserInfo;
 import com.linkedin.identity.CorpUserSettings;
 import com.linkedin.identity.CorpUserStatus;
 import com.linkedin.metadata.key.CorpUserKey;
+import com.linkedin.structured.StructuredProperties;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -73,6 +75,11 @@ public class CorpUserMapper {
         (corpUser, dataMap) ->
             corpUser.setStatus(CorpUserStatusMapper.map(new CorpUserStatus(dataMap))));
     mappingHelper.mapToResult(CORP_USER_CREDENTIALS_ASPECT_NAME, this::mapIsNativeUser);
+    mappingHelper.mapToResult(
+        STRUCTURED_PROPERTIES_ASPECT_NAME,
+        ((entity, dataMap) ->
+            entity.setStructuredProperties(
+                StructuredPropertiesMapper.map(new StructuredProperties(dataMap)))));
 
     mapCorpUserSettings(
         result, aspectMap.getOrDefault(CORP_USER_SETTINGS_ASPECT_NAME, null), featureFlags);

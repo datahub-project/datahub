@@ -108,6 +108,8 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
   protected final EntityRegistry _configEntityRegistry =
       new ConfigEntityRegistry(
           Snapshot.class.getClassLoader().getResourceAsStream("entity-registry.yml"));
+  protected final AspectSpec structuredPropertiesDefinitionAspect =
+      _configEntityRegistry.getAspectSpecs().get(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME);
   protected final EntityRegistry _testEntityRegistry =
       new MergedEntityRegistry(_snapshotEntityRegistry).apply(_configEntityRegistry);
   protected EventProducer _mockProducer;
@@ -477,7 +479,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     assertTrue(DataTemplateUtil.areEqual(writeAspect1, latestAspects.get(aspectName1)));
     assertTrue(DataTemplateUtil.areEqual(writeAspect2, latestAspects.get(aspectName2)));
 
-    verify(_mockProducer, times(2))
+    verify(_mockProducer, times(3))
         .produceMetadataChangeLog(Mockito.eq(entityUrn), Mockito.any(), Mockito.any());
 
     verifyNoMoreInteractions(_mockProducer);
@@ -770,6 +772,12 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         .produceMetadataChangeLog(
             Mockito.eq(entityUrn), Mockito.eq(corpUserInfoSpec), Mockito.any());
 
+    verify(_mockProducer, times(1))
+        .produceMetadataChangeLog(
+            Mockito.eq(entityUrn),
+            Mockito.eq(_testEntityRegistry.getEntitySpec("corpUser").getAspectSpec("corpUserKey")),
+            Mockito.any());
+
     verifyNoMoreInteractions(_mockProducer);
   }
 
@@ -822,6 +830,13 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     readAspect1 = _entityServiceImpl.getVersionedAspect(entityUrn, aspectName, -1);
     assertFalse(DataTemplateUtil.areEqual(writtenVersionedAspect1, readAspect1));
 
+    // check key aspect
+    verify(_mockProducer, times(1))
+        .produceMetadataChangeLog(
+            Mockito.eq(entityUrn),
+            Mockito.eq(_testEntityRegistry.getEntitySpec("corpuser").getAspectSpec("corpUserKey")),
+            Mockito.any());
+
     verifyNoMoreInteractions(_mockProducer);
   }
 
@@ -854,28 +869,28 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
             MCPUpsertBatchItem.builder()
                 .urn(entityUrn1)
                 .aspectName(aspectName)
-                .aspect(writeAspect1)
+                .recordTemplate(writeAspect1)
                 .systemMetadata(metadata1)
                 .auditStamp(TEST_AUDIT_STAMP)
                 .build(_entityServiceImpl),
             MCPUpsertBatchItem.builder()
                 .urn(entityUrn2)
                 .aspectName(aspectName)
-                .aspect(writeAspect2)
+                .recordTemplate(writeAspect2)
                 .auditStamp(TEST_AUDIT_STAMP)
                 .systemMetadata(metadata1)
                 .build(_entityServiceImpl),
             MCPUpsertBatchItem.builder()
                 .urn(entityUrn3)
                 .aspectName(aspectName)
-                .aspect(writeAspect3)
+                .recordTemplate(writeAspect3)
                 .auditStamp(TEST_AUDIT_STAMP)
                 .systemMetadata(metadata1)
                 .build(_entityServiceImpl),
             MCPUpsertBatchItem.builder()
                 .urn(entityUrn1)
                 .aspectName(aspectName)
-                .aspect(writeAspect1Overwrite)
+                .recordTemplate(writeAspect1Overwrite)
                 .systemMetadata(metadata2)
                 .auditStamp(TEST_AUDIT_STAMP)
                 .build(_entityServiceImpl));
@@ -933,21 +948,21 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
             MCPUpsertBatchItem.builder()
                 .urn(entityUrn1)
                 .aspectName(aspectName)
-                .aspect(writeAspect1)
+                .recordTemplate(writeAspect1)
                 .systemMetadata(metadata1)
                 .auditStamp(TEST_AUDIT_STAMP)
                 .build(_entityServiceImpl),
             MCPUpsertBatchItem.builder()
                 .urn(entityUrn1)
                 .aspectName(keyAspectName)
-                .aspect(writeKey1)
+                .recordTemplate(writeKey1)
                 .systemMetadata(metadata1)
                 .auditStamp(TEST_AUDIT_STAMP)
                 .build(_entityServiceImpl),
             MCPUpsertBatchItem.builder()
                 .urn(entityUrn1)
                 .aspectName(aspectName)
-                .aspect(writeAspect1Overwrite)
+                .recordTemplate(writeAspect1Overwrite)
                 .systemMetadata(metadata2)
                 .auditStamp(TEST_AUDIT_STAMP)
                 .build(_entityServiceImpl));
@@ -1013,35 +1028,35 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
             MCPUpsertBatchItem.builder()
                 .urn(entityUrn1)
                 .aspectName(aspectName)
-                .aspect(writeAspect1)
+                .recordTemplate(writeAspect1)
                 .systemMetadata(metadata1)
                 .auditStamp(TEST_AUDIT_STAMP)
                 .build(_entityServiceImpl),
             MCPUpsertBatchItem.builder()
                 .urn(entityUrn1)
                 .aspectName(keyAspectName)
-                .aspect(writeKey1)
+                .recordTemplate(writeKey1)
                 .auditStamp(TEST_AUDIT_STAMP)
                 .systemMetadata(metadata1)
                 .build(_entityServiceImpl),
             MCPUpsertBatchItem.builder()
                 .urn(entityUrn2)
                 .aspectName(aspectName)
-                .aspect(writeAspect2)
+                .recordTemplate(writeAspect2)
                 .auditStamp(TEST_AUDIT_STAMP)
                 .systemMetadata(metadata1)
                 .build(_entityServiceImpl),
             MCPUpsertBatchItem.builder()
                 .urn(entityUrn3)
                 .aspectName(aspectName)
-                .aspect(writeAspect3)
+                .recordTemplate(writeAspect3)
                 .systemMetadata(metadata1)
                 .auditStamp(TEST_AUDIT_STAMP)
                 .build(_entityServiceImpl),
             MCPUpsertBatchItem.builder()
                 .urn(entityUrn1)
                 .aspectName(aspectName)
-                .aspect(writeAspect1Overwrite)
+                .recordTemplate(writeAspect1Overwrite)
                 .systemMetadata(metadata2)
                 .auditStamp(TEST_AUDIT_STAMP)
                 .build(_entityServiceImpl));
@@ -1080,7 +1095,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
             MCPUpsertBatchItem.builder()
                 .urn(entityUrn)
                 .aspectName(aspectName)
-                .aspect(writeAspect1)
+                .recordTemplate(writeAspect1)
                 .auditStamp(TEST_AUDIT_STAMP)
                 .systemMetadata(metadata1)
                 .build(_entityServiceImpl));
@@ -1092,12 +1107,21 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
 
     ArgumentCaptor<MetadataChangeLog> mclCaptor = ArgumentCaptor.forClass(MetadataChangeLog.class);
     verify(_mockProducer, times(1))
-        .produceMetadataChangeLog(Mockito.eq(entityUrn), Mockito.any(), mclCaptor.capture());
+        .produceMetadataChangeLog(
+            Mockito.eq(entityUrn),
+            Mockito.eq(_testEntityRegistry.getEntitySpec("corpUser").getAspectSpec("corpUserInfo")),
+            mclCaptor.capture());
     MetadataChangeLog mcl = mclCaptor.getValue();
     assertEquals(mcl.getEntityType(), "corpuser");
     assertNull(mcl.getPreviousAspectValue());
     assertNull(mcl.getPreviousSystemMetadata());
     assertEquals(mcl.getChangeType(), ChangeType.UPSERT);
+
+    verify(_mockProducer, times(1))
+        .produceMetadataChangeLog(
+            Mockito.eq(entityUrn),
+            Mockito.eq(_testEntityRegistry.getEntitySpec("corpUser").getAspectSpec("corpUserKey")),
+            Mockito.any());
 
     verifyNoMoreInteractions(_mockProducer);
 
@@ -1111,7 +1135,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
             MCPUpsertBatchItem.builder()
                 .urn(entityUrn)
                 .aspectName(aspectName)
-                .aspect(writeAspect2)
+                .recordTemplate(writeAspect2)
                 .auditStamp(TEST_AUDIT_STAMP)
                 .systemMetadata(metadata2)
                 .build(_entityServiceImpl));
@@ -1157,7 +1181,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
             MCPUpsertBatchItem.builder()
                 .urn(entityUrn)
                 .aspectName(aspectName)
-                .aspect(writeAspect1)
+                .recordTemplate(writeAspect1)
                 .auditStamp(TEST_AUDIT_STAMP)
                 .systemMetadata(metadata1)
                 .build(_entityServiceImpl));
@@ -1177,7 +1201,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
             MCPUpsertBatchItem.builder()
                 .urn(entityUrn)
                 .aspectName(aspectName)
-                .aspect(writeAspect2)
+                .recordTemplate(writeAspect2)
                 .systemMetadata(metadata2)
                 .auditStamp(TEST_AUDIT_STAMP)
                 .build(_entityServiceImpl));
@@ -1199,7 +1223,16 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
             EntityUtils.parseSystemMetadata(readAspectDao1.getSystemMetadata()), metadata1));
 
     verify(_mockProducer, times(2))
-        .produceMetadataChangeLog(Mockito.eq(entityUrn), Mockito.any(), Mockito.any());
+        .produceMetadataChangeLog(
+            Mockito.eq(entityUrn),
+            Mockito.eq(_testEntityRegistry.getEntitySpec("corpUser").getAspectSpec("corpUserInfo")),
+            Mockito.any());
+
+    verify(_mockProducer, times(1))
+        .produceMetadataChangeLog(
+            Mockito.eq(entityUrn),
+            Mockito.eq(_testEntityRegistry.getEntitySpec("corpUser").getAspectSpec("corpUserKey")),
+            Mockito.any());
 
     verifyNoMoreInteractions(_mockProducer);
   }
@@ -1222,7 +1255,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
             MCPUpsertBatchItem.builder()
                 .urn(entityUrn)
                 .aspectName(aspectName)
-                .aspect(writeAspect1)
+                .recordTemplate(writeAspect1)
                 .systemMetadata(metadata1)
                 .auditStamp(TEST_AUDIT_STAMP)
                 .build(_entityServiceImpl));
@@ -1232,9 +1265,18 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     RecordTemplate readAspect1 = _entityServiceImpl.getLatestAspect(entityUrn, aspectName);
     assertTrue(DataTemplateUtil.areEqual(writeAspect1, readAspect1));
 
+    verify(_mockProducer, times(1))
+        .produceMetadataChangeLog(
+            Mockito.eq(entityUrn),
+            Mockito.eq(_testEntityRegistry.getEntitySpec("corpUser").getAspectSpec("corpUserKey")),
+            Mockito.any());
+
     ArgumentCaptor<MetadataChangeLog> mclCaptor = ArgumentCaptor.forClass(MetadataChangeLog.class);
     verify(_mockProducer, times(1))
-        .produceMetadataChangeLog(Mockito.eq(entityUrn), Mockito.any(), mclCaptor.capture());
+        .produceMetadataChangeLog(
+            Mockito.eq(entityUrn),
+            Mockito.eq(_testEntityRegistry.getEntitySpec("corpUser").getAspectSpec("corpUserInfo")),
+            mclCaptor.capture());
     MetadataChangeLog mcl = mclCaptor.getValue();
     assertEquals(mcl.getEntityType(), "corpuser");
     assertNull(mcl.getPreviousAspectValue());
@@ -1253,7 +1295,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
             MCPUpsertBatchItem.builder()
                 .urn(entityUrn)
                 .aspectName(aspectName)
-                .aspect(writeAspect2)
+                .recordTemplate(writeAspect2)
                 .systemMetadata(metadata2)
                 .auditStamp(TEST_AUDIT_STAMP)
                 .build(_entityServiceImpl));
@@ -1306,42 +1348,42 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
             MCPUpsertBatchItem.builder()
                 .urn(entityUrn)
                 .aspectName(aspectName)
-                .aspect(writeAspect1)
+                .recordTemplate(writeAspect1)
                 .systemMetadata(metadata1)
                 .auditStamp(TEST_AUDIT_STAMP)
                 .build(_entityServiceImpl),
             MCPUpsertBatchItem.builder()
                 .urn(entityUrn)
                 .aspectName(aspectName)
-                .aspect(writeAspect1a)
+                .recordTemplate(writeAspect1a)
                 .systemMetadata(metadata1)
                 .auditStamp(TEST_AUDIT_STAMP)
                 .build(_entityServiceImpl),
             MCPUpsertBatchItem.builder()
                 .urn(entityUrn)
                 .aspectName(aspectName)
-                .aspect(writeAspect1b)
+                .recordTemplate(writeAspect1b)
                 .systemMetadata(metadata1)
                 .auditStamp(TEST_AUDIT_STAMP)
                 .build(_entityServiceImpl),
             MCPUpsertBatchItem.builder()
                 .urn(entityUrn)
                 .aspectName(aspectName2)
-                .aspect(writeAspect2)
+                .recordTemplate(writeAspect2)
                 .systemMetadata(metadata1)
                 .auditStamp(TEST_AUDIT_STAMP)
                 .build(_entityServiceImpl),
             MCPUpsertBatchItem.builder()
                 .urn(entityUrn)
                 .aspectName(aspectName2)
-                .aspect(writeAspect2a)
+                .recordTemplate(writeAspect2a)
                 .systemMetadata(metadata1)
                 .auditStamp(TEST_AUDIT_STAMP)
                 .build(_entityServiceImpl),
             MCPUpsertBatchItem.builder()
                 .urn(entityUrn)
                 .aspectName(aspectName2)
-                .aspect(writeAspect2b)
+                .recordTemplate(writeAspect2b)
                 .systemMetadata(metadata1)
                 .auditStamp(TEST_AUDIT_STAMP)
                 .build(_entityServiceImpl));
@@ -1373,14 +1415,14 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
             MCPUpsertBatchItem.builder()
                 .urn(entityUrn)
                 .aspectName(aspectName)
-                .aspect(writeAspect1c)
+                .recordTemplate(writeAspect1c)
                 .systemMetadata(metadata1)
                 .auditStamp(TEST_AUDIT_STAMP)
                 .build(_entityServiceImpl),
             MCPUpsertBatchItem.builder()
                 .urn(entityUrn)
                 .aspectName(aspectName2)
-                .aspect(writeAspect2c)
+                .recordTemplate(writeAspect2c)
                 .systemMetadata(metadata1)
                 .auditStamp(TEST_AUDIT_STAMP)
                 .build(_entityServiceImpl));
@@ -1641,10 +1683,23 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     genericAspect.setContentType("application/json");
     gmce.setAspect(genericAspect);
     _entityServiceImpl.ingestProposal(gmce, TEST_AUDIT_STAMP, false);
+
     ArgumentCaptor<MetadataChangeLog> captor = ArgumentCaptor.forClass(MetadataChangeLog.class);
-    verify(_mockProducer, times(1))
-        .produceMetadataChangeLog(Mockito.eq(entityUrn), Mockito.any(), captor.capture());
+    ArgumentCaptor<AspectSpec> aspectSpecCaptor = ArgumentCaptor.forClass(AspectSpec.class);
+    verify(_mockProducer, times(4))
+        .produceMetadataChangeLog(
+            Mockito.eq(entityUrn), aspectSpecCaptor.capture(), captor.capture());
     assertEquals(UI_SOURCE, captor.getValue().getSystemMetadata().getProperties().get(APP_SOURCE));
+    assertEquals(
+        aspectSpecCaptor.getAllValues().stream()
+            .map(AspectSpec::getName)
+            .collect(Collectors.toSet()),
+        Set.of(
+            "browsePathsV2",
+            "editableDatasetProperties",
+            // "browsePaths",
+            "dataPlatformInstance",
+            "datasetKey"));
   }
 
   @Test
@@ -1673,12 +1728,17 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     genericAspect.setContentType("application/json");
     gmce.setAspect(genericAspect);
     _entityServiceImpl.ingestProposal(gmce, TEST_AUDIT_STAMP, false);
+
     ArgumentCaptor<MetadataChangeLog> captor = ArgumentCaptor.forClass(MetadataChangeLog.class);
     verify(_mockProducer, times(1))
-        .produceMetadataChangeLog(Mockito.eq(firstPropertyUrn), Mockito.any(), captor.capture());
+        .produceMetadataChangeLog(
+            Mockito.eq(firstPropertyUrn),
+            Mockito.eq(structuredPropertiesDefinitionAspect),
+            captor.capture());
     assertEquals(
         _entityServiceImpl.getAspect(firstPropertyUrn, definitionAspectName, 0),
         structuredPropertyDefinition);
+
     Urn secondPropertyUrn = UrnUtils.getUrn("urn:li:structuredProperty:secondStructuredProperty");
     assertNull(_entityServiceImpl.getAspect(secondPropertyUrn, definitionAspectName, 0));
     assertEquals(
@@ -1752,7 +1812,9 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         ArgumentCaptor.forClass(MetadataChangeLog.class);
     verify(_mockProducer, times(1))
         .produceMetadataChangeLog(
-            Mockito.eq(secondPropertyUrn), Mockito.any(), secondCaptor.capture());
+            Mockito.eq(secondPropertyUrn),
+            Mockito.eq(structuredPropertiesDefinitionAspect),
+            secondCaptor.capture());
     assertEquals(
         _entityServiceImpl.getAspect(firstPropertyUrn, definitionAspectName, 0),
         structuredPropertyDefinition);

@@ -30,6 +30,7 @@ import com.linkedin.datahub.graphql.types.common.mappers.util.SystemMetadataUtil
 import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
+import com.linkedin.datahub.graphql.types.structuredproperty.StructuredPropertiesMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
 import com.linkedin.datajob.EditableDataFlowProperties;
 import com.linkedin.domain.Domains;
@@ -38,6 +39,7 @@ import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.key.DataFlowKey;
 import com.linkedin.metadata.key.DataPlatformKey;
 import com.linkedin.metadata.utils.EntityKeyUtils;
+import com.linkedin.structured.StructuredProperties;
 import javax.annotation.Nonnull;
 
 public class DataFlowMapper implements ModelMapper<EntityResponse, DataFlow> {
@@ -99,6 +101,11 @@ public class DataFlowMapper implements ModelMapper<EntityResponse, DataFlow> {
         BROWSE_PATHS_V2_ASPECT_NAME,
         (dataFlow, dataMap) ->
             dataFlow.setBrowsePathV2(BrowsePathsV2Mapper.map(new BrowsePathsV2(dataMap))));
+    mappingHelper.mapToResult(
+        STRUCTURED_PROPERTIES_ASPECT_NAME,
+        ((entity, dataMap) ->
+            entity.setStructuredProperties(
+                StructuredPropertiesMapper.map(new StructuredProperties(dataMap)))));
 
     return mappingHelper.getResult();
   }

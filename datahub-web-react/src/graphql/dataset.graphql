@@ -175,6 +175,27 @@ fragment nonSiblingDatasetFields on Dataset {
         canEditEmbed
         canEditQueries
     }
+    forms {
+        completedForms {
+            ...formAssociationFields
+        }
+        incompleteForms {
+            ...formAssociationFields
+        }
+        verifications {
+            form {
+                urn
+            }
+            lastModified {
+                time
+                actor {
+                    urn
+                    type
+                    ...entityDisplayNameFields
+                }
+            }
+        }
+    }
 }
 
 query getRecentQueries($urn: String!) {

@@ -15,6 +15,7 @@ class DatasetSubTypes(str, Enum):
     SALESFORCE_CUSTOM_OBJECT = "Custom Object"
     SALESFORCE_STANDARD_OBJECT = "Object"
     POWERBI_DATASET_TABLE = "PowerBI Dataset Table"
+    BIGQUERY_TABLE_SNAPSHOT = "Bigquery Table Snapshot"
 
     # TODO: Create separate entity...
     NOTEBOOK = "Notebook"

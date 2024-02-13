@@ -78,17 +78,18 @@ describe("edit documentation and link to dataset", () => {
     cy.visit(
       "/dataset/urn:li:dataset:(urn:li:dataPlatform:hive,SampleCypressHiveDataset,PROD)/Schema"
     );
-    cy.get("tbody [data-icon='edit']").first().click({ force: true });
+    cy.clickOptionWithText("field_foo");
+    cy.clickOptionWithTestId("edit-field-description");
     cy.waitTextVisible("Update description");
     cy.waitTextVisible("Foo field description has changed");
-    cy.focused().clear().wait(1000);
+    cy.getWithTestId("description-editor").clear().wait(1000);
     cy.focused().type(documentation_edited);
     cy.clickOptionWithTestId("description-modal-update-button");
     cy.waitTextVisible("Updated!");
     cy.waitTextVisible(documentation_edited);
     cy.waitTextVisible("(edited)");
-    cy.get("tbody [data-icon='edit']").first().click({ force: true });
-    cy.focused().clear().wait(1000);
+    cy.clickOptionWithTestId("edit-field-description");
+    cy.getWithTestId("description-editor").clear().wait(1000);
     cy.focused().type("Foo field description has changed");
     cy.clickOptionWithTestId("description-modal-update-button");
     cy.waitTextVisible("Updated!");
