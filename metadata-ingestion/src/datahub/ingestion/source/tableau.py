@@ -1426,7 +1426,6 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                 aspect_name=c.SUB_TYPES,
                 aspect=SubTypesClass(typeNames=[DatasetSubTypes.VIEW, c.CUSTOM_SQL]),
             )
-            
 
     def get_schema_metadata_for_custom_sql(
         self, columns: List[dict]
@@ -1721,10 +1720,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                 f"The schema of incoming tables was not inferred from {csql_urn}"
             )
         
-        logger.debug(f"Merging schemas inferred from {csql_urn}, schema={parsed_result.in_tables_schemas}")
-        logger.debug(f"Before merging schemas inferred from {csql_urn}, schema={self.database_tables}")
         self.enrich_database_tables_with_parsed_schemas(parsed_result.in_tables_schemas)
-        logger.debug(f"After merging schemas inferred from {csql_urn}, schema={self.database_tables}")
 
         upstream_tables = make_upstream_class(parsed_result)
 
@@ -1803,9 +1799,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
         datasource: dict,
         workbook: Optional[dict] = None,
         is_embedded_ds: bool = False,
-    ) -> Iterable[MetadataWorkUnit]:
-        logger.debug(f"Parameters: datasource={datasource}\n\n workbook={workbook}\n\n is_embedded_ds={is_embedded_ds}\n\n")
-        
+    ) -> Iterable[MetadataWorkUnit]:       
         datasource_info = workbook
         if not is_embedded_ds:
             datasource_info = datasource
@@ -1986,8 +1980,6 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
             
             yield from self.emit_table(database_table, tableau_columns)
         
-        logger.debug(f"{self.database_tables}")
-
         for database_table in self.database_tables.values():
             if database_table.id:
                 logger.debug(
