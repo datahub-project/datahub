@@ -798,8 +798,6 @@ def _column_level_lineage(  # noqa: C901
 
         # TODO: Also extract referenced columns (aka auxillary / non-SELECT lineage)
     except (sqlglot.errors.OptimizeError, ValueError) as e:
-        import traceback
-        d = traceback.format_exc()
         raise SqlUnderstandingError(
             f"sqlglot failed to compute some lineage: {e}"
         ) from e
@@ -1267,10 +1265,6 @@ def sqlglot_lineage(
             schema_aware = schema_aware
         )
     except Exception as e:
-        import traceback
-        d = traceback.format_exc()
-        logger.debug(d)
-        logger.debug(SqlParsingResult.make_from_error(e))
         return SqlParsingResult.make_from_error(e)
 
 
@@ -1362,8 +1356,6 @@ def create_lineage_sql_parsed_result(
             schema_aware = schema_aware
         )
     except Exception as e:
-        import traceback
-        d = traceback.format_exc()
         return SqlParsingResult.make_from_error(e)
     finally:
         if needs_close:
