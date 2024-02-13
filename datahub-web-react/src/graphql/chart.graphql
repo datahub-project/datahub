@@ -111,6 +111,9 @@ query getChart($urn: String!) {
                 ...structuredPropertiesFields
             }
         }
+        forms {
+            ...formsFields
+        }
     }
 }
 

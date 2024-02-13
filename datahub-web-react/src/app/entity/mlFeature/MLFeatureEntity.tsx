@@ -58,6 +58,8 @@ export class MLFeatureEntity implements Entity<MlFeature> {
 
     getCollectionName = () => 'Features';
 
+    useEntityQuery = useGetMlFeatureQuery;
+
     getOverridePropertiesFromEntity = (feature?: MlFeature | null): GenericEntityProperties => {
         return {
             // eslint-disable-next-line
@@ -91,32 +93,34 @@ export class MLFeatureEntity implements Entity<MlFeature> {
                     component: PropertiesTab,
                 },
             ]}
-            sidebarSections={[
-                {
-                    component: SidebarAboutSection,
-                },
-                {
-                    component: SidebarOwnerSection,
-                    properties: {
-                        defaultOwnerType: OwnershipType.TechnicalOwner,
-                    },
-                },
-                {
-                    component: SidebarTagsSection,
-                    properties: {
-                        hasTags: true,
-                        hasTerms: true,
-                    },
-                },
-                {
-                    component: SidebarDomainSection,
-                },
-                {
-                    component: DataProductSection,
-                },
-            ]}
+            sidebarSections={this.getSidebarSections()}
         />
     );
+
+    getSidebarSections = () => [
+        {
+            component: SidebarAboutSection,
+        },
+        {
+            component: SidebarOwnerSection,
+            properties: {
+                defaultOwnerType: OwnershipType.TechnicalOwner,
+            },
+        },
+        {
+            component: SidebarTagsSection,
+            properties: {
+                hasTags: true,
+                hasTerms: true,
+            },
+        },
+        {
+            component: SidebarDomainSection,
+        },
+        {
+            component: DataProductSection,
+        },
+    ];
 
     renderPreview = (_: PreviewType, data: MlFeature) => {
         const genericProperties = this.getGenericEntityProperties(data);

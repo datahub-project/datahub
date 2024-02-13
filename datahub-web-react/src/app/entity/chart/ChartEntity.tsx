@@ -73,11 +73,35 @@ export class ChartEntity implements Entity<Chart> {
 
     getCollectionName = () => 'Charts';
 
+    useEntityQuery = useGetChartQuery;
+
+    getSidebarSections = () => [
+        {
+            component: SidebarAboutSection,
+        },
+        {
+            component: SidebarOwnerSection,
+        },
+        {
+            component: SidebarTagsSection,
+            properties: {
+                hasTags: true,
+                hasTerms: true,
+            },
+        },
+        {
+            component: SidebarDomainSection,
+        },
+        {
+            component: DataProductSection,
+        },
+    ];
+
     renderProfile = (urn: string) => (
         <EntityProfile
             urn={urn}
             entityType={EntityType.Chart}
-            useEntityQuery={useGetChartQuery}
+            useEntityQuery={this.useEntityQuery}
             useUpdateQuery={useUpdateChartMutation}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
             headerDropdownItems={new Set([EntityMenuItems.UPDATE_DEPRECATION])}
@@ -127,27 +151,7 @@ export class ChartEntity implements Entity<Chart> {
                     component: PropertiesTab,
                 },
             ]}
-            sidebarSections={[
-                {
-                    component: SidebarAboutSection,
-                },
-                {
-                    component: SidebarOwnerSection,
-                },
-                {
-                    component: SidebarTagsSection,
-                    properties: {
-                        hasTags: true,
-                        hasTerms: true,
-                    },
-                },
-                {
-                    component: SidebarDomainSection,
-                },
-                {
-                    component: DataProductSection,
-                },
-            ]}
+            sidebarSections={this.getSidebarSections()}
         />
     );
 
@@ -258,7 +262,7 @@ export class ChartEntity implements Entity<Chart> {
         <EmbeddedProfile
             urn={urn}
             entityType={EntityType.Chart}
-            useEntityQuery={useGetChartQuery}
+            useEntityQuery={this.useEntityQuery}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
         />
     );

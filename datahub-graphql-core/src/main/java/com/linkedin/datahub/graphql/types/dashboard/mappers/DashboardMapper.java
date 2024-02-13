@@ -6,6 +6,7 @@ import com.linkedin.common.BrowsePathsV2;
 import com.linkedin.common.DataPlatformInstance;
 import com.linkedin.common.Deprecation;
 import com.linkedin.common.Embed;
+import com.linkedin.common.Forms;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.GlossaryTerms;
 import com.linkedin.common.InputFields;
@@ -39,6 +40,7 @@ import com.linkedin.datahub.graphql.types.common.mappers.SubTypesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.SystemMetadataUtils;
 import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
+import com.linkedin.datahub.graphql.types.form.FormsMapper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.datahub.graphql.types.structuredproperty.StructuredPropertiesMapper;
@@ -129,6 +131,10 @@ public class DashboardMapper implements ModelMapper<EntityResponse, Dashboard> {
         ((dashboard, dataMap) ->
             dashboard.setStructuredProperties(
                 StructuredPropertiesMapper.map(new StructuredProperties(dataMap)))));
+    mappingHelper.mapToResult(
+        FORMS_ASPECT_NAME,
+        ((entity, dataMap) ->
+            entity.setForms(FormsMapper.map(new Forms(dataMap), entityUrn.toString()))));
     return mappingHelper.getResult();
   }
 
