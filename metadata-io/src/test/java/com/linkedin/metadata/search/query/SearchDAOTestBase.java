@@ -1,7 +1,8 @@
 package com.linkedin.metadata.search.query;
 
-import static com.linkedin.metadata.Constants.ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH;
+import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.utils.SearchUtil.AGGREGATION_SEPARATOR_CHAR;
+import static org.junit.Assert.*;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNotNull;
@@ -26,6 +27,7 @@ import com.linkedin.metadata.search.FilterValueArray;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchResultMetadata;
+import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
 import com.linkedin.metadata.utils.SearchUtil;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
@@ -33,7 +35,10 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import org.opensearch.action.explain.ExplainResponse;
 import org.opensearch.client.RestHighLevelClient;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.annotations.Test;
 
@@ -45,7 +50,9 @@ public abstract class SearchDAOTestBase extends AbstractTestNGSpringContextTests
 
   protected abstract IndexConvention getIndexConvention();
 
-  EntityRegistry _entityRegistry = new SnapshotEntityRegistry(new Snapshot());
+  protected abstract EntityRegistry getInjectedRegistry();
+
+  EntityRegistry entityRegistry = new SnapshotEntityRegistry(new Snapshot());
 
   @Test
   public void testTransformFilterForEntitiesNoChange() {
@@ -218,8 +225,7 @@ public abstract class SearchDAOTestBase extends AbstractTestNGSpringContextTests
   @Test
   public void testTransformIndexIntoEntityNameSingle() {
     ESSearchDAO searchDAO =
-        new ESSearchDAO(
-            _entityRegistry,
+        new ESSearchDAO(entityRegistry,
             getSearchClient(),
             getIndexConvention(),
             false,
@@ -301,8 +307,7 @@ public abstract class SearchDAOTestBase extends AbstractTestNGSpringContextTests
   @Test
   public void testTransformIndexIntoEntityNameNested() {
     ESSearchDAO searchDAO =
-        new ESSearchDAO(
-            _entityRegistry,
+        new ESSearchDAO(entityRegistry,
             getSearchClient(),
             getIndexConvention(),
             false,
@@ -428,5 +433,27 @@ public abstract class SearchDAOTestBase extends AbstractTestNGSpringContextTests
             .setPageSize(100)
             .setNumEntities(50);
     assertEquals(searchDAO.transformIndexIntoEntityName(result), expectedResult);
+  }
+
+  @Test
+  public void testExplain() {
+    ESSearchDAO searchDAO =
+        new ESSearchDAO(getInjectedRegistry(),
+            getSearchClient(),
+            getIndexConvention(),
+            false,
+            ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH,
+            getSearchConfiguration(),
+            null);
+    ExplainResponse explainResponse = searchDAO.explain("*",
+        "urn:li:dataset:(urn:li:dataPlatform:bigquery,bigquery-public-data.covid19_geotab_mobility_impact."
+            + "ca_border_wait_times,PROD)", DATASET_ENTITY_NAME, null, null, null,
+        0, 10, null);
+
+    assertNotNull(explainResponse);
+    assertEquals(explainResponse.getIndex(), "smpldat_datasetindex_v2");
+    assertEquals(explainResponse.getId(), "urn:li:dataset:(urn:li:dataPlatform:bigquery,bigquery-public-data.covid19_geotab_mobility_impact.ca_border_wait_times,PROD)");
+    assertTrue(explainResponse.isExists());
+    assertEquals(explainResponse.getExplanation().getValue(), 18.0f);
   }
 }

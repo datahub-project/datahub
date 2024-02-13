@@ -361,6 +361,12 @@ public class PoliciesConfig {
           "Get ES task status API",
           "The ability to use the get task status API for an ElasticSearch task.");
 
+  public static final Privilege ES_EXPLAIN_QUERY_PRIVILEGE =
+      Privilege.of(
+          "ES_EXPLAIN_QUERY_PRIVILEGE",
+          "Explain ElasticSearch Query API",
+          "The ability to use the Operations API explain endpoint.");
+
   public static final Privilege SEARCH_PRIVILEGE =
       Privilege.of("SEARCH_PRIVILEGE", "Search API", "The ability to access search APIs.");
 

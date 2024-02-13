@@ -42,6 +42,8 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.opensearch.action.explain.ExplainRequest;
+import org.opensearch.action.explain.ExplainResponse;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.client.Request;
@@ -461,6 +463,28 @@ public class ESSearchDAO {
     } catch (IOException e) {
       log.error("Failed to generate PointInTime Identifier.", e);
       throw new IllegalStateException("Failed to generate PointInTime Identifier.:", e);
+    }
+  }
+
+  public ExplainResponse explain(@Nonnull String query, @Nonnull String documentId, @Nonnull String entityName,
+      @Nullable Filter postFilters, @Nullable SortCriterion sortCriterion, @Nullable SearchFlags searchFlags,
+      int from, int size, @Nullable List<String> facets) {
+    EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
+    Filter transformedFilters = transformFilterForEntities(postFilters, indexConvention);
+    final String finalQuery = query.isEmpty() ? "*" : query;
+    final SearchRequest searchRequest =
+        SearchRequestHandler.getBuilder(entitySpec, searchConfiguration, customSearchConfiguration)
+            .getSearchRequest(
+                finalQuery, transformedFilters, sortCriterion, from, size, searchFlags, facets);
+
+    ExplainRequest explainRequest = new ExplainRequest();
+    explainRequest.query(searchRequest.source().query()).id(documentId)
+        .index(indexConvention.getEntityIndexName(entityName));
+    try {
+      return client.explain(explainRequest, RequestOptions.DEFAULT);
+    } catch (IOException e) {
+      log.error("Failed to explain query.", e);
+      throw new IllegalStateException("Failed to explain query:", e);
     }
   }
 }
