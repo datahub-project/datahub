@@ -56,8 +56,11 @@ public class OperationsController {
 
   private final EntitySearchService searchService;
 
-  public OperationsController(AuthorizerChain authorizerChain, SystemMetadataService systemMetadataService,
-      TimeseriesAspectService timeseriesAspectService, EntitySearchService searchService) {
+  public OperationsController(
+      AuthorizerChain authorizerChain,
+      SystemMetadataService systemMetadataService,
+      TimeseriesAspectService timeseriesAspectService,
+      EntitySearchService searchService) {
     this.authorizerChain = authorizerChain;
     this.systemMetadataService = systemMetadataService;
     this.timeseriesAspectService = timeseriesAspectService;
@@ -149,59 +152,61 @@ public class OperationsController {
   @Operation(summary = "Explain Search Query")
   public ResponseEntity<ExplainResponse> explainSearchQuery(
       @Parameter(
-        name = "query",
-        required = true,
-        description =
-          "Query to evaluate for specified document, will be applied as an input string to standard search query builder.")
-      @RequestParam("query") @Nonnull String query,
+              name = "query",
+              required = true,
+              description =
+                  "Query to evaluate for specified document, will be applied as an input string to standard search query builder.")
+          @RequestParam("query")
+          @Nonnull
+          String query,
       @Parameter(
-      name = "documentId",
-      required = true,
-      description =
-          "Document ID to apply explain to.")
-      @RequestParam("documentId") @Nonnull String documentId,
+              name = "documentId",
+              required = true,
+              description = "Document ID to apply explain to.")
+          @RequestParam("documentId")
+          @Nonnull
+          String documentId,
       @Parameter(
-          name = "entityName",
-          required = true,
-          description =
-              "Name of the entity the document belongs to.")
-      @RequestParam("entityName") @Nonnull String entityName,
+              name = "entityName",
+              required = true,
+              description = "Name of the entity the document belongs to.")
+          @RequestParam("entityName")
+          @Nonnull
+          String entityName,
+      @Parameter(name = "from", required = true, description = "Start point for pagination.")
+          @RequestParam("from")
+          int from,
+      @Parameter(name = "size", required = true, description = "Page size for pagination.")
+          @RequestParam("size")
+          int size,
       @Parameter(
-          name = "from",
-          required = true,
-          description =
-              "Start point for pagination.")
-      @RequestParam("from") int from,
+              name = "filters",
+              required = false,
+              description = "Additional filters to apply to query.")
+          @RequestParam("filters")
+          @Nullable
+          Filter filters,
       @Parameter(
-          name = "size",
-          required = true,
-          description =
-              "Page size for pagination.")
-      @RequestParam("size") int size,
+              name = "sortCriterion",
+              required = false,
+              description = "Criterion to sort results on.")
+          @RequestParam("sortCriterion")
+          @Nullable
+          SortCriterion sortCriterion,
       @Parameter(
-          name = "filters",
-          required = false,
-          description =
-              "Additional filters to apply to query.")
-      @RequestParam("filters") @Nullable Filter filters,
+              name = "searchFlags",
+              required = false,
+              description = "Optional configuration flags.")
+          @RequestParam("searchFlags")
+          @Nullable
+          SearchFlags searchFlags,
       @Parameter(
-          name = "sortCriterion",
-          required = false,
-          description =
-              "Criterion to sort results on.")
-      @RequestParam("sortCriterion") @Nullable SortCriterion sortCriterion,
-      @Parameter(
-          name = "searchFlags",
-          required = false,
-          description =
-              "Optional configuration flags.")
-      @RequestParam("searchFlags") @Nullable SearchFlags searchFlags,
-      @Parameter(
-          name = "facets",
-          required = false,
-          description =
-              "List of facet fields for aggregations.")
-      @RequestParam("facets") @Nullable List<String> facets) {
+              name = "facets",
+              required = false,
+              description = "List of facet fields for aggregations.")
+          @RequestParam("facets")
+          @Nullable
+          List<String> facets) {
 
     Authentication authentication = AuthenticationContext.getAuthentication();
     String actorUrnStr = authentication.getActor().toUrnStr();
@@ -213,13 +218,13 @@ public class OperationsController {
                         PoliciesConfig.GET_TIMESERIES_INDEX_SIZES_PRIVILEGE.getType()))));
     if (restApiAuthorizationEnabled
         && !AuthUtil.isAuthorizedForResources(
-        authorizerChain, actorUrnStr, List.of(java.util.Optional.empty()), orGroup)) {
+            authorizerChain, actorUrnStr, List.of(java.util.Optional.empty()), orGroup)) {
       log.error("{} is not authorized to get timeseries index sizes", actorUrnStr);
       return ResponseEntity.status(HttpStatus.FORBIDDEN).body(null);
     }
-    ExplainResponse response = searchService.explain(query, documentId, entityName, filters, sortCriterion, searchFlags,
-        from, size, facets);
-
+    ExplainResponse response =
+        searchService.explain(
+            query, documentId, entityName, filters, sortCriterion, searchFlags, from, size, facets);
 
     return ResponseEntity.ok(response);
   }

@@ -294,10 +294,17 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
   }
 
   @Override
-  public ExplainResponse explain(@Nonnull String query, @Nonnull String documentId, @Nonnull String entityName,
-      @Nullable Filter postFilters, @Nullable SortCriterion sortCriterion, @Nullable SearchFlags searchFlags,
-      int from, int size, @Nullable List<String> facets) {
-    return esSearchDAO.explain(query, documentId, entityName, postFilters, sortCriterion, searchFlags, from, size,
-        facets);
+  public ExplainResponse explain(
+      @Nonnull String query,
+      @Nonnull String documentId,
+      @Nonnull String entityName,
+      @Nullable Filter postFilters,
+      @Nullable SortCriterion sortCriterion,
+      @Nullable SearchFlags searchFlags,
+      int from,
+      int size,
+      @Nullable List<String> facets) {
+    return esSearchDAO.explain(
+        query, documentId, entityName, postFilters, sortCriterion, searchFlags, from, size, facets);
   }
 }

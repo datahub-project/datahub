@@ -4,7 +4,6 @@ import static org.testng.AssertJUnit.assertNotNull;
 
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.query.SearchDAOTestBase;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import io.datahubproject.test.fixtures.search.SampleDataFixtureConfiguration;

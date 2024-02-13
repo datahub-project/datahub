@@ -466,9 +466,16 @@ public class ESSearchDAO {
     }
   }
 
-  public ExplainResponse explain(@Nonnull String query, @Nonnull String documentId, @Nonnull String entityName,
-      @Nullable Filter postFilters, @Nullable SortCriterion sortCriterion, @Nullable SearchFlags searchFlags,
-      int from, int size, @Nullable List<String> facets) {
+  public ExplainResponse explain(
+      @Nonnull String query,
+      @Nonnull String documentId,
+      @Nonnull String entityName,
+      @Nullable Filter postFilters,
+      @Nullable SortCriterion sortCriterion,
+      @Nullable SearchFlags searchFlags,
+      int from,
+      int size,
+      @Nullable List<String> facets) {
     EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
     Filter transformedFilters = transformFilterForEntities(postFilters, indexConvention);
     final String finalQuery = query.isEmpty() ? "*" : query;
@@ -478,7 +485,9 @@ public class ESSearchDAO {
                 finalQuery, transformedFilters, sortCriterion, from, size, searchFlags, facets);
 
     ExplainRequest explainRequest = new ExplainRequest();
-    explainRequest.query(searchRequest.source().query()).id(documentId)
+    explainRequest
+        .query(searchRequest.source().query())
+        .id(documentId)
         .index(indexConvention.getEntityIndexName(entityName));
     try {
       return client.explain(explainRequest, RequestOptions.DEFAULT);

@@ -27,7 +27,6 @@ import com.linkedin.metadata.search.FilterValueArray;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchResultMetadata;
-import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
 import com.linkedin.metadata.utils.SearchUtil;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
@@ -37,8 +36,6 @@ import java.util.List;
 import java.util.Map;
 import org.opensearch.action.explain.ExplainResponse;
 import org.opensearch.client.RestHighLevelClient;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.annotations.Test;
 
@@ -225,7 +222,8 @@ public abstract class SearchDAOTestBase extends AbstractTestNGSpringContextTests
   @Test
   public void testTransformIndexIntoEntityNameSingle() {
     ESSearchDAO searchDAO =
-        new ESSearchDAO(entityRegistry,
+        new ESSearchDAO(
+            entityRegistry,
             getSearchClient(),
             getIndexConvention(),
             false,
@@ -307,7 +305,8 @@ public abstract class SearchDAOTestBase extends AbstractTestNGSpringContextTests
   @Test
   public void testTransformIndexIntoEntityNameNested() {
     ESSearchDAO searchDAO =
-        new ESSearchDAO(entityRegistry,
+        new ESSearchDAO(
+            entityRegistry,
             getSearchClient(),
             getIndexConvention(),
             false,
@@ -438,21 +437,32 @@ public abstract class SearchDAOTestBase extends AbstractTestNGSpringContextTests
   @Test
   public void testExplain() {
     ESSearchDAO searchDAO =
-        new ESSearchDAO(getInjectedRegistry(),
+        new ESSearchDAO(
+            getInjectedRegistry(),
             getSearchClient(),
             getIndexConvention(),
             false,
             ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH,
             getSearchConfiguration(),
             null);
-    ExplainResponse explainResponse = searchDAO.explain("*",
-        "urn:li:dataset:(urn:li:dataPlatform:bigquery,bigquery-public-data.covid19_geotab_mobility_impact."
-            + "ca_border_wait_times,PROD)", DATASET_ENTITY_NAME, null, null, null,
-        0, 10, null);
+    ExplainResponse explainResponse =
+        searchDAO.explain(
+            "*",
+            "urn:li:dataset:(urn:li:dataPlatform:bigquery,bigquery-public-data.covid19_geotab_mobility_impact."
+                + "ca_border_wait_times,PROD)",
+            DATASET_ENTITY_NAME,
+            null,
+            null,
+            null,
+            0,
+            10,
+            null);
 
     assertNotNull(explainResponse);
     assertEquals(explainResponse.getIndex(), "smpldat_datasetindex_v2");
-    assertEquals(explainResponse.getId(), "urn:li:dataset:(urn:li:dataPlatform:bigquery,bigquery-public-data.covid19_geotab_mobility_impact.ca_border_wait_times,PROD)");
+    assertEquals(
+        explainResponse.getId(),
+        "urn:li:dataset:(urn:li:dataPlatform:bigquery,bigquery-public-data.covid19_geotab_mobility_impact.ca_border_wait_times,PROD)");
     assertTrue(explainResponse.isExists());
     assertEquals(explainResponse.getExplanation().getValue(), 18.0f);
   }
