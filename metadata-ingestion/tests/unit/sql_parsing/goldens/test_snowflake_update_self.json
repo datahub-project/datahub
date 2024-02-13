@@ -6,6 +6,11 @@
     "out_tables": [
         "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_sample_data.tpch_sf1.orders,PROD)"
     ],
+    "in_tables_schemas": {
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_sample_data.tpch_sf1.orders,PROD)": [
+            "orderkey"
+        ]
+    },
     "column_lineage": [
         {
             "downstream": {

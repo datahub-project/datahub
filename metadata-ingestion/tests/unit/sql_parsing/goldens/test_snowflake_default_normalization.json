@@ -7,6 +7,17 @@
     "out_tables": [
         "urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.analytics.active_customer_ltv,PROD)"
     ],
+    "in_tables_schemas": {
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.analytics.customer_last_purchase_date,PROD)": [
+            "LAST_PURCHASE_DATE",
+            "USER_FK",
+            "EMAIL"
+        ],
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.ecommerce.purchases,PROD)": [
+            "purchase_amount",
+            "pk"
+        ]
+    },
     "column_lineage": [
         {
             "downstream": {

@@ -1063,6 +1063,7 @@ def _sqlglot_lineage_inner(
     schema_resolver: SchemaResolver,
     default_db: Optional[str] = None,
     default_schema: Optional[str] = None,
+    schema_aware: bool = True
 ) -> SqlParsingResult:
     dialect = _get_dialect(schema_resolver.platform)
     if _is_dialect_instance(dialect, "snowflake"):
@@ -1109,22 +1110,23 @@ def _sqlglot_lineage_inner(
     # Fetch schema info for the relevant tables.
     table_name_urn_mapping: Dict[_TableName, str] = {}
     table_name_schema_mapping: Dict[_TableName, SchemaInfo] = {}
-    for table in tables | modified:
-        # For select statements, qualification will be a no-op. For other statements, this
-        # is where the qualification actually happens.
-        qualified_table = table.qualified(
-            dialect=dialect, default_db=default_db, default_schema=default_schema
-        )
 
-        urn, schema_info = schema_resolver.resolve_table(qualified_table)
+    if schema_aware:
+        for table in tables | modified:
+            # For select statements, qualification will be a no-op. For other statements, this
+            # is where the qualification actually happens.
+            qualified_table = table.qualified(
+                dialect=dialect, default_db=default_db, default_schema=default_schema
+            )
 
-        table_name_urn_mapping[qualified_table] = urn
-        # Made it blind to ingested schemas
-        #if schema_info:
-        #    table_name_schema_mapping[qualified_table] = schema_info
+            urn, schema_info = schema_resolver.resolve_table(qualified_table)
 
-        # Also include the original, non-qualified table name in the urn mapping.
-        table_name_urn_mapping[table] = urn
+            table_name_urn_mapping[qualified_table] = urn
+            if schema_info:
+                table_name_schema_mapping[qualified_table] = schema_info
+
+            # Also include the original, non-qualified table name in the urn mapping.
+            table_name_urn_mapping[table] = urn
 
     total_tables_discovered = len(tables | modified)
     total_schemas_resolved = len(table_name_schema_mapping)
@@ -1206,6 +1208,7 @@ def sqlglot_lineage(
     schema_resolver: SchemaResolver,
     default_db: Optional[str] = None,
     default_schema: Optional[str] = None,
+    schema_aware: bool = True
 ) -> SqlParsingResult:
     """Parse a SQL statement and generate lineage information.
 
@@ -1262,6 +1265,7 @@ def sqlglot_lineage(
             schema_resolver=schema_resolver,
             default_db=default_db,
             default_schema=default_schema,
+            schema_aware = schema_aware
         )
     except Exception as e:
         import traceback
@@ -1332,6 +1336,7 @@ def create_lineage_sql_parsed_result(
     env: str,
     default_schema: Optional[str] = None,
     graph: Optional[DataHubGraph] = None,
+    schema_aware: bool = True
 ) -> SqlParsingResult:
     if graph:
         needs_close = False
@@ -1355,6 +1360,7 @@ def create_lineage_sql_parsed_result(
             schema_resolver=schema_resolver,
             default_db=default_db,
             default_schema=default_schema,
+            schema_aware = schema_aware
         )
     except Exception as e:
         import traceback

@@ -4,6 +4,19 @@
         "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_sample_data.tpch_sf1.orders,PROD)"
     ],
     "out_tables": [],
+    "in_tables_schemas": {
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_sample_data.tpch_sf1.orders,PROD)": [
+            "clerk",
+            "orderstatus",
+            "orderpriority",
+            "comment",
+            "orderkey",
+            "orderdate",
+            "custkey",
+            "shippriority",
+            "totalprice"
+        ]
+    },
     "column_lineage": [
         {
             "downstream": {

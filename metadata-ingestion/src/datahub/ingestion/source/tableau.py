@@ -1682,6 +1682,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
             platform_instance=platform_instance,
             env=env,
             graph=self.ctx.graph,
+            schema_aware = not self.config.ingest_tables_external
         )
     
     def enrich_database_tables_with_parsed_schemas(

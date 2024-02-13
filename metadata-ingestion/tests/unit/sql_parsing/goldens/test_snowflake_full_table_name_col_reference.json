@@ -4,6 +4,12 @@
         "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.my_table,PROD)"
     ],
     "out_tables": [],
+    "in_tables_schemas": {
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.my_table,PROD)": [
+            "struct_field.field1",
+            "id"
+        ]
+    },
     "column_lineage": [
         {
             "downstream": {

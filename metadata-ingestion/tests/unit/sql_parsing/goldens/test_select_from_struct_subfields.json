@@ -4,6 +4,14 @@
         "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-bq-proj.data_reporting.abcde_transformed,PROD)"
     ],
     "out_tables": [],
+    "in_tables_schemas": {
+        "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-bq-proj.data_reporting.abcde_transformed,PROD)": [
+            "post_id",
+            "widget.metric.metric_b",
+            "widget.asset.id",
+            "widget.metric.metricA"
+        ]
+    },
     "column_lineage": [
         {
             "downstream": {

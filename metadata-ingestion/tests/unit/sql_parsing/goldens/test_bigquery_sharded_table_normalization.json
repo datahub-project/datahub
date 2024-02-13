@@ -4,6 +4,12 @@
         "urn:li:dataset:(urn:li:dataPlatform:bigquery,bq-proj.dataset.table_yyyymmdd,PROD)"
     ],
     "out_tables": [],
+    "in_tables_schemas": {
+        "urn:li:dataset:(urn:li:dataPlatform:bigquery,bq-proj.dataset.table_yyyymmdd,PROD)": [
+            "col1",
+            "col2"
+        ]
+    },
     "column_lineage": [
         {
             "downstream": {
