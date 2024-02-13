@@ -1360,7 +1360,6 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                     )
                 project = self._get_project_browse_path_name(datasource)
 
-                logger.debug("Patched version of DataHub <adapted for Exact>")
                 # if condition is needed as graphQL return "cloumns": None
                 columns: List[Dict[Any, Any]] = (
                     cast(List[Dict[Any, Any]], csql.get(c.COLUMNS))
@@ -1799,7 +1798,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
         datasource: dict,
         workbook: Optional[dict] = None,
         is_embedded_ds: bool = False,
-    ) -> Iterable[MetadataWorkUnit]:       
+    ) -> Iterable[MetadataWorkUnit]:
         datasource_info = workbook
         if not is_embedded_ds:
             datasource_info = datasource
