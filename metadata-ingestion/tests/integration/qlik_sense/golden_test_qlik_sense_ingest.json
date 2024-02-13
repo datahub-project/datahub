@@ -511,11 +511,19 @@
                     "time": 0,
                     "actor": "urn:li:corpuser:unknown"
                 }
-            }
+            },
+            "inputs": [
+                {
+                    "string": "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,qri:qdf:space://ebw1euduywmui8p2bm7cor5oathzuyxvt0bircc2iru#jokg8u7cvizvgxwrfsyxru0ykr2rl2wfd5djph9bj5q#rrg6-1cerbo4ews9o--qup3toxhm5molizgy6_wcxje,PROD)"
+                },
+                {
+                    "string": "urn:li:dataset:(urn:li:dataPlatform:qlik-sense,qri:qdf:space://ebw1euduywmui8p2bm7cor5oathzuyxvt0bircc2iru#_s2ws5rvxaarzazlmghwjhngq8znjagxptal6jlzoaw#fcj-h2tvmayi--l6fn0vqgpthf8kb2rj7sj0_ysrhgc,PROD)"
+                }
+            ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1707327443026,
+        "lastObserved": 1707803447013,
         "runId": "qlik-sense-test",
         "lastRunId": "no-run-id-provided"
     }

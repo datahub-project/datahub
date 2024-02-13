@@ -248,11 +248,17 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         ).as_workunit()
 
     def _gen_charts_workunit(
-        self, charts: List[Chart], app_id: str
+        self, charts: List[Chart], input_tables: List[QlikTable], app_id: str
     ) -> Iterable[MetadataWorkUnit]:
         """
         Map Qlik Chart to Datahub Chart
         """
+        input_tables_urns: List[str] = []
+        for table in input_tables:
+            table_identifier = self._get_app_table_identifier(table)
+            if table_identifier:
+                input_tables_urns.append(self._gen_qlik_dataset_urn(table_identifier))
+
         for chart in charts:
             chart_urn = builder.make_chart_urn(
                 platform=self.platform,
@@ -274,6 +280,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                     description=chart.visualization,
                     lastModified=ChangeAuditStampsClass(),
                     customProperties=custom_properties,
+                    inputs=input_tables_urns,
                 ),
             ).as_workunit()
 
@@ -283,21 +290,19 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 entity_urn=chart_urn,
             )
 
-    def _gen_sheets_workunit(
-        self, sheets: List[Sheet], app_id: str
-    ) -> Iterable[MetadataWorkUnit]:
+    def _gen_sheets_workunit(self, app: App) -> Iterable[MetadataWorkUnit]:
         """
         Map Qlik Sheet to Datahub dashboard
         """
-        for sheet in sheets:
+        for sheet in app.sheets:
             dashboard_urn = self._gen_dashboard_urn(sheet.id)
 
             yield self._gen_entity_status_aspect(dashboard_urn)
 
-            yield self._gen_dashboard_info_workunit(sheet, app_id)
+            yield self._gen_dashboard_info_workunit(sheet, app.id)
 
             yield from add_entity_to_container(
-                container_key=self._gen_app_key(app_id),
+                container_key=self._gen_app_key(app.id),
                 entity_type="dashboard",
                 entity_urn=dashboard_urn,
             )
@@ -310,7 +315,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             if self.config.ingest_owner and owner_username:
                 yield self._gen_entity_owner_aspect(dashboard_urn, owner_username)
 
-            yield from self._gen_charts_workunit(sheet.charts, app_id)
+            yield from self._gen_charts_workunit(sheet.charts, app.tables, app.id)
 
     def _gen_app_table_upstream_lineage(
         self, dataset_urn: str, table: QlikTable
@@ -446,7 +451,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             created=int(app.createdAt.timestamp() * 1000),
             last_modified=int(app.updatedAt.timestamp() * 1000),
         )
-        yield from self._gen_sheets_workunit(app.sheets, app.id)
+        yield from self._gen_sheets_workunit(app)
         yield from self._gen_app_tables_workunit(app.tables, app.id)
 
     def _gen_qlik_dataset_urn(self, dataset_identifier: str) -> str:
