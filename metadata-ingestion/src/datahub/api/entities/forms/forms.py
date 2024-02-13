@@ -174,7 +174,10 @@ class Forms(ConfigModel):
                     raise Exception(
                         f"Prompt type is {prompt.type} but no structured properties exist. Unable to create form."
                     )
-                if prompt.type == PromptType.FIELDS_STRUCTURED_PROPERTY.value and prompt.required:
+                if (
+                    prompt.type == PromptType.FIELDS_STRUCTURED_PROPERTY.value
+                    and prompt.required
+                ):
                     raise Exception(
                         "Schema field prompts cannot be marked as required. Ensure these prompts are not required."
                     )
