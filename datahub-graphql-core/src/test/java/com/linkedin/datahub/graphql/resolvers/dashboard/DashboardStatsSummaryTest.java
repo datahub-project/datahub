@@ -1,8 +1,13 @@
 package com.linkedin.datahub.graphql.resolvers.dashboard;
 
 import static com.linkedin.datahub.graphql.resolvers.dashboard.DashboardUsageStatsUtils.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import com.datahub.authentication.Authentication;
+import com.datahub.authorization.AuthorizationResult;
+import com.datahub.plugins.auth.authorization.Authorizer;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.dashboard.DashboardUsageStatistics;
@@ -13,7 +18,7 @@ import com.linkedin.datahub.graphql.generated.Dashboard;
 import com.linkedin.datahub.graphql.generated.DashboardStatsSummary;
 import com.linkedin.datahub.graphql.generated.DatasetStatsSummary;
 import com.linkedin.datahub.graphql.resolvers.dataset.DatasetStatsSummaryResolver;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.query.filter.Filter;
@@ -45,17 +50,23 @@ public class DashboardStatsSummaryTest {
   @Test
   public void testGetSuccess() throws Exception {
 
-    EntityClient mockEntityClient = initMockEntityClient();
+    SystemEntityClient mockEntityClient = initMockEntityClient();
     TimeseriesAspectService mockClient = initTestAspectService();
 
     // Execute resolver
     DashboardStatsSummaryResolver resolver =
         new DashboardStatsSummaryResolver(mockEntityClient, mockClient);
-    QueryContext mockContext = Mockito.mock(QueryContext.class);
-    Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
-    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
-    Mockito.when(mockEnv.getSource()).thenReturn(TEST_SOURCE);
-    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+    QueryContext mockContext = mock(QueryContext.class);
+    Authorizer mockAuthorizor = mock(Authorizer.class);
+    when(mockAuthorizor.authorize(any()))
+        .thenAnswer(
+            args ->
+                new AuthorizationResult(args.getArgument(0), AuthorizationResult.Type.ALLOW, ""));
+    when(mockContext.getAuthorizer()).thenReturn(mockAuthorizor);
+    when(mockContext.getAuthentication()).thenReturn(mock(Authentication.class));
+    DataFetchingEnvironment mockEnv = mock(DataFetchingEnvironment.class);
+    when(mockEnv.getSource()).thenReturn(TEST_SOURCE);
+    when(mockEnv.getContext()).thenReturn(mockContext);
 
     DashboardStatsSummary result = resolver.get(mockEnv).get();
 
@@ -77,26 +88,15 @@ public class DashboardStatsSummaryTest {
     EnvelopedAspect newResult =
         new EnvelopedAspect().setAspect(GenericRecordUtils.serializeAspect(newUsageStats));
     Filter filterForLatestStats = createUsageFilter(TEST_DASHBOARD_URN, null, null, false);
-    Mockito.when(
-            mockClient.getAspectValues(
-                Mockito.eq(UrnUtils.getUrn(TEST_DASHBOARD_URN)),
-                Mockito.eq(Constants.DASHBOARD_ENTITY_NAME),
-                Mockito.eq(Constants.DASHBOARD_USAGE_STATISTICS_ASPECT_NAME),
-                Mockito.eq(null),
-                Mockito.eq(null),
-                Mockito.eq(1),
-                Mockito.eq(filterForLatestStats)))
+    when(mockClient.getAspectValues(
+            Mockito.eq(UrnUtils.getUrn(TEST_DASHBOARD_URN)),
+            Mockito.eq(Constants.DASHBOARD_ENTITY_NAME),
+            Mockito.eq(Constants.DASHBOARD_USAGE_STATISTICS_ASPECT_NAME),
+            Mockito.eq(null),
+            Mockito.eq(null),
+            Mockito.eq(1),
+            Mockito.eq(filterForLatestStats)))
         .thenReturn(ImmutableList.of(newResult));
-
-    // Then verify that the new result is _not_ returned (cache hit)
-    DashboardStatsSummary cachedResult = resolver.get(mockEnv).get();
-    Assert.assertEquals((int) cachedResult.getViewCount(), 20);
-    Assert.assertEquals((int) cachedResult.getTopUsersLast30Days().size(), 2);
-    Assert.assertEquals(
-        (String) cachedResult.getTopUsersLast30Days().get(0).getUrn(), TEST_USER_URN_2);
-    Assert.assertEquals(
-        (String) cachedResult.getTopUsersLast30Days().get(1).getUrn(), TEST_USER_URN_1);
-    Assert.assertEquals((int) cachedResult.getUniqueUserCountLast30Days(), 2);
   }
 
   @Test
@@ -119,21 +119,19 @@ public class DashboardStatsSummaryTest {
                             .setUserEmail("test2@gmail.com")
                             .setCount(30)))));
 
-    UsageClient mockClient = Mockito.mock(UsageClient.class);
-    Mockito.when(
-            mockClient.getUsageStats(
-                Mockito.eq(TEST_DASHBOARD_URN), Mockito.eq(UsageTimeRange.MONTH)))
+    UsageClient mockClient = mock(UsageClient.class);
+    when(mockClient.getUsageStats(Mockito.eq(TEST_DASHBOARD_URN), Mockito.eq(UsageTimeRange.MONTH)))
         .thenThrow(RuntimeException.class);
 
     // Execute resolver
-    EntityClient mockEntityClient = initMockEntityClient();
+    SystemEntityClient mockEntityClient = initMockEntityClient();
     DatasetStatsSummaryResolver resolver =
         new DatasetStatsSummaryResolver(mockEntityClient, mockClient);
-    QueryContext mockContext = Mockito.mock(QueryContext.class);
-    Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
-    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
-    Mockito.when(mockEnv.getSource()).thenReturn(TEST_SOURCE);
-    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+    QueryContext mockContext = mock(QueryContext.class);
+    when(mockContext.getAuthentication()).thenReturn(mock(Authentication.class));
+    DataFetchingEnvironment mockEnv = mock(DataFetchingEnvironment.class);
+    when(mockEnv.getSource()).thenReturn(TEST_SOURCE);
+    when(mockEnv.getContext()).thenReturn(mockContext);
 
     // The resolver should NOT throw.
     DatasetStatsSummary result = resolver.get(mockEnv).get();
@@ -144,7 +142,7 @@ public class DashboardStatsSummaryTest {
 
   private TimeseriesAspectService initTestAspectService() {
 
-    TimeseriesAspectService mockClient = Mockito.mock(TimeseriesAspectService.class);
+    TimeseriesAspectService mockClient = mock(TimeseriesAspectService.class);
 
     // Mock fetching the latest absolute (snapshot) statistics
     DashboardUsageStatistics latestUsageStats =
@@ -158,24 +156,22 @@ public class DashboardStatsSummaryTest {
         new EnvelopedAspect().setAspect(GenericRecordUtils.serializeAspect(latestUsageStats));
 
     Filter filterForLatestStats = createUsageFilter(TEST_DASHBOARD_URN, null, null, false);
-    Mockito.when(
-            mockClient.getAspectValues(
-                Mockito.eq(UrnUtils.getUrn(TEST_DASHBOARD_URN)),
-                Mockito.eq(Constants.DASHBOARD_ENTITY_NAME),
-                Mockito.eq(Constants.DASHBOARD_USAGE_STATISTICS_ASPECT_NAME),
-                Mockito.eq(null),
-                Mockito.eq(null),
-                Mockito.eq(1),
-                Mockito.eq(filterForLatestStats)))
+    when(mockClient.getAspectValues(
+            Mockito.eq(UrnUtils.getUrn(TEST_DASHBOARD_URN)),
+            Mockito.eq(Constants.DASHBOARD_ENTITY_NAME),
+            Mockito.eq(Constants.DASHBOARD_USAGE_STATISTICS_ASPECT_NAME),
+            Mockito.eq(null),
+            Mockito.eq(null),
+            Mockito.eq(1),
+            Mockito.eq(filterForLatestStats)))
         .thenReturn(ImmutableList.of(envelopedLatestStats));
 
-    Mockito.when(
-            mockClient.getAggregatedStats(
-                Mockito.eq(Constants.DASHBOARD_ENTITY_NAME),
-                Mockito.eq(Constants.DASHBOARD_USAGE_STATISTICS_ASPECT_NAME),
-                Mockito.any(),
-                Mockito.any(Filter.class),
-                Mockito.any()))
+    when(mockClient.getAggregatedStats(
+            Mockito.eq(Constants.DASHBOARD_ENTITY_NAME),
+            Mockito.eq(Constants.DASHBOARD_USAGE_STATISTICS_ASPECT_NAME),
+            any(),
+            any(Filter.class),
+            any()))
         .thenReturn(
             new GenericTable()
                 .setRows(
@@ -190,14 +186,10 @@ public class DashboardStatsSummaryTest {
     return mockClient;
   }
 
-  private EntityClient initMockEntityClient() throws Exception {
-    EntityClient client = Mockito.mock(EntityClient.class);
-    Mockito.when(
-            client.getV2(
-                Mockito.eq(Constants.DATASET_ENTITY_NAME),
-                Mockito.any(),
-                Mockito.any(),
-                Mockito.any(Authentication.class)))
+  private SystemEntityClient initMockEntityClient() throws Exception {
+    SystemEntityClient client = mock(SystemEntityClient.class);
+    when(client.getV2(
+            Mockito.eq(Constants.DATASET_ENTITY_NAME), any(), any(), any(Authentication.class)))
         .thenReturn(null);
     return client;
   }

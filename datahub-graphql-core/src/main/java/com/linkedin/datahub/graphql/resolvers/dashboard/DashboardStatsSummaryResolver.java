@@ -1,9 +1,8 @@
 package com.linkedin.datahub.graphql.resolvers.dashboard;
 
+import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.isViewDatasetUsageAuthorized;
 import static com.linkedin.datahub.graphql.resolvers.dashboard.DashboardUsageStatsUtils.*;
 
-import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -14,7 +13,7 @@ import com.linkedin.datahub.graphql.generated.DashboardUsageMetrics;
 import com.linkedin.datahub.graphql.generated.DashboardUserUsageCounts;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.entity.EntityResponse;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.features.UsageFeatures;
@@ -24,7 +23,6 @@ import graphql.schema.DataFetchingEnvironment;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -37,20 +35,14 @@ public class DashboardStatsSummaryResolver
   // The maximum number of top users to show in the summary stats
   private static final Integer MAX_TOP_USERS = 5;
 
-  private final EntityClient entityClient;
+  private final SystemEntityClient systemEntityClient;
   private final TimeseriesAspectService timeseriesAspectService;
-  private final Cache<Urn, DashboardStatsSummary> summaryCache;
 
   public DashboardStatsSummaryResolver(
-      final EntityClient entityClient, final TimeseriesAspectService timeseriesAspectService) {
-    this.entityClient = entityClient;
+      final SystemEntityClient systemEntityClient,
+      final TimeseriesAspectService timeseriesAspectService) {
+    this.systemEntityClient = systemEntityClient;
     this.timeseriesAspectService = timeseriesAspectService;
-    this.summaryCache =
-        CacheBuilder.newBuilder()
-            .maximumSize(10000)
-            .expireAfterWrite(
-                6, TimeUnit.HOURS) // TODO: Make caching duration configurable externally.
-            .build();
   }
 
   @Override
@@ -61,11 +53,16 @@ public class DashboardStatsSummaryResolver
 
     return CompletableFuture.supplyAsync(
         () -> {
-          if (this.summaryCache.getIfPresent(resourceUrn) != null) {
-            return this.summaryCache.getIfPresent(resourceUrn);
-          }
-
           try {
+
+            // TODO: We don't have a dashboard specific priv
+            if (!isViewDatasetUsageAuthorized(resourceUrn, context)) {
+              log.debug(
+                  "User {} is not authorized to view usage information for {}",
+                  context.getActorUrn(),
+                  resourceUrn.toString());
+              return null;
+            }
 
             // acryl-main only - first see if we can populate stats based on the UsageFeatures
             // aspect
@@ -94,7 +91,6 @@ public class DashboardStatsSummaryResolver
                         .map(DashboardUserUsageCounts::getUser)
                         .collect(Collectors.toList())));
 
-            this.summaryCache.put(resourceUrn, result);
             return result;
 
           } catch (Exception e) {
@@ -134,11 +130,8 @@ public class DashboardStatsSummaryResolver
   private UsageFeatures getUsageFeatures(final Urn datasetUrn, final QueryContext context) {
     try {
       EntityResponse response =
-          this.entityClient.getV2(
-              Constants.DASHBOARD_ENTITY_NAME,
-              datasetUrn,
-              ImmutableSet.of(Constants.USAGE_FEATURES_ASPECT_NAME),
-              context.getAuthentication());
+          this.systemEntityClient.getV2(
+              datasetUrn, ImmutableSet.of(Constants.USAGE_FEATURES_ASPECT_NAME));
 
       if (response != null
           && response.getAspects().containsKey(Constants.USAGE_FEATURES_ASPECT_NAME)) {

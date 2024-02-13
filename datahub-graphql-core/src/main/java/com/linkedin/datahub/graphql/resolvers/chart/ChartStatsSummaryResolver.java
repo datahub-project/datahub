@@ -1,7 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.chart;
 
-import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
+import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.isViewDatasetUsageAuthorized;
+
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -10,7 +10,7 @@ import com.linkedin.datahub.graphql.generated.ChartStatsSummary;
 import com.linkedin.datahub.graphql.generated.CorpUser;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.entity.EntityResponse;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.search.features.UsageFeatures;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
@@ -19,7 +19,6 @@ import graphql.schema.DataFetchingEnvironment;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -32,16 +31,14 @@ public class ChartStatsSummaryResolver
   // The maximum number of top users to show in the summary stats
   private static final Integer MAX_TOP_USERS = 5;
 
-  private final EntityClient entityClient;
+  private final SystemEntityClient systemEntityClient;
   private final TimeseriesAspectService timeseriesAspectService;
-  private final Cache<Urn, ChartStatsSummary> summaryCache;
 
   public ChartStatsSummaryResolver(
-      final EntityClient entityClient, final TimeseriesAspectService timeseriesAspectService) {
-    this.entityClient = entityClient;
+      final SystemEntityClient systemEntityClient,
+      final TimeseriesAspectService timeseriesAspectService) {
+    this.systemEntityClient = systemEntityClient;
     this.timeseriesAspectService = timeseriesAspectService;
-    this.summaryCache =
-        CacheBuilder.newBuilder().maximumSize(10000).expireAfterWrite(6, TimeUnit.HOURS).build();
   }
 
   @Override
@@ -52,12 +49,16 @@ public class ChartStatsSummaryResolver
 
     return CompletableFuture.supplyAsync(
         () -> {
-          if (this.summaryCache.getIfPresent(resourceUrn) != null) {
-            return this.summaryCache.getIfPresent(resourceUrn);
-          }
-
           try {
-            // acryl-main only - first see if we can populate stats based on the UsageFeatures
+            // TODO: We don't have a chart specific priv
+            if (!isViewDatasetUsageAuthorized(resourceUrn, context)) {
+              log.debug(
+                  "User {} is not authorized to view usage information for {}",
+                  context.getActorUrn(),
+                  resourceUrn.toString());
+              return null;
+            }
+
             // aspect
             UsageFeatures maybeUsageFeatures = getUsageFeatures(resourceUrn, context);
             if (maybeUsageFeatures != null) {
@@ -85,11 +86,8 @@ public class ChartStatsSummaryResolver
   private UsageFeatures getUsageFeatures(final Urn datasetUrn, final QueryContext context) {
     try {
       EntityResponse response =
-          this.entityClient.getV2(
-              Constants.DASHBOARD_ENTITY_NAME,
-              datasetUrn,
-              ImmutableSet.of(Constants.USAGE_FEATURES_ASPECT_NAME),
-              context.getAuthentication());
+          this.systemEntityClient.getV2(
+              datasetUrn, ImmutableSet.of(Constants.USAGE_FEATURES_ASPECT_NAME));
 
       if (response != null
           && response.getAspects().containsKey(Constants.USAGE_FEATURES_ASPECT_NAME)) {

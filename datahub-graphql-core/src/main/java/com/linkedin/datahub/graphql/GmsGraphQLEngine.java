@@ -1488,7 +1488,7 @@ public class GmsGraphQLEngine {
                     // DatasetStatsSummaryResolver(this.usageClient)) // statsSummary was modified
                     .dataFetcher(
                         "statsSummary",
-                        new DatasetStatsSummaryResolver(this.entityClient, this.usageClient))
+                        new DatasetStatsSummaryResolver(this.systemEntityClient, this.usageClient))
                     .dataFetcher(
                         "health", new DatasetHealthResolver(graphClient, timeseriesAspectService))
                     .dataFetcher("schemaMetadata", new AspectResolver())
@@ -1839,7 +1839,7 @@ public class GmsGraphQLEngine {
                 .dataFetcher("usageStats", new DashboardUsageStatsResolver(timeseriesAspectService))
                 .dataFetcher(
                     "statsSummary",
-                    new DashboardStatsSummaryResolver(entityClient, timeseriesAspectService))
+                    new DashboardStatsSummaryResolver(systemEntityClient, timeseriesAspectService))
                 .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
                 .dataFetcher("exists", new EntityExistsResolver(entityService)));
     builder.type(
@@ -1957,7 +1957,7 @@ public class GmsGraphQLEngine {
                 .dataFetcher("parentContainers", new ParentContainersResolver(entityClient))
                 .dataFetcher(
                     "statsSummary",
-                    new ChartStatsSummaryResolver(entityClient, this.timeseriesAspectService))
+                    new ChartStatsSummaryResolver(systemEntityClient, this.timeseriesAspectService))
                 .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
                 .dataFetcher("exists", new EntityExistsResolver(entityService)));
     builder.type(
