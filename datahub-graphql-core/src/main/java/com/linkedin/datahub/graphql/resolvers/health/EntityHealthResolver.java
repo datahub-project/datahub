@@ -1,7 +1,5 @@
 package com.linkedin.datahub.graphql.resolvers.health;
 
-import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.EntityRelationships;
 import com.linkedin.data.template.StringArray;
@@ -39,7 +37,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -66,8 +63,6 @@ public class EntityHealthResolver implements DataFetcher<CompletableFuture<List<
 
   private final Config _config;
 
-  private final Cache<String, CachedHealth> _statusCache;
-
   public EntityHealthResolver(
       @Nonnull final EntityClient entityClient,
       @Nonnull final GraphClient graphClient,
@@ -83,8 +78,6 @@ public class EntityHealthResolver implements DataFetcher<CompletableFuture<List<
     _entityClient = entityClient;
     _graphClient = graphClient;
     _timeseriesAspectService = timeseriesAspectService;
-    _statusCache =
-        CacheBuilder.newBuilder().maximumSize(0).expireAfterWrite(1, TimeUnit.MINUTES).build();
     _config = config;
   }
 
@@ -95,11 +88,8 @@ public class EntityHealthResolver implements DataFetcher<CompletableFuture<List<
     return CompletableFuture.supplyAsync(
         () -> {
           try {
-            final CachedHealth cachedStatus =
-                _statusCache.get(
-                    parent.getUrn(),
-                    () -> (computeHealthStatusForAsset(parent.getUrn(), environment.getContext())));
-            return cachedStatus.healths;
+            final HealthStatuses statuses = computeHealthStatusForAsset(parent.getUrn(), environment.getContext());
+            return statuses.healths;
           } catch (Exception e) {
             throw new RuntimeException("Failed to resolve asset's health status.", e);
           }
@@ -112,7 +102,7 @@ public class EntityHealthResolver implements DataFetcher<CompletableFuture<List<
    * <p>- fetching active (non-deleted) assertions - fetching latest assertion run for each -
    * checking whether any of the assertions latest runs are failing
    */
-  private CachedHealth computeHealthStatusForAsset(
+  private HealthStatuses computeHealthStatusForAsset(
       final String entityUrn, final QueryContext context) {
     final List<Health> healthStatuses = new ArrayList<>();
 
@@ -130,7 +120,7 @@ public class EntityHealthResolver implements DataFetcher<CompletableFuture<List<
       }
     }
 
-    return new CachedHealth(healthStatuses);
+    return new HealthStatuses(healthStatuses);
   }
 
   /**
@@ -322,7 +312,7 @@ public class EntityHealthResolver implements DataFetcher<CompletableFuture<List<
   }
 
   @AllArgsConstructor
-  private static class CachedHealth {
+  private static class HealthStatuses {
     private final List<Health> healths;
   }
 }
