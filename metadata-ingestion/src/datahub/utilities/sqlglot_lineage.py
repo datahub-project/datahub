@@ -1154,7 +1154,6 @@ def _sqlglot_lineage_inner(
     column_lineage: Optional[List[_ColumnLineageInfo]] = None
     try:
         if select_statement is not None:
-            # TODO: it's buggy here
             column_lineage = _column_level_lineage(
                 select_statement,
                 dialect=dialect,
