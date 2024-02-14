@@ -28,6 +28,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.opensearch.action.explain.ExplainResponse;
 import org.opensearch.action.search.SearchResponse;
 
 @Slf4j
@@ -290,5 +291,30 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
   @Override
   public int maxResultSize() {
     return ESUtils.MAX_RESULT_SIZE;
+  }
+
+  @Override
+  public ExplainResponse explain(
+      @Nonnull String query,
+      @Nonnull String documentId,
+      @Nonnull String entityName,
+      @Nullable Filter postFilters,
+      @Nullable SortCriterion sortCriterion,
+      @Nullable SearchFlags searchFlags,
+      @Nullable String scrollId,
+      @Nullable String keepAlive,
+      int size,
+      @Nullable List<String> facets) {
+    return esSearchDAO.explain(
+        query,
+        documentId,
+        entityName,
+        postFilters,
+        sortCriterion,
+        searchFlags,
+        scrollId,
+        keepAlive,
+        size,
+        facets);
   }
 }

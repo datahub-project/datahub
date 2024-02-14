@@ -308,7 +308,8 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
                       null,
                       "5m",
                       10,
-                      new SearchFlags().setFulltext(false))
+                      new SearchFlags().setFulltext(false),
+                      null)
                   .source()
                   .query();
     } else {
@@ -382,7 +383,8 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
                       null,
                       "5m",
                       10,
-                      new SearchFlags().setFulltext(false))
+                      new SearchFlags().setFulltext(false),
+                      null)
                   .source()
                   .query();
     } else {
