@@ -1,5 +1,6 @@
 import json
 import logging
+import time
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Tuple, Union
 
@@ -24,6 +25,7 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.extractor.schema_util import avro_schema_to_mce_fields
 from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
 from datahub.metadata.schema_classes import (
+    AuditStampClass,
     DatasetPropertiesClass,
     GlobalTagsClass,
     GlossaryTermAssociationClass,
@@ -129,6 +131,7 @@ class SchemaSpecification(BaseModel):
             raise ValueError("file must be a .avsc file")
         return v
 
+
 class Ownership(ConfigModel):
     id: str
     type: str
@@ -137,6 +140,7 @@ class Ownership(ConfigModel):
     def ownership_type_must_be_mappable_or_custom(cls, v: str) -> str:
         _, _ = validate_ownership_type(v)
         return v
+
 
 class StructuredPropertyValue(ConfigModel):
     value: Union[str, float, List[str], List[float]]
@@ -193,7 +197,14 @@ class Dataset(BaseModel):
         if v.startswith("urn:li:dataPlatform:"):
             return v[len("urn:li:dataPlatform:") :]
         return v
-    
+
+    def _mint_auditstamp(self, message: str) -> AuditStampClass:
+        return AuditStampClass(
+            time=int(time.time() * 1000.0),
+            actor="urn:li:corpuser:datahub",
+            message=message,
+        )
+
     def _mint_owner(self, owner: Union[str, Ownership]) -> OwnerClass:
         if isinstance(owner, str):
             return OwnerClass(
@@ -202,9 +213,7 @@ class Dataset(BaseModel):
             )
         else:
             assert isinstance(owner, Ownership)
-            ownership_type, ownership_type_urn = validate_ownership_type(
-                owner.type
-            )
+            ownership_type, ownership_type_urn = validate_ownership_type(owner.type)
             return OwnerClass(
                 owner=make_user_urn(owner.id),
                 type=ownership_type,
@@ -287,7 +296,7 @@ class Dataset(BaseModel):
                             ),
                         )
                         yield mcp
-                    
+
                     if self.tags:
                         mcp = MetadataChangeProposalWrapper(
                             entityUrn=self.urn,
@@ -305,13 +314,16 @@ class Dataset(BaseModel):
                             entityUrn=self.urn,
                             aspect=GlossaryTermsClass(
                                 terms=[
-                                    GlossaryTermAssociationClass(urn=make_term_urn(term))
+                                    GlossaryTermAssociationClass(
+                                        urn=make_term_urn(term)
+                                    )
                                     for term in self.glossaryTerms
                                 ],
+                                auditStamp=self._mint_auditstamp("yaml"),
                             ),
                         )
                         yield mcp
-                    
+
                     if self.owners:
                         mcp = MetadataChangeProposalWrapper(
                             entityUrn=self.urn,
@@ -487,9 +499,9 @@ class Dataset(BaseModel):
             urn, DatasetPropertiesClass
         )
         subtypes: Optional[SubTypesClass] = graph.get_aspect(urn, SubTypesClass)
-        tags: Optional[GlobalTagsClass] = graph.get_aspect(id, GlobalTagsClass)
+        tags: Optional[GlobalTagsClass] = graph.get_aspect(urn, GlobalTagsClass)
         glossary_terms: Optional[GlossaryTermsClass] = graph.get_aspect(
-            id, GlossaryTermsClass
+            urn, GlossaryTermsClass
         )
         owners: Optional[OwnershipClass] = graph.get_aspect(urn, OwnershipClass)
         yaml_owners: Optional[List[Union[str, Ownership]]] = None
