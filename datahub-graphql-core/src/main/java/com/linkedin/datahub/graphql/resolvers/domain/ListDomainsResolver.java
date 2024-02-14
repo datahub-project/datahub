@@ -62,6 +62,7 @@ public class ListDomainsResolver implements DataFetcher<CompletableFuture<ListDo
             // First, get all domain Urns.
             final SearchResult gmsResult =
                 _entityClient.search(
+                    context.getOperationContext(),
                     Constants.DOMAIN_ENTITY_NAME,
                     query,
                     filter,
@@ -70,7 +71,6 @@ public class ListDomainsResolver implements DataFetcher<CompletableFuture<ListDo
                         .setOrder(SortOrder.DESCENDING),
                     start,
                     count,
-                    context.getAuthentication(),
                     new SearchFlags().setFulltext(true));
 
             // Now that we have entities we can bind this to a result.

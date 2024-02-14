@@ -3,7 +3,6 @@ package com.datahub.authorization;
 import static com.linkedin.metadata.Constants.DATAHUB_POLICY_INFO_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.POLICY_ENTITY_NAME;
 
-import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
@@ -16,6 +15,7 @@ import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.policy.DataHubPolicyInfo;
 import com.linkedin.r2.RemoteInvocationException;
+import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.util.Collections;
 import java.util.HashSet;
@@ -33,7 +33,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @RequiredArgsConstructor
 public class PolicyFetcher {
-  private final EntityClient _entityClient;
+  private final EntityClient entityClient;
 
   private static final SortCriterion POLICY_SORT_CRITERION =
       new SortCriterion().setField("lastUpdatedTimestamp").setOrder(SortOrder.DESCENDING);
@@ -46,7 +46,7 @@ public class PolicyFetcher {
    */
   @Deprecated
   public CompletableFuture<PolicyFetchResult> fetchPolicies(
-      int start, String query, int count, Filter filter, Authentication authentication) {
+      OperationContext opContext, int start, String query, int count, Filter filter) {
     return CompletableFuture.supplyAsync(
         () -> {
           try {
@@ -56,8 +56,7 @@ public class PolicyFetcher {
 
             while (PolicyFetchResult.EMPTY.equals(result) && scrollId != null) {
               PolicyFetchResult tmpResult =
-                  fetchPolicies(
-                      query, count, scrollId.isEmpty() ? null : scrollId, filter, authentication);
+                  fetchPolicies(opContext, query, count, scrollId.isEmpty() ? null : scrollId, filter);
               fetchedResults += tmpResult.getPolicies().size();
               scrollId = tmpResult.getScrollId();
               if (fetchedResults > start) {
@@ -73,23 +72,21 @@ public class PolicyFetcher {
   }
 
   public PolicyFetchResult fetchPolicies(
-      int count, @Nullable String scrollId, Filter filter, Authentication authentication)
+      OperationContext opContext, int count, @Nullable String scrollId, Filter filter)
       throws RemoteInvocationException, URISyntaxException {
-    return fetchPolicies("", count, scrollId, filter, authentication);
+    return fetchPolicies(opContext, "", count, scrollId, filter);
   }
 
   public PolicyFetchResult fetchPolicies(
-      String query,
-      int count,
-      @Nullable String scrollId,
-      Filter filter,
-      Authentication authentication)
+      OperationContext opContext, String query, int count, @Nullable String scrollId,
+      Filter filter)
       throws RemoteInvocationException, URISyntaxException {
     log.debug(String.format("Batch fetching policies. count: %s, scroll: %s", count, scrollId));
 
     // First fetch all policy urns
     ScrollResult result =
-        _entityClient.scrollAcrossEntities(
+        entityClient.scrollAcrossEntities(
+            opContext,
             List.of(POLICY_ENTITY_NAME),
             query,
             filter,
@@ -100,8 +97,7 @@ public class PolicyFetcher {
                 .setSkipCache(true)
                 .setSkipAggregates(true)
                 .setSkipHighlighting(true)
-                .setFulltext(true),
-            authentication);
+                .setFulltext(true));
     List<Urn> policyUrns =
         result.getEntities().stream().map(SearchEntity::getEntity).collect(Collectors.toList());
 
@@ -111,8 +107,8 @@ public class PolicyFetcher {
 
     // Fetch DataHubPolicyInfo aspects for each urn
     final Map<Urn, EntityResponse> policyEntities =
-        _entityClient.batchGetV2(
-            POLICY_ENTITY_NAME, new HashSet<>(policyUrns), null, authentication);
+        entityClient.batchGetV2(
+            POLICY_ENTITY_NAME, new HashSet<>(policyUrns), null, opContext.getAuthentication());
     return new PolicyFetchResult(
         policyUrns.stream()
             .map(policyEntities::get)

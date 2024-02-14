@@ -104,12 +104,12 @@ public class RoleType
       throws Exception {
     final SearchResult searchResult =
         _entityClient.search(
+            context.getOperationContext(),
             Constants.ROLE_ENTITY_NAME,
             query,
             Collections.emptyMap(),
             start,
             count,
-            context.getAuthentication(),
             new SearchFlags().setFulltext(true));
     return UrnSearchResultsMapper.map(searchResult);
   }
@@ -124,7 +124,7 @@ public class RoleType
       throws Exception {
     final AutoCompleteResult result =
         _entityClient.autoComplete(
-            Constants.ROLE_ENTITY_NAME, query, filters, limit, context.getAuthentication());
+            context.getOperationContext(), Constants.ROLE_ENTITY_NAME, query, filters, limit);
     return AutoCompleteResultsMapper.map(result);
   }
 }

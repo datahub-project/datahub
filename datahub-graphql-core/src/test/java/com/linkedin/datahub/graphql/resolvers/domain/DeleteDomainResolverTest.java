@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.domain;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.testng.Assert.*;
 
 import com.datahub.authentication.Authentication;
@@ -9,6 +10,7 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.search.SearchResult;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.concurrent.CompletionException;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
@@ -31,12 +33,12 @@ public class DeleteDomainResolverTest {
     // Domain has 0 child domains
     Mockito.when(
             mockClient.filter(
+                any(OperationContext.class),
                 Mockito.eq("domain"),
                 Mockito.any(),
                 Mockito.any(),
                 Mockito.eq(0),
-                Mockito.eq(1),
-                Mockito.any()))
+                Mockito.eq(1)))
         .thenReturn(new SearchResult().setNumEntities(0));
 
     assertTrue(resolver.get(mockEnv).get());
@@ -60,12 +62,12 @@ public class DeleteDomainResolverTest {
     // Domain has child domains
     Mockito.when(
             mockClient.filter(
+                any(OperationContext.class),
                 Mockito.eq("domain"),
                 Mockito.any(),
                 Mockito.any(),
                 Mockito.eq(0),
-                Mockito.eq(1),
-                Mockito.any()))
+                Mockito.eq(1)))
         .thenReturn(new SearchResult().setNumEntities(1));
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());

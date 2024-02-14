@@ -57,12 +57,12 @@ public class ListTestsResolver implements DataFetcher<CompletableFuture<ListTest
               // First, get all group Urns.
               final SearchResult gmsResult =
                   _entityClient.search(
+                      context.getOperationContext(),
                       Constants.TEST_ENTITY_NAME,
                       query,
                       Collections.emptyMap(),
                       start,
                       count,
-                      context.getAuthentication(),
                       new SearchFlags().setFulltext(true));
 
               // Now that we have entities we can bind this to a result.

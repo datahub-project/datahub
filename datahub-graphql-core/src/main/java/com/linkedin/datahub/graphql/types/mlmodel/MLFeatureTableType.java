@@ -111,12 +111,12 @@ public class MLFeatureTableType
     final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
     final SearchResult searchResult =
         _entityClient.search(
+            context.getOperationContext(),
             "mlFeatureTable",
             query,
             facetFilters,
             start,
             count,
-            context.getAuthentication(),
             new SearchFlags().setFulltext(true));
     return UrnSearchResultsMapper.map(searchResult);
   }
@@ -131,7 +131,7 @@ public class MLFeatureTableType
       throws Exception {
     final AutoCompleteResult result =
         _entityClient.autoComplete(
-            "mlFeatureTable", query, filters, limit, context.getAuthentication());
+            context.getOperationContext(), "mlFeatureTable", query, filters, limit);
     return AutoCompleteResultsMapper.map(result);
   }
 
@@ -148,7 +148,13 @@ public class MLFeatureTableType
         path.size() > 0 ? BROWSE_PATH_DELIMITER + String.join(BROWSE_PATH_DELIMITER, path) : "";
     final BrowseResult result =
         _entityClient.browse(
-            "mlFeatureTable", pathStr, facetFilters, start, count, context.getAuthentication());
+            "mlFeatureTable",
+            pathStr,
+            facetFilters,
+            start,
+            count,
+            context.getAuthentication(),
+            new SearchFlags().setFulltext(false));
     return BrowseResultMapper.map(result);
   }
 

@@ -20,6 +20,7 @@ import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchRequestHandler;
+import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.search.config.SearchCommonTestConfiguration;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -50,6 +51,8 @@ import org.testng.annotations.Test;
 @Import(SearchCommonTestConfiguration.class)
 public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
   @Autowired private AspectRetriever aspectRetriever;
+
+  @Autowired private OperationContext operationContext;
 
   public static SearchConfiguration testQueryConfig;
 
@@ -106,6 +109,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
             TestEntitySpecBuilder.getSpec(), testQueryConfig, null, aspectRetriever);
     SearchRequest searchRequest =
         requestHandler.getSearchRequest(
+            operationContext,
             "testQuery",
             null,
             null,
@@ -146,7 +150,14 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
             TestEntitySpecBuilder.getSpec(), testQueryConfig, null, aspectRetriever);
     SearchRequest searchRequest =
         requestHandler.getSearchRequest(
-            "testQuery", null, null, 0, 10, new SearchFlags().setFulltext(false), null);
+            operationContext,
+            "testQuery",
+            null,
+            null,
+            0,
+            10,
+            new SearchFlags().setFulltext(false),
+            null);
     SearchSourceBuilder sourceBuilder = searchRequest.source();
     assertEquals(sourceBuilder.from(), 0);
     assertEquals(sourceBuilder.size(), 10);
@@ -204,6 +215,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
         String.format("_entityType%stextFieldOverride", AGGREGATION_SEPARATOR_CHAR);
     SearchRequest searchRequest =
         requestHandler.getSearchRequest(
+            operationContext,
             "*",
             null,
             null,
@@ -229,12 +241,12 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
             .size(testQueryConfig.getMaxTermBucketSize());
     AggregationBuilder expectedEntityTypeAggregationBuilder =
         AggregationBuilders.terms("_entityType")
-            .field("_index")
+            .field(ES_INDEX_FIELD)
             .size(testQueryConfig.getMaxTermBucketSize())
             .minDocCount(0);
     AggregationBuilder expectedNestedAggregationBuilder =
         AggregationBuilders.terms(nestedAggString)
-            .field("_index")
+            .field(ES_INDEX_FIELD)
             .size(testQueryConfig.getMaxTermBucketSize())
             .minDocCount(0)
             .subAggregation(
@@ -305,6 +317,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
           (BoolQueryBuilder)
               requestHandler
                   .getSearchRequest(
+                      operationContext,
                       "testQuery",
                       filterWithoutRemovedCondition,
                       null,
@@ -321,6 +334,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
           (BoolQueryBuilder)
               requestHandler
                   .getSearchRequest(
+                      operationContext,
                       "testQuery",
                       filterWithoutRemovedCondition,
                       null,
@@ -380,6 +394,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
           (BoolQueryBuilder)
               requestHandler
                   .getSearchRequest(
+                      operationContext,
                       "testQuery",
                       filterWithRemovedCondition,
                       null,
@@ -396,6 +411,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
           (BoolQueryBuilder)
               requestHandler
                   .getSearchRequest(
+                      operationContext,
                       "testQuery",
                       filterWithRemovedCondition,
                       null,
@@ -621,7 +637,8 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     filter.setOr(conjunctiveCriterionArray);
 
     BoolQueryBuilder test =
-        SearchRequestHandler.getFilterQuery(filter, new HashMap<>(), aspectRetriever);
+        SearchRequestHandler.getFilterQuery(
+            operationContext, filter, new SearchFlags().setFulltext(false), new HashMap<>(), aspectRetriever);
 
     assertEquals(test.should().size(), 1);
 
@@ -649,7 +666,15 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
 
     return (BoolQueryBuilder)
         requestHandler
-            .getSearchRequest("", filter, null, 0, 10, new SearchFlags().setFulltext(false), null)
+            .getSearchRequest(
+                operationContext,
+                "",
+                filter,
+                null,
+                0,
+                10,
+                new SearchFlags().setFulltext(false),
+                null)
             .source()
             .query();
   }

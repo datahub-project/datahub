@@ -13,8 +13,10 @@ import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.client.CachingEntitySearchService;
 import com.linkedin.metadata.service.RollbackService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import io.datahubproject.metadata.context.OperationContext;
 import javax.annotation.Nonnull;
 import lombok.Getter;
+import org.springframework.beans.factory.annotation.Qualifier;
 
 /** Java backed SystemEntityClient */
 @Getter
@@ -24,6 +26,7 @@ public class SystemJavaEntityClient extends JavaEntityClient implements SystemEn
   private final Authentication systemAuthentication;
 
   public SystemJavaEntityClient(
+      @Qualifier("systemOperationContext") OperationContext opContext,
       EntityService<?> entityService,
       DeleteEntityService deleteEntityService,
       EntitySearchService entitySearchService,
@@ -36,6 +39,7 @@ public class SystemJavaEntityClient extends JavaEntityClient implements SystemEn
       @Nonnull Authentication systemAuthentication,
       EntityClientCacheConfig cacheConfig) {
     super(
+        opContext,
         entityService,
         deleteEntityService,
         entitySearchService,

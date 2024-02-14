@@ -116,12 +116,12 @@ public class TagType
     final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
     final SearchResult searchResult =
         _entityClient.search(
+            context.getOperationContext(),
             "tag",
             query,
             facetFilters,
             start,
             count,
-            context.getAuthentication(),
             new SearchFlags().setFulltext(true));
     return UrnSearchResultsMapper.map(searchResult);
   }
@@ -135,7 +135,7 @@ public class TagType
       @Nonnull QueryContext context)
       throws Exception {
     final AutoCompleteResult result =
-        _entityClient.autoComplete("tag", query, filters, limit, context.getAuthentication());
+        _entityClient.autoComplete(context.getOperationContext(), "tag", query, filters, limit);
     return AutoCompleteResultsMapper.map(result);
   }
 

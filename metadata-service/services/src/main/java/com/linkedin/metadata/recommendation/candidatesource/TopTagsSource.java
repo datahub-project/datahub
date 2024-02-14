@@ -6,6 +6,7 @@ import com.linkedin.metadata.recommendation.RecommendationRenderType;
 import com.linkedin.metadata.recommendation.RecommendationRequestContext;
 import com.linkedin.metadata.recommendation.ScenarioType;
 import com.linkedin.metadata.search.EntitySearchService;
+import io.datahubproject.metadata.context.OperationContext;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
@@ -14,8 +15,11 @@ public class TopTagsSource extends EntitySearchAggregationSource {
 
   private static final String TAGS = "tags";
 
-  public TopTagsSource(EntitySearchService entitySearchService, EntityService<?> entityService) {
-    super(entitySearchService, entityService.getEntityRegistry());
+  public TopTagsSource(
+      @Nonnull OperationContext opContext,
+      EntitySearchService entitySearchService,
+      EntityService<?> entityService) {
+    super(opContext, entitySearchService, entityService.getEntityRegistry());
   }
 
   @Override

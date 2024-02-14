@@ -16,6 +16,8 @@ import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistryException;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
 import com.linkedin.r2.RemoteInvocationException;
 import java.net.URISyntaxException;
@@ -87,5 +89,10 @@ public class SearchCommonTestConfiguration {
         .thenReturn(new SnapshotEntityRegistry(new Snapshot()));
     when(aspectRetriever.getLatestAspectObjects(any(), any())).thenReturn(Map.of());
     return aspectRetriever;
+  }
+
+  @Bean(name = "systemOperationContext")
+  public OperationContext systemOperationContext(final EntityRegistry entityRegistry) {
+    return TestOperationContexts.systemContextNoSearchAuthorization(entityRegistry);
   }
 }

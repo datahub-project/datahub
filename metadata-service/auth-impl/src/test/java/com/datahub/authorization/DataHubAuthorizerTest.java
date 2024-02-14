@@ -39,14 +39,18 @@ import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.identity.GroupMembership;
 import com.linkedin.identity.RoleMembership;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.policy.DataHubActorFilter;
 import com.linkedin.policy.DataHubPolicyInfo;
 import com.linkedin.policy.DataHubResourceFilter;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.OperationContextConfig;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -69,6 +73,7 @@ public class DataHubAuthorizerTest {
 
   private EntityClient _entityClient;
   private DataHubAuthorizer _dataHubAuthorizer;
+  private OperationContext systemOpContext;
 
   @BeforeMethod
   public void setupTest() throws Exception {
@@ -158,6 +163,7 @@ public class DataHubAuthorizerTest {
                     ImmutableList.of(new SearchEntity().setEntity(adminPolicyUrn))));
 
     when(_entityClient.scrollAcrossEntities(
+            any(OperationContext.class),
             eq(List.of("dataHubPolicy")),
             eq(""),
             isNull(),
@@ -169,8 +175,7 @@ public class DataHubAuthorizerTest {
                     .setFulltext(true)
                     .setSkipAggregates(true)
                     .setSkipHighlighting(true)
-                    .setSkipCache(true)),
-            any()))
+                    .setSkipCache(true))))
         .thenReturn(policySearchResult1)
         .thenReturn(policySearchResult2)
         .thenReturn(policySearchResult3)
@@ -268,10 +273,16 @@ public class DataHubAuthorizerTest {
 
     final Authentication systemAuthentication =
         new Authentication(new Actor(ActorType.USER, DATAHUB_SYSTEM_CLIENT_ID), "");
+    systemOpContext =
+        OperationContext.asSystem(
+            OperationContextConfig.builder().build(),
+            mock(EntityRegistry.class),
+            systemAuthentication,
+            mock(IndexConvention.class));
 
     _dataHubAuthorizer =
         new DataHubAuthorizer(
-            systemAuthentication,
+            systemOpContext,
             _entityClient,
             10,
             10,
@@ -358,13 +369,13 @@ public class DataHubAuthorizerTest {
     emptyResult.setEntities(new SearchEntityArray());
 
     when(_entityClient.search(
+            any(OperationContext.class),
             eq("dataHubPolicy"),
             eq(""),
             isNull(),
             any(),
             anyInt(),
             anyInt(),
-            any(),
             eq(new SearchFlags().setFulltext(true))))
         .thenReturn(emptyResult);
     when(_entityClient.batchGetV2(

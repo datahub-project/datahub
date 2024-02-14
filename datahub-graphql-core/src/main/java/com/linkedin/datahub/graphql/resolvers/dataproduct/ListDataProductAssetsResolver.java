@@ -151,14 +151,14 @@ public class ListDataProductAssetsResolver
 
             return UrnSearchResultsMapper.map(
                 _entityClient.searchAcrossEntities(
+                    context.getOperationContext(),
                     finalEntityNames,
                     sanitizedQuery,
                     finalFilter,
                     start,
                     count,
                     searchFlags,
-                    null,
-                    ResolverUtils.getAuthentication(environment)));
+                    null));
           } catch (Exception e) {
             log.error(
                 "Failed to execute search for data product assets: entity types {}, query {}, filters: {}, start: {}, count: {}",

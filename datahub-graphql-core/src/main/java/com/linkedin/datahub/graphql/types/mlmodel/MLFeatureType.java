@@ -101,12 +101,12 @@ public class MLFeatureType implements SearchableEntityType<MLFeature, String> {
     final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
     final SearchResult searchResult =
         _entityClient.search(
+            context.getOperationContext(),
             "mlFeature",
             query,
             facetFilters,
             start,
             count,
-            context.getAuthentication(),
             new SearchFlags().setFulltext(true));
     return UrnSearchResultsMapper.map(searchResult);
   }
@@ -120,7 +120,8 @@ public class MLFeatureType implements SearchableEntityType<MLFeature, String> {
       @Nonnull final QueryContext context)
       throws Exception {
     final AutoCompleteResult result =
-        _entityClient.autoComplete("mlFeature", query, filters, limit, context.getAuthentication());
+        _entityClient.autoComplete(
+            context.getOperationContext(), "mlFeature", query, filters, limit);
     return AutoCompleteResultsMapper.map(result);
   }
 }

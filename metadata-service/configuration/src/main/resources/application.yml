@@ -45,6 +45,8 @@ authorization:
     cachePolicyFetchSize: ${POLICY_CACHE_FETCH_SIZE:1000}
   # Enables authorization of reads, writes, and deletes on REST APIs. Defaults to false for backwards compatibility, but should become true down the road
   restApiAuthorization: ${REST_API_AUTHORIZATION_ENABLED:false}
+  search:
+    enabled: ${SEARCH_AUTHORIZATION_ENABLED:true}
 
 ingestion:
   # The value of cliMajorVersion is substituted in by the processResources Gradle task.

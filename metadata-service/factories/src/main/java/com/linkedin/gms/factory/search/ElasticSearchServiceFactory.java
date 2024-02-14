@@ -18,6 +18,7 @@ import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.spring.YamlPropertySourceFactory;
+import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
@@ -63,7 +64,8 @@ public class ElasticSearchServiceFactory {
 
   @Bean(name = "elasticSearchService")
   @Nonnull
-  protected ElasticSearchService getInstance(final ConfigurationProvider configurationProvider)
+  protected ElasticSearchService getInstance(
+      final OperationContext opContext, final ConfigurationProvider configurationProvider)
       throws IOException {
     log.info("Search configuration: {}", configurationProvider.getElasticSearch().getSearch());
 
@@ -84,6 +86,7 @@ public class ElasticSearchServiceFactory {
             searchConfiguration,
             customSearchConfiguration);
     return new ElasticSearchService(
+        opContext,
         entityIndexBuilders,
         esSearchDAO,
         new ESBrowseDAO(

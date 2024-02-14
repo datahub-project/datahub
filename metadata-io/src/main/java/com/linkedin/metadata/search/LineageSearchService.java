@@ -32,6 +32,7 @@ import com.linkedin.metadata.search.cache.CachedEntityLineageResult;
 import com.linkedin.metadata.search.utils.FilterUtils;
 import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.search.utils.SearchUtils;
+import io.datahubproject.metadata.context.OperationContext;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.net.URISyntaxException;
 import java.time.temporal.ChronoUnit;
@@ -59,6 +60,7 @@ import org.springframework.cache.Cache;
 @Slf4j
 public class LineageSearchService {
 
+  private final OperationContext opContext;
   private static final SearchFlags DEFAULT_SERVICE_SEARCH_FLAGS =
       new SearchFlags()
           .setFulltext(false)
@@ -66,6 +68,7 @@ public class LineageSearchService {
           .setSkipCache(false)
           .setSkipAggregates(false)
           .setSkipHighlighting(true)
+          .setIncludeRestricted(true)
           .setGroupingSpec(
               new GroupingSpec()
                   .setGroupingCriteria(
@@ -79,7 +82,6 @@ public class LineageSearchService {
   @Nullable private final Cache cache;
   private final boolean cacheEnabled;
   private final SearchLineageCacheConfiguration cacheConfiguration;
-
   private final ExecutorService cacheRefillExecutor = Executors.newFixedThreadPool(1);
 
   private static final String DEGREE_FILTER = "degree";
@@ -540,6 +542,7 @@ public class LineageSearchService {
       LineageSearchResult resultForBatch =
           buildLineageSearchResult(
               _searchService.searchAcrossEntities(
+                  opContext,
                   entitiesToQuery,
                   input,
                   finalFilter,
@@ -810,6 +813,7 @@ public class LineageSearchService {
       LineageScrollResult resultForBatch =
           buildLineageScrollResult(
               _searchService.scrollAcrossEntities(
+                  opContext,
                   entitiesToQuery,
                   input,
                   finalFilter,

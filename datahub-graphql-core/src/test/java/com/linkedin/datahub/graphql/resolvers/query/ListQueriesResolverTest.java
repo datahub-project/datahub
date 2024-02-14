@@ -1,9 +1,9 @@
 package com.linkedin.datahub.graphql.resolvers.query;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.testng.Assert.*;
 
-import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
@@ -26,6 +26,7 @@ import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -62,6 +63,7 @@ public class ListQueriesResolverTest {
 
     Mockito.when(
             mockClient.search(
+                any(OperationContext.class),
                 Mockito.eq(Constants.QUERY_ENTITY_NAME),
                 Mockito.eq(
                     input.getQuery() == null
@@ -74,7 +76,6 @@ public class ListQueriesResolverTest {
                         .setOrder(SortOrder.DESCENDING)),
                 Mockito.eq(input.getStart()),
                 Mockito.eq(input.getCount()),
-                Mockito.any(Authentication.class),
                 Mockito.eq(new SearchFlags().setFulltext(true).setSkipHighlighting(true))))
         .thenReturn(
             new SearchResult()
@@ -116,12 +117,12 @@ public class ListQueriesResolverTest {
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
     Mockito.verify(mockClient, Mockito.times(0))
         .search(
+            any(OperationContext.class),
             Mockito.any(),
             Mockito.eq("*"),
             Mockito.anyMap(),
             Mockito.anyInt(),
             Mockito.anyInt(),
-            Mockito.any(Authentication.class),
             Mockito.eq(new SearchFlags().setFulltext(true).setSkipHighlighting(true)));
   }
 
@@ -132,12 +133,12 @@ public class ListQueriesResolverTest {
     Mockito.doThrow(RemoteInvocationException.class)
         .when(mockClient)
         .search(
+            any(OperationContext.class),
             Mockito.any(),
             Mockito.eq(""),
             Mockito.anyMap(),
             Mockito.anyInt(),
             Mockito.anyInt(),
-            Mockito.any(Authentication.class),
             Mockito.eq(new SearchFlags().setFulltext(true).setSkipHighlighting(true)));
     ListQueriesResolver resolver = new ListQueriesResolver(mockClient);
 

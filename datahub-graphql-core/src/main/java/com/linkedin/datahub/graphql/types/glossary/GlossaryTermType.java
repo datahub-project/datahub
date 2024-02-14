@@ -126,12 +126,12 @@ public class GlossaryTermType
     final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
     final SearchResult searchResult =
         _entityClient.search(
+            context.getOperationContext(),
             "glossaryTerm",
             query,
             facetFilters,
             start,
             count,
-            context.getAuthentication(),
             new SearchFlags().setFulltext(true));
     return UrnSearchResultsMapper.map(searchResult);
   }
@@ -146,7 +146,7 @@ public class GlossaryTermType
       throws Exception {
     final AutoCompleteResult result =
         _entityClient.autoComplete(
-            "glossaryTerm", query, filters, limit, context.getAuthentication());
+            context.getOperationContext(), "glossaryTerm", query, filters, limit);
     return AutoCompleteResultsMapper.map(result);
   }
 
@@ -163,7 +163,13 @@ public class GlossaryTermType
         path.size() > 0 ? BROWSE_PATH_DELIMITER + String.join(BROWSE_PATH_DELIMITER, path) : "";
     final BrowseResult result =
         _entityClient.browse(
-            "glossaryTerm", pathStr, facetFilters, start, count, context.getAuthentication());
+            "glossaryTerm",
+            pathStr,
+            facetFilters,
+            start,
+            count,
+            context.getAuthentication(),
+            new SearchFlags().setFulltext(false));
     return BrowseResultMapper.map(result);
   }
 

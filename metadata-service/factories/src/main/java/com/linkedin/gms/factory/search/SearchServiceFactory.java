@@ -8,6 +8,7 @@ import com.linkedin.metadata.search.cache.EntityDocCountCache;
 import com.linkedin.metadata.search.client.CachingEntitySearchService;
 import com.linkedin.metadata.search.ranker.SearchRanker;
 import com.linkedin.metadata.spring.YamlPropertySourceFactory;
+import io.datahubproject.metadata.context.OperationContext;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -39,9 +40,11 @@ public class SearchServiceFactory {
   @Bean(name = "searchService")
   @Primary
   @Nonnull
-  protected SearchService getInstance(ConfigurationProvider configurationProvider) {
+  protected SearchService getInstance(
+      final OperationContext opContext, ConfigurationProvider configurationProvider) {
     return new SearchService(
         new EntityDocCountCache(
+            opContext,
             entityRegistry,
             entitySearchService,
             configurationProvider.getCache().getHomepage().getEntityCounts()),

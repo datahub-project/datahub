@@ -5,12 +5,16 @@ import static io.datahubproject.test.search.SearchTestUtils.searchAcrossEntities
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 
+import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.LineageSearchResult;
 import com.linkedin.metadata.search.LineageSearchService;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.util.Pair;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.net.URISyntaxException;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
@@ -25,15 +29,27 @@ public abstract class LineageDataFixtureTestBase extends AbstractTestNGSpringCon
   @Nonnull
   protected abstract SearchService getSearchService();
 
+  @Nonnull
+  protected abstract EntityRegistry getEntityRegistry();
+
+  @Nonnull
+  protected OperationContext getOperationContext() {
+    return TestOperationContexts.userContextNoSearchAuthorization(
+        getEntityRegistry(), Authorizer.EMPTY, TestOperationContexts.TEST_USER_AUTH);
+  }
+
   @Test
   public void testFixtureInitialization() {
     assertNotNull(getSearchService());
-    SearchResult noResult = searchAcrossEntities(getSearchService(), "no results");
+    SearchResult noResult =
+        searchAcrossEntities(getOperationContext(), getSearchService(), "no results");
     assertEquals(noResult.getEntities().size(), 0);
 
     SearchResult result =
         searchAcrossEntities(
-            getSearchService(), "e3859789eed1cef55288b44f016ee08290d9fd08973e565c112d8");
+            getOperationContext(),
+            getSearchService(),
+            "e3859789eed1cef55288b44f016ee08290d9fd08973e565c112d8");
     assertEquals(result.getEntities().size(), 1);
 
     assertEquals(

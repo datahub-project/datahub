@@ -4,6 +4,7 @@ import com.datahub.authentication.Authentication;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.entity.client.SystemRestliEntityClient;
 import com.linkedin.gms.factory.auth.SystemAuthenticationFactory;
+import com.linkedin.gms.factory.common.SystemOperationContextFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.dao.producer.KafkaHealthChecker;
 import com.linkedin.metadata.entity.EntityService;
@@ -27,7 +28,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 
 @TestConfiguration
-@Import(value = {SystemAuthenticationFactory.class})
+@Import(value = {SystemAuthenticationFactory.class, SystemOperationContextFactory.class})
 public class MceConsumerApplicationTestConfiguration {
 
   @Autowired private TestRestTemplate restTemplate;

@@ -63,13 +63,13 @@ public class ListIngestionSourcesResolver
               // First, get all ingestion sources Urns.
               final SearchResult gmsResult =
                   _entityClient.search(
+                      context.getOperationContext(),
                       Constants.INGESTION_SOURCE_ENTITY_NAME,
                       query,
                       buildFilter(filters, Collections.emptyList()),
                       null,
                       start,
                       count,
-                      context.getAuthentication(),
                       new SearchFlags().setFulltext(true));
 
               // Then, resolve all ingestion sources

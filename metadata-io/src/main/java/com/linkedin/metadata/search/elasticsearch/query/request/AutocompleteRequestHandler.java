@@ -1,6 +1,7 @@
 package com.linkedin.metadata.search.elasticsearch.query.request;
 
 import static com.linkedin.metadata.models.SearchableFieldSpecExtractor.PRIMARY_URN_SEARCH_PROPERTIES;
+import static com.linkedin.metadata.search.utils.ESUtils.applyDefaultSearchFilters;
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
@@ -12,8 +13,10 @@ import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import com.linkedin.metadata.query.AutoCompleteEntity;
 import com.linkedin.metadata.query.AutoCompleteEntityArray;
 import com.linkedin.metadata.query.AutoCompleteResult;
+import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.utils.ESUtils;
+import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.util.Collections;
 import java.util.HashSet;
@@ -32,7 +35,6 @@ import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.MultiMatchQueryBuilder;
-import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.builder.SearchSourceBuilder;
@@ -84,11 +86,20 @@ public class AutocompleteRequestHandler {
   }
 
   public SearchRequest getSearchRequest(
-      @Nonnull String input, @Nullable String field, @Nullable Filter filter, int limit) {
+      @Nonnull OperationContext opContext,
+      @Nonnull String input,
+      @Nullable String field,
+      @Nullable Filter filter,
+      int limit,
+      @Nonnull SearchFlags searchFlags) {
     SearchRequest searchRequest = new SearchRequest();
     SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
     searchSourceBuilder.size(limit);
-    searchSourceBuilder.query(getQuery(input, field));
+    // apply default filters
+    BoolQueryBuilder boolQueryBuilder =
+        applyDefaultSearchFilters(opContext, filter, getQuery(input, field), searchFlags);
+
+    searchSourceBuilder.query(boolQueryBuilder);
     searchSourceBuilder.postFilter(
         ESUtils.buildFilterQuery(filter, false, searchableFieldTypes, aspectRetriever));
     searchSourceBuilder.highlighter(getHighlights(field));
@@ -96,11 +107,11 @@ public class AutocompleteRequestHandler {
     return searchRequest;
   }
 
-  private QueryBuilder getQuery(@Nonnull String query, @Nullable String field) {
+  private BoolQueryBuilder getQuery(@Nonnull String query, @Nullable String field) {
     return getQuery(getAutocompleteFields(field), query);
   }
 
-  public static QueryBuilder getQuery(List<String> autocompleteFields, @Nonnull String query) {
+  public static BoolQueryBuilder getQuery(List<String> autocompleteFields, @Nonnull String query) {
     BoolQueryBuilder finalQuery = QueryBuilders.boolQuery();
     // Search for exact matches with higher boost and ngram matches
     MultiMatchQueryBuilder autocompleteQueryBuilder =
@@ -126,8 +137,6 @@ public class AutocompleteRequestHandler {
         });
 
     finalQuery.should(autocompleteQueryBuilder);
-
-    finalQuery.mustNot(QueryBuilders.matchQuery("removed", true));
     return finalQuery;
   }
 

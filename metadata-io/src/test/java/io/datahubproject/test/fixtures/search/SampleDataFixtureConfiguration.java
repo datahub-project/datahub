@@ -37,6 +37,7 @@ import com.linkedin.metadata.search.ranker.SimpleRanker;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import com.linkedin.metadata.version.GitVersion;
+import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.search.config.SearchCommonTestConfiguration;
 import java.io.IOException;
 import java.util.Map;
@@ -71,6 +72,8 @@ public class SampleDataFixtureConfiguration {
   @Autowired private SearchConfiguration _searchConfiguration;
 
   @Autowired private CustomSearchConfiguration _customSearchConfiguration;
+
+  @Autowired private OperationContext opContext;
 
   @Bean(name = "sampleDataPrefix")
   protected String sampleDataPrefix() {
@@ -182,7 +185,7 @@ public class SampleDataFixtureConfiguration {
             _searchClient, indexConvention, _searchConfiguration, _customSearchConfiguration);
     ESWriteDAO writeDAO =
         new ESWriteDAO(entityRegistry, _searchClient, indexConvention, _bulkProcessor, 1);
-    return new ElasticSearchService(indexBuilders, searchDAO, browseDAO, writeDAO)
+    return new ElasticSearchService(opContext, indexBuilders, searchDAO, browseDAO, writeDAO)
         .postConstruct(aspectRetriever);
   }
 
@@ -233,7 +236,7 @@ public class SampleDataFixtureConfiguration {
     SearchService service =
         new SearchService(
             new EntityDocCountCache(
-                entityRegistry, entitySearchService, entityDocCountCacheConfiguration),
+                opContext, entityRegistry, entitySearchService, entityDocCountCacheConfiguration),
             new CachingEntitySearchService(cacheManager, entitySearchService, batchSize, false),
             ranker);
 
@@ -297,6 +300,7 @@ public class SampleDataFixtureConfiguration {
     PreProcessHooks preProcessHooks = new PreProcessHooks();
     preProcessHooks.setUiEnabled(true);
     return new JavaEntityClient(
+        opContext,
         new EntityServiceImpl(mockAspectDao, null, entityRegistry, true, preProcessHooks, true),
         null,
         entitySearchService,

@@ -14,6 +14,7 @@ import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.cache.CacheableSearcher;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
 import java.util.Optional;
 import javax.annotation.Nonnull;
@@ -53,6 +54,7 @@ public class CachingEntitySearchService {
    * @return a {@link SearchResult} containing the requested batch of search results
    */
   public SearchResult search(
+      @Nonnull OperationContext opContext,
       @Nonnull List<String> entityNames,
       @Nonnull String query,
       @Nullable Filter filters,
@@ -62,7 +64,7 @@ public class CachingEntitySearchService {
       @Nullable SearchFlags flags,
       @Nullable List<String> facets) {
     return getCachedSearchResults(
-        entityNames, query, filters, sortCriterion, from, size, flags, facets);
+        opContext, entityNames, query, filters, sortCriterion, from, size, flags, facets);
   }
 
   /**
@@ -76,13 +78,14 @@ public class CachingEntitySearchService {
    * @return a {@link SearchResult} containing the requested batch of search results
    */
   public AutoCompleteResult autoComplete(
+      @Nonnull OperationContext opContext,
       @Nonnull String entityName,
       @Nonnull String input,
       @Nullable String field,
       @Nullable Filter filters,
       int limit,
       @Nullable SearchFlags flags) {
-    return getCachedAutoCompleteResults(entityName, input, field, filters, limit, flags);
+    return getCachedAutoCompleteResults(opContext, entityName, input, field, filters, limit, flags);
   }
 
   /**
@@ -120,6 +123,7 @@ public class CachingEntitySearchService {
    * @return a {@link ScrollResult} containing the requested batch of scroll results
    */
   public ScrollResult scroll(
+      @Nonnull OperationContext opContext,
       @Nonnull List<String> entities,
       @Nonnull String query,
       @Nullable Filter filters,
@@ -129,7 +133,7 @@ public class CachingEntitySearchService {
       int size,
       @Nullable SearchFlags flags) {
     return getCachedScrollResults(
-        entities, query, filters, sortCriterion, scrollId, keepAlive, size, flags);
+        opContext, entities, query, filters, sortCriterion, scrollId, keepAlive, size, flags);
   }
 
   /**
@@ -139,6 +143,7 @@ public class CachingEntitySearchService {
    * corresponds to)
    */
   public SearchResult getCachedSearchResults(
+      @Nonnull OperationContext opContext,
       @Nonnull List<String> entityNames,
       @Nonnull String query,
       @Nullable Filter filters,
@@ -152,6 +157,7 @@ public class CachingEntitySearchService {
             batchSize,
             querySize ->
                 getRawSearchResults(
+                    opContext,
                     entityNames,
                     query,
                     filters,
@@ -176,6 +182,7 @@ public class CachingEntitySearchService {
 
   /** Returns cached auto-complete results. */
   public AutoCompleteResult getCachedAutoCompleteResults(
+      @Nonnull OperationContext opContext,
       @Nonnull String entityName,
       @Nonnull String input,
       @Nullable String field,
@@ -205,14 +212,17 @@ public class CachingEntitySearchService {
           if (result == null) {
             Timer.Context cacheMiss =
                 MetricUtils.timer(this.getClass(), "autocomplete_cache_miss").time();
-            result = getRawAutoCompleteResults(entityName, input, field, filters, limit);
+            result =
+                getRawAutoCompleteResults(
+                    opContext, entityName, input, field, filters, limit, flags);
             cache.put(cacheKey, toJsonString(result));
             cacheMiss.stop();
             MetricUtils.counter(this.getClass(), "autocomplete_cache_miss_count").inc();
           }
         }
       } else {
-        result = getRawAutoCompleteResults(entityName, input, field, filters, limit);
+        result =
+            getRawAutoCompleteResults(opContext, entityName, input, field, filters, limit, flags);
       }
       return result;
     }
@@ -249,14 +259,14 @@ public class CachingEntitySearchService {
           if (result == null) {
             Timer.Context cacheMiss =
                 MetricUtils.timer(this.getClass(), "browse_cache_miss").time();
-            result = getRawBrowseResults(entityName, path, filters, from, size);
+            result = getRawBrowseResults(entityName, path, filters, from, size, flags);
             cache.put(cacheKey, toJsonString(result));
             cacheMiss.stop();
             MetricUtils.counter(this.getClass(), "browse_cache_miss_count").inc();
           }
         }
       } else {
-        result = getRawBrowseResults(entityName, path, filters, from, size);
+        result = getRawBrowseResults(entityName, path, filters, from, size, flags);
       }
       return result;
     }
@@ -264,6 +274,7 @@ public class CachingEntitySearchService {
 
   /** Returns cached scroll results. */
   public ScrollResult getCachedScrollResults(
+      @Nonnull OperationContext opContext,
       @Nonnull List<String> entities,
       @Nonnull String query,
       @Nullable Filter filters,
@@ -297,6 +308,7 @@ public class CachingEntitySearchService {
           Timer.Context cacheMiss = MetricUtils.timer(this.getClass(), "scroll_cache_miss").time();
           result =
               getRawScrollResults(
+                  opContext,
                   entities,
                   query,
                   filters,
@@ -313,6 +325,7 @@ public class CachingEntitySearchService {
       } else {
         result =
             getRawScrollResults(
+                opContext,
                 entities,
                 query,
                 filters,
@@ -329,6 +342,7 @@ public class CachingEntitySearchService {
 
   /** Executes the expensive search query using the {@link EntitySearchService} */
   private SearchResult getRawSearchResults(
+      @Nonnull OperationContext opContext,
       final List<String> entityNames,
       final String input,
       final Filter filters,
@@ -338,17 +352,20 @@ public class CachingEntitySearchService {
       @Nullable final SearchFlags searchFlags,
       @Nullable final List<String> facets) {
     return entitySearchService.search(
-        entityNames, input, filters, sortCriterion, start, count, searchFlags, facets);
+        opContext, entityNames, input, filters, sortCriterion, start, count, searchFlags, facets);
   }
 
   /** Executes the expensive autocomplete query using the {@link EntitySearchService} */
   private AutoCompleteResult getRawAutoCompleteResults(
+      @Nonnull OperationContext opContext,
       final String entityName,
       final String input,
       final String field,
       final Filter filters,
-      final int limit) {
-    return entitySearchService.autoComplete(entityName, input, field, filters, limit);
+      final int limit,
+      @Nullable final SearchFlags searchFlags) {
+    return entitySearchService.autoComplete(
+        opContext, entityName, input, field, filters, limit, searchFlags);
   }
 
   /** Executes the expensive autocomplete query using the {@link EntitySearchService} */
@@ -357,12 +374,14 @@ public class CachingEntitySearchService {
       final String input,
       final Filter filters,
       final int start,
-      final int count) {
-    return entitySearchService.browse(entityName, input, filters, start, count);
+      final int count,
+      @Nullable final SearchFlags searchFlags) {
+    return entitySearchService.browse(entityName, input, filters, start, count, searchFlags);
   }
 
   /** Executes the expensive search query using the {@link EntitySearchService} */
   private ScrollResult getRawScrollResults(
+      @Nonnull OperationContext opContext,
       final List<String> entities,
       final String input,
       final Filter filters,
@@ -374,10 +393,26 @@ public class CachingEntitySearchService {
       @Nullable final SearchFlags searchFlags) {
     if (fulltext) {
       return entitySearchService.fullTextScroll(
-          entities, input, filters, sortCriterion, scrollId, keepAlive, count, searchFlags);
+          opContext,
+          entities,
+          input,
+          filters,
+          sortCriterion,
+          scrollId,
+          keepAlive,
+          count,
+          searchFlags);
     } else {
       return entitySearchService.structuredScroll(
-          entities, input, filters, sortCriterion, scrollId, keepAlive, count, searchFlags);
+          opContext,
+          entities,
+          input,
+          filters,
+          sortCriterion,
+          scrollId,
+          keepAlive,
+          count,
+          searchFlags);
     }
   }
 

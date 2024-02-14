@@ -57,6 +57,7 @@ import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.parseq.retry.backoff.BackoffPolicy;
 import com.linkedin.parseq.retry.backoff.ExponentialBackoff;
 import com.linkedin.r2.RemoteInvocationException;
+import io.datahubproject.metadata.context.OperationContext;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.net.URISyntaxException;
 import java.time.Clock;
@@ -84,6 +85,7 @@ public class JavaEntityClient implements EntityClient {
 
   private final Clock _clock = Clock.systemUTC();
 
+  private final OperationContext opContext;
   private final EntityService<?> entityService;
   private final DeleteEntityService deleteEntityService;
   private final EntitySearchService entitySearchService;
@@ -165,15 +167,21 @@ public class JavaEntityClient implements EntityClient {
    */
   @Nonnull
   public AutoCompleteResult autoComplete(
+      @Nonnull OperationContext opContext,
       @Nonnull String entityType,
       @Nonnull String query,
       @Nullable Filter requestFilters,
       @Nonnull int limit,
-      @Nullable String field,
-      @Nonnull final Authentication authentication)
+      @Nullable String field)
       throws RemoteInvocationException {
     return cachingEntitySearchService.autoComplete(
-        entityType, query, field, filterOrDefaultEmptyFilter(requestFilters), limit, null);
+        opContext,
+        entityType,
+        query,
+        field,
+        filterOrDefaultEmptyFilter(requestFilters),
+        limit,
+        null);
   }
 
   /**
@@ -187,14 +195,14 @@ public class JavaEntityClient implements EntityClient {
    */
   @Nonnull
   public AutoCompleteResult autoComplete(
+      @Nonnull OperationContext opContext,
       @Nonnull String entityType,
       @Nonnull String query,
       @Nullable Filter requestFilters,
-      @Nonnull int limit,
-      @Nonnull final Authentication authentication)
+      @Nonnull int limit)
       throws RemoteInvocationException {
     return cachingEntitySearchService.autoComplete(
-        entityType, query, "", filterOrDefaultEmptyFilter(requestFilters), limit, null);
+        opContext, entityType, query, "", filterOrDefaultEmptyFilter(requestFilters), limit, null);
   }
 
   /**
@@ -207,6 +215,7 @@ public class JavaEntityClient implements EntityClient {
    * @param limit max number of datasets
    * @throws RemoteInvocationException
    */
+  @Override
   @Nonnull
   public BrowseResult browse(
       @Nonnull String entityType,
@@ -214,11 +223,12 @@ public class JavaEntityClient implements EntityClient {
       @Nullable Map<String, String> requestFilters,
       int start,
       int limit,
-      @Nonnull final Authentication authentication)
+      @Nonnull Authentication authentication,
+      @Nullable SearchFlags searchFlags)
       throws RemoteInvocationException {
     return ValidationUtils.validateBrowseResult(
         cachingEntitySearchService.browse(
-            entityType, path, newFilter(requestFilters), start, limit, null),
+            entityType, path, newFilter(requestFilters), start, limit, searchFlags),
         entityService);
   }
 
@@ -332,18 +342,25 @@ public class JavaEntityClient implements EntityClient {
   @WithSpan
   @Override
   public SearchResult search(
+      @Nonnull OperationContext opContext,
       @Nonnull String entity,
       @Nonnull String input,
       @Nullable Map<String, String> requestFilters,
       int start,
       int count,
-      @Nonnull Authentication authentication,
       @Nullable SearchFlags searchFlags)
       throws RemoteInvocationException {
 
     return ValidationUtils.validateSearchResult(
         entitySearchService.search(
-            List.of(entity), input, newFilter(requestFilters), null, start, count, searchFlags),
+            opContext,
+            List.of(entity),
+            input,
+            newFilter(requestFilters),
+            null,
+            start,
+            count,
+            searchFlags),
         entityService);
   }
 
@@ -358,6 +375,7 @@ public class JavaEntityClient implements EntityClient {
    * @return a set of list results
    * @throws RemoteInvocationException
    */
+  @Override
   @Deprecated
   @Nonnull
   public ListResult list(
@@ -365,11 +383,18 @@ public class JavaEntityClient implements EntityClient {
       @Nullable Map<String, String> requestFilters,
       int start,
       int count,
-      @Nonnull final Authentication authentication)
+      @Nonnull Authentication authentication)
       throws RemoteInvocationException {
     return ValidationUtils.validateListResult(
         toListResult(
-            entitySearchService.filter(entity, newFilter(requestFilters), null, start, count)),
+            entitySearchService.filter(
+                opContext,
+                entity,
+                newFilter(requestFilters),
+                new SearchFlags().setFulltext(false),
+                null,
+                start,
+                count)),
         entityService);
   }
 
@@ -387,34 +412,35 @@ public class JavaEntityClient implements EntityClient {
   @Nonnull
   @Override
   public SearchResult search(
+      @Nonnull OperationContext opContext,
       @Nonnull String entity,
       @Nonnull String input,
       @Nullable Filter filter,
       @Nullable SortCriterion sortCriterion,
       int start,
       int count,
-      @Nonnull Authentication authentication,
       @Nullable SearchFlags searchFlags)
       throws RemoteInvocationException {
     return ValidationUtils.validateSearchResult(
         entitySearchService.search(
-            List.of(entity), input, filter, sortCriterion, start, count, searchFlags),
+            opContext, List.of(entity), input, filter, sortCriterion, start, count, searchFlags),
         entityService);
   }
 
+  @Override
   @Nonnull
   public SearchResult searchAcrossEntities(
+      @Nonnull OperationContext opContext,
       @Nonnull List<String> entities,
       @Nonnull String input,
       @Nullable Filter filter,
       int start,
       int count,
       @Nullable SearchFlags searchFlags,
-      @Nullable SortCriterion sortCriterion,
-      @Nonnull final Authentication authentication)
+      @Nullable SortCriterion sortCriterion)
       throws RemoteInvocationException {
     return searchAcrossEntities(
-        entities, input, filter, start, count, searchFlags, sortCriterion, authentication, null);
+        opContext, entities, input, filter, start, count, searchFlags, sortCriterion, null);
   }
 
   /**
@@ -430,8 +456,10 @@ public class JavaEntityClient implements EntityClient {
    * @return Snapshot key
    * @throws RemoteInvocationException
    */
+  @Override
   @Nonnull
   public SearchResult searchAcrossEntities(
+      @Nonnull OperationContext opContext,
       @Nonnull List<String> entities,
       @Nonnull String input,
       @Nullable Filter filter,
@@ -439,34 +467,33 @@ public class JavaEntityClient implements EntityClient {
       int count,
       @Nullable SearchFlags searchFlags,
       @Nullable SortCriterion sortCriterion,
-      @Nonnull final Authentication authentication,
       @Nullable List<String> facets)
       throws RemoteInvocationException {
     final SearchFlags finalFlags =
         searchFlags != null ? searchFlags : new SearchFlags().setFulltext(true);
     return ValidationUtils.validateSearchResult(
         searchService.searchAcrossEntities(
-            entities, input, filter, sortCriterion, start, count, finalFlags, facets),
+            opContext, entities, input, filter, sortCriterion, start, count, finalFlags, facets),
         entityService);
   }
 
   @Nonnull
   @Override
   public ScrollResult scrollAcrossEntities(
+      @Nonnull OperationContext opContext,
       @Nonnull List<String> entities,
       @Nonnull String input,
       @Nullable Filter filter,
       @Nullable String scrollId,
       @Nullable String keepAlive,
       int count,
-      @Nullable SearchFlags searchFlags,
-      @Nonnull Authentication authentication)
+      @Nullable SearchFlags searchFlags)
       throws RemoteInvocationException {
     final SearchFlags finalFlags =
         searchFlags != null ? searchFlags : new SearchFlags().setFulltext(true);
     return ValidationUtils.validateScrollResult(
         searchService.scrollAcrossEntities(
-            entities, input, filter, null, scrollId, keepAlive, count, finalFlags),
+            opContext, entities, input, filter, null, scrollId, keepAlive, count, finalFlags),
         entityService);
   }
 
@@ -624,15 +651,23 @@ public class JavaEntityClient implements EntityClient {
   @Nonnull
   @Override
   public SearchResult filter(
+      @Nonnull OperationContext opContext,
       @Nonnull String entity,
       @Nonnull Filter filter,
       @Nullable SortCriterion sortCriterion,
       int start,
-      int count,
-      @Nonnull final Authentication authentication)
+      int count)
       throws RemoteInvocationException {
     return ValidationUtils.validateSearchResult(
-        entitySearchService.filter(entity, filter, sortCriterion, start, count), entityService);
+        entitySearchService.filter(
+            opContext,
+            entity,
+            filter,
+            new SearchFlags().setFulltext(false),
+            sortCriterion,
+            start,
+            count),
+        entityService);
   }
 
   @Override
