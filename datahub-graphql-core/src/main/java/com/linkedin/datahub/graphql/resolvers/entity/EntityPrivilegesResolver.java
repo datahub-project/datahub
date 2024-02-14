@@ -11,7 +11,6 @@ import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityPrivileges;
 import com.linkedin.datahub.graphql.resolvers.assertion.AssertionUtils;
 import com.linkedin.datahub.graphql.resolvers.dataproduct.DataProductAuthorizationUtils;
-import com.linkedin.datahub.graphql.resolvers.incident.IncidentUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.DescriptionUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.DeprecationUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.DomainUtils;
@@ -161,7 +160,6 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
     result.setCanEditLineage(canEditEntityLineage(urn, context));
     result.setCanEditAssertions(
         AssertionUtils.isAuthorizedToEditAssertionFromAssertee(context, urn));
-    result.setCanEditIncidents(IncidentUtils.isAuthorizedToEditIncidentForResource(urn, context));
     result.setCanEditDomains(DomainUtils.isAuthorizedToUpdateDomainsForEntity(context, urn));
     result.setCanEditDataProducts(
         DataProductAuthorizationUtils.isAuthorizedToUpdateDataProductsForEntity(context, urn));

@@ -281,7 +281,6 @@ public class EntityPrivilegesResolverTest {
     assertTrue(result.getCanEditDescription());
     assertTrue(result.getCanEditLinks());
     assertTrue(result.getCanEditAssertions());
-    assertTrue(result.getCanEditIncidents());
   }
 
   public void validateMissingCommonEntityPrivileges(EntityPrivileges result) {
@@ -295,6 +294,5 @@ public class EntityPrivilegesResolverTest {
     assertFalse(result.getCanEditDescription());
     assertFalse(result.getCanEditLinks());
     assertFalse(result.getCanEditAssertions());
-    assertFalse(result.getCanEditIncidents());
   }
 }

@@ -311,11 +311,6 @@ type EntityPrivileges {
   canEditOwners: Boolean
 
   """
-  Whether or not a user can update the incidents for an asset
-  """
-  canEditIncidents: Boolean
-
-  """
   Whether or not a user can update assertions for an asset
   """
   canEditAssertions: Boolean

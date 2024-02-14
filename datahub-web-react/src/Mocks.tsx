@@ -54,7 +54,6 @@ export const entityPrivileges: EntityPrivileges = {
     canEditLinks: true,
     canEditOwners: true,
     canEditAssertions: true,
-    canEditIncidents: true,
     canEditDeprecation: true,
     canEditSchemaFieldTags: true,
     canEditSchemaFieldGlossaryTerms: true,
