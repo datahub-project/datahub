@@ -114,10 +114,10 @@ def generalize_query(expression: sqlglot.exp.ExpOrStr, dialect: DialectOrStr) ->
             # INSERT INTO TBL
             # VALUES(COLUMN, LITERAL, LITERAL)
             #
-            # as result it will not be generalized as
+            # as result it will be generalized as
             #
             # INSERT INTO TBL
-            # VALUES(COLUMN, ?, ?)
+            # VALUES("str1", ?, ?)
             #
             # instead of
             #
