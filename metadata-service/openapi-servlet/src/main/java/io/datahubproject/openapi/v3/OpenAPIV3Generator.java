@@ -1,7 +1,10 @@
 package io.datahubproject.openapi.v3;
 
+import static io.datahubproject.openapi.util.ReflectionCache.toUpperFirst;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.github.fge.processing.ProcessingUtil;
+import com.google.common.collect.ImmutableMap;
 import com.linkedin.data.avro.SchemaTranslator;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
@@ -32,10 +35,14 @@ public class OpenAPIV3Generator {
   private static final String TYPE_ARRAY = "array";
   private static final String TYPE_INTEGER = "integer";
   private static final String NAME_QUERY = "query";
+  private static final String NAME_PATH = "path";
   private static final String NAME_SYSTEM_METADATA = "systemMetadata";
+  private static final String NAME_ASYNC = "async";
   private static final String NAME_SCROLL_ID = "scrollId";
   private static final String PROPERTY_VALUE = "value";
   private static final String PROPERTY_URN = "urn";
+  private static final String PROPERTY_PATCH = "patch";
+  private static final String PROPERTY_PATCH_PKEY = "arrayPrimaryKeys";
   private static final String PATH_DEFINITIONS = "#/components/schemas/";
   private static final String FORMAT_PATH_DEFINITIONS = "#/components/schemas/%s%s";
   private static final String ASPECT_DESCRIPTION = "Aspect wrapper object.";
@@ -67,6 +74,7 @@ public class OpenAPIV3Generator {
     // TODO: Correct handling of SystemMetadata and SortOrder
     components.addSchemas("SystemMetadata", new Schema().type(TYPE_STRING));
     components.addSchemas("SortOrder", new Schema()._enum(List.of("ASCENDING", "DESCENDING")));
+    components.addSchemas("AspectPatch", buildAspectPatchSchema());
     entityRegistry
         .getAspectSpecs()
         .values()
@@ -115,7 +123,7 @@ public class OpenAPIV3Generator {
                   buildListEntityPath(e));
               paths.addPathItem(
                   String.format("/v3/entity/%s/{urn}", e.getName().toLowerCase()),
-                  buildListEntityPath(e));
+                  buildSingleEntityPath(e));
             });
     entityRegistry.getEntitySpecs().values().stream()
         .filter(e -> definitionNames.contains(e.getName()))
@@ -133,6 +141,97 @@ public class OpenAPIV3Generator {
                                   e, a.getName(), a.getPegasusSchema().getName())));
             });
     return new OpenAPI().openapi("3.0.1").info(info).paths(paths).components(components);
+  }
+
+  private static PathItem buildSingleEntityPath(final EntitySpec entity) {
+    final String upperFirst = toUpperFirst(entity.getName());
+    final String aspectParameterName = upperFirst + "Aspects";
+    final PathItem result = new PathItem();
+
+    // Get Operation
+    final List<Parameter> parameters =
+        List.of(
+            new Parameter()
+                .in(NAME_PATH)
+                .name("urn")
+                .description("The entity's unique URN id.")
+                .schema(new Schema().type(TYPE_STRING)),
+            new Parameter()
+                .in(NAME_QUERY)
+                .name("systemMetadata")
+                .description("Include systemMetadata with response.")
+                .schema(new Schema().type(TYPE_BOOLEAN)._default(false)),
+            new Parameter()
+                .$ref(
+                    String.format(
+                        "#/components/parameters/%s", aspectParameterName + MODEL_VERSION)));
+    final ApiResponse successApiResponse =
+        new ApiResponse()
+            .description("Success")
+            .content(
+                new Content()
+                    .addMediaType(
+                        "application/json",
+                        new MediaType()
+                            .schema(
+                                new Schema()
+                                    .$ref(
+                                        String.format(
+                                            "#/components/schemas/%s%s",
+                                            upperFirst, ENTITY_RESPONSE_SUFFIX)))));
+    final Operation getOperation =
+        new Operation()
+            .summary(String.format("Get %s.", upperFirst))
+            .operationId(String.format("get%s", upperFirst))
+            .parameters(parameters)
+            .tags(List.of(entity.getName() + " Entity"))
+            .responses(new ApiResponses().addApiResponse("200", successApiResponse));
+
+    // Head Operation
+    final ApiResponse successHeadResponse =
+        new ApiResponse()
+            .description(String.format("%s  exists.", entity.getName()))
+            .content(new Content().addMediaType("application/json", new MediaType()));
+    final ApiResponse notFoundHeadResponse =
+        new ApiResponse()
+            .description(String.format("%s does not exist.", entity.getName()))
+            .content(new Content().addMediaType("application/json", new MediaType()));
+    final Operation headOperation =
+        new Operation()
+            .summary(String.format("%s existence.", upperFirst))
+            .operationId(String.format("head%s", upperFirst))
+            .parameters(
+                List.of(
+                    new Parameter()
+                        .in(NAME_PATH)
+                        .name("urn")
+                        .description("The entity's unique URN id.")
+                        .schema(new Schema().type(TYPE_STRING))))
+            .tags(List.of(entity.getName() + " Entity"))
+            .responses(
+                new ApiResponses()
+                    .addApiResponse("204", successHeadResponse)
+                    .addApiResponse("404", notFoundHeadResponse));
+    // Delete Operation
+    final ApiResponse successDeleteResponse =
+        new ApiResponse()
+            .description(String.format("Delete %s entity.", upperFirst))
+            .content(new Content().addMediaType("application/json", new MediaType()));
+    final Operation deleteOperation =
+        new Operation()
+            .summary(String.format("Delete entity %s", upperFirst))
+            .operationId(String.format("delete%s", upperFirst))
+            .parameters(
+                List.of(
+                    new Parameter()
+                        .in(NAME_PATH)
+                        .name("urn")
+                        .description("The entity's unique URN id.")
+                        .schema(new Schema().type(TYPE_STRING))))
+            .tags(List.of(entity.getName() + " Entity"))
+            .responses(new ApiResponses().addApiResponse("200", successDeleteResponse));
+
+    return result.get(getOperation).head(headOperation).delete(deleteOperation);
   }
 
   private static PathItem buildListEntityPath(final EntitySpec entity) {
@@ -171,12 +270,14 @@ public class OpenAPIV3Generator {
                                             upperFirst, ENTITY_RESPONSE_SUFFIX)))));
     result.setGet(
         new Operation()
-            .summary(String.format("Scroll %s.", upperFirst))
+            .summary(String.format("Scroll/List %s.", upperFirst))
             .operationId("scroll")
             .parameters(parameters)
             .tags(List.of(entity.getName() + " Entity"))
             .responses(new ApiResponses().addApiResponse("200", successApiResponse)));
-    final Content requestContent =
+
+    // Post Operation
+    final Content requestCreateContent =
         new Content()
             .addMediaType(
                 "application/json",
@@ -190,9 +291,9 @@ public class OpenAPIV3Generator {
                                         String.format(
                                             "#/components/schemas/%s%s",
                                             upperFirst, ENTITY_REQUEST_SUFFIX)))));
-    final ApiResponse apiResponse =
+    final ApiResponse apiCreateResponse =
         new ApiResponse()
-            .description("Create " + entity.getName() + " entities.")
+            .description("Create a batch of " + entity.getName() + " entities.")
             .content(
                 new Content()
                     .addMediaType(
@@ -207,17 +308,38 @@ public class OpenAPIV3Generator {
                                                 String.format(
                                                     "#/components/schemas/%s%s",
                                                     upperFirst, ENTITY_RESPONSE_SUFFIX))))));
+    final ApiResponse apiCreateAsyncResponse =
+        new ApiResponse()
+            .description("Async batch creation of " + entity.getName() + " entities submitted.")
+            .content(new Content().addMediaType("application/json", new MediaType()));
+
     result.setPost(
         new Operation()
-            .summary("Create " + upperFirst)
-            .operationId("create")
+            .parameters(
+                List.of(
+                    new Parameter()
+                        .in(NAME_ASYNC)
+                        .name("async")
+                        .description("Use async ingestion for high throughput.")
+                        .schema(new Schema().type(TYPE_BOOLEAN)._default(true)),
+                    new Parameter()
+                        .in(NAME_QUERY)
+                        .name(NAME_SYSTEM_METADATA)
+                        .description("Include systemMetadata with response.")
+                        .schema(new Schema().type(TYPE_BOOLEAN)._default(false))))
+            .summary("Create " + upperFirst + " entities.")
+            .operationId("createEntities")
             .tags(List.of(entity.getName() + " Entity"))
             .requestBody(
                 new RequestBody()
                     .description("Create " + entity.getName() + " entities.")
                     .required(true)
-                    .content(requestContent))
-            .responses(new ApiResponses().addApiResponse("201", apiResponse)));
+                    .content(requestCreateContent))
+            .responses(
+                new ApiResponses()
+                    .addApiResponse("200", apiCreateResponse)
+                    .addApiResponse("202", apiCreateAsyncResponse)));
+
     return result;
   }
 
@@ -367,7 +489,7 @@ public class OpenAPIV3Generator {
   private static Schema buildEntityScrollSchema(final EntitySpec entity) {
     return new Schema<>()
         .type(TYPE_OBJECT)
-        .description("Scroll across " + toUpperFirst(entity.getName()) + " objects.")
+        .description("Scroll across (list) " + toUpperFirst(entity.getName()) + " objects.")
         .required(List.of("entities"))
         .addProperty(
             NAME_SCROLL_ID,
@@ -395,6 +517,33 @@ public class OpenAPIV3Generator {
           String.format(FORMAT_PATH_DEFINITIONS, toUpperFirst(aspect), ASPECT_REQUEST_SUFFIX));
     }
     return result;
+  }
+
+  private static Schema buildAspectPatchSchema() {
+    Map<String, Schema> properties =
+        ImmutableMap.<String, Schema>builder()
+            .put(
+                PROPERTY_PATCH,
+                new Schema<>()
+                    .type(TYPE_ARRAY)
+                    .items(
+                        new Schema<>()
+                            .type(TYPE_OBJECT)
+                            .required(List.of("op", "path"))
+                            .properties(
+                                Map.of(
+                                    "op", new Schema<>().type(TYPE_STRING),
+                                    "path", new Schema<>().type(TYPE_STRING),
+                                    "value", new Schema<>().type(TYPE_OBJECT)))))
+            .put(PROPERTY_PATCH_PKEY, new Schema<>().type(TYPE_OBJECT))
+            .build();
+
+    return new Schema<>()
+        .type(TYPE_OBJECT)
+        .description(
+            "Extended JSON Patch to allow for manipulating array sets which represent maps where each element has a unique primary key.")
+        .required(List.of(PROPERTY_PATCH))
+        .properties(properties);
   }
 
   private static PathItem buildSingleEntityAspectPath(
@@ -496,6 +645,45 @@ public class OpenAPIV3Generator {
             .tags(tags)
             .requestBody(requestBody)
             .responses(new ApiResponses().addApiResponse("201", successPostResponse));
+    // Patch Operation
+    final ApiResponse successPatchResponse =
+        new ApiResponse()
+            .description(String.format("Patch aspect %s on %s entity.", aspect, upperFirstEntity))
+            .content(
+                new Content()
+                    .addMediaType(
+                        "application/json",
+                        new MediaType()
+                            .schema(
+                                new Schema()
+                                    .$ref(
+                                        String.format(
+                                            "#/components/schemas/%s%s",
+                                            upperFirstAspect, ASPECT_RESPONSE_SUFFIX)))));
+    final RequestBody patchRequestBody =
+        new RequestBody()
+            .description(String.format("Patch aspect %s on %s entity.", aspect, upperFirstEntity))
+            .required(true)
+            .content(
+                new Content()
+                    .addMediaType(
+                        "application/json",
+                        new MediaType()
+                            .schema(new Schema().$ref("#/components/schemas/AspectPatch"))));
+    final Operation patchOperation =
+        new Operation()
+            .parameters(
+                List.of(
+                    new Parameter()
+                        .in(NAME_QUERY)
+                        .name("systemMetadata")
+                        .description("Include systemMetadata with response.")
+                        .schema(new Schema().type(TYPE_BOOLEAN)._default(false))))
+            .summary(String.format("Patch aspect %s on %s ", aspect, upperFirstEntity))
+            .operationId(String.format("patch%s", upperFirstAspect))
+            .tags(tags)
+            .requestBody(patchRequestBody)
+            .responses(new ApiResponses().addApiResponse("200", successPatchResponse));
     return new PathItem()
         .parameters(
             List.of(
@@ -507,10 +695,7 @@ public class OpenAPIV3Generator {
         .get(getOperation)
         .head(headOperation)
         .delete(deleteOperation)
-        .post(postOperation);
-  }
-
-  private static String toUpperFirst(final String s) {
-    return s.substring(0, 1).toUpperCase() + s.substring(1);
+        .post(postOperation)
+        .patch(patchOperation);
   }
 }
