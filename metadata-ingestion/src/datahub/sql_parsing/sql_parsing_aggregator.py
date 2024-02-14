@@ -7,13 +7,14 @@ import pathlib
 import tempfile
 from collections import defaultdict
 from datetime import datetime, timezone
-from typing import Callable, Dict, Iterable, List, Optional, Set, cast
+from typing import Callable, Dict, Iterable, List, Optional, Set, Union, cast
 
 import datahub.metadata.schema_classes as models
 from datahub.emitter.mce_builder import get_sys_time, make_ts_millis
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.sql_parsing_builder import compute_upstream_fields
 from datahub.ingestion.api.report import Report
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig, UsageAggregator
 from datahub.metadata.urns import (
@@ -246,7 +247,7 @@ class SqlParsingAggregator:
         return self.generate_lineage or self.generate_usage_statistics
 
     def register_schema(
-        self, urn: DatasetUrn, schema: models.SchemaMetadataClass
+        self, urn: Union[str, DatasetUrn], schema: models.SchemaMetadataClass
     ) -> None:
         # If lineage or usage is enabled, adds the schema to the schema resolver
         # by putting the condition in here, we can avoid all the conditional
@@ -254,6 +255,16 @@ class SqlParsingAggregator:
 
         if self._need_schemas:
             self._schema_resolver.add_schema_metadata(str(urn), schema)
+
+    def register_schemas_from_stream(
+        self, stream: Iterable[MetadataWorkUnit]
+    ) -> Iterable[MetadataWorkUnit]:
+        for wu in stream:
+            schema_metadata = wu.get_aspect_of_type(models.SchemaMetadataClass)
+            if schema_metadata:
+                self.register_schema(wu.get_urn(), schema_metadata)
+
+            yield wu
 
     def _initialize_schema_resolver_from_graph(self, graph: DataHubGraph) -> None:
         # requires a graph instance
@@ -696,6 +707,7 @@ class SqlParsingAggregator:
                 entityUrn=self._query_urn(query_id),
                 aspects=[
                     models.QueryPropertiesClass(
+                        dataPlatform=self.platform.urn(),
                         statement=models.QueryStatementClass(
                             value=query.formatted_query_string,
                             language=models.QueryLanguageClass.SQL,

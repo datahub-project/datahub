@@ -6,7 +6,7 @@ from freezegun import freeze_time
 
 import datahub.emitter.mce_builder as builder
 from datahub.metadata.urns import CorpUserUrn, DatasetUrn
-from datahub.sql_parsing.sql_parsing_aggregator_v2 import (
+from datahub.sql_parsing.sql_parsing_aggregator import (
     QueryLogSetting,
     SqlParsingAggregator,
 )
