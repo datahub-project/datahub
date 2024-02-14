@@ -931,6 +931,11 @@ enum EntityType {
     """
     CUSTOM_OWNERSHIP_TYPE
 
+    """
+    A DataHub incident - SaaS only
+    """
+    INCIDENT
+
     """"
     A Role from an organisation
     """
@@ -1697,7 +1702,7 @@ type VersionedDataset implements Entity {
     domain: DomainAssociation
 
     """
-    Experimental! The resolved health status of the Dataset
+    Experimental! The resolved health status of the asset
     """
     health: [Health!]
 
@@ -5162,6 +5167,11 @@ type Dashboard implements EntityWithRelationships & Entity & BrowsableEntity {
     structuredProperties: StructuredProperties
 
     """
+    Experimental! The resolved health statuses of the asset
+    """
+    health: [Health!]
+
+    """
     The forms associated with the Dataset
     """
     forms: Forms
@@ -5486,6 +5496,11 @@ type Chart implements EntityWithRelationships & Entity & BrowsableEntity {
     Structured properties about this asset
     """
     structuredProperties: StructuredProperties
+
+    """
+    Experimental! The resolved health statuses of the asset
+    """
+    health: [Health!]
 
     """
     The forms associated with the Dataset
@@ -5861,6 +5876,11 @@ type DataFlow implements EntityWithRelationships & Entity & BrowsableEntity {
     structuredProperties: StructuredProperties
 
     """
+    Experimental! The resolved health statuses of the asset
+    """
+    health: [Health!]
+
+    """
     The forms associated with the Dataset
     """
     forms: Forms
@@ -6075,6 +6095,11 @@ type DataJob implements EntityWithRelationships & Entity & BrowsableEntity {
     Structured properties about this asset
     """
     structuredProperties: StructuredProperties
+
+    """
+    Experimental! The resolved health statuses of the asset
+    """
+    health: [Health!]
 
     """
     The forms associated with the Dataset
@@ -10290,6 +10315,11 @@ enum HealthStatusType {
   Assertions status
   """
   ASSERTIONS
+
+  """
+  Incidents status
+  """
+  INCIDENTS
 }
 
 """

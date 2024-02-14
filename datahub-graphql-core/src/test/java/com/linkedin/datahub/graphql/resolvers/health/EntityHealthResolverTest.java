@@ -1,4 +1,4 @@
-package com.linkedin.datahub.graphql.resolvers.dataset;
+package com.linkedin.datahub.graphql.resolvers.health;
 
 import static org.testng.Assert.*;
 
@@ -14,6 +14,7 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.Health;
 import com.linkedin.datahub.graphql.generated.HealthStatus;
+import com.linkedin.datahub.graphql.resolvers.dataset.DatasetHealthResolver;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
@@ -25,7 +26,8 @@ import java.util.List;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
-public class DatasetHealthResolverTest {
+// TODO: Update this test once assertions summary has been added.
+public class EntityHealthResolverTest {
 
   private static final String TEST_DATASET_URN = "urn:li:dataset:(test,test,test)";
   private static final String TEST_ASSERTION_URN = "urn:li:assertion:test-guid";

@@ -60,6 +60,7 @@ public class Constants {
   public static final String CONTAINER_ENTITY_NAME = "container";
   public static final String DOMAIN_ENTITY_NAME = "domain";
   public static final String ASSERTION_ENTITY_NAME = "assertion";
+  public static final String INCIDENT_ENTITY_NAME = "incident";
   public static final String INGESTION_SOURCE_ENTITY_NAME = "dataHubIngestionSource";
   public static final String SECRETS_ENTITY_NAME = "dataHubSecret";
   public static final String EXECUTION_REQUEST_ENTITY_NAME = "dataHubExecutionRequest";
@@ -100,6 +101,7 @@ public class Constants {
   public static final String ORIGIN_ASPECT_NAME = "origin";
   public static final String INPUT_FIELDS_ASPECT_NAME = "inputFields";
   public static final String EMBED_ASPECT_NAME = "embed";
+  public static final String INCIDENTS_SUMMARY_ASPECT_NAME = "incidentsSummary";
 
   // User
   public static final String CORP_USER_KEY_ASPECT_NAME = "corpUserKey";
@@ -272,6 +274,10 @@ public class Constants {
   public static final String TEST_INFO_ASPECT_NAME = "testInfo";
   public static final String TEST_RESULTS_ASPECT_NAME = "testResults";
 
+  // Incident
+  public static final String INCIDENT_KEY_ASPECT_NAME = "incidentKey";
+  public static final String INCIDENT_INFO_ASPECT_NAME = "incidentInfo";
+
   // DataHub Ingestion Source
   public static final String INGESTION_SOURCE_KEY_ASPECT_NAME = "dataHubIngestionSourceKey";
   public static final String INGESTION_INFO_ASPECT_NAME = "dataHubIngestionSourceInfo";
@@ -385,6 +391,9 @@ public class Constants {
   public static final String PARENT_INSTANCE_URN_KEY = "parentInstanceUrn";
   public static final String DATA_FLOW_URN_KEY = "dataFlowUrn";
   public static final String DATA_JOB_URN_KEY = "dataJobUrn";
+
+  // Incidents
+  public static final String ENTITY_REF = "entities";
 
   // Config
   public static final String ELASTICSEARCH_IMPLEMENTATION_OPENSEARCH = "opensearch";
