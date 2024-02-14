@@ -620,7 +620,7 @@ class SqlParsingAggregator:
 
         # Generate lineage and queries.
         queries_generated: Set[QueryId] = set()
-        for downstream_urn in self._lineage_map:
+        for downstream_urn in sorted(self._lineage_map):
             yield from self._gen_lineage_for_downstream(
                 downstream_urn, queries_generated=queries_generated
             )

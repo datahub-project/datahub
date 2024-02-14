@@ -1,6 +1,31 @@
 [
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.bar,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 1707182625000,
+                        "actor": "urn:li:corpuser:_ingestion"
+                    },
+                    "created": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:_ingestion"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:s3,bucket1/key1,PROD)",
+                    "type": "COPY"
+                }
+            ],
+            "fineGrainedLineages": []
+        }
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.foo,PROD)",
     "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
@@ -42,31 +67,6 @@
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.foo,PROD)",
-                    "type": "COPY"
-                }
-            ],
-            "fineGrainedLineages": []
-        }
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.bar,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "upstreamLineage",
-    "aspect": {
-        "json": {
-            "upstreams": [
-                {
-                    "auditStamp": {
-                        "time": 1707182625000,
-                        "actor": "urn:li:corpuser:_ingestion"
-                    },
-                    "created": {
-                        "time": 0,
-                        "actor": "urn:li:corpuser:_ingestion"
-                    },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:s3,bucket1/key1,PROD)",
                     "type": "COPY"
                 }
             ],
