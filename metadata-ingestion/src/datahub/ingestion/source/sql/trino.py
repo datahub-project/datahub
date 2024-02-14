@@ -1,7 +1,9 @@
+import functools
 import json
 import uuid
+from dataclasses import dataclass
 from textwrap import dedent
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Iterable, List, Optional, Union
 
 import sqlalchemy
 import trino
@@ -16,6 +18,12 @@ from trino.exceptions import TrinoQueryError
 from trino.sqlalchemy import datatype
 from trino.sqlalchemy.dialect import TrinoDialect
 
+from datahub.configuration.source_common import (
+    EnvConfigMixin,
+    PlatformInstanceConfigMixin,
+)
+from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -25,12 +33,18 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.extractor import schema_util
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemySource,
+    SqlWorkUnit,
     register_custom_type,
 )
-from datahub.ingestion.source.sql.sql_config import BasicSQLAlchemyConfig
+from datahub.ingestion.source.sql.sql_config import (
+    BasicSQLAlchemyConfig,
+    SQLCommonConfig,
+)
+from datahub.metadata.com.linkedin.pegasus2avro.common import Siblings
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     MapTypeClass,
     NumberTypeClass,
@@ -41,6 +55,21 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 register_custom_type(datatype.ROW, RecordTypeClass)
 register_custom_type(datatype.MAP, MapTypeClass)
 register_custom_type(datatype.DOUBLE, NumberTypeClass)
+
+
+@dataclass
+class PlatformDetail:
+    platform_name: str
+    is_three_tier: bool
+
+
+KNOWN_CONNECTOR_PLATFORM_MAPPING = {
+    "hive": PlatformDetail("hive", False),
+    "postgresql": PlatformDetail("postgres", True),
+    "mysql": PlatformDetail("mysql", False),
+    "redshift": PlatformDetail("redshift", True),
+    "bigquery": PlatformDetail("bigquery", True),
+}
 
 # Type JSON was introduced in trino sqlalchemy dialect in version 0.317.0
 if version.parse(trino.__version__) >= version.parse("0.317.0"):
@@ -131,9 +160,41 @@ TrinoDialect.get_table_comment = get_table_comment
 TrinoDialect._get_columns = _get_columns
 
 
+@functools.lru_cache()
+def get_catalog_connector_name(
+    catalog_name: str, inspector: Inspector
+) -> Optional[str]:
+    if inspector.engine:
+        query = dedent(
+            """
+            SELECT *
+            FROM "system"."metadata"."catalogs"
+        """
+        ).strip()
+        res = inspector.engine.execute(sql.text(query))
+        catalog_connector_dict = {row.catalog_name: row.connector_name for row in res}
+        return catalog_connector_dict.get(catalog_name)
+    return None
+
+
+class ConnectorDetail(PlatformInstanceConfigMixin, EnvConfigMixin):
+    connector_database: Optional[str] = Field(default=None, description="")
+
+
 class TrinoConfig(BasicSQLAlchemyConfig):
     # defaults
     scheme: str = Field(default="trino", description="", hidden_from_docs=True)
+
+    catalog_to_connector_details: Dict[str, ConnectorDetail] = Field(
+        default={},
+        description="A mapping of trino catalog to its connector details like connector database, platform instance."
+        "This configuration is used to ingest siblings of datasets. Use catalog name as key."
+        "For three tier connectors like postgresql, connector database is required.",
+    )
+
+    ingest_siblings: bool = Field(
+        default=True, description="Whether siblings of datasets should be ingested"
+    )
 
     def get_identifier(self: BasicSQLAlchemyConfig, schema: str, table: str) -> str:
         identifier = f"{schema}.{table}"
@@ -174,6 +235,68 @@ class TrinoSource(SQLAlchemySource):
             return f"{self.config.database}"
         else:
             return super().get_db_name(inspector)
+
+    def _get_sibling_urn(
+        self,
+        dataset_name: str,
+        inspector: Inspector,
+        schema: str,
+        table: str,
+    ) -> Optional[str]:
+        catalog_name = dataset_name.split(".")[0]
+        connector_platform_details: Optional[PlatformDetail] = None
+
+        connector_name = get_catalog_connector_name(catalog_name, inspector)
+        if connector_name:
+            connector_platform_details = KNOWN_CONNECTOR_PLATFORM_MAPPING.get(
+                connector_name
+            )
+
+        connector_details = self.config.catalog_to_connector_details.get(
+            catalog_name, ConnectorDetail()
+        )
+
+        if connector_platform_details:
+            if not connector_platform_details.is_three_tier:  # connector is two tier
+                return make_dataset_urn_with_platform_instance(
+                    platform=connector_platform_details.platform_name,
+                    name=f"{schema}.{table}",
+                    platform_instance=connector_details.platform_instance,
+                    env=connector_details.env,
+                )
+            elif connector_details.connector_database:  # connector is three tier
+                return make_dataset_urn_with_platform_instance(
+                    platform=connector_platform_details.platform_name,
+                    name=f"{connector_details.connector_database}.{schema}.{table}",
+                    platform_instance=connector_details.platform_instance,
+                    env=connector_details.env,
+                )
+
+        return None
+
+    def _process_table(
+        self,
+        dataset_name: str,
+        inspector: Inspector,
+        schema: str,
+        table: str,
+        sql_config: SQLCommonConfig,
+    ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
+        yield from super()._process_table(
+            dataset_name, inspector, schema, table, sql_config
+        )
+        dataset_urn = make_dataset_urn_with_platform_instance(
+            self.platform,
+            dataset_name,
+            self.config.platform_instance,
+            self.config.env,
+        )
+        sibling_urn = self._get_sibling_urn(dataset_name, inspector, schema, table)
+        if self.config.ingest_siblings and sibling_urn:
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn,
+                aspect=Siblings(primary=False, siblings=[sibling_urn]),
+            ).as_workunit()
 
     @classmethod
     def create(cls, config_dict, ctx):
