@@ -13,7 +13,6 @@ const validateURL = (fieldName) => {
     };
 };
 
-
 export const AZURE_CLIENT_ID: RecipeField = {
     name: 'client_id',
     label: 'Client ID',
@@ -42,7 +41,7 @@ export const AZURE_CLIENT_SECRET: RecipeField = {
     tooltip: 'The Azure client secret.',
     type: FieldType.SECRET,
     fieldPath: 'source.config.client_secret',
-    placeholder: '${AZURE_AD_CLIENT_SECRET}',
+    placeholder: '00000000-0000-0000-0000-000000000000',
     required: true,
     rules: null,
 };
@@ -72,7 +71,8 @@ export const AZURE_AUTHORITY_URL: RecipeField = {
 export const AZURE_TOKEN_URL: RecipeField = {
     name: 'token_url',
     label: 'Token URL',
-    tooltip: 'The token URL that acquires a token from Azure AD for authorizing requests. This source will only work with v1.0 endpoint.',
+    tooltip:
+        'The token URL that acquires a token from Azure AD for authorizing requests. This source will only work with v1.0 endpoint.',
     type: FieldType.TEXT,
     fieldPath: 'source.config.token_url',
     placeholder: 'https://login.microsoftonline.com/00000000-0000-0000-0000-000000000000/oauth2/token',
@@ -156,7 +156,6 @@ export const USER_ALLOW: RecipeField = {
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
         setListValuesOnRecipe(recipe, values, schemaAllowFieldPathUser),
 };
-
 
 const schemaDenyFieldPathUser = 'source.config.users_pattern.deny';
 export const USER_DENY: RecipeField = {
