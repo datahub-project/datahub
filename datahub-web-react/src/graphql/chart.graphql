@@ -100,8 +100,7 @@ query getChart($urn: String!) {
             ...inputFieldsFields
         }
         privileges {
-            canEditLineage
-            canEditEmbed
+            ...entityPrivileges
         }
         subTypes {
             typeNames

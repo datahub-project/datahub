@@ -189,9 +189,7 @@ fragment nonSiblingDatasetFields on Dataset {
         total
     }
     privileges {
-        canEditLineage
-        canEditEmbed
-        canEditQueries
+        ...entityPrivileges
     }
     forms {
         completedForms {
@@ -308,9 +306,7 @@ fragment siblingFields on Dataset {
         }
     }
     privileges {
-        canEditLineage
-        canEditEmbed
-        canEditQueries
+        ...entityPrivileges
     }
     upstream: lineage(input: { direction: UPSTREAM, start: 0, count: 100 }) {
         ...fullLineageResults
