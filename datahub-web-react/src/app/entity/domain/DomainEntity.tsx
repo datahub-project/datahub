@@ -66,6 +66,8 @@ export class DomainEntity implements Entity<Domain> {
 
     getCollectionName = () => 'Domains';
 
+    useEntityQuery = useGetDomainQuery;
+
     renderProfile = (urn: string) => (
         <EntityProfile
             urn={urn}
@@ -97,16 +99,18 @@ export class DomainEntity implements Entity<Domain> {
                     component: PropertiesTab,
                 },
             ]}
-            sidebarSections={[
-                {
-                    component: SidebarAboutSection,
-                },
-                {
-                    component: SidebarOwnerSection,
-                },
-            ]}
+            sidebarSections={this.getSidebarSections()}
         />
     );
+
+    getSidebarSections = () => [
+        {
+            component: SidebarAboutSection,
+        },
+        {
+            component: SidebarOwnerSection,
+        },
+    ];
 
     renderPreview = (_: PreviewType, data: Domain) => {
         return (

@@ -1,5 +1,6 @@
+import { QueryHookOptions, QueryResult } from '@apollo/client';
 import React from 'react';
-import { Entity as EntityInterface, EntityType, SearchResult } from '../../types.generated';
+import { Entity as EntityInterface, EntityType, Exact, SearchResult } from '../../types.generated';
 import { FetchedEntity } from '../lineage/types';
 import { SearchResultProvider } from '../search/context/SearchResultContext';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from './Entity';
@@ -113,6 +114,25 @@ export default class EntityRegistry {
         } catch (e) {
             return def;
         }
+    }
+
+    getEntityQuery(type: EntityType):
+        | ((
+              baseOptions: QueryHookOptions<
+                  any,
+                  Exact<{
+                      urn: string;
+                  }>
+              >,
+          ) => QueryResult<
+              any,
+              Exact<{
+                  urn: string;
+              }>
+          >)
+        | undefined {
+        const entity = validatedGet(type, this.entityTypeToEntity);
+        return entity.useEntityQuery;
     }
 
     renderProfile(type: EntityType, urn: string): JSX.Element {
