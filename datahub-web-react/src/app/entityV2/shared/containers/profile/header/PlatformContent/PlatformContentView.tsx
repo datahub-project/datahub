@@ -3,7 +3,6 @@ import styled from 'styled-components';
 import { Typography, Image } from 'antd';
 import { Maybe } from 'graphql/jsutils/Maybe';
 import { Container, Entity } from '../../../../../../../types.generated';
-import { ANTD_GRAY } from '../../../../constants';
 import ContainerLink from './ContainerLink';
 import { ParentNodesWrapper as ParentContainersWrapper, Ellipsis, StyledTooltip } from './ParentNodesView';
 import ParentEntities from '../../../../../../search/filters/ParentEntities';

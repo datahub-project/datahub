@@ -2,9 +2,9 @@ import React from 'react';
 import Icon from '@ant-design/icons';
 import { Typography } from 'antd';
 import styled from 'styled-components/macro';
+import { Maybe } from 'graphql/jsutils/Maybe';
 import FolderIcon from '../../images/folder-open.svg?react';
 import { BusinessGlossaryEntitiesCardColors } from '../onboarding/config/BusinessGlossaryConfigV2';
-import { Maybe } from 'graphql/jsutils/Maybe';
 import { EntityType } from '../../types.generated';
 
 interface GlossaryItemCardHeaderProps {

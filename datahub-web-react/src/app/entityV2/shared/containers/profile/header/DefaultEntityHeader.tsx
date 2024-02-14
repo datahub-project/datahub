@@ -11,7 +11,7 @@ import EntityTitleLoadingSection from './EntityHeaderLoadingSection';
 import EntityPlatformLoadingSection from './EntityPlatformLoadingSection';
 import IconColorPicker from './IconPicker/IconColorPicker';
 
-import EntityMenuActions, { EntityMenuItems } from '../../../EntityDropdown/EntityMenuActions';
+import { EntityMenuItems } from '../../../EntityDropdown/EntityMenuActions';
 import { EntitySubHeaderSection } from '../../../types';
 import { DisplayProperties, Domain, EntityType } from '../../../../../../types.generated';
 import { DomainColoredIcon } from '../../../links/DomainColoredIcon';
@@ -134,7 +134,6 @@ export const DefaultEntityHeader = ({
     entityData,
     refetch,
     headerActionItems,
-    headerDropdownItems,
     subHeader,
     showEditName,
     isColorEditable,

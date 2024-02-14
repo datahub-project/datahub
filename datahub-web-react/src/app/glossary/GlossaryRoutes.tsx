@@ -6,7 +6,6 @@ import { GlossaryEntityContext } from '../entity/shared/GlossaryEntityContext';
 import { GenericEntityProperties } from '../entity/shared/types';
 import BusinessGlossaryPage from './BusinessGlossaryPage';
 import BusinessGlossaryPageV2 from '../glossaryV2/BusinessGlossaryPage';
-import GlossaryEntitiesPath from './GlossaryEntitiesPath';
 import { EntityPage } from '../entity/EntityPage';
 import GlossarySidebar from './GlossarySidebar';
 import { useEntityRegistry } from '../useEntityRegistry';
@@ -26,7 +25,6 @@ export default function GlossaryRoutes() {
     const [urnsToUpdate, setUrnsToUpdate] = useState<string[]>([]);
     const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true);
 
-    const isAtRootGlossary = window.location.pathname === PageRoutes.GLOSSARY;
     const appConfig = useAppConfig();
     const authenticatedUser = useGetAuthenticatedUser();
     const canManageGlossary = authenticatedUser?.platformPrivileges.manageGlossaries || false;
