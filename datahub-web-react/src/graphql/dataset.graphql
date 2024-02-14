@@ -164,9 +164,7 @@ fragment nonSiblingDatasetFields on Dataset {
         isPrimary
     }
     privileges {
-        canEditLineage
-        canEditEmbed
-        canEditQueries
+        ...entityPrivileges
     }
     forms {
         ...formsFields

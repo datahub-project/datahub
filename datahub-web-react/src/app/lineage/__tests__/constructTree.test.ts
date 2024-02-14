@@ -9,6 +9,7 @@ import {
     dataset6WithLineage,
     dataFlow1,
     dataset1,
+    entityPrivileges,
 } from '../../../Mocks';
 import { DataPlatform, EntityType, RelationshipDirection } from '../../../types.generated';
 import { getTestEntityRegistry } from '../../../utils/test-utils/TestPageContainer';
@@ -42,7 +43,6 @@ describe('constructTree', () => {
             icon: undefined,
             platform: kafkaPlatform,
             schemaMetadata: dataset3.schemaMetadata,
-            canEditLineage: false,
         });
     });
 
@@ -399,7 +399,6 @@ describe('constructTree', () => {
             platform: kafkaPlatform,
             subtype: undefined,
             schemaMetadata: updatedDataset6WithLineage.schemaMetadata,
-            canEditLineage: false,
             children: [
                 {
                     name: 'DataJobInfoName',
@@ -413,7 +412,6 @@ describe('constructTree', () => {
                     status: null,
                     platform: airflowPlatform,
                     subtype: undefined,
-                    canEditLineage: false,
                 },
             ],
         });

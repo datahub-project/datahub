@@ -9,8 +9,16 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityPrivileges;
+import com.linkedin.datahub.graphql.resolvers.dataproduct.DataProductAuthorizationUtils;
+import com.linkedin.datahub.graphql.resolvers.incident.IncidentUtils;
+import com.linkedin.datahub.graphql.resolvers.mutate.DescriptionUtils;
+import com.linkedin.datahub.graphql.resolvers.mutate.util.DeprecationUtils;
+import com.linkedin.datahub.graphql.resolvers.mutate.util.DomainUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.EmbedUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.GlossaryUtils;
+import com.linkedin.datahub.graphql.resolvers.mutate.util.LabelUtils;
+import com.linkedin.datahub.graphql.resolvers.mutate.util.LinkUtils;
+import com.linkedin.datahub.graphql.resolvers.mutate.util.OwnerUtils;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.authorization.PoliciesConfig;
@@ -18,6 +26,7 @@ import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.Collections;
 import java.util.concurrent.CompletableFuture;
+import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -52,9 +61,11 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
               return getDataJobPrivileges(urn, context);
             default:
               log.warn(
-                  "Tried to get entity privileges for entity type {} but nothing is implemented for it yet",
+                  "Tried to get entity privileges for entity type {}. Adding common privileges only.",
                   urn.getEntityType());
-              return new EntityPrivileges();
+              EntityPrivileges commonPrivileges = new EntityPrivileges();
+              addCommonPrivileges(commonPrivileges, urn, context);
+              return commonPrivileges;
           }
         });
   }
@@ -72,6 +83,7 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
           GlossaryUtils.canManageChildrenEntities(context, parentNodeUrn, _entityClient);
       result.setCanManageEntity(canManage);
     }
+    addCommonPrivileges(result, termUrn, context);
     return result;
   }
 
@@ -93,6 +105,7 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
           GlossaryUtils.canManageChildrenEntities(context, parentNodeUrn, _entityClient);
       result.setCanManageEntity(canManage);
     }
+    addCommonPrivileges(result, nodeUrn, context);
     return result;
   }
 
@@ -117,7 +130,6 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
 
   private EntityPrivileges getDatasetPrivileges(Urn urn, QueryContext context) {
     final EntityPrivileges result = new EntityPrivileges();
-    result.setCanEditLineage(canEditEntityLineage(urn, context));
     result.setCanEditEmbed(EmbedUtils.isAuthorizedToUpdateEmbedForEntity(urn, context));
     result.setCanEditQueries(AuthorizationUtils.canCreateQuery(ImmutableList.of(urn), context));
     return result;
@@ -125,21 +137,39 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
 
   private EntityPrivileges getChartPrivileges(Urn urn, QueryContext context) {
     final EntityPrivileges result = new EntityPrivileges();
-    result.setCanEditLineage(canEditEntityLineage(urn, context));
     result.setCanEditEmbed(EmbedUtils.isAuthorizedToUpdateEmbedForEntity(urn, context));
+    addCommonPrivileges(result, urn, context);
     return result;
   }
 
   private EntityPrivileges getDashboardPrivileges(Urn urn, QueryContext context) {
     final EntityPrivileges result = new EntityPrivileges();
-    result.setCanEditLineage(canEditEntityLineage(urn, context));
     result.setCanEditEmbed(EmbedUtils.isAuthorizedToUpdateEmbedForEntity(urn, context));
+    addCommonPrivileges(result, urn, context);
     return result;
   }
 
   private EntityPrivileges getDataJobPrivileges(Urn urn, QueryContext context) {
     final EntityPrivileges result = new EntityPrivileges();
-    result.setCanEditLineage(canEditEntityLineage(urn, context));
+    addCommonPrivileges(result, urn, context);
     return result;
+  }
+
+  private void addCommonPrivileges(
+      @Nonnull EntityPrivileges result, @Nonnull Urn urn, @Nonnull QueryContext context) {
+    result.setCanEditLineage(canEditEntityLineage(urn, context));
+    result.setCanEditAssertions(
+        AssertionUtils.isAuthorizedToEditAssertionFromAssertee(context, urn));
+    result.setCanEditIncidents(IncidentUtils.isAuthorizedToEditIncidentForResource(urn, context));
+    result.setCanEditDomains(DomainUtils.isAuthorizedToUpdateDomainsForEntity(context, urn));
+    result.setCanEditDataProducts(
+        DataProductAuthorizationUtils.isAuthorizedToUpdateDataProductsForEntity(context, urn));
+    result.setCanEditDeprecation(
+        DeprecationUtils.isAuthorizedToUpdateDeprecationForEntity(context, urn));
+    result.setCanEditGlossaryTerms(LabelUtils.isAuthorizedToUpdateTerms(context, urn, null));
+    result.setCanEditTags(LabelUtils.isAuthorizedToUpdateTags(context, urn, null));
+    result.setCanEditOwners(OwnerUtils.isAuthorizedToUpdateOwners(context, urn));
+    result.setCanEditDescription(DescriptionUtils.isAuthorizedToUpdateDescription(context, urn));
+    result.setCanEditLinks(LinkUtils.isAuthorizedToUpdateLinks(context, urn));
   }
 }

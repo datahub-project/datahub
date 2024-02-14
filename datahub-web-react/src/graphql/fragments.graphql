@@ -393,7 +393,7 @@ fragment dataJobFields on DataJob {
         ...dataPlatformInstanceFields
     }
     privileges {
-        canEditLineage
+        ...entityPrivileges
     }
     browsePathV2 {
         ...browsePathV2Fields
@@ -493,8 +493,7 @@ fragment dashboardFields on Dashboard {
         typeNames
     }
     privileges {
-        canEditLineage
-        canEditEmbed
+        ...entityPrivileges
     }
 }
 
@@ -1334,4 +1333,25 @@ fragment formsFields on Forms {
             }
         }
     }
+}
+
+fragment entityPrivileges on EntityPrivileges {
+    canEditLineage
+    canEditDomains
+    canEditDataProducts
+    canEditTags
+    canEditGlossaryTerms
+    canEditDescription
+    canEditLinks
+    canEditOwners
+    canEditAssertions
+    canEditIncidents
+    canEditDeprecation
+    canEditSchemaFieldTags
+    canEditSchemaFieldGlossaryTerms
+    canEditSchemaFieldDescription
+    canEditQueries
+    canEditEmbed
+    canManageEntity
+    canManageChildren
 }
