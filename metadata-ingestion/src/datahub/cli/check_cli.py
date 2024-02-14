@@ -218,5 +218,7 @@ def sql_lineage(
     )
 
     logger.debug("Sql parsing debug info: %s", lineage.debug_info)
+    if lineage.debug_info.error:
+        logger.debug("Sql parsing error details", exc_info=lineage.debug_info.error)
 
     click.echo(lineage.json(indent=4))
