@@ -14,7 +14,6 @@ services:
     environment:
       - GRAPH_SERVICE_IMPL=${GRAPH_SERVICE_IMPL:-elasticsearch}
   mysql-setup:
-    container_name: mysql-setup
     hostname: mysql-setup
     image: ${DATAHUB_MYSQL_SETUP_IMAGE:-acryldata/datahub-mysql-setup}:${DATAHUB_VERSION:-head}
     build:
@@ -30,7 +29,6 @@ services:
     environment:
     - DATAHUB_PRECREATE_TOPICS=${DATAHUB_PRECREATE_TOPICS:-false}
   mysql:
-    container_name: mysql
     hostname: mysql
     image: mysql:${DATAHUB_MYSQL_VERSION:-5.7}
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_bin --default-authentication-plugin=mysql_native_password

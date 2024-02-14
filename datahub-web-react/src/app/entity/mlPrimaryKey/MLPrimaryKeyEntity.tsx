@@ -64,6 +64,8 @@ export class MLPrimaryKeyEntity implements Entity<MlPrimaryKey> {
         };
     };
 
+    useEntityQuery = useGetMlPrimaryKeyQuery;
+
     renderProfile = (urn: string) => (
         <EntityProfile
             urn={urn}
@@ -89,32 +91,34 @@ export class MLPrimaryKeyEntity implements Entity<MlPrimaryKey> {
                     component: PropertiesTab,
                 },
             ]}
-            sidebarSections={[
-                {
-                    component: SidebarAboutSection,
-                },
-                {
-                    component: SidebarOwnerSection,
-                    properties: {
-                        defaultOwnerType: OwnershipType.TechnicalOwner,
-                    },
-                },
-                {
-                    component: SidebarTagsSection,
-                    properties: {
-                        hasTags: true,
-                        hasTerms: true,
-                    },
-                },
-                {
-                    component: SidebarDomainSection,
-                },
-                {
-                    component: DataProductSection,
-                },
-            ]}
+            sidebarSections={this.getSidebarSections()}
         />
     );
+
+    getSidebarSections = () => [
+        {
+            component: SidebarAboutSection,
+        },
+        {
+            component: SidebarOwnerSection,
+            properties: {
+                defaultOwnerType: OwnershipType.TechnicalOwner,
+            },
+        },
+        {
+            component: SidebarTagsSection,
+            properties: {
+                hasTags: true,
+                hasTerms: true,
+            },
+        },
+        {
+            component: SidebarDomainSection,
+        },
+        {
+            component: DataProductSection,
+        },
+    ];
 
     renderPreview = (_: PreviewType, data: MlPrimaryKey) => {
         const genericProperties = this.getGenericEntityProperties(data);

@@ -57,6 +57,9 @@ fragment lineageNodeProperties on EntityWithRelationships {
                 }
             }
         }
+        health {
+            ...entityHealth
+        }
     }
     ... on DataFlow {
         orchestrator
@@ -88,6 +91,9 @@ fragment lineageNodeProperties on EntityWithRelationships {
         ...entityDataProduct
         status {
             removed
+        }
+        health {
+            ...entityHealth
         }
     }
     ... on Dashboard {
@@ -144,6 +150,9 @@ fragment lineageNodeProperties on EntityWithRelationships {
         subTypes {
             typeNames
         }
+        health {
+            ...entityHealth
+        }
     }
     ... on Chart {
         tool
@@ -173,6 +182,9 @@ fragment lineageNodeProperties on EntityWithRelationships {
         }
         subTypes {
             typeNames
+        }
+        health {
+            ...entityHealth
         }
     }
     ... on Dataset {
@@ -211,10 +223,7 @@ fragment lineageNodeProperties on EntityWithRelationships {
             }
         }
         health {
-            type
-            status
-            message
-            causes
+            ...entityHealth
         }
     }
     ... on MLModelGroup {

@@ -50,6 +50,12 @@ fragment dataFlowFields on DataFlow {
     browsePathV2 {
         ...browsePathV2Fields
     }
+    health {
+        ...entityHealth
+    }
+    activeIncidents: incidents(start: 0, count: 1, state: ACTIVE) {
+        total
+    }
 }
 
 query getDataFlow($urn: String!) {
@@ -109,6 +115,9 @@ query getDataFlow($urn: String!) {
             properties {
                 ...structuredPropertiesFields
             }
+        }
+        forms {
+            ...formsFields
         }
     }
 }

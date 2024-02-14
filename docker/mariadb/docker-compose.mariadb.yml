@@ -3,7 +3,6 @@
 version: '3.8'
 services:
   mariadb:
-    container_name: mariadb
     hostname: mariadb
     image: mariadb:10.5
     env_file: env/docker.env

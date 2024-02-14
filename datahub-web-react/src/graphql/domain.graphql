@@ -35,6 +35,9 @@ query getDomain($urn: String!) {
                 ...structuredPropertiesFields
             }
         }
+        forms {
+            ...formsFields
+        }
         ...domainEntitiesFields
     }
 }

@@ -63,6 +63,7 @@ import com.linkedin.datahub.graphql.generated.GetRootGlossaryTermsResult;
 import com.linkedin.datahub.graphql.generated.GlossaryNode;
 import com.linkedin.datahub.graphql.generated.GlossaryTerm;
 import com.linkedin.datahub.graphql.generated.GlossaryTermAssociation;
+import com.linkedin.datahub.graphql.generated.IncidentSource;
 import com.linkedin.datahub.graphql.generated.IngestionSource;
 import com.linkedin.datahub.graphql.generated.InstitutionalMemoryMetadata;
 import com.linkedin.datahub.graphql.generated.LineageRelationship;
@@ -125,7 +126,6 @@ import com.linkedin.datahub.graphql.resolvers.dataproduct.CreateDataProductResol
 import com.linkedin.datahub.graphql.resolvers.dataproduct.DeleteDataProductResolver;
 import com.linkedin.datahub.graphql.resolvers.dataproduct.ListDataProductAssetsResolver;
 import com.linkedin.datahub.graphql.resolvers.dataproduct.UpdateDataProductResolver;
-import com.linkedin.datahub.graphql.resolvers.dataset.DatasetHealthResolver;
 import com.linkedin.datahub.graphql.resolvers.dataset.DatasetStatsSummaryResolver;
 import com.linkedin.datahub.graphql.resolvers.dataset.DatasetUsageStatsResolver;
 import com.linkedin.datahub.graphql.resolvers.deprecation.UpdateDeprecationResolver;
@@ -158,6 +158,10 @@ import com.linkedin.datahub.graphql.resolvers.group.EntityCountsResolver;
 import com.linkedin.datahub.graphql.resolvers.group.ListGroupsResolver;
 import com.linkedin.datahub.graphql.resolvers.group.RemoveGroupMembersResolver;
 import com.linkedin.datahub.graphql.resolvers.group.RemoveGroupResolver;
+import com.linkedin.datahub.graphql.resolvers.health.EntityHealthResolver;
+import com.linkedin.datahub.graphql.resolvers.incident.EntityIncidentsResolver;
+import com.linkedin.datahub.graphql.resolvers.incident.RaiseIncidentResolver;
+import com.linkedin.datahub.graphql.resolvers.incident.UpdateIncidentStatusResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.execution.CancelIngestionExecutionRequestResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.execution.CreateIngestionExecutionRequestResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.execution.CreateTestConnectionRequestResolver;
@@ -305,6 +309,7 @@ import com.linkedin.datahub.graphql.types.entitytype.EntityTypeType;
 import com.linkedin.datahub.graphql.types.form.FormType;
 import com.linkedin.datahub.graphql.types.glossary.GlossaryNodeType;
 import com.linkedin.datahub.graphql.types.glossary.GlossaryTermType;
+import com.linkedin.datahub.graphql.types.incident.IncidentType;
 import com.linkedin.datahub.graphql.types.mlmodel.MLFeatureTableType;
 import com.linkedin.datahub.graphql.types.mlmodel.MLFeatureType;
 import com.linkedin.datahub.graphql.types.mlmodel.MLModelGroupType;
@@ -460,6 +465,7 @@ public class GmsGraphQLEngine {
   private final DataTypeType dataTypeType;
   private final EntityTypeType entityTypeType;
   private final FormType formType;
+  private final IncidentType incidentType;
 
   private final int graphQLQueryComplexityLimit;
   private final int graphQLQueryDepthLimit;
@@ -567,6 +573,7 @@ public class GmsGraphQLEngine {
     this.dataTypeType = new DataTypeType(entityClient);
     this.entityTypeType = new EntityTypeType(entityClient);
     this.formType = new FormType(entityClient);
+    this.incidentType = new IncidentType(entityClient);
 
     this.graphQLQueryComplexityLimit = args.graphQLQueryComplexityLimit;
     this.graphQLQueryDepthLimit = args.graphQLQueryDepthLimit;
@@ -609,7 +616,8 @@ public class GmsGraphQLEngine {
             structuredPropertyType,
             dataTypeType,
             entityTypeType,
-            formType);
+            formType,
+            incidentType);
     this.loadableTypes = new ArrayList<>(entityTypes);
     // Extend loadable types with types from the plugins
     // This allows us to offer search and browse capabilities out of the box for those types
@@ -698,6 +706,7 @@ public class GmsGraphQLEngine {
     configurePluginResolvers(builder);
     configureStructuredPropertyResolvers(builder);
     configureFormResolvers(builder);
+    configureIncidentResolvers(builder);
   }
 
   private void configureOrganisationRoleResolvers(RuntimeWiring.Builder builder) {
@@ -747,7 +756,8 @@ public class GmsGraphQLEngine {
         .addSchema(fileBasedSchema(STEPS_SCHEMA_FILE))
         .addSchema(fileBasedSchema(LINEAGE_SCHEMA_FILE))
         .addSchema(fileBasedSchema(PROPERTIES_SCHEMA_FILE))
-        .addSchema(fileBasedSchema(FORMS_SCHEMA_FILE));
+        .addSchema(fileBasedSchema(FORMS_SCHEMA_FILE))
+        .addSchema(fileBasedSchema(INCIDENTS_SCHEMA_FILE));
 
     for (GmsGraphQLPlugin plugin : this.graphQLPlugins) {
       List<String> pluginSchemaFiles = plugin.getSchemaFiles();
@@ -1202,7 +1212,11 @@ public class GmsGraphQLEngine {
                     "createDynamicFormAssignment",
                     new CreateDynamicFormAssignmentResolver(this.formService))
                 .dataFetcher(
-                    "verifyForm", new VerifyFormResolver(this.formService, this.groupService)));
+                    "verifyForm", new VerifyFormResolver(this.formService, this.groupService))
+                .dataFetcher("raiseIncident", new RaiseIncidentResolver(this.entityClient))
+                .dataFetcher(
+                    "updateIncidentStatus",
+                    new UpdateIncidentStatusResolver(this.entityClient, this.entityService)));
   }
 
   private void configureGenericEntityResolvers(final RuntimeWiring.Builder builder) {
@@ -1485,7 +1499,12 @@ public class GmsGraphQLEngine {
                     .dataFetcher("usageStats", new DatasetUsageStatsResolver(this.usageClient))
                     .dataFetcher("statsSummary", new DatasetStatsSummaryResolver(this.usageClient))
                     .dataFetcher(
-                        "health", new DatasetHealthResolver(graphClient, timeseriesAspectService))
+                        "health",
+                        new EntityHealthResolver(
+                            entityClient,
+                            graphClient,
+                            timeseriesAspectService,
+                            new EntityHealthResolver.Config(true, true)))
                     .dataFetcher("schemaMetadata", new AspectResolver())
                     .dataFetcher(
                         "assertions", new EntityAssertionsResolver(entityClient, graphClient))
@@ -1834,7 +1853,14 @@ public class GmsGraphQLEngine {
                 .dataFetcher(
                     "statsSummary", new DashboardStatsSummaryResolver(timeseriesAspectService))
                 .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
-                .dataFetcher("exists", new EntityExistsResolver(entityService)));
+                .dataFetcher("exists", new EntityExistsResolver(entityService))
+                .dataFetcher(
+                    "health",
+                    new EntityHealthResolver(
+                        entityClient,
+                        graphClient,
+                        timeseriesAspectService,
+                        new EntityHealthResolver.Config(false, true))));
     builder.type(
         "DashboardInfo",
         typeWiring ->
@@ -1951,7 +1977,14 @@ public class GmsGraphQLEngine {
                 .dataFetcher(
                     "statsSummary", new ChartStatsSummaryResolver(this.timeseriesAspectService))
                 .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
-                .dataFetcher("exists", new EntityExistsResolver(entityService)));
+                .dataFetcher("exists", new EntityExistsResolver(entityService))
+                .dataFetcher(
+                    "health",
+                    new EntityHealthResolver(
+                        entityClient,
+                        graphClient,
+                        timeseriesAspectService,
+                        new EntityHealthResolver.Config(false, true))));
     builder.type(
         "ChartInfo",
         typeWiring ->
@@ -2056,7 +2089,14 @@ public class GmsGraphQLEngine {
                             }))
                     .dataFetcher("runs", new DataJobRunsResolver(entityClient))
                     .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
-                    .dataFetcher("exists", new EntityExistsResolver(entityService)))
+                    .dataFetcher("exists", new EntityExistsResolver(entityService))
+                    .dataFetcher(
+                        "health",
+                        new EntityHealthResolver(
+                            entityClient,
+                            graphClient,
+                            timeseriesAspectService,
+                            new EntityHealthResolver.Config(false, true))))
         .type(
             "DataJobInputOutput",
             typeWiring ->
@@ -2119,7 +2159,14 @@ public class GmsGraphQLEngine {
                           return dataFlow.getDataPlatformInstance() != null
                               ? dataFlow.getDataPlatformInstance().getUrn()
                               : null;
-                        })));
+                        }))
+                .dataFetcher(
+                    "health",
+                    new EntityHealthResolver(
+                        entityClient,
+                        graphClient,
+                        timeseriesAspectService,
+                        new EntityHealthResolver.Config(false, true))));
   }
 
   /**
@@ -2659,5 +2706,36 @@ public class GmsGraphQLEngine {
                               ? ingestionSource.getPlatform().getUrn()
                               : null;
                         })));
+  }
+
+  private void configureIncidentResolvers(final RuntimeWiring.Builder builder) {
+    builder.type(
+        "Incident",
+        typeWiring ->
+            typeWiring.dataFetcher(
+                "relationships", new EntityRelationshipsResultResolver(graphClient)));
+    builder.type(
+        "IncidentSource",
+        typeWiring ->
+            typeWiring.dataFetcher(
+                "source",
+                new LoadableTypeResolver<>(
+                    this.assertionType,
+                    (env) -> {
+                      final IncidentSource incidentSource = env.getSource();
+                      return incidentSource.getSource() != null
+                          ? incidentSource.getSource().getUrn()
+                          : null;
+                    })));
+
+    // Add incidents attribute to all entities that support it
+    final List<String> entitiesWithIncidents =
+        ImmutableList.of("Dataset", "DataJob", "DataFlow", "Dashboard", "Chart");
+    for (String entity : entitiesWithIncidents) {
+      builder.type(
+          entity,
+          typeWiring ->
+              typeWiring.dataFetcher("incidents", new EntityIncidentsResolver(entityClient)));
+    }
   }
 }
