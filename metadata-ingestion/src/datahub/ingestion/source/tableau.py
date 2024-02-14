@@ -377,7 +377,13 @@ class TableauConfig(
 
     force_extraction_of_lineage_from_custom_sql_queries: bool = Field(
         default=False,
-        description="[Experimental] Forces extraction of lineage from custom sql queries using SQL parsing, ignoring Tableau metadata",
+        description="[Experimental] Force extraction of lineage from custom sql queries using SQL parsing, ignoring Tableau metadata",
+    )
+
+    disable_schema_awarenes_during_parsing_of_sql_queries: bool = Field(
+        default=False,
+        description="[Experimental] Ignore pre ingested tables schemas during parsing of SQL queries "
+        "(allows to workaround ingestion errors when pre ingested schema and queries are out of sync)",
     )
 
     # pre = True because we want to take some decision before pydantic initialize the configuration to default values
@@ -1697,7 +1703,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
             platform_instance=platform_instance,
             env=env,
             graph=self.ctx.graph,
-            schema_aware=not self.config.ingest_tables_external,
+            schema_aware=not self.config.disable_schema_awarenes_during_parsing_of_sql_queries,
         )
 
     def enrich_database_tables_with_parsed_schemas(
