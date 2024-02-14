@@ -973,6 +973,7 @@ public class GmsGraphQLEngine {
                 .dataFetcher(
                     "getAccessTokenMetadata",
                     new GetAccessTokenMetadataResolver(statefulTokenService, this.entityClient))
+                .dataFetcher("debugAccess", new DebugAccessResolver(this.entityClient, graphClient))
                 .dataFetcher("container", getResolver(containerType))
                 .dataFetcher("listDomains", new ListDomainsResolver(this.entityClient))
                 .dataFetcher("listSecrets", new ListSecretsResolver(this.entityClient))
