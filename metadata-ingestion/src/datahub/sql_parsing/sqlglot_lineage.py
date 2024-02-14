@@ -504,7 +504,7 @@ def _column_level_lineage(  # noqa: C901
 
                     # Parse the column name out of the node name.
                     # Sqlglot calls .sql(), so we have to do the inverse.
-                    if node.name == '*':
+                    if node.name == "*":
                         continue
 
                     normalized_col = sqlglot.parse_one(node.name).this.name
@@ -719,10 +719,10 @@ def _translate_sqlglot_type(
 
 def _transform_to_in_tables_schemas(
     table_name_urn_mapping: Dict[_TableName, str],
-    raw_lineage: List[_ColumnLineageInfo],
-    in_tables: List[str]
+    in_tables: List[str],
+    raw_lineage: Optional[List[_ColumnLineageInfo]],
 ) -> Dict[Urn, Set[str]]:
-    table_urn_to_schema_map = { it: set() for it in in_tables }
+    table_urn_to_schema_map: dict[str, set] = {it: set() for it in in_tables}
 
     if raw_lineage:
         for cli in raw_lineage:
@@ -731,8 +731,8 @@ def _transform_to_in_tables_schemas(
                 if upstream_table_urn in table_urn_to_schema_map:
                     table_urn_to_schema_map[upstream_table_urn].add(upstream.column)
                 else:
-                    table_urn_to_schema_map[upstream_table_urn] = { upstream.column }
-    
+                    table_urn_to_schema_map[upstream_table_urn] = {upstream.column}
+
     return table_urn_to_schema_map
 
 
@@ -777,7 +777,7 @@ def _sqlglot_lineage_inner(
     schema_resolver: SchemaResolverInterface,
     default_db: Optional[str] = None,
     default_schema: Optional[str] = None,
-    schema_aware: bool = True
+    schema_aware: bool = True,
 ) -> SqlParsingResult:
     dialect = get_dialect(schema_resolver.platform)
     if is_dialect_instance(dialect, "snowflake"):
@@ -913,13 +913,13 @@ def _sqlglot_lineage_inner(
         ]
 
     in_tables_schemas = _transform_to_in_tables_schemas(
-        table_name_urn_mapping, column_lineage, in_urns
+        table_name_urn_mapping, in_urns, column_lineage
     )
 
     query_type, query_type_props = get_query_type_of_sql(
         original_statement, dialect=dialect
     )
-    
+
     query_fingerprint = get_query_fingerprint(original_statement, dialect=dialect)
 
     return SqlParsingResult(
@@ -940,7 +940,7 @@ def sqlglot_lineage(
     schema_resolver: SchemaResolverInterface,
     default_db: Optional[str] = None,
     default_schema: Optional[str] = None,
-    schema_aware: bool = True
+    schema_aware: bool = True,
 ) -> SqlParsingResult:
     """Parse a SQL statement and generate lineage information.
 
@@ -997,7 +997,7 @@ def sqlglot_lineage(
             schema_resolver=schema_resolver,
             default_db=default_db,
             default_schema=default_schema,
-            schema_aware = schema_aware
+            schema_aware=schema_aware,
         )
     except Exception as e:
         return SqlParsingResult.make_from_error(e)
@@ -1011,7 +1011,7 @@ def create_lineage_sql_parsed_result(
     env: str,
     default_schema: Optional[str] = None,
     graph: Optional[DataHubGraph] = None,
-    schema_aware: bool = True
+    schema_aware: bool = True,
 ) -> SqlParsingResult:
     if graph:
         needs_close = False
@@ -1035,7 +1035,7 @@ def create_lineage_sql_parsed_result(
             schema_resolver=schema_resolver,
             default_db=default_db,
             default_schema=default_schema,
-            schema_aware = schema_aware
+            schema_aware=schema_aware,
         )
     except Exception as e:
         return SqlParsingResult.make_from_error(e)

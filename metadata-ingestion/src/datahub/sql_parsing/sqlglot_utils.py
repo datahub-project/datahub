@@ -3,7 +3,7 @@ from typing import Dict, Iterable, Optional, Union
 
 import sqlglot
 
-from datahub.utilities.dialects.patched.tsql import TSQLv2
+from datahub.sql_parsing.dialects.patched.tsql import TSQLv2
 
 DialectOrStr = Union[sqlglot.Dialect, str]
 
@@ -16,7 +16,7 @@ def _get_dialect_str(platform: str) -> str:
         return "tsql"
     elif platform == "athena":
         return "trino"
-    # TODO: define SalesForce SOQL dialect 
+    # TODO: define SalesForce SOQL dialect
     # Temporary workaround is to treat SOQL as databricks dialect
     elif platform == "salesforce":
         return "databricks"
@@ -34,12 +34,13 @@ def _get_dialect_str(platform: str) -> str:
 def get_dialect(platform: DialectOrStr) -> sqlglot.Dialect:
     if isinstance(platform, sqlglot.Dialect):
         return platform
-    
+
     dialect_str = _get_dialect_str(platform)
-    if dialect_str == 'tsql':
+    if dialect_str == "tsql":
         return TSQLv2()
     else:
         return sqlglot.Dialect.get_or_raise(dialect_str)
+
 
 def is_dialect_instance(
     dialect: sqlglot.Dialect, platforms: Union[str, Iterable[str]]

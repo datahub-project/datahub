@@ -835,6 +835,7 @@ def test_tableau_unsupported_csql(mock_datahub_graph):
                     "connectionType": "bigquery",
                 },
             },
+            out_columns=[],
         )
 
         mcp = cast(MetadataChangeProposalClass, next(iter(lineage)).metadata)
@@ -852,6 +853,7 @@ def test_tableau_unsupported_csql(mock_datahub_graph):
             mcp.entityUrn
             == "urn:li:dataset:(urn:li:dataPlatform:tableau,09988088-05ad-173c-a2f1-f33ba3a13d1a,PROD)"
         )
+
 
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration

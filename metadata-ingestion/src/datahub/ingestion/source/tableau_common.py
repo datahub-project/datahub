@@ -2,7 +2,7 @@ import html
 import logging
 from dataclasses import dataclass
 from functools import lru_cache
-from typing import Dict, List, Optional, Tuple, Any
+from typing import Any, Dict, List, Optional, Tuple
 
 from pydantic.fields import Field
 from tableauserverclient import Server
@@ -762,9 +762,13 @@ def make_upstream_class(
 
 
 def make_fine_grained_lineage_class(
-    parsed_result: Optional[SqlParsingResult], dataset_urn: str, out_columns: List[Dict[Any, Any]]
+    parsed_result: Optional[SqlParsingResult],
+    dataset_urn: str,
+    out_columns: List[Dict[Any, Any]],
 ) -> List[FineGrainedLineage]:
-    out_columns_map = { col.get(c.NAME).casefold(): col.get(c.NAME) for col in out_columns }
+    out_columns_map = {
+        col.get(c.NAME, "").casefold(): col.get(c.NAME, "") for col in out_columns
+    }
 
     fine_grained_lineages: List[FineGrainedLineage] = []
 
@@ -777,7 +781,15 @@ def make_fine_grained_lineage_class(
 
     for cll_info in cll:
         downstream = (
-            [builder.make_schema_field_urn(dataset_urn, out_columns_map.get(cll_info.downstream.column.casefold(), cll_info.downstream.column))]
+            [
+                builder.make_schema_field_urn(
+                    dataset_urn,
+                    out_columns_map.get(
+                        cll_info.downstream.column.casefold(),
+                        cll_info.downstream.column,
+                    ),
+                )
+            ]
             if cll_info.downstream is not None
             and cll_info.downstream.column is not None
             else []

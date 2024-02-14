@@ -437,33 +437,43 @@ class DatabaseTable:
     """
 
     urn: str
-    id: Optional[str] = None # is not None only for tables that came from Tableau metadata
+    id: Optional[
+        str
+    ] = None  # is not None only for tables that came from Tableau metadata
     num_cols: Optional[int] = None
 
-    paths: Optional[Set[str]] = None  # maintains all browse paths encountered for this table
-    
-    parsed_columns: Optional[Set[str]] = None # maintains all columns encountered for this table during parsing SQL queries
+    paths: Optional[
+        Set[str]
+    ] = None  # maintains all browse paths encountered for this table
+
+    parsed_columns: Optional[
+        Set[str]
+    ] = None  # maintains all columns encountered for this table during parsing SQL queries
 
     def update_table(
-        self, id: Optional[str] = None, num_tbl_cols: Optional[int] = None, path: Optional[str] = None, parsed_columns: Optional[Set[str]] = None
+        self,
+        id: Optional[str] = None,
+        num_tbl_cols: Optional[int] = None,
+        path: Optional[str] = None,
+        parsed_columns: Optional[Set[str]] = None,
     ) -> None:
         if path:
             if self.paths:
                 self.paths.add(path)
             else:
-                self.paths = { path }
-        
+                self.paths = {path}
+
         # the new instance of table has columns information, prefer its id.
         if not self.num_cols and num_tbl_cols:
             self.id = id
             self.num_cols = num_tbl_cols
-        
+
         if parsed_columns:
             if self.parsed_columns:
                 self.parsed_columns.update(parsed_columns)
             else:
                 self.parsed_columns = parsed_columns
-        
+
 
 class TableauSourceReport(StaleEntityRemovalSourceReport):
     get_all_datasources_query_failed: bool = False
@@ -1154,7 +1164,10 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                     and upstream_table_id in table_id_to_urn.keys()
                 ):
                     parent_dataset_urn = table_id_to_urn[upstream_table_id]
-                    if self.is_snowflake_urn(parent_dataset_urn) and not self.config.ingest_tables_external:
+                    if (
+                        self.is_snowflake_urn(parent_dataset_urn)
+                        and not self.config.ingest_tables_external
+                    ):
                         # This is required for column level lineage to work correctly as
                         # DataHub Snowflake source lowercases all field names in the schema.
                         name = name.lower()
@@ -1318,7 +1331,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
         )
 
         unique_custom_sql = get_unique_custom_sql(custom_sql_connection)
-        
+
         for csql in unique_custom_sql:
             csql_id: str = csql[c.ID]
             csql_urn = builder.make_dataset_urn_with_platform_instance(
@@ -1382,7 +1395,9 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                         yield from self._create_lineage_to_upstream_tables(
                             csql_urn, tables, datasource
                         )
-                    elif self.config.extract_lineage_from_unsupported_custom_sql_queries:
+                    elif (
+                        self.config.extract_lineage_from_unsupported_custom_sql_queries
+                    ):
                         logger.debug("Extracting TLL & CLL from custom sql")
                         # custom sql tables may contain unsupported sql, causing incomplete lineage
                         # we extract the lineage from the raw queries
@@ -1592,16 +1607,13 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                 aspect=upstream_lineage,
             )
 
-    def _substitude_tableau_parameters(
-        self,
-        query: str
-    ) -> str:
+    def _substitude_tableau_parameters(self, query: str) -> str:
         if not query:
             return query
-        
+
         #
         # It replaces all following occurrences by 1
-        # which is enough to fix syntax of SQL query 
+        # which is enough to fix syntax of SQL query
         # and make sqlglot parser happy:
         #
         #   <[Parameters].[SomeParameterName]>
@@ -1609,11 +1621,12 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
         #   <[Parameters].SomeParameterName>
         #   <Parameters.SomeParameterName>
         #
-        return \
-            re.sub(r"\<\[[Pp]arameters\]\.\[?[^\]]+\]?\>", '1', query) \
-                .replace("<<", "<") \
-                .replace(">>", ">") \
-                .replace("\n\n", "\n")
+        return (
+            re.sub(r"\<\[[Pp]arameters\]\.\[?[^\]]+\]?\>", "1", query)
+            .replace("<<", "<")
+            .replace(">>", ">")
+            .replace("\n\n", "\n")
+        )
 
     def parse_custom_sql(
         self,
@@ -1636,11 +1649,13 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
     ) -> Optional["SqlParsingResult"]:
         database_info = datasource.get(c.DATABASE) or {
             c.NAME: c.UNKNOWN.lower(),
-            c.CONNECTION_TYPE: "databricks"
+            c.CONNECTION_TYPE: "databricks",
         }
 
-        if datasource.get(c.IS_UNSUPPORTED_CUSTOM_SQL) in (None, False) and \
-            not self.config.force_extraction_of_lineage_from_custom_sql_queries:
+        if (
+            datasource.get(c.IS_UNSUPPORTED_CUSTOM_SQL) in (None, False)
+            and not self.config.force_extraction_of_lineage_from_custom_sql_queries
+        ):
             logger.debug(f"datasource {datasource_urn} is not created from custom sql")
             return None
 
@@ -1682,22 +1697,25 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
             platform_instance=platform_instance,
             env=env,
             graph=self.ctx.graph,
-            schema_aware = not self.config.ingest_tables_external
+            schema_aware=not self.config.ingest_tables_external,
         )
-    
+
     def enrich_database_tables_with_parsed_schemas(
-        self,
-        in_tables_schemas: Dict[str, Set[str]]
-    ):       
+        self, in_tables_schemas: Optional[Dict[str, Set[str]]]
+    ) -> None:
         if not in_tables_schemas:
-            return        
-        
+            return
+
         for table_urn, columns in in_tables_schemas.items():
             if table_urn in self.database_tables:
-                self.database_tables[table_urn].update_table(table_urn, parsed_columns = columns)
+                self.database_tables[table_urn].update_table(
+                    table_urn, parsed_columns=columns
+                )
             else:
-                self.database_tables[table_urn] = DatabaseTable(urn = table_urn, parsed_columns = columns)
-    
+                self.database_tables[table_urn] = DatabaseTable(
+                    urn=table_urn, parsed_columns=columns
+                )
+
     def _create_lineage_from_unsupported_csql(
         self, csql_urn: str, csql: dict, out_columns: List[Dict[Any, Any]]
     ) -> Iterable[MetadataWorkUnit]:
@@ -1720,7 +1738,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
             logger.debug(
                 f"The schema of incoming tables was not inferred from {csql_urn}"
             )
-        
+
         self.enrich_database_tables_with_parsed_schemas(parsed_result.in_tables_schemas)
 
         upstream_tables = make_upstream_class(parsed_result)
@@ -1867,7 +1885,11 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
         dataset_snapshot.aspects.append(dataset_props)
 
         # Upstream Tables
-        if datasource.get(c.UPSTREAM_TABLES) or datasource.get(c.UPSTREAM_DATA_SOURCES) or datasource.get(c.FIELDS):
+        if (
+            datasource.get(c.UPSTREAM_TABLES)
+            or datasource.get(c.UPSTREAM_DATA_SOURCES)
+            or datasource.get(c.FIELDS)
+        ):
             # datasource -> db table relations
             (
                 upstream_tables,
@@ -1967,17 +1989,17 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
             # only tables that came from Tableau metadata have id
             if tbl.id:
                 tableau_database_table_id_to_urn_map[tbl.id] = urn
-        
-        tables_filter = (
-            f"{c.ID_WITH_IN}: {json.dumps(list(tableau_database_table_id_to_urn_map.keys()))}"
-        )
+
+        tables_filter = f"{c.ID_WITH_IN}: {json.dumps(list(tableau_database_table_id_to_urn_map.keys()))}"
 
         for tableau_table in self.get_connection_objects(
             database_tables_graphql_query,
             c.DATABASE_TABLES_CONNECTION,
             tables_filter,
         ):
-            database_table = self.database_tables[tableau_database_table_id_to_urn_map[tableau_table[c.ID]]]
+            database_table = self.database_tables[
+                tableau_database_table_id_to_urn_map[tableau_table[c.ID]]
+            ]
             tableau_columns = tableau_table.get(c.COLUMNS, [])
             is_embedded = tableau_table.get(c.IS_EMBEDDED) or False
             if not is_embedded and not self.config.ingest_tables_external:
@@ -1985,9 +2007,9 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                     f"Skipping external table {database_table.urn} as ingest_tables_external is set to False"
                 )
                 continue
-            
+
             yield from self.emit_table(database_table, tableau_columns)
-        
+
         for database_table in self.database_tables.values():
             if database_table.id:
                 logger.debug(
@@ -2004,7 +2026,9 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
             yield from self.emit_table(database_table, None)
 
     def emit_table(
-        self, database_table: DatabaseTable, tableau_columns: dict
+        self,
+        database_table: DatabaseTable,
+        tableau_columns: Optional[List[Dict[str, Any]]],
     ) -> Iterable[MetadataWorkUnit]:
         logger.debug(
             f"Emiting external table {database_table} tableau_columns {tableau_columns}"
@@ -2025,17 +2049,21 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
         else:
             logger.debug(f"Browse path not set for table {database_table.urn}")
 
-        schema_metadata = self.get_schema_metadata_for_table(tableau_columns, database_table.parsed_columns)
+        schema_metadata = self.get_schema_metadata_for_table(
+            tableau_columns, database_table.parsed_columns
+        )
         if schema_metadata is not None:
             dataset_snapshot.aspects.append(schema_metadata)
 
         yield self.get_metadata_change_event(dataset_snapshot)
 
     def get_schema_metadata_for_table(
-        self, tableau_columns: List[dict], parsed_columns: Optional[Set[str]] = None
+        self,
+        tableau_columns: Optional[List[Dict[str, Any]]],
+        parsed_columns: Optional[Set[str]] = None,
     ) -> Optional[SchemaMetadata]:
         schema_metadata: Optional[SchemaMetadata] = None
-        
+
         fields = []
 
         if tableau_columns:
@@ -2059,18 +2087,22 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                 fields.append(schema_field)
 
         if parsed_columns:
-            remaining_columns = parsed_columns.difference(map(lambda x: x.get(c.NAME), tableau_columns)) if tableau_columns else parsed_columns
+            remaining_columns = (
+                parsed_columns.difference(map(lambda x: x.get(c.NAME), tableau_columns))
+                if tableau_columns
+                else parsed_columns
+            )
             remaining_schema_fields = [
                 SchemaField(
                     fieldPath=col,
                     type=SchemaFieldDataType(type=NullTypeClass()),
                     description="",
                     nativeDataType=c.UNKNOWN,
-                ) \
+                )
                 for col in remaining_columns
             ]
             fields.extend(remaining_schema_fields)
-            
+
         if fields:
             schema_metadata = SchemaMetadata(
                 schemaName="test",
@@ -2082,7 +2114,6 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
             )
 
         return schema_metadata
-
 
     def get_sheetwise_upstream_datasources(self, sheet: dict) -> set:
         sheet_upstream_datasources = set()
