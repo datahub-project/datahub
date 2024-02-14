@@ -5,6 +5,7 @@ import json
 import logging
 import pathlib
 import tempfile
+import uuid
 from collections import defaultdict
 from datetime import datetime, timezone
 from typing import Callable, Dict, Iterable, List, Optional, Set, Union, cast
@@ -58,8 +59,6 @@ class QueryLogSetting(enum.Enum):
 
 @dataclasses.dataclass
 class ViewDefinition:
-    # TODO view urn?
-
     view_definition: str
     default_db: Optional[str] = None
     default_schema: Optional[str] = None
@@ -295,6 +294,56 @@ class SqlParsingAggregator:
             env=self.env,
         )
 
+    def add_known_query_lineage(self, TODO) -> None:
+        pass
+
+    def add_known_lineage_mapping(
+        self,
+        upstream_urn: UrnStr,
+        downstream_urn: UrnStr,
+        lineage_type: str = models.DatasetLineageTypeClass.COPY,
+    ) -> None:
+        """Add a known lineage mapping to the aggregator.
+
+        By mapping, we mean that the downstream is effectively a copy or
+        alias of the upstream. This is useful for things like external tables
+        (e.g. Redshift Spectrum, Redshift UNLOADs, Snowflake external tables).
+
+        Because this method takes in urns, it does not require that the urns
+        are part of the platform that the aggregator is configured for.
+
+        TODO: In the future, this method will also generate CLL if we have
+        schemas for either the upstream or downstream.
+
+        The known lineage mapping does not contribute to usage statistics or operations.
+
+        Args:
+            upstream_urn: The upstream dataset URN.
+            downstream_urn: The downstream dataset URN.
+        """
+
+        # We generate a fake "query" object to hold the lineage.
+        query_id = self._known_lineage_query_id()
+
+        # Register the query.
+        self._add_to_query_map(
+            QueryMetadata(
+                query_id=query_id,
+                formatted_query_string="-skip-",
+                session_id=_MISSING_SESSION_ID,
+                query_type=QueryType.UNKNOWN,
+                lineage_type=lineage_type,
+                latest_timestamp=None,
+                actor=None,
+                upstreams=[upstream_urn],
+                column_lineage=[],
+                confidence_score=1.0,
+            )
+        )
+
+        # Register the lineage.
+        self._lineage_map.for_mutation(downstream_urn, OrderedSet()).add(query_id)
+
     def add_view_definition(
         self,
         view_urn: DatasetUrn,
@@ -460,6 +509,10 @@ class SqlParsingAggregator:
     def _process_view_definition(
         self, view_urn: UrnStr, view_definition: ViewDefinition
     ) -> None:
+        # Note that in some cases, the view definition will be a SELECT statement
+        # instead of a CREATE VIEW ... AS SELECT statement. In those cases, we can't
+        # trust the parsed query type or downstream urn.
+
         # Run the SQL parser.
         parsed = self._run_sql_parser(
             view_definition.view_definition,
@@ -474,10 +527,6 @@ class SqlParsingAggregator:
             return  # we can't do anything with this query
         elif parsed.debug_info.error:
             self.report.num_views_column_failed += 1
-
-        # Note that in some cases, the view definition will be a SELECT statement
-        # instead of a CREATE VIEW ... AS SELECT statement. In those cases, we can't
-        # trust the parsed query type or downstream urn.
 
         query_fingerprint = self._view_query_id(view_urn)
 
@@ -550,15 +599,6 @@ class SqlParsingAggregator:
             current.confidence_score = new.confidence_score
         else:
             self._query_map[query_fingerprint] = new
-
-    """
-    def add_lineage(self) -> None:
-        # A secondary mechanism for adding non-SQL-based lineage
-        # e.g. redshift external tables might use this when pointing at s3
-
-        # TODO Add this once we have a use case for it
-        pass
-    """
 
     def gen_metadata(self) -> Iterable[MetadataChangeProposalWrapper]:
         # diff from v1 - we generate operations here, and it also
@@ -651,7 +691,9 @@ class SqlParsingAggregator:
                     dataset=upstream_urn,
                     type=queries_map[query_id].lineage_type,
                     query=(
-                        self._query_urn(query_id) if self.generate_queries else None
+                        self._query_urn(query_id)
+                        if self.can_generate_query(query_id)
+                        else None
                     ),
                     created=query.make_created_audit_stamp(),
                     auditStamp=models.AuditStampClass(
@@ -682,7 +724,9 @@ class SqlParsingAggregator:
                             SchemaFieldUrn(downstream_urn, downstream_column).urn()
                         ],
                         query=(
-                            self._query_urn(query_id) if self.generate_queries else None
+                            self._query_urn(query_id)
+                            if self.can_generate_query(query_id)
+                            else None
                         ),
                         confidenceScore=queries_map[query_id].confidence_score,
                     )
@@ -693,9 +737,10 @@ class SqlParsingAggregator:
             aspect=upstream_aspect,
         )
 
-        if not self.generate_queries:
-            return
         for query_id in required_queries:
+            if not self.can_generate_query(query_id):
+                continue
+
             # Avoid generating the same query twice.
             if query_id in queries_generated:
                 continue
@@ -740,6 +785,19 @@ class SqlParsingAggregator:
     @classmethod
     def _view_query_id(cls, view_urn: UrnStr) -> str:
         return f"view_{DatasetUrn.url_encode(view_urn)}"
+
+    @classmethod
+    def _known_lineage_query_id(cls) -> str:
+        return f"known_{uuid.uuid4()}"
+
+    @classmethod
+    def _is_known_lineage_query_id(cls, query_id: QueryId) -> bool:
+        # Our query fingerprints are hex and won't have underscores, so this will
+        # never conflict with a real query fingerprint.
+        return query_id.startswith("known_")
+
+    def can_generate_query(self, query_id: QueryId) -> bool:
+        return self.generate_queries and not self._is_known_lineage_query_id(query_id)
 
     def _resolve_query_with_temp_tables(
         self,

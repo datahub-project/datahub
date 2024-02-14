@@ -215,3 +215,36 @@ def test_view_lineage(pytestconfig: pytest.Config) -> None:
         outputs=mcps,
         golden_path=RESOURCE_DIR / "test_view_lineage.json",
     )
+
+
+@freeze_time(FROZEN_TIME)
+def test_known_lineage_mapping(pytestconfig: pytest.Config) -> None:
+    aggregator = SqlParsingAggregator(
+        platform="redshift",
+        platform_instance=None,
+        env=builder.DEFAULT_ENV,
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+    )
+
+    aggregator.add_known_lineage_mapping(
+        upstream_urn=DatasetUrn("redshift", "dev.public.bar").urn(),
+        downstream_urn=DatasetUrn("redshift", "dev.public.foo").urn(),
+    )
+    aggregator.add_known_lineage_mapping(
+        upstream_urn=DatasetUrn("s3", "bucket1/key1").urn(),
+        downstream_urn=DatasetUrn("redshift", "dev.public.bar").urn(),
+    )
+    aggregator.add_known_lineage_mapping(
+        upstream_urn=DatasetUrn("redshift", "dev.public.foo").urn(),
+        downstream_urn=DatasetUrn("s3", "bucket2/key2").urn(),
+    )
+
+    mcps = list(aggregator.gen_metadata())
+
+    mce_helpers.check_goldens_stream(
+        pytestconfig,
+        outputs=mcps,
+        golden_path=RESOURCE_DIR / "test_known_lineage_mapping.json",
+    )
