@@ -11,6 +11,15 @@
     "out_tables": [
         "urn:li:dataset:(urn:li:dataPlatform:redshift,mv_total_orders,PROD)"
     ],
+    "in_tables_schemas": {
+        "urn:li:dataset:(urn:li:dataPlatform:redshift,customer,PROD)": [
+            "first_name",
+            "cust_id"
+        ],
+        "urn:li:dataset:(urn:li:dataPlatform:redshift,orders,PROD)": [
+            "amount"
+        ]
+    },
     "column_lineage": [
         {
             "downstream": {

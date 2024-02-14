@@ -10,6 +10,16 @@
     "out_tables": [
         "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.my_table,PROD)"
     ],
+    "in_tables_schemas": {
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.my_table,PROD)": [],
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.table1,PROD)": [
+            "col2",
+            "col1"
+        ],
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.table2,PROD)": [
+            "col2"
+        ]
+    },
     "column_lineage": [
         {
             "downstream": {

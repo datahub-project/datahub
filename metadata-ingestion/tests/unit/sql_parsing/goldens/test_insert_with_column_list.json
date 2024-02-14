@@ -8,6 +8,12 @@
     "out_tables": [
         "urn:li:dataset:(urn:li:dataPlatform:redshift,downstream,PROD)"
     ],
+    "in_tables_schemas": {
+        "urn:li:dataset:(urn:li:dataPlatform:redshift,upstream2,PROD)": [
+            "c",
+            "a"
+        ]
+    },
     "column_lineage": [
         {
             "downstream": {

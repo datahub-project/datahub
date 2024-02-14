@@ -11,6 +11,14 @@
     "out_tables": [
         "urn:li:dataset:(urn:li:dataPlatform:teradata,myteradata.demo_user.test_lineage2,PROD)"
     ],
+    "in_tables_schemas": {
+        "urn:li:dataset:(urn:li:dataPlatform:teradata,myteradata.demo_user.pima_patient_diagnoses,PROD)": [
+            "PatientId"
+        ],
+        "urn:li:dataset:(urn:li:dataPlatform:teradata,myteradata.demo_user.pima_patient_features,PROD)": [
+            "BMI"
+        ]
+    },
     "column_lineage": [
         {
             "downstream": {

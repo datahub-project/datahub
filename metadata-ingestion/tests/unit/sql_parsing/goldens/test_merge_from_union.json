@@ -9,5 +9,9 @@
     "out_tables": [
         "urn:li:dataset:(urn:li:dataPlatform:bigquery,demo-pipelines-stg.referrer.base_union,PROD)"
     ],
+    "in_tables_schemas": {
+        "urn:li:dataset:(urn:li:dataPlatform:bigquery,demo-pipelines-stg.referrer.prep_from_ios,PROD)": [],
+        "urn:li:dataset:(urn:li:dataPlatform:bigquery,demo-pipelines-stg.referrer.prep_from_web,PROD)": []
+    },
     "column_lineage": null
 }

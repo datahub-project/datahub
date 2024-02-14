@@ -10,6 +10,13 @@
     "out_tables": [
         "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-project.my-dataset.test_table,PROD)"
     ],
+    "in_tables_schemas": {
+        "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-project2.my-dataset2.test_physical_table,PROD)": [
+            "something",
+            "col2",
+            "col1"
+        ]
+    },
     "column_lineage": [
         {
             "downstream": {

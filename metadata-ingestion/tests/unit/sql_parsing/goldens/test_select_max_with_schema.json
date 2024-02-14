@@ -6,6 +6,12 @@
         "urn:li:dataset:(urn:li:dataPlatform:mysql,mytable,PROD)"
     ],
     "out_tables": [],
+    "in_tables_schemas": {
+        "urn:li:dataset:(urn:li:dataPlatform:mysql,mytable,PROD)": [
+            "col2",
+            "col1"
+        ]
+    },
     "column_lineage": [
         {
             "downstream": {

@@ -12,6 +12,18 @@
     "out_tables": [
         "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-proj-2.dataset.my_view,PROD)"
     ],
+    "in_tables_schemas": {
+        "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-proj-1.dataset.table1,PROD)": [
+            "col2",
+            "col1"
+        ],
+        "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-proj-1.dataset.table2,PROD)": [
+            "col3"
+        ],
+        "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-proj-1.dataset.table3,PROD)": [
+            "col5"
+        ]
+    },
     "column_lineage": [
         {
             "downstream": {

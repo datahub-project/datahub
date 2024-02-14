@@ -3,16 +3,23 @@ from typing import Dict, Iterable, Optional, Union
 
 import sqlglot
 
+from datahub.sql_parsing.dialects.patched.tsql import TSQLv2
+
 DialectOrStr = Union[sqlglot.Dialect, str]
 
 
 def _get_dialect_str(platform: str) -> str:
+    # TODO: convert datahub platform names to sqlglot dialect
     if platform == "presto-on-hive":
         return "hive"
     elif platform == "mssql":
         return "tsql"
     elif platform == "athena":
         return "trino"
+    # TODO: define SalesForce SOQL dialect
+    # Temporary workaround is to treat SOQL as databricks dialect
+    elif platform == "salesforce":
+        return "databricks"
     elif platform == "mysql":
         # In sqlglot v20+, MySQL is now case-sensitive by default, which is the
         # default behavior on Linux. However, MySQL's default case sensitivity
@@ -27,7 +34,12 @@ def _get_dialect_str(platform: str) -> str:
 def get_dialect(platform: DialectOrStr) -> sqlglot.Dialect:
     if isinstance(platform, sqlglot.Dialect):
         return platform
-    return sqlglot.Dialect.get_or_raise(_get_dialect_str(platform))
+
+    dialect_str = _get_dialect_str(platform)
+    if dialect_str == "tsql":
+        return TSQLv2()
+    else:
+        return sqlglot.Dialect.get_or_raise(dialect_str)
 
 
 def is_dialect_instance(
@@ -86,7 +98,7 @@ def generalize_query(expression: sqlglot.exp.ExpOrStr, dialect: DialectOrStr) ->
         # Replace all literals in the expressions with a single placeholder.
         is_last_literal = True
         for i, expression in reversed(list(enumerate(node.expressions))):
-            if isinstance(expression, sqlglot.exp.Literal):
+            if isinstance(expression, (sqlglot.exp.Literal, sqlglot.exp.Column)):
                 if is_last_literal:
                     node.expressions[i] = sqlglot.exp.Placeholder()
                     is_last_literal = False
