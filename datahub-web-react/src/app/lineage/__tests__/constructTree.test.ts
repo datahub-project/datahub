@@ -9,7 +9,6 @@ import {
     dataset6WithLineage,
     dataFlow1,
     dataset1,
-    entityPrivileges,
 } from '../../../Mocks';
 import { DataPlatform, EntityType, RelationshipDirection } from '../../../types.generated';
 import { getTestEntityRegistry } from '../../../utils/test-utils/TestPageContainer';
