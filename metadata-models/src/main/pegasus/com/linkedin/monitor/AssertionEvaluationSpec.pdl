@@ -27,7 +27,7 @@ record AssertionEvaluationSpec {
     parameters: optional AssertionEvaluationParameters
 
     /**
-    * The context in which an assertion is evaluated. This can be used to pass in additional information required to evaluate the assertion
+    * Additional context about assertion being evaluated.
     */
     context: optional AssertionEvaluationContext
 }

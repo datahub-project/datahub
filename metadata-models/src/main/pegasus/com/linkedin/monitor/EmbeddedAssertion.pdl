@@ -12,7 +12,7 @@ record EmbeddedAssertion {
     assertion: AssertionInfo
 
     /**
-    * Validity period of the assertion evaluation spec
+    * Validity period of the assertion, ie the window of time where it should be used in evaluation
     */
-    evaluationTimeWindow: optional EvaluationTimeWindow
+    evaluationTimeWindow: optional TimeWindow
 }
