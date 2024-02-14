@@ -17,7 +17,7 @@ const validateURL = (fieldName) => {
 export const AZURE_CLIENT_ID: RecipeField = {
     name: 'client_id',
     label: 'Client ID',
-    tooltip: 'Your Azure Client ID.',
+    tooltip: 'Application ID. Found in your app registration on Azure AD Portal',
     type: FieldType.TEXT,
     fieldPath: 'source.config.client_id',
     placeholder: '00000000-0000-0000-0000-000000000000',
@@ -28,7 +28,7 @@ export const AZURE_CLIENT_ID: RecipeField = {
 export const AZURE_TENANT_ID: RecipeField = {
     name: 'tenant_id',
     label: 'Tenant ID',
-    tooltip: 'Your Azure Tenant ID.',
+    tooltip: 'Directory ID. Found in your app registration on Azure AD Portal',
     type: FieldType.TEXT,
     fieldPath: 'source.config.tenant_id',
     placeholder: '00000000-0000-0000-0000-000000000000',
@@ -50,18 +50,18 @@ export const AZURE_CLIENT_SECRET: RecipeField = {
 export const AZURE_REDIRECT_URL: RecipeField = {
     name: 'redirect',
     label: 'Redirect URL',
-    tooltip: 'Your Redirect URL.',
+    tooltip: 'Redirect URL. Found in your app registration on Azure AD Portal.',
     type: FieldType.TEXT,
     fieldPath: 'source.config.redirect',
     placeholder: 'https://login.microsoftonline.com/common/oauth2/nativeclient',
     required: true,
-    rules: [() => validateURL('Redirect URL')],
+    rules: [() => validateURL('Redirect URI')],
 };
 
 export const AZURE_AUTHORITY_URL: RecipeField = {
     name: 'authority',
     label: 'Authority URL',
-    tooltip: 'Your Authority URL.',
+    tooltip: 'Is a URL that indicates a directory that MSAL can request tokens from..',
     type: FieldType.TEXT,
     fieldPath: 'source.config.authority',
     placeholder: 'https://login.microsoftonline.com/00000000-0000-0000-0000-000000000000',
@@ -72,7 +72,7 @@ export const AZURE_AUTHORITY_URL: RecipeField = {
 export const AZURE_TOKEN_URL: RecipeField = {
     name: 'token_url',
     label: 'Token URL',
-    tooltip: 'Your Token URL.',
+    tooltip: 'The token URL that acquires a token from Azure AD for authorizing requests. This source will only work with v1.0 endpoint.',
     type: FieldType.TEXT,
     fieldPath: 'source.config.token_url',
     placeholder: 'https://login.microsoftonline.com/00000000-0000-0000-0000-000000000000/oauth2/token',
@@ -83,7 +83,7 @@ export const AZURE_TOKEN_URL: RecipeField = {
 export const AZURE_GRAPH_URL: RecipeField = {
     name: 'graph_url',
     label: 'Graph URL',
-    tooltip: 'The Graph URL.',
+    tooltip: 'Microsoft Graph API endpoint',
     type: FieldType.TEXT,
     fieldPath: 'source.config.graph_url',
     placeholder: 'https://graph.microsoft.com/v1.0',

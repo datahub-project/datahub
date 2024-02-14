@@ -67,7 +67,7 @@ export const POFILE_TO_USER_REGX_ALLOW: RecipeField = {
     buttonLabel: 'Add pattern',
     fieldPath: schemaAllowFieldPath,
     rules: null,
-    section: 'Profile To User',
+    section: 'Profile To User Attribute',
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
         setListValuesOnRecipe(recipe, values, schemaAllowFieldPath),
 };
@@ -82,9 +82,9 @@ export const POFILE_TO_USER_REGX_DENY: RecipeField = {
     placeholder: 'user_pattern',
     type: FieldType.LIST,
     buttonLabel: 'Add pattern',
-    fieldPath: schemaAllowFieldPath,
+    fieldPath: schemaDenyFieldPath,
     rules: null,
-    section: 'Profile To User',
+    section: 'Profile To User Attribute',
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
         setListValuesOnRecipe(recipe, values, schemaDenyFieldPath),
 };
@@ -101,7 +101,7 @@ export const POFILE_TO_GROUP_REGX_ALLOW: RecipeField = {
     buttonLabel: 'Add pattern',
     fieldPath: schemaAllowFieldPathForGroup,
     rules: null,
-    section: 'Profile To Group',
+    section: 'Profile To Group Attribute',
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
         setListValuesOnRecipe(recipe, values, schemaAllowFieldPathForGroup),
 };
@@ -115,9 +115,9 @@ export const POFILE_TO_GROUP_REGX_DENY: RecipeField = {
     placeholder: 'group_pattern',
     type: FieldType.LIST,
     buttonLabel: 'Add pattern',
-    fieldPath: schemaAllowFieldPathForGroup,
+    fieldPath: schemaDenyFieldPathForGroup,
     rules: null,
-    section: 'Profile To Group',
+    section: 'Profile To Group Attribute',
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
         setListValuesOnRecipe(recipe, values, schemaDenyFieldPathForGroup),
 };
