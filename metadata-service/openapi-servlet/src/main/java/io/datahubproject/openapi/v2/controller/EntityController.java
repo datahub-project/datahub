@@ -37,6 +37,7 @@ import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.SearchUtil;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
+import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.openapi.v2.models.GenericEntity;
 import io.datahubproject.openapi.v2.models.GenericScrollResult;
 import io.swagger.v3.oas.annotations.Operation;
@@ -55,6 +56,7 @@ import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -82,6 +84,10 @@ public class EntityController {
   @Autowired private boolean restApiAuthorizationEnabled;
   @Autowired private ObjectMapper objectMapper;
 
+  @Qualifier("systemOperationContext")
+  @Autowired
+  private OperationContext systemOperationContext;
+
   @Tag(name = "Generic Entities", description = "API for interacting with generic entities.")
   @GetMapping(value = "/{entityName}", produces = MediaType.APPLICATION_JSON_VALUE)
   @Operation(summary = "Scroll entities")
@@ -100,20 +106,24 @@ public class EntityController {
 
     EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
 
+    Authentication authentication = AuthenticationContext.getAuthentication();
     if (restApiAuthorizationEnabled) {
-      Authentication authentication = AuthenticationContext.getAuthentication();
       checkAuthorized(
           authorizationChain,
           authentication.getActor(),
           entitySpec,
           ImmutableList.of(PoliciesConfig.GET_ENTITY_PRIVILEGE.getType()));
     }
+    OperationContext opContext =
+        OperationContext.asSession(
+            systemOperationContext, authorizationChain, authentication, true);
 
     // TODO: support additional and multiple sort params
     SortCriterion sortCriterion = SearchUtil.sortBy(sortField, SortOrder.valueOf(sortOrder));
 
     ScrollResult result =
         searchService.scrollAcrossEntities(
+            opContext,
             List.of(entitySpec.getName()),
             query,
             null,

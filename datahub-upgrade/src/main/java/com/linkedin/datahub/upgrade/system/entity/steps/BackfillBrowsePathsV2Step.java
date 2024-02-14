@@ -31,6 +31,7 @@ import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Set;
 import java.util.function.Function;
 import lombok.extern.slf4j.Slf4j;
@@ -54,6 +55,7 @@ public class BackfillBrowsePathsV2Step implements UpgradeStep {
           Constants.ML_FEATURE_TABLE_ENTITY_NAME,
           Constants.ML_FEATURE_ENTITY_NAME);
 
+  private final OperationContext opContext;
   private final EntityService<?> entityService;
   private final SearchService searchService;
 
@@ -61,10 +63,12 @@ public class BackfillBrowsePathsV2Step implements UpgradeStep {
   private final Integer batchSize;
 
   public BackfillBrowsePathsV2Step(
+      OperationContext opContext,
       EntityService<?> entityService,
       SearchService searchService,
       boolean reprocessEnabled,
       Integer batchSize) {
+    this.opContext = opContext;
     this.searchService = searchService;
     this.entityService = entityService;
     this.reprocessEnabled = reprocessEnabled;
@@ -110,6 +114,7 @@ public class BackfillBrowsePathsV2Step implements UpgradeStep {
 
     final ScrollResult scrollResult =
         searchService.scrollAcrossEntities(
+            opContext,
             ImmutableList.of(entityType),
             "*",
             filter,

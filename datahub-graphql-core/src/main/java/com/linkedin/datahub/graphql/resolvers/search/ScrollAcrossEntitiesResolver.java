@@ -90,6 +90,7 @@ public class ScrollAcrossEntitiesResolver implements DataFetcher<CompletableFutu
 
             return UrnScrollResultsMapper.map(
                 _entityClient.scrollAcrossEntities(
+                    context.getOperationContext(),
                     maybeResolvedView != null
                         ? SearchUtils.intersectEntityTypes(
                             entityNames, maybeResolvedView.getDefinition().getEntityTypes())
@@ -102,8 +103,7 @@ public class ScrollAcrossEntitiesResolver implements DataFetcher<CompletableFutu
                     scrollId,
                     keepAlive,
                     count,
-                    searchFlags,
-                    ResolverUtils.getAuthentication(environment)));
+                    searchFlags));
           } catch (Exception e) {
             log.error(
                 "Failed to execute search for multiple entities: entity types {}, query {}, filters: {}, searchAfter: {}, count: {}",

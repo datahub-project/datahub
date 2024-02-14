@@ -1,6 +1,8 @@
 package com.linkedin.datahub.graphql.resolvers.ingest.execution;
 
 import static com.linkedin.datahub.graphql.resolvers.ingest.IngestTestUtils.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
 import static org.testng.Assert.*;
 
 import com.datahub.authentication.Authentication;
@@ -27,6 +29,7 @@ import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.HashSet;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
@@ -36,17 +39,17 @@ public class IngestionSourceExecutionRequestsResolverTest {
   @Test
   public void testGetSuccess() throws Exception {
     // Create resolver
-    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    EntityClient mockClient = mock(EntityClient.class);
 
     // Mock filter response
     Mockito.when(
             mockClient.filter(
+                any(OperationContext.class),
                 Mockito.eq(Constants.EXECUTION_REQUEST_ENTITY_NAME),
                 Mockito.any(Filter.class),
                 Mockito.any(SortCriterion.class),
                 Mockito.eq(0),
-                Mockito.eq(10),
-                Mockito.any(Authentication.class)))
+                Mockito.eq(10)))
         .thenReturn(
             new SearchResult()
                 .setFrom(0)
@@ -101,7 +104,8 @@ public class IngestionSourceExecutionRequestsResolverTest {
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
-    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockContext.getOperationContext()).thenReturn(mock(OperationContext.class));
+    DataFetchingEnvironment mockEnv = mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getArgument(Mockito.eq("start"))).thenReturn(0);
     Mockito.when(mockEnv.getArgument(Mockito.eq("count"))).thenReturn(10);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
@@ -121,12 +125,12 @@ public class IngestionSourceExecutionRequestsResolverTest {
   @Test
   public void testGetUnauthorized() throws Exception {
     // Create resolver
-    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    EntityClient mockClient = mock(EntityClient.class);
     IngestionSourceExecutionRequestsResolver resolver =
         new IngestionSourceExecutionRequestsResolver(mockClient);
 
     // Execute resolver
-    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    DataFetchingEnvironment mockEnv = mock(DataFetchingEnvironment.class);
     QueryContext mockContext = getMockDenyContext();
     Mockito.when(mockEnv.getArgument(Mockito.eq("start"))).thenReturn(0);
     Mockito.when(mockEnv.getArgument(Mockito.eq("count"))).thenReturn(10);
@@ -151,7 +155,7 @@ public class IngestionSourceExecutionRequestsResolverTest {
   @Test
   public void testGetEntityClientException() throws Exception {
     // Create resolver
-    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    EntityClient mockClient = mock(EntityClient.class);
     Mockito.doThrow(RemoteInvocationException.class)
         .when(mockClient)
         .batchGetV2(
@@ -160,7 +164,7 @@ public class IngestionSourceExecutionRequestsResolverTest {
         new IngestionSourceExecutionRequestsResolver(mockClient);
 
     // Execute resolver
-    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    DataFetchingEnvironment mockEnv = mock(DataFetchingEnvironment.class);
     QueryContext mockContext = getMockAllowContext();
     Mockito.when(mockEnv.getArgument(Mockito.eq("start"))).thenReturn(0);
     Mockito.when(mockEnv.getArgument(Mockito.eq("count"))).thenReturn(10);

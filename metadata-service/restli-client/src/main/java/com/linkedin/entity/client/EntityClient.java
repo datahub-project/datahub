@@ -32,6 +32,7 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.PlatformEvent;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.r2.RemoteInvocationException;
+import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.util.Collection;
 import java.util.List;
@@ -49,7 +50,7 @@ public interface EntityClient {
   default void postConstruct(AspectRetriever aspectRetriever) {}
 
   @Nullable
-  public EntityResponse getV2(
+  EntityResponse getV2(
       @Nonnull String entityName,
       @Nonnull final Urn urn,
       @Nullable final Set<String> aspectNames,
@@ -58,11 +59,11 @@ public interface EntityClient {
 
   @Nonnull
   @Deprecated
-  public Entity get(@Nonnull final Urn urn, @Nonnull final Authentication authentication)
+  Entity get(@Nonnull final Urn urn, @Nonnull final Authentication authentication)
       throws RemoteInvocationException;
 
   @Nonnull
-  public Map<Urn, EntityResponse> batchGetV2(
+  Map<Urn, EntityResponse> batchGetV2(
       @Nonnull String entityName,
       @Nonnull final Set<Urn> urns,
       @Nullable final Set<String> aspectNames,
@@ -79,7 +80,7 @@ public interface EntityClient {
 
   @Nonnull
   @Deprecated
-  public Map<Urn, Entity> batchGet(
+  Map<Urn, Entity> batchGet(
       @Nonnull final Set<Urn> urns, @Nonnull final Authentication authentication)
       throws RemoteInvocationException;
 
@@ -93,13 +94,13 @@ public interface EntityClient {
    * @throws RemoteInvocationException
    */
   @Nonnull
-  public AutoCompleteResult autoComplete(
+  AutoCompleteResult autoComplete(
+      @Nonnull OperationContext opContext,
       @Nonnull String entityType,
       @Nonnull String query,
       @Nullable Filter requestFilters,
       @Nonnull int limit,
-      @Nullable String field,
-      @Nonnull Authentication authentication)
+      @Nullable String field)
       throws RemoteInvocationException;
 
   /**
@@ -111,12 +112,12 @@ public interface EntityClient {
    * @throws RemoteInvocationException
    */
   @Nonnull
-  public AutoCompleteResult autoComplete(
+  AutoCompleteResult autoComplete(
+      @Nonnull OperationContext opContext,
       @Nonnull String entityType,
       @Nonnull String query,
       @Nullable Filter requestFilters,
-      @Nonnull int limit,
-      @Nonnull Authentication authentication)
+      @Nonnull int limit)
       throws RemoteInvocationException;
 
   /**
@@ -130,13 +131,14 @@ public interface EntityClient {
    * @throws RemoteInvocationException
    */
   @Nonnull
-  public BrowseResult browse(
+  BrowseResult browse(
       @Nonnull String entityType,
       @Nonnull String path,
       @Nullable Map<String, String> requestFilters,
       int start,
       int limit,
-      @Nonnull Authentication authentication)
+      @Nonnull Authentication authentication,
+      @Nullable SearchFlags searchFlags)
       throws RemoteInvocationException;
 
   /**
@@ -151,7 +153,7 @@ public interface EntityClient {
    * @throws RemoteInvocationException
    */
   @Nonnull
-  public BrowseResultV2 browseV2(
+  BrowseResultV2 browseV2(
       @Nonnull String entityName,
       @Nonnull String path,
       @Nullable Filter filter,
@@ -174,7 +176,7 @@ public interface EntityClient {
    * @throws RemoteInvocationException
    */
   @Nonnull
-  public BrowseResultV2 browseV2(
+  BrowseResultV2 browseV2(
       @Nonnull List<String> entityNames,
       @Nonnull String path,
       @Nullable Filter filter,
@@ -186,18 +188,18 @@ public interface EntityClient {
       throws RemoteInvocationException;
 
   @Deprecated
-  public void update(@Nonnull final Entity entity, @Nonnull final Authentication authentication)
+  void update(@Nonnull final Entity entity, @Nonnull final Authentication authentication)
       throws RemoteInvocationException;
 
   @Deprecated
-  public void updateWithSystemMetadata(
+  void updateWithSystemMetadata(
       @Nonnull final Entity entity,
       @Nullable final SystemMetadata systemMetadata,
       @Nonnull final Authentication authentication)
       throws RemoteInvocationException;
 
   @Deprecated
-  public void batchUpdate(
+  void batchUpdate(
       @Nonnull final Set<Entity> entities, @Nonnull final Authentication authentication)
       throws RemoteInvocationException;
 
@@ -213,13 +215,13 @@ public interface EntityClient {
    * @throws RemoteInvocationException
    */
   @Nonnull
-  public SearchResult search(
+  SearchResult search(
+      @Nonnull OperationContext opContext,
       @Nonnull String entity,
       @Nonnull String input,
       @Nullable Map<String, String> requestFilters,
       int start,
       int count,
-      @Nonnull Authentication authentication,
       @Nullable SearchFlags searchFlags)
       throws RemoteInvocationException;
 
@@ -235,7 +237,7 @@ public interface EntityClient {
    * @throws RemoteInvocationException
    */
   @Nonnull
-  public ListResult list(
+  ListResult list(
       @Nonnull String entity,
       @Nullable Map<String, String> requestFilters,
       int start,
@@ -256,14 +258,14 @@ public interface EntityClient {
    * @throws RemoteInvocationException
    */
   @Nonnull
-  public SearchResult search(
+  SearchResult search(
+      @Nonnull OperationContext opContext,
       @Nonnull String entity,
       @Nonnull String input,
       @Nullable Filter filter,
       SortCriterion sortCriterion,
       int start,
       int count,
-      @Nonnull Authentication authentication,
       @Nullable SearchFlags searchFlags)
       throws RemoteInvocationException;
 
@@ -280,15 +282,15 @@ public interface EntityClient {
    * @throws RemoteInvocationException
    */
   @Nonnull
-  public SearchResult searchAcrossEntities(
+  SearchResult searchAcrossEntities(
+      @Nonnull OperationContext opContext,
       @Nonnull List<String> entities,
       @Nonnull String input,
       @Nullable Filter filter,
       int start,
       int count,
       @Nullable SearchFlags searchFlags,
-      @Nullable SortCriterion sortCriterion,
-      @Nonnull Authentication authentication)
+      @Nullable SortCriterion sortCriterion)
       throws RemoteInvocationException;
 
   /**
@@ -305,7 +307,8 @@ public interface EntityClient {
    * @throws RemoteInvocationException
    */
   @Nonnull
-  public SearchResult searchAcrossEntities(
+  SearchResult searchAcrossEntities(
+      @Nonnull OperationContext opContext,
       @Nonnull List<String> entities,
       @Nonnull String input,
       @Nullable Filter filter,
@@ -313,7 +316,6 @@ public interface EntityClient {
       int count,
       @Nullable SearchFlags searchFlags,
       @Nullable SortCriterion sortCriterion,
-      @Nonnull Authentication authentication,
       List<String> facets)
       throws RemoteInvocationException;
 
@@ -331,14 +333,14 @@ public interface EntityClient {
    */
   @Nonnull
   ScrollResult scrollAcrossEntities(
+      @Nonnull OperationContext opContext,
       @Nonnull List<String> entities,
       @Nonnull String input,
       @Nullable Filter filter,
       @Nullable String scrollId,
       @Nullable String keepAlive,
       int count,
-      @Nullable SearchFlags searchFlags,
-      @Nonnull Authentication authentication)
+      @Nullable SearchFlags searchFlags)
       throws RemoteInvocationException;
 
   /**
@@ -358,7 +360,7 @@ public interface EntityClient {
    *     result metadata
    */
   @Nonnull
-  public LineageSearchResult searchAcrossLineage(
+  LineageSearchResult searchAcrossLineage(
       @Nonnull Urn sourceUrn,
       @Nonnull LineageDirection direction,
       @Nonnull List<String> entities,
@@ -392,7 +394,7 @@ public interface EntityClient {
    *     result metadata
    */
   @Nonnull
-  public LineageSearchResult searchAcrossLineage(
+  LineageSearchResult searchAcrossLineage(
       @Nonnull Urn sourceUrn,
       @Nonnull LineageDirection direction,
       @Nonnull List<String> entities,
@@ -452,19 +454,19 @@ public interface EntityClient {
    * @throws RemoteInvocationException
    */
   @Nonnull
-  public StringArray getBrowsePaths(@Nonnull Urn urn, @Nonnull Authentication authentication)
+  StringArray getBrowsePaths(@Nonnull Urn urn, @Nonnull Authentication authentication)
       throws RemoteInvocationException;
 
-  public void setWritable(boolean canWrite, @Nonnull Authentication authentication)
+  void setWritable(boolean canWrite, @Nonnull Authentication authentication)
       throws RemoteInvocationException;
 
   @Nonnull
-  public Map<String, Long> batchGetTotalEntityCount(
+  Map<String, Long> batchGetTotalEntityCount(
       @Nonnull List<String> entityName, @Nonnull Authentication authentication)
       throws RemoteInvocationException;
 
   /** List all urns existing for a particular Entity type. */
-  public ListUrnsResult listUrns(
+  ListUrnsResult listUrns(
       @Nonnull final String entityName,
       final int start,
       final int count,
@@ -472,12 +474,11 @@ public interface EntityClient {
       throws RemoteInvocationException;
 
   /** Hard delete an entity with a particular urn. */
-  public void deleteEntity(@Nonnull final Urn urn, @Nonnull final Authentication authentication)
+  void deleteEntity(@Nonnull final Urn urn, @Nonnull final Authentication authentication)
       throws RemoteInvocationException;
 
   /** Delete all references to an entity with a particular urn. */
-  public void deleteEntityReferences(
-      @Nonnull final Urn urn, @Nonnull final Authentication authentication)
+  void deleteEntityReferences(@Nonnull final Urn urn, @Nonnull final Authentication authentication)
       throws RemoteInvocationException;
 
   /**
@@ -492,13 +493,13 @@ public interface EntityClient {
    * @throws RemoteInvocationException
    */
   @Nonnull
-  public SearchResult filter(
+  SearchResult filter(
+      @Nonnull OperationContext opContext,
       @Nonnull String entity,
       @Nonnull Filter filter,
       @Nullable SortCriterion sortCriterion,
       int start,
-      int count,
-      @Nonnull Authentication authentication)
+      int count)
       throws RemoteInvocationException;
 
   /**
@@ -510,12 +511,12 @@ public interface EntityClient {
    * @throws RemoteInvocationException
    */
   @Nonnull
-  public boolean exists(@Nonnull Urn urn, @Nonnull Authentication authentication)
+  boolean exists(@Nonnull Urn urn, @Nonnull Authentication authentication)
       throws RemoteInvocationException;
 
   @Nullable
   @Deprecated
-  public VersionedAspect getAspect(
+  VersionedAspect getAspect(
       @Nonnull String urn,
       @Nonnull String aspect,
       @Nonnull Long version,
@@ -524,7 +525,7 @@ public interface EntityClient {
 
   @Nullable
   @Deprecated
-  public VersionedAspect getAspectOrNull(
+  VersionedAspect getAspectOrNull(
       @Nonnull String urn,
       @Nonnull String aspect,
       @Nonnull Long version,
@@ -545,7 +546,7 @@ public interface EntityClient {
         urn, entity, aspect, startTimeMillis, endTimeMillis, limit, filter, null, authentication);
   }
 
-  public List<EnvelopedAspect> getTimeseriesAspectValues(
+  List<EnvelopedAspect> getTimeseriesAspectValues(
       @Nonnull String urn,
       @Nonnull String entity,
       @Nonnull String aspect,
@@ -609,7 +610,7 @@ public interface EntityClient {
 
   @Nonnull
   @Deprecated
-  public <T extends RecordTemplate> Optional<T> getVersionedAspect(
+  <T extends RecordTemplate> Optional<T> getVersionedAspect(
       @Nonnull String urn,
       @Nonnull String aspect,
       @Nonnull Long version,
@@ -618,21 +619,21 @@ public interface EntityClient {
       throws RemoteInvocationException;
 
   @Deprecated
-  public DataMap getRawAspect(
+  DataMap getRawAspect(
       @Nonnull String urn,
       @Nonnull String aspect,
       @Nonnull Long version,
       @Nonnull Authentication authentication)
       throws RemoteInvocationException;
 
-  public void producePlatformEvent(
+  void producePlatformEvent(
       @Nonnull String name,
       @Nullable String key,
       @Nonnull PlatformEvent event,
       @Nonnull Authentication authentication)
       throws Exception;
 
-  public void rollbackIngestion(
+  void rollbackIngestion(
       @Nonnull String runId, @Nonnull Authorizer authorizer, @Nonnull Authentication authentication)
       throws Exception;
 

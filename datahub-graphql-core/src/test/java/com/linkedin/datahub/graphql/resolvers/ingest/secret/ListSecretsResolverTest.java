@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.ingest.secret;
 
 import static com.linkedin.datahub.graphql.resolvers.ingest.IngestTestUtils.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.testng.Assert.*;
 
 import com.datahub.authentication.Authentication;
@@ -22,6 +23,7 @@ import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.secret.DataHubSecretValue;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.HashSet;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
@@ -39,13 +41,13 @@ public class ListSecretsResolverTest {
 
     Mockito.when(
             mockClient.search(
+                any(OperationContext.class),
                 Mockito.eq(Constants.SECRETS_ENTITY_NAME),
                 Mockito.eq(""),
                 Mockito.eq(null),
                 Mockito.any(SortCriterion.class),
                 Mockito.eq(0),
                 Mockito.eq(20),
-                Mockito.any(Authentication.class),
                 Mockito.eq(new SearchFlags().setFulltext(true))))
         .thenReturn(
             new SearchResult()
@@ -108,13 +110,13 @@ public class ListSecretsResolverTest {
             Mockito.any(), Mockito.anySet(), Mockito.anySet(), Mockito.any(Authentication.class));
     Mockito.verify(mockClient, Mockito.times(0))
         .search(
+            any(OperationContext.class),
             Mockito.any(),
             Mockito.eq(""),
             Mockito.eq(null),
             Mockito.any(SortCriterion.class),
             Mockito.anyInt(),
             Mockito.anyInt(),
-            Mockito.any(Authentication.class),
             Mockito.eq(new SearchFlags().setFulltext(true)));
   }
 

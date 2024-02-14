@@ -24,6 +24,7 @@ import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Set;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
@@ -46,11 +47,14 @@ public class BackfillBrowsePathsV2Step extends UpgradeStep {
   private static final String UPGRADE_ID = "backfill-default-browse-paths-v2-step";
   private static final Integer BATCH_SIZE = 5000;
 
-  private final SearchService _searchService;
+  private final SearchService searchService;
+  private final OperationContext opContext;
 
-  public BackfillBrowsePathsV2Step(EntityService<?> entityService, SearchService searchService) {
+  public BackfillBrowsePathsV2Step(
+      OperationContext opContext, EntityService<?> entityService, SearchService searchService) {
     super(entityService, VERSION, UPGRADE_ID);
-    _searchService = searchService;
+    this.searchService = searchService;
+    this.opContext = opContext;
   }
 
   @Nonnull
@@ -106,8 +110,16 @@ public class BackfillBrowsePathsV2Step extends UpgradeStep {
     filter.setOr(conjunctiveCriterionArray);
 
     final ScrollResult scrollResult =
-        _searchService.scrollAcrossEntities(
-            ImmutableList.of(entityType), "*", filter, null, scrollId, "5m", BATCH_SIZE, null);
+        searchService.scrollAcrossEntities(
+            opContext,
+            ImmutableList.of(entityType),
+            "*",
+            filter,
+            null,
+            scrollId,
+            "5m",
+            BATCH_SIZE,
+            null);
     if (scrollResult.getNumEntities() == 0 || scrollResult.getEntities().size() == 0) {
       return null;
     }

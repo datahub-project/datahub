@@ -5,6 +5,7 @@ import com.linkedin.datahub.upgrade.Upgrade;
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.search.SearchService;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
 
 public class BackfillBrowsePathsV2 implements Upgrade {
@@ -12,6 +13,7 @@ public class BackfillBrowsePathsV2 implements Upgrade {
   private final List<UpgradeStep> _steps;
 
   public BackfillBrowsePathsV2(
+      OperationContext opContext,
       EntityService<?> entityService,
       SearchService searchService,
       boolean enabled,
@@ -21,7 +23,7 @@ public class BackfillBrowsePathsV2 implements Upgrade {
       _steps =
           ImmutableList.of(
               new BackfillBrowsePathsV2Step(
-                  entityService, searchService, reprocessEnabled, batchSize));
+                  opContext, entityService, searchService, reprocessEnabled, batchSize));
     } else {
       _steps = ImmutableList.of();
     }

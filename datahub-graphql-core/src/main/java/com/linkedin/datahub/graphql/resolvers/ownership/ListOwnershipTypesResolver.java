@@ -60,13 +60,13 @@ public class ListOwnershipTypesResolver
 
             final SearchResult gmsResult =
                 _entityClient.search(
+                    context.getOperationContext(),
                     Constants.OWNERSHIP_TYPE_ENTITY_NAME,
                     query,
                     buildFilter(filters, Collections.emptyList()),
                     DEFAULT_SORT_CRITERION,
                     start,
                     count,
-                    context.getAuthentication(),
                     new SearchFlags().setFulltext(true));
 
             final ListOwnershipTypesResult result = new ListOwnershipTypesResult();

@@ -1,6 +1,5 @@
 package com.linkedin.metadata.service.util;
 
-import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.client.EntityClient;
@@ -10,6 +9,7 @@ import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.service.FormService;
 import com.linkedin.r2.RemoteInvocationException;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
@@ -21,31 +21,31 @@ public class SearchBasedFormAssignmentManager {
       ImmutableList.of(Constants.DATASET_ENTITY_NAME);
 
   public static void apply(
+      OperationContext opContext,
       DynamicFormAssignment formFilters,
       Urn formUrn,
       int batchFormEntityCount,
-      EntityClient entityClient,
-      Authentication authentication)
+      EntityClient entityClient)
       throws Exception {
 
     try {
       int totalResults = 0;
       int numResults = 0;
       String scrollId = null;
-      FormService formService = new FormService(entityClient, authentication);
+      FormService formService = new FormService(opContext, entityClient);
 
       do {
 
         ScrollResult results =
             entityClient.scrollAcrossEntities(
+                opContext,
                 ENTITY_TYPES,
                 "*",
                 formFilters.getFilter(),
                 scrollId,
                 "5m",
                 batchFormEntityCount,
-                null,
-                authentication);
+                null);
 
         if (!results.hasEntities()
             || results.getNumEntities() == 0

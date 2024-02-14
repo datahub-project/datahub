@@ -75,6 +75,7 @@ import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.restli.client.Client;
 import com.linkedin.restli.client.RestLiResponseException;
 import com.linkedin.restli.common.HttpStatus;
+import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.util.Collection;
 import java.util.HashMap;
@@ -282,12 +283,12 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
    */
   @Nonnull
   public AutoCompleteResult autoComplete(
+      @Nonnull OperationContext opContext,
       @Nonnull String entityType,
       @Nonnull String query,
       @Nullable Filter requestFilters,
       @Nonnull int limit,
-      @Nullable String field,
-      @Nonnull final Authentication authentication)
+      @Nullable String field)
       throws RemoteInvocationException {
     EntitiesDoAutocompleteRequestBuilder requestBuilder =
         ENTITIES_REQUEST_BUILDERS
@@ -297,7 +298,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
             .fieldParam(field)
             .filterParam(filterOrDefaultEmptyFilter(requestFilters))
             .limitParam(limit);
-    return sendClientRequest(requestBuilder, authentication).getEntity();
+    return sendClientRequest(requestBuilder, opContext.getAuthentication()).getEntity();
   }
 
   /**
@@ -311,11 +312,11 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
    */
   @Nonnull
   public AutoCompleteResult autoComplete(
+      @Nonnull OperationContext opContext,
       @Nonnull String entityType,
       @Nonnull String query,
       @Nullable Filter requestFilters,
-      @Nonnull int limit,
-      @Nonnull final Authentication authentication)
+      @Nonnull int limit)
       throws RemoteInvocationException {
     EntitiesDoAutocompleteRequestBuilder requestBuilder =
         ENTITIES_REQUEST_BUILDERS
@@ -324,7 +325,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
             .queryParam(query)
             .filterParam(filterOrDefaultEmptyFilter(requestFilters))
             .limitParam(limit);
-    return sendClientRequest(requestBuilder, authentication).getEntity();
+    return sendClientRequest(requestBuilder, opContext.getAuthentication()).getEntity();
   }
 
   /**
@@ -337,6 +338,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
    * @param limit max number of datasets
    * @throws RemoteInvocationException
    */
+  @Override
   @Nonnull
   public BrowseResult browse(
       @Nonnull String entityType,
@@ -344,7 +346,8 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       @Nullable Map<String, String> requestFilters,
       int start,
       int limit,
-      @Nonnull final Authentication authentication)
+      @Nonnull final Authentication authentication,
+      @Nullable SearchFlags searchFlags)
       throws RemoteInvocationException {
     EntitiesDoBrowseRequestBuilder requestBuilder =
         ENTITIES_REQUEST_BUILDERS
@@ -447,12 +450,12 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
   @Nonnull
   @Override
   public SearchResult search(
+      @Nonnull OperationContext opContext,
       @Nonnull String entity,
       @Nonnull String input,
       @Nullable Map<String, String> requestFilters,
       int start,
       int count,
-      @Nonnull final Authentication authentication,
       @Nullable SearchFlags searchFlags)
       throws RemoteInvocationException {
 
@@ -469,7 +472,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       requestBuilder.searchFlagsParam(searchFlags);
     }
 
-    return sendClientRequest(requestBuilder, authentication).getEntity();
+    return sendClientRequest(requestBuilder, opContext.getAuthentication()).getEntity();
   }
 
   /**
@@ -514,13 +517,13 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
   @Nonnull
   @Override
   public SearchResult search(
+      @Nonnull OperationContext opContext,
       @Nonnull String entity,
       @Nonnull String input,
       @Nullable Filter filter,
       SortCriterion sortCriterion,
       int start,
       int count,
-      @Nonnull final Authentication authentication,
       @Nullable SearchFlags searchFlags)
       throws RemoteInvocationException {
 
@@ -547,22 +550,22 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       }
     }
 
-    return sendClientRequest(requestBuilder, authentication).getEntity();
+    return sendClientRequest(requestBuilder, opContext.getAuthentication()).getEntity();
   }
 
   @Nonnull
   public SearchResult searchAcrossEntities(
+      @Nonnull OperationContext opContext,
       @Nonnull List<String> entities,
       @Nonnull String input,
       @Nullable Filter filter,
       int start,
       int count,
       @Nullable SearchFlags searchFlags,
-      @Nullable SortCriterion sortCriterion,
-      @Nonnull final Authentication authentication)
+      @Nullable SortCriterion sortCriterion)
       throws RemoteInvocationException {
     return searchAcrossEntities(
-        entities, input, filter, start, count, searchFlags, sortCriterion, authentication, null);
+        opContext, entities, input, filter, start, count, searchFlags, sortCriterion, null);
   }
 
   /**
@@ -579,6 +582,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
    */
   @Nonnull
   public SearchResult searchAcrossEntities(
+      @Nonnull OperationContext opContext,
       @Nonnull List<String> entities,
       @Nonnull String input,
       @Nullable Filter filter,
@@ -586,7 +590,6 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       int count,
       @Nullable SearchFlags searchFlags,
       @Nullable SortCriterion sortCriterion,
-      @Nonnull final Authentication authentication,
       @Nullable List<String> facets)
       throws RemoteInvocationException {
 
@@ -611,20 +614,20 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       requestBuilder.sortParam(sortCriterion);
     }
 
-    return sendClientRequest(requestBuilder, authentication).getEntity();
+    return sendClientRequest(requestBuilder, opContext.getAuthentication()).getEntity();
   }
 
   @Nonnull
   @Override
   public ScrollResult scrollAcrossEntities(
+      @Nonnull OperationContext opContext,
       @Nonnull List<String> entities,
       @Nonnull String input,
       @Nullable Filter filter,
       @Nullable String scrollId,
       @Nullable String keepAlive,
       int count,
-      @Nullable SearchFlags searchFlags,
-      @Nonnull Authentication authentication)
+      @Nullable SearchFlags searchFlags)
       throws RemoteInvocationException {
     final EntitiesDoScrollAcrossEntitiesRequestBuilder requestBuilder =
         ENTITIES_REQUEST_BUILDERS.actionScrollAcrossEntities().inputParam(input).countParam(count);
@@ -645,7 +648,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       requestBuilder.keepAliveParam(keepAlive);
     }
 
-    return sendClientRequest(requestBuilder, authentication).getEntity();
+    return sendClientRequest(requestBuilder, opContext.getAuthentication()).getEntity();
   }
 
   @Nonnull
@@ -849,12 +852,12 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
   @Nonnull
   @Override
   public SearchResult filter(
+      @Nonnull OperationContext opContext,
       @Nonnull String entity,
       @Nonnull Filter filter,
       @Nullable SortCriterion sortCriterion,
       int start,
-      int count,
-      @Nonnull final Authentication authentication)
+      int count)
       throws RemoteInvocationException {
     EntitiesDoFilterRequestBuilder requestBuilder =
         ENTITIES_REQUEST_BUILDERS
@@ -866,7 +869,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
     if (sortCriterion != null) {
       requestBuilder.sortParam(sortCriterion);
     }
-    return sendClientRequest(requestBuilder, authentication).getEntity();
+    return sendClientRequest(requestBuilder, opContext.getAuthentication()).getEntity();
   }
 
   @Nonnull

@@ -116,12 +116,12 @@ public class CorpGroupType
       throws Exception {
     final SearchResult searchResult =
         _entityClient.search(
+            context.getOperationContext(),
             "corpGroup",
             query,
             Collections.emptyMap(),
             start,
             count,
-            context.getAuthentication(),
             new SearchFlags().setFulltext(true));
     return UrnSearchResultsMapper.map(searchResult);
   }
@@ -135,7 +135,8 @@ public class CorpGroupType
       @Nonnull final QueryContext context)
       throws Exception {
     final AutoCompleteResult result =
-        _entityClient.autoComplete("corpGroup", query, filters, limit, context.getAuthentication());
+        _entityClient.autoComplete(
+            context.getOperationContext(), "corpGroup", query, filters, limit);
     return AutoCompleteResultsMapper.map(result);
   }
 

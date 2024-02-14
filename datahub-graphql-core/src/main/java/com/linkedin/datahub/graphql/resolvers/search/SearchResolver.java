@@ -4,6 +4,7 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.search.utils.SearchUtils.applyDefaultSearchFlags;
 
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.SearchInput;
 import com.linkedin.datahub.graphql.generated.SearchResults;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
@@ -48,6 +49,7 @@ public class SearchResolver implements DataFetcher<CompletableFuture<SearchResul
   @Override
   @WithSpan
   public CompletableFuture<SearchResults> get(DataFetchingEnvironment environment) {
+    final QueryContext context = environment.getContext();
     final SearchInput input = bindArgument(environment.getArgument("input"), SearchInput.class);
     final String entityName = EntityTypeMapper.getName(input.getType());
     // escape forward slash since it is a reserved character in Elasticsearch
@@ -78,13 +80,13 @@ public class SearchResolver implements DataFetcher<CompletableFuture<SearchResul
 
             return UrnSearchResultsMapper.map(
                 _entityClient.search(
+                    context.getOperationContext(),
                     entityName,
                     sanitizedQuery,
                     ResolverUtils.buildFilter(input.getFilters(), input.getOrFilters()),
                     null,
                     start,
                     count,
-                    ResolverUtils.getAuthentication(environment),
                     searchFlags));
           } catch (Exception e) {
             log.error(

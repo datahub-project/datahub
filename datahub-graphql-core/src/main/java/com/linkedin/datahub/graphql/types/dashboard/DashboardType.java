@@ -153,12 +153,12 @@ public class DashboardType
     final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
     final SearchResult searchResult =
         _entityClient.search(
+            context.getOperationContext(),
             "dashboard",
             query,
             facetFilters,
             start,
             count,
-            context.getAuthentication(),
             new SearchFlags().setFulltext(true));
     return UrnSearchResultsMapper.map(searchResult);
   }
@@ -172,7 +172,8 @@ public class DashboardType
       @Nonnull QueryContext context)
       throws Exception {
     final AutoCompleteResult result =
-        _entityClient.autoComplete("dashboard", query, filters, limit, context.getAuthentication());
+        _entityClient.autoComplete(
+            context.getOperationContext(), "dashboard", query, filters, limit);
     return AutoCompleteResultsMapper.map(result);
   }
 
@@ -189,7 +190,13 @@ public class DashboardType
         path.size() > 0 ? BROWSE_PATH_DELIMITER + String.join(BROWSE_PATH_DELIMITER, path) : "";
     final BrowseResult result =
         _entityClient.browse(
-            "dashboard", pathStr, facetFilters, start, count, context.getAuthentication());
+            "dashboard",
+            pathStr,
+            facetFilters,
+            start,
+            count,
+            context.getAuthentication(),
+            new SearchFlags().setFulltext(false));
     return BrowseResultMapper.map(result);
   }
 

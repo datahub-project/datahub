@@ -6,6 +6,7 @@ import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.search.LineageSearchService;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.spring.YamlPropertySourceFactory;
+import io.datahubproject.metadata.context.OperationContext;
 import javax.annotation.Nonnull;
 import org.springframework.cache.CacheManager;
 import org.springframework.context.annotation.Bean;
@@ -25,12 +26,14 @@ public class LineageSearchServiceFactory {
   @Primary
   @Nonnull
   protected LineageSearchService getInstance(
+      OperationContext opContext,
       CacheManager cacheManager,
       GraphService graphService,
       SearchService searchService,
       ConfigurationProvider configurationProvider) {
     boolean cacheEnabled = configurationProvider.getFeatureFlags().isLineageSearchCacheEnabled();
     return new LineageSearchService(
+        opContext,
         searchService,
         graphService,
         cacheEnabled ? cacheManager.getCache(LINEAGE_SEARCH_SERVICE_CACHE_NAME) : null,

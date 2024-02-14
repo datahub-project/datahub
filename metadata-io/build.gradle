@@ -17,6 +17,7 @@ dependencies {
   api project(':metadata-service:restli-client')
   api project(':metadata-service:configuration')
   api project(':metadata-service:services')
+  api project(':metadata-operation-context')
 
   implementation spec.product.pegasus.data
   implementation spec.product.pegasus.generator

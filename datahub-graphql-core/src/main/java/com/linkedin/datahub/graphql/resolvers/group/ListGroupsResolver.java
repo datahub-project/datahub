@@ -58,6 +58,7 @@ public class ListGroupsResolver implements DataFetcher<CompletableFuture<ListGro
               // First, get all group Urns.
               final SearchResult gmsResult =
                   _entityClient.search(
+                      context.getOperationContext(),
                       CORP_GROUP_ENTITY_NAME,
                       query,
                       null,
@@ -66,7 +67,6 @@ public class ListGroupsResolver implements DataFetcher<CompletableFuture<ListGro
                           .setOrder(SortOrder.DESCENDING),
                       start,
                       count,
-                      context.getAuthentication(),
                       new SearchFlags().setFulltext(true));
 
               // Then, get hydrate all groups.

@@ -42,7 +42,7 @@ public class ListPoliciesResolver implements DataFetcher<CompletableFuture<ListP
       final String query = input.getQuery() == null ? DEFAULT_QUERY : input.getQuery();
 
       return _policyFetcher
-          .fetchPolicies(start, query, count, context.getAuthentication())
+          .fetchPolicies(context.getOperationContext(), start, query, count)
           .thenApply(
               policyFetchResult -> {
                 final ListPoliciesResult result = new ListPoliciesResult();

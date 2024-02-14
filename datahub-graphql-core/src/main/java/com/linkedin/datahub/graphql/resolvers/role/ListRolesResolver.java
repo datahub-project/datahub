@@ -53,12 +53,12 @@ public class ListRolesResolver implements DataFetcher<CompletableFuture<ListRole
             // First, get all role Urns.
             final SearchResult gmsResult =
                 _entityClient.search(
+                    context.getOperationContext(),
                     DATAHUB_ROLE_ENTITY_NAME,
                     query,
                     Collections.emptyMap(),
                     start,
                     count,
-                    context.getAuthentication(),
                     new SearchFlags().setFulltext(true));
 
             // Then, get and hydrate all users.

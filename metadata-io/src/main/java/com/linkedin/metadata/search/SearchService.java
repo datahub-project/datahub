@@ -12,6 +12,7 @@ import com.linkedin.metadata.search.client.CachingEntitySearchService;
 import com.linkedin.metadata.search.ranker.SearchRanker;
 import com.linkedin.metadata.utils.SearchUtil;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -66,6 +67,7 @@ public class SearchService {
    */
   @Nonnull
   public SearchResult search(
+      @Nonnull OperationContext opContext,
       @Nonnull List<String> entityNames,
       @Nonnull String input,
       @Nullable Filter postFilters,
@@ -80,7 +82,15 @@ public class SearchService {
     }
     SearchResult result =
         _cachingEntitySearchService.search(
-            entitiesToSearch, input, postFilters, sortCriterion, from, size, searchFlags, null);
+            opContext,
+            entitiesToSearch,
+            input,
+            postFilters,
+            sortCriterion,
+            from,
+            size,
+            searchFlags,
+            null);
 
     try {
       return result
@@ -94,6 +104,7 @@ public class SearchService {
 
   @Nonnull
   public SearchResult searchAcrossEntities(
+      @Nonnull OperationContext opContext,
       @Nonnull List<String> entities,
       @Nonnull String input,
       @Nullable Filter postFilters,
@@ -102,7 +113,7 @@ public class SearchService {
       int size,
       @Nullable SearchFlags searchFlags) {
     return searchAcrossEntities(
-        entities, input, postFilters, sortCriterion, from, size, searchFlags, null);
+        opContext, entities, input, postFilters, sortCriterion, from, size, searchFlags, null);
   }
 
   /**
@@ -123,6 +134,7 @@ public class SearchService {
    */
   @Nonnull
   public SearchResult searchAcrossEntities(
+      @Nonnull OperationContext opContext,
       @Nonnull List<String> entities,
       @Nonnull String input,
       @Nullable Filter postFilters,
@@ -154,7 +166,15 @@ public class SearchService {
     }
     SearchResult result =
         _cachingEntitySearchService.search(
-            nonEmptyEntities, input, postFilters, sortCriterion, from, size, searchFlags, facets);
+            opContext,
+            nonEmptyEntities,
+            input,
+            postFilters,
+            sortCriterion,
+            from,
+            size,
+            searchFlags,
+            facets);
     if (facets == null || facets.contains("entity") || facets.contains("_entityType")) {
       Optional<AggregationMetadata> entityTypeAgg =
           result.getMetadata().getAggregations().stream()
@@ -240,6 +260,7 @@ public class SearchService {
    */
   @Nonnull
   public ScrollResult scrollAcrossEntities(
+      @Nonnull OperationContext opContext,
       @Nonnull List<String> entities,
       @Nonnull String input,
       @Nullable Filter postFilters,
@@ -258,6 +279,7 @@ public class SearchService {
       return getEmptyScrollResult(size);
     }
     return _cachingEntitySearchService.scroll(
+        opContext,
         entitiesToSearch,
         input,
         postFilters,

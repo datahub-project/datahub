@@ -31,6 +31,7 @@ import com.linkedin.post.PostContentType;
 import com.linkedin.post.PostInfo;
 import com.linkedin.post.PostType;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.util.Map;
 import org.mockito.Mockito;
@@ -120,13 +121,13 @@ public class ListPostsResolverTest {
             ImmutableList.of(new SearchEntity().setEntity(Urn.createFromString(POST_URN_STRING)))));
 
     when(_entityClient.search(
+            any(OperationContext.class),
             eq(POST_ENTITY_NAME),
             any(),
             eq(null),
             any(),
             anyInt(),
             anyInt(),
-            eq(_authentication),
             Mockito.eq(new SearchFlags().setFulltext(true))))
         .thenReturn(roleSearchResult);
     when(_entityClient.batchGetV2(eq(POST_ENTITY_NAME), any(), any(), any()))

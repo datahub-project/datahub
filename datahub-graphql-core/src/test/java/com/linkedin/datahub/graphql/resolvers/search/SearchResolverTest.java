@@ -2,8 +2,8 @@ package com.linkedin.datahub.graphql.resolvers.search;
 
 import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
 import static com.linkedin.metadata.Constants.*;
+import static org.mockito.ArgumentMatchers.any;
 
-import com.datahub.authentication.Authentication;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.EntityType;
@@ -18,6 +18,7 @@ import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchResultMetadata;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
@@ -65,7 +66,9 @@ public class SearchResolverTest {
                 .setSkipAggregates(false)
                 .setSkipHighlighting(true) // empty/wildcard
                 .setMaxAggValues(20)
-                .setSkipCache(false),
+                .setSkipCache(false)
+                .setIncludeSoftDeleted(false)
+                .setIncludeRestricted(false),
             true));
   }
 
@@ -136,7 +139,9 @@ public class SearchResolverTest {
                 .setSkipAggregates(false)
                 .setSkipHighlighting(false) // empty/wildcard
                 .setMaxAggValues(20)
-                .setSkipCache(false),
+                .setSkipCache(false)
+                .setIncludeSoftDeleted(false)
+                .setIncludeRestricted(false),
             true));
   }
 
@@ -144,13 +149,13 @@ public class SearchResolverTest {
     EntityClient client = Mockito.mock(EntityClient.class);
     Mockito.when(
             client.search(
+                any(OperationContext.class),
                 Mockito.anyString(),
                 Mockito.anyString(),
                 Mockito.any(),
                 Mockito.any(),
                 Mockito.anyInt(),
                 Mockito.anyInt(),
-                Mockito.any(Authentication.class),
                 Mockito.any()))
         .thenReturn(
             new SearchResult()
@@ -174,13 +179,13 @@ public class SearchResolverTest {
       throws Exception {
     Mockito.verify(mockClient, Mockito.times(1))
         .search(
+            any(OperationContext.class),
             Mockito.eq(entityName),
             Mockito.eq(query),
             Mockito.eq(filter),
             Mockito.eq(sortCriterion),
             Mockito.eq(start),
             Mockito.eq(limit),
-            Mockito.any(Authentication.class),
             Mockito.eq(searchFlags));
   }
 

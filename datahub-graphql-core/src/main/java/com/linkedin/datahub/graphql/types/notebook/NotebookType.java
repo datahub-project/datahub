@@ -95,12 +95,12 @@ public class NotebookType
     final Map<String, String> facetFilters = Collections.emptyMap();
     final SearchResult searchResult =
         _entityClient.search(
+            context.getOperationContext(),
             NOTEBOOK_ENTITY_NAME,
             query,
             facetFilters,
             start,
             count,
-            context.getAuthentication(),
             new SearchFlags().setFulltext(true));
     return UrnSearchResultsMapper.map(searchResult);
   }
@@ -115,7 +115,7 @@ public class NotebookType
       throws Exception {
     final AutoCompleteResult result =
         _entityClient.autoComplete(
-            NOTEBOOK_ENTITY_NAME, query, filters, limit, context.getAuthentication());
+            context.getOperationContext(), NOTEBOOK_ENTITY_NAME, query, filters, limit);
     return AutoCompleteResultsMapper.map(result);
   }
 
@@ -135,7 +135,13 @@ public class NotebookType
         path.size() > 0 ? BROWSE_PATH_DELIMITER + String.join(BROWSE_PATH_DELIMITER, path) : "";
     final BrowseResult result =
         _entityClient.browse(
-            NOTEBOOK_ENTITY_NAME, pathStr, facetFilters, start, count, context.getAuthentication());
+            NOTEBOOK_ENTITY_NAME,
+            pathStr,
+            facetFilters,
+            start,
+            count,
+            context.getAuthentication(),
+            new SearchFlags().setFulltext(false));
     return BrowseResultMapper.map(result);
   }
 

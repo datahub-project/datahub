@@ -168,12 +168,12 @@ public class DatasetType
     final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
     final SearchResult searchResult =
         _entityClient.search(
+            context.getOperationContext(),
             ENTITY_NAME,
             query,
             facetFilters,
             start,
             count,
-            context.getAuthentication(),
             new SearchFlags().setFulltext(true));
     return UrnSearchResultsMapper.map(searchResult);
   }
@@ -187,7 +187,8 @@ public class DatasetType
       @Nonnull final QueryContext context)
       throws Exception {
     final AutoCompleteResult result =
-        _entityClient.autoComplete(ENTITY_NAME, query, filters, limit, context.getAuthentication());
+        _entityClient.autoComplete(
+            context.getOperationContext(), ENTITY_NAME, query, filters, limit);
     return AutoCompleteResultsMapper.map(result);
   }
 
@@ -204,7 +205,13 @@ public class DatasetType
         path.size() > 0 ? BROWSE_PATH_DELIMITER + String.join(BROWSE_PATH_DELIMITER, path) : "";
     final BrowseResult result =
         _entityClient.browse(
-            "dataset", pathStr, facetFilters, start, count, context.getAuthentication());
+            "dataset",
+            pathStr,
+            facetFilters,
+            start,
+            count,
+            context.getAuthentication(),
+            new SearchFlags().setFulltext(false));
     return BrowseResultMapper.map(result);
   }
 

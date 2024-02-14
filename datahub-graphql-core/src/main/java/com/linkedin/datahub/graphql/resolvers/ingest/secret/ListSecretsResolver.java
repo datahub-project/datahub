@@ -67,6 +67,7 @@ public class ListSecretsResolver implements DataFetcher<CompletableFuture<ListSe
               // First, get all secrets
               final SearchResult gmsResult =
                   _entityClient.search(
+                      context.getOperationContext(),
                       Constants.SECRETS_ENTITY_NAME,
                       query,
                       null,
@@ -75,7 +76,6 @@ public class ListSecretsResolver implements DataFetcher<CompletableFuture<ListSe
                           .setOrder(SortOrder.DESCENDING),
                       start,
                       count,
-                      context.getAuthentication(),
                       new SearchFlags().setFulltext(true));
 
               // Then, resolve all secrets

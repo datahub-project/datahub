@@ -17,6 +17,7 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
+import com.datahub.plugins.auth.authorization.Authorizer;
 import com.datahub.test.Snapshot;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -64,6 +65,8 @@ import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import com.linkedin.r2.RemoteInvocationException;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -119,6 +122,12 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
   private static final Urn TEST_DATASET_URN =
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,test,PROD)");
 
+  @Nonnull
+  protected OperationContext getOperationContext() {
+    return TestOperationContexts.userContextNoSearchAuthorization(
+        _entityRegistry, Authorizer.EMPTY, TestOperationContexts.TEST_USER_AUTH);
+  }
+
   @BeforeClass
   public void disableAssert() {
     PathSpecBasedSchemaAnnotationVisitor.class
@@ -156,8 +165,10 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
     lineageSearchService =
         spy(
             new LineageSearchService(
+                getOperationContext(),
                 new SearchService(
                     new EntityDocCountCache(
+                            getOperationContext(),
                         aspectRetriever.getEntityRegistry(),
                         elasticSearchService,
                         entityDocCountCacheConfiguration),
@@ -206,7 +217,8 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
             indexConvention,
             getBulkProcessor(),
             1);
-    return new ElasticSearchService(indexBuilders, searchDAO, browseDAO, writeDAO)
+    return new ElasticSearchService(
+        getOperationContext(), indexBuilders, searchDAO, browseDAO, writeDAO)
         .postConstruct(aspectRetriever);
   }
 

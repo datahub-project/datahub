@@ -11,11 +11,13 @@ import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.StructuredPropertyUtils;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
+import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -54,6 +56,7 @@ public class ESUtils {
   public static final int MAX_RESULT_SIZE = 10000;
   public static final String OPAQUE_ID_HEADER = "X-Opaque-Id";
   public static final String HEADER_VALUE_DELIMITER = "|";
+  private static final String REMOVED = "removed";
 
   // Field types
   public static final String KEYWORD_FIELD_TYPE = "keyword";
@@ -665,5 +668,46 @@ public class ESUtils {
                         .queryName(fieldName)
                         .analyzer(KEYWORD_ANALYZER)));
     return filters;
+  }
+
+  @Nonnull
+  public static BoolQueryBuilder applyDefaultSearchFilters(
+      @Nonnull OperationContext opContext,
+      @Nullable Filter filter,
+      @Nonnull BoolQueryBuilder filterQuery,
+      @Nonnull SearchFlags searchFlags) {
+    // filter soft deleted entities by default
+    filterSoftDeletedByDefault(filter, filterQuery, searchFlags);
+    // filter based on access controls
+    ESAccessControlUtil.buildAccessControlFilters(opContext.withSearchFlags(searchFlags))
+        .ifPresent(filterQuery::filter);
+    return filterQuery;
+  }
+
+  /**
+   * Applies a default filter to remove entities that are soft deleted only if there isn't a filter
+   * for the REMOVED field already and soft delete entities are not being requested via search flags
+   */
+  private static void filterSoftDeletedByDefault(
+      @Nullable Filter filter,
+      @Nonnull BoolQueryBuilder filterQuery,
+      @Nonnull SearchFlags searchFlags) {
+    if (Boolean.FALSE.equals(searchFlags.isIncludeSoftDeleted())) {
+      boolean removedInOrFilter = false;
+      if (filter != null) {
+        removedInOrFilter =
+            filter.getOr().stream()
+                .anyMatch(
+                    or ->
+                        or.getAnd().stream()
+                            .anyMatch(
+                                criterion ->
+                                    criterion.getField().equals(REMOVED)
+                                        || criterion.getField().equals(REMOVED + KEYWORD_SUFFIX)));
+      }
+      if (!removedInOrFilter) {
+        filterQuery.mustNot(QueryBuilders.matchQuery(REMOVED, true));
+      }
+    }
   }
 }

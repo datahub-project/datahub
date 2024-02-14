@@ -13,6 +13,7 @@ import com.linkedin.metadata.recommendation.RecommendationRequestContext;
 import com.linkedin.metadata.recommendation.SearchParams;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.utils.QueryUtils;
+import io.datahubproject.metadata.context.OperationContext;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.net.URISyntaxException;
 import java.util.Collections;
@@ -38,6 +39,7 @@ import org.apache.commons.lang3.tuple.Pair;
 @Slf4j
 @RequiredArgsConstructor
 public abstract class EntitySearchAggregationSource implements RecommendationSource {
+  @Nonnull private final OperationContext opContext;
   private final EntitySearchService entitySearchService;
   private final EntityRegistry entityRegistry;
 
@@ -74,7 +76,12 @@ public abstract class EntitySearchAggregationSource implements RecommendationSou
       @Nonnull Urn userUrn, @Nullable RecommendationRequestContext requestContext) {
     Map<String, Long> aggregationResult =
         entitySearchService.aggregateByValue(
-            getEntityNames(entityRegistry), getSearchFieldName(), null, getMaxContent());
+            opContext,
+            getEntityNames(entityRegistry),
+            getSearchFieldName(),
+            null,
+            getMaxContent(),
+            null);
 
     if (aggregationResult.isEmpty()) {
       return Collections.emptyList();

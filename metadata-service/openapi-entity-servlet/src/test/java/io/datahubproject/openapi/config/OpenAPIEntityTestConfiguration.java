@@ -27,11 +27,13 @@ import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeline.TimelineService;
+import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.openapi.dto.UrnResponseMap;
 import io.datahubproject.openapi.entities.EntitiesController;
 import io.datahubproject.openapi.generated.EntityResponse;
 import io.datahubproject.openapi.relationships.RelationshipsController;
 import io.datahubproject.openapi.timeline.TimelineController;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -62,7 +64,15 @@ public class OpenAPIEntityTestConfiguration {
   public SearchService searchService() {
     SearchService searchService = mock(SearchService.class);
     when(searchService.scrollAcrossEntities(
-            anyList(), any(), any(), any(), any(), any(), anyInt(), any()))
+            any(OperationContext.class),
+            anyList(),
+            any(),
+            any(),
+            any(),
+            any(),
+            any(),
+            anyInt(),
+            any()))
         .thenReturn(new ScrollResult().setEntities(new SearchEntityArray()));
 
     return searchService;
@@ -134,4 +144,9 @@ public class OpenAPIEntityTestConfiguration {
   @MockBean public TimelineController timelineController;
 
   @MockBean public RelationshipsController relationshipsController;
+
+  @Bean(name = "systemOperationContext")
+  public OperationContext operationContext(final EntityRegistry entityRegistry) {
+    return TestOperationContexts.systemContextNoSearchAuthorization(entityRegistry);
+  }
 }

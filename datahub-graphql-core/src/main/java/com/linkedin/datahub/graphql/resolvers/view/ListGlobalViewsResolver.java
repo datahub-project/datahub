@@ -68,13 +68,13 @@ public class ListGlobalViewsResolver implements DataFetcher<CompletableFuture<Li
 
             final SearchResult gmsResult =
                 _entityClient.search(
+                    context.getOperationContext(),
                     Constants.DATAHUB_VIEW_ENTITY_NAME,
                     query,
                     buildFilters(),
                     DEFAULT_SORT_CRITERION,
                     start,
                     count,
-                    context.getAuthentication(),
                     new SearchFlags().setFulltext(true));
 
             final ListViewsResult result = new ListViewsResult();

@@ -57,13 +57,13 @@ public class ListPostsResolver implements DataFetcher<CompletableFuture<ListPost
             // First, get all Post Urns.
             final SearchResult gmsResult =
                 _entityClient.search(
+                    context.getOperationContext(),
                     POST_ENTITY_NAME,
                     query,
                     null,
                     sortCriterion,
                     start,
                     count,
-                    context.getAuthentication(),
                     new SearchFlags().setFulltext(true));
 
             // Then, get and hydrate all Posts.

@@ -79,6 +79,7 @@ public class ContainerEntitiesResolver implements DataFetcher<CompletableFuture<
 
             return UrnSearchResultsMapper.map(
                 _entityClient.searchAcrossEntities(
+                    context.getOperationContext(),
                     CONTAINABLE_ENTITY_NAMES,
                     query,
                     new Filter()
@@ -90,8 +91,7 @@ public class ContainerEntitiesResolver implements DataFetcher<CompletableFuture<
                     start,
                     count,
                     null,
-                    null,
-                    context.getAuthentication()));
+                    null));
 
           } catch (Exception e) {
             throw new RuntimeException(

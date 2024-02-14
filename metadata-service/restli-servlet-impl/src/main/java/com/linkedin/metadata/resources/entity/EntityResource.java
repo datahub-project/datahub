@@ -12,6 +12,8 @@ import com.codahale.metrics.MetricRegistry;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.EntitySpec;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.OperationContextConfig;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.AuditStamp;
@@ -158,6 +160,10 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   @Inject
   @Named("authorizerChain")
   private Authorizer _authorizer;
+
+  @Inject
+  @Named("systemOperationContext")
+  private OperationContext systemOperationContext;
 
   /** Retrieves the value for an entity that is made up of latest versions of specified aspects. */
   @RestMethod.Get
@@ -369,6 +375,9 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       throw new RestLiServiceException(
           HttpStatus.S_401_UNAUTHORIZED, "User is unauthorized to search.");
     }
+
+    OperationContext opContext = OperationContext.asSession(systemOperationContext, _authorizer, auth, true);
+
     log.info("GET SEARCH RESULTS for {} with query {}", entityName, input);
     // TODO - change it to use _searchService once we are confident on it's latency
     return RestliUtil.toTask(
@@ -376,7 +385,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
           final SearchResult result;
           // This API is not used by the frontend for search bars so we default to structured
           result =
-              _entitySearchService.search(
+              _entitySearchService.search(opContext,
                   List.of(entityName), input, filter, sortCriterion, start, count, searchFlags);
           return validateSearchResult(result, _entityService);
         },
@@ -404,6 +413,9 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       throw new RestLiServiceException(
           HttpStatus.S_401_UNAUTHORIZED, "User is unauthorized to search.");
     }
+    OperationContext opContext = OperationContext.asSession(
+            systemOperationContext, _authorizer, auth, true);
+
     List<String> entityList = entities == null ? Collections.emptyList() : Arrays.asList(entities);
     log.info("GET SEARCH RESULTS ACROSS ENTITIES for {} with query {}", entityList, input);
     final SearchFlags finalFlags =
@@ -411,7 +423,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     return RestliUtil.toTask(
         () ->
             validateSearchResult(
-                _searchService.searchAcrossEntities(
+                _searchService.searchAcrossEntities(opContext,
                     entityList, input, filter, sortCriterion, start, count, finalFlags),
                 _entityService),
         "searchAcrossEntities");
@@ -429,6 +441,10 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       @ActionParam(PARAM_KEEP_ALIVE) String keepAlive,
       @ActionParam(PARAM_COUNT) int count,
       @ActionParam(PARAM_SEARCH_FLAGS) @Optional SearchFlags searchFlags) {
+    Authentication auth = AuthenticationContext.getAuthentication();
+    OperationContext opContext = OperationContext.asSession(
+            systemOperationContext, _authorizer, auth, true);
+
     List<String> entityList = entities == null ? Collections.emptyList() : Arrays.asList(entities);
     log.info(
         "GET SCROLL RESULTS ACROSS ENTITIES for {} with query {} and scroll ID: {}",
@@ -441,6 +457,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
         () ->
             validateScrollResult(
                 _searchService.scrollAcrossEntities(
+                        opContext,
                     entityList,
                     input,
                     filter,
@@ -577,12 +594,15 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       throw new RestLiServiceException(
           HttpStatus.S_401_UNAUTHORIZED, "User is unauthorized to search.");
     }
+    OperationContext opContext = OperationContext.asSession(
+            systemOperationContext, _authorizer, auth, true);
+
     log.info("GET LIST RESULTS for {} with filter {}", entityName, filter);
     return RestliUtil.toTask(
         () ->
             validateListResult(
                 toListResult(
-                    _entitySearchService.filter(entityName, filter, sortCriterion, start, count)),
+                    _entitySearchService.filter(opContext, entityName, filter, new SearchFlags().setFulltext(false), sortCriterion, start, count)),
                 _entityService),
         MetricRegistry.name(this.getClass(), "filter"));
   }
@@ -595,7 +615,8 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       @ActionParam(PARAM_QUERY) @Nonnull String query,
       @ActionParam(PARAM_FIELD) @Optional @Nullable String field,
       @ActionParam(PARAM_FILTER) @Optional @Nullable Filter filter,
-      @ActionParam(PARAM_LIMIT) int limit) {
+      @ActionParam(PARAM_LIMIT) int limit,
+      @ActionParam(PARAM_SEARCH_FLAGS) @Optional @Nullable SearchFlags searchFlags) {
 
     Authentication auth = AuthenticationContext.getAuthentication();
     if (Boolean.parseBoolean(System.getenv(REST_API_AUTHORIZATION_ENABLED_ENV))
@@ -607,8 +628,11 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       throw new RestLiServiceException(
           HttpStatus.S_401_UNAUTHORIZED, "User is unauthorized to search.");
     }
+    OperationContext opContext = OperationContext.asSession(
+            systemOperationContext, _authorizer, auth, true);
+
     return RestliUtil.toTask(
-        () -> _entitySearchService.autoComplete(entityName, query, field, filter, limit),
+        () -> _entitySearchService.autoComplete(opContext, entityName, query, field, filter, limit, searchFlags),
         MetricRegistry.name(this.getClass(), "autocomplete"));
   }
 
@@ -620,7 +644,8 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       @ActionParam(PARAM_PATH) @Nonnull String path,
       @ActionParam(PARAM_FILTER) @Optional @Nullable Filter filter,
       @ActionParam(PARAM_START) int start,
-      @ActionParam(PARAM_LIMIT) int limit) {
+      @ActionParam(PARAM_LIMIT) int limit,
+      @ActionParam(PARAM_SEARCH_FLAGS) @Optional @Nullable SearchFlags searchFlags) {
 
     Authentication auth = AuthenticationContext.getAuthentication();
     if (Boolean.parseBoolean(System.getenv(REST_API_AUTHORIZATION_ENABLED_ENV))
@@ -632,11 +657,12 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       throw new RestLiServiceException(
           HttpStatus.S_401_UNAUTHORIZED, "User is unauthorized to search.");
     }
+
     log.info("GET BROWSE RESULTS for {} at path {}", entityName, path);
     return RestliUtil.toTask(
         () ->
             validateBrowseResult(
-                _entitySearchService.browse(entityName, path, filter, start, limit),
+                _entitySearchService.browse(entityName, path, filter, start, limit, searchFlags),
                 _entityService),
         MetricRegistry.name(this.getClass(), "browse"));
   }
@@ -937,7 +963,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       throw new RestLiServiceException(
           HttpStatus.S_401_UNAUTHORIZED, "User is unauthorized to get entity counts.");
     }
-    return RestliUtil.toTask(() -> _entitySearchService.docCount(entityName));
+    return RestliUtil.toTask(() -> _entitySearchService.docCount(entityName, null));
   }
 
   @Action(name = "batchGetTotalEntityCount")
@@ -1030,11 +1056,13 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       throw new RestLiServiceException(
           HttpStatus.S_401_UNAUTHORIZED, "User is unauthorized to search.");
     }
+    OperationContext opContext = OperationContext.asSession(
+            systemOperationContext, _authorizer, auth, true);
     log.info("FILTER RESULTS for {} with filter {}", entityName, filter);
     return RestliUtil.toTask(
         () ->
             validateSearchResult(
-                _entitySearchService.filter(entityName, filter, sortCriterion, start, count),
+                _entitySearchService.filter(opContext, entityName, filter, new SearchFlags().setFulltext(false), sortCriterion, start, count),
                 _entityService),
         MetricRegistry.name(this.getClass(), "search"));
   }

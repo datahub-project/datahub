@@ -57,12 +57,12 @@ public class ListUsersResolver implements DataFetcher<CompletableFuture<ListUser
               // First, get all policy Urns.
               final SearchResult gmsResult =
                   _entityClient.search(
+                      context.getOperationContext(),
                       CORP_USER_ENTITY_NAME,
                       query,
                       Collections.emptyMap(),
                       start,
                       count,
-                      context.getAuthentication(),
                       new SearchFlags().setFulltext(true));
 
               // Then, get hydrate all users.

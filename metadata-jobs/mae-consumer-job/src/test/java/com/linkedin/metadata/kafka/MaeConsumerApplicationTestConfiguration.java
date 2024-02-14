@@ -1,6 +1,7 @@
 package com.linkedin.metadata.kafka;
 
 import com.linkedin.gms.factory.auth.SystemAuthenticationFactory;
+import com.linkedin.gms.factory.common.SystemOperationContextFactory;
 import com.linkedin.metadata.dao.producer.KafkaHealthChecker;
 import com.linkedin.metadata.entity.EntityServiceImpl;
 import com.linkedin.metadata.graph.GraphService;
@@ -14,7 +15,7 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
 
 @TestConfiguration
-@Import(value = {SystemAuthenticationFactory.class})
+@Import(value = {SystemAuthenticationFactory.class, SystemOperationContextFactory.class})
 public class MaeConsumerApplicationTestConfiguration {
 
   @MockBean private KafkaHealthChecker kafkaHealthChecker;

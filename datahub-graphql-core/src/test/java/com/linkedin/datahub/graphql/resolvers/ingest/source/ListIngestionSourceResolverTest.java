@@ -1,6 +1,8 @@
 package com.linkedin.datahub.graphql.resolvers.ingest.source;
 
 import static com.linkedin.datahub.graphql.resolvers.ingest.IngestTestUtils.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
 import static org.testng.Assert.*;
 
 import com.datahub.authentication.Authentication;
@@ -22,6 +24,7 @@ import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.HashSet;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
@@ -42,13 +45,13 @@ public class ListIngestionSourceResolverTest {
 
     Mockito.when(
             mockClient.search(
+                any(OperationContext.class),
                 Mockito.eq(Constants.INGESTION_SOURCE_ENTITY_NAME),
                 Mockito.eq(""),
                 Mockito.any(),
                 Mockito.any(),
                 Mockito.eq(0),
                 Mockito.eq(20),
-                Mockito.any(Authentication.class),
                 Mockito.eq(new SearchFlags().setFulltext(true))))
         .thenReturn(
             new SearchResult()
@@ -85,6 +88,7 @@ public class ListIngestionSourceResolverTest {
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
+    Mockito.when(mockContext.getOperationContext()).thenReturn(mock(OperationContext.class));
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_INPUT);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
@@ -116,12 +120,12 @@ public class ListIngestionSourceResolverTest {
             Mockito.any(), Mockito.anySet(), Mockito.anySet(), Mockito.any(Authentication.class));
     Mockito.verify(mockClient, Mockito.times(0))
         .search(
+            any(OperationContext.class),
             Mockito.any(),
             Mockito.eq(""),
             Mockito.anyMap(),
             Mockito.anyInt(),
             Mockito.anyInt(),
-            Mockito.any(Authentication.class),
             Mockito.eq(new SearchFlags().setFulltext(true)));
   }
 

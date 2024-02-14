@@ -2,6 +2,7 @@ package com.linkedin.metadata.boot.steps;
 
 import static com.linkedin.metadata.Constants.CONTAINER_ASPECT_NAME;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.AuditStamp;
@@ -20,6 +21,7 @@ import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.mxe.MetadataChangeProposal;
+import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.util.Collections;
 import java.util.HashMap;
@@ -86,11 +88,12 @@ public class BackfillBrowsePathsV2StepTest {
         .thenReturn(null);
 
     BackfillBrowsePathsV2Step backfillBrowsePathsV2Step =
-        new BackfillBrowsePathsV2Step(mockService, mockSearchService);
+        new BackfillBrowsePathsV2Step(mock(OperationContext.class), mockService, mockSearchService);
     backfillBrowsePathsV2Step.execute();
 
     Mockito.verify(mockSearchService, Mockito.times(9))
         .scrollAcrossEntities(
+            any(OperationContext.class),
             any(),
             Mockito.eq("*"),
             any(Filter.class),
@@ -107,7 +110,7 @@ public class BackfillBrowsePathsV2StepTest {
 
   @Test
   public void testDoesNotRunWhenAlreadyExecuted() throws Exception {
-    final EntityService<?> mockService = Mockito.mock(EntityService.class);
+    final EntityService<?> mockService = mock(EntityService.class);
     final SearchService mockSearchService = initMockSearchService();
 
     final Urn upgradeEntityUrn = Urn.createFromString(UPGRADE_URN);
@@ -127,7 +130,7 @@ public class BackfillBrowsePathsV2StepTest {
         .thenReturn(response);
 
     BackfillBrowsePathsV2Step backfillBrowsePathsV2Step =
-        new BackfillBrowsePathsV2Step(mockService, mockSearchService);
+        new BackfillBrowsePathsV2Step(mock(OperationContext.class), mockService, mockSearchService);
     backfillBrowsePathsV2Step.execute();
 
     Mockito.verify(mockService, Mockito.times(0))
@@ -136,7 +139,7 @@ public class BackfillBrowsePathsV2StepTest {
   }
 
   private EntityService<?> initMockService() throws URISyntaxException {
-    final EntityService<?> mockService = Mockito.mock(EntityService.class);
+    final EntityService<?> mockService = mock(EntityService.class);
     final EntityRegistry registry = new UpgradeDefaultBrowsePathsStepTest.TestEntityRegistry();
     Mockito.when(mockService.getEntityRegistry()).thenReturn(registry);
 
@@ -153,11 +156,12 @@ public class BackfillBrowsePathsV2StepTest {
   }
 
   private SearchService initMockSearchService() {
-    final SearchService mockSearchService = Mockito.mock(SearchService.class);
+    final SearchService mockSearchService = mock(SearchService.class);
 
     for (int i = 0; i < ENTITY_TYPES.size(); i++) {
       Mockito.when(
               mockSearchService.scrollAcrossEntities(
+                  Mockito.any(OperationContext.class),
                   Mockito.eq(ImmutableList.of(ENTITY_TYPES.get(i))),
                   Mockito.eq("*"),
                   any(Filter.class),

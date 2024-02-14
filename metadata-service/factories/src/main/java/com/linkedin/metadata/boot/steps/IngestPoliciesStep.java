@@ -113,7 +113,7 @@ public class IngestPoliciesStep implements BootstrapStep {
     // If search index for policies is empty, update the policy index with the ingested policies
     // from previous step.
     // Directly update the ES index, does not produce MCLs
-    if (_entitySearchService.docCount(Constants.POLICY_ENTITY_NAME) == 0) {
+    if (_entitySearchService.docCount(Constants.POLICY_ENTITY_NAME, null) == 0) {
       updatePolicyIndex();
     }
     log.info("Successfully ingested default access policies.");

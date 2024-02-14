@@ -106,12 +106,12 @@ public class MLModelType
     final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
     final SearchResult searchResult =
         _entityClient.search(
+            context.getOperationContext(),
             "mlModel",
             query,
             facetFilters,
             start,
             count,
-            context.getAuthentication(),
             new SearchFlags().setFulltext(true));
     return UrnSearchResultsMapper.map(searchResult);
   }
@@ -125,7 +125,7 @@ public class MLModelType
       @Nonnull final QueryContext context)
       throws Exception {
     final AutoCompleteResult result =
-        _entityClient.autoComplete("mlModel", query, filters, limit, context.getAuthentication());
+        _entityClient.autoComplete(context.getOperationContext(), "mlModel", query, filters, limit);
     return AutoCompleteResultsMapper.map(result);
   }
 
@@ -142,7 +142,13 @@ public class MLModelType
         path.size() > 0 ? BROWSE_PATH_DELIMITER + String.join(BROWSE_PATH_DELIMITER, path) : "";
     final BrowseResult result =
         _entityClient.browse(
-            "mlModel", pathStr, facetFilters, start, count, context.getAuthentication());
+            "mlModel",
+            pathStr,
+            facetFilters,
+            start,
+            count,
+            context.getAuthentication(),
+            new SearchFlags().setFulltext(false));
     return BrowseResultMapper.map(result);
   }
 

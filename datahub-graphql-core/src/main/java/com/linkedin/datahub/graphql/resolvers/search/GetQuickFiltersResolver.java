@@ -5,13 +5,12 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.SEARCHABLE_ENTITY_TYPES;
 import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.resolveView;
 
-import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.GetQuickFiltersInput;
 import com.linkedin.datahub.graphql.generated.GetQuickFiltersResult;
 import com.linkedin.datahub.graphql.generated.QuickFilter;
-import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
 import com.linkedin.entity.client.EntityClient;
@@ -23,6 +22,7 @@ import com.linkedin.metadata.service.ViewService;
 import com.linkedin.view.DataHubViewInfo;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -48,6 +48,7 @@ public class GetQuickFiltersResolver
 
   public CompletableFuture<GetQuickFiltersResult> get(final DataFetchingEnvironment environment)
       throws Exception {
+    final QueryContext context = environment.getContext();
     final GetQuickFiltersInput input =
         bindArgument(environment.getArgument("input"), GetQuickFiltersInput.class);
 
@@ -58,7 +59,7 @@ public class GetQuickFiltersResolver
 
           try {
             final SearchResult searchResult =
-                getSearchResults(ResolverUtils.getAuthentication(environment), input);
+                getSearchResults(context.getOperationContext(), input);
             final AggregationMetadataArray aggregations =
                 searchResult.getMetadata().getAggregations();
 
@@ -76,11 +77,12 @@ public class GetQuickFiltersResolver
 
   /** Do a star search with view filter applied to get info about all data in this instance. */
   private SearchResult getSearchResults(
-      @Nonnull final Authentication authentication, @Nonnull final GetQuickFiltersInput input)
+      @Nonnull final OperationContext opContext, @Nonnull final GetQuickFiltersInput input)
       throws Exception {
     final DataHubViewInfo maybeResolvedView =
         (input.getViewUrn() != null)
-            ? resolveView(_viewService, UrnUtils.getUrn(input.getViewUrn()), authentication)
+            ? resolveView(
+                _viewService, UrnUtils.getUrn(input.getViewUrn()), opContext.getAuthentication())
             : null;
     final List<String> entityNames =
         SEARCHABLE_ENTITY_TYPES.stream()
@@ -88,6 +90,7 @@ public class GetQuickFiltersResolver
             .collect(Collectors.toList());
 
     return _entityClient.searchAcrossEntities(
+        opContext,
         maybeResolvedView != null
             ? SearchUtils.intersectEntityTypes(
                 entityNames, maybeResolvedView.getDefinition().getEntityTypes())
@@ -99,8 +102,7 @@ public class GetQuickFiltersResolver
         0,
         0,
         null,
-        null,
-        authentication);
+        null);
   }
 
   /**

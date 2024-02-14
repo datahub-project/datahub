@@ -65,13 +65,13 @@ public class ListAccessTokensResolver
                       .setOrder(SortOrder.DESCENDING);
               final SearchResult searchResult =
                   _entityClient.search(
+                      context.getOperationContext(),
                       Constants.ACCESS_TOKEN_ENTITY_NAME,
                       "",
                       buildFilter(filters, Collections.emptyList()),
                       sortCriterion,
                       start,
                       count,
-                      getAuthentication(environment),
                       new SearchFlags().setFulltext(true));
 
               final List<AccessTokenMetadata> tokens =

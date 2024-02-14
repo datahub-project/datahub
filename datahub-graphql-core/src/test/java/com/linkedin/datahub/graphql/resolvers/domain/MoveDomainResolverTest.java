@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.resolvers.domain;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
 import static com.linkedin.metadata.Constants.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
@@ -23,6 +24,7 @@ import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.concurrent.CompletionException;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
@@ -53,14 +55,14 @@ public class MoveDomainResolverTest {
 
     Mockito.when(
             mockClient.filter(
+                any(OperationContext.class),
                 Mockito.eq(Constants.DOMAIN_ENTITY_NAME),
                 Mockito.eq(
                     DomainUtils.buildNameAndParentDomainFilter(
                         name, Urn.createFromString(PARENT_DOMAIN_URN))),
                 Mockito.eq(null),
                 Mockito.any(Integer.class),
-                Mockito.any(Integer.class),
-                Mockito.any(Authentication.class)))
+                Mockito.any(Integer.class)))
         .thenReturn(new SearchResult().setEntities(new SearchEntityArray()));
 
     DomainProperties properties = new DomainProperties();

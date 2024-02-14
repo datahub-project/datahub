@@ -8,6 +8,7 @@ import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nonnull;
@@ -33,7 +34,7 @@ public interface EntitySearchService {
    *
    * @param entityName name of the entity
    */
-  long docCount(@Nonnull String entityName);
+  long docCount(@Nonnull String entityName, @Nullable SearchFlags searchFlags);
 
   /**
    * Updates or inserts the given search document.
@@ -82,6 +83,7 @@ public interface EntitySearchService {
    */
   @Nonnull
   SearchResult search(
+      @Nonnull OperationContext opContext,
       @Nonnull List<String> entityNames,
       @Nonnull String input,
       @Nullable Filter postFilters,
@@ -112,6 +114,7 @@ public interface EntitySearchService {
    */
   @Nonnull
   SearchResult search(
+      @Nonnull OperationContext opContext,
       @Nonnull List<String> entityNames,
       @Nonnull String input,
       @Nullable Filter postFilters,
@@ -135,8 +138,10 @@ public interface EntitySearchService {
    */
   @Nonnull
   SearchResult filter(
+      @Nonnull OperationContext opContext,
       @Nonnull String entityName,
       @Nullable Filter filters,
+      SearchFlags searchFlags,
       @Nullable SortCriterion sortCriterion,
       int from,
       int size);
@@ -156,11 +161,13 @@ public interface EntitySearchService {
    */
   @Nonnull
   AutoCompleteResult autoComplete(
+      @Nonnull OperationContext opContext,
       @Nonnull String entityName,
       @Nonnull String query,
       @Nullable String field,
       @Nullable Filter requestParams,
-      int limit);
+      int limit,
+      @Nullable SearchFlags searchFlags);
 
   /**
    * Returns number of documents per field value given the field and filters
@@ -174,10 +181,12 @@ public interface EntitySearchService {
    */
   @Nonnull
   Map<String, Long> aggregateByValue(
+      @Nonnull OperationContext opContext,
       @Nullable List<String> entityNames,
       @Nonnull String field,
       @Nullable Filter requestParams,
-      int limit);
+      int limit,
+      @Nullable SearchFlags searchFlags);
 
   /**
    * Gets a list of groups/entities that match given browse request.
@@ -195,7 +204,8 @@ public interface EntitySearchService {
       @Nonnull String path,
       @Nullable Filter requestParams,
       int from,
-      int size);
+      int size,
+      @Nullable SearchFlags searchFlags);
 
   /**
    * Gets browse snapshot of a given path
@@ -230,7 +240,7 @@ public interface EntitySearchService {
    * @param searchFlags configuration options for search
    */
   @Nonnull
-  public BrowseResultV2 browseV2(
+  BrowseResultV2 browseV2(
       @Nonnull List<String> entityNames,
       @Nonnull String path,
       @Nullable Filter filter,
@@ -266,6 +276,7 @@ public interface EntitySearchService {
    */
   @Nonnull
   ScrollResult fullTextScroll(
+      @Nonnull OperationContext opContext,
       @Nonnull List<String> entities,
       @Nonnull String input,
       @Nullable Filter postFilters,
@@ -292,6 +303,7 @@ public interface EntitySearchService {
    */
   @Nonnull
   ScrollResult structuredScroll(
+      @Nonnull OperationContext opContext,
       @Nonnull List<String> entities,
       @Nonnull String input,
       @Nullable Filter postFilters,

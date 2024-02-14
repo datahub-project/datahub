@@ -5,6 +5,7 @@ import static com.linkedin.metadata.utils.SearchUtil.AGGREGATION_SEPARATOR_CHAR;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static com.linkedin.metadata.utils.SearchUtil.ES_INDEX_FIELD;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNotNull;
@@ -124,7 +125,7 @@ public abstract class SearchDAOTestBase extends AbstractTestNGSpringContextTests
             .setValues(new StringArray(ImmutableList.of("smpldat_datasetindex_v2")))
             .setNegated(false)
             .setCondition(Condition.EQUAL)
-            .setField("_index");
+            .setField(ES_INDEX_FIELD);
 
     Filter expectedNewFilter =
         new Filter()
@@ -168,7 +169,7 @@ public abstract class SearchDAOTestBase extends AbstractTestNGSpringContextTests
             .setValues(new StringArray(ImmutableList.of("smpldat_datajobindex_v2")))
             .setNegated(false)
             .setCondition(Condition.EQUAL)
-            .setField("_index");
+            .setField(ES_INDEX_FIELD);
 
     Filter expectedNewFilter =
         new Filter()
@@ -220,7 +221,7 @@ public abstract class SearchDAOTestBase extends AbstractTestNGSpringContextTests
             .setValues(new StringArray(ImmutableList.of("smpldat_datasetindex_v2")))
             .setNegated(false)
             .setCondition(Condition.EQUAL)
-            .setField("_index");
+            .setField(ES_INDEX_FIELD);
 
     Filter expectedNewFilter =
         new Filter()

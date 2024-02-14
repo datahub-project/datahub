@@ -17,6 +17,7 @@ import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.mxe.MetadataChangeProposal;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
 import org.mockito.Mockito;
 
@@ -52,6 +53,8 @@ public class TestUtils {
         .thenReturn(
             new Authentication(
                 new Actor(ActorType.USER, UrnUtils.getUrn(actorUrn).getId()), "creds"));
+    Mockito.when(mockContext.getOperationContext())
+        .thenReturn(Mockito.mock(OperationContext.class));
     return mockContext;
   }
 
@@ -69,6 +72,8 @@ public class TestUtils {
         .thenReturn(
             new Authentication(
                 new Actor(ActorType.USER, UrnUtils.getUrn(actorUrn).getId()), "creds"));
+    Mockito.when(mockContext.getOperationContext())
+        .thenReturn(Mockito.mock(OperationContext.class));
     return mockContext;
   }
 
@@ -90,6 +95,8 @@ public class TestUtils {
         .thenReturn(
             new Authentication(
                 new Actor(ActorType.USER, UrnUtils.getUrn(actorUrn).getId()), "creds"));
+    Mockito.when(mockContext.getOperationContext())
+        .thenReturn(Mockito.mock(OperationContext.class));
     return mockContext;
   }
 
@@ -107,6 +114,8 @@ public class TestUtils {
         .thenReturn(
             new Authentication(
                 new Actor(ActorType.USER, UrnUtils.getUrn(actorUrn).getId()), "creds"));
+    Mockito.when(mockContext.getOperationContext())
+        .thenReturn(Mockito.mock(OperationContext.class));
     return mockContext;
   }
 

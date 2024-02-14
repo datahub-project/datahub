@@ -128,12 +128,12 @@ public class ContainerType
     final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
     final SearchResult searchResult =
         _entityClient.search(
+            context.getOperationContext(),
             ENTITY_NAME,
             query,
             facetFilters,
             start,
             count,
-            context.getAuthentication(),
             new SearchFlags().setFulltext(true));
     return UrnSearchResultsMapper.map(searchResult);
   }
@@ -147,7 +147,8 @@ public class ContainerType
       @Nonnull final QueryContext context)
       throws Exception {
     final AutoCompleteResult result =
-        _entityClient.autoComplete(ENTITY_NAME, query, filters, limit, context.getAuthentication());
+        _entityClient.autoComplete(
+            context.getOperationContext(), ENTITY_NAME, query, filters, limit);
     return AutoCompleteResultsMapper.map(result);
   }
 }
