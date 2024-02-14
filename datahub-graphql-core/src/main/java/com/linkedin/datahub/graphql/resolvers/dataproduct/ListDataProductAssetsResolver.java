@@ -10,6 +10,8 @@ import com.linkedin.data.DataMap;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.DataProduct;
 import com.linkedin.datahub.graphql.generated.EntityType;
+import com.linkedin.datahub.graphql.generated.ExtraProperty;
+import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.SearchAcrossEntitiesInput;
 import com.linkedin.datahub.graphql.generated.SearchResults;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
@@ -29,8 +31,12 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -43,6 +49,7 @@ import lombok.extern.slf4j.Slf4j;
 public class ListDataProductAssetsResolver
     implements DataFetcher<CompletableFuture<SearchResults>> {
 
+  private static final String OUTPUT_PORTS_FILTER_FIELD = "isOutputPort";
   private static final int DEFAULT_START = 0;
   private static final int DEFAULT_COUNT = 10;
 
@@ -62,6 +69,7 @@ public class ListDataProductAssetsResolver
 
     // 1. Get urns of assets belonging to Data Product using an aspect query
     List<Urn> assetUrns = new ArrayList<>();
+    Set<String> outputPorts = Collections.EMPTY_SET;
     try {
       final EntityResponse entityResponse =
           _entityClient.getV2(
@@ -85,6 +93,11 @@ public class ListDataProductAssetsResolver
               dataProductProperties.getAssets().stream()
                   .map(DataProductAssociation::getDestinationUrn)
                   .collect(Collectors.toList()));
+          outputPorts =
+              dataProductProperties.getAssets().stream()
+                  .filter(DataProductAssociation::isOutputPort)
+                  .map(dpa -> dpa.getDestinationUrn().toString())
+                  .collect(Collectors.toSet());
         }
       }
     } catch (Exception e) {
@@ -116,6 +129,7 @@ public class ListDataProductAssetsResolver
     final int start = input.getStart() != null ? input.getStart() : DEFAULT_START;
     final int count = input.getCount() != null ? input.getCount() : DEFAULT_COUNT;
 
+    Set<String> finalOutputPorts = outputPorts;
     return CompletableFuture.supplyAsync(
         () -> {
           // if no assets in data product properties, exit early before search and return empty
@@ -129,10 +143,15 @@ public class ListDataProductAssetsResolver
             return results;
           }
 
+          List<FacetFilterInput> filters = input.getFilters();
+          final List<Urn> urnsToFilterOn = getUrnsToFilterOn(assetUrns, finalOutputPorts, filters);
+          // need to remove output ports filter so we don't send to elastic
+          if (filters != null) {
+            filters.removeIf(f -> f.getField().equals(OUTPUT_PORTS_FILTER_FIELD));
+          }
           // add urns from the aspect to our filters
-          final Filter baseFilter =
-              ResolverUtils.buildFilter(input.getFilters(), input.getOrFilters());
-          final Filter finalFilter = buildFilterWithUrns(new HashSet<>(assetUrns), baseFilter);
+          final Filter baseFilter = ResolverUtils.buildFilter(filters, input.getOrFilters());
+          final Filter finalFilter = buildFilterWithUrns(new HashSet<>(urnsToFilterOn), baseFilter);
 
           SearchFlags searchFlags = null;
           com.linkedin.datahub.graphql.generated.SearchFlags inputFlags = input.getSearchFlags();
@@ -149,16 +168,31 @@ public class ListDataProductAssetsResolver
                 start,
                 count);
 
-            return UrnSearchResultsMapper.map(
-                _entityClient.searchAcrossEntities(
-                    finalEntityNames,
-                    sanitizedQuery,
-                    finalFilter,
-                    start,
-                    count,
-                    searchFlags,
-                    null,
-                    ResolverUtils.getAuthentication(environment)));
+            SearchResults results =
+                UrnSearchResultsMapper.map(
+                    _entityClient.searchAcrossEntities(
+                        finalEntityNames,
+                        sanitizedQuery,
+                        finalFilter,
+                        start,
+                        count,
+                        searchFlags,
+                        null,
+                        ResolverUtils.getAuthentication(environment)));
+            results
+                .getSearchResults()
+                .forEach(
+                    searchResult -> {
+                      if (finalOutputPorts.contains(searchResult.getEntity().getUrn())) {
+                        if (searchResult.getExtraProperties() == null) {
+                          searchResult.setExtraProperties(new ArrayList<>());
+                        }
+                        searchResult
+                            .getExtraProperties()
+                            .add(new ExtraProperty("isOutputPort", "true"));
+                      }
+                    });
+            return results;
           } catch (Exception e) {
             log.error(
                 "Failed to execute search for data product assets: entity types {}, query {}, filters: {}, start: {}, count: {}",
@@ -175,5 +209,38 @@ public class ListDataProductAssetsResolver
                 e);
           }
         });
+  }
+
+  /**
+   * Check to see if our filters list has a hardcoded filter for output ports. If so, let this
+   * filter determine which urns we filter search results on. Otherwise, if no output port filter is
+   * found, return all asset urns as per usual.
+   */
+  @Nonnull
+  private List<Urn> getUrnsToFilterOn(
+      @Nonnull final List<Urn> assetUrns,
+      @Nonnull final Set<String> outputPortUrns,
+      @Nullable final List<FacetFilterInput> filters) {
+    Optional<FacetFilterInput> isOutputPort =
+        filters != null
+            ? filters.stream()
+                .filter(f -> f.getField().equals(OUTPUT_PORTS_FILTER_FIELD))
+                .findFirst()
+            : Optional.empty();
+
+    // optionally get entities that explicitly are or are not output ports
+    List<Urn> urnsToFilterOn = assetUrns;
+    if (isOutputPort.isPresent()) {
+      if (isOutputPort.get().getValue().equals("true")) {
+        urnsToFilterOn = outputPortUrns.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
+      } else {
+        urnsToFilterOn =
+            assetUrns.stream()
+                .filter(u -> !outputPortUrns.contains(u.toString()))
+                .collect(Collectors.toList());
+      }
+    }
+
+    return urnsToFilterOn;
   }
 }

@@ -1,0 +1,148 @@
+import React from 'react';
+import {
+    Container,
+    DataProduct,
+    DatasetStatsSummary,
+    Deprecation,
+    Domain,
+    EntityPath,
+    EntityType,
+    FabricType,
+    GlobalTags,
+    GlossaryTerms,
+    Health,
+    Maybe,
+    Owner,
+    ParentContainersResult,
+    SearchInsight,
+} from '../../../../types.generated';
+import DefaultPreviewCard from '../../../previewV2/DefaultPreviewCard';
+import { useEntityRegistry } from '../../../useEntityRegistry';
+import { IconStyleType } from '../../Entity';
+import { ANTD_GRAY } from '../../shared/constants';
+import { PopularityTier } from '../../shared/containers/profile/sidebar/shared/utils';
+import { summaryHasStats } from '../../shared/utils';
+import { DatasetStatsSummary as DatasetStatsSummaryView } from '../shared/DatasetStatsSummary';
+
+export const Preview = ({
+    urn,
+    name,
+    origin,
+    description,
+    platformName,
+    platformLogo,
+    platformNames,
+    platformLogos,
+    platformInstanceId,
+    owners,
+    globalTags,
+    domain,
+    dataProduct,
+    deprecation,
+    snippet,
+    insights,
+    glossaryTerms,
+    subtype,
+    externalUrl,
+    container,
+    parentContainers,
+    rowCount,
+    columnCount,
+    statsSummary,
+    lastUpdatedMs,
+    health,
+    degree,
+    paths,
+    isOutputPort,
+    tier,
+    upstreamTotal,
+    downstreamTotal,
+}: {
+    urn: string;
+    name: string;
+    origin: FabricType;
+    description?: string | null;
+    platformName?: string;
+    platformLogo?: string | null;
+    platformNames?: (Maybe<string> | undefined)[];
+    platformLogos?: (Maybe<string> | undefined)[];
+    platformInstanceId?: string;
+    owners?: Array<Owner> | null;
+    domain?: Domain | null;
+    dataProduct?: DataProduct | null;
+    deprecation?: Deprecation | null;
+    globalTags?: GlobalTags | null;
+    snippet?: React.ReactNode | null;
+    insights?: Array<SearchInsight> | null;
+    glossaryTerms?: GlossaryTerms | null;
+    subtype?: string | null;
+    externalUrl?: string | null;
+    container?: Container | null;
+    parentContainers?: ParentContainersResult | null;
+    rowCount?: number | null;
+    columnCount?: number | null;
+    statsSummary?: DatasetStatsSummary | null;
+    lastUpdatedMs?: number | null;
+    health?: Health[] | null;
+    degree?: number;
+    paths?: EntityPath[];
+    isOutputPort?: boolean;
+    tier?: PopularityTier;
+    upstreamTotal?: number;
+    downstreamTotal?: number;
+}): JSX.Element => {
+    const entityRegistry = useEntityRegistry();
+    const hasStats = !!columnCount || summaryHasStats(statsSummary);
+
+    return (
+        <DefaultPreviewCard
+            url={entityRegistry.getEntityUrl(EntityType.Dataset, urn)}
+            name={name || ''}
+            urn={urn}
+            description={description || ''}
+            entityType={EntityType.Dataset}
+            type={subtype}
+            logoUrl={platformLogo || ''}
+            typeIcon={entityRegistry.getIcon(EntityType.Dataset, 12, IconStyleType.ACCENT)}
+            platform={platformName}
+            platforms={platformNames}
+            logoUrls={platformLogos}
+            platformInstanceId={platformInstanceId}
+            qualifier={origin}
+            tags={globalTags || undefined}
+            owners={owners}
+            domain={domain}
+            dataProduct={dataProduct}
+            container={container || undefined}
+            deprecation={deprecation}
+            snippet={snippet}
+            glossaryTerms={glossaryTerms || undefined}
+            insights={insights}
+            parentContainers={parentContainers}
+            externalUrl={externalUrl}
+            topUsers={statsSummary?.topUsersLast30Days}
+            subHeader={
+                hasStats && (
+                    <DatasetStatsSummaryView
+                        columnCount={columnCount}
+                        rowCount={rowCount}
+                        sizeInBytes={statsSummary?.sizeInBytes}
+                        queryCountLast30Days={statsSummary?.queryCountLast30Days}
+                        queryCountPercentileLast30Days={statsSummary?.queryCountPercentileLast30Days}
+                        uniqueUserCountLast30Days={statsSummary?.uniqueUserCountLast30Days}
+                        uniqueUserPercentileLast30Days={statsSummary?.uniqueUserPercentileLast30Days}
+                        color={ANTD_GRAY[8]}
+                    />
+                )
+            }
+            health={health || undefined}
+            degree={degree}
+            paths={paths}
+            isOutputPort={isOutputPort}
+            lastUpdatedMs={lastUpdatedMs}
+            tier={tier}
+            upstreamTotal={upstreamTotal}
+            downstreamTotal={downstreamTotal}
+        />
+    );
+};

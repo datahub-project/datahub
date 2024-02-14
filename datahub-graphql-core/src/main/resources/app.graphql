@@ -980,6 +980,11 @@ type FeatureFlagsConfig {
   platformBrowseV2: Boolean!
 
   """
+  Whether to show the new lineage visualization.
+  """
+  lineageGraphV2: Boolean!
+
+  """
   Whether we should show CTAs in the UI related to moving to Managed DataHub by Acryl.
   """
   showAcrylInfo: Boolean!
@@ -1009,6 +1014,12 @@ type FeatureFlagsConfig {
   Whether AI-powered documentation should be enabled
   """
   documentationAiEnabled: Boolean!
+
+  """
+  Globally enables the V2 Acryl theme, which includes improvements in home page, search, and entity profiles.
+  Note that this would override any personal settings. Only available as part of Acryl.
+  """
+  themeV2: Boolean!
 }
 
 """

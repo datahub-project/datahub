@@ -1,0 +1,158 @@
+/* eslint-disable prefer-template */
+import { Divider } from 'antd';
+import React, { useContext, useEffect, useState } from 'react';
+import styled from 'styled-components';
+import EntitySidebarContext from '../../../../../shared/EntitySidebarContext';
+import { EntityMenuItems } from '../../../EntityDropdown/EntityMenuActions';
+import { SEARCH_COLORS } from '../../../constants';
+import { EntityActionItem } from '../../../entity/EntityActions';
+import { EntitySidebarTab, EntitySubHeaderSection, TabContextType, TabRenderType } from '../../../types';
+import { EntityHeader } from '../header/EntityHeader';
+import { EntitySidebarTabs } from './EntitySidebarTabs';
+import SidebarCollapseControls from './SidebarCollapseControls';
+
+export const StyledEntitySidebarContainer = styled.div<{
+    isCollapsed: boolean;
+    $width?: number;
+    backgroundColor?: string;
+    isCard: boolean;
+}>`
+    flex: 1;
+    overflow: auto;
+    ${(props) => !props.isCollapsed && props.$width && `min-width: ${props.$width}px; max-width: ${props.$width}px;`}
+    ${(props) => props.isCollapsed && 'min-width: 56px; max-width: 56px;'}
+    ${(props) => props.backgroundColor && `background-color: ${props.backgroundColor};`}
+    /* Hide scrollbar for Chrome, Safari, and Opera */
+    &::-webkit-scrollbar {
+        display: none;
+    }
+    margin: ${(props) => (props.isCard ? '12px 12px 12px 0px' : '0px 0px 0px 0px')};
+    transition: max-width 0.2s ease-in-out, min-width 0.2s ease-in-out;
+`;
+
+export const StyledSidebar = styled.div<{ isCard: boolean; isFocused?: boolean; isInSearch?: boolean }>`
+    background-color: #ffffff;
+    box-shadow: ${(props) => (props.isCard ? '0px 0px 5px rgba(0, 0, 0, 0.08)' : 'none')};
+    border-radius: ${(props) => (props.isCard || props.isInSearch ? '8px' : 'none')};
+    border: none;
+    overflow: hidden;
+    min-height: 100%;
+    display: flex;
+    flex-direction: column;
+    border-top: ${(props) => (props.isFocused ? `1px solid ${SEARCH_COLORS.TITLE_PURPLE}` : 'inherit')};
+    border-top-width: ${(props) => (props.isFocused ? 'medium' : 'inherit')};
+`;
+
+const Header = styled.div``;
+
+const Body = styled.div`
+    display: flex;
+    align-items: space-between;
+    justify-content: start;
+    min-height: 100%;
+    flex: 1;
+`;
+
+const Content = styled.div<{ isVisible }>`
+    display: ${(props) => (props.isVisible ? 'normal' : 'normal')} !important;
+    flex: 1;
+    min-height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    white-space: nowrap;
+    ${(props) => props.isVisible && 'border-right: 1px solid #e8e8e8;'}
+`;
+
+const Tabs = styled.div``;
+
+const HeaderDivider = styled(Divider)`
+    margin-bottom: 0px;
+    margin-top: 8px;
+`;
+
+interface Props {
+    type?: 'card' | 'default';
+    focused?: boolean;
+    tabs: EntitySidebarTab[];
+    headerDropdownItems?: Set<EntityMenuItems>;
+    headerActionItems?: Set<EntityActionItem>;
+    subHeader?: EntitySubHeaderSection;
+    backgroundColor?: string;
+    contextType?: TabContextType;
+    hideHeader?: boolean;
+    hideCollapse?: boolean;
+    hideCollapseViewDetails?: boolean;
+    width?: number;
+}
+
+export default function EntityProfileSidebar({
+    type = 'default',
+    focused = false,
+    tabs,
+    headerDropdownItems,
+    headerActionItems,
+    subHeader,
+    backgroundColor,
+    contextType = TabContextType.PROFILE_SIDEBAR,
+    hideHeader = false,
+    hideCollapse = false,
+    hideCollapseViewDetails = true,
+    width,
+}: Props) {
+    const { isClosed, setSidebarClosed } = useContext(EntitySidebarContext);
+
+    // TODO: Allow selecting a tab via the URL.
+    const [selectedTabName, setSelectedTabName] = useState(tabs[0].name);
+    const selectedTab = tabs.find((tab) => tab.name === selectedTabName);
+
+    const isCardLayout = type === 'card';
+
+    // Open tab when selected tab is changed
+    useEffect(() => {
+        setSidebarClosed(false);
+    }, [selectedTabName, setSidebarClosed]);
+
+    return (
+        <StyledEntitySidebarContainer
+            isCollapsed={isClosed}
+            $width={width}
+            backgroundColor={backgroundColor}
+            id="entity-profile-sidebar"
+            isCard={isCardLayout}
+        >
+            <StyledSidebar isCard={isCardLayout} isFocused={focused}>
+                {!hideCollapse && <SidebarCollapseControls hideCollapseViewDetails={hideCollapseViewDetails} />}
+                {!hideHeader && !isClosed && (
+                    <Header>
+                        <EntityHeader
+                            headerDropdownItems={headerDropdownItems}
+                            headerActionItems={headerActionItems}
+                            subHeader={subHeader}
+                            isCompact
+                        />
+                        <HeaderDivider />
+                    </Header>
+                )}
+                <Body>
+                    {selectedTab && (
+                        <Content isVisible={!isClosed}>
+                            <selectedTab.component
+                                properties={selectedTab.properties}
+                                renderType={TabRenderType.COMPACT}
+                                contextType={contextType}
+                            />
+                        </Content>
+                    )}
+                    <Tabs>
+                        <EntitySidebarTabs
+                            tabs={tabs}
+                            selectedTab={selectedTab}
+                            onSelectTab={(name) => setSelectedTabName(name)}
+                        />
+                    </Tabs>
+                </Body>
+            </StyledSidebar>
+        </StyledEntitySidebarContainer>
+    );
+}

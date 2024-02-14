@@ -72,6 +72,7 @@ export const updateListDomainsCache = (
             children: null,
             dataProducts: null,
             parentDomains: null,
+            displayProperties: null,
         },
         1000,
         parentDomain,

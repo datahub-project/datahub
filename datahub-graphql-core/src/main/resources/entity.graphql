@@ -404,6 +404,11 @@ type Mutation {
     updateDescription(input: DescriptionUpdateInput!): Boolean
 
     """
+    Incubating. Updates the short description of a resource. Currently only supports Domains
+    """
+    updateShortDescription(input: DescriptionUpdateInput!): Boolean
+
+    """
     Accepts a proposal for a given entity or subresource
     """
     acceptProposal(urn: String!): Boolean
@@ -760,6 +765,11 @@ type Mutation {
     is of type VERIFICATION.
     """
     verifyForm(input: VerifyFormInput!): Boolean
+
+    """
+    Update a particular entity's display properties
+    """
+    updateDisplayProperties(urn: String!, input: DisplayPropertiesUpdateInput!): Boolean
 }
 
 """
@@ -1632,7 +1642,7 @@ type RoleUser {
 
 type RoleProperties {
     """
-    Name of the Role in an organisation 
+    Name of the Role in an organisation
     """
     name: String!
 
@@ -1652,9 +1662,73 @@ type RoleProperties {
     requestUrl: String
 }
 
+"""
+Properties related to how the entity is displayed in the Datahub UI
+"""
+type DisplayProperties {
+    """
+    Color associated with the entity in Hex. For example #FFFFFF
+    """
+    colorHex: String
+
+    """
+    The icon associated with the entity
+    """
+    icon: IconProperties
+}
+
+"""
+Input for Properties describing an icon associated with an entity
+"""
+input IconPropertiesInput {
+  """
+  The source of the icon: e.g. Antd, Material, etc
+  """
+  iconLibrary: IconLibrary
+
+  """
+  The name of the icon
+  """
+  name: String
+
+  """
+  Any modifier for the icon, this will be library-specific, e.g. filled/outlined, etc
+  """
+  style: String
+}
+
+"""
+Properties describing an icon associated with an entity
+"""
+type IconProperties {
+  """
+  The source of the icon: e.g. Antd, Material, etc
+  """
+  iconLibrary: IconLibrary
+
+  """
+  The name of the icon
+  """
+  name: String
+
+  """
+  Any modifier for the icon, this will be library-specific, e.g. filled/outlined, etc
+  """
+  style: String
+}
+
+enum IconLibrary {
+    """
+    Icons from the Material UI icon library
+    """
+    MATERIAL
+}
+
 type FineGrainedLineage {
     upstreams: [SchemaFieldRef!]
     downstreams: [SchemaFieldRef!]
+    query: String
+    transformOperation: String
 }
 
 """
@@ -2202,6 +2276,11 @@ type GlossaryNode implements Entity {
     For fetching extra entities that do not have custom UI code yet
     """
     aspects(input: AspectParams): [RawAspect!]
+
+    """
+    Display properties for the domain
+    """
+    displayProperties: DisplayProperties
 }
 
 """
@@ -3679,6 +3758,11 @@ type CorpUserAppearanceSettings {
     who have less operational use cases for the datahub tool.
     """
     showSimplifiedHomepage: Boolean
+
+    """
+    Flag controlling whether the V2 UI for DataHub is shown.
+    """
+    showThemeV2: Boolean
 }
 
 """
@@ -3906,6 +3990,16 @@ type CorpUserEditableProperties {
     Email address for the user
     """
     email: String
+
+    """
+    User persona, if present
+    """
+    persona: DataHubPersona
+
+    """
+    Platforms commonly used by the user, if present.
+    """
+    platforms: [DataPlatform!]
 }
 
 """
@@ -3956,6 +4050,16 @@ input CorpUserUpdateInput {
     Email address for the user
     """
     email: String
+
+    """
+    The platforms that the user frequently works with
+    """
+    platformUrns: [String!]
+
+    """
+    The user's persona urn"
+    """
+    personaUrn: String
 }
 
 """
@@ -4103,6 +4207,21 @@ type CorpGroupEditableProperties {
   Email address for the group
   """
   email: String
+}
+
+"""
+Update a particular entity's display properties
+"""
+input DisplayPropertiesUpdateInput {
+    """
+    Color associated with the entity in Hex. For example #FFFFFF
+    """
+    colorHex: String
+
+    """
+    The icon associated with the entity
+    """
+    icon: IconPropertiesInput
 }
 
 """
@@ -10225,6 +10344,11 @@ type Domain implements Entity {
     For fetching extra entities that do not have custom UI code yet
     """
     aspects(input: AspectParams): [RawAspect!]
+
+    """
+    Display properties for the domain
+    """
+    displayProperties: DisplayProperties
 }
 
 """
@@ -10252,9 +10376,10 @@ type DomainProperties {
   name: String!
 
   """
-  Description of the Domain
+  Description of the domain.
   """
   description: String
+
 }
 
 """
@@ -10677,6 +10802,11 @@ enum UserSetting {
     Show simplified homepage
     """
     SHOW_SIMPLIFIED_HOMEPAGE
+
+    """
+    Show theme v2
+    """
+    SHOW_THEME_V2
 }
 
 """
@@ -11414,6 +11544,11 @@ type QueryProperties {
   An Audit Stamp corresponding to the update of this resource
   """
   lastModified: AuditStamp!
+
+  """
+  The asset that this query originated from, e.g. a View, a dbt Model, etc.
+  """
+  origin: Entity
 }
 
 """
@@ -11454,6 +11589,11 @@ type QueryEntity implements Entity {
   Granular API for querying edges extending from this entity
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+  """
+  Platform from which the Query was detected
+  """
+  platform: DataPlatform
 }
 
 """
@@ -12020,4 +12160,15 @@ type EntityTypeInfo {
     The description of this type
     """
     description: String
+}
+
+
+"""
+A standardized type of a user
+"""
+type DataHubPersona {
+    """
+    The urn of the persona type
+    """
+    urn: String!
 }

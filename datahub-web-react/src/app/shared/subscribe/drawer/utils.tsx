@@ -27,7 +27,7 @@ import { ActorTypes } from '../../../settings/personal/notifications/constants';
 const REFETCH_DELAY = 3000;
 
 const NotificationTypeText = styled(Typography.Text)`
-    font-family: 'Manrope', sans-serif;
+    font-family: 'Mulish', sans-serif;
     font-size: 14px;
     line-height: 20px;
     font-weight: 500;

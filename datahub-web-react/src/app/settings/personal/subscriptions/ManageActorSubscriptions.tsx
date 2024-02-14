@@ -30,7 +30,7 @@ const PageHeaderContainer = styled.div`
 `;
 
 const SubscriptionsTitle = styled(Typography.Text)`
-    font-family: 'Manrope', sans-serif;
+    font-family: 'Mulish', sans-serif;
     font-size: 24px;
     line-height: 32px;
     font-weight: 400;
@@ -48,7 +48,7 @@ const SubscriptionsTable = styled(Table)`
 `;
 
 const ColumnTitle = styled(Typography.Text)`
-    font-family: 'Manrope', sans-serif;
+    font-family: 'Mulish', sans-serif;
     font-size: 14px;
     line-height: 20px;
     font-weight: 700;
@@ -67,7 +67,7 @@ const EmptyContainer = styled.div`
 `;
 
 const EmptySubscriptionsText = styled(Typography.Text)`
-    font-family: 'Manrope', sans-serif;
+    font-family: 'Mulish', sans-serif;
     font-size: 16px;
     line-height: 24px;
     font-weight: 700;

@@ -99,6 +99,7 @@ class DataProduct(ConfigModel):
     terms: Optional[List[str]] = None
     properties: Optional[Dict[str, str]] = None
     external_url: Optional[str] = None
+    output_ports: Optional[List[str]] = None
     _original_yaml_dict: Optional[dict] = None
 
     @pydantic.validator("assets", each_item=True)
@@ -108,6 +109,22 @@ class DataProduct(ConfigModel):
         except Exception as e:
             raise ValueError(f"asset {v} is not an urn: {e}") from e
 
+        return v
+
+    @pydantic.validator("output_ports", each_item=True)
+    def output_ports_must_be_urns(cls, v: str) -> str:
+        try:
+            Urn.create_from_string(v)
+        except Exception as e:
+            raise ValueError(f"Output port {v} is not an urn: {e}") from e
+
+        return v
+
+    @pydantic.validator("output_ports", each_item=True)
+    def output_ports_must_be_from_asset_list(cls, v: str, values: dict) -> str:
+        assets = values.get("assets", [])
+        if v not in assets:
+            raise ValueError(f"Output port {v} is not in asset list")
         return v
 
     @property
@@ -167,6 +184,9 @@ class DataProduct(ConfigModel):
                         DataProductAssociationClass(
                             destinationUrn=asset,
                             created=self._mint_auditstamp("yaml"),
+                            outputPort=True
+                            if asset in (self.output_ports or [])
+                            else False,
                         )
                         for asset in self.assets
                     ]
@@ -190,6 +210,9 @@ class DataProduct(ConfigModel):
                         DataProductAssociationClass(
                             destinationUrn=asset,
                             created=self._mint_auditstamp("yaml"),
+                            outputPort=True
+                            if asset in (self.output_ports or [])
+                            else False,
                         )
                         for asset in self.assets or []
                     ],
@@ -333,6 +356,13 @@ class DataProduct(ConfigModel):
             if data_product_properties
             else None,
             external_url=data_product_properties.externalUrl
+            if data_product_properties
+            else None,
+            output_ports=[
+                e.destinationUrn
+                for e in (data_product_properties.assets or [])
+                if e.outputPort
+            ]
             if data_product_properties
             else None,
         )

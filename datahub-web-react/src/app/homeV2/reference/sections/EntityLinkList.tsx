@@ -1,0 +1,86 @@
+import React from 'react';
+import styled from 'styled-components';
+import { Tooltip } from 'antd';
+import { EntityLink } from './EntityLink';
+import { EntityLinkListLoadingSection } from './EntityLinkListLoadingSection';
+import { DefaultEmptyEntityList } from './DefaultEmptyEntityList';
+import { ANTD_GRAY } from '../../../entity/shared/constants';
+import { GenericEntityProperties } from '../../../entityV2/shared/types';
+
+const Title = styled.div<{ hasAction: boolean }>`
+    ${(props) => props.hasAction && `:hover { cursor: pointer; }`}
+    color: #403d5c;
+    font-weight: 600;
+    font-size: 16px;
+    margin-bottom: 8px;
+`;
+
+const List = styled.div`
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+`;
+
+const ShowMoreButton = styled.div`
+    margin-top: 12px;
+    padding: 0px;
+    color: ${ANTD_GRAY[7]};
+    :hover {
+        cursor: pointer;
+        color: ${ANTD_GRAY[8]};
+        text-decoration: underline;
+    }
+`;
+
+type Props = {
+    loading: boolean;
+    title?: string;
+    tip?: React.ReactNode;
+    entities: any[];
+    showMore?: boolean;
+    showMoreComponent?: React.ReactNode;
+    showMoreCount?: number;
+    empty?: React.ReactNode;
+    onClickMore?: () => void;
+    onClickTitle?: () => void;
+    render?: (entity: GenericEntityProperties) => React.ReactNode;
+};
+
+export const EntityLinkList = ({
+    loading,
+    title,
+    tip,
+    entities,
+    showMoreComponent,
+    showMore = false,
+    showMoreCount,
+    empty,
+    onClickMore,
+    onClickTitle,
+    render,
+}: Props) => {
+    const isEmpty = entities.length === 0 && !loading;
+    return (
+        <>
+            {title && (
+                <Title hasAction={onClickTitle !== undefined} onClick={onClickTitle}>
+                    <Tooltip title={tip} showArrow={false} placement="right">
+                        {title}
+                    </Tooltip>
+                </Title>
+            )}
+            {loading && <EntityLinkListLoadingSection />}
+            <List>
+                {(!isEmpty &&
+                    entities.map((entity) => {
+                        return <EntityLink key={`${title}-${entity.urn}`} entity={entity} render={render} />;
+                    })) || <>{empty || <DefaultEmptyEntityList />}</>}
+            </List>
+            {showMore && (
+                <ShowMoreButton onClick={onClickMore}>
+                    {showMoreComponent || (showMoreCount && <>show {showMoreCount} more</>) || <>show more</>}
+                </ShowMoreButton>
+            )}
+        </>
+    );
+};

@@ -105,6 +105,7 @@ entities:
       - dataPlatformInstance
       - browsePathsV2
       - structuredProperties
+      - subTypes
   - name: dataProcess
     keyAspect: dataProcessKey
     aspects:
@@ -221,6 +222,7 @@ entities:
       - domainProperties
       - institutionalMemory
       - ownership
+      - displayProperties
   - name: container
     doc: A container of related data assets.
     category: core
@@ -273,6 +275,7 @@ entities:
       - ownership
       - status
       - testResults
+      - displayProperties
   - name: dataHubIngestionSource
     category: internal
     keyAspect: dataHubIngestionSourceKey
@@ -511,6 +514,8 @@ entities:
       - queryProperties
       - querySubjects
       - status
+      - dataPlatformInstance
+      - subTypes
   - name: dataProduct
     category: core
     keyAspect: dataProductKey
@@ -601,6 +606,11 @@ entities:
       - formInfo
       - dynamicFormAssignment
       - ownership
+  - name: dataHubPersona
+    category: internal
+    keyAspect: dataHubPersonaKey
+    aspects:
+      - dataHubPersonaInfo
 events:
   - name: notificationRequest
 plugins:

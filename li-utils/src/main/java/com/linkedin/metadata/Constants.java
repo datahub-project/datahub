@@ -456,6 +456,8 @@ public class Constants {
   // Incidents
   public static final String ENTITY_REF = "entities";
 
+  public static final String DISPLAY_PROPERTIES_ASPECT_NAME = "displayProperties";
+
   // Config
   public static final String ELASTICSEARCH_IMPLEMENTATION_OPENSEARCH = "opensearch";
   public static final String ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH = "elasticsearch";

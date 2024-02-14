@@ -40,7 +40,7 @@ const SubscriptionTitleContainer = styled.div`
 `;
 
 const SubscriptionTitle = styled(Typography.Text)`
-    font-family: 'Manrope', sans-serif;
+    font-family: 'Mulish', sans-serif;
     font-size: 24px;
     line-height: 32px;
     font-weight: 400;

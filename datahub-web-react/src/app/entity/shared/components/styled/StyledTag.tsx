@@ -30,5 +30,5 @@ export const StyledTag = styled(Tag)<{ $color: any; $colorHash?: string; fontSiz
                 border-radius: 100em;
                 margin-right: 4px;
             }
-        `};
+        `}
 `;

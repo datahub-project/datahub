@@ -8,7 +8,7 @@ import { DataHubSubscription } from '../../../../../types.generated';
 dayjs.extend(LocalizedFormat);
 
 const SubscribedSinceText = styled(Typography.Text)`
-    font-family: 'Manrope', sans-serif;
+    font-family: 'Mulish', sans-serif;
     font-size: 14px;
     line-height: 22px;
     font-weight: 400;

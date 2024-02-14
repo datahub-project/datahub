@@ -1,0 +1,25 @@
+query getTimeline($input: GetTimelineInput!) {
+    getTimeline(input: $input) {
+        changeTransactions {
+            timestampMillis
+            lastSemanticVersion
+            versionStamp
+            changeType
+            changes {
+                urn
+                category
+                operation
+                modifier
+                parameters {
+                    key
+                    value
+                }
+                auditStamp {
+                    actor
+                    time
+                }
+                description
+            }
+        }
+    }
+}

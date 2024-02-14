@@ -18,6 +18,7 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletableFuture;
+import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -43,11 +44,15 @@ public class UpdateUserSettingResolver implements DataFetcher<CompletableFuture<
           try {
             // In the future with more settings, we'll need to do a read-modify-write
             // for now though, we can just write since there is only 1 setting
-            CorpUserSettings newSettings = new CorpUserSettings();
-            newSettings.setAppearance(new CorpUserAppearanceSettings());
+            CorpUserSettings newSettings = getCorpUserSettings(actor);
+            CorpUserAppearanceSettings appearanceSettings =
+                newSettings.hasAppearance()
+                    ? newSettings.getAppearance()
+                    : new CorpUserAppearanceSettings();
             if (name.equals(UserSetting.SHOW_SIMPLIFIED_HOMEPAGE)) {
-              newSettings.setAppearance(
-                  new CorpUserAppearanceSettings().setShowSimplifiedHomepage(value));
+              newSettings.setAppearance(appearanceSettings.setShowSimplifiedHomepage(value));
+            } else if (name.equals(UserSetting.SHOW_THEME_V2)) {
+              newSettings.setAppearance(appearanceSettings.setShowThemeV2(value));
             } else {
               log.error("User Setting name {} not currently supported", name);
               throw new RuntimeException(
@@ -72,5 +77,12 @@ public class UpdateUserSettingResolver implements DataFetcher<CompletableFuture<
                 e);
           }
         });
+  }
+
+  @Nonnull
+  private CorpUserSettings getCorpUserSettings(@Nonnull final Urn urn) {
+    CorpUserSettings settings =
+        (CorpUserSettings) _entityService.getAspect(urn, CORP_USER_SETTINGS_ASPECT_NAME, 0);
+    return settings == null ? new CorpUserSettings() : settings;
   }
 }

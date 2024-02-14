@@ -2,7 +2,9 @@ package com.linkedin.datahub.graphql.resolvers.chart;
 
 import static com.linkedin.datahub.graphql.Constants.BROWSE_PATH_V2_DELIMITER;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
-import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.*;
+import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.BROWSE_ENTITY_TYPES;
+import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.mapInputFlags;
+import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.resolveView;
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.UrnUtils;

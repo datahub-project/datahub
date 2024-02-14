@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.types.glossary.mappers;
 
 import static com.linkedin.metadata.Constants.*;
 
+import com.linkedin.common.DisplayProperties;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
@@ -9,6 +10,7 @@ import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.GlossaryNode;
 import com.linkedin.datahub.graphql.generated.GlossaryNodeProperties;
 import com.linkedin.datahub.graphql.types.common.mappers.CustomPropertiesMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.DisplayPropertiesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
@@ -44,6 +46,11 @@ public class GlossaryNodeMapper implements ModelMapper<EntityResponse, GlossaryN
         OWNERSHIP_ASPECT_NAME,
         (glossaryNode, dataMap) ->
             glossaryNode.setOwnership(OwnershipMapper.map(new Ownership(dataMap), entityUrn)));
+    mappingHelper.mapToResult(
+        DISPLAY_PROPERTIES_ASPECT_NAME,
+        ((glossaryNode, dataMap) ->
+            glossaryNode.setDisplayProperties(
+                DisplayPropertiesMapper.map(new DisplayProperties(dataMap)))));
 
     return mappingHelper.getResult();
   }

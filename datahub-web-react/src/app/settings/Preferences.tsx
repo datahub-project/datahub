@@ -1,12 +1,12 @@
 import React from 'react';
 import styled from 'styled-components';
 import { Divider, Typography, Switch, Card, message } from 'antd';
-
 import { useUpdateUserSettingMutation } from '../../graphql/me.generated';
 import { UserSetting } from '../../types.generated';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import analytics, { EventType } from '../analytics';
 import { useUserContext } from '../context/useUserContext';
+import { useIsThemeV2EnabledForUser, useIsThemeV2EnabledGlobally } from '../useIsThemeV2Enabled';
 
 const Page = styled.div`
     width: 100%;
@@ -54,8 +54,10 @@ const SettingText = styled(Typography.Text)`
 export const Preferences = () => {
     // Current User Urn
     const { user, refetchUser } = useUserContext();
-
+    const isThemeV2EnabledGlobally = useIsThemeV2EnabledGlobally();
+    const isThemeV2EnabledForUser = useIsThemeV2EnabledForUser();
     const showSimplifiedHomepage = !!user?.settings?.appearance?.showSimplifiedHomepage;
+
     const [updateUserSettingMutation] = useUpdateUserSettingMutation();
 
     return (
@@ -68,39 +70,77 @@ export const Preferences = () => {
                     </TokensHeaderContainer>
                 </TokensContainer>
                 <Divider />
-                <Card>
-                    <UserSettingRow>
-                        <span>
-                            <SettingText>Show simplified homepage </SettingText>
-                            <div>
-                                <DescriptionText>
-                                    Limits entity browse cards on homepage to Domains, Charts, Datasets, Dashboards and
-                                    Glossary Terms
-                                </DescriptionText>
-                            </div>
-                        </span>
-                        <Switch
-                            checked={showSimplifiedHomepage}
-                            onChange={async () => {
-                                await updateUserSettingMutation({
-                                    variables: {
-                                        input: {
-                                            name: UserSetting.ShowSimplifiedHomepage,
-                                            value: !showSimplifiedHomepage,
-                                        },
-                                    },
-                                });
-                                analytics.event({
-                                    type: showSimplifiedHomepage
-                                        ? EventType.ShowStandardHomepageEvent
-                                        : EventType.ShowSimplifiedHomepageEvent,
-                                });
-                                message.success({ content: 'Setting updated!', duration: 2 });
-                                refetchUser?.();
-                            }}
-                        />
-                    </UserSettingRow>
-                </Card>
+                {(!isThemeV2EnabledGlobally && (
+                    <>
+                        {!isThemeV2EnabledForUser && (
+                            <Card>
+                                <UserSettingRow>
+                                    <span>
+                                        <SettingText>Show simplified homepage </SettingText>
+                                        <div>
+                                            <DescriptionText>
+                                                Limits entity browse cards on homepage to Domains, Charts, Datasets,
+                                                Dashboards and Glossary Terms
+                                            </DescriptionText>
+                                        </div>
+                                    </span>
+                                    <Switch
+                                        checked={showSimplifiedHomepage}
+                                        onChange={async () => {
+                                            await updateUserSettingMutation({
+                                                variables: {
+                                                    input: {
+                                                        name: UserSetting.ShowSimplifiedHomepage,
+                                                        value: !showSimplifiedHomepage,
+                                                    },
+                                                },
+                                            });
+                                            analytics.event({
+                                                type: showSimplifiedHomepage
+                                                    ? EventType.ShowStandardHomepageEvent
+                                                    : EventType.ShowSimplifiedHomepageEvent,
+                                            });
+                                            message.success({ content: 'Setting updated!', duration: 2 });
+                                            refetchUser?.();
+                                        }}
+                                    />
+                                </UserSettingRow>
+                            </Card>
+                        )}
+                        <Card style={{ marginTop: 20 }}>
+                            <UserSettingRow>
+                                <span>
+                                    <SettingText>Try Acryl 2.0 (beta)</SettingText>
+                                    <div>
+                                        <DescriptionText>
+                                            Enable an early preview of Acryl 2.0 - a complete makeover for your app with a sleek new design and advanced features. Flip the switch and refresh your browser to try it out!
+                                        </DescriptionText>
+                                    </div>
+                                </span>
+                                <Switch
+                                    checked={isThemeV2EnabledForUser}
+                                    onChange={async () => {
+                                        await updateUserSettingMutation({
+                                            variables: {
+                                                input: {
+                                                    name: UserSetting.ShowThemeV2,
+                                                    value: !isThemeV2EnabledForUser,
+                                                },
+                                            },
+                                        });
+                                        analytics.event({
+                                            type: isThemeV2EnabledForUser
+                                                ? EventType.ShowV2ThemeEvent
+                                                : EventType.RevertV2ThemeEvent,
+                                        });
+                                        message.success({ content: 'Setting updated!', duration: 2 });
+                                        refetchUser?.();
+                                    }}
+                                />
+                            </UserSettingRow>
+                        </Card>
+                    </>
+                )) || <div style={{ color: ANTD_GRAY[7] }}>No appearance settings found.</div>}
             </SourceContainer>
         </Page>
     );

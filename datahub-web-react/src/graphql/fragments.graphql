@@ -14,11 +14,24 @@ fragment globalTagsFields on GlobalTags {
     }
 }
 
+fragment displayPropertiesFields on DisplayProperties {
+    colorHex
+    icon {
+        name
+        style
+        iconLibrary
+    }
+}
+
 fragment glossaryNode on GlossaryNode {
     urn
     type
     properties {
         name
+        description
+    }
+    displayProperties {
+        ...displayPropertiesFields
     }
     children: relationships(input: { types: ["IsPartOf"], direction: INCOMING, start: 0, count: 10000 }) {
         total
@@ -82,6 +95,9 @@ fragment parentNodesFields on ParentNodesResult {
         properties {
             name
         }
+        displayProperties {
+            ...displayPropertiesFields
+        }
     }
 }
 
@@ -91,6 +107,9 @@ fragment parentDomainsFields on ParentDomainsResult {
         urn
         type
         ... on Domain {
+            displayProperties {
+                ...displayPropertiesFields
+            }
             properties {
                 name
                 description
@@ -971,6 +990,10 @@ fragment entityContainer on Container {
 
 fragment parentContainerFields on Container {
     urn
+    type
+    platform {
+        ...platformFields
+    }
     properties {
         name
     }
@@ -980,12 +1003,18 @@ fragment parentContainerFields on Container {
 }
 
 fragment domainEntitiesFields on Domain {
-    entities(input: { start: 0, count: 0 }) {
+    entities(
+        input: {
+            start: 0
+            count: 0
+            filters: [
+                { field: "_entityType", negated: true, values: ["DATA_PRODUCT", "DOMAIN"], value: "DATA_PRODUCT" }
+            ]
+        }
+    ) {
         total
     }
-    dataProducts: entities(
-        input: { start: 0, count: 0, filters: [{ field: "_entityType", value: "DATA_PRODUCT" }] }
-    ) {
+    dataProducts: entities(input: { start: 0, count: 0, filters: [{ field: "_entityType", value: "DATA_PRODUCT" }] }) {
         total
     }
     children: relationships(input: { types: ["IsPartOf"], direction: INCOMING, start: 0, count: 0 }) {
@@ -1005,6 +1034,9 @@ fragment entityDomain on DomainAssociation {
             ...parentDomainsFields
         }
         ...domainEntitiesFields
+        displayProperties {
+            ...displayPropertiesFields
+        }
     }
     associatedUrn
 }
@@ -1228,6 +1260,7 @@ fragment entityDisplayNameFields on Entity {
     ... on GlossaryNode {
         properties {
             name
+            description
         }
     }
     ... on Domain {

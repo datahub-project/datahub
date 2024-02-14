@@ -39,6 +39,8 @@ const PageContainer = styled.div`
     display: flex;
     overflow: auto;
     flex: 1;
+    background-color: white;
+    border-radius: 8px;
 `;
 
 const SettingsBarContainer = styled.div`

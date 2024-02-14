@@ -1,18 +1,20 @@
-import { BookOutlined, ThunderboltOutlined } from '@ant-design/icons';
+import { ThunderboltOutlined } from '@ant-design/icons';
 import { message, Modal, Tag } from 'antd';
 import React from 'react';
 import Highlight from 'react-highlighter';
 import styled from 'styled-components';
 import { useRemoveTermMutation } from '../../../../graphql/mutations.generated';
+import BookOutlined from '../../../../images/glossary_term_material_logo.svg?react';
 import { EntityType, GlossaryTermAssociation, SubResourceType } from '../../../../types.generated';
-import { useEntityRegistry } from '../../../useEntityRegistry';
+import { REDESIGN_COLORS } from '../../../entityV2/shared/constants';
 import { useHasMatchedFieldByUrn } from '../../../search/context/SearchResultContext';
+import { useEntityRegistry } from '../../../useEntityRegistry';
 
 const PROPAGATOR_URN = 'urn:li:corpuser:__datahub_propagator';
 
 const highlightMatchStyle = { background: '#ffe58f', padding: '0' };
 
-const StyledTag = styled(Tag)<{ fontSize?: number; highlightTerm?: boolean }>`
+const StyledTag = styled(Tag)<{ fontSize?: number; highlightTerm?: boolean; showOneAndCount?: boolean }>`
     &&& {
         ${(props) =>
             props.highlightTerm &&
@@ -22,6 +24,17 @@ const StyledTag = styled(Tag)<{ fontSize?: number; highlightTerm?: boolean }>`
             `}
     }
     ${(props) => props.fontSize && `font-size: ${props.fontSize}px;`}
+    color: ${REDESIGN_COLORS.DARK_GREY};
+    font-weight: 400;
+    ${(props) =>
+        props.showOneAndCount &&
+        `
+            width: 100%;
+            max-width: max-content;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            vertical-align: middle;
+        `}
 `;
 
 const PropagateThunderbolt = styled(ThunderboltOutlined)`
@@ -40,6 +53,7 @@ interface Props {
     fontSize?: number;
     onOpenModal?: () => void;
     refetch?: () => Promise<any>;
+    showOneAndCount?: boolean;
 }
 
 export default function TermContent({
@@ -52,6 +66,7 @@ export default function TermContent({
     fontSize,
     onOpenModal,
     refetch,
+    showOneAndCount,
 }: Props) {
     const entityRegistry = useEntityRegistry();
     const [removeTermMutation] = useRemoveTermMutation();
@@ -104,8 +119,9 @@ export default function TermContent({
             }}
             fontSize={fontSize}
             highlightTerm={highlightTerm}
+            showOneAndCount={showOneAndCount}
         >
-            <BookOutlined style={{ marginRight: '4px' }} />
+            <BookOutlined style={{ fill: '#56668E', marginRight: '4px', marginBottom: 4, verticalAlign: 'middle' }} />
             <Highlight style={{ marginLeft: 0 }} matchStyle={highlightMatchStyle} search={highlightText}>
                 {entityRegistry.getDisplayName(EntityType.GlossaryTerm, term.term)}
             </Highlight>

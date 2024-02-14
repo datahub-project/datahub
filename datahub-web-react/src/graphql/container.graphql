@@ -32,8 +32,11 @@ query getContainer($urn: String!) {
         subTypes {
             typeNames
         }
-        entities(input: { start: 0, count: 1 }) {
+        entities(input: { start: 0, count: 10000 }) {
             total
+            facets {
+                ...facetFields
+            }
         }
         container {
             ...entityContainer
@@ -62,6 +65,22 @@ query getContainer($urn: String!) {
         }
         tagProposals: proposals(type: TAG_ASSOCIATION) {
             ...proposalsFragment
+        }
+    }
+}
+
+# We should replace this with a cached summary object on the container
+query getContainerEntitySummary($urn: String!) {
+    aggregateAcrossEntities(
+        input: {
+            types: []
+            query: "*"
+            facets: ["_entityType␞typeNames", "_entityType"]
+            orFilters: [{ and: [{ field: "container", values: [$urn], value: $urn }] }]
+        }
+    ) {
+        facets {
+            ...facetFields
         }
     }
 }

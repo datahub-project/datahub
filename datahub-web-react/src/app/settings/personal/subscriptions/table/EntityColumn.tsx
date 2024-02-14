@@ -40,7 +40,7 @@ const EntityTypeContainer = styled.div`
 `;
 
 const EntityTypeText = styled(Typography.Text)`
-    font-family: 'Manrope', sans-serif;
+    font-family: 'Mulish', sans-serif;
     font-size: 14px;
     line-height: 20px;
     font-weight: 400;
@@ -48,7 +48,7 @@ const EntityTypeText = styled(Typography.Text)`
 `;
 
 const EntityNameText = styled(Typography.Text)`
-    font-family: 'Manrope', sans-serif;
+    font-family: 'Mulish', sans-serif;
     font-size: 16px;
     line-height: 24px;
     font-weight: 500;

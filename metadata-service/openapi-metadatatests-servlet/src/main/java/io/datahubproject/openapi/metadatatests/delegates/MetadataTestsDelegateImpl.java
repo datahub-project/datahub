@@ -19,6 +19,7 @@ import com.linkedin.metadata.test.query.QueryEngine;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.test.TestInfo;
 import com.linkedin.test.TestMode;
+import com.linkedin.test.TestResults;
 import com.linkedin.test.TestStatus;
 import com.linkedin.util.Pair;
 import io.datahubproject.openapi.generated.MetadataTestEntityResultV1;
@@ -34,6 +35,7 @@ import io.datahubproject.openapi.generated.TestResultType;
 import io.datahubproject.openapi.metadatatests.generated.controller.MetadataTestApiDelegate;
 import io.datahubproject.openapi.v2.delegates.EntityApiDelegateImpl;
 import java.net.URISyntaxException;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -144,7 +146,7 @@ public class MetadataTestsDelegateImpl implements MetadataTestApiDelegate {
 
   @Override
   public ResponseEntity<MetadataTestResultV1> evaluateTest(
-      String testUrnStr, List<String> entityUrnStrings, Boolean evaluateOnly) {
+      String testUrnStr, Boolean evaluateOnly, List<String> entityUrnStrings) {
     Optional<MetadataTestResultV1> result;
 
     try {
@@ -168,18 +170,35 @@ public class MetadataTestsDelegateImpl implements MetadataTestApiDelegate {
                                   }
                                 })
                             .collect(Collectors.toSet());
+                    Map<Urn, com.linkedin.test.TestResults> testResultsMap;
+                    List<Pair<Urn, com.linkedin.test.TestResults>> testResultPairs;
 
-                    Map<Urn, com.linkedin.test.TestResults> testResultsMap =
-                        engine.evaluateTests(
-                            targetUrns,
-                            Optional.ofNullable(evaluateOnly).orElse(true)
-                                ? TestEngine.EvaluationMode.EVALUATE_ONLY
-                                : TestEngine.EvaluationMode.DEFAULT);
+                    if (targetUrns.isEmpty()) {
+                      log.info(
+                          "No target urns provided, will evaluate for all entities. Test: {}",
+                          testUrn);
+                      testResultsMap =
+                          engine.evaluateSingleTest(
+                              testUrn,
+                              Optional.ofNullable(evaluateOnly).orElse(true)
+                                  ? TestEngine.EvaluationMode.EVALUATE_ONLY
+                                  : TestEngine.EvaluationMode.DEFAULT);
+                      testResultPairs = new ArrayList<>();
+                      testResultsMap.forEach(
+                          (urn, testResult) -> testResultPairs.add(Pair.of(urn, testResult)));
+                    } else {
+                      testResultsMap =
+                          engine.evaluateTests(
+                              targetUrns,
+                              Optional.ofNullable(evaluateOnly).orElse(true)
+                                  ? TestEngine.EvaluationMode.EVALUATE_ONLY
+                                  : TestEngine.EvaluationMode.DEFAULT);
 
-                    List<Pair<Urn, com.linkedin.test.TestResults>> testResultPairs =
-                        targetUrns.stream()
-                            .map(targetUrn -> Pair.of(targetUrn, testResultsMap.get(targetUrn)))
-                            .collect(Collectors.toList());
+                      testResultPairs =
+                          targetUrns.stream()
+                              .map(targetUrn -> Pair.of(targetUrn, testResultsMap.get(targetUrn)))
+                              .collect(Collectors.toList());
+                    }
 
                     return toTestResult(testUrn, info, testResultPairs);
                   });
@@ -271,7 +290,7 @@ public class MetadataTestsDelegateImpl implements MetadataTestApiDelegate {
                 .map(
                     urnTestResult -> {
                       Urn entityUrn = urnTestResult.getFirst();
-                      com.linkedin.test.TestResults testResult = urnTestResult.getSecond();
+                      TestResults testResult = urnTestResult.getSecond();
 
                       MetadataTestResultV1Entities.MetadataTestResultV1EntitiesBuilder builder =
                           MetadataTestResultV1Entities.builder().entity(entityUrn.toString());

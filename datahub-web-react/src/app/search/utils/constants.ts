@@ -27,6 +27,7 @@ export const DEGREE_FILTER_NAME = 'degree';
 export const BROWSE_PATH_V2_FILTER_NAME = 'browsePathV2';
 export const HAS_ACTIVE_INCIDENTS_FILTER_NAME = 'hasActiveIncidents';
 export const HAS_FAILING_ASSERTIONS_FILTER_NAME = 'hasFailingAssertions';
+export const OUTPUT_PORTS_FIELD = 'isOutputPort';
 
 export const LEGACY_ENTITY_FILTER_FIELDS = [ENTITY_FILTER_NAME, LEGACY_ENTITY_FILTER_NAME];
 
@@ -69,7 +70,7 @@ export const ORDERED_FIELDS = [
     ORIGIN_FILTER_NAME,
     DEGREE_FILTER_NAME,
     HAS_ACTIVE_INCIDENTS_FILTER_NAME,
-    HAS_FAILING_ASSERTIONS_FILTER_NAME
+    HAS_FAILING_ASSERTIONS_FILTER_NAME,
 ];
 
 export const FIELD_TO_LABEL = {
@@ -93,7 +94,7 @@ export const FIELD_TO_LABEL = {
     degree: 'Degree',
     [BROWSE_PATH_V2_FILTER_NAME]: 'Browse',
     hasActiveIncidents: 'Incidents',
-    hasFailingAssertions: 'Assertions'
+    hasFailingAssertions: 'Assertions',
 };
 
 export const FIELDS_THAT_USE_CONTAINS_OPERATOR = [

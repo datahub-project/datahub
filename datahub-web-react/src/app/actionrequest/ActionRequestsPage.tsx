@@ -7,6 +7,8 @@ import { ActionRequestsGroupTab } from './ActionRequestsGroupTab';
 
 const PageContainer = styled.div`
     padding-top: 20px;
+    background-color: white;
+    border-radius: 8px;
 `;
 
 const PageHeaderContainer = styled.div`

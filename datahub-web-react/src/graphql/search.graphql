@@ -385,6 +385,14 @@ fragment nonSiblingsDatasetSearchFields on Dataset {
 }
 
 fragment searchResultFields on Entity {
+    ... on EntityWithRelationships {
+        upstream: lineage(input: { direction: UPSTREAM, start: 0, count: 100, separateSiblings: false }) {
+            total
+        }
+        downstream: lineage(input: { direction: DOWNSTREAM, start: 0, count: 100, separateSiblings: false }) {
+            total
+        }
+    }
     urn
     type
     ... on Dataset {
@@ -709,6 +717,9 @@ fragment searchResultFields on Entity {
         parentDomains {
             ...parentDomainsFields
         }
+        displayProperties {
+            ...displayPropertiesFields
+        }
         ...domainEntitiesFields
     }
     ... on Container {
@@ -923,6 +934,10 @@ fragment searchResults on SearchResults {
             text
             icon
         }
+        extraProperties {
+            name
+            value
+        }
     }
     facets {
         ...facetFields
@@ -1007,6 +1022,26 @@ query searchAcrossLineage(
 ) {
     searchAcrossLineage(input: $input) {
         ...searchAcrossRelationshipResults
+    }
+}
+
+query searchAcrossLineageStructure($input: SearchAcrossLineageInput!) {
+    searchAcrossLineage(input: $input) {
+        start
+        count
+        total
+        searchResults {
+            entity {
+                urn
+                type
+            }
+            paths {
+                path {
+                    urn
+                    type
+                }
+            }
+        }
     }
 }
 

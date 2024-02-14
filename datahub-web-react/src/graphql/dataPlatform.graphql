@@ -3,3 +3,11 @@ query getDataPlatform($urn: String!) {
         ...platformFields
     }
 }
+
+query getDataPlatforms($urns: [String!]!) {
+    entities(urns: $urns) {
+        ... on DataPlatform {
+            ...platformFields
+        }
+    }
+}

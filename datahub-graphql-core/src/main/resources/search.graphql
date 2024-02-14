@@ -525,6 +525,18 @@ type SearchResults {
   suggestions: [SearchSuggestion!]
 }
 
+type ExtraProperty {
+  """
+  Name of the extra property
+  """
+  name: String!
+
+  """
+  Value of the extra property
+  """
+  value: String!
+}
+
 """
 An individual search result hit
 """
@@ -543,6 +555,11 @@ type SearchResult {
   Matched field hint
   """
   matchedFields: [MatchedField!]!
+
+  """
+  Additional properties about the search result. Used for rendering in the UI
+  """
+  extraProperties: [ExtraProperty!]
 }
 
 """
@@ -699,7 +716,7 @@ type EntityPath {
     """
     Path of entities between source and destination nodes
     """
-    path: [Entity]
+    path: [Entity]!
 }
 
 

@@ -1,0 +1,246 @@
+import * as React from 'react';
+import styled from 'styled-components/macro';
+import {
+    ApiOutlined,
+    BarChartOutlined,
+    InboxOutlined,
+    BookOutlined,
+    SettingOutlined,
+    FileDoneOutlined,
+    SolutionOutlined,
+    EyeOutlined,
+    DatabaseOutlined,
+} from '@ant-design/icons';
+import { Link } from 'react-router-dom';
+import { Button, Dropdown, Menu, Tooltip } from 'antd';
+import { useAppConfig } from '../../useAppConfig';
+import { HOME_PAGE_INGESTION_ID } from '../../onboarding/config/HomePageOnboardingConfig';
+import { useUserContext } from '../../context/useUserContext';
+import { PageRoutes } from '../../../conf/Global';
+import DomainIcon from '../../domain/DomainIcon';
+import { useUpdateEducationStepsAllowList } from '../../onboarding/useUpdateEducationStepsAllowList';
+import HelpDropdown from '../../shared/admin/HelpDropdown';
+
+const LinkWrapper = styled.span`
+    margin-right: 0px;
+    display: flex;
+    align-items: center;
+    justify-content: end;
+    flex-direction: column;
+    margin-bottom: 20px;
+`;
+
+const LinksWrapper = styled.div<{ areLinksHidden?: boolean }>`
+    opacity: 1;
+    white-space: nowrap;
+    transition: opacity 0.5s;
+    span > * {
+        color: #fff;
+    }
+
+    ${(props) =>
+        props.areLinksHidden &&
+        `
+        opacity: 0;
+        width: 0;
+    `}
+`;
+
+const MenuItem = styled(Menu.Item)`
+    font-size: 12px;
+    font-weight: bold;
+    max-width: 400px;
+`;
+
+const NavTitleContainer = styled.span`
+    display: flex;
+    align-items: center;
+    justify-content: left;
+    padding: 2px;
+`;
+
+const NavTitleText = styled.span`
+    margin-left: 6px;
+`;
+
+const NavTitleDescription = styled.div`
+    font-size: 12px;
+    font-weight: normal;
+`;
+
+const StyledDatabaseOutlined = styled(DatabaseOutlined)`
+    && {
+        font-size: 14px;
+        font-weight: bold;
+    }
+`;
+
+interface Props {
+    areLinksHidden?: boolean;
+}
+
+// TODO: Refactor this!
+export function NavLinksMenu(props: Props) {
+    const { areLinksHidden } = props;
+    const me = useUserContext();
+    const { config } = useAppConfig();
+
+    const isAnalyticsEnabled = config?.analyticsConfig.enabled;
+    const isIngestionEnabled = config?.managedIngestionConfig.enabled;
+    // SaaS Only
+    // Currently we only have a flag for metadata proposals.
+    // In the future, we may add configs for alerts, announcements, etc.
+    const isActionRequestsEnabled = config?.actionRequestsConfig.enabled;
+    const isTestsEnabled = config?.testsConfig.enabled;
+
+    const showAnalytics = (isAnalyticsEnabled && me && me?.platformPrivileges?.viewAnalytics) || false;
+    const showSettings = true;
+    const showIngestion =
+        isIngestionEnabled && me && me.platformPrivileges?.manageIngestion && me.platformPrivileges?.manageSecrets;
+
+    // SaaS only
+    const showActionRequests = (isActionRequestsEnabled && me?.platformPrivileges?.viewMetadataProposals) || false;
+    const showTests = (isTestsEnabled && me?.platformPrivileges?.manageTests) || false;
+    const showDatasetHealth = config?.featureFlags?.datasetHealthDashboardEnabled;
+    const showObserve = showDatasetHealth;
+
+    useUpdateEducationStepsAllowList(!!showIngestion, HOME_PAGE_INGESTION_ID);
+
+    return (
+        <LinksWrapper areLinksHidden={areLinksHidden}>
+            {showActionRequests && (
+                <LinkWrapper>
+                    <Link to="/requests">
+                        <Tooltip showArrow={false} placement="right" title="Inbox">
+                            <Button type="text">
+                                <InboxOutlined style={{ color: '#ffffff' }} />
+                            </Button>
+                        </Tooltip>
+                    </Link>
+                </LinkWrapper>
+            )}
+            {showAnalytics && (
+                <LinkWrapper>
+                    <Link to="/analytics">
+                        <Tooltip showArrow={false} placement="right" title="Analytics">
+                            <Button type="text">
+                                <NavTitleContainer>
+                                    <BarChartOutlined style={{ color: '#ffffff' }} />
+                                </NavTitleContainer>
+                            </Button>
+                        </Tooltip>
+                    </Link>
+                </LinkWrapper>
+            )}
+            <Dropdown
+                trigger={['click']}
+                overlay={
+                    <Menu>
+                        <MenuItem key="0">
+                            <Link to="/glossary">
+                                <NavTitleContainer>
+                                    <BookOutlined style={{ fontSize: '14px', fontWeight: 'bold' }} />
+                                    <NavTitleText>Glossary</NavTitleText>
+                                </NavTitleContainer>
+                                <NavTitleDescription>View and modify your data dictionary</NavTitleDescription>
+                            </Link>
+                        </MenuItem>
+                        <MenuItem key="1">
+                            <Link to="/domains">
+                                <NavTitleContainer>
+                                    <DomainIcon
+                                        style={{
+                                            fontSize: 14,
+                                            fontWeight: 'bold',
+                                        }}
+                                    />
+                                    <NavTitleText>Domains</NavTitleText>
+                                </NavTitleContainer>
+                                <NavTitleDescription>Manage related groups of data assets</NavTitleDescription>
+                            </Link>
+                        </MenuItem>
+                        {showTests && (
+                            <MenuItem key="2">
+                                <Link to="/tests">
+                                    <NavTitleContainer>
+                                        <FileDoneOutlined style={{ fontSize: '14px', fontWeight: 'bold' }} />
+                                        <NavTitleText>Tests</NavTitleText>
+                                    </NavTitleContainer>
+                                    <NavTitleDescription>
+                                        Monitor policies & automate actions across data assets
+                                    </NavTitleDescription>
+                                </Link>
+                            </MenuItem>
+                        )}
+                    </Menu>
+                }
+            >
+                <LinkWrapper>
+                    <Tooltip showArrow={false} placement="right" title="Govern">
+                        <Button type="text">
+                            <SolutionOutlined style={{ color: '#ffffff' }} />
+                        </Button>
+                    </Tooltip>
+                </LinkWrapper>
+            </Dropdown>
+            {showObserve && (
+                <Dropdown
+                    trigger={['click']}
+                    overlay={
+                        <Menu>
+                            {showDatasetHealth && (
+                                <MenuItem key="1">
+                                    <Link to={PageRoutes.DATASET_HEALTH_DASHBOARD}>
+                                        <NavTitleContainer>
+                                            <StyledDatabaseOutlined />
+                                            <NavTitleText>Dataset Health</NavTitleText>
+                                        </NavTitleContainer>
+                                        <NavTitleDescription>
+                                            Monitor active incidents & failing assertions across your
+                                            organization&apos;s datasets
+                                        </NavTitleDescription>
+                                    </Link>
+                                </MenuItem>
+                            )}
+                        </Menu>
+                    }
+                >
+                    <LinkWrapper>
+                        <Tooltip showArrow={false} placement="right" title="Observe">
+                            <Button type="text">
+                                <EyeOutlined style={{ color: '#ffffff' }} />
+                            </Button>
+                        </Tooltip>
+                    </LinkWrapper>
+                </Dropdown>
+            )}
+            {showIngestion && (
+                <LinkWrapper>
+                    <Link to="/ingestion">
+                        <Button id={HOME_PAGE_INGESTION_ID} type="text">
+                            <Tooltip title="Integrations" showArrow={false} placement="right">
+                                <NavTitleContainer>
+                                    <ApiOutlined style={{ color: '#ffffff' }} />
+                                </NavTitleContainer>
+                            </Tooltip>
+                        </Button>
+                    </Link>
+                </LinkWrapper>
+            )}
+            {showSettings && (
+                <LinkWrapper>
+                    <Link to="/settings">
+                        <Button type="text">
+                            <Tooltip title="Settings" placement="right" showArrow={false}>
+                                <SettingOutlined style={{ color: '#ffffff' }} />
+                            </Tooltip>
+                        </Button>
+                    </Link>
+                </LinkWrapper>
+            )}
+            <LinkWrapper style={{ marginBottom: 0 }}>
+                <HelpDropdown />
+            </LinkWrapper>
+        </LinksWrapper>
+    );
+}

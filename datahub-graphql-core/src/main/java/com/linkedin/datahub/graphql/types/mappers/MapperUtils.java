@@ -29,7 +29,8 @@ public class MapperUtils {
     return new SearchResult(
         UrnToEntityMapper.map(searchEntity.getEntity()),
         getInsightsFromFeatures(searchEntity.getFeatures()),
-        getMatchedFieldEntry(searchEntity.getMatchedFields()));
+        getMatchedFieldEntry(searchEntity.getMatchedFields()),
+        null);
   }
 
   public static FacetMetadata mapFacet(

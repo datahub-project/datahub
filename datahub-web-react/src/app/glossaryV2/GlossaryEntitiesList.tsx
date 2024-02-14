@@ -1,0 +1,64 @@
+import React from 'react';
+import styled from 'styled-components/macro';
+import { GlossaryNodeFragment } from '../../graphql/fragments.generated';
+import { ChildGlossaryTermFragment } from '../../graphql/glossaryNode.generated';
+import { GlossaryNode, GlossaryTerm } from '../../types.generated';
+import { useEntityRegistry } from '../useEntityRegistry';
+import GlossaryEntityItem from './GlossaryEntityItem';
+
+interface GlossaryEntityWrapperProps {
+    termsTotal?: number | undefined;
+}
+
+const GlossaryEntityWrapper = styled.div<GlossaryEntityWrapperProps>`
+    overflow: auto;
+    height: ${(props) => (props.termsTotal ? '70vh' : '80vh')};
+`;
+
+const EntitiesWrapper = styled.div`
+    display: flex;
+    overflow: auto;
+    padding: 25px 29px;
+    flex-wrap: wrap;
+    gap: 14px;
+`;
+
+interface Props {
+    nodes: (GlossaryNode | GlossaryNodeFragment)[];
+    terms: (GlossaryTerm | ChildGlossaryTermFragment)[];
+    termsTotal: number | undefined;
+}
+
+function GlossaryEntitiesList(props: Props) {
+    const { nodes, terms, termsTotal } = props;
+    const entityRegistry = useEntityRegistry();
+
+    return (
+        <GlossaryEntityWrapper termsTotal={termsTotal}>
+            <EntitiesWrapper>
+                {nodes.map((node, index) => (
+                    <GlossaryEntityItem
+                        key={node.urn}
+                        name={node.properties?.name || ''}
+                        description={node.properties?.description || ''}
+                        urn={node.urn}
+                        type={node.type}
+                        count={(node as GlossaryNodeFragment).children?.total}
+                        index={index}
+                    />
+                ))}
+                {terms.map((term, index) => (
+                    <GlossaryEntityItem
+                        key={term.urn}
+                        name={entityRegistry.getDisplayName(term.type, term)}
+                        urn={term.urn}
+                        type={term.type}
+                        index={index}
+                    />
+                ))}
+            </EntitiesWrapper>
+        </GlossaryEntityWrapper>
+    );
+}
+
+export default GlossaryEntitiesList;

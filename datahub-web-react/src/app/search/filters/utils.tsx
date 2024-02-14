@@ -138,10 +138,7 @@ function getFilterWithEntityIconAndLabel(
     let icon: React.ReactNode = null;
     let label: React.ReactNode = null;
 
-    if (entityRegistry.hasEntity(filterEntity.type)) {
-        icon = entityRegistry.getIcon(filterEntity.type, size || 12, IconStyleType.ACCENT, ANTD_GRAY[9]);
-        label = entityRegistry.getDisplayName(filterEntity.type, filterEntity);
-    } else if (filterEntity.type === EntityType.DataPlatformInstance) {
+    if (filterEntity.type === EntityType.DataPlatformInstance) {
         const { icon: newIcon, label: newLabel } = getDataPlatformInstanceIconAndLabel(
             filterEntity,
             entityRegistry,
@@ -149,6 +146,9 @@ function getFilterWithEntityIconAndLabel(
         );
         icon = newIcon;
         label = newLabel;
+    } else if (entityRegistry.hasEntity(filterEntity.type)) {
+        icon = entityRegistry.getIcon(filterEntity.type, size || 12, IconStyleType.ACCENT, ANTD_GRAY[9]);
+        label = entityRegistry.getDisplayName(filterEntity.type, filterEntity);
     } else {
         label = filterValue;
     }

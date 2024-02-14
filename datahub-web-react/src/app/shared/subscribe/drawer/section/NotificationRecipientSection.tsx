@@ -25,7 +25,7 @@ const NotificationRecipientContainer = styled.div`
 `;
 
 const NotificationRecipientTitle = styled(Typography.Text)`
-    font-family: 'Manrope', sans-serif;
+    font-family: 'Mulish', sans-serif;
     font-size: 16px;
     line-height: 24px;
     font-weight: 700;
@@ -53,7 +53,7 @@ const SwitchWrapper = styled.div`
 `;
 
 const SinkTypeText = styled(Typography.Text)`
-    font-family: 'Manrope', sans-serif;
+    font-family: 'Mulish', sans-serif;
     font-size: 14px;
     line-height: 20px;
     font-weight: 700;
@@ -82,7 +82,7 @@ const StyledCheckbox = styled(Checkbox)`
 `;
 
 const SaveAsDefaultText = styled(Typography.Text)`
-    font-family: 'Manrope', sans-serif;
+    font-family: 'Mulish', sans-serif;
     font-size: 14px;
     line-height: 22px;
     font-weight: 400;

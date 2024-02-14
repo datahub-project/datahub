@@ -17,7 +17,7 @@ const PreviewTagIcon = styled(TagOutlined)`
 export class RoleEntity implements Entity<Role> {
     type: EntityType = EntityType.Role;
 
-    icon = (fontSize: number, styleType: IconStyleType, color?: string) => {
+    icon = (fontSize?: number, styleType?: IconStyleType, color?: string) => {
         if (styleType === IconStyleType.TAB_VIEW) {
             return <TagFilled style={{ fontSize, color }} />;
         }

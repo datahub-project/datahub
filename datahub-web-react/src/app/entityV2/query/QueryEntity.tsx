@@ -1,0 +1,130 @@
+import * as React from 'react';
+import { ConsoleSqlOutlined, FileOutlined } from '@ant-design/icons';
+import { DataPlatform, EntityType, QueryEntity as Query } from '../../../types.generated';
+import { Entity, IconStyleType } from '../Entity';
+import { GenericEntityProperties } from '../shared/types';
+import { getDataForEntityType } from '../shared/containers/profile/utils';
+import { EntityProfile } from '../shared/containers/profile/EntityProfile';
+import { useGetQueryQuery } from '../../../graphql/query.generated';
+import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
+import SidebarQueryLogicSection from '../shared/containers/profile/sidebar/Query/SidebarQueryLogicSection';
+import SidebarQueryUpdatedAtSection from '../shared/containers/profile/sidebar/Query/SidebarQueryUpdatedAtSection';
+import SidebarQueryDescriptionSection from '../shared/containers/profile/sidebar/Query/SidebarQueryDescriptionSection';
+import { TYPE_ICON_CLASS_NAME } from '../shared/components/subtypes';
+import {
+    SidebarQueryInputsSection,
+    SidebarQueryOutputsSection,
+} from '../shared/containers/profile/sidebar/Query/SidebarQueryInputsOutputsSections';
+import SidebarOperationSection from '../shared/containers/profile/sidebar/Query/SidebarOperationSection';
+import SidebarQueryDefinitionSection from '../shared/containers/profile/sidebar/Query/SidebarQueryDefinitionSection';
+
+/**
+ * Definition of the DataHub DataPlatformInstance entity.
+ * Most of this still needs to be filled out.
+ */
+export class QueryEntity implements Entity<Query> {
+    type: EntityType = EntityType.Query;
+
+    icon = (fontSize?: number, _styleType?: IconStyleType, color?: string) => {
+        return (
+            <ConsoleSqlOutlined
+                className={TYPE_ICON_CLASS_NAME}
+                style={{
+                    fontSize,
+                    color: color || '#BFBFBF',
+                }}
+            />
+        );
+    };
+
+    isSearchEnabled = () => false;
+
+    isBrowseEnabled = () => false;
+
+    isLineageEnabled = () => false;
+
+    getAutoCompleteFieldName = () => 'name';
+
+    getPathName = () => 'query';
+
+    getEntityName = () => 'Query';
+
+    getCollectionName = () => 'Queries';
+
+    renderProfile = (urn: string) => {
+        return (
+            <EntityProfile
+                urn={urn}
+                entityType={EntityType.Query}
+                useEntityQuery={useGetQueryQuery}
+                tabs={[
+                    {
+                        name: 'Documentation',
+                        component: DocumentationTab,
+                        icon: FileOutlined,
+                    },
+                ]}
+                sidebarSections={[
+                    { component: SidebarQueryUpdatedAtSection },
+                    { component: SidebarQueryDefinitionSection },
+                    { component: SidebarOperationSection },
+                    { component: SidebarQueryLogicSection },
+                    { component: SidebarQueryInputsSection },
+                    { component: SidebarQueryOutputsSection },
+                    { component: SidebarQueryDescriptionSection },
+                ]}
+                sidebarTabs={[]}
+                getOverrideProperties={() => ({})}
+            />
+        );
+    };
+
+    getOverridePropertiesFromEntity = (query?: Query | null): GenericEntityProperties => {
+        return {
+            name: query && this.displayName(query),
+            platform: query?.platform,
+        };
+    };
+
+    renderEmbeddedProfile = (_: string) => <span>hi</span>;
+
+    renderPreview = () => {
+        return <>hi</>;
+    };
+
+    renderSearch = () => {
+        return <></>;
+    };
+
+    getLineageVizConfig = (query: Query) => {
+        // TODO: Set up types better here
+        const platform: DataPlatform | undefined = (query as any)?.queryPlatform;
+        return {
+            urn: query.urn,
+            name: query.properties?.name || query.urn,
+            type: EntityType.Query,
+            icon: platform?.properties?.logoUrl || undefined,
+            platform: platform || undefined,
+        };
+    };
+
+    displayName = (data: Query) => {
+        return data?.properties?.name || (data?.properties?.source === 'SYSTEM' && 'System Query') || data?.urn;
+    };
+
+    getGenericEntityProperties = (data: Query) => {
+        return getDataForEntityType({
+            data,
+            entityType: this.type,
+            getOverrideProperties: this.getOverridePropertiesFromEntity,
+        });
+    };
+
+    supportedCapabilities = () => {
+        return new Set([]);
+    };
+
+    getGraphName = () => {
+        return 'query';
+    };
+}

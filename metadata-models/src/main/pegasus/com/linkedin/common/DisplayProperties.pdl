@@ -1,0 +1,20 @@
+namespace com.linkedin.common
+
+/**
+ * Properties related to how the entity is displayed in the Datahub UI
+ */
+
+@Aspect = {
+  "name": "displayProperties"
+}
+record DisplayProperties {
+  /**
+   * The color associated with the entity in Hex. For example #FFFFFF.
+   */
+  colorHex: optional string
+
+  /**
+   * The icon associated with the entity
+   */
+  icon: optional IconProperties
+}

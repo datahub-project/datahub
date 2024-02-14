@@ -113,6 +113,7 @@ public class CorpUserMapper {
     if (corpUserSettings.hasAppearance()) {
       appearanceResult.setShowSimplifiedHomepage(
           corpUserSettings.getAppearance().isShowSimplifiedHomepage());
+      appearanceResult.setShowThemeV2(corpUserSettings.getAppearance().isShowThemeV2());
     }
     return appearanceResult;
   }

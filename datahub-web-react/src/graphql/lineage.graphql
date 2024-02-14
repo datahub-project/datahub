@@ -55,6 +55,8 @@ fragment lineageNodeProperties on EntityWithRelationships {
                     urn
                     path
                 }
+                query
+                transformOperation
             }
         }
     }
@@ -165,7 +167,7 @@ fragment lineageNodeProperties on EntityWithRelationships {
             ...entityDomain
         }
         parentContainers {
-              ...parentContainersFields
+            ...parentContainersFields
         }
         ...entityDataProduct
         status {
@@ -192,7 +194,7 @@ fragment lineageNodeProperties on EntityWithRelationships {
             ...ownershipFields
         }
         parentContainers {
-              ...parentContainersFields
+            ...parentContainersFields
         }
         subTypes {
             typeNames
@@ -209,6 +211,8 @@ fragment lineageNodeProperties on EntityWithRelationships {
                 urn
                 path
             }
+            query
+            transformOperation
         }
         health {
             type
@@ -421,6 +425,83 @@ fragment entityLineage on Entity {
     }
 }
 
+fragment entityLineageV2 on Entity {
+    ...entityLineage
+    ... on Container {  # For Workbooks in lineage
+        properties {
+            name
+            description
+            qualifiedName
+        }
+        platform {
+            ...platformFields
+        }
+        subTypes {
+            typeNames
+        }
+        parentContainers {
+            ...parentContainersFields
+        }
+    }
+    ... on QueryEntity {
+        properties {
+            origin {
+                urn
+                type
+            }
+        }
+        queryPlatform: platform {
+            ...platformFields
+        }
+    }
+    ... on Domain {
+        id
+        properties {
+            name
+            description
+        }
+        parentDomains {
+            ...parentDomainsFields
+        }
+        displayProperties {
+            ...displayPropertiesFields
+        }
+        dataProducts: entities(input: { start: 0, count: 0, filters: [{ field: "_entityType", value: "DATA_PRODUCT" }] }) {
+            total
+            searchResults {
+                entity {
+                    ... on DataProduct {
+                        urn
+                        type
+                        properties {
+                            name
+                            description
+                        }
+                        domain {
+                            ...entityDomain
+                        }
+                        entities(input: { start: 0, count: 0, query: "*" }) {
+                            total
+                        }
+                    }
+                }
+            }
+        }
+    }
+    ... on DataProduct {
+        properties {
+            name
+            description
+        }
+        domain {
+            ...entityDomain
+        }
+        entities(input: { start: 0, count: 0, query: "*" }) {
+            total
+        }
+    }
+}
+
 query getEntityLineage(
     $urn: String!
     $separateSiblings: Boolean
@@ -446,6 +527,34 @@ query getBulkEntityLineage(
 ) {
     entities(urns: $urns) {
         ...entityLineage
+    }
+}
+
+query getEntityLineageV2(
+    $urn: String!
+    $separateSiblings: Boolean
+    $showColumns: Boolean!
+    $startTimeMillis: Long
+    $endTimeMillis: Long
+    $excludeUpstream: Boolean = false
+    $excludeDownstream: Boolean = false
+) {
+    entity(urn: $urn) {
+      ...entityLineageV2
+    }
+}
+
+query getBulkEntityLineageV2(
+    $urns: [String!]!,
+    $separateSiblings: Boolean
+    $showColumns: Boolean!
+    $startTimeMillis: Long
+    $endTimeMillis: Long
+    $excludeUpstream: Boolean = false
+    $excludeDownstream: Boolean = false
+) {
+    entities(urns: $urns) {
+        ...entityLineageV2
     }
 }
 
@@ -552,5 +661,13 @@ query getSearchAcrossLineageCounts(
         facets {
             ...facetFields
         }
+    }
+}
+
+query getLineagePreview($urns: [String!]!) {
+    entities(urns: $urns) {
+        urn
+        type
+        ...autoCompleteFields
     }
 }

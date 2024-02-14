@@ -13,9 +13,10 @@ public class FeatureFlags {
   private boolean assertionMonitorsEnabled = false;
   private boolean showSearchFiltersV2 = false;
   private boolean showBrowseV2 = false;
+  private boolean platformBrowseV2 = false;
+  private boolean lineageGraphV2 = false;
   private boolean subscriptionsEnabled = false;
   private boolean datasetHealthDashboardEnabled = false;
-  private boolean platformBrowseV2 = false;
   private PreProcessHooks preProcessHooks;
   private boolean showAcrylInfo = false;
   private boolean showAccessManagement = false;
@@ -23,4 +24,5 @@ public class FeatureFlags {
   private boolean schemaFieldEntityFetchEnabled = false;
   private boolean dataContractsEnabled = false;
   private boolean documentationAiEnabled = false;
+  private boolean themeV2 = false;
 }

@@ -64,6 +64,8 @@ export enum EventType {
     ActivatePolicyEvent,
     ShowSimplifiedHomepageEvent,
     ShowStandardHomepageEvent,
+    ShowV2ThemeEvent,
+    RevertV2ThemeEvent,
     CreateGlossaryEntityEvent,
     CreateDomainEvent,
     MoveDomainEvent,
@@ -106,7 +108,8 @@ export enum EventType {
     SubscriptionDeleteErrorEvent,
     NotificationSettingsSuccessEvent,
     NotificationSettingsErrorEvent,
-    InboxPageViewEvent
+    InboxPageViewEvent,
+    IntroduceYourselfViewEvent,
 }
 
 /**
@@ -126,6 +129,13 @@ interface BaseEvent {
 export interface PageViewEvent extends BaseEvent {
     type: EventType.PageViewEvent;
     originPath: string;
+}
+
+/**
+ * Viewed the Introduce Yourself page on the UI.
+ */
+export interface IntroduceYourselfViewEvent extends BaseEvent {
+    type: EventType.IntroduceYourselfViewEvent;
 }
 
 /**
@@ -271,7 +281,7 @@ export interface BrowseV2ToggleNodeEvent extends BaseEvent {
     type: EventType.BrowseV2ToggleNodeEvent;
     targetNode: 'entity' | 'environment' | 'platform' | 'browse';
     action: 'open' | 'close';
-    entity: string;
+    entity?: string;
     environment?: string;
     platform?: string;
     targetDepth: number;
@@ -284,7 +294,7 @@ export interface BrowseV2SelectNodeEvent extends BaseEvent {
     type: EventType.BrowseV2SelectNodeEvent;
     targetNode: 'browse' | 'platform';
     action: 'select' | 'deselect';
-    entity: string;
+    entity?: string;
     environment?: string;
     platform?: string;
     targetDepth: number;
@@ -296,7 +306,7 @@ export interface BrowseV2SelectNodeEvent extends BaseEvent {
 export interface BrowseV2EntityLinkClickEvent extends BaseEvent {
     type: EventType.BrowseV2EntityLinkClickEvent;
     targetNode: 'browse';
-    entity: string;
+    entity?: string;
     environment?: string;
     platform?: string;
     targetDepth: number;
@@ -338,10 +348,10 @@ export const EntityActionType = {
     ClickExternalUrl: 'ClickExternalUrl',
     AddIncident: 'AddIncident',
     ResolvedIncident: 'ResolvedIncident',
-     // figure out type of proposal
-     ProposalCreated: 'ProposalCreated',
-     ProposalAccepted: 'ProposalAccepted',
-     ProposalRejected: 'ProposalRejected',
+    // figure out type of proposal
+    ProposalCreated: 'ProposalCreated',
+    ProposalAccepted: 'ProposalAccepted',
+    ProposalRejected: 'ProposalRejected',
 };
 export interface EntityActionEvent extends BaseEvent {
     type: EventType.EntityActionEvent;
@@ -492,6 +502,14 @@ export interface ShowSimplifiedHomepageEvent extends BaseEvent {
 
 export interface ShowStandardHomepageEvent extends BaseEvent {
     type: EventType.ShowStandardHomepageEvent;
+}
+
+export interface ShowV2ThemeEvent extends BaseEvent {
+    type: EventType.ShowV2ThemeEvent;
+}
+
+export interface RevertV2ThemeEvent extends BaseEvent {
+    type: EventType.RevertV2ThemeEvent;
 }
 
 export interface HomePageExploreAllClickEvent extends BaseEvent {
@@ -799,6 +817,7 @@ export interface NotificationSettingsErrorEvent extends BaseEvent {
 export type Event =
     | PageViewEvent
     | HomePageViewEvent
+    | IntroduceYourselfViewEvent
     | SignUpEvent
     | LogInEvent
     | LogOutEvent
@@ -853,6 +872,8 @@ export type Event =
     | DeleteIngestionSourceEvent
     | ExecuteIngestionSourceEvent
     | ShowStandardHomepageEvent
+    | ShowV2ThemeEvent
+    | RevertV2ThemeEvent
     | SsoEvent
     | CreateTestEvent
     | UpdateTestEvent

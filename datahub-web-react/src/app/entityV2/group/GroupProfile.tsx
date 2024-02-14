@@ -1,0 +1,174 @@
+import React from 'react';
+import { Col, Row } from 'antd';
+import styled from 'styled-components/macro';
+import { useGetGroupQuery } from '../../../graphql/group.generated';
+import { OriginType, EntityRelationshipsResult, Ownership, EntityType } from '../../../types.generated';
+import { Message } from '../../shared/Message';
+import GroupMembers from './GroupMembers';
+import { RoutedTabs } from '../../shared/RoutedTabs';
+import GroupInfoSidebar from './GroupInfoSideBar';
+import { GroupAssets } from './GroupAssets';
+import { ErrorSection } from '../../shared/error/ErrorSection';
+import { ManageActorNotifications } from '../../settings/personal/notifications/ManageActorNotifications';
+import { ManageActorSubscriptions } from '../../settings/personal/subscriptions/ManageActorSubscriptions';
+import { useEntityRegistry } from '../../useEntityRegistry';
+import NonExistentEntityPage from '../shared/entity/NonExistentEntityPage';
+import CompactContext from '../../shared/CompactContext';
+import { StyledEntitySidebarContainer, StyledSidebar } from '../shared/containers/profile/sidebar/EntityProfileSidebar';
+import EntityProfileSidebarSearchHeader from '../shared/containers/profile/sidebar/EntityProfileSidebarSearchHeader';
+
+const messageStyle = { marginTop: '10%' };
+
+export enum TabType {
+    Assets = 'Owner Of',
+    Members = 'Members',
+    Notifications = 'Notifications',
+    Subscriptions = 'Subscriptions',
+}
+
+const ENABLED_TAB_TYPES = [TabType.Assets, TabType.Members, TabType.Notifications, TabType.Subscriptions];
+
+const MEMBER_PAGE_SIZE = 15;
+
+/**
+ * Styled Components
+ */
+const GroupProfileWrapper = styled.div`
+    &&& .ant-tabs-nav {
+        margin: 0;
+    }
+    background-color: #fff;
+    border-radius: 8px;
+`;
+
+const Content = styled.div`
+    color: #262626;
+    height: calc(100vh - 60px);
+
+    &&& .ant-tabs > .ant-tabs-nav .ant-tabs-nav-wrap {
+        padding-left: 15px;
+    }
+`;
+
+type Props = {
+    urn: string;
+};
+
+/**
+ * Responsible for reading & writing groups.
+ */
+export default function GroupProfile({ urn }: Props) {
+    const entityRegistry = useEntityRegistry();
+    const isCompact = React.useContext(CompactContext);
+    const { loading, error, data, refetch } = useGetGroupQuery({ variables: { urn, membersCount: MEMBER_PAGE_SIZE } });
+
+    const groupMemberRelationships = data?.corpGroup?.relationships as EntityRelationshipsResult;
+    const isExternalGroup: boolean = data?.corpGroup?.origin?.type === OriginType.External;
+    const externalGroupType: string = data?.corpGroup?.origin?.externalType || 'outside DataHub';
+    const groupName = data?.corpGroup ? entityRegistry.getDisplayName(EntityType.CorpGroup, data.corpGroup) : undefined;
+
+    const getTabs = () => {
+        return [
+            {
+                name: TabType.Assets,
+                path: TabType.Assets.toLocaleLowerCase(),
+                content: <GroupAssets urn={urn} />,
+                display: {
+                    enabled: () => true,
+                },
+            },
+            {
+                name: TabType.Members,
+                path: TabType.Members.toLocaleLowerCase(),
+                content: (
+                    <GroupMembers
+                        urn={urn}
+                        pageSize={MEMBER_PAGE_SIZE}
+                        isExternalGroup={isExternalGroup}
+                        onChangeMembers={() => {
+                            setTimeout(() => refetch(), 2000);
+                        }}
+                    />
+                ),
+                display: {
+                    enabled: () => true,
+                },
+            },
+            {
+                name: TabType.Notifications,
+                path: TabType.Notifications.toLocaleLowerCase(),
+                content: <ManageActorNotifications isPersonal={false} groupUrn={urn} groupName={groupName} />,
+                display: {
+                    enabled: () => true,
+                },
+            },
+            {
+                name: TabType.Subscriptions,
+                path: TabType.Subscriptions.toLocaleLowerCase(),
+                content: <ManageActorSubscriptions isPersonal={false} groupUrn={urn} />,
+                display: {
+                    enabled: () => true,
+                },
+            },
+        ].filter((tab) => ENABLED_TAB_TYPES.includes(tab.name));
+    };
+
+    const defaultTabPath = getTabs() && getTabs()?.length > 0 ? getTabs()[0].path : '';
+    const onTabChange = () => null;
+
+    // Side bar data
+    const sideBarData = {
+        photoUrl: undefined,
+        avatarName:
+            data?.corpGroup?.properties?.displayName ||
+            data?.corpGroup?.name ||
+            data?.corpGroup?.info?.displayName ||
+            undefined,
+        name: groupName,
+        email: data?.corpGroup?.editableProperties?.email || data?.corpGroup?.properties?.email || undefined,
+        slack: data?.corpGroup?.editableProperties?.slack || data?.corpGroup?.properties?.slack || undefined,
+        aboutText:
+            data?.corpGroup?.editableProperties?.description || data?.corpGroup?.properties?.description || undefined,
+        groupMemberRelationships: groupMemberRelationships as EntityRelationshipsResult,
+        groupOwnerShip: data?.corpGroup?.ownership as Ownership,
+        isExternalGroup,
+        externalGroupType,
+        urn,
+    };
+
+    if (data?.corpGroup?.exists === false) {
+        return <NonExistentEntityPage />;
+    }
+
+    if (isCompact) {
+        return (
+            <StyledEntitySidebarContainer isCollapsed={false} isCard={false} $width={window.innerWidth * 0.25}>
+                <StyledSidebar isInSearch isCard={false}>
+                    <EntityProfileSidebarSearchHeader />
+                    <GroupInfoSidebar sideBarData={sideBarData} refetch={refetch} />
+                </StyledSidebar>
+            </StyledEntitySidebarContainer>
+        );
+    }
+
+    return (
+        <>
+            {error && <ErrorSection />}
+            {loading && <Message type="loading" content="Loading..." style={messageStyle} />}
+            {data && data?.corpGroup && (
+                <GroupProfileWrapper>
+                    <Row>
+                        <Col xl={5} lg={5} md={5} sm={24} xs={24}>
+                            <GroupInfoSidebar sideBarData={sideBarData} refetch={refetch} />
+                        </Col>
+                        <Col xl={19} lg={19} md={19} sm={24} xs={24} style={{ borderLeft: '1px solid #E9E9E9' }}>
+                            <Content>
+                                <RoutedTabs defaultPath={defaultTabPath} tabs={getTabs()} onTabChange={onTabChange} />
+                            </Content>
+                        </Col>
+                    </Row>
+                </GroupProfileWrapper>
+            )}
+        </>
+    );
+}

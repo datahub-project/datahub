@@ -1485,7 +1485,7 @@
         "addToFilters" : true,
         "fieldName" : "owners",
         "fieldType" : "URN",
-        "filterNameOverride" : "Owned By",
+        "filterNameOverride" : "Owner",
         "hasValuesFieldName" : "hasOwners",
         "queryByDefault" : false
       }
@@ -3090,6 +3090,29 @@
                     "type" : "string",
                     "doc" : "DataHub-native Title, e.g. 'Software Engineer'",
                     "optional" : true
+                  }, {
+                    "name" : "platforms",
+                    "type" : {
+                      "type" : "array",
+                      "items" : "com.linkedin.common.Urn"
+                    },
+                    "doc" : "The platforms that the user commonly works with",
+                    "optional" : true,
+                    "Relationship" : {
+                      "/*" : {
+                        "entityTypes" : [ "dataPlatform" ],
+                        "name" : "IsUserOf"
+                      }
+                    }
+                  }, {
+                    "name" : "persona",
+                    "type" : "com.linkedin.common.Urn",
+                    "doc" : "The user's persona type, based on their role",
+                    "optional" : true,
+                    "Relationship" : {
+                      "entityTypes" : [ "dataHubPersona" ],
+                      "name" : "IsPersona"
+                    }
                   }, {
                     "name" : "slack",
                     "type" : "string",

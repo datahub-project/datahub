@@ -101,7 +101,7 @@ export interface Entity<T> {
      * Ant-design icon associated with the Entity. For a list of all candidate icons, see
      * https://ant.design/components/icon/
      */
-    icon: (fontSize: number, styleType: IconStyleType, color?: string) => JSX.Element;
+    icon: (fontSize?: number, styleType?: IconStyleType, color?: string) => JSX.Element;
 
     /**
      * Returns whether the entity search is enabled

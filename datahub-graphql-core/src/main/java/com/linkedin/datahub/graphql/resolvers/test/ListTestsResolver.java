@@ -20,6 +20,7 @@ import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
+import graphql.VisibleForTesting;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.ArrayList;
@@ -36,6 +37,9 @@ public class ListTestsResolver implements DataFetcher<CompletableFuture<ListTest
   private static final Integer DEFAULT_COUNT = 20;
 
   private final EntityClient _entityClient;
+
+  @VisibleForTesting
+  static final SearchFlags SEARCH_FLAGS = new SearchFlags().setFulltext(true).setSkipCache(true);
 
   public ListTestsResolver(final EntityClient entityClient) {
     _entityClient = entityClient;
@@ -69,7 +73,7 @@ public class ListTestsResolver implements DataFetcher<CompletableFuture<ListTest
                       start,
                       count,
                       context.getAuthentication(),
-                      new SearchFlags().setFulltext(true));
+                      SEARCH_FLAGS);
 
               // Now that we have entities we can bind this to a result.
               final ListTestsResult result = new ListTestsResult();

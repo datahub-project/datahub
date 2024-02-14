@@ -53,5 +53,8 @@ query getGlossaryNode($urn: String!) {
                 }
             }
         }
+        displayProperties {
+            ...displayPropertiesFields
+        }
     }
 }

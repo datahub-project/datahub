@@ -280,6 +280,16 @@ fragment entityPreview on Entity {
             ...deprecationFields
         }
     }
+    ... on MLFeature {
+        name
+        description
+        ownership {
+            ...ownershipFields
+        }
+        deprecation {
+            ...deprecationFields
+        }
+    }
     ... on MLModelGroup {
         name
         origin
@@ -314,6 +324,9 @@ fragment entityPreview on Entity {
         }
         parentDomains {
             ...parentDomainsFields
+        }
+        displayProperties {
+            ...displayPropertiesFields
         }
         ...domainEntitiesFields
     }

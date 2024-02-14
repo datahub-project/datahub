@@ -1,7 +1,7 @@
 import merge from 'deepmerge';
-import { unionBy, keyBy, values } from 'lodash';
-import { useLocation } from 'react-router-dom';
+import { keyBy, unionBy, values } from 'lodash';
 import * as QueryString from 'query-string';
+import { useLocation } from 'react-router-dom';
 import { Dataset, Entity, Maybe, SiblingProperties } from '../../../types.generated';
 import { GenericEntityProperties } from './types';
 
@@ -25,7 +25,12 @@ function cleanHelper(obj, visited) {
             if (Array.isArray(object)) {
                 object.splice(Number(k), 1);
             } else {
-                delete object[k];
+                // console.log('siblings1 deleting key', k, 'from object', object);
+                try {
+                    delete object[k];
+                } catch (e) {
+                    console.warn('error deleting key', k, 'from object', object, e);
+                }
             }
         }
     });

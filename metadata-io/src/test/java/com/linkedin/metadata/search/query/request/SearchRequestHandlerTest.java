@@ -118,8 +118,9 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     // Filters
     Collection<AggregationBuilder> aggBuilders =
         sourceBuilder.aggregations().getAggregatorFactories();
-    // Expect 3 aggregations: textFieldOverride, missing␝textFieldOverride, and _index
-    assertEquals(aggBuilders.size(), 3);
+    // Expect 4 aggregations: textFieldOverride, missing␝textFieldOverride,
+    // _entityType, _entityType␞typeNames
+    assertEquals(aggBuilders.size(), 4);
     for (AggregationBuilder aggBuilder : aggBuilders) {
       if (aggBuilder.getName().equals("textFieldOverride")) {
         TermsAggregationBuilder filterPanelBuilder = (TermsAggregationBuilder) aggBuilder;
@@ -128,9 +129,10 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
           && !aggBuilder
               .getName()
               .equals(
-                  MISSING_SPECIAL_TYPE
-                      + AGGREGATION_SPECIAL_TYPE_DELIMITER
-                      + "textFieldOverride")) {
+                  MISSING_SPECIAL_TYPE + AGGREGATION_SPECIAL_TYPE_DELIMITER + "textFieldOverride")
+          && !aggBuilder
+              .getName()
+              .equals(INDEX_VIRTUAL_FIELD + AGGREGATION_SEPARATOR_CHAR + "typeNames")) {
         fail("Found unexepected aggregation: " + aggBuilder.getName());
       }
     }
@@ -151,8 +153,9 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     // Filters
     Collection<AggregationBuilder> aggBuilders =
         sourceBuilder.aggregations().getAggregatorFactories();
-    // Expect 2 aggregations: textFieldOverride and _index
-    assertEquals(aggBuilders.size(), 3);
+    // Expect 4 aggregations: textFieldOverride, missing␝textFieldOverride,
+    // _entityType, _entityType␞typeNames
+    assertEquals(aggBuilders.size(), 4);
     for (AggregationBuilder aggBuilder : aggBuilders) {
       if (aggBuilder.getName().equals("textFieldOverride")) {
         TermsAggregationBuilder filterPanelBuilder = (TermsAggregationBuilder) aggBuilder;
@@ -161,10 +164,11 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
           && !aggBuilder
               .getName()
               .equals(
-                  MISSING_SPECIAL_TYPE
-                      + AGGREGATION_SPECIAL_TYPE_DELIMITER
-                      + "textFieldOverride")) {
-        fail("Found unexepected aggregation: " + aggBuilder.getName());
+                  MISSING_SPECIAL_TYPE + AGGREGATION_SPECIAL_TYPE_DELIMITER + "textFieldOverride")
+          && !aggBuilder
+              .getName()
+              .equals(INDEX_VIRTUAL_FIELD + AGGREGATION_SEPARATOR_CHAR + "typeNames")) {
+        fail("Found unexpected aggregation: " + aggBuilder.getName());
       }
     }
     // Highlights

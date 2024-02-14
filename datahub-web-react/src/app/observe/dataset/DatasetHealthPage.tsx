@@ -9,6 +9,8 @@ import { IncidentsSummary } from './incident/IncidentsSummary';
 
 const Container = styled.div`
     height: 100%;
+    background-color: white;
+    border-radius: 8px;
 `;
 
 const Header = styled.div`

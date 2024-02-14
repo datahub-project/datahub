@@ -1,0 +1,110 @@
+/* eslint-disable import/no-cycle */
+import { CloseOutlined } from '@ant-design/icons';
+import { Button } from 'antd';
+import React from 'react';
+import styled from 'styled-components';
+import { SEARCH_COLORS } from '../../entityV2/shared/constants';
+import OperatorSelector from './OperatorSelector';
+import { operatorRequiresValues } from './operator/operator';
+import { FilterOperatorType, FilterPredicate, FilterValue } from './types';
+import ValueSelector from './value/ValueSelector';
+import ValueName from './value/ValueName';
+
+const Values = styled.div`
+    border: 1.5px solid transparent;
+    border-radius: 6px;
+    padding: 2px;
+    :hover {
+        cursor: pointer;
+        border: 1.5px solid ${SEARCH_COLORS.TITLE_PURPLE};
+        background-color: ${SEARCH_COLORS.TITLE_PURPLE};
+        color: #fff;
+    }
+`;
+
+const Value = styled.span``;
+
+const Container = styled.div`
+    border-radius: 4px;
+    padding: 4px 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    margin-right: 8px;
+    background-color: ${SEARCH_COLORS.BACKGROUND_PURPLE};
+`;
+
+const Icon = styled.div`
+    margin-right: 4px;
+    display: flex;
+    align-items: center;
+`;
+
+const FilterName = styled.div`
+    margin-right: 2px;
+    color: ${SEARCH_COLORS.LINK_BLUE};
+    display: flex;
+    align-items: center;
+`;
+
+const RemoveButton = styled(Button)`
+    padding: 0px;
+    margin: 0px;
+    width: 20px;
+    height: 20px;
+    margin-left: 0px;
+`;
+
+interface SelectedFilterProps {
+    predicate: FilterPredicate;
+    onChangeOperator: (operator: FilterOperatorType) => void;
+    onChangeValues: (newValues: FilterValue[]) => void;
+    onRemoveFilter: () => void;
+}
+
+export default function SelectedFilter({
+    predicate,
+    onChangeOperator,
+    onChangeValues,
+    onRemoveFilter,
+}: SelectedFilterProps) {
+    const { field, operator, values, defaultValueOptions } = predicate;
+    const showValueSelector = operatorRequiresValues(predicate.operator) || false;
+
+    return (
+        <Container
+            data-testid={`active-filter-${field.field}`}
+            key={`${field.field}-${operator}-${values.map((value) => value.value).join('-')}`}
+        >
+            <FilterName>
+                {(field.icon && <Icon>{field.icon}</Icon>) || null}
+                {field.displayName || field.field}
+            </FilterName>
+            <OperatorSelector predicate={predicate} onChangeOperator={onChangeOperator} />
+            {showValueSelector && (
+                <ValueSelector
+                    field={field}
+                    values={values}
+                    defaultOptions={defaultValueOptions}
+                    onChangeValues={onChangeValues}
+                >
+                    <Values>
+                        {values.map((value, index) => (
+                            <Value data-testid={`active-filter-value-${field.field}-${value.value}`}>
+                                <ValueName field={field} value={value} />
+                                {index < values.length - 1 ? ', ' : ''}
+                            </Value>
+                        ))}
+                    </Values>
+                </ValueSelector>
+            )}
+            <RemoveButton
+                type="text"
+                icon={<CloseOutlined style={{ fontSize: 12 }} />}
+                onClick={onRemoveFilter}
+                data-testid={`remove-filter-${field.field}`}
+            />
+        </Container>
+    );
+}

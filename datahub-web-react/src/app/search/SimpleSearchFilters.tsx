@@ -4,11 +4,16 @@ import { FacetFilterInput, FacetMetadata } from '../../types.generated';
 import { FilterScenarioType } from './filters/render/types';
 import { useFilterRendererRegistry } from './filters/render/useFilterRenderer';
 import { SimpleSearchFilter } from './SimpleSearchFilter';
-import { ENTITY_FILTER_NAME, ENTITY_INDEX_FILTER_NAME, LEGACY_ENTITY_FILTER_NAME } from './utils/constants';
+import {
+    ENTITY_FILTER_NAME,
+    ENTITY_INDEX_FILTER_NAME,
+    ENTITY_SUB_TYPE_FILTER_NAME,
+    LEGACY_ENTITY_FILTER_NAME,
+} from './utils/constants';
 
 const TOP_FILTERS = ['degree', ENTITY_FILTER_NAME, 'platform', 'tags', 'glossaryTerms', 'domains', 'owners'];
 
-const FILTERS_TO_EXCLUDE = [LEGACY_ENTITY_FILTER_NAME, ENTITY_INDEX_FILTER_NAME];
+const FILTERS_TO_EXCLUDE = [LEGACY_ENTITY_FILTER_NAME, ENTITY_INDEX_FILTER_NAME, ENTITY_SUB_TYPE_FILTER_NAME];
 
 interface Props {
     facets: Array<FacetMetadata>;

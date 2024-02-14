@@ -31,3 +31,7 @@ export function validateCustomUrnId(str: string) {
 export function pluralize(count: number, noun: string, suffix = 's') {
     return `${noun}${count !== 1 ? suffix : ''}`;
 }
+
+export function forcePluralize(noun: string, suffix = 's') {
+    return `${noun}${suffix}`;
+}

@@ -1,11 +1,11 @@
-import React from 'react';
-import { fireEvent, render, waitFor } from '@testing-library/react';
 import { MockedProvider } from '@apollo/client/testing';
+import { fireEvent, render, waitFor } from '@testing-library/react';
+import React from 'react';
 
-import TagTermGroup from '../TagTermGroup';
-import TestPageContainer from '../../../../utils/test-utils/TestPageContainer';
-import { EntityType, GlossaryTerms } from '../../../../types.generated';
 import { mocks } from '../../../../Mocks';
+import { EntityType, GlossaryTerms } from '../../../../types.generated';
+import TestPageContainer from '../../../../utils/test-utils/TestPageContainer';
+import TagTermGroup from '../TagTermGroup';
 
 const legacyTag = {
     urn: 'urn:li:tag:legacy',
@@ -47,7 +47,7 @@ const glossaryTerms = {
 
 describe('TagTermGroup', () => {
     it('renders editable tags', async () => {
-        const { getByText, getByLabelText, queryAllByLabelText, queryByText } = render(
+        const { getByText, getByLabelText, queryByText, queryAllByLabelText } = render(
             <MockedProvider mocks={mocks} addTypename={false}>
                 <TestPageContainer>
                     <TagTermGroup editableTags={globalTags1} canRemove />
@@ -140,7 +140,7 @@ describe('TagTermGroup', () => {
     });
 
     it('renders terms', () => {
-        const { getByText, queryAllByLabelText } = render(
+        const { getByText } = render(
             <MockedProvider mocks={mocks} addTypename={false}>
                 <TestPageContainer>
                     <TagTermGroup
@@ -153,6 +153,5 @@ describe('TagTermGroup', () => {
         );
         expect(getByText('InstrumentIdentifier')).toBeInTheDocument();
         expect(getByText('InstrumentCost')).toBeInTheDocument();
-        expect(queryAllByLabelText('book').length).toBe(2);
     });
 });

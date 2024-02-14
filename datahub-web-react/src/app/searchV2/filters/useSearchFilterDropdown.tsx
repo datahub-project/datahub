@@ -1,0 +1,32 @@
+
+import { FacetFilterInput, FacetMetadata } from '../../../types.generated';
+import {
+    getNewFilters,
+    getNumActiveFiltersForFilter,
+} from './utils';
+
+interface Props {
+    filter: FacetMetadata;
+    activeFilters: FacetFilterInput[];
+    onChangeFilters: (newFilters: FacetFilterInput[]) => void;
+}
+
+export default function useSearchFilterDropdown({ filter, activeFilters, onChangeFilters }: Props) {
+
+    const numActiveFilters = getNumActiveFiltersForFilter(activeFilters, filter);
+
+    function updateFilters(newFilters) {
+        onChangeFilters(
+            getNewFilters(
+                filter.field,
+                activeFilters,
+                newFilters.map((f) => f.value),
+            ),
+        );
+    }
+
+    return {
+        updateFilters,
+        numActiveFilters,
+    };
+}

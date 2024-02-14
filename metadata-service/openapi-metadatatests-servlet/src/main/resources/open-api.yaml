@@ -7,7 +7,8 @@ info:
 paths:
   /metadata_test/test/{testUrn}/evaluate:
     post:
-      summary: Evaluates a metadata test on the given target URNs.
+      summary: "Evaluates a metadata test on the given target URNs. If no target
+      URNs are provided, the test is evaluated on all entities."
       operationId: evaluateTest
       tags:
         - "Metadata Test Operations"
@@ -21,8 +22,8 @@ paths:
             default: true
 
       requestBody:
-        description: "Test target URNs"
-        required: true
+        description: "Target entity URNs for the test. If not provided, the test is evaluated on all entities."
+        required: false
         content:
           application/json:
             schema:
@@ -263,4 +264,3 @@ components:
       required:
         - "entityUrn"
         - "tests"
-

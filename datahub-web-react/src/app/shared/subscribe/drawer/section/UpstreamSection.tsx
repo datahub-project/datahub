@@ -24,7 +24,7 @@ const UpstreamSwitch = styled(Switch)`
 `;
 
 const TitleText = styled(Typography.Text)`
-    font-family: 'Manrope', sans-serif;
+    font-family: 'Mulish', sans-serif;
     font-size: 16px;
     line-height: 24px;
     font-weight: 700;
@@ -33,7 +33,7 @@ const TitleText = styled(Typography.Text)`
 `;
 
 const SubtitleText = styled(Typography.Text)`
-    font-family: 'Manrope', sans-serif;
+    font-family: 'Mulish', sans-serif;
     font-size: 14px;
     line-height: 20px;
     font-weight: 500;

@@ -39,6 +39,7 @@ import com.linkedin.datahub.graphql.generated.Container;
 import com.linkedin.datahub.graphql.generated.CorpGroup;
 import com.linkedin.datahub.graphql.generated.CorpGroupInfo;
 import com.linkedin.datahub.graphql.generated.CorpUser;
+import com.linkedin.datahub.graphql.generated.CorpUserEditableProperties;
 import com.linkedin.datahub.graphql.generated.CorpUserInfo;
 import com.linkedin.datahub.graphql.generated.CorpUserViewsSettings;
 import com.linkedin.datahub.graphql.generated.Dashboard;
@@ -49,6 +50,7 @@ import com.linkedin.datahub.graphql.generated.DataFlow;
 import com.linkedin.datahub.graphql.generated.DataHubView;
 import com.linkedin.datahub.graphql.generated.DataJob;
 import com.linkedin.datahub.graphql.generated.DataJobInputOutput;
+import com.linkedin.datahub.graphql.generated.DataPlatform;
 import com.linkedin.datahub.graphql.generated.DataPlatformInstance;
 import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.DatasetStatsSummary;
@@ -89,6 +91,7 @@ import com.linkedin.datahub.graphql.generated.OwnershipTypeEntity;
 import com.linkedin.datahub.graphql.generated.ParentDomainsResult;
 import com.linkedin.datahub.graphql.generated.PolicyMatchCriterionValue;
 import com.linkedin.datahub.graphql.generated.QueryEntity;
+import com.linkedin.datahub.graphql.generated.QueryProperties;
 import com.linkedin.datahub.graphql.generated.QuerySubject;
 import com.linkedin.datahub.graphql.generated.QuickFilter;
 import com.linkedin.datahub.graphql.generated.RecommendationContent;
@@ -193,33 +196,7 @@ import com.linkedin.datahub.graphql.resolvers.load.LoadableTypeBatchResolver;
 import com.linkedin.datahub.graphql.resolvers.load.LoadableTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.load.OwnerTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.load.TimeSeriesAspectResolver;
-import com.linkedin.datahub.graphql.resolvers.mutate.AddLinkResolver;
-import com.linkedin.datahub.graphql.resolvers.mutate.AddOwnerResolver;
-import com.linkedin.datahub.graphql.resolvers.mutate.AddOwnersResolver;
-import com.linkedin.datahub.graphql.resolvers.mutate.AddTagResolver;
-import com.linkedin.datahub.graphql.resolvers.mutate.AddTagsResolver;
-import com.linkedin.datahub.graphql.resolvers.mutate.AddTermResolver;
-import com.linkedin.datahub.graphql.resolvers.mutate.AddTermsResolver;
-import com.linkedin.datahub.graphql.resolvers.mutate.BatchAddOwnersResolver;
-import com.linkedin.datahub.graphql.resolvers.mutate.BatchAddTagsResolver;
-import com.linkedin.datahub.graphql.resolvers.mutate.BatchAddTermsResolver;
-import com.linkedin.datahub.graphql.resolvers.mutate.BatchRemoveOwnersResolver;
-import com.linkedin.datahub.graphql.resolvers.mutate.BatchRemoveTagsResolver;
-import com.linkedin.datahub.graphql.resolvers.mutate.BatchRemoveTermsResolver;
-import com.linkedin.datahub.graphql.resolvers.mutate.BatchSetDomainResolver;
-import com.linkedin.datahub.graphql.resolvers.mutate.BatchUpdateDeprecationResolver;
-import com.linkedin.datahub.graphql.resolvers.mutate.BatchUpdateSoftDeletedResolver;
-import com.linkedin.datahub.graphql.resolvers.mutate.MoveDomainResolver;
-import com.linkedin.datahub.graphql.resolvers.mutate.MutableTypeBatchResolver;
-import com.linkedin.datahub.graphql.resolvers.mutate.MutableTypeResolver;
-import com.linkedin.datahub.graphql.resolvers.mutate.RemoveLinkResolver;
-import com.linkedin.datahub.graphql.resolvers.mutate.RemoveOwnerResolver;
-import com.linkedin.datahub.graphql.resolvers.mutate.RemoveTagResolver;
-import com.linkedin.datahub.graphql.resolvers.mutate.RemoveTermResolver;
-import com.linkedin.datahub.graphql.resolvers.mutate.UpdateDescriptionResolver;
-import com.linkedin.datahub.graphql.resolvers.mutate.UpdateNameResolver;
-import com.linkedin.datahub.graphql.resolvers.mutate.UpdateParentNodeResolver;
-import com.linkedin.datahub.graphql.resolvers.mutate.UpdateUserSettingResolver;
+import com.linkedin.datahub.graphql.resolvers.mutate.*;
 import com.linkedin.datahub.graphql.resolvers.operation.ReportOperationResolver;
 import com.linkedin.datahub.graphql.resolvers.ownership.CreateOwnershipTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.ownership.DeleteOwnershipTypeResolver;
@@ -263,6 +240,7 @@ import com.linkedin.datahub.graphql.resolvers.tag.SetTagColorResolver;
 import com.linkedin.datahub.graphql.resolvers.test.ListTestsResolver;
 import com.linkedin.datahub.graphql.resolvers.timeline.GetSchemaBlameResolver;
 import com.linkedin.datahub.graphql.resolvers.timeline.GetSchemaVersionListResolver;
+import com.linkedin.datahub.graphql.resolvers.timeline.GetTimelineResolver;
 import com.linkedin.datahub.graphql.resolvers.type.AspectInterfaceTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.type.EntityInterfaceTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.type.HyperParameterValueTypeResolver;
@@ -950,6 +928,7 @@ public class GmsGraphQLEngine {
                 .dataFetcher(
                     "executionRequest", new GetIngestionExecutionRequestResolver(this.entityClient))
                 .dataFetcher("getSchemaBlame", new GetSchemaBlameResolver(this.timelineService))
+                .dataFetcher("getTimeline", new GetTimelineResolver(this.timelineService))
                 .dataFetcher(
                     "getSchemaVersionList", new GetSchemaVersionListResolver(this.timelineService))
                 .dataFetcher("test", getResolver(testType))
@@ -1194,6 +1173,9 @@ public class GmsGraphQLEngine {
                 .dataFetcher(
                     "updateOwnershipType",
                     new UpdateOwnershipTypeResolver(this.ownershipTypeService))
+                .dataFetcher(
+                    "updateDisplayProperties",
+                    new UpdateDisplayPropertiesResolver(this.entityService))
                 .dataFetcher(
                     "deleteOwnershipType",
                     new DeleteOwnershipTypeResolver(this.ownershipTypeService))
@@ -1681,6 +1663,23 @@ public class GmsGraphQLEngine {
                 new LoadableTypeResolver<>(
                     corpUserType,
                     (env) -> ((CorpUserInfo) env.getSource()).getManager().getUrn())));
+    builder.type(
+        "CorpUserEditableProperties",
+        typeWiring ->
+            typeWiring.dataFetcher(
+                "platforms",
+                new LoadableTypeBatchResolver<>(
+                    dataPlatformType,
+                    (env) -> {
+                      final List<DataPlatform> platforms =
+                          ((CorpUserEditableProperties) env.getSource()).getPlatforms();
+                      if (platforms == null) {
+                        return null;
+                      }
+                      return platforms.stream()
+                          .map(DataPlatform::getUrn)
+                          .collect(Collectors.toList());
+                    })));
   }
 
   /**
@@ -2545,8 +2544,26 @@ public class GmsGraphQLEngine {
         .type(
             "QueryEntity",
             typeWiring ->
+                typeWiring
+                    .dataFetcher(
+                        "relationships", new EntityRelationshipsResultResolver(graphClient))
+                    .dataFetcher(
+                        "platform",
+                        new LoadableTypeResolver<>(
+                            dataPlatformType,
+                            (env) -> {
+                              final QueryEntity query = env.getSource();
+                              return query.getPlatform() != null
+                                  ? query.getPlatform().getUrn()
+                                  : null;
+                            })))
+        .type(
+            "QueryProperties",
+            typeWiring ->
                 typeWiring.dataFetcher(
-                    "relationships", new EntityRelationshipsResultResolver(graphClient)))
+                    "origin",
+                    new EntityTypeResolver(
+                        entityTypes, (env) -> ((QueryProperties) env.getSource()).getOrigin())))
         .type(
             "ListQueriesResult",
             typeWiring ->

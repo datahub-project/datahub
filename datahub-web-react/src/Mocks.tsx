@@ -83,7 +83,7 @@ export const user1 = {
     },
     settings: {
         __typename: 'CorpUserSettings',
-        appearance: { __typename: 'CorpUserAppearanceSettings', showSimplifiedHomepage: false },
+        appearance: { __typename: 'CorpUserAppearanceSettings', showSimplifiedHomepage: false, showThemeV2: false },
         views: { __typename: 'CorpUserViewSettings', defaultView: null },
     },
     editableInfo: null,
@@ -97,8 +97,18 @@ const user2 = {
     username: 'john',
     urn: 'urn:li:corpuser:3',
     type: EntityType.CorpUser,
-    properties: {
+    info: {
         __typename: 'CorpUserInfo',
+        email: 'john@domain.com',
+        active: true,
+        displayName: 'john',
+        title: 'Eng',
+        firstName: 'John',
+        lastName: 'Joyce',
+        fullName: 'John Joyce',
+    },
+    properties: {
+        __typename: 'CorpUserProperties',
         email: 'john@domain.com',
         active: true,
         displayName: 'john',
@@ -115,6 +125,8 @@ const user2 = {
         skills: [],
         __typename: 'CorpUserEditableProperties',
         email: 'john@domain.com',
+        persona: null,
+        platforms: null,
     },
     groups: {
         __typename: 'EntityRelationshipsResult',
@@ -153,11 +165,10 @@ const user2 = {
     },
     settings: {
         __typename: 'CorpUserSettings',
-        appearance: { __typename: 'CorpUserAppearanceSettings', showSimplifiedHomepage: false },
+        appearance: { __typename: 'CorpUserAppearanceSettings', showSimplifiedHomepage: false, showThemeV2: false },
         views: { __typename: 'CorpUserViewSettings', defaultView: null },
     },
     editableInfo: null,
-    info: null,
 };
 
 export const dataPlatform = {
@@ -302,7 +313,7 @@ export const dataset1 = {
     totalIncidents: null,
     siblings: null,
     embed: null,
-    browsePathV2: { path: [{ name: 'test', entity: null }], __typename: 'BrowsePathV2' },
+    browsePathV2: { path: [{ name: 'test', entity: null, __typename: 'BrowsePathEntry' }], __typename: 'BrowsePathV2' },
     autoRenderAspects: [],
     structuredProperties: null,
     forms: null,
@@ -406,7 +417,7 @@ export const dataset2 = {
     totalIncidents: null,
     siblings: null,
     embed: null,
-    browsePathV2: { path: [{ name: 'test', entity: null }], __typename: 'BrowsePathV2' },
+    browsePathV2: { path: [{ name: 'test', entity: null, __typename: 'BrowsePathEntry' }], __typename: 'BrowsePathV2' },
     autoRenderAspects: [],
     structuredProperties: null,
     forms: null,
@@ -628,15 +639,14 @@ export const dataset3 = {
             aspectName: 'autoRenderAspect',
             payload: '{ "values": [{ "autoField1": "autoValue1", "autoField2": "autoValue2" }] }',
             renderSpec: {
+                __typename: 'AutoRenderSpec',
                 displayType: 'tabular',
                 displayName: 'Auto Render Aspect Custom Tab Name',
                 key: 'values',
             },
         },
     ],
-    activeIncidents: {
-        total: 0,
-    },
+    activeIncidents: null,
     domain: null,
     container: null,
     lineage: null,
@@ -652,13 +662,16 @@ export const dataset3 = {
     incidents: null,
     totalIncidents: null,
     embed: null,
-    browsePathV2: { __typename: 'BrowsePathV2', path: [{ name: 'test', entity: null }] },
+    browsePathV2: { __typename: 'BrowsePathV2', path: [{ name: 'test', entity: null, __typename: 'BrowsePathEntry' }] },
     access: null,
     dataProduct: null,
     lastProfile: null,
     lastOperation: null,
     structuredProperties: null,
     forms: null,
+    upstream: null,
+    downstream: null,
+    extraProperties: null,
 } as Dataset;
 
 export const dataset3WithSchema = {
@@ -2223,6 +2236,7 @@ export const mocks = [
                             },
                             matchedFields: [],
                             insights: [],
+                            extraProperties: null,
                         },
                     ],
                     facets: [
@@ -2292,6 +2306,7 @@ export const mocks = [
                             },
                             matchedFields: [],
                             insights: [],
+                            extraProperties: null,
                         },
                     ],
                     facets: [
@@ -2397,6 +2412,7 @@ export const mocks = [
                             },
                             matchedFields: [],
                             insights: [],
+                            extraProperties: null,
                         },
                     ],
                     suggestions: [],
@@ -2568,6 +2584,7 @@ export const mocks = [
                             },
                             matchedFields: [],
                             insights: [],
+                            extraProperties: null,
                         },
                     ],
                     facets: [
@@ -2634,6 +2651,7 @@ export const mocks = [
                             },
                             matchedFields: [],
                             insights: [],
+                            extraProperties: null,
                         },
                         {
                             entity: {
@@ -2642,6 +2660,7 @@ export const mocks = [
                             },
                             matchedFields: [],
                             insights: [],
+                            extraProperties: null,
                         },
                     ],
                     facets: [
@@ -2708,6 +2727,7 @@ export const mocks = [
                             },
                             matchedFields: [],
                             insights: [],
+                            extraProperties: null,
                         },
                     ],
                     facets: [
@@ -2852,6 +2872,7 @@ export const mocks = [
                             },
                             matchedFields: [],
                             insights: [],
+                            extraProperties: null,
                         },
                     ],
                     facets: [
@@ -2946,6 +2967,7 @@ export const mocks = [
                             },
                             matchedFields: [],
                             insights: [],
+                            extraProperties: null,
                         },
                     ],
                     suggestions: [],
@@ -3063,6 +3085,7 @@ export const mocks = [
                             },
                             matchedFields: [],
                             insights: [],
+                            extraProperties: null,
                         },
                     ],
                     facets: [],
@@ -3113,6 +3136,7 @@ export const mocks = [
                             },
                             matchedFields: [],
                             insights: [],
+                            extraProperties: null,
                         },
                     ],
                     suggestions: [],
@@ -3188,6 +3212,7 @@ export const mocks = [
                             },
                             matchedFields: [],
                             insights: [],
+                            extraProperties: null,
                         },
                     ],
                     suggestions: [],
@@ -3267,6 +3292,7 @@ export const mocks = [
                             },
                             matchedFields: [],
                             insights: [],
+                            extraProperties: null,
                         },
                         {
                             entity: {
@@ -3275,6 +3301,7 @@ export const mocks = [
                             },
                             matchedFields: [],
                             insights: [],
+                            extraProperties: null,
                         },
                     ],
                     suggestions: [],
@@ -3361,6 +3388,7 @@ export const mocks = [
                             },
                             matchedFields: [],
                             insights: [],
+                            extraProperties: null,
                         },
                     ],
                     suggestions: [],
@@ -3451,6 +3479,7 @@ export const mocks = [
                             },
                             matchedFields: [],
                             insights: [],
+                            extraProperties: null,
                         },
                     ],
                     suggestions: [],
@@ -3664,6 +3693,7 @@ export const mocks = [
                         EntityType.MlfeatureTable,
                         EntityType.Mlmodel,
                         EntityType.MlmodelGroup,
+                        EntityType.DataProduct,
                     ],
                 },
             },
@@ -3711,6 +3741,7 @@ export const mocks = [
                             },
                             matchedFields: [],
                             insights: [],
+                            extraProperties: null,
                         },
                         {
                             entity: {
@@ -3719,6 +3750,7 @@ export const mocks = [
                             },
                             matchedFields: [],
                             insights: [],
+                            extraProperties: null,
                         },
                     ],
                     facets: [

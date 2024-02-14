@@ -88,6 +88,7 @@ confluent-kafka==2.3.0
     # via
     #   -r requirements.txt
     #   acryl-datahub
+    #   acryl-datahub-integrations (pyproject.toml)
 coverage[toml]==7.3.1
     # via
     #   coverage

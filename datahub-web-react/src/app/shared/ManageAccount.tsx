@@ -1,7 +1,6 @@
 import React from 'react';
 import Cookies from 'js-cookie';
 import { Menu, Dropdown } from 'antd';
-import { CaretDownOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
 import { EntityType } from '../../types.generated';
 import { useEntityRegistry } from '../useEntityRegistry';
@@ -9,15 +8,8 @@ import { GlobalCfg } from '../../conf';
 import { isLoggedInVar } from '../auth/checkAuthStatus';
 import CustomAvatar from './avatar/CustomAvatar';
 import analytics, { EventType } from '../analytics';
-import { ANTD_GRAY } from '../entity/shared/constants';
 import { useUserContext } from '../context/useUserContext';
 import { MenuItem } from './admin/components';
-
-const DownArrow = styled(CaretDownOutlined)`
-    vertical-align: -1px;
-    font-size: 10px;
-    color: ${ANTD_GRAY[7]};
-`;
 
 const DropdownWrapper = styled.div`
     align-items: center;
@@ -67,8 +59,7 @@ export const ManageAccount = ({ urn: _urn, pictureLink: _pictureLink, name }: Pr
     return (
         <Dropdown overlay={menu} trigger={['click']}>
             <DropdownWrapper data-testid="manage-account-menu">
-                <CustomAvatar photoUrl={_pictureLink} style={{ marginRight: 4 }} name={name} />
-                <DownArrow />
+                <CustomAvatar photoUrl={_pictureLink} style={{ marginRight: 4 }} name={name} size={32} />
             </DropdownWrapper>
         </Dropdown>
     );

@@ -1,0 +1,228 @@
+import { Checkbox, Divider, List, ListProps } from 'antd';
+import React, { useCallback, useEffect, useMemo } from 'react';
+import styled from 'styled-components';
+import { SearchResult, SearchSuggestion } from '../../types.generated';
+import analytics, { EventType } from '../analytics';
+import { ANTD_GRAY } from '../entity/shared/constants';
+import { EntityAndType } from '../entity/shared/types';
+import { SEARCH_COLORS } from '../entityV2/shared/constants';
+import { PreviewSection } from '../shared/MatchesContext';
+import { useEntityRegistry } from '../useEntityRegistry';
+import EmptySearchResults from './EmptySearchResults';
+import { MatchContextContianer } from './matches/MatchContextContainer';
+import { useIsSearchV2 } from './useSearchAndBrowseVersion';
+import { CombinedSearchResult } from './utils/combineSiblingsInSearchResults';
+
+export const MATCHES_CONTAINER_HEIGHT = 52;
+
+const ResultList = styled(List)`
+    &&& {
+        margin-top: 8px;
+        width: 100%;
+        border-color: ${(props) => props.theme.styles['border-color-base']};
+        padding: 0px 16px;
+        border-radius: 0px;
+    }
+`;
+
+const StyledCheckbox = styled(Checkbox)`
+    margin-right: 12px;
+`;
+
+const ThinDivider = styled(Divider)`
+    margin-top: 16px;
+    margin-bottom: 16px;
+`;
+
+export const ResultWrapper = styled.div<{ showUpdatedStyles: boolean; selected: boolean; areMatchesExpanded: boolean }>`
+    // z-index: 2;
+    ${(props) =>
+        props.showUpdatedStyles &&
+        `    
+        background-color: white;
+        border-radius: 8px;
+        margin: 0 auto 12px auto;
+        padding: 16px 20px;
+        box-shadow: 0px 0px 5px rgba(0, 0, 0, 0.08);
+        border-bottom: 1px solid ${ANTD_GRAY[5]};
+        cursor: pointer;
+        :hover {
+            ${!props.selected && `outline: 1px solid ${SEARCH_COLORS.TITLE_PURPLE};}`};
+        }
+    `}
+    position: relative;
+
+    ${(props) =>
+        props.selected &&
+        `
+        outline: 1px solid ${SEARCH_COLORS.TITLE_PURPLE};
+        border-left: 5px solid ${SEARCH_COLORS.TITLE_PURPLE};
+        left: -5px;
+        width: calc(100% + 5px);
+        position: relative;
+    `}
+    margin-bottom: ${(props) => (props.areMatchesExpanded ? MATCHES_CONTAINER_HEIGHT + 20 : 20)}px;
+    transition: margin-bottom 0.3s ease;
+    ${(props) =>
+        props.areMatchesExpanded &&
+        `
+        -webkit-box-shadow: 0px 0px 24px 0px rgba(0, 0, 0, 0.15);
+        -moz-box-shadow: 0px 0px 24px 0px rgba(0, 0, 0, 0.15);
+         box-shadow: 0px 0px 24px 0px rgba(0, 0, 0, 0.15);
+    `}
+`;
+
+const ListItem = styled.div<{ isSelectMode: boolean }>`
+    display: flex;
+    align-items: center;
+`;
+
+function useSearchKeyboardControls(
+    highlightedIndex: number | null,
+    setHighlightedIndex: (i: number | null) => void,
+    searchResults: CombinedSearchResult[],
+    refs: React.RefObject<HTMLDivElement>[],
+) {
+    return useCallback(
+        (event: KeyboardEvent) => {
+            const prevIndex = highlightedIndex;
+            let newIndex: number | null | undefined;
+            if (event.key === 'ArrowDown') {
+                event.preventDefault();
+                newIndex = prevIndex === null ? null : Math.min(prevIndex + 1, searchResults.length - 1);
+            } else if (event.key === 'ArrowUp') {
+                event.preventDefault();
+                newIndex = prevIndex === null ? null : Math.max(prevIndex - 1, 0);
+            } else if (event.key === 'Escape') {
+                newIndex = null;
+            }
+            if (newIndex !== undefined) {
+                setHighlightedIndex(newIndex);
+                if (newIndex !== null) {
+                    refs[newIndex]?.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            }
+        },
+        [refs, highlightedIndex, setHighlightedIndex, searchResults.length],
+    );
+}
+
+type Props = {
+    loading: boolean;
+    query: string;
+    searchResults: CombinedSearchResult[];
+    totalResultCount: number;
+    isSelectMode: boolean;
+    selectedEntities: EntityAndType[];
+    setSelectedEntities: (entities: EntityAndType[]) => any;
+    suggestions: SearchSuggestion[];
+    highlightedIndex: number | null;
+    setHighlightedIndex: (val: number | null) => void;
+};
+
+export const SearchResultList = ({
+    loading,
+    query,
+    searchResults,
+    totalResultCount,
+    isSelectMode,
+    selectedEntities,
+    setSelectedEntities,
+    suggestions,
+    highlightedIndex,
+    setHighlightedIndex,
+}: Props) => {
+    const entityRegistry = useEntityRegistry();
+    const selectedEntityUrns = selectedEntities.map((entity) => entity.urn);
+    const showSearchFiltersV2 = useIsSearchV2();
+    const refs = useMemo(() => searchResults.map(() => React.createRef<HTMLDivElement>()), [searchResults]);
+
+    const onKeyPress = useSearchKeyboardControls(highlightedIndex, setHighlightedIndex, searchResults, refs);
+
+    useEffect(() => {
+        document.addEventListener('keydown', onKeyPress);
+        return () => {
+            document.removeEventListener('keydown', onKeyPress);
+        };
+    }, [onKeyPress]);
+
+    const onClickResult = (result: SearchResult, index: number) => {
+        analytics.event({
+            type: EventType.SearchResultClickEvent,
+            query,
+            entityUrn: result.entity.urn,
+            entityType: result.entity.type,
+            index,
+            total: totalResultCount,
+        });
+        setHighlightedIndex(index);
+    };
+
+    /**
+     * Invoked when a new entity is selected. Simply updates the state of the list of selected entities.
+     */
+    const onSelectEntity = (selectedEntity: EntityAndType, selected: boolean) => {
+        if (selected) {
+            setSelectedEntities?.([...selectedEntities, selectedEntity]);
+        } else {
+            setSelectedEntities?.(selectedEntities?.filter((entity) => entity.urn !== selectedEntity.urn) || []);
+        }
+    };
+
+    const [urnToExpandedSection, setUrnToExpandedSection] = React.useState<Record<string, PreviewSection>>({});
+
+    return (
+        <ResultList<React.FC<ListProps<CombinedSearchResult>>>
+            id="search-result-list"
+            dataSource={searchResults}
+            split={false}
+            locale={{ emptyText: (!loading && <EmptySearchResults suggestions={suggestions} />) || <></> }}
+            renderItem={(item, index) => {
+                const expandedSection = urnToExpandedSection[item.entity.urn];
+                return (
+                    <div style={{ position: 'relative' }}>
+                        <MatchContextContianer
+                            item={item}
+                            selected={highlightedIndex === index}
+                            onClick={() => onClickResult(item, index)}
+                            urnToExpandedSection={urnToExpandedSection}
+                            setUrnToExpandedSection={setUrnToExpandedSection}
+                        >
+                            <ResultWrapper
+                                showUpdatedStyles={showSearchFiltersV2}
+                                className={`entityUrn-${item.entity.urn}`}
+                                selected={highlightedIndex === index}
+                                areMatchesExpanded={!!expandedSection}
+                                onClick={() => onClickResult(item, index)}
+                                ref={refs[index]}
+                            >
+                                <ListItem
+                                    isSelectMode={isSelectMode}
+                                    // class name for counting in test purposes only
+                                    className="test-search-result"
+                                >
+                                    {isSelectMode && (
+                                        <StyledCheckbox
+                                            checked={selectedEntityUrns.indexOf(item.entity.urn) >= 0}
+                                            onChange={(e) =>
+                                                onSelectEntity(
+                                                    { urn: item.entity.urn, type: item.entity.type },
+                                                    e.target.checked,
+                                                )
+                                            }
+                                            onClick={(e) => e.stopPropagation()}
+                                        />
+                                    )}
+                                    {entityRegistry.renderSearchResult(item.entity.type, item)}
+                                </ListItem>
+                                {/* an entity is always going to be inserted in the sibling group, so if the sibling group is just one do not 
+                        render. */}
+                                {!showSearchFiltersV2 && <ThinDivider />}
+                            </ResultWrapper>
+                        </MatchContextContianer>
+                    </div>
+                );
+            }}
+        />
+    );
+};

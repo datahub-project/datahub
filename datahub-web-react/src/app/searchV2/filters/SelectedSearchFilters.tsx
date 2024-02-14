@@ -1,0 +1,60 @@
+import React from 'react';
+import { FacetFilterInput, FacetMetadata } from '../../../types.generated';
+import { FilterPredicate } from './types';
+import { convertToSelectedFilterPredictes } from './utils';
+import { convertFrontendToBackendOperatorType } from './operator/operator';
+import SearchFiltersBuilder from './SearchFiltersBuilder';
+import { UnionType } from '../utils/constants';
+
+interface Props {
+    availableFilters: FacetMetadata[] | null;
+    selectedFilters: FacetFilterInput[];
+    unionType: UnionType;
+    onChangeFilters: (newFilters: FacetFilterInput[]) => void;
+    onChangeUnionType?: (unionType: UnionType) => void;
+    onClearFilters: () => void;
+    disabled?: boolean;
+    showUnionType?: boolean;
+}
+
+export default function SelectedSearchFilters({
+    availableFilters,
+    selectedFilters,
+    unionType,
+    onChangeFilters,
+    onChangeUnionType,
+    onClearFilters,
+    disabled = false,
+    showUnionType,
+}: Props) {
+    // Create the final filter predicates required to render a selected filter option.
+    const filterPredicates: FilterPredicate[] = convertToSelectedFilterPredictes(
+        selectedFilters,
+        availableFilters || [],
+    );
+
+    const updateFilters = (newFilters: FilterPredicate[]) => {
+        const newSelectedFilters = newFilters.map((filter) => {
+            const condition = convertFrontendToBackendOperatorType(filter.operator);
+            return {
+                field: filter.field.field,
+                values: filter.values.map((value) => value.value),
+                condition: condition.operator,
+                negated: condition.negated,
+            };
+        });
+        onChangeFilters(newSelectedFilters);
+    };
+
+    return (
+        <SearchFiltersBuilder
+            filters={filterPredicates}
+            onChangeFilters={updateFilters}
+            onClearFilters={onClearFilters}
+            unionType={unionType}
+            onChangeUnionType={onChangeUnionType}
+            showUnionType={showUnionType}
+            disabled={disabled}
+        />
+    );
+}

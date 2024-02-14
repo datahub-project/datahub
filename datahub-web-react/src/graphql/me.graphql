@@ -18,6 +18,12 @@ query getMe {
                 pictureLink
                 teams
                 skills
+                persona {
+                    urn
+                }
+                platforms {
+                    urn
+                }
             }
             groups: relationships(input: { types: ["IsMemberOfGroup"], direction: OUTGOING, start: 0, count: 50 }) {
                 relationships {
@@ -35,6 +41,7 @@ query getMe {
             settings {
                 appearance {
                     showSimplifiedHomepage
+                    showThemeV2
                 }
                 views {
                     defaultView {

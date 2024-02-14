@@ -234,6 +234,11 @@ public class UrnToEntityMapper implements ModelMapper<com.linkedin.common.urn.Ur
       ((DataContract) partialEntity).setUrn(input.toString());
       ((DataContract) partialEntity).setType(EntityType.DATA_CONTRACT);
     }
+    if (input.getEntityType().equals(QUERY_ENTITY_NAME)) {
+      partialEntity = new QueryEntity();
+      ((QueryEntity) partialEntity).setUrn(input.toString());
+      ((QueryEntity) partialEntity).setType(EntityType.QUERY);
+    }
     return partialEntity;
   }
 }

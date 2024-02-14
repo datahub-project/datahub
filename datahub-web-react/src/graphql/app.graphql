@@ -66,6 +66,7 @@ query appConfig {
             readOnlyModeEnabled
             showSearchFiltersV2
             showBrowseV2
+            platformBrowseV2
             assertionMonitorsEnabled
             subscriptionsEnabled
             datasetHealthDashboardEnabled
@@ -75,6 +76,8 @@ query appConfig {
             platformBrowseV2
             dataContractsEnabled
             documentationAiEnabled
+            themeV2
+            lineageGraphV2
         }
         chromeExtensionConfig {
             enabled

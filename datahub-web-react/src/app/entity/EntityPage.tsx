@@ -2,8 +2,6 @@ import React, { useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { EntityType } from '../../types.generated';
 import { BrowsableEntityPage } from '../browse/BrowsableEntityPage';
-import LineageExplorer from '../lineage/LineageExplorer';
-import useIsLineageMode from '../lineage/utils/useIsLineageMode';
 import { useEntityRegistry } from '../useEntityRegistry';
 import analytics, { EventType } from '../analytics';
 import { decodeUrn } from './shared/utils';
@@ -31,7 +29,6 @@ export const EntityPage = ({ entityType }: Props) => {
     const entity = entityRegistry.getEntity(entityType);
     const isBrowsable = entity.isBrowseEnabled();
     const isLineageSupported = entity.isLineageEnabled();
-    const isLineageMode = useIsLineageMode();
     const authenticatedUserUrn = useUserContext()?.user?.urn;
     const { error, data } = useGetGrantedPrivilegesQuery({
         variables: {
@@ -73,18 +70,14 @@ export const EntityPage = ({ entityType }: Props) => {
             {error && <ErrorSection />}
             {data && !canViewEntityPage && <UnauthorizedPage />}
             {canViewEntityPage &&
-                ((showNewPage && <>{entityRegistry.renderProfile(entityType, urn)}</>) || (
+                ((showNewPage && entityRegistry.renderProfile(entityType, urn)) || (
                     <BrowsableEntityPage
                         isBrowsable={isBrowsable}
                         urn={urn}
                         type={entityType}
                         lineageSupported={isLineageSupported}
                     >
-                        {isLineageMode && isLineageSupported ? (
-                            <LineageExplorer type={entityType} urn={urn} />
-                        ) : (
-                            entityRegistry.renderProfile(entityType, urn)
-                        )}
+                        {entityRegistry.renderProfile(entityType, urn)}
                     </BrowsableEntityPage>
                 ))}
         </>

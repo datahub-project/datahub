@@ -8,6 +8,11 @@ extend type Query {
     Returns the list of schema versions for a dataset.
     """
     getSchemaVersionList(input: GetSchemaVersionListInput!): GetSchemaVersionListResult
+
+    """
+    Returns a list of timeline actions for an entity based on the filter criteria
+    """
+    getTimeline(input: GetTimelineInput!): GetTimelineResult
 }
 
 """
@@ -80,6 +85,22 @@ type GetSchemaVersionListResult {
     All semantic versions. Absent when there are no versions.
     """
     semanticVersionList: [SemanticVersionStruct!]
+}
+
+"""
+Input for getting timeline from a specific version.
+Todo: this is where additional filtering would go such as start & end times/versions, change types, etc
+"""
+input GetTimelineInput {
+    """
+    The urn to fetch timeline for
+    """
+    urn: String!
+
+    """
+    The change category types to filter by. If left empty, will fetch all.
+    """
+    changeCategories: [ChangeCategoryType!]
 }
 
 
@@ -167,4 +188,93 @@ type SemanticVersionStruct {
     Version stamp of the change
     """
     versionStamp: String
+}
+
+"""
+Result of getting timeline from a specific version.
+"""
+type GetTimelineResult {
+    changeTransactions: [ChangeTransaction!]!
+}
+
+"""
+A change transaction is a set of changes that were committed together.
+"""
+type ChangeTransaction {
+    """
+    The time at which the transaction was committed
+    """
+    timestampMillis: Long!
+    """
+    The last semantic version that this schema was changed in
+    """
+    lastSemanticVersion: String!
+    """
+    Version stamp of the change
+    """
+    versionStamp: String!
+    """
+    The type of the change
+    """
+    changeType: ChangeOperationType!
+    """
+    The list of changes in this transaction
+    """
+    changes: [ChangeEvent!]
+}
+
+
+"""
+An individual change in a transaction
+"""
+type ChangeEvent {
+    """
+    The urn of the entity that was changed
+    """
+    urn: String!
+
+    """
+    The category of the change
+    """
+    category: ChangeCategoryType
+
+    """
+    The operation of the change
+    """
+    operation: ChangeOperationType
+
+    """
+    The modifier of the change
+    """
+    modifier: String
+
+    """
+    The parameters of the change
+    """
+    parameters: [TimelineParameterEntry!]
+
+    """
+    The audit stamp of the change
+    """
+    auditStamp: AuditStamp
+
+    """
+    description of the change
+    """
+    description: String
+}
+
+"""
+A timeline parameter entry
+"""
+type TimelineParameterEntry {
+    """
+    The key of the parameter
+    """
+    key: String
+
+    """
+    The value of the parameter
+    """
+    value: String
 }

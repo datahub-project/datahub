@@ -269,6 +269,18 @@
           "optional" : true
         } ],
         "returns" : "com.linkedin.test.TestResults"
+      }, {
+        "name" : "testEvaluate",
+        "javaMethodName" : "evaluateSingleTest",
+        "parameters" : [ {
+          "name" : "urn",
+          "type" : "string"
+        }, {
+          "name" : "push",
+          "type" : "boolean",
+          "optional" : true
+        } ],
+        "returns" : "com.linkedin.test.BatchedTestResults"
       } ],
       "entity" : {
         "path" : "/test"

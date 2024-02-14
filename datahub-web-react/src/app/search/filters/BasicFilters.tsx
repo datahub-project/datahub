@@ -10,6 +10,7 @@ import {
     UnionType,
     LEGACY_ENTITY_FILTER_NAME,
     BROWSE_PATH_V2_FILTER_NAME,
+    ENTITY_SUB_TYPE_FILTER_NAME,
 } from '../utils/constants';
 import ActiveFilter from './ActiveFilter';
 import { SORTED_FILTERS } from './constants';
@@ -54,6 +55,7 @@ const FILTERS_TO_REMOVE = [
     LEGACY_ENTITY_FILTER_NAME,
     ENTITY_INDEX_FILTER_NAME,
     BROWSE_PATH_V2_FILTER_NAME,
+    ENTITY_SUB_TYPE_FILTER_NAME,
 ];
 
 interface Props {

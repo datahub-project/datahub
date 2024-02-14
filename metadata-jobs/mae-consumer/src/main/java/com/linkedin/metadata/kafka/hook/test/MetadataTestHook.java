@@ -26,8 +26,10 @@ import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.r2.RemoteInvocationException;
+import com.linkedin.test.BatchedTestResults;
 import com.linkedin.test.MetadataTestClient;
 import io.opentelemetry.extension.annotations.WithSpan;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -43,8 +45,15 @@ import org.springframework.context.annotation.PropertySource;
 import org.springframework.stereotype.Component;
 
 /**
- * This hook evaluates tests when updates to entities come in Note, it uses a cache to make sure we
- * run tests once even if multiple update events for the given entity comes in
+ * This hook serves two functions.
+ *
+ * <p>1. On Change of a Metadata Test Definition - It can evaluate the test.
+ *
+ * <p>2. On Change of any entity - It can evaluate any tests associated with that entity for that
+ * entity
+ *
+ * <p>Note, it uses a cache to make sure we run tests once even if multiple update events for the
+ * given entity comes in Each of these functions can be independently turned on or off.
  */
 @Slf4j
 @Component
@@ -53,7 +62,7 @@ import org.springframework.stereotype.Component;
 @Import({
   MetadataTestClientFactory.class,
   SystemAuthenticationFactory.class,
-  EntityRegistryFactory.class
+  EntityRegistryFactory.class,
 })
 public class MetadataTestHook implements MetadataChangeLogHook {
 
@@ -70,14 +79,26 @@ public class MetadataTestHook implements MetadataChangeLogHook {
   // Status is ignored for now, as massive delete operations can cause massive test triggering
   private static final Set<String> ASPECTS_TO_IGNORE =
       ImmutableSet.of(Constants.TEST_RESULTS_ASPECT_NAME, Constants.STATUS_ASPECT_NAME);
+  private final Boolean _isOnTestChangeEnabled;
+  private final Boolean _isOnEntityChangeEnabled;
 
   @Autowired
   public MetadataTestHook(
       @Nonnull final EntityRegistry entityRegistry,
       @Nonnull final MetadataTestClient testClient,
       @Nonnull final Authentication systemAuthentication,
-      @Nonnull @Value("${metadataTests.hook.enabled:true}") Boolean isEnabled) {
-    this(entityRegistry, testClient, systemAuthentication, isEnabled, 2, TimeUnit.SECONDS);
+      @Nonnull @Value("${metadataTests.hook.enabled:true}") Boolean isEnabled,
+      @Nonnull @Value("${metadataTests.hook.onTestChange:true}") Boolean onTestChangeEnabled,
+      @Nonnull @Value("${metadataTests.hook.onEntityChange:false}") Boolean onEntityChangeEnabled) {
+    this(
+        entityRegistry,
+        testClient,
+        systemAuthentication,
+        isEnabled,
+        2,
+        TimeUnit.SECONDS,
+        onTestChangeEnabled,
+        onEntityChangeEnabled);
   }
 
   @VisibleForTesting
@@ -88,10 +109,35 @@ public class MetadataTestHook implements MetadataChangeLogHook {
       @Nonnull @Value("${metadataTests.hook.enabled:true}") Boolean isEnabled,
       final int cacheExpirationTime,
       final TimeUnit cacheExpirationUnit) {
+    // Defaults here indicate the previous behavior where enabled true implied that we are
+    // processing entity changes
+    this(
+        entityRegistry,
+        testClient,
+        systemAuthentication,
+        isEnabled,
+        cacheExpirationTime,
+        cacheExpirationUnit,
+        false,
+        isEnabled);
+  }
+
+  @VisibleForTesting
+  MetadataTestHook(
+      @Nonnull final EntityRegistry entityRegistry,
+      @Nonnull final MetadataTestClient testClient,
+      @Nonnull final Authentication systemAuthentication,
+      @Nonnull @Value("${metadataTests.hook.enabled:true}") Boolean isEnabled,
+      final int cacheExpirationTime,
+      final TimeUnit cacheExpirationUnit,
+      @Nonnull @Value("${metadataTests.hook.onTestChange:true}") Boolean onTestChangeEnabled,
+      @Nonnull @Value("${metadataTests.hook.onEntityChange:false}") Boolean onEntityChangeEnabled) {
     _entityRegistry = entityRegistry;
     _testClient = testClient;
     _systemAuthentication = systemAuthentication;
     _isEnabled = isEnabled;
+    _isOnTestChangeEnabled = onTestChangeEnabled;
+    _isOnEntityChangeEnabled = onEntityChangeEnabled;
     // Inserts tests to run into an in-memory cache that evaluates tests when the cache entry
     // expires
     _urnObserverCache =
@@ -130,8 +176,40 @@ public class MetadataTestHook implements MetadataChangeLogHook {
     }
   }
 
+  private void processTestChange(MetadataChangeLog event) {
+    try {
+      BatchedTestResults results =
+          _testClient.evaluateSingleTest(
+              Objects.requireNonNull(event.getEntityUrn()), true, _systemAuthentication);
+      log.info(
+          "Test {} evaluated successfully with results for {} entries",
+          event.getEntityUrn(),
+          results.getResults().keySet().size());
+    } catch (RemoteInvocationException e) {
+      log.error("Error while evaluating test {}", event.getEntityUrn(), e);
+    }
+  }
+
   @Override
   public void invoke(@NotNull MetadataChangeLog event) throws Exception {
+    // Check if this is a new or updated Metadata Test
+    if (this._isOnTestChangeEnabled
+        && event.getChangeType() == ChangeType.UPSERT
+        && event.getEntityType().equals(TEST_ENTITY_NAME)
+        && event.getAspectName().equals(TEST_INFO_ASPECT_NAME)) {
+      log.info(
+          "Upsert event for Metadata Test entity {} received, evaluating test",
+          event.getEntityUrn());
+      processTestChange(event);
+      return;
+    }
+
+    // Rest of the function deals with Entity changes, so we short-circuit here
+    if (!this._isOnEntityChangeEnabled) {
+      return;
+    }
+
+    // Process other changes in other entities
     // Only trigger tests if the change is an UPSERT, change is not for test entity
     if (event.getChangeType() != ChangeType.UPSERT
         || !_supportedEntityTypes.contains(event.getEntityType())) {

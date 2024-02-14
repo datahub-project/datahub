@@ -82,6 +82,9 @@ public class TestEngine {
   private final Set<String> _supportedEntityTypes;
   private final boolean isPartialFetcher;
 
+  // TODO: Make this configurable
+  private static final Integer MAX_ENTITIES_EVALUATED_IN_SINGLE_EXECUTION = 10000;
+
   /** The test engine evaluation mode. */
   public enum EvaluationMode {
     /**
@@ -592,6 +595,10 @@ public class TestEngine {
     try {
       for (TestResult result : testResults) {
         TestDefinition definition = _testCache.get(result.getTest());
+        if (definition == null) {
+          log.warn("Test {} does not exist: Skipping", result.getTest());
+          continue;
+        }
         List<TestAction> eligibleActions =
             TestResultType.FAILURE.equals(result.getType())
                 ? definition.getActions().getFailing()
@@ -615,6 +622,82 @@ public class TestEngine {
       // To unlock the acquired read thread
       cacheReadLock.unlock();
     }
+  }
+
+  /**
+   * Evaluates a single test
+   *
+   * @param testUrn
+   * @param mode
+   */
+  public Map<Urn, TestResults> evaluateSingleTest(
+      @Nonnull final Urn testUrn, @Nonnull EvaluationMode mode) {
+    log.info("Evaluating single test {} with mode {}", testUrn, mode);
+    this.refreshSingleTest(testUrn);
+    final TestDefinition testDefinition;
+    cacheReadLock.lock();
+    try {
+      testDefinition = _testCache.get(testUrn);
+    } finally {
+      // To unlock the acquired read thread
+      cacheReadLock.unlock();
+    }
+    if (testDefinition == null) {
+      log.warn("Test {} does not exist: Skipping", testUrn);
+      return null;
+    }
+    final Set<Urn> candidateUrns = new HashSet<>();
+    testDefinition
+        .getOn()
+        .getEntityTypes()
+        .forEach(
+            typeName ->
+                candidateUrns.addAll(
+                    _entityService
+                        .listUrns(typeName, 0, MAX_ENTITIES_EVALUATED_IN_SINGLE_EXECUTION)
+                        .getEntities()));
+
+    if (candidateUrns.size() > MAX_ENTITIES_EVALUATED_IN_SINGLE_EXECUTION) {
+      log.warn(
+          "Test {} has too many entities to evaluate: {}. Will truncate to {} entities.",
+          testUrn,
+          candidateUrns.size(),
+          MAX_ENTITIES_EVALUATED_IN_SINGLE_EXECUTION);
+    }
+    Set<Urn> urnsToTest =
+        candidateUrns.stream()
+            .limit(MAX_ENTITIES_EVALUATED_IN_SINGLE_EXECUTION)
+            .collect(Collectors.toSet());
+
+    final Map<Urn, TestResults> results = batchEvaluateTests(urnsToTest, Set.of(testDefinition));
+    // (Optional): Write results to DataHub
+    if (!EvaluationMode.EVALUATE_ONLY.equals(mode)) {
+      log.info(
+          "Mode: {}: Writing {} results to DataHub for test {}",
+          mode,
+          testUrn,
+          results.keySet().size());
+      batchIngestResults(results, mode, true);
+      log.info(
+          "Mode {}: Applying {} results to DataHub for test {}",
+          mode,
+          testUrn,
+          results.keySet().size());
+      batchApplyActions(results);
+      log.info("Mode {}: Test {} evaluation done", mode, testUrn);
+    }
+    log.debug("Test {} has been evaluated. Results keys = {}", testUrn, results.keySet().size());
+    return results;
+  }
+
+  /**
+   * Refreshes test definitions for a single test urn. Use when you want to make sure that the cache
+   * is up to date for a single test
+   *
+   * @param testUrn
+   */
+  public void refreshSingleTest(@Nonnull final Urn testUrn) {
+    _testRefreshRunnable.refreshOneUrn(testUrn);
   }
 
   /**
@@ -677,6 +760,17 @@ public class TestEngine {
       } catch (Exception e) {
         log.error(
             "Caught exception while loading Test cache. Will retry on next scheduled attempt.", e);
+      }
+    }
+
+    protected void refreshOneUrn(final Urn testUrn) {
+      TestFetcher.TestFetchResult testDefinitions = _testFetcher.fetchOne(testUrn);
+      this.cacheWriteLock.lock();
+      try {
+        addTestsToCache(_testCache, _testPerEntityTypeCache, testDefinitions.getTests());
+      } finally {
+        // To unlock the acquired read thread
+        cacheWriteLock.unlock();
       }
     }
 

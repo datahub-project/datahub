@@ -304,6 +304,8 @@ metadataTests:
   enabled: ${METADATA_TESTS_ENABLED:false}
   hook:
     enabled: ${METADATA_TESTS_HOOK_ENABLED:true}
+    onTestChange: ${METADATA_TESTS_ON_TEST_CHANGE:true}
+    onEntityChange: ${METADATA_TESTS_ON_ENTITY_CHANGE:false}
   cacheRefreshIntervalSecs: ${METADATA_TESTS_CACHE_REFRESH_INTERVAL_SECONDS:120}
   # Flags to enable bootstrap ingestion of default policies
   bootstrap:
@@ -409,17 +411,19 @@ featureFlags:
   showAccessManagement: ${SHOW_ACCESS_MANAGEMENT:false} #Whether we should show AccessManagement tab in the datahub UI.
   showSearchFiltersV2: ${SHOW_SEARCH_FILTERS_V2:true} # Enables showing the search filters V2 experience.
   showBrowseV2: ${SHOW_BROWSE_V2:true} # Enables showing the browse v2 sidebar experience.
+  platformBrowseV2: ${PLATFORM_BROWSE_V2:true} # Enables the platform browse experience, instead of the entity-oriented browse default.
+  lineageGraphV2: ${LINEAGE_GRAPH_V2:true} # Enables the new lineage visualization.
   assertionMonitorsEnabled: ${ASSERTION_MONITORS_ENABLED:false} # Enables the ability to create native assertions inside the UI.
   subscriptionsEnabled: ${SUBSCRIPTIONS_ENABLED:false} # Enables the ability to subscribe to notifications
   datasetHealthDashboardEnabled: ${DATASET_HEALTH_DASHBOARD_ENABLED:false} # Enables the Dataset Health dashboard in the application
   dataContractsEnabled: ${DATA_CONTRACTS_ENABLED:false} # Enables the Data Contracts feature (Tab) in the UI
   documentationAiEnabled: ${DOCUMENTATION_AI_ENABLED:false} # Enables the AI-powered documentation feature in the UI
-  platformBrowseV2: ${PLATFORM_BROWSE_V2:false} # Enables the platform browse experience, instead of the entity-oriented browse default.
   preProcessHooks:
     uiEnabled: ${PRE_PROCESS_HOOKS_UI_ENABLED:true} # Circumvents Kafka for processing index updates for UI changes sourced from GraphQL to avoid processing delays
   showAcrylInfo: ${SHOW_ACRYL_INFO:false} # Show different CTAs within DataHub around moving to Managed DataHub. Set to true for the demo site.
   nestedDomainsEnabled: ${NESTED_DOMAINS_ENABLED:true} # Enables the nested Domains feature that allows users to have sub-Domains. If this is off, Domains appear "flat" again
   schemaFieldEntityFetchEnabled: ${SCHEMA_FIELD_ENTITY_FETCH_ENABLED:true} # Enables fetching for schema field entities from the database when we hydrate them on schema fields
+  themeV2: ${THEME_V2:false} # Acryl only! Enables a suite of UI improvements around search, home and more.
 
 entityChangeEvents:
   enabled: ${ENABLE_ENTITY_CHANGE_EVENTS_HOOK:true}

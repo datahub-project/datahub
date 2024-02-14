@@ -1,0 +1,91 @@
+import React from 'react';
+import { useHistory } from 'react-router';
+import styled from 'styled-components';
+import { AppstoreOutlined } from '@ant-design/icons';
+import { useEntityData } from '../../shared/EntityContext';
+import { useGetDomainEntitySummaryQuery } from '../../../../graphql/domain.generated';
+import {
+    getContentsSummary,
+    getDomainEntitiesFilterUrl,
+    navigateToDomainEntities,
+} from '../../shared/containers/profile/sidebar/Domain/utils';
+import { useEntityRegistry } from '../../../useEntityRegistry';
+import ContentSectionLoading from './ContentSectionLoading';
+import { HorizontalList } from '../../shared/summary/ListComponents';
+import { EntityCountCard } from '../../../sharedV2/cards/EntityCountCard';
+import { pluralize } from '../../../shared/textUtil';
+import { SummaryTabHeaderTitle, SummaryTabHeaderWrapper } from '../../shared/summary/HeaderComponents';
+import { getContentTypeIcon } from '../../shared/summary/IconComponents';
+import { ANTD_GRAY } from '../../shared/constants';
+
+const ViewAllButton = styled.div`
+    color: ${ANTD_GRAY[7]};
+    padding: 2px;
+    :hover {
+        cursor: pointer;
+        color: ${ANTD_GRAY[8]};
+        text-decoration: underline;
+    }
+`;
+
+export const ContentsSection = () => {
+    const history = useHistory();
+    const entityRegistry = useEntityRegistry();
+    const { urn, entityType } = useEntityData();
+    const { data, loading } = useGetDomainEntitySummaryQuery({
+        variables: {
+            urn,
+        },
+        fetchPolicy: 'cache-first',
+    });
+
+    const contentsSummary = data?.aggregateAcrossEntities && getContentsSummary(data.aggregateAcrossEntities as any);
+    const contentsCount = contentsSummary?.total || 0;
+    const hasContents = contentsCount > 0;
+
+    if (!hasContents) {
+        return null;
+    }
+
+    return (
+        <>
+            <SummaryTabHeaderWrapper>
+                <SummaryTabHeaderTitle icon={<AppstoreOutlined />} title={`Assets (${contentsCount})`} />
+                <ViewAllButton onClick={() => navigateToDomainEntities(urn, entityType, history, entityRegistry)}>
+                    view all
+                </ViewAllButton>
+            </SummaryTabHeaderWrapper>
+            {loading && <ContentSectionLoading />}
+
+            <HorizontalList>
+                {!loading &&
+                    contentsSummary?.types.map((summary) => {
+                        const { type, count, entityType: summaryEntityType } = summary;
+                        const typeName = (
+                            type ||
+                            entityRegistry.getEntityName(summaryEntityType) ||
+                            summaryEntityType
+                        ).toLocaleLowerCase();
+                        const link = getDomainEntitiesFilterUrl(
+                            urn,
+                            entityType,
+                            entityRegistry,
+                            [summary.entityType],
+                            summary.type ? [summary.type] : undefined,
+                        );
+                        return (
+                            <EntityCountCard
+                                key={typeName}
+                                type={typeName}
+                                name={typeName}
+                                count={summary.count}
+                                icon={getContentTypeIcon(entityRegistry, summary.entityType, summary.type)}
+                                tooltipDescriptor={pluralize(count, typeName)}
+                                link={link}
+                            />
+                        );
+                    })}
+            </HorizontalList>
+        </>
+    );
+};

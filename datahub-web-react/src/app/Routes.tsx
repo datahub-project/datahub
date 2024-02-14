@@ -9,6 +9,7 @@ import { PageRoutes } from '../conf/Global';
 import { isLoggedInVar } from './auth/checkAuthStatus';
 import { useTrackPageView } from './analytics';
 import { ProtectedRoutes } from './ProtectedRoutes';
+import AppProviders from './AppProviders';
 
 const ProtectedRoute = ({
     isLoggedIn,
@@ -36,7 +37,14 @@ export const Routes = (): JSX.Element => {
             <Route path={PageRoutes.LOG_IN} component={LogIn} />
             <Route path={PageRoutes.SIGN_UP} component={SignUp} />
             <Route path={PageRoutes.RESET_CREDENTIALS} component={ResetCredentials} />
-            <ProtectedRoute isLoggedIn={isLoggedIn} render={() => <ProtectedRoutes />} />
+            <ProtectedRoute
+                isLoggedIn={isLoggedIn}
+                render={() => (
+                    <AppProviders>
+                        <ProtectedRoutes />
+                    </AppProviders>
+                )}
+            />
             <Route path="/*" component={NoPageFound} />
         </Switch>
     );

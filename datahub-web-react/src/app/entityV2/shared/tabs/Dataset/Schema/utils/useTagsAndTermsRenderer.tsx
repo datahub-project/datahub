@@ -1,0 +1,76 @@
+import React from 'react';
+import { EditableSchemaMetadata, EntityType, GlobalTags, SchemaField } from '../../../../../../../types.generated';
+import TagTermGroup from '../../../../../../sharedV2/tags/TagTermGroup';
+import { findFieldPathProposal } from '../../../../../../shared/tags/utils/proposalUtils';
+import { pathMatchesNewPath } from '../../../../../dataset/profile/schema/utils/utils';
+import { useSchemaRefetch } from '../SchemaContext';
+import { useBaseEntity, useMutationUrn, useRefetch } from '../../../../EntityContext';
+
+export default function useTagsAndTermsRenderer(
+    editableSchemaMetadata: EditableSchemaMetadata | null | undefined,
+    options: { showTags: boolean; showTerms: boolean },
+    filterText: string,
+    canEdit: boolean,
+    showOneAndCount?: boolean,
+) {
+    const urn = useMutationUrn();
+    const baseEntity = useBaseEntity();
+    const refetch = useRefetch();
+    const schemaRefetch = useSchemaRefetch();
+
+    const refresh: any = () => {
+        refetch?.();
+        schemaRefetch?.();
+    };
+
+    const tagAndTermRender = (tags: GlobalTags, record: SchemaField) => {
+        const relevantEditableFieldInfo = editableSchemaMetadata?.editableSchemaFieldInfo.find(
+            (candidateEditableFieldInfo) => pathMatchesNewPath(candidateEditableFieldInfo.fieldPath, record.fieldPath),
+        );
+
+        return (
+            <div data-testid={`schema-field-${record.fieldPath}-${options.showTags ? 'tags' : 'terms'}`}>
+                <TagTermGroup
+                    uneditableTags={options.showTags ? tags : null}
+                    editableTags={options.showTags ? relevantEditableFieldInfo?.globalTags : null}
+                    uneditableGlossaryTerms={options.showTerms ? record.glossaryTerms : null}
+                    editableGlossaryTerms={options.showTerms ? relevantEditableFieldInfo?.glossaryTerms : null}
+                    canRemove={canEdit}
+                    buttonProps={{ size: 'small' }}
+                    canAddTag={canEdit && options.showTags}
+                    canAddTerm={canEdit && options.showTerms}
+                    entityUrn={urn}
+                    entityType={EntityType.Dataset}
+                    entitySubresource={record.fieldPath}
+                    highlightText={filterText}
+                    refetch={refresh}
+                    showOneAndCount={showOneAndCount}
+                    proposedGlossaryTerms={
+                        options.showTerms
+                            ? findFieldPathProposal(
+                                  // eslint-disable-next-line
+                                  // @ts-ignore
+                                  // eslint-disable-next-line
+                                  baseEntity?.['dataset']?.['termProposals'] || [],
+                                  record.fieldPath,
+                              )
+                            : []
+                    }
+                    proposedTags={
+                        options.showTags
+                            ? findFieldPathProposal(
+                                  // eslint-disable-next-line
+                                  // @ts-ignore
+                                  // eslint-disable-next-line
+                                  baseEntity?.['dataset']?.['tagProposals'] || [],
+                                  record.fieldPath,
+                              )
+                            : []
+                    }
+                    fontSize={12}
+                />
+            </div>
+        );
+    };
+    return tagAndTermRender;
+}

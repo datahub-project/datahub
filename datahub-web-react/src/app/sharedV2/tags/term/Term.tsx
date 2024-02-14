@@ -1,0 +1,70 @@
+import React from 'react';
+import { Link } from 'react-router-dom';
+import styled from 'styled-components';
+
+import { EntityType, GlossaryTermAssociation } from '../../../../types.generated';
+import { HoverEntityTooltip } from '../../../recommendations/renderer/component/HoverEntityTooltip';
+import { useEntityRegistry } from '../../../useEntityRegistry';
+import TermContent from '../../../shared/tags/term/TermContent';
+
+const TermLink = styled(Link)<{ showOneAndCount?: boolean }>`
+    display: inline-block;
+    margin-bottom: 4px;
+    ${(props) =>
+        props.showOneAndCount &&
+        `
+            width: 70%;
+            max-width: max-content;
+        `}
+`;
+
+const TermWrapper = styled.span<{ showOneAndCount?: boolean }>`
+    display: inline-block;
+    margin-bottom: 4px;
+    ${(props) =>
+        props.showOneAndCount &&
+        `
+            width: 70%;
+            max-width: max-content;
+        `}
+`;
+
+interface Props {
+    term: GlossaryTermAssociation;
+    entityUrn?: string;
+    entitySubresource?: string;
+    canRemove?: boolean;
+    readOnly?: boolean;
+    highlightText?: string;
+    fontSize?: number;
+    onOpenModal?: () => void;
+    refetch?: () => Promise<any>;
+    showOneAndCount?: boolean;
+}
+
+export default function Term(props: Props) {
+    const { term, readOnly, showOneAndCount } = props;
+    const entityRegistry = useEntityRegistry();
+
+    if (readOnly) {
+        return (
+            <HoverEntityTooltip entity={term.term}>
+                <TermWrapper showOneAndCount={showOneAndCount}>
+                    <TermContent {...props} />
+                </TermWrapper>
+            </HoverEntityTooltip>
+        );
+    }
+
+    return (
+        <HoverEntityTooltip entity={term.term}>
+            <TermLink
+                to={entityRegistry.getEntityUrl(EntityType.GlossaryTerm, term.term.urn)}
+                key={term.term.urn}
+                showOneAndCount={showOneAndCount}
+            >
+                <TermContent {...props} />
+            </TermLink>
+        </HoverEntityTooltip>
+    );
+}

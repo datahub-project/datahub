@@ -17,6 +17,7 @@ import {
 import { StepProps, TestBuilderStep } from '../../types';
 import { getPropertiesForEntityTypes } from '../definition/builder/property/utils';
 import { ANTD_GRAY } from '../../../../entity/shared/constants';
+import { EntityType } from '../../../../../types.generated';
 
 const Section = styled.div`
     margin-top: 20px;
@@ -93,7 +94,9 @@ export const SelectStep = ({ state, updateState, goTo }: StepProps) => {
         updateState(newState);
     };
 
-    const testEntities = Array.from(entityRegistry.getTypesWithSupportedCapabilities(EntityCapabilityType.TEST));
+    const testEntities: EntityType[] = Array.from(
+        entityRegistry.getTypesWithSupportedCapabilities(EntityCapabilityType.TEST),
+    );
     const selectedEntityTypes = graphNamesToEntityTypes(testDefinition.on?.types || [], entityRegistry);
 
     return (

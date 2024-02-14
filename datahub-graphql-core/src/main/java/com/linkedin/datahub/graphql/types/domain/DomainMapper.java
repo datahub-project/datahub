@@ -1,10 +1,12 @@
 package com.linkedin.datahub.graphql.types.domain;
 
+import com.linkedin.common.DisplayProperties;
 import com.linkedin.common.InstitutionalMemory;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.generated.Domain;
 import com.linkedin.datahub.graphql.generated.EntityType;
+import com.linkedin.datahub.graphql.types.common.mappers.DisplayPropertiesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.domain.DomainProperties;
@@ -51,6 +53,14 @@ public class DomainMapper {
       result.setInstitutionalMemory(
           InstitutionalMemoryMapper.map(
               new InstitutionalMemory(envelopedInstitutionalMemory.getValue().data()), entityUrn));
+    }
+
+    final EnvelopedAspect envelopedDisplayProperties =
+        aspects.get(Constants.DISPLAY_PROPERTIES_ASPECT_NAME);
+    if (envelopedDisplayProperties != null) {
+      result.setDisplayProperties(
+          DisplayPropertiesMapper.map(
+              new DisplayProperties(envelopedDisplayProperties.getValue().data())));
     }
 
     return result;

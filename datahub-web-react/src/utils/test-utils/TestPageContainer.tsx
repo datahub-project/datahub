@@ -1,6 +1,5 @@
 import React, { useMemo } from 'react';
 import { MemoryRouter } from 'react-router';
-import { ThemeProvider } from 'styled-components';
 
 import { HelmetProvider } from 'react-helmet-async';
 import { CLIENT_AUTH_COOKIE } from '../../conf/Global';
@@ -13,7 +12,6 @@ import EntityRegistry from '../../app/entity/EntityRegistry';
 import { EntityRegistryContext } from '../../entityRegistryContext';
 import { TagEntity } from '../../app/entity/tag/Tag';
 
-import defaultThemeConfig from '../../conf/theme/theme_light.config.json';
 import { GlossaryTermEntity } from '../../app/entity/glossaryTerm/GlossaryTermEntity';
 import { MLFeatureTableEntity } from '../../app/entity/mlFeatureTable/MLFeatureTableEntity';
 import { MLModelEntity } from '../../app/entity/mlModel/MLModelEntity';
@@ -25,6 +23,10 @@ import UserContextProvider from '../../app/context/UserContextProvider';
 import { DataPlatformEntity } from '../../app/entity/dataPlatform/DataPlatformEntity';
 import { ContainerEntity } from '../../app/entity/container/ContainerEntity';
 import AppConfigProvider from '../../AppConfigProvider';
+import { DomainEntity } from '../../app/entity/domain/DomainEntity';
+import { DataProductEntity } from '../../app/entity/dataProduct/DataProductEntity';
+import CustomThemeProvider from '../../CustomThemeProvider';
+import { DataPlatformInstanceEntity } from '../../app/entity/dataPlatformInstance/DataPlatformInstanceEntity';
 
 type Props = {
     children: React.ReactNode;
@@ -47,6 +49,9 @@ export function getTestEntityRegistry() {
     entityRegistry.register(new MLModelGroupEntity());
     entityRegistry.register(new DataPlatformEntity());
     entityRegistry.register(new ContainerEntity());
+    entityRegistry.register(new DomainEntity());
+    entityRegistry.register(new DataProductEntity());
+    entityRegistry.register(new DataPlatformInstanceEntity());
     return entityRegistry;
 }
 
@@ -56,11 +61,11 @@ export default ({ children, initialEntries }: Props) => {
         writable: true,
         value: `${CLIENT_AUTH_COOKIE}=urn:li:corpuser:2`,
     });
-    vi.mock('js-cookie', () => ({ default: { get: () => 'urn:li:corpuser:2' }}));
+    vi.mock('js-cookie', () => ({ default: { get: () => 'urn:li:corpuser:2' } }));
 
     return (
         <HelmetProvider>
-            <ThemeProvider theme={defaultThemeConfig}>
+            <CustomThemeProvider>
                 <MemoryRouter initialEntries={initialEntries}>
                     <EntityRegistryContext.Provider value={entityRegistry}>
                         <UserContextProvider>
@@ -89,7 +94,7 @@ export default ({ children, initialEntries }: Props) => {
                         </UserContextProvider>
                     </EntityRegistryContext.Provider>
                 </MemoryRouter>
-            </ThemeProvider>
+            </CustomThemeProvider>
         </HelmetProvider>
     );
 };

@@ -35,6 +35,7 @@ import lombok.extern.slf4j.Slf4j;
 public class MetadataTestResource extends SimpleResourceTaskTemplate<TestInfo> {
 
   private static final String ACTION_EVALUATE = "evaluate";
+  private static final String ACTION_TEST_EVALUATE = "testEvaluate";
   private static final String ACTION_BATCH_EVALUATE = "batchEvaluate";
   private static final String PARAM_TESTS = "tests";
   private static final String PARAM_PUSH = "push";
@@ -117,4 +118,25 @@ public class MetadataTestResource extends SimpleResourceTaskTemplate<TestInfo> {
         },
         MetricRegistry.name(this.getClass(), "batchEvaluate"));
   }
+
+  @Action(name = ACTION_TEST_EVALUATE)
+  @Nonnull
+  @WithSpan
+  public Task<BatchedTestResults> evaluateSingleTest(
+      @ActionParam(PARAM_URN) @Nonnull String testUrnStr,
+      @ActionParam(PARAM_PUSH) @Optional @Nullable Boolean shouldPush)
+      throws URISyntaxException {
+    log.info("Evaluate single test called with urn: {}, shouldPush: {}", testUrnStr, shouldPush);
+    final Urn testUrn = Urn.createFromString(testUrnStr);
+    return RestliUtil.toTask(() -> {
+          TestResultsMap testResultsMap = new TestResultsMap();
+          _testEngine.evaluateSingleTest(testUrn,
+              shouldPush != null && shouldPush ? TestEngine.EvaluationMode.DEFAULT
+                  : TestEngine.EvaluationMode.EVALUATE_ONLY)
+              .forEach((urn, result) -> testResultsMap.put(urn.toString(), result));
+          return new BatchedTestResults().setResults(testResultsMap);
+        },
+    MetricRegistry.name(this.getClass(), "evaluateSingleTest"));
+  }
+
 }

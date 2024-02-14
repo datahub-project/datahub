@@ -44,4 +44,16 @@ public class MetadataTestClient extends BaseClient {
     }
     return sendClientRequest(requestBuilder, authentication).getEntity();
   }
+
+  @Nonnull
+  public BatchedTestResults evaluateSingleTest(
+      @Nonnull final Urn testUrn, boolean shouldPush, @Nonnull final Authentication authentication)
+      throws RemoteInvocationException {
+    TestDoTestEvaluateRequestBuilder requestBuilder =
+        TEST_REQUEST_BUILDERS
+            .actionTestEvaluate()
+            .urnParam(testUrn.toString())
+            .pushParam(shouldPush);
+    return sendClientRequest(requestBuilder, authentication).getEntity();
+  }
 }

@@ -47,6 +47,26 @@ public class TestFetcher {
     return false;
   }
 
+  public TestFetchResult fetchOne(Urn testUrn) {
+    try {
+      EntityResponse entityResponse =
+          (EntityResponse)
+              _entityService
+                  .getEntitiesV2(
+                      TEST_ENTITY_NAME,
+                      ImmutableSet.of(testUrn),
+                      ImmutableSet.of(TEST_INFO_ASPECT_NAME))
+                  .getOrDefault(testUrn, null);
+      if (entityResponse == null) {
+        return new TestFetchResult(Collections.emptyList(), 0);
+      }
+      return new TestFetchResult(Collections.singletonList(extractTest(entityResponse)), 1);
+    } catch (URISyntaxException e) {
+      log.error("Failed to fetch test with urn: {}", testUrn, e);
+      return new TestFetchResult(Collections.emptyList(), 0);
+    }
+  }
+
   public TestFetchResult fetch(int start, int count)
       throws RemoteInvocationException, URISyntaxException {
     return fetch(start, count, "");

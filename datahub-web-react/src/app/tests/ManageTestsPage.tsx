@@ -17,6 +17,7 @@ import { NewTestButton } from './NewTestButton';
 const Container = styled.div`
     padding-top: 20px;
     height: 100%;
+    background-color: #fff;
 `;
 
 const Header = styled.div`
