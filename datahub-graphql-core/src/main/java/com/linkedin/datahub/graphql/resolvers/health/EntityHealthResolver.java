@@ -88,7 +88,8 @@ public class EntityHealthResolver implements DataFetcher<CompletableFuture<List<
     return CompletableFuture.supplyAsync(
         () -> {
           try {
-            final HealthStatuses statuses = computeHealthStatusForAsset(parent.getUrn(), environment.getContext());
+            final HealthStatuses statuses =
+                computeHealthStatusForAsset(parent.getUrn(), environment.getContext());
             return statuses.healths;
           } catch (Exception e) {
             throw new RuntimeException("Failed to resolve asset's health status.", e);
