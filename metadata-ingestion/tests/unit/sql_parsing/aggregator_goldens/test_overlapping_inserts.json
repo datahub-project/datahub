@@ -100,13 +100,14 @@
             },
             "source": "SYSTEM",
             "created": {
-                "time": 0,
+                "time": 20000,
                 "actor": "urn:li:corpuser:_ingestion"
             },
             "lastModified": {
-                "time": 0,
+                "time": 20000,
                 "actor": "urn:li:corpuser:_ingestion"
-            }
+            },
+            "dataPlatform": "urn:li:dataPlatform:redshift"
         }
     }
 },
@@ -141,13 +142,14 @@
             },
             "source": "SYSTEM",
             "created": {
-                "time": 0,
+                "time": 25000,
                 "actor": "urn:li:corpuser:_ingestion"
             },
             "lastModified": {
-                "time": 0,
+                "time": 25000,
                 "actor": "urn:li:corpuser:_ingestion"
-            }
+            },
+            "dataPlatform": "urn:li:dataPlatform:redshift"
         }
     }
 },
