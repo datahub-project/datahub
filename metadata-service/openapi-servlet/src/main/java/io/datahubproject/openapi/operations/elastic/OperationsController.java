@@ -173,9 +173,19 @@ public class OperationsController {
           @RequestParam("entityName")
           @Nonnull
           String entityName,
-      @Parameter(name = "from", required = true, description = "Start point for pagination.")
-          @RequestParam("from")
-          int from,
+      @Parameter(name = "scrollId", required = false, description = "Scroll ID for pagination.")
+          @RequestParam("scrollId")
+          @Nullable
+          String scrollId,
+      @Parameter(
+              name = "keepAlive",
+              required = false,
+              description =
+                  "Keep alive time for point in time scroll context"
+                      + ", only relevant where point in time is supported.")
+          @RequestParam("keepAlive")
+          @Nullable
+          String keepAlive,
       @Parameter(name = "size", required = true, description = "Page size for pagination.")
           @RequestParam("size")
           int size,
@@ -214,8 +224,7 @@ public class OperationsController {
         new DisjunctivePrivilegeGroup(
             ImmutableList.of(
                 new ConjunctivePrivilegeGroup(
-                    ImmutableList.of(
-                        PoliciesConfig.GET_TIMESERIES_INDEX_SIZES_PRIVILEGE.getType()))));
+                    ImmutableList.of(PoliciesConfig.ES_EXPLAIN_QUERY_PRIVILEGE.getType()))));
     if (restApiAuthorizationEnabled
         && !AuthUtil.isAuthorizedForResources(
             authorizerChain, actorUrnStr, List.of(java.util.Optional.empty()), orGroup)) {
@@ -224,7 +233,16 @@ public class OperationsController {
     }
     ExplainResponse response =
         searchService.explain(
-            query, documentId, entityName, filters, sortCriterion, searchFlags, from, size, facets);
+            query,
+            documentId,
+            entityName,
+            filters,
+            sortCriterion,
+            searchFlags,
+            scrollId,
+            keepAlive,
+            size,
+            facets);
 
     return ResponseEntity.ok(response);
   }

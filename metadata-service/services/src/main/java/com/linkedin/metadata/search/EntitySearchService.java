@@ -303,7 +303,8 @@ public interface EntitySearchService {
       @Nullable Filter postFilters,
       @Nullable SortCriterion sortCriterion,
       @Nullable SearchFlags searchFlags,
-      int from,
+      @Nullable String scrollId,
+      @Nullable String keepAlive,
       int size,
       @Nullable List<String> facets);
 }

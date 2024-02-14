@@ -301,10 +301,20 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
       @Nullable Filter postFilters,
       @Nullable SortCriterion sortCriterion,
       @Nullable SearchFlags searchFlags,
-      int from,
+      @Nullable String scrollId,
+      @Nullable String keepAlive,
       int size,
       @Nullable List<String> facets) {
     return esSearchDAO.explain(
-        query, documentId, entityName, postFilters, sortCriterion, searchFlags, from, size, facets);
+        query,
+        documentId,
+        entityName,
+        postFilters,
+        sortCriterion,
+        searchFlags,
+        scrollId,
+        keepAlive,
+        size,
+        facets);
   }
 }

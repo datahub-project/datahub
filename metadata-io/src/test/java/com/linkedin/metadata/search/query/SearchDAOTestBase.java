@@ -454,7 +454,8 @@ public abstract class SearchDAOTestBase extends AbstractTestNGSpringContextTests
             null,
             null,
             null,
-            0,
+            null,
+            null,
             10,
             null);
 

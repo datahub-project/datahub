@@ -382,6 +382,43 @@ public class ESSearchDAO {
     Timer.Context scrollRequestTimer = MetricUtils.timer(this.getClass(), "scrollRequest").time();
     List<EntitySpec> entitySpecs =
         entities.stream().map(entityRegistry::getEntitySpec).collect(Collectors.toList());
+    Filter transformedFilters = transformFilterForEntities(postFilters, indexConvention);
+    // TODO: Align scroll and search using facets
+    final SearchRequest searchRequest =
+        getScrollRequest(
+            scrollId,
+            keepAlive,
+            indexArray,
+            size,
+            transformedFilters,
+            entitySpecs,
+            finalInput,
+            sortCriterion,
+            searchFlags,
+            null);
+
+    // PIT specifies indices in creation so it doesn't support specifying indices on the request, so
+    // we only specify if not using PIT
+    if (!supportsPointInTime()) {
+      searchRequest.indices(indexArray);
+    }
+
+    scrollRequestTimer.stop();
+    return executeAndExtract(
+        entitySpecs, searchRequest, transformedFilters, scrollId, keepAlive, size);
+  }
+
+  private SearchRequest getScrollRequest(
+      @Nullable String scrollId,
+      @Nullable String keepAlive,
+      String[] indexArray,
+      int size,
+      @Nullable Filter postFilters,
+      List<EntitySpec> entitySpecs,
+      String finalInput,
+      @Nullable SortCriterion sortCriterion,
+      @Nullable SearchFlags searchFlags,
+      @Nullable List<String> facets) {
     String pitId = null;
     Object[] sort = null;
     if (scrollId != null) {
@@ -398,30 +435,18 @@ public class ESSearchDAO {
       pitId = createPointInTime(indexArray, keepAlive);
     }
 
-    Filter transformedFilters = transformFilterForEntities(postFilters, indexConvention);
-    // Step 1: construct the query
-    final SearchRequest searchRequest =
-        SearchRequestHandler.getBuilder(entitySpecs, searchConfiguration, customSearchConfiguration)
-            .getSearchRequest(
-                finalInput,
-                transformedFilters,
-                sortCriterion,
-                sort,
-                pitId,
-                keepAlive,
-                size,
-                searchFlags);
-
-    // PIT specifies indices in creation so it doesn't support specifying indices on the request, so
-    // we only specify if not using PIT
-    if (!supportsPointInTime()) {
-      searchRequest.indices(indexArray);
-    }
-
-    scrollRequestTimer.stop();
-    // Step 2: execute the query and extract results, validated against document model as well
-    return executeAndExtract(
-        entitySpecs, searchRequest, transformedFilters, scrollId, keepAlive, size);
+    return SearchRequestHandler.getBuilder(
+            entitySpecs, searchConfiguration, customSearchConfiguration)
+        .getSearchRequest(
+            finalInput,
+            postFilters,
+            sortCriterion,
+            sort,
+            pitId,
+            keepAlive,
+            size,
+            searchFlags,
+            facets);
   }
 
   public Optional<SearchResponse> raw(@Nonnull String indexName, @Nullable String jsonQuery) {
@@ -473,16 +498,27 @@ public class ESSearchDAO {
       @Nullable Filter postFilters,
       @Nullable SortCriterion sortCriterion,
       @Nullable SearchFlags searchFlags,
-      int from,
+      @Nullable String scrollId,
+      @Nullable String keepAlive,
       int size,
       @Nullable List<String> facets) {
     EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
     Filter transformedFilters = transformFilterForEntities(postFilters, indexConvention);
+    final String[] indexArray = new String[] {indexConvention.getEntityIndexName(entityName)};
     final String finalQuery = query.isEmpty() ? "*" : query;
     final SearchRequest searchRequest =
-        SearchRequestHandler.getBuilder(entitySpec, searchConfiguration, customSearchConfiguration)
-            .getSearchRequest(
-                finalQuery, transformedFilters, sortCriterion, from, size, searchFlags, facets);
+        getScrollRequest(
+            scrollId,
+            keepAlive,
+            indexArray,
+            size,
+            transformedFilters,
+            Collections.singletonList(entitySpec),
+            finalQuery,
+            sortCriterion,
+            searchFlags,
+            facets);
+    ;
 
     ExplainRequest explainRequest = new ExplainRequest();
     explainRequest
