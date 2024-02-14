@@ -106,6 +106,7 @@ We currently support the following:
 | Edit Domain                      | Allow actor to edit the Domain of an entity.                                                                                                                 |
 | Edit Deprecation                 | Allow actor to edit the Deprecation status of an entity.                                                                                                     |
 | Edit Assertions                  | Allow actor to add and remove assertions from an entity.                                                                                                     |
+| Edit Incidents                   | Allow actor to raise and resolve incidents for an entity.                                                                                                    |
 | Edit All                         | Allow actor to edit any information about an entity. Super user privileges. Controls the ability to ingest using API when REST API Authorization is enabled. |                                                    |
 | Get Timeline API[^1]             | Allow actor to get the timeline of an entity via API.                                                                                                        |
 | Get Entity API[^1]               | Allow actor to get an entity via API.                                                                                                                        |

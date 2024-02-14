@@ -28,6 +28,7 @@ entities:
       - testResults
       - siblings
       - embed
+      - incidentsSummary
       - datasetProperties
       - editableDatasetProperties
       - datasetDeprecation
@@ -72,6 +73,7 @@ entities:
       - structuredProperties
       - forms
       - subTypes
+      - incidentsSummary
   - name: dataFlow
     category: core
     keyAspect: dataFlowKey
@@ -90,6 +92,7 @@ entities:
       - dataPlatformInstance
       - browsePathsV2
       - structuredProperties
+      - incidentsSummary
       - forms
   - name: dataProcess
     keyAspect: dataProcessKey
@@ -129,6 +132,7 @@ entities:
       - browsePathsV2
       - subTypes
       - structuredProperties
+      - incidentsSummary
       - forms
   - name: dashboard
     keyAspect: dashboardKey
@@ -151,6 +155,7 @@ entities:
       - dataPlatformInstance
       - browsePathsV2
       - structuredProperties
+      - incidentsSummary
       - forms
   - name: notebook
     doc: Notebook represents a combination of query, text, chart and etc. This is in BETA version
@@ -450,6 +455,12 @@ entities:
     keyAspect: globalSettingsKey
     aspects:
       - globalSettingsInfo
+  - name: incident
+    doc: An incident for an asset.
+    category: core
+    keyAspect: incidentKey
+    aspects:
+      - incidentInfo
   - name: dataHubRole
     category: core
     keyAspect: dataHubRoleKey

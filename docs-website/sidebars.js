@@ -56,6 +56,7 @@ module.exports = {
         "docs/features/dataset-usage-and-query-history",
         "docs/posts",
         "docs/sync-status",
+        "docs/incidents/incidents",
         "docs/generated/lineage/lineage-feature-guide",
         {
           type: "doc",
@@ -129,11 +130,6 @@ module.exports = {
             {
               "GraphQL API": [
                 "docs/managed-datahub/datahub-api/graphql-api/getting-started",
-                {
-                  type: "doc",
-                  id: "docs/managed-datahub/datahub-api/graphql-api/incidents-api-beta",
-                  className: "saasOnly",
-                },
               ],
             },
           ],
