@@ -100,6 +100,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 )
 from datahub.metadata.schema_classes import GlobalTagsClass, TagAssociationClass
 from datahub.utilities import memory_footprint
+from datahub.utilities.dedup_list import deduplicate_list
 from datahub.utilities.mapping import Constants
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.registries.domain_registry import DomainRegistry
@@ -419,6 +420,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                 config=self.config,
                 report=self.report,
                 context=self.ctx,
+                database=database,
                 redundant_run_skip_handler=self.redundant_lineage_run_skip_handler,
             )
 
@@ -959,7 +961,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             return
 
         with PerfTimer() as timer:
-            lineage_extractor.build(database=database, connection=connection)
+            lineage_extractor.build(connection=connection)
 
             self.report.lineage_extraction_sec[f"{database}"] = round(
                 timer.elapsed_seconds(), 2
@@ -994,7 +996,9 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         self, database: str, lineage_extractor: RedshiftLineageExtractor
     ) -> Iterable[MetadataWorkUnit]:
         logger.info(f"Generate lineage for {database}")
-        for schema in self.db_tables[database]:
+        for schema in deduplicate_list(
+            itertools.chain(self.db_tables[database], self.db_views[database])
+        ):
             if (
                 database not in self.db_schemas
                 or schema not in self.db_schemas[database]
@@ -1004,8 +1008,11 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                 )
                 continue
 
-            for table_or_view in itertools.chain(
-                self.db_tables[database][schema], self.db_views[database][schema]
+            table_or_view: Union[RedshiftTable, RedshiftView]
+            for table_or_view in (
+                []
+                + self.db_tables[database].get(schema, [])
+                + self.db_views[database].get(schema, [])
             ):
                 datahub_dataset_name = f"{database}.{schema}.{table_or_view.name}"
                 dataset_urn = self.gen_dataset_urn(datahub_dataset_name)
