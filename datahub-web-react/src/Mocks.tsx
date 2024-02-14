@@ -29,6 +29,7 @@ import {
     PlatformPrivileges,
     FilterOperator,
     AppConfig,
+    EntityPrivileges,
 } from './types.generated';
 import { GetTagDocument } from './graphql/tag.generated';
 import { GetMlModelDocument } from './graphql/mlModel.generated';
@@ -42,7 +43,6 @@ import { DEFAULT_APP_CONFIG } from './appConfigContext';
 import { GetQuickFiltersDocument } from './graphql/quickFilters.generated';
 import { GetGrantedPrivilegesDocument } from './graphql/policy.generated';
 import { VIEW_ENTITY_PAGE } from './app/entity/shared/constants';
-import { EntityPrivileges } from './types.generated';
 
 export const entityPrivileges: EntityPrivileges = {
     canEditLineage: true,
