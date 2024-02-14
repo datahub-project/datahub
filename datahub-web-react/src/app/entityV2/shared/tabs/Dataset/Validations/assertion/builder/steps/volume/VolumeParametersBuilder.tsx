@@ -1,7 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Typography } from 'antd';
-import useFormInstance from 'antd/lib/form/hooks/useFormInstance';
+import { Form, Typography } from 'antd';
 import {
     AssertionStdOperator,
     AssertionStdParameters,
@@ -11,7 +10,7 @@ import { getIsRowCountChange, getParameterBuilderTitle, getPropertyFromVolumeTyp
 import { VolumeRowCountTotalBuilder } from './VolumeRowCountTotalBuilder';
 import { VolumeRowCountChangeBuilder } from './VolumeRowCountChangeBuilder';
 
-const Form = styled.div`
+const FormDiv = styled.div`
     margin: 16px 0 24px;
     background: white;
 `;
@@ -25,7 +24,7 @@ type Props = {
 };
 
 export const VolumeParametersBuilder = (props: Props) => {
-    const form = useFormInstance();
+    const form = Form.useFormInstance();
     const { volumeInfo } = props;
     const selectedType = volumeInfo?.type;
     const isRowCountChange = selectedType ? getIsRowCountChange(selectedType) : null;
@@ -35,9 +34,9 @@ export const VolumeParametersBuilder = (props: Props) => {
     const showParameters = selectedType && operator && form.getFieldValue('volume-type');
 
     return showParameters ? (
-        <Form>
+        <FormDiv>
             <Typography.Title level={5}>{title}</Typography.Title>
             {isRowCountChange ? <VolumeRowCountChangeBuilder {...props} /> : <VolumeRowCountTotalBuilder {...props} />}
-        </Form>
+        </FormDiv>
     ) : null;
 };

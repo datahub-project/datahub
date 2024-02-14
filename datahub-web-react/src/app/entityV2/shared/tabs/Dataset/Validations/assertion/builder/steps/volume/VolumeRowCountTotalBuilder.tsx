@@ -62,7 +62,7 @@ export const VolumeRowCountTotalBuilder = ({ volumeInfo, value, onChange, disabl
                 <VolumeNumberInput
                     name="parameters.value"
                     placeholder="Number"
-                    value={value.value?.value ? parseInt(value.value.value, 10) : undefined}
+                    value={value?.value?.value ? parseInt(value.value.value, 10) : undefined}
                     onChange={(newValue) => handleValueChange(newValue as number)}
                     disabled={disabled}
                 />
@@ -73,7 +73,7 @@ export const VolumeRowCountTotalBuilder = ({ volumeInfo, value, onChange, disabl
                     <VolumeNumberInput
                         name="parameters.minValue"
                         placeholder="Min"
-                        value={value.minValue?.value ? parseInt(value.minValue.value, 10) : undefined}
+                        value={value?.minValue?.value ? parseInt(value?.minValue?.value, 10) : undefined}
                         onChange={(newValue) => handleMinValueChange(newValue as number)}
                         disabled={disabled}
                         customRules={[
@@ -91,7 +91,7 @@ export const VolumeRowCountTotalBuilder = ({ volumeInfo, value, onChange, disabl
                     <VolumeNumberInput
                         name="parameters.maxValue"
                         placeholder="Max"
-                        value={value.maxValue?.value ? parseInt(value.maxValue.value, 10) : undefined}
+                        value={value?.maxValue?.value ? parseInt(value.maxValue.value, 10) : undefined}
                         onChange={(newValue) => handleMaxValueChange(newValue as number)}
                         disabled={disabled}
                         customRules={[

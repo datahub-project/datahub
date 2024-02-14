@@ -7,12 +7,11 @@ const Container = styled(Button)<{ enabled }>`
     margin-right: 12px;
     margin-left: 12px;
     margin-bottom: 12px;
-    padding: 24px;
-    width: 30%;
+    padding: 20px 40px;
     height: 152px;
     display: flex;
     justify-content: center;
-    border-radius: 4px;
+    border-radius: 16px;
     align-items: start;
     flex-direction: column;
     border: 1px solid ${ANTD_GRAY[4]};
@@ -47,6 +46,7 @@ const Title = styled(Typography.Title)<{ enabled }>`
 
 const Description = styled(Typography.Paragraph)`
     font-weight: normal;
+    font-size: 14px;
 `;
 
 interface TypeOptionProps {

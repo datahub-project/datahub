@@ -74,12 +74,16 @@ export const SqlParametersRangeBuilder = ({ value, onChange, updateMetricChange,
             },
         });
     };
+
+    const minValue = value.assertion?.sqlAssertion?.parameters?.minValue?.value;
+    const maxValue = value.assertion?.sqlAssertion?.parameters?.maxValue?.value;
+
     return (
         <InputGroup>
             <Typography.Text strong>if less than</Typography.Text>
             <StyledFormItem
+                initialValue={minValue}
                 name="sqlParameters.minValue"
-                initialValue={value.assertion?.sqlAssertion?.parameters?.minValue?.value}
                 rules={[
                     { required: true, message: 'Required' },
                     ({ getFieldValue }) => ({
@@ -93,7 +97,7 @@ export const SqlParametersRangeBuilder = ({ value, onChange, updateMetricChange,
                 ]}
             >
                 <InputNumber
-                    value={value.assertion?.sqlAssertion?.parameters?.minValue?.value}
+                    value={minValue}
                     onChange={updateMinValue}
                     disabled={disabled}
                     addonAfter={isPercentage ? '%' : undefined}
@@ -114,7 +118,7 @@ export const SqlParametersRangeBuilder = ({ value, onChange, updateMetricChange,
             <Typography.Text strong>or more than</Typography.Text>
             <StyledFormItem
                 name="sqlParameters.maxValue"
-                initialValue={value.assertion?.sqlAssertion?.parameters?.maxValue?.value}
+                initialValue={maxValue}
                 rules={[
                     { required: true, message: 'Required' },
                     ({ getFieldValue }) => ({
@@ -128,7 +132,7 @@ export const SqlParametersRangeBuilder = ({ value, onChange, updateMetricChange,
                 ]}
             >
                 <InputNumber
-                    value={value.assertion?.sqlAssertion?.parameters?.maxValue?.value}
+                    value={maxValue}
                     onChange={updateMaxValue}
                     disabled={disabled}
                     addonAfter={isPercentage ? '%' : undefined}

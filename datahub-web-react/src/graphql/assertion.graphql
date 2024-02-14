@@ -260,26 +260,26 @@ mutation deleteAssertion($urn: String!) {
     deleteAssertion(urn: $urn)
 }
 
-mutation createFreshnessAssertion($input: CreateFreshnessAssertionInput!) {
-    createFreshnessAssertion(input: $input) {
+mutation upsertDatasetFreshnessAssertionMonitor($assertionUrn: String, $input: UpsertDatasetFreshnessAssertionMonitorInput!) {
+    upsertDatasetFreshnessAssertionMonitor(assertionUrn: $assertionUrn, input: $input) {
         ...assertionDetails
     }
 }
 
-mutation createVolumeAssertion($input: CreateVolumeAssertionInput!) {
-    createVolumeAssertion(input: $input) {
+mutation upsertDatasetVolumeAssertionMonitor($assertionUrn: String, $input: UpsertDatasetVolumeAssertionMonitorInput!) {
+    upsertDatasetVolumeAssertionMonitor(assertionUrn: $assertionUrn, input: $input) {
         ...assertionDetails
     }
 }
 
-mutation createSqlAssertion($input: CreateSqlAssertionInput!) {
-    createSqlAssertion(input: $input) {
+mutation upsertDatasetSqlAssertionMonitor($assertionUrn: String, $input: UpsertDatasetSqlAssertionMonitorInput!) {
+    upsertDatasetSqlAssertionMonitor(assertionUrn: $assertionUrn, input: $input) {
         ...assertionDetails
     }
 }
 
-mutation createFieldAssertion($input: CreateFieldAssertionInput!) {
-    createFieldAssertion(input: $input) {
+mutation upsertDatasetFieldAssertionMonitor($assertionUrn: String, $input: UpsertDatasetFieldAssertionMonitorInput!) {
+    upsertDatasetFieldAssertionMonitor(assertionUrn: $assertionUrn, input: $input) {
         ...assertionDetails
     }
 }

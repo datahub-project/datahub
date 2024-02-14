@@ -2,7 +2,7 @@ import {
     GetDatasetAssertionsWithMonitorsDocument,
     GetDatasetAssertionsWithMonitorsQuery,
 } from '../../../../../../graphql/monitor.generated';
-import { Monitor, Assertion } from '../../../../../../types.generated';
+import { Assertion } from '../../../../../../types.generated';
 
 /**
  * This file contains utility classes for manipulating the Apollo Cache
@@ -127,18 +127,14 @@ export const removeFromDatasetAssertionsCache = (urn: string, assertionUrn: stri
  * Creates an assertion in the shape returned by the getDatasetAssertions GraphQL query, which
  * includes the monitor embedded inside the assertion.
  */
-export const createCachedAssertionWithMonitor = (assertion: Assertion, monitor: Monitor) => {
+export const createCachedAssertionWithMonitor = (assertion: Assertion) => {
     return {
         ...assertion,
         monitor: {
             start: 0,
-            count: 1,
-            total: 1,
-            relationships: [
-                {
-                    entity: monitor,
-                },
-            ],
+            count: 0,
+            total: 0,
+            relationships: [],
         },
         runEvents: {
             total: 0,

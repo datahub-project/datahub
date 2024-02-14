@@ -39,9 +39,12 @@ export const FieldChangedRowsBuilder = ({ value, onChange, disabled }: Props) =>
         });
     };
 
+    const selectedPath = value.parameters?.datasetFieldParameters?.changedRowsField?.path || undefined;
+
     return (
         <StopPropagation>
             <AssertionDatasetFieldBuilder
+                selectedPath={selectedPath}
                 name="changedRowsColumn"
                 fields={columnOptions}
                 onChange={updateChangedRows}

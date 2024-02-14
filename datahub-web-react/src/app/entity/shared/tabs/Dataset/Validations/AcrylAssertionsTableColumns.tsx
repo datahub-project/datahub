@@ -1,39 +1,29 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Tooltip, Typography, Dropdown, Button, Tag } from 'antd';
-import { AuditOutlined, ArrowRightOutlined, MoreOutlined, StopOutlined } from '@ant-design/icons';
+import { Tooltip } from 'antd';
+import { AuditOutlined } from '@ant-design/icons';
 import { Link } from 'react-router-dom';
-import { DatasetAssertionDescription } from './DatasetAssertionDescription';
 import {
     Assertion,
-    AssertionType,
     EntityType,
     DataContract,
-    SchemaAssertionInfo,
     DataPlatform,
-    MonitorMode,
     AssertionSourceType,
-    AssertionResultType,
+    AssertionRunEvent,
     Monitor,
-    DatasetAssertionInfo,
-    FreshnessAssertionInfo,
-    VolumeAssertionInfo,
-    FieldAssertionInfo,
 } from '../../../../../../types.generated';
-import { getResultColor, getResultIcon, getResultText } from './assertionUtils';
-import { FreshnessAssertionDescription } from './FreshnessAssertionDescription';
-import { SchemaAssertionDescription } from './SchemaAssertionDescription';
 import { InferredAssertionPopover } from './InferredAssertionPopover';
 import { InferredAssertionBadge } from './InferredAssertionBadge';
-import { ANTD_GRAY, REDESIGN_COLORS } from '../../../constants';
+import { REDESIGN_COLORS } from '../../../constants';
 import { AssertionPlatformAvatar } from './AssertionPlatformAvatar';
-import { AssertionActionsMenu } from './AssertionActionsMenu';
-import { VolumeAssertionDescription } from './VolumeAssertionDescription';
-import { SqlAssertionDescription } from './SqlAssertionDescription';
-import { FieldAssertionDescription } from './FieldAssertionDescription';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
-import { getEntityUrnForAssertion } from './acrylUtils';
+import { getEntityUrnForAssertion, isMonitorActive } from './acrylUtils';
 import { isAssertionPartOfContract } from './contract/utils';
+import { Actions } from './assertion/profile/actions/Actions';
+import { AssertionDescription } from './assertion/profile/summary/AssertionDescription';
+import { AssertionResultDot } from './assertion/profile/shared/AssertionResultDot';
+import { AssertionResultPopover } from './assertion/profile/shared/result/AssertionResultPopover';
+import { ResultStatusType } from './assertion/profile/summary/shared/resultUtils';
 
 const DetailsContainer = styled.div`
     display: flex;
@@ -42,10 +32,13 @@ const DetailsContainer = styled.div`
     &:hover {
         cursor: pointer;
     }
+    font-size: 14px;
 `;
 
-const ResultTypeText = styled(Typography.Text)`
-    margin-left: 8px;
+const Result = styled.div`
+    margin: 0px 40px 0px 48px;
+    display: flex;
+    align-items: center;
 `;
 
 const ActionButtonContainer = styled.div`
@@ -54,18 +47,8 @@ const ActionButtonContainer = styled.div`
     align-items: center;
 `;
 
-const StartMonitorButton = styled(Button)`
-    letter-spacing: 2px;
-    margin-right: 40px;
-    background-color: ${REDESIGN_COLORS.BLUE};
-`;
-
-const StyledMoreOutlined = styled(MoreOutlined)`
-    font-size: 18px;
-`;
-
-const StyledArrowRightOutlined = styled(ArrowRightOutlined)`
-    font-size: 12px;
+const AssertionPlatformWrapper = styled.div`
+    margin-right: 20px;
 `;
 
 const UNKNOWN_DATA_PLATFORM = 'urn:li:dataPlatform:unknown';
@@ -80,8 +63,7 @@ interface DetailsColumnProps {
     assertion: Assertion;
     monitor?: Monitor;
     contract?: DataContract;
-    lastEvaluationTimeMs?: number;
-    lastEvaluationResult?: AssertionResultType;
+    lastEvaluation?: AssertionRunEvent;
     onViewAssertionDetails: () => void;
 }
 
@@ -89,74 +71,34 @@ export function DetailsColumn({
     assertion,
     monitor,
     contract,
-    lastEvaluationTimeMs,
-    lastEvaluationResult,
+    lastEvaluation,
     onViewAssertionDetails,
 }: DetailsColumnProps) {
     const entityRegistry = useEntityRegistry();
     if (!assertion.info) {
         return <>No details found</>;
     }
+    const disabled = (monitor && !isMonitorActive(monitor)) || false;
     const assertionEntityUrn = getEntityUrnForAssertion(assertion);
     const isPartOfContract = contract && isAssertionPartOfContract(assertion, contract);
     const assertionInfo = assertion.info;
-    const assertionType = assertionInfo.type;
-    const isInferred = assertionInfo.source?.type === AssertionSourceType.Inferred;
-    const isStopped = monitor?.info?.status?.mode === MonitorMode.Inactive;
-    const lastEvaluationDate = lastEvaluationTimeMs && new Date(lastEvaluationTimeMs);
-    const lastEvaluationLocalString = lastEvaluationDate && `${lastEvaluationDate.toLocaleDateString()}`;
-    const lastResultText =
-        (!isStopped && ((lastEvaluationResult && getResultText(lastEvaluationResult)) || 'No Evaluations')) ||
-        'Not running';
-    const lastResultColor =
-        (!isStopped && lastEvaluationResult && getResultColor(lastEvaluationResult)) || ANTD_GRAY[7];
-    const lastResultIcon = (!isStopped && lastEvaluationResult && getResultIcon(lastEvaluationResult)) || (
-        <StopOutlined />
-    );
+    const isSmartAssertion = assertionInfo.source?.type === AssertionSourceType.Inferred;
     return (
         <DetailsContainer>
-            <Tooltip
-                title={
-                    (lastEvaluationLocalString && `Last evaluated on ${lastEvaluationLocalString}`) || 'No Evaluations'
-                }
+            <AssertionResultPopover
+                assertion={assertion}
+                run={lastEvaluation}
+                showProfileButton
+                onClickProfileButton={onViewAssertionDetails}
+                placement="right"
+                resultStatusType={ResultStatusType.LATEST}
             >
-                <Tag style={{ borderColor: lastResultColor }}>
-                    {lastResultIcon}
-                    <ResultTypeText style={{ color: lastResultColor }}>{lastResultText}</ResultTypeText>
-                </Tag>
-            </Tooltip>
-            {assertionType === AssertionType.Dataset && (
-                <DatasetAssertionDescription assertionInfo={assertionInfo.datasetAssertion as DatasetAssertionInfo} />
-            )}
-            {assertionType === AssertionType.Freshness && (
-                <FreshnessAssertionDescription
-                    assertionInfo={assertionInfo.freshnessAssertion as FreshnessAssertionInfo}
-                />
-            )}
-            {assertionType === AssertionType.Volume && (
-                <VolumeAssertionDescription assertionInfo={assertionInfo.volumeAssertion as VolumeAssertionInfo} />
-            )}
-            {assertionType === AssertionType.Sql && <SqlAssertionDescription assertionInfo={assertionInfo} />}
-            {assertionType === AssertionType.Field && (
-                <FieldAssertionDescription assertionInfo={assertionInfo.fieldAssertion as FieldAssertionInfo} />
-            )}
-            {assertionType === AssertionType.DataSchema && (
-                <SchemaAssertionDescription assertionInfo={assertionInfo.schemaAssertion as SchemaAssertionInfo} />
-            )}
-            {[AssertionType.Freshness, AssertionType.Volume, AssertionType.Field, AssertionType.Sql].includes(
-                assertionType,
-            ) && (
-                <Button
-                    type="link"
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        onViewAssertionDetails();
-                    }}
-                >
-                    Details <StyledArrowRightOutlined />
-                </Button>
-            )}
-            {isInferred && (
+                <Result>
+                    <AssertionResultDot assertion={assertion} run={lastEvaluation} disabled={disabled} size={18} />
+                </Result>
+            </AssertionResultPopover>
+            <AssertionDescription assertion={assertion} />
+            {isSmartAssertion && (
                 <InferredAssertionPopover>
                     <InferredAssertionBadge />
                 </InferredAssertionPopover>
@@ -197,15 +139,12 @@ interface ActionsColumnProps {
     assertion: Assertion;
     platform?: DataPlatform;
     monitor?: Monitor;
-    canManageAssertion: boolean;
     contract?: DataContract;
+    canEditAssertion: boolean;
+    canEditMonitor: boolean;
+    canEditContract: boolean;
     lastEvaluationUrl?: string;
-    onManageAssertion: () => void;
-    onDeleteAssertion: () => void;
-    onStartMonitor: () => void;
-    onStopMonitor: () => void;
-    onAddToContract?: () => void;
-    onRemoveFromContract?: () => void;
+    refetch: () => void;
 }
 
 export function ActionsColumn({
@@ -213,54 +152,28 @@ export function ActionsColumn({
     platform,
     contract,
     monitor,
-    canManageAssertion,
+    canEditAssertion,
+    canEditMonitor,
+    canEditContract,
     lastEvaluationUrl,
-    onManageAssertion,
-    onDeleteAssertion,
-    onStartMonitor,
-    onStopMonitor,
-    onAddToContract,
-    onRemoveFromContract,
+    refetch,
 }: ActionsColumnProps) {
-    const isStopped = monitor?.info?.status?.mode === MonitorMode.Inactive;
-    const isPartOfContract = contract && isAssertionPartOfContract(assertion, contract);
     return (
         <ActionButtonContainer>
-            {isStopped && (
-                <Tooltip
-                    title={
-                        !canManageAssertion
-                            ? 'A connection is required to run assertions. Configure your connection inside Ingestion, or contact your DataHub admin for help.'
-                            : undefined
-                    }
-                >
-                    <StartMonitorButton type="primary" onClick={onStartMonitor} disabled={!canManageAssertion}>
-                        TURN ON
-                    </StartMonitorButton>
-                </Tooltip>
-            )}
             {platform && platform.urn !== UNKNOWN_DATA_PLATFORM && (
-                <AssertionPlatformAvatar platform={platform} lastEvaluationUrl={lastEvaluationUrl} />
+                <AssertionPlatformWrapper>
+                    <AssertionPlatformAvatar platform={platform} lastEvaluationUrl={lastEvaluationUrl} />
+                </AssertionPlatformWrapper>
             )}
-            <Dropdown
-                overlay={
-                    <AssertionActionsMenu
-                        urn={assertion.urn}
-                        monitor={monitor}
-                        canManageAssertion={canManageAssertion}
-                        isPartOfContract={isPartOfContract}
-                        onManageAssertion={onManageAssertion}
-                        onDeleteAssertion={onDeleteAssertion}
-                        onStartMonitor={onStartMonitor}
-                        onStopMonitor={onStopMonitor}
-                        onAddToContract={onAddToContract}
-                        onRemoveFromContract={onRemoveFromContract}
-                    />
-                }
-                trigger={['click']}
-            >
-                <StyledMoreOutlined />
-            </Dropdown>
+            <Actions
+                assertion={assertion}
+                monitor={monitor}
+                contract={contract}
+                canEditAssertion={canEditAssertion}
+                canEditMonitor={canEditMonitor}
+                canEditContract={canEditContract}
+                refetch={refetch}
+            />
         </ActionButtonContainer>
     );
 }

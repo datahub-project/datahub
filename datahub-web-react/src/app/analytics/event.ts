@@ -96,6 +96,7 @@ export enum EventType {
     UpdateTestEvent,
     DeleteTestEvent,
     CreateAssertionMonitorEvent,
+    UpdateAssertionMonitorEvent,
     StartAssertionMonitorEvent,
     StopAssertionMonitorEvent,
     SlackIntegrationSuccessEvent,
@@ -589,6 +590,12 @@ export interface CreateAssertionMonitorEvent extends BaseEvent {
     entityUrn: string;
 }
 
+export interface UpdateAssertionMonitorEvent extends BaseEvent {
+    type: EventType.UpdateAssertionMonitorEvent;
+    assertionType: string;
+    entityUrn: string;
+}
+
 export interface StartAssertionMonitorEvent extends BaseEvent {
     type: EventType.StartAssertionMonitorEvent;
     assertionType: string;
@@ -896,6 +903,7 @@ export type Event =
     | EmbedProfileViewInDataHubEvent
     | EmbedLookupNotFoundEvent
     | CreateAssertionMonitorEvent
+    | UpdateAssertionMonitorEvent
     | StartAssertionMonitorEvent
     | StopAssertionMonitorEvent
     | SlackIntegrationSuccessEvent

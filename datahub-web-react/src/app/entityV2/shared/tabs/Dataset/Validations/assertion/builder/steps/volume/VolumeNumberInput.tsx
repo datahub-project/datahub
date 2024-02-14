@@ -2,7 +2,6 @@ import React, { useEffect } from 'react';
 import { Form, InputNumber, Select } from 'antd';
 import styled from 'styled-components';
 import { Rule } from 'antd/lib/form';
-import useFormInstance from 'antd/lib/form/hooks/useFormInstance';
 
 const StyledFormItem = styled(Form.Item)`
     margin: 0;
@@ -39,7 +38,7 @@ export const VolumeNumberInput = ({
     select,
     customRules = [],
 }: Props) => {
-    const form = useFormInstance();
+    const form = Form.useFormInstance();
     useEffect(() => {
         form.setFieldValue(name, value);
     }, [form, name, value]);

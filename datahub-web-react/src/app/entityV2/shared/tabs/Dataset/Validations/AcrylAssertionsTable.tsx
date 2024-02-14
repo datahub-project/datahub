@@ -1,37 +1,50 @@
-import React from 'react';
+import React, { useState } from 'react';
 import styled from 'styled-components';
-import { Checkbox, Empty } from 'antd';
-import { DownOutlined, RightOutlined } from '@ant-design/icons';
-import { StyledTable } from '../../../components/styled/StyledTable';
-import { Assertion, AssertionRunStatus, MonitorMode, DataContract } from '../../../../../../types.generated';
-import { canManageAssertionMonitor, getEntityUrnForAssertion, getNextScheduleEvaluationTimeMs } from './acrylUtils';
-import { getDataContractCategoryFromAssertion } from './contract/utils';
-import { useIngestionSourceForEntityQuery } from '../../../../../../graphql/ingestion.generated';
+import { Checkbox, Empty, Table } from 'antd';
+import { Assertion, AssertionRunStatus, AssertionType, DataContract, Entity } from '../../../../../../types.generated';
 import { useEntityData } from '../../../EntityContext';
-import { AcrylAssertionDetails } from './AcrylAssertionDetails';
 import { ActionsColumn, DetailsColumn } from './AcrylAssertionsTableColumns';
-import { DataContractCategoryType } from './contract/builder/types';
+import { AssertionProfileDrawer } from './assertion/profile/AssertionProfileDrawer';
+import { ANTD_GRAY } from '../../../constants';
+import { useOpenAssertionDetailModal } from './assertion/builder/hooks';
 
-const AssertionContainer = styled.div`
-    padding-top: 12px;
-    padding-bottom: 12px;
-`;
-
-const StyledStyledTable = styled(StyledTable)`
+export const StyledTable = styled(Table)`
+    margin-left: -50px;
+    max-width: none;
+    overflow: inherit;
+    height: inherit;
+    &&& .ant-table-thead .ant-table-cell {
+        font-weight: 600;
+        font-size: 12px;
+        color: ${ANTD_GRAY[8]};
+    }
+    &&
+        .ant-table-thead
+        > tr
+        > th:not(:last-child):not(.ant-table-selection-column):not(.ant-table-row-expand-icon-cell):not(
+            [colspan]
+        )::before {
+        border: 1px solid ${ANTD_GRAY[4]};
+    }
     && {
         .ant-table-tbody > tr > td {
             border: none;
         }
     }
-` as typeof StyledTable;
-
-const StyledDownOutlined = styled(DownOutlined)`
-    font-size: 8px;
-`;
-
-const StyledRightOutlined = styled(RightOutlined)`
-    font-size: 8px;
-`;
+    &&& .ant-table-cell {
+        background-color: transparent;
+    }
+    &&& .acryl-assertions-table-row {
+        cursor: pointer;
+        background-color: ${ANTD_GRAY[2]};
+        :hover {
+            background-color: ${ANTD_GRAY[3]};
+        }
+    }
+    &&& .acryl-selected-assertions-table-row {
+        background-color: ${ANTD_GRAY[4]};
+    }
+` as typeof Table;
 
 const DetailsColumnWrapper = styled.div`
     display: flex;
@@ -47,17 +60,13 @@ type Props = {
     assertions: Array<Assertion>;
     contract?: DataContract;
     showMenu?: boolean;
-    showDetails?: boolean;
     showSelect?: boolean;
     selectedUrns?: string[];
-    onDeleteAssertion: (urn: string) => void;
-    onManageAssertion: (urn: string) => void;
-    onViewAssertionDetails: (urn: string) => void;
-    onStartMonitor: (assertionUrn: string, monitorUrn: string) => void;
-    onStopMonitor: (assertionUrn: string, monitorUrn: string) => void;
-    onAddToContract?: (category: DataContractCategoryType, entityUrn: string, assertionUrn: string) => void;
-    onRemoveFromContract?: (entityUrn: string, assertionUrn: string) => void;
+    canEditAssertions: boolean;
+    canEditMonitors: boolean;
+    canEditSqlAssertions: boolean;
     onSelect?: (assertionUrn: string) => void;
+    refetch: () => void;
 };
 
 /**
@@ -70,25 +79,28 @@ export const AcrylAssertionsTable = ({
     assertions,
     contract,
     showMenu = true,
-    showDetails = true,
     showSelect = false,
     selectedUrns,
-    onDeleteAssertion,
-    onManageAssertion,
-    onViewAssertionDetails,
-    onStartMonitor,
-    onStopMonitor,
-    onAddToContract,
-    onRemoveFromContract,
+    canEditAssertions,
+    canEditMonitors,
+    canEditSqlAssertions,
     onSelect,
+    refetch,
 }: Props) => {
-    const { urn } = useEntityData();
-    const { data: ingestionSourceData } = useIngestionSourceForEntityQuery({
-        variables: { urn },
-        fetchPolicy: 'cache-first',
-        skip: !urn,
-    });
-    const connectionForEntityExists = !!ingestionSourceData?.ingestionSourceForEntity?.urn;
+    const { entityData } = useEntityData();
+    const [focusAssertionUrn, setFocusAssertionUrn] = useState<string | null>(null);
+
+    const focusedAssertion = assertions.find((assertion) => assertion.urn === focusAssertionUrn);
+    const canEditFocusAssertion = focusedAssertion
+        ? (focusedAssertion?.info?.type === AssertionType.Sql && canEditSqlAssertions) || canEditAssertions
+        : false;
+    const canEditFocusMonitor = focusedAssertion ? canEditMonitors : false;
+
+    if (focusAssertionUrn && !focusedAssertion) {
+        setFocusAssertionUrn(null);
+    }
+
+    useOpenAssertionDetailModal(setFocusAssertionUrn);
 
     const assertionsTableData = assertions.map((assertion) => ({
         urn: assertion.urn,
@@ -96,6 +108,10 @@ export const AcrylAssertionsTable = ({
         platform: assertion.platform,
         datasetAssertionInfo: assertion.info?.datasetAssertion,
         freshnessAssertionInfo: assertion.info?.freshnessAssertion,
+        lastEvaluation:
+            assertion.runEvents?.runEvents?.length &&
+            assertion.runEvents.runEvents[0].status === AssertionRunStatus.Complete &&
+            assertion.runEvents.runEvents[0],
         lastEvaluationTimeMs:
             assertion.runEvents?.runEvents?.length && assertion.runEvents.runEvents[0].timestampMillis,
         lastEvaluationResult:
@@ -130,9 +146,9 @@ export const AcrylAssertionsTable = ({
                             assertion={record.assertion}
                             monitor={record.monitor}
                             contract={contract}
-                            lastEvaluationTimeMs={record.lastEvaluationTimeMs}
-                            lastEvaluationResult={record.lastEvaluationResult}
-                            onViewAssertionDetails={() => onViewAssertionDetails(record.urn)}
+                            lastEvaluation={record.lastEvaluation}
+                            onViewAssertionDetails={() => setFocusAssertionUrn(record.urn)}
+                            refetch={refetch}
                         />
                     </DetailsColumnWrapper>
                 );
@@ -143,6 +159,8 @@ export const AcrylAssertionsTable = ({
             dataIndex: '',
             key: '',
             render: (_, record: any) => {
+                // TODO: Add permission for editing contract.
+                const isSqlAssertion = record.type === AssertionType.Sql;
                 return (
                     <>
                         {(showMenu && (
@@ -150,31 +168,12 @@ export const AcrylAssertionsTable = ({
                                 assertion={record.assertion}
                                 platform={record.platform}
                                 monitor={record.monitor}
-                                canManageAssertion={canManageAssertionMonitor(
-                                    record.monitor,
-                                    connectionForEntityExists,
-                                )}
                                 contract={contract}
+                                canEditAssertion={isSqlAssertion ? canEditSqlAssertions : canEditAssertions}
+                                canEditMonitor={canEditMonitors}
+                                canEditContract
                                 lastEvaluationUrl={record.lastEvaluationUrl}
-                                onManageAssertion={() => onManageAssertion(record.urn)}
-                                onDeleteAssertion={() => onDeleteAssertion(record.urn)}
-                                onStartMonitor={
-                                    record.monitor && (() => onStartMonitor(record.urn, record.monitor.urn))
-                                }
-                                onStopMonitor={record.monitor && (() => onStopMonitor(record.urn, record.monitor.urn))}
-                                onAddToContract={() =>
-                                    onAddToContract?.(
-                                        getDataContractCategoryFromAssertion(record.assertion),
-                                        getEntityUrnForAssertion(record.assertion) as string,
-                                        record.urn,
-                                    )
-                                }
-                                onRemoveFromContract={() =>
-                                    onRemoveFromContract?.(
-                                        getEntityUrnForAssertion(record.assertion) as string,
-                                        record.urn,
-                                    )
-                                }
+                                refetch={refetch}
                             />
                         )) ||
                             undefined}
@@ -185,46 +184,43 @@ export const AcrylAssertionsTable = ({
     ];
 
     return (
-        <StyledStyledTable
-            columns={assertionsTableCols}
-            dataSource={assertionsTableData}
-            rowKey="urn"
-            locale={{
-                emptyText: <Empty description="No Assertions Found :(" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
-            }}
-            expandable={
-                (showDetails && {
-                    defaultExpandAllRows: false,
-                    expandRowByClick: true,
-                    expandedRowRender: (record) => {
-                        const isStopped = record.monitor?.info?.status?.mode === MonitorMode.Inactive;
-                        const schedule =
-                            record.monitor?.info?.assertionMonitor?.assertions?.length &&
-                            record.monitor?.info?.assertionMonitor?.assertions[0].schedule;
-                        const nextEvaluatedAtMillis = schedule && getNextScheduleEvaluationTimeMs(schedule);
-                        return (
-                            <AssertionContainer>
-                                <AcrylAssertionDetails
-                                    urn={record.urn}
-                                    isStopped={isStopped}
-                                    schedule={schedule}
-                                    lastEvaluatedAtMillis={record.lastEvaluationTimeMs}
-                                    nextEvaluatedAtMillis={nextEvaluatedAtMillis}
-                                />
-                            </AssertionContainer>
-                        );
-                    },
-                    expandIcon: ({ expanded, onExpand, record }: any) =>
-                        expanded ? (
-                            <StyledDownOutlined onClick={(e) => onExpand(record, e)} />
-                        ) : (
-                            <StyledRightOutlined onClick={(e) => onExpand(record, e)} />
-                        ),
-                }) ||
-                undefined
-            }
-            showHeader={false}
-            pagination={false}
-        />
+        <>
+            <StyledTable
+                rowClassName={(record) => {
+                    return (
+                        (record.urn === focusAssertionUrn && 'acryl-selected-assertions-table-row') ||
+                        'acryl-assertions-table-row'
+                    );
+                }}
+                columns={assertionsTableCols}
+                dataSource={assertionsTableData}
+                rowKey="urn"
+                locale={{
+                    emptyText: <Empty description="No Assertions Found :(" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
+                }}
+                onRow={(record) => {
+                    return {
+                        onClick: (_) => {
+                            setFocusAssertionUrn(record.urn);
+                        },
+                    };
+                }}
+                showHeader={false}
+                pagination={false}
+            />
+            {focusAssertionUrn && (
+                <AssertionProfileDrawer
+                    urn={focusAssertionUrn}
+                    entity={entityData as Entity}
+                    contract={contract}
+                    canEditAssertion={canEditFocusAssertion}
+                    canEditMonitor={canEditFocusMonitor}
+                    closeDrawer={() => setFocusAssertionUrn(null)}
+                    refetch={() => {
+                        refetch();
+                    }}
+                />
+            )}
+        </>
     );
 };

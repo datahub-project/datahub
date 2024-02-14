@@ -4,9 +4,7 @@ import { Popover, Typography } from 'antd';
 import { ThunderboltFilled } from '@ant-design/icons';
 import { REDESIGN_COLORS } from '../../../constants';
 
-const Container = styled.div`
-    height: 100%;
-`;
+const Container = styled.div``;
 
 const Title = styled(Typography.Title)`
     && {

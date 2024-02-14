@@ -1,12 +1,13 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Tooltip, Typography } from 'antd';
+import { Typography } from 'antd';
 import { getAssertionGroupSummaryIcon } from './acrylUtils';
 import { AssertionGroup } from './acrylTypes';
 
 const Container = styled.div`
     display: flex;
     align-items: center;
+    padding: 4px 0px;
     &:hover {
         cursor: pointer;
     }
@@ -44,17 +45,17 @@ type Props = {
 export const AssertionGroupHeader = ({ group }: Props) => {
     const { summary } = group;
     const summaryIcon = getAssertionGroupSummaryIcon(summary);
-    const summaryMessage = `${summary.passing} passing assertions, ${summary.failing} failing assertions`;
+    const summaryMessage = `${summary.passing} passing, ${summary.failing} failing${
+        summary.erroring ? `, ${summary.erroring} errors` : ''
+    }`;
     return (
-        <Tooltip title="This status is based on the most recent run of each assertion.">
-            <Container>
-                {summaryIcon && <SummaryIcon>{summaryIcon}</SummaryIcon>}
-                <TextContainer>
-                    {group.icon}
-                    <Title strong>{group.name}</Title>
-                    <Message type="secondary">{summaryMessage}</Message>
-                </TextContainer>
-            </Container>
-        </Tooltip>
+        <Container>
+            {summaryIcon && <SummaryIcon>{summaryIcon}</SummaryIcon>}
+            <TextContainer>
+                {group.icon}
+                <Title strong>{group.name}</Title>
+                <Message type="secondary">{summaryMessage}</Message>
+            </TextContainer>
+        </Container>
     );
 };

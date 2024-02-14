@@ -16,7 +16,10 @@ type Props = {
 
 const createCronText = (cronSchedule: CronSchedule) => {
     const { cron, timezone } = cronSchedule;
-    return `${cronstrue.toString(cron).toLocaleLowerCase()} (${timezone})`;
+    return `since the previous check, as of ${cronstrue
+        .toString(cron)
+        .toLocaleLowerCase()
+        .replace('at', '')} (${timezone})`;
 };
 
 const createFixedIntervalText = (fixedIntervalSchedule: FixedIntervalSchedule, monitorSchedule?: CronSchedule) => {
@@ -36,7 +39,7 @@ export const FreshnessAssertionDescription = ({ assertionInfo, monitorSchedule }
         <div>
             <Typography.Text>
                 {freshnessType === FreshnessAssertionType.DatasetChange
-                    ? 'Dataset is updated '
+                    ? 'Table was updated '
                     : 'Data Task is run successfully '}
                 {scheduleType === FreshnessAssertionScheduleType.Cron
                     ? createCronText(assertionInfo.schedule?.cron as any)

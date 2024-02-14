@@ -79,7 +79,7 @@ export const getSqlOperationOptions = () => {
     }));
 };
 
-export const getDefaultOperationOption = (type: SqlAssertionType, operator: AssertionStdOperator) => {
+export const getOperationOption = (type: SqlAssertionType, operator: AssertionStdOperator) => {
     const currentOption = Object.entries(SQL_OPERATION_OPTIONS).find(
         ([_, option]) => option.type === type && option.operator === operator,
     );

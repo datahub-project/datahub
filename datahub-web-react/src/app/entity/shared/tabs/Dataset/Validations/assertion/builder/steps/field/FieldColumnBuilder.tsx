@@ -63,6 +63,7 @@ export const FieldColumnBuilder = ({ value, onChange, disabled }: Props) => {
             <Typography.Title level={5}>Column</Typography.Title>
             <Typography.Paragraph type="secondary">Select a column to check</Typography.Paragraph>
             <AssertionDatasetFieldBuilder
+                selectedPath={fieldColumn || undefined}
                 name="fieldColumn"
                 width="240px"
                 fields={columnOptions}

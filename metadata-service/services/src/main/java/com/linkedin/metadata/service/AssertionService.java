@@ -476,6 +476,7 @@ public class AssertionService extends BaseService {
   public Urn upsertDatasetFreshnessAssertion(
       @Nonnull final Urn assertionUrn,
       @Nonnull final Urn entityUrn,
+      @Nullable final String description,
       @Nonnull final FreshnessAssertionSchedule schedule,
       @Nullable final DatasetFilter filter,
       @Nullable final AssertionActions actions,
@@ -496,6 +497,7 @@ public class AssertionService extends BaseService {
     assertion.setFreshnessAssertion(freshnessInfo);
     assertion.setType(AssertionType.FRESHNESS);
     assertion.setSource(getNativeAssertionSource());
+    assertion.setDescription(description, SetMode.IGNORE_NULL);
 
     final List<MetadataChangeProposal> aspects = new ArrayList<>();
     aspects.add(
@@ -524,6 +526,7 @@ public class AssertionService extends BaseService {
   public Urn upsertDatasetVolumeAssertion(
       @Nonnull final Urn assertionUrn,
       @Nonnull final Urn entityUrn,
+      @Nullable final String description,
       @Nonnull final VolumeAssertionInfo info,
       @Nullable final AssertionActions actions,
       @Nonnull final Authentication authentication) {
@@ -551,6 +554,7 @@ public class AssertionService extends BaseService {
     assertion.setVolumeAssertion(info);
     assertion.setType(AssertionType.VOLUME);
     assertion.setSource(getNativeAssertionSource());
+    assertion.setDescription(description, SetMode.IGNORE_NULL);
 
     final List<MetadataChangeProposal> aspects = new ArrayList<>();
     aspects.add(
@@ -624,6 +628,7 @@ public class AssertionService extends BaseService {
   public Urn upsertDatasetFieldAssertion(
       @Nonnull final Urn assertionUrn,
       @Nonnull final Urn entityUrn,
+      @Nullable final String description,
       @Nonnull final FieldAssertionInfo info,
       @Nullable final AssertionActions actions,
       @Nonnull final Authentication authentication) {
@@ -636,6 +641,7 @@ public class AssertionService extends BaseService {
     assertion.setFieldAssertion(info);
     assertion.setType(AssertionType.FIELD);
     assertion.setSource(getNativeAssertionSource());
+    assertion.setDescription(description, SetMode.IGNORE_NULL);
 
     final List<MetadataChangeProposal> aspects = new ArrayList<>();
     aspects.add(

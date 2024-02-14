@@ -3,12 +3,7 @@ import Typography from 'antd/lib/typography';
 import styled from 'styled-components';
 import { Select } from 'antd';
 import { AssertionMonitorBuilderState } from '../../types';
-import {
-    SQL_OPERATION_OPTIONS,
-    SqlOperationOptionEnum,
-    getDefaultOperationOption,
-    getSqlOperationOptions,
-} from './utils';
+import { SQL_OPERATION_OPTIONS, SqlOperationOptionEnum, getOperationOption, getSqlOperationOptions } from './utils';
 import { SqlParametersBuilder } from './SqlParametersBuilder';
 import { AssertionStdOperator, SqlAssertionType } from '../../../../../../../../../../types.generated';
 
@@ -29,7 +24,7 @@ type Props = {
 
 export const SqlEvaluationBuilder = ({ value, onChange, disabled }: Props) => {
     const options = getSqlOperationOptions();
-    const defaultOption = getDefaultOperationOption(
+    const optionValue = getOperationOption(
         value.assertion?.sqlAssertion?.type as SqlAssertionType,
         value.assertion?.sqlAssertion?.operator as AssertionStdOperator,
     );
@@ -58,7 +53,7 @@ export const SqlEvaluationBuilder = ({ value, onChange, disabled }: Props) => {
         <Section>
             <Typography.Title level={5}>Fail if resulting value</Typography.Title>
             <StyledSelect
-                defaultValue={SQL_OPERATION_OPTIONS[defaultOption]}
+                value={SQL_OPERATION_OPTIONS[optionValue]}
                 options={options}
                 onChange={(newOption) => updateOperationOption(newOption as SqlOperationOptionEnum)}
                 disabled={disabled}

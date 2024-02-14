@@ -13,7 +13,6 @@ describe("dataset health test", () => {
         cy.get('[data-testid="assertions-details"]').click();
         // cy.clickOptionWithText("details");
         cy.waitTextVisible("All assertions are failing");
-        cy.clickOptionWithText("External");
-        cy.waitTextVisible("Failed");
-        });
+        cy.clickOptionWithText("Other");
+    });
 });

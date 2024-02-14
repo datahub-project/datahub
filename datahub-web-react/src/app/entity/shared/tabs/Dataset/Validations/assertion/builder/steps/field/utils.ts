@@ -625,3 +625,12 @@ export const fieldAssertionToBuilderState = (
         },
     };
 };
+
+export const getFieldMetricLabel = (metric: FieldMetricType) => {
+    const label = Object.values(FIELD_METRIC_TYPE_CONFIG)
+        .flatMap((typeConfig) => typeConfig.filter((config) => config.value === metric))
+        .map((filtered) => filtered.label)
+        .find((l) => l !== undefined);
+
+    return label;
+};

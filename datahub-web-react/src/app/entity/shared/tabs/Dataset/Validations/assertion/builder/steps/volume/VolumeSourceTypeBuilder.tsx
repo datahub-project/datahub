@@ -11,9 +11,7 @@ const StyledSelect = styled(Select)`
     width: 300px;
 `;
 
-const Section = styled.div`
-    margin-bottom: 16px;
-`;
+const Section = styled.div``;
 
 const OptionDescription = styled(Typography.Paragraph)`
     && {
@@ -32,7 +30,6 @@ const SourceDescription = styled.div`
     padding: 12px;
     background-color: ${ANTD_GRAY[3]};
     border-radius: 8px;
-    margin-bottom: 20px;
 `;
 
 const PlatformDescription = styled.div`

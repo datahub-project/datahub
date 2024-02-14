@@ -115,3 +115,10 @@ query getDatasetAssertionsWithMonitors($urn: String!) {
         }
     }
 }
+
+query getAssertionWithMonitors($assertionUrn: String!) {
+    assertion(urn: $assertionUrn) {
+        urn
+        ...assertionDetailsWithMonitors
+    }
+}

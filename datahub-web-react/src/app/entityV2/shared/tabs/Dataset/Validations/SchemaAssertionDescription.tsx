@@ -16,7 +16,7 @@ export const SchemaAssertionDescription = ({ assertionInfo }: Props) => {
     return (
         <div>
             <Typography.Text>
-                Dataset columns match expected schema
+                Table columns match expected schema
                 <Button
                     type="text"
                     style={{ color: REDESIGN_COLORS.BLUE, marginLeft: 8 }}

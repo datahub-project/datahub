@@ -79,6 +79,7 @@ public class UpsertDatasetVolumeAssertionMonitorResolver
             _assertionService.upsertDatasetVolumeAssertion(
                 assertionUrn,
                 entityUrn,
+                input.getDescription(),
                 VolumeAssertionUtils.createVolumeAssertionInfo(input),
                 input.getActions() != null
                     ? AssertionUtils.createAssertionActions(input.getActions())

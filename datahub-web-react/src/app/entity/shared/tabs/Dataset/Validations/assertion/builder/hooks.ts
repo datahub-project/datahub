@@ -47,11 +47,11 @@ export const useAssertionURNCopyLink = (urn: string) => {
 
 /**
  * Hook to manage the details view of assertions based on URL query parameters.
- * @param {Array} assertions - List of assertions.
- * @param {Function} setViewingAssertionDetails - Function to set details of the viewing assertion and open detail Modal.
+ *
+ * @param {Function} setFocusAssertionUrn - Function to set details of the viewing assertion and open detail Modal.
  * @returns {Object} Object containing the 'assertionUrnParam' from the URL.
  */
-export const useOpenAssertionDetailModal = (assertions, setViewingAssertionDetails) => {
+export const useOpenAssertionDetailModal = (setFocusAssertionUrn) => {
     const location = useLocation();
     const history = useHistory();
     const assertionUrnParam = getQueryParams('assertion_urn', location);
@@ -59,21 +59,18 @@ export const useOpenAssertionDetailModal = (assertions, setViewingAssertionDetai
     useEffect(() => {
         if (assertionUrnParam) {
             const decodedAssertionUrn = decodeURIComponent(assertionUrnParam);
-            const matchingAssertion = assertions.find((assertion) => assertion.urn === decodedAssertionUrn);
 
-            if (matchingAssertion) {
-                setViewingAssertionDetails(matchingAssertion);
+            setFocusAssertionUrn(decodedAssertionUrn);
 
-                // Remove the query parameter from the URL
-                const newUrlParams = new URLSearchParams(location.search);
-                newUrlParams.delete('assertion_urn');
-                const newUrl = `${location.pathname}?${newUrlParams.toString()}`;
+            // Remove the query parameter from the URL
+            const newUrlParams = new URLSearchParams(location.search);
+            newUrlParams.delete('assertion_urn');
+            const newUrl = `${location.pathname}?${newUrlParams.toString()}`;
 
-                // Use React Router's history.replace to replace the current URL
-                history.replace(newUrl);
-            }
+            // Use React Router's history.replace to replace the current URL
+            history.replace(newUrl);
         }
-    }, [assertionUrnParam, assertions, setViewingAssertionDetails, location.search, location.pathname, history]);
+    }, [assertionUrnParam, setFocusAssertionUrn, location.search, location.pathname, history]);
 
     return { assertionUrnParam };
 };

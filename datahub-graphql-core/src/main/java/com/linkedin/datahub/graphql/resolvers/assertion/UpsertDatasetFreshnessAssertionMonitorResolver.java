@@ -81,6 +81,7 @@ public class UpsertDatasetFreshnessAssertionMonitorResolver
             _assertionService.upsertDatasetFreshnessAssertion(
                 assertionUrn,
                 entityUrn,
+                input.getDescription(),
                 FreshnessAssertionUtils.createFreshnessAssertionSchedule(input.getSchedule()),
                 input.getFilter() != null
                     ? AssertionUtils.createAssertionFilter(input.getFilter())

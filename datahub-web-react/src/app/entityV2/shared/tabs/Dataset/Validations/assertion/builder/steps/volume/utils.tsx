@@ -7,7 +7,12 @@ import {
     DatasetVolumeSourceType,
     AssertionEvaluationParametersType,
 } from '../../../../../../../../../../types.generated';
-import { BIGQUERY_URN, REDSHIFT_URN, SNOWFLAKE_URN } from '../../../../../../../../../ingest/source/builder/constants';
+import {
+    BIGQUERY_URN,
+    REDSHIFT_URN,
+    SNOWFLAKE_URN,
+    DATABRICKS_URN,
+} from '../../../../../../../../../ingest/source/builder/constants';
 
 // Source type config
 export type VolumeSourceType = {
@@ -130,6 +135,20 @@ export const PLATFORM_ASSERTION_CONFIGS = {
             },
         },
     },
+    [DATABRICKS_URN]: {
+        defaultSourceType: DatasetVolumeSourceType.Query,
+        sourceTypes: [DatasetVolumeSourceType.Query, DatasetVolumeSourceType.DatahubDatasetProfile],
+        sourceTypeDetails: {
+            [DatasetVolumeSourceType.Query]: {
+                description: (
+                    <>
+                        We&apos;ll query the Databricks Table or View to determine the row count. <br />
+                        This requires that the configured service principal (token) has read access to the asset.
+                    </>
+                ),
+            },
+        },
+    },
 };
 
 // Volume assertion type category config
@@ -200,32 +219,32 @@ export enum VolumeTypeOptionEnum {
 
 export const VOLUME_TYPE_OPTIONS: Record<VolumeTypeOptionEnum, VolumeTypeOption> = {
     [VolumeTypeOptionEnum.TOO_MANY_ROWS]: {
-        label: 'Table has too many rows',
+        label: 'Is larger than expected',
         operator: AssertionStdOperator.LessThanOrEqualTo,
         category: VolumeTypeCategoryEnum.ROW_COUNT,
     },
     [VolumeTypeOptionEnum.NOT_ENOUGH_ROWS]: {
-        label: 'Table does not have enough rows',
+        label: 'Is less than expected',
         operator: AssertionStdOperator.GreaterThanOrEqualTo,
         category: VolumeTypeCategoryEnum.ROW_COUNT,
     },
     [VolumeTypeOptionEnum.ROWS_OUTSIDE_RANGE]: {
-        label: 'Table row count is outside of a range',
+        label: 'Is outside of an expected range',
         operator: AssertionStdOperator.Between,
         category: VolumeTypeCategoryEnum.ROW_COUNT,
     },
     [VolumeTypeOptionEnum.GROWTH_TOO_FAST]: {
-        label: 'Table growth is too fast',
+        label: 'Is growing too fast',
         operator: AssertionStdOperator.LessThanOrEqualTo,
         category: VolumeTypeCategoryEnum.GROWTH_RATE,
     },
     [VolumeTypeOptionEnum.GROWTH_TOO_SLOW]: {
-        label: 'Table growth is too slow',
+        label: 'Is growing too slow',
         operator: AssertionStdOperator.GreaterThanOrEqualTo,
         category: VolumeTypeCategoryEnum.GROWTH_RATE,
     },
     [VolumeTypeOptionEnum.GROWTH_OUTSIDE_RANGE]: {
-        label: 'Table growth is outside of a range',
+        label: 'Is growing outside of an expected range',
         operator: AssertionStdOperator.Between,
         category: VolumeTypeCategoryEnum.GROWTH_RATE,
     },
@@ -285,7 +304,7 @@ export const getPropertyFromVolumeType = (type: VolumeAssertionType) => {
 export const getVolumeTypeInfo = (volumeAssertion: VolumeAssertionInfo) => {
     const result = volumeAssertion[getPropertyFromVolumeType(volumeAssertion.type)];
     if (!result) {
-        throw new Error(`Unknown volume assertion type: ${volumeAssertion.type}`);
+        return undefined;
     }
     return result;
 };
@@ -293,11 +312,12 @@ export const getVolumeTypeInfo = (volumeAssertion: VolumeAssertionInfo) => {
 export const getSelectedVolumeTypeOption = (volumeAssertionInfo: VolumeAssertionInfo) => {
     const category = getSelectedVolumeTypeCategory(volumeAssertionInfo.type);
     const options = VOLUME_TYPE_OPTIONS_BY_CATEGORY[category];
-    const { operator } = getVolumeTypeInfo(volumeAssertionInfo);
+    const typeInfo = getVolumeTypeInfo(volumeAssertionInfo);
+    if (!typeInfo?.operator) return undefined;
     return options.find(
         (optionKey) =>
             VOLUME_TYPE_OPTIONS[optionKey].category === category &&
-            VOLUME_TYPE_OPTIONS[optionKey].operator === operator,
+            VOLUME_TYPE_OPTIONS[optionKey].operator === typeInfo.operator,
     );
 };
 
@@ -355,7 +375,7 @@ export const getVolumeSourceTypeOptions = (platformUrn: string, connectionForEnt
 };
 
 export const getVolumeSourceTypeDetails = (platformUrn: string, sourceType: DatasetVolumeSourceType) => {
-    return PLATFORM_ASSERTION_CONFIGS[platformUrn].sourceTypeDetails[sourceType];
+    return PLATFORM_ASSERTION_CONFIGS[platformUrn]?.sourceTypeDetails[sourceType];
 };
 
 export const getDefaultVolumeSourceType = (platformUrn: string, connectionForEntityExists: boolean) => {

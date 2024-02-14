@@ -6,6 +6,7 @@ import { ConfigureDatasetSqlAssertionStep } from './steps/ConfigureDatasetSqlAss
 import { AssertionType } from '../../../../../../../../types.generated';
 import { AssertionBuilderStep } from './types';
 import { ConfigureDatasetFieldAssertionStep } from './steps/ConfigureDatasetFieldAssertionStep';
+import { FinishUpStep } from './steps/FinishUpStep';
 
 /**
  * Mapping from the step type to the component implementing that step.
@@ -29,6 +30,8 @@ export const getAssertionsBuilderStepComponent = (currentStep: AssertionBuilderS
             }
         case AssertionBuilderStep.CONFIGURE_ACTIONS:
             return ConfigureActionsStep;
+        case AssertionBuilderStep.FINISH_UP:
+            return FinishUpStep;
         default:
             throw new Error(`Unsupported assertion builder step ${currentStep}`);
     }
@@ -38,7 +41,8 @@ export const getAssertionsBuilderStepComponent = (currentStep: AssertionBuilderS
  * Mapping from the step type to the title for the step
  */
 export enum AssertionBuilderStepTitles {
-    SELECT_TYPE = 'Select Assertion Type',
-    CONFIGURE_ASSERTION = 'Configure Assertion',
+    SELECT_TYPE = 'Choose Type',
+    CONFIGURE_ASSERTION = 'Configure',
     CONFIGURE_ACTIONS = 'Finish up',
+    FINISH_UP = 'Finish up',
 }

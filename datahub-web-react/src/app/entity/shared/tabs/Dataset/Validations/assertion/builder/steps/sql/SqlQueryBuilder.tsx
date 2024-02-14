@@ -53,7 +53,7 @@ export const SqlQueryBuilder = ({ value, onChange, disabled }: Props) => {
                 Define a query which returns <b>one row</b> containing <b>one column</b> of numeric type. The column
                 value will be used to determine whether this assertion should pass or fail.
             </Typography.Paragraph>
-            <StyledFormItem name="query" rules={[{ required: true, message: 'Required' }]}>
+            <StyledFormItem initialValue={value} name="query" rules={[{ required: true, message: 'Required' }]}>
                 <Editor
                     options={QUERY_EDITOR_OPTIONS}
                     height={QUERY_EDITOR_HEIGHT}

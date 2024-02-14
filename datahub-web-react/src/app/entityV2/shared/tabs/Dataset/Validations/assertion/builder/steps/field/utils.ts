@@ -585,7 +585,7 @@ export const getDatasetProfileDisabledMessage = (
 ) => {
     if (!sourceRequiresConnection) return null;
     if (!isEntityEligibleForAssertionMonitoring(platformUrn))
-        return 'This option is not currently supported for this entity. Not supported for this data platform.';
+        return 'This option is not currently supported for this entity.';
 
     return !connectionForEntityExists
         ? 'This option is not currently supported for this entity. No connection found.'
@@ -624,4 +624,13 @@ export const fieldAssertionToBuilderState = (
             datasetFieldParameters,
         },
     };
+};
+
+export const getFieldMetricLabel = (metric: FieldMetricType) => {
+    const label = Object.values(FIELD_METRIC_TYPE_CONFIG)
+        .flatMap((typeConfig) => typeConfig.filter((config) => config.value === metric))
+        .map((filtered) => filtered.label)
+        .find((l) => l !== undefined);
+
+    return label;
 };

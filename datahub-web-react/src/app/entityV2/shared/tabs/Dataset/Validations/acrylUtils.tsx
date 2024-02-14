@@ -155,7 +155,7 @@ export const ASSERTION_INFO = [
         requiresConnection: true,
     },
     {
-        name: 'External',
+        name: 'Other',
         description: 'Assertions that are defined and maintained outside of DataHub.',
         icon: <StyledApiOutlined />,
         type: AssertionType.Dataset,

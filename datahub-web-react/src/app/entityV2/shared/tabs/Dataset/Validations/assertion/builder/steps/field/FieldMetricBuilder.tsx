@@ -2,7 +2,6 @@ import React, { useEffect } from 'react';
 import Typography from 'antd/lib/typography';
 import styled from 'styled-components';
 import { Form, Select } from 'antd';
-import useFormInstance from 'antd/lib/form/hooks/useFormInstance';
 import { AssertionMonitorBuilderState } from '../../types';
 import { FieldMetricType } from '../../../../../../../../../../types.generated';
 import { getFieldMetricTypeOptions } from './utils';
@@ -24,7 +23,7 @@ type Props = {
 };
 
 export const FieldMetricBuilder = ({ value, onChange, disabled }: Props) => {
-    const form = useFormInstance();
+    const form = Form.useFormInstance();
     const fieldType = value.assertion?.fieldAssertion?.fieldMetricAssertion?.field?.type;
     const metricType = value.assertion?.fieldAssertion?.fieldMetricAssertion?.metric;
     const sourceType = value.parameters?.datasetFieldParameters?.sourceType;
@@ -55,7 +54,7 @@ export const FieldMetricBuilder = ({ value, onChange, disabled }: Props) => {
     return (
         <Section>
             <Typography.Title level={5}>Metric</Typography.Title>
-            <Typography.Paragraph type="secondary">Select a column metric to evaluate</Typography.Paragraph>
+            <Typography.Paragraph type="secondary">Select a column metric to test against</Typography.Paragraph>
             <StyledFormItem
                 name="fieldMetricType"
                 rules={[

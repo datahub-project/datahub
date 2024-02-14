@@ -78,8 +78,7 @@ export const VolumeAssertionDescription = ({ assertionInfo }: Props) => {
     return (
         <div>
             <Typography.Text>
-                Dataset {volumeTypeDescription} {operatorDescription} {parameterDescription}{' '}
-                {valueChangeTypeDescription}
+                Table {volumeTypeDescription} {operatorDescription} {parameterDescription} {valueChangeTypeDescription}
             </Typography.Text>
         </div>
     );
