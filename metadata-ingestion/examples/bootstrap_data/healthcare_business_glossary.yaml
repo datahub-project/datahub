@@ -1,0 +1,51 @@
+version: 1
+source: DataHub
+url: "https://github.com/datahub-project/datahub/"
+nodes:
+  - name: Patient
+    description: "An individual receiving medical treatment or care from a healthcare provider."
+    terms:
+      - name: Age
+        description: "The age of the patient."
+        inherits:
+          - Classification.HighlyConfidential
+      - name: Gender
+        description: "The gender of the patient."
+        inherits:
+          - Classification.HighlyConfidential
+      - name: Name
+        description: "The name of the patient."
+        inherits:
+          - Classification.Confidential
+  - name: HealthcareProvider
+    description: "An individual or organization that delivers healthcare services, including hospitals, clinics, physicians, nurses, and other medical professionals."
+    terms:
+      - name: Primary Care Physician (PCP)
+        description: "A healthcare provider who serves as a patient's main point of contact for medical care, including preventive services, diagnosis, and treatment of common illnesses."
+      - name: Specialist
+        description: "A healthcare provider who focuses on a specific area of medicine or healthcare, such as cardiology, dermatology, or orthopedics."
+      - name: Nurse Practitioner (NP)
+        description: "A registered nurse with advanced education and training, authorized to perform physical exams, order diagnostic tests, and prescribe medications."
+  - name: Billing
+    description: "The process of submitting and following up on claims with health insurance companies to receive payment for healthcare services provided to patients."
+    terms:
+      - name: Medical Coding
+        description: "The transformation of healthcare diagnoses, procedures, medical services, and equipment into universal medical alphanumeric codes for billing and reporting purposes."
+        domain: "urn:li:domain:billing"
+      - name: Health Information Exchange (HIE)
+        description: "The electronic sharing of health-related information among healthcare organizations, allowing secure access to patient data across different systems and providers."
+        domain: "urn:li:domain:billing"
+      - name: Patient Portal
+        description: "An online platform that allows patients to access their medical records, schedule appointments, communicate with healthcare providers, and manage their healthcare information securely."
+        domain: "urn:li:domain:billing"
+        contains:
+          - Patient.Name
+  - name: Classification
+    description: "A set of terms related to Data Classification"
+    terms:
+      - name: Confidential
+        description: "Confidential Data"
+      - name: HighlyConfidential
+        description: "Highly Confidential Data"
+      - name: Sensitive
+        description: "Sensitive Data"
