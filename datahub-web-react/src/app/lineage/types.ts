@@ -3,23 +3,23 @@ import {
     Chart,
     Dashboard,
     DataJob,
+    DataPlatform,
     Dataset,
+    Entity,
     EntityType,
-    MlFeatureTable,
-    MlPrimaryKey,
+    FineGrainedLineage,
+    Health,
+    InputFields,
+    LineageRelationship,
+    Maybe,
     MlFeature,
+    MlFeatureTable,
     MlModel,
     MlModelGroup,
-    Maybe,
-    Status,
-    DataPlatform,
-    FineGrainedLineage,
+    MlPrimaryKey,
     SchemaMetadata,
-    InputFields,
-    Entity,
-    LineageRelationship,
     SiblingProperties,
-    Health,
+    Status,
 } from '../../types.generated';
 
 export type EntitySelectParams = {
@@ -35,13 +35,11 @@ export type LineageExpandParams = {
 
 export type FetchedEntity = {
     urn: string;
-    name: string;
-    // name to be shown on expansion if available
+    name: string; // name to be shown on expansion if available
     expandedName?: string;
     type: EntityType;
     subtype?: string;
-    icon?: string;
-    // children?: Array<string>;
+    icon?: string; // children?: Array<string>;
     upstreamChildren?: Array<EntityAndType>;
     upstreamRelationships?: Array<LineageRelationship>;
     numUpstreamChildren?: number;
@@ -62,15 +60,13 @@ export type FetchedEntity = {
 
 export type NodeData = {
     urn?: string;
-    name: string;
-    // name to be shown on expansion if available
+    name: string; // name to be shown on expansion if available
     expandedName?: string;
     type?: EntityType;
     subtype?: string;
     children?: Array<NodeData>;
     unexploredChildren?: number;
-    icon?: string;
-    // Hidden children are unexplored but in the opposite direction of the flow of the graph.
+    icon?: string; // Hidden children are unexplored but in the opposite direction of the flow of the graph.
     // Currently our visualization does not support expanding in two directions
     countercurrentChildrenUrns?: string[];
     platform?: DataPlatform;
