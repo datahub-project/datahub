@@ -20,8 +20,9 @@ from .assertion_executor import AssertionExecutor
 from .helpers import (
     extract_execution_request,
     setup_ingestion_executor,
-    signal_requests_check,
     update_celery_credentials,
+    handle_assertions_signal_requests,
+    handle_ingestion_signal_requests,
 )
 
 logger = logging.getLogger(__name__)
@@ -85,4 +86,5 @@ def poll_signals(**kwargs):
     global assertion_executor
 
     # check for any signal requests on running tasks
-    signal_requests_check(graph, ingestion_executor, assertion_executor)
+    handle_ingestion_signal_requests(graph, ingestion_executor)
+    handle_assertions_signal_requests(graph, assertion_executor)

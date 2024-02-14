@@ -1,6 +1,8 @@
 import json
 import logging
-import threading
+import time
+
+from threading import Thread
 from typing import cast
 
 from datahub.metadata.schema_classes import MetadataChangeLogClass
@@ -8,10 +10,11 @@ from datahub_actions.action.action import Action
 from datahub_actions.event.event_envelope import EventEnvelope
 from datahub_actions.event.event_registry import METADATA_CHANGE_LOG_EVENT_V1_TYPE
 
+from datahub_monitors.common.helpers import create_datahub_graph
 from datahub_monitors.common.tp import ThreadPoolExecutorWithQueueSizeLimit
 from datahub_monitors.workers.helpers import (
+    handle_ingestion_signal_requests,
     extract_execution_request,
-    extract_execution_request_signal,
     setup_ingestion_executor,
     update_celery_credentials,
 )
@@ -19,6 +22,7 @@ from datahub_monitors.workers.tasks import app, evaluate_execution_request_input
 
 from datahub_monitors.config import (
     ACTIONS_PIPELINE_EXECUTOR_MAX_WORKERS,
+    ACTIONS_PIPELINE_SIGNAL_POLL_INTERVAL,
 )
 
 DATAHUB_EXECUTION_REQUEST_ENTITY_NAME = "dataHubExecutionRequest"
@@ -42,9 +46,13 @@ class MonitorServiceAction(Action):
         self.ingestion_enabled = ingestion_enabled
         self.embedded_worker_id = embedded_worker_id
         self.embedded_worker_enabled = embedded_worker_enabled
+        self.shutdown_flag = False
+
         if self.embedded_worker_enabled:
             self.ingestion_executor = setup_ingestion_executor()
             self.tp = ThreadPoolExecutorWithQueueSizeLimit(max_workers = ACTIONS_PIPELINE_EXECUTOR_MAX_WORKERS)
+            self.signal_thread = Thread(target = self._signal_thread_worker)
+            self.signal_thread.start()
 
     @classmethod
     def create(
@@ -59,8 +67,11 @@ class MonitorServiceAction(Action):
         return super().close()
 
     def shutdown(self, wait = True) -> None:
+        self.shutdown_flag = True
+
         if self.embedded_worker_enabled:
             self.tp.shutdown(wait)
+            self.signal_thread.join()
 
     def act(self, event: EventEnvelope) -> None:
         """This method listens for ExecutionRequest changes to execute in schedule and trigger events"""
@@ -68,13 +79,10 @@ class MonitorServiceAction(Action):
             orig_event = cast(MetadataChangeLogClass, event.event)
             if (orig_event.get("entityType") == DATAHUB_EXECUTION_REQUEST_ENTITY_NAME and
                   orig_event.get("changeType") == "UPSERT"):
+
                 if (orig_event.get("aspectName") == DATAHUB_EXECUTION_REQUEST_INPUT_ASPECT_NAME):
                     logger.debug("Received execution request input. Processing...")
                     self._handle_execution_request_input(orig_event)
-                elif (orig_event.get("aspectName") == DATAHUB_EXECUTION_REQUEST_SIGNAL_ASPECT_NAME):
-                    if self.embedded_worker_enabled:
-                        logger.info("Received execution request signal. Processing...")
-                        self._handle_embedded_worker_enabled_execution_request_signal(orig_event)
 
     def _handle_execution_request_input(self, orig_event: MetadataChangeLogClass) -> None:
         if self.ingestion_enabled is False:
@@ -104,21 +112,17 @@ class MonitorServiceAction(Action):
             )
             logger.info(f"started task evaluate_execution_request_input task_id = {task.id}")
 
-    def _handle_embedded_worker_enabled_execution_request_signal(self, orig_event: MetadataChangeLogClass) -> None:
-        if not orig_event.aspect:
-            logger.error(f"Unable to parse Execution Request Signal, no aspect {orig_event.entityUrn}.."
-            )
-            return None
-
-        aspect_dict = json.loads(orig_event.aspect.value)
-        if aspect_dict["signal"] == "KILL":
-            signal, exec_id = extract_execution_request_signal(orig_event)
-            if signal and exec_id and exec_id in self.ingestion_executor.task_futures:
-                self.ingestion_executor.signal(signal)
-
     def _evaluate_execution_request_input(
         self, orig_event: MetadataChangeLogClass
     ) -> None:
         execution_request = extract_execution_request(orig_event)
         if execution_request:
             self.ingestion_executor.execute(execution_request)
+
+    def _signal_thread_worker(self)-> None:
+        if self.embedded_worker_enabled:
+            graph = create_datahub_graph()
+
+            while not self.shutdown_flag:
+                handle_ingestion_signal_requests(graph, self.ingestion_executor)
+                time.sleep(ACTIONS_PIPELINE_SIGNAL_POLL_INTERVAL)

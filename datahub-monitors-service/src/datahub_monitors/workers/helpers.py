@@ -112,43 +112,6 @@ def extract_execution_request(
     return execution_request
 
 
-def extract_execution_request_signal(
-    event: MetadataChangeLogClass,
-) -> Tuple[Optional[SignalRequest], Optional[str]]:
-    exec_id = None
-    if not event.entityUrn:
-        logger.error(f"Unable to parse Execution Request Signal, no entityUrn {event}")
-        return None, exec_id
-
-    if not event.aspect:
-        logger.error(
-            f"Unable to parse Execution Request Signal, no aspect {event.entityUrn}.."
-        )
-        return None, exec_id
-
-    aspect_dict = json.loads(event.aspect.value)
-
-    try:
-        if not aspect_dict["executorId"] == EXECUTOR_ID:
-            logger.error(
-                f"Ignoring SignalRequest for non-configured executorId ${aspect_dict['executorId']}"
-            )
-            return None, exec_id
-
-        urn_parts = event.entityUrn.split(":")
-        exec_id = urn_parts[-1]
-        signal_request = SignalRequest(
-            exec_id=exec_id,
-            executor_id=aspect_dict["executorId"],
-            signal=aspect_dict["signal"],
-        )
-    except Exception as e:
-        logger.error(f"Error parsing Execution Signal {e}")
-        return None, exec_id
-
-    return signal_request, exec_id
-
-
 def fetch_execution_signal_requests(
     graph: DataHubAssertionGraph,
     ingestion_exec_ids: List[str],
@@ -203,10 +166,9 @@ def fetch_execution_signal_requests(
     return signal_requests
 
 
-def signal_requests_check(
+def handle_ingestion_signal_requests(
     graph: DataHubAssertionGraph,
     ingestion_executor: ReportingExecutor,
-    assertion_executor: AssertionExecutor,
 ) -> None:
     ingestion_exec_ids = []
     if ingestion_executor.task_futures:
@@ -220,9 +182,14 @@ def signal_requests_check(
     if len(ingestion_exec_ids) > 0:
         signal_requests = fetch_execution_signal_requests(graph, ingestion_exec_ids)
         for signal_request in signal_requests:
+            logger.info(f"Got {signal_request.exec_id} signal for task {signal_request.exec_id}")
             ingestion_executor.signal(signal_request)
 
-    # we also check for any running assertions here
+
+def handle_assertions_signal_requests(
+    graph: DataHubAssertionGraph,
+    assertion_executor: AssertionExecutor,
+) -> None:
     assertion_task_ids = []
     if assertion_executor.task_futures:
         for task_id in assertion_executor.task_futures.keys():
