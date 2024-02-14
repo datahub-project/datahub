@@ -1,7 +1,6 @@
 import React from "react";
 import Layout from "@theme/Layout";
 import useDocusaurusContext from "@docusaurus/useDocusaurusContext";
-import { useColorMode } from "@docusaurus/theme-common";
 import Link from "@docusaurus/Link";
 import ChampionQualityCardsSection from "./_components/ChampionQualityCardsSection"
 
@@ -352,10 +351,9 @@ const championSections = [
 ];
 
 const HeroImage = (props) => {
-  const { colorMode } = useColorMode();
   return (
     <>
-      <img style={{ marginBottom: "2rem", height: "14rem" }} src={`/img/champions/champions-logo-${colorMode}.png`} alt="DataHub Champions" {...props} />
+      <img style={{ marginBottom: "2rem", height: "14rem" }} src={`/img/champions/champions-logo-light.png`} alt="DataHub Champions" {...props} />
     </>
   );
 };
