@@ -766,6 +766,11 @@ def make_fine_grained_lineage_class(
     dataset_urn: str,
     out_columns: List[Dict[Any, Any]],
 ) -> List[FineGrainedLineage]:
+    # 1 fine grane linage links seems like case sensitive
+    # 2 parsed out columns are always lower cased
+    # 3 corresponding Custom SQL output columns can be in any case lower/upper/mix
+    #
+    # we need a map between 1 and 2 that will be used during building column level linage links (see below)
     out_columns_map = {
         col.get(c.NAME, "").casefold(): col.get(c.NAME, "") for col in out_columns
     }

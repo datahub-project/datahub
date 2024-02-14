@@ -1176,6 +1176,10 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                     ):
                         # This is required for column level lineage to work correctly as
                         # DataHub Snowflake source lowercases all field names in the schema.
+                        #
+                        # It should not be done if snowflake tables are not pre ingested but
+                        # parsed from SQL queries or ingested from Tableau metadata (in this case
+                        # it just breacks case sensitive table level linage)
                         name = name.lower()
                     input_columns.append(
                         builder.make_schema_field_urn(
@@ -1388,6 +1392,10 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                     else []
                 )
 
+                # Tableau SQL parser much worse than sqlglot based parser,
+                # so sometimes relying on metadata parsed by Tableau from SQL
+                # queries is not a good idea, the option allows to re-parse Custom SQL queries
+                # (supported and unsupported by Tableau)
                 if self.config.force_extraction_of_lineage_from_custom_sql_queries:
                     logger.debug("Extracting TLL & CLL from custom sql (forced)")
                     yield from self._create_lineage_from_unsupported_csql(
@@ -1998,6 +2006,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
 
         tables_filter = f"{c.ID_WITH_IN}: {json.dumps(list(tableau_database_table_id_to_urn_map.keys()))}"
 
+        # Emmitting tables that came from Tableau metadata
         for tableau_table in self.get_connection_objects(
             database_tables_graphql_query,
             c.DATABASE_TABLES_CONNECTION,
@@ -2016,7 +2025,9 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
 
             yield from self.emit_table(database_table, tableau_columns)
 
+        # Emmitting tables that were purely parsed from SQL queries
         for database_table in self.database_tables.values():
+            # Only tables purely parsed from SQL queries don't have ID
             if database_table.id:
                 logger.debug(
                     f"Skipping external table {database_table.urn} should have already been ingested from Tableau metadata"
@@ -2118,6 +2129,10 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                 hash="",
                 platformSchema=OtherSchema(rawSchema=""),
             )
+
+        # TODO: optionally add logic that will lookup current table schema from DataHub
+        # and merge it together with what was inferred during current run, it allows incrementally
+        # ingest different Tableau projects sharing the same tables
 
         return schema_metadata
 

@@ -18,6 +18,7 @@ def _get_dialect_str(platform: str) -> str:
         return "trino"
     # TODO: define SalesForce SOQL dialect
     # Temporary workaround is to treat SOQL as databricks dialect
+    # At least it allows to parse simple SQL queries and built linage for them
     elif platform == "salesforce":
         return "databricks"
     elif platform == "mysql":
@@ -36,6 +37,9 @@ def get_dialect(platform: DialectOrStr) -> sqlglot.Dialect:
         return platform
 
     dialect_str = _get_dialect_str(platform)
+
+    # Temporary workaround for TSQL until it's fixed atsqlglot library level
+    # See definition of TSQLv2 for more comments and details
     if dialect_str == "tsql":
         return TSQLv2()
     else:
@@ -98,6 +102,30 @@ def generalize_query(expression: sqlglot.exp.ExpOrStr, dialect: DialectOrStr) ->
         # Replace all literals in the expressions with a single placeholder.
         is_last_literal = True
         for i, expression in reversed(list(enumerate(node.expressions))):
+            #
+            # sqlglot has a bug related to T-SQL dialect
+            # for example, this statement using double quotes
+            #
+            # INSERT INTO TBL
+            # VALUES("str1", 'str2', 1)
+            #
+            # will be parsed like this:
+            #
+            # INSERT INTO TBL
+            # VALUES(COLUMN, LITERAL, LITERAL)
+            #
+            # as result it will not be generalized as
+            #
+            # INSERT INTO TBL
+            # VALUES(COLUMN, ?, ?)
+            #
+            # instead of
+            #
+            # INSERT INTO TBL
+            # VALUES(?, ?, ?)
+            #
+            # adding sqlglot.exp.Column to the condition fixes it
+            #
             if isinstance(expression, (sqlglot.exp.Literal, sqlglot.exp.Column)):
                 if is_last_literal:
                     node.expressions[i] = sqlglot.exp.Placeholder()
