@@ -1,17 +1,5 @@
+import { validateURL } from '../../utils';
 import { RecipeField, FieldType, setListValuesOnRecipe } from './common';
-
-const validateURL = (fieldName) => {
-    return {
-        validator(_, value) {
-            const URLPattern = new RegExp(/^(?:http(s)?:\/\/)?[\w.-]+(?:\.[\w.-]+)+[\w\-._~:/?#[\]@!$&'()*+,;=.]+$/);
-            const isURLValid = URLPattern.test(value);
-            if (!value || isURLValid) {
-                return Promise.resolve();
-            }
-            return Promise.reject(new Error(`A valid ${fieldName} is required.`));
-        },
-    };
-};
 
 export const AZURE_CLIENT_ID: RecipeField = {
     name: 'client_id',
