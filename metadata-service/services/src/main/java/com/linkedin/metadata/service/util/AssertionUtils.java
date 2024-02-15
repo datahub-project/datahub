@@ -2,20 +2,19 @@ package com.linkedin.metadata.service.util;
 
 import com.linkedin.assertion.AssertionInfo;
 import com.linkedin.assertion.AssertionResultType;
+import com.linkedin.assertion.AssertionStdAggregation;
 import com.linkedin.assertion.AssertionStdOperator;
 import com.linkedin.assertion.AssertionStdParameters;
 import com.linkedin.assertion.AssertionType;
 import com.linkedin.assertion.AssertionValueChangeType;
+import com.linkedin.assertion.DatasetAssertionInfo;
 import com.linkedin.assertion.FieldAssertionInfo;
-import com.linkedin.assertion.FieldAssertionType;
 import com.linkedin.assertion.FieldMetricType;
 import com.linkedin.assertion.FreshnessAssertionInfo;
 import com.linkedin.assertion.FreshnessAssertionSchedule;
 import com.linkedin.assertion.FreshnessAssertionScheduleType;
 import com.linkedin.assertion.SqlAssertionInfo;
-import com.linkedin.assertion.SqlAssertionType;
 import com.linkedin.assertion.VolumeAssertionInfo;
-import com.linkedin.assertion.VolumeAssertionType;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.timeseries.CalendarInterval;
 import javax.annotation.Nonnull;
@@ -46,7 +45,7 @@ public class AssertionUtils {
       case SQL:
         return buildSqlAssertionDescription(info.getSqlAssertion());
       case DATASET:
-        return assertionUrn.toString(); // TODO build richer preview.
+        return buildDatasetAssertionDescription(info.getDatasetAssertion());
       default:
         // Unknown type - return the raw urn.
         log.warn(
@@ -94,53 +93,74 @@ public class AssertionUtils {
   }
 
   private static String buildVolumeAssertionDescription(@Nonnull final VolumeAssertionInfo info) {
-    VolumeAssertionType type = info.getType();
-    String volumeTypeChange =
-        VolumeAssertionType.ROW_COUNT_CHANGE.equals(type)
-            ? AssertionValueChangeType.ABSOLUTE.equals(info.getRowCountChange().getType())
+    switch (info.getType()) {
+      case ROW_COUNT_TOTAL:
+        return String.format(
+            "Row count %s %s",
+            getOperatorText(info.getRowCountTotal().getOperator()),
+            getParameterText(info.getRowCountTotal().getParameters()));
+      case ROW_COUNT_CHANGE:
+        String volumeTypeChange =
+            AssertionValueChangeType.ABSOLUTE.equals(info.getRowCountChange().getType())
                 ? "change "
-                : "percentage change "
-            : "";
-    String operatorText =
-        info.hasRowCountChange()
-            ? getOperatorText(info.getRowCountChange().getOperator())
-            : getOperatorText(info.getRowCountTotal().getOperator());
-    String parameterText =
-        info.hasRowCountChange()
-            ? getParameterText(info.getRowCountChange().getParameters())
-            : getParameterText(info.getRowCountTotal().getParameters());
-    return "Row count " + volumeTypeChange + operatorText + " " + parameterText;
+                : "percentage change ";
+        return String.format(
+            "Row count %s %s %s",
+            volumeTypeChange,
+            getOperatorText(info.getRowCountChange().getOperator()),
+            getParameterText(info.getRowCountChange().getParameters()));
+      case INCREMENTING_SEGMENT_ROW_COUNT_TOTAL:
+        // TODO: Account for transformer
+        return String.format(
+            "Incremental row count %s %s",
+            getOperatorText(info.getIncrementingSegmentRowCountTotal().getOperator()),
+            getParameterText(info.getIncrementingSegmentRowCountTotal().getParameters()));
+      case INCREMENTING_SEGMENT_ROW_COUNT_CHANGE:
+        // TODO: Account for transformer
+        String incrementalTypeChange =
+            AssertionValueChangeType.ABSOLUTE.equals(info.getRowCountChange().getType())
+                ? "change "
+                : "percentage change ";
+        return String.format(
+            "Incremental row count %s %s %s",
+            incrementalTypeChange,
+            getOperatorText(info.getIncrementingSegmentRowCountChange().getOperator()),
+            getParameterText(info.getIncrementingSegmentRowCountChange().getParameters()));
+      default:
+        // Unknown volume assertion type - TODO: What to return here?
+        log.warn(
+            String.format(
+                "Attempted to generate description for volume assertion of type %s.",
+                info.getType()));
+        return "Unknown volume assertion";
+    }
   }
 
   private static String buildFieldAssertionDescription(@Nonnull final FieldAssertionInfo info) {
-    FieldAssertionType type = info.getType();
-    String columnName =
-        info.hasFieldValuesAssertion()
-            ? info.getFieldValuesAssertion().getField().getPath()
-            : info.getFieldMetricAssertion().getField().getPath();
-    String columnType =
-        info.hasFieldValuesAssertion()
-            ? info.getFieldValuesAssertion().getField().getNativeType()
-            : info.getFieldMetricAssertion().getField().getNativeType();
-    String operatorText =
-        info.hasFieldValuesAssertion()
-            ? getOperatorText(info.getFieldValuesAssertion().getOperator())
-            : getOperatorText(info.getFieldMetricAssertion().getOperator());
-    String parameterText =
-        info.hasFieldValuesAssertion()
-            ? getParameterText(info.getFieldValuesAssertion().getParameters())
-            : getParameterText(info.getFieldMetricAssertion().getParameters());
-    String columnMetric =
-        FieldAssertionType.FIELD_METRIC.equals(type)
-            ? getMetricText(info.getFieldMetricAssertion().getMetric())
-            : null;
-
-    return FieldAssertionType.FIELD_VALUES.equals(type)
-        ? String.format(
-            "Column '%s' (%s) %s %s", columnName, columnType, operatorText, parameterText)
-        : String.format(
+    switch (info.getType()) {
+      case FIELD_METRIC:
+        return String.format(
             "*%s* of column '%s' (%s) %s %s",
-            columnMetric, columnName, columnType, operatorText, parameterText);
+            getMetricText(info.getFieldMetricAssertion().getMetric()),
+            info.getFieldMetricAssertion().getField().getPath(),
+            info.getFieldMetricAssertion().getField().getNativeType(),
+            getOperatorText(info.getFieldMetricAssertion().getOperator()),
+            getParameterText(info.getFieldMetricAssertion().getParameters()));
+      case FIELD_VALUES:
+        return String.format(
+            "Column '%s' (%s) %s %s",
+            info.getFieldValuesAssertion().getField().getPath(),
+            info.getFieldValuesAssertion().getField().getNativeType(),
+            getOperatorText(info.getFieldValuesAssertion().getOperator()),
+            getParameterText(info.getFieldValuesAssertion().getParameters()));
+      default:
+        // Unknown field assertion type - TODO: What to return here?
+        log.warn(
+            String.format(
+                "Attempted to generate description for field assertion of type %s.",
+                info.getType()));
+        return "Unknown field assertion";
+    }
   }
 
   private static String buildSqlAssertionDescription(@Nonnull final SqlAssertionInfo info) {
@@ -149,17 +169,58 @@ public class AssertionUtils {
         sql.length() > MAX_SQL_PREVIEW_LENGTH
             ? String.format("%s...", sql.substring(0, MAX_SQL_PREVIEW_LENGTH))
             : sql;
-    SqlAssertionType type = info.getType();
-    AssertionValueChangeType changeType = info.getChangeType();
-    String sqlTypeText =
-        SqlAssertionType.METRIC_CHANGE.equals(type)
-            ? AssertionValueChangeType.ABSOLUTE.equals(changeType)
+    switch (info.getType()) {
+      case METRIC:
+        return String.format(
+            "%s %s %s",
+            truncatedSql,
+            getOperatorText(info.getOperator()),
+            getParameterText(info.getParameters()));
+      case METRIC_CHANGE:
+        String sqlTypeText =
+            AssertionValueChangeType.ABSOLUTE.equals(info.getChangeType())
                 ? "change "
-                : "percentage change "
-            : "";
-    String operatorText = getOperatorText(info.getOperator());
-    String parameterText = getParameterText(info.getParameters());
-    return truncatedSql + " " + sqlTypeText + operatorText + " " + parameterText;
+                : "percentage change ";
+        return String.format(
+            "%s %s %s %s",
+            truncatedSql,
+            sqlTypeText,
+            getOperatorText(info.getOperator()),
+            getParameterText(info.getParameters()));
+      default:
+        // Unknown sql assertion type - TODO: What to return here?
+        log.warn(
+            String.format(
+                "Attempted to generate description for sql assertion of type %s.", info.getType()));
+        return "Unknown sql assertion";
+    }
+  }
+
+  private static String buildDatasetAssertionDescription(DatasetAssertionInfo datasetAssertion) {
+    // Short-circuit for external assertions that come pre-existing systems with a specific name
+    if (datasetAssertion.hasNativeType()) {
+      return datasetAssertion.getNativeType();
+    }
+    switch (datasetAssertion.getScope()) {
+      case DATASET_COLUMN:
+        return String.format(
+            "Column %s %s",
+            datasetAssertion.getFields().get(0).getEntityKey().getParts().get(1),
+            getOperatorText(datasetAssertion.getOperator()));
+      case DATASET_ROWS:
+        return String.format(
+            "%s %s %s",
+            getAssertionStdAggregationText(datasetAssertion.getAggregation()),
+            getOperatorText(datasetAssertion.getOperator()),
+            getParameterText(datasetAssertion.getParameters()));
+      default:
+    }
+
+    log.warn(
+        String.format(
+            "Attempted to generate description for native dataset assertion: %s",
+            datasetAssertion));
+    return "Unknown native assertion";
   }
 
   private static String getOperatorText(@Nonnull final AssertionStdOperator operator) {
@@ -242,6 +303,43 @@ public class AssertionUtils {
         return "Min length";
       default:
         return "Unknown metric";
+    }
+  }
+
+  private static String getAssertionStdAggregationText(
+      @Nonnull final AssertionStdAggregation aggregation) {
+    switch (aggregation) {
+      case MAX:
+        return "Max";
+      case MIN:
+        return "Min";
+      case SUM:
+        return "Sum";
+      case MEAN:
+        return "Mean";
+      case MEDIAN:
+        return "Median";
+      case STDDEV:
+        return "Standard deviation";
+      case COLUMNS:
+        return "Columns";
+      case IDENTITY:
+        return "Column";
+      case NULL_COUNT:
+        return "Null count";
+      case COLUMN_COUNT:
+        return "Column count";
+      case UNIQUE_COUNT:
+        return "Unique count";
+      case NULL_PROPORTION:
+        return "Ratio of nulls";
+      case ROW_COUNT:
+        return "Row count";
+      case UNIQUE_PROPOTION:
+      case UNIQUE_PROPORTION:
+        return "Ratio of uniques";
+      default:
+        return "unknown aggregation";
     }
   }
 
