@@ -439,21 +439,17 @@ class DynamoDBSource(StatefulIngestionSourceBase):
                 key=dataset_urn,
                 reason=f"Downsampling the table schema because MAX_SCHEMA_SIZE threshold is {MAX_SCHEMA_SIZE}",
             )
-            # schema will be sorted by count and delimited_name in descending order and sliced to only include MAX_SCHEMA_SIZE items
-            table_fields = sorted(
-                schema.values(),
-                key=lambda x: (
-                    -x["count"],
-                    x["delimited_name"],
-                ),  # Negate `count` for descending order, `delimited_name` stays the same for ascending
-            )[0:MAX_SCHEMA_SIZE]
+
             # Add this information to the custom properties so user can know they are looking at down sampled schema
             dataset_properties.customProperties["schema.downsampled"] = "True"
             dataset_properties.customProperties["schema.totalFields"] = f"{schema_size}"
-        # append each schema field (sort so output is consistent)
+        # append each schema field, schema will be sorted by count descending and delimited_name ascending and sliced to only include MAX_SCHEMA_SIZE items
         for schema_field in sorted(
             table_fields,
-            key=lambda x: x["delimited_name"],
+            key=lambda x: (
+                -x["count"],
+                x["delimited_name"],
+            ),  # Negate `count` for descending order, `delimited_name` stays the same for ascending
         )[0:MAX_SCHEMA_SIZE]:
             field_path = schema_field["delimited_name"]
             native_data_type = self.get_native_type(schema_field["type"], table_name)
