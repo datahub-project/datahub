@@ -1199,7 +1199,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                 logger.info(f"query_id is None for look {look.title}({look.id})")
                 continue
 
-            query: Query = self.looker_api.look(look.id, fields="query").query
+            query: Query = self.looker_api.get_look(look.id, fields="query").query
             # Only include fields that are in the query_fields list
             query = Query(
                 **{
