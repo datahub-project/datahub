@@ -4,12 +4,14 @@ from datetime import datetime, timezone
 import pytest
 from freezegun import freeze_time
 
-import datahub.emitter.mce_builder as builder
 from datahub.metadata.urns import CorpUserUrn, DatasetUrn
 from datahub.sql_parsing.sql_parsing_aggregator import (
+    KnownQueryLineageInfo,
     QueryLogSetting,
     SqlParsingAggregator,
 )
+from datahub.sql_parsing.sql_parsing_common import QueryType
+from datahub.sql_parsing.sqlglot_lineage import ColumnLineageInfo, ColumnRef
 from tests.test_helpers import mce_helpers
 
 RESOURCE_DIR = pathlib.Path(__file__).parent / "aggregator_goldens"
@@ -24,8 +26,6 @@ def _ts(ts: int) -> datetime:
 def test_basic_lineage(pytestconfig: pytest.Config) -> None:
     aggregator = SqlParsingAggregator(
         platform="redshift",
-        platform_instance=None,
-        env=builder.DEFAULT_ENV,
         generate_lineage=True,
         generate_usage_statistics=False,
         generate_operations=False,
@@ -50,8 +50,6 @@ def test_basic_lineage(pytestconfig: pytest.Config) -> None:
 def test_overlapping_inserts(pytestconfig: pytest.Config) -> None:
     aggregator = SqlParsingAggregator(
         platform="redshift",
-        platform_instance=None,
-        env=builder.DEFAULT_ENV,
         generate_lineage=True,
         generate_usage_statistics=False,
         generate_operations=False,
@@ -83,8 +81,6 @@ def test_overlapping_inserts(pytestconfig: pytest.Config) -> None:
 def test_temp_table(pytestconfig: pytest.Config) -> None:
     aggregator = SqlParsingAggregator(
         platform="redshift",
-        platform_instance=None,
-        env=builder.DEFAULT_ENV,
         generate_lineage=True,
         generate_usage_statistics=False,
         generate_operations=False,
@@ -136,8 +132,6 @@ def test_temp_table(pytestconfig: pytest.Config) -> None:
 def test_aggregate_operations(pytestconfig: pytest.Config) -> None:
     aggregator = SqlParsingAggregator(
         platform="redshift",
-        platform_instance=None,
-        env=builder.DEFAULT_ENV,
         generate_lineage=False,
         generate_queries=False,
         generate_usage_statistics=False,
@@ -181,8 +175,6 @@ def test_aggregate_operations(pytestconfig: pytest.Config) -> None:
 def test_view_lineage(pytestconfig: pytest.Config) -> None:
     aggregator = SqlParsingAggregator(
         platform="redshift",
-        platform_instance=None,
-        env=builder.DEFAULT_ENV,
         generate_lineage=True,
         generate_usage_statistics=False,
         generate_operations=False,
@@ -221,8 +213,6 @@ def test_view_lineage(pytestconfig: pytest.Config) -> None:
 def test_known_lineage_mapping(pytestconfig: pytest.Config) -> None:
     aggregator = SqlParsingAggregator(
         platform="redshift",
-        platform_instance=None,
-        env=builder.DEFAULT_ENV,
         generate_lineage=True,
         generate_usage_statistics=False,
         generate_operations=False,
@@ -254,8 +244,6 @@ def test_known_lineage_mapping(pytestconfig: pytest.Config) -> None:
 def test_column_lineage_deduplication(pytestconfig: pytest.Config) -> None:
     aggregator = SqlParsingAggregator(
         platform="redshift",
-        platform_instance=None,
-        env=builder.DEFAULT_ENV,
         generate_lineage=True,
         generate_usage_statistics=False,
         generate_operations=False,
@@ -283,4 +271,49 @@ def test_column_lineage_deduplication(pytestconfig: pytest.Config) -> None:
         pytestconfig,
         outputs=mcps,
         golden_path=RESOURCE_DIR / "test_column_lineage_deduplication.json",
+    )
+
+
+@freeze_time(FROZEN_TIME)
+def test_add_known_query_lineage(pytestconfig: pytest.Config) -> None:
+    aggregator = SqlParsingAggregator(
+        platform="redshift",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=True,
+    )
+
+    downstream_urn = DatasetUrn("redshift", "dev.public.foo").urn()
+    upstream_urn = DatasetUrn("redshift", "dev.public.bar").urn()
+
+    known_query_lineage = KnownQueryLineageInfo(
+        query_text="insert into foo (a, b, c) select a, b, c from bar",
+        downstream=downstream_urn,
+        upstreams=[upstream_urn],
+        column_lineage=[
+            ColumnLineageInfo(
+                downstream=ColumnRef(table=downstream_urn, column="a"),
+                upstreams=[ColumnRef(table=upstream_urn, column="a")],
+            ),
+            ColumnLineageInfo(
+                downstream=ColumnRef(table=downstream_urn, column="b"),
+                upstreams=[ColumnRef(table=upstream_urn, column="b")],
+            ),
+            ColumnLineageInfo(
+                downstream=ColumnRef(table=downstream_urn, column="c"),
+                upstreams=[ColumnRef(table=upstream_urn, column="c")],
+            ),
+        ],
+        timestamp=_ts(20),
+        query_type=QueryType.INSERT,
+    )
+
+    aggregator.add_known_query_lineage(known_query_lineage)
+
+    mcps = list(aggregator.gen_metadata())
+
+    mce_helpers.check_goldens_stream(
+        pytestconfig,
+        outputs=mcps,
+        golden_path=RESOURCE_DIR / "test_add_known_query_lineage.json",
     )

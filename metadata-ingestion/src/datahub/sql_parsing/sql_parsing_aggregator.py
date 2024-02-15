@@ -10,6 +10,7 @@ from collections import defaultdict
 from datetime import datetime, timezone
 from typing import Callable, Dict, Iterable, List, Optional, Set, Union, cast
 
+import datahub.emitter.mce_builder as builder
 import datahub.metadata.schema_classes as models
 from datahub.emitter.mce_builder import get_sys_time, make_ts_millis
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -34,7 +35,7 @@ from datahub.sql_parsing.sqlglot_lineage import (
     infer_output_schema,
     sqlglot_lineage,
 )
-from datahub.sql_parsing.sqlglot_utils import generate_hash
+from datahub.sql_parsing.sqlglot_utils import generate_hash, get_query_fingerprint
 from datahub.utilities.file_backed_collections import (
     ConnectionWrapper,
     FileBackedDict,
@@ -96,6 +97,18 @@ class QueryMetadata:
 
 
 @dataclasses.dataclass
+class KnownQueryLineageInfo:
+    query_text: str
+
+    downstream: UrnStr
+    upstreams: List[UrnStr]
+    column_lineage: Optional[List[ColumnLineageInfo]] = None
+
+    timestamp: Optional[datetime] = None
+    query_type: QueryType = QueryType.UNKNOWN
+
+
+@dataclasses.dataclass
 class SqlAggregatorReport(Report):
     _aggregator: "SqlParsingAggregator"
     query_log_path: Optional[str] = None
@@ -103,12 +116,16 @@ class SqlAggregatorReport(Report):
     num_observed_queries: int = 0
     num_observed_queries_failed: int = 0
     num_observed_queries_column_failed: int = 0
-    observed_query_parse_failures = LossyList[str]()
+    observed_query_parse_failures: LossyList[str] = dataclasses.field(
+        default_factory=LossyList
+    )
 
     num_view_definitions: int = 0
     num_views_failed: int = 0
     num_views_column_failed: int = 0
-    views_parse_failures = LossyDict[UrnStr, str]()
+    views_parse_failures: LossyDict[UrnStr, str] = dataclasses.field(
+        default_factory=LossyDict
+    )
 
     num_queries_with_temp_tables_in_session: int = 0
 
@@ -142,8 +159,8 @@ class SqlParsingAggregator:
         self,
         *,
         platform: str,
-        platform_instance: Optional[str],
-        env: str,
+        platform_instance: Optional[str] = None,
+        env: str = builder.DEFAULT_ENV,
         graph: Optional[DataHubGraph] = None,
         generate_lineage: bool = True,
         generate_queries: bool = True,
@@ -294,8 +311,48 @@ class SqlParsingAggregator:
             env=self.env,
         )
 
-    def add_known_query_lineage(self, TODO) -> None:
-        pass
+    def add_known_query_lineage(
+        self, known_query_lineage: KnownQueryLineageInfo
+    ) -> None:
+        """Add a query and it's precomputed lineage to the aggregator.
+
+        This is useful for cases where we have lineage information that was
+        computed outside of the SQL parsing aggregator, e.g. from a data
+        warehouse's system tables.
+
+        This will also generate an operation aspect for the query if there is
+        a timestamp and the query type field is set to a mutation type.
+
+        Args:
+            known_query_lineage: The known query lineage information.
+        """
+
+        # Generate a fingerprint for the query.
+        query_fingerprint = get_query_fingerprint(
+            known_query_lineage.query_text, self.platform.platform_name
+        )
+        # TODO format the query text?
+
+        # Register the query.
+        self._add_to_query_map(
+            QueryMetadata(
+                query_id=query_fingerprint,
+                formatted_query_string=known_query_lineage.query_text,
+                session_id=_MISSING_SESSION_ID,
+                query_type=known_query_lineage.query_type,
+                lineage_type=models.DatasetLineageTypeClass.TRANSFORMED,
+                latest_timestamp=known_query_lineage.timestamp,
+                actor=None,
+                upstreams=known_query_lineage.upstreams,
+                column_lineage=known_query_lineage.column_lineage or [],
+                confidence_score=1.0,
+            )
+        )
+
+        # Register the lineage.
+        self._lineage_map.for_mutation(
+            known_query_lineage.downstream, OrderedSet()
+        ).add(query_fingerprint)
 
     def add_known_lineage_mapping(
         self,
@@ -965,8 +1022,10 @@ class SqlParsingAggregator:
             operationType=operation_type,
             lastUpdatedTimestamp=make_ts_millis(query.latest_timestamp),
             actor=query.actor.urn() if query.actor else None,
-            customProperties={
-                "query_urn": self._query_urn(query_id),
-            },
+            customProperties=(
+                {"query_urn": self._query_urn(query_id)}
+                if self.can_generate_query(query_id)
+                else None
+            ),
         )
         yield MetadataChangeProposalWrapper(entityUrn=downstream_urn, aspect=aspect)
