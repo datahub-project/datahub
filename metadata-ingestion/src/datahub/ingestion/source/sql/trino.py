@@ -200,11 +200,7 @@ class TrinoConfig(BasicSQLAlchemyConfig):
         identifier = f"{schema}.{table}"
         if self.database:  # TODO: this should be required field
             identifier = f"{self.database}.{identifier}"
-        return (
-            f"{self.platform_instance}.{identifier}"
-            if self.platform_instance
-            else identifier
-        )
+        return identifier
 
 
 @platform_name("Trino", doc_order=1)
@@ -274,6 +270,27 @@ class TrinoSource(SQLAlchemySource):
 
         return None
 
+    def get_sibling_workunit(
+        self,
+        dataset_name: str,
+        inspector: Inspector,
+        schema: str,
+        table: str,
+    ) -> Optional[MetadataWorkUnit]:
+        dataset_urn = make_dataset_urn_with_platform_instance(
+            self.platform,
+            dataset_name,
+            self.config.platform_instance,
+            self.config.env,
+        )
+        sibling_urn = self._get_sibling_urn(dataset_name, inspector, schema, table)
+        if self.config.ingest_siblings and sibling_urn:
+            return MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn,
+                aspect=Siblings(primary=False, siblings=[sibling_urn]),
+            ).as_workunit()
+        return None
+
     def _process_table(
         self,
         dataset_name: str,
@@ -285,18 +302,28 @@ class TrinoSource(SQLAlchemySource):
         yield from super()._process_table(
             dataset_name, inspector, schema, table, sql_config
         )
-        dataset_urn = make_dataset_urn_with_platform_instance(
-            self.platform,
-            dataset_name,
-            self.config.platform_instance,
-            self.config.env,
+        sibling_workunit = self.get_sibling_workunit(
+            dataset_name, inspector, schema, table
         )
-        sibling_urn = self._get_sibling_urn(dataset_name, inspector, schema, table)
-        if self.config.ingest_siblings and sibling_urn:
-            yield MetadataChangeProposalWrapper(
-                entityUrn=dataset_urn,
-                aspect=Siblings(primary=False, siblings=[sibling_urn]),
-            ).as_workunit()
+        if sibling_workunit:
+            yield sibling_workunit
+
+    def _process_view(
+        self,
+        dataset_name: str,
+        inspector: Inspector,
+        schema: str,
+        view: str,
+        sql_config: SQLCommonConfig,
+    ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
+        yield from super()._process_view(
+            dataset_name, inspector, schema, view, sql_config
+        )
+        sibling_workunit = self.get_sibling_workunit(
+            dataset_name, inspector, schema, view
+        )
+        if sibling_workunit:
+            yield sibling_workunit
 
     @classmethod
     def create(cls, config_dict, ctx):

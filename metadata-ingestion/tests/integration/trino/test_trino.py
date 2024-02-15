@@ -9,7 +9,7 @@ from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.sink.file import FileSinkConfig
 from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
-from datahub.ingestion.source.sql.trino import TrinoConfig
+from datahub.ingestion.source.sql.trino import ConnectorDetail, TrinoConfig
 from tests.test_helpers import fs_helpers, mce_helpers
 from tests.test_helpers.docker_helpers import wait_for_port
 
@@ -53,7 +53,6 @@ def loaded_trino(trino_runner):
 
 
 @freeze_time(FROZEN_TIME)
-@pytest.mark.xfail
 def test_trino_ingest(
     loaded_trino, test_resources_dir, pytestconfig, tmp_path, mock_time
 ):
@@ -73,7 +72,7 @@ def test_trino_ingest(
                     username="foo",
                     schema_pattern=AllowDenyPattern(allow=["^librarydb"]),
                     profile_pattern=AllowDenyPattern(
-                        allow=["library_catalog.librarydb.*"]
+                        allow=["postgresqldb.librarydb.*"]
                     ),
                     profiling=GEProfilingConfig(
                         enabled=True,
@@ -89,6 +88,12 @@ def test_trino_ingest(
                         include_field_histogram=True,
                         include_field_sample_values=True,
                     ),
+                    catalog_to_connector_details={
+                        "postgresqldb": ConnectorDetail(
+                            connector_database="postgres",
+                            platform_instance="local_server",
+                        )
+                    },
                 ).dict(),
             },
             "sink": {
@@ -127,6 +132,11 @@ def test_trino_hive_ingest(
                 database="hivedb",
                 username="foo",
                 schema_pattern=AllowDenyPattern(allow=["^db1"]),
+                catalog_to_connector_details={
+                    "hivedb": ConnectorDetail(
+                        platform_instance="local_server",
+                    )
+                },
             ).dict(),
         },
         "sink": {
@@ -230,6 +240,16 @@ def test_trino_instance_ingest(
             aspect_field_matcher={
                 "instance": f"urn:li:dataPlatformInstance:(urn:li:dataPlatform:{platform},{instance})"
             },
+            file=events_file,
+        )
+        >= 1
+    )
+    # all dataset entities emitted must have a sibling aspect emitted
+    assert (
+        mce_helpers.assert_for_each_entity(
+            entity_type="dataset",
+            aspect_name="siblings",
+            aspect_field_matcher={},
             file=events_file,
         )
         >= 1
