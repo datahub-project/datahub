@@ -1,6 +1,5 @@
 import React from 'react';
 import styled from 'styled-components/macro';
-import { Typography } from 'antd';
 import { useHistory } from 'react-router';
 import { useEntityData } from '../../../../EntityContext';
 import { SidebarSection } from '../SidebarSection';
@@ -8,6 +7,8 @@ import { useEntityRegistry } from '../../../../../../useEntityRegistry';
 import { getContentsSummary, getContentsSummaryText, navigateToContainerContents } from './utils';
 import { useGetContainerEntitySummaryQuery } from '../../../../../../../graphql/container.generated';
 import SidebarContentsLoadingSection from './SidebarContentsLoadingSection';
+import EmptySectionText from '../EmptySectionText';
+import { REDESIGN_COLORS } from '../../../../constants';
 
 const Section = styled.div`
     display: flex;
@@ -26,6 +27,7 @@ const ViewAllButton = styled.div`
     align-items: center;
     font-weight: bold;
     padding: 0px 2px;
+    color: ${REDESIGN_COLORS.DARK_GREY};
     :hover {
         cursor: pointer;
     }
@@ -68,7 +70,7 @@ const SidebarContentsSection = () => {
                                 </ViewAllButton>
                             </Section>
                         ) : (
-                            <Typography.Text type="secondary">No contents yet</Typography.Text>
+                            <EmptySectionText message="No contents yet" />
                         ))}
                 </>
             }

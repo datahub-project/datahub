@@ -89,3 +89,11 @@ export const userExists = (user: CorpUser) => {
 export function isValuePresent(value) {
     return value !== null && value !== undefined && !Number.isNaN(value);
 }
+
+export const getBarsStatusFromPopularityTier = (tier: number) => {
+    let status;
+    if (tier === 0) status = 3;
+    else if (tier === 1) status = 2;
+    else if (tier === 2) status = 1;
+    return status;
+}; 

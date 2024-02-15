@@ -6,24 +6,16 @@ import styled from 'styled-components';
 import BookOutlined from '../../../images/glossary_term_material_logo.svg?react';
 
 import { useAcceptProposalMutation, useRejectProposalMutation } from '../../../graphql/actionRequest.generated';
-import {
-    ActionRequest,
-    Domain as DomainEntity,
-    EntityType,
-    GlobalTags,
-    GlossaryTerms,
-    SubResourceType,
-} from '../../../types.generated';
-import { StyledTag } from '../../entityV2/shared/components/styled/StyledTag';
+import { ActionRequest, Domain as DomainEntity, EntityType, GlobalTags, GlossaryTerms } from '../../../types.generated';
+import { StyledTag } from '../../entity/shared/components/styled/StyledTag';
 import { EMPTY_MESSAGES } from '../../entity/shared/constants';
 import { REDESIGN_COLORS } from '../../entityV2/shared/constants';
-import EditTagTermsModal from '../../shared/tags/AddTagsTermsModal';
 import ProposalModal from '../../shared/tags/ProposalModal';
-import { shouldShowProposeButton } from '../../shared/tags/utils/proposalUtils';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { DomainLink } from './DomainLink';
 import Tag from './tag/Tag';
 import Term from './term/Term';
+import AddTagTerm from './AddTagTerm';
 
 type Props = {
     uneditableTags?: GlobalTags | null;
@@ -48,6 +40,7 @@ type Props = {
     proposedGlossaryTerms?: ActionRequest[];
     proposedTags?: ActionRequest[];
     showOneAndCount?: boolean;
+    showAddButton?: boolean;
 };
 
 const NoElementButton = styled.div`
@@ -56,6 +49,7 @@ const NoElementButton = styled.div`
     }
     margin: 0px;
     padding: 0px;
+    flex-basis: 100%;
     color: ${REDESIGN_COLORS.DARK_GREY};
     :hover {
         cursor: pointer;
@@ -63,8 +57,10 @@ const NoElementButton = styled.div`
     }
 `;
 const TagTermWrapper = styled.div<{ showOneAndCount?: boolean }>`
-    display: ${(props) => (props.showOneAndCount ? 'flex' : '')};
+    display: flex;
+    flex-wrap: ${(props) => (!props.showOneAndCount ? 'wrap' : '')};
 `;
+
 const TagText = styled.span`
     color: ${REDESIGN_COLORS.DARK_GREY};
     font-size: 10px;
@@ -136,6 +132,7 @@ export default function TagTermGroup({
     refetch,
     readOnly,
     showOneAndCount,
+    showAddButton = true,
 }: Props) {
     const entityRegistry = useEntityRegistry();
     const [showAddModal, setShowAddModal] = useState(false);
@@ -380,7 +377,7 @@ export default function TagTermGroup({
             {showEmptyMessage && canAddTerm && termsEmpty && (
                 <EmptyText type="secondary">{EMPTY_MESSAGES.terms.title}.</EmptyText>
             )}
-            {canAddTag && !readOnly && (
+            {canAddTag && !readOnly && showAddButton && (
                 <NoElementButton
                     onClick={() => {
                         setAddModalType(EntityType.Tag);
@@ -392,7 +389,7 @@ export default function TagTermGroup({
                     <AddText>Add tags</AddText>
                 </NoElementButton>
             )}
-            {canAddTerm && !readOnly && (
+            {canAddTerm && !readOnly && showAddButton && (
                 <NoElementButton
                     onClick={() => {
                         setAddModalType(EntityType.GlossaryTerm);
@@ -404,25 +401,15 @@ export default function TagTermGroup({
                     <AddText>Add terms</AddText>
                 </NoElementButton>
             )}
-            {showAddModal && !!entityUrn && !!entityType && (
-                <EditTagTermsModal
-                    type={addModalType}
-                    visible
-                    onCloseModal={() => {
-                        onOpenModal?.();
-                        setShowAddModal(false);
-                        setTimeout(() => refetch?.(), 2000);
-                    }}
-                    resources={[
-                        {
-                            resourceUrn: entityUrn,
-                            subResource: entitySubresource,
-                            subResourceType: entitySubresource ? SubResourceType.DatasetField : null,
-                        },
-                    ]}
-                    showPropose={shouldShowProposeButton(entityType)}
-                />
-            )}
+            <AddTagTerm
+                onOpenModal={onOpenModal}
+                entityUrn={entityUrn}
+                entityType={entityType}
+                entitySubresource={entitySubresource}
+                showAddModal={showAddModal}
+                setShowAddModal={setShowAddModal}
+                addModalType={addModalType}
+            />
         </TagTermWrapper>
     );
 }

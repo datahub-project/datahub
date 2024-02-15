@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { ColumnsType } from 'antd/es/table';
 import { Button, Table } from 'antd';
 import styled from 'styled-components';
-
+import { FixedType } from 'rc-table/lib/interface';
 import {
     EditableSchemaMetadata,
     EntityType,
@@ -15,6 +15,8 @@ import useDescriptionRenderer from './utils/useDescriptionRenderer';
 import useUsageStatsRenderer from './utils/useUsageStatsRenderer';
 import { useEntityData } from '../../../EntityContext';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
+import { REDESIGN_COLORS } from '../../../constants';
+import ExpandIcon from './components/ExpandIcon';
 
 export type Props = {
     rows: Array<ExtendedSchemaFields>;
@@ -25,10 +27,29 @@ export type Props = {
 };
 
 const TableContainer = styled.div<{ fullHeight?: boolean }>`
-    margin-top: ${(props) => (props.fullHeight ? '0px' : '-8px')};
+    margin-top: ${(props) => (props.fullHeight ? '0px' : '5px')};
     .ant-table-thead > tr > th {
         background-color: transparent;
         font-weight: 600;
+        color: ${REDESIGN_COLORS.DARK_GREY};
+        font-weight: 700;
+    }
+    &&& .ant-table-cell:first-of-type {
+        padding: 8px 8px 8px 0px;
+    }
+    &&& .description-column {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        max-width: 100px;
+    }
+`;
+
+const StyledButton = styled(Button)`
+    color: #b0a2c2;
+    font-weight: 500;
+    :hover {
+        color: ${REDESIGN_COLORS.DARK_GREY};
     }
 `;
 
@@ -54,8 +75,7 @@ export default function CompactSchemaTable({
     const hasSeeMore = rows.length > numberOfRowsToShow;
 
     const fieldColumn = {
-        ellipsis: true,
-        width: '45%',
+        fixed: 'left' as FixedType,
         title: 'Name',
         dataIndex: 'fieldPath',
         key: 'fieldPath',
@@ -71,10 +91,10 @@ export default function CompactSchemaTable({
 
     const descriptionColumn = {
         ellipsis: true,
-        width: '45%',
         title: 'Description',
         dataIndex: 'description',
         key: 'description',
+        className: 'description-column',
         render: descriptionRender,
         onCell: () => ({
             style: {
@@ -97,7 +117,7 @@ export default function CompactSchemaTable({
     }
 
     const usageColumn = {
-        width: '10%',
+        width: '100',
         title: 'Usage',
         dataIndex: 'fieldPath',
         key: 'usage',
@@ -127,11 +147,15 @@ export default function CompactSchemaTable({
                     },
                     id: `column-${record.fieldPath}`,
                 })}
+                scroll={{ x: 'auto' }}
+                expandable={{
+                    expandIcon: (props) => <ExpandIcon {...props} isCompact />,
+                }}
             />
             {hasSeeMore && (
-                <Button type="text" size="small" href={entityRegistry.getEntityUrl(EntityType.Dataset, urn)}>
+                <StyledButton type="text" size="small" href={entityRegistry.getEntityUrl(EntityType.Dataset, urn)}>
                     View {rows.length - numberOfRowsToShow} More
-                </Button>
+                </StyledButton>
             )}
         </TableContainer>
     );

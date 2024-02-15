@@ -9,7 +9,7 @@ import { EntityActionItem } from '../../../entity/EntityActions';
 import { EntitySidebarTab, EntitySubHeaderSection, TabContextType, TabRenderType } from '../../../types';
 import { EntityHeader } from '../header/EntityHeader';
 import { EntitySidebarTabs } from './EntitySidebarTabs';
-import SidebarCollapseControls from './SidebarCollapseControls';
+import SidebarCollapsibleHeader from './SidebarCollapsibleHeader';
 
 export const StyledEntitySidebarContainer = styled.div<{
     isCollapsed: boolean;
@@ -38,7 +38,6 @@ export const StyledSidebar = styled.div<{ isCard: boolean; isFocused?: boolean; 
     overflow: hidden;
     min-height: 100%;
     display: flex;
-    flex-direction: column;
     border-top: ${(props) => (props.isFocused ? `1px solid ${SEARCH_COLORS.TITLE_PURPLE}` : 'inherit')};
     border-top-width: ${(props) => (props.isFocused ? 'medium' : 'inherit')};
 `;
@@ -53,16 +52,22 @@ const Body = styled.div`
     flex: 1;
 `;
 
-const Content = styled.div<{ isVisible }>`
-    display: ${(props) => (props.isVisible ? 'normal' : 'normal')} !important;
+const Content = styled.div`
     flex: 1;
     min-height: 100%;
     display: flex;
     flex-direction: column;
     overflow: hidden;
     white-space: nowrap;
-    ${(props) => props.isVisible && 'border-right: 1px solid #e8e8e8;'}
 `;
+
+const ContentContainer = styled.div<{ isVisible: boolean }>`
+    flex: 1;
+    ${(props) => props.isVisible && 'border-right: 1px solid #e8e8e8;'}
+    overflow: inherit;
+`;
+
+const TabsContainer = styled.div``;
 
 const Tabs = styled.div``;
 
@@ -82,7 +87,6 @@ interface Props {
     contextType?: TabContextType;
     hideHeader?: boolean;
     hideCollapse?: boolean;
-    hideCollapseViewDetails?: boolean;
     width?: number;
 }
 
@@ -97,7 +101,6 @@ export default function EntityProfileSidebar({
     contextType = TabContextType.PROFILE_SIDEBAR,
     hideHeader = false,
     hideCollapse = false,
-    hideCollapseViewDetails = true,
     width,
 }: Props) {
     const { isClosed, setSidebarClosed } = useContext(EntitySidebarContext);
@@ -122,28 +125,34 @@ export default function EntityProfileSidebar({
             isCard={isCardLayout}
         >
             <StyledSidebar isCard={isCardLayout} isFocused={focused}>
-                {!hideCollapse && <SidebarCollapseControls hideCollapseViewDetails={hideCollapseViewDetails} />}
-                {!hideHeader && !isClosed && (
-                    <Header>
-                        <EntityHeader
-                            headerDropdownItems={headerDropdownItems}
-                            headerActionItems={headerActionItems}
-                            subHeader={subHeader}
-                            isCompact
-                        />
-                        <HeaderDivider />
-                    </Header>
+                {!isClosed && (
+                    <ContentContainer isVisible={!isClosed}>
+                        {!hideCollapse && <SidebarCollapsibleHeader currentTab={selectedTab} />}
+                        {!hideHeader && (
+                            <Header>
+                                <EntityHeader
+                                    headerDropdownItems={headerDropdownItems}
+                                    headerActionItems={headerActionItems}
+                                    subHeader={subHeader}
+                                    isCompact
+                                />
+                                <HeaderDivider />
+                            </Header>
+                        )}
+                        <Body>
+                            {selectedTab && (
+                                <Content>
+                                    <selectedTab.component
+                                        properties={selectedTab.properties}
+                                        renderType={TabRenderType.COMPACT}
+                                        contextType={contextType}
+                                    />
+                                </Content>
+                            )}
+                        </Body>
+                    </ContentContainer>
                 )}
-                <Body>
-                    {selectedTab && (
-                        <Content isVisible={!isClosed}>
-                            <selectedTab.component
-                                properties={selectedTab.properties}
-                                renderType={TabRenderType.COMPACT}
-                                contextType={contextType}
-                            />
-                        </Content>
-                    )}
+                <TabsContainer>
                     <Tabs>
                         <EntitySidebarTabs
                             tabs={tabs}
@@ -151,7 +160,7 @@ export default function EntityProfileSidebar({
                             onSelectTab={(name) => setSelectedTabName(name)}
                         />
                     </Tabs>
-                </Body>
+                </TabsContainer>
             </StyledSidebar>
         </StyledEntitySidebarContainer>
     );

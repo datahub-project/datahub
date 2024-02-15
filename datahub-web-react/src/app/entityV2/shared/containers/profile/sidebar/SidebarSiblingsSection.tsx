@@ -6,9 +6,11 @@ import { Dataset, Entity } from '../../../../../../types.generated';
 import { SEPARATE_SIBLINGS_URL_PARAM, stripSiblingsFromEntity, useIsSeparateSiblingsMode } from '../../../siblingUtils';
 import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
 import { SidebarSection } from './SidebarSection';
+import { REDESIGN_COLORS } from '../../../constants';
 
 const EntityListContainer = styled.div`
     margin-left: -8px;
+    color: ${REDESIGN_COLORS.DARK_GREY};
 `;
 
 export const SidebarSiblingsSection = () => {

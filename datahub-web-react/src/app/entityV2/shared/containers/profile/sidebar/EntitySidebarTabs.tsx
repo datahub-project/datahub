@@ -1,8 +1,11 @@
-import React from 'react';
+import React, { useContext } from 'react';
 import styled from 'styled-components/macro';
 import { Tabs, Tooltip } from 'antd';
 import { EntitySidebarTab } from '../../../types';
 import { useBaseEntity, useEntityData } from '../../../EntityContext';
+import SidebarCollapseIcon from './SidebarCollapseIcon';
+import EntitySidebarContext from '../../../../../shared/EntitySidebarContext';
+import { REDESIGN_COLORS } from '../../../constants';
 
 type Props = {
     tabs: EntitySidebarTab[];
@@ -10,7 +13,7 @@ type Props = {
     onSelectTab: (name: string) => void;
 };
 
-const UnborderedTabs = styled(Tabs)`
+const UnborderedTabs = styled(Tabs)<{ isClosed: boolean }>`
     height: 100%;
     &&& .ant-tabs-nav {
         margin-bottom: 0;
@@ -25,12 +28,21 @@ const UnborderedTabs = styled(Tabs)`
         display: flex;
         align-items: center;
         justify-content: center;
+        :hover {
+            color: ${REDESIGN_COLORS.LINK_HOVER_BLUE};
+        }
     }
     &&& .ant-tabs-tab-active {
-        background-color: #533fd1;
+        background-color: ${(props) => !props.isClosed && `${REDESIGN_COLORS.TITLE_PURPLE}`};
+        :hover {
+            color: ${(props) => (props.isClosed ? `${REDESIGN_COLORS.LINK_HOVER_BLUE}` : 'white')};
+        }
     }
     &&& .ant-tabs-tab-active .ant-tabs-tab-btn {
-        color: #ffffff;
+        color: ${(props) => (props.isClosed ? 'black' : 'white')};
+        :hover {
+            color: ${(props) => (props.isClosed ? `${REDESIGN_COLORS.LINK_HOVER_BLUE}` : 'white')};
+        }
     }
     &&& .ant-tabs-content-holder {
         display: none;
@@ -51,30 +63,39 @@ export const EntitySidebarTabs = <T,>({ tabs, selectedTab, onSelectTab }: Props)
     const { entityData } = useEntityData();
     const baseEntity = useBaseEntity<T>();
 
+    const { isClosed, setSidebarClosed } = useContext(EntitySidebarContext);
+
     return (
-        <UnborderedTabs
-            animated={false}
-            tabPosition="right"
-            activeKey={selectedTab?.name || ''}
-            size="large"
-            onTabClick={(name: string) => onSelectTab(name)}
-        >
-            {tabs.map((tab) => {
-                const TabIcon = tab.icon;
-                const { name } = tab;
-                const isDisabled = !tab.display?.enabled(entityData, baseEntity);
-                return (
-                    <Tab
-                        disabled={isDisabled}
-                        tab={
-                            <Tooltip title={name} placement="left" showArrow={false}>
-                                <TabIcon style={tabIconStyle} />
-                            </Tooltip>
-                        }
-                        key={tab.name}
-                    />
-                );
-            })}
-        </UnborderedTabs>
+        <>
+            <SidebarCollapseIcon />
+            <UnborderedTabs
+                animated={false}
+                tabPosition="right"
+                activeKey={selectedTab?.name || ''}
+                size="large"
+                onTabClick={(name: string) => {
+                    onSelectTab(name);
+                    setSidebarClosed(false);
+                }}
+                isClosed={isClosed}
+            >
+                {tabs.map((tab) => {
+                    const TabIcon = tab.icon;
+                    const { name } = tab;
+                    const isDisabled = !tab.display?.enabled(entityData, baseEntity);
+                    return (
+                        <Tab
+                            disabled={isDisabled}
+                            tab={
+                                <Tooltip title={name} placement="left" showArrow={false}>
+                                    <TabIcon style={tabIconStyle} />
+                                </Tooltip>
+                            }
+                            key={tab.name}
+                        />
+                    );
+                })}
+            </UnborderedTabs>
+        </>
     );
 };

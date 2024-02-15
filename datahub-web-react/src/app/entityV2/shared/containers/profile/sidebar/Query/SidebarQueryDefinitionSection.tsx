@@ -5,6 +5,7 @@ import { QueryEntity } from '../../../../../../../types.generated';
 import { SidebarSection } from '../SidebarSection';
 import PlatformIcon from '../../../../../../sharedV2/icons/PlatformIcon';
 import { useEntityRegistry } from '../../../../../../useEntityRegistry';
+import { REDESIGN_COLORS } from '../../../../constants';
 
 const DefinitionLink = styled.a`
     align-items: center;
@@ -22,6 +23,7 @@ const DefinitionName = styled.span`
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    color: ${REDESIGN_COLORS.DARK_GREY};
 `;
 
 export default function SidebarQueryDefinitionSection() {

@@ -5,6 +5,7 @@ import { Owner, OwnershipTypeEntity } from '../../../../../../../../types.genera
 import { ExpandedOwner } from '../../../../../components/styled/ExpandedOwner/ExpandedOwner';
 import { useMutationUrn, useRefetch } from '../../../../../EntityContext';
 import { getOwnershipTypeName } from '../ownershipUtils';
+import { REDESIGN_COLORS } from '../../../../../constants';
 
 const OwnershipTypeContainer = styled.div`
     display: flex;
@@ -16,7 +17,7 @@ const OwnershipTypeNameText = styled(Typography.Text)`
     font-family: 'Mulish', sans-serif;
     font-weight: 500;
     font-size: 10px;
-    color: #434343;
+    color: ${REDESIGN_COLORS.DARK_GREY};
 `;
 
 const OwnersContainer = styled.div`

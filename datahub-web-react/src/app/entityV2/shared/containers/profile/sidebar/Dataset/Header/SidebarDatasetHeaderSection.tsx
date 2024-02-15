@@ -4,10 +4,13 @@ import { SidebarHeaderSectionColumns } from '../../SidebarHeaderSectionColumns';
 import SidebarPopularityHeaderSection from './SidebarPopularityHeaderSection';
 import SidebarTopUsersHeaderSection from '../../shared/SidebarTopUsersHeaderSection';
 import { isValuePresent, userExists } from '../../shared/utils';
+import CompactContext from '../../../../../../../shared/CompactContext';
 
 const SidebarDatasetHeaderSection = () => {
     const { entityData } = useEntityData();
     const dataset = entityData as any;
+
+    const isCompact = React.useContext(CompactContext);
 
     const columns: any = [];
 
@@ -37,7 +40,7 @@ const SidebarDatasetHeaderSection = () => {
         });
     }
 
-    if (!columns.length) {
+    if (!columns.length && !isCompact) {
         return null;
     }
 

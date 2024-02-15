@@ -5,7 +5,7 @@ import { PageRoutes } from '../../../conf/Global';
 import EntitySidebarContext from '../../shared/EntitySidebarContext';
 import TagStyleEntity from '../../shared/TagStyleEntity';
 import { StyledEntitySidebarContainer, StyledSidebar } from '../shared/containers/profile/sidebar/EntityProfileSidebar';
-import SidebarCollapseControls from '../shared/containers/profile/sidebar/SidebarCollapseControls';
+import SidebarCollapsibleHeader from '../shared/containers/profile/sidebar/SidebarCollapsibleHeader';
 
 const CompactEntityWrapper = styled.div`
     padding: 16px;
@@ -31,7 +31,7 @@ export default function CompactTagProfile({ urn }: Props) {
             isCard={isInSearch}
         >
             <StyledSidebar isCard={isInSearch} isFocused={isInSearch}>
-                <SidebarCollapseControls hideCollapseViewDetails />
+                <SidebarCollapsibleHeader />
                 {!isClosed && (
                     <CompactEntityWrapper>
                         <TagStyleEntity urn={urn} />

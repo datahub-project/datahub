@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { Typography, Modal, message } from 'antd';
-import { EditOutlined } from '@ant-design/icons';
+import { Modal, message } from 'antd';
+import AddRoundedIcon from '@mui/icons-material/AddRounded';
+import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import { EMPTY_MESSAGES } from '../../../../constants';
 import { useEntityData, useMutationUrn, useRefetch } from '../../../../EntityContext';
 import { SetDomainModal } from './SetDomainModal';
@@ -9,6 +10,8 @@ import { useUnsetDomainMutation } from '../../../../../../../graphql/mutations.g
 import { DomainLink } from '../../../../../../sharedV2/tags/DomainLink';
 import { ENTITY_PROFILE_DOMAINS_ID } from '../../../../../../onboarding/config/EntityProfileOnboardingConfig';
 import { SidebarSection } from '../SidebarSection';
+import SectionActionButton from '../SectionActionButton';
+import EmptySectionText from '../EmptySectionText';
 
 const Content = styled.div`
     display: flex;
@@ -18,27 +21,10 @@ const Content = styled.div`
     text-wrap: wrap;
 `;
 
-const SetDomainButton = styled.div`
-    margin: 0px;
-    padding: 0px;
-    :hover {
-        cursor: pointer;
-    }
-`;
-
-const StyledEditOutlined = styled(EditOutlined)`
-    && {
-        font-size: 10px;
-        margin-right: 6px;
-    }
-`;
-
-const EmptyText = styled(Typography.Text)`
-    margin-right: 12px;
-`;
-
 const DomainLinkWrapper = styled.div`
     margin-right: 12px;
+    display: flex;
+    align-items: center;
 `;
 
 interface PropertiesProps {
@@ -58,6 +44,8 @@ export const SidebarDomainSection = ({ readOnly, properties }: Props) => {
     const [unsetDomainMutation] = useUnsetDomainMutation();
     const [showModal, setShowModal] = useState(false);
     const domain = entityData?.domain?.domain;
+
+    const canEditDomains = !!entityData?.privileges?.canEditDomains;
 
     const removeDomain = (urnToRemoveFrom) => {
         unsetDomainMutation({ variables: { entityUrn: urnToRemoveFrom } })
@@ -108,16 +96,19 @@ export const SidebarDomainSection = ({ readOnly, properties }: Props) => {
                             </DomainLinkWrapper>
                         )}
                         {(!domain || !!updateOnly) && (
-                            <>
-                                {!domain && <EmptyText type="secondary">{EMPTY_MESSAGES.domain.title}.</EmptyText>}
-                                {!readOnly && (
-                                    <SetDomainButton onClick={() => setShowModal(true)}>
-                                        <StyledEditOutlined /> Set domain
-                                    </SetDomainButton>
-                                )}
-                            </>
+                            <>{!domain && <EmptySectionText message={EMPTY_MESSAGES.domain.title} />}</>
                         )}
                     </Content>
+                }
+                extra={
+                    <SectionActionButton
+                        button={domain ? <EditOutlinedIcon /> : <AddRoundedIcon />}
+                        onClick={(event) => {
+                            setShowModal(true);
+                            event.stopPropagation();
+                        }}
+                        actionPrivilege={canEditDomains}
+                    />
                 }
             />
             {showModal && (

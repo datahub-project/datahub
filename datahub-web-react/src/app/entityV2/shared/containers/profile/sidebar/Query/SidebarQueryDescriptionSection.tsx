@@ -4,9 +4,11 @@ import styled from 'styled-components/macro';
 import { useBaseEntity } from '../../../../EntityContext';
 import { SidebarSection } from '../SidebarSection';
 import { QueryEntity } from '../../../../../../../types.generated';
+import { REDESIGN_COLORS } from '../../../../constants';
 
 const ContentWrapper = styled.div`
     font-size: 12px;
+    color: ${REDESIGN_COLORS.DARK_GREY};
 `;
 
 export default function SidebarQueryDescriptionSection() {

@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
-import { PlusOutlined } from '@ant-design/icons';
-import { Modal, Typography, message } from 'antd';
+import AddRoundedIcon from '@mui/icons-material/AddRounded';
+import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
+import { Modal, message } from 'antd';
 import { useEntityData } from '../../../../EntityContext';
 import { EMPTY_MESSAGES } from '../../../../constants';
 import SetDataProductModal from './SetDataProductModal';
@@ -9,6 +10,8 @@ import { DataProductLink } from '../../../../../../sharedV2/tags/DataProductLink
 import { useBatchSetDataProductMutation } from '../../../../../../../graphql/dataProduct.generated';
 import { DataProduct } from '../../../../../../../types.generated';
 import { SidebarSection } from '../SidebarSection';
+import SectionActionButton from '../SectionActionButton';
+import EmptySectionText from '../EmptySectionText';
 
 const Content = styled.div`
     display: flex;
@@ -17,30 +20,6 @@ const Content = styled.div`
     flex-wrap: wrap;
     text-wrap: wrap;
 `;
-
-const SetDataProductButton = styled.div`
-    margin: 0px;
-    padding: 0px;
-    :hover {
-        cursor: pointer;
-    }
-`;
-
-const EmptyText = styled(Typography.Text)`
-    &&& {
-        border-top: none;
-        padding-top: 0;
-        margin-right: 12px;
-    }
-`;
-
-const StyledPlusOutlined = styled(PlusOutlined)`
-    && {
-        font-size: 10px;
-        margin-right: 6px;
-    }
-`;
-
 interface Props {
     readOnly?: boolean;
 }
@@ -52,6 +31,8 @@ export default function DataProductSection({ readOnly }: Props) {
     const [dataProduct, setDataProduct] = useState<DataProduct | null>(null);
     const dataProductRelationships = entityData?.dataProduct?.relationships;
     const siblingUrns: string[] = entityData?.siblings?.siblings?.map((sibling) => sibling?.urn || '') || [];
+
+    const canEditDataProducts = !!entityData?.privileges?.canEditDataProducts;
 
     useEffect(() => {
         if (dataProductRelationships && dataProductRelationships.length > 0) {
@@ -108,17 +89,18 @@ export default function DataProductSection({ readOnly }: Props) {
                                 fontSize={12}
                             />
                         )}
-                        {!dataProduct && (
-                            <>
-                                <EmptyText type="secondary">{EMPTY_MESSAGES.dataProduct.title}.</EmptyText>
-                                {!readOnly && (
-                                    <SetDataProductButton onClick={() => setIsModalVisible(true)}>
-                                        <StyledPlusOutlined /> Add to product
-                                    </SetDataProductButton>
-                                )}
-                            </>
-                        )}
+                        {!dataProduct && <EmptySectionText message={EMPTY_MESSAGES.dataProduct.title} />}
                     </Content>
+                }
+                extra={
+                    <SectionActionButton
+                        button={dataProduct ? <EditOutlinedIcon /> : <AddRoundedIcon />}
+                        onClick={(event) => {
+                            setIsModalVisible(true);
+                            event.stopPropagation();
+                        }}
+                        actionPrivilege={canEditDataProducts}
+                    />
                 }
             />
             {isModalVisible && (

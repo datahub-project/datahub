@@ -20,7 +20,7 @@ export default function TopUsersFacepile({ users, max }: Props) {
                 return (
                     <Tooltip title={userName}>
                         <ActorAvatar
-                            size={32}
+                            size={26}
                             name={userName}
                             url={`/${entityRegistry.getPathName(EntityType.CorpUser)}/${user.urn}`}
                             photoUrl={

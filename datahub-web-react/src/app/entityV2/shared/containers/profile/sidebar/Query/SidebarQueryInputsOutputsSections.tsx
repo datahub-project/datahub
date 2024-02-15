@@ -4,6 +4,7 @@ import { SidebarSection } from '../SidebarSection';
 import EntitySidebarContext from '../../../../../../shared/EntitySidebarContext';
 import { useBaseEntity } from '../../../../EntityContext';
 import { QueryEntity } from '../../../../../../../types.generated';
+import { REDESIGN_COLORS } from '../../../../constants';
 
 const HeaderColumn = styled.th`
     padding: 0 0.5em 0 0;
@@ -13,6 +14,10 @@ const HeaderColumn = styled.th`
 
 const TextColumn = styled.td`
     text-wrap: wrap;
+`;
+
+const Container = styled.div`
+    color: ${REDESIGN_COLORS.DARK_GREY};
 `;
 
 export function SidebarQueryInputsSection() {
@@ -27,7 +32,7 @@ export function SidebarQueryInputsSection() {
         <SidebarSection
             title="Inputs"
             content={
-                <>
+                <Container>
                     <table cellSpacing={0} cellPadding={0}>
                         <tbody>
                             <tr>
@@ -44,7 +49,7 @@ export function SidebarQueryInputsSection() {
                             )}
                         </tbody>
                     </table>
-                </>
+                </Container>
             }
         />
     );
@@ -62,7 +67,7 @@ export function SidebarQueryOutputsSection() {
         <SidebarSection
             title="Outputs"
             content={
-                <>
+                <Container>
                     <table cellSpacing={0} cellPadding={0}>
                         <tbody>
                             <tr>
@@ -79,7 +84,7 @@ export function SidebarQueryOutputsSection() {
                             )}
                         </tbody>
                     </table>
-                </>
+                </Container>
             }
         />
     );

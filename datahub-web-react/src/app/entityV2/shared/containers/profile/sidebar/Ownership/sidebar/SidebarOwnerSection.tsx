@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
-import { Typography } from 'antd';
 import styled from 'styled-components/macro';
-import { PlusOutlined } from '@ant-design/icons';
+import AddRoundedIcon from '@mui/icons-material/AddRounded';
 // import { ExpandedOwner } from '../../../../../components/styled/ExpandedOwner/ExpandedOwner';
 import { EMPTY_MESSAGES } from '../../../../../constants';
 import { Owner, OwnershipType, OwnershipTypeEntity } from '../../../../../../../../types.generated';
@@ -11,6 +10,8 @@ import { ENTITY_PROFILE_OWNERS_ID } from '../../../../../../../onboarding/config
 import { OwnershipTypeSection } from './OwnershipTypeSection';
 import { getOwnershipTypeName } from '../ownershipUtils';
 import { SidebarSection } from '../../SidebarSection';
+import SectionActionButton from '../../SectionActionButton';
+import EmptySectionText from '../../EmptySectionText';
 
 const Content = styled.div`
     display: flex;
@@ -24,27 +25,6 @@ const OwnershipSections = styled.div`
     align-items: start;
     justify-content: start;
     flex-wrap: wrap;
-`;
-
-const EmptyText = styled(Typography.Text)`
-    && {
-        margin-right: 12px;
-    }
-`;
-
-const AddButton = styled.div`
-    margin: 0px;
-    padding: 0px;
-    :hover {
-        cursor: pointer;
-    }
-`;
-
-const StyledPlusOutlined = styled(PlusOutlined)`
-    && {
-        font-size: 10px;
-        margin-right: 6px;
-    }
 `;
 
 interface Props {
@@ -92,6 +72,8 @@ export const SidebarOwnerSection = ({ properties, readOnly }: Props) => {
             break;
     }
 
+    const canEditOwners = !!entityData?.privileges?.canEditOwners;
+
     return (
         <div id={ENTITY_PROFILE_OWNERS_ID}>
             <SidebarSection
@@ -112,13 +94,20 @@ export const SidebarOwnerSection = ({ properties, readOnly }: Props) => {
                                 );
                             })}
                         </OwnershipSections>
-                        {ownersEmpty && <EmptyText type="secondary">{EMPTY_MESSAGES.owners.title}.</EmptyText>}
-                        {!readOnly && (
-                            <AddButton data-testid="add-owners-button" onClick={() => setShowAddModal(true)}>
-                                <StyledPlusOutlined /> Add owners
-                            </AddButton>
-                        )}
+                        {ownersEmpty && <EmptySectionText message={EMPTY_MESSAGES.owners.title} />}
                     </Content>
+                }
+                extra={
+                    !readOnly && (
+                        <SectionActionButton
+                            button={<AddRoundedIcon />}
+                            onClick={(event) => {
+                                setShowAddModal(true);
+                                event.stopPropagation();
+                            }}
+                            actionPrivilege={canEditOwners}
+                        />
+                    )
                 }
             />
             {showAddModal && (

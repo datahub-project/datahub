@@ -16,10 +16,13 @@ export const REDESIGN_COLORS = {
     SIDE_BAR: '#E8E6EB',
     PRIMARY_PURPLE: '#736BA4',
     BACKGROUND_PURPLE: '#8D76E9',
+    TITLE_PURPLE: '#533FD1',
     LINK_HOVER_BLUE: '#5280E2',
     RED_ERROR_BORDER: '#FFA39E',
     BACKGROUND_SECONDARY_GRAY: '#AAA2CB0F',
     BACKGROUND_GRAY_2: '#FAF9FC',
+    SECONDARY_LIGHT_GREY: '#9DA7C0',
+    ACTION_ICON_GREY: '#676b75',
 };
 
 export const SEARCH_COLORS = {
@@ -66,7 +69,7 @@ export const ANTD_GRAY_V2 = {
 
 export const EMPTY_MESSAGES = {
     documentation: {
-        title: 'No documentation yet.',
+        title: 'No documentation yet',
     },
     tags: {
         title: 'No tags yet',
