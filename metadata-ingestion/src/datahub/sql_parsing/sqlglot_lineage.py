@@ -12,6 +12,7 @@ import sqlglot.optimizer.annotate_types
 import sqlglot.optimizer.optimizer
 import sqlglot.optimizer.qualify
 
+from datahub.cli.env_utils import get_boolean_env_variable
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import (
     ArrayTypeClass,
@@ -43,12 +44,17 @@ from datahub.sql_parsing.sqlglot_utils import (
     is_dialect_instance,
     parse_statement,
 )
+from datahub.utilities.timeout import timeout
 
 logger = logging.getLogger(__name__)
 
 Urn = str
 
 SQL_PARSE_RESULT_CACHE_SIZE = 1000
+SQL_LINEAGE_TIMEOUT_ENABLED = get_boolean_env_variable(
+    "SQL_LINEAGE_TIMEOUT_ENABLED", True
+)
+SQL_LINEAGE_TIMEOUT_SECONDS = 10
 
 
 RULES_BEFORE_TYPE_ANNOTATION: tuple = tuple(
@@ -749,6 +755,7 @@ def _translate_internal_column_lineage(
     )
 
 
+@timeout(enabled=SQL_LINEAGE_TIMEOUT_ENABLED, seconds=SQL_LINEAGE_TIMEOUT_SECONDS)
 def _sqlglot_lineage_inner(
     sql: sqlglot.exp.ExpOrStr,
     schema_resolver: SchemaResolverInterface,
