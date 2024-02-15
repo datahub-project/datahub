@@ -69,8 +69,7 @@
             "lastModified": {
                 "time": 1707182625000,
                 "actor": "urn:li:corpuser:_ingestion"
-            },
-            "dataPlatform": "urn:li:dataPlatform:redshift"
+            }
         }
     }
 },
@@ -163,8 +162,7 @@
             "lastModified": {
                 "time": 1707182625000,
                 "actor": "urn:li:corpuser:_ingestion"
-            },
-            "dataPlatform": "urn:li:dataPlatform:redshift"
+            }
         }
     }
 },
@@ -231,8 +229,7 @@
             "lastModified": {
                 "time": 1707182625000,
                 "actor": "urn:li:corpuser:_ingestion"
-            },
-            "dataPlatform": "urn:li:dataPlatform:redshift"
+            }
         }
     }
 },

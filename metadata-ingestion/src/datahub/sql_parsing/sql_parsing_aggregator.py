@@ -809,7 +809,6 @@ class SqlParsingAggregator:
                 entityUrn=self._query_urn(query_id),
                 aspects=[
                     models.QueryPropertiesClass(
-                        dataPlatform=self.platform.urn(),
                         statement=models.QueryStatementClass(
                             value=query.formatted_query_string,
                             language=models.QueryLanguageClass.SQL,

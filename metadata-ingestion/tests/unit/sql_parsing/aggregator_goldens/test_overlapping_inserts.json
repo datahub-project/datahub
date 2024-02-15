@@ -106,8 +106,7 @@
             "lastModified": {
                 "time": 25000,
                 "actor": "urn:li:corpuser:_ingestion"
-            },
-            "dataPlatform": "urn:li:dataPlatform:redshift"
+            }
         }
     }
 },
@@ -148,8 +147,7 @@
             "lastModified": {
                 "time": 20000,
                 "actor": "urn:li:corpuser:_ingestion"
-            },
-            "dataPlatform": "urn:li:dataPlatform:redshift"
+            }
         }
     }
 },

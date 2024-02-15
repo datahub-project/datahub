@@ -75,14 +75,13 @@
             },
             "source": "SYSTEM",
             "created": {
-                "time": 0,
+                "time": 20000,
                 "actor": "urn:li:corpuser:_ingestion"
             },
             "lastModified": {
-                "time": 1707182625000,
+                "time": 20000,
                 "actor": "urn:li:corpuser:_ingestion"
-            },
-            "dataPlatform": "urn:li:dataPlatform:redshift"
+            }
         }
     }
 },
