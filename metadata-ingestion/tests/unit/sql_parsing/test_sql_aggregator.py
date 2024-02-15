@@ -248,3 +248,39 @@ def test_known_lineage_mapping(pytestconfig: pytest.Config) -> None:
         outputs=mcps,
         golden_path=RESOURCE_DIR / "test_known_lineage_mapping.json",
     )
+
+
+@freeze_time(FROZEN_TIME)
+def test_column_lineage_deduplication(pytestconfig: pytest.Config) -> None:
+    aggregator = SqlParsingAggregator(
+        platform="redshift",
+        platform_instance=None,
+        env=builder.DEFAULT_ENV,
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+    )
+
+    aggregator.add_observed_query(
+        query="/* query 1 */ insert into foo (a, b, c) select a, b, c from bar",
+        default_db="dev",
+        default_schema="public",
+    )
+    aggregator.add_observed_query(
+        query="/* query 2 */ insert into foo (a, b) select a, b from bar",
+        default_db="dev",
+        default_schema="public",
+    )
+
+    mcps = list(aggregator.gen_metadata())
+
+    # In this case, the lineage for a and b is attributed to query 2, and
+    # the lineage for c is attributed to query 1. Note that query 1 does
+    # not get any credit for a and b, as they are already covered by query 2,
+    # which came later and hence has higher precedence.
+
+    mce_helpers.check_goldens_stream(
+        pytestconfig,
+        outputs=mcps,
+        golden_path=RESOURCE_DIR / "test_column_lineage_deduplication.json",
+    )
