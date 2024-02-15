@@ -1200,8 +1200,14 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                 continue
 
             query: Query = self.looker_api.look(look.id, fields="query").query
-            filtered_query_dict = {key: getattr(query, key) for key in query_fields if hasattr(query, key)}
-            query = Query(**filtered_query_dict)
+            # Only include fields that are in the query_fields list
+            query = Query(
+                **{
+                    key: getattr(query, key)
+                    for key in query_fields
+                    if hasattr(query, key)
+                }
+            )
 
             dashboard_element: Optional[
                 LookerDashboardElement
