@@ -15,6 +15,7 @@ from looker_sdk.sdk.api40.models import (
     DBConnection,
     Folder,
     Look,
+    LookWithQuery,
     LookmlModel,
     LookmlModelExplore,
     Query,
@@ -256,7 +257,7 @@ class LookerAPI:
             transport_options=self.transport_options,
         )
 
-    def get_look(self, look_id: str, fields: Union[str, List[str]]) -> Look:
+    def get_look(self, look_id: str, fields: Union[str, List[str]]) -> LookWithQuery:
         self.client_stats.get_look_calls += 1
         return self.client.look(
             look_id=look_id,
