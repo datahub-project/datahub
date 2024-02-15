@@ -23,7 +23,7 @@ import click
 from datahub.utilities.tee_io import TeeIO
 
 BASE_LOGGING_FORMAT = (
-    "[%(asctime)s] %(levelname)-8s {%(name)s:%(lineno)d} - %(message)s"
+    "[%(asctime)s] %(levelname)-8s {%(filename)s:%(lineno)d} - %(message)s"
 )
 DATAHUB_PACKAGES = [
     "datahub",
