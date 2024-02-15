@@ -1,49 +1,144 @@
-import React, { useRef } from 'react';
+import React from 'react';
 import styled from 'styled-components';
-import { NoMarginButton } from './styledComponents';
-import { ANTD_GRAY_V2 } from '../../shared/constants';
+import GridViewIcon from '@mui/icons-material/GridView';
+import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
+import PublicIcon from '@mui/icons-material/Public';
+import { Input } from 'antd';
+import { SearchOutlined } from '@ant-design/icons';
+import { ANTD_GRAY, REDESIGN_COLORS } from '../../shared/constants';
 
-const ButtonContainer = styled.div`
-    display: flex;
-    justify-content: space-between;
-`;
-
-const AllEntitiesButton = styled(NoMarginButton)`
-    &&& {
-        font-weight: normal;
-        border-bottom: 1px solid ${ANTD_GRAY_V2[5]};
-        width: 100%;
-        text-align: left;
-        border-bottom-left-radius: 0;
-        border-bottom-right-radius: 0;
-        margin-left: 8px;
-        margin-right: 8px;
-        padding-left: 0px;
+const StyledInput = styled(Input)`
+    border-radius: 70px;
+    max-width: 300px;
+    background-color: ${REDESIGN_COLORS.BACKGROUND_OVERLAY_BLACK_SEARCH};
+    border-radius: 7px;
+    border: unset;
+    & .ant-input {
+        background-color: transparent;
+        color: ${ANTD_GRAY[5]};
     }
 `;
 
+const ViewHeader = styled.div`
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    align-items: center;
+    .select-container {
+        display: flex;
+        gap: 1rem;
+        align-items: center;
+        .select-view-icon {
+            color: ${REDESIGN_COLORS.BLACK};
+            display: flex;
+            gap: 0.5rem;
+            background: ${ANTD_GRAY[1]};
+            border-radius: 30px;
+            padding: 2px;
+            > div {
+                padding: 5px 4px;
+                display: flex;
+                align-item: center;
+                border-radius: 100px;
+                cursor: pointer;
+                &.active {
+                    background: #533fd1;
+                    color: ${ANTD_GRAY[1]};
+                }
+            }
+        }
+        .select-view-label {
+            font-size: 14px;
+            font-weight: 700;
+        }
+    }
+    .search-manage-container {
+        display: flex;
+        gap: 1rem;
+        align-items: center;
+        .manage {
+            color: ${REDESIGN_COLORS.VIEW_PURPLE};
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+    }
+`;
+
+const GridViewIconStyle = styled(GridViewIcon)`
+    font-size: 13px !important;
+`;
+
+const LockOutlinedIconStyle = styled(LockOutlinedIcon)`
+    font-size: 13px !important;
+`;
+
+const PublicIconStyle = styled(PublicIcon)`
+    font-size: 13px !important;
+`;
+
+const SearchOutlinedStyle = styled(SearchOutlined)`
+    color: ${ANTD_GRAY[5]};
+`;
+
 type Props = {
-    onClickClear: () => void;
+    privateView: boolean;
+    publicView: boolean;
+    onClickViewTypeFilter: (type: string) => void;
+    onClickManageViews: () => void;
+    onChangeSearch: (text: any) => void;
 };
 
-export const ViewSelectHeader = ({ onClickClear }: Props) => {
-    const clearButtonRef = useRef(null);
-
-    const onHandleClickClear = () => {
-        (clearButtonRef?.current as any)?.blur();
-        onClickClear();
-    };
-
+export const ViewSelectHeader = ({
+    publicView,
+    privateView,
+    onClickViewTypeFilter,
+    onChangeSearch,
+    onClickManageViews,
+}: Props) => {
     return (
-        <ButtonContainer>
-            <AllEntitiesButton
-                data-testid="view-select-clear"
-                type="text"
-                ref={clearButtonRef}
-                onClick={onHandleClickClear}
-            >
-                View all
-            </AllEntitiesButton>
-        </ButtonContainer>
+        <ViewHeader>
+            <div className="select-container">
+                <div className="select-view-icon">
+                    <div
+                        className={`${publicView && privateView ? 'active' : ''}`}
+                        onClick={() => onClickViewTypeFilter('all')}
+                        role="none"
+                    >
+                        <GridViewIconStyle />
+                    </div>
+                    <div
+                        className={`${!publicView && privateView ? 'active' : ''}`}
+                        onClick={() => onClickViewTypeFilter('private')}
+                        role="none"
+                    >
+                        <LockOutlinedIconStyle />
+                    </div>
+                    <div
+                        className={`${publicView && !privateView ? 'active' : ''}`}
+                        onClick={() => onClickViewTypeFilter('public')}
+                        role="none"
+                    >
+                        <PublicIconStyle />
+                    </div>
+                </div>
+                <div className="select-view-label">Select Your View</div>
+            </div>
+            <div className="search-manage-container">
+                <div>
+                    <StyledInput
+                        className="style-input-container"
+                        placeholder="Search"
+                        onChange={onChangeSearch}
+                        allowClear
+                        prefix={<SearchOutlinedStyle />}
+                        data-testid="search-overlay-input"
+                    />
+                </div>
+                <div className="manage" onClick={() => onClickManageViews()} role="none">
+                    Manage All
+                </div>
+            </div>
+        </ViewHeader>
     );
 };

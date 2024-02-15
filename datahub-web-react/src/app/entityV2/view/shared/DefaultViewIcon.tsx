@@ -2,17 +2,17 @@ import React from 'react';
 import styled from 'styled-components';
 import { Tooltip } from 'antd';
 
-const CircleContainer = styled.span`
-    width: 10px;
-    height: 10px;
+const CircleContainer = styled.span<{ size?: number }>`
+    width: ${(props) => (props.size ? props.size : 10)}px;
+    height: ${(props) => (props.size ? props.size : 10)}px;
     display: flex;
     align-items: center;
     justify-content: center;
 `;
 
-const Circle = styled.span<{ color: string }>`
-    width: 6px;
-    height: 6px;
+const Circle = styled.span<{ color: string; size?: number }>`
+    width: ${(props) => (props.size ? props.size : 6)}px;
+    height: ${(props) => (props.size ? props.size : 6)}px;
     border-radius: 50%;
     padding: 0px;
     margin: 0px;
@@ -23,13 +23,14 @@ const Circle = styled.span<{ color: string }>`
 type Props = {
     title?: React.ReactNode;
     color: string;
+    size?: number;
 };
 
-export const DefaultViewIcon = ({ title, color }: Props) => {
+export const DefaultViewIcon = ({ title, color, size }: Props) => {
     return (
         <Tooltip title={title}>
-            <CircleContainer>
-                <Circle color={color} />
+            <CircleContainer size={size}>
+                <Circle color={color} size={size} />
             </CircleContainer>
         </Tooltip>
     );

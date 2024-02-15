@@ -28,7 +28,7 @@ const Body = styled.div`
 `;
 
 const Navigation = styled.div`
-    z-index: 11;
+    z-index: 14;
 `;
 
 const Content = styled.div`

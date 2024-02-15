@@ -1,8 +1,8 @@
-import React, { CSSProperties, useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useHistory } from 'react-router';
-import { Select, Tooltip } from 'antd';
+import { Popover } from 'antd';
 import styled from 'styled-components';
-import PublicIcon from '@mui/icons-material/Public';
+import { debounce } from 'lodash';
 import { useListMyViewsQuery, useListGlobalViewsQuery } from '../../../../graphql/view.generated';
 import { useUserContext } from '../../../context/useUserContext';
 import { DataHubView, DataHubViewType } from '../../../../types.generated';
@@ -10,9 +10,13 @@ import { ViewBuilder } from '../builder/ViewBuilder';
 import { DEFAULT_LIST_VIEWS_PAGE_SIZE } from '../utils';
 import { PageRoutes } from '../../../../conf/Global';
 import { ViewBuilderMode } from '../builder/types';
-import { ViewSelectDropdown } from './ViewSelectDropdown';
 import { renderViewOptionGroup } from './renderViewOptionGroup';
-import { ANTD_GRAY } from '../../shared/constants';
+import { renderSelectedView } from './renderSelectedView';
+import { ANTD_GRAY, REDESIGN_COLORS } from '../../shared/constants';
+import { HALF_SECOND_IN_MS, MAX_ROWS_BEFORE_DEBOUNCE } from '../../shared/tabs/Dataset/Queries/utils/constants';
+import { filterViews } from './utils';
+import { ViewSelectPopoverContent } from './ViewSelectPopoverContent';
+import './style.css';
 
 type ViewBuilderDisplayState = {
     mode: ViewBuilderMode;
@@ -31,6 +35,16 @@ const ViewSelectContainer = styled.div`
         display: flex;
         align-items: center;
         padding: 0px 0px;
+        & .close-container {
+            position: absolute;
+            top: -10px;
+            right: -5px;
+            background-color: ${ANTD_GRAY[1]};
+            display: flex;
+            align-items: center;
+            border-radius: 100%;
+            padding: 5px;
+        }
         .ant-select {
             .ant-select-selection-search {
                 position: absolute;
@@ -38,7 +52,7 @@ const ViewSelectContainer = styled.div`
             &.ant-select-open {
                 .ant-select-selection-placeholder,
                 .ant-select-selection-item {
-                    color: ${(props) => props.theme.styles['primary-color']};
+                    color: ${ANTD_GRAY[1]};
                 }
             }
             &:not(.ant-select-open) {
@@ -63,13 +77,19 @@ const ViewSelectContainer = styled.div`
     }
 `;
 
-const SelectStyled = styled(Select)`
-    max-width: 200px;
-    min-width: 32px;
-`;
+const overlayInnerStyle = {
+    background: 'transparent',
+    display: 'flex',
+    width: '100%',
+};
 
-type Props = {
-    dropdownStyle?: CSSProperties;
+const overlayStyle = {
+    left: '0px',
+    backgroundColor: REDESIGN_COLORS.BACKGROUND_OVERLAY_BLACK,
+    backdropFilter: 'blur(5px)',
+    opacity: 0.97,
+    zIndex: 13,
+    'transform-origin': '0',
 };
 
 /**
@@ -81,7 +101,7 @@ type Props = {
  *
  * In the event that a user refreshes their browser, the state of the view should be saved as well.
  */
-export const ViewSelect = ({ dropdownStyle = {} }: Props) => {
+export const ViewSelect = () => {
     const history = useHistory();
     const userContext = useUserContext();
     const [viewBuilderDisplayState, setViewBuilderDisplayState] = useState<ViewBuilderDisplayState>(
@@ -91,13 +111,16 @@ export const ViewSelect = ({ dropdownStyle = {} }: Props) => {
         userContext.localState?.selectedViewUrn || undefined,
     );
     const [hoverViewUrn, setHoverViewUrn] = useState<string | undefined>(undefined);
+    const [privateView, setPrivateView] = useState<boolean>(true);
+    const [publicView, setPublicView] = useState<boolean>(true);
 
-    useEffect(() => {
-        setSelectedUrn(userContext.localState?.selectedViewUrn || undefined);
-    }, [userContext.localState?.selectedViewUrn, setSelectedUrn]);
+    const [filterText, setFilterText] = useState('');
+    const [isOpen, setIsOpen] = useState(false);
+    const [selectedViewName, setSelectedView] = useState<string>('');
 
     const selectRef = useRef(null);
 
+    const scrollToRef = useRef<HTMLDivElement>(null);
     /**
      * Queries - Notice, each of these queries is cached. Here we fetch both the user's private views,
      * along with all public views.
@@ -121,11 +144,39 @@ export const ViewSelect = ({ dropdownStyle = {} }: Props) => {
         fetchPolicy: 'cache-first',
     });
 
+    const highlightedPublicViewData = filterViews(filterText, publicViewsData?.listGlobalViews?.views || []);
+
+    const highlightedPrivateViewData = filterViews(filterText, privateViewsData?.listMyViews?.views || []);
+
+    useEffect(() => {
+        setSelectedUrn(userContext.localState?.selectedViewUrn || undefined);
+        const selectedView =
+            highlightedPrivateViewData?.find((view) => view?.urn === userContext.localState?.selectedViewUrn) ||
+            highlightedPublicViewData?.find((view) => view?.urn === userContext.localState?.selectedViewUrn);
+        setSelectedView(selectedView?.name || undefined);
+    }, [
+        userContext.localState?.selectedViewUrn,
+        setSelectedUrn,
+        highlightedPrivateViewData,
+        highlightedPublicViewData,
+    ]);
+
+    const debouncedSetFilterText = debounce(
+        (e: React.ChangeEvent<HTMLInputElement>) => setFilterText(e.target.value),
+        (highlightedPublicViewData.length || highlightedPrivateViewData.length) > MAX_ROWS_BEFORE_DEBOUNCE
+            ? HALF_SECOND_IN_MS
+            : 0,
+    );
+
     /**
      * Event Handlers
      */
 
     const onSelectView = (newUrn) => {
+        const selectedView =
+            highlightedPrivateViewData?.find((view) => view?.urn === selectedUrn) ||
+            highlightedPublicViewData?.find((view) => view?.urn === selectedUrn);
+        setSelectedView(selectedView?.name);
         userContext.updateLocalState({
             ...userContext.localState,
             selectedViewUrn: newUrn,
@@ -162,6 +213,7 @@ export const ViewSelect = ({ dropdownStyle = {} }: Props) => {
 
     const onClear = () => {
         setSelectedUrn(undefined);
+        setSelectedView('');
         userContext.updateLocalState({
             ...userContext.localState,
             selectedViewUrn: undefined,
@@ -172,88 +224,88 @@ export const ViewSelect = ({ dropdownStyle = {} }: Props) => {
         history.push(PageRoutes.SETTINGS_VIEWS);
     };
 
+    const onClickViewTypeFilter = (type: string) => {
+        setPrivateView(type === 'private' || type === 'all');
+        setPublicView(type === 'public' || type === 'all');
+    };
+
     /**
      * Render variables
      */
-    const privateViews = privateViewsData?.listMyViews?.views || [];
-    const publicViews = publicViewsData?.listGlobalViews?.views || [];
+    const privateViews = highlightedPrivateViewData || [];
+    const publicViews = highlightedPrivateViewData || [];
     const privateViewCount = privateViews?.length || 0;
     const publicViewCount = publicViews?.length || 0;
     const hasViews = privateViewCount > 0 || publicViewCount > 0 || false;
 
-    /**
-     * Notice - we assume that we will find the selected View urn in the list
-     * of Views retrieved for the user (private or public). If this is not the case,
-     * the view will be set to undefined.
-     *
-     * This may become a problem if a list of public views exceeds the default pagination size of 1,000.
-     */
-    const foundSelectedUrn =
-        (privateViews.filter((view) => view.urn === selectedUrn)?.length || 0) > 0 ||
-        (publicViews.filter((view) => view.urn === selectedUrn)?.length || 0) > 0 ||
-        false;
-
     return (
-        <Tooltip title="Select a view" showArrow={false} placement="right">
-            <ViewSelectContainer>
-                <SelectStyled
-                    data-testid="view-select"
-                    onChange={() => (selectRef?.current as any)?.blur()}
-                    value={(foundSelectedUrn && selectedUrn) || undefined}
-                    placeholder={<PublicIcon style={{ fontSize: 18, color: ANTD_GRAY[7] }} />}
-                    onSelect={onSelectView}
-                    onClear={onClear}
-                    ref={selectRef}
-                    optionLabelProp="label"
-                    bordered={false}
-                    dropdownMatchSelectWidth={false}
-                    dropdownStyle={{
-                        paddingBottom: 0,
-                        ...dropdownStyle,
-                    }}
-                    suffixIcon={null}
-                    dropdownRender={(menu) => (
-                        <ViewSelectDropdown
-                            menu={menu}
-                            hasViews={hasViews}
-                            onClickCreateView={onClickCreateView}
-                            onClickClear={onClear}
-                            onClickManageViews={onClickManageViews}
-                        />
-                    )}
-                >
-                    {privateViewCount > 0 &&
-                        renderViewOptionGroup({
-                            views: privateViews,
-                            label: 'Private',
-                            isOwnedByUser: true,
-                            userContext,
-                            hoverViewUrn,
-                            setHoverViewUrn,
-                            onClickEditView,
-                            onClickPreviewView,
-                        })}
-                    {publicViewCount > 0 &&
-                        renderViewOptionGroup({
-                            views: publicViews,
-                            label: 'Public',
-                            userContext,
-                            hoverViewUrn,
-                            setHoverViewUrn,
-                            onClickEditView,
-                            onClickPreviewView,
-                        })}
-                </SelectStyled>
-                {viewBuilderDisplayState.visible && (
-                    <ViewBuilder
-                        urn={viewBuilderDisplayState.view?.urn || undefined}
-                        initialState={viewBuilderDisplayState.view}
-                        mode={viewBuilderDisplayState.mode}
-                        onSubmit={onCloseViewBuilder}
-                        onCancel={onCloseViewBuilder}
-                    />
-                )}
-            </ViewSelectContainer>
-        </Tooltip>
+        <ViewSelectContainer>
+            <Popover
+                onOpenChange={() => {
+                    scrollToRef?.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+                    setIsOpen(!isOpen);
+                }}
+                content={
+                    <ViewSelectPopoverContent
+                        privateView={privateView}
+                        publicView={publicView}
+                        onClickCreateView={onClickCreateView}
+                        onClickManageViews={onClickManageViews}
+                        onClickViewTypeFilter={onClickViewTypeFilter}
+                        onChangeSearch={debouncedSetFilterText}
+                    >
+                        {hasViews &&
+                            privateViewCount > 0 &&
+                            privateView &&
+                            renderViewOptionGroup({
+                                selectedUrn,
+                                views: highlightedPrivateViewData,
+                                isOwnedByUser: true,
+                                userContext,
+                                hoverViewUrn,
+                                scrollToRef,
+                                setHoverViewUrn,
+                                onClickEditView,
+                                onClickPreviewView,
+                                onClickClear: onClear,
+                                onSelectView,
+                            })}
+                        {hasViews &&
+                            publicViewCount > 0 &&
+                            publicView &&
+                            renderViewOptionGroup({
+                                selectedUrn,
+                                views: highlightedPublicViewData,
+                                userContext,
+                                hoverViewUrn,
+                                scrollToRef,
+                                setHoverViewUrn,
+                                onClickEditView,
+                                onClickPreviewView,
+                                onClickClear: onClear,
+                                onSelectView,
+                            })}
+                    </ViewSelectPopoverContent>
+                }
+                trigger="click"
+                overlayClassName="view-select-popover"
+                overlayInnerStyle={overlayInnerStyle}
+                overlayStyle={overlayStyle}
+                showArrow={false}
+                popupVisible={false}
+                ref={selectRef}
+            >
+                {renderSelectedView({ selectedViewName, isOpen, onClear })}
+            </Popover>
+            {viewBuilderDisplayState.visible && (
+                <ViewBuilder
+                    urn={viewBuilderDisplayState.view?.urn || undefined}
+                    initialState={viewBuilderDisplayState.view}
+                    mode={viewBuilderDisplayState.mode}
+                    onSubmit={onCloseViewBuilder}
+                    onCancel={onCloseViewBuilder}
+                />
+            )}
+        </ViewSelectContainer>
     );
 };
