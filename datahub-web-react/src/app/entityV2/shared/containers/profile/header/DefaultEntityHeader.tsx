@@ -11,7 +11,7 @@ import EntityTitleLoadingSection from './EntityHeaderLoadingSection';
 import EntityPlatformLoadingSection from './EntityPlatformLoadingSection';
 import IconColorPicker from './IconPicker/IconColorPicker';
 
-import { EntityMenuItems } from '../../../EntityDropdown/EntityMenuActions';
+import EntityMenuActions, { EntityMenuItems } from '../../../EntityDropdown/EntityMenuActions';
 import { EntitySubHeaderSection } from '../../../types';
 import { DisplayProperties, Domain, EntityType } from '../../../../../../types.generated';
 import { DomainColoredIcon } from '../../../links/DomainColoredIcon';
@@ -133,6 +133,7 @@ export const DefaultEntityHeader = ({
     loading,
     entityData,
     refetch,
+    headerDropdownItems,
     headerActionItems,
     subHeader,
     showEditName,
@@ -204,6 +205,9 @@ export const DefaultEntityHeader = ({
                         {headerActionItems && (
                             <EntityActions urn={urn} actionItems={headerActionItems} refetchForEntity={refetch} />
                         )}
+                        {entityType !== EntityType.GlossaryNode &&
+                            entityType !== EntityType.GlossaryTerm &&
+                            headerDropdownItems && <EntityMenuActions menuItems={headerDropdownItems} />}
                     </TopButtonsWrapper>
                 </RightColumn>
             </Row>
