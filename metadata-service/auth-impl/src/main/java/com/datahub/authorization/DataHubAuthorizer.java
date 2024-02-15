@@ -24,6 +24,12 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import com.linkedin.metadata.query.filter.Condition;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
+import com.linkedin.metadata.query.filter.Criterion;
+import com.linkedin.metadata.query.filter.CriterionArray;
+import com.linkedin.metadata.query.filter.Filter;
 
 /**
  * The Authorizer is a singleton class responsible for authorizing operations on the DataHub
@@ -63,6 +69,8 @@ public class DataHubAuthorizer implements Authorizer {
   private EntitySpecResolver _entitySpecResolver;
   private AuthorizationMode _mode;
 
+  private Filter filter;
+
   public static final String ALL = "ALL";
 
   public DataHubAuthorizer(
@@ -81,7 +89,8 @@ public class DataHubAuthorizer implements Authorizer {
             new PolicyFetcher(entityClient),
             _policyCache,
             readWriteLock.writeLock(),
-            policyFetchSize);
+            policyFetchSize,
+            new Filter());
     _refreshExecutorService.scheduleAtFixedRate(
         _policyRefreshRunnable, delayIntervalSeconds, refreshIntervalSeconds, TimeUnit.SECONDS);
   }
@@ -266,6 +275,8 @@ public class DataHubAuthorizer implements Authorizer {
     private final Map<String, List<DataHubPolicyInfo>> _policyCache;
     private final Lock writeLock;
     private final int count;
+    private final Filter filter;
+
 
     @Override
     public void run() {
@@ -275,10 +286,11 @@ public class DataHubAuthorizer implements Authorizer {
         Integer total = null;
         String scrollId = null;
 
+
         while (total == null || scrollId != null) {
           try {
             final PolicyFetcher.PolicyFetchResult policyFetchResult =
-                _policyFetcher.fetchPolicies(count, scrollId, _systemAuthentication);
+                _policyFetcher.fetchPolicies(count, scrollId, _systemAuthentication,filter);
 
             addPoliciesToCache(newCache, policyFetchResult.getPolicies());
 
