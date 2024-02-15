@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 import time
@@ -52,6 +53,7 @@ from datahub.metadata.schema_classes import (
     OtherSchemaClass,
 )
 from datahub.telemetry import telemetry
+from datahub.utilities.hive_schema_to_avro import get_schema_fields_for_hive_column
 
 logging.getLogger("py4j").setLevel(logging.ERROR)
 logger: logging.Logger = logging.getLogger(__name__)
@@ -72,6 +74,15 @@ OPERATION_STATEMENT_TYPES = {
     "REPLACE TABLE AS SELECT": OperationTypeClass.UPDATE,
     "COPY INTO": OperationTypeClass.UPDATE,
 }
+
+
+def _get_parent_field_details(raw_field_json):
+    field_name = raw_field_json.get("name")
+
+    raw_field = raw_field_json.get("type")
+    field_type = raw_field.get("type")
+
+    return field_name, field_type
 
 
 @platform_name("Delta Lake", id="delta-lake")
@@ -126,24 +137,69 @@ class DeltaLakeSource(Source):
         config = DeltaLakeSourceConfig.parse_obj(config_dict)
         return cls(config, ctx)
 
+    inner_data_type = ""
+    counter = 0
+
+    def _get_inner_field_details(self, raw_field):
+        if "elementType" in raw_field and type(raw_field.get("elementType")) == dict:
+            self.inner_data_type = self.inner_data_type + "item:" + str(raw_field.get("elementType").get("type")) + "<"
+            self.counter = self.counter + 1
+            self._get_inner_field_details(raw_field.get('elementType'))
+        elif "fields" in raw_field and type(raw_field.get('fields')) == list:
+            data_type = ""
+            data_type = data_type + ','.join('{0}:{1}'.format(field.get("name"), field.get("type")) for field in
+                                             raw_field.get("fields"))
+            self.inner_data_type = self.inner_data_type + data_type
+        else:
+            self.inner_data_type = self.inner_data_type + "item:" + raw_field.get("elementType")
+
+    def _parse_datatype(self, raw_field_json_str):
+        raw_field_json = json.loads(raw_field_json_str)
+
+        # get the parent field name and type
+        field_name, field_type = _get_parent_field_details(raw_field_json)
+
+        # recursively parse the fields to get the native data type
+        self._get_inner_field_details(raw_field_json.get("type"))
+
+        for count in range(self.counter):
+            self.inner_data_type = self.inner_data_type + ">"
+
+        native_data_type = field_type + "<" + self.inner_data_type + ">"
+
+        avro_schema_data = get_schema_fields_for_hive_column(
+            field_name, native_data_type
+        )
+
+        return avro_schema_data
+
     def get_fields(self, delta_table: DeltaTable) -> List[SchemaField]:
         fields: List[SchemaField] = []
+        complex_fields: List[SchemaField] = []
 
         for raw_field in delta_table.schema().fields:
-            field = SchemaField(
-                fieldPath=raw_field.name,
-                type=SchemaFieldDataType(
-                    tableschema_type_map.get(raw_field.type.type, NullTypeClass)()
-                ),
-                nativeDataType=raw_field.type.type,
-                recursive=False,
-                nullable=raw_field.nullable,
-                description=str(raw_field.metadata),
-                isPartitioningKey=True
-                if raw_field.name in delta_table.metadata().partition_columns
-                else False,
-            )
-            fields.append(field)
+            # parse the complex fields like array, structure and get the native type
+            # feed that native type and get the avro schema
+            if raw_field.type.type in ["array", "struct"]:
+                complex_fields = complex_fields + self._parse_datatype(raw_field.to_json())
+
+            else:
+                field = SchemaField(
+                    fieldPath=raw_field.name,
+                    type=SchemaFieldDataType(
+                        tableschema_type_map.get(raw_field.type.type, NullTypeClass)()
+                    ),
+                    nativeDataType=raw_field.type.type,
+                    recursive=False,
+                    nullable=raw_field.nullable,
+                    description=str(raw_field.metadata),
+                    isPartitioningKey=True
+                    if raw_field.name in delta_table.metadata().partition_columns
+                    else False,
+                )
+                fields.append(field)
+
+        fields = fields + complex_fields
         fields = sorted(fields, key=lambda f: f.fieldPath)
 
         return fields
