@@ -2,14 +2,27 @@
 
 
 ## What are Business Attributes
-A Business attribute is a centrally managed logical field that represents a unique schema field entity. This common construct is global in nature, i.e. it is not bound to a project or application implementation. Instead, its identity exists in representing the same field across various datasets owned by various different projects and applications. Projects or applications use the Business attribute to model a column in a dataset and inherit information about it such as definitions, data type, data quality rules/assertions, tags, glossary terms etc from the global definition.
+A Business Attribute, as its name implies, is an attribute with a business focus. It embodies the traits or properties of an entity within a business framework. This attribute is a crucial piece of data for a business, utilised to define or control the entity throughout the organisation. If a business process or concept is depicted as a comprehensive logical model, then each Business Attribute can be considered as an individual component within that model. While business names and descriptions are generally managed through glossary terms, Business Attributes encompass additional characteristics such as data quality rules/assertions, data privacy markers, data usage protocols, standard tags, and supplementary documentation, alongside Names and Descriptions.
+
+For instance, "United States - Social Security Number" comes with a Name and definition. However, it also includes an abbreviation, a Personal Identifiable Information (PII) classification tag, a set of data rules, and possibly some additional references.
 
 ## Benefits of Business Attributes
-Data architects can use the concept of the business attribute to validate whether applications are conformant with the applicable metadata defined for the business attribute. By abstracting common business metadata into a logical model, different personas with appropriate business knowledge can define pertinent details, like rich definition, business use for the attribute, classification (i.e. PII, sensitive, shareable etc.), specific data rules that govern the attribute, connection to glossary terms.
+The principle of "Define Once; Use in Many Places" applies to Business Attributes. Information Stewards can establish these attributes once with all their associated characteristics in an enterprise environment. Subsequently, individual applications or data owners can link their dataset attributes with these Business Attributes. This process allows the complete metadata structure built for a Business Attribute to be inherited. Application owners can also use these attributes to check if their applications align with the organisation-wide standard descriptions and data policies. This approach aids in centralised management for enhanced control and enforcement of metadata standards.
+
+This standardised metadata can be employed to facilitate data quality, data governance, and data discovery use cases within the organisation.
+
+A collection of 'related' Business Attributes can create a logical business model.
 
 With Business Attributes users have the ability to search associated datasets using business description/tags/glossary attached to business attribute
 ## How can you use Business Attributes
-Business attributes can be used to define a common set of metadata for a logical field that is used across multiple datasets. This metadata can be used to drive data quality, data governance, and data discovery. For example, a business attribute can be used to define a common set of data quality rules that are applicable to a logical field across multiple datasets. This can be used to ensure that the same data quality rules are applied consistently across all datasets that use the logical field.
+Business Attributes can be utilised in any of the following scenario:
+Attributes that are frequently used across multiple domains, data products, projects, and applications.
+Attributes requiring standardisation and inheritance of their characteristics, including name and descriptions, to be propagated.
+Attributes that need centralised management for improved control and standard enforcement.
+
+A Business Attribute could be used to accelerate and standardise business definition management at entity / fields a field across various datasets. This ensures consistent application of the characteristics across all datasets using the Business Attribute. Any change in the them requires a change at only one place (i.e., business attributes) and change can then be inherited across all the application & datasets in the organisation
+
+Taking the example of "United States- Social Security Number", if an application or data owner  has multiple instances of the social security number within their datasets, they can link all these dataset attributes with a Business Attribute to inherit all the aforementioned characteristics. Additionally, users can search for associated datasets using the business description, tags, or glossary linked to the Business Attribute.
 
 ## Business Attributes Setup, Prerequisites, and Permissions
 What you need to create/update and associate business attributes to dataset schema field
@@ -24,16 +37,16 @@ As of now Business Attributes can only be created through UI
 To create a Business Attribute, first navigate to the Business Attributes tab on the home page.
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/e100603e3fbae1f9b14d14c9f4d86744e7310d18/imgs/business_attributes/businessattribute-tab.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/88472958703d5e9236f71bb457c1acd481d123af/imgs/business_attributes/businessattribute-tab.png"/>
 
 Then click on '+ Create Business Attribute'.
-This will open a new modal where you can configure the settings for your business attribute. Inside the form, you can choose a name for your Business Attribute. Most often, this will align with the logical purpose of the Business Attribute, 
-for example 'Customer ID'. You can also add documentation for your Business Attribute to help other users easily discover it. This can be changed later. 
+This will open a new modal where you can configure the settings for your business attribute. Inside the form, you can choose a name for Business Attribute. Most often, this will align with the logical purpose of the Business Attribute, 
+for example 'Social Security Number'. You can also add documentation for your Business Attribute to help other users easily discover it. This can be changed later. 
 
-We can also add Datatype for Business Attribute. It has String as a default value.
+We can also add datatype for Business Attribute. It has String as a default value.
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/e100603e3fbae1f9b14d14c9f4d86744e7310d18/imgs/business_attributes/businessattribute-create.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/88472958703d5e9236f71bb457c1acd481d123af/imgs/business_attributes/businessattribute-create.png"/>
 
 Once you've chosen a name and a description, click 'Create' to create the new Business Attribute.
 
@@ -45,14 +58,14 @@ You can associate the business attribute to a dataset schema field using the Dat
 On a Dataset's schema page, click the 'Add Attribute' to add business attribute to the dataset schema field.
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/e100603e3fbae1f9b14d14c9f4d86744e7310d18/imgs/business_attributes/businessattribute-associate-datasetschemafield.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/88472958703d5e9236f71bb457c1acd481d123af/imgs/business_attributes/businessattribute-associate-datasetschemafield.png"/>
 
 
 After association, dataset schema field gets its description, tags and glossary inherited from Business attribute. 
-Description inherited from business attribute is greyed out to differentiate between original description of schema field. 
+Description inherited from business attribute is greyed out to differentiate between original description of schema field. Similarly, tags and glossary terms inherited can't be removed directly.
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/e100603e3fbae1f9b14d14c9f4d86744e7310d18/imgs/business_attributes/dataset-inherits-businessattribute-properties.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/88472958703d5e9236f71bb457c1acd481d123af/imgs/business_attributes/dataset-inherits-businessattribute-properties.png"/>
 
 ### What updates are planned for the Business Attributes feature?
 
