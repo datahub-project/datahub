@@ -358,12 +358,12 @@ class RedashSource(Source):
         )
 
     def error(self, log: logging.Logger, key: str, reason: str) -> None:
-        self.report.report_failure(key, reason)
-        log.error(f"{key} => {reason}")
+        # TODO: Remove this method.
+        self.report.failure(key, reason)
 
     def warn(self, log: logging.Logger, key: str, reason: str) -> None:
-        self.report.report_warning(key, reason)
-        log.warning(f"{key} => {reason}")
+        # TODO: Remove this method.
+        self.report.warning(key, reason)
 
     def validate_connection(self) -> None:
         test_response = self.client._get(f"{self.config.connect_uri}/api")

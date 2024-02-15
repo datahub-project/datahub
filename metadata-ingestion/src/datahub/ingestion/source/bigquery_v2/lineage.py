@@ -252,8 +252,9 @@ class BigqueryLineageExtractor:
             return self.config.start_time, self.config.end_time
 
     def error(self, log: logging.Logger, key: str, reason: str) -> None:
-        self.report.report_warning(key, reason)
-        log.error(f"{key} => {reason}")
+        # TODO: Remove this method.
+        # Note that this downgrades the error to a warning.
+        self.report.warning(key, reason)
 
     def _should_ingest_lineage(self) -> bool:
         if (
