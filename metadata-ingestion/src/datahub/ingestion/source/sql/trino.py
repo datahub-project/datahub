@@ -1,7 +1,6 @@
 import functools
 import json
 import uuid
-from dataclasses import dataclass
 from textwrap import dedent
 from typing import Any, Dict, Iterable, List, Optional, Union
 
@@ -45,6 +44,11 @@ from datahub.ingestion.source.sql.sql_config import (
     SQLCommonConfig,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import Siblings
+from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
+    DatasetLineageType,
+    Upstream,
+    UpstreamLineage,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     MapTypeClass,
     NumberTypeClass,
@@ -57,19 +61,17 @@ register_custom_type(datatype.MAP, MapTypeClass)
 register_custom_type(datatype.DOUBLE, NumberTypeClass)
 
 
-@dataclass
-class PlatformDetail:
-    platform_name: str
-    is_three_tier: bool
-
-
 KNOWN_CONNECTOR_PLATFORM_MAPPING = {
-    "hive": PlatformDetail("hive", False),
-    "postgresql": PlatformDetail("postgres", True),
-    "mysql": PlatformDetail("mysql", False),
-    "redshift": PlatformDetail("redshift", True),
-    "bigquery": PlatformDetail("bigquery", True),
+    "clickhouse": "clickhouse",
+    "hive": "hive",
+    "postgresql": "postgres",
+    "mysql": "mysql",
+    "iceberg": "iceberg",
+    "redshift": "redshift",
+    "bigquery": "bigquery",
 }
+
+TWO_TIER_CONNECTORS = ["clickhouse", "hive", "mysql", "iceberg"]
 
 # Type JSON was introduced in trino sqlalchemy dialect in version 0.317.0
 if version.parse(trino.__version__) >= version.parse("0.317.0"):
@@ -187,13 +189,13 @@ class TrinoConfig(BasicSQLAlchemyConfig):
 
     catalog_to_connector_details: Dict[str, ConnectorDetail] = Field(
         default={},
-        description="A mapping of trino catalog to its connector details like connector database, platform instance."
-        "This configuration is used to ingest siblings of datasets. Use catalog name as key."
-        "For three tier connectors like postgresql, connector database is required.",
+        description="A mapping of trino catalog to its connector details like connector database, env and platform instance."
+        "This configuration is used to ingest lineage of datasets to connectors. Use catalog name as key.",
     )
 
-    ingest_siblings: bool = Field(
-        default=True, description="Whether siblings of datasets should be ingested"
+    ingest_lineage_to_connectors: bool = Field(
+        default=True,
+        description="Whether lineage of datasets to connectors should be ingested",
     )
 
     def get_identifier(self: BasicSQLAlchemyConfig, schema: str, table: str) -> str:
@@ -232,7 +234,7 @@ class TrinoSource(SQLAlchemySource):
         else:
             return super().get_db_name(inspector)
 
-    def _get_sibling_urn(
+    def _get_source_dataset_urn(
         self,
         dataset_name: str,
         inspector: Inspector,
@@ -240,56 +242,69 @@ class TrinoSource(SQLAlchemySource):
         table: str,
     ) -> Optional[str]:
         catalog_name = dataset_name.split(".")[0]
-        connector_platform_details: Optional[PlatformDetail] = None
-
         connector_name = get_catalog_connector_name(catalog_name, inspector)
         if connector_name:
-            connector_platform_details = KNOWN_CONNECTOR_PLATFORM_MAPPING.get(
+            connector_platform_name = KNOWN_CONNECTOR_PLATFORM_MAPPING.get(
                 connector_name
             )
-
-        connector_details = self.config.catalog_to_connector_details.get(
-            catalog_name, ConnectorDetail()
-        )
-
-        if connector_platform_details:
-            if not connector_platform_details.is_three_tier:  # connector is two tier
-                return make_dataset_urn_with_platform_instance(
-                    platform=connector_platform_details.platform_name,
-                    name=f"{schema}.{table}",
-                    platform_instance=connector_details.platform_instance,
-                    env=connector_details.env,
+            if connector_platform_name:
+                connector_details = self.config.catalog_to_connector_details.get(
+                    catalog_name, ConnectorDetail()
                 )
-            elif connector_details.connector_database:  # connector is three tier
-                return make_dataset_urn_with_platform_instance(
-                    platform=connector_platform_details.platform_name,
-                    name=f"{connector_details.connector_database}.{schema}.{table}",
-                    platform_instance=connector_details.platform_instance,
-                    env=connector_details.env,
-                )
-
+                if (
+                    connector_platform_name in TWO_TIER_CONNECTORS
+                ):  # connector is two tier
+                    return make_dataset_urn_with_platform_instance(
+                        platform=connector_platform_name,
+                        name=f"{schema}.{table}",
+                        platform_instance=connector_details.platform_instance,
+                        env=connector_details.env,
+                    )
+                elif (
+                    connector_details.connector_database
+                ):  # else connector is three tier
+                    return make_dataset_urn_with_platform_instance(
+                        platform=connector_platform_name,
+                        name=f"{connector_details.connector_database}.{schema}.{table}",
+                        platform_instance=connector_details.platform_instance,
+                        env=connector_details.env,
+                    )
         return None
 
-    def get_sibling_workunit(
+    def gen_siblings_workunit(
         self,
-        dataset_name: str,
-        inspector: Inspector,
-        schema: str,
-        table: str,
-    ) -> Optional[MetadataWorkUnit]:
-        dataset_urn = make_dataset_urn_with_platform_instance(
-            self.platform,
-            dataset_name,
-            self.config.platform_instance,
-            self.config.env,
-        )
-        sibling_urn = self._get_sibling_urn(dataset_name, inspector, schema, table)
-        if self.config.ingest_siblings and sibling_urn:
-            return MetadataChangeProposalWrapper(
-                entityUrn=dataset_urn,
-                aspect=Siblings(primary=False, siblings=[sibling_urn]),
-            ).as_workunit()
-        return None
+        dataset_urn: str,
+        source_dataset_urn: str,
+    ) -> Iterable[MetadataWorkUnit]:
+        """
+        Generate sibling workunit for both trino dataset and its connector source dataset
+        """
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            aspect=Siblings(primary=False, siblings=[source_dataset_urn]),
+        ).as_workunit()
+
+        yield MetadataChangeProposalWrapper(
+            entityUrn=source_dataset_urn,
+            aspect=Siblings(primary=True, siblings=[dataset_urn]),
+        ).as_workunit()
+
+    def gen_lineage_workunit(
+        self,
+        dataset_urn: str,
+        source_dataset_urn: str,
+    ) -> Iterable[MetadataWorkUnit]:
+        """
+        Generate dataset to source connector lineage workunit
+        """
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            aspect=UpstreamLineage(
+                upstreams=[
+                    Upstream(dataset=source_dataset_urn, type=DatasetLineageType.VIEW)
+                ]
+            ),
+        ).as_workunit()
 
     def _process_table(
         self,
@@ -302,11 +317,19 @@ class TrinoSource(SQLAlchemySource):
         yield from super()._process_table(
             dataset_name, inspector, schema, table, sql_config
         )
-        sibling_workunit = self.get_sibling_workunit(
-            dataset_name, inspector, schema, table
-        )
-        if sibling_workunit:
-            yield sibling_workunit
+        if self.config.ingest_lineage_to_connectors:
+            dataset_urn = make_dataset_urn_with_platform_instance(
+                self.platform,
+                dataset_name,
+                self.config.platform_instance,
+                self.config.env,
+            )
+            source_dataset_urn = self._get_source_dataset_urn(
+                dataset_name, inspector, schema, table
+            )
+            if source_dataset_urn:
+                yield from self.gen_siblings_workunit(dataset_urn, source_dataset_urn)
+                yield from self.gen_lineage_workunit(dataset_urn, source_dataset_urn)
 
     def _process_view(
         self,
@@ -319,11 +342,18 @@ class TrinoSource(SQLAlchemySource):
         yield from super()._process_view(
             dataset_name, inspector, schema, view, sql_config
         )
-        sibling_workunit = self.get_sibling_workunit(
-            dataset_name, inspector, schema, view
-        )
-        if sibling_workunit:
-            yield sibling_workunit
+        if self.config.ingest_lineage_to_connectors:
+            dataset_urn = make_dataset_urn_with_platform_instance(
+                self.platform,
+                dataset_name,
+                self.config.platform_instance,
+                self.config.env,
+            )
+            source_dataset_urn = self._get_source_dataset_urn(
+                dataset_name, inspector, schema, view
+            )
+            if source_dataset_urn:
+                yield from self.gen_siblings_workunit(dataset_urn, source_dataset_urn)
 
     @classmethod
     def create(cls, config_dict, ctx):

@@ -1,4 +1,3 @@
-import re
 import subprocess
 
 import pytest
@@ -132,11 +131,6 @@ def test_trino_hive_ingest(
                 database="hivedb",
                 username="foo",
                 schema_pattern=AllowDenyPattern(allow=["^db1"]),
-                catalog_to_connector_details={
-                    "hivedb": ConnectorDetail(
-                        platform_instance="local_server",
-                    )
-                },
             ).dict(),
         },
         "sink": {
@@ -179,8 +173,6 @@ def test_trino_hive_ingest(
 def test_trino_instance_ingest(
     loaded_trino, test_resources_dir, pytestconfig, tmp_path, mock_time
 ):
-    instance = "production_warehouse"
-    platform = "trino"
     mce_out_file = "trino_instance_mces.json"
     events_file = tmp_path / mce_out_file
     pipeline_config = {
@@ -193,6 +185,11 @@ def test_trino_instance_ingest(
                 username="foo",
                 platform_instance="production_warehouse",
                 schema_pattern=AllowDenyPattern(allow=["^db1"]),
+                catalog_to_connector_details={
+                    "hivedb": ConnectorDetail(
+                        platform_instance="local_server",
+                    )
+                },
             ).dict(),
         },
         "sink": {
@@ -207,50 +204,9 @@ def test_trino_instance_ingest(
     pipeline.pretty_print_summary()
     pipeline.raise_from_status(raise_warnings=True)
 
-    # Assert that all events generated have instance specific urns
-    urn_pattern = "^" + re.escape(
-        f"urn:li:dataset:(urn:li:dataPlatform:{platform},{instance}."
-    )
-    assert (
-        mce_helpers.assert_mce_entity_urn(
-            "ALL",
-            entity_type="dataset",
-            regex_pattern=urn_pattern,
-            file=events_file,
-        )
-        >= 0
-    ), "There should be at least one match"
-
-    assert (
-        mce_helpers.assert_mcp_entity_urn(
-            "ALL",
-            entity_type="dataset",
-            regex_pattern=urn_pattern,
-            file=events_file,
-        )
-        >= 0
-    ), "There should be at least one MCP"
-
-    # all dataset entities emitted must have a dataPlatformInstance aspect emitted
-    # there must be at least one entity emitted
-    assert (
-        mce_helpers.assert_for_each_entity(
-            entity_type="dataset",
-            aspect_name="dataPlatformInstance",
-            aspect_field_matcher={
-                "instance": f"urn:li:dataPlatformInstance:(urn:li:dataPlatform:{platform},{instance})"
-            },
-            file=events_file,
-        )
-        >= 1
-    )
-    # all dataset entities emitted must have a sibling aspect emitted
-    assert (
-        mce_helpers.assert_for_each_entity(
-            entity_type="dataset",
-            aspect_name="siblings",
-            aspect_field_matcher={},
-            file=events_file,
-        )
-        >= 1
+    # Verify the output.
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=events_file,
+        golden_path=test_resources_dir / "trino_hive_instance_mces_golden.json",
     )

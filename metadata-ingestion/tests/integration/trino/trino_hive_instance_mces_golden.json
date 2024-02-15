@@ -1,13 +1,14 @@
 [
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:c7a81f6ed9a7cdd0c74436ac2dc4d1f7",
+    "entityUrn": "urn:li:container:f311add3fdc7c16e8a50a63fe1dcce8b",
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
         "json": {
             "customProperties": {
                 "platform": "trino",
+                "instance": "production_warehouse",
                 "env": "PROD",
                 "database": "hivedb"
             },
@@ -16,13 +17,13 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
+        "runId": "trino-hive-instance-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:c7a81f6ed9a7cdd0c74436ac2dc4d1f7",
+    "entityUrn": "urn:li:container:f311add3fdc7c16e8a50a63fe1dcce8b",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -32,29 +33,30 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
+        "runId": "trino-hive-instance-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:c7a81f6ed9a7cdd0c74436ac2dc4d1f7",
+    "entityUrn": "urn:li:container:f311add3fdc7c16e8a50a63fe1dcce8b",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
         "json": {
-            "platform": "urn:li:dataPlatform:trino"
+            "platform": "urn:li:dataPlatform:trino",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:trino,production_warehouse)"
         }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
+        "runId": "trino-hive-instance-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:c7a81f6ed9a7cdd0c74436ac2dc4d1f7",
+    "entityUrn": "urn:li:container:f311add3fdc7c16e8a50a63fe1dcce8b",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -66,35 +68,41 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
+        "runId": "trino-hive-instance-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:c7a81f6ed9a7cdd0c74436ac2dc4d1f7",
+    "entityUrn": "urn:li:container:f311add3fdc7c16e8a50a63fe1dcce8b",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
-            "path": []
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:trino,production_warehouse)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:trino,production_warehouse)"
+                }
+            ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
+        "runId": "trino-hive-instance-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:304fd7ad57dc0ab32fb2cb778cbccd84",
+    "entityUrn": "urn:li:container:46baa6eebd802861e5ee3d043456e171",
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
         "json": {
             "customProperties": {
                 "platform": "trino",
+                "instance": "production_warehouse",
                 "env": "PROD",
                 "database": "hivedb",
                 "schema": "db1"
@@ -104,13 +112,13 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
+        "runId": "trino-hive-instance-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:304fd7ad57dc0ab32fb2cb778cbccd84",
+    "entityUrn": "urn:li:container:46baa6eebd802861e5ee3d043456e171",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -120,29 +128,30 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
+        "runId": "trino-hive-instance-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:304fd7ad57dc0ab32fb2cb778cbccd84",
+    "entityUrn": "urn:li:container:46baa6eebd802861e5ee3d043456e171",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
         "json": {
-            "platform": "urn:li:dataPlatform:trino"
+            "platform": "urn:li:dataPlatform:trino",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:trino,production_warehouse)"
         }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
+        "runId": "trino-hive-instance-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:304fd7ad57dc0ab32fb2cb778cbccd84",
+    "entityUrn": "urn:li:container:46baa6eebd802861e5ee3d043456e171",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -154,67 +163,71 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
+        "runId": "trino-hive-instance-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:304fd7ad57dc0ab32fb2cb778cbccd84",
+    "entityUrn": "urn:li:container:46baa6eebd802861e5ee3d043456e171",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:c7a81f6ed9a7cdd0c74436ac2dc4d1f7"
+            "container": "urn:li:container:f311add3fdc7c16e8a50a63fe1dcce8b"
         }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
+        "runId": "trino-hive-instance-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:304fd7ad57dc0ab32fb2cb778cbccd84",
+    "entityUrn": "urn:li:container:46baa6eebd802861e5ee3d043456e171",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
             "path": [
                 {
-                    "id": "urn:li:container:c7a81f6ed9a7cdd0c74436ac2dc4d1f7",
-                    "urn": "urn:li:container:c7a81f6ed9a7cdd0c74436ac2dc4d1f7"
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:trino,production_warehouse)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:trino,production_warehouse)"
+                },
+                {
+                    "id": "urn:li:container:f311add3fdc7c16e8a50a63fe1dcce8b",
+                    "urn": "urn:li:container:f311add3fdc7c16e8a50a63fe1dcce8b"
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
+        "runId": "trino-hive-instance-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.array_struct_test,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.array_struct_test,PROD)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:304fd7ad57dc0ab32fb2cb778cbccd84"
+            "container": "urn:li:container:46baa6eebd802861e5ee3d043456e171"
         }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
+        "runId": "trino-hive-instance-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.array_struct_test,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.array_struct_test,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.common.Status": {
@@ -327,13 +340,30 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
+        "runId": "trino-hive-instance-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.array_struct_test,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.array_struct_test,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:trino",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:trino,production_warehouse)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1632398400000,
+        "runId": "trino-hive-instance-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.array_struct_test,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -345,76 +375,80 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
+        "runId": "trino-hive-instance-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.array_struct_test,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.array_struct_test,PROD)",
     "changeType": "UPSERT",
     "aspectName": "siblings",
     "aspect": {
         "json": {
             "siblings": [
-                "urn:li:dataset:(urn:li:dataPlatform:hive,db1.array_struct_test,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:hive,local_server.db1.array_struct_test,PROD)"
             ],
             "primary": false
         }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
+        "runId": "trino-hive-instance-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.array_struct_test,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.array_struct_test,PROD)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
             "path": [
                 {
-                    "id": "urn:li:container:c7a81f6ed9a7cdd0c74436ac2dc4d1f7",
-                    "urn": "urn:li:container:c7a81f6ed9a7cdd0c74436ac2dc4d1f7"
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:trino,production_warehouse)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:trino,production_warehouse)"
                 },
                 {
-                    "id": "urn:li:container:304fd7ad57dc0ab32fb2cb778cbccd84",
-                    "urn": "urn:li:container:304fd7ad57dc0ab32fb2cb778cbccd84"
+                    "id": "urn:li:container:f311add3fdc7c16e8a50a63fe1dcce8b",
+                    "urn": "urn:li:container:f311add3fdc7c16e8a50a63fe1dcce8b"
+                },
+                {
+                    "id": "urn:li:container:46baa6eebd802861e5ee3d043456e171",
+                    "urn": "urn:li:container:46baa6eebd802861e5ee3d043456e171"
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
+        "runId": "trino-hive-instance-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.array_struct_test,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,local_server.db1.array_struct_test,PROD)",
     "changeType": "UPSERT",
     "aspectName": "siblings",
     "aspect": {
         "json": {
             "siblings": [
-                "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.array_struct_test,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.array_struct_test,PROD)"
             ],
             "primary": true
         }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
+        "runId": "trino-hive-instance-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.array_struct_test,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.array_struct_test,PROD)",
     "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
@@ -425,7 +459,7 @@
                         "time": 0,
                         "actor": "urn:li:corpuser:unknown"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.array_struct_test,PROD)",
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,local_server.db1.array_struct_test,PROD)",
                     "type": "VIEW"
                 }
             ]
@@ -433,30 +467,30 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
+        "runId": "trino-hive-instance-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.map_test,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.map_test,PROD)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:304fd7ad57dc0ab32fb2cb778cbccd84"
+            "container": "urn:li:container:46baa6eebd802861e5ee3d043456e171"
         }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
+        "runId": "trino-hive-instance-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.map_test,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.map_test,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.common.Status": {
@@ -533,13 +567,30 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
+        "runId": "trino-hive-instance-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.map_test,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.map_test,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:trino",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:trino,production_warehouse)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1632398400000,
+        "runId": "trino-hive-instance-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.map_test,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -551,76 +602,80 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
+        "runId": "trino-hive-instance-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.map_test,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.map_test,PROD)",
     "changeType": "UPSERT",
     "aspectName": "siblings",
     "aspect": {
         "json": {
             "siblings": [
-                "urn:li:dataset:(urn:li:dataPlatform:hive,db1.map_test,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:hive,local_server.db1.map_test,PROD)"
             ],
             "primary": false
         }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
+        "runId": "trino-hive-instance-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.map_test,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.map_test,PROD)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
             "path": [
                 {
-                    "id": "urn:li:container:c7a81f6ed9a7cdd0c74436ac2dc4d1f7",
-                    "urn": "urn:li:container:c7a81f6ed9a7cdd0c74436ac2dc4d1f7"
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:trino,production_warehouse)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:trino,production_warehouse)"
                 },
                 {
-                    "id": "urn:li:container:304fd7ad57dc0ab32fb2cb778cbccd84",
-                    "urn": "urn:li:container:304fd7ad57dc0ab32fb2cb778cbccd84"
+                    "id": "urn:li:container:f311add3fdc7c16e8a50a63fe1dcce8b",
+                    "urn": "urn:li:container:f311add3fdc7c16e8a50a63fe1dcce8b"
+                },
+                {
+                    "id": "urn:li:container:46baa6eebd802861e5ee3d043456e171",
+                    "urn": "urn:li:container:46baa6eebd802861e5ee3d043456e171"
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
+        "runId": "trino-hive-instance-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.map_test,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,local_server.db1.map_test,PROD)",
     "changeType": "UPSERT",
     "aspectName": "siblings",
     "aspect": {
         "json": {
             "siblings": [
-                "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.map_test,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.map_test,PROD)"
             ],
             "primary": true
         }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
+        "runId": "trino-hive-instance-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.map_test,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.map_test,PROD)",
     "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
@@ -631,7 +686,7 @@
                         "time": 0,
                         "actor": "urn:li:corpuser:unknown"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.map_test,PROD)",
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,local_server.db1.map_test,PROD)",
                     "type": "VIEW"
                 }
             ]
@@ -639,30 +694,30 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
+        "runId": "trino-hive-instance-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.nested_struct_test,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.nested_struct_test,PROD)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:304fd7ad57dc0ab32fb2cb778cbccd84"
+            "container": "urn:li:container:46baa6eebd802861e5ee3d043456e171"
         }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
+        "runId": "trino-hive-instance-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.nested_struct_test,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.nested_struct_test,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.common.Status": {
@@ -788,13 +843,30 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
+        "runId": "trino-hive-instance-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.nested_struct_test,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.nested_struct_test,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:trino",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:trino,production_warehouse)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1632398400000,
+        "runId": "trino-hive-instance-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.nested_struct_test,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -806,76 +878,80 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
+        "runId": "trino-hive-instance-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.nested_struct_test,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.nested_struct_test,PROD)",
     "changeType": "UPSERT",
     "aspectName": "siblings",
     "aspect": {
         "json": {
             "siblings": [
-                "urn:li:dataset:(urn:li:dataPlatform:hive,db1.nested_struct_test,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:hive,local_server.db1.nested_struct_test,PROD)"
             ],
             "primary": false
         }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
+        "runId": "trino-hive-instance-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.nested_struct_test,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.nested_struct_test,PROD)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
             "path": [
                 {
-                    "id": "urn:li:container:c7a81f6ed9a7cdd0c74436ac2dc4d1f7",
-                    "urn": "urn:li:container:c7a81f6ed9a7cdd0c74436ac2dc4d1f7"
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:trino,production_warehouse)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:trino,production_warehouse)"
                 },
                 {
-                    "id": "urn:li:container:304fd7ad57dc0ab32fb2cb778cbccd84",
-                    "urn": "urn:li:container:304fd7ad57dc0ab32fb2cb778cbccd84"
+                    "id": "urn:li:container:f311add3fdc7c16e8a50a63fe1dcce8b",
+                    "urn": "urn:li:container:f311add3fdc7c16e8a50a63fe1dcce8b"
+                },
+                {
+                    "id": "urn:li:container:46baa6eebd802861e5ee3d043456e171",
+                    "urn": "urn:li:container:46baa6eebd802861e5ee3d043456e171"
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
+        "runId": "trino-hive-instance-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.nested_struct_test,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,local_server.db1.nested_struct_test,PROD)",
     "changeType": "UPSERT",
     "aspectName": "siblings",
     "aspect": {
         "json": {
             "siblings": [
-                "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.nested_struct_test,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.nested_struct_test,PROD)"
             ],
             "primary": true
         }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
+        "runId": "trino-hive-instance-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.nested_struct_test,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.nested_struct_test,PROD)",
     "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
@@ -886,7 +962,7 @@
                         "time": 0,
                         "actor": "urn:li:corpuser:unknown"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.nested_struct_test,PROD)",
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,local_server.db1.nested_struct_test,PROD)",
                     "type": "VIEW"
                 }
             ]
@@ -894,30 +970,30 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
+        "runId": "trino-hive-instance-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.pokes,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.pokes,PROD)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:304fd7ad57dc0ab32fb2cb778cbccd84"
+            "container": "urn:li:container:46baa6eebd802861e5ee3d043456e171"
         }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
+        "runId": "trino-hive-instance-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.pokes,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.pokes,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.common.Status": {
@@ -997,13 +1073,30 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
+        "runId": "trino-hive-instance-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.pokes,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.pokes,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:trino",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:trino,production_warehouse)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1632398400000,
+        "runId": "trino-hive-instance-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.pokes,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -1015,76 +1108,80 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
+        "runId": "trino-hive-instance-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.pokes,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.pokes,PROD)",
     "changeType": "UPSERT",
     "aspectName": "siblings",
     "aspect": {
         "json": {
             "siblings": [
-                "urn:li:dataset:(urn:li:dataPlatform:hive,db1.pokes,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:hive,local_server.db1.pokes,PROD)"
             ],
             "primary": false
         }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
+        "runId": "trino-hive-instance-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.pokes,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.pokes,PROD)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
             "path": [
                 {
-                    "id": "urn:li:container:c7a81f6ed9a7cdd0c74436ac2dc4d1f7",
-                    "urn": "urn:li:container:c7a81f6ed9a7cdd0c74436ac2dc4d1f7"
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:trino,production_warehouse)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:trino,production_warehouse)"
                 },
                 {
-                    "id": "urn:li:container:304fd7ad57dc0ab32fb2cb778cbccd84",
-                    "urn": "urn:li:container:304fd7ad57dc0ab32fb2cb778cbccd84"
+                    "id": "urn:li:container:f311add3fdc7c16e8a50a63fe1dcce8b",
+                    "urn": "urn:li:container:f311add3fdc7c16e8a50a63fe1dcce8b"
+                },
+                {
+                    "id": "urn:li:container:46baa6eebd802861e5ee3d043456e171",
+                    "urn": "urn:li:container:46baa6eebd802861e5ee3d043456e171"
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
+        "runId": "trino-hive-instance-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.pokes,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,local_server.db1.pokes,PROD)",
     "changeType": "UPSERT",
     "aspectName": "siblings",
     "aspect": {
         "json": {
             "siblings": [
-                "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.pokes,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.pokes,PROD)"
             ],
             "primary": true
         }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
+        "runId": "trino-hive-instance-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.pokes,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.pokes,PROD)",
     "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
@@ -1095,7 +1192,7 @@
                         "time": 0,
                         "actor": "urn:li:corpuser:unknown"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.pokes,PROD)",
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,local_server.db1.pokes,PROD)",
                     "type": "VIEW"
                 }
             ]
@@ -1103,30 +1200,30 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
+        "runId": "trino-hive-instance-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.struct_test,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.struct_test,PROD)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:304fd7ad57dc0ab32fb2cb778cbccd84"
+            "container": "urn:li:container:46baa6eebd802861e5ee3d043456e171"
         }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
+        "runId": "trino-hive-instance-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.struct_test,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.struct_test,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.common.Status": {
@@ -1230,13 +1327,30 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
+        "runId": "trino-hive-instance-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.struct_test,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.struct_test,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:trino",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:trino,production_warehouse)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1632398400000,
+        "runId": "trino-hive-instance-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.struct_test,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -1248,76 +1362,80 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
+        "runId": "trino-hive-instance-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.struct_test,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.struct_test,PROD)",
     "changeType": "UPSERT",
     "aspectName": "siblings",
     "aspect": {
         "json": {
             "siblings": [
-                "urn:li:dataset:(urn:li:dataPlatform:hive,db1.struct_test,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:hive,local_server.db1.struct_test,PROD)"
             ],
             "primary": false
         }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
+        "runId": "trino-hive-instance-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.struct_test,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.struct_test,PROD)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
             "path": [
                 {
-                    "id": "urn:li:container:c7a81f6ed9a7cdd0c74436ac2dc4d1f7",
-                    "urn": "urn:li:container:c7a81f6ed9a7cdd0c74436ac2dc4d1f7"
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:trino,production_warehouse)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:trino,production_warehouse)"
                 },
                 {
-                    "id": "urn:li:container:304fd7ad57dc0ab32fb2cb778cbccd84",
-                    "urn": "urn:li:container:304fd7ad57dc0ab32fb2cb778cbccd84"
+                    "id": "urn:li:container:f311add3fdc7c16e8a50a63fe1dcce8b",
+                    "urn": "urn:li:container:f311add3fdc7c16e8a50a63fe1dcce8b"
+                },
+                {
+                    "id": "urn:li:container:46baa6eebd802861e5ee3d043456e171",
+                    "urn": "urn:li:container:46baa6eebd802861e5ee3d043456e171"
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
+        "runId": "trino-hive-instance-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.struct_test,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,local_server.db1.struct_test,PROD)",
     "changeType": "UPSERT",
     "aspectName": "siblings",
     "aspect": {
         "json": {
             "siblings": [
-                "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.struct_test,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.struct_test,PROD)"
             ],
             "primary": true
         }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
+        "runId": "trino-hive-instance-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.struct_test,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.struct_test,PROD)",
     "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
@@ -1328,7 +1446,7 @@
                         "time": 0,
                         "actor": "urn:li:corpuser:unknown"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.struct_test,PROD)",
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,local_server.db1.struct_test,PROD)",
                     "type": "VIEW"
                 }
             ]
@@ -1336,30 +1454,30 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
+        "runId": "trino-hive-instance-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.struct_test_view_materialized,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.struct_test_view_materialized,PROD)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:304fd7ad57dc0ab32fb2cb778cbccd84"
+            "container": "urn:li:container:46baa6eebd802861e5ee3d043456e171"
         }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
+        "runId": "trino-hive-instance-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.struct_test_view_materialized,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.struct_test_view_materialized,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.common.Status": {
@@ -1460,13 +1578,30 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
+        "runId": "trino-hive-instance-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.struct_test_view_materialized,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.struct_test_view_materialized,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:trino",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:trino,production_warehouse)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1632398400000,
+        "runId": "trino-hive-instance-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.struct_test_view_materialized,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -1478,76 +1613,80 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
+        "runId": "trino-hive-instance-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.struct_test_view_materialized,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.struct_test_view_materialized,PROD)",
     "changeType": "UPSERT",
     "aspectName": "siblings",
     "aspect": {
         "json": {
             "siblings": [
-                "urn:li:dataset:(urn:li:dataPlatform:hive,db1.struct_test_view_materialized,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:hive,local_server.db1.struct_test_view_materialized,PROD)"
             ],
             "primary": false
         }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
+        "runId": "trino-hive-instance-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.struct_test_view_materialized,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.struct_test_view_materialized,PROD)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
             "path": [
                 {
-                    "id": "urn:li:container:c7a81f6ed9a7cdd0c74436ac2dc4d1f7",
-                    "urn": "urn:li:container:c7a81f6ed9a7cdd0c74436ac2dc4d1f7"
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:trino,production_warehouse)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:trino,production_warehouse)"
                 },
                 {
-                    "id": "urn:li:container:304fd7ad57dc0ab32fb2cb778cbccd84",
-                    "urn": "urn:li:container:304fd7ad57dc0ab32fb2cb778cbccd84"
+                    "id": "urn:li:container:f311add3fdc7c16e8a50a63fe1dcce8b",
+                    "urn": "urn:li:container:f311add3fdc7c16e8a50a63fe1dcce8b"
+                },
+                {
+                    "id": "urn:li:container:46baa6eebd802861e5ee3d043456e171",
+                    "urn": "urn:li:container:46baa6eebd802861e5ee3d043456e171"
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
+        "runId": "trino-hive-instance-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.struct_test_view_materialized,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,local_server.db1.struct_test_view_materialized,PROD)",
     "changeType": "UPSERT",
     "aspectName": "siblings",
     "aspect": {
         "json": {
             "siblings": [
-                "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.struct_test_view_materialized,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.struct_test_view_materialized,PROD)"
             ],
             "primary": true
         }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
+        "runId": "trino-hive-instance-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.struct_test_view_materialized,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.struct_test_view_materialized,PROD)",
     "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
@@ -1558,7 +1697,7 @@
                         "time": 0,
                         "actor": "urn:li:corpuser:unknown"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.struct_test_view_materialized,PROD)",
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,local_server.db1.struct_test_view_materialized,PROD)",
                     "type": "VIEW"
                 }
             ]
@@ -1566,30 +1705,30 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
+        "runId": "trino-hive-instance-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1._test_table_underscore,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1._test_table_underscore,PROD)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:304fd7ad57dc0ab32fb2cb778cbccd84"
+            "container": "urn:li:container:46baa6eebd802861e5ee3d043456e171"
         }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
+        "runId": "trino-hive-instance-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1._test_table_underscore,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1._test_table_underscore,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.common.Status": {
@@ -1662,13 +1801,30 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
+        "runId": "trino-hive-instance-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1._test_table_underscore,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1._test_table_underscore,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:trino",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:trino,production_warehouse)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1632398400000,
+        "runId": "trino-hive-instance-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1._test_table_underscore,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -1680,76 +1836,80 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
+        "runId": "trino-hive-instance-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1._test_table_underscore,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1._test_table_underscore,PROD)",
     "changeType": "UPSERT",
     "aspectName": "siblings",
     "aspect": {
         "json": {
             "siblings": [
-                "urn:li:dataset:(urn:li:dataPlatform:hive,db1._test_table_underscore,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:hive,local_server.db1._test_table_underscore,PROD)"
             ],
             "primary": false
         }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
+        "runId": "trino-hive-instance-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1._test_table_underscore,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1._test_table_underscore,PROD)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
             "path": [
                 {
-                    "id": "urn:li:container:c7a81f6ed9a7cdd0c74436ac2dc4d1f7",
-                    "urn": "urn:li:container:c7a81f6ed9a7cdd0c74436ac2dc4d1f7"
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:trino,production_warehouse)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:trino,production_warehouse)"
                 },
                 {
-                    "id": "urn:li:container:304fd7ad57dc0ab32fb2cb778cbccd84",
-                    "urn": "urn:li:container:304fd7ad57dc0ab32fb2cb778cbccd84"
+                    "id": "urn:li:container:f311add3fdc7c16e8a50a63fe1dcce8b",
+                    "urn": "urn:li:container:f311add3fdc7c16e8a50a63fe1dcce8b"
+                },
+                {
+                    "id": "urn:li:container:46baa6eebd802861e5ee3d043456e171",
+                    "urn": "urn:li:container:46baa6eebd802861e5ee3d043456e171"
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
+        "runId": "trino-hive-instance-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,db1._test_table_underscore,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,local_server.db1._test_table_underscore,PROD)",
     "changeType": "UPSERT",
     "aspectName": "siblings",
     "aspect": {
         "json": {
             "siblings": [
-                "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1._test_table_underscore,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1._test_table_underscore,PROD)"
             ],
             "primary": true
         }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
+        "runId": "trino-hive-instance-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1._test_table_underscore,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1._test_table_underscore,PROD)",
     "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
@@ -1760,7 +1920,7 @@
                         "time": 0,
                         "actor": "urn:li:corpuser:unknown"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,db1._test_table_underscore,PROD)",
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,local_server.db1._test_table_underscore,PROD)",
                     "type": "VIEW"
                 }
             ]
@@ -1768,30 +1928,30 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
+        "runId": "trino-hive-instance-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.union_test,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.union_test,PROD)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:304fd7ad57dc0ab32fb2cb778cbccd84"
+            "container": "urn:li:container:46baa6eebd802861e5ee3d043456e171"
         }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
+        "runId": "trino-hive-instance-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.union_test,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.union_test,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.common.Status": {
@@ -1948,13 +2108,30 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
+        "runId": "trino-hive-instance-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.union_test,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.union_test,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:trino",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:trino,production_warehouse)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1632398400000,
+        "runId": "trino-hive-instance-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.union_test,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -1966,76 +2143,80 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
+        "runId": "trino-hive-instance-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.union_test,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.union_test,PROD)",
     "changeType": "UPSERT",
     "aspectName": "siblings",
     "aspect": {
         "json": {
             "siblings": [
-                "urn:li:dataset:(urn:li:dataPlatform:hive,db1.union_test,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:hive,local_server.db1.union_test,PROD)"
             ],
             "primary": false
         }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
+        "runId": "trino-hive-instance-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.union_test,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.union_test,PROD)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
             "path": [
                 {
-                    "id": "urn:li:container:c7a81f6ed9a7cdd0c74436ac2dc4d1f7",
-                    "urn": "urn:li:container:c7a81f6ed9a7cdd0c74436ac2dc4d1f7"
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:trino,production_warehouse)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:trino,production_warehouse)"
                 },
                 {
-                    "id": "urn:li:container:304fd7ad57dc0ab32fb2cb778cbccd84",
-                    "urn": "urn:li:container:304fd7ad57dc0ab32fb2cb778cbccd84"
+                    "id": "urn:li:container:f311add3fdc7c16e8a50a63fe1dcce8b",
+                    "urn": "urn:li:container:f311add3fdc7c16e8a50a63fe1dcce8b"
+                },
+                {
+                    "id": "urn:li:container:46baa6eebd802861e5ee3d043456e171",
+                    "urn": "urn:li:container:46baa6eebd802861e5ee3d043456e171"
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
+        "runId": "trino-hive-instance-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.union_test,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,local_server.db1.union_test,PROD)",
     "changeType": "UPSERT",
     "aspectName": "siblings",
     "aspect": {
         "json": {
             "siblings": [
-                "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.union_test,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.union_test,PROD)"
             ],
             "primary": true
         }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
+        "runId": "trino-hive-instance-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.union_test,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.union_test,PROD)",
     "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
@@ -2046,7 +2227,7 @@
                         "time": 0,
                         "actor": "urn:li:corpuser:unknown"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.union_test,PROD)",
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,local_server.db1.union_test,PROD)",
                     "type": "VIEW"
                 }
             ]
@@ -2054,30 +2235,30 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
+        "runId": "trino-hive-instance-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.array_struct_test_view,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.array_struct_test_view,PROD)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:304fd7ad57dc0ab32fb2cb778cbccd84"
+            "container": "urn:li:container:46baa6eebd802861e5ee3d043456e171"
         }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
+        "runId": "trino-hive-instance-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.array_struct_test_view,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.array_struct_test_view,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.common.Status": {
@@ -2182,13 +2363,30 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
+        "runId": "trino-hive-instance-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.array_struct_test_view,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.array_struct_test_view,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:trino",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:trino,production_warehouse)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1632398400000,
+        "runId": "trino-hive-instance-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.array_struct_test_view,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -2200,13 +2398,13 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
+        "runId": "trino-hive-instance-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.array_struct_test_view,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.array_struct_test_view,PROD)",
     "changeType": "UPSERT",
     "aspectName": "viewProperties",
     "aspect": {
@@ -2218,76 +2416,80 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
+        "runId": "trino-hive-instance-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.array_struct_test_view,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.array_struct_test_view,PROD)",
     "changeType": "UPSERT",
     "aspectName": "siblings",
     "aspect": {
         "json": {
             "siblings": [
-                "urn:li:dataset:(urn:li:dataPlatform:hive,db1.array_struct_test_view,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:hive,local_server.db1.array_struct_test_view,PROD)"
             ],
             "primary": false
         }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
+        "runId": "trino-hive-instance-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.array_struct_test_view,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.array_struct_test_view,PROD)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
             "path": [
                 {
-                    "id": "urn:li:container:c7a81f6ed9a7cdd0c74436ac2dc4d1f7",
-                    "urn": "urn:li:container:c7a81f6ed9a7cdd0c74436ac2dc4d1f7"
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:trino,production_warehouse)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:trino,production_warehouse)"
                 },
                 {
-                    "id": "urn:li:container:304fd7ad57dc0ab32fb2cb778cbccd84",
-                    "urn": "urn:li:container:304fd7ad57dc0ab32fb2cb778cbccd84"
+                    "id": "urn:li:container:f311add3fdc7c16e8a50a63fe1dcce8b",
+                    "urn": "urn:li:container:f311add3fdc7c16e8a50a63fe1dcce8b"
+                },
+                {
+                    "id": "urn:li:container:46baa6eebd802861e5ee3d043456e171",
+                    "urn": "urn:li:container:46baa6eebd802861e5ee3d043456e171"
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
+        "runId": "trino-hive-instance-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.array_struct_test_view,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,local_server.db1.array_struct_test_view,PROD)",
     "changeType": "UPSERT",
     "aspectName": "siblings",
     "aspect": {
         "json": {
             "siblings": [
-                "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.array_struct_test_view,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.array_struct_test_view,PROD)"
             ],
             "primary": true
         }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
+        "runId": "trino-hive-instance-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.array_struct_test_view,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.array_struct_test_view,PROD)",
     "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
@@ -2298,7 +2500,7 @@
                         "time": 0,
                         "actor": "urn:li:corpuser:unknown"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.array_struct_test,PROD)",
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.array_struct_test,PROD)",
                     "type": "VIEW"
                 }
             ],
@@ -2306,22 +2508,22 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.array_struct_test,PROD),property_id)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.array_struct_test,PROD),property_id)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.array_struct_test_view,PROD),property_id)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.array_struct_test_view,PROD),property_id)"
                     ],
                     "confidenceScore": 1.0
                 },
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.array_struct_test,PROD),service)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.array_struct_test,PROD),service)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.array_struct_test_view,PROD),service)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.array_struct_test_view,PROD),service)"
                     ],
                     "confidenceScore": 1.0
                 }
@@ -2330,13 +2532,13 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
+        "runId": "trino-hive-instance-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,db1._test_table_underscore,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,local_server.db1._test_table_underscore,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -2346,13 +2548,13 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
+        "runId": "trino-hive-instance-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.array_struct_test,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,local_server.db1.array_struct_test,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -2362,13 +2564,13 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
+        "runId": "trino-hive-instance-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.array_struct_test_view,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,local_server.db1.array_struct_test_view,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -2378,13 +2580,13 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
+        "runId": "trino-hive-instance-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.map_test,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,local_server.db1.map_test,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -2394,13 +2596,13 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
+        "runId": "trino-hive-instance-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.nested_struct_test,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,local_server.db1.nested_struct_test,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -2410,13 +2612,13 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
+        "runId": "trino-hive-instance-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.pokes,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,local_server.db1.pokes,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -2426,13 +2628,13 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
+        "runId": "trino-hive-instance-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.struct_test,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,local_server.db1.struct_test,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -2442,13 +2644,13 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
+        "runId": "trino-hive-instance-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.struct_test_view_materialized,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,local_server.db1.struct_test_view_materialized,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -2458,13 +2660,13 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
+        "runId": "trino-hive-instance-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.union_test,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,local_server.db1.union_test,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -2474,269 +2676,314 @@
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
+        "runId": "trino-hive-instance-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:c7a81f6ed9a7cdd0c74436ac2dc4d1f7",
+    "entityUrn": "urn:li:container:f311add3fdc7c16e8a50a63fe1dcce8b",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
-            "path": []
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:trino,production_warehouse)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:trino,production_warehouse)"
+                }
+            ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
+        "runId": "trino-hive-instance-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:304fd7ad57dc0ab32fb2cb778cbccd84",
+    "entityUrn": "urn:li:container:46baa6eebd802861e5ee3d043456e171",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
             "path": [
                 {
-                    "id": "urn:li:container:c7a81f6ed9a7cdd0c74436ac2dc4d1f7",
-                    "urn": "urn:li:container:c7a81f6ed9a7cdd0c74436ac2dc4d1f7"
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:trino,production_warehouse)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:trino,production_warehouse)"
+                },
+                {
+                    "id": "urn:li:container:f311add3fdc7c16e8a50a63fe1dcce8b",
+                    "urn": "urn:li:container:f311add3fdc7c16e8a50a63fe1dcce8b"
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
+        "runId": "trino-hive-instance-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.array_struct_test,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.array_struct_test,PROD)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
             "path": [
                 {
-                    "id": "urn:li:container:c7a81f6ed9a7cdd0c74436ac2dc4d1f7",
-                    "urn": "urn:li:container:c7a81f6ed9a7cdd0c74436ac2dc4d1f7"
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:trino,production_warehouse)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:trino,production_warehouse)"
                 },
                 {
-                    "id": "urn:li:container:304fd7ad57dc0ab32fb2cb778cbccd84",
-                    "urn": "urn:li:container:304fd7ad57dc0ab32fb2cb778cbccd84"
+                    "id": "urn:li:container:f311add3fdc7c16e8a50a63fe1dcce8b",
+                    "urn": "urn:li:container:f311add3fdc7c16e8a50a63fe1dcce8b"
+                },
+                {
+                    "id": "urn:li:container:46baa6eebd802861e5ee3d043456e171",
+                    "urn": "urn:li:container:46baa6eebd802861e5ee3d043456e171"
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
+        "runId": "trino-hive-instance-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.map_test,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.map_test,PROD)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
             "path": [
                 {
-                    "id": "urn:li:container:c7a81f6ed9a7cdd0c74436ac2dc4d1f7",
-                    "urn": "urn:li:container:c7a81f6ed9a7cdd0c74436ac2dc4d1f7"
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:trino,production_warehouse)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:trino,production_warehouse)"
                 },
                 {
-                    "id": "urn:li:container:304fd7ad57dc0ab32fb2cb778cbccd84",
-                    "urn": "urn:li:container:304fd7ad57dc0ab32fb2cb778cbccd84"
+                    "id": "urn:li:container:f311add3fdc7c16e8a50a63fe1dcce8b",
+                    "urn": "urn:li:container:f311add3fdc7c16e8a50a63fe1dcce8b"
+                },
+                {
+                    "id": "urn:li:container:46baa6eebd802861e5ee3d043456e171",
+                    "urn": "urn:li:container:46baa6eebd802861e5ee3d043456e171"
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
+        "runId": "trino-hive-instance-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.nested_struct_test,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.nested_struct_test,PROD)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
             "path": [
                 {
-                    "id": "urn:li:container:c7a81f6ed9a7cdd0c74436ac2dc4d1f7",
-                    "urn": "urn:li:container:c7a81f6ed9a7cdd0c74436ac2dc4d1f7"
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:trino,production_warehouse)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:trino,production_warehouse)"
                 },
                 {
-                    "id": "urn:li:container:304fd7ad57dc0ab32fb2cb778cbccd84",
-                    "urn": "urn:li:container:304fd7ad57dc0ab32fb2cb778cbccd84"
+                    "id": "urn:li:container:f311add3fdc7c16e8a50a63fe1dcce8b",
+                    "urn": "urn:li:container:f311add3fdc7c16e8a50a63fe1dcce8b"
+                },
+                {
+                    "id": "urn:li:container:46baa6eebd802861e5ee3d043456e171",
+                    "urn": "urn:li:container:46baa6eebd802861e5ee3d043456e171"
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
+        "runId": "trino-hive-instance-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.pokes,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.pokes,PROD)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
             "path": [
                 {
-                    "id": "urn:li:container:c7a81f6ed9a7cdd0c74436ac2dc4d1f7",
-                    "urn": "urn:li:container:c7a81f6ed9a7cdd0c74436ac2dc4d1f7"
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:trino,production_warehouse)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:trino,production_warehouse)"
                 },
                 {
-                    "id": "urn:li:container:304fd7ad57dc0ab32fb2cb778cbccd84",
-                    "urn": "urn:li:container:304fd7ad57dc0ab32fb2cb778cbccd84"
+                    "id": "urn:li:container:f311add3fdc7c16e8a50a63fe1dcce8b",
+                    "urn": "urn:li:container:f311add3fdc7c16e8a50a63fe1dcce8b"
+                },
+                {
+                    "id": "urn:li:container:46baa6eebd802861e5ee3d043456e171",
+                    "urn": "urn:li:container:46baa6eebd802861e5ee3d043456e171"
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
+        "runId": "trino-hive-instance-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.struct_test,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.struct_test,PROD)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
             "path": [
                 {
-                    "id": "urn:li:container:c7a81f6ed9a7cdd0c74436ac2dc4d1f7",
-                    "urn": "urn:li:container:c7a81f6ed9a7cdd0c74436ac2dc4d1f7"
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:trino,production_warehouse)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:trino,production_warehouse)"
                 },
                 {
-                    "id": "urn:li:container:304fd7ad57dc0ab32fb2cb778cbccd84",
-                    "urn": "urn:li:container:304fd7ad57dc0ab32fb2cb778cbccd84"
+                    "id": "urn:li:container:f311add3fdc7c16e8a50a63fe1dcce8b",
+                    "urn": "urn:li:container:f311add3fdc7c16e8a50a63fe1dcce8b"
+                },
+                {
+                    "id": "urn:li:container:46baa6eebd802861e5ee3d043456e171",
+                    "urn": "urn:li:container:46baa6eebd802861e5ee3d043456e171"
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
+        "runId": "trino-hive-instance-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.struct_test_view_materialized,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.struct_test_view_materialized,PROD)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
             "path": [
                 {
-                    "id": "urn:li:container:c7a81f6ed9a7cdd0c74436ac2dc4d1f7",
-                    "urn": "urn:li:container:c7a81f6ed9a7cdd0c74436ac2dc4d1f7"
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:trino,production_warehouse)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:trino,production_warehouse)"
                 },
                 {
-                    "id": "urn:li:container:304fd7ad57dc0ab32fb2cb778cbccd84",
-                    "urn": "urn:li:container:304fd7ad57dc0ab32fb2cb778cbccd84"
+                    "id": "urn:li:container:f311add3fdc7c16e8a50a63fe1dcce8b",
+                    "urn": "urn:li:container:f311add3fdc7c16e8a50a63fe1dcce8b"
+                },
+                {
+                    "id": "urn:li:container:46baa6eebd802861e5ee3d043456e171",
+                    "urn": "urn:li:container:46baa6eebd802861e5ee3d043456e171"
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
+        "runId": "trino-hive-instance-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1._test_table_underscore,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1._test_table_underscore,PROD)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
             "path": [
                 {
-                    "id": "urn:li:container:c7a81f6ed9a7cdd0c74436ac2dc4d1f7",
-                    "urn": "urn:li:container:c7a81f6ed9a7cdd0c74436ac2dc4d1f7"
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:trino,production_warehouse)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:trino,production_warehouse)"
                 },
                 {
-                    "id": "urn:li:container:304fd7ad57dc0ab32fb2cb778cbccd84",
-                    "urn": "urn:li:container:304fd7ad57dc0ab32fb2cb778cbccd84"
+                    "id": "urn:li:container:f311add3fdc7c16e8a50a63fe1dcce8b",
+                    "urn": "urn:li:container:f311add3fdc7c16e8a50a63fe1dcce8b"
+                },
+                {
+                    "id": "urn:li:container:46baa6eebd802861e5ee3d043456e171",
+                    "urn": "urn:li:container:46baa6eebd802861e5ee3d043456e171"
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
+        "runId": "trino-hive-instance-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.union_test,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.union_test,PROD)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
             "path": [
                 {
-                    "id": "urn:li:container:c7a81f6ed9a7cdd0c74436ac2dc4d1f7",
-                    "urn": "urn:li:container:c7a81f6ed9a7cdd0c74436ac2dc4d1f7"
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:trino,production_warehouse)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:trino,production_warehouse)"
                 },
                 {
-                    "id": "urn:li:container:304fd7ad57dc0ab32fb2cb778cbccd84",
-                    "urn": "urn:li:container:304fd7ad57dc0ab32fb2cb778cbccd84"
+                    "id": "urn:li:container:f311add3fdc7c16e8a50a63fe1dcce8b",
+                    "urn": "urn:li:container:f311add3fdc7c16e8a50a63fe1dcce8b"
+                },
+                {
+                    "id": "urn:li:container:46baa6eebd802861e5ee3d043456e171",
+                    "urn": "urn:li:container:46baa6eebd802861e5ee3d043456e171"
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
+        "runId": "trino-hive-instance-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.array_struct_test_view,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.array_struct_test_view,PROD)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
             "path": [
                 {
-                    "id": "urn:li:container:c7a81f6ed9a7cdd0c74436ac2dc4d1f7",
-                    "urn": "urn:li:container:c7a81f6ed9a7cdd0c74436ac2dc4d1f7"
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:trino,production_warehouse)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:trino,production_warehouse)"
                 },
                 {
-                    "id": "urn:li:container:304fd7ad57dc0ab32fb2cb778cbccd84",
-                    "urn": "urn:li:container:304fd7ad57dc0ab32fb2cb778cbccd84"
+                    "id": "urn:li:container:f311add3fdc7c16e8a50a63fe1dcce8b",
+                    "urn": "urn:li:container:f311add3fdc7c16e8a50a63fe1dcce8b"
+                },
+                {
+                    "id": "urn:li:container:46baa6eebd802861e5ee3d043456e171",
+                    "urn": "urn:li:container:46baa6eebd802861e5ee3d043456e171"
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
+        "runId": "trino-hive-instance-test",
         "lastRunId": "no-run-id-provided"
     }
 }
