@@ -1,6 +1,7 @@
 import functools
 import itertools
 import logging
+import traceback
 from collections import defaultdict
 from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
@@ -198,6 +199,16 @@ class SqlParsingDebugInfo(_ParserBaseModel):
     @property
     def error(self) -> Optional[Exception]:
         return self.table_error or self.column_error
+
+    @pydantic.validator("table_error", "column_error")
+    def remove_variables_from_error(cls, v: Optional[Exception]) -> Optional[Exception]:
+        if v and v.__traceback__:
+            # Remove local variables from the traceback to avoid memory leaks.
+            # See https://docs.python.org/3/library/traceback.html#traceback.clear_frames
+            # and https://docs.python.org/3/reference/datamodel.html#frame.clear
+            traceback.clear_frames(v.__traceback__)
+
+        return v
 
 
 class SqlParsingResult(_ParserBaseModel):
