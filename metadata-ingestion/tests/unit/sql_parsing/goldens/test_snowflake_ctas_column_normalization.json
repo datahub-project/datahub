@@ -83,5 +83,9 @@
                 }
             ]
         }
-    ]
+    ],
+    "debug_info": {
+        "confidence": 0.9,
+        "generalized_statement": "CREATE TABLE snowflake_sample_data.tpch_sf1.orders_normalized AS SELECT SUM(o.\"totalprice\") AS Total_Agg, AVG(\"TotalPrice\") AS TOTAL_AVG, MIN(\"TOTALPRICE\") AS TOTAL_MIN, MAX(TotalPrice) AS Total_Max FROM snowflake_sample_data.tpch_sf1.orders AS o"
+    }
 }
