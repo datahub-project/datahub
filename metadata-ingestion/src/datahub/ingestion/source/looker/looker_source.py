@@ -1199,7 +1199,9 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                 logger.info(f"query_id is None for look {look.title}({look.id})")
                 continue
 
-            query: Query = self.looker_api.get_query(look.query_id, query_fields)
+            query: Query = self.looker_api.look(look.id, fields="query").query
+            filtered_query_dict = {key: getattr(query, key) for key in query_fields if hasattr(query, key)}
+            query = Query(**filtered_query_dict)
 
             dashboard_element: Optional[
                 LookerDashboardElement
