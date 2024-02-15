@@ -9,9 +9,12 @@ import com.linkedin.data.ByteString;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeProposal;
+import java.io.UnsupportedEncodingException;
+import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import javax.annotation.Nonnull;
 import org.apache.commons.lang3.tuple.ImmutableTriple;
 
 public abstract class AbstractMultiFieldPatchBuilder<T extends AbstractMultiFieldPatchBuilder<T>> {
@@ -63,6 +66,10 @@ public abstract class AbstractMultiFieldPatchBuilder<T extends AbstractMultiFiel
    * @return entity type name
    */
   protected abstract String getEntityType();
+
+  protected static String encodeValue(@Nonnull String value) {
+    return value.replace("~ ", "~0").replace("/", "~1");
+  }
 
   /**
    * Overrides basic behavior to construct multiple patches based on properties

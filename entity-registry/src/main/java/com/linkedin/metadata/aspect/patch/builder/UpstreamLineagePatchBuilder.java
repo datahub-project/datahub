@@ -41,14 +41,14 @@ public class UpstreamLineagePatchBuilder
 
     pathValues.add(
         ImmutableTriple.of(
-            PatchOperationType.ADD.getValue(), UPSTREAMS_PATH_START + datasetUrn, value));
+            PatchOperationType.ADD.getValue(), UPSTREAMS_PATH_START + encodeValue(datasetUrn.toString()), value));
     return this;
   }
 
   public UpstreamLineagePatchBuilder removeUpstream(@Nonnull DatasetUrn datasetUrn) {
     pathValues.add(
         ImmutableTriple.of(
-            PatchOperationType.REMOVE.getValue(), UPSTREAMS_PATH_START + datasetUrn, null));
+            PatchOperationType.REMOVE.getValue(), UPSTREAMS_PATH_START +  encodeValue(datasetUrn.toString()), null));
     return this;
   }
 
@@ -78,7 +78,7 @@ public class UpstreamLineagePatchBuilder
                 + "/"
                 + "DATASET"
                 + "/"
-                + datasetUrn,
+                + encodeValue(datasetUrn.toString()),
             instance.numberNode(finalConfidenceScore)));
     return this;
   }
@@ -119,7 +119,7 @@ public class UpstreamLineagePatchBuilder
                 + "/"
                 + finalType
                 + "/"
-                + schemaFieldUrn,
+                +  encodeValue(schemaFieldUrn.toString()),
             instance.numberNode(finalConfidenceScore)));
 
     return this;
@@ -161,7 +161,7 @@ public class UpstreamLineagePatchBuilder
                 + "/"
                 + finalType
                 + "/"
-                + schemaFieldUrn,
+                + encodeValue(schemaFieldUrn.toString()),
             instance.numberNode(finalConfidenceScore)));
     return this;
   }
@@ -209,7 +209,7 @@ public class UpstreamLineagePatchBuilder
                 + "/"
                 + finalType
                 + "/"
-                + schemaFieldUrn,
+                + encodeValue(schemaFieldUrn.toString()),
             null));
 
     return this;
@@ -228,7 +228,7 @@ public class UpstreamLineagePatchBuilder
                 + "/"
                 + "DATASET"
                 + "/"
-                + datasetUrn,
+                + encodeValue(datasetUrn.toString()),
             null));
     return this;
   }
@@ -265,7 +265,7 @@ public class UpstreamLineagePatchBuilder
                 + "/"
                 + finalType
                 + "/"
-                + schemaFieldUrn,
+                +  encodeValue(schemaFieldUrn.toString()),
             null));
     return this;
   }

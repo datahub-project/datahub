@@ -52,6 +52,8 @@ buildscript {
   ext.hazelcastVersion = '5.3.6'
   ext.ebeanVersion = '12.16.1'
   ext.googleJavaFormatVersion = '1.18.1'
+  ext.openLineageVersion = '1.5.0'
+  ext.logbackClassicJava8 = '1.2.12'
 
   ext.docker_registry = 'linkedin'
 
@@ -176,6 +178,7 @@ project.ext.externalDependency = [
     'kafkaClients': "org.apache.kafka:kafka-clients:$kafkaVersion",
     'snappy': 'org.xerial.snappy:snappy-java:1.1.10.4',
     'logbackClassic': "ch.qos.logback:logback-classic:$logbackClassic",
+    'logbackClassicJava8' : "ch.qos.logback:logback-classic:$logbackClassicJava8",
     'slf4jApi': "org.slf4j:slf4j-api:$slf4jVersion",
     'log4jCore': "org.apache.logging.log4j:log4j-core:$log4jVersion",
     'log4jApi': "org.apache.logging.log4j:log4j-api:$log4jVersion",
