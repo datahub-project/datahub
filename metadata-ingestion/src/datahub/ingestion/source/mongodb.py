@@ -427,12 +427,12 @@ class MongoDBSource(StatefulIngestionSourceBase):
                             ),  # Negate `count` for descending order, `delimited_name` stays the same for ascending
                         )[0:max_schema_size]
                         # Add this information to the custom properties so user can know they are looking at downsampled schema
-                        dataset_properties.customProperties["schema.downsampled"] = (
-                            "True"
-                        )
-                        dataset_properties.customProperties["schema.totalFields"] = (
-                            f"{collection_schema_size}"
-                        )
+                        dataset_properties.customProperties[
+                            "schema.downsampled"
+                        ] = "True"
+                        dataset_properties.customProperties[
+                            "schema.totalFields"
+                        ] = f"{collection_schema_size}"
 
                     logger.debug(
                         f"Size of collection fields = {len(collection_fields)}"
