@@ -1329,16 +1329,30 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                 if datasource.get(
                     c.TYPE_NAME
                 ) == c.EMBEDDED_DATA_SOURCE and datasource.get(c.WORKBOOK):
+                    workbook = datasource.get(c.WORKBOOK)
                     datasource_name = (
-                        f"{datasource.get(c.WORKBOOK).get(c.NAME)}/{datasource_name}"
-                        if datasource_name and datasource.get(c.WORKBOOK).get(c.NAME)
+                        f"{workbook.get(c.NAME)}/{datasource_name}"
+                        if datasource_name and workbook.get(c.NAME)
                         else None
                     )
                     logger.debug(
                         f"Adding datasource {datasource_name}({datasource.get('id')}) to container"
                     )
                     yield from add_entity_to_container(
-                        self.gen_workbook_key(datasource[c.WORKBOOK][c.ID]),
+                        self.gen_workbook_key(workbook[c.ID]),
+                        c.DATASET,
+                        dataset_snapshot.urn,
+                    )
+                else:
+                    project_luid = self._get_datasource_project_luid(datasource)
+                    logger.debug(
+                        f"Adding datasource {datasource_name}({datasource.get('id')}) to project container"
+                    )
+                    # TODO: Technically, we should have another layer of hierarchy with the datasource name here.
+                    # Same with the workbook name above. However, in practice most projects/workbooks have a single
+                    # datasource, so the extra nesting just gets in the way.
+                    yield from add_entity_to_container(
+                        self.gen_project_key(project_luid),
                         c.DATASET,
                         dataset_snapshot.urn,
                     )
@@ -1373,9 +1387,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
 
             if project and datasource_name:
                 browse_paths = BrowsePathsClass(
-                    paths=[
-                        f"{self.dataset_browse_prefix}/{project}/{datasource[c.NAME]}"
-                    ]
+                    paths=[f"{self.dataset_browse_prefix}/{project}/{datasource_name}"]
                 )
                 dataset_snapshot.aspects.append(browse_paths)
             else:
