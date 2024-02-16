@@ -1028,3 +1028,22 @@ SELECT * FROM cte
         },
         expected_file=RESOURCE_DIR / "test_redshift_temp_table_shortcut.json",
     )
+
+
+def test_redshift_union_view():
+    # TODO: This currently fails to generate CLL. Need to debug further.
+    assert_sql_result(
+        """
+CREATE VIEW sales_vw AS SELECT * FROM public.sales UNION ALL SELECT * FROM spectrum.sales WITH NO SCHEMA BINDING
+""",
+        dialect="redshift",
+        default_db="my_db",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:redshift,my_db.public.sales,PROD)": {
+                "col1": "INTEGER",
+                "col2": "INTEGER",
+            },
+            # Testing a case where we only have one schema available.
+        },
+        expected_file=RESOURCE_DIR / "test_redshift_union_view.json",
+    )

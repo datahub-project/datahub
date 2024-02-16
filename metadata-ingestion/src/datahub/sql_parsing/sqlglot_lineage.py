@@ -501,6 +501,12 @@ def _column_level_lineage(  # noqa: C901
                 elif isinstance(node.expression, sqlglot.exp.Table):
                     table_ref = _TableName.from_sqlglot_table(node.expression)
 
+                    if node.name == "*":
+                        # This will happen if we couldn't expand the * to actual columns e.g. if
+                        # we don't have schema info for the table. In this case, we can't generate
+                        # column-level lineage, so we skip it.
+                        continue
+
                     # Parse the column name out of the node name.
                     # Sqlglot calls .sql(), so we have to do the inverse.
                     normalized_col = sqlglot.parse_one(node.name).this.name
@@ -554,7 +560,7 @@ def _column_level_lineage(  # noqa: C901
             )
 
         # TODO: Also extract referenced columns (aka auxillary / non-SELECT lineage)
-    except (sqlglot.errors.OptimizeError, ValueError) as e:
+    except (sqlglot.errors.OptimizeError, ValueError, IndexError) as e:
         raise SqlUnderstandingError(
             f"sqlglot failed to compute some lineage: {e}"
         ) from e
@@ -866,7 +872,12 @@ def _sqlglot_lineage_inner(
         e.args = (f"{e.args[0]} (outer statement type: {type(statement)})",)
         debug_info.column_error = e
         logger.debug(debug_info.column_error)
-    except SqlUnderstandingError as e:
+    except (
+        SqlUnderstandingError,
+        ValueError,
+        IndexError,
+        sqlglot.errors.SqlglotError,
+    ) as e:
         logger.debug(f"Failed to generate column-level lineage: {e}", exc_info=True)
         debug_info.column_error = e
 
