@@ -87,7 +87,7 @@ Here's an overview of what each API can do.
 | Read Owners of a Dataset           | ✅ [[Guide]](/docs/api/tutorials/owners.md#read-owners)                       | ✅ [[Guide]](/docs/api/tutorials/owners.md#read-owners)                       | ✅       |
 | Add Owner to a Dataset             | ✅ [[Guide]](/docs/api/tutorials/owners.md#add-owners)                        | ✅ [[Guide]](/docs/api/tutorials/owners.md#add-owners#remove-owners)          | ✅       |
 | Remove Owner from a Dataset        | ✅ [[Guide]](/docs/api/tutorials/owners.md#remove-owners)                     | ✅ [[Guide]](/docs/api/tutorials/owners.md)                                   | ✅       |
-| Add Lineage                                             | ✅ [[Guide]](/docs/api/tutorials/lineage.md)                     | ✅ [[Guide]](/docs/api/tutorials/lineage)                      | ✅
+| Add Lineage                                             | ✅ [[Guide]](/docs/api/tutorials/lineage.md)                     | ✅ [[Guide]](/docs/api/tutorials/lineage.md)                      | ✅
 | Add Column Level (Fine Grained) Lineage                  | 🚫                                                            | ✅                                                            | ✅       |
 | Add Documentation (Description) to a Column of a Dataset | ✅ [[Guide]](/docs/api/tutorials/descriptions.md#add-description-on-column) | ✅ [[Guide]](/docs/api/tutorials/descriptions.md#add-description-on-column) | ✅       |
 | Add Documentation (Description) to a Dataset             | ✅ [[Guide]](/docs/api/tutorials/descriptions.md#add-description-on-dataset) | ✅ [[Guide]](/docs/api/tutorials/descriptions.md#add-description-on-dataset) | ✅       |
