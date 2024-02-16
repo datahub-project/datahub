@@ -98,10 +98,7 @@ fragment nonSiblingDatasetFields on Dataset {
         }
     }
     health {
-        type
-        status
-        message
-        causes
+        ...entityHealth
     }
     assertions(start: 0, count: 1) {
         total
@@ -163,31 +160,16 @@ fragment nonSiblingDatasetFields on Dataset {
     siblings {
         isPrimary
     }
+    activeIncidents: incidents(start: 0, count: 1, state: ACTIVE) {
+        total
+    }
     privileges {
         canEditLineage
         canEditEmbed
         canEditQueries
     }
     forms {
-        completedForms {
-            ...formAssociationFields
-        }
-        incompleteForms {
-            ...formAssociationFields
-        }
-        verifications {
-            form {
-                urn
-            }
-            lastModified {
-                time
-                actor {
-                    urn
-                    type
-                    ...entityDisplayNameFields
-                }
-            }
-        }
+        ...formsFields
     }
 }
 

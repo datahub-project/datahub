@@ -12,5 +12,8 @@ query getMLPrimaryKey($urn: String!) {
                 ...structuredPropertiesFields
             }
         }
+        forms {
+            ...formsFields
+        }
     }
 }

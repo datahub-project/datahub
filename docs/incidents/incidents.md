@@ -4,8 +4,9 @@ description: This page provides an overview of working with the DataHub Incident
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 
-# Incidents API (Beta)
-<FeatureAvailability saasOnly />
+# About Incidents
+
+<FeatureAvailability/>
 
 ## Introduction
 
@@ -13,24 +14,44 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 A couple scenarios in which incidents can be useful are
 
-1. **Pipeline Circuit Breaking:** You can use Incidents as the basis for intelligent data pipelines that verify upstream inputs (e.g. datasets) are free of any active incidents before executing.
-2. \[Coming Soon] **Announcing Known-Bad Assets**: You can mark a known-bad data asset as under an ongoing incident so consumers and stakeholders can be informed about the health status of a data asset via the DataHub UI. Moreover, they can follow the incident as it progresses toward resolution.
+1**Communicating Assets with Ongoing Issues**: You can mark a known-bad data asset as under an ongoing incident so consumers and stakeholders can be informed about the health status of a data asset via the DataHub UI. Moreover, they can follow the incident as it progresses toward resolution.
+2**Pipeline Circuit Breaking (advanced):** You can use Incidents as a basis for orchestrating and blocking data pipelines that have inputs with active issues to avoid propagating bad data downstream.
 
-In the next section, we'll show you how to
+In the next section, we'll walk through how to
 
 1. Create a new incident
 2. Fetch all incidents for a data asset
 3. Resolve an incident
 
-for **Datasets** using the Acryl [GraphQL API](docs/api/graphql/overview.md).
+for **Datasets**, **Dashboards**, **Charts**, **Data Pipelines** (Data Flows), and **Data Tasks** (Data Jobs) using the DataHub UI or [GraphQL API](docs/api/graphql/overview.md).
 
 Let's get started!
 
 ## Creating an Incident
 
-:::info
-Creating incidents is currently only supported against **Dataset** assets.
-:::
+To create an incident, simply navigate to the profile page for the asset of interest, click
+the 3-dot menu icon on the right side of the header, and click **Raise Incident**.
+
+Choose an existing type, or define your own, and then author a title and description of the issue. Finally,
+click `Add` to create the new issue. This will mark the asset with a health status badge indicating that it
+is possibly unfit for use due to an ongoing issue. 
+
+## Resolving an Incident
+
+To resolve an incident, simply naviagte to the profile page for the asset of interest, click
+the **Incidents** tab, and then click the **Resolve** button for the incident of interest.
+This will resolve the incident from the list of active incidents for the asset, removing it from the 
+asset's health status.
+
+## Finding Assets with Active Incidents
+
+To view all assets with active incidents, simply apply the `Has Active Incidents` filter on the search results page of DataHub. 
+To view all assets first, click **Explore all** on the DataHub homepage.
+
+## Creating an Incident via API
+
+Oftentimes it is desirable to raise and resolve incidents for particular data assets in automated fashion using the DataHub API, e.g. as part of an
+orchestration pipeline. 
 
 To create (i.e. raise) a new incident for a data asset, simply create a GraphQL request using the `raiseIncident` mutation.
 
@@ -150,8 +171,6 @@ res_data = response.json() # Get result as JSON
 ## Retrieving Active Incidents
 
 To fetch the the ongoing incidents for a data asset, we can use the `incidents` GraphQL field on the entity of interest.
-
-### Datasets
 
 To retrieve all incidents for a Dataset with a particular [URN](docs/what/urn.md), you can reference the 'incidents' field of the Dataset type:
 
@@ -276,7 +295,7 @@ response.raise_for_status()
 res_data = response.json() # Get result as JSON
 ```
 
-## Resolving an Incident
+## Resolving an Incident via API
 
 To resolve an incident for a data asset, simply create a GraphQL request using the `updateIncidentStatus` mutation. To mark an incident as resolved, simply update its state to `RESOLVED`.
 
@@ -395,20 +414,18 @@ Authorization: Bearer <personal-access-token>
 
 **Exploring GraphQL API**
 
-Also, remember that you can play with an interactive version of the Acryl GraphQL API at `https://your-account-id.acryl.io/api/graphiql`
+Also, remember that you can play with an interactive version of the GraphQL API at `https://your-account-id.acryl.io/api/graphiql`
 :::
 
-## Enabling Slack Notifications
+## Enabling Slack Notifications (Acryl Cloud Only)
 
-You can configure Acryl to send slack notifications to a specific channel when incidents are raised or their status is changed.
+In Acryl Cloud, you can configure your to send Slack notifications to a specific channel when incidents are raised or their status is changed.
 
 These notifications are also able to tag the immediate asset's owners, along with the owners of downstream assets consuming it.
-
 
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/Screen-Shot-2022-03-22-at-6.46.41-PM.png"/>
 </p>
-
 
 To do so, simply follow the [Slack Integration Guide](docs/managed-datahub/saas-slack-setup.md) and contact your Acryl customer success team to enable the feature! 
 

@@ -931,6 +931,11 @@ enum EntityType {
     """
     CUSTOM_OWNERSHIP_TYPE
 
+    """
+    A DataHub incident - SaaS only
+    """
+    INCIDENT
+
     """"
     A Role from an organisation
     """
@@ -1697,7 +1702,7 @@ type VersionedDataset implements Entity {
     domain: DomainAssociation
 
     """
-    Experimental! The resolved health status of the Dataset
+    Experimental! The resolved health status of the asset
     """
     health: [Health!]
 
@@ -1988,6 +1993,11 @@ type GlossaryTerm implements Entity {
     Structured properties about this asset
     """
     structuredProperties: StructuredProperties
+
+    """
+    The forms associated with the Dataset
+    """
+    forms: Forms
 }
 
 """
@@ -2136,6 +2146,11 @@ type GlossaryNode implements Entity {
     Structured properties about this asset
     """
     structuredProperties: StructuredProperties
+
+    """
+    The forms associated with the Dataset
+    """
+    forms: Forms
 }
 
 """
@@ -2552,6 +2567,11 @@ type Container implements Entity {
     Structured properties about this asset
     """
     structuredProperties: StructuredProperties
+
+    """
+    The forms associated with the Dataset
+    """
+    forms: Forms
 }
 
 """
@@ -2931,6 +2951,11 @@ type SchemaFieldEntity implements Entity {
     Structured properties on this schema field
     """
     structuredProperties: StructuredProperties
+
+    """
+    The forms associated with the Dataset
+    """
+    forms: Forms
 
     """
     Granular API for querying edges extending from this entity
@@ -3580,6 +3605,11 @@ type CorpUser implements Entity {
     Structured properties about this asset
     """
     structuredProperties: StructuredProperties
+
+    """
+    The forms associated with the Dataset
+    """
+    forms: Forms
 }
 
 """
@@ -3951,6 +3981,11 @@ type CorpGroup implements Entity {
     Structured properties about this asset
     """
     structuredProperties: StructuredProperties
+
+    """
+    The forms associated with the Dataset
+    """
+    forms: Forms
 }
 
 """
@@ -5130,6 +5165,16 @@ type Dashboard implements EntityWithRelationships & Entity & BrowsableEntity {
     Structured properties about this asset
     """
     structuredProperties: StructuredProperties
+
+    """
+    Experimental! The resolved health statuses of the asset
+    """
+    health: [Health!]
+
+    """
+    The forms associated with the Dataset
+    """
+    forms: Forms
 }
 
 """
@@ -5451,6 +5496,16 @@ type Chart implements EntityWithRelationships & Entity & BrowsableEntity {
     Structured properties about this asset
     """
     structuredProperties: StructuredProperties
+
+    """
+    Experimental! The resolved health statuses of the asset
+    """
+    health: [Health!]
+
+    """
+    The forms associated with the Dataset
+    """
+    forms: Forms
 }
 
 """
@@ -5819,6 +5874,16 @@ type DataFlow implements EntityWithRelationships & Entity & BrowsableEntity {
     Structured properties about this asset
     """
     structuredProperties: StructuredProperties
+
+    """
+    Experimental! The resolved health statuses of the asset
+    """
+    health: [Health!]
+
+    """
+    The forms associated with the Dataset
+    """
+    forms: Forms
 }
 
 """
@@ -6030,6 +6095,16 @@ type DataJob implements EntityWithRelationships & Entity & BrowsableEntity {
     Structured properties about this asset
     """
     structuredProperties: StructuredProperties
+
+    """
+    Experimental! The resolved health statuses of the asset
+    """
+    health: [Health!]
+
+    """
+    The forms associated with the Dataset
+    """
+    forms: Forms
 }
 
 """
@@ -8986,6 +9061,11 @@ type MLModel implements EntityWithRelationships & Entity & BrowsableEntity {
     Structured properties about this asset
     """
     structuredProperties: StructuredProperties
+
+    """
+    The forms associated with the Dataset
+    """
+    forms: Forms
 }
 
 """
@@ -9108,6 +9188,11 @@ type MLModelGroup implements EntityWithRelationships & Entity & BrowsableEntity 
     Structured properties about this asset
     """
     structuredProperties: StructuredProperties
+
+    """
+    The forms associated with the Dataset
+    """
+    forms: Forms
 }
 
 type MLModelGroupProperties {
@@ -9243,6 +9328,11 @@ type MLFeature implements EntityWithRelationships & Entity {
     Structured properties about this asset
     """
     structuredProperties: StructuredProperties
+
+    """
+    The forms associated with the Dataset
+    """
+    forms: Forms
 }
 
 type MLHyperParam {
@@ -9423,6 +9513,11 @@ type MLPrimaryKey implements EntityWithRelationships & Entity {
     Structured properties about this asset
     """
     structuredProperties: StructuredProperties
+
+    """
+    The forms associated with the Dataset
+    """
+    forms: Forms
 }
 
 type MLPrimaryKeyProperties {
@@ -9561,6 +9656,11 @@ type MLFeatureTable implements EntityWithRelationships & Entity & BrowsableEntit
     Structured properties about this asset
     """
     structuredProperties: StructuredProperties
+
+    """
+    The forms associated with the Dataset
+    """
+    forms: Forms
 }
 
 type MLFeatureTableEditableProperties {
@@ -9963,6 +10063,11 @@ type Domain implements Entity {
     Structured properties about this asset
     """
     structuredProperties: StructuredProperties
+
+    """
+    The forms associated with the Dataset
+    """
+    forms: Forms
 }
 
 """
@@ -10210,6 +10315,11 @@ enum HealthStatusType {
   Assertions status
   """
   ASSERTIONS
+
+  """
+  Incidents status
+  """
+  INCIDENTS
 }
 
 """
@@ -11356,6 +11466,11 @@ type DataProduct implements Entity {
     Structured properties about this asset
     """
     structuredProperties: StructuredProperties
+
+    """
+    The forms associated with the Dataset
+    """
+    forms: Forms
 }
 
 """

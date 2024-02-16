@@ -35,7 +35,7 @@
         "GET_ANALYTICS_PRIVILEGE"
       ],
       "displayName":"Root User - All Platform Privileges",
-      "description":"Grants full platform privileges to root datahub super user.",
+      "description":"Grants all platform privileges to root user.",
       "state":"ACTIVE",
       "type":"PLATFORM",
       "editable":false
@@ -68,7 +68,7 @@
         "DELETE_ENTITY"
       ],
       "displayName":"Root User - Edit and View All Resources",
-      "description":"Grants full edit and view privileges for all resources to root 'datahub' root user.",
+      "description":"Grants all edit and view privileges for all resources to root user.",
       "state":"ACTIVE",
       "type":"METADATA",
       "editable":false
@@ -207,6 +207,7 @@
         "EDIT_ENTITY_DATA_PRODUCTS",
         "EDIT_DEPRECATION_PRIVILEGE",
         "EDIT_ENTITY_ASSERTIONS",
+        "EDIT_ENTITY_INCIDENTS",
         "EDIT_ENTITY",
         "EDIT_DATASET_COL_TAGS",
         "EDIT_DATASET_COL_GLOSSARY_TERMS",
@@ -286,6 +287,7 @@
         "EDIT_ENTITY_DATA_PRODUCTS",
         "EDIT_DEPRECATION_PRIVILEGE",
         "EDIT_ENTITY_ASSERTIONS",
+        "EDIT_ENTITY_INCIDENTS",
         "EDIT_DATASET_COL_TAGS",
         "EDIT_DATASET_COL_GLOSSARY_TERMS",
         "EDIT_DATASET_COL_DESCRIPTION",
@@ -430,6 +432,7 @@
         "EDIT_ENTITY_DATA_PRODUCTS",
         "EDIT_DEPRECATION_PRIVILEGE",
         "EDIT_ENTITY_ASSERTIONS",
+        "EDIT_ENTITY_INCIDENTS",
         "EDIT_ENTITY",
         "EDIT_DATASET_COL_TAGS",
         "EDIT_DATASET_COL_GLOSSARY_TERMS",

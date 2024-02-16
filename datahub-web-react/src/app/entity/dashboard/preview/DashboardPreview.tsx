@@ -13,6 +13,7 @@ import {
     DashboardStatsSummary,
     DataProduct,
     EntityPath,
+    Health,
 } from '../../../../types.generated';
 import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
@@ -46,6 +47,7 @@ export const DashboardPreview = ({
     snippet,
     degree,
     paths,
+    health,
 }: {
     urn: string;
     platform?: string;
@@ -72,6 +74,7 @@ export const DashboardPreview = ({
     snippet?: React.ReactNode | null;
     degree?: number;
     paths?: EntityPath[];
+    health?: Health[] | null;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
 
@@ -110,6 +113,7 @@ export const DashboardPreview = ({
             }
             degree={degree}
             paths={paths}
+            health={health || undefined}
         />
     );
 };

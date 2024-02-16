@@ -28,6 +28,7 @@ entities:
       - testResults
       - siblings
       - embed
+      - incidentsSummary
       - datasetProperties
       - editableDatasetProperties
       - datasetDeprecation
@@ -70,7 +71,9 @@ entities:
       - dataPlatformInstance
       - browsePathsV2
       - structuredProperties
+      - forms
       - subTypes
+      - incidentsSummary
   - name: dataFlow
     category: core
     keyAspect: dataFlowKey
@@ -89,6 +92,8 @@ entities:
       - dataPlatformInstance
       - browsePathsV2
       - structuredProperties
+      - incidentsSummary
+      - forms
   - name: dataProcess
     keyAspect: dataProcessKey
     aspects:
@@ -127,6 +132,8 @@ entities:
       - browsePathsV2
       - subTypes
       - structuredProperties
+      - incidentsSummary
+      - forms
   - name: dashboard
     keyAspect: dashboardKey
     aspects:
@@ -148,6 +155,8 @@ entities:
       - dataPlatformInstance
       - browsePathsV2
       - structuredProperties
+      - incidentsSummary
+      - forms
   - name: notebook
     doc: Notebook represents a combination of query, text, chart and etc. This is in BETA version
     keyAspect: notebookKey
@@ -181,6 +190,7 @@ entities:
       - origin
       - roleMembership
       - structuredProperties
+      - forms
   - name: corpGroup
     doc: CorpGroup represents an identity of a group of users in the enterprise.
     keyAspect: corpGroupKey
@@ -193,6 +203,7 @@ entities:
       - origin
       - roleMembership
       - structuredProperties
+      - forms
   - name: domain
     doc: A data domain within an organization.
     category: core
@@ -202,6 +213,7 @@ entities:
       - institutionalMemory
       - ownership
       - structuredProperties
+      - forms
   - name: container
     doc: A container of related data assets.
     category: core
@@ -221,6 +233,7 @@ entities:
       - domains
       - browsePathsV2
       - structuredProperties
+      - forms
   - name: tag
     category: core
     keyAspect: tagKey
@@ -243,6 +256,7 @@ entities:
       - status
       - browsePaths
       - structuredProperties
+      - forms
   - name: glossaryNode
     category: core
     keyAspect: glossaryNodeKey
@@ -252,6 +266,7 @@ entities:
       - ownership
       - status
       - structuredProperties
+      - forms
   - name: dataHubIngestionSource
     category: internal
     keyAspect: dataHubIngestionSourceKey
@@ -321,6 +336,7 @@ entities:
       - dataPlatformInstance
       - browsePathsV2
       - structuredProperties
+      - forms
   - name: mlModelGroup
     category: core
     keyAspect: mlModelGroupKey
@@ -337,6 +353,7 @@ entities:
       - dataPlatformInstance
       - browsePathsV2
       - structuredProperties
+      - forms
   - name: mlModelDeployment
     category: core
     keyAspect: mlModelDeploymentKey
@@ -364,6 +381,7 @@ entities:
       - dataPlatformInstance
       - browsePathsV2
       - structuredProperties
+      - forms
   - name: mlFeature
     category: core
     keyAspect: mlFeatureKey
@@ -381,6 +399,7 @@ entities:
       - dataPlatformInstance
       - browsePathsV2
       - structuredProperties
+      - forms
   - name: mlPrimaryKey
     category: core
     keyAspect: mlPrimaryKeyKey
@@ -396,6 +415,7 @@ entities:
       - globalTags
       - dataPlatformInstance
       - structuredProperties
+      - forms
   - name: telemetry
     category: internal
     keyAspect: telemetryKey
@@ -428,12 +448,19 @@ entities:
     keyAspect: schemaFieldKey
     aspects:
       - structuredProperties
+      - forms
   - name: globalSettings
     doc: Global settings for an the platform
     category: internal
     keyAspect: globalSettingsKey
     aspects:
       - globalSettingsInfo
+  - name: incident
+    doc: An incident for an asset.
+    category: core
+    keyAspect: incidentKey
+    aspects:
+      - incidentInfo
   - name: dataHubRole
     category: core
     keyAspect: dataHubRoleKey
@@ -473,6 +500,7 @@ entities:
       - institutionalMemory
       - status
       - structuredProperties
+      - forms
   - name: ownershipType
     doc: Ownership Type represents a user-created ownership category for a person or group who is responsible for an asset.
     category: core
