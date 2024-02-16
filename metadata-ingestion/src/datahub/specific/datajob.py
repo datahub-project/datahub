@@ -438,7 +438,7 @@ class DataJobPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             DataJobInputOutput.ASPECT_NAME,
             "remove",
-            path=f"/inputDatasetFields/{quote(input_urn, safe='')}",
+            path=f"/inputDatasetFields/{MetadataPatchProposal.quote(input_urn)}",
             value={},
         )
         return self
