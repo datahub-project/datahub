@@ -488,6 +488,8 @@ entities:
       - queryProperties
       - querySubjects
       - status
+      - dataPlatformInstance
+      - subTypes
   - name: dataProduct
     category: core
     keyAspect: dataProductKey

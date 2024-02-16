@@ -2,7 +2,7 @@ import snowflakeLogo from '../../../../images/snowflakelogo.png';
 import bigqueryLogo from '../../../../images/bigquerylogo.png';
 import redshiftLogo from '../../../../images/redshiftlogo.png';
 import kafkaLogo from '../../../../images/kafkalogo.png';
-import lookerLogo from '../../../../images/lookerlogo.png';
+import lookerLogo from '../../../../images/lookerlogo.svg';
 import tableauLogo from '../../../../images/tableaulogo.png';
 import mysqlLogo from '../../../../images/mysqllogo-2.png';
 import postgresLogo from '../../../../images/postgreslogo.png';
