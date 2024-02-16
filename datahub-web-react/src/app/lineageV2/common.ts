@@ -35,7 +35,6 @@ export interface Filters {
 export interface NodeBase {
     id: string;
     direction?: LineageDirection;
-    offset?: number;
 }
 
 export interface LineageEntity extends NodeBase {

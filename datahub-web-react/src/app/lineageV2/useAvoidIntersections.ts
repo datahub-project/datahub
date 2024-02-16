@@ -13,7 +13,7 @@ interface ReturnType {
  * TODO: Consider using over per-node useAvoidIntersections for performance. Not complete.
  */
 export default function useAvoidIntersections(vizVersion: number): ReturnType {
-    const { getNodes, setNodes } = useReactFlow<NodeBase>();
+    const { getNodes, setNodes } = useReactFlow<NodeBase & { offset?: number }>();
 
     // Build up tree of dependencies, where nodes a -> b means b may need to be pushed down if a's height increases
     const [dependencies] = useState(new Map<string, Set<string>>());
