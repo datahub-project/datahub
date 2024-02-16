@@ -168,7 +168,7 @@ const TabContent = styled.div`
     overflow: auto;
 `;
 
-const defaultTabDisplayConfig = {
+export const defaultTabDisplayConfig = {
     visible: (_, _1) => true,
     enabled: (_, _1) => true,
 };
