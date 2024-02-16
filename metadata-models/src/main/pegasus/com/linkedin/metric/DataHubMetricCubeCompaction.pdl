@@ -1,0 +1,10 @@
+namespace com.linkedin.metric
+
+/**
+ * The metric compaction configuration.
+ */
+record DataHubMetricCubeCompaction {
+
+
+
+}

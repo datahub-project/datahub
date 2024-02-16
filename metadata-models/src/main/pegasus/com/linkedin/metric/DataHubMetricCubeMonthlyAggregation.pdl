@@ -1,0 +1,8 @@
+namespace com.linkedin.metric
+
+/**
+ * A timeseries aspect for a daily rollup of aggregations.
+ */
+record DataHubMetricCubeMonthlyAggregation {
+
+}
