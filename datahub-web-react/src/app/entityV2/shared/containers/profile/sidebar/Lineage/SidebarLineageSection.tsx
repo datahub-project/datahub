@@ -14,7 +14,7 @@ import {
 } from './utils';
 import SidebarLineageLoadingSection from './SidebarLineageLoadingSection';
 import { useEntityRegistry } from '../../../../../../useEntityRegistry';
-import { ANTD_GRAY, REDESIGN_COLORS } from '../../../../constants';
+import { REDESIGN_COLORS } from '../../../../constants';
 import SectionActionButton from '../SectionActionButton';
 
 const Section = styled.div`
@@ -26,17 +26,18 @@ const Section = styled.div`
 `;
 
 const DirectionText = styled.div`
-    font-size: 8px;
+    font-size: 10px;
     font-weight: 700;
     line-height: 20px;
     letter-spacing: 0.48px;
+    color: ${REDESIGN_COLORS.DARK_GREY};
 `;
 
 const SummaryText = styled.div`
     text-wrap: wrap;
-    font-size: 10px;
+    font-size: 12px;
     font-weight: 600;
-    line-height: 13px;
+    line-height: 20px;
 `;
 
 const StyledUpOutlined = styled(ArrowUpOutlined)`
@@ -52,14 +53,18 @@ const DirectionHeader = styled.div`
     align-items: center;
     justify-content: start;
     font-weight: bold;
-    font-size: 10px;
+    font-size: 12px;
     letter-spacing: 1px;
     height: 20px;
-    && {
-        color: ${ANTD_GRAY[7]};
-    }
-    width: 100px;
+    color: #c1c1d7;
+    min-width: 100px;
     margin-right: 6px;
+`;
+
+const StyledPartitionOutlined = styled(PartitionOutlined)`
+    svg {
+        padding: 4px 5px 4px 4px;
+    }
 `;
 
 const SidebarLineageSection = () => {
@@ -136,7 +141,7 @@ const SidebarLineageSection = () => {
                             placement="left"
                             showArrow={false}
                         >
-                            <PartitionOutlined />
+                            <StyledPartitionOutlined />
                         </Tooltip>
                     }
                     onClick={(event) => {

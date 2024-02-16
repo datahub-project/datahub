@@ -18,7 +18,7 @@ const OwnerTag = styled(Tag)`
     align-items: center;
     font-weight: 600;
     border-color: #9da7c0 !important;
-    padding: 2px 6px;
+    padding: 2px 6px 2px 3px;
 `;
 
 type Props = {

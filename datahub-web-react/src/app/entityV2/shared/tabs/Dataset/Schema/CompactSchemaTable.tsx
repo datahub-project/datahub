@@ -28,6 +28,7 @@ export type Props = {
 
 const TableContainer = styled.div<{ fullHeight?: boolean }>`
     margin-top: ${(props) => (props.fullHeight ? '0px' : '5px')};
+    margin-left: ${(props) => (props.fullHeight ? '12px' : '0px')};
     .ant-table-thead > tr > th {
         background-color: transparent;
         font-weight: 600;
@@ -35,7 +36,7 @@ const TableContainer = styled.div<{ fullHeight?: boolean }>`
         font-weight: 700;
     }
     &&& .ant-table-cell:first-of-type {
-        padding: 8px 8px 8px 0px;
+        ${(props) => !props.fullHeight && 'padding: 8px 8px 8px 0px'};
     }
     &&& .description-column {
         overflow: hidden;

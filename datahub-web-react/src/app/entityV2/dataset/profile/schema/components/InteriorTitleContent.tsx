@@ -35,7 +35,6 @@ const FieldPathText = styled(Typography.Text)<{ isCompact: boolean }>`
     line-height: ${(props) => (props.isCompact ? '14px' : '24px')};
     font-weight: 600;
     color: ${REDESIGN_COLORS.DARK_GREY};
-    margin-left: 10px;
 `;
 
 type InteriorTitleProps = {
