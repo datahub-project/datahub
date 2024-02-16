@@ -1,12 +1,14 @@
 import React, { useContext, useState } from 'react';
+
 import { matchPath, useLocation } from 'react-router';
+import { ReadOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
+
 import { PageRoutes } from '../../../conf/Global';
 import EntitySidebarContext from '../../shared/EntitySidebarContext';
 import TagStyleEntity from '../../shared/TagStyleEntity';
 import { StyledEntitySidebarContainer, StyledSidebar } from '../shared/containers/profile/sidebar/EntityProfileSidebar';
 import { EntitySidebarTab } from '../shared/types';
-import { ReadOutlined } from '@ant-design/icons';
 import EntitySidebarSectionsTab from '../shared/containers/profile/sidebar/EntitySidebarSectionsTab';
 import { EntitySidebarTabs } from '../shared/containers/profile/sidebar/EntitySidebarTabs';
 import { defaultTabDisplayConfig } from '../shared/containers/profile/EntityProfile';
