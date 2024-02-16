@@ -32,7 +32,8 @@ public class SystemUpdate implements Upgrade {
 
     _preStartupUpgrades = List.of(buildIndicesJob);
     _steps = List.of(new DataHubStartupStep(kafkaEventProducer, version));
-    _postStartupUpgrades = List.of(cleanIndicesJob, backfillBrowsePathsV2, upgradeViaNodeCll, backfillPolicyFields);
+    _postStartupUpgrades =
+        List.of(cleanIndicesJob, backfillBrowsePathsV2, upgradeViaNodeCll, backfillPolicyFields);
   }
 
   @Override

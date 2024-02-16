@@ -1,5 +1,7 @@
 package com.linkedin.datahub.upgrade.system.entity.steps;
 
+import static com.linkedin.metadata.Constants.*;
+
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
@@ -34,10 +36,10 @@ import java.util.function.Function;
 import lombok.extern.slf4j.Slf4j;
 import org.jetbrains.annotations.NotNull;
 
-import static com.linkedin.metadata.Constants.*;
-
-
-/** This bootstrap step is responsible for upgrading DataHub policy documents with new searchable fields in ES */
+/**
+ * This bootstrap step is responsible for upgrading DataHub policy documents with new searchable
+ * fields in ES
+ */
 @Slf4j
 public class BackfillPolicyFieldsStep implements UpgradeStep {
   private static final String UPGRADE_ID = "BackfillPolicyFieldsStep";
@@ -47,7 +49,9 @@ public class BackfillPolicyFieldsStep implements UpgradeStep {
   private final EntityService<?> entityService;
   private final SearchService _searchService;
 
-  public BackfillPolicyFieldsStep(EntityService<?> entityService, SearchService searchService,
+  public BackfillPolicyFieldsStep(
+      EntityService<?> entityService,
+      SearchService searchService,
       boolean reprocessEnabled,
       Integer batchSize) {
     this.entityService = entityService;
@@ -74,8 +78,7 @@ public class BackfillPolicyFieldsStep implements UpgradeStep {
       do {
         log.info(
             String.format(
-                "Upgrading batch of policies %s-%s",
-                migratedCount, migratedCount + batchSize));
+                "Upgrading batch of policies %s-%s", migratedCount, migratedCount + batchSize));
         scrollId = backfillPolicies(auditStamp, scrollId);
         migratedCount += batchSize;
       } while (scrollId != null);
@@ -169,8 +172,9 @@ public class BackfillPolicyFieldsStep implements UpgradeStep {
   private void ingestPolicyFields(Urn urn, AuditStamp auditStamp) {
     EntityResponse entityResponse = null;
     try {
-      entityResponse = entityService.getEntityV2(
-          urn.getEntityType(), urn, Collections.singleton(DATAHUB_POLICY_INFO_ASPECT_NAME));
+      entityResponse =
+          entityService.getEntityV2(
+              urn.getEntityType(), urn, Collections.singleton(DATAHUB_POLICY_INFO_ASPECT_NAME));
     } catch (URISyntaxException e) {
       log.error(
           String.format(
@@ -181,16 +185,20 @@ public class BackfillPolicyFieldsStep implements UpgradeStep {
 
     if (entityResponse != null
         && entityResponse.getAspects().containsKey(DATAHUB_POLICY_INFO_ASPECT_NAME)) {
-      final DataMap dataMap = entityResponse.getAspects().get(DATAHUB_POLICY_INFO_ASPECT_NAME).getValue().data();
+      final DataMap dataMap =
+          entityResponse.getAspects().get(DATAHUB_POLICY_INFO_ASPECT_NAME).getValue().data();
       final DataHubPolicyInfo infoAspect = new DataHubPolicyInfo(dataMap);
-      log.debug(String.format("Restating policy information for urn %s with value %s", urn, infoAspect));
+      log.debug(
+          String.format("Restating policy information for urn %s with value %s", urn, infoAspect));
       MetadataChangeProposal proposal = new MetadataChangeProposal();
       proposal.setEntityUrn(urn);
       proposal.setEntityType(urn.getEntityType());
       proposal.setAspectName(DATAHUB_POLICY_INFO_ASPECT_NAME);
       proposal.setChangeType(ChangeType.RESTATE);
       proposal.setSystemMetadata(
-          new SystemMetadata().setRunId(DEFAULT_RUN_ID).setLastObserved(System.currentTimeMillis()));
+          new SystemMetadata()
+              .setRunId(DEFAULT_RUN_ID)
+              .setLastObserved(System.currentTimeMillis()));
       proposal.setAspect(GenericRecordUtils.serializeAspect(infoAspect));
       entityService.ingestProposal(proposal, auditStamp, true);
     }
@@ -208,5 +216,4 @@ public class BackfillPolicyFieldsStep implements UpgradeStep {
     conjunctiveCriterion.setAnd(criterionArray);
     return conjunctiveCriterion;
   }
-
 }

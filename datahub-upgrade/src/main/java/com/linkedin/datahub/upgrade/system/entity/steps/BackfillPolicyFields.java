@@ -7,7 +7,6 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.search.SearchService;
 import java.util.List;
 
-
 public class BackfillPolicyFields implements Upgrade {
   private final List<UpgradeStep> _steps;
 
@@ -18,7 +17,8 @@ public class BackfillPolicyFields implements Upgrade {
       boolean reprocessEnabled,
       Integer batchSize) {
     if (enabled) {
-      _steps = ImmutableList.of(
+      _steps =
+          ImmutableList.of(
               new BackfillPolicyFieldsStep(
                   entityService, searchService, reprocessEnabled, batchSize));
     } else {

@@ -52,8 +52,7 @@ public class SystemUpdateConfig {
         version,
         backfillBrowsePathsV2,
         reindexDataJobViaNodesCLL,
-        backfillPolicyFields
-    );
+        backfillPolicyFields);
   }
 
   @Value("#{systemEnvironment['DATAHUB_REVISION'] ?: '0'}")
