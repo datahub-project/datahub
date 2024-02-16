@@ -3,7 +3,7 @@ namespace com.linkedin.metric
 /**
  * The structure of an individual metric cube in DataHub.
  */
-@Aspect = { name = "dataHubMetricCubeDefinition" }
+@Aspect = { "name": "dataHubMetricCubeDefinition" }
 record DataHubMetricCubeDefinition {
   /**
   *  Name of the metric

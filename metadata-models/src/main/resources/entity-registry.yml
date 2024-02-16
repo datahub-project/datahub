@@ -611,15 +611,16 @@ entities:
     keyAspect: dataHubPersonaKey
     aspects:
       - dataHubPersonaInfo
-  - name: dataHubMetric
+  - name: dataHubMetricCube
     category: internal
-    keyAspect: dataHubMetricKey
+    keyAspect: dataHubMetricCubeKey
     aspects:
-      - dataHubMetricCubeInfo
-      - dataHubMetricCubeStorage
-      - dataHubMetricCubeEvents
-      # - dataHubMetricCubeDaily
-      # - dataHubMetricCubeMonthly
+      - dataHubMetricCubeDefinition
+      - dataHubMetricCubeStorageConfig
+      - dataHubMetricCubeEvent
+      # - dataHubMetricCubeDailyAggregation Will be supported later.
+      # - dataHubMetricCubeWeeklyAggregation  Will be supported later.
+      # - dataHubMetricCubeMonthlyAggregation Will be supported later.
 events:
   - name: notificationRequest
 plugins:

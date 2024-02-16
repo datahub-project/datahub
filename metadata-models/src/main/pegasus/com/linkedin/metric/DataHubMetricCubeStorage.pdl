@@ -1,9 +1,0 @@
-namespace com.linkedin.metric
-
-/**
- * The metric storage configurations.
- */
-@Aspect = { name = "dataHubMetricCubeStorage" }
-record DataHubMetricCubeStorage {
-
-}

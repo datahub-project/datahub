@@ -1,8 +1,0 @@
-namespace com.linkedin.metric
-
-/**
- * The metric retention configurations.
- */
-record DataHubMetricCubeRetention {
-
-}

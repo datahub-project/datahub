@@ -1,8 +1,11 @@
 namespace com.linkedin.metric
 
 /**
- * A timeseries aspect for a daily rollup of aggregations.
+ * A timeseries aspect for a daily rollup of aggregations. Daily aggregation must be enabled for the metric.
  */
-record DataHubMetricCubeDailyAggregation {
-
+@Aspect = {
+    "name": "dataHubMetricCubeDailyAggregation",
+    "type": "timeseries",
+}
+record DataHubMetricCubeDailyAggregation includes DataHubMetricCubeRow  {
 }

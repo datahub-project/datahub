@@ -1,8 +1,11 @@
 namespace com.linkedin.metric
 
 /**
- * A timeseries measure event
+ * A timeseries measure event, e.g. a single observation.
  */
-record DataHubMetricCubeEvent {
-
+@Aspect = {
+    "name": "dataHubMetricCubeEvent",
+    "type": "timeseries",
+}
+record DataHubMetricCubeEvent includes DataHubMetricCubeRow {
 }
