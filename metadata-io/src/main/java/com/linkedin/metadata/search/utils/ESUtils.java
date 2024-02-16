@@ -1,7 +1,6 @@
 package com.linkedin.metadata.search.utils;
 
 import static com.linkedin.metadata.Constants.*;
-import static com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder.*;
 import static com.linkedin.metadata.search.elasticsearch.query.request.SearchFieldConfig.KEYWORD_FIELDS;
 import static com.linkedin.metadata.search.elasticsearch.query.request.SearchFieldConfig.PATH_HIERARCHY_FIELDS;
 import static com.linkedin.metadata.search.utils.SearchUtils.isUrn;
@@ -600,16 +599,16 @@ public class ESUtils {
     String documentFieldName;
     if (fieldTypes.contains(BOOLEAN_FIELD_TYPE)) {
       criterionValue = Boolean.parseBoolean(criterionValueString);
-      documentFieldName = criterion.getField();
+      documentFieldName = fieldName;
     } else if (fieldTypes.contains(LONG_FIELD_TYPE) || fieldTypes.contains(DATE_FIELD_TYPE)) {
       criterionValue = Long.parseLong(criterionValueString);
-      documentFieldName = criterion.getField();
+      documentFieldName = fieldName;
     } else if (fieldTypes.contains(DOUBLE_FIELD_TYPE)) {
       criterionValue = Double.parseDouble(criterionValueString);
-      documentFieldName = criterion.getField();
+      documentFieldName = fieldName;
     } else {
       criterionValue = criterionValueString;
-      documentFieldName = toKeywordField(criterion.getField(), isTimeseries);
+      documentFieldName = toKeywordField(fieldName, isTimeseries);
     }
 
     // Set up QueryBuilder based on condition

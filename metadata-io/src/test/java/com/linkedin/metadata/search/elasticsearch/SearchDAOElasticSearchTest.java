@@ -3,6 +3,7 @@ package com.linkedin.metadata.search.elasticsearch;
 import static org.testng.AssertJUnit.assertNotNull;
 
 import com.linkedin.metadata.config.search.SearchConfiguration;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.query.SearchDAOTestBase;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import io.datahubproject.test.fixtures.search.SampleDataFixtureConfiguration;
@@ -23,10 +24,16 @@ import org.testng.annotations.Test;
 public class SearchDAOElasticSearchTest extends SearchDAOTestBase {
   @Autowired private RestHighLevelClient searchClient;
   @Autowired private SearchConfiguration searchConfiguration;
+  @Autowired private EntityRegistry entityRegistry;
 
   @Autowired
   @Qualifier("sampleDataIndexConvention")
   IndexConvention indexConvention;
+
+  @Override
+  protected EntityRegistry getInjectedRegistry() {
+    return entityRegistry;
+  }
 
   @Test
   public void initTest() {

@@ -248,7 +248,8 @@ public class SearchRequestHandler {
       @Nullable String pitId,
       @Nullable String keepAlive,
       int size,
-      SearchFlags searchFlags) {
+      SearchFlags searchFlags,
+      @Nullable List<String> facets) {
     SearchRequest searchRequest = new PITAwareSearchRequest();
     SearchFlags finalSearchFlags =
         applyDefaultSearchFlags(searchFlags, input, DEFAULT_SERVICE_SEARCH_FLAGS);
@@ -265,7 +266,7 @@ public class SearchRequestHandler {
             .must(getQuery(input, Boolean.TRUE.equals(finalSearchFlags.isFulltext())))
             .filter(filterQuery));
     if (Boolean.FALSE.equals(finalSearchFlags.isSkipAggregates())) {
-      _aggregationQueryBuilder.getAggregations().forEach(searchSourceBuilder::aggregation);
+      _aggregationQueryBuilder.getAggregations(facets).forEach(searchSourceBuilder::aggregation);
     }
     if (Boolean.FALSE.equals(finalSearchFlags.isSkipHighlighting())) {
       searchSourceBuilder.highlighter(_highlights);
