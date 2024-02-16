@@ -1302,7 +1302,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
         unique_custom_sql = get_unique_custom_sql(custom_sql_connection)
 
         for csql in unique_custom_sql:
-            csql[tableau_constant.QUERY] = clean_query(csql[tableau_constant.QUERY])
+            csql[c.QUERY] = clean_query(csql[c.QUERY])
             csql_id: str = csql[c.ID]
             csql_urn = builder.make_dataset_urn_with_platform_instance(
                 platform=self.platform,
