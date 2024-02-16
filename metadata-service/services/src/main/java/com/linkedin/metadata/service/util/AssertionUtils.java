@@ -102,8 +102,8 @@ public class AssertionUtils {
       case ROW_COUNT_CHANGE:
         String volumeTypeChange =
             AssertionValueChangeType.ABSOLUTE.equals(info.getRowCountChange().getType())
-                ? "change "
-                : "percentage change ";
+                ? "change"
+                : "percentage change";
         return String.format(
             "Row count %s %s %s",
             volumeTypeChange,
@@ -119,8 +119,8 @@ public class AssertionUtils {
         // TODO: Account for transformer
         String incrementalTypeChange =
             AssertionValueChangeType.ABSOLUTE.equals(info.getRowCountChange().getType())
-                ? "change "
-                : "percentage change ";
+                ? "change"
+                : "percentage change";
         return String.format(
             "Incremental row count %s %s %s",
             incrementalTypeChange,
@@ -179,8 +179,8 @@ public class AssertionUtils {
       case METRIC_CHANGE:
         String sqlTypeText =
             AssertionValueChangeType.ABSOLUTE.equals(info.getChangeType())
-                ? "change "
-                : "percentage change ";
+                ? "change"
+                : "percentage change";
         return String.format(
             "%s %s %s %s",
             truncatedSql,
