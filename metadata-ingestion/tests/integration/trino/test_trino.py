@@ -209,4 +209,7 @@ def test_trino_instance_ingest(
         pytestconfig,
         output_path=events_file,
         golden_path=test_resources_dir / "trino_hive_instance_mces_golden.json",
+        ignore_paths=[
+            r"root\[\d+\]\['proposedSnapshot'\]\['com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot'\]\['aspects'\]\[\d+\]\['com.linkedin.pegasus2avro.dataset.DatasetProperties'\]\['customProperties'\]\['transient_lastddltime'\]",
+        ],
     )

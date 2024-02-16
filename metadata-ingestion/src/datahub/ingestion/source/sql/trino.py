@@ -190,7 +190,7 @@ class TrinoConfig(BasicSQLAlchemyConfig):
     catalog_to_connector_details: Dict[str, ConnectorDetail] = Field(
         default={},
         description="A mapping of trino catalog to its connector details like connector database, env and platform instance."
-        "This configuration is used to ingest lineage of datasets to connectors. Use catalog name as key.",
+        "This configuration is used to build lineage to the underlying connector. Use catalog name as key.",
     )
 
     ingest_lineage_to_connectors: bool = Field(
@@ -243,32 +243,28 @@ class TrinoSource(SQLAlchemySource):
     ) -> Optional[str]:
         catalog_name = dataset_name.split(".")[0]
         connector_name = get_catalog_connector_name(catalog_name, inspector)
-        if connector_name:
-            connector_platform_name = KNOWN_CONNECTOR_PLATFORM_MAPPING.get(
-                connector_name
+        if not connector_name:
+            return None
+        connector_platform_name = KNOWN_CONNECTOR_PLATFORM_MAPPING.get(connector_name)
+        if not connector_platform_name:
+            return None
+        connector_details = self.config.catalog_to_connector_details.get(
+            catalog_name, ConnectorDetail()
+        )
+        if connector_platform_name in TWO_TIER_CONNECTORS:  # connector is two tier
+            return make_dataset_urn_with_platform_instance(
+                platform=connector_platform_name,
+                name=f"{schema}.{table}",
+                platform_instance=connector_details.platform_instance,
+                env=connector_details.env,
             )
-            if connector_platform_name:
-                connector_details = self.config.catalog_to_connector_details.get(
-                    catalog_name, ConnectorDetail()
-                )
-                if (
-                    connector_platform_name in TWO_TIER_CONNECTORS
-                ):  # connector is two tier
-                    return make_dataset_urn_with_platform_instance(
-                        platform=connector_platform_name,
-                        name=f"{schema}.{table}",
-                        platform_instance=connector_details.platform_instance,
-                        env=connector_details.env,
-                    )
-                elif (
-                    connector_details.connector_database
-                ):  # else connector is three tier
-                    return make_dataset_urn_with_platform_instance(
-                        platform=connector_platform_name,
-                        name=f"{connector_details.connector_database}.{schema}.{table}",
-                        platform_instance=connector_details.platform_instance,
-                        env=connector_details.env,
-                    )
+        elif connector_details.connector_database:  # else connector is three tier
+            return make_dataset_urn_with_platform_instance(
+                platform=connector_platform_name,
+                name=f"{connector_details.connector_database}.{schema}.{table}",
+                platform_instance=connector_details.platform_instance,
+                env=connector_details.env,
+            )
         return None
 
     def gen_siblings_workunit(
