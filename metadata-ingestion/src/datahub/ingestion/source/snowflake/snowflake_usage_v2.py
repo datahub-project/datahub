@@ -457,7 +457,7 @@ class SnowflakeUsageExtractor(
                     lastUpdatedTimestamp=last_updated_timestamp,
                     actor=user_urn,
                     operationType=operation_type,
-                    rowsAffected=affected_rows,
+                    numAffectedRows=affected_rows,
                     customOperationType=(
                         query_type
                         if operation_type is OperationTypeClass.CUSTOM
