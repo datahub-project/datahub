@@ -69,17 +69,23 @@ class RedshiftSqlLineageV2:
 
     def build(self, connection: redshift_connector.Connection) -> None:
         if self.config.resolve_temp_table_in_lineage:
-            self._init_temp_table_schema(
-                temp_tables=self.get_temp_tables(connection=connection),
-            )  # TODO replace
+            for temp_row in self._lineage_v1.get_temp_tables(connection=connection):
+                self.aggregator.add_observed_query(
+                    query=temp_row.query_text,
+                    default_db=self.database,
+                    default_schema=self.config.default_schema,
+                    session_id=temp_row.session_id,
+                    is_known_temp_table=True,
+                )
 
         populate_calls: List[Tuple[LineageCollectorType, str, Callable]] = []
 
         table_renames: Dict[str, str] = {}
         if self.config.include_table_rename_lineage:
-            table_renames, all_tables_set = self._process_table_renames(
-                connection=connection,
-            )
+            pass
+            # table_renames, all_tables_set = self._process_table_renames(
+            #     connection=connection,
+            # )  # TODO table_renames
 
         if self.config.table_lineage_mode in {
             LineageMode.SQL_BASED,
@@ -152,11 +158,14 @@ class RedshiftSqlLineageV2:
                 connection=connection,
             )
 
+        # TODO add lineage for external tables
+
         # Handling for alter table statements.
         if self.config.include_table_rename_lineage:
-            self._update_lineage_map_for_table_renames(
-                table_renames=table_renames
-            )  # TODO
+            # self._update_lineage_map_for_table_renames(
+            #     table_renames=table_renames
+            # )  # TODO
+            pass
 
     def _populate_lineage_map(
         self,
@@ -214,6 +223,32 @@ class RedshiftSqlLineageV2:
             view_definition=ddl,
             default_db=self.database,
             default_schema=self.config.default_schema,
+        )
+
+    def _process_copy_command(self, lineage_row: LineageRow) -> None:
+        source = self._lineage_v1._get_sources(
+            lineage_type=LineageCollectorType.COPY,
+            db_name=self.database,
+            source_schema=None,
+            source_table=None,
+            ddl=None,
+            filename=lineage_row.filename,
+        )[0]
+        if not source:
+            return
+
+        s3_urn = source[0].urn
+        target_name = (
+            f"{self.database}.{lineage_row.target_schema}.{lineage_row.target_table}"
+        )
+        target = DatasetUrn(
+            platform="redshift",
+            name=target_name,
+            env=self.config.env,
+        )
+
+        self.aggregator.add_known_lineage_mapping(
+            upstream_urn=s3_urn, downstream_urn=target.urn()
         )
 
     def generate(self) -> Iterable[MetadataWorkUnit]:
