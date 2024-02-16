@@ -89,7 +89,9 @@ def test_complex_dataset_patch(
                 upstreamType=FineGrainedLineageUpstreamTypeClass.DATASET,
                 upstreams=[
                     make_dataset_urn(
-                        platform="s3", name="my-bucket/my-folder/my-file.txt", env="PROD"
+                        platform="s3",
+                        name="my-bucket/my-folder/my-file.txt",
+                        env="PROD",
                     )
                 ],
                 downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD_SET,
