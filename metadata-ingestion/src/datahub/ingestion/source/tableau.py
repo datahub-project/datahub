@@ -1816,6 +1816,37 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                     aspect_name=c.UPSTREAM_LINEAGE,
                     aspect=upstream_lineage,
                 )
+        else:
+            # Fetch upstream information from upstreamColumns which are mostly coming
+            # from CUSTOM SQLs when Tableu doesn't provide upstream tables
+            # With this approach, we also join lingering CustomSQL entities to Embedded Data Sources
+            table_id_to_urn = {
+                column['table']['id']: f"urn:li:dataset:(urn:li:dataPlatform:tableau,{column['table']['id']},{self.config.env})"
+                for field in datasource.get('fields', [])
+                for column in field.get('upstreamColumns', [])
+                if column.get('table', {}).get('__typename') == 'CustomSQLTable'
+                   and column.get('table', {}).get('id')
+            }
+            fine_grained_lineages = self.get_upstream_columns_of_fields_in_datasource(
+                datasource, datasource_urn, table_id_to_urn
+            )
+            upstream_tables = [
+                Upstream(dataset=table_urn, type=DatasetLineageType.TRANSFORMED)
+                for table_urn in table_id_to_urn.values()
+            ]
+            upstream_lineage = UpstreamLineage(
+                upstreams=upstream_tables,
+                fineGrainedLineages=sorted(
+                    fine_grained_lineages,
+                    key=lambda x: (x.downstreams, x.upstreams),
+                ) or None,
+            )
+            yield self.get_metadata_change_proposal(
+                datasource_urn,
+                aspect_name=tableau_constant.UPSTREAM_LINEAGE,
+                aspect=upstream_lineage,
+            )
+
 
         # Datasource Fields
         schema_metadata = self._get_schema_metadata_for_datasource(
