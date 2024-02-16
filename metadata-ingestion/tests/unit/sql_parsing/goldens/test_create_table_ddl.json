@@ -6,7 +6,6 @@
     "out_tables": [
         "urn:li:dataset:(urn:li:dataPlatform:sqlite,costs,PROD)"
     ],
-    "in_tables_schemas": {},
     "column_lineage": [
         {
             "downstream": {

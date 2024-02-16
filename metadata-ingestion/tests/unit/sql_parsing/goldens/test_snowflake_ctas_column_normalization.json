@@ -10,11 +10,6 @@
     "out_tables": [
         "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_sample_data.tpch_sf1.orders_normalized,PROD)"
     ],
-    "in_tables_schemas": {
-        "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_sample_data.tpch_sf1.orders,PROD)": [
-            "TotalPrice"
-        ]
-    },
     "column_lineage": [
         {
             "downstream": {

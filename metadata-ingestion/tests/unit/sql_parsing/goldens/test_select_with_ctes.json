@@ -7,14 +7,6 @@
         "urn:li:dataset:(urn:li:dataPlatform:oracle,table2,PROD)"
     ],
     "out_tables": [],
-    "in_tables_schemas": {
-        "urn:li:dataset:(urn:li:dataPlatform:oracle,table1,PROD)": [
-            "COL1"
-        ],
-        "urn:li:dataset:(urn:li:dataPlatform:oracle,table2,PROD)": [
-            "COL3"
-        ]
-    },
     "column_lineage": [
         {
             "downstream": {

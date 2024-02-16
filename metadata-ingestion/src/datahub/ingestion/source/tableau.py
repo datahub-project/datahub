@@ -142,6 +142,9 @@ from datahub.metadata.schema_classes import (
     SubTypesClass,
     ViewPropertiesClass,
 )
+from datahub.sql_parsing.sql_parsing_result_utils import (
+    transform_parsing_result_to_in_tables_schemas,
+)
 from datahub.sql_parsing.sqlglot_lineage import (
     ColumnLineageInfo,
     SqlParsingResult,
@@ -1714,10 +1717,16 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
             schema_aware=not self.config.disable_schema_awarenes_during_parsing_of_sql_queries,
         )
 
-    def enrich_database_tables_with_parsed_schemas(
-        self, in_tables_schemas: Optional[Dict[str, Set[str]]]
+    def _enrich_database_tables_with_parsed_schemas(
+        self, parsing_result: SqlParsingResult
     ) -> None:
+
+        in_tables_schemas: Dict[
+            str, Set[str]
+        ] = transform_parsing_result_to_in_tables_schemas(parsing_result)
+
         if not in_tables_schemas:
+            logger.info("Unable to extract table schema from parsing result")
             return
 
         for table_urn, columns in in_tables_schemas.items():
@@ -1748,12 +1757,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
             )
             return
 
-        if not parsed_result.in_tables_schemas:
-            logger.debug(
-                f"The schema of incoming tables was not inferred from {csql_urn}"
-            )
-
-        self.enrich_database_tables_with_parsed_schemas(parsed_result.in_tables_schemas)
+        self._enrich_database_tables_with_parsed_schemas(parsed_result)
 
         upstream_tables = make_upstream_class(parsed_result)
 

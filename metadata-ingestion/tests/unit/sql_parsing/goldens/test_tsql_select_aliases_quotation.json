@@ -6,13 +6,6 @@
         "urn:li:dataset:(urn:li:dataPlatform:tsql,tbl,PROD)"
     ],
     "out_tables": [],
-    "in_tables_schemas": {
-        "urn:li:dataset:(urn:li:dataPlatform:tsql,tbl,PROD)": [
-            "col3",
-            "col1",
-            "col2"
-        ]
-    },
     "column_lineage": [
         {
             "downstream": {

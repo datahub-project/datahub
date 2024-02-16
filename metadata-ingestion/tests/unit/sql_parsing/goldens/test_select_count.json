@@ -6,11 +6,6 @@
         "urn:li:dataset:(urn:li:dataPlatform:mysql,something_prd.fact_complaint_snapshot,PROD)"
     ],
     "out_tables": [],
-    "in_tables_schemas": {
-        "urn:li:dataset:(urn:li:dataPlatform:mysql,something_prd.fact_complaint_snapshot,PROD)": [
-            "etl_data_dt_id"
-        ]
-    },
     "column_lineage": [
         {
             "downstream": {

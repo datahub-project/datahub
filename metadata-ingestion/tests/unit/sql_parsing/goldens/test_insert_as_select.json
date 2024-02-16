@@ -16,21 +16,6 @@
     "out_tables": [
         "urn:li:dataset:(urn:li:dataPlatform:hive,query72,PROD)"
     ],
-    "in_tables_schemas": {
-        "urn:li:dataset:(urn:li:dataPlatform:hive,catalog_returns,PROD)": [],
-        "urn:li:dataset:(urn:li:dataPlatform:hive,catalog_sales,PROD)": [],
-        "urn:li:dataset:(urn:li:dataPlatform:hive,customer_demographics,PROD)": [],
-        "urn:li:dataset:(urn:li:dataPlatform:hive,date_dim,PROD)": [
-            "d_week_seq"
-        ],
-        "urn:li:dataset:(urn:li:dataPlatform:hive,household_demographics,PROD)": [],
-        "urn:li:dataset:(urn:li:dataPlatform:hive,inventory,PROD)": [],
-        "urn:li:dataset:(urn:li:dataPlatform:hive,item,PROD)": [],
-        "urn:li:dataset:(urn:li:dataPlatform:hive,promotion,PROD)": [
-            "p_promo_sk"
-        ],
-        "urn:li:dataset:(urn:li:dataPlatform:hive,warehouse,PROD)": []
-    },
     "column_lineage": [
         {
             "downstream": {

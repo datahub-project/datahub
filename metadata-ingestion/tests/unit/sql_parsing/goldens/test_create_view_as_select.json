@@ -10,12 +10,6 @@
     "out_tables": [
         "urn:li:dataset:(urn:li:dataPlatform:oracle,vsal,PROD)"
     ],
-    "in_tables_schemas": {
-        "urn:li:dataset:(urn:li:dataPlatform:oracle,scott.emp,PROD)": [
-            "SAL",
-            "DEPTNO"
-        ]
-    },
     "column_lineage": [
         {
             "downstream": {

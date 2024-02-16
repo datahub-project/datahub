@@ -199,7 +199,6 @@ class SqlParsingResult(_ParserBaseModel):
 
     in_tables: List[Urn]
     out_tables: List[Urn]
-    in_tables_schemas: Optional[Dict[Urn, Set[str]]] = None
 
     column_lineage: Optional[List[ColumnLineageInfo]] = None
 
@@ -216,7 +215,6 @@ class SqlParsingResult(_ParserBaseModel):
         return cls(
             in_tables=[],
             out_tables=[],
-            in_tables_schemas={},
             debug_info=SqlParsingDebugInfo(
                 table_error=error,
             ),
@@ -717,25 +715,6 @@ def _translate_sqlglot_type(
     return SchemaFieldDataTypeClass(type=TypeClass())
 
 
-def _transform_to_in_tables_schemas(
-    table_name_urn_mapping: Dict[_TableName, str],
-    in_tables: List[str],
-    raw_lineage: Optional[List[_ColumnLineageInfo]],
-) -> Dict[Urn, Set[str]]:
-    table_urn_to_schema_map: dict[str, set] = {it: set() for it in in_tables}
-
-    if raw_lineage:
-        for cli in raw_lineage:
-            for upstream in cli.upstreams:
-                upstream_table_urn = table_name_urn_mapping[upstream.table]
-                if upstream_table_urn in table_urn_to_schema_map:
-                    table_urn_to_schema_map[upstream_table_urn].add(upstream.column)
-                else:
-                    table_urn_to_schema_map[upstream_table_urn] = {upstream.column}
-
-    return table_urn_to_schema_map
-
-
 def _translate_internal_column_lineage(
     table_name_urn_mapping: Dict[_TableName, str],
     raw_column_lineage: _ColumnLineageInfo,
@@ -901,7 +880,6 @@ def _sqlglot_lineage_inner(
     in_urns = sorted(set(table_name_urn_mapping[table] for table in tables))
     out_urns = sorted(set(table_name_urn_mapping[table] for table in modified))
     column_lineage_urns = None
-    in_tables_schemas = None
     if column_lineage:
         column_lineage_urns = [
             _translate_internal_column_lineage(
@@ -909,10 +887,6 @@ def _sqlglot_lineage_inner(
             )
             for internal_col_lineage in column_lineage
         ]
-
-    in_tables_schemas = _transform_to_in_tables_schemas(
-        table_name_urn_mapping, in_urns, column_lineage
-    )
 
     query_type, query_type_props = get_query_type_of_sql(
         original_statement, dialect=dialect
@@ -927,7 +901,6 @@ def _sqlglot_lineage_inner(
         in_tables=in_urns,
         out_tables=out_urns,
         column_lineage=column_lineage_urns,
-        in_tables_schemas=in_tables_schemas,
         debug_info=debug_info,
     )
 
@@ -993,7 +966,7 @@ def sqlglot_lineage(
             sql=sql,
             schema_resolver=schema_resolver,
             default_db=default_db,
-            default_schema=default_schema
+            default_schema=default_schema,
         )
     except Exception as e:
         return SqlParsingResult.make_from_error(e)

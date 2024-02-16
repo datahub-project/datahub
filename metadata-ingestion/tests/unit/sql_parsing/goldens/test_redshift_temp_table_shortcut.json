@@ -11,12 +11,6 @@
     "out_tables": [
         "urn:li:dataset:(urn:li:dataPlatform:redshift,my_db.my_schema.#my_custom_name,PROD)"
     ],
-    "in_tables_schemas": {
-        "urn:li:dataset:(urn:li:dataPlatform:redshift,my_db.other_schema.table1,PROD)": [
-            "col2",
-            "col1"
-        ]
-    },
     "column_lineage": [
         {
             "downstream": {
