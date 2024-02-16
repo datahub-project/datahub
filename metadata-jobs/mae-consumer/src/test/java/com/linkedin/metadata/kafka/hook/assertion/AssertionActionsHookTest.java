@@ -27,12 +27,17 @@ import com.linkedin.assertion.AssertionRunEvent;
 import com.linkedin.assertion.AssertionRunStatus;
 import com.linkedin.assertion.AssertionSource;
 import com.linkedin.assertion.AssertionSourceType;
+import com.linkedin.assertion.AssertionStdOperator;
 import com.linkedin.assertion.AssertionType;
 import com.linkedin.assertion.DatasetAssertionInfo;
 import com.linkedin.assertion.DatasetAssertionScope;
 import com.linkedin.common.AuditStamp;
+import com.linkedin.common.FabricType;
 import com.linkedin.common.Status;
 import com.linkedin.common.UrnArray;
+import com.linkedin.common.urn.DataPlatformUrn;
+import com.linkedin.common.urn.DatasetFieldUrn;
+import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
@@ -55,6 +60,7 @@ import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.service.util.AssertionUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -590,17 +596,27 @@ public class AssertionActionsHookTest {
 
   @Test
   public void testInvokeAssertionRunEventFailureActionsNoIncident() throws Exception {
+    AssertionInfo assertionInfo =
+        new AssertionInfo()
+            .setType(AssertionType.DATASET)
+            .setDatasetAssertion(
+                new DatasetAssertionInfo()
+                    .setDataset(TEST_DATASET_URN)
+                    .setScope(DatasetAssertionScope.DATASET_COLUMN)
+                    .setOperator(AssertionStdOperator.NOT_NULL)
+                    .setFields(
+                        new UrnArray(
+                            new DatasetFieldUrn(
+                                new DatasetUrn(
+                                    new DataPlatformUrn("hive"), "name", FabricType.PROD),
+                                "id"))));
+
     SystemEntityClient entityClient =
         mockSystemEntityClient(
             null,
             null,
             TEST_ASSERTION_URN,
-            new AssertionInfo()
-                .setType(AssertionType.DATASET)
-                .setDatasetAssertion(
-                    new DatasetAssertionInfo()
-                        .setDataset(TEST_DATASET_URN)
-                        .setScope(DatasetAssertionScope.DATASET_COLUMN)),
+            assertionInfo,
             new AssertionActions()
                 .setOnSuccess(new AssertionActionArray())
                 .setOnFailure(
@@ -650,7 +666,7 @@ public class AssertionActionsHookTest {
     expectedInfo.setDescription(
         String.format(
                 "A External Assertion has failed for this data asset: '%s'. ",
-                TEST_ASSERTION_URN.toString())
+                AssertionUtils.buildAssertionDescription(TEST_ASSERTION_URN, assertionInfo))
             + "This may indicate that the asset is unhealthy or unfit for consumption!");
     expectedInfo.setPriority(0);
     expectedInfo.setEntities(new UrnArray(ImmutableList.of(TEST_DATASET_URN)));
