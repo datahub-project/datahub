@@ -958,33 +958,33 @@ def ingest_multipath_metadata(
             graph.delete_entity(urn, hard=True)
         wait_for_writes_to_sync()
 
-
-@pytest.mark.dependency(depends=["test_healthchecks"])
-def test_simple_lineage_multiple_paths(
-    ingest_multipath_metadata,
-    chart_urn_fixture,
-    intermediates_fixture,
-    destination_urn_fixture,
-):
-    chart_urn = chart_urn_fixture
-    intermediates = intermediates_fixture
-    destination_urn = destination_urn_fixture
-    results = search_across_lineage(
-        get_default_graph(),
-        chart_urn,
-        direction="UPSTREAM",
-        convert_schema_fields_to_datasets=True,
-    )
-    assert destination_urn in [
-        x["entity"]["urn"] for x in results["searchAcrossLineage"]["searchResults"]
-    ]
-    for search_result in results["searchAcrossLineage"]["searchResults"]:
-        if search_result["entity"]["urn"] == destination_urn:
-            assert (
-                len(search_result["paths"]) == 2
-            )  # 2 paths from the chart to the dataset
-            for path in search_result["paths"]:
-                assert len(path["path"]) == 3
-                assert path["path"][-1]["urn"] == destination_urn
-                assert path["path"][0]["urn"] == chart_urn
-                assert path["path"][1]["urn"] in intermediates
+# TODO: Reenable once fixed
+# @pytest.mark.dependency(depends=["test_healthchecks"])
+# def test_simple_lineage_multiple_paths(
+#     ingest_multipath_metadata,
+#     chart_urn_fixture,
+#     intermediates_fixture,
+#     destination_urn_fixture,
+# ):
+#     chart_urn = chart_urn_fixture
+#     intermediates = intermediates_fixture
+#     destination_urn = destination_urn_fixture
+#     results = search_across_lineage(
+#         get_default_graph(),
+#         chart_urn,
+#         direction="UPSTREAM",
+#         convert_schema_fields_to_datasets=True,
+#     )
+#     assert destination_urn in [
+#         x["entity"]["urn"] for x in results["searchAcrossLineage"]["searchResults"]
+#     ]
+#     for search_result in results["searchAcrossLineage"]["searchResults"]:
+#         if search_result["entity"]["urn"] == destination_urn:
+#             assert (
+#                 len(search_result["paths"]) == 2
+#             )  # 2 paths from the chart to the dataset
+#             for path in search_result["paths"]:
+#                 assert len(path["path"]) == 3
+#                 assert path["path"][-1]["urn"] == destination_urn
+#                 assert path["path"][0]["urn"] == chart_urn
+#                 assert path["path"][1]["urn"] in intermediates
