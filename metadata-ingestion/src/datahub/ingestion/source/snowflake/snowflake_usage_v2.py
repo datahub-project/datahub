@@ -258,11 +258,11 @@ class SnowflakeUsageExtractor(
                 ),
                 totalSqlQueries=row["TOTAL_QUERIES"],
                 uniqueUserCount=row["TOTAL_USERS"],
-                topSqlQueries=self._map_top_sql_queries(
-                    json.loads(row["TOP_SQL_QUERIES"])
-                )
-                if self.config.include_top_n_queries
-                else None,
+                topSqlQueries=(
+                    self._map_top_sql_queries(json.loads(row["TOP_SQL_QUERIES"]))
+                    if self.config.include_top_n_queries
+                    else None
+                ),
                 userCounts=self._map_user_counts(
                     json.loads(row["USER_COUNTS"]),
                 ),
@@ -287,9 +287,11 @@ class SnowflakeUsageExtractor(
         )
         return sorted(
             [
-                trim_query(format_sql_query(query), budget_per_query)
-                if self.config.format_sql_queries
-                else trim_query(query, budget_per_query)
+                (
+                    trim_query(format_sql_query(query), budget_per_query)
+                    if self.config.format_sql_queries
+                    else trim_query(query, budget_per_query)
+                )
                 for query in top_sql_queries
             ]
         )
@@ -411,6 +413,23 @@ class SnowflakeUsageExtractor(
             operation_type = OPERATION_STATEMENT_TYPES.get(
                 query_type, OperationTypeClass.CUSTOM
             )
+            affected_rows = (
+                event.rows_inserted
+                if (
+                    OperationTypeClass.INSERT == operation_type
+                    or OperationTypeClass.CREATE == operation_type
+                )
+                else (
+                    event.rows_updated
+                    if OperationTypeClass.UPDATE == operation_type
+                    else (
+                        event.rows_deleted
+                        if OperationTypeClass.DELETE == operation_type
+                        else None
+                    )
+                )
+            )
+
             reported_time: int = int(time.time() * 1000)
             last_updated_timestamp: int = int(start_time.timestamp() * 1000)
             user_urn = make_user_urn(
@@ -438,9 +457,12 @@ class SnowflakeUsageExtractor(
                     lastUpdatedTimestamp=last_updated_timestamp,
                     actor=user_urn,
                     operationType=operation_type,
-                    customOperationType=query_type
-                    if operation_type is OperationTypeClass.CUSTOM
-                    else None,
+                    rowsAffected=affected_rows,
+                    customOperationType=(
+                        query_type
+                        if operation_type is OperationTypeClass.CUSTOM
+                        else None
+                    ),
                 )
                 mcp = MetadataChangeProposalWrapper(
                     entityUrn=self.dataset_urn_builder(dataset_identifier),
