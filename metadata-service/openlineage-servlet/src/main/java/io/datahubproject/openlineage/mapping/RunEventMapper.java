@@ -24,15 +24,7 @@ public class RunEventMapper {
     try {
       return convertRunEventToJob(runEvent, mappingConfig.getDatahubConfig())
           .toMcps(mappingConfig.datahubConfig)
-          .stream()
-          .map(
-              mcp -> {
-                try {
-                  return eventFormatter.convert(mcp);
-                } catch (IOException e) {
-                  throw new RuntimeException(e);
-                }
-              });
+          .stream();
     } catch (IOException | URISyntaxException e) {
       throw new RuntimeException(e);
     }

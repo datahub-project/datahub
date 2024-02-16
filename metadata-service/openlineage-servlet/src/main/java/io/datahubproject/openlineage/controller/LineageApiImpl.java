@@ -6,7 +6,6 @@ import com.datahub.authorization.AuthorizerChain;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.UrnUtils;
-import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.entity.EntityServiceImpl;
 import com.linkedin.mxe.MetadataChangeProposal;
 import io.datahubproject.openlineage.generated.controller.LineageApi;
@@ -17,7 +16,6 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -32,9 +30,9 @@ public class LineageApiImpl implements LineageApi {
 
   @Autowired private RunEventMapper.MappingConfig _mappingConfig;
 
- // @Autowired
-  //@Qualifier("javaEntityClient")
-  //private EntityClient _entityClient;
+  // @Autowired
+  // @Qualifier("javaEntityClient")
+  // private EntityClient _entityClient;
 
   @Autowired private EntityServiceImpl _entityService;
 
