@@ -52,6 +52,7 @@ export default function useDisplayedColumns(args: Arguments): DisplayedColumns {
         numColumnsTotal: 0,
     });
     const vals = useComputeValues(args);
+    // TODO: Consider using comparison method instead
     if (JSON.stringify(normalize(oldVals.current)) !== JSON.stringify(normalize(vals))) {
         oldVals.current = vals;
     }
