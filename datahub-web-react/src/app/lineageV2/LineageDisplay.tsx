@@ -15,9 +15,12 @@ import useLineageNodePreview from './useLineageNodePreview';
 type Props = {
     urn: string;
     type: EntityType;
+    loaded: boolean;
 };
 
-export default function LineageDisplay({ urn, type }: Props) {
+export default function LineageDisplay({ urn, type, loaded }: Props) {
+    const { getNode, getEdge, setNodes, setEdges, fitView } = useReactFlow();
+
     const [selectedColumn, setSelectedColumn] = useState<ColumnRef | null>(null);
     const [hoveredColumn, setHoveredColumn] = useState<ColumnRef | null>(null);
     const [hoveredNode, setHoveredNode] = useState<string | null>(null);
@@ -41,7 +44,31 @@ export default function LineageDisplay({ urn, type }: Props) {
         fineGrainedLineage.direct,
     );
 
-    useFitView();
+    useEffect(() => {
+        const initialNodeMap = new Map(flowNodes.map((node) => [node.id, node]));
+        const nodesToAdd = flowNodes.filter((node) => !getNode(node.id));
+        const layersToRedraw = new Set<number>(
+            nodesToAdd.map((node) => node?.layer).filter((layer): layer is number => !!layer),
+        );
+        const nodesToRedraw = flowNodes.filter((node) => node.layer && layersToRedraw.has(node.layer));
+        setNodes((oldNodes) => [
+            ...oldNodes
+                .filter((n) => initialNodeMap.has(n.id))
+                .map((n) => ({
+                    ...n,
+                    data: initialNodeMap.get(n.id)?.data || n.data,
+                })),
+            ...nodesToAdd,
+            ...nodesToRedraw,
+        ]);
+    }, [flowNodes, getNode, setNodes, fitView]);
+
+    useEffect(() => {
+        const edgesToAdd = flowEdges.filter((edge) => !getEdge(edge.id));
+        setEdges((oldEdges) => [...oldEdges, ...edgesToAdd]);
+    }, [flowEdges, getEdge, setEdges]);
+
+    useFitView(loaded);
 
     return (
         <LineageDisplayContext.Provider
@@ -58,6 +85,7 @@ export default function LineageDisplay({ urn, type }: Props) {
                 childMaps,
                 fineGrainedLineage: fineGrainedLineage.direct,
                 columnQueryData: fineGrainedLineage.columnQueryData,
+                numNodes: flowNodes.length,
             }}
         >
             <LineageVisualization initialNodes={flowNodes} initialEdges={flowEdges} />
@@ -66,18 +94,24 @@ export default function LineageDisplay({ urn, type }: Props) {
     );
 }
 
-function useFitView() {
+function useFitView(loaded: boolean) {
     const { fitView } = useReactFlow();
     const { nodeVersion, displayVersion } = useContext(LineageNodesContext);
 
     useEffect(() => {
+        if (!loaded) {
+            return () => {};
+        }
         const timeout = setTimeout(() => fitView({ duration: 1000 }), 100);
         return () => {
             clearTimeout(timeout);
         };
-    }, [fitView, nodeVersion]);
+    }, [loaded, nodeVersion, fitView]);
 
     useEffect(() => {
+        if (!loaded) {
+            return () => {};
+        }
         const [, nodes] = displayVersion;
         const timeout = setTimeout(
             () =>
@@ -91,5 +125,5 @@ function useFitView() {
         return () => {
             clearTimeout(timeout);
         };
-    }, [fitView, displayVersion]);
+    }, [loaded, displayVersion, fitView]);
 }

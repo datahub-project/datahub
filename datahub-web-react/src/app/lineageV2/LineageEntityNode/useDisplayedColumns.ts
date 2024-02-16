@@ -1,4 +1,4 @@
-import { useContext, useMemo } from 'react';
+import { useContext, useMemo, useRef } from 'react';
 import { SchemaFieldDataType } from '../../../types.generated';
 import { ColumnHighlight, createColumnRef, FineGrainedLineage, LineageDisplayContext } from '../common';
 import { NUM_COLUMNS_PER_PAGE } from '../constants';
@@ -6,7 +6,6 @@ import { ColumnAsset, FetchedEntityV2, LineageAssetType } from '../types';
 
 export const LINEAGE_NODE_WIDTH = 200;
 export const LINEAGE_NODE_HEIGHT = 70;
-export const TRANSITION_DURATION_MS = 200;
 
 type FieldPath = string;
 
@@ -27,7 +26,7 @@ interface Arguments {
     onlyWithLineage: boolean;
 }
 
-interface Return {
+export interface DisplayedColumns {
     paginatedColumns: LineageDisplayColumn[];
     extraHighlightedColumns: LineageDisplayColumn[];
     numFilteredColumns: number;
@@ -35,14 +34,49 @@ interface Return {
     numColumnsTotal: number;
 }
 
-export default function useDisplayedColumns({
+interface NormalizedReturn {
+    plainColumns: string[];
+    highlightedColumns: string[];
+    extraHighlightedColumns: string[];
+    numFilteredColumns: number;
+    numColumnsWithLineage: number;
+    numColumnsTotal: number;
+}
+
+export default function useDisplayedColumns(args: Arguments): DisplayedColumns {
+    const oldVals = useRef<DisplayedColumns>({
+        paginatedColumns: [],
+        extraHighlightedColumns: [],
+        numFilteredColumns: 0,
+        numColumnsWithLineage: 0,
+        numColumnsTotal: 0,
+    });
+    const vals = useComputeValues(args);
+    if (JSON.stringify(normalize(oldVals.current)) !== JSON.stringify(normalize(vals))) {
+        oldVals.current = vals;
+    }
+    return oldVals.current;
+}
+
+function normalize(val: DisplayedColumns): NormalizedReturn {
+    return {
+        plainColumns: val.paginatedColumns.filter((col) => !col.highlighted).map((col) => col.fieldPath),
+        highlightedColumns: val.paginatedColumns.filter((col) => col.highlighted).map((col) => col.fieldPath),
+        extraHighlightedColumns: val.extraHighlightedColumns.map((col) => col.fieldPath),
+        numFilteredColumns: val.numFilteredColumns,
+        numColumnsWithLineage: val.numColumnsWithLineage,
+        numColumnsTotal: val.numColumnsTotal,
+    };
+}
+
+function useComputeValues({
     urn,
     entity,
     showAllColumns,
     pageIndex,
     filterText,
     onlyWithLineage,
-}: Arguments): Return {
+}: Arguments): DisplayedColumns {
     const { highlightedColumns, fineGrainedLineage } = useContext(LineageDisplayContext);
 
     return useMemo(() => {

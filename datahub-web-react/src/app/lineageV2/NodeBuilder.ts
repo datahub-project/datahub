@@ -1,5 +1,6 @@
-import { Edge, MarkerType, Node } from 'reactflow';
 import { EdgeMarker } from '@reactflow/core/dist/esm/types/edges';
+import { Edge, MarkerType, Node } from 'reactflow';
+import { EntityType, LineageDirection } from '../../types.generated';
 import {
     LINEAGE_FILTER_TYPE,
     LineageEntity,
@@ -9,20 +10,19 @@ import {
     setDefault,
     TRANSFORMATION_TYPES,
 } from './common';
+import { LINEAGE_TABLE_EDGE_NAME } from './LineageEdge/LineageTableEdge';
+import { LINEAGE_ENTITY_NODE_NAME } from './LineageEntityNode/LineageEntityNode';
+import { LINEAGE_NODE_HEIGHT, LINEAGE_NODE_WIDTH } from './LineageEntityNode/useDisplayedColumns';
 import { LINEAGE_FILTER_NODE_NAME } from './LineageFilterNode/LineageFilterNode';
 import {
     LINEAGE_TRANSFORMATION_NODE_NAME,
     TRANSFORMATION_NODE_SIZE,
 } from './LineageTransformationNode/LineageTransformationNode';
-import { LINEAGE_ENTITY_NODE_NAME } from './LineageEntityNode/LineageEntityNode';
-import { EntityType, LineageDirection } from '../../types.generated';
-import { LINEAGE_NODE_HEIGHT, LINEAGE_NODE_WIDTH } from './LineageEntityNode/useDisplayedColumns';
 import { LINEAGE_WORKBOOK_NODE_NAME, WORKBOOK_NODE_MAX_WIDTH } from './MinorNodes/TableauWorkbookNode';
-import { LINEAGE_TABLE_EDGE_NAME } from './LineageEdge/LineageTableEdge';
 
 const MAIN_X_SEP = 120;
 const MINI_X_SEP = MAIN_X_SEP / 2;
-const MAIN_Y_SEP = 50;
+const MAIN_Y_SEP = 30;
 const MINI_Y_SEP = MAIN_Y_SEP / 2;
 
 export type NodeWithMetadata = Node<LineageEntity | LineageFilter> & {
@@ -99,7 +99,7 @@ export default class NodeBuilder {
         nodes.push(
             ...Array.from(this.filterNodes.values())
                 .flat()
-                .map((n) => this.createNode(n, LINEAGE_FILTER_NODE_NAME, -30)),
+                .map((n) => this.createNode(n, LINEAGE_FILTER_NODE_NAME)),
         );
         return nodes;
     }
@@ -317,6 +317,10 @@ export default class NodeBuilder {
                 this.nodeY.set(id, nodeY);
             });
 
+            if (nodes.size < 2) {
+                return;
+            }
+
             const sortedNodes = Array.from(nodes).sort((idA, idB) => goalY[idA] - goalY[idB] || idA.localeCompare(idB));
             const getY = (idx: number): number => {
                 const id = sortedNodes[idx];
@@ -378,15 +382,14 @@ export default class NodeBuilder {
         });
     }
 
-    createNode(data: LineageNode, type: string, yOffset?: number): NodeWithMetadata {
+    createNode(data: LineageNode, type: string): NodeWithMetadata {
         const layer = this.nodeLayers.get(data.id) || '';
         return {
             type,
             id: data.id,
             position: {
                 x: this.layerPositions.get(layer) || 0,
-                // TODO: Remove when useAvoidIntersections works with show more nodes
-                y: (this.nodeY.get(data.id) || 0) + (yOffset || 0),
+                y: this.nodeY.get(data.id) || 0,
             },
             layer: parseLayer(layer)[0],
             data,
