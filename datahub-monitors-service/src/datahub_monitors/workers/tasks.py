@@ -7,22 +7,20 @@ from celery.signals import celeryd_init, heartbeat_sent
 from datahub.metadata.schema_classes import MetadataChangeLogClass
 from kombu.transport.SQS import Channel
 
-from datahub_monitors.common.tp import ThreadPoolExecutorWithQueueSizeLimit
 from datahub_monitors.common.helpers import create_datahub_graph
+from datahub_monitors.common.tp import ThreadPoolExecutorWithQueueSizeLimit
+from datahub_monitors.config import ACTIONS_PIPELINE_EXECUTOR_MAX_WORKERS
 from datahub_monitors.service.scheduler.types import RUN_ASSERTION_TASK_NAME
 from datahub_monitors.workers.kombu_patch import patched_new_sqs_client
-
-from datahub_monitors.config import (
-    ACTIONS_PIPELINE_EXECUTOR_MAX_WORKERS,
-)
 
 from .assertion_executor import AssertionExecutor
 from .helpers import (
     extract_execution_request,
-    setup_ingestion_executor,
-    update_celery_credentials,
     handle_assertions_signal_requests,
     handle_ingestion_signal_requests,
+    kube_health_check,
+    setup_ingestion_executor,
+    update_celery_credentials,
 )
 
 logger = logging.getLogger(__name__)
@@ -52,7 +50,12 @@ def worker_startup(*args, **kwargs):
     assertion_executor = AssertionExecutor()
 
     global tp
-    tp = ThreadPoolExecutorWithQueueSizeLimit(max_workers = ACTIONS_PIPELINE_EXECUTOR_MAX_WORKERS)
+    tp = ThreadPoolExecutorWithQueueSizeLimit(
+        max_workers=ACTIONS_PIPELINE_EXECUTOR_MAX_WORKERS
+    )
+
+    logger.info("celery worker initialization finished")
+
 
 # Note - had to add this so mypy would stop throwing this error
 # error: Untyped decorator makes function "evaluate_execution_request" untyped  [misc]
@@ -68,6 +71,7 @@ def evaluate_execution_request(execution_request: ExecutionRequest) -> None:
         )
         return
 
+
 @typing.no_type_check
 @app.task
 def evaluate_execution_request_input(event: MetadataChangeLogClass) -> None:
@@ -78,6 +82,7 @@ def evaluate_execution_request_input(event: MetadataChangeLogClass) -> None:
         if ingestion_executor and tp:
             tp.submit(ingestion_executor.execute, execution_request)
 
+
 @typing.no_type_check
 @heartbeat_sent.connect
 def poll_signals(**kwargs):
@@ -85,6 +90,12 @@ def poll_signals(**kwargs):
     global ingestion_executor
     global assertion_executor
 
+    # update health check file
+    kube_health_check()
+
     # check for any signal requests on running tasks
-    handle_ingestion_signal_requests(graph, ingestion_executor)
-    handle_assertions_signal_requests(graph, assertion_executor)
+    if ingestion_executor is not None:
+        handle_ingestion_signal_requests(graph, ingestion_executor)
+
+    if assertion_executor is not None:
+        handle_assertions_signal_requests(graph, assertion_executor)

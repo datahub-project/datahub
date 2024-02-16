@@ -17,7 +17,7 @@ class CeleryConfig:
     broker_connection_retry_on_startup = True
     broker_url = ""
     task_queues = ()
-    transport_options: Dict[str, Any] = {}
+    broker_transport_options: Dict[str, Any] = {}
 
 
 def update_celery_config(
@@ -43,7 +43,7 @@ def update_celery_config(
 
     if executor_configs:
         config.broker_url = f"sqs://{safequote(executor_configs[0].access_key)}:{safequote(executor_configs[0].secret_key)}@"
-        config.transport_options = {
+        config.broker_transport_options = {
             "region": executor_configs[0].region,
             "predefined_queues": queues,
         }

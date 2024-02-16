@@ -1,6 +1,7 @@
 import json
 import logging
-from typing import List, Optional, Tuple
+from pathlib import Path
+from typing import List, Optional
 
 from acryl.executor.execution.reporting_executor import (
     ReportingExecutor,
@@ -16,7 +17,13 @@ from datahub.ingestion.graph.client import DatahubClientConfig
 from datahub.metadata.schema_classes import MetadataChangeLogClass
 
 from datahub_monitors.common.graph import DataHubAssertionGraph
-from datahub_monitors.config import DATAHUB_SERVER, EXECUTOR_ID
+from datahub_monitors.config import (
+    DATAHUB_ACCESS_TOKEN,
+    DATAHUB_SERVER,
+    EXECUTOR_ID,
+    LIVENESS_HEARTBEAT_FILE,
+    READINESS_HEARTBEAT_FILE,
+)
 from datahub_monitors.service.scheduler.monitors.graphql.query import (
     GRAPHQL_GET_SIGNAL_REQUEST_LIST_QUERY,
 )
@@ -50,12 +57,14 @@ def setup_ingestion_executor() -> ReportingExecutor:
                 config=DataHubSecretStoreConfig(
                     graph_client_config=DatahubClientConfig(
                         server=DATAHUB_SERVER,
-                        token=None,
+                        token=DATAHUB_ACCESS_TOKEN,
                     )
                 ),
             ),
         ],
-        graph_client_config=DatahubClientConfig(server=DATAHUB_SERVER, token=None),
+        graph_client_config=DatahubClientConfig(
+            server=DATAHUB_SERVER, token=DATAHUB_ACCESS_TOKEN
+        ),
     )
 
     return ReportingExecutor(ingestion_executor_config)
@@ -182,7 +191,9 @@ def handle_ingestion_signal_requests(
     if len(ingestion_exec_ids) > 0:
         signal_requests = fetch_execution_signal_requests(graph, ingestion_exec_ids)
         for signal_request in signal_requests:
-            logger.info(f"Got {signal_request.exec_id} signal for task {signal_request.exec_id}")
+            logger.info(
+                f"Got {signal_request.exec_id} signal for task {signal_request.exec_id}"
+            )
             ingestion_executor.signal(signal_request)
 
 
@@ -190,17 +201,9 @@ def handle_assertions_signal_requests(
     graph: DataHubAssertionGraph,
     assertion_executor: AssertionExecutor,
 ) -> None:
-    assertion_task_ids = []
-    if assertion_executor.task_futures:
-        for task_id in assertion_executor.task_futures.keys():
-            task_future = assertion_executor.task_futures[task_id]
-            if not task_future.done():
-                assertion_task_ids.append(task_id)
-
-    if len(assertion_task_ids) > 0:
-        pass
-        # TODO - Query a GMS API to see if these task_ids have any signals for them
-        # this doesn't exist yet.
+    # TODO - Query a GMS API to see if these task_ids have any signals for them
+    # this doesn't exist yet.
+    return
 
 
 def update_celery_credentials(app: Celery, is_startup: bool, queue_name: str) -> None:
@@ -212,8 +215,8 @@ def update_celery_credentials(app: Celery, is_startup: bool, queue_name: str) ->
         app.config_from_object(config)
     else:
         current_queues = (
-            app.conf.transport_options["predefined_queues"].keys()
-            if "predefined_queues" in app.conf.transport_options
+            app.conf.broker_transport_options["predefined_queues"].keys()
+            if "predefined_queues" in app.conf.broker_transport_options
             else []
         )
         # if we don't know about this queue, we force a refresh of the config
@@ -230,11 +233,19 @@ def update_celery_credentials(app: Celery, is_startup: bool, queue_name: str) ->
             config = update_celery_config(CeleryConfig(), executor_configs)
             app.config_from_object(config)
 
-            if "predefined_queues" in app.conf.transport_options:
-                for queue_name in app.conf.transport_options[
+            if "predefined_queues" in app.conf.broker_transport_options:
+                for queue_name in app.conf.broker_transport_options[
                     "predefined_queues"
                 ].keys():
                     if queue_name not in current_queues:
                         # this is a newly added queue, let's tell celery!
                         logger.info(f"Adding new queue to celery config {queue_name}")
                         app.control.add_consumer(queue_name)
+
+
+def kube_health_check() -> None:
+    try:
+        Path(LIVENESS_HEARTBEAT_FILE).touch()
+        Path(READINESS_HEARTBEAT_FILE).touch()
+    except Exception:
+        logger.error("Failed to update health check file")

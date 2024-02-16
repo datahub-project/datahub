@@ -1,3 +1,5 @@
+from unittest.mock import Mock
+
 import pytz
 from acryl.executor.request.execution_request import ExecutionRequest
 from apscheduler.triggers.cron import CronTrigger
@@ -5,6 +7,7 @@ from apscheduler.triggers.cron import CronTrigger
 from datahub_monitors.common.types import CronSchedule
 from datahub_monitors.service.scheduler.scheduler import ExecutionRequestScheduler
 from datahub_monitors.service.scheduler.types import RUN_ASSERTION_TASK_NAME
+from datahub_monitors.workers.assertion_executor import AssertionExecutor
 
 # Sample Assertion and Context
 execution_request = ExecutionRequest(
@@ -18,8 +21,12 @@ schedule = CronSchedule(cron="1 2 3 4 5", timezone="America/Los_Angeles")
 
 def test_schedule_assertion() -> None:
     # Initialize assertion scheduler with a mocked AssertionEngine
+    executor_mock = Mock(spec=AssertionExecutor)
     execution_request_scheduler = ExecutionRequestScheduler(
-        [], default_schedule="0 * * * *", default_timezone="America/Los_Angeles"
+        [],
+        default_schedule="0 * * * *",
+        default_timezone="America/Los_Angeles",
+        override_assertion_executor=executor_mock,
     )
 
     # Add assertion to the scheduler
@@ -42,8 +49,11 @@ def test_schedule_assertion() -> None:
 
 def test_unschedule_assertion() -> None:
     # Initialize assertion scheduler with a mocked AssertionEngine
+    executor_mock = Mock(spec=AssertionExecutor)
     execution_request_scheduler = ExecutionRequestScheduler(
-        default_schedule="0 * * * *", default_timezone="America/Los_Angeles"
+        default_schedule="0 * * * *",
+        default_timezone="America/Los_Angeles",
+        override_assertion_executor=executor_mock,
     )
 
     # Add assertion to the scheduler

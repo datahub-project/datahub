@@ -31,35 +31,17 @@ services:
       - ./datahub-monitors-service/start.sh:/start_datahub_monitors_service.sh
       - ../metadata-ingestion/src:/metadata-ingestion/src
       - ../datahub-monitors-service:/datahub-monitors-service
-  datahub-monitors-worker:
-    container_name: datahub-monitors-worker
+  datahub-executor-coordinator:
+    container_name: datahub-executor-coordinator
+    image: 795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-executor:debug
     build:
       context: ../
-      dockerfile: docker/datahub-monitors-worker/Dockerfile
+      dockerfile: datahub-monitors-service/Dockerfile
       args:
         APP_ENV: dev
-    volumes:
-      - ./datahub-monitors-worker/start.sh:/start_datahub_monitors_worker.sh
-      - ../metadata-ingestion/src:/metadata-ingestion/src
-      - ../datahub-monitors-service:/datahub-monitors-service
-  datahub-monitors-service-broker:
-    container_name: datahub-monitors-broker
-    image: redis:7.2.3
-    restart: always
-    ports:
-      - "6379:6379"
-    command: redis-server --loglevel warning
-  datahub-monitors-service-remote:
-    container_name: datahub-monitors-service-remote
-    build:
-      context: ../
-      dockerfile: docker/datahub-monitors-service-remote/Dockerfile
-      args:
-        APP_ENV: dev
-    env_file:
-      - ./datahub-monitors-service-remote/env/docker.env
-    image: 795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-monitors-service:debug
     volumes:
       - ./datahub-monitors-service-remote/start.sh:/start_datahub_monitors_service.sh
       - ../metadata-ingestion/src:/metadata-ingestion/src
       - ../datahub-monitors-service:/datahub-monitors-service
+    env_file:
+      - ./datahub-monitors-service/env/docker.env

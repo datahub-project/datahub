@@ -4,10 +4,10 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import AssertionRunEventClass
 
-from datahub_monitors.assertion.result.assertion_run_event_handler import (
+from datahub_monitors.common.assertion.result.assertion_run_event_handler import (
     AssertionRunEventResultHandler,
 )
-from datahub_monitors.types import (
+from datahub_monitors.common.types import (
     Assertion,
     AssertionEntity,
     AssertionEvaluationContext,

@@ -1,12 +1,12 @@
 from typing import cast
 
-from datahub_monitors.common.connection.databricks.databricks_connection import (
-    DatabricksConnection,
-)
 from datahub_monitors.common.connection.bigquery.bigquery_connection import (
     BigQueryConnection,
 )
 from datahub_monitors.common.connection.connection import Connection
+from datahub_monitors.common.connection.databricks.databricks_connection import (
+    DatabricksConnection,
+)
 from datahub_monitors.common.connection.redshift.redshift_connection import (
     RedshiftConnection,
 )

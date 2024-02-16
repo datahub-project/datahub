@@ -7,7 +7,7 @@ from datahub_monitors.service.scheduler.types import ExecutionRequestSchedule
 
 
 class Fetcher:
-    """Class used to fetch monitors from an external API."""
+    """Interface for fetching work items to execute."""
 
     def __init__(self, graph: DataHubGraph, config: FetcherConfig):
         """

@@ -1,22 +1,19 @@
 import logging
-from typing import Dict
 
 from acryl.executor.request.execution_request import ExecutionRequest
 
-from datahub_monitors.common.tp import ThreadPoolExecutorWithQueueSizeLimit
 from datahub_monitors.common.assertion.engine.engine import AssertionEngine
 from datahub_monitors.common.graph import DataHubAssertionGraph
 from datahub_monitors.common.helpers import (
     create_assertion_engine,
     create_datahub_graph,
 )
+from datahub_monitors.common.tp import ThreadPoolExecutorWithQueueSizeLimit
 from datahub_monitors.common.types import (
     AssertionEvaluationContext,
     AssertionEvaluationSpec,
 )
-from datahub_monitors.config import (
-    MONITORS_EXECUTOR_MAX_WORKERS,
-)
+from datahub_monitors.config import MONITORS_EXECUTOR_MAX_WORKERS
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +26,9 @@ class AssertionExecutor:
     def __init__(self) -> None:
         self.graph = create_datahub_graph()
         self.engine = create_assertion_engine(self.graph)
-        self.tp = ThreadPoolExecutorWithQueueSizeLimit(max_workers = MONITORS_EXECUTOR_MAX_WORKERS)
+        self.tp = ThreadPoolExecutorWithQueueSizeLimit(
+            max_workers=MONITORS_EXECUTOR_MAX_WORKERS
+        )
 
     def execute(self, request: ExecutionRequest) -> None:
         # submit will block if queue size > max_workers
@@ -42,7 +41,7 @@ class AssertionExecutor:
             logger.error(e)
             return
 
-    def shutdown(self, wait = True) -> None:
+    def shutdown(self, wait: bool = True) -> None:
         self.tp.shutdown(wait)
 
     def evaluate_assertion(self, execution_request: ExecutionRequest) -> None:

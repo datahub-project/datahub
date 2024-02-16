@@ -1,5 +1,3 @@
-import os
-
 from datahub.ingestion.graph.client import DatahubClientConfig
 from datahub.secret.datahub_secret_store import DataHubSecretStore
 
@@ -30,20 +28,17 @@ from datahub_monitors.common.source.provider import SourceProvider
 from datahub_monitors.common.state.datahub_monitor_state_provider import (
     DataHubMonitorStateProvider,
 )
+from datahub_monitors.config import DATAHUB_ACCESS_TOKEN, DATAHUB_SERVER
 
 
 def create_datahub_graph() -> DataHubAssertionGraph:
     """Create a DataHub client based on environment variables."""
-    DATAHUB_SERVER = (
-        f"{os.environ.get('DATAHUB_GMS_PROTOCOL', 'http')}://"
-        f"{os.environ.get('DATAHUB_GMS_HOST', 'localhost')}:{os.environ.get('DATAHUB_GMS_PORT', 8080)}"
-    )
     return DataHubAssertionGraph(
         DatahubClientConfig(
             server=DATAHUB_SERVER,
             # When token is not set, the client will automatically try to use
             # DATAHUB_SYSTEM_CLIENT_ID and DATAHUB_SYSTEM_CLIENT_SECRET to authenticate.
-            token=None,
+            token=DATAHUB_ACCESS_TOKEN,
         )
     )
 

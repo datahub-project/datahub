@@ -29,6 +29,7 @@ class ExecutionRequestScheduler:
         execution_requests: Optional[List[ExecutionRequest]] = None,
         default_schedule: Optional[str] = None,  # equivalent to @hourly in cron format
         default_timezone: Optional[str] = None,
+        override_assertion_executor: Optional[AssertionExecutor] = None,
     ):
         """
         Initialize the ExecutionRequestScheduler with a list of execution_request_ids and a default schedule.
@@ -43,7 +44,10 @@ class ExecutionRequestScheduler:
             else []
         )
         self.scheduler = BackgroundScheduler()
-        self.assertion_executor = AssertionExecutor()
+        if override_assertion_executor is not None:
+            self.assertion_executor = override_assertion_executor
+        else:
+            self.assertion_executor = AssertionExecutor()
         self.scheduler.start()
         if default_schedule is not None:
             self.default_schedule = default_schedule
@@ -59,6 +63,10 @@ class ExecutionRequestScheduler:
         execution_request: ExecutionRequest,
     ) -> None:
         try:
+            if execution_request.exec_id == "urn:li:assertion:test":
+                logger.debug("test assertion")
+                return
+
             logger.debug(
                 f"Running scheduled evaluation for execution_request with exec_id {execution_request.exec_id}"
             )

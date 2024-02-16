@@ -1,13 +1,9 @@
-import os
 import asyncio
 from threading import Thread
-
 from typing import Callable, List
 
+from datahub.configuration.config_loader import load_config_file
 from datahub.configuration.kafka import KafkaConsumerConnectionConfig
-from datahub.configuration.config_loader import (
-    load_config_file,
-)
 from datahub_actions.pipeline.pipeline import (
     DEFAULT_FAILED_EVENTS_DIR,
     DEFAULT_FAILURE_MODE,
@@ -22,13 +18,14 @@ from datahub_actions.plugin.source.kafka.kafka_event_source import (
 
 from datahub_monitors.common.helpers import create_datahub_graph
 from datahub_monitors.config import (
+    ACTIONS_PIPELINE_CONFIG_PATH,
     EMBEDDED_WORKER_ENABLED,
     EMBEDDED_WORKER_ID,
     INGESTION_ENABLED,
-    ACTIONS_PIPELINE_CONFIG_PATH,
 )
 
 from .action import MonitorServiceAction
+
 
 def start_async_action_pipeline(sighandler: List[Callable]) -> None:
     config_dict = load_config_file(ACTIONS_PIPELINE_CONFIG_PATH)
@@ -38,10 +35,12 @@ def start_async_action_pipeline(sighandler: List[Callable]) -> None:
         config=KafkaEventSourceConfig(
             connection=KafkaConsumerConnectionConfig(
                 bootstrap=connection.get("bootstrap", "broker:9092"),
-                schema_registry_url=connection.get("schema_registry_url", "http://schema-registry:8081"),
+                schema_registry_url=connection.get(
+                    "schema_registry_url", "http://schema-registry:8081"
+                ),
                 consumer_config=connection.get("consumer_config", {}),
             ),
-            topic_routes=config_dict.get("topic_routes", None)
+            topic_routes=config_dict.get("topic_routes", None),
         ),
         ctx=PipelineContext(
             pipeline_name="monitors-service-action-pipeline",
@@ -50,9 +49,7 @@ def start_async_action_pipeline(sighandler: List[Callable]) -> None:
     )
 
     action = MonitorServiceAction(
-        EMBEDDED_WORKER_ENABLED,
-        INGESTION_ENABLED,
-        EMBEDDED_WORKER_ID
+        EMBEDDED_WORKER_ENABLED, INGESTION_ENABLED, EMBEDDED_WORKER_ID
     )
 
     pipeline = Pipeline(
@@ -74,5 +71,5 @@ def start_async_action_pipeline(sighandler: List[Callable]) -> None:
     sighandler.append(action.shutdown)
     sighandler.append(pipeline.stop)
 
-    pt = Thread(target = pipeline.run)
+    pt = Thread(target=pipeline.run)
     pt.start()

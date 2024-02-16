@@ -97,7 +97,9 @@ class ExecutionRequestManager:
         """
         fetcher = self.fetchers[fetcher_id]
 
-        logger.info("Attempting to refresh the set of execution_requests...")
+        logger.info(
+            "Attempting to refresh the set of execution requests for {fetcher_id}..."
+        )
         execution_requests = fetcher.fetch_execution_requests()
 
         self.prev_scheduled_execution_requests[

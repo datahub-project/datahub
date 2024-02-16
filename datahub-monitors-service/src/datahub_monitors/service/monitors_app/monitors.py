@@ -61,7 +61,7 @@ def start_async_execution_request_manager(sighandler: List[Callable]) -> None:
         ingestion_fetcher = IngestionFetcher(graph, get_ingestion_config())
 
         # Create a scheduler
-        scheduler = ExecutionRequestScheduler(None, None, None)
+        scheduler = ExecutionRequestScheduler(None, None, None, None)
 
         # Create a manager
         manager = ExecutionRequestManager(

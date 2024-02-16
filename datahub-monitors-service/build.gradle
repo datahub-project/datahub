@@ -55,6 +55,7 @@ task installDev(type: Exec, dependsOn: [install]) {
     outputs.file("${venv_name}/.build_install_dev_sentinel")
     commandLine 'bash', '-x', '-c',
         "${venv_name}/bin/python -m pip install . && " +
+        "${venv_name}/bin/python -m pip install -r requirements-dev.txt && " +
         "touch ${venv_name}/.build_install_dev_sentinel"
 }
 

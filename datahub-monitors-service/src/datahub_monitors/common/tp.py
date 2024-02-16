@@ -1,13 +1,14 @@
 from concurrent.futures import ThreadPoolExecutor
 from threading import BoundedSemaphore
 
+
 class ThreadPoolExecutorWithQueueSizeLimit:
-    def __init__(self, max_workers):
+    def __init__(self, max_workers: int):
         self.executor = ThreadPoolExecutor(max_workers=max_workers)
         self.semaphore = BoundedSemaphore(max_workers)
         self.shutdown_flag = False
 
-    def submit(self, fn, *args, **kwargs):
+    def submit(self, fn, *args, **kwargs):  # type: ignore
         if self.shutdown_flag:
             return None
 
@@ -21,6 +22,6 @@ class ThreadPoolExecutorWithQueueSizeLimit:
             future.add_done_callback(lambda x: self.semaphore.release())
             return future
 
-    def shutdown(self, wait=True):
+    def shutdown(self, wait=True):  # type: ignore
         self.shutdown_flag = True
         self.executor.shutdown(wait)

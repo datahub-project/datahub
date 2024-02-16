@@ -7,6 +7,7 @@ import lombok.Data;
 public class ExecutorConfiguration {
   /** The role ARN that we should assume for executor credentials credentials . */
   public String executorRoleArn;
+
   /** The customer id we will use to filter customer SQS queues */
   public String executorCustomerId;
 }
