@@ -134,24 +134,29 @@ class RedshiftSqlLineageV2:
             )
 
         if self.config.include_copy_lineage:
+            # Populate lineage for copy commands.
             query = RedshiftQuery.list_copy_commands_sql(
                 db_name=self.database,
                 start_time=self.start_time,
                 end_time=self.end_time,
             )
-            # populate_calls.append((query, LineageCollectorType.COPY))  # TODO
+            populate_calls.append(
+                (LineageCollectorType.COPY, query, self._process_copy_command)
+            )
 
         if self.config.include_unload_lineage:
+            # Populate lineage for unload commands.
             query = RedshiftQuery.list_unload_commands_sql(
                 db_name=self.database,
                 start_time=self.start_time,
                 end_time=self.end_time,
             )
-
-            # populate_calls.append((query, LineageCollectorType.UNLOAD))  # TODO
+            populate_calls.append(
+                (LineageCollectorType.UNLOAD, query, self._process_unload_command)
+            )
 
         for lineage_type, query, processor in populate_calls:
-            self._populate_lineage_map(
+            self._populate_lineage_agg(
                 query=query,
                 lineage_type=lineage_type,
                 processor=processor,
@@ -167,7 +172,7 @@ class RedshiftSqlLineageV2:
             # )  # TODO
             pass
 
-    def _populate_lineage_map(
+    def _populate_lineage_agg(
         self,
         query: str,
         lineage_type: LineageCollectorType,
@@ -212,10 +217,11 @@ class RedshiftSqlLineageV2:
         target_name = (
             f"{self.database}.{lineage_row.target_schema}.{lineage_row.target_table}"
         )
-        target = DatasetUrn(
-            platform="redshift",
-            name=target_name,
+        target = DatasetUrn.create_from_ids(
+            "redshift",
+            target_name,
             env=self.config.env,
+            platform_instance=self.config.platform_instance,
         )
 
         self.aggregator.add_view_definition(
@@ -236,19 +242,43 @@ class RedshiftSqlLineageV2:
         )[0]
         if not source:
             return
-
         s3_urn = source[0].urn
-        target_name = (
-            f"{self.database}.{lineage_row.target_schema}.{lineage_row.target_table}"
-        )
-        target = DatasetUrn(
-            platform="redshift",
-            name=target_name,
+
+        if not lineage_row.target_schema or not lineage_row.target_table:
+            return
+        target = DatasetUrn.create_from_ids(
+            "redshift",
+            f"{self.database}.{lineage_row.target_schema}.{lineage_row.target_table}",
             env=self.config.env,
+            platform_instance=self.config.platform_instance,
         )
 
         self.aggregator.add_known_lineage_mapping(
             upstream_urn=s3_urn, downstream_urn=target.urn()
+        )
+
+    def _process_unload_command(self, lineage_row: LineageRow) -> None:
+        lineage_entry = self._lineage_v1._get_target_lineage(
+            alias_db_name=self.database,
+            lineage_row=lineage_row,
+            lineage_type=LineageCollectorType.UNLOAD,
+            all_tables_set={},
+        )
+        if not lineage_entry:
+            return
+        output_urn = lineage_entry.dataset.urn
+
+        if not lineage_row.source_schema or not lineage_row.source_table:
+            return
+        source = DatasetUrn.create_from_ids(
+            "redshift",
+            f"{self.database}.{lineage_row.source_schema}.{lineage_row.source_table}",
+            env=self.config.env,
+            platform_instance=self.config.platform_instance,
+        )
+
+        self.aggregator.add_known_lineage_mapping(
+            upstream_urn=source.urn(), downstream_urn=output_urn
         )
 
     def generate(self) -> Iterable[MetadataWorkUnit]:
