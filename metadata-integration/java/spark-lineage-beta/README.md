@@ -15,7 +15,7 @@ Databricks, refer [Configuration Instructions for Databricks](#configuration-ins
 Versioning of the jar artifact will follow the semantic versioning of the
 main [DataHub repo](https://github.com/datahub-project/datahub) and release notes will be
 available [here](https://github.com/datahub-project/datahub/releases).
-Always check [the Maven central repository](https://search.maven.org/search?q=a:datahub-spark-lineage) for the latest
+Always check [the Maven central repository](https://search.maven.org/search?q=a:acryl-spark-lineage) for the latest
 released version.
 
 ### Configuration Instructions: spark-submit
@@ -24,7 +24,7 @@ When running jobs using spark-submit, the agent needs to be configured in the co
 
 ```text
 #Configuring DataHub spark agent jar
-spark.jars.packages                          io.acryl:acryl-spark-lineage:0.2.0
+spark.jars.packages                          io.acryl:acryl-spark-lineage:0.2.1
 spark.extraListeners                         datahub.spark.DatahubSparkListener
 spark.datahub.rest.server                    http://localhost:8080
 ```
@@ -32,7 +32,7 @@ spark.datahub.rest.server                    http://localhost:8080
 ## spark-submit command line
 
 ```sh
-spark-submit --packages io.acryl:acryl-spark-lineage:0.2.0 --conf "spark.extraListeners=datahub.spark.DatahubSparkListener" my_spark_job_to_run.py
+spark-submit --packages io.acryl:acryl-spark-lineage:0.2.1 --conf "spark.extraListeners=datahub.spark.DatahubSparkListener" my_spark_job_to_run.py
 ```
 
 ### Configuration Instructions:  Amazon EMR
@@ -41,7 +41,7 @@ Set the following spark-defaults configuration properties as it
 stated [here](https://docs.aws.amazon.com/emr/latest/ReleaseGuide/emr-spark-configure.html)
 
 ```text
-spark.jars.packages                          io.acryl:acryl-spark-lineage:0.0.2
+spark.jars.packages                          io.acryl:acryl-spark-lineage:0.2.1
 spark.extraListeners                         datahub.spark.DatahubSparkListener
 spark.datahub.rest.server                    https://your_datahub_host/gms
 #If you have authentication set up then you also need to specify the Datahub access token
@@ -79,7 +79,7 @@ appName("test-application")
 config("spark.master","spark://spark-master:7077")
         .
 
-config("spark.jars.packages","io.acryl:acryl-spark-lineage:0.1.0")
+config("spark.jars.packages","io.acryl:acryl-spark-lineage:0.2.1")
         .
 
 config("spark.extraListeners","datahub.spark.DatahubSparkListener")
@@ -104,7 +104,7 @@ and [Init script](https://docs.databricks.com/clusters/configure.html#init-scrip
 information like tokens.
 
 - Download `datahub-spark-lineage` jar
-  from [the Maven central repository](https://s01.oss.sonatype.org/content/groups/public/io/acryl/acryl-spark-lineage/0.0.1/).
+  from [the Maven central repository](https://s01.oss.sonatype.org/content/groups/public/io/acryl/acryl-spark-lineage/).
 - Create `init.sh` with below content
 
     ```sh
@@ -178,7 +178,10 @@ information like tokens.
 | spark.datahub.flow_name                                             |          |         | If it is set it will be used as the DataFlow name otherwise it uses spark app name as flow_name                                                                                           |
 | spark.datahub.partition_regexp_pattern                              |          |         | Strip partition part from the path if path end matches with the specified regexp. Example `year=.*/month=.*/day=.*`                                                                       |
 | spark.datahub.tags                                                  |          |         | Comma separated list of tags to attach to the DataFlow                                                                                                                                    |
-| spark.datahub.stage_metadata_coalescing                             |          |         | Normally it coalesce and send metadata at the onApplicationEnd event which is never called on Databricsk. You should enable this on Databricsk if you want coalesced run .                |
+| spark.datahub.domains                                               |          |         | Comma separated list of domain urns to attach to the DataFlow                                                                                                                             |
+| spark.datahub.stage_metadata_coalescing                             |          |         | Normally it coalesce and send metadata at the onApplicationEnd event which is never called on Databricsk. You should enable this on Databricks if you want coalesced run .                |
+| spark.datahub.patch.enabled                                         |          |         | Set this to true to send lineage as a patch, which appends rather than overwrites existing Dataset lineage edges. By default it is enabled.
+|
 
 ## What to Expect: The Metadata Model
 
@@ -207,7 +210,7 @@ For Spark on Databricks, pipeline start time is the cluster start time.
 
 ### Spark versions supported
 
-Supports Spark 3.x series and was tested with Spark 3.2.x and 3.3.x.
+Supports Spark 3.x series.
 
 ### Environments tested with
 
@@ -218,12 +221,6 @@ This initial release has been tested with the following environments:
 - Databricks Standalone Cluster
 
 Testing with Databricks Standard and High-concurrency Cluster is not done yet.
-
-### Spark commands not yet supported
-
-- View related commands
-- Cache commands and implications on lineage
-- RDD jobs
 
 ### Configuring Hdfs based dataset URNs
 
@@ -336,5 +333,11 @@ log4j.logger.datahub.spark=DEBUG
 log4j.logger.datahub.client.rest=DEBUG
 ```
 
+## How to build
+Use Java 8 to build the project. The project uses Gradle as the build tool. To build the project, run the following command:
+
+```shell
+./gradlew -PjavaClassVersionDefault=8 :metadata-integration:java:spark-lineage-beta:shadowJar
+```
 ## Known limitations
 

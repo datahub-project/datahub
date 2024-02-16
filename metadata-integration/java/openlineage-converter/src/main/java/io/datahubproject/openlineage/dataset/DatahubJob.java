@@ -9,6 +9,7 @@ import com.linkedin.common.Edge;
 import com.linkedin.common.EdgeArray;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.Ownership;
+import com.linkedin.common.Status;
 import com.linkedin.common.TagAssociation;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.DataFlowUrn;
@@ -110,6 +111,8 @@ public class DatahubJob {
     // Generate and add DataFlow Aspect
     log.info("Generating MCPs for job: {}", jobUrn);
     addAspectToMcps(flowUrn, DATA_FLOW_ENTITY_TYPE, dataFlowInfo, mcps);
+    generateStatus(flowUrn, DATA_FLOW_ENTITY_TYPE, mcps);
+
 
     // Generate and add PlatformInstance Aspect
     if (flowPlatformInstance != null) {
@@ -132,6 +135,7 @@ public class DatahubJob {
     log.info("Setting custom properties for job: {}", jobUrn);
     jobInfo.setCustomProperties(customProperties);
     addAspectToMcps(jobUrn, DATAJOB_ENTITY_TYPE, jobInfo, mcps);
+    generateStatus(jobUrn, DATAJOB_ENTITY_TYPE, mcps);
 
     // Generate and add tags Aspect
     generateFlowGlobalTagsAspect(flowUrn, flowGlobalTags, config, mcps);
@@ -225,6 +229,7 @@ public class DatahubJob {
           if (config.isMaterializeDataset()) {
             try {
               mcps.add(eventFormatter.convert(materializeDataset(dataset.getUrn())));
+              generateStatus(dataset.getUrn(), DATASET_ENTITY_TYPE, mcps);
             } catch (IOException e) {
               throw new RuntimeException(e);
             }
@@ -286,6 +291,7 @@ public class DatahubJob {
           if (config.isMaterializeDataset()) {
             try {
               mcps.add(eventFormatter.convert(materializeDataset(dataset.getUrn())));
+              generateStatus(dataset.getUrn(), DATASET_ENTITY_TYPE, mcps);
             } catch (IOException e) {
               throw new RuntimeException(e);
             }
@@ -328,6 +334,11 @@ public class DatahubJob {
         addAspectToMcps(flowUrn, DATA_FLOW_ENTITY_TYPE, flowGlobalTags, mcps);
       }
     }
+  }
+
+  private void generateStatus(Urn entityUrn, String entityType, List<MetadataChangeProposal> mcps) {
+    Status statusInfo = new Status().setRemoved(false);
+    addAspectToMcps(entityUrn, entityType, statusInfo, mcps);
   }
 
   private void addAspectToMcps(Urn entityUrn, String entityType, DataTemplate aspect, List<MetadataChangeProposal> mcps) {
