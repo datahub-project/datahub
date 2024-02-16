@@ -10,6 +10,8 @@ services:
     image: 795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-integrations-service:debug
     env_file:
       - ../datahub-integrations-service/.env
+    environment:
+      PYTHONPATH: "/metadata-ingestion/src:/datahub-integrations-service/src:$${PYTHONPATH}"
     volumes:
       - ./datahub-integrations-service/start.sh:/start_datahub_integrations_service.sh
       - ../metadata-ingestion/src:/metadata-ingestion/src
@@ -22,6 +24,8 @@ services:
       args:
         APP_ENV: dev
     image: 795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-monitors-service:debug
+    environment:
+      PYTHONPATH: "/metadata-ingestion/src:/datahub-monitors-service/src/datahub_monitors:$${PYTHONPATH}"
     volumes:
       - ./datahub-monitors-service/start.sh:/start_datahub_monitors_service.sh
       - ../metadata-ingestion/src:/metadata-ingestion/src

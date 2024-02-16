@@ -11,11 +11,18 @@ x-datahub-integrations-service: &datahub-integrations-service
 x-datahub-integrations-service-dev: &datahub-integrations-service-dev
   <<: *datahub-integrations-service
   image: ${DATAHUB_INTEGRATIONS_IMAGE:-${DATAHUB_REPO:-795586375822.dkr.ecr.us-west-2.amazonaws.com}/datahub-integrations-service}:${DATAHUB_INTEGRATIONS_VERSION:-debug}
+  environment:
+    PYTHONPATH: "/metadata-ingestion/src:/datahub-integrations-service/src:$${PYTHONPATH}"
   volumes:
     - ./datahub-integrations-service/start.sh:/start_datahub_integrations_service.sh
     - ../../metadata-ingestion/src:/metadata-ingestion/src
     - ../../datahub-integrations-service:/datahub-integrations-service
     # - ../../datahub-actions:/datahub-actions
+
+x-datahub-integrations-service-dev-head: &datahub-integrations-service-dev-head
+  <<: *datahub-integrations-service-dev
+  image: ${DATAHUB_INTEGRATIONS_IMAGE:-${DATAHUB_REPO:-795586375822.dkr.ecr.us-west-2.amazonaws.com}/datahub-integrations-service}:${DATAHUB_INTEGRATIONS_VERSION:-head}
+
 
 #################################
 # Monitors Service
@@ -30,10 +37,16 @@ x-datahub-monitors-service: &datahub-monitors-service
 x-datahub-monitors-service-dev: &datahub-monitors-service-dev
   <<: *datahub-monitors-service
   image: ${DATAHUB_MONITORS_IMAGE:-${DATAHUB_REPO:-795586375822.dkr.ecr.us-west-2.amazonaws.com}/datahub-monitors-service}:${DATAHUB_MONITORS_VERSION:-debug}
+  environment:
+    PYTHONPATH: "/metadata-ingestion/src:/datahub-monitors-service/src/datahub_monitors:$${PYTHONPATH}"
   volumes:
     - ./datahub-monitors-service/start.sh:/start_datahub_monitors_service.sh
     - ../../metadata-ingestion/src:/metadata-ingestion/src
     - ../../datahub-monitors-service:/datahub-monitors-service
+
+x-datahub-monitors-service-dev-head: &datahub-monitors-service-dev-head
+  <<: *datahub-monitors-service-dev
+  image: ${DATAHUB_MONITORS_IMAGE:-${DATAHUB_REPO:-795586375822.dkr.ecr.us-west-2.amazonaws.com}/datahub-monitors-service}:${DATAHUB_MONITORS_VERSION:-head}
 
 services:
   #################################
@@ -43,7 +56,6 @@ services:
     <<: *datahub-integrations-service
     profiles:
       - quickstart-consumers
-    container_name: datahub-integrations-service
     depends_on:
       datahub-gms-quickstart-consumers:
         condition: service_healthy
@@ -51,10 +63,13 @@ services:
     <<: *datahub-integrations-service-dev
     profiles:
       - debug
-    container_name: datahub-integrations-service-dev
     depends_on:
       datahub-gms-debug:
         condition: service_healthy
+  datahub-integrations-quickstart-dev-head:
+    <<: *datahub-integrations-service-dev-head
+    profiles:
+      - debug-pyservices
   #################################
   # Monitors Service
   #################################
@@ -62,7 +77,6 @@ services:
     <<: *datahub-monitors-service
     profiles:
       - quickstart-consumers
-    container_name: datahub-monitors-service
     depends_on:
       datahub-gms-quickstart-consumers:
         condition: service_healthy
@@ -70,7 +84,10 @@ services:
     <<: *datahub-monitors-service-dev
     profiles:
       - debug
-    container_name: datahub-monitors-service-dev
     depends_on:
       datahub-gms-debug:
         condition: service_healthy
+  datahub-monitors-quickstart-dev-head:
+    <<: *datahub-monitors-service-dev-head
+    profiles:
+      - debug-pyservices
