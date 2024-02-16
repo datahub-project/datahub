@@ -777,7 +777,6 @@ def _sqlglot_lineage_inner(
     schema_resolver: SchemaResolverInterface,
     default_db: Optional[str] = None,
     default_schema: Optional[str] = None,
-    schema_aware: bool = True,
 ) -> SqlParsingResult:
     dialect = get_dialect(schema_resolver.platform)
     if is_dialect_instance(dialect, "snowflake"):
@@ -843,7 +842,7 @@ def _sqlglot_lineage_inner(
         urn, schema_info = schema_resolver.resolve_table(qualified_table)
 
         table_name_urn_mapping[qualified_table] = urn
-        if schema_aware and schema_info:
+        if schema_info:
             table_name_schema_mapping[qualified_table] = schema_info
 
         # Also include the original, non-qualified table name in the urn mapping.
@@ -939,7 +938,6 @@ def sqlglot_lineage(
     schema_resolver: SchemaResolverInterface,
     default_db: Optional[str] = None,
     default_schema: Optional[str] = None,
-    schema_aware: bool = True,
 ) -> SqlParsingResult:
     """Parse a SQL statement and generate lineage information.
 
@@ -995,8 +993,7 @@ def sqlglot_lineage(
             sql=sql,
             schema_resolver=schema_resolver,
             default_db=default_db,
-            default_schema=default_schema,
-            schema_aware=schema_aware,
+            default_schema=default_schema
         )
     except Exception as e:
         return SqlParsingResult.make_from_error(e)
@@ -1012,7 +1009,7 @@ def create_lineage_sql_parsed_result(
     graph: Optional[DataHubGraph] = None,
     schema_aware: bool = True,
 ) -> SqlParsingResult:
-    if graph:
+    if graph and schema_aware:
         needs_close = False
         schema_resolver = graph._make_schema_resolver(
             platform=platform,
@@ -1034,7 +1031,6 @@ def create_lineage_sql_parsed_result(
             schema_resolver=schema_resolver,
             default_db=default_db,
             default_schema=default_schema,
-            schema_aware=schema_aware,
         )
     except Exception as e:
         return SqlParsingResult.make_from_error(e)
