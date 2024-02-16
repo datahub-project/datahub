@@ -1847,7 +1847,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
             )
             yield self.get_metadata_change_proposal(
                 datasource_urn,
-                aspect_name=tableau_constant.UPSTREAM_LINEAGE,
+                aspect_name=c.UPSTREAM_LINEAGE,
                 aspect=upstream_lineage,
             )
 
