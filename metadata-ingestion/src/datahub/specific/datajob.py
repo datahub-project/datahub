@@ -1,6 +1,5 @@
 import time
 from typing import Dict, List, Optional, TypeVar, Union
-from urllib.parse import quote
 
 from datahub.emitter.mcp_patch_builder import MetadataPatchProposal
 from datahub.metadata.schema_classes import (
@@ -165,7 +164,7 @@ class DataJobPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             DataJobInputOutput.ASPECT_NAME,
             "add",
-            path=f"/inputDatajobEdges/{quote(input_urn, safe='')}",
+            path=f"/inputDatajobEdges/{MetadataPatchProposal.quote(input_urn)}",
             value=input_edge,
         )
         return self
@@ -248,7 +247,7 @@ class DataJobPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             DataJobInputOutput.ASPECT_NAME,
             "add",
-            path=f"/inputDatasetEdges/{quote(input_urn, safe='')}",
+            path=f"/inputDatasetEdges/{MetadataPatchProposal.quote(input_urn)}",
             value=input_edge,
         )
         return self
@@ -266,7 +265,7 @@ class DataJobPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             DataJobInputOutput.ASPECT_NAME,
             "remove",
-            path=f"/inputDatasetEdges/{input}",
+            path=f"/inputDatasetEdges/{MetadataPatchProposal.quote(str(input))}",
             value={},
         )
         return self
@@ -333,7 +332,7 @@ class DataJobPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             DataJobInputOutput.ASPECT_NAME,
             "add",
-            path=f"/outputDatasetEdges/{quote(output_urn, safe='')}",
+            path=f"/outputDatasetEdges/{MetadataPatchProposal.quote(str(input))}",
             value=output_edge,
         )
         return self
@@ -418,7 +417,7 @@ class DataJobPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             DataJobInputOutput.ASPECT_NAME,
             "add",
-            path=f"/inputDatasetFields/{quote(input_urn, safe='')}",
+            path=f"/inputDatasetFields/{MetadataPatchProposal.quote(input_urn)}",
             value=input_edge,
         )
         return self
@@ -506,7 +505,7 @@ class DataJobPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             DataJobInputOutput.ASPECT_NAME,
             "add",
-            path=f"/outputDatasetFields/{quote(output_urn, safe='')}",
+            path=f"/outputDatasetFields/{MetadataPatchProposal.quote(output_urn)}",
             value=output_edge,
         )
         return self
@@ -527,7 +526,7 @@ class DataJobPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             DataJobInputOutput.ASPECT_NAME,
             "remove",
-            path=f"/outputDatasetFields/{quote(output_urn, safe='')}",
+            path=f"/outputDatasetFields/{MetadataPatchProposal.quote(output_urn)}",
             value={},
         )
         return self

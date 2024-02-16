@@ -63,12 +63,33 @@ def test_complex_dataset_patch(
                 type=DatasetLineageTypeClass.TRANSFORMED,
             )
         )
+        .add_upstream_lineage(
+            upstream=UpstreamClass(
+                dataset=make_dataset_urn(
+                    platform="s3", name="my-bucket/my-folder/my-file.txt", env="PROD"
+                ),
+                type=DatasetLineageTypeClass.TRANSFORMED,
+            )
+        )
         .add_fine_grained_upstream_lineage(
             fine_grained_lineage=FineGrainedLineageClass(
                 upstreamType=FineGrainedLineageUpstreamTypeClass.DATASET,
                 upstreams=[
                     make_dataset_urn(
                         platform="hive", name="fct_users_created_upstream", env="PROD"
+                    )
+                ],
+                downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD_SET,
+                transformOperation="TRANSFORM",
+                confidenceScore=1.0,
+            )
+        )
+        .add_fine_grained_upstream_lineage(
+            fine_grained_lineage=FineGrainedLineageClass(
+                upstreamType=FineGrainedLineageUpstreamTypeClass.DATASET,
+                upstreams=[
+                    make_dataset_urn(
+                        platform="s3", name="my-bucket/my-folder/my-file.txt", env="PROD"
                     )
                 ],
                 downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD_SET,
