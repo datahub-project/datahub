@@ -107,9 +107,9 @@ class AirflowGenerator:
                         job_id=task.external_task_id,
                         data_flow_urn=str(
                             DataFlowUrn.create_from_ids(
-                                orchestrator=flow_urn.get_orchestrator_name(),
+                                orchestrator=flow_urn.orchestrator,
                                 flow_id=task.external_dag_id,
-                                env=flow_urn.get_env(),
+                                env=flow_urn.cluster,
                             )
                         ),
                     )

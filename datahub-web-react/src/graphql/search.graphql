@@ -372,10 +372,7 @@ fragment nonSiblingsDatasetSearchFields on Dataset {
         ...deprecationFields
     }
     health {
-        type
-        status
-        message
-        causes
+        ...entityHealth
     }
     ...datasetStatsFields
 }
@@ -502,6 +499,9 @@ fragment searchResultFields on Entity {
         subTypes {
             typeNames
         }
+        health {
+            ...entityHealth
+        }
     }
     ... on Chart {
         chartId
@@ -568,6 +568,9 @@ fragment searchResultFields on Entity {
         subTypes {
             typeNames
         }
+        health {
+            ...entityHealth
+        }
     }
     ... on DataFlow {
         flowId
@@ -605,6 +608,9 @@ fragment searchResultFields on Entity {
         }
         childJobs: relationships(input: { types: ["IsPartOf"], direction: INCOMING, start: 0, count: 100 }) {
             total
+        }
+        health {
+            ...entityHealth
         }
     }
     ... on DataJob {
@@ -654,6 +660,9 @@ fragment searchResultFields on Entity {
                     actor
                 }
             }
+        }
+        health {
+            ...entityHealth
         }
     }
     ... on GlossaryTerm {

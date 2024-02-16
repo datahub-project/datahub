@@ -106,7 +106,6 @@ x-profiles-dev: &profiles-dev
 
 services:
   mysql:
-    container_name: mysql
     profiles: *mysql-profiles
     hostname: mysql
     image: mysql:${DATAHUB_MYSQL_VERSION:-8.2}
@@ -125,7 +124,6 @@ services:
       - ./mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
       - mysqldata:/var/lib/mysql
   mysql-setup: &mysql-setup
-    container_name: mysql-setup
     profiles: *mysql-profiles-quickstart
     hostname: mysql-setup
     image: ${DATAHUB_MYSQL_SETUP_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-mysql-setup}:${DATAHUB_VERSION:-head}
@@ -137,11 +135,9 @@ services:
       datahub_setup_job: true
   mysql-setup-dev:
     <<: *mysql-setup
-    container_name: mysql-setup-dev
     profiles: *mysql-profiles-dev
     image: ${DATAHUB_MYSQL_SETUP_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-mysql-setup}:debug
   postgres:
-    container_name: postgres
     profiles: *postgres-profiles
     hostname: postgres
     image: postgres:${DATAHUB_POSTGRES_VERSION:-15.5}
@@ -159,7 +155,6 @@ services:
       - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
       - postgresdata:/var/lib/postgresql/data
   postgres-setup: &postgres-setup
-    container_name: postgres-setup
     profiles: *postgres-profiles-quickstart
     hostname: postgres-setup
     image: ${DATAHUB_POSTGRES_SETUP_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-postgres-setup}:${DATAHUB_VERSION:-head}
@@ -171,11 +166,9 @@ services:
       datahub_setup_job: true
   postgres-setup-dev:
     <<: *postgres-setup
-    container_name: postgres-setup-dev
     profiles: *postgres-profiles-dev
     image: ${DATAHUB_POSTGRES_SETUP_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-postgres-setup}:debug
   cassandra:
-    container_name: cassandra
     profiles: *cassandra-profiles
     hostname: cassandra
     image: cassandra:4.1
@@ -189,7 +182,6 @@ services:
     volumes:
       - cassandradata:/var/lib/cassandra
   cassandra-setup:
-    container_name: cassandra-setup
     profiles: *cassandra-profiles
     hostname: cassandra-setup
     image: cassandra:4.1
@@ -202,7 +194,6 @@ services:
     labels:
       datahub_setup_job: true
   neo4j:
-    container_name: neo4j
     profiles: *neo4j-profiles
     hostname: neo4j
     image: neo4j:4.4.28-community
@@ -219,7 +210,6 @@ services:
     volumes:
       - neo4jdata:/data
   kafka-broker:
-    container_name: broker
     hostname: broker
     image: confluentinc/cp-kafka:7.4.0
     command:
@@ -264,7 +254,6 @@ services:
     volumes:
       - broker:/var/lib/kafka/data/
   kafka-setup: &kafka-setup
-    container_name: kafka-setup
     profiles: *profiles-quickstart
     hostname: kafka-setup
     image: ${DATAHUB_KAFKA_SETUP_IMAGE:-${DATAHUB_REPO:-linkedin}/datahub-kafka-setup}:${DATAHUB_VERSION:-head}
@@ -280,14 +269,12 @@ services:
       datahub_setup_job: true
   kafka-setup-dev:
     <<: *kafka-setup
-    container_name: kafka-setup-dev
     profiles: *profiles-dev
     environment:
       <<: *kafka-setup-env
       DATAHUB_PRECREATE_TOPICS: ${DATAHUB_PRECREATE_TOPICS:-true}
     image: ${DATAHUB_KAFKA_SETUP_IMAGE:-${DATAHUB_REPO:-linkedin}/datahub-kafka-setup}:debug
   elasticsearch:
-    container_name: elasticsearch
     profiles: *elasticsearch-profiles
     hostname: search
     image: ${DATAHUB_SEARCH_IMAGE:-elasticsearch}:${DATAHUB_SEARCH_TAG:-7.10.1}
@@ -310,7 +297,6 @@ services:
     volumes:
       - esdata:/usr/share/elasticsearch/data
   elasticsearch-setup-dev: &elasticsearch-setup-dev
-    container_name: elasticsearch-setup-dev
     image: ${DATAHUB_ELASTIC_SETUP_IMAGE:-${DATAHUB_REPO:-linkedin}/datahub-elasticsearch-setup}:debug
     profiles: *elasticsearch-profiles
     hostname: elasticsearch-setup
@@ -324,7 +310,6 @@ services:
     labels:
       datahub_setup_job: true
   opensearch:
-    container_name: opensearch
     profiles: *opensearch-profiles
     hostname: search
     image: ${DATAHUB_SEARCH_IMAGE:-opensearchproject/opensearch}:${DATAHUB_SEARCH_TAG:-2.9.0}
@@ -348,7 +333,6 @@ services:
       - osdata:/usr/share/elasticsearch/data
   opensearch-setup: &opensearch-setup
     <<: *elasticsearch-setup-dev
-    container_name: opensearch-setup
     profiles: *opensearch-profiles-quickstart
     hostname: opensearch-setup
     image: ${DATAHUB_ELASTIC_SETUP_IMAGE:-${DATAHUB_REPO:-linkedin}/datahub-elasticsearch-setup}:${DATAHUB_VERSION:-head}
@@ -362,7 +346,6 @@ services:
       datahub_setup_job: true
   opensearch-setup-dev:
     <<: *opensearch-setup
-    container_name: opensearch-setup-dev
     profiles: *opensearch-profiles-dev
     hostname: opensearch-setup-dev
     image: ${DATAHUB_ELASTIC_SETUP_IMAGE:-${DATAHUB_REPO:-linkedin}/datahub-elasticsearch-setup}:debug

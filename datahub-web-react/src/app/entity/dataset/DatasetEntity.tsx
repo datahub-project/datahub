@@ -35,6 +35,7 @@ import { RelationshipsTab } from '../shared/tabs/Dataset/Relationship/Relationsh
 import AccessManagement from '../shared/tabs/Dataset/AccessManagement/AccessManagement';
 import { matchedFieldPathsRenderer } from '../../search/matches/matchedFieldPathsRenderer';
 import { getLastUpdatedMs } from './shared/utils';
+import { IncidentTab } from '../shared/tabs/Incident/IncidentTab';
 
 const SUBTYPES = {
     VIEW: 'view',
@@ -87,14 +88,16 @@ export class DatasetEntity implements Entity<Dataset> {
 
     getCollectionName = () => 'Datasets';
 
+    useEntityQuery = useGetDatasetQuery;
+
     renderProfile = (urn: string) => (
         <EntityProfile
             urn={urn}
             entityType={EntityType.Dataset}
-            useEntityQuery={useGetDatasetQuery}
+            useEntityQuery={this.useEntityQuery}
             useUpdateQuery={useUpdateDatasetMutation}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
-            headerDropdownItems={new Set([EntityMenuItems.UPDATE_DEPRECATION])}
+            headerDropdownItems={new Set([EntityMenuItems.UPDATE_DEPRECATION, EntityMenuItems.RAISE_INCIDENT])}
             subHeader={{
                 component: DatasetStatsSummarySubHeader,
             }}
@@ -196,6 +199,14 @@ export class DatasetEntity implements Entity<Dataset> {
                     display: {
                         visible: (_, _1) => this.appconfig().config.featureFlags.showAccessManagement,
                         enabled: (_, _2) => true,
+                    },
+                },
+                {
+                    name: 'Incidents',
+                    component: IncidentTab,
+                    getDynamicName: (_, dataset) => {
+                        const activeIncidentCount = dataset?.dataset?.activeIncidents.total;
+                        return `Incidents${(activeIncidentCount && ` (${activeIncidentCount})`) || ''}`;
                     },
                 },
             ]}
@@ -373,7 +384,7 @@ export class DatasetEntity implements Entity<Dataset> {
         <EmbeddedProfile
             urn={urn}
             entityType={EntityType.Dataset}
-            useEntityQuery={useGetDatasetQuery}
+            useEntityQuery={this.useEntityQuery}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
         />
     );

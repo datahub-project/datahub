@@ -29,5 +29,8 @@ query getMLModelGroup($urn: String!) {
                 ...structuredPropertiesFields
             }
         }
+        forms {
+            ...formsFields
+        }
     }
 }

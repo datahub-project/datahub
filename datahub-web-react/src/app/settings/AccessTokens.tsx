@@ -3,7 +3,7 @@ import styled from 'styled-components';
 import { Alert, Button, Divider, Empty, message, Modal, Pagination, Select, Typography } from 'antd';
 import { DeleteOutlined, InfoCircleOutlined, PlusOutlined } from '@ant-design/icons';
 import { red } from '@ant-design/colors';
-import { FacetFilterInput } from '../../types.generated';
+import { EntityType, FacetFilterInput } from '../../types.generated';
 import { useListAccessTokensQuery, useRevokeAccessTokenMutation } from '../../graphql/auth.generated';
 import { Message } from '../shared/Message';
 import TabToolbar from '../entity/shared/components/styled/TabToolbar';
@@ -16,6 +16,7 @@ import { useUserContext } from '../context/useUserContext';
 import { useAppConfig } from '../useAppConfig';
 import { useListUsersQuery } from '../../graphql/user.generated';
 import { OwnerLabel } from '../shared/OwnerLabel';
+import { useEntityRegistry } from '../useEntityRegistry';
 
 const SourceContainer = styled.div`
     width: 100%;
@@ -107,6 +108,7 @@ export const AccessTokens = () => {
     const [query, setQuery] = useState<undefined | string>(undefined);
     // Current User Urn
     const authenticatedUser = useUserContext();
+    const entityRegistry = useEntityRegistry();
     const currentUserUrn = authenticatedUser?.user?.urn || '';
 
     const isTokenAuthEnabled = useAppConfig().config?.authConfig?.tokenAuthEnabled;
@@ -170,16 +172,14 @@ export const AccessTokens = () => {
             }
         }
     }, [canManageToken, owner]);
-
+    
     const renderSearchResult = (entity: any) => {
-        const {
-            editableProperties,
-            info: { displayName },
-        } = entity;
+        const { editableProperties } = entity;
+        const displayNameSearchResult = entityRegistry.getDisplayName(EntityType.CorpUser, entity);
         const avatarUrl = editableProperties?.pictureLink || undefined;
         return (
             <Select.Option value={entity.urn} key={entity.urn}>
-                <OwnerLabel name={displayName} avatarUrl={avatarUrl} type={entity.type} />
+                <OwnerLabel name={displayNameSearchResult} avatarUrl={avatarUrl} type={entity.type} />
             </Select.Option>
         );
     };
@@ -286,9 +286,10 @@ export const AccessTokens = () => {
             key: 'ownerUrn',
             render: (ownerUrn: string) => {
                 if (!ownerUrn) return '';
-                const displayName = ownerUrn.replace('urn:li:corpuser:', '');
+                const displayName = ownerUrn?.replace('urn:li:corpuser:', '');
                 const link = `/user/${ownerUrn}/owner of`;
-                return <a href={link}>{displayName}</a>;
+                const ownerName = displayName || '';
+                return <a href={link}>{ownerName}</a>;
             },
         },
         {
