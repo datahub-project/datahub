@@ -12,6 +12,7 @@ import sqlglot.lineage
 import sqlglot.optimizer.annotate_types
 import sqlglot.optimizer.optimizer
 import sqlglot.optimizer.qualify
+import wrapt_timeout_decorator
 
 from datahub.cli.env_utils import get_boolean_env_variable
 from datahub.ingestion.graph.client import DataHubGraph
@@ -45,7 +46,6 @@ from datahub.sql_parsing.sqlglot_utils import (
     is_dialect_instance,
     parse_statement,
 )
-from datahub.utilities.timeout import timeout
 
 logger = logging.getLogger(__name__)
 
@@ -311,6 +311,9 @@ class SqlUnderstandingError(Exception):
 
 
 # TODO: Break this up into smaller functions.
+@wrapt_timeout_decorator.timeout(
+    SQL_LINEAGE_TIMEOUT_SECONDS if SQL_LINEAGE_TIMEOUT_ENABLED else None,
+)
 def _column_level_lineage(  # noqa: C901
     statement: sqlglot.exp.Expression,
     dialect: sqlglot.Dialect,
@@ -766,7 +769,6 @@ def _translate_internal_column_lineage(
     )
 
 
-@timeout(enabled=SQL_LINEAGE_TIMEOUT_ENABLED, seconds=SQL_LINEAGE_TIMEOUT_SECONDS)
 def _sqlglot_lineage_inner(
     sql: sqlglot.exp.ExpOrStr,
     schema_resolver: SchemaResolverInterface,
