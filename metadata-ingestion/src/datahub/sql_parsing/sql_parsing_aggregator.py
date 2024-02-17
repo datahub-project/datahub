@@ -252,6 +252,11 @@ class SqlParsingAggregator:
             shared_connection=self._shared_connection, tablename="inferred_temp_schemas"
         )
 
+        # Map of table renames, from original URN to new URN.
+        self._table_renames = FileBackedDict[UrnStr, UrnStr](
+            shared_connection=self._shared_connection, tablename="table_renames"
+        )
+
         # Usage aggregator. This will only be initialized if usage statistics are enabled.
         # TODO: Replace with FileBackedDict.
         self._usage_aggregator: Optional[UsageAggregator[UrnStr]] = None
@@ -500,6 +505,12 @@ class SqlParsingAggregator:
         query_fingerprint = parsed.query_fingerprint
         assert query_fingerprint is not None
 
+        # Handle table renames.
+        is_renamed_table = False
+        if out_table in self._table_renames:
+            out_table = self._table_renames[out_table]
+            is_renamed_table = True
+
         # Register the query.
         self._add_to_query_map(
             QueryMetadata(
@@ -523,10 +534,15 @@ class SqlParsingAggregator:
                 parsed.query_type.is_create()
                 and parsed.query_type_props.get("temporary")
             )
-            or (self.is_temp_table and self.is_temp_table(out_table))
             or (
-                require_out_table_schema
-                and not self._schema_resolver.has_urn(out_table)
+                not is_renamed_table
+                and (
+                    (self.is_temp_table and self.is_temp_table(out_table))
+                    or (
+                        require_out_table_schema
+                        and not self._schema_resolver.has_urn(out_table)
+                    )
+                )
             )
         ):
             # Infer the schema of the output table and track it for later.
@@ -544,6 +560,27 @@ class SqlParsingAggregator:
             self._lineage_map.for_mutation(out_table, OrderedSet()).add(
                 query_fingerprint
             )
+
+    def add_table_rename(
+        self,
+        original_urn: UrnStr,
+        new_urn: UrnStr,
+    ) -> None:
+        """Add a table rename to the aggregator.
+
+        This will so that all _future_ observed queries that reference the original urn
+        will instead generate usage and lineage for the new urn.
+
+        Currently, this does not affect any queries that have already been observed.
+        TODO: Add a mechanism to update the lineage for queries that have already been observed.
+
+        Args:
+            original_urn: The original dataset URN.
+            new_urn: The new dataset URN.
+        """
+
+        # This will not work if the table is renamed multiple times.
+        self._table_renames[original_urn] = new_urn
 
     def _make_schema_resolver_for_session(
         self, session_id: str

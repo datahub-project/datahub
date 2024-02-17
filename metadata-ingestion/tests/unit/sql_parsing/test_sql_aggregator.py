@@ -317,3 +317,6 @@ def test_add_known_query_lineage(pytestconfig: pytest.Config) -> None:
         outputs=mcps,
         golden_path=RESOURCE_DIR / "test_add_known_query_lineage.json",
     )
+
+
+# TODO add a test for table renames
