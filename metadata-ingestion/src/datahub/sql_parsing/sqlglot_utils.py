@@ -3,8 +3,6 @@ from typing import Dict, Iterable, Optional, Union
 
 import sqlglot
 
-from datahub.sql_parsing.dialects.patched.tsql import TSQLv2
-
 DialectOrStr = Union[sqlglot.Dialect, str]
 
 
@@ -36,14 +34,7 @@ def get_dialect(platform: DialectOrStr) -> sqlglot.Dialect:
     if isinstance(platform, sqlglot.Dialect):
         return platform
 
-    dialect_str = _get_dialect_str(platform)
-
-    # Temporary workaround for TSQL until it's fixed atsqlglot library level
-    # See definition of TSQLv2 for more comments and details
-    if dialect_str == "tsql":
-        return TSQLv2()
-    else:
-        return sqlglot.Dialect.get_or_raise(dialect_str)
+    return sqlglot.Dialect.get_or_raise(_get_dialect_str(platform))
 
 
 def is_dialect_instance(

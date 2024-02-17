@@ -1028,21 +1028,3 @@ SELECT * FROM cte
         },
         expected_file=RESOURCE_DIR / "test_redshift_temp_table_shortcut.json",
     )
-
-
-def test_tsql_select_aliases_quotation():
-    # TSQL dialect supports 4 ways to define aliases
-
-    assert_sql_result(
-        """
-        select
-            t.col1 as col1,
-            t.col2 "col2",
-            t.col3 'col3',
-            t.col3 [col3]
-        from
-            tbl as t
-        """,
-        dialect="tsql",
-        expected_file=RESOURCE_DIR / "test_tsql_select_aliases_quotation.json",
-    )
