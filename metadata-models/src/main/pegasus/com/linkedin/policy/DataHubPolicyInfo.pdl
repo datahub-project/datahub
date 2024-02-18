@@ -29,7 +29,7 @@ record DataHubPolicyInfo {
    */
    @Searchable = {
     "fieldType": "KEYWORD"
-   }
+  }
   type: string
 
   /**
@@ -37,7 +37,7 @@ record DataHubPolicyInfo {
    */
   @Searchable = {
     "fieldType": "KEYWORD"
-   }
+  }
   state: string
 
   /**
@@ -49,8 +49,11 @@ record DataHubPolicyInfo {
    * The privileges that the policy grants.
    */
   @Searchable = {
-    "fieldType": "TEXT"
-   }
+    "/*": {
+      "fieldType": "KEYWORD",
+      "addToFilters": true
+    }
+  }
   privileges: array[string]
 
   /**
@@ -63,7 +66,7 @@ record DataHubPolicyInfo {
    */
   @Searchable = {
     "fieldType": "BOOLEAN"
-   }
+  }
   editable: boolean = true
 
   /**
