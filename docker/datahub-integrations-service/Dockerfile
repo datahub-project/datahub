@@ -49,6 +49,7 @@ FROM prod-install as dev-install
 # COPY ./datahub-actions/datahub-actions/README.md /datahub-actions/datahub-actions/
 # COPY ./datahub-actions/datahub-actions/src/datahub_actions/__init__.py /datahub-actions/datahub-actions/src/datahub_actions/__init__.py
 
+ENV PYTHONPATH="/metadata-ingestion/src:/datahub-integrations-service/src:${PYTHONPATH}"
 ENV EXTRA_UVICORN_ARGS="--reload --reload-dir /datahub-integrations-service/src --reload-dir /metadata-ingestion/src"
 
 FROM ${APP_ENV}-install as final
