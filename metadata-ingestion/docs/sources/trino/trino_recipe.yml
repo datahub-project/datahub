@@ -19,6 +19,7 @@ source:
     # catalog_to_connector_details:
     #   catalog_name:
     #     connector_database: db_name
+    #     connector_platform: connector_platform_name
     #     platform_instance: cloud_instance
     #     env: DEV    
 

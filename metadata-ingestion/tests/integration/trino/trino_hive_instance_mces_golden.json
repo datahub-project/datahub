@@ -244,7 +244,7 @@
                             "numrows": "1",
                             "rawdatasize": "32",
                             "totalsize": "33",
-                            "transient_lastddltime": "1708001962"
+                            "transient_lastddltime": "1708350703"
                         },
                         "name": "array_struct_test",
                         "description": "This table has array of structs",
@@ -387,7 +387,7 @@
     "aspect": {
         "json": {
             "siblings": [
-                "urn:li:dataset:(urn:li:dataPlatform:hive,local_server.db1.array_struct_test,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.array_struct_test,PROD)"
             ],
             "primary": false
         }
@@ -429,7 +429,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,local_server.db1.array_struct_test,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.array_struct_test,PROD)",
     "changeType": "UPSERT",
     "aspectName": "siblings",
     "aspect": {
@@ -459,7 +459,7 @@
                         "time": 0,
                         "actor": "urn:li:corpuser:unknown"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,local_server.db1.array_struct_test,PROD)",
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.array_struct_test,PROD)",
                     "type": "VIEW"
                 }
             ]
@@ -505,7 +505,7 @@
                             "numrows": "0",
                             "rawdatasize": "0",
                             "totalsize": "0",
-                            "transient_lastddltime": "1708001965"
+                            "transient_lastddltime": "1708350705"
                         },
                         "name": "map_test",
                         "tags": []
@@ -614,7 +614,7 @@
     "aspect": {
         "json": {
             "siblings": [
-                "urn:li:dataset:(urn:li:dataPlatform:hive,local_server.db1.map_test,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.map_test,PROD)"
             ],
             "primary": false
         }
@@ -656,7 +656,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,local_server.db1.map_test,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.map_test,PROD)",
     "changeType": "UPSERT",
     "aspectName": "siblings",
     "aspect": {
@@ -686,7 +686,7 @@
                         "time": 0,
                         "actor": "urn:li:corpuser:unknown"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,local_server.db1.map_test,PROD)",
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.map_test,PROD)",
                     "type": "VIEW"
                 }
             ]
@@ -732,7 +732,7 @@
                             "numrows": "0",
                             "rawdatasize": "0",
                             "totalsize": "0",
-                            "transient_lastddltime": "1708001965"
+                            "transient_lastddltime": "1708350705"
                         },
                         "name": "nested_struct_test",
                         "tags": []
@@ -890,7 +890,7 @@
     "aspect": {
         "json": {
             "siblings": [
-                "urn:li:dataset:(urn:li:dataPlatform:hive,local_server.db1.nested_struct_test,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.nested_struct_test,PROD)"
             ],
             "primary": false
         }
@@ -932,7 +932,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,local_server.db1.nested_struct_test,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.nested_struct_test,PROD)",
     "changeType": "UPSERT",
     "aspectName": "siblings",
     "aspect": {
@@ -962,7 +962,7 @@
                         "time": 0,
                         "actor": "urn:li:corpuser:unknown"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,local_server.db1.nested_struct_test,PROD)",
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.nested_struct_test,PROD)",
                     "type": "VIEW"
                 }
             ]
@@ -1003,7 +1003,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "transient_lastddltime": "1708001956"
+                            "transient_lastddltime": "1708350698"
                         },
                         "name": "pokes",
                         "tags": []
@@ -1120,7 +1120,7 @@
     "aspect": {
         "json": {
             "siblings": [
-                "urn:li:dataset:(urn:li:dataPlatform:hive,local_server.db1.pokes,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.pokes,PROD)"
             ],
             "primary": false
         }
@@ -1162,7 +1162,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,local_server.db1.pokes,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.pokes,PROD)",
     "changeType": "UPSERT",
     "aspectName": "siblings",
     "aspect": {
@@ -1192,7 +1192,7 @@
                         "time": 0,
                         "actor": "urn:li:corpuser:unknown"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,local_server.db1.pokes,PROD)",
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.pokes,PROD)",
                     "type": "VIEW"
                 }
             ]
@@ -1238,7 +1238,7 @@
                             "numrows": "0",
                             "rawdatasize": "0",
                             "totalsize": "0",
-                            "transient_lastddltime": "1708001958"
+                            "transient_lastddltime": "1708350700"
                         },
                         "name": "struct_test",
                         "tags": []
@@ -1374,7 +1374,7 @@
     "aspect": {
         "json": {
             "siblings": [
-                "urn:li:dataset:(urn:li:dataPlatform:hive,local_server.db1.struct_test,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.struct_test,PROD)"
             ],
             "primary": false
         }
@@ -1416,7 +1416,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,local_server.db1.struct_test,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.struct_test,PROD)",
     "changeType": "UPSERT",
     "aspectName": "siblings",
     "aspect": {
@@ -1446,7 +1446,7 @@
                         "time": 0,
                         "actor": "urn:li:corpuser:unknown"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,local_server.db1.struct_test,PROD)",
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.struct_test,PROD)",
                     "type": "VIEW"
                 }
             ]
@@ -1489,7 +1489,7 @@
                         "customProperties": {
                             "numfiles": "0",
                             "totalsize": "0",
-                            "transient_lastddltime": "1708001964"
+                            "transient_lastddltime": "1708350705"
                         },
                         "name": "struct_test_view_materialized",
                         "tags": []
@@ -1625,7 +1625,7 @@
     "aspect": {
         "json": {
             "siblings": [
-                "urn:li:dataset:(urn:li:dataPlatform:hive,local_server.db1.struct_test_view_materialized,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.struct_test_view_materialized,PROD)"
             ],
             "primary": false
         }
@@ -1667,7 +1667,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,local_server.db1.struct_test_view_materialized,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.struct_test_view_materialized,PROD)",
     "changeType": "UPSERT",
     "aspectName": "siblings",
     "aspect": {
@@ -1697,7 +1697,7 @@
                         "time": 0,
                         "actor": "urn:li:corpuser:unknown"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,local_server.db1.struct_test_view_materialized,PROD)",
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.struct_test_view_materialized,PROD)",
                     "type": "VIEW"
                 }
             ]
@@ -1743,7 +1743,7 @@
                             "numrows": "0",
                             "rawdatasize": "0",
                             "totalsize": "0",
-                            "transient_lastddltime": "1708001958"
+                            "transient_lastddltime": "1708350700"
                         },
                         "name": "_test_table_underscore",
                         "tags": []
@@ -1848,7 +1848,7 @@
     "aspect": {
         "json": {
             "siblings": [
-                "urn:li:dataset:(urn:li:dataPlatform:hive,local_server.db1._test_table_underscore,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1._test_table_underscore,PROD)"
             ],
             "primary": false
         }
@@ -1890,7 +1890,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,local_server.db1._test_table_underscore,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1._test_table_underscore,PROD)",
     "changeType": "UPSERT",
     "aspectName": "siblings",
     "aspect": {
@@ -1920,7 +1920,7 @@
                         "time": 0,
                         "actor": "urn:li:corpuser:unknown"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,local_server.db1._test_table_underscore,PROD)",
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1._test_table_underscore,PROD)",
                     "type": "VIEW"
                 }
             ]
@@ -1966,7 +1966,7 @@
                             "numrows": "0",
                             "rawdatasize": "0",
                             "totalsize": "0",
-                            "transient_lastddltime": "1708001965"
+                            "transient_lastddltime": "1708350705"
                         },
                         "name": "union_test",
                         "tags": []
@@ -2155,7 +2155,7 @@
     "aspect": {
         "json": {
             "siblings": [
-                "urn:li:dataset:(urn:li:dataPlatform:hive,local_server.db1.union_test,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.union_test,PROD)"
             ],
             "primary": false
         }
@@ -2197,7 +2197,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,local_server.db1.union_test,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.union_test,PROD)",
     "changeType": "UPSERT",
     "aspectName": "siblings",
     "aspect": {
@@ -2227,7 +2227,7 @@
                         "time": 0,
                         "actor": "urn:li:corpuser:unknown"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,local_server.db1.union_test,PROD)",
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.union_test,PROD)",
                     "type": "VIEW"
                 }
             ]
@@ -2268,7 +2268,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "transient_lastddltime": "1708001965",
+                            "transient_lastddltime": "1708350705",
                             "view_definition": "SELECT \"property_id\", \"service\"\nFROM \"db1\".\"array_struct_test\"",
                             "is_view": "True"
                         },
@@ -2428,7 +2428,7 @@
     "aspect": {
         "json": {
             "siblings": [
-                "urn:li:dataset:(urn:li:dataPlatform:hive,local_server.db1.array_struct_test_view,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.array_struct_test_view,PROD)"
             ],
             "primary": false
         }
@@ -2470,7 +2470,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,local_server.db1.array_struct_test_view,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.array_struct_test_view,PROD)",
     "changeType": "UPSERT",
     "aspectName": "siblings",
     "aspect": {
@@ -2538,7 +2538,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,local_server.db1._test_table_underscore,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1._test_table_underscore,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -2554,7 +2554,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,local_server.db1.array_struct_test,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.array_struct_test,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -2570,7 +2570,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,local_server.db1.array_struct_test_view,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.array_struct_test_view,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -2586,7 +2586,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,local_server.db1.map_test,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.map_test,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -2602,7 +2602,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,local_server.db1.nested_struct_test,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.nested_struct_test,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -2618,7 +2618,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,local_server.db1.pokes,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.pokes,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -2634,7 +2634,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,local_server.db1.struct_test,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.struct_test,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -2650,7 +2650,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,local_server.db1.struct_test_view_materialized,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.struct_test_view_materialized,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -2666,7 +2666,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,local_server.db1.union_test,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,local_server.db1.union_test,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {

@@ -1,5 +1,6 @@
 import functools
 import json
+import logging
 import uuid
 from textwrap import dedent
 from typing import Any, Dict, Iterable, List, Optional, Union
@@ -10,10 +11,10 @@ from packaging import version
 from pydantic.fields import Field
 from sqlalchemy import exc, sql
 from sqlalchemy.engine import reflection
+from sqlalchemy.engine.base import Connection
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.sql import sqltypes
 from sqlalchemy.types import TypeEngine
-from trino.exceptions import TrinoQueryError
 from trino.sqlalchemy import datatype
 from trino.sqlalchemy.dialect import TrinoDialect
 
@@ -64,18 +65,39 @@ register_custom_type(datatype.DOUBLE, NumberTypeClass)
 KNOWN_CONNECTOR_PLATFORM_MAPPING = {
     "clickhouse": "clickhouse",
     "hive": "hive",
-    "postgresql": "postgres",
-    "mysql": "mysql",
+    "glue": "glue",
     "iceberg": "iceberg",
+    "mysql": "mysql",
+    "postgresql": "postgres",
     "redshift": "redshift",
     "bigquery": "bigquery",
+    "snowflake_distributed": "snowflake",
+    "snowflake_parallel": "snowflake",
+    "snowflake_jdbc": "snowflake",
 }
 
-TWO_TIER_CONNECTORS = ["clickhouse", "hive", "mysql", "iceberg"]
+TWO_TIER_CONNECTORS = ["clickhouse", "hive", "glue", "mysql", "iceberg"]
+
+PROPERTIES_TABLE_SUPPORTED_CONNECTORS = ["hive", "iceberg"]
 
 # Type JSON was introduced in trino sqlalchemy dialect in version 0.317.0
 if version.parse(trino.__version__) >= version.parse("0.317.0"):
     register_custom_type(datatype.JSON, RecordTypeClass)
+
+
+@functools.lru_cache()
+def get_catalog_connector_name(
+    connection: Connection, catalog_name: str
+) -> Optional[str]:
+    query = dedent(
+        """
+        SELECT *
+        FROM "system"."metadata"."catalogs"
+    """
+    ).strip()
+    res = connection.execute(sql.text(query))
+    catalog_connector_dict = {row.catalog_name: row.connector_name for row in res}
+    return catalog_connector_dict.get(catalog_name)
 
 
 # Read only table names and skip view names, as view names will also be returned
@@ -100,26 +122,27 @@ def get_table_names(self, connection, schema: str = None, **kw):  # type: ignore
 @reflection.cache  # type: ignore
 def get_table_comment(self, connection, table_name: str, schema: str = None, **kw):  # type: ignore
     try:
-        properties_table = self._get_full_table(f"{table_name}$properties", schema)
-        query = f"SELECT * FROM {properties_table}"
-        row = connection.execute(sql.text(query)).fetchone()
+        catalog_name = self._get_default_catalog_name(connection)
+        if catalog_name is None:
+            raise exc.NoSuchTableError("catalog is required in connection")
+        connector_name = get_catalog_connector_name(connection, catalog_name)
+        if connector_name is None:
+            return {}
+        if connector_name in PROPERTIES_TABLE_SUPPORTED_CONNECTORS:
+            properties_table = self._get_full_table(f"{table_name}$properties", schema)
+            query = f"SELECT * FROM {properties_table}"
+            row = connection.execute(sql.text(query)).fetchone()
 
-        # Generate properties dictionary.
-        properties = {}
-        if row:
-            for col_name, col_value in row.items():
-                if col_value is not None:
-                    properties[col_name] = col_value
+            # Generate properties dictionary.
+            properties = {}
+            if row:
+                for col_name, col_value in row.items():
+                    if col_value is not None:
+                        properties[col_name] = col_value
 
-        return {"text": properties.get("comment", None), "properties": properties}
-    # Fallback to default trino-sqlalchemy behaviour if `$properties` table doesn't exist
-    except TrinoQueryError:
-        return self.get_table_comment_default(connection, table_name, schema)
-    # Exception raised when using Starburst Delta Connector that falls back to a Hive Catalog
-    except exc.ProgrammingError as e:
-        if isinstance(e.orig, TrinoQueryError):
+            return {"text": properties.get("comment", None), "properties": properties}
+        else:
             return self.get_table_comment_default(connection, table_name, schema)
-        raise
     except Exception:
         return {}
 
@@ -162,30 +185,19 @@ TrinoDialect.get_table_comment = get_table_comment
 TrinoDialect._get_columns = _get_columns
 
 
-@functools.lru_cache()
-def get_catalog_connector_name(
-    catalog_name: str, inspector: Inspector
-) -> Optional[str]:
-    if inspector.engine:
-        query = dedent(
-            """
-            SELECT *
-            FROM "system"."metadata"."catalogs"
-        """
-        ).strip()
-        res = inspector.engine.execute(sql.text(query))
-        catalog_connector_dict = {row.catalog_name: row.connector_name for row in res}
-        return catalog_connector_dict.get(catalog_name)
-    return None
-
-
 class ConnectorDetail(PlatformInstanceConfigMixin, EnvConfigMixin):
     connector_database: Optional[str] = Field(default=None, description="")
+    connector_platform: Optional[str] = Field(
+        default=None,
+        description="A connector's actual platform name. If not provided, will take from metadata tables"
+        "Eg: hive catalog can have a connector platform as 'hive' or 'glue' or some other metastore.",
+    )
 
 
 class TrinoConfig(BasicSQLAlchemyConfig):
     # defaults
     scheme: str = Field(default="trino", description="", hidden_from_docs=True)
+    database: str = Field(description="database (catalog)")
 
     catalog_to_connector_details: Dict[str, ConnectorDetail] = Field(
         default={},
@@ -199,10 +211,7 @@ class TrinoConfig(BasicSQLAlchemyConfig):
     )
 
     def get_identifier(self: BasicSQLAlchemyConfig, schema: str, table: str) -> str:
-        identifier = f"{schema}.{table}"
-        if self.database:  # TODO: this should be required field
-            identifier = f"{self.database}.{identifier}"
-        return identifier
+        return f"{self.database}.{schema}.{table}"
 
 
 @platform_name("Trino", doc_order=1)
@@ -242,15 +251,21 @@ class TrinoSource(SQLAlchemySource):
         table: str,
     ) -> Optional[str]:
         catalog_name = dataset_name.split(".")[0]
-        connector_name = get_catalog_connector_name(catalog_name, inspector)
+        connector_name = get_catalog_connector_name(inspector.bind, catalog_name)
         if not connector_name:
-            return None
-        connector_platform_name = KNOWN_CONNECTOR_PLATFORM_MAPPING.get(connector_name)
-        if not connector_platform_name:
             return None
         connector_details = self.config.catalog_to_connector_details.get(
             catalog_name, ConnectorDetail()
         )
+        connector_platform_name = KNOWN_CONNECTOR_PLATFORM_MAPPING.get(
+            connector_details.connector_platform
+            if connector_details.connector_platform
+            else connector_name
+        )
+        if not connector_platform_name:
+            logging.debug(f"Platform '{connector_platform_name}' is not yet supported.")
+            return None
+
         if connector_platform_name in TWO_TIER_CONNECTORS:  # connector is two tier
             return make_dataset_urn_with_platform_instance(
                 platform=connector_platform_name,

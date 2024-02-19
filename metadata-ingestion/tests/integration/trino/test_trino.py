@@ -187,6 +187,7 @@ def test_trino_instance_ingest(
                 schema_pattern=AllowDenyPattern(allow=["^db1"]),
                 catalog_to_connector_details={
                     "hivedb": ConnectorDetail(
+                        connector_platform="glue",
                         platform_instance="local_server",
                     )
                 },
