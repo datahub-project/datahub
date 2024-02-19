@@ -292,7 +292,7 @@ input PropertyValueInput {
 }
 
 """
-A prompt shown to the user to collect metadata about an entity
+Input params for collecting structured property to apply to entities
 """
 input StructuredPropertyInputParams {
     """

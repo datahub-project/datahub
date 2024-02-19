@@ -4425,6 +4425,17 @@ input DataJobUpdateInput {
 }
 
 """
+Input params for collecting structured property to apply to entities
+"""
+input StructuredPropertyUpdateInput {
+
+    """
+    The list of values you want to apply on this structured property to an entity
+    """
+    structuredPropertyInputParams: [StructuredPropertyInputParams!]!
+}
+
+"""
 Arguments provided to update a Dataset Entity
 """
 input DatasetUpdateInput {
@@ -4463,6 +4474,11 @@ input DatasetUpdateInput {
     Update to editable properties
     """
     editableProperties: DatasetEditablePropertiesUpdate
+
+    """
+    Update to structured properties
+    """
+    structuredProperties: StructuredPropertyUpdateInput
 }
 
 """

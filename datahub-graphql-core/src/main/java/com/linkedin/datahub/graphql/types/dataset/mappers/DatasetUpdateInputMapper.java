@@ -10,6 +10,7 @@ import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.generated.DatasetUpdateInput;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryUpdateMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipUpdateMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.StructuredPropertyUpdateInputMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.UpdateMappingHelper;
 import com.linkedin.datahub.graphql.types.mappers.InputModelMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.TagAssociationUpdateMapper;
@@ -19,6 +20,7 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.schema.EditableSchemaFieldInfo;
 import com.linkedin.schema.EditableSchemaFieldInfoArray;
 import com.linkedin.schema.EditableSchemaMetadata;
+import com.linkedin.structured.StructuredProperties;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.stream.Collectors;
@@ -75,14 +77,14 @@ public class DatasetUpdateInputMapper
         globalTags.setTags(
             new TagAssociationArray(
                 datasetUpdateInput.getGlobalTags().getTags().stream()
-                    .map(element -> TagAssociationUpdateMapper.map(element))
+                    .map(TagAssociationUpdateMapper::map)
                     .collect(Collectors.toList())));
       } else {
         // Tags field overrides deprecated globalTags field
         globalTags.setTags(
             new TagAssociationArray(
                 datasetUpdateInput.getTags().getTags().stream()
-                    .map(element -> TagAssociationUpdateMapper.map(element))
+                    .map(TagAssociationUpdateMapper::map)
                     .collect(Collectors.toList())));
       }
       proposals.add(updateMappingHelper.aspectToProposal(globalTags, GLOBAL_TAGS_ASPECT_NAME));
@@ -93,7 +95,7 @@ public class DatasetUpdateInputMapper
       editableSchemaMetadata.setEditableSchemaFieldInfo(
           new EditableSchemaFieldInfoArray(
               datasetUpdateInput.getEditableSchemaMetadata().getEditableSchemaFieldInfo().stream()
-                  .map(element -> mapSchemaFieldInfo(element))
+                  .map(this::mapSchemaFieldInfo)
                   .collect(Collectors.toList())));
       editableSchemaMetadata.setLastModified(auditStamp);
       editableSchemaMetadata.setCreated(auditStamp);
@@ -113,6 +115,14 @@ public class DatasetUpdateInputMapper
               editableDatasetProperties, EDITABLE_DATASET_PROPERTIES_ASPECT_NAME));
     }
 
+    if (datasetUpdateInput.getStructuredProperties() != null) {
+      final StructuredProperties structuredProperties = StructuredPropertyUpdateInputMapper
+              .map(datasetUpdateInput.getStructuredProperties());
+      proposals.add(
+              updateMappingHelper.aspectToProposal(
+                      structuredProperties, STRUCTURED_PROPERTIES_ASPECT_NAME));
+    }
+
     return proposals;
   }
 
@@ -130,7 +140,7 @@ public class DatasetUpdateInputMapper
       globalTags.setTags(
           new TagAssociationArray(
               schemaFieldInfo.getGlobalTags().getTags().stream()
-                  .map(element -> TagAssociationUpdateMapper.map(element))
+                  .map(TagAssociationUpdateMapper::map)
                   .collect(Collectors.toList())));
       output.setGlobalTags(globalTags);
     }
