@@ -50,7 +50,7 @@ RUN apt-get update && apt-get install -y -qq \
     ldap-utils \
     unixodbc \
     libodbc2 \
-    && python -m pip install --no-cache --upgrade pip wheel setuptools \
+    && python -m pip install --no-cache --upgrade pip uv wheel setuptools \
     && rm -rf /var/lib/apt/lists/* /var/cache/apk/*
 
 # compiled against newer golang for security fixes
@@ -59,7 +59,7 @@ COPY --from=dockerize-binary /go/bin/dockerize /usr/local/bin
 COPY ./docker/datahub-ingestion-base/base-requirements.txt requirements.txt
 COPY ./docker/datahub-ingestion-base/entrypoint.sh /entrypoint.sh
 
-RUN pip install --no-cache -r requirements.txt && \
+RUN uv pip install --no-cache -r requirements.txt && \
     pip uninstall -y acryl-datahub && \
     chmod +x /entrypoint.sh && \
     addgroup --gid 1000 datahub && \

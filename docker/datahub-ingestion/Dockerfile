@@ -25,7 +25,7 @@ FROM base as slim-install
 ARG PIP_MIRROR_URL
 
 RUN if [ "${PIP_MIRROR_URL}" != "null" ] ; then pip config set global.index-url ${PIP_MIRROR_URL} ; fi
-RUN pip install --no-cache --user ".[base,datahub-rest,datahub-kafka,snowflake,bigquery,redshift,mysql,postgres,hive,clickhouse,glue,dbt,looker,lookml,tableau,powerbi,superset,datahub-business-glossary]"
+RUN uv pip install --no-cache ".[base,datahub-rest,datahub-kafka,snowflake,bigquery,redshift,mysql,postgres,hive,clickhouse,glue,dbt,looker,lookml,tableau,powerbi,superset,datahub-business-glossary]"
 
 FROM base as full-install-build
 ARG PIP_MIRROR_URL
@@ -39,9 +39,9 @@ USER datahub
 COPY ./docker/datahub-ingestion/pyspark_jars.sh .
 
 RUN if [ "${PIP_MIRROR_URL}" != "null" ] ; then pip config set global.index-url ${PIP_MIRROR_URL} ; fi
-RUN pip install --no-cache --user ".[base]" && \
-    pip install --no-cache --user "./airflow-plugin[acryl-datahub-airflow-plugin]" && \
-    pip install --no-cache --user ".[all]"
+RUN uv pip install --no-cache ".[base]" && \
+    uv pip install --no-cache "./airflow-plugin[acryl-datahub-airflow-plugin]" && \
+    uv pip install --no-cache ".[all]"
 RUN ./pyspark_jars.sh
 
 FROM base as full-install
