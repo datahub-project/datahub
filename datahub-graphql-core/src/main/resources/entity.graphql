@@ -4087,7 +4087,7 @@ input CorpGroupUpdateInput {
   slack: String
 
   """
-  Email  address for the group
+  Email address for the group
   """
   email: String
 
