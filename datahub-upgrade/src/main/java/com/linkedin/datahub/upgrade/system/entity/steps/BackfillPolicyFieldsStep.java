@@ -76,9 +76,7 @@ public class BackfillPolicyFieldsStep implements UpgradeStep {
       String scrollId = null;
       int migratedCount = 0;
       do {
-        log.info(
-            String.format(
-                "Upgrading batch of policies %s-%s", migratedCount, migratedCount + batchSize));
+        log.info("Upgrading batch of policies {}-{}", migratedCount, migratedCount + batchSize);
         scrollId = backfillPolicies(auditStamp, scrollId);
         migratedCount += batchSize;
       } while (scrollId != null);
@@ -188,8 +186,7 @@ public class BackfillPolicyFieldsStep implements UpgradeStep {
       final DataMap dataMap =
           entityResponse.getAspects().get(DATAHUB_POLICY_INFO_ASPECT_NAME).getValue().data();
       final DataHubPolicyInfo infoAspect = new DataHubPolicyInfo(dataMap);
-      log.debug(
-          String.format("Restating policy information for urn %s with value %s", urn, infoAspect));
+      log.debug("Restating policy information for urn {} with value {}", urn, infoAspect);
       MetadataChangeProposal proposal = new MetadataChangeProposal();
       proposal.setEntityUrn(urn);
       proposal.setEntityType(urn.getEntityType());

@@ -5,17 +5,23 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 import com.datahub.authorization.PolicyFetcher;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
+import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.ListPoliciesInput;
 import com.linkedin.datahub.graphql.generated.ListPoliciesResult;
 import com.linkedin.datahub.graphql.generated.Policy;
+import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.resolvers.policy.mappers.PolicyInfoPolicyMapper;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.query.filter.Filter;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 public class ListPoliciesResolver implements DataFetcher<CompletableFuture<ListPoliciesResult>> {
 
   private static final Integer DEFAULT_START = 0;
@@ -40,9 +46,16 @@ public class ListPoliciesResolver implements DataFetcher<CompletableFuture<ListP
       final Integer start = input.getStart() == null ? DEFAULT_START : input.getStart();
       final Integer count = input.getCount() == null ? DEFAULT_COUNT : input.getCount();
       final String query = input.getQuery() == null ? DEFAULT_QUERY : input.getQuery();
+      final List<FacetFilterInput> filters =
+          input.getFilters() == null ? Collections.emptyList() : input.getFilters();
+
+      log.info(
+          "User {} listing policies with filters {}", context.getActorUrn(), filters.toString());
+
+      final Filter filter = ResolverUtils.buildFilter(filters, Collections.emptyList());
 
       return _policyFetcher
-          .fetchPolicies(start, query, count, context.getAuthentication())
+          .fetchPolicies(start, query, count, filter, context.getAuthentication())
           .thenApply(
               policyFetchResult -> {
                 final ListPoliciesResult result = new ListPoliciesResult();

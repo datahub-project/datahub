@@ -28,7 +28,7 @@ public class BackfillPolicyFields implements Upgrade {
 
   @Override
   public String id() {
-    return "BackfillPolicyField";
+    return "BackfillPolicyFields";
   }
 
   @Override

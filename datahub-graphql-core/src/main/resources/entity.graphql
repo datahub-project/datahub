@@ -8682,6 +8682,11 @@ input ListPoliciesInput {
   Optional search query
   """
   query: String
+
+  """
+  Optional Facet filters to apply to the result set
+  """
+  filters: [FacetFilterInput!]
 }
 
 """
