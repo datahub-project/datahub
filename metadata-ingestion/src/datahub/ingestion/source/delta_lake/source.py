@@ -142,16 +142,25 @@ class DeltaLakeSource(Source):
 
     def _get_inner_field_details(self, raw_field):
         if "elementType" in raw_field and type(raw_field.get("elementType")) == dict:
-            self.inner_data_type = self.inner_data_type + "item:" + str(raw_field.get("elementType").get("type")) + "<"
+            self.inner_data_type = (
+                self.inner_data_type
+                + "item:"
+                + str(raw_field.get("elementType").get("type"))
+                + "<"
+            )
             self.counter = self.counter + 1
-            self._get_inner_field_details(raw_field.get('elementType'))
-        elif "fields" in raw_field and type(raw_field.get('fields')) == list:
+            self._get_inner_field_details(raw_field.get("elementType"))
+        elif "fields" in raw_field and type(raw_field.get("fields")) == list:
             data_type = ""
-            data_type = data_type + ','.join('{0}:{1}'.format(field.get("name"), field.get("type")) for field in
-                                             raw_field.get("fields"))
+            data_type = data_type + ",".join(
+                "{0}:{1}".format(field.get("name"), field.get("type"))
+                for field in raw_field.get("fields")
+            )
             self.inner_data_type = self.inner_data_type + data_type
         else:
-            self.inner_data_type = self.inner_data_type + "item:" + raw_field.get("elementType")
+            self.inner_data_type = (
+                self.inner_data_type + "item:" + raw_field.get("elementType")
+            )
 
     def _parse_datatype(self, raw_field_json_str):
         raw_field_json = json.loads(raw_field_json_str)
@@ -181,7 +190,9 @@ class DeltaLakeSource(Source):
             # parse the complex fields like array, structure and get the native type
             # feed that native type and get the avro schema
             if raw_field.type.type in ["array", "struct"]:
-                complex_fields = complex_fields + self._parse_datatype(raw_field.to_json())
+                complex_fields = complex_fields + self._parse_datatype(
+                    raw_field.to_json()
+                )
 
             else:
                 field = SchemaField(
