@@ -278,7 +278,7 @@ public class DataHubAuthorizer implements Authorizer {
         while (total == null || scrollId != null) {
           try {
             final PolicyFetcher.PolicyFetchResult policyFetchResult =
-                _policyFetcher.fetchPolicies(count, scrollId, null ,_systemAuthentication);
+                _policyFetcher.fetchPolicies(count, scrollId, null, _systemAuthentication);
 
             addPoliciesToCache(newCache, policyFetchResult.getPolicies());
 
