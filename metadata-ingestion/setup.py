@@ -186,8 +186,6 @@ snowflake_common = {
     "cryptography",
     "msal",
     "acryl-datahub-classify==0.0.9",
-    # spacy version restricted to reduce backtracking, used by acryl-datahub-classify,
-    "spacy==3.4.3",
 }
 
 trino = {
@@ -246,6 +244,10 @@ delta_lake = {
 }
 
 powerbi_report_server = {"requests", "requests_ntlm"}
+
+slack = {
+    "slack-sdk==3.18.1"
+}
 
 databricks = {
     # 0.1.11 appears to have authentication issues with azure databricks
@@ -369,6 +371,7 @@ plugins: Dict[str, Set[str]] = {
     "snowflake": snowflake_common | usage_common | sqlglot_lib,
     "sqlalchemy": sql_common,
     "sql-queries": usage_common | sqlglot_lib,
+    "slack": slack,
     "superset": {
         "requests",
         "sqlalchemy",
@@ -467,6 +470,7 @@ base_dev_requirements = {
     "pytest-asyncio>=0.16.0",
     "pytest-cov>=2.8.1",
     "pytest-docker>=1.1.0",
+    "pytest-random-order~=1.1.0",
     deepdiff_dep,
     "requests-mock",
     "freezegun",
@@ -505,6 +509,7 @@ base_dev_requirements = {
             "redshift",
             "s3",
             "snowflake",
+            "slack",
             "tableau",
             "teradata",
             "trino",
@@ -545,6 +550,7 @@ full_test_dev_requirements = {
             "kafka-connect",
             "ldap",
             "mongodb",
+            "slack",
             "mssql",
             "mysql",
             "mariadb",
@@ -599,6 +605,7 @@ entry_points = {
         "postgres = datahub.ingestion.source.sql.postgres:PostgresSource",
         "redash = datahub.ingestion.source.redash:RedashSource",
         "redshift = datahub.ingestion.source.redshift.redshift:RedshiftSource",
+        "slack = datahub.ingestion.source.slack.slack:SlackSource",
         "snowflake = datahub.ingestion.source.snowflake.snowflake_v2:SnowflakeV2Source",
         "superset = datahub.ingestion.source.superset:SupersetSource",
         "tableau = datahub.ingestion.source.tableau:TableauSource",

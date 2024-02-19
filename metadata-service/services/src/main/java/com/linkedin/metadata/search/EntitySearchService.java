@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Map;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import org.opensearch.action.explain.ExplainResponse;
 
 public interface EntitySearchService {
 
@@ -197,6 +198,7 @@ public interface EntitySearchService {
    * @param input search query
    * @param start start offset of first group
    * @param count max number of results requested
+   * @param searchFlags configuration options for search
    */
   @Nonnull
   public BrowseResultV2 browseV2(
@@ -205,7 +207,8 @@ public interface EntitySearchService {
       @Nullable Filter filter,
       @Nonnull String input,
       int start,
-      int count);
+      int count,
+      @Nullable SearchFlags searchFlags);
 
   /**
    * Gets browse snapshot of a given path
@@ -216,6 +219,7 @@ public interface EntitySearchService {
    * @param input search query
    * @param start start offset of first group
    * @param count max number of results requested
+   * @param searchFlags configuration options for search
    */
   @Nonnull
   public BrowseResultV2 browseV2(
@@ -224,7 +228,8 @@ public interface EntitySearchService {
       @Nullable Filter filter,
       @Nonnull String input,
       int start,
-      int count);
+      int count,
+      @Nullable SearchFlags searchFlags);
 
   /**
    * Gets a list of paths for a given urn.
@@ -290,4 +295,16 @@ public interface EntitySearchService {
 
   /** Max result size returned by the underlying search backend */
   int maxResultSize();
+
+  ExplainResponse explain(
+      @Nonnull String query,
+      @Nonnull String documentId,
+      @Nonnull String entityName,
+      @Nullable Filter postFilters,
+      @Nullable SortCriterion sortCriterion,
+      @Nullable SearchFlags searchFlags,
+      @Nullable String scrollId,
+      @Nullable String keepAlive,
+      int size,
+      @Nullable List<String> facets);
 }

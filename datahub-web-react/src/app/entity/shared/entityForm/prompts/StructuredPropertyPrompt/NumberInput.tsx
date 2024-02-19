@@ -19,5 +19,11 @@ export default function NumberInput({ selectedValues, updateSelectedValues }: Pr
         updateSelectedValues([number]);
     }
 
-    return <StyledInput type="number" value={selectedValues[0] || null} onChange={updateInput} />;
+    return (
+        <StyledInput
+            type="number"
+            value={selectedValues[0] !== undefined ? selectedValues[0] : null}
+            onChange={updateInput}
+        />
+    );
 }

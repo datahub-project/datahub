@@ -1,11 +1,11 @@
 package com.linkedin.datahub.graphql.resolvers.dashboard;
 
+import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.isViewDatasetUsageAuthorized;
 import static com.linkedin.datahub.graphql.resolvers.dashboard.DashboardUsageStatsUtils.*;
 
-import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.CorpUser;
 import com.linkedin.datahub.graphql.generated.DashboardStatsSummary;
 import com.linkedin.datahub.graphql.generated.DashboardUsageMetrics;
@@ -17,7 +17,6 @@ import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 
@@ -29,30 +28,29 @@ public class DashboardStatsSummaryResolver
   private static final Integer MAX_TOP_USERS = 5;
 
   private final TimeseriesAspectService timeseriesAspectService;
-  private final Cache<Urn, DashboardStatsSummary> summaryCache;
 
   public DashboardStatsSummaryResolver(final TimeseriesAspectService timeseriesAspectService) {
     this.timeseriesAspectService = timeseriesAspectService;
-    this.summaryCache =
-        CacheBuilder.newBuilder()
-            .maximumSize(10000)
-            .expireAfterWrite(
-                6, TimeUnit.HOURS) // TODO: Make caching duration configurable externally.
-            .build();
   }
 
   @Override
   public CompletableFuture<DashboardStatsSummary> get(DataFetchingEnvironment environment)
       throws Exception {
     final Urn resourceUrn = UrnUtils.getUrn(((Entity) environment.getSource()).getUrn());
+    final QueryContext context = environment.getContext();
 
     return CompletableFuture.supplyAsync(
         () -> {
-          if (this.summaryCache.getIfPresent(resourceUrn) != null) {
-            return this.summaryCache.getIfPresent(resourceUrn);
-          }
-
           try {
+
+            // TODO: We don't have a dashboard specific priv
+            if (!isViewDatasetUsageAuthorized(resourceUrn, context)) {
+              log.debug(
+                  "User {} is not authorized to view usage information for {}",
+                  context.getActorUrn(),
+                  resourceUrn.toString());
+              return null;
+            }
 
             final DashboardStatsSummary result = new DashboardStatsSummary();
 
@@ -73,7 +71,6 @@ public class DashboardStatsSummaryResolver
                         .map(DashboardUserUsageCounts::getUser)
                         .collect(Collectors.toList())));
 
-            this.summaryCache.put(resourceUrn, result);
             return result;
 
           } catch (Exception e) {

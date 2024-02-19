@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.types.corpgroup.mappers;
 
 import static com.linkedin.metadata.Constants.*;
 
+import com.linkedin.common.Forms;
 import com.linkedin.common.Origin;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.urn.Urn;
@@ -10,12 +11,15 @@ import com.linkedin.datahub.graphql.generated.CorpGroup;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
+import com.linkedin.datahub.graphql.types.form.FormsMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
+import com.linkedin.datahub.graphql.types.structuredproperty.StructuredPropertiesMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.identity.CorpGroupEditableInfo;
 import com.linkedin.identity.CorpGroupInfo;
 import com.linkedin.metadata.key.CorpGroupKey;
+import com.linkedin.structured.StructuredProperties;
 import javax.annotation.Nonnull;
 
 /**
@@ -45,6 +49,15 @@ public class CorpGroupMapper implements ModelMapper<EntityResponse, CorpGroup> {
     mappingHelper.mapToResult(CORP_GROUP_EDITABLE_INFO_ASPECT_NAME, this::mapCorpGroupEditableInfo);
     mappingHelper.mapToResult(
         OWNERSHIP_ASPECT_NAME, (entity, dataMap) -> this.mapOwnership(entity, dataMap, entityUrn));
+    mappingHelper.mapToResult(
+        STRUCTURED_PROPERTIES_ASPECT_NAME,
+        ((entity, dataMap) ->
+            entity.setStructuredProperties(
+                StructuredPropertiesMapper.map(new StructuredProperties(dataMap)))));
+    mappingHelper.mapToResult(
+        FORMS_ASPECT_NAME,
+        ((entity, dataMap) ->
+            entity.setForms(FormsMapper.map(new Forms(dataMap), entityUrn.toString()))));
     if (aspectMap.containsKey(ORIGIN_ASPECT_NAME)) {
       mappingHelper.mapToResult(ORIGIN_ASPECT_NAME, this::mapEntityOriginType);
     } else {

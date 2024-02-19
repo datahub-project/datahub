@@ -1,5 +1,7 @@
 {
     "query_type": "SELECT",
+    "query_type_props": {},
+    "query_fingerprint": "2b685ace8590f4bf11fe501a1b9fa342ed095904e3d3097f6b41276f590d99cd",
     "in_tables": [
         "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.my_table,PROD)"
     ],

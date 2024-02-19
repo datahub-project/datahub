@@ -30,7 +30,7 @@ buildscript {
 
   ext.junitJupiterVersion = '5.6.1'
   // Releases: https://github.com/linkedin/rest.li/blob/master/CHANGELOG.md
-  ext.pegasusVersion = '29.48.4'
+  ext.pegasusVersion = '29.51.0'
   ext.mavenVersion = '3.6.3'
   ext.springVersion = '6.1.2'
   ext.springBootVersion = '3.2.1'
@@ -128,8 +128,8 @@ project.ext.externalDependency = [
     'elasticSearchRest': 'org.opensearch.client:opensearch-rest-high-level-client:' + elasticsearchVersion,
     'elasticSearchJava': 'org.opensearch.client:opensearch-java:2.6.0',
     'findbugsAnnotations': 'com.google.code.findbugs:annotations:3.0.1',
-    'graphqlJava': 'com.graphql-java:graphql-java:19.5',
-    'graphqlJavaScalars': 'com.graphql-java:graphql-java-extended-scalars:19.1',
+    'graphqlJava': 'com.graphql-java:graphql-java:21.3',
+    'graphqlJavaScalars': 'com.graphql-java:graphql-java-extended-scalars:21.0',
     'gson': 'com.google.code.gson:gson:2.8.9',
     'guice': 'com.google.inject:guice:7.0.0',
     'guice4': 'com.google.inject:guice:4.2.3', // Used for frontend while still on old Play version
@@ -221,7 +221,7 @@ project.ext.externalDependency = [
     'resilience4j': 'io.github.resilience4j:resilience4j-retry:1.7.1',
     'rythmEngine': 'org.rythmengine:rythm-engine:1.3.0',
     'servletApi': 'jakarta.servlet:jakarta.servlet-api:6.0.0',
-    'shiroCore': 'org.apache.shiro:shiro-core:1.11.0',
+    'shiroCore': 'org.apache.shiro:shiro-core:1.13.0',
     'snakeYaml': 'org.yaml:snakeyaml:2.0',
     'sparkSql' : 'org.apache.spark:spark-sql_2.12:3.0.3',
     'sparkHive' : 'org.apache.spark:spark-hive_2.12:3.0.3',
@@ -269,13 +269,14 @@ allprojects {
   apply plugin: 'eclipse'
   // apply plugin: 'org.gradlex.java-ecosystem-capabilities'
 
-  tasks.withType(Test).configureEach {
-    // https://docs.gradle.org/current/userguide/performance.html
-    maxParallelForks = Runtime.runtime.availableProcessors().intdiv(2) ?: 1
+  tasks.withType(Test).configureEach { task -> if (task.project.name != "metadata-io") {
+      // https://docs.gradle.org/current/userguide/performance.html
+      maxParallelForks = Runtime.runtime.availableProcessors().intdiv(2) ?: 1
 
-    if (project.configurations.getByName("testImplementation").getDependencies()
-            .any{ it.getName().contains("testng") }) {
-      useTestNG()
+      if (project.configurations.getByName("testImplementation").getDependencies()
+              .any { it.getName().contains("testng") }) {
+        useTestNG()
+      }
     }
   }
 

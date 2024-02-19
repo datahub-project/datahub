@@ -58,6 +58,8 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
 
     getEntityName = () => 'Glossary Term';
 
+    useEntityQuery = useGetGlossaryTermQuery;
+
     getCustomCardUrlPath = () => PageRoutes.GLOSSARY;
 
     renderProfile = (urn) => {
@@ -108,24 +110,26 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
                         component: PropertiesTab,
                     },
                 ]}
-                sidebarSections={[
-                    {
-                        component: SidebarAboutSection,
-                    },
-                    {
-                        component: SidebarOwnerSection,
-                    },
-                    {
-                        component: SidebarDomainSection,
-                        properties: {
-                            hideOwnerType: true,
-                        },
-                    },
-                ]}
+                sidebarSections={this.getSidebarSections()}
                 getOverrideProperties={this.getOverridePropertiesFromEntity}
             />
         );
     };
+
+    getSidebarSections = () => [
+        {
+            component: SidebarAboutSection,
+        },
+        {
+            component: SidebarOwnerSection,
+        },
+        {
+            component: SidebarDomainSection,
+            properties: {
+                hideOwnerType: true,
+            },
+        },
+    ];
 
     getOverridePropertiesFromEntity = (glossaryTerm?: GlossaryTerm | null): GenericEntityProperties => {
         // if dataset has subTypes filled out, pick the most specific subtype and return it

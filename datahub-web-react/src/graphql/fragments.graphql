@@ -401,6 +401,12 @@ fragment dataJobFields on DataJob {
     subTypes {
         typeNames
     }
+    health {
+        ...entityHealth
+    }
+    activeIncidents: incidents(start: 0, count: 1, state: ACTIVE) {
+        total
+    }
 }
 
 fragment dashboardFields on Dashboard {
@@ -495,6 +501,9 @@ fragment dashboardFields on Dashboard {
     privileges {
         canEditLineage
         canEditEmbed
+    }
+    health {
+        ...entityHealth
     }
 }
 
@@ -1309,6 +1318,36 @@ fragment formPromptAssociationFields on FormPromptAssociation {
                     type
                     ...entityDisplayNameFields
                 }
+            }
+        }
+    }
+}
+
+fragment entityHealth on Health {
+    type
+    status
+    message
+    causes
+}
+
+
+fragment formsFields on Forms {
+    completedForms {
+        ...formAssociationFields
+    }
+    incompleteForms {
+        ...formAssociationFields
+    }
+    verifications {
+        form {
+            urn
+        }
+        lastModified {
+            time
+            actor {
+                urn
+                type
+                ...entityDisplayNameFields
             }
         }
     }

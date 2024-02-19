@@ -1,6 +1,7 @@
 import { Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
+import { useHistory } from 'react-router';
 import CompactContext from '../../../../../../shared/CompactContext';
 import MarkdownViewer, { MarkdownView } from '../../../../components/legacy/MarkdownViewer';
 import NoMarkdownViewer, { removeMarkdown } from '../../../../components/styled/StripMarkdownText';
@@ -9,7 +10,6 @@ import { useIsOnTab } from '../../utils';
 import { ANTD_GRAY } from '../../../../constants';
 import { EntityType } from '../../../../../../../types.generated';
 import { useEntityRegistry } from '../../../../../../useEntityRegistry';
-import { useHistory } from 'react-router';
 
 const ABBREVIATED_LIMIT = 150;
 
@@ -63,11 +63,9 @@ export default function DescriptionSection({ description, baDescription, isExpan
     function readBAMore() {
         if(isCompact || isExpandable) {
             setIsBaExpanded(true);
-        } else {
-            if (baUrn != null) {
+        } else if (baUrn != null) {
                 history.push(entityRegistry.getEntityUrl(EntityType.BusinessAttribute, baUrn || ''));
             }
-        }
     }
 
     return (

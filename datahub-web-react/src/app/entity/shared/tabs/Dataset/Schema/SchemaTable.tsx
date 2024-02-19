@@ -92,7 +92,6 @@ export default function SchemaTable({
 }: Props): JSX.Element {
     const hasUsageStats = useMemo(() => (usageStats?.aggregations?.fields?.length || 0) > 0, [usageStats]);
     const [tableHeight, setTableHeight] = useState(0);
-    const [attributeHoveredIndex, setAttributeHoveredIndex] = useState<string | undefined>(undefined);
     const [selectedFkFieldPath, setSelectedFkFieldPath] = useState<null | {
         fieldPath: string;
         constraint?: ForeignKeyConstraint | null;

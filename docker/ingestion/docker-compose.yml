@@ -7,7 +7,6 @@ services:
       dockerfile: docker/datahub-ingestion/Dockerfile
     image: linkedin/datahub-ingestion:${DATAHUB_VERSION:-head}
     hostname: ingestion
-    container_name: ingestion
     command: "ingest -c /sample_recipe.yml"
     volumes: 
       # Most of the config is embedded inside the sample recipe file.

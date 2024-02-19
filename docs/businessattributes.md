@@ -38,6 +38,7 @@ To create a Business Attribute, first navigate to the Business Attributes tab on
 
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/88472958703d5e9236f71bb457c1acd481d123af/imgs/business_attributes/businessattribute-tab.png"/>
+</p>
 
 Then click on '+ Create Business Attribute'.
 This will open a new modal where you can configure the settings for your business attribute. Inside the form, you can choose a name for Business Attribute. Most often, this will align with the logical purpose of the Business Attribute, 
@@ -47,6 +48,7 @@ We can also add datatype for Business Attribute. It has String as a default valu
 
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/88472958703d5e9236f71bb457c1acd481d123af/imgs/business_attributes/businessattribute-create.png"/>
+</p>
 
 Once you've chosen a name and a description, click 'Create' to create the new Business Attribute.
 
@@ -59,13 +61,14 @@ On a Dataset's schema page, click the 'Add Attribute' to add business attribute 
 
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/88472958703d5e9236f71bb457c1acd481d123af/imgs/business_attributes/businessattribute-associate-datasetschemafield.png"/>
-
+</p>
 
 After association, dataset schema field gets its description, tags and glossary inherited from Business attribute. 
 Description inherited from business attribute is greyed out to differentiate between original description of schema field. Similarly, tags and glossary terms inherited can't be removed directly.
 
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/88472958703d5e9236f71bb457c1acd481d123af/imgs/business_attributes/dataset-inherits-businessattribute-properties.png"/>
+</p>
 
 ### What updates are planned for the Business Attributes feature?
 

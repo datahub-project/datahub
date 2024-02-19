@@ -76,6 +76,8 @@ public class GmsGraphQLEngineArgs {
   FeatureFlags featureFlags;
   DataProductService dataProductService;
   FormService formService;
+  int graphQLQueryComplexityLimit;
+  int graphQLQueryDepthLimit;
   BusinessAttributeService businessAttributeService;
 
   // any fork specific args should go below this line
