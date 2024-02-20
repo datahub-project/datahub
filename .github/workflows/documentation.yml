@@ -8,6 +8,7 @@ on:
       - "metadata-ingestion/**"
       - "metadata-models/**"
       - "docs-website/**"
+      - "docs/**"
   push:
     branches:
       - master
@@ -15,6 +16,7 @@ on:
       - "metadata-ingestion/**"
       - "metadata-models/**"
       - "docs-website/**"
+      - "docs/**"
   # release:
   #   types: [published, edited]
 
