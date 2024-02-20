@@ -1,8 +1,7 @@
 import html
 import logging
-from dataclasses import dataclass
-
 import re
+from dataclasses import dataclass
 from functools import lru_cache
 from typing import Dict, List, Optional, Tuple
 

@@ -4,10 +4,10 @@ import operator
 import re
 import time
 from functools import reduce
+from typing import Any, Dict, List, Mapping, Match, Optional, Union, cast
 
 from jinja2 import Template
 from jinja2.sandbox import SandboxedEnvironment
-from typing import Any, Dict, List, Mapping, Match, Optional, Union, cast
 
 from datahub.emitter import mce_builder
 from datahub.emitter.mce_builder import OwnerType

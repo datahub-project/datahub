@@ -518,19 +518,16 @@ class TableauSource(StatefulIngestionSourceBase):
 
         # if ignore upstream lineage platforms doesn't contain "postgres", then consult the upstream_postgres_database_whitelist
         if (
-            "postgres" not in self.ignore_upstream_lineage_platforms 
+            "postgres" not in self.ignore_upstream_lineage_platforms
             and self.config.upstream_postgres_database_whitelist
         ):
             self.upstream_postgres_database_whitelist = [
                 x.strip()
-                for x in (
-                    self.config.upstream_postgres_database_whitelist.split(",")
-                )
+                for x in (self.config.upstream_postgres_database_whitelist.split(","))
             ]
         else:
             # return empty list if the config is not set
             self.upstream_postgres_database_whitelist = []
-        
 
         self._authenticate()
 
@@ -1386,9 +1383,9 @@ class TableauSource(StatefulIngestionSourceBase):
                         for path in project.strip("/").split("/")
                     ]
                 )
-            if datasource.get(tableau_constant.WORKBOOK):
+            if datasource.get(c.WORKBOOK):
                 browse_paths_V2_path.append(
-                    BrowsePathEntryClass(id=datasource.get(tableau_constant.WORKBOOK).get(tableau_constant.NAME))
+                    BrowsePathEntryClass(id=datasource.get(c.WORKBOOK).get(c.NAME))
                 )
             browse_paths_V2 = BrowsePathsV2Class(path=browse_paths_V2_path)
             dataset_snapshot.aspects.append(browse_paths_V2)

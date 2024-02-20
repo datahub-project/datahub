@@ -67,8 +67,8 @@ config_source_default = {
             "config": {"datahub_api": {"server": GMS_SERVER}},
         },
     },
-    "ignore_upstream_lineage_platforms": '',
-    "upstream_postgres_database_whitelist": 'dvdrental',
+    "ignore_upstream_lineage_platforms": "",
+    "upstream_postgres_database_whitelist": "dvdrental",
 }
 
 
@@ -522,8 +522,8 @@ def test_tableau_ingest_with_platform_instance(
                 "config": {"datahub_api": {"server": GMS_SERVER}},
             },
         },
-        "ignore_upstream_lineage_platforms": '',
-        "upstream_postgres_database_whitelist": 'dvdrental',
+        "ignore_upstream_lineage_platforms": "",
+        "upstream_postgres_database_whitelist": "dvdrental",
     }
 
     tableau_ingest_common(

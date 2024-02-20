@@ -57,8 +57,8 @@ from datahub.metadata.com.linkedin.pegasus2avro.common import Status
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
-    BrowsePathsClass,
     BrowsePathEntryClass,
+    BrowsePathsClass,
     BrowsePathsV2Class,
     DataPlatformInstanceClass,
     DatasetPropertiesClass,
