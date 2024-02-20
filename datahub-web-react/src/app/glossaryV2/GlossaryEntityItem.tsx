@@ -2,7 +2,7 @@ import React from 'react';
 import styled from 'styled-components/macro';
 import { Maybe } from 'graphql/jsutils/Maybe';
 import { Link } from 'react-router-dom';
-import { EntityType } from '../../types.generated';
+import { DisplayProperties, EntityType } from '../../types.generated';
 import { useEntityRegistry } from '../useEntityRegistry';
 import GlossaryNodeCard from './GlossaryNodeCard';
 import GlossaryTermItem from './GlossaryTermItem';
@@ -45,25 +45,25 @@ interface Props {
     urn: string;
     type: EntityType;
     count?: Maybe<number>;
-    index: number;
+    displayProperties?: Maybe<DisplayProperties>;
 }
 
 function GlossaryEntityItem(props: Props) {
-    const { name, description, urn, type, count, index } = props;
-
+    const { name, description, urn, type, count, displayProperties} = props;
     const entityRegistry = useEntityRegistry();
 
     return (
         <ItemWrapper type={type}>
-            <Link to={`${entityRegistry.getEntityUrl(type, urn, { index: (index % 15).toString() })}`}>
+            <Link to={`${entityRegistry.getEntityUrl(type, urn)}`}>
                 <GlossaryItem>
                     {type === EntityType.GlossaryNode ? (
                         <GlossaryNodeCard
-                            index={index}
                             name={name}
                             type={type}
                             description={description}
                             count={count}
+                            displayProperties={displayProperties}
+                            urn={urn}
                         />
                     ) : (
                         <GlossaryTermItem name={name} description={description} />

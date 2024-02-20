@@ -49,7 +49,7 @@ function GlossaryEntitiesList(props: Props) {
         <GlossaryEntityWrapper termsTotal={termsTotal}>
             <EntitiesWrapper type={nodes[0]?.type}>
                 {nodes[0]?.type !== EntityType.GlossaryNode && <EntityTitle>Glossary Terms</EntityTitle>}
-                {nodes.map((node, index) => (
+                {nodes.map((node) => (
                     <GlossaryEntityItem
                         key={node.urn}
                         name={node.properties?.name || ''}
@@ -57,16 +57,15 @@ function GlossaryEntitiesList(props: Props) {
                         urn={node.urn}
                         type={node.type}
                         count={(node as GlossaryNodeFragment).children?.total}
-                        index={index}
+                        displayProperties={node.displayProperties}
                     />
                 ))}
-                {terms.map((term, index) => (
+                {terms.map((term) => (
                     <GlossaryEntityItem
                         key={term.urn}
                         name={entityRegistry.getDisplayName(term.type, term)}
                         urn={term.urn}
                         type={term.type}
-                        index={index}
                     />
                 ))}
             </EntitiesWrapper>

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import styled from 'styled-components/macro';
 import { Divider } from 'antd';
 import PlatformContent from './PlatformContent';
@@ -14,8 +14,8 @@ import { DisplayProperties, Domain, EntityType } from '../../../../../../types.g
 import { DomainColoredIcon } from '../../../links/DomainColoredIcon';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import { EntityBackButton } from '../sidebar/EntityBackButton';
-import { BusinessGlossaryEntitiesCardColors } from '../../../../../onboarding/config/BusinessGlossaryConfigV2';
 import EntityMenuActions, { EntityMenuItems } from '../../../EntityDropdown/EntityMenuActions';
+import { generateColor } from '../../../components/styled/StyledTag';
 
 export const TitleWrapper = styled.div`
     display: flex;
@@ -82,7 +82,7 @@ const EntityTitleWrapper = styled.div`
 `;
 
 interface GlossaryItemBadgeProps {
-    index: number;
+    color: string;
 }
 
 const GlossaryItemBadge = styled.span<GlossaryItemBadgeProps>`
@@ -93,7 +93,7 @@ const GlossaryItemBadge = styled.span<GlossaryItemBadgeProps>`
     transform: rotate(-45deg);
     padding: 8px;
     opacity: 1;
-    background-color: ${(props) => BusinessGlossaryEntitiesCardColors[props.index % 15]};
+    background-color: ${(props) =>  `${props.color}`};
 `;
 
 export type Props = {
@@ -140,18 +140,13 @@ export const DefaultEntityHeader = ({
     displayProperties,
 }: Props) => {
     const [showIconPicker, setShowIconPicker] = useState(false);
-    const [index, setIndex] = useState<number>(0);
+    const glossaryColor = displayProperties?.colorHex || generateColor.hex(urn);
     const entityRegistry = useEntityRegistry();
-
-    useEffect(() => {
-        const url = new URL(window.location.href);
-        setIndex(Number(url.searchParams.get('index')));
-    }, []);
 
     return (
         <>
             <Row>
-                <GlossaryItemBadge index={index} />
+                <GlossaryItemBadge color={glossaryColor}/>
                 <EntityBackButton />
                 <LeftColumn>
                     {(loading && <EntityTitleLoadingSection />) || (

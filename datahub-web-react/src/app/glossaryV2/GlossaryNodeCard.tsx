@@ -4,11 +4,12 @@ import { Typography } from 'antd';
 import styled from 'styled-components/macro';
 import { Maybe } from 'graphql/jsutils/Maybe';
 import FolderIcon from '../../images/folder-open.svg?react';
-import { BusinessGlossaryEntitiesCardColors } from '../onboarding/config/BusinessGlossaryConfigV2';
-import { EntityType } from '../../types.generated';
+import { DisplayProperties, EntityType } from '../../types.generated';
+import { generateColor } from '../entityV2/shared/components/styled/StyledTag';
+import { hexToRgba } from '../entityV2/shared/links/colorUtils';
 
 interface GlossaryItemCardHeaderProps {
-    index: number;
+    color: string;
 }
 
 const GlossaryItemCardHeader = styled.div<GlossaryItemCardHeaderProps>`
@@ -19,7 +20,7 @@ const GlossaryItemCardHeader = styled.div<GlossaryItemCardHeaderProps>`
     position: relative;
     overflow: hidden;
     opacity: 0.7;
-    background-color: ${(props) => `${BusinessGlossaryEntitiesCardColors[props.index % 15]}`};
+    background-color: ${(props) => hexToRgba(props.color, 0.75)}};
 `;
 
 const GlossaryItemCountDiv = styled.div`
@@ -80,7 +81,7 @@ const GlossaryItemCard = styled.div`
 `;
 
 interface GlossaryItemBadgeProps {
-    index: number;
+    color: string;
 }
 
 const GlossaryItemBadge = styled.span<GlossaryItemBadgeProps>`
@@ -91,7 +92,7 @@ const GlossaryItemBadge = styled.span<GlossaryItemBadgeProps>`
     transform: rotate(-45deg);
     padding: 10px;
     opacity: 1;
-    background-color: ${(props) => `${BusinessGlossaryEntitiesCardColors[props.index % 15]}`};
+    background-color: ${(props) => `${props.color}`};
 `;
 
 const GlossaryItemCardDetails = styled.div`
@@ -126,21 +127,24 @@ const GlossaryItemCardDescription = styled(Typography)`
 `;
 
 interface Props {
-    index: number;
     name: string;
     type: EntityType;
     description: string | undefined;
     count?: Maybe<number>;
+    displayProperties?: Maybe<DisplayProperties>;
+    urn: string;
 }
 
 const GlossaryNodeCard = (props: Props) => {
-    const { index, name, type, description, count } = props;
+    const { name, type, description, count, displayProperties , urn} = props;
+    const glossaryColor = displayProperties?.colorHex || generateColor.hex(urn);
+    console.log('GlossaryNodeCard',urn)
 
     return (
         <GlossaryItemCard>
-            <GlossaryItemCardHeader index={index}>
+            <GlossaryItemCardHeader color={glossaryColor}>
                 <GlossaryCardHeader>{name?.match(/\b(\w)/g)?.join('')}</GlossaryCardHeader>
-                <GlossaryItemBadge index={index} />
+                <GlossaryItemBadge color={glossaryColor} />
                 {type === EntityType.GlossaryNode && (
                     <GlossaryItemCount>
                         <CountWrapper>
