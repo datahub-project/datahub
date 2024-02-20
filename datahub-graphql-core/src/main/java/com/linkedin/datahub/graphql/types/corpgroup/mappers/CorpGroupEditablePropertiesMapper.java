@@ -1,8 +1,11 @@
 package com.linkedin.datahub.graphql.types.corpgroup.mappers;
 
+import com.linkedin.common.url.Url;
 import com.linkedin.data.template.GetMode;
+import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.datahub.graphql.generated.CorpGroupEditableProperties;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
+import java.util.Objects;
 import javax.annotation.Nonnull;
 
 /**
@@ -29,6 +32,9 @@ public class CorpGroupEditablePropertiesMapper
     result.setDescription(corpGroupEditableInfo.getDescription(GetMode.DEFAULT));
     result.setSlack(corpGroupEditableInfo.getSlack(GetMode.DEFAULT));
     result.setEmail(corpGroupEditableInfo.getEmail(GetMode.DEFAULT));
+    result.setPictureLink((Objects.requireNonNull(
+        corpGroupEditableInfo.getPictureLink(GetMode.DEFAULT))).toString());
+
     return result;
   }
 }
