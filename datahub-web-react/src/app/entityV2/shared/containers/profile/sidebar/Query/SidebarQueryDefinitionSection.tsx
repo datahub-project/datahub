@@ -43,7 +43,9 @@ export default function SidebarQueryDefinitionSection() {
             content={
                 <>
                     <DefinitionLink href={entityRegistry.getEntityUrl(origin.type, origin.urn)}>
-                        {entity?.platform && <DefinitionIcon platform={entity?.platform} />}
+                        {entity?.platform && (
+                            <DefinitionIcon platform={entity?.platform} size={16} entityType={origin.type} />
+                        )}
                         <DefinitionName>{entityRegistry.getDisplayName(origin.type, entity)}</DefinitionName>
                     </DefinitionLink>
                 </>
