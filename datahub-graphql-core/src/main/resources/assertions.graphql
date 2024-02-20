@@ -228,6 +228,11 @@ input UpsertDatasetFreshnessAssertionMonitorInput {
   entityUrn: String
 
   """
+  Description, which is used in displaying the assertion
+  """
+  description: String
+
+  """
   The Freshness assertion's schedule
   """
   schedule: FreshnessAssertionScheduleInput!
@@ -274,6 +279,11 @@ input UpsertDatasetVolumeAssertionMonitorInput {
   Required if creating new Volume Assertion
   """
   entityUrn: String
+
+  """
+  Description, which is used in displaying the assertion
+  """
+  description: String
 
   """
   The type of the volume assertion being monitored.
@@ -406,6 +416,11 @@ input UpsertDatasetFieldAssertionMonitorInput {
   The type of the field assertion being monitored.
   """
   type: FieldAssertionType!
+
+  """
+  Description, which is used in displaying the assertion
+  """
+  description: String
 
   """
   The entity targeted by this Field check.

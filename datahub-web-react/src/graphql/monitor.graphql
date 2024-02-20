@@ -109,9 +109,16 @@ query getDatasetAssertionsWithMonitors($urn: String!) {
             }
         }
         privileges {
-            canEditAssertions
+            ...entityPrivileges
             canEditMonitors
             canEditSqlAssertionMonitors
         }
+    }
+}
+
+query getAssertionWithMonitors($assertionUrn: String!) {
+    assertion(urn: $assertionUrn) {
+        urn
+        ...assertionDetailsWithMonitors
     }
 }

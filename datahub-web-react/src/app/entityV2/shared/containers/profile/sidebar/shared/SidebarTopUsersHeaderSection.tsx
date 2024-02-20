@@ -12,7 +12,7 @@ const SidebarTopUsersHeaderSection = () => {
         return null;
     }
 
-    return <TopUsersFacepile users={topUsersLast30Days} max={4} />;
+    return <TopUsersFacepile users={topUsersLast30Days} max={3} />;
 };
 
 export default SidebarTopUsersHeaderSection;

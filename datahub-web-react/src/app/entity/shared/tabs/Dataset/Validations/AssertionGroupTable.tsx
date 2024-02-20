@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import styled from 'styled-components';
 import { Empty } from 'antd';
 import { DownOutlined, RightOutlined } from '@ant-design/icons';
-import { Assertion, DataContract } from '../../../../../../types.generated';
+import { DataContract } from '../../../../../../types.generated';
 import { AssertionGroup } from './acrylTypes';
 import { AssertionGroupHeader } from './AssertionGroupHeader';
 import { AcrylDatasetAssertionsList } from './AcrylAssertionsList';
@@ -11,9 +11,6 @@ import { useExpandRowBasedOnAssertionUrn } from './assertion/builder/hooks';
 
 const StyledStyledTable = styled(StyledTable)`
     &&&& {
-        .ant-table-cell {
-            padding-left: 0px;
-        }
         .ant-table-row-expand-icon-cell {
             padding: 16px;
         }
@@ -31,11 +28,20 @@ const StyledRightOutlined = styled(RightOutlined)`
 type Props = {
     groups: AssertionGroup[];
     contract?: DataContract;
-    onDeletedAssertion: (urn: string) => void;
-    onUpdatedAssertion: (assertion: Assertion) => void;
+    canEditAssertions: boolean;
+    canEditMonitors: boolean;
+    canEditSqlAssertions: boolean;
+    refetch: () => void;
 };
 
-export const AssertionGroupTable = ({ groups, contract, onDeletedAssertion, onUpdatedAssertion }: Props) => {
+export const AssertionGroupTable = ({
+    groups,
+    contract,
+    canEditAssertions,
+    canEditMonitors,
+    canEditSqlAssertions,
+    refetch,
+}: Props) => {
     const [expandedRowKeys, setExpandedRowKeys] = useState<string[] | undefined>(undefined);
 
     // To handle assertion URN parameter logic for expanding rows
@@ -59,6 +65,7 @@ export const AssertionGroupTable = ({ groups, contract, onDeletedAssertion, onUp
             locale={{
                 emptyText: <Empty description="No Assertions Found" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
             }}
+            defaultExpandAllRows
             expandable={{
                 expandedRowKeys,
                 expandedRowRender: (group, _index, _indent, _expanded) => {
@@ -66,9 +73,10 @@ export const AssertionGroupTable = ({ groups, contract, onDeletedAssertion, onUp
                         <AcrylDatasetAssertionsList
                             assertions={group.assertions}
                             contract={contract}
-                            onDeletedAssertion={onDeletedAssertion}
-                            onUpdatedAssertion={onUpdatedAssertion}
-                            setExpandedRowKeys={setExpandedRowKeys}
+                            canEditAssertions={canEditAssertions}
+                            canEditMonitors={canEditMonitors}
+                            canEditSqlAssertions={canEditSqlAssertions}
+                            refetch={refetch}
                         />
                     );
                 },

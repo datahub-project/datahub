@@ -3,9 +3,9 @@ import { Popover } from 'antd';
 import styled from 'styled-components';
 import { ConsoleSqlOutlined, UserOutlined, ToolOutlined } from '@ant-design/icons';
 import { useEntityData } from '../../../../../EntityContext';
-import { getDatasetPopularityTier, isValuePresent } from '../../shared/utils';
-import PopularityIcon from '../../shared/popularity/PopularityIcon';
+import { getBarsStatusFromPopularityTier, getDatasetPopularityTier, isValuePresent } from '../../shared/utils';
 import { ANTD_GRAY } from '../../../../../constants';
+import { PopularityBars } from '../../../../../tabs/Dataset/Schema/components/SchemaFieldDrawer/PopularityBars';
 
 const Insight = styled.div`
     max-width: 240px;
@@ -58,6 +58,8 @@ const SidebarPopularityHeaderSection = () => {
 
     const tier = getDatasetPopularityTier(queryCountPercentileLast30Days, uniqueUserPercentileLast30Days);
 
+    const status = getBarsStatusFromPopularityTier(tier);
+
     return (
         <Popover
             placement="left"
@@ -96,7 +98,7 @@ const SidebarPopularityHeaderSection = () => {
             }
         >
             <Container>
-                <PopularityIcon tier={tier} />
+                <PopularityBars status={status} displayOnDrawer />
             </Container>
         </Popover>
     );

@@ -49,6 +49,11 @@ export interface AssertionMonitorBuilderState {
      */
     assertion?: {
         /**
+         * The urn of the assertion. Only available if the assertion has been created and is being updated.
+         */
+        urn?: AssertionType | null;
+
+        /**
          * The type of the source itself, e.g. mysql, bigquery, bigquery-usage. Should match the recipe.
          */
         type?: AssertionType | null;
@@ -732,7 +737,8 @@ export interface AssertionMonitorBuilderState {
 export enum AssertionBuilderStep {
     SELECT_TYPE = 'SELECT_TYPE',
     CONFIGURE_ASSERTION = 'CONFIGURE_ASSERTION',
-    CONFIGURE_ACTIONS = 'CONFIGURE_ACTIONS',
+    FINISH_UP = 'FINISH_UP',
+    // CONFIGURE_ACTIONS = 'CONFIGURE_ACTIONS', REMOVED
 }
 
 /**

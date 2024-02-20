@@ -1,8 +1,7 @@
 import React, { useEffect } from 'react';
 import styled from 'styled-components';
-import { Typography, Select } from 'antd';
+import { Form, Typography, Select } from 'antd';
 import { InfoCircleOutlined } from '@ant-design/icons';
-import useFormInstance from 'antd/lib/form/hooks/useFormInstance';
 import {
     DatasetFreshnessAssertionParameters,
     DatasetFreshnessSourceType,
@@ -23,7 +22,7 @@ import { useChangeSourceOptionIf } from '../../hooks';
 import { AssertionDatasetFieldBuilder } from '../AssertionDatasetFieldBuilder';
 import { useConnectionForEntityExists } from '../../../../acrylUtils';
 
-const Form = styled.div``;
+const FormDiv = styled.div``;
 
 const SourceDescription = styled.div`
     margin-top: 12px;
@@ -35,7 +34,6 @@ const SourceDescription = styled.div`
     padding: 12px;
     background-color: ${ANTD_GRAY[3]};
     border-radius: 8px;
-    margin-bottom: 20px;
 `;
 
 const StyledInfoCircleOutlined = styled(InfoCircleOutlined)`
@@ -96,7 +94,7 @@ export const DatasetFreshnessSourceBuilder = ({
     onChange,
     disabled,
 }: Props) => {
-    const form = useFormInstance();
+    const form = Form.useFormInstance();
     const connectionForEntityExists = useConnectionForEntityExists(entityUrn);
     const defaultSourceType = getDefaultFreshnessSourceOption(platformUrn, connectionForEntityExists);
     const sourceType = value?.sourceType || defaultSourceType;
@@ -169,7 +167,7 @@ export const DatasetFreshnessSourceBuilder = ({
     }, [form, fieldPath]);
 
     return (
-        <Form>
+        <FormDiv>
             <Typography.Title level={5}>Change Source</Typography.Title>
             <Typography.Paragraph type="secondary">
                 Select the mechanism used to determine whether a change has been made to this dataset.
@@ -184,7 +182,10 @@ export const DatasetFreshnessSourceBuilder = ({
                     return (
                         <Select.Option value={option.name} key={option.name} disabled={isDisabled}>
                             <SelectOptionContent disabled={isDisabled}>
-                                <Typography.Text>{option.name}</Typography.Text>
+                                <Typography.Text>
+                                    {option.name}
+                                    {option.type === defaultSourceType ? ' (Recommended)' : null}
+                                </Typography.Text>
                                 <SourceOptionSelectDescription type="secondary">
                                     {option.description}
                                 </SourceOptionSelectDescription>
@@ -216,6 +217,6 @@ export const DatasetFreshnessSourceBuilder = ({
                     disabled={disabled}
                 />
             )}
-        </Form>
+        </FormDiv>
     );
 };

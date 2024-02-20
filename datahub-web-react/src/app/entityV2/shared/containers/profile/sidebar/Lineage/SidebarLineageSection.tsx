@@ -14,19 +14,30 @@ import {
 } from './utils';
 import SidebarLineageLoadingSection from './SidebarLineageLoadingSection';
 import { useEntityRegistry } from '../../../../../../useEntityRegistry';
-import { ANTD_GRAY } from '../../../../constants';
+import { REDESIGN_COLORS } from '../../../../constants';
+import SectionActionButton from '../SectionActionButton';
 
 const Section = styled.div`
     display: flex;
     align-items: start;
     justify-content: start;
     margin-bottom: 6px;
+    color: ${REDESIGN_COLORS.DARK_GREY};
 `;
 
-const DirectionText = styled.div``;
+const DirectionText = styled.div`
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 20px;
+    letter-spacing: 0.48px;
+    color: ${REDESIGN_COLORS.DARK_GREY};
+`;
 
 const SummaryText = styled.div`
     text-wrap: wrap;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 20px;
 `;
 
 const StyledUpOutlined = styled(ArrowUpOutlined)`
@@ -42,30 +53,17 @@ const DirectionHeader = styled.div`
     align-items: center;
     justify-content: start;
     font-weight: bold;
-    font-size: 10px;
+    font-size: 12px;
     letter-spacing: 1px;
     height: 20px;
-    && {
-        color: ${ANTD_GRAY[7]};
-    }
-    width: 100px;
+    color: #c1c1d7;
+    min-width: 100px;
     margin-right: 6px;
 `;
 
-const ExploreButton = styled.div`
-    display: flex;
-    align-items: center;
-    font-weight: bold;
-    padding: 0px 2px;
-    :hover {
-        cursor: pointer;
-    }
-`;
-
 const StyledPartitionOutlined = styled(PartitionOutlined)`
-    && {
-        font-size: 14px;
-        margin-right: 8px;
+    svg {
+        padding: 4px 5px 4px 4px;
     }
 `;
 
@@ -133,17 +131,24 @@ const SidebarLineageSection = () => {
                             </SummaryText>
                         </Section>
                     )}
-                    <Tooltip
-                        title="Explore related entities using the lineage graph"
-                        placement="left"
-                        showArrow={false}
-                    >
-                        <ExploreButton onClick={() => navigateToLineageGraph(urn, entityType, history, entityRegistry)}>
-                            <StyledPartitionOutlined />
-                            Explore
-                        </ExploreButton>
-                    </Tooltip>
                 </>
+            }
+            extra={
+                <SectionActionButton
+                    button={
+                        <Tooltip
+                            title="Explore related entities using the lineage graph"
+                            placement="left"
+                            showArrow={false}
+                        >
+                            <StyledPartitionOutlined />
+                        </Tooltip>
+                    }
+                    onClick={(event) => {
+                        navigateToLineageGraph(urn, entityType, history, entityRegistry);
+                        event.stopPropagation();
+                    }}
+                />
             }
         />
     );

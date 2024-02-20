@@ -29,6 +29,10 @@ import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.service.AssertionService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.monitor.AssertionEvaluationSpec;
+import com.linkedin.monitor.MonitorInfo;
+import com.linkedin.monitor.MonitorMode;
+import com.linkedin.monitor.MonitorType;
 import com.linkedin.mxe.MetadataChangeLog;
 import java.util.Collections;
 import java.util.List;
@@ -63,7 +67,7 @@ public class AssertionsSummaryHook implements MetadataChangeLogHook {
   private static final Set<ChangeType> SUPPORTED_UPDATE_TYPES =
       ImmutableSet.of(ChangeType.UPSERT, ChangeType.CREATE, ChangeType.RESTATE);
   private static final Set<String> SUPPORTED_UPDATE_ASPECTS =
-      ImmutableSet.of(ASSERTION_RUN_EVENT_ASPECT_NAME);
+      ImmutableSet.of(ASSERTION_RUN_EVENT_ASPECT_NAME, MONITOR_INFO_ASPECT_NAME);
 
   private final EntityRegistry _entityRegistry;
   private final AssertionService _assertionService;
@@ -99,6 +103,8 @@ public class AssertionsSummaryHook implements MetadataChangeLogHook {
         handleAssertionSoftDeleted(urn);
       } else if (isAssertionRunCompleteEvent(event)) {
         handleAssertionRunCompleted(urn, extractAssertionRunEvent(event));
+      } else if (isMonitorDisabledEvent(event)) {
+        handleMonitorDisabled(urn, extractMonitorInfo(event));
       }
       // TODO: Handle un-soft-deleted by adding it back into the result list.
     }
@@ -109,32 +115,7 @@ public class AssertionsSummaryHook implements MetadataChangeLogHook {
    * assertions.
    */
   private void handleAssertionSoftDeleted(@Nonnull final Urn assertionUrn) {
-    // 1. Fetch assertion info.
-    AssertionInfo assertionInfo = _assertionService.getAssertionInfo(assertionUrn);
-
-    // 2. Retrieve associated urns.
-    if (assertionInfo != null) {
-      final List<Urn> assertionEntities = extractAssertionEntities(assertionInfo);
-
-      if (assertionEntities.size() <= 0) {
-        log.warn(
-            String.format(
-                "Failed to find entities associated with assertion with urn %s. Skipping updating run summaries...",
-                assertionUrn));
-        return;
-      }
-
-      // 3. For each urn, resolve the entity assertions aspect and remove from failing and passing
-      // assertions.
-      for (Urn entityUrn : assertionEntities) {
-        removeAssertionFromSummary(assertionUrn, entityUrn);
-      }
-    } else {
-      log.warn(
-          String.format(
-              "Failed to find assertionInfo aspect for assertion with urn %s. Skipping updating assertion summary for related assertions!",
-              assertionUrn));
-    }
+    removeAssertionFromSummary(assertionUrn);
   }
 
   /** Handle an assertion update by adding to either resolved or active assertions for an entity. */
@@ -161,6 +142,58 @@ public class AssertionsSummaryHook implements MetadataChangeLogHook {
       // assertions.
       for (Urn entityUrn : assertionEntities) {
         addAssertionToSummary(entityUrn, assertionUrn, assertionInfo, runEvent);
+      }
+    } else {
+      log.warn(
+          String.format(
+              "Failed to find assertionInfo aspect for assertion with urn %s. Skipping updating assertion summary for related assertions!",
+              assertionUrn));
+    }
+  }
+
+  /**
+   * Handle a monitor being disabled or paused by removing it from the summary. This allows users to
+   * clear bad status immediately.
+   */
+  private void handleMonitorDisabled(
+      @Nonnull final Urn monitorUrn, @Nonnull final MonitorInfo monitorInfo) {
+    if (!MonitorType.ASSERTION.equals(monitorInfo.getType())
+        || !monitorInfo.hasAssertionMonitor()) {
+      log.debug(
+          "Found disabled monitor that is not assertion monitor type. Skipping removing from summary.");
+      return;
+    }
+
+    log.debug("Removing assertions from summary for monitor with urn {}", monitorUrn);
+    final List<Urn> assertionUrns =
+        monitorInfo.getAssertionMonitor().getAssertions().stream()
+            .map(AssertionEvaluationSpec::getAssertion)
+            .toList();
+    for (Urn assertionUrn : assertionUrns) {
+      removeAssertionFromSummary(assertionUrn);
+    }
+  }
+
+  private void removeAssertionFromSummary(final Urn assertionUrn) {
+    // 1. Fetch assertion info.
+    AssertionInfo assertionInfo = _assertionService.getAssertionInfo(assertionUrn);
+
+    // 2. Retrieve associated urns.
+    if (assertionInfo != null) {
+      final List<Urn> assertionEntities = extractAssertionEntities(assertionInfo);
+
+      if (assertionEntities.size() <= 0) {
+        log.warn(
+            String.format(
+                "Failed to find entities associated with assertion with urn %s. Skipping updating run summaries...",
+                assertionUrn));
+        return;
+      }
+
+      // 3. For each urn, resolve the entity assertions aspect and remove from failing and passing
+      // assertions.
+      for (Urn entityUrn : assertionEntities) {
+        removeAssertionFromSummary(assertionUrn, entityUrn);
       }
     } else {
       log.warn(
@@ -246,7 +279,9 @@ public class AssertionsSummaryHook implements MetadataChangeLogHook {
    * assertion status aspect
    */
   private boolean isEligibleForProcessing(@Nonnull final MetadataChangeLog event) {
-    return isAssertionSoftDeleted(event) || isAssertionRunCompleteEvent(event);
+    return isAssertionSoftDeleted(event)
+        || isAssertionRunCompleteEvent(event)
+        || isMonitorDisabledEvent(event);
   }
 
   /** Returns true if an assertion is being soft-deleted. */
@@ -262,6 +297,17 @@ public class AssertionsSummaryHook implements MetadataChangeLogHook {
           GenericRecordUtils.deserializeAspect(
               event.getAspect().getValue(), event.getAspect().getContentType(), Status.class);
       return status.hasRemoved() && status.isRemoved();
+    }
+    return false;
+  }
+
+  private boolean isMonitorDisabledEvent(@Nonnull final MetadataChangeLog event) {
+    if (MONITOR_INFO_ASPECT_NAME.equals(event.getAspectName()) && event.getAspect() != null) {
+      final MonitorInfo status =
+          GenericRecordUtils.deserializeAspect(
+              event.getAspect().getValue(), event.getAspect().getContentType(), MonitorInfo.class);
+      return ImmutableSet.of(MonitorMode.INACTIVE, MonitorMode.PASSIVE)
+          .contains(status.getStatus().getMode());
     }
     return false;
   }
@@ -285,6 +331,12 @@ public class AssertionsSummaryHook implements MetadataChangeLogHook {
   private AssertionRunEvent extractAssertionRunEvent(@Nonnull final MetadataChangeLog event) {
     return GenericRecordUtils.deserializeAspect(
         event.getAspect().getValue(), event.getAspect().getContentType(), AssertionRunEvent.class);
+  }
+
+  @Nonnull
+  private MonitorInfo extractMonitorInfo(@Nonnull final MetadataChangeLog event) {
+    return GenericRecordUtils.deserializeAspect(
+        event.getAspect().getValue(), event.getAspect().getContentType(), MonitorInfo.class);
   }
 
   @Nonnull

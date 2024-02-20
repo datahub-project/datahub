@@ -1,33 +1,75 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Typography } from 'antd';
+import { Collapse } from 'antd';
+import { KeyboardArrowDown, KeyboardArrowRight } from '@mui/icons-material';
+
+import { REDESIGN_COLORS } from '../../../constants';
 
 const Container = styled.div`
-    padding-top: 16px;
-    padding-bottom: 16px;
     display: flex;
 `;
 
-const LeftColumn = styled.div`
-    width: 92px;
+const Content = styled.div`
+    flex: 1;
+    margin-left: 7px;
 `;
 
-const RightColumn = styled.div`
-    flex: 1;
+const StyledCollapse = styled(Collapse)`
+    .ant-collapse-header {
+        padding: 0px 0px !important;
+        align-items: center;
+    }
+    .ant-collapse-content-box {
+        padding-top: 4px !important;
+        padding-bottom: 0px !important;
+    }
+    .ant-collapse-arrow {
+        margin-right: 5px !important;
+    }
+    .ant-collapse-expand-icon {
+        height: 22px;
+    }
+`;
+
+const SectionHeader = styled.div`
+    display: flex;
+    align-items: center;
+    color: ${REDESIGN_COLORS.DARK_GREY};
+    font-weight: 700;
+    line-height: 20px;
+    font-size: 14px;
+`;
+
+const StyledIcon = styled.div`
+    svg {
+        height: 18px;
+        width: 18px;
+        color: ${REDESIGN_COLORS.SECONDARY_LIGHT_GREY};
+        stroke: ${REDESIGN_COLORS.SECONDARY_LIGHT_GREY};
+        stroke-width: 1px;
+    }
 `;
 
 type Props = {
-    title: React.ReactNode;
+    title: string;
     content: React.ReactNode;
+    extra?: React.ReactNode;
 };
 
-export const SidebarSection = ({ title, content }: Props) => {
+export const SidebarSection = ({ title, content, extra }: Props) => {
     return (
-        <Container>
-            <LeftColumn>
-                <Typography.Text strong>{title}</Typography.Text>
-            </LeftColumn>
-            <RightColumn>{content}</RightColumn>
-        </Container>
+        <StyledCollapse
+            ghost
+            expandIcon={({ isActive }) => (
+                <StyledIcon>{isActive ? <KeyboardArrowDown /> : <KeyboardArrowRight />} </StyledIcon>
+            )}
+            defaultActiveKey={title}
+        >
+            <Collapse.Panel header={<SectionHeader>{title}</SectionHeader>} key={title} extra={extra}>
+                <Container>
+                    <Content>{content}</Content>
+                </Container>
+            </Collapse.Panel>
+        </StyledCollapse>
     );
 };

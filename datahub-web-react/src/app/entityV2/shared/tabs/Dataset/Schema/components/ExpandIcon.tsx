@@ -1,6 +1,5 @@
 import { DownOutlined, RightOutlined } from '@ant-design/icons';
 import { Tooltip, Typography } from 'antd';
-import { RenderExpandIconProps } from 'rc-table/lib/interface';
 import React from 'react';
 import styled from 'styled-components';
 import RowIcon from '../../../../../../../images/row-icon.svg?react';
@@ -12,16 +11,18 @@ const Prefix = styled.div<{ padding: number }>`
     margin-bottom: -1px;
     top: -1px;
 `;
+
 const IconContainer = styled.div`
     vertical-align: middle;
     display: inline-flex;
     gap: 5px;
 `;
+
 const Padding = styled.span<{ padding: number }>`
     margin-left: ${(props) => props.padding}px;
 `;
 
-const Down = styled(DownOutlined)`
+const Down = styled(DownOutlined)<{ isCompact?: boolean }>`
     :hover {
         color: ${SEARCH_COLORS.TITLE_PURPLE};
         stroke: ${SEARCH_COLORS.TITLE_PURPLE};
@@ -31,9 +32,15 @@ const Down = styled(DownOutlined)`
     stroke: ${REDESIGN_COLORS.DARK_GREY};
     stroke-width: 100px;
     padding-right: 5px;
+    ${(props) =>
+        props.isCompact &&
+        `
+        font-size: 8px;
+        
+    `}
 `;
 
-const Right = styled(RightOutlined)`
+const Right = styled(RightOutlined)<{ isCompact?: boolean }>`
     :hover {
         stroke: ${SEARCH_COLORS.TITLE_PURPLE};
         color: ${SEARCH_COLORS.TITLE_PURPLE};
@@ -43,6 +50,11 @@ const Right = styled(RightOutlined)`
     stroke: ${REDESIGN_COLORS.DARK_GREY};
     stroke-width: 100px;
     padding-right: 5px;
+    ${(props) =>
+        props.isCompact &&
+        `
+        font-size: 8px;
+    `}
 `;
 
 const RowIconContainer = styled.div`
@@ -50,6 +62,7 @@ const RowIconContainer = styled.div`
     display: flex;
     align-items: center;
 `;
+
 const DepthContainer = styled.div<{ multipleDigits?: boolean }>`
     height: ${(props) => (props.multipleDigits ? '20px' : '13px')};
     width: ${(props) => (props.multipleDigits ? '20px' : '13px')};
@@ -82,39 +95,55 @@ const StyledTooltip = styled(Tooltip)`
 
 const DEPTH_PADDING = 15;
 
-export default function ExpandIcon({ expanded, onExpand, expandable, record }: RenderExpandIconProps<any>) {
+type Props = {
+    expanded: boolean;
+    onExpand: any;
+    expandable: boolean;
+    record: any;
+    isCompact?: boolean;
+};
+
+export default function ExpandIcon(props: Props) {
+    const { expanded, onExpand, expandable, record, isCompact = false } = props;
+
     function toggleExpand(e: React.MouseEvent<HTMLSpanElement, MouseEvent>) {
         e.stopPropagation();
         onExpand(record, e);
     }
 
     return (
-        <IconContainer className="row-icon-container">
-            {Array.from({ length: record.depth }, (_, k) => (
-                <Prefix padding={5 + DEPTH_PADDING * (k + 1)} />
-            ))}
-            <Padding padding={DEPTH_PADDING * (record.depth + 1)} />
-            <StyledTooltip
-                placement="bottom"
-                title={`${record.depth + 1} level${record.depth === 0 ? '' : 's'} nested`}
-                getPopupContainer={(triggerNode) => triggerNode}
-                showArrow={false}
-                className="row-icon-tooltip"
-            >
-                <RowIconContainer className="row-icon">
-                    <RowIcon height={16} width={16} />
-                    <DepthContainer multipleDigits={record.depth >= 9} className="depth-container">
-                        <DepthNumber className="depth-text">{record.depth + 1}</DepthNumber>
-                    </DepthContainer>
-                </RowIconContainer>
-            </StyledTooltip>
-            {expandable &&
-                record.children !== undefined &&
-                (expanded ? (
-                    <Down onClick={toggleExpand} width={12} height={12} />
-                ) : (
-                    <Right onClick={toggleExpand} width={12} height={12} />
-                ))}
-        </IconContainer>
+        <>
+            <IconContainer className="row-icon-container">
+                {!isCompact && (
+                    <>
+                        {Array.from({ length: record.depth }, (_, k) => (
+                            <Prefix padding={5 + DEPTH_PADDING * (k + 1)} />
+                        ))}
+                        <Padding padding={DEPTH_PADDING * (record.depth + 1)} />
+                        <StyledTooltip
+                            placement="bottom"
+                            title={`${record.depth + 1} level${record.depth === 0 ? '' : 's'} nested`}
+                            getPopupContainer={(triggerNode) => triggerNode}
+                            showArrow={false}
+                            className="row-icon-tooltip"
+                        >
+                            <RowIconContainer className="row-icon">
+                                <RowIcon height={16} width={16} />
+                                <DepthContainer multipleDigits={record.depth >= 9} className="depth-container">
+                                    <DepthNumber className="depth-text">{record.depth + 1}</DepthNumber>
+                                </DepthContainer>
+                            </RowIconContainer>
+                        </StyledTooltip>
+                    </>
+                )}
+                {expandable &&
+                    record.children !== undefined &&
+                    (expanded ? (
+                        <Down onClick={toggleExpand} isCompact={isCompact} />
+                    ) : (
+                        <Right onClick={toggleExpand} isCompact={isCompact} />
+                    ))}
+            </IconContainer>
+        </>
     );
 }

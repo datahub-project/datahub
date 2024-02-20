@@ -76,6 +76,7 @@ public class UpsertDatasetFreshnessAssertionMonitorResolverTest {
   private static final UpsertDatasetFreshnessAssertionMonitorInput TEST_INPUT =
       new UpsertDatasetFreshnessAssertionMonitorInput(
           TEST_DATASET_URN.toString(),
+          "description",
           new FreshnessAssertionScheduleInput(
               FreshnessAssertionScheduleType.CRON,
               new FreshnessCronScheduleInput("* * * * *", "America / Los Angeles", null),
@@ -93,6 +94,7 @@ public class UpsertDatasetFreshnessAssertionMonitorResolverTest {
   private static final UpsertDatasetFreshnessAssertionMonitorInput TEST_CREATE_INPUT =
       new UpsertDatasetFreshnessAssertionMonitorInput(
           null,
+          "description",
           new FreshnessAssertionScheduleInput(
               FreshnessAssertionScheduleType.CRON,
               new FreshnessCronScheduleInput("* * * * *", "America / Los Angeles", null),
@@ -111,6 +113,7 @@ public class UpsertDatasetFreshnessAssertionMonitorResolverTest {
       TEST_UPDATE_INPUT_ENTITY_MISMATCH =
           new UpsertDatasetFreshnessAssertionMonitorInput(
               "urn:li:dataset:(urn:li:dataPlatform:hive,another_name,PROD)",
+              "description",
               new FreshnessAssertionScheduleInput(
                   FreshnessAssertionScheduleType.CRON,
                   new FreshnessCronScheduleInput("* * * * *", "America / Los Angeles", null),
@@ -225,6 +228,7 @@ public class UpsertDatasetFreshnessAssertionMonitorResolverTest {
         .upsertDatasetFreshnessAssertion(
             Mockito.eq(TEST_ASSERTION_URN),
             Mockito.eq(TEST_ASSERTION_INFO.getFreshnessAssertion().getEntity()),
+            Mockito.eq("description"),
             Mockito.eq(TEST_ASSERTION_INFO.getFreshnessAssertion().getSchedule()),
             Mockito.eq(TEST_ASSERTION_INFO.getFreshnessAssertion().getFilter()),
             Mockito.eq(TEST_ASSERTION_ACTIONS),
@@ -281,6 +285,7 @@ public class UpsertDatasetFreshnessAssertionMonitorResolverTest {
         .upsertDatasetFreshnessAssertion(
             Mockito.eq(TEST_ASSERTION_URN),
             Mockito.eq(TEST_ASSERTION_INFO.getFreshnessAssertion().getEntity()),
+            Mockito.eq("description"),
             Mockito.eq(TEST_ASSERTION_INFO.getFreshnessAssertion().getSchedule()),
             Mockito.eq(TEST_ASSERTION_INFO.getFreshnessAssertion().getFilter()),
             Mockito.eq(TEST_ASSERTION_ACTIONS),
@@ -406,6 +411,7 @@ public class UpsertDatasetFreshnessAssertionMonitorResolverTest {
         .upsertDatasetFreshnessAssertion(
             Mockito.eq(TEST_ASSERTION_URN),
             Mockito.eq(TEST_DATASET_URN),
+            Mockito.eq("description"),
             Mockito.eq(TEST_ASSERTION_INFO.getFreshnessAssertion().getSchedule()),
             Mockito.eq(TEST_ASSERTION_INFO.getFreshnessAssertion().getFilter()),
             Mockito.eq(TEST_ASSERTION_ACTIONS),
@@ -553,6 +559,7 @@ public class UpsertDatasetFreshnessAssertionMonitorResolverTest {
             Mockito.any(),
             Mockito.any(),
             Mockito.any(),
+            Mockito.any(),
             Mockito.any(Authentication.class));
 
     UpsertDatasetFreshnessAssertionMonitorResolver resolver =
@@ -577,6 +584,7 @@ public class UpsertDatasetFreshnessAssertionMonitorResolverTest {
 
     Mockito.when(
             service.upsertDatasetFreshnessAssertion(
+                Mockito.any(),
                 Mockito.any(),
                 Mockito.any(),
                 Mockito.any(),

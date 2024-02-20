@@ -1,12 +1,13 @@
 import React from 'react';
 import styled from 'styled-components/macro';
-import { Typography } from 'antd';
 import { useHistory } from 'react-router';
 import { useEntityData } from '../../../../EntityContext';
 import { SidebarSection } from '../SidebarSection';
 import { useEntityRegistry } from '../../../../../../useEntityRegistry';
 import { navigateToDomainDataProducts } from './utils';
 import { pluralize } from '../../../../../../shared/textUtil';
+import EmptySectionText from '../EmptySectionText';
+import { REDESIGN_COLORS } from '../../../../constants';
 
 const Section = styled.div`
     display: flex;
@@ -24,6 +25,7 @@ const ViewAllButton = styled.div`
     font-weight: bold;
     padding: 0px 2px;
     margin-left: 8px;
+    color: ${REDESIGN_COLORS.DARK_GREY};
     :hover {
         cursor: pointer;
     }
@@ -64,7 +66,7 @@ const SidebarDataProductsSection = () => {
                                 </ViewAllButton>
                             </Section>
                         </>
-                    )) || <Typography.Text type="secondary">No products yet</Typography.Text>}
+                    )) || <EmptySectionText message="No products yet" />}
                 </>
             }
         />

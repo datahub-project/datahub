@@ -8,7 +8,6 @@ import {
     FreshnessFieldKind,
     SchemaFieldDataType,
     FreshnessAssertionScheduleType,
-    FreshnessAssertionType,
     AssertionActionType,
     AssertionEvaluationParametersType,
     VolumeAssertionType,
@@ -19,6 +18,11 @@ import {
     SqlAssertionType,
     FieldAssertionType,
     SchemaField,
+    MonitorMode,
+    FreshnessAssertionType,
+    Assertion,
+    Monitor,
+    Entity,
 } from '../../../../../../../../types.generated';
 import {
     BIGQUERY_URN,
@@ -219,18 +223,15 @@ const PLATFORM_ASSERTION_CONFIGS = {
                                     Delta Lake Table History
                                 </a>
                             </b>{' '}
-                            to determine whether a Table has changed.{' '}
-                            <br /> <b>
-                                Note that this is only supported for tables stored in delta format.
-                            </b>{' '}
-                            Refer `data_source_format` in properties to verify table&apos;s format.
-                            Table history retention is determined by the table setting delta.logRetentionDuration,
-                            which is 30 days by default.
+                            to determine whether a Table has changed. <br />{' '}
+                            <b>Note that this is only supported for tables stored in delta format.</b> Refer
+                            `data_source_format` in properties to verify table&apos;s format. Table history retention is
+                            determined by the table setting delta.logRetentionDuration, which is 30 days by default.
                         </>
                     ),
                 },
                 [DatasetFreshnessSourceType.InformationSchema]: {
-                    // TODO: "Gray out" the options based on which format the current table is in. 
+                    // TODO: "Gray out" the options based on which format the current table is in.
                     description: (
                         <>
                             We&apos;ll use Databricks{' '}
@@ -243,11 +244,9 @@ const PLATFORM_ASSERTION_CONFIGS = {
                                     Delta Lake Describe Detail
                                 </a>
                             </b>{' '}
-                            query to determine whether the Table has changed.{' '}
-                            <br /> <b>
-                                Note that this is only supported for tables stored in delta format.
-                            </b>{' '}
-                            Refer `data_source_format` in properties to verify table&apos;s format.
+                            query to determine whether the Table has changed. <br />{' '}
+                            <b>Note that this is only supported for tables stored in delta format.</b> Refer
+                            `data_source_format` in properties to verify table&apos;s format.
                         </>
                     ),
                 },
@@ -256,7 +255,8 @@ const PLATFORM_ASSERTION_CONFIGS = {
                         <>
                             We&apos;ll query a specific column of the Databricks Table or View to determine whether it
                             has changed.
-                            <br /> This requires that the configured service principal (token) has read access to the asset.
+                            <br /> This requires that the configured service principal (token) has read access to the
+                            asset.
                         </>
                     ),
                 },
@@ -273,12 +273,11 @@ const PLATFORM_ASSERTION_CONFIGS = {
                                     File metadata column
                                 </a>
                             </b>{' '}
-                            to determine whether the Table has changed.
-                            This requires that the configured service principal (token) has read access to the asset.
-                            This is supported for managed as well as external tables in Unity Catalog and 
-                            Hive Metastore. <br /> 
+                            to determine whether the Table has changed. This requires that the configured service
+                            principal (token) has read access to the asset. This is supported for managed as well as
+                            external tables in Unity Catalog and Hive Metastore. <br />
                             <b>
-                                As of now, this is not supported for tables created with {' '}
+                                As of now, this is not supported for tables created with{' '}
                                 <a
                                     href="https://docs.databricks.com/en/sql/language-manual/sql-ref-syntax-ddl-create-table-hiveformat.html"
                                     target="_blank"
@@ -286,8 +285,8 @@ const PLATFORM_ASSERTION_CONFIGS = {
                                 >
                                     hive format
                                 </a>
-                            </b>.{' '}
-                            Refer `data_source_format` in properties to verify table&apos;s format.
+                            </b>
+                            . Refer `data_source_format` in properties to verify table&apos;s format.
                         </>
                     ),
                 },
@@ -313,7 +312,7 @@ const allSourceOptions: SourceOption[] = [
     {
         type: DatasetFreshnessSourceType.FileMetadata,
         name: 'File Metadata',
-        description: 'Use the underlying file system\'s metadata to determine whether the asset has changed',
+        description: "Use the underlying file system's metadata to determine whether the asset has changed",
         allowedScheduleTypes: [FreshnessAssertionScheduleType.FixedInterval, FreshnessAssertionScheduleType.Cron],
     },
     {
@@ -356,39 +355,74 @@ const getSourceOptionKey = (type: DatasetFreshnessSourceType, kind?: Maybe<Fresh
     return `${type}.${kind || ''}`;
 };
 
+/* eslint-disable no-param-reassign */
+/** Remove the GraphQL __typename fields from any object */
+function removeTypenameFields(obj) {
+    // Check if the argument is an object and not null
+    if (typeof obj === 'object' && obj !== null) {
+        // Iterate over object properties
+        Object.keys(obj).forEach((key) => {
+            if (key === '__typename') {
+                // Remove __typename property
+                delete obj[key];
+            } else if (typeof obj[key] === 'object') {
+                // Recurse for nested objects and arrays
+                removeTypenameFields(obj[key]);
+            }
+        });
+    } else if (Array.isArray(obj)) {
+        // Handle arrays, as typeof will return 'object' for arrays
+        obj.forEach((item) => removeTypenameFields(item));
+    }
+    return obj;
+}
+
 /** Map of all source options to allow constant lookup by Source Type and Field Kind */
 const sourceOptionsByKey = keyBy(allSourceOptions, ({ type, field }) => getSourceOptionKey(type, field?.kind));
 
-export const builderStateToUpdateFreshnessAssertionVariables = (builderState: AssertionMonitorBuilderState) => {
-    return {
-        input: {
-            type: builderState.assertion?.freshnessAssertion?.type as FreshnessAssertionType,
-            schedule: {
-                type: builderState.assertion?.freshnessAssertion?.schedule?.type as FreshnessAssertionScheduleType,
-                cron:
-                    builderState.assertion?.freshnessAssertion?.schedule?.type === FreshnessAssertionScheduleType.Cron
-                        ? builderState.assertion?.freshnessAssertion?.schedule?.cron
-                        : undefined,
-                fixedInterval:
-                    builderState.assertion?.freshnessAssertion?.schedule?.type ===
-                        FreshnessAssertionScheduleType.FixedInterval
-                        ? builderState.assertion?.freshnessAssertion?.schedule?.fixedInterval
-                        : undefined,
-            },
-            filter: builderState.assertion?.freshnessAssertion?.filter
-                ? {
-                    type: builderState.assertion?.freshnessAssertion?.filter.type as DatasetFilterType,
-                    sql: builderState.assertion?.freshnessAssertion?.filter.sql,
-                }
-                : undefined,
-            actions: builderState.assertion?.actions
-                ? {
-                    onSuccess: builderState.assertion?.actions?.onSuccess || [],
-                    onFailure: builderState.assertion?.actions?.onFailure || [],
-                }
-                : undefined,
+export const builderStateToSharedFreshnessAssertionVariables = (builderState: AssertionMonitorBuilderState) => {
+    return removeTypenameFields({
+        description: builderState.assertion?.description,
+        schedule: {
+            type: builderState.assertion?.freshnessAssertion?.schedule?.type as FreshnessAssertionScheduleType,
+            cron:
+                builderState.assertion?.freshnessAssertion?.schedule?.type === FreshnessAssertionScheduleType.Cron
+                    ? builderState.assertion?.freshnessAssertion?.schedule?.cron
+                    : undefined,
+            fixedInterval:
+                builderState.assertion?.freshnessAssertion?.schedule?.type ===
+                FreshnessAssertionScheduleType.FixedInterval
+                    ? builderState.assertion?.freshnessAssertion?.schedule?.fixedInterval
+                    : undefined,
         },
-    };
+        filter: builderState.assertion?.freshnessAssertion?.filter
+            ? {
+                  type: builderState.assertion?.freshnessAssertion?.filter.type as DatasetFilterType,
+                  sql: builderState.assertion?.freshnessAssertion?.filter.sql,
+              }
+            : undefined,
+        actions: builderState.assertion?.actions
+            ? {
+                  onSuccess: builderState.assertion?.actions?.onSuccess || [],
+                  onFailure: builderState.assertion?.actions?.onFailure || [],
+              }
+            : undefined,
+    });
+};
+
+export const builderStateToUpsertFreshnessAssertionMonitorVariables = (builderState: AssertionMonitorBuilderState) => {
+    return removeTypenameFields({
+        assertionUrn: builderState?.assertion?.urn,
+        input: {
+            ...builderStateToSharedFreshnessAssertionVariables(builderState),
+            // Monitor parameters
+            evaluationSchedule: builderState.schedule,
+            evaluationParameters: builderState.parameters?.datasetFreshnessParameters,
+            mode: MonitorMode.Active,
+            executorId: builderState.executorId,
+            entityUrn: builderState.entityUrn,
+        },
+    });
 };
 
 export const builderStateToVolumeTypeAssertionVariables = (builderState: AssertionMonitorBuilderState) => {
@@ -435,131 +469,165 @@ export const builderStateToVolumeTypeAssertionVariables = (builderState: Asserti
     }
 };
 
-export const builderStateToUpdateVolumeAssertionVariables = (builderState: AssertionMonitorBuilderState) => {
+export const builderStateToSharedVolumeAssertionVariables = (builderState: AssertionMonitorBuilderState) => {
     const volumeTypeVariables = builderStateToVolumeTypeAssertionVariables(builderState);
-
-    return {
-        input: {
-            type: builderState.assertion?.volumeAssertion?.type as VolumeAssertionType,
-            filter: builderState.assertion?.volumeAssertion?.filter
-                ? {
-                    type: builderState.assertion?.volumeAssertion?.filter.type as DatasetFilterType,
-                    sql: builderState.assertion?.volumeAssertion?.filter.sql,
-                }
-                : undefined,
-            actions: builderState.assertion?.actions
-                ? {
-                    onSuccess: builderState.assertion?.actions?.onSuccess || [],
-                    onFailure: builderState.assertion?.actions?.onFailure || [],
-                }
-                : undefined,
-            ...volumeTypeVariables,
-        },
-    };
+    return removeTypenameFields({
+        type: builderState.assertion?.volumeAssertion?.type as VolumeAssertionType,
+        description: builderState.assertion?.description,
+        filter: builderState.assertion?.volumeAssertion?.filter
+            ? {
+                  type: builderState.assertion?.volumeAssertion?.filter.type as DatasetFilterType,
+                  sql: builderState.assertion?.volumeAssertion?.filter.sql,
+              }
+            : undefined,
+        actions: builderState.assertion?.actions
+            ? {
+                  onSuccess: builderState.assertion?.actions?.onSuccess || [],
+                  onFailure: builderState.assertion?.actions?.onFailure || [],
+              }
+            : undefined,
+        ...volumeTypeVariables,
+    });
 };
 
-export const builderStateToUpdateSqlAssertionVariables = (builderState: AssertionMonitorBuilderState) => {
-    return {
+export const builderStateToUpsertVolumeAssertionMonitorVariables = (builderState: AssertionMonitorBuilderState) => {
+    return removeTypenameFields({
+        assertionUrn: builderState?.assertion?.urn,
         input: {
-            type: builderState.assertion?.sqlAssertion?.type as SqlAssertionType,
-            description: builderState.assertion?.description,
-            statement: builderState.assertion?.sqlAssertion?.statement,
-            changeType: builderState.assertion?.sqlAssertion?.changeType as AssertionValueChangeType,
-            operator: builderState.assertion?.sqlAssertion?.operator as AssertionStdOperator,
-            parameters:
-                builderState.assertion?.sqlAssertion?.operator === AssertionStdOperator.Between
-                    ? {
-                        minValue: builderState.assertion.sqlAssertion.parameters?.minValue,
-                        maxValue: builderState.assertion.sqlAssertion.parameters?.maxValue,
-                    }
-                    : {
-                        value: builderState.assertion?.sqlAssertion?.parameters?.value,
-                    },
-            actions: builderState.assertion?.actions
-                ? {
-                    onSuccess: builderState.assertion?.actions?.onSuccess || [],
-                    onFailure: builderState.assertion?.actions?.onFailure || [],
-                }
-                : undefined,
-        },
-    };
-};
-
-export const builderStateToUpdateFieldAssertionVariables = (builderState: AssertionMonitorBuilderState) => {
-    return {
-        input: {
-            type: builderState.assertion?.fieldAssertion?.type as FieldAssertionType,
-            fieldValuesAssertion:
-                builderState.assertion?.fieldAssertion?.type === FieldAssertionType.FieldValues
-                    ? builderState.assertion?.fieldAssertion?.fieldValuesAssertion
-                    : undefined,
-            fieldMetricAssertion:
-                builderState.assertion?.fieldAssertion?.type === FieldAssertionType.FieldMetric
-                    ? builderState.assertion?.fieldAssertion?.fieldMetricAssertion
-                    : undefined,
-            filter: builderState.assertion?.fieldAssertion?.filter
-                ? {
-                    type: builderState.assertion?.fieldAssertion?.filter.type as DatasetFilterType,
-                    sql: builderState.assertion?.fieldAssertion?.filter.sql,
-                }
-                : undefined,
-            actions: builderState.assertion?.actions
-                ? {
-                    onSuccess: builderState.assertion?.actions?.onSuccess || [],
-                    onFailure: builderState.assertion?.actions?.onFailure || [],
-                }
-                : undefined,
-        },
-    };
-};
-
-export const builderStateToCreateAssertionMonitorVariables = (
-    assertionUrn: string,
-    builderState: AssertionMonitorBuilderState,
-) => {
-    return {
-        input: {
-            entityUrn: builderState?.entityUrn,
-            assertionUrn,
-            schedule: builderState.schedule,
-            parameters: builderState.parameters,
+            ...builderStateToSharedVolumeAssertionVariables(builderState),
+            // Monitor parameters
+            evaluationSchedule: builderState.schedule,
+            evaluationParameters: builderState.parameters?.datasetVolumeParameters,
+            mode: MonitorMode.Active,
             executorId: builderState.executorId,
+            entityUrn: builderState.entityUrn,
+        },
+    });
+};
+
+export const builderStateToSharedSqlAssertionVariables = (builderState: AssertionMonitorBuilderState) => {
+    return removeTypenameFields({
+        type: builderState.assertion?.sqlAssertion?.type as SqlAssertionType,
+        description: builderState.assertion?.description,
+        statement: builderState.assertion?.sqlAssertion?.statement,
+        changeType: builderState.assertion?.sqlAssertion?.changeType as AssertionValueChangeType,
+        operator: builderState.assertion?.sqlAssertion?.operator as AssertionStdOperator,
+        parameters:
+            builderState.assertion?.sqlAssertion?.operator === AssertionStdOperator.Between
+                ? {
+                      minValue: {
+                          type: builderState.assertion?.sqlAssertion?.parameters?.minValue?.type,
+                          value: builderState.assertion?.sqlAssertion?.parameters?.minValue?.value,
+                      },
+                      maxValue: {
+                          type: builderState?.assertion?.sqlAssertion?.parameters?.maxValue?.type,
+                          value: builderState?.assertion?.sqlAssertion?.parameters?.maxValue?.value,
+                      },
+                  }
+                : {
+                      value: {
+                          type: builderState?.assertion?.sqlAssertion?.parameters?.value?.type,
+                          value: builderState?.assertion?.sqlAssertion?.parameters?.value?.value,
+                      },
+                  },
+        actions: builderState.assertion?.actions
+            ? {
+                  onSuccess: builderState.assertion?.actions?.onSuccess || [],
+                  onFailure: builderState.assertion?.actions?.onFailure || [],
+              }
+            : undefined,
+    });
+};
+
+export const builderStateToUpsertSqlAssertionMonitorVariables = (builderState: AssertionMonitorBuilderState) => {
+    return removeTypenameFields({
+        assertionUrn: builderState?.assertion?.urn,
+        input: {
+            ...builderStateToSharedSqlAssertionVariables(builderState),
+            // Monitor parameters
+            evaluationSchedule: builderState.schedule,
+            mode: MonitorMode.Active,
+            executorId: builderState.executorId,
+            entityUrn: builderState.entityUrn,
+        },
+    });
+};
+
+export const builderStateToSharedFieldAssertionVariables = (builderState: AssertionMonitorBuilderState) => {
+    return removeTypenameFields({
+        type: builderState.assertion?.fieldAssertion?.type as FieldAssertionType,
+        description: builderState.assertion?.description,
+        fieldValuesAssertion:
+            builderState.assertion?.fieldAssertion?.type === FieldAssertionType.FieldValues
+                ? builderState.assertion?.fieldAssertion?.fieldValuesAssertion
+                : undefined,
+        fieldMetricAssertion:
+            builderState.assertion?.fieldAssertion?.type === FieldAssertionType.FieldMetric
+                ? builderState.assertion?.fieldAssertion?.fieldMetricAssertion
+                : undefined,
+        filter: builderState.assertion?.fieldAssertion?.filter
+            ? {
+                  type: builderState.assertion?.fieldAssertion?.filter.type as DatasetFilterType,
+                  sql: builderState.assertion?.fieldAssertion?.filter.sql,
+              }
+            : undefined,
+        actions: builderState.assertion?.actions
+            ? {
+                  onSuccess: builderState.assertion?.actions?.onSuccess || [],
+                  onFailure: builderState.assertion?.actions?.onFailure || [],
+              }
+            : undefined,
+    });
+};
+
+export const builderStateToUpsertFieldAssertionMonitorVariables = (builderState: AssertionMonitorBuilderState) => {
+    return removeTypenameFields({
+        assertionUrn: builderState?.assertion?.urn,
+        input: {
+            ...builderStateToSharedFieldAssertionVariables(builderState),
+            // Monitor parameters
+            evaluationSchedule: builderState.schedule,
+            evaluationParameters: builderState.parameters?.datasetFieldParameters,
+            mode: MonitorMode.Active,
+            executorId: builderState.executorId,
+            entityUrn: builderState.entityUrn,
+        },
+    });
+};
+
+export const builderStateToTestFreshnessAssertionVariables = (builderState: AssertionMonitorBuilderState) => {
+    return {
+        input: {
+            entityUrn: builderState.entityUrn as string,
+            ...builderStateToSharedFreshnessAssertionVariables(builderState),
+            type: FreshnessAssertionType.DatasetChange,
         },
     };
 };
 
-export const builderStateToCreateFreshnessAssertionVariables = (builderState: AssertionMonitorBuilderState) => {
+export const builderStateToTestVolumeAssertionVariables = (builderState: AssertionMonitorBuilderState) => {
     return {
         input: {
             entityUrn: builderState.entityUrn as string,
-            ...builderStateToUpdateFreshnessAssertionVariables(builderState).input,
+            ...builderStateToSharedVolumeAssertionVariables(builderState),
         },
     };
 };
 
-export const builderStateToCreateVolumeAssertionVariables = (builderState: AssertionMonitorBuilderState) => {
+export const builderStateToTestSqlAssertionVariables = (builderState: AssertionMonitorBuilderState) => {
     return {
         input: {
             entityUrn: builderState.entityUrn as string,
-            ...builderStateToUpdateVolumeAssertionVariables(builderState).input,
+            ...builderStateToSharedSqlAssertionVariables(builderState),
         },
     };
 };
 
-export const builderStateToCreateSqlAssertionVariables = (builderState: AssertionMonitorBuilderState) => {
+export const builderStateToTestFieldAssertionVariables = (builderState: AssertionMonitorBuilderState) => {
     return {
         input: {
             entityUrn: builderState.entityUrn as string,
-            ...builderStateToUpdateSqlAssertionVariables(builderState).input,
-        },
-    };
-};
-
-export const builderStateToCreateFieldAssertionVariables = (builderState: AssertionMonitorBuilderState) => {
-    return {
-        input: {
-            entityUrn: builderState.entityUrn as string,
-            ...builderStateToUpdateFieldAssertionVariables(builderState).input,
+            ...builderStateToSharedFieldAssertionVariables(builderState),
         },
     };
 };
@@ -673,4 +741,57 @@ export const builderStateToUpdateAssertionActionsVariables = (
  */
 export const isStructField = (field: SchemaField) => {
     return field.fieldPath.includes('type=struct') || field.fieldPath.includes('.');
+};
+
+const convertAssertionToBuilderState = (assertion: Assertion) => {
+    return {
+        urn: assertion?.urn,
+        type: assertion?.info?.type,
+        description: assertion?.info?.description,
+        actions: {
+            onSuccess: assertion.actions?.onSuccess?.map((action) => ({ type: action.type })) || [],
+            onFailure: assertion.actions?.onFailure?.map((action) => ({ type: action.type })) || [],
+        },
+        freshnessAssertion: {
+            schedule: assertion.info?.freshnessAssertion?.schedule,
+            filter: assertion.info?.freshnessAssertion?.filter,
+        },
+        volumeAssertion: {
+            type: assertion.info?.volumeAssertion?.type,
+            rowCountTotal: assertion.info?.volumeAssertion?.rowCountTotal,
+            rowCountChange: assertion.info?.volumeAssertion?.rowCountChange,
+            incrementingSegmentRowCountTotal: assertion.info?.volumeAssertion?.incrementingSegmentRowCountTotal,
+            incrementingSegmentRowCountChange: assertion.info?.volumeAssertion?.incrementingSegmentRowCountChange,
+            // This is a divergence in the model.
+            parameters:
+                assertion.info?.volumeAssertion?.rowCountTotal?.parameters ||
+                assertion.info?.volumeAssertion?.rowCountChange?.parameters ||
+                undefined,
+            filter: assertion.info?.volumeAssertion?.filter,
+        },
+        sqlAssertion: {
+            type: assertion.info?.sqlAssertion?.type,
+            statement: assertion.info?.sqlAssertion?.statement,
+            changeType: assertion.info?.sqlAssertion?.changeType,
+            operator: assertion.info?.sqlAssertion?.operator,
+            parameters: assertion.info?.sqlAssertion?.parameters,
+        },
+        fieldAssertion: {
+            type: assertion.info?.fieldAssertion?.type,
+            fieldValuesAssertion: assertion.info?.fieldAssertion?.fieldValuesAssertion,
+            fieldMetricAssertion: assertion.info?.fieldAssertion?.fieldMetricAssertion,
+            filter: assertion.info?.fieldAssertion?.filter,
+        },
+    };
+};
+
+export const createAssertionMonitorBuilderState = (assertion: Assertion, monitor: Monitor, entity: Entity) => {
+    return {
+        entityUrn: entity.urn,
+        platformUrn: entity.platform?.urn,
+        assertion: convertAssertionToBuilderState(assertion),
+        schedule: monitor?.info?.assertionMonitor?.assertions?.[0]?.schedule,
+        parameters: monitor?.info?.assertionMonitor?.assertions?.[0]?.parameters,
+        executorId: monitor?.info?.assertionMonitor?.executor?.urn,
+    };
 };

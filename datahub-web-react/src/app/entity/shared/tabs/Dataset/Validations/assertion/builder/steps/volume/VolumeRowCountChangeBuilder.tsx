@@ -35,6 +35,7 @@ export const VolumeRowCountChangeBuilder = ({
     const selectedType = volumeInfo.type;
     const propertyName = getPropertyFromVolumeType(selectedType);
     const operator = volumeInfo[propertyName]?.operator as AssertionStdOperator;
+
     const handleValueChange = (newValue: number) => {
         onChange({
             ...value,
@@ -79,7 +80,7 @@ export const VolumeRowCountChangeBuilder = ({
                     <VolumeNumberInput
                         name="parameters.value"
                         placeholder="Number"
-                        value={value.value?.value ? parseInt(value.value.value, 10) : undefined}
+                        value={value?.value?.value ? parseInt(value.value.value, 10) : undefined}
                         onChange={(newValue) => handleValueChange(newValue as number)}
                         disabled={disabled}
                         select={{
@@ -108,7 +109,7 @@ export const VolumeRowCountChangeBuilder = ({
                     <VolumeNumberInput
                         name="parameters.minValue"
                         placeholder="Min"
-                        value={value.minValue?.value ? parseInt(value.minValue.value, 10) : undefined}
+                        value={value?.minValue?.value ? parseInt(value.minValue.value, 10) : undefined}
                         onChange={(newValue) => handleMinValueChange(newValue as number)}
                         disabled={disabled}
                         select={{
@@ -140,7 +141,7 @@ export const VolumeRowCountChangeBuilder = ({
                     <VolumeNumberInput
                         name="parameters.maxValue"
                         placeholder="Max"
-                        value={value.maxValue?.value ? parseInt(value.maxValue.value, 10) : undefined}
+                        value={value?.maxValue?.value ? parseInt(value.maxValue.value, 10) : undefined}
                         onChange={(newValue) => handleMaxValueChange(newValue as number)}
                         disabled={disabled}
                         select={{

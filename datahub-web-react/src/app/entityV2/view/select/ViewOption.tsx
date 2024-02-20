@@ -1,60 +1,109 @@
 import React from 'react';
 import styled from 'styled-components';
+import CloseIcon from '@mui/icons-material/Close';
 import { DataHubView } from '../../../../types.generated';
 import { ViewOptionName } from './ViewOptionName';
-import { ViewDropdownMenu } from '../menu/ViewDropdownMenu';
-import { UserDefaultViewIcon } from '../shared/UserDefaultViewIcon';
-import { GlobalDefaultViewIcon } from '../shared/GlobalDefaultViewIcon';
-
-const ICON_WIDTH = 30;
+import { ANTD_GRAY, REDESIGN_COLORS, SEARCH_COLORS } from '../../shared/constants';
 
 const Container = styled.div`
     display: flex;
-    align-items: center;
-    justify-content: stretch;
     width: 100%;
+    gap: 0.5rem;
 `;
 
-const IconPlaceholder = styled.div`
-    width: ${ICON_WIDTH}px;
+const ViewDetailsContainer = styled.div<{ selected: boolean }>`
     display: flex;
     align-items: center;
-    justify-content: center;
+    position: relative;
+    background: ${(props) => (props.selected ? SEARCH_COLORS.TITLE_PURPLE : '')};
+    padding: 10px;
+    border-radius: 16px;
+    border: 1px solid ${(props) => (props.selected ? SEARCH_COLORS.TITLE_PURPLE : REDESIGN_COLORS.BORDER_1)};
+    &:hover {
+        border: ${`1px solid ${SEARCH_COLORS.TITLE_PURPLE}`};
+        padding: 10px;
+        border-radius: 16px;
+        & .create-view-icon {
+            background: ${SEARCH_COLORS.TITLE_PURPLE} !important;
+            border: ${(props) => (!props.selected ? `1px solid ${SEARCH_COLORS.TITLE_PURPLE} !important` : '')};
+        }
+    }
+    & .default-view-icon-container {
+        border: 1px solid
+            ${(props) => (props.selected ? SEARCH_COLORS.TITLE_PURPLE : REDESIGN_COLORS.BACKGROUND_OVERLAY_BLACK)};
+        border-radius: 100%;
+    }
+    & .close-container {
+        position: absolute;
+        top: -10px;
+        right: -5px;
+        background-color: ${ANTD_GRAY[1]};
+        display: flex;
+        align-items: center;
+        border-radius: 100%;
+        padding: 5px;
+        cursor: pointer;
+    }
+`;
+
+const CloseIconStyle = styled(CloseIcon)`
+    font-size: 14px !important;
+    color: ${SEARCH_COLORS.TITLE_PURPLE};
 `;
 
 type Props = {
+    selectedUrn: boolean;
     view: DataHubView;
     showOptions: boolean;
     isGlobalDefault: boolean;
     isUserDefault: boolean;
     isOwnedByUser?: boolean;
+    scrollToRef?: any;
     onClickEdit: () => void;
     onClickPreview: () => void;
+    onClickClear: () => void;
 };
 
 export const ViewOption = ({
+    selectedUrn,
     view,
     showOptions,
     isGlobalDefault,
     isUserDefault,
     isOwnedByUser,
+    scrollToRef,
     onClickEdit,
     onClickPreview,
+    onClickClear,
 }: Props) => {
+    
+    const onClear = (e) => {
+        e.stopPropagation();
+        onClickClear();
+    };
+
     return (
         <Container>
-            <IconPlaceholder>
-                {isUserDefault && <UserDefaultViewIcon title="Your default View." />}
-                {isGlobalDefault && <GlobalDefaultViewIcon title="Your organization's default View." />}
-            </IconPlaceholder>
-            <ViewOptionName name={view.name} description={view.description} />
-            <ViewDropdownMenu
-                view={view}
-                isOwnedByUser={isOwnedByUser}
-                visible={showOptions}
-                onClickEdit={onClickEdit}
-                onClickPreview={onClickPreview}
-            />
+            <ViewDetailsContainer selected={selectedUrn} ref={selectedUrn ? scrollToRef : null}>
+                <ViewOptionName
+                    name={view.name}
+                    description={view.description}
+                    type={view.viewType}
+                    isUserDefault={isUserDefault}
+                    isGlobalDefault={isGlobalDefault}
+                    view={view}
+                    isOwnedByUser={isOwnedByUser}
+                    visible={showOptions}
+                    onClickEdit={onClickEdit}
+                    onClickPreview={onClickPreview}
+                    selected={selectedUrn}
+                />
+                {selectedUrn && (
+                    <div className="close-container" onClick={(e) => onClear(e)} role="none">
+                        <CloseIconStyle />
+                    </div>
+                )}
+            </ViewDetailsContainer>
         </Container>
     );
 };

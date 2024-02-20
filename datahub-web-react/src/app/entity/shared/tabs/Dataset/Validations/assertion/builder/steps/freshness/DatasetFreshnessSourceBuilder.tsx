@@ -34,7 +34,6 @@ const SourceDescription = styled.div`
     padding: 12px;
     background-color: ${ANTD_GRAY[3]};
     border-radius: 8px;
-    margin-bottom: 20px;
 `;
 
 const StyledInfoCircleOutlined = styled(InfoCircleOutlined)`
@@ -183,7 +182,10 @@ export const DatasetFreshnessSourceBuilder = ({
                     return (
                         <Select.Option value={option.name} key={option.name} disabled={isDisabled}>
                             <SelectOptionContent disabled={isDisabled}>
-                                <Typography.Text>{option.name}</Typography.Text>
+                                <Typography.Text>
+                                    {option.name}
+                                    {option.type === defaultSourceType ? ' (Recommended)' : null}
+                                </Typography.Text>
                                 <SourceOptionSelectDescription type="secondary">
                                     {option.description}
                                 </SourceOptionSelectDescription>

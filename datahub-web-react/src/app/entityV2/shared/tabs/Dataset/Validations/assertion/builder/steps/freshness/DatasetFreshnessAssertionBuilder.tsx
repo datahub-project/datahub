@@ -1,0 +1,139 @@
+import React from 'react';
+
+import { Collapse } from 'antd';
+import styled from 'styled-components';
+
+import { AssertionMonitorBuilderState } from '../../types';
+import {
+    AssertionEvaluationParametersType,
+    AssertionType,
+    CronSchedule,
+    DatasetFilter,
+    DatasetFreshnessAssertionParameters,
+    FreshnessAssertionSchedule,
+    FreshnessAssertionScheduleType,
+} from '../../../../../../../../../../types.generated';
+import { EvaluationScheduleBuilder } from './EvaluationScheduleBuilder';
+import { DatasetFreshnessScheduleBuilder } from './DatasetFreshnessScheduleBuilder';
+import { DatasetFreshnessSourceBuilder } from './DatasetFreshnessSourceBuilder';
+import { DatasetFreshnessFilterBuilder } from './DatasetFreshnessFilterBuilder';
+import { AssertionActionsSection } from '../actions/AssertionActionsSection';
+
+const Section = styled.div`
+    display: flex;
+    flex-direction: column;
+    padding-bottom: 20px;
+`;
+
+type Props = {
+    state: AssertionMonitorBuilderState;
+    updateState: (state: AssertionMonitorBuilderState) => void;
+    editing?: boolean;
+};
+
+/**
+ * Step for defining the Dataset Freshness assertion
+ */
+export const DatasetFreshnessAssertionBuilder = ({ state, updateState, editing }: Props) => {
+    const freshnessAssertion = state.assertion?.freshnessAssertion;
+    const freshnessFilter = freshnessAssertion?.filter;
+    const freshnessSchedule = freshnessAssertion?.schedule;
+    const freshnessScheduleType = freshnessSchedule?.type;
+    const datasetFreshnessParameters = state.parameters?.datasetFreshnessParameters;
+
+    const updateDatasetFreshnessAssertionParameters = (parameters: DatasetFreshnessAssertionParameters) => {
+        updateState({
+            ...state,
+            parameters: {
+                type: AssertionEvaluationParametersType.DatasetFreshness,
+                datasetFreshnessParameters: {
+                    sourceType: parameters.sourceType,
+                    auditLog: parameters.auditLog as any,
+                    field: parameters.field as any,
+                },
+            },
+        });
+    };
+
+    const updateAssertionSqlFilter = (filter?: DatasetFilter) => {
+        updateState({
+            ...state,
+            assertion: {
+                ...state.assertion,
+                freshnessAssertion: {
+                    ...state.assertion?.freshnessAssertion,
+                    filter,
+                },
+            },
+        });
+    };
+
+    const updateAssertionSchedule = (schedule: CronSchedule) => {
+        // when the schedule changes, also update the freshness assertion cron schedule
+        updateState({
+            ...state,
+            schedule,
+            assertion: {
+                ...state.assertion,
+                freshnessAssertion: {
+                    ...state.assertion?.freshnessAssertion,
+                    schedule: {
+                        ...state.assertion?.freshnessAssertion?.schedule,
+                        cron: schedule,
+                    },
+                },
+            },
+        });
+    };
+
+    const updateFreshnessSchedule = (schedule: FreshnessAssertionSchedule) => {
+        updateState({
+            ...state,
+            assertion: {
+                ...state.assertion,
+                freshnessAssertion: {
+                    ...state.assertion?.freshnessAssertion,
+                    schedule,
+                },
+            },
+        });
+    };
+
+    return (
+        <div>
+            <EvaluationScheduleBuilder
+                value={state.schedule as CronSchedule}
+                onChange={updateAssertionSchedule}
+                assertionType={AssertionType.Freshness}
+                disabled={!editing}
+            />
+            <DatasetFreshnessScheduleBuilder
+                value={freshnessSchedule as FreshnessAssertionSchedule}
+                onChange={updateFreshnessSchedule}
+                disabled={!editing}
+            />
+
+            <Section>
+                <Collapse>
+                    <Collapse.Panel key="Advanced" header="Advanced">
+                        <DatasetFreshnessSourceBuilder
+                            entityUrn={state.entityUrn as string}
+                            platformUrn={state.platformUrn as string}
+                            scheduleType={freshnessScheduleType as FreshnessAssertionScheduleType}
+                            value={datasetFreshnessParameters as DatasetFreshnessAssertionParameters}
+                            onChange={updateDatasetFreshnessAssertionParameters}
+                            disabled={!editing}
+                        />
+                        <DatasetFreshnessFilterBuilder
+                            value={freshnessFilter as DatasetFilter}
+                            onChange={updateAssertionSqlFilter}
+                            sourceType={datasetFreshnessParameters?.sourceType}
+                            disabled={!editing}
+                        />
+                    </Collapse.Panel>
+                </Collapse>
+            </Section>
+            <AssertionActionsSection state={state} updateState={updateState} editing={editing} />
+        </div>
+    );
+};

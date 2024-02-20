@@ -2,6 +2,7 @@ import React from 'react';
 import { Menu } from 'antd';
 import { UserDefaultViewIcon } from '../../shared/UserDefaultViewIcon';
 import { IconItemTitle } from './IconItemTitle';
+import { REDESIGN_COLORS } from '../../../shared/constants';
 
 type Props = {
     key: string;
@@ -17,7 +18,7 @@ export const SetUserDefaultItem = ({ key, onClick }: Props) => {
             <IconItemTitle
                 tip="Make this View your personal default. You will have this View applied automatically."
                 title="Make my default"
-                icon={<UserDefaultViewIcon />}
+                icon={<UserDefaultViewIcon  color={REDESIGN_COLORS.TERTIARY_GREEN}/>}
             />
         </Menu.Item>
     );

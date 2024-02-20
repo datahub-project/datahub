@@ -54,7 +54,7 @@ export const FieldMetricBuilder = ({ value, onChange, disabled }: Props) => {
     return (
         <Section>
             <Typography.Title level={5}>Metric</Typography.Title>
-            <Typography.Paragraph type="secondary">Select a column metric to evaluate</Typography.Paragraph>
+            <Typography.Paragraph type="secondary">Select a column metric to test against</Typography.Paragraph>
             <StyledFormItem
                 name="fieldMetricType"
                 rules={[

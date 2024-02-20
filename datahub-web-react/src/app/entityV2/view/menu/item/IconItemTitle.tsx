@@ -14,6 +14,8 @@ const IconContainer = styled.span`
     && {
         color: ${ANTD_GRAY[8]};
         margin-right: 12px;
+        display: flex;
+        align-items: center;
     }
 `;
 

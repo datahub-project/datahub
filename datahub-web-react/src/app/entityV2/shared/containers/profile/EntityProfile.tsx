@@ -168,7 +168,7 @@ const TabContent = styled.div`
     overflow: auto;
 `;
 
-const defaultTabDisplayConfig = {
+export const defaultTabDisplayConfig = {
     visible: (_, _1) => true,
     enabled: (_, _1) => true,
 };
@@ -344,7 +344,6 @@ export const EntityProfile = <T, U>({
                             subHeader={subHeader}
                             hideHeader
                             // TODO: Hide collapse for chrome extension
-                            hideCollapseViewDetails={false}
                             contextType={isInSearch ? TabContextType.SEARCH_SIDEBAR : TabContextType.LINEAGE_SIDEBAR}
                             width={width}
                         />
@@ -437,6 +436,7 @@ export const EntityProfile = <T, U>({
                                                     : window.innerWidth * 0.25)
                                             }
                                             contextType={TabContextType.PROFILE_SIDEBAR}
+                                            headerDropdownItems={headerDropdownItems}
                                         />
                                     </SidebarWrapper>
                                 )}

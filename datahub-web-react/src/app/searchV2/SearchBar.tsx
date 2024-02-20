@@ -43,7 +43,7 @@ const StyledSearchBar = styled(Input)<{ textColor?: string; placeholderColor?: s
         color: #dcdcdc;
         background-color: ${ANTD_GRAY_V2[2]};
         border: 2px solid transparent;
-
+        padding-right: 2.5px;
         &:focus-within {
             border: 2px solid ${(props) => props.theme.styles['primary-color']};
         }
@@ -424,15 +424,7 @@ export const SearchBar = ({
                                     onKeyUp={handleStopPropagation}
                                     onKeyDown={handleStopPropagation}
                                 >
-                                    <ViewSelect
-                                        dropdownStyle={
-                                            fixAutoComplete
-                                                ? {
-                                                      position: 'fixed',
-                                                  }
-                                                : {}
-                                        }
-                                    />
+                                    <ViewSelect />
                                 </ViewSelectContainer>
                             )}
                         </>

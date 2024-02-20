@@ -11,10 +11,10 @@ import { ANTD_GRAY } from '../../../constants';
 import PrefixedSelect from '../Stats/historical/shared/PrefixedSelect';
 import { LOOKBACK_WINDOWS } from '../Stats/lookbackWindows';
 import { getResultColor, getResultErrorMessage, getResultIcon, getResultText } from './assertionUtils';
-import { AssertionResultTimeline } from './AssertionResultTimeline';
 import { DatasetAssertionResultDetails } from './DatasetAssertionResultDetails';
 import { LinkWrapper } from '../../../../../shared/LinkWrapper';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
+import { BooleanTimeline } from './BooleanTimeline';
 
 const RESULT_CHART_WIDTH_PX = 800;
 
@@ -261,7 +261,7 @@ export const DatasetAssertionDetails = ({ urn, lastEvaluatedAtMillis }: Props) =
                             setValue={onChangeLookbackWindow}
                         />
                     </EvaluationsHeader>
-                    <AssertionResultTimeline
+                    <BooleanTimeline
                         width={RESULT_CHART_WIDTH_PX}
                         data={assertionResultsChartData}
                         timeRange={selectedWindowTimeRange}

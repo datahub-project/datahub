@@ -5,7 +5,7 @@ import moment from 'moment-timezone';
 import React from 'react';
 import { QuestionCircleOutlined } from '@ant-design/icons';
 import { toLocalDateTimeString, toRelativeTimeString } from '../../../../../shared/time/timeUtils';
-import { ANTD_GRAY } from '../../../constants';
+import { ANTD_GRAY, REDESIGN_COLORS } from '../../../constants';
 import { useEntityData } from '../../../EntityContext';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import { getPlatformName } from '../../../utils';
@@ -15,9 +15,9 @@ const StyledDot = styled.div<{ color: string }>`
     border: 1px solid ${ANTD_GRAY[5]};
     border-radius: 50%;
     background-color: ${(props) => props.color};
-    width: 10px;
-    height: 10px;
-    margin-right: 8px;
+    width: 5px;
+    height: 5px;
+    margin-right: 5px;
     vertical-align: middle;
 `;
 
@@ -38,7 +38,10 @@ const PopoverContentWrapper = styled.div``;
 const MainContent = styled.div`
     align-items: center;
     display: flex;
-    color: ${ANTD_GRAY[8]};
+    color: ${REDESIGN_COLORS.HEADING_COLOR};
+    font-size: 10px;
+    font-weight: 400;
+    line-height: 20px;
 `;
 
 const RelativeDescription = styled.div`

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
 import { useApolloClient } from '@apollo/client';
-import { MoreOutlined } from '@ant-design/icons';
+import MoreVertIcon from '@mui/icons-material/MoreVert';
 import { Dropdown, Menu, message, Modal } from 'antd';
 import { DataHubView, DataHubViewType } from '../../../../types.generated';
 import { useUserContext } from '../../../context/useUserContext';
@@ -21,7 +21,7 @@ import { SetGlobalDefaultItem } from './item/SetGlobalDefaultItem';
 import { DeleteViewItem } from './item/DeleteViewItem';
 import analytics, { EventType } from '../../../analytics';
 
-const MenuButton = styled(MoreOutlined)`
+const MenuButton = styled(MoreVertIcon)`
     width: 20px;
     &&& {
         padding-left: 0px;
@@ -34,6 +34,8 @@ const MenuButton = styled(MoreOutlined)`
 `;
 
 const MenuStyled = styled(Menu)`
+    border-radius: 12px;
+    padding: 10px 0px;
     &&& {
         .ant-dropdown-menu-item:not(:hover) {
             background: none;

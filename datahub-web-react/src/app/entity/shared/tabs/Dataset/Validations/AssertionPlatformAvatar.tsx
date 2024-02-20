@@ -17,11 +17,17 @@ type Props = {
 export const AssertionPlatformAvatar = ({ platform, lastEvaluationUrl }: Props) => {
     const entityRegistry = useEntityRegistry();
     return (
-        <Tooltip title={entityRegistry.getDisplayName(EntityType.DataPlatform, platform)}>
+        <Tooltip title={`Run by ${entityRegistry.getDisplayName(EntityType.DataPlatform, platform)}`}>
             <PlatformContainer>
                 {(platform.properties?.logoUrl && (
                     <LinkWrapper to={lastEvaluationUrl} target="_blank" onClick={(e) => e.stopPropagation()}>
-                        <Image preview={false} height={20} width={20} src={platform.properties?.logoUrl} />
+                        <Image
+                            preview={false}
+                            height={24}
+                            width={24}
+                            src={platform.properties?.logoUrl}
+                            style={{ objectFit: 'fill', borderRadius: 12 }}
+                        />
                     </LinkWrapper>
                 )) || (
                     <Typography.Text>

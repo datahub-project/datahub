@@ -1,7 +1,7 @@
 name: Delete stale branches
 on:
   schedule:
-    - cron: "30 1 * * *"
+    - cron: "30 1,7,13,19 * * *"
   workflow_dispatch:
 
 jobs:
@@ -12,7 +12,7 @@ jobs:
       - uses: fpicalausa/remove-stale-branches@v1.6.0
         with:
           exempt-protected-branches: true
-          operations-per-run: 10
+          operations-per-run: 25
           days-before-branch-stale: 365
           # (days when branch is noticed as stale)
           days-before-branch-delete: 0

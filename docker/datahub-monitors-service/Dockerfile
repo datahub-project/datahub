@@ -54,7 +54,8 @@ FROM prod-install as dev-install
 # Dummy stage for development. Assumes most of the code is built on your machine and mounted to this image.
 # See this excellent thread https://github.com/docker/cli/issues/1134
 
-ENV EXTRA_UVICORN_ARGS="--reload --reload-dir /datahub-monitors-service/src/datahub_monitors"
+ENV PYTHONPATH="/metadata-ingestion/src:/datahub-monitors-service/src/datahub_monitors:${PYTHONPATH}"
+ENV EXTRA_UVICORN_ARGS="--reload --reload-dir /datahub-monitors-service/src/datahub_monitors --reload-dir /metadata-ingestion/src"
 
 FROM ${APP_ENV}-install as final
 

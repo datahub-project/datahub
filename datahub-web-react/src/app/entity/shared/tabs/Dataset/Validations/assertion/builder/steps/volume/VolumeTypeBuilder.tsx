@@ -12,6 +12,7 @@ import {
     VolumeTypeOptionEnum,
     getDefaultVolumeParameters,
     getPropertyFromVolumeType,
+    getSelectedVolumeTypeOption,
     getVolumeTypeCategory,
     getVolumeTypeOption,
     getVolumeTypeOptions,
@@ -28,13 +29,15 @@ const StyledSelect = styled(Select)`
 `;
 
 type Props = {
+    volumeInfo?: VolumeAssertionInfo;
     segment?: Maybe<IncrementingSegmentSpec>;
     onChange: (newParams: Partial<VolumeAssertionInfo>) => void;
     disabled?: boolean;
 };
 
-export const VolumeTypeBuilder = ({ onChange, segment, disabled }: Props) => {
+export const VolumeTypeBuilder = ({ volumeInfo, onChange, segment, disabled }: Props) => {
     const options = getVolumeTypeOptions();
+    const selectedType = getSelectedVolumeTypeOption(volumeInfo);
 
     const updateVolumeType = (newValue: VolumeTypeOptionEnum) => {
         const option = getVolumeTypeOption(newValue);
@@ -62,11 +65,15 @@ export const VolumeTypeBuilder = ({ onChange, segment, disabled }: Props) => {
 
     return (
         <Container>
-            <Typography.Title level={5}>Row Count Condition</Typography.Title>
-            <Typography.Paragraph type="secondary">Select when this assertion should fail</Typography.Paragraph>
-            <Form.Item name="volume-type" rules={[{ required: true, message: 'Please select an option' }]}>
+            <Typography.Title level={5}>Fail when table row count</Typography.Title>
+            <Form.Item
+                initialValue={selectedType}
+                name="volume-type"
+                rules={[{ required: true, message: 'Please select an option' }]}
+            >
                 <StyledSelect
-                    placeholder="Select condition type"
+                    value={selectedType}
+                    placeholder="Select volume condition"
                     onChange={(option) => updateVolumeType(option as VolumeTypeOptionEnum)}
                     options={options}
                     disabled={disabled}

@@ -1,6 +1,6 @@
 import styled from 'styled-components';
 import { Button } from 'antd';
-import { ANTD_GRAY } from '../constants';
+import { ANTD_GRAY, REDESIGN_COLORS, SEARCH_COLORS } from '../constants';
 
 const MenuItem = styled.div`
     font-size: 12px;
@@ -19,12 +19,14 @@ export const ActionMenuItem = styled(Button)<{ disabled?: boolean }>`
     justify-content: center;
     overflow: hidden;
     border: none;
-    background-color: #ffffff;
-    border: 1px solid #f0f0f0;
-    color: #5280e8;
+    background-color: #f7f7f7;
+    border: 1px solid #eee;
+    color: ${REDESIGN_COLORS.ACTION_ICON_GREY};
     box-shadow: none;
     &&:hover {
         background-color: ${ANTD_GRAY[3]};
+        color: ${SEARCH_COLORS.TITLE_PURPLE};
+        border-color: ${SEARCH_COLORS.TITLE_PURPLE};
     }
     ${(props) =>
         props.disabled

@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components/macro';
 import { Divider } from 'antd';
-
 import PlatformContent from './PlatformContent';
 import { EntityHealth } from './EntityHealth';
 import EntityName from './EntityName';
@@ -10,14 +9,13 @@ import EntityActions, { EntityActionItem } from '../../../entity/EntityActions';
 import EntityTitleLoadingSection from './EntityHeaderLoadingSection';
 import EntityPlatformLoadingSection from './EntityPlatformLoadingSection';
 import IconColorPicker from './IconPicker/IconColorPicker';
-
-import EntityMenuActions, { EntityMenuItems } from '../../../EntityDropdown/EntityMenuActions';
 import { EntitySubHeaderSection } from '../../../types';
 import { DisplayProperties, Domain, EntityType } from '../../../../../../types.generated';
 import { DomainColoredIcon } from '../../../links/DomainColoredIcon';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import { EntityBackButton } from '../sidebar/EntityBackButton';
 import { BusinessGlossaryEntitiesCardColors } from '../../../../../onboarding/config/BusinessGlossaryConfigV2';
+import EntityMenuActions, { EntityMenuItems } from '../../../EntityDropdown/EntityMenuActions';
 
 export const TitleWrapper = styled.div`
     display: flex;
@@ -105,8 +103,8 @@ export type Props = {
     loading: boolean;
     entityData?: any;
     refetch: () => void;
-    headerDropdownItems?: Set<EntityMenuItems>;
     headerActionItems?: Set<EntityActionItem>;
+    headerDropdownItems?: Set<EntityMenuItems>;
     subHeader?: EntitySubHeaderSection;
     showEditName?: boolean;
     isColorEditable?: boolean;

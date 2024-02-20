@@ -7,16 +7,11 @@ import { useEntityData } from '../../../EntityContext';
 import { DatasetAssertionsSummary } from './DatasetAssertionsSummary';
 import { combineEntityDataWithSiblings, useIsSeparateSiblingsMode } from '../../../siblingUtils';
 import { useAppConfig } from '../../../../../useAppConfig';
-import { AssertionMonitorBuilderModal } from './assertion/builder/AssertionMonitorBuilderModal';
+import { AssertionMonitorBuilderDrawer } from './assertion/builder/AssertionMonitorBuilderDrawer';
 import TabToolbar from '../../../components/styled/TabToolbar';
-import { isEntityEligibleForAssertionMonitoring } from './assertion/builder/utils';
 import { createAssertionGroups, getLegacyAssertionsSummary } from './acrylUtils';
 import { AssertionGroupTable } from './AssertionGroupTable';
-import {
-    updateDatasetAssertionsCache,
-    removeFromDatasetAssertionsCache,
-    createCachedAssertionWithMonitor,
-} from './acrylCacheUtils';
+import { updateDatasetAssertionsCache, createCachedAssertionWithMonitor } from './acrylCacheUtils';
 import { useGetDatasetContractQuery } from '../../../../../../graphql/contract.generated';
 
 /**
@@ -50,11 +45,13 @@ export const AcrylAssertions = () => {
     const canCreateAssertion =
         (data?.dataset?.privileges?.canEditAssertions || false) &&
         (data?.dataset?.privileges?.canEditMonitors || false);
+
     return (
         <>
-            {assertionMonitorsEnabled && isEntityEligibleForAssertionMonitoring(entityData?.platform?.urn) && (
+            {assertionMonitorsEnabled && (
                 <TabToolbar>
                     <Tooltip
+                        showArrow={false}
                         title={
                             !canCreateAssertion && 'You do not have permission to create an assertion for this asset'
                         }
@@ -64,7 +61,7 @@ export const AcrylAssertions = () => {
                             onClick={() => canCreateAssertion && setShowAssertionBuilder(true)}
                             disabled={!canCreateAssertion}
                         >
-                            <PlusOutlined /> Create Assertion
+                            <PlusOutlined /> Create
                         </Button>
                     </Tooltip>
                 </TabToolbar>
@@ -73,25 +70,22 @@ export const AcrylAssertions = () => {
             <AssertionGroupTable
                 groups={assertionGroups}
                 contract={contract}
-                onDeletedAssertion={(assertionUrn) => {
-                    removeFromDatasetAssertionsCache(urn, assertionUrn, client);
-                    setTimeout(() => refetch(), 5000);
+                refetch={() => {
+                    refetch();
                     contractRefetch();
                 }}
-                onUpdatedAssertion={(assertion) => {
-                    updateDatasetAssertionsCache(urn, assertion, client);
-                    setTimeout(() => refetch(), 5000);
-                    contractRefetch();
-                }}
+                canEditAssertions={data?.dataset?.privileges?.canEditAssertions || false}
+                canEditMonitors={data?.dataset?.privileges?.canEditMonitors || false}
+                canEditSqlAssertions={data?.dataset?.privileges?.canEditSqlAssertionMonitors || false}
             />
             {showAssertionBuilder && (
-                <AssertionMonitorBuilderModal
+                <AssertionMonitorBuilderDrawer
                     entityUrn={urn}
                     entityType={entityType}
                     platformUrn={entityData?.platform?.urn as string}
-                    onSubmit={(assertion, monitor) => {
+                    onSubmit={(assertion) => {
                         setShowAssertionBuilder(false);
-                        updateDatasetAssertionsCache(urn, createCachedAssertionWithMonitor(assertion, monitor), client);
+                        updateDatasetAssertionsCache(urn, createCachedAssertionWithMonitor(assertion), client);
                         setTimeout(() => refetch(), 5000);
                     }}
                     onCancel={() => setShowAssertionBuilder(false)}

@@ -1,10 +1,14 @@
 import React from 'react';
-import { useEntityData } from '../../../../EntityContext';
+import AddRoundedIcon from '@mui/icons-material/AddRounded';
+import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
+import { useEntityData, useRouteToTab } from '../../../../EntityContext';
 import DescriptionSection from './DescriptionSection';
 import LinksSection from './LinksSection';
 import SourceRefSection from './SourceRefSection';
-import EmptyContentSection from './EmptyContentSection';
 import { SidebarSection } from '../SidebarSection';
+import { EMPTY_MESSAGES } from '../../../../constants';
+import SectionActionButton from '../SectionActionButton';
+import EmptySectionText from '../EmptySectionText';
 
 interface Properties {
     hideLinksButton?: boolean;
@@ -24,16 +28,33 @@ export const SidebarAboutSection = ({ properties, readOnly }: Props) => {
     const links = entityData?.institutionalMemory?.elements || [];
 
     const hasContent = !!description || links.length > 0;
+    const routeToTab = useRouteToTab();
+
+    const canEditDescription = !!entityData?.privileges?.canEditDescription;
 
     return (
         <>
             <SidebarSection
-                title="About"
+                title="Documentation"
                 content={
                     <>
                         {description && <DescriptionSection description={description} />}
                         {hasContent && <LinksSection hideLinksButton={hideLinksButton} readOnly />}
-                        {!hasContent && <EmptyContentSection readOnly={readOnly} />}
+                        {!hasContent && <EmptySectionText message={EMPTY_MESSAGES.documentation.title} />}
+                    </>
+                }
+                extra={
+                    <>
+                        {!readOnly && (
+                            <SectionActionButton
+                                button={hasContent ? <EditOutlinedIcon /> : <AddRoundedIcon />}
+                                onClick={(event) => {
+                                    routeToTab({ tabName: 'Documentation', tabParams: { editing: true } });
+                                    event.stopPropagation();
+                                }}
+                                actionPrivilege={canEditDescription}
+                            />
+                        )}
                     </>
                 }
             />

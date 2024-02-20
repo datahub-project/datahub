@@ -4,27 +4,23 @@ import { Form, Steps } from 'antd';
 import { AssertionMonitorBuilderState, StepProps, AssertionBuilderStep } from './types';
 import { AssertionBuilderStepTitles, getAssertionsBuilderStepComponent } from './conf';
 import { DEFAULT_BUILDER_STATE } from './constants';
-import { EntityType, Monitor, Assertion, AssertionType } from '../../../../../../../../types.generated';
-import { useCreateAssertionMonitor } from './useCreateAssertionMonitor';
-
-const Container = styled.div`
-    display: flex;
-    align-items: top;
-    justify-content: space-between;
-    width: 100%;
-    min-height: 50vh;
-`;
+import { EntityType, Assertion, AssertionType } from '../../../../../../../../types.generated';
+import { useUpsertAssertionMonitor } from './useUpsertAssertionMonitor';
 
 const MainContent = styled.div`
     display: flex;
     flex-direction: column;
-    width: 100%;
+    height: 100%;
 `;
 
 const StepsContainer = styled.div`
     margin-right: 20px;
     margin-left: 20px;
     margin-bottom: 40px;
+`;
+
+const StyledForm = styled(Form)`
+    flex: 1;
 `;
 
 const stepIds = Object.values(AssertionBuilderStep);
@@ -36,7 +32,7 @@ type Props = {
     entityType: EntityType;
     platformUrn: string;
     initialState?: AssertionMonitorBuilderState;
-    onSubmit?: (assertion: Assertion, monitor: Monitor) => void;
+    onSubmit?: (assertion: Assertion) => void;
     onCancel?: () => void;
 };
 
@@ -55,12 +51,12 @@ export const AssertionMonitorBuilder = ({
         initialState || { ...DEFAULT_BUILDER_STATE, entityUrn, entityType, platformUrn },
     );
 
-    const onCreateAssertionMonitor = (newAssertion: Assertion, newMonitor: Monitor) => {
-        onSubmit?.(newAssertion, newMonitor);
+    const onCreateAssertionMonitor = (newAssertion: Assertion) => {
+        onSubmit?.(newAssertion);
         setBuilderState(DEFAULT_BUILDER_STATE);
     };
 
-    const createAssertionMonitor = useCreateAssertionMonitor(entityUrn, builderState, onCreateAssertionMonitor);
+    const createAssertionMonitor = useUpsertAssertionMonitor(builderState, onCreateAssertionMonitor, false);
 
     /**
      * The current step id, e.g. SELECT_TYPE
@@ -109,26 +105,24 @@ export const AssertionMonitorBuilder = ({
     };
 
     return (
-        <Container>
-            <MainContent>
-                <StepsContainer>
-                    <Steps current={currentStepIndex}>
-                        {stepIds.map((id) => (
-                            <Steps.Step key={id} title={AssertionBuilderStepTitles[id]} />
-                        ))}
-                    </Steps>
-                </StepsContainer>
-                <Form form={form} initialValues={initialState}>
-                    <StepComponent
-                        state={builderState}
-                        updateState={setBuilderState}
-                        goTo={goTo}
-                        prev={stepStack.length > 1 ? prev : undefined}
-                        submit={handleSubmit}
-                        cancel={cancel}
-                    />
-                </Form>
-            </MainContent>
-        </Container>
+        <MainContent>
+            <StepsContainer>
+                <Steps current={currentStepIndex}>
+                    {stepIds.map((id) => (
+                        <Steps.Step key={id} title={AssertionBuilderStepTitles[id]} />
+                    ))}
+                </Steps>
+            </StepsContainer>
+            <StyledForm form={form} initialValues={initialState}>
+                <StepComponent
+                    state={builderState}
+                    updateState={setBuilderState}
+                    goTo={goTo}
+                    prev={stepStack.length > 1 ? prev : undefined}
+                    submit={handleSubmit}
+                    cancel={cancel}
+                />
+            </StyledForm>
+        </MainContent>
     );
 };

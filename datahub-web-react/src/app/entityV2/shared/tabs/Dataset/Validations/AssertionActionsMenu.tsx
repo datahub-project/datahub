@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import styled from 'styled-components';
 import { Menu } from 'antd';
 import {
@@ -8,10 +8,14 @@ import {
     SettingOutlined,
     PlusOutlined,
     MinusOutlined,
+    LinkOutlined,
+    CheckOutlined,
+    CopyOutlined,
 } from '@ant-design/icons';
 import { Monitor } from '../../../../../../types.generated';
 import { isMonitorActive } from './acrylUtils';
 import { useAppConfig } from '../../../../../useAppConfig';
+import { useAssertionURNCopyLink } from './assertion/builder/hooks';
 
 const StyledStopOutlined = styled(StopOutlined)`
     margin-right: 8px;
@@ -37,7 +41,22 @@ const StyledPlusOutlined = styled(PlusOutlined)`
     margin-right: 8px;
 `;
 
+const TextSpan = styled.span`
+    padding-left: 7px;
+`;
+
+const StyledLinkOutlined = styled(LinkOutlined)`
+    margin-right: 8px;
+`;
+const StyledCheckOutlined = styled(CheckOutlined)`
+    margin-right: 8px;
+`;
+const StyledCopyOutlined = styled(CopyOutlined)`
+    margin-right: 8px;
+`;
+
 type Props = {
+    urn: string;
     monitor?: Monitor;
     canManageAssertion: boolean;
     isPartOfContract?: boolean;
@@ -50,6 +69,7 @@ type Props = {
 };
 
 export const AssertionActionsMenu = ({
+    urn,
     monitor,
     canManageAssertion,
     isPartOfContract = false,
@@ -62,6 +82,11 @@ export const AssertionActionsMenu = ({
 }: Props) => {
     const appConfig = useAppConfig();
     const contractsEnabled = appConfig.config.featureFlags?.dataContractsEnabled;
+    const [isUrnCopied, setIsUrnCopied] = useState(false);
+
+    // To handle copying assertion URN link
+    const onCopyLink = useAssertionURNCopyLink(urn);
+
     return (
         <Menu>
             {(monitor &&
@@ -98,6 +123,20 @@ export const AssertionActionsMenu = ({
                     </Menu.Item>
                 ))) ||
                 undefined}
+            <Menu.Item key="4" onClick={onCopyLink}>
+                <StyledLinkOutlined />
+                <TextSpan>Copy Link</TextSpan>
+            </Menu.Item>
+            <Menu.Item
+                key="5"
+                onClick={() => {
+                    navigator.clipboard.writeText(urn);
+                    setIsUrnCopied(true);
+                }}
+            >
+                {isUrnCopied ? <StyledCheckOutlined /> : <StyledCopyOutlined />}
+                <TextSpan>Copy URN</TextSpan>
+            </Menu.Item>
         </Menu>
     );
 };

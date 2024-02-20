@@ -490,6 +490,7 @@ public class AssertionServiceTest {
         service.upsertDatasetFreshnessAssertion(
             assertionUrn,
             TEST_DATASET_URN,
+            "description",
             schedule,
             null,
             null,
@@ -561,6 +562,7 @@ public class AssertionServiceTest {
         service.upsertDatasetFreshnessAssertion(
             assertionUrn,
             TEST_DATASET_URN,
+            "description",
             schedule,
             filter,
             actions,
@@ -615,7 +617,12 @@ public class AssertionServiceTest {
     // Test method
     Urn result =
         service.upsertDatasetVolumeAssertion(
-            assertionUrn, TEST_DATASET_URN, info, null, Mockito.mock(Authentication.class));
+            assertionUrn,
+            TEST_DATASET_URN,
+            "description",
+            info,
+            null,
+            Mockito.mock(Authentication.class));
 
     // Assert result
     Assert.assertEquals(result.getEntityType(), "assertion");
@@ -688,7 +695,12 @@ public class AssertionServiceTest {
     // Test method
     Urn result =
         service.upsertDatasetVolumeAssertion(
-            assertionUrn, TEST_DATASET_URN, info, actions, Mockito.mock(Authentication.class));
+            assertionUrn,
+            TEST_DATASET_URN,
+            "description",
+            info,
+            actions,
+            Mockito.mock(Authentication.class));
 
     // Assert result
     Assert.assertEquals(result.getEntityType(), "assertion");
@@ -901,7 +913,12 @@ public class AssertionServiceTest {
     // Test method
     Urn result =
         service.upsertDatasetFieldAssertion(
-            assertionUrn, TEST_DATASET_URN, info, null, Mockito.mock(Authentication.class));
+            assertionUrn,
+            TEST_DATASET_URN,
+            "description",
+            info,
+            null,
+            Mockito.mock(Authentication.class));
 
     // Assert result
     Assert.assertEquals(result.getEntityType(), "assertion");
@@ -982,7 +999,12 @@ public class AssertionServiceTest {
     // Test method
     Urn result =
         service.upsertDatasetFieldAssertion(
-            assertionUrn, TEST_DATASET_URN, info, actions, Mockito.mock(Authentication.class));
+            assertionUrn,
+            TEST_DATASET_URN,
+            "description",
+            info,
+            actions,
+            Mockito.mock(Authentication.class));
 
     // Assert result
     Assert.assertEquals(result.getEntityType(), "assertion");

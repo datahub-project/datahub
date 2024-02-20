@@ -1,6 +1,7 @@
-import styled from 'styled-components';
 import React from 'react';
-import { Button } from 'antd';
+
+import styled from 'styled-components';
+
 import { AssertionTypeOption } from './AssertionTypeOption';
 import { AssertionBuilderStep, StepProps } from '../types';
 import { getAssertionTypesForEntityType, useConnectionForEntityExists } from '../../../acrylUtils';
@@ -30,22 +31,13 @@ const Section = styled.div`
 
 const TypeListContainer = styled.div`
     display: flex;
-    justify-content: left;
-    align-items: center;
-    flex-wrap: wrap;
-`;
-
-const CancelButton = styled(Button)`
-    && {
-        margin-left: 12px;
-    }
-    max-width: 100px;
+    flex-direction: column;
 `;
 
 /**
  * Step for selecting the type of assertion
  */
-export const SelectTypeStep = ({ state, updateState, goTo, cancel }: StepProps) => {
+export const SelectTypeStep = ({ state, updateState, goTo }: StepProps) => {
     const connectionForEntityExists = useConnectionForEntityExists(state.entityUrn as string);
     const filteredTypes = getAssertionTypesForEntityType(
         state.entityType as EntityType,
@@ -138,9 +130,6 @@ export const SelectTypeStep = ({ state, updateState, goTo, cancel }: StepProps) 
                         />
                     ))}
                 </TypeListContainer>
-            </Section>
-            <Section>
-                <CancelButton onClick={cancel}>Cancel</CancelButton>
             </Section>
         </Step>
     );

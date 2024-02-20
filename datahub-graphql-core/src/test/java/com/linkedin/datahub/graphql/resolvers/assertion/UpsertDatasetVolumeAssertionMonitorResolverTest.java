@@ -79,6 +79,7 @@ public class UpsertDatasetVolumeAssertionMonitorResolverTest {
   private static final UpsertDatasetVolumeAssertionMonitorInput TEST_INPUT =
       new UpsertDatasetVolumeAssertionMonitorInput(
           TEST_DATASET_URN.toString(),
+          "description",
           VolumeAssertionType.ROW_COUNT_TOTAL,
           new RowCountTotalInput(
               AssertionStdOperator.EQUAL_TO,
@@ -102,6 +103,7 @@ public class UpsertDatasetVolumeAssertionMonitorResolverTest {
   private static final UpsertDatasetVolumeAssertionMonitorInput TEST_CREATE_INPUT =
       new UpsertDatasetVolumeAssertionMonitorInput(
           null,
+          "description",
           VolumeAssertionType.ROW_COUNT_TOTAL,
           new RowCountTotalInput(
               AssertionStdOperator.EQUAL_TO,
@@ -125,6 +127,7 @@ public class UpsertDatasetVolumeAssertionMonitorResolverTest {
   private static final UpsertDatasetVolumeAssertionMonitorInput TEST_UPDATE_INPUT_ENTITY_MISMATCH =
       new UpsertDatasetVolumeAssertionMonitorInput(
           "urn:li:dataset:(urn:li:dataPlatform:hive,another_name,PROD)",
+          "description",
           VolumeAssertionType.ROW_COUNT_TOTAL,
           new RowCountTotalInput(
               AssertionStdOperator.EQUAL_TO,
@@ -243,6 +246,7 @@ public class UpsertDatasetVolumeAssertionMonitorResolverTest {
         .upsertDatasetVolumeAssertion(
             Mockito.eq(TEST_ASSERTION_URN),
             Mockito.eq(TEST_ASSERTION_INFO.getVolumeAssertion().getEntity()),
+            Mockito.eq("description"),
             Mockito.eq(TEST_ASSERTION_INFO.getVolumeAssertion()),
             Mockito.eq(TEST_ASSERTION_ACTIONS),
             Mockito.any(Authentication.class));
@@ -298,6 +302,7 @@ public class UpsertDatasetVolumeAssertionMonitorResolverTest {
         .upsertDatasetVolumeAssertion(
             Mockito.eq(TEST_ASSERTION_URN),
             Mockito.eq(TEST_DATASET_URN),
+            Mockito.eq("description"),
             Mockito.eq(TEST_ASSERTION_INFO.getVolumeAssertion()),
             Mockito.eq(TEST_ASSERTION_ACTIONS),
             Mockito.any(Authentication.class));
@@ -422,6 +427,7 @@ public class UpsertDatasetVolumeAssertionMonitorResolverTest {
         .upsertDatasetVolumeAssertion(
             Mockito.eq(TEST_ASSERTION_URN),
             Mockito.eq(TEST_DATASET_URN),
+            Mockito.eq("description"),
             Mockito.eq(TEST_ASSERTION_INFO.getVolumeAssertion()),
             Mockito.eq(TEST_ASSERTION_ACTIONS),
             Mockito.any(Authentication.class));
@@ -568,6 +574,7 @@ public class UpsertDatasetVolumeAssertionMonitorResolverTest {
             Mockito.any(),
             Mockito.any(),
             Mockito.any(),
+            Mockito.any(),
             Mockito.any(Authentication.class));
 
     UpsertDatasetVolumeAssertionMonitorResolver resolver =
@@ -592,6 +599,7 @@ public class UpsertDatasetVolumeAssertionMonitorResolverTest {
 
     Mockito.when(
             service.upsertDatasetVolumeAssertion(
+                Mockito.any(),
                 Mockito.any(),
                 Mockito.any(),
                 Mockito.any(),

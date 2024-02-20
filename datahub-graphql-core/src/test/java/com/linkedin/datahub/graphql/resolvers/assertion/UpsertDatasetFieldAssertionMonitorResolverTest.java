@@ -81,6 +81,7 @@ public class UpsertDatasetFieldAssertionMonitorResolverTest {
   private static final UpsertDatasetFieldAssertionMonitorInput TEST_INPUT =
       new UpsertDatasetFieldAssertionMonitorInput(
           FieldAssertionType.FIELD_METRIC,
+          "description",
           TEST_DATASET_URN.toString(),
           null,
           new FieldMetricAssertionInput(
@@ -104,6 +105,7 @@ public class UpsertDatasetFieldAssertionMonitorResolverTest {
   private static final UpsertDatasetFieldAssertionMonitorInput TEST_CREATE_INPUT =
       new UpsertDatasetFieldAssertionMonitorInput(
           FieldAssertionType.FIELD_METRIC,
+          "description",
           null,
           null,
           new FieldMetricAssertionInput(
@@ -127,6 +129,7 @@ public class UpsertDatasetFieldAssertionMonitorResolverTest {
   private static final UpsertDatasetFieldAssertionMonitorInput TEST_UPDATE_INPUT_ENTITY_MISMATCH =
       new UpsertDatasetFieldAssertionMonitorInput(
           FieldAssertionType.FIELD_METRIC,
+          "description",
           "urn:li:dataset:(urn:li:dataPlatform:hive,another_name,PROD)",
           null,
           new FieldMetricAssertionInput(
@@ -254,6 +257,7 @@ public class UpsertDatasetFieldAssertionMonitorResolverTest {
         .upsertDatasetFieldAssertion(
             Mockito.eq(TEST_ASSERTION_URN),
             Mockito.eq(TEST_ASSERTION_INFO.getFieldAssertion().getEntity()),
+            Mockito.eq("description"),
             Mockito.eq(TEST_ASSERTION_INFO.getFieldAssertion()),
             Mockito.eq(TEST_ASSERTION_ACTIONS),
             Mockito.any(Authentication.class));
@@ -381,6 +385,7 @@ public class UpsertDatasetFieldAssertionMonitorResolverTest {
         .upsertDatasetFieldAssertion(
             Mockito.eq(TEST_ASSERTION_URN),
             Mockito.eq(TEST_DATASET_URN),
+            Mockito.eq("description"),
             Mockito.eq(TEST_ASSERTION_INFO.getFieldAssertion()),
             Mockito.eq(TEST_ASSERTION_ACTIONS),
             Mockito.any(Authentication.class));
@@ -516,6 +521,7 @@ public class UpsertDatasetFieldAssertionMonitorResolverTest {
         .upsertDatasetFieldAssertion(
             Mockito.eq(TEST_ASSERTION_URN),
             Mockito.eq(TEST_ASSERTION_INFO.getFieldAssertion().getEntity()),
+            Mockito.eq("description"),
             Mockito.eq(TEST_ASSERTION_INFO.getFieldAssertion()),
             Mockito.eq(TEST_ASSERTION_ACTIONS),
             Mockito.any(Authentication.class));
@@ -573,6 +579,7 @@ public class UpsertDatasetFieldAssertionMonitorResolverTest {
             Mockito.any(),
             Mockito.any(),
             Mockito.any(),
+            Mockito.any(),
             Mockito.any(Authentication.class));
 
     UpsertDatasetFieldAssertionMonitorResolver resolver =
@@ -597,6 +604,7 @@ public class UpsertDatasetFieldAssertionMonitorResolverTest {
 
     Mockito.when(
             service.upsertDatasetFieldAssertion(
+                Mockito.any(),
                 Mockito.any(),
                 Mockito.any(),
                 Mockito.any(),

@@ -4,8 +4,10 @@ import { DefaultViewIcon } from './DefaultViewIcon';
 
 type Props = {
     title?: React.ReactNode;
+    size?: number;
+    color?: string;
 };
 
-export const UserDefaultViewIcon = ({ title }: Props) => {
-    return <DefaultViewIcon title={title} color={REDESIGN_COLORS.BLUE} />;
+export const UserDefaultViewIcon = ({ title, color, size }: Props) => {
+    return <DefaultViewIcon title={title} color={color || REDESIGN_COLORS.BLUE} size={size} />;
 };

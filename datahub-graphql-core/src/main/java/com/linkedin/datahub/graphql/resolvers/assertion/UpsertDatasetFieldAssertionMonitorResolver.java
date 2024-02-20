@@ -79,6 +79,7 @@ public class UpsertDatasetFieldAssertionMonitorResolver
             _assertionService.upsertDatasetFieldAssertion(
                 assertionUrn,
                 entityUrn,
+                input.getDescription(),
                 FieldAssertionUtils.createFieldAssertionInfo(input),
                 input.getActions() != null
                     ? AssertionUtils.createAssertionActions(input.getActions())

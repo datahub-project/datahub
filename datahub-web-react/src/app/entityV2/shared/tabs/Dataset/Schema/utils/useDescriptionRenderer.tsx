@@ -9,12 +9,15 @@ import { useUpdateDescriptionMutation } from '../../../../../../../graphql/mutat
 import { useMutationUrn, useRefetch } from '../../../../EntityContext';
 import { useSchemaRefetch } from '../SchemaContext';
 import { useProposeUpdateDescriptionMutation } from '../../../../../../../graphql/proposals.generated';
+import { REDESIGN_COLORS } from '../../../../constants';
 
 const CompactDescription = styled.div`
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
     text-wrap: none;
+    color: ${REDESIGN_COLORS.DARK_GREY};
+    font-weight: 400;
 `;
 
 export default function useDescriptionRenderer(

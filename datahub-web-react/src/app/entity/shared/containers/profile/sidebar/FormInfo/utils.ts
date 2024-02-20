@@ -140,8 +140,6 @@ export function getCompletedPrompts(entityData: GenericEntityProperties | null) 
     completedPrompts = completedPrompts.concat(
         forms?.completedForms?.flatMap((form) => (form.completedPrompts ? form.completedPrompts : [])) || [],
     );
-    console.log('entityData', entityData);
-    console.log('getCompletedPrompts', completedPrompts);
     return completedPrompts;
 }
 

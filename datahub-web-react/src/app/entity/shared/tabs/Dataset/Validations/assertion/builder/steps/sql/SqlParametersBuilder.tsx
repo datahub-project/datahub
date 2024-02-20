@@ -18,6 +18,7 @@ const StyledSelect = styled(Select)`
 const StyledFormItem = styled(Form.Item)`
     display: inline-block;
     margin: 0;
+    width: 180px;
 `;
 
 type Props = {
@@ -74,14 +75,16 @@ export const SqlParametersBuilder = ({ value, onChange, disabled }: Props) => {
         );
     }
 
+    const selectedValue = value.assertion?.sqlAssertion?.parameters?.value?.value;
+
     return (
         <StyledFormItem
+            initialValue={selectedValue}
             name="sqlParameters.value"
             rules={[{ required: true, message: 'Required' }]}
-            initialValue={value.assertion?.sqlAssertion?.parameters?.value?.value}
         >
             <InputNumber
-                value={value.assertion?.sqlAssertion?.parameters?.value?.value}
+                value={selectedValue}
                 onChange={updateValue}
                 disabled={disabled}
                 addonAfter={isPercentage ? '%' : undefined}

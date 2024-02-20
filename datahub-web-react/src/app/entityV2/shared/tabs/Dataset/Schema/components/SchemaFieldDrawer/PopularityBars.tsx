@@ -25,7 +25,7 @@ const BarContainer = styled.div`
 
 type PopularityBarsProps = {
     status: number;
-    isFieldSelected: boolean;
+    isFieldSelected?: boolean;
     displayOnDrawer?: boolean;
 };
 export const PopularityBars = ({ status, isFieldSelected, displayOnDrawer }: PopularityBarsProps) => {
@@ -38,7 +38,7 @@ export const PopularityBars = ({ status, isFieldSelected, displayOnDrawer }: Pop
                     key={bar}
                     status={status}
                     bar={bar}
-                    isFieldSelected={isFieldSelected}
+                    isFieldSelected={!!isFieldSelected}
                     displayOnDrawer={!!displayOnDrawer}
                 />,
             );

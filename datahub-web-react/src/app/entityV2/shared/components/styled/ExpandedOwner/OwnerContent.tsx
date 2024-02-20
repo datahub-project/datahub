@@ -5,9 +5,11 @@ import { Owner } from '../../../../../../types.generated';
 import { CustomAvatar } from '../../../../../shared/avatar';
 import { getDescriptionFromType, getNameFromType } from '../../../containers/profile/sidebar/Ownership/ownershipUtils';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
+import { REDESIGN_COLORS } from '../../../constants';
 
 const TextWrapper = styled.span<{ fontSize?: number }>`
     ${(props) => props.fontSize && `font-size: ${props.fontSize}px;`}
+    color: ${REDESIGN_COLORS.DARK_GREY};
 `;
 
 const ContentWrapper = styled.span`

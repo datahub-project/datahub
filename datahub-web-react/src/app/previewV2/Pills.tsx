@@ -1,0 +1,94 @@
+import React, { useContext } from 'react';
+import AccountCircleOutlinedIcon from '@mui/icons-material/AccountCircleOutlined';
+import FindInPageOutlinedIcon from '@mui/icons-material/FindInPageOutlined';
+import SellOutlinedIcon from '@mui/icons-material/SellOutlined';
+import styled from 'styled-components';
+import { useMatchedFieldsForList } from '../search/context/SearchResultContext';
+import { GlobalTags, GlossaryTerms, Owner } from '../../types.generated';
+import GlossaryTermV2Icon from '../../images/glossary_term_material_logo.svg?react';
+import { EntityCapabilityType } from '../entityV2/Entity';
+import MatchesContext, { PreviewSection } from '../shared/MatchesContext';
+import SearchPill from './SearchPill';
+import { entityHasCapability } from './utils';
+
+const PillsContainer = styled.div`
+    gap: 5px;
+    display: flex;
+    flex-direction: row;
+    align-items: left;
+    height: 30px;
+`;
+
+interface Props {
+    glossaryTerms?: GlossaryTerms;
+    tags?: GlobalTags;
+    owners?: Array<Owner> | null;
+    entityCapabilities: Set<EntityCapabilityType>;
+}
+
+const Pills = ({ glossaryTerms, tags, owners, entityCapabilities }: Props) => {
+    const { setExpandedSection, expandedSection } = useContext(MatchesContext);
+    const groupedMatches = useMatchedFieldsForList('fieldLabels');
+    const showGlossaryTermsBadge = entityHasCapability(entityCapabilities, EntityCapabilityType.GLOSSARY_TERMS);
+    const showTagsBadge = entityHasCapability(entityCapabilities, EntityCapabilityType.TAGS);
+    const showOwnersBadge = entityHasCapability(entityCapabilities, EntityCapabilityType.OWNERS);
+
+    const handlePillClick = (section: PreviewSection | undefined, data) => (e) => {
+        if (!data?.length) return;
+        setExpandedSection(expandedSection === section ? undefined : section);
+        e.preventDefault();
+        e.stopPropagation();
+    };
+
+    return (
+        <PillsContainer>
+            {showGlossaryTermsBadge && glossaryTerms && (
+                <SearchPill
+                    icon={<GlossaryTermV2Icon />}
+                    count={glossaryTerms.terms?.length || 0}
+                    enabled={!!glossaryTerms.terms?.length}
+                    active={expandedSection === PreviewSection.GLOSSARY_TERMS}
+                    label=""
+                    countLabel="term"
+                    onClick={handlePillClick(PreviewSection.GLOSSARY_TERMS, glossaryTerms.terms)}
+                />
+            )}
+            {showTagsBadge && tags && (
+                <SearchPill
+                    icon={<SellOutlinedIcon />}
+                    count={tags.tags?.length || 0}
+                    enabled={!!tags.tags?.length}
+                    active={expandedSection === PreviewSection.TAGS}
+                    label=""
+                    countLabel="tag"
+                    onClick={handlePillClick(PreviewSection.TAGS, tags.tags)}
+                />
+            )}
+            {showOwnersBadge && owners && (
+                <SearchPill
+                    icon={<AccountCircleOutlinedIcon />}
+                    count={owners.length || 0}
+                    enabled={!!owners.length}
+                    active={expandedSection === PreviewSection.OWNERS}
+                    label=""
+                    countLabel="owner"
+                    onClick={handlePillClick(PreviewSection.OWNERS, owners)}
+                />
+            )}
+
+            {groupedMatches.length > 0 && (
+                <SearchPill
+                    icon={<FindInPageOutlinedIcon />}
+                    count={groupedMatches?.length || 0}
+                    enabled
+                    active={expandedSection === PreviewSection.MATCHES}
+                    label=""
+                    countLabel="match"
+                    onClick={handlePillClick(PreviewSection.MATCHES, groupedMatches)}
+                />
+            )}
+        </PillsContainer>
+    );
+};
+
+export default Pills;

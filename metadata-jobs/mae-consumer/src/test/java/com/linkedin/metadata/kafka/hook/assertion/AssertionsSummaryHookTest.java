@@ -23,7 +23,15 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.service.AssertionService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.monitor.AssertionEvaluationSpec;
+import com.linkedin.monitor.AssertionEvaluationSpecArray;
+import com.linkedin.monitor.AssertionMonitor;
+import com.linkedin.monitor.MonitorInfo;
+import com.linkedin.monitor.MonitorMode;
+import com.linkedin.monitor.MonitorStatus;
+import com.linkedin.monitor.MonitorType;
 import com.linkedin.mxe.MetadataChangeLog;
+import java.util.List;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import org.mockito.Mockito;
@@ -34,8 +42,13 @@ public class AssertionsSummaryHookTest {
   private static final Urn TEST_EXISTING_ASSERTION_URN =
       UrnUtils.getUrn("urn:li:assertion:existing-test");
   private static final Urn TEST_ASSERTION_URN = UrnUtils.getUrn("urn:li:assertion:test");
+
   private static final Urn TEST_DATASET_URN =
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,name,PROD)");
+
+  private static final Urn TEST_MONITOR_URN =
+      UrnUtils.getUrn(String.format("urn:li:monitor:(%s,test)", TEST_DATASET_URN));
+
   private static final String TEST_ASSERTION_TYPE = AssertionType.DATASET.toString();
   private static final Urn TEST_INFERRED_ASSERTION_URN =
       UrnUtils.getUrn("urn:li:assertion:inferred-test");
@@ -75,6 +88,16 @@ public class AssertionsSummaryHookTest {
             ChangeType.DELETE,
             mockAssertionRunEvent(
                 TEST_ASSERTION_URN, AssertionRunStatus.COMPLETE, AssertionResultType.SUCCESS));
+    hook.invoke(event);
+    Mockito.verify(service, Mockito.times(0)).getAssertionInfo(Mockito.any());
+
+    // Case 2: Monitor status change, but enabled
+    event =
+        buildMetadataChangeLog(
+            TEST_MONITOR_URN,
+            MONITOR_INFO_ASPECT_NAME,
+            ChangeType.UPSERT,
+            mockMonitorInfoEvent(MonitorMode.ACTIVE, ImmutableList.of(TEST_ASSERTION_URN)));
     hook.invoke(event);
     Mockito.verify(service, Mockito.times(0)).getAssertionInfo(Mockito.any());
   }
@@ -247,6 +270,40 @@ public class AssertionsSummaryHookTest {
         .updateAssertionsSummary(Mockito.eq(TEST_DATASET_URN), Mockito.eq(expectedSummary));
   }
 
+  @Test(dataProvider = "assertionsSummaryProvider")
+  public void testInvokeMonitorDisabled(AssertionsSummary summary) throws Exception {
+    AssertionService service = mockAssertionService(summary);
+    AssertionsSummaryHook hook = new AssertionsSummaryHook(ENTITY_REGISTRY, service, true);
+    final MetadataChangeLog event =
+        buildMetadataChangeLog(
+            TEST_MONITOR_URN,
+            MONITOR_INFO_ASPECT_NAME,
+            ChangeType.UPSERT,
+            mockMonitorInfoEvent(MonitorMode.INACTIVE, ImmutableList.of(TEST_ASSERTION_URN)));
+    hook.invoke(event);
+
+    Mockito.verify(service, Mockito.times(1)).getAssertionInfo(Mockito.eq(TEST_ASSERTION_URN));
+    Mockito.verify(service, Mockito.times(1)).getAssertionsSummary(Mockito.eq(TEST_DATASET_URN));
+
+    if (summary == null) {
+      summary = new AssertionsSummary();
+    }
+    AssertionsSummary expectedSummary = new AssertionsSummary(summary.data());
+    expectedSummary.setPassingAssertionDetails(
+        new AssertionSummaryDetailsArray(
+            expectedSummary.getPassingAssertionDetails().stream()
+                .filter(details -> !details.getUrn().equals(TEST_ASSERTION_URN))
+                .collect(Collectors.toList())));
+    expectedSummary.setFailingAssertionDetails(
+        new AssertionSummaryDetailsArray(
+            expectedSummary.getFailingAssertionDetails().stream()
+                .filter(details -> !details.getUrn().equals(TEST_ASSERTION_URN))
+                .collect(Collectors.toList())));
+    // Ensure we ingested a new aspect.
+    Mockito.verify(service, Mockito.times(1))
+        .updateAssertionsSummary(Mockito.eq(TEST_DATASET_URN), Mockito.eq(expectedSummary));
+  }
+
   private AssertionRunEvent mockAssertionRunEvent(
       final Urn urn, final AssertionRunStatus status, final AssertionResultType resultType) {
     AssertionRunEvent event = new AssertionRunEvent();
@@ -261,6 +318,21 @@ public class AssertionsSummaryHookTest {
     Status status = new Status();
     status.setRemoved(true);
     return status;
+  }
+
+  private MonitorInfo mockMonitorInfoEvent(MonitorMode mode, List<Urn> assertionUrns) {
+    MonitorInfo monitorInfo = new MonitorInfo();
+    monitorInfo.setType(MonitorType.ASSERTION);
+    monitorInfo.setStatus(new MonitorStatus().setMode(mode));
+    monitorInfo.setAssertionMonitor(
+        new AssertionMonitor().setAssertions(new AssertionEvaluationSpecArray()));
+    assertionUrns.forEach(
+        urn -> {
+          AssertionEvaluationSpec newSpec = new AssertionEvaluationSpec();
+          newSpec.setAssertion(urn);
+          monitorInfo.getAssertionMonitor().getAssertions().add(newSpec);
+        });
+    return monitorInfo;
   }
 
   private AssertionService mockAssertionService(AssertionsSummary summary) {
@@ -304,7 +376,7 @@ public class AssertionsSummaryHookTest {
       Urn urn, String aspectName, ChangeType changeType, RecordTemplate aspect) throws Exception {
     MetadataChangeLog event = new MetadataChangeLog();
     event.setEntityUrn(urn);
-    event.setEntityType(ASSERTION_ENTITY_NAME);
+    event.setEntityType(urn.getEntityType());
     event.setAspectName(aspectName);
     event.setChangeType(changeType);
     event.setAspect(GenericRecordUtils.serializeAspect(aspect));

@@ -9,8 +9,14 @@ import {
     AssertionStdParameterType,
     DatasetAssertionInfo,
     StringMapEntry,
-    Maybe
+    Maybe,
 } from '../../../../../../types.generated';
+import AssertionSuccessIcon from '../../../../../../images/assertion_success_dot.svg?react';
+import AssertionFailureIcon from '../../../../../../images/assertion_failure_dot.svg?react';
+import AssertionErrorIcon from '../../../../../../images/assertion_error_dot.svg?react';
+import AssertionInitIcon from '../../../../../../images/assertion_init_dot.svg?react'; // TODO
+import AssertionNoResultsIcon from '../../../../../../images/assertion_no_results_dot.svg?react'; // TODO
+import { ANTD_GRAY } from '../../../constants';
 
 /**
  * Utility methods
@@ -49,8 +55,13 @@ export const getResultText = (result: AssertionResultType) => {
 const SUCCESS_COLOR_HEX = '#4db31b';
 const FAILURE_COLOR_HEX = '#F5222D';
 const ERROR_COLOR_HEX = '#FAAD14';
-const INIT_COLOR_HEX = '#8C8C8C';
-export const getResultColor = (result: AssertionResultType) => {
+const INIT_COLOR_HEX = '#2F54EB';
+const NO_RESULTS_COLOR_HEX = ANTD_GRAY[8];
+
+export const getResultColor = (result?: AssertionResultType) => {
+    if (!result) {
+        return NO_RESULTS_COLOR_HEX;
+    }
     switch (result) {
         case AssertionResultType.Success:
             return SUCCESS_COLOR_HEX;
@@ -107,9 +118,9 @@ export const getResultErrorMessage = (result: AssertionResult) => {
 
     switch (errorType) {
         case AssertionResultErrorType.SourceConnectionError:
-            return 'Unable to connect to dataset. Please check the dataset connection.';
+            return 'Unable to connect to source data platform. Please check the connection.';
         case AssertionResultErrorType.SourceQueryFailed:
-            return 'Unable to evaluate assertion. Please check the assertion configuration.';
+            return 'Failed to evaluate query against the source platform.';
         case AssertionResultErrorType.InsufficientData:
             return 'Not enough data to evaluate assertion.';
         case AssertionResultErrorType.InvalidParameters:
@@ -119,12 +130,11 @@ export const getResultErrorMessage = (result: AssertionResult) => {
         case AssertionResultErrorType.UnsupportedPlatform:
             return 'Unsupported platform.';
         case AssertionResultErrorType.CustomSqlError:
-            return 'Custom SQL returned an error.';
+            return 'Custom SQL query resulted in an error.';
         default:
             return 'An unknown error occurred.';
     }
 };
-
 
 /**
  * Returns the value of an AssertionStdParameter suitable for display
@@ -161,4 +171,24 @@ export const validateAssertionsHasInputFields = (info: DatasetAssertionInfo) => 
 export const getQueryParams = (param: string, location: any): string | null => {
     const params = QueryString.parse(location.search);
     return params[param] ? String(params[param]) : null;
+};
+
+export const getResultDotIcon = (result?: AssertionResultType, size?: number, disabled?: boolean) => {
+    const opacity = disabled ? 0.4 : 1;
+    if (!result) {
+        // Todo replace will no results yet icon.
+        return <AssertionNoResultsIcon width={size} height={size} opacity={opacity} />;
+    }
+    switch (result) {
+        case AssertionResultType.Success:
+            return <AssertionSuccessIcon width={size} height={size} opacity={opacity} />;
+        case AssertionResultType.Failure:
+            return <AssertionFailureIcon width={size} height={size} opacity={opacity} />;
+        case AssertionResultType.Error:
+            return <AssertionErrorIcon width={size} height={size} opacity={opacity} />;
+        case AssertionResultType.Init:
+            return <AssertionInitIcon width={size} height={size} opacity={opacity} />;
+        default:
+            throw new Error(`Unsupported Assertion Result Type ${result} provided.`);
+    }
 };
