@@ -17,7 +17,7 @@ base_requirements = {
     # pydantic 1.10.3 is incompatible with typing-extensions 4.1.1 - https://github.com/pydantic/pydantic/issues/4885
     "pydantic>=1.10.0,!=1.10.3",
     "mixpanel>=4.9.0",
-    "sentry-sdk",
+    "sentry-sdk>=1.40.5",
 }
 
 framework_common = {
@@ -245,9 +245,7 @@ delta_lake = {
 
 powerbi_report_server = {"requests", "requests_ntlm"}
 
-slack = {
-    "slack-sdk==3.18.1"
-}
+slack = {"slack-sdk==3.18.1"}
 
 databricks = {
     # 0.1.11 appears to have authentication issues with azure databricks
