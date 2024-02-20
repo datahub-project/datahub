@@ -43,7 +43,8 @@ task installPackageOnly(type: Exec, dependsOn: runPreFlightScript) {
   inputs.file file('setup.py')
   outputs.file(sentinel_file)
   commandLine 'bash', '-x', '-c',
-    "${venv_name}/bin/uv pip install -e . &&" +
+    "source ${venv_name}/bin/activate && " +
+    "uv pip install -e . &&" +
     "touch ${sentinel_file}"
 }
 
@@ -52,7 +53,8 @@ task installPackage(type: Exec, dependsOn: installPackageOnly) {
   inputs.file file('setup.py')
   outputs.file(sentinel_file)
   commandLine 'bash', '-x', '-c',
-    "${venv_name}/bin/uv pip install -e . ${extra_pip_requirements} && " +
+    "source ${venv_name}/bin/activate && " +
+    "uv pip install -e . ${extra_pip_requirements} && " +
     "touch ${sentinel_file}"
 }
 
@@ -151,7 +153,7 @@ task installDevTest(type: Exec, dependsOn: [install]) {
   outputs.dir("${venv_name}")
   outputs.file(sentinel_file)
   commandLine 'bash', '-c',
-    "${venv_name}/bin/uv pip install -e .[dev,integration-tests] ${extra_pip_requirements} && touch ${sentinel_file}"
+    "source ${venv_name}/bin/activate && uv pip install -e .[dev,integration-tests] ${extra_pip_requirements} && touch ${sentinel_file}"
 }
 
 def testFile = hasProperty('testFile') ? testFile : 'unknown'

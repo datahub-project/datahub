@@ -59,7 +59,9 @@ COPY --from=dockerize-binary /go/bin/dockerize /usr/local/bin
 COPY ./docker/datahub-ingestion-base/base-requirements.txt requirements.txt
 COPY ./docker/datahub-ingestion-base/entrypoint.sh /entrypoint.sh
 
-RUN uv pip install --no-cache -r requirements.txt && \
+ENV VIRTUAL_ENV=/.venv
+RUN python3 -m venv $VIRTUAL_ENV && \
+    uv pip install --no-cache -r requirements.txt && \
     pip uninstall -y acryl-datahub && \
     chmod +x /entrypoint.sh && \
     addgroup --gid 1000 datahub && \
