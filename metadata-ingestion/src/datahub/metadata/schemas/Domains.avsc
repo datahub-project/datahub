@@ -1,0 +1,38 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "domains"
+  },
+  "name": "Domains",
+  "namespace": "com.linkedin.pegasus2avro.domain",
+  "fields": [
+    {
+      "Relationship": {
+        "/*": {
+          "entityTypes": [
+            "domain"
+          ],
+          "name": "AssociatedWith"
+        }
+      },
+      "Searchable": {
+        "/*": {
+          "addToFilters": true,
+          "fieldName": "domains",
+          "fieldType": "URN",
+          "filterNameOverride": "Domain",
+          "hasValuesFieldName": "hasDomain"
+        }
+      },
+      "type": {
+        "type": "array",
+        "items": "string"
+      },
+      "name": "domains",
+      "doc": "The Domains attached to an Asset",
+      "Urn": "Urn",
+      "urn_is_array": true
+    }
+  ],
+  "doc": "Links from an Asset to its Domains"
+}

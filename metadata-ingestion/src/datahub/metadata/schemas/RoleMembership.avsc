@@ -1,0 +1,28 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "roleMembership"
+  },
+  "name": "RoleMembership",
+  "namespace": "com.linkedin.pegasus2avro.identity",
+  "fields": [
+    {
+      "Relationship": {
+        "/*": {
+          "entityTypes": [
+            "dataHubRole"
+          ],
+          "name": "IsMemberOfRole"
+        }
+      },
+      "type": {
+        "type": "array",
+        "items": "string"
+      },
+      "name": "roles",
+      "Urn": "Urn",
+      "urn_is_array": true
+    }
+  ],
+  "doc": "Carries information about which roles a user is assigned to."
+}

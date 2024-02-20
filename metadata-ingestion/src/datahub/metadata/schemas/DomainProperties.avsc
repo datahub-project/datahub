@@ -1,0 +1,118 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "domainProperties"
+  },
+  "name": "DomainProperties",
+  "namespace": "com.linkedin.pegasus2avro.domain",
+  "fields": [
+    {
+      "Searchable": {
+        "boostScore": 10.0,
+        "enableAutocomplete": true,
+        "fieldNameAliases": [
+          "_entityName"
+        ],
+        "fieldType": "WORD_GRAM"
+      },
+      "type": "string",
+      "name": "name",
+      "doc": "Display name of the Domain"
+    },
+    {
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "description",
+      "default": null,
+      "doc": "Description of the Domain"
+    },
+    {
+      "Searchable": {
+        "/time": {
+          "fieldName": "createdTime",
+          "fieldType": "DATETIME"
+        }
+      },
+      "type": [
+        "null",
+        {
+          "type": "record",
+          "name": "AuditStamp",
+          "namespace": "com.linkedin.pegasus2avro.common",
+          "fields": [
+            {
+              "type": "long",
+              "name": "time",
+              "doc": "When did the resource/association/sub-resource move into the specific lifecycle stage represented by this AuditEvent."
+            },
+            {
+              "java": {
+                "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+              },
+              "type": "string",
+              "name": "actor",
+              "doc": "The entity (e.g. a member URN) which will be credited for moving the resource/association/sub-resource into the specific lifecycle stage. It is also the one used to authorize the change.",
+              "Urn": "Urn"
+            },
+            {
+              "java": {
+                "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+              },
+              "type": [
+                "null",
+                "string"
+              ],
+              "name": "impersonator",
+              "default": null,
+              "doc": "The entity (e.g. a service URN) which performs the change on behalf of the Actor and must be authorized to act as the Actor.",
+              "Urn": "Urn"
+            },
+            {
+              "type": [
+                "null",
+                "string"
+              ],
+              "name": "message",
+              "default": null,
+              "doc": "Additional context around how DataHub was informed of the particular change. For example: was the change created by an automated process, or manually."
+            }
+          ],
+          "doc": "Data captured on a resource/association/sub-resource level giving insight into when that resource/association/sub-resource moved into a particular lifecycle stage, and who acted to move it into that specific lifecycle stage."
+        }
+      ],
+      "name": "created",
+      "default": null,
+      "doc": "Created Audit stamp"
+    },
+    {
+      "Relationship": {
+        "entityTypes": [
+          "domain"
+        ],
+        "name": "IsPartOf"
+      },
+      "Searchable": {
+        "fieldName": "parentDomain",
+        "fieldType": "URN",
+        "hasValuesFieldName": "hasParentDomain"
+      },
+      "java": {
+        "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+      },
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "parentDomain",
+      "default": null,
+      "doc": "Optional: Parent of the domain",
+      "Urn": "Urn",
+      "entityTypes": [
+        "domain"
+      ]
+    }
+  ],
+  "doc": "Information about a Domain"
+}

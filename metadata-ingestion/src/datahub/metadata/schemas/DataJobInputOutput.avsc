@@ -1,0 +1,449 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "dataJobInputOutput"
+  },
+  "name": "DataJobInputOutput",
+  "namespace": "com.linkedin.pegasus2avro.datajob",
+  "fields": [
+    {
+      "Relationship": {
+        "/*": {
+          "entityTypes": [
+            "dataset"
+          ],
+          "isLineage": true,
+          "name": "Consumes"
+        }
+      },
+      "Searchable": {
+        "/*": {
+          "fieldName": "inputs",
+          "fieldType": "URN",
+          "numValuesFieldName": "numInputDatasets",
+          "queryByDefault": false
+        }
+      },
+      "deprecated": true,
+      "type": {
+        "type": "array",
+        "items": "string"
+      },
+      "name": "inputDatasets",
+      "doc": "Input datasets consumed by the data job during processing\nDeprecated! Use inputDatasetEdges instead.",
+      "Urn": "DatasetUrn",
+      "urn_is_array": true
+    },
+    {
+      "Relationship": {
+        "/*/destinationUrn": {
+          "createdActor": "inputDatasetEdges/*/created/actor",
+          "createdOn": "inputDatasetEdges/*/created/time",
+          "entityTypes": [
+            "dataset"
+          ],
+          "isLineage": true,
+          "name": "Consumes",
+          "properties": "inputDatasetEdges/*/properties",
+          "updatedActor": "inputDatasetEdges/*/lastModified/actor",
+          "updatedOn": "inputDatasetEdges/*/lastModified/time"
+        }
+      },
+      "Searchable": {
+        "/*/destinationUrn": {
+          "fieldName": "inputDatasetEdges",
+          "fieldType": "URN",
+          "numValuesFieldName": "numInputDatasets",
+          "queryByDefault": false
+        }
+      },
+      "type": [
+        "null",
+        {
+          "type": "array",
+          "items": {
+            "type": "record",
+            "name": "Edge",
+            "namespace": "com.linkedin.pegasus2avro.common",
+            "fields": [
+              {
+                "java": {
+                  "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+                },
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "name": "sourceUrn",
+                "default": null,
+                "doc": "Urn of the source of this relationship edge.\nIf not specified, assumed to be the entity that this aspect belongs to.",
+                "Urn": "Urn"
+              },
+              {
+                "java": {
+                  "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+                },
+                "type": "string",
+                "name": "destinationUrn",
+                "doc": "Urn of the destination of this relationship edge.",
+                "Urn": "Urn"
+              },
+              {
+                "type": [
+                  "null",
+                  {
+                    "type": "record",
+                    "name": "AuditStamp",
+                    "namespace": "com.linkedin.pegasus2avro.common",
+                    "fields": [
+                      {
+                        "type": "long",
+                        "name": "time",
+                        "doc": "When did the resource/association/sub-resource move into the specific lifecycle stage represented by this AuditEvent."
+                      },
+                      {
+                        "java": {
+                          "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+                        },
+                        "type": "string",
+                        "name": "actor",
+                        "doc": "The entity (e.g. a member URN) which will be credited for moving the resource/association/sub-resource into the specific lifecycle stage. It is also the one used to authorize the change.",
+                        "Urn": "Urn"
+                      },
+                      {
+                        "java": {
+                          "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+                        },
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "name": "impersonator",
+                        "default": null,
+                        "doc": "The entity (e.g. a service URN) which performs the change on behalf of the Actor and must be authorized to act as the Actor.",
+                        "Urn": "Urn"
+                      },
+                      {
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "name": "message",
+                        "default": null,
+                        "doc": "Additional context around how DataHub was informed of the particular change. For example: was the change created by an automated process, or manually."
+                      }
+                    ],
+                    "doc": "Data captured on a resource/association/sub-resource level giving insight into when that resource/association/sub-resource moved into a particular lifecycle stage, and who acted to move it into that specific lifecycle stage."
+                  }
+                ],
+                "name": "created",
+                "default": null,
+                "doc": "Audit stamp containing who created this relationship edge and when"
+              },
+              {
+                "type": [
+                  "null",
+                  "com.linkedin.pegasus2avro.common.AuditStamp"
+                ],
+                "name": "lastModified",
+                "default": null,
+                "doc": "Audit stamp containing who last modified this relationship edge and when"
+              },
+              {
+                "type": [
+                  "null",
+                  {
+                    "type": "map",
+                    "values": "string"
+                  }
+                ],
+                "name": "properties",
+                "default": null,
+                "doc": "A generic properties bag that allows us to store specific information on this graph edge."
+              }
+            ],
+            "doc": "A common structure to represent all edges to entities when used inside aspects as collections\nThis ensures that all edges have common structure around audit-stamps and will support PATCH, time-travel automatically."
+          }
+        }
+      ],
+      "name": "inputDatasetEdges",
+      "default": null,
+      "doc": "Input datasets consumed by the data job during processing"
+    },
+    {
+      "Relationship": {
+        "/*": {
+          "entityTypes": [
+            "dataset"
+          ],
+          "isLineage": true,
+          "isUpstream": false,
+          "name": "Produces"
+        }
+      },
+      "Searchable": {
+        "/*": {
+          "fieldName": "outputs",
+          "fieldType": "URN",
+          "numValuesFieldName": "numOutputDatasets",
+          "queryByDefault": false
+        }
+      },
+      "deprecated": true,
+      "type": {
+        "type": "array",
+        "items": "string"
+      },
+      "name": "outputDatasets",
+      "doc": "Output datasets produced by the data job during processing\nDeprecated! Use outputDatasetEdges instead.",
+      "Urn": "DatasetUrn",
+      "urn_is_array": true
+    },
+    {
+      "Relationship": {
+        "/*/destinationUrn": {
+          "createdActor": "outputDatasetEdges/*/created/actor",
+          "createdOn": "outputDatasetEdges/*/created/time",
+          "entityTypes": [
+            "dataset"
+          ],
+          "isLineage": true,
+          "isUpstream": false,
+          "name": "Produces",
+          "properties": "outputDatasetEdges/*/properties",
+          "updatedActor": "outputDatasetEdges/*/lastModified/actor",
+          "updatedOn": "outputDatasetEdges/*/lastModified/time"
+        }
+      },
+      "Searchable": {
+        "/*/destinationUrn": {
+          "fieldName": "outputDatasetEdges",
+          "fieldType": "URN",
+          "numValuesFieldName": "numOutputDatasets",
+          "queryByDefault": false
+        }
+      },
+      "type": [
+        "null",
+        {
+          "type": "array",
+          "items": "com.linkedin.pegasus2avro.common.Edge"
+        }
+      ],
+      "name": "outputDatasetEdges",
+      "default": null,
+      "doc": "Output datasets produced by the data job during processing"
+    },
+    {
+      "Relationship": {
+        "/*": {
+          "entityTypes": [
+            "dataJob"
+          ],
+          "isLineage": true,
+          "name": "DownstreamOf"
+        }
+      },
+      "deprecated": true,
+      "type": [
+        "null",
+        {
+          "type": "array",
+          "items": "string"
+        }
+      ],
+      "name": "inputDatajobs",
+      "default": null,
+      "doc": "Input datajobs that this data job depends on\nDeprecated! Use inputDatajobEdges instead.",
+      "Urn": "DataJobUrn",
+      "urn_is_array": true
+    },
+    {
+      "Relationship": {
+        "/*/destinationUrn": {
+          "createdActor": "inputDatajobEdges/*/created/actor",
+          "createdOn": "inputDatajobEdges/*/created/time",
+          "entityTypes": [
+            "dataJob"
+          ],
+          "isLineage": true,
+          "name": "DownstreamOf",
+          "properties": "inputDatajobEdges/*/properties",
+          "updatedActor": "inputDatajobEdges/*/lastModified/actor",
+          "updatedOn": "inputDatajobEdges/*/lastModified/time"
+        }
+      },
+      "type": [
+        "null",
+        {
+          "type": "array",
+          "items": "com.linkedin.pegasus2avro.common.Edge"
+        }
+      ],
+      "name": "inputDatajobEdges",
+      "default": null,
+      "doc": "Input datajobs that this data job depends on"
+    },
+    {
+      "Relationship": {
+        "/*": {
+          "entityTypes": [
+            "schemaField"
+          ],
+          "name": "Consumes"
+        }
+      },
+      "Searchable": {
+        "/*": {
+          "fieldName": "inputFields",
+          "fieldType": "URN",
+          "numValuesFieldName": "numInputFields",
+          "queryByDefault": false
+        }
+      },
+      "type": [
+        "null",
+        {
+          "type": "array",
+          "items": "string"
+        }
+      ],
+      "name": "inputDatasetFields",
+      "default": null,
+      "doc": "Fields of the input datasets used by this job",
+      "Urn": "Urn",
+      "urn_is_array": true
+    },
+    {
+      "Relationship": {
+        "/*": {
+          "entityTypes": [
+            "schemaField"
+          ],
+          "name": "Produces"
+        }
+      },
+      "Searchable": {
+        "/*": {
+          "fieldName": "outputFields",
+          "fieldType": "URN",
+          "numValuesFieldName": "numOutputFields",
+          "queryByDefault": false
+        }
+      },
+      "type": [
+        "null",
+        {
+          "type": "array",
+          "items": "string"
+        }
+      ],
+      "name": "outputDatasetFields",
+      "default": null,
+      "doc": "Fields of the output datasets this job writes to",
+      "Urn": "Urn",
+      "urn_is_array": true
+    },
+    {
+      "type": [
+        "null",
+        {
+          "type": "array",
+          "items": {
+            "type": "record",
+            "name": "FineGrainedLineage",
+            "namespace": "com.linkedin.pegasus2avro.dataset",
+            "fields": [
+              {
+                "type": {
+                  "type": "enum",
+                  "symbolDocs": {
+                    "DATASET": " Indicates that this lineage is originating from upstream dataset(s)",
+                    "FIELD_SET": " Indicates that this lineage is originating from upstream field(s)",
+                    "NONE": " Indicates that there is no upstream lineage i.e. the downstream field is not a derived field"
+                  },
+                  "name": "FineGrainedLineageUpstreamType",
+                  "namespace": "com.linkedin.pegasus2avro.dataset",
+                  "symbols": [
+                    "FIELD_SET",
+                    "DATASET",
+                    "NONE"
+                  ],
+                  "doc": "The type of upstream entity in a fine-grained lineage"
+                },
+                "name": "upstreamType",
+                "doc": "The type of upstream entity"
+              },
+              {
+                "type": [
+                  "null",
+                  {
+                    "type": "array",
+                    "items": "string"
+                  }
+                ],
+                "name": "upstreams",
+                "default": null,
+                "doc": "Upstream entities in the lineage",
+                "Urn": "Urn",
+                "urn_is_array": true
+              },
+              {
+                "type": {
+                  "type": "enum",
+                  "symbolDocs": {
+                    "FIELD": " Indicates that the lineage is for a single, specific, downstream field",
+                    "FIELD_SET": " Indicates that the lineage is for a set of downstream fields"
+                  },
+                  "name": "FineGrainedLineageDownstreamType",
+                  "namespace": "com.linkedin.pegasus2avro.dataset",
+                  "symbols": [
+                    "FIELD",
+                    "FIELD_SET"
+                  ],
+                  "doc": "The type of downstream field(s) in a fine-grained lineage"
+                },
+                "name": "downstreamType",
+                "doc": "The type of downstream field(s)"
+              },
+              {
+                "type": [
+                  "null",
+                  {
+                    "type": "array",
+                    "items": "string"
+                  }
+                ],
+                "name": "downstreams",
+                "default": null,
+                "doc": "Downstream fields in the lineage",
+                "Urn": "Urn",
+                "urn_is_array": true
+              },
+              {
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "name": "transformOperation",
+                "default": null,
+                "doc": "The transform operation applied to the upstream entities to produce the downstream field(s)"
+              },
+              {
+                "type": "float",
+                "name": "confidenceScore",
+                "default": 1.0,
+                "doc": "The confidence in this lineage between 0 (low confidence) and 1 (high confidence)"
+              }
+            ],
+            "doc": "A fine-grained lineage from upstream fields/datasets to downstream field(s)"
+          }
+        }
+      ],
+      "name": "fineGrainedLineages",
+      "default": null,
+      "doc": "Fine-grained column-level lineages\nNot currently supported in the UI\nUse UpstreamLineage aspect for datasets to express Column Level Lineage for the UI"
+    }
+  ],
+  "doc": "Information about the inputs and outputs of a Data processing job"
+}

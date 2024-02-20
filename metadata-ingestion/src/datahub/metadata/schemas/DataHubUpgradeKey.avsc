@@ -1,0 +1,21 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "dataHubUpgradeKey",
+    "keyForEntity": "dataHubUpgrade",
+    "entityCategory": "internal",
+    "entityAspects": [
+      "dataHubUpgradeRequest",
+      "dataHubUpgradeResult"
+    ]
+  },
+  "name": "DataHubUpgradeKey",
+  "namespace": "com.linkedin.pegasus2avro.metadata.key",
+  "fields": [
+    {
+      "type": "string",
+      "name": "id"
+    }
+  ],
+  "doc": "Key for a DataHubUpgrade"
+}

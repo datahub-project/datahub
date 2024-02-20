@@ -1,0 +1,53 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "dataFlowKey",
+    "keyForEntity": "dataFlow",
+    "entityCategory": "core",
+    "entityAspects": [
+      "domains",
+      "deprecation",
+      "versionInfo",
+      "dataFlowInfo",
+      "editableDataFlowProperties",
+      "ownership",
+      "status",
+      "globalTags",
+      "browsePaths",
+      "glossaryTerms",
+      "institutionalMemory",
+      "dataPlatformInstance",
+      "browsePathsV2"
+    ]
+  },
+  "name": "DataFlowKey",
+  "namespace": "com.linkedin.pegasus2avro.metadata.key",
+  "fields": [
+    {
+      "Searchable": {
+        "fieldType": "TEXT_PARTIAL"
+      },
+      "type": "string",
+      "name": "orchestrator",
+      "doc": "Workflow manager like azkaban, airflow which orchestrates the flow"
+    },
+    {
+      "Searchable": {
+        "enableAutocomplete": true,
+        "fieldType": "WORD_GRAM"
+      },
+      "type": "string",
+      "name": "flowId",
+      "doc": "Unique Identifier of the data flow"
+    },
+    {
+      "Searchable": {
+        "fieldType": "TEXT_PARTIAL"
+      },
+      "type": "string",
+      "name": "cluster",
+      "doc": "Cluster where the flow is executed"
+    }
+  ],
+  "doc": "Key for a Data Flow"
+}

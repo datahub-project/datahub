@@ -186,6 +186,18 @@
               "name": "debugMode",
               "default": null,
               "doc": "Whether or not to run this ingestion source in debug mode"
+            },
+            {
+              "type": [
+                "null",
+                {
+                  "type": "map",
+                  "values": "string"
+                }
+              ],
+              "name": "extraArgs",
+              "default": null,
+              "doc": "Extra arguments for the ingestion run."
             }
           ]
         },
@@ -207,7 +219,10 @@
         "Searchable": {
           "boostScore": 10.0,
           "enableAutocomplete": true,
-          "fieldType": "TEXT_PARTIAL"
+          "fieldNameAliases": [
+            "_entityName"
+          ],
+          "fieldType": "WORD_GRAM"
         },
         "type": "string",
         "name": "name",
@@ -320,6 +335,9 @@
                     "class": "com.linkedin.pegasus2avro.common.urn.Urn"
                   },
                   "Urn": "Urn",
+                  "entityTypes": [
+                    "corpuser"
+                  ],
                   "type": "string",
                   "name": "user",
                   "doc": "Link provisioned corp user for a role"
@@ -628,7 +646,10 @@
         "Searchable": {
           "boostScore": 10.0,
           "enableAutocomplete": true,
-          "fieldType": "TEXT_PARTIAL"
+          "fieldNameAliases": [
+            "_entityName"
+          ],
+          "fieldType": "WORD_GRAM"
         },
         "type": "string",
         "name": "name",
@@ -1221,7 +1242,10 @@
         "Searchable": {
           "boostScore": 10.0,
           "enableAutocomplete": true,
-          "fieldType": "TEXT_PARTIAL"
+          "fieldNameAliases": [
+            "_entityName"
+          ],
+          "fieldType": "WORD_GRAM"
         },
         "type": "string",
         "name": "name",
@@ -1991,7 +2015,10 @@
         "Searchable": {
           "boostScore": 10.0,
           "enableAutocomplete": true,
-          "fieldType": "TEXT_PARTIAL",
+          "fieldNameAliases": [
+            "_entityName"
+          ],
+          "fieldType": "WORD_GRAM",
           "queryByDefault": true
         },
         "type": [
@@ -2044,6 +2071,9 @@
           "class": "com.linkedin.pegasus2avro.common.urn.CorpuserUrn"
         },
         "Urn": "CorpuserUrn",
+        "entityTypes": [
+          "corpuser"
+        ],
         "type": [
           "null",
           "string"
@@ -2092,7 +2122,7 @@
         "Searchable": {
           "boostScore": 10.0,
           "enableAutocomplete": true,
-          "fieldType": "TEXT_PARTIAL",
+          "fieldType": "WORD_GRAM",
           "queryByDefault": true
         },
         "type": [
@@ -2130,6 +2160,9 @@
         "Searchable": {
           "boostScore": 10.0,
           "enableAutocomplete": true,
+          "fieldNameAliases": [
+            "_entityName"
+          ],
           "fieldType": "TEXT_PARTIAL",
           "queryByDefault": true
         },
@@ -2307,7 +2340,7 @@
       {
         "Searchable": {
           "boostScore": 10.0,
-          "fieldType": "TEXT_PARTIAL",
+          "fieldType": "WORD_GRAM",
           "queryByDefault": true
         },
         "type": [
@@ -2872,7 +2905,7 @@
         "Searchable": {
           "boostScore": 10.0,
           "enableAutocomplete": true,
-          "fieldType": "TEXT_PARTIAL"
+          "fieldType": "WORD_GRAM"
         },
         "type": "string",
         "name": "name",
@@ -2881,6 +2914,7 @@
       {
         "Searchable": {
           "addToFilters": true,
+          "fieldName": "processType",
           "fieldType": "KEYWORD",
           "filterNameOverride": "Process Type"
         },
@@ -3016,6 +3050,10 @@
           "class": "com.linkedin.pegasus2avro.common.urn.Urn"
         },
         "Urn": "Urn",
+        "entityTypes": [
+          "dataJob",
+          "dataFlow"
+        ],
         "type": [
           "null",
           "string"
@@ -3042,6 +3080,9 @@
           "class": "com.linkedin.pegasus2avro.common.urn.Urn"
         },
         "Urn": "Urn",
+        "entityTypes": [
+          "dataProcessInstance"
+        ],
         "type": [
           "null",
           "string"
@@ -3569,7 +3610,10 @@
         "Searchable": {
           "boostScore": 10.0,
           "enableAutocomplete": true,
-          "fieldType": "TEXT_PARTIAL"
+          "fieldNameAliases": [
+            "_entityName"
+          ],
+          "fieldType": "WORD_GRAM"
         },
         "type": [
           "null",
@@ -3584,7 +3628,7 @@
           "addToFilters": false,
           "boostScore": 10.0,
           "enableAutocomplete": true,
-          "fieldType": "TEXT"
+          "fieldType": "WORD_GRAM"
         },
         "type": [
           "null",
@@ -4097,6 +4141,9 @@
                   "class": "com.linkedin.pegasus2avro.common.urn.DatasetUrn"
                 },
                 "Urn": "DatasetUrn",
+                "entityTypes": [
+                  "dataset"
+                ],
                 "type": "string",
                 "name": "dataset",
                 "doc": "The upstream dataset the lineage points to"
@@ -4422,7 +4469,10 @@
       {
         "Searchable": {
           "enableAutocomplete": true,
-          "fieldType": "TEXT_PARTIAL"
+          "fieldNameAliases": [
+            "_entityName"
+          ],
+          "fieldType": "WORD_GRAM"
         },
         "type": "string",
         "name": "title",
@@ -4911,6 +4961,10 @@
                                     "class": "com.linkedin.pegasus2avro.common.urn.Urn"
                                   },
                                   "Urn": "Urn",
+                                  "entityTypes": [
+                                    "corpuser",
+                                    "corpGroup"
+                                  ],
                                   "type": "string",
                                   "name": "owner",
                                   "doc": "Owner URN, e.g. urn:li:corpuser:ldap, urn:li:corpGroup:group_name, and urn:li:multiProduct:mp_name\n(Caveat: only corpuser is currently supported in the frontend.)"
@@ -4971,6 +5025,9 @@
                                     "class": "com.linkedin.pegasus2avro.common.urn.Urn"
                                   },
                                   "Urn": "Urn",
+                                  "entityTypes": [
+                                    "ownershipType"
+                                  ],
                                   "type": [
                                     "null",
                                     "string"
@@ -5196,6 +5253,9 @@
                                     "class": "com.linkedin.pegasus2avro.common.urn.GlossaryTermUrn"
                                   },
                                   "Urn": "GlossaryTermUrn",
+                                  "entityTypes": [
+                                    "glossaryTerm"
+                                  ],
                                   "type": "string",
                                   "name": "urn",
                                   "doc": "Urn of the applied glossary term"
@@ -5405,7 +5465,7 @@
                           "Searchable": {
                             "boostScore": 10.0,
                             "enableAutocomplete": true,
-                            "fieldType": "TEXT_PARTIAL",
+                            "fieldType": "WORD_GRAM",
                             "queryByDefault": true
                           },
                           "type": "string",
@@ -5461,7 +5521,7 @@
                             "boostScore": 2.0,
                             "enableAutocomplete": true,
                             "fieldName": "ldap",
-                            "fieldType": "TEXT_PARTIAL"
+                            "fieldType": "WORD_GRAM"
                           },
                           "type": "string",
                           "name": "username",
@@ -5574,7 +5634,10 @@
                           "Searchable": {
                             "boostScore": 10.0,
                             "enableAutocomplete": true,
-                            "fieldType": "TEXT_PARTIAL"
+                            "fieldNameAliases": [
+                              "_entityName"
+                            ],
+                            "fieldType": "WORD_GRAM"
                           },
                           "type": "string",
                           "name": "title",
@@ -5842,7 +5905,7 @@
                         {
                           "Searchable": {
                             "enableAutocomplete": true,
-                            "fieldType": "TEXT_PARTIAL"
+                            "fieldType": "WORD_GRAM"
                           },
                           "type": "string",
                           "name": "flowId",
@@ -5923,6 +5986,9 @@
                             "class": "com.linkedin.pegasus2avro.common.urn.Urn"
                           },
                           "Urn": "Urn",
+                          "entityTypes": [
+                            "dataFlow"
+                          ],
                           "type": "string",
                           "name": "flow",
                           "doc": "Standardized data processing flow urn representing the flow for the job"
@@ -5930,7 +5996,7 @@
                         {
                           "Searchable": {
                             "enableAutocomplete": true,
-                            "fieldType": "TEXT_PARTIAL"
+                            "fieldType": "WORD_GRAM"
                           },
                           "type": "string",
                           "name": "jobId",
@@ -6006,7 +6072,7 @@
                             "boostScore": 10.0,
                             "enableAutocomplete": true,
                             "fieldName": "id",
-                            "fieldType": "TEXT_PARTIAL"
+                            "fieldType": "WORD_GRAM"
                           },
                           "type": "string",
                           "name": "name",
@@ -6781,6 +6847,9 @@
                                       "class": "com.linkedin.pegasus2avro.common.urn.Urn"
                                     },
                                     "Urn": "Urn",
+                                    "entityTypes": [
+                                      "dataset"
+                                    ],
                                     "type": "string",
                                     "name": "foreignDataset",
                                     "doc": "Reference to the foreign dataset for ease of lookup"
@@ -6970,7 +7039,7 @@
                           "Searchable": {
                             "boostScore": 4.0,
                             "enableAutocomplete": true,
-                            "fieldType": "TEXT_PARTIAL"
+                            "fieldType": "WORD_GRAM"
                           },
                           "type": "string",
                           "name": "name",
@@ -7058,7 +7127,10 @@
                           "Searchable": {
                             "boostScore": 10.0,
                             "enableAutocomplete": false,
-                            "fieldType": "TEXT_PARTIAL"
+                            "fieldNameAliases": [
+                              "_entityName"
+                            ],
+                            "fieldType": "WORD_GRAM"
                           },
                           "validate": {
                             "strlen": {
@@ -7073,7 +7145,7 @@
                           "Searchable": {
                             "boostScore": 10.0,
                             "enableAutocomplete": true,
-                            "fieldType": "TEXT_PARTIAL"
+                            "fieldType": "WORD_GRAM"
                           },
                           "type": [
                             "null",
@@ -7187,7 +7259,10 @@
                           "Searchable": {
                             "boostScore": 10.0,
                             "enableAutocomplete": true,
-                            "fieldType": "TEXT_PARTIAL"
+                            "fieldNameAliases": [
+                              "_entityName"
+                            ],
+                            "fieldType": "WORD_GRAM"
                           },
                           "type": "string",
                           "name": "name",
@@ -8206,7 +8281,10 @@
                           "Searchable": {
                             "boostScore": 8.0,
                             "enableAutocomplete": true,
-                            "fieldType": "TEXT_PARTIAL"
+                            "fieldNameAliases": [
+                              "_entityName"
+                            ],
+                            "fieldType": "WORD_GRAM"
                           },
                           "type": "string",
                           "name": "name",
@@ -8370,7 +8448,10 @@
                           "Searchable": {
                             "boostScore": 8.0,
                             "enableAutocomplete": true,
-                            "fieldType": "TEXT_PARTIAL"
+                            "fieldNameAliases": [
+                              "_entityName"
+                            ],
+                            "fieldType": "WORD_GRAM"
                           },
                           "type": "string",
                           "name": "name",
@@ -8500,6 +8581,9 @@
                             "class": "com.linkedin.pegasus2avro.common.urn.Urn"
                           },
                           "Urn": "Urn",
+                          "entityTypes": [
+                            "dataPlatform"
+                          ],
                           "type": "string",
                           "name": "platform",
                           "doc": "Data platform urn associated with the feature table"
@@ -8508,7 +8592,10 @@
                           "Searchable": {
                             "boostScore": 8.0,
                             "enableAutocomplete": true,
-                            "fieldType": "TEXT_PARTIAL"
+                            "fieldNameAliases": [
+                              "_entityName"
+                            ],
+                            "fieldType": "WORD_GRAM"
                           },
                           "type": "string",
                           "name": "name",
@@ -8669,7 +8756,10 @@
                           "Searchable": {
                             "boostScore": 10.0,
                             "enableAutocomplete": true,
-                            "fieldType": "TEXT_PARTIAL"
+                            "fieldNameAliases": [
+                              "_entityName"
+                            ],
+                            "fieldType": "WORD_GRAM"
                           },
                           "type": "string",
                           "name": "name",
@@ -8850,7 +8940,10 @@
                           "Searchable": {
                             "boostScore": 10.0,
                             "enableAutocomplete": true,
-                            "fieldType": "TEXT_PARTIAL"
+                            "fieldNameAliases": [
+                              "_entityName"
+                            ],
+                            "fieldType": "WORD_GRAM"
                           },
                           "type": "string",
                           "name": "name",
@@ -8973,7 +9066,7 @@
                             "boostScore": 10.0,
                             "enableAutocomplete": true,
                             "fieldName": "id",
-                            "fieldType": "TEXT_PARTIAL"
+                            "fieldType": "WORD_GRAM"
                           },
                           "type": "string",
                           "name": "name",
@@ -8995,7 +9088,10 @@
                           "Searchable": {
                             "boostScore": 10.0,
                             "enableAutocomplete": true,
-                            "fieldType": "TEXT_PARTIAL"
+                            "fieldNameAliases": [
+                              "_entityName"
+                            ],
+                            "fieldType": "WORD_GRAM"
                           },
                           "type": "string",
                           "name": "name",
@@ -9066,7 +9162,7 @@
                           "Searchable": {
                             "enableAutocomplete": true,
                             "fieldName": "id",
-                            "fieldType": "TEXT_PARTIAL"
+                            "fieldType": "WORD_GRAM"
                           },
                           "type": "string",
                           "name": "name",
@@ -9113,7 +9209,10 @@
                           "Searchable": {
                             "boostScore": 10.0,
                             "enableAutocomplete": true,
-                            "fieldType": "TEXT_PARTIAL"
+                            "fieldNameAliases": [
+                              "_entityName"
+                            ],
+                            "fieldType": "WORD_GRAM"
                           },
                           "type": [
                             "null",
@@ -9145,6 +9244,9 @@
                             "class": "com.linkedin.pegasus2avro.common.urn.GlossaryNodeUrn"
                           },
                           "Urn": "GlossaryNodeUrn",
+                          "entityTypes": [
+                            "glossaryNode"
+                          ],
                           "type": [
                             "null",
                             "string"
@@ -9368,7 +9470,7 @@
                         {
                           "Searchable": {
                             "enableAutocomplete": true,
-                            "fieldType": "TEXT_PARTIAL"
+                            "fieldType": "WORD_GRAM"
                           },
                           "type": "string",
                           "name": "name"
@@ -9406,6 +9508,9 @@
                             "class": "com.linkedin.pegasus2avro.common.urn.GlossaryNodeUrn"
                           },
                           "Urn": "GlossaryNodeUrn",
+                          "entityTypes": [
+                            "glossaryNode"
+                          ],
                           "type": [
                             "null",
                             "string"
@@ -9419,7 +9524,10 @@
                             "boostScore": 10.0,
                             "enableAutocomplete": true,
                             "fieldName": "displayName",
-                            "fieldType": "TEXT_PARTIAL"
+                            "fieldNameAliases": [
+                              "_entityName"
+                            ],
+                            "fieldType": "WORD_GRAM"
                           },
                           "type": [
                             "null",
@@ -9913,7 +10021,25 @@
                 ],
                 "name": "runId",
                 "default": "no-run-id-provided",
-                "doc": "The run id that produced the metadata. Populated in case of batch-ingestion."
+                "doc": "The original run id that produced the metadata. Populated in case of batch-ingestion."
+              },
+              {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "name": "lastRunId",
+                "default": "no-run-id-provided",
+                "doc": "The last run id that produced the metadata. Populated in case of batch-ingestion."
+              },
+              {
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "name": "pipelineName",
+                "default": null,
+                "doc": "The ingestion pipeline id that produced the metadata. Populated in case of batch ingestion."
               },
               {
                 "type": [
@@ -10240,7 +10366,10 @@
         "Searchable": {
           "boostScore": 10.0,
           "enableAutocomplete": true,
-          "fieldType": "TEXT_PARTIAL"
+          "fieldNameAliases": [
+            "_entityName"
+          ],
+          "fieldType": "WORD_GRAM"
         },
         "type": [
           "null",
@@ -10458,12 +10587,24 @@
         "doc": "URL where the reference exist"
       },
       {
+        "Searchable": {},
         "type": {
           "type": "enum",
+          "symbolDocs": {
+            "DATASET": "A single-dataset assertion. When this is the value, the datasetAssertion field will be populated.",
+            "DATA_SCHEMA": "A schema or structural assertion.\n\nWould have named this SCHEMA but the codegen for PDL does not allow this (reserved word).",
+            "FRESHNESS": "A freshness assertion, or an assertion which indicates when a particular operation should occur\nto an asset.",
+            "SQL": "A raw SQL-statement based assertion",
+            "VOLUME": "A volume assertion, or an assertion which indicates how much data should be available for a\nparticular asset."
+          },
           "name": "AssertionType",
           "namespace": "com.linkedin.pegasus2avro.assertion",
           "symbols": [
-            "DATASET"
+            "DATASET",
+            "FRESHNESS",
+            "VOLUME",
+            "SQL",
+            "DATA_SCHEMA"
           ]
         },
         "name": "type",
@@ -10488,17 +10629,22 @@
                   "class": "com.linkedin.pegasus2avro.common.urn.Urn"
                 },
                 "Urn": "Urn",
+                "entityTypes": [
+                  "dataset"
+                ],
                 "type": "string",
                 "name": "dataset",
                 "doc": "The dataset targeted by this assertion."
               },
               {
+                "Searchable": {},
                 "type": {
                   "type": "enum",
                   "symbolDocs": {
-                    "DATASET_COLUMN": "This assertion applies to dataset columns",
+                    "DATASET_COLUMN": "This assertion applies to dataset column(s)",
                     "DATASET_ROWS": "This assertion applies to entire rows of the dataset",
                     "DATASET_SCHEMA": "This assertion applies to the schema of the dataset",
+                    "DATASET_STORAGE_SIZE": "This assertion applies to the storage size of the dataset",
                     "UNKNOWN": "The scope of the assertion is unknown"
                   },
                   "name": "DatasetAssertionScope",
@@ -10506,6 +10652,7 @@
                   "symbols": [
                     "DATASET_COLUMN",
                     "DATASET_ROWS",
+                    "DATASET_STORAGE_SIZE",
                     "DATASET_SCHEMA",
                     "UNKNOWN"
                   ]
@@ -10522,6 +10669,11 @@
                     "name": "Asserts"
                   }
                 },
+                "Searchable": {
+                  "/*": {
+                    "fieldType": "URN"
+                  }
+                },
                 "Urn": "Urn",
                 "urn_is_array": true,
                 "type": [
@@ -10533,9 +10685,10 @@
                 ],
                 "name": "fields",
                 "default": null,
-                "doc": "One or more dataset schema fields that are targeted by this assertion"
+                "doc": "One or more dataset schema fields that are targeted by this assertion.\n\nThis field is expected to be provided if the assertion scope is DATASET_COLUMN."
               },
               {
+                "Searchable": {},
                 "type": [
                   "null",
                   {
@@ -10543,7 +10696,7 @@
                     "symbolDocs": {
                       "COLUMNS": "Assertion is applied on all columns.",
                       "COLUMN_COUNT": "Assertion is applied on number of columns.",
-                      "IDENTITY": "Assertion is applied on individual column value.",
+                      "IDENTITY": "Assertion is applied on individual column value. (No aggregation)",
                       "MAX": "Assertion is applied on column std deviation",
                       "MEAN": "Assertion is applied on column mean",
                       "MEDIAN": "Assertion is applied on column median",
@@ -10554,7 +10707,8 @@
                       "STDDEV": "Assertion is applied on column std deviation",
                       "SUM": "Assertion is applied on column sum",
                       "UNIQUE_COUNT": "Assertion is applied on number of distinct values in column",
-                      "UNIQUE_PROPOTION": "Assertion is applied on proportion of distinct values in column",
+                      "UNIQUE_PROPORTION": "Assertion is applied on proportion of distinct values in column",
+                      "UNIQUE_PROPOTION": "Assertion is applied on proportion of distinct values in column\n\nDeprecated! Use UNIQUE_PROPORTION instead.",
                       "_NATIVE_": "Other"
                     },
                     "name": "AssertionStdAggregation",
@@ -10567,6 +10721,7 @@
                       "MEAN",
                       "MEDIAN",
                       "UNIQUE_COUNT",
+                      "UNIQUE_PROPORTION",
                       "UNIQUE_PROPOTION",
                       "NULL_COUNT",
                       "NULL_PROPORTION",
@@ -10581,7 +10736,7 @@
                 ],
                 "name": "aggregation",
                 "default": null,
-                "doc": "Standardized assertion operator"
+                "doc": "Standardized assertion operator\nThis field is left blank if there is no selected aggregation or metric for a particular column."
               },
               {
                 "type": {
@@ -10731,7 +10886,663 @@
         ],
         "name": "datasetAssertion",
         "default": null,
-        "doc": "Dataset Assertion information when type is DATASET"
+        "doc": "A Dataset Assertion definition. This field is populated when the type is DATASET."
+      },
+      {
+        "type": [
+          "null",
+          {
+            "type": "record",
+            "name": "FreshnessAssertionInfo",
+            "namespace": "com.linkedin.pegasus2avro.assertion",
+            "fields": [
+              {
+                "Searchable": {},
+                "type": {
+                  "type": "enum",
+                  "symbolDocs": {
+                    "DATASET_CHANGE": "An Freshness based on Operations performed on a particular Dataset (insert, update, delete, etc) and sourced from an audit log, as\nopposed to based on the highest watermark in a timestamp column (e.g. a query). Only valid when entity is of type \"dataset\".",
+                    "DATA_JOB_RUN": "An Freshness based on a successful execution of a Data Job."
+                  },
+                  "name": "FreshnessAssertionType",
+                  "namespace": "com.linkedin.pegasus2avro.assertion",
+                  "symbols": [
+                    "DATASET_CHANGE",
+                    "DATA_JOB_RUN"
+                  ]
+                },
+                "name": "type",
+                "doc": "The type of the freshness assertion being monitored."
+              },
+              {
+                "Relationship": {
+                  "entityTypes": [
+                    "dataset",
+                    "dataJob"
+                  ],
+                  "name": "Asserts"
+                },
+                "Searchable": {
+                  "fieldType": "URN"
+                },
+                "java": {
+                  "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+                },
+                "Urn": "Urn",
+                "entityTypes": [
+                  "dataset",
+                  "dataJob"
+                ],
+                "type": "string",
+                "name": "entity",
+                "doc": "The entity targeted by this Freshness check."
+              },
+              {
+                "Searchable": {
+                  "/type": {
+                    "fieldName": "scheduleType"
+                  }
+                },
+                "type": {
+                  "type": "record",
+                  "name": "FreshnessAssertionSchedule",
+                  "namespace": "com.linkedin.pegasus2avro.assertion",
+                  "fields": [
+                    {
+                      "type": {
+                        "type": "enum",
+                        "symbolDocs": {
+                          "CRON": "An highly configurable recurring schedule which describes the times of events described\nby a CRON schedule, with the evaluation schedule assuming to be matching the cron schedule.\n\nIn a CRON schedule type, we compute the look-back window to be the time between the last scheduled event\nand the current event (evaluation time). This means that the evaluation schedule must match exactly\nthe schedule defined inside the cron schedule.\n\nFor example, a CRON schedule defined as \"0 8 * * *\" would represent a schedule of \"every day by 8am\". Assuming\nthat the assertion evaluation schedule is defined to match this, the freshness assertion would be evaluated in the following way:\n\n    1. Compute the \"last scheduled occurrence\" of the event using the CRON schedule. For example, yesterday at 8am.\n    2. Compute the bounds of a time window between the \"last scheduled occurrence\" (yesterday at 8am) until the \"current occurrence\" (today at 8am)\n    3. Verify that the target event has occurred within the CRON-interval window.\n    4. If the target event has occurred within the time window, then assertion passes.\n    5. If the target event has not occurred within the time window, then the assertion fails.",
+                          "FIXED_INTERVAL": "A fixed interval which is used to compute a look-back window for use when evaluating the assertion relative\nto the Evaluation Time of the Assertion.\n\nTo compute the valid look-back window, we subtract the fixed interval from the evaluation time. Then, we verify\nthat the target event has occurred within that window.\n\nFor example, a fixed interval of \"24h\" would represent a schedule of \"in the last 24 hours\".\nThe 24 hour interval is relative to the evaluation time of the assertion. For example if we schedule the assertion\nto be evaluated each hour, we'd compute the result as follows:\n\n    1. Subtract the fixed interval from the current time (Evaluation time) to compute the bounds of a fixed look-back window.\n    2. Verify that the target event has occurred within the CRON-interval window.\n    3. If the target event has occurred within the time window, then assertion passes.\n    4. If the target event has not occurred within the time window, then the assertion fails."
+                        },
+                        "name": "FreshnessAssertionScheduleType",
+                        "namespace": "com.linkedin.pegasus2avro.assertion",
+                        "symbols": [
+                          "CRON",
+                          "FIXED_INTERVAL"
+                        ]
+                      },
+                      "name": "type",
+                      "doc": "The type of a Freshness Assertion Schedule.\n\nOnce we support data-time-relative schedules (e.g. schedules relative to time partitions),\nwe will add those schedule types here."
+                    },
+                    {
+                      "type": [
+                        "null",
+                        {
+                          "type": "record",
+                          "name": "FreshnessCronSchedule",
+                          "namespace": "com.linkedin.pegasus2avro.assertion",
+                          "fields": [
+                            {
+                              "type": "string",
+                              "name": "cron",
+                              "doc": "A cron-formatted execution interval, as a cron string, e.g. 1 * * * *"
+                            },
+                            {
+                              "type": "string",
+                              "name": "timezone",
+                              "doc": "Timezone in which the cron interval applies, e.g. America/Los Angeles"
+                            },
+                            {
+                              "type": [
+                                "null",
+                                "long"
+                              ],
+                              "name": "windowStartOffsetMs",
+                              "default": null,
+                              "doc": "An optional offset in milliseconds to SUBTRACT from the timestamp generated by the cron schedule\nto generate the lower bounds of the \"freshness window\", or the window of time in which an event must have occurred in order for the Freshness check\nto be considering passing.\n\nIf left empty, the start of the SLA window will be the _end_ of the previously evaluated Freshness window."
+                            }
+                          ],
+                          "doc": "Attributes defining a CRON-formatted schedule used for defining a freshness assertion."
+                        }
+                      ],
+                      "name": "cron",
+                      "default": null,
+                      "doc": "A cron schedule. This field is required when type is CRON."
+                    },
+                    {
+                      "type": [
+                        "null",
+                        {
+                          "type": "record",
+                          "name": "FixedIntervalSchedule",
+                          "namespace": "com.linkedin.pegasus2avro.assertion",
+                          "fields": [
+                            {
+                              "type": "com.linkedin.pegasus2avro.timeseries.CalendarInterval",
+                              "name": "unit",
+                              "doc": "Interval unit such as minute/hour/day etc."
+                            },
+                            {
+                              "type": "int",
+                              "name": "multiple",
+                              "default": 1,
+                              "doc": "How many units. Defaults to 1."
+                            }
+                          ],
+                          "doc": "Attributes defining a relative fixed interval SLA schedule."
+                        }
+                      ],
+                      "name": "fixedInterval",
+                      "default": null,
+                      "doc": "A fixed interval schedule. This field is required when type is FIXED_INTERVAL."
+                    }
+                  ],
+                  "doc": "Attributes defining a single Freshness schedule."
+                },
+                "name": "schedule",
+                "doc": "Produce FAILURE Assertion Result if the asset is not updated on the cadence and within the time range described by the schedule."
+              },
+              {
+                "type": [
+                  "null",
+                  {
+                    "type": "record",
+                    "name": "DatasetFilter",
+                    "namespace": "com.linkedin.pegasus2avro.dataset",
+                    "fields": [
+                      {
+                        "type": {
+                          "type": "enum",
+                          "symbolDocs": {
+                            "SQL": "The partition is represented as a an opaque, raw SQL\nclause."
+                          },
+                          "name": "DatasetFilterType",
+                          "namespace": "com.linkedin.pegasus2avro.dataset",
+                          "symbols": [
+                            "SQL"
+                          ]
+                        },
+                        "name": "type",
+                        "doc": "How the partition will be represented in this model.\n\nIn the future, we'll likely add support for more structured\npredicates."
+                      },
+                      {
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "name": "sql",
+                        "default": null,
+                        "doc": "The raw where clause string which will be used for monitoring.\nRequired if the type is SQL."
+                      }
+                    ],
+                    "doc": "A definition of filters that should be used when\nquerying an external Dataset or Table.\n\nNote that this models should NOT be used for working with\nsearch / filter on DataHub Platform itself."
+                  }
+                ],
+                "name": "filter",
+                "default": null,
+                "doc": "A definition of the specific filters that should be applied, when performing monitoring.\nIf not provided, there is no filter, and the full table is under consideration."
+              }
+            ],
+            "doc": "Attributes defining a Freshness Assertion."
+          }
+        ],
+        "name": "freshnessAssertion",
+        "default": null,
+        "doc": "An Freshness Assertion definition. This field is populated when the type is FRESHNESS."
+      },
+      {
+        "type": [
+          "null",
+          {
+            "type": "record",
+            "name": "VolumeAssertionInfo",
+            "namespace": "com.linkedin.pegasus2avro.assertion",
+            "fields": [
+              {
+                "Searchable": {},
+                "type": {
+                  "type": "enum",
+                  "symbolDocs": {
+                    "INCREMENTING_SEGMENT_ROW_COUNT_CHANGE": "A volume assertion that compares the row counts in neighboring \"segments\" or \"partitions\"\nof an incrementing column.\nThis can be used to track changes between subsequent date partition\nin a table, for example.",
+                    "INCREMENTING_SEGMENT_ROW_COUNT_TOTAL": "A volume assertion that checks the latest \"segment\" in a table based on an incrementing\ncolumn to check whether it's row count falls into a particular range.\n\nThis can be used to monitor the row count of an incrementing date-partition column segment.",
+                    "ROW_COUNT_CHANGE": "A volume assertion that is evaluated against an incremental row count of a dataset,\nor a row count change.",
+                    "ROW_COUNT_TOTAL": "A volume assertion that is evaluated against the total row count of a dataset."
+                  },
+                  "name": "VolumeAssertionType",
+                  "namespace": "com.linkedin.pegasus2avro.assertion",
+                  "symbols": [
+                    "ROW_COUNT_TOTAL",
+                    "ROW_COUNT_CHANGE",
+                    "INCREMENTING_SEGMENT_ROW_COUNT_TOTAL",
+                    "INCREMENTING_SEGMENT_ROW_COUNT_CHANGE"
+                  ]
+                },
+                "name": "type",
+                "doc": "The type of the freshness assertion being monitored."
+              },
+              {
+                "Relationship": {
+                  "entityTypes": [
+                    "dataset"
+                  ],
+                  "name": "Asserts"
+                },
+                "Searchable": {
+                  "fieldType": "URN"
+                },
+                "java": {
+                  "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+                },
+                "Urn": "Urn",
+                "entityTypes": [
+                  "dataset"
+                ],
+                "type": "string",
+                "name": "entity",
+                "doc": "The entity targeted by this Volume check."
+              },
+              {
+                "type": [
+                  "null",
+                  {
+                    "type": "record",
+                    "name": "RowCountTotal",
+                    "namespace": "com.linkedin.pegasus2avro.assertion",
+                    "fields": [
+                      {
+                        "type": "com.linkedin.pegasus2avro.assertion.AssertionStdOperator",
+                        "name": "operator",
+                        "doc": "The operator you'd like to apply.\n\nNote that only numeric operators are valid inputs:\nGREATER_THAN, GREATER_THAN_OR_EQUAL_TO, EQUAL_TO, LESS_THAN, LESS_THAN_OR_EQUAL_TO,\nBETWEEN."
+                      },
+                      {
+                        "type": "com.linkedin.pegasus2avro.assertion.AssertionStdParameters",
+                        "name": "parameters",
+                        "doc": "The parameters you'd like to provide as input to the operator.\n\nNote that only numeric parameter types are valid inputs: NUMBER."
+                      }
+                    ],
+                    "doc": "Attributes defining a ROW_COUNT_TOTAL volume assertion."
+                  }
+                ],
+                "name": "rowCountTotal",
+                "default": null,
+                "doc": "Produce FAILURE Assertion Result if the row count of the asset does not meet specific requirements.\nRequired if type is 'ROW_COUNT_TOTAL'"
+              },
+              {
+                "type": [
+                  "null",
+                  {
+                    "type": "record",
+                    "name": "RowCountChange",
+                    "namespace": "com.linkedin.pegasus2avro.assertion",
+                    "fields": [
+                      {
+                        "type": {
+                          "type": "enum",
+                          "symbolDocs": {
+                            "ABSOLUTE": "A change that is defined in absolute terms.",
+                            "PERCENTAGE": "A change that is defined in relative terms using percentage change\nfrom the original value."
+                          },
+                          "name": "AssertionValueChangeType",
+                          "namespace": "com.linkedin.pegasus2avro.assertion",
+                          "symbols": [
+                            "ABSOLUTE",
+                            "PERCENTAGE"
+                          ],
+                          "doc": "An enum to represent a type of change in an assertion value, metric, or measurement."
+                        },
+                        "name": "type",
+                        "doc": "The type of the value used to evaluate the assertion: a fixed absolute value or a relative percentage."
+                      },
+                      {
+                        "type": "com.linkedin.pegasus2avro.assertion.AssertionStdOperator",
+                        "name": "operator",
+                        "doc": "The operator you'd like to apply.\n\nNote that only numeric operators are valid inputs:\nGREATER_THAN, GREATER_THAN_OR_EQUAL_TO, EQUAL_TO, LESS_THAN, LESS_THAN_OR_EQUAL_TO,\nBETWEEN."
+                      },
+                      {
+                        "type": "com.linkedin.pegasus2avro.assertion.AssertionStdParameters",
+                        "name": "parameters",
+                        "doc": "The parameters you'd like to provide as input to the operator.\n\nNote that only numeric parameter types are valid inputs: NUMBER."
+                      }
+                    ],
+                    "doc": "Attributes defining a ROW_COUNT_CHANGE volume assertion."
+                  }
+                ],
+                "name": "rowCountChange",
+                "default": null,
+                "doc": "Produce FAILURE Assertion Result if the delta row count of the asset does not meet specific requirements\nwithin a given period of time.\nRequired if type is 'ROW_COUNT_CHANGE'"
+              },
+              {
+                "type": [
+                  "null",
+                  {
+                    "type": "record",
+                    "name": "IncrementingSegmentRowCountTotal",
+                    "namespace": "com.linkedin.pegasus2avro.assertion",
+                    "fields": [
+                      {
+                        "type": {
+                          "type": "record",
+                          "name": "IncrementingSegmentSpec",
+                          "namespace": "com.linkedin.pegasus2avro.assertion",
+                          "fields": [
+                            {
+                              "type": {
+                                "type": "record",
+                                "name": "SchemaFieldSpec",
+                                "namespace": "com.linkedin.pegasus2avro.schema",
+                                "fields": [
+                                  {
+                                    "type": "string",
+                                    "name": "path",
+                                    "doc": "The field path"
+                                  },
+                                  {
+                                    "type": "string",
+                                    "name": "type",
+                                    "doc": "The DataHub standard schema field type."
+                                  },
+                                  {
+                                    "type": "string",
+                                    "name": "nativeType",
+                                    "doc": "The native field type"
+                                  }
+                                ],
+                                "doc": "Lightweight spec used for referencing a particular schema field."
+                              },
+                              "name": "field",
+                              "doc": "The field to use to generate segments. It must be constantly incrementing as new rows are inserted."
+                            },
+                            {
+                              "type": [
+                                "null",
+                                {
+                                  "type": "record",
+                                  "name": "IncrementingSegmentFieldTransformer",
+                                  "namespace": "com.linkedin.pegasus2avro.assertion",
+                                  "fields": [
+                                    {
+                                      "type": {
+                                        "type": "enum",
+                                        "symbolDocs": {
+                                          "CEILING": "Rounds a numeric value up to the nearest integer.",
+                                          "FLOOR": "Rounds a numeric value down to the nearest integer.",
+                                          "NATIVE": "A backdoor to provide a native operator type specific to a given source system like\nSnowflake, Redshift, BQ, etc.",
+                                          "TIMESTAMP_MS_TO_DATE": "Rounds a timestamp (in milliseconds) down to the start of the day.",
+                                          "TIMESTAMP_MS_TO_HOUR": "Rounds a timestamp (in milliseconds) down to the nearest hour.",
+                                          "TIMESTAMP_MS_TO_MINUTE": "Rounds a timestamp (in seconds) down to the start of the month.",
+                                          "TIMESTAMP_MS_TO_MONTH": "Rounds a timestamp (in milliseconds) down to the start of the month",
+                                          "TIMESTAMP_MS_TO_YEAR": "Rounds a timestamp (in milliseconds) down to the start of the year"
+                                        },
+                                        "name": "IncrementingSegmentFieldTransformerType",
+                                        "namespace": "com.linkedin.pegasus2avro.assertion",
+                                        "symbols": [
+                                          "TIMESTAMP_MS_TO_MINUTE",
+                                          "TIMESTAMP_MS_TO_HOUR",
+                                          "TIMESTAMP_MS_TO_DATE",
+                                          "TIMESTAMP_MS_TO_MONTH",
+                                          "TIMESTAMP_MS_TO_YEAR",
+                                          "FLOOR",
+                                          "CEILING",
+                                          "NATIVE"
+                                        ]
+                                      },
+                                      "name": "type",
+                                      "doc": "A 'standard' transformer type. Note that not all source systems will support all operators."
+                                    },
+                                    {
+                                      "type": [
+                                        "null",
+                                        "string"
+                                      ],
+                                      "name": "nativeType",
+                                      "default": null,
+                                      "doc": "The 'native' transformer type, useful as a back door if a custom operator is required.\nThis field is required if the type is NATIVE."
+                                    }
+                                  ],
+                                  "doc": "The definition of the transformer function  that should be applied to a given field / column value in a dataset\nin order to determine the segment or bucket that it belongs to, which in turn is used to evaluate\nvolume assertions."
+                                }
+                              ],
+                              "name": "transformer",
+                              "default": null,
+                              "doc": "Optional transformer function to apply to the field in order to obtain the final segment or bucket identifier.\nIf not provided, then no operator will be applied to the field. (identity function)"
+                            }
+                          ],
+                          "doc": "Core attributes required to identify an incrementing segment in a table. This type is mainly useful\nfor tables that constantly increase with new rows being added on a particular cadence (e.g. fact or event tables)\n\nAn incrementing segment represents a logical chunk of data which is INSERTED\ninto a dataset on a regular interval, along with the presence of a constantly-incrementing column\nvalue such as an event time, date partition, or last modified column.\n\nAn incrementing segment is principally identified by 2 key attributes combined:\n\n 1. A field or column that represents the incrementing value. New rows that are inserted will be identified using this column.\n    Note that the value of this column may not by itself represent the \"bucket\" or the \"segment\" in which the row falls.\n\n 2. [Optional] An transformer function that may be applied to the selected column value in order\n    to obtain the final \"segment identifier\" or \"bucket identifier\". Rows that have the same value after applying the transformation\n    will be grouped into the same segment, using which the final value (e.g. row count) will be determined."
+                        },
+                        "name": "segment",
+                        "doc": "A specification of how the 'segment' can be derived using a column and an optional transformer function."
+                      },
+                      {
+                        "type": "com.linkedin.pegasus2avro.assertion.AssertionStdOperator",
+                        "name": "operator",
+                        "doc": "The operator you'd like to apply.\n\nNote that only numeric operators are valid inputs:\nGREATER_THAN, GREATER_THAN_OR_EQUAL_TO, EQUAL_TO, LESS_THAN, LESS_THAN_OR_EQUAL_TO,\nBETWEEN."
+                      },
+                      {
+                        "type": "com.linkedin.pegasus2avro.assertion.AssertionStdParameters",
+                        "name": "parameters",
+                        "doc": "The parameters you'd like to provide as input to the operator.\n\nNote that only numeric parameter types are valid inputs: NUMBER."
+                      }
+                    ],
+                    "doc": "Attributes defining an INCREMENTING_SEGMENT_ROW_COUNT_TOTAL volume assertion."
+                  }
+                ],
+                "name": "incrementingSegmentRowCountTotal",
+                "default": null,
+                "doc": "Produce FAILURE Assertion Result if the asset's latest incrementing segment row count total\ndoes not meet specific requirements. Required if type is 'INCREMENTING_SEGMENT_ROW_COUNT_TOTAL'"
+              },
+              {
+                "type": [
+                  "null",
+                  {
+                    "type": "record",
+                    "name": "IncrementingSegmentRowCountChange",
+                    "namespace": "com.linkedin.pegasus2avro.assertion",
+                    "fields": [
+                      {
+                        "type": "com.linkedin.pegasus2avro.assertion.IncrementingSegmentSpec",
+                        "name": "segment",
+                        "doc": "A specification of how the 'segment' can be derived using a column and an optional transformer function."
+                      },
+                      {
+                        "type": "com.linkedin.pegasus2avro.assertion.AssertionValueChangeType",
+                        "name": "type",
+                        "doc": "The type of the value used to evaluate the assertion: a fixed absolute value or a relative percentage."
+                      },
+                      {
+                        "type": "com.linkedin.pegasus2avro.assertion.AssertionStdOperator",
+                        "name": "operator",
+                        "doc": "The operator you'd like to apply to the row count value\n\nNote that only numeric operators are valid inputs:\nGREATER_THAN, GREATER_THAN_OR_EQUAL_TO, EQUAL_TO, LESS_THAN, LESS_THAN_OR_EQUAL_TO,\nBETWEEN."
+                      },
+                      {
+                        "type": "com.linkedin.pegasus2avro.assertion.AssertionStdParameters",
+                        "name": "parameters",
+                        "doc": "The parameters you'd like to provide as input to the operator.\n\nNote that only numeric parameter types are valid inputs: NUMBER."
+                      }
+                    ],
+                    "doc": "Attributes defining an INCREMENTING_SEGMENT_ROW_COUNT_CHANGE volume assertion."
+                  }
+                ],
+                "name": "incrementingSegmentRowCountChange",
+                "default": null,
+                "doc": "Produce FAILURE Assertion Result if the asset's incrementing segment row count delta\ndoes not meet specific requirements. Required if type is 'INCREMENTING_SEGMENT_ROW_COUNT_CHANGE'"
+              },
+              {
+                "type": [
+                  "null",
+                  "com.linkedin.pegasus2avro.dataset.DatasetFilter"
+                ],
+                "name": "filter",
+                "default": null,
+                "doc": "A definition of the specific filters that should be applied, when performing monitoring.\nIf not provided, there is no filter, and the full table is under consideration."
+              }
+            ],
+            "doc": "Attributes defining a dataset Volume Assertion"
+          }
+        ],
+        "name": "volumeAssertion",
+        "default": null,
+        "doc": "An Volume Assertion definition. This field is populated when the type is VOLUME."
+      },
+      {
+        "type": [
+          "null",
+          {
+            "type": "record",
+            "name": "SqlAssertionInfo",
+            "namespace": "com.linkedin.pegasus2avro.assertion",
+            "fields": [
+              {
+                "Searchable": {},
+                "type": {
+                  "type": "enum",
+                  "symbolDocs": {
+                    "METRIC": "A SQL Metric Assertion, e.g. one based on a numeric value returned by an arbitrary SQL query.",
+                    "METRIC_CHANGE": "A SQL assertion that is evaluated against the CHANGE in a metric assertion\nover time."
+                  },
+                  "name": "SqlAssertionType",
+                  "namespace": "com.linkedin.pegasus2avro.assertion",
+                  "symbols": [
+                    "METRIC",
+                    "METRIC_CHANGE"
+                  ]
+                },
+                "name": "type",
+                "doc": "The type of the SQL assertion being monitored."
+              },
+              {
+                "Relationship": {
+                  "entityTypes": [
+                    "dataset"
+                  ],
+                  "name": "Asserts"
+                },
+                "Searchable": {
+                  "fieldType": "URN"
+                },
+                "java": {
+                  "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+                },
+                "Urn": "Urn",
+                "entityTypes": [
+                  "dataset"
+                ],
+                "type": "string",
+                "name": "entity",
+                "doc": "The entity targeted by this SQL check."
+              },
+              {
+                "type": "string",
+                "name": "statement",
+                "doc": "The SQL statement to be executed when evaluating the assertion (or computing the metric).\nThis should be a valid and complete statement, executable by itself.\n\nUsually this should be a SELECT query statement."
+              },
+              {
+                "type": [
+                  "null",
+                  "com.linkedin.pegasus2avro.assertion.AssertionValueChangeType"
+                ],
+                "name": "changeType",
+                "default": null,
+                "doc": "The type of the value used to evaluate the assertion: a fixed absolute value or a relative percentage.\nThis value is required if the type is METRIC_CHANGE."
+              },
+              {
+                "type": "com.linkedin.pegasus2avro.assertion.AssertionStdOperator",
+                "name": "operator",
+                "doc": "The operator you'd like to apply to the result of the SQL query.\n\nNote that at this time, only numeric operators are valid inputs:\nGREATER_THAN, GREATER_THAN_OR_EQUAL_TO, EQUAL_TO, LESS_THAN, LESS_THAN_OR_EQUAL_TO,\nBETWEEN."
+              },
+              {
+                "type": "com.linkedin.pegasus2avro.assertion.AssertionStdParameters",
+                "name": "parameters",
+                "doc": "The parameters you'd like to provide as input to the operator.\n\nNote that only numeric parameter types are valid inputs: NUMBER."
+              }
+            ],
+            "doc": "Attributes defining a SQL Assertion"
+          }
+        ],
+        "name": "sqlAssertion",
+        "default": null,
+        "doc": "A SQL Assertion definition. This field is populated when the type is SQL."
+      },
+      {
+        "type": [
+          "null",
+          {
+            "type": "record",
+            "name": "SchemaAssertionInfo",
+            "namespace": "com.linkedin.pegasus2avro.assertion",
+            "fields": [
+              {
+                "Relationship": {
+                  "entityTypes": [
+                    "dataset",
+                    "dataJob"
+                  ],
+                  "name": "Asserts"
+                },
+                "Searchable": {
+                  "fieldType": "URN"
+                },
+                "java": {
+                  "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+                },
+                "Urn": "Urn",
+                "entityTypes": [
+                  "dataset",
+                  "dataJob"
+                ],
+                "type": "string",
+                "name": "entity",
+                "doc": "The entity targeted by the assertion"
+              },
+              {
+                "type": "com.linkedin.pegasus2avro.schema.SchemaMetadata",
+                "name": "schema",
+                "doc": "A definition of the expected structure for the asset\n\nNote that many of the fields of this model, especially those related to metadata (tags, terms)\nwill go unused in this context."
+              }
+            ],
+            "doc": "Attributes that are applicable to schema assertions"
+          }
+        ],
+        "name": "schemaAssertion",
+        "default": null,
+        "doc": "An schema Assertion definition. This field is populated when the type is DATA_SCHEMA"
+      },
+      {
+        "type": [
+          "null",
+          {
+            "type": "record",
+            "name": "AssertionSource",
+            "namespace": "com.linkedin.pegasus2avro.assertion",
+            "fields": [
+              {
+                "Searchable": {
+                  "fieldName": "sourceType"
+                },
+                "type": {
+                  "type": "enum",
+                  "symbolDocs": {
+                    "EXTERNAL": "The assertion was defined and managed externally of DataHub.",
+                    "INFERRED": "The assertion was inferred, e.g. from offline AI / ML models.",
+                    "NATIVE": "The assertion was defined natively on DataHub by a user."
+                  },
+                  "name": "AssertionSourceType",
+                  "namespace": "com.linkedin.pegasus2avro.assertion",
+                  "symbols": [
+                    "NATIVE",
+                    "EXTERNAL",
+                    "INFERRED"
+                  ]
+                },
+                "name": "type",
+                "doc": "The type of the Assertion Source"
+              }
+            ],
+            "doc": "The source of an assertion"
+          }
+        ],
+        "name": "source",
+        "default": null,
+        "doc": "The source or origin of the Assertion definition.\n\nIf the source type of the Assertion is EXTERNAL, it is expected to have a corresponding dataPlatformInstance aspect detailing\nthe platform where it was ingested from."
+      },
+      {
+        "type": [
+          "null",
+          "string"
+        ],
+        "name": "description",
+        "default": null,
+        "doc": "An optional human-readable description of the assertion"
       }
     ],
     "doc": "Information about an assertion"
@@ -10746,40 +11557,13 @@
     "namespace": "com.linkedin.pegasus2avro.assertion",
     "fields": [
       {
+        "Searchable": {
+          "fieldName": "lastCompletedTime",
+          "fieldType": "DATETIME"
+        },
         "type": "long",
         "name": "timestampMillis",
         "doc": "The event timestamp field as epoch at UTC in milli seconds."
-      },
-      {
-        "type": [
-          "null",
-          "com.linkedin.pegasus2avro.timeseries.TimeWindowSize"
-        ],
-        "name": "eventGranularity",
-        "default": null,
-        "doc": "Granularity of the event if applicable"
-      },
-      {
-        "type": [
-          "com.linkedin.pegasus2avro.timeseries.PartitionSpec",
-          "null"
-        ],
-        "name": "partitionSpec",
-        "default": {
-          "partition": "FULL_TABLE_SNAPSHOT",
-          "type": "FULL_TABLE",
-          "timePartition": null
-        },
-        "doc": "The optional partition specification."
-      },
-      {
-        "type": [
-          "null",
-          "string"
-        ],
-        "name": "messageId",
-        "default": null,
-        "doc": "The optional messageId, if provided serves as a custom user-defined unique identifier for an aspect value."
       },
       {
         "type": "string",
@@ -10793,16 +11577,188 @@
         },
         "Urn": "Urn",
         "type": "string",
-        "name": "assertionUrn"
+        "name": "asserteeUrn"
       },
       {
         "TimeseriesField": {},
-        "java": {
-          "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+        "type": {
+          "type": "enum",
+          "symbolDocs": {
+            "COMPLETE": "The Assertion Run has completed"
+          },
+          "name": "AssertionRunStatus",
+          "namespace": "com.linkedin.pegasus2avro.assertion",
+          "symbols": [
+            "COMPLETE"
+          ],
+          "doc": "The lifecycle status of an assertion run."
         },
-        "Urn": "Urn",
-        "type": "string",
-        "name": "asserteeUrn"
+        "name": "status",
+        "doc": "The status of the assertion run as per this timeseries event."
+      },
+      {
+        "type": [
+          "null",
+          {
+            "type": "record",
+            "name": "AssertionResult",
+            "namespace": "com.linkedin.pegasus2avro.assertion",
+            "fields": [
+              {
+                "Searchable": {},
+                "TimeseriesField": {},
+                "type": {
+                  "type": "enum",
+                  "symbolDocs": {
+                    "ERROR": " The Assertion encountered an Error",
+                    "FAILURE": " The Assertion Failed",
+                    "INIT": " The Assertion has not yet been fully evaluated",
+                    "SUCCESS": " The Assertion Succeeded"
+                  },
+                  "name": "AssertionResultType",
+                  "namespace": "com.linkedin.pegasus2avro.assertion",
+                  "symbols": [
+                    "INIT",
+                    "SUCCESS",
+                    "FAILURE",
+                    "ERROR"
+                  ],
+                  "doc": " The final result of evaluating an assertion, e.g. SUCCESS, FAILURE, or ERROR."
+                },
+                "name": "type",
+                "doc": " The final result, e.g. either SUCCESS, FAILURE, or ERROR."
+              },
+              {
+                "type": [
+                  "null",
+                  "long"
+                ],
+                "name": "rowCount",
+                "default": null,
+                "doc": "Number of rows for evaluated batch"
+              },
+              {
+                "type": [
+                  "null",
+                  "long"
+                ],
+                "name": "missingCount",
+                "default": null,
+                "doc": "Number of rows with missing value for evaluated batch"
+              },
+              {
+                "type": [
+                  "null",
+                  "long"
+                ],
+                "name": "unexpectedCount",
+                "default": null,
+                "doc": "Number of rows with unexpected value for evaluated batch"
+              },
+              {
+                "type": [
+                  "null",
+                  "float"
+                ],
+                "name": "actualAggValue",
+                "default": null,
+                "doc": "Observed aggregate value for evaluated batch"
+              },
+              {
+                "type": [
+                  "null",
+                  {
+                    "type": "map",
+                    "values": "string"
+                  }
+                ],
+                "name": "nativeResults",
+                "default": null,
+                "doc": "Other results of evaluation"
+              },
+              {
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "name": "externalUrl",
+                "default": null,
+                "doc": "External URL where full results are available. Only present when assertion source is not native."
+              },
+              {
+                "type": [
+                  "null",
+                  {
+                    "type": "record",
+                    "name": "AssertionResultError",
+                    "namespace": "com.linkedin.pegasus2avro.assertion",
+                    "fields": [
+                      {
+                        "type": {
+                          "type": "enum",
+                          "symbolDocs": {
+                            "INSUFFICIENT_DATA": " Insufficient data to evaluate the assertion",
+                            "INVALID_PARAMETERS": " Invalid parameters were detected",
+                            "INVALID_SOURCE_TYPE": " Event type not supported by the specified source",
+                            "SOURCE_CONNECTION_ERROR": " Source is unreachable",
+                            "SOURCE_QUERY_FAILED": " Source query failed to execute",
+                            "UNKNOWN_ERROR": " Unknown error",
+                            "UNSUPPORTED_PLATFORM": " Unsupported platform"
+                          },
+                          "name": "AssertionResultErrorType",
+                          "namespace": "com.linkedin.pegasus2avro.assertion",
+                          "symbols": [
+                            "SOURCE_CONNECTION_ERROR",
+                            "SOURCE_QUERY_FAILED",
+                            "INSUFFICIENT_DATA",
+                            "INVALID_PARAMETERS",
+                            "INVALID_SOURCE_TYPE",
+                            "UNSUPPORTED_PLATFORM",
+                            "UNKNOWN_ERROR"
+                          ]
+                        },
+                        "name": "type",
+                        "doc": " The type of error encountered"
+                      },
+                      {
+                        "type": [
+                          "null",
+                          {
+                            "type": "map",
+                            "values": "string"
+                          }
+                        ],
+                        "name": "properties",
+                        "default": null,
+                        "doc": " Additional metadata depending on the type of error"
+                      }
+                    ],
+                    "doc": " An error encountered when evaluating an AssertionResult"
+                  }
+                ],
+                "name": "error",
+                "default": null,
+                "doc": " The error object if AssertionResultType is an Error"
+              }
+            ],
+            "doc": "The result of running an assertion"
+          }
+        ],
+        "name": "result",
+        "default": null,
+        "doc": "Results of assertion, present if the status is COMPLETE"
+      },
+      {
+        "type": [
+          "null",
+          {
+            "type": "map",
+            "values": "string"
+          }
+        ],
+        "name": "runtimeContext",
+        "default": null,
+        "doc": "Runtime parameters of evaluation"
       },
       {
         "type": [
@@ -10863,125 +11819,99 @@
       },
       {
         "TimeseriesField": {},
-        "type": {
-          "type": "enum",
-          "symbolDocs": {
-            "COMPLETE": "The Assertion Run has completed"
-          },
-          "name": "AssertionRunStatus",
-          "namespace": "com.linkedin.pegasus2avro.assertion",
-          "symbols": [
-            "COMPLETE"
-          ]
+        "java": {
+          "class": "com.linkedin.pegasus2avro.common.urn.Urn"
         },
-        "name": "status",
-        "doc": "The status of the assertion run as per this timeseries event."
+        "Urn": "Urn",
+        "type": "string",
+        "name": "assertionUrn"
       },
       {
         "type": [
           "null",
-          {
-            "type": "record",
-            "name": "AssertionResult",
-            "namespace": "com.linkedin.pegasus2avro.assertion",
-            "fields": [
-              {
-                "TimeseriesField": {},
-                "type": {
-                  "type": "enum",
-                  "symbolDocs": {
-                    "FAILURE": " The Assertion Failed",
-                    "SUCCESS": " The Assertion Succeeded"
-                  },
-                  "name": "AssertionResultType",
-                  "namespace": "com.linkedin.pegasus2avro.assertion",
-                  "symbols": [
-                    "SUCCESS",
-                    "FAILURE"
-                  ]
-                },
-                "name": "type",
-                "doc": " The final result, e.g. either SUCCESS or FAILURE."
-              },
-              {
-                "type": [
-                  "null",
-                  "long"
-                ],
-                "name": "rowCount",
-                "default": null,
-                "doc": "Number of rows for evaluated batch"
-              },
-              {
-                "type": [
-                  "null",
-                  "long"
-                ],
-                "name": "missingCount",
-                "default": null,
-                "doc": "Number of rows with missing value for evaluated batch"
-              },
-              {
-                "type": [
-                  "null",
-                  "long"
-                ],
-                "name": "unexpectedCount",
-                "default": null,
-                "doc": "Number of rows with unexpected value for evaluated batch"
-              },
-              {
-                "type": [
-                  "null",
-                  "float"
-                ],
-                "name": "actualAggValue",
-                "default": null,
-                "doc": "Observed aggregate value for evaluated batch"
-              },
-              {
-                "type": [
-                  "null",
-                  {
-                    "type": "map",
-                    "values": "string"
-                  }
-                ],
-                "name": "nativeResults",
-                "default": null,
-                "doc": "Other results of evaluation"
-              },
-              {
-                "type": [
-                  "null",
-                  "string"
-                ],
-                "name": "externalUrl",
-                "default": null,
-                "doc": "URL where full results are available"
-              }
-            ],
-            "doc": "The result of running an assertion"
-          }
+          "com.linkedin.pegasus2avro.timeseries.TimeWindowSize"
         ],
-        "name": "result",
+        "name": "eventGranularity",
         "default": null,
-        "doc": "Results of assertion, present if the status is COMPLETE"
+        "doc": "Granularity of the event if applicable"
+      },
+      {
+        "type": [
+          "com.linkedin.pegasus2avro.timeseries.PartitionSpec",
+          "null"
+        ],
+        "name": "partitionSpec",
+        "default": {
+          "partition": "FULL_TABLE_SNAPSHOT",
+          "type": "FULL_TABLE",
+          "timePartition": null
+        },
+        "doc": "The optional partition specification."
       },
       {
         "type": [
           "null",
-          {
-            "type": "map",
-            "values": "string"
-          }
+          "string"
         ],
-        "name": "runtimeContext",
+        "name": "messageId",
         "default": null,
-        "doc": "Runtime parameters of evaluation"
+        "doc": "The optional messageId, if provided serves as a custom user-defined unique identifier for an aspect value."
       }
     ],
     "doc": "An event representing the current status of evaluating an assertion on a batch.\nAssertionRunEvent should be used for reporting the status of a run as an assertion evaluation progresses."
+  },
+  {
+    "type": "record",
+    "Aspect": {
+      "name": "assertionActions"
+    },
+    "name": "AssertionActions",
+    "namespace": "com.linkedin.pegasus2avro.assertion",
+    "fields": [
+      {
+        "type": {
+          "type": "array",
+          "items": {
+            "type": "record",
+            "name": "AssertionAction",
+            "namespace": "com.linkedin.pegasus2avro.assertion",
+            "fields": [
+              {
+                "type": {
+                  "type": "enum",
+                  "symbolDocs": {
+                    "RAISE_INCIDENT": "Raise an incident.",
+                    "RESOLVE_INCIDENT": "Resolve open incidents related to the assertion."
+                  },
+                  "name": "AssertionActionType",
+                  "namespace": "com.linkedin.pegasus2avro.assertion",
+                  "symbols": [
+                    "RAISE_INCIDENT",
+                    "RESOLVE_INCIDENT"
+                  ]
+                },
+                "name": "type",
+                "doc": "The type of the Action"
+              }
+            ],
+            "doc": "The Actions about an Assertion.\nIn the future, we'll likely extend this model to support additional\nparameters or options related to the assertion actions."
+          }
+        },
+        "name": "onSuccess",
+        "default": [],
+        "doc": "Actions to be executed on successful assertion run."
+      },
+      {
+        "type": {
+          "type": "array",
+          "items": "com.linkedin.pegasus2avro.assertion.AssertionAction"
+        },
+        "name": "onFailure",
+        "default": [],
+        "doc": "Actions to be executed on failed assertion run."
+      }
+    ],
+    "doc": "The Actions about an Assertion"
   },
   "com.linkedin.pegasus2avro.dashboard.EditableDashboardProperties",
   {
@@ -11196,7 +12126,10 @@
         "Searchable": {
           "boostScore": 10.0,
           "enableAutocomplete": true,
-          "fieldType": "TEXT_PARTIAL"
+          "fieldNameAliases": [
+            "_entityName"
+          ],
+          "fieldType": "WORD_GRAM"
         },
         "type": "string",
         "name": "name",
@@ -11206,7 +12139,7 @@
         "Searchable": {
           "boostScore": 10.0,
           "enableAutocomplete": true,
-          "fieldType": "TEXT_PARTIAL"
+          "fieldType": "WORD_GRAM"
         },
         "type": [
           "null",
@@ -11312,6 +12245,9 @@
           "class": "com.linkedin.pegasus2avro.common.urn.Urn"
         },
         "Urn": "Urn",
+        "entityTypes": [
+          "container"
+        ],
         "type": "string",
         "name": "container",
         "doc": "The parent container of an asset"
@@ -11333,7 +12269,7 @@
         "Searchable": {
           "boostScore": 10.0,
           "enableAutocomplete": true,
-          "fieldType": "TEXT_PARTIAL"
+          "fieldType": "WORD_GRAM"
         },
         "type": "string",
         "name": "name",
@@ -11523,6 +12459,9 @@
                     "class": "com.linkedin.pegasus2avro.common.urn.Urn"
                   },
                   "Urn": "Urn",
+                  "entityTypes": [
+                    "role"
+                  ],
                   "type": "string",
                   "name": "urn",
                   "doc": "Urn of the External Role"
@@ -11769,6 +12708,9 @@
                   "class": "com.linkedin.pegasus2avro.common.urn.Urn"
                 },
                 "Urn": "Urn",
+                "entityTypes": [
+                  "schemaField"
+                ],
                 "type": "string",
                 "name": "schemaFieldUrn",
                 "doc": "Urn of the schema being referenced for lineage purposes"
@@ -11979,6 +12921,9 @@
                 "class": "com.linkedin.pegasus2avro.common.urn.Urn"
               },
               "Urn": "Urn",
+              "entityTypes": [
+                "dataHubIngestionSource"
+              ],
               "type": [
                 "null",
                 "string"
@@ -12463,7 +13408,10 @@
         "Searchable": {
           "boostScore": 10.0,
           "enableAutocomplete": true,
-          "fieldType": "TEXT_PARTIAL"
+          "fieldNameAliases": [
+            "_entityName"
+          ],
+          "fieldType": "WORD_GRAM"
         },
         "type": [
           "null",
@@ -12847,7 +13795,10 @@
         "Searchable": {
           "boostScore": 10.0,
           "enableAutocomplete": true,
-          "fieldType": "TEXT_PARTIAL"
+          "fieldNameAliases": [
+            "_entityName"
+          ],
+          "fieldType": "WORD_GRAM"
         },
         "type": "string",
         "name": "title",
@@ -12906,6 +13857,10 @@
                   "class": "com.linkedin.pegasus2avro.common.urn.Urn"
                 },
                 "Urn": "Urn",
+                "entityTypes": [
+                  "dataset",
+                  "schemaField"
+                ],
                 "type": "string",
                 "name": "entity",
                 "doc": "An entity which is the subject of a query."
@@ -12981,7 +13936,7 @@
         "Searchable": {
           "boostScore": 10.0,
           "enableAutocomplete": true,
-          "fieldType": "TEXT_PARTIAL"
+          "fieldType": "WORD_GRAM"
         },
         "type": [
           "null",
@@ -13045,7 +14000,10 @@
         "Searchable": {
           "boostScore": 10.0,
           "enableAutocomplete": true,
-          "fieldType": "TEXT_PARTIAL"
+          "fieldNameAliases": [
+            "_entityName"
+          ],
+          "fieldType": "WORD_GRAM"
         },
         "type": "string",
         "name": "name",
@@ -13074,6 +14032,33 @@
         "name": "created",
         "default": null,
         "doc": "Created Audit stamp"
+      },
+      {
+        "Relationship": {
+          "entityTypes": [
+            "domain"
+          ],
+          "name": "IsPartOf"
+        },
+        "Searchable": {
+          "fieldName": "parentDomain",
+          "fieldType": "URN",
+          "hasValuesFieldName": "hasParentDomain"
+        },
+        "java": {
+          "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+        },
+        "Urn": "Urn",
+        "entityTypes": [
+          "domain"
+        ],
+        "type": [
+          "null",
+          "string"
+        ],
+        "name": "parentDomain",
+        "default": null,
+        "doc": "Optional: Parent of the domain"
       }
     ],
     "doc": "Information about a Domain"
@@ -13222,7 +14207,7 @@
     "Aspect": {
       "name": "inviteTokenKey",
       "keyForEntity": "inviteToken",
-      "entityCategory": "core",
+      "entityCategory": "internal",
       "entityAspects": [
         "inviteToken"
       ]
@@ -13271,6 +14256,7 @@
         "assertionInfo",
         "dataPlatformInstance",
         "assertionRunEvent",
+        "assertionActions",
         "status"
       ],
       "entityDoc": "Assertion represents a data quality rule applied on one or more dataset."
@@ -13355,6 +14341,29 @@
     "doc": "Key for a Post."
   },
   "com.linkedin.pegasus2avro.metadata.key.TagKey",
+  {
+    "type": "record",
+    "Aspect": {
+      "name": "dataContractKey",
+      "keyForEntity": "dataContract",
+      "entityCategory": "core",
+      "entityAspects": [
+        "dataContractProperties",
+        "dataContractStatus",
+        "status"
+      ]
+    },
+    "name": "DataContractKey",
+    "namespace": "com.linkedin.pegasus2avro.metadata.key",
+    "fields": [
+      {
+        "type": "string",
+        "name": "id",
+        "doc": "Unique id for the contract"
+      }
+    ],
+    "doc": "Key for a Data Contract"
+  },
   "com.linkedin.pegasus2avro.metadata.key.SchemaFieldKey",
   "com.linkedin.pegasus2avro.metadata.key.GlossaryTermKey",
   {
@@ -13477,7 +14486,7 @@
     "Aspect": {
       "name": "domainKey",
       "keyForEntity": "domain",
-      "entityCategory": "_unset_",
+      "entityCategory": "core",
       "entityAspects": [
         "domainProperties",
         "institutionalMemory",
@@ -13523,7 +14532,7 @@
     "Aspect": {
       "name": "containerKey",
       "keyForEntity": "container",
-      "entityCategory": "_unset_",
+      "entityCategory": "core",
       "entityAspects": [
         "containerProperties",
         "editableContainerProperties",
@@ -13654,7 +14663,7 @@
     "Aspect": {
       "name": "dataHubStepStateKey",
       "keyForEntity": "dataHubStepState",
-      "entityCategory": "core",
+      "entityCategory": "internal",
       "entityAspects": [
         "dataHubStepStateProperties"
       ]
@@ -13704,5 +14713,194 @@
       }
     ],
     "doc": "Information about a DataHub Role."
+  },
+  {
+    "type": "record",
+    "Aspect": {
+      "name": "dataContractProperties"
+    },
+    "name": "DataContractProperties",
+    "namespace": "com.linkedin.pegasus2avro.datacontract",
+    "fields": [
+      {
+        "Relationship": {
+          "entityTypes": [
+            "dataset"
+          ],
+          "name": "ContractFor"
+        },
+        "java": {
+          "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+        },
+        "Urn": "Urn",
+        "entityTypes": [
+          "dataset"
+        ],
+        "type": "string",
+        "name": "entity",
+        "doc": "The entity that this contract is associated with. Currently, we only support Dataset contracts, but\nin the future we may also support Data Product level contracts."
+      },
+      {
+        "Relationship": {
+          "/*/assertion": {
+            "entityTypes": [
+              "assertion"
+            ],
+            "name": "IncludesSchemaAssertion"
+          }
+        },
+        "type": [
+          "null",
+          {
+            "type": "array",
+            "items": {
+              "type": "record",
+              "name": "SchemaContract",
+              "namespace": "com.linkedin.pegasus2avro.datacontract",
+              "fields": [
+                {
+                  "java": {
+                    "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+                  },
+                  "Urn": "Urn",
+                  "type": "string",
+                  "name": "assertion",
+                  "doc": "The assertion representing the schema contract."
+                }
+              ],
+              "doc": "Expectations for a logical schema"
+            }
+          }
+        ],
+        "name": "schema",
+        "default": null,
+        "doc": "An optional set of schema contracts. If this is a dataset contract, there will only be one."
+      },
+      {
+        "Relationship": {
+          "/*/assertion": {
+            "entityTypes": [
+              "assertion"
+            ],
+            "name": "IncludesFreshnessAssertion"
+          }
+        },
+        "type": [
+          "null",
+          {
+            "type": "array",
+            "items": {
+              "type": "record",
+              "name": "FreshnessContract",
+              "namespace": "com.linkedin.pegasus2avro.datacontract",
+              "fields": [
+                {
+                  "java": {
+                    "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+                  },
+                  "Urn": "Urn",
+                  "type": "string",
+                  "name": "assertion",
+                  "doc": "The assertion representing the SLA contract."
+                }
+              ],
+              "doc": "A contract pertaining to the operational SLAs of a physical data asset"
+            }
+          }
+        ],
+        "name": "freshness",
+        "default": null,
+        "doc": "An optional set of FRESHNESS contracts. If this is a dataset contract, there will only be one."
+      },
+      {
+        "Relationship": {
+          "/*/assertion": {
+            "entityTypes": [
+              "assertion"
+            ],
+            "name": "IncludesDataQualityAssertion"
+          }
+        },
+        "type": [
+          "null",
+          {
+            "type": "array",
+            "items": {
+              "type": "record",
+              "name": "DataQualityContract",
+              "namespace": "com.linkedin.pegasus2avro.datacontract",
+              "fields": [
+                {
+                  "java": {
+                    "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+                  },
+                  "Urn": "Urn",
+                  "type": "string",
+                  "name": "assertion",
+                  "doc": "The assertion representing the Data Quality contract.\nE.g. a table or column-level assertion."
+                }
+              ],
+              "doc": "A data quality contract pertaining to a physical data asset\nData Quality contracts are used to make assertions about data quality metrics for a physical data asset"
+            }
+          }
+        ],
+        "name": "dataQuality",
+        "default": null,
+        "doc": "An optional set of Data Quality contracts, e.g. table and column level contract constraints."
+      },
+      {
+        "type": [
+          "null",
+          "string"
+        ],
+        "name": "rawContract",
+        "default": null,
+        "doc": "YAML-formatted contract definition"
+      }
+    ],
+    "doc": "Information about a data contract"
+  },
+  {
+    "type": "record",
+    "Aspect": {
+      "name": "dataContractStatus"
+    },
+    "name": "DataContractStatus",
+    "namespace": "com.linkedin.pegasus2avro.datacontract",
+    "fields": [
+      {
+        "Searchable": {
+          "/*": {
+            "queryByDefault": true
+          }
+        },
+        "type": {
+          "type": "map",
+          "values": "string"
+        },
+        "name": "customProperties",
+        "default": {},
+        "doc": "Custom property bag."
+      },
+      {
+        "Searchable": {},
+        "type": {
+          "type": "enum",
+          "symbolDocs": {
+            "ACTIVE": "The data contract is active.",
+            "PENDING": "The data contract is pending implementation."
+          },
+          "name": "DataContractState",
+          "namespace": "com.linkedin.pegasus2avro.datacontract",
+          "symbols": [
+            "ACTIVE",
+            "PENDING"
+          ]
+        },
+        "name": "state",
+        "doc": "The latest state of the data contract"
+      }
+    ],
+    "doc": "Information about the status of a data contract"
   }
 ]

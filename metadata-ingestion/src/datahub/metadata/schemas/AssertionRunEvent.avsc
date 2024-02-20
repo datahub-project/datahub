@@ -1,0 +1,397 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "assertionRunEvent",
+    "type": "timeseries"
+  },
+  "name": "AssertionRunEvent",
+  "namespace": "com.linkedin.pegasus2avro.assertion",
+  "fields": [
+    {
+      "Searchable": {
+        "fieldName": "lastCompletedTime",
+        "fieldType": "DATETIME"
+      },
+      "type": "long",
+      "name": "timestampMillis",
+      "doc": "The event timestamp field as epoch at UTC in milli seconds."
+    },
+    {
+      "type": "string",
+      "name": "runId",
+      "doc": " Native (platform-specific) identifier for this run"
+    },
+    {
+      "TimeseriesField": {},
+      "java": {
+        "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+      },
+      "type": "string",
+      "name": "asserteeUrn",
+      "Urn": "Urn"
+    },
+    {
+      "TimeseriesField": {},
+      "type": {
+        "type": "enum",
+        "symbolDocs": {
+          "COMPLETE": "The Assertion Run has completed"
+        },
+        "name": "AssertionRunStatus",
+        "namespace": "com.linkedin.pegasus2avro.assertion",
+        "symbols": [
+          "COMPLETE"
+        ],
+        "doc": "The lifecycle status of an assertion run."
+      },
+      "name": "status",
+      "doc": "The status of the assertion run as per this timeseries event."
+    },
+    {
+      "type": [
+        "null",
+        {
+          "type": "record",
+          "name": "AssertionResult",
+          "namespace": "com.linkedin.pegasus2avro.assertion",
+          "fields": [
+            {
+              "Searchable": {},
+              "TimeseriesField": {},
+              "type": {
+                "type": "enum",
+                "symbolDocs": {
+                  "ERROR": " The Assertion encountered an Error",
+                  "FAILURE": " The Assertion Failed",
+                  "INIT": " The Assertion has not yet been fully evaluated",
+                  "SUCCESS": " The Assertion Succeeded"
+                },
+                "name": "AssertionResultType",
+                "namespace": "com.linkedin.pegasus2avro.assertion",
+                "symbols": [
+                  "INIT",
+                  "SUCCESS",
+                  "FAILURE",
+                  "ERROR"
+                ],
+                "doc": " The final result of evaluating an assertion, e.g. SUCCESS, FAILURE, or ERROR."
+              },
+              "name": "type",
+              "doc": " The final result, e.g. either SUCCESS, FAILURE, or ERROR."
+            },
+            {
+              "type": [
+                "null",
+                "long"
+              ],
+              "name": "rowCount",
+              "default": null,
+              "doc": "Number of rows for evaluated batch"
+            },
+            {
+              "type": [
+                "null",
+                "long"
+              ],
+              "name": "missingCount",
+              "default": null,
+              "doc": "Number of rows with missing value for evaluated batch"
+            },
+            {
+              "type": [
+                "null",
+                "long"
+              ],
+              "name": "unexpectedCount",
+              "default": null,
+              "doc": "Number of rows with unexpected value for evaluated batch"
+            },
+            {
+              "type": [
+                "null",
+                "float"
+              ],
+              "name": "actualAggValue",
+              "default": null,
+              "doc": "Observed aggregate value for evaluated batch"
+            },
+            {
+              "type": [
+                "null",
+                {
+                  "type": "map",
+                  "values": "string"
+                }
+              ],
+              "name": "nativeResults",
+              "default": null,
+              "doc": "Other results of evaluation"
+            },
+            {
+              "type": [
+                "null",
+                "string"
+              ],
+              "name": "externalUrl",
+              "default": null,
+              "doc": "External URL where full results are available. Only present when assertion source is not native."
+            },
+            {
+              "type": [
+                "null",
+                {
+                  "type": "record",
+                  "name": "AssertionResultError",
+                  "namespace": "com.linkedin.pegasus2avro.assertion",
+                  "fields": [
+                    {
+                      "type": {
+                        "type": "enum",
+                        "symbolDocs": {
+                          "INSUFFICIENT_DATA": " Insufficient data to evaluate the assertion",
+                          "INVALID_PARAMETERS": " Invalid parameters were detected",
+                          "INVALID_SOURCE_TYPE": " Event type not supported by the specified source",
+                          "SOURCE_CONNECTION_ERROR": " Source is unreachable",
+                          "SOURCE_QUERY_FAILED": " Source query failed to execute",
+                          "UNKNOWN_ERROR": " Unknown error",
+                          "UNSUPPORTED_PLATFORM": " Unsupported platform"
+                        },
+                        "name": "AssertionResultErrorType",
+                        "namespace": "com.linkedin.pegasus2avro.assertion",
+                        "symbols": [
+                          "SOURCE_CONNECTION_ERROR",
+                          "SOURCE_QUERY_FAILED",
+                          "INSUFFICIENT_DATA",
+                          "INVALID_PARAMETERS",
+                          "INVALID_SOURCE_TYPE",
+                          "UNSUPPORTED_PLATFORM",
+                          "UNKNOWN_ERROR"
+                        ]
+                      },
+                      "name": "type",
+                      "doc": " The type of error encountered"
+                    },
+                    {
+                      "type": [
+                        "null",
+                        {
+                          "type": "map",
+                          "values": "string"
+                        }
+                      ],
+                      "name": "properties",
+                      "default": null,
+                      "doc": " Additional metadata depending on the type of error"
+                    }
+                  ],
+                  "doc": " An error encountered when evaluating an AssertionResult"
+                }
+              ],
+              "name": "error",
+              "default": null,
+              "doc": " The error object if AssertionResultType is an Error"
+            }
+          ],
+          "doc": "The result of running an assertion"
+        }
+      ],
+      "name": "result",
+      "default": null,
+      "doc": "Results of assertion, present if the status is COMPLETE"
+    },
+    {
+      "type": [
+        "null",
+        {
+          "type": "map",
+          "values": "string"
+        }
+      ],
+      "name": "runtimeContext",
+      "default": null,
+      "doc": "Runtime parameters of evaluation"
+    },
+    {
+      "type": [
+        "null",
+        {
+          "type": "record",
+          "name": "BatchSpec",
+          "namespace": "com.linkedin.pegasus2avro.assertion",
+          "fields": [
+            {
+              "Searchable": {
+                "/*": {
+                  "queryByDefault": true
+                }
+              },
+              "type": {
+                "type": "map",
+                "values": "string"
+              },
+              "name": "customProperties",
+              "default": {},
+              "doc": "Custom property bag."
+            },
+            {
+              "type": [
+                "null",
+                "string"
+              ],
+              "name": "nativeBatchId",
+              "default": null,
+              "doc": "The native identifier as specified by the system operating on the batch."
+            },
+            {
+              "type": [
+                "null",
+                "string"
+              ],
+              "name": "query",
+              "default": null,
+              "doc": "A query that identifies a batch of data"
+            },
+            {
+              "type": [
+                "null",
+                "int"
+              ],
+              "name": "limit",
+              "default": null,
+              "doc": "Any limit to the number of rows in the batch, if applied"
+            }
+          ],
+          "doc": "A batch on which certain operations, e.g. data quality evaluation, is done."
+        }
+      ],
+      "name": "batchSpec",
+      "default": null,
+      "doc": "Specification of the batch which this run is evaluating"
+    },
+    {
+      "TimeseriesField": {},
+      "java": {
+        "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+      },
+      "type": "string",
+      "name": "assertionUrn",
+      "Urn": "Urn"
+    },
+    {
+      "type": [
+        "null",
+        {
+          "type": "record",
+          "name": "TimeWindowSize",
+          "namespace": "com.linkedin.pegasus2avro.timeseries",
+          "fields": [
+            {
+              "type": {
+                "type": "enum",
+                "name": "CalendarInterval",
+                "namespace": "com.linkedin.pegasus2avro.timeseries",
+                "symbols": [
+                  "SECOND",
+                  "MINUTE",
+                  "HOUR",
+                  "DAY",
+                  "WEEK",
+                  "MONTH",
+                  "QUARTER",
+                  "YEAR"
+                ]
+              },
+              "name": "unit",
+              "doc": "Interval unit such as minute/hour/day etc."
+            },
+            {
+              "type": "int",
+              "name": "multiple",
+              "default": 1,
+              "doc": "How many units. Defaults to 1."
+            }
+          ],
+          "doc": "Defines the size of a time window."
+        }
+      ],
+      "name": "eventGranularity",
+      "default": null,
+      "doc": "Granularity of the event if applicable"
+    },
+    {
+      "type": [
+        {
+          "type": "record",
+          "name": "PartitionSpec",
+          "namespace": "com.linkedin.pegasus2avro.timeseries",
+          "fields": [
+            {
+              "type": {
+                "type": "enum",
+                "name": "PartitionType",
+                "namespace": "com.linkedin.pegasus2avro.timeseries",
+                "symbols": [
+                  "FULL_TABLE",
+                  "QUERY",
+                  "PARTITION"
+                ]
+              },
+              "name": "type",
+              "default": "PARTITION"
+            },
+            {
+              "TimeseriesField": {},
+              "type": "string",
+              "name": "partition",
+              "doc": "String representation of the partition"
+            },
+            {
+              "type": [
+                "null",
+                {
+                  "type": "record",
+                  "name": "TimeWindow",
+                  "namespace": "com.linkedin.pegasus2avro.timeseries",
+                  "fields": [
+                    {
+                      "type": "long",
+                      "name": "startTimeMillis",
+                      "doc": "Start time as epoch at UTC."
+                    },
+                    {
+                      "type": "com.linkedin.pegasus2avro.timeseries.TimeWindowSize",
+                      "name": "length",
+                      "doc": "The length of the window."
+                    }
+                  ]
+                }
+              ],
+              "name": "timePartition",
+              "default": null,
+              "doc": "Time window of the partition if applicable"
+            }
+          ],
+          "doc": "Defines how the data is partitioned"
+        },
+        "null"
+      ],
+      "name": "partitionSpec",
+      "default": {
+        "partition": "FULL_TABLE_SNAPSHOT",
+        "type": "FULL_TABLE",
+        "timePartition": null
+      },
+      "doc": "The optional partition specification."
+    },
+    {
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "messageId",
+      "default": null,
+      "doc": "The optional messageId, if provided serves as a custom user-defined unique identifier for an aspect value."
+    }
+  ],
+  "doc": "An event representing the current status of evaluating an assertion on a batch.\nAssertionRunEvent should be used for reporting the status of a run as an assertion evaluation progresses."
+}

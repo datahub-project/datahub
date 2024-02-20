@@ -1,0 +1,27 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "dataProductKey",
+    "keyForEntity": "dataProduct",
+    "entityCategory": "core",
+    "entityAspects": [
+      "ownership",
+      "glossaryTerms",
+      "globalTags",
+      "domains",
+      "dataProductProperties",
+      "institutionalMemory",
+      "status"
+    ]
+  },
+  "name": "DataProductKey",
+  "namespace": "com.linkedin.pegasus2avro.dataproduct",
+  "fields": [
+    {
+      "type": "string",
+      "name": "id",
+      "doc": "A unique id for the Data Product."
+    }
+  ],
+  "doc": "Key for a Query"
+}

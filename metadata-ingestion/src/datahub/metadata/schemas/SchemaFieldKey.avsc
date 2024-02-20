@@ -1,0 +1,34 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "schemaFieldKey",
+    "keyForEntity": "schemaField",
+    "entityCategory": "core",
+    "entityAspects": []
+  },
+  "name": "SchemaFieldKey",
+  "namespace": "com.linkedin.pegasus2avro.metadata.key",
+  "fields": [
+    {
+      "Searchable": {
+        "fieldType": "URN"
+      },
+      "java": {
+        "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+      },
+      "type": "string",
+      "name": "parent",
+      "doc": "Parent associated with the schema field",
+      "Urn": "Urn"
+    },
+    {
+      "Searchable": {
+        "fieldType": "KEYWORD"
+      },
+      "type": "string",
+      "name": "fieldPath",
+      "doc": "fieldPath identifying the schema field"
+    }
+  ],
+  "doc": "Key for a SchemaField"
+}

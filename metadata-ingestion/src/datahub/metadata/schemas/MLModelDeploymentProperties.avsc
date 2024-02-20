@@ -1,0 +1,121 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "mlModelDeploymentProperties"
+  },
+  "name": "MLModelDeploymentProperties",
+  "namespace": "com.linkedin.pegasus2avro.ml.metadata",
+  "fields": [
+    {
+      "Searchable": {
+        "/*": {
+          "queryByDefault": true
+        }
+      },
+      "type": {
+        "type": "map",
+        "values": "string"
+      },
+      "name": "customProperties",
+      "default": {},
+      "doc": "Custom property bag."
+    },
+    {
+      "Searchable": {
+        "fieldType": "KEYWORD"
+      },
+      "java": {
+        "class": "com.linkedin.pegasus2avro.common.url.Url",
+        "coercerClass": "com.linkedin.pegasus2avro.common.url.UrlCoercer"
+      },
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "externalUrl",
+      "default": null,
+      "doc": "URL where the reference exist"
+    },
+    {
+      "Searchable": {
+        "fieldType": "TEXT",
+        "hasValuesFieldName": "hasDescription"
+      },
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "description",
+      "default": null,
+      "doc": "Documentation of the MLModelDeployment"
+    },
+    {
+      "type": [
+        "null",
+        "long"
+      ],
+      "name": "createdAt",
+      "default": null,
+      "doc": "Date when the MLModelDeployment was developed"
+    },
+    {
+      "type": [
+        "null",
+        {
+          "type": "record",
+          "name": "VersionTag",
+          "namespace": "com.linkedin.pegasus2avro.common",
+          "fields": [
+            {
+              "type": [
+                "null",
+                "string"
+              ],
+              "name": "versionTag",
+              "default": null
+            }
+          ],
+          "doc": "A resource-defined string representing the resource state for the purpose of concurrency control"
+        }
+      ],
+      "name": "version",
+      "default": null,
+      "doc": "Version of the MLModelDeployment"
+    },
+    {
+      "type": [
+        "null",
+        {
+          "type": "enum",
+          "symbolDocs": {
+            "CREATING": "Deployments being created.",
+            "DELETING": "Deployments being deleted.",
+            "FAILED": "Deployments with an error state.",
+            "IN_SERVICE": "Deployments that are active.",
+            "OUT_OF_SERVICE": "Deployments out of service.",
+            "ROLLING_BACK": "Deployments being reverted to a previous version.",
+            "UNKNOWN": "Deployments with unknown/unmappable state.",
+            "UPDATING": "Deployments being updated."
+          },
+          "name": "DeploymentStatus",
+          "namespace": "com.linkedin.pegasus2avro.ml.metadata",
+          "symbols": [
+            "OUT_OF_SERVICE",
+            "CREATING",
+            "UPDATING",
+            "ROLLING_BACK",
+            "IN_SERVICE",
+            "DELETING",
+            "FAILED",
+            "UNKNOWN"
+          ],
+          "doc": "Model endpoint statuses"
+        }
+      ],
+      "name": "status",
+      "default": null,
+      "doc": "Status of the deployment"
+    }
+  ],
+  "doc": "Properties associated with an ML Model Deployment"
+}

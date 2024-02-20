@@ -1,0 +1,73 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "dataProcessInfo"
+  },
+  "name": "DataProcessInfo",
+  "namespace": "com.linkedin.pegasus2avro.dataprocess",
+  "fields": [
+    {
+      "Relationship": {
+        "/*": {
+          "entityTypes": [
+            "dataset"
+          ],
+          "isLineage": true,
+          "name": "Consumes"
+        }
+      },
+      "Searchable": {
+        "/*": {
+          "fieldName": "inputs",
+          "fieldType": "URN",
+          "numValuesFieldName": "numInputDatasets",
+          "queryByDefault": false
+        }
+      },
+      "type": [
+        "null",
+        {
+          "type": "array",
+          "items": "string"
+        }
+      ],
+      "name": "inputs",
+      "default": null,
+      "doc": "the inputs of the data process",
+      "Urn": "DatasetUrn",
+      "urn_is_array": true
+    },
+    {
+      "Relationship": {
+        "/*": {
+          "entityTypes": [
+            "dataset"
+          ],
+          "isLineage": true,
+          "name": "Consumes"
+        }
+      },
+      "Searchable": {
+        "/*": {
+          "fieldName": "outputs",
+          "fieldType": "URN",
+          "numValuesFieldName": "numOutputDatasets",
+          "queryByDefault": false
+        }
+      },
+      "type": [
+        "null",
+        {
+          "type": "array",
+          "items": "string"
+        }
+      ],
+      "name": "outputs",
+      "default": null,
+      "doc": "the outputs of the data process",
+      "Urn": "DatasetUrn",
+      "urn_is_array": true
+    }
+  ],
+  "doc": "The inputs and outputs of this data process"
+}

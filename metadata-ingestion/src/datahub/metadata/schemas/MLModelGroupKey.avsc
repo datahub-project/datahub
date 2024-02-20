@@ -1,0 +1,86 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "mlModelGroupKey",
+    "keyForEntity": "mlModelGroup",
+    "entityCategory": "core",
+    "entityAspects": [
+      "glossaryTerms",
+      "editableMlModelGroupProperties",
+      "domains",
+      "mlModelGroupProperties",
+      "ownership",
+      "status",
+      "deprecation",
+      "browsePaths",
+      "globalTags",
+      "dataPlatformInstance",
+      "browsePathsV2"
+    ]
+  },
+  "name": "MLModelGroupKey",
+  "namespace": "com.linkedin.pegasus2avro.metadata.key",
+  "fields": [
+    {
+      "java": {
+        "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+      },
+      "type": "string",
+      "name": "platform",
+      "doc": "Standardized platform urn for the model group",
+      "Urn": "Urn"
+    },
+    {
+      "Searchable": {
+        "boostScore": 10.0,
+        "enableAutocomplete": true,
+        "fieldNameAliases": [
+          "_entityName"
+        ],
+        "fieldType": "WORD_GRAM"
+      },
+      "type": "string",
+      "name": "name",
+      "doc": "Name of the MLModelGroup"
+    },
+    {
+      "Searchable": {
+        "fieldType": "TEXT_PARTIAL",
+        "queryByDefault": false
+      },
+      "type": {
+        "type": "enum",
+        "symbolDocs": {
+          "CORP": "Designates corporation fabrics",
+          "DEV": "Designates development fabrics",
+          "EI": "Designates early-integration fabrics",
+          "NON_PROD": "Designates non-production fabrics",
+          "PRE": "Designates pre-production fabrics",
+          "PROD": "Designates production fabrics",
+          "QA": "Designates quality assurance fabrics",
+          "STG": "Designates staging fabrics",
+          "TEST": "Designates testing fabrics",
+          "UAT": "Designates user acceptance testing fabrics"
+        },
+        "name": "FabricType",
+        "namespace": "com.linkedin.pegasus2avro.common",
+        "symbols": [
+          "DEV",
+          "TEST",
+          "QA",
+          "UAT",
+          "EI",
+          "PRE",
+          "STG",
+          "NON_PROD",
+          "PROD",
+          "CORP"
+        ],
+        "doc": "Fabric group type"
+      },
+      "name": "origin",
+      "doc": "Fabric type where model group belongs to or where it was generated"
+    }
+  ],
+  "doc": "Key for an ML model group"
+}

@@ -1,0 +1,112 @@
+{
+  "type": "record",
+  "Event": {
+    "name": "entityChangeEvent"
+  },
+  "name": "EntityChangeEvent",
+  "namespace": "com.linkedin.pegasus2avro.platform.event.v1",
+  "fields": [
+    {
+      "type": "string",
+      "name": "entityType",
+      "doc": "The type of the entity affected. Corresponds to the entity registry, e.g. 'dataset', 'chart', 'dashboard', etc."
+    },
+    {
+      "java": {
+        "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+      },
+      "type": "string",
+      "name": "entityUrn",
+      "doc": "The urn of the entity which was affected.",
+      "Urn": "Urn"
+    },
+    {
+      "type": "string",
+      "name": "category",
+      "doc": "The category type (TAG, GLOSSARY_TERM, OWNERSHIP, TECHNICAL_SCHEMA, etc). This is used to determine what the rest of the schema will look like."
+    },
+    {
+      "type": "string",
+      "name": "operation",
+      "doc": "The operation type. This is used to determine what the rest of the schema will look like."
+    },
+    {
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "modifier",
+      "default": null,
+      "doc": "The urn of the entity which was affected."
+    },
+    {
+      "type": [
+        "null",
+        {
+          "type": "record",
+          "name": "Parameters",
+          "namespace": "com.linkedin.pegasus2avro.platform.event.v1",
+          "fields": [],
+          "doc": "Arbitrary key-value parameters for an Entity Change Event. (any record)."
+        }
+      ],
+      "name": "parameters",
+      "default": null,
+      "doc": "Arbitrary key-value parameters corresponding to the event."
+    },
+    {
+      "type": {
+        "type": "record",
+        "name": "AuditStamp",
+        "namespace": "com.linkedin.pegasus2avro.common",
+        "fields": [
+          {
+            "type": "long",
+            "name": "time",
+            "doc": "When did the resource/association/sub-resource move into the specific lifecycle stage represented by this AuditEvent."
+          },
+          {
+            "java": {
+              "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+            },
+            "type": "string",
+            "name": "actor",
+            "doc": "The entity (e.g. a member URN) which will be credited for moving the resource/association/sub-resource into the specific lifecycle stage. It is also the one used to authorize the change.",
+            "Urn": "Urn"
+          },
+          {
+            "java": {
+              "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+            },
+            "type": [
+              "null",
+              "string"
+            ],
+            "name": "impersonator",
+            "default": null,
+            "doc": "The entity (e.g. a service URN) which performs the change on behalf of the Actor and must be authorized to act as the Actor.",
+            "Urn": "Urn"
+          },
+          {
+            "type": [
+              "null",
+              "string"
+            ],
+            "name": "message",
+            "default": null,
+            "doc": "Additional context around how DataHub was informed of the particular change. For example: was the change created by an automated process, or manually."
+          }
+        ],
+        "doc": "Data captured on a resource/association/sub-resource level giving insight into when that resource/association/sub-resource moved into a particular lifecycle stage, and who acted to move it into that specific lifecycle stage."
+      },
+      "name": "auditStamp",
+      "doc": "Audit stamp of the operation"
+    },
+    {
+      "type": "int",
+      "name": "version",
+      "doc": "The version of the event type, incremented in integers."
+    }
+  ],
+  "doc": "Shared fields for all entity change events."
+}

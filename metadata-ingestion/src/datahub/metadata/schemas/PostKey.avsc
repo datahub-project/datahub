@@ -1,0 +1,21 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "postKey",
+    "keyForEntity": "post",
+    "entityCategory": "core",
+    "entityAspects": [
+      "postInfo"
+    ]
+  },
+  "name": "PostKey",
+  "namespace": "com.linkedin.pegasus2avro.metadata.key",
+  "fields": [
+    {
+      "type": "string",
+      "name": "id",
+      "doc": "A unique id for the DataHub Post record. Generated on the server side at Post creation time."
+    }
+  ],
+  "doc": "Key for a Post."
+}

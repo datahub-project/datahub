@@ -1,0 +1,48 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "chartKey",
+    "keyForEntity": "chart",
+    "entityCategory": "core",
+    "entityAspects": [
+      "chartInfo",
+      "editableChartProperties",
+      "chartQuery",
+      "inputFields",
+      "chartUsageStatistics",
+      "embed",
+      "browsePaths",
+      "domains",
+      "container",
+      "deprecation",
+      "ownership",
+      "status",
+      "institutionalMemory",
+      "dataPlatformInstance",
+      "globalTags",
+      "glossaryTerms",
+      "browsePathsV2",
+      "subTypes"
+    ]
+  },
+  "name": "ChartKey",
+  "namespace": "com.linkedin.pegasus2avro.metadata.key",
+  "fields": [
+    {
+      "Searchable": {
+        "boostScore": 4.0,
+        "fieldName": "tool",
+        "fieldType": "TEXT_PARTIAL"
+      },
+      "type": "string",
+      "name": "dashboardTool",
+      "doc": "The name of the dashboard tool such as looker, redash etc."
+    },
+    {
+      "type": "string",
+      "name": "chartId",
+      "doc": "Unique id for the chart. This id should be globally unique for a dashboarding tool even when there are multiple deployments of it. As an example, chart URL could be used here for Looker such as 'looker.linkedin.com/looks/1234'"
+    }
+  ],
+  "doc": "Key for a Chart"
+}

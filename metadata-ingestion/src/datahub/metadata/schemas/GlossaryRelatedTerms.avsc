@@ -1,0 +1,125 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "glossaryRelatedTerms"
+  },
+  "name": "GlossaryRelatedTerms",
+  "namespace": "com.linkedin.pegasus2avro.glossary",
+  "fields": [
+    {
+      "Relationship": {
+        "/*": {
+          "entityTypes": [
+            "glossaryTerm"
+          ],
+          "name": "IsA"
+        }
+      },
+      "Searchable": {
+        "/*": {
+          "boostScore": 2.0,
+          "fieldName": "isRelatedTerms",
+          "fieldType": "URN"
+        }
+      },
+      "type": [
+        "null",
+        {
+          "type": "array",
+          "items": "string"
+        }
+      ],
+      "name": "isRelatedTerms",
+      "default": null,
+      "doc": "The relationship Is A with glossary term",
+      "Urn": "GlossaryTermUrn",
+      "urn_is_array": true
+    },
+    {
+      "Relationship": {
+        "/*": {
+          "entityTypes": [
+            "glossaryTerm"
+          ],
+          "name": "HasA"
+        }
+      },
+      "Searchable": {
+        "/*": {
+          "boostScore": 2.0,
+          "fieldName": "hasRelatedTerms",
+          "fieldType": "URN"
+        }
+      },
+      "type": [
+        "null",
+        {
+          "type": "array",
+          "items": "string"
+        }
+      ],
+      "name": "hasRelatedTerms",
+      "default": null,
+      "doc": "The relationship Has A with glossary term",
+      "Urn": "GlossaryTermUrn",
+      "urn_is_array": true
+    },
+    {
+      "Relationship": {
+        "/*": {
+          "entityTypes": [
+            "glossaryTerm"
+          ],
+          "name": "HasValue"
+        }
+      },
+      "Searchable": {
+        "/*": {
+          "fieldName": "values",
+          "fieldType": "URN"
+        }
+      },
+      "type": [
+        "null",
+        {
+          "type": "array",
+          "items": "string"
+        }
+      ],
+      "name": "values",
+      "default": null,
+      "doc": "The relationship Has Value with glossary term.\nThese are fixed value a term has. For example a ColorEnum where RED, GREEN and YELLOW are fixed values.",
+      "Urn": "GlossaryTermUrn",
+      "urn_is_array": true
+    },
+    {
+      "Relationship": {
+        "/*": {
+          "entityTypes": [
+            "glossaryTerm"
+          ],
+          "name": "IsRelatedTo"
+        }
+      },
+      "Searchable": {
+        "/*": {
+          "fieldName": "relatedTerms",
+          "fieldType": "URN"
+        }
+      },
+      "type": [
+        "null",
+        {
+          "type": "array",
+          "items": "string"
+        }
+      ],
+      "name": "relatedTerms",
+      "default": null,
+      "doc": "The relationship isRelatedTo with glossary term",
+      "Urn": "GlossaryTermUrn",
+      "urn_is_array": true
+    }
+  ],
+  "doc": "Has A / Is A lineage information about a glossary Term reporting the lineage"
+}

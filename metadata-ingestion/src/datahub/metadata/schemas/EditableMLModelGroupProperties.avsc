@@ -1,0 +1,24 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "editableMlModelGroupProperties"
+  },
+  "name": "EditableMLModelGroupProperties",
+  "namespace": "com.linkedin.pegasus2avro.ml.metadata",
+  "fields": [
+    {
+      "Searchable": {
+        "fieldName": "editedDescription",
+        "fieldType": "TEXT"
+      },
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "description",
+      "default": null,
+      "doc": "Documentation of the ml model group"
+    }
+  ],
+  "doc": "Properties associated with an ML Model Group editable from the UI"
+}

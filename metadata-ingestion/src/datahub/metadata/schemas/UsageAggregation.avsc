@@ -1,0 +1,153 @@
+{
+  "type": "record",
+  "deprecated": "Use DatasetUsageStatistics, or other UsageStatistics records, instead",
+  "name": "UsageAggregation",
+  "namespace": "com.linkedin.pegasus2avro.usage",
+  "fields": [
+    {
+      "type": "long",
+      "name": "bucket",
+      "doc": " Bucket start time in milliseconds "
+    },
+    {
+      "type": {
+        "type": "enum",
+        "name": "WindowDuration",
+        "namespace": "com.linkedin.pegasus2avro.common",
+        "symbols": [
+          "YEAR",
+          "MONTH",
+          "WEEK",
+          "DAY",
+          "HOUR"
+        ],
+        "doc": "Enum to define the length of a bucket when doing aggregations"
+      },
+      "name": "duration",
+      "doc": " Bucket duration "
+    },
+    {
+      "java": {
+        "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+      },
+      "type": "string",
+      "name": "resource",
+      "doc": " Resource associated with these usage stats ",
+      "Urn": "Urn"
+    },
+    {
+      "type": {
+        "type": "record",
+        "name": "UsageAggregationMetrics",
+        "namespace": "com.linkedin.pegasus2avro.usage",
+        "fields": [
+          {
+            "type": [
+              "null",
+              "int"
+            ],
+            "name": "uniqueUserCount",
+            "default": null,
+            "doc": " Unique user count "
+          },
+          {
+            "type": [
+              "null",
+              {
+                "type": "array",
+                "items": {
+                  "type": "record",
+                  "name": "UserUsageCounts",
+                  "namespace": "com.linkedin.pegasus2avro.usage",
+                  "fields": [
+                    {
+                      "java": {
+                        "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+                      },
+                      "type": [
+                        "null",
+                        "string"
+                      ],
+                      "name": "user",
+                      "default": null,
+                      "Urn": "Urn"
+                    },
+                    {
+                      "type": "int",
+                      "name": "count"
+                    },
+                    {
+                      "type": [
+                        "null",
+                        "string"
+                      ],
+                      "name": "userEmail",
+                      "default": null,
+                      "doc": " If user_email is set, we attempt to resolve the user's urn upon ingest "
+                    }
+                  ],
+                  "doc": " Records a single user's usage counts for a given resource "
+                }
+              }
+            ],
+            "name": "users",
+            "default": null,
+            "doc": " Users within this bucket, with frequency counts "
+          },
+          {
+            "type": [
+              "null",
+              "int"
+            ],
+            "name": "totalSqlQueries",
+            "default": null,
+            "doc": " Total SQL query count "
+          },
+          {
+            "type": [
+              "null",
+              {
+                "type": "array",
+                "items": "string"
+              }
+            ],
+            "name": "topSqlQueries",
+            "default": null,
+            "doc": " Frequent SQL queries; mostly makes sense for datasets in SQL databases "
+          },
+          {
+            "type": [
+              "null",
+              {
+                "type": "array",
+                "items": {
+                  "type": "record",
+                  "name": "FieldUsageCounts",
+                  "namespace": "com.linkedin.pegasus2avro.usage",
+                  "fields": [
+                    {
+                      "type": "string",
+                      "name": "fieldName"
+                    },
+                    {
+                      "type": "int",
+                      "name": "count"
+                    }
+                  ],
+                  "doc": " Records field-level usage counts for a given resource "
+                }
+              }
+            ],
+            "name": "fields",
+            "default": null,
+            "doc": " Field-level usage stats "
+          }
+        ],
+        "doc": "Metrics for usage data for a given resource and bucket. Not all fields\nmake sense for all buckets, so every field is optional."
+      },
+      "name": "metrics",
+      "doc": " Metrics associated with this bucket "
+    }
+  ],
+  "doc": "Usage data for a given resource, rolled up into a bucket."
+}

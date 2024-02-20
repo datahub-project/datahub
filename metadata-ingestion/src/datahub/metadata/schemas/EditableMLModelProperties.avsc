@@ -1,0 +1,24 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "editableMlModelProperties"
+  },
+  "name": "EditableMLModelProperties",
+  "namespace": "com.linkedin.pegasus2avro.ml.metadata",
+  "fields": [
+    {
+      "Searchable": {
+        "fieldName": "editedDescription",
+        "fieldType": "TEXT"
+      },
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "description",
+      "default": null,
+      "doc": "Documentation of the ml model"
+    }
+  ],
+  "doc": "Properties associated with a ML Model editable from the UI"
+}

@@ -1,0 +1,44 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "dataPlatformInstance"
+  },
+  "name": "DataPlatformInstance",
+  "namespace": "com.linkedin.pegasus2avro.common",
+  "fields": [
+    {
+      "Searchable": {
+        "addToFilters": true,
+        "fieldType": "URN",
+        "filterNameOverride": "Platform"
+      },
+      "java": {
+        "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+      },
+      "type": "string",
+      "name": "platform",
+      "doc": "Data Platform",
+      "Urn": "Urn"
+    },
+    {
+      "Searchable": {
+        "addToFilters": true,
+        "fieldName": "platformInstance",
+        "fieldType": "URN",
+        "filterNameOverride": "Platform Instance"
+      },
+      "java": {
+        "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+      },
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "instance",
+      "default": null,
+      "doc": "Instance of the data platform (e.g. db instance)",
+      "Urn": "Urn"
+    }
+  ],
+  "doc": "The specific instance of the data platform that this entity belongs to"
+}

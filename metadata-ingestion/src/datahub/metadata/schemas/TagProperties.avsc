@@ -1,0 +1,43 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "tagProperties"
+  },
+  "name": "TagProperties",
+  "namespace": "com.linkedin.pegasus2avro.tag",
+  "fields": [
+    {
+      "Searchable": {
+        "boostScore": 10.0,
+        "enableAutocomplete": true,
+        "fieldNameAliases": [
+          "_entityName"
+        ],
+        "fieldType": "WORD_GRAM"
+      },
+      "type": "string",
+      "name": "name",
+      "doc": "Display name of the tag"
+    },
+    {
+      "Searchable": {},
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "description",
+      "default": null,
+      "doc": "Documentation of the tag"
+    },
+    {
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "colorHex",
+      "default": null,
+      "doc": "The color associated with the Tag in Hex. For example #FFFFFF."
+    }
+  ],
+  "doc": "Properties associated with a Tag"
+}

@@ -1,0 +1,74 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "glossaryNodeInfo"
+  },
+  "name": "GlossaryNodeInfo",
+  "namespace": "com.linkedin.pegasus2avro.glossary",
+  "fields": [
+    {
+      "Searchable": {},
+      "type": "string",
+      "name": "definition",
+      "doc": "Definition of business node"
+    },
+    {
+      "Relationship": {
+        "entityTypes": [
+          "glossaryNode"
+        ],
+        "name": "IsPartOf"
+      },
+      "Searchable": {
+        "fieldName": "parentNode",
+        "fieldType": "URN",
+        "hasValuesFieldName": "hasParentNode"
+      },
+      "java": {
+        "class": "com.linkedin.pegasus2avro.common.urn.GlossaryNodeUrn"
+      },
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "parentNode",
+      "default": null,
+      "doc": "Parent node of the glossary term",
+      "Urn": "GlossaryNodeUrn",
+      "entityTypes": [
+        "glossaryNode"
+      ]
+    },
+    {
+      "Searchable": {
+        "boostScore": 10.0,
+        "enableAutocomplete": true,
+        "fieldName": "displayName",
+        "fieldNameAliases": [
+          "_entityName"
+        ],
+        "fieldType": "WORD_GRAM"
+      },
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "name",
+      "default": null,
+      "doc": "Display name of the node"
+    },
+    {
+      "Searchable": {
+        "fieldType": "TEXT_PARTIAL"
+      },
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "id",
+      "default": null,
+      "doc": "Optional id for the GlossaryNode"
+    }
+  ],
+  "doc": "Properties associated with a GlossaryNode"
+}

@@ -1,0 +1,43 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "dataContractStatus"
+  },
+  "name": "DataContractStatus",
+  "namespace": "com.linkedin.pegasus2avro.datacontract",
+  "fields": [
+    {
+      "Searchable": {
+        "/*": {
+          "queryByDefault": true
+        }
+      },
+      "type": {
+        "type": "map",
+        "values": "string"
+      },
+      "name": "customProperties",
+      "default": {},
+      "doc": "Custom property bag."
+    },
+    {
+      "Searchable": {},
+      "type": {
+        "type": "enum",
+        "symbolDocs": {
+          "ACTIVE": "The data contract is active.",
+          "PENDING": "The data contract is pending implementation."
+        },
+        "name": "DataContractState",
+        "namespace": "com.linkedin.pegasus2avro.datacontract",
+        "symbols": [
+          "ACTIVE",
+          "PENDING"
+        ]
+      },
+      "name": "state",
+      "doc": "The latest state of the data contract"
+    }
+  ],
+  "doc": "Information about the status of a data contract"
+}

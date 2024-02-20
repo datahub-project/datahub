@@ -1,0 +1,20 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "status"
+  },
+  "name": "Status",
+  "namespace": "com.linkedin.pegasus2avro.common",
+  "fields": [
+    {
+      "Searchable": {
+        "fieldType": "BOOLEAN"
+      },
+      "type": "boolean",
+      "name": "removed",
+      "default": false,
+      "doc": "Whether the entity has been removed (soft-deleted)."
+    }
+  ],
+  "doc": "The lifecycle status metadata of an entity, e.g. dataset, metric, feature, etc.\nThis aspect is used to represent soft deletes conventionally."
+}

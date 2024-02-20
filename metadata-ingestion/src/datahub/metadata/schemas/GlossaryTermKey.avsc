@@ -1,0 +1,34 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "glossaryTermKey",
+    "keyForEntity": "glossaryTerm",
+    "entityCategory": "core",
+    "entityAspects": [
+      "glossaryTermInfo",
+      "glossaryRelatedTerms",
+      "institutionalMemory",
+      "schemaMetadata",
+      "ownership",
+      "deprecation",
+      "domains",
+      "status",
+      "browsePaths"
+    ]
+  },
+  "name": "GlossaryTermKey",
+  "namespace": "com.linkedin.pegasus2avro.metadata.key",
+  "fields": [
+    {
+      "Searchable": {
+        "enableAutocomplete": true,
+        "fieldName": "id",
+        "fieldType": "WORD_GRAM"
+      },
+      "type": "string",
+      "name": "name",
+      "doc": "The term name, which serves as a unique id"
+    }
+  ],
+  "doc": "Key for a GlossaryTerm"
+}

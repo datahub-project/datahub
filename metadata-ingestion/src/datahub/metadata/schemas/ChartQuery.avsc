@@ -1,0 +1,39 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "chartQuery"
+  },
+  "name": "ChartQuery",
+  "namespace": "com.linkedin.pegasus2avro.chart",
+  "fields": [
+    {
+      "type": "string",
+      "name": "rawQuery",
+      "doc": "Raw query to build a chart from input datasets"
+    },
+    {
+      "Searchable": {
+        "addToFilters": true,
+        "fieldName": "queryType",
+        "fieldType": "KEYWORD",
+        "filterNameOverride": "Query Type"
+      },
+      "type": {
+        "type": "enum",
+        "symbolDocs": {
+          "LOOKML": "LookML queries",
+          "SQL": "SQL type queries"
+        },
+        "name": "ChartQueryType",
+        "namespace": "com.linkedin.pegasus2avro.chart",
+        "symbols": [
+          "LOOKML",
+          "SQL"
+        ]
+      },
+      "name": "type",
+      "doc": "Chart query type"
+    }
+  ],
+  "doc": "Information for chart query which is used for getting data of the chart"
+}

@@ -1,0 +1,135 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "dataFlowInfo"
+  },
+  "name": "DataFlowInfo",
+  "namespace": "com.linkedin.pegasus2avro.datajob",
+  "fields": [
+    {
+      "Searchable": {
+        "/*": {
+          "queryByDefault": true
+        }
+      },
+      "type": {
+        "type": "map",
+        "values": "string"
+      },
+      "name": "customProperties",
+      "default": {},
+      "doc": "Custom property bag."
+    },
+    {
+      "Searchable": {
+        "fieldType": "KEYWORD"
+      },
+      "java": {
+        "class": "com.linkedin.pegasus2avro.common.url.Url",
+        "coercerClass": "com.linkedin.pegasus2avro.common.url.UrlCoercer"
+      },
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "externalUrl",
+      "default": null,
+      "doc": "URL where the reference exist"
+    },
+    {
+      "Searchable": {
+        "boostScore": 10.0,
+        "enableAutocomplete": true,
+        "fieldNameAliases": [
+          "_entityName"
+        ],
+        "fieldType": "WORD_GRAM"
+      },
+      "type": "string",
+      "name": "name",
+      "doc": "Flow name"
+    },
+    {
+      "Searchable": {
+        "fieldType": "TEXT",
+        "hasValuesFieldName": "hasDescription"
+      },
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "description",
+      "default": null,
+      "doc": "Flow description"
+    },
+    {
+      "Searchable": {
+        "fieldType": "TEXT_PARTIAL",
+        "queryByDefault": false
+      },
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "project",
+      "default": null,
+      "doc": "Optional project/namespace associated with the flow"
+    },
+    {
+      "Searchable": {
+        "/time": {
+          "fieldName": "createdAt",
+          "fieldType": "DATETIME"
+        }
+      },
+      "type": [
+        "null",
+        {
+          "type": "record",
+          "name": "TimeStamp",
+          "namespace": "com.linkedin.pegasus2avro.common",
+          "fields": [
+            {
+              "type": "long",
+              "name": "time",
+              "doc": "When did the event occur"
+            },
+            {
+              "java": {
+                "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+              },
+              "type": [
+                "null",
+                "string"
+              ],
+              "name": "actor",
+              "default": null,
+              "doc": "Optional: The actor urn involved in the event.",
+              "Urn": "Urn"
+            }
+          ],
+          "doc": "A standard event timestamp"
+        }
+      ],
+      "name": "created",
+      "default": null,
+      "doc": "A timestamp documenting when the asset was created in the source Data Platform (not on DataHub)"
+    },
+    {
+      "Searchable": {
+        "/time": {
+          "fieldName": "lastModifiedAt",
+          "fieldType": "DATETIME"
+        }
+      },
+      "type": [
+        "null",
+        "com.linkedin.pegasus2avro.common.TimeStamp"
+      ],
+      "name": "lastModified",
+      "default": null,
+      "doc": "A timestamp documenting when the asset was last modified in the source Data Platform (not on DataHub)"
+    }
+  ],
+  "doc": "Information about a Data processing flow"
+}

@@ -1,0 +1,24 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "editableContainerProperties"
+  },
+  "name": "EditableContainerProperties",
+  "namespace": "com.linkedin.pegasus2avro.container",
+  "fields": [
+    {
+      "Searchable": {
+        "fieldName": "editedDescription",
+        "fieldType": "TEXT"
+      },
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "description",
+      "default": null,
+      "doc": "Description of the Asset Container as its received on the DataHub Platform"
+    }
+  ],
+  "doc": "Editable information about an Asset Container as defined on the DataHub Platform"
+}

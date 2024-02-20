@@ -1,0 +1,75 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "dataProcessKey",
+    "keyForEntity": "dataProcess",
+    "entityCategory": "_unset_",
+    "entityAspects": [
+      "dataProcessInfo",
+      "ownership",
+      "status"
+    ]
+  },
+  "name": "DataProcessKey",
+  "namespace": "com.linkedin.pegasus2avro.metadata.key",
+  "fields": [
+    {
+      "Searchable": {
+        "boostScore": 4.0,
+        "enableAutocomplete": true,
+        "fieldType": "WORD_GRAM"
+      },
+      "type": "string",
+      "name": "name",
+      "doc": "Process name i.e. an ETL job name"
+    },
+    {
+      "Searchable": {
+        "enableAutocomplete": true,
+        "fieldType": "TEXT_PARTIAL"
+      },
+      "type": "string",
+      "name": "orchestrator",
+      "doc": "Standardized Orchestrator where data process is defined.\nTODO: Migrate towards something that can be validated like DataPlatform urn"
+    },
+    {
+      "Searchable": {
+        "fieldType": "TEXT_PARTIAL",
+        "queryByDefault": false
+      },
+      "type": {
+        "type": "enum",
+        "symbolDocs": {
+          "CORP": "Designates corporation fabrics",
+          "DEV": "Designates development fabrics",
+          "EI": "Designates early-integration fabrics",
+          "NON_PROD": "Designates non-production fabrics",
+          "PRE": "Designates pre-production fabrics",
+          "PROD": "Designates production fabrics",
+          "QA": "Designates quality assurance fabrics",
+          "STG": "Designates staging fabrics",
+          "TEST": "Designates testing fabrics",
+          "UAT": "Designates user acceptance testing fabrics"
+        },
+        "name": "FabricType",
+        "namespace": "com.linkedin.pegasus2avro.common",
+        "symbols": [
+          "DEV",
+          "TEST",
+          "QA",
+          "UAT",
+          "EI",
+          "PRE",
+          "STG",
+          "NON_PROD",
+          "PROD",
+          "CORP"
+        ],
+        "doc": "Fabric group type"
+      },
+      "name": "origin",
+      "doc": "Fabric type where dataset belongs to or where it was generated."
+    }
+  ],
+  "doc": "Key for a Data Process"
+}
