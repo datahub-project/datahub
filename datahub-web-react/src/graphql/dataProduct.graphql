@@ -9,6 +9,9 @@ query getDataProduct($urn: String!) {
                 ...structuredPropertiesFields
             }
         }
+        forms {
+            ...formsFields
+        }
     }
 }
 

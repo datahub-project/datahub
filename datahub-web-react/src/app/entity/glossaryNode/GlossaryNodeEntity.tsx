@@ -49,6 +49,8 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
 
     getEntityName = () => 'Term Group';
 
+    useEntityQuery = useGetGlossaryNodeQuery;
+
     renderProfile = (urn: string) => {
         return (
             <EntityProfile
@@ -75,17 +77,7 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
                         component: PropertiesTab,
                     },
                 ]}
-                sidebarSections={[
-                    {
-                        component: SidebarAboutSection,
-                        properties: {
-                            hideLinksButton: true,
-                        },
-                    },
-                    {
-                        component: SidebarOwnerSection,
-                    },
-                ]}
+                sidebarSections={this.getSidebarSections()}
                 headerDropdownItems={
                     new Set([
                         EntityMenuItems.ADD_TERM_GROUP,
@@ -97,6 +89,18 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
             />
         );
     };
+
+    getSidebarSections = () => [
+        {
+            component: SidebarAboutSection,
+            properties: {
+                hideLinksButton: true,
+            },
+        },
+        {
+            component: SidebarOwnerSection,
+        },
+    ];
 
     displayName = (data: GlossaryNode) => {
         return data.properties?.name || data.urn;

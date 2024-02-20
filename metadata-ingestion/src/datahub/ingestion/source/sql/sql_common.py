@@ -370,10 +370,6 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
             )
         return test_report
 
-    def warn(self, log: logging.Logger, key: str, reason: str) -> None:
-        self.report.report_warning(key, reason[:100])
-        log.warning(f"{key} => {reason}")
-
     def error(self, log: logging.Logger, key: str, reason: str) -> None:
         self.report.report_failure(key, reason[:100])
         log.error(f"{key} => {reason}\n{traceback.format_exc()}")
