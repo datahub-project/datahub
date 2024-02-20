@@ -8,10 +8,8 @@ import networkx as nx
 import pytest
 from datahub.cli.cli_utils import get_url_and_token
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.graph.client import (
-    DatahubClientConfig,
-    DataHubGraph,  # get_default_graph,
-)
+from datahub.ingestion.graph.client import DataHubGraph  # get_default_graph,
+from datahub.ingestion.graph.client import DatahubClientConfig
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     ChangeAuditStampsClass,
