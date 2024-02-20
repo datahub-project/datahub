@@ -7314,12 +7314,12 @@ type AssertionResult {
     error: AssertionResultError
 
     """
-    Acryl Only! The definition of the assertion that was used for this run. Optional
+    Acryl Only! The definition of the assertion that was used for this run
     """
     assertion: AssertionInfo
     
     """
-    Acryl Only! The parameters that were used for running the assertion.
+    Acryl Only! The parameters that were used for running the assertion
     """
     parameters: AssertionEvaluationParameters
 
