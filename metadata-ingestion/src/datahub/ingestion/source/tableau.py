@@ -1342,6 +1342,12 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                         c.DATASET,
                         dataset_snapshot.urn,
                     )
+                else:
+                    yield from add_entity_to_container(
+                        self.gen_workbook_key(datasource[c.WORKBOOK][c.ID]),
+                        c.DATASET,
+                        dataset_snapshot.urn,
+                    )
                 project = self._get_project_browse_path_name(datasource)
 
                 tables = csql.get(c.TABLES, [])
@@ -1386,7 +1392,15 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                 description=csql.get(c.DESCRIPTION),
             )
 
-            dataset_snapshot.aspects.append(dataset_properties)
+            # Ownership
+            owners_raw = csql.get(c.DOWNSTREAM_OWNERS)
+            if owners_raw:
+                for owner in owners_raw:
+                    owner = self._get_ownership(owner.get(c.NAME))
+                    if owner is not None:
+                        dataset_snapshot.aspects.append(owner)
+
+                dataset_snapshot.aspects.append(dataset_properties)
 
             if csql.get(c.QUERY):
                 view_properties = ViewPropertiesClass(

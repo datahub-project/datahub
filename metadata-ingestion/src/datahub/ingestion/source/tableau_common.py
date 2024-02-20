@@ -327,6 +327,9 @@ custom_sql_graphql_query = """
         name
         connectionType
       }
+      downstreamOwners{
+        name
+      }
 }
 """
 
