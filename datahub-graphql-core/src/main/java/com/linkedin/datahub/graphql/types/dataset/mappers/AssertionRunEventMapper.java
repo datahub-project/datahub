@@ -1,16 +1,11 @@
 package com.linkedin.datahub.graphql.types.dataset.mappers;
 
 import com.linkedin.assertion.AssertionRunEvent;
-import com.linkedin.datahub.graphql.generated.AssertionResult;
-import com.linkedin.datahub.graphql.generated.AssertionResultError;
-import com.linkedin.datahub.graphql.generated.AssertionResultErrorType;
-import com.linkedin.datahub.graphql.generated.AssertionResultType;
-import com.linkedin.datahub.graphql.generated.AssertionRunStatus;
-import com.linkedin.datahub.graphql.generated.BatchSpec;
-import com.linkedin.datahub.graphql.generated.PartitionSpec;
-import com.linkedin.datahub.graphql.generated.PartitionType;
+import com.linkedin.datahub.graphql.generated.*;
+import com.linkedin.datahub.graphql.types.assertion.AssertionMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StringMapMapper;
 import com.linkedin.datahub.graphql.types.mappers.TimeSeriesAspectMapper;
+import com.linkedin.datahub.graphql.types.monitor.MonitorMapper;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import javax.annotation.Nonnull;
@@ -80,6 +75,17 @@ public class AssertionRunEventMapper
     datasetAssertionResult.setMissingCount(gmsResult.getMissingCount());
     datasetAssertionResult.setUnexpectedCount(gmsResult.getUnexpectedCount());
     datasetAssertionResult.setExternalUrl(gmsResult.getExternalUrl());
+
+    if (gmsResult.hasAssertion()) {
+      AssertionInfo datasetAssertionInfo = AssertionMapper.mapAssertionInfo(gmsResult.getAssertion());
+      datasetAssertionResult.setAssertion(datasetAssertionInfo);
+    }
+
+    if (gmsResult.hasParameters()) {
+      AssertionEvaluationParameters datasetAssertionEvaluationParameters = MonitorMapper.mapAssertionEvaluationParameters(gmsResult.getParameters());
+      datasetAssertionResult.setParameters(datasetAssertionEvaluationParameters);
+    }
+
     if (gmsResult.hasType()) {
       AssertionResultType assertionType = AssertionResultType.valueOf(gmsResult.getType().name());
       datasetAssertionResult.setType(assertionType);

@@ -77,7 +77,7 @@ public class AssertionMapper {
     return result;
   }
 
-  private static com.linkedin.datahub.graphql.generated.AssertionInfo mapAssertionInfo(
+  public static com.linkedin.datahub.graphql.generated.AssertionInfo mapAssertionInfo(
       final AssertionInfo gmsAssertionInfo) {
     final com.linkedin.datahub.graphql.generated.AssertionInfo assertionInfo =
         new com.linkedin.datahub.graphql.generated.AssertionInfo();
