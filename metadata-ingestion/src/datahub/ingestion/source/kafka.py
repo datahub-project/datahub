@@ -208,7 +208,6 @@ class KafkaSource(StatefulIngestionSourceBase):
             self.source_config.tag_prefix,
             OwnershipSourceTypeClass.SERVICE,
             self.source_config.strip_user_ids_from_email,
-            match_nested_props=True,
         )
 
     def init_kafka_admin_client(self) -> None:
