@@ -42,6 +42,7 @@ def gen_datahub_groups(num_groups: int) -> Iterable[CorpGroup]:
             description=f"The Group {i}",
             picture_link=f"https://images.google.com/group{i}.jpg",
             slack=f"@group{i}",
+            owners=["user1"],
             members=["user2"],
         )
         yield group
@@ -79,7 +80,6 @@ def get_group_membership(user_urn: str) -> List[str]:
     return [entity.urn for entity in entities]
 
 
-@pytest.mark.skip(reason="Functionality and test needs to be validated for correctness")
 def test_group_upsert(wait_for_healthchecks: Any) -> None:
     num_groups: int = 10
     for i, datahub_group in enumerate(gen_datahub_groups(num_groups)):
