@@ -1,3 +1,5 @@
+#import "./assertion_monitor_shared.graphql"
+
 fragment monitorDetails on Monitor {
     urn
     type
@@ -13,32 +15,7 @@ fragment monitorDetails on Monitor {
                     timezone
                 }
                 parameters {
-                    type
-                    datasetFreshnessParameters {
-                        sourceType
-                        auditLog {
-                            operationTypes
-                            userName
-                        }
-                        field {
-                            type
-                            nativeType
-                            path
-                            kind
-                        }
-                    }
-                    datasetVolumeParameters {
-                        sourceType
-                    }
-                    datasetFieldParameters {
-                        sourceType
-                        changedRowsField {
-                            type
-                            nativeType
-                            path
-                            kind
-                        }
-                    }
+                    ...assertionEvaluationParameters
                 }
             }
         }
