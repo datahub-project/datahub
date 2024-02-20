@@ -7,6 +7,7 @@ import com.datahub.authorization.ConjunctivePrivilegeGroup;
 import com.datahub.authorization.DisjunctivePrivilegeGroup;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.linkedin.common.url.Url;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
@@ -231,6 +232,9 @@ public class CorpGroupType
     }
     if (input.getEmail() != null) {
       result.setEmail(input.getEmail());
+    }
+    if (input.getPictureLink() != null) {
+      result.setPictureLink(new Url(input.getPictureLink()));
     }
     return result;
   }

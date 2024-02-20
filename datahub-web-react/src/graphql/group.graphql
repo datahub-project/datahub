@@ -17,6 +17,7 @@ query getGroup($urn: String!, $membersCount: Int!) {
             description
             slack
             email
+            pictureLink
         }
         properties {
             displayName
