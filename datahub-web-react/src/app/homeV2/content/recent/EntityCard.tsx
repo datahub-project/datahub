@@ -3,13 +3,13 @@ import styled from 'styled-components';
 import { useHistory } from 'react-router';
 import { GenericEntityProperties } from '../../../entityV2/shared/types';
 import { Entity, EntityType } from '../../../../types.generated';
-import { IconStyleType } from '../../../entityV2/Entity';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { getDisplayedEntityType } from '../../../entityV2/shared/containers/profile/header/utils';
 import { ANTD_GRAY } from '../../../entity/shared/constants';
 import { navigateToEntityProfile } from '../../shared/navigateToEntityProfile';
 import { HoverEntityTooltip } from '../../../recommendations/renderer/component/HoverEntityTooltip';
 import { SEARCH_COLORS } from '../../../entityV2/shared/constants';
+import PlatformIcon from '../../../sharedV2/icons/PlatformIcon';
 
 const Card = styled.div`
     :hover {
@@ -44,6 +44,7 @@ const Name = styled.div`
 const Context = styled.div`
     display: flex;
     align-items: center;
+    gap: 8px;
 `;
 
 const SubHeader = styled.div`
@@ -54,31 +55,12 @@ const SubHeader = styled.div`
     text-overflow: ellipsis;
 `;
 
-const Icon = styled.div`
-    margin-right: 8px;
-    border-radius: 4px;
-    background-color: ${ANTD_GRAY[3]};
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 6px;
-    width: 24px;
-    height: 24px;
-`;
-
 const Type = styled.div`
     font-size: 14px;
     color: ${ANTD_GRAY[7]};
     text-overflow: ellipsis;
     overflow: hidden;
     white-space: nowrap;
-`;
-
-const PreviewImage = styled.img`
-    height: 14px;
-    width: auto;
-    object-fit: contain;
-    background-color: transparent;
 `;
 
 type Props = {
@@ -95,17 +77,17 @@ export const EntityCard = ({ entity, subHeader, render, className }: Props) => {
     const displayType = getDisplayedEntityType(entity, entityRegistry, entity.type);
 
     const defaultRender = (e: GenericEntityProperties) => {
-        const logo = e.platform?.properties?.logoUrl ? (
-            <PreviewImage src={e.platform?.properties?.logoUrl || undefined} alt={displayName} />
-        ) : (
-            entityRegistry.getIcon(e.type as EntityType, 12, IconStyleType.ACCENT)
-        );
         return (
             <HoverEntityTooltip placement="bottom" entity={entity} showArrow={false}>
                 <Container className={className}>
                     <Name>{displayName}</Name>
                     <Context>
-                        <Icon>{logo}</Icon>
+                        <PlatformIcon
+                            platform={e?.platform}
+                            size={14}
+                            alt={displayName}
+                            entityType={e.type as EntityType}
+                        />
                         <Type>{displayType}</Type>
                     </Context>
                     {subHeader && <SubHeader>{subHeader}</SubHeader>}

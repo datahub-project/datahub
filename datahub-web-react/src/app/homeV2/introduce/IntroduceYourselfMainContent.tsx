@@ -10,6 +10,7 @@ import { PLATFORMS_MODULE_ID } from '../content/tabs/discovery/sections/platform
 import { ROLE_TO_PERSONA_TYPE } from '../shared/types';
 import { useUpdateCorpUserPropertiesMutation } from '../../../graphql/user.generated';
 import { useGetDataPlatforms } from '../content/tabs/discovery/sections/platform/useGetDataPlatforms';
+import PlatformIcon from '../../sharedV2/icons/PlatformIcon';
 
 const Container = styled.div`
     flex: 1;
@@ -64,6 +65,13 @@ const DoneButton = styled(Button)`
     background-color: #3f54d1;
     color: #fff;
     margin-top: 12px;
+`;
+
+const SelectOption = styled.div`
+    display: flex;
+    gap: 8px;
+    padding: 4px 0px;
+    align-items: center;
 `;
 
 // const RoleCard = styled.div`
@@ -209,7 +217,12 @@ export const IntroduceYourselfMainContent = () => {
                     onChange={handlePlatformsChange}
                     options={platforms.map((platform) => ({
                         value: platform.platform.urn,
-                        label: capitalizeFirstLetter(platform.platform.name),
+                        label: (
+                            <SelectOption>
+                                <PlatformIcon platform={platform.platform} size={17} />{' '}
+                                {capitalizeFirstLetter(platform.platform.name)}
+                            </SelectOption>
+                        ),
                     }))}
                     mode="multiple"
                 />
