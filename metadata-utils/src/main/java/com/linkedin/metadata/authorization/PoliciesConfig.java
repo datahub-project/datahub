@@ -201,6 +201,12 @@ public class PoliciesConfig {
           "Edit Operations",
           "The ability to report or edit operations information about an entity.");
 
+  public static final Privilege EDIT_ENTITY_INCIDENTS_PRIVILEGE =
+      Privilege.of(
+          "EDIT_ENTITY_INCIDENTS",
+          "Edit Incidents",
+          "The ability to create and remove incidents for an entity.");
+
   public static final Privilege EDIT_ENTITY_PRIVILEGE =
       Privilege.of(
           "EDIT_ENTITY",
@@ -235,7 +241,8 @@ public class PoliciesConfig {
           EDIT_ENTITY_DATA_PRODUCTS_PRIVILEGE,
           EDIT_ENTITY_DEPRECATION_PRIVILEGE,
           EDIT_ENTITY_PRIVILEGE,
-          DELETE_ENTITY_PRIVILEGE);
+          DELETE_ENTITY_PRIVILEGE,
+          EDIT_ENTITY_INCIDENTS_PRIVILEGE);
 
   // Dataset Privileges
   public static final Privilege EDIT_DATASET_COL_TAGS_PRIVILEGE =
@@ -360,6 +367,12 @@ public class PoliciesConfig {
           "GET_ES_TASK_STATUS_PRIVILEGE",
           "Get ES task status API",
           "The ability to use the get task status API for an ElasticSearch task.");
+
+  public static final Privilege ES_EXPLAIN_QUERY_PRIVILEGE =
+      Privilege.of(
+          "ES_EXPLAIN_QUERY_PRIVILEGE",
+          "Explain ElasticSearch Query API",
+          "The ability to use the Operations API explain endpoint.");
 
   public static final Privilege SEARCH_PRIVILEGE =
       Privilege.of("SEARCH_PRIVILEGE", "Search API", "The ability to access search APIs.");

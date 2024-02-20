@@ -17,6 +17,7 @@ from looker_sdk.sdk.api40.models import (
     Look,
     LookmlModel,
     LookmlModelExplore,
+    LookWithQuery,
     Query,
     User,
     WriteQuery,
@@ -64,6 +65,7 @@ class LookerAPIStats(BaseModel):
     all_looks_calls: int = 0
     all_models_calls: int = 0
     get_query_calls: int = 0
+    get_look_calls: int = 0
     search_looks_calls: int = 0
     search_dashboards_calls: int = 0
 
@@ -251,6 +253,14 @@ class LookerAPI:
         self.client_stats.get_query_calls += 1
         return self.client.query(
             query_id=query_id,
+            fields=self.__fields_mapper(fields),
+            transport_options=self.transport_options,
+        )
+
+    def get_look(self, look_id: str, fields: Union[str, List[str]]) -> LookWithQuery:
+        self.client_stats.get_look_calls += 1
+        return self.client.look(
+            look_id=look_id,
             fields=self.__fields_mapper(fields),
             transport_options=self.transport_options,
         )
