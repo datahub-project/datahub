@@ -93,7 +93,7 @@ task installDevTest(type: Exec, dependsOn: [installDev]) {
     "touch ${sentinel_file}"
 }
 
-task test(type: Exec, dependsOn: installDevTest) {
+task testQuick(type: Exec, dependsOn: installDevTest) {
   inputs.files(project.fileTree(dir: "src/", include: "**/*.py"))
   inputs.files(project.fileTree(dir: "tests/"))
   commandLine 'bash', '-c',
@@ -114,7 +114,7 @@ task buildWheel(type: Exec, dependsOn: [install, cleanPythonCache]) {
 
 build.dependsOn install
 check.dependsOn lint
-check.dependsOn test
+check.dependsOn testQuick
 
 clean {
   delete venv_name
