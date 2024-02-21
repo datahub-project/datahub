@@ -98,7 +98,7 @@ const SidebarPopularityHeaderSection = () => {
             }
         >
             <Container>
-                <PopularityBars status={status} displayOnDrawer />
+                <PopularityBars status={status} />
             </Container>
         </Popover>
     );

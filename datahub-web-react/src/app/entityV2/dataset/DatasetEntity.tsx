@@ -358,8 +358,6 @@ export class DatasetEntity implements Entity<Dataset> {
         const data = result.entity as Dataset;
         const genericProperties = this.getGenericEntityProperties(data);
 
-        console.log(data);
-
         return (
             <Preview
                 urn={data.urn}

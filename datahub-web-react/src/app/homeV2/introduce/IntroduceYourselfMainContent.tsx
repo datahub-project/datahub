@@ -126,7 +126,7 @@ export const IntroduceYourselfMainContent = () => {
     const [selectedPlatforms, setSelectedPlatforms] = useState();
     const [selectedTitle, setSelectedTitle] = useState();
     const defaultDataPlatforms = useGetDataPlatforms();
-    const [updateCorpUserMutation] = useUpdateCorpUserPropertiesMutation();
+    const [updateCorpUserMutation, { loading }] = useUpdateCorpUserPropertiesMutation();
 
     const handlePersonaChange = (value: any) => {
         const personaType = ROLE_TO_PERSONA_TYPE[value];
@@ -185,8 +185,8 @@ export const IntroduceYourselfMainContent = () => {
                 },
             },
         })
-            .then(() => {
-                refetchUser();
+            .then(async () => {
+                await refetchUser();
                 history.push('/');
             })
             .catch((err) => {
@@ -226,7 +226,7 @@ export const IntroduceYourselfMainContent = () => {
                     }))}
                     mode="multiple"
                 />
-                <DoneButton type="primary" size="large" onClick={onSubmitDetails}>
+                <DoneButton type="primary" size="large" onClick={onSubmitDetails} loading={loading}>
                     Done
                 </DoneButton>
             </Content>
