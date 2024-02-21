@@ -63,7 +63,7 @@ COPY ./docker/datahub-ingestion-base/base-requirements.txt requirements.txt
 COPY ./docker/datahub-ingestion-base/entrypoint.sh /entrypoint.sh
 
 USER datahub
-ENV VIRTUAL_ENV=/.venv
+ENV VIRTUAL_ENV=/datahub-ingestion/.venv
 ENV PATH="${VIRTUAL_ENV}/bin:$PATH"
 RUN python3 -m venv $VIRTUAL_ENV && \
     uv pip install --no-cache -r requirements.txt && \
