@@ -104,11 +104,13 @@ public class SlackNotificationSink implements NotificationSink {
   private SecretProvider secretProvider;
   private ConnectionService connectionService;
   private String baseUrl;
-  private String defaultChannel;
-  private String botToken;
+  private String staticConfigDefaultChannel;
+  private String staticConfigBotToken;
   private boolean retryEnabled;
   private Integer maxRetries;
   private long retryAfterTimestamp;
+
+  @VisibleForTesting String botToken;
 
   @VisibleForTesting MethodsClient slackClient;
 
@@ -148,12 +150,12 @@ public class SlackNotificationSink implements NotificationSink {
     this.connectionService = cfg.getConnectionService();
     // Optional -- Provide the bot token directly in config. Used until this is available inside UI.
     if (cfg.getStaticConfig().containsKey(BOT_TOKEN_CONFIG_NAME)) {
-      botToken = (String) cfg.getStaticConfig().get(BOT_TOKEN_CONFIG_NAME);
+      staticConfigBotToken = (String) cfg.getStaticConfig().get(BOT_TOKEN_CONFIG_NAME);
     }
     // Optional -- Provide the default channel directly in config. Used until this is available
     // inside UI.
     if (cfg.getStaticConfig().containsKey(DEFAULT_CHANNEL_CONFIG_NAME)) {
-      defaultChannel = (String) cfg.getStaticConfig().get(DEFAULT_CHANNEL_CONFIG_NAME);
+      staticConfigDefaultChannel = (String) cfg.getStaticConfig().get(DEFAULT_CHANNEL_CONFIG_NAME);
     }
     retryEnabled =
         Boolean.parseBoolean(
@@ -880,55 +882,63 @@ public class SlackNotificationSink implements NotificationSink {
             && globalSettings.getIntegrations().getSlackSettings().hasDefaultChannelName()
         ? Optional.ofNullable(
             globalSettings.getIntegrations().getSlackSettings().getDefaultChannelName())
-        : Optional.ofNullable(this.defaultChannel);
+        : Optional.ofNullable(this.staticConfigDefaultChannel);
   }
 
   private void initSlackClientFromGlobalSettings(@Nonnull final GlobalSettingsInfo globalSettings) {
     // Attempt to init the slack client from static config or local configuration.
-    if (slackClient == null) {
-      // Next, attempt to instantiate a slack client using a bot token from static config or
-      // settings. Bot token provided in dynamic settings
-      // takes precedence over that provided in static sink config.
-      if (globalSettings.getIntegrations().hasSlackSettings()
-          && globalSettings.getIntegrations().getSlackSettings().hasEncryptedBotToken()) {
-        try {
-          final String botToken =
-              this.secretProvider.decryptSecret(
-                  globalSettings.getIntegrations().getSlackSettings().getEncryptedBotToken());
-          this.slackClient = slack.methods(botToken);
-        } catch (Exception e) {
-          log.error(
-              "Caught exception while attempting to resolve bot token secret. Failed to create slack client.",
-              e);
-        }
-      } else if (this.botToken != null) {
-        // Bot token provided in static configuration.
-        this.slackClient = slack.methods(this.botToken);
-      } else {
-        log.warn(
-            "Failed to create Slack client - could not resolve a bot token from static config or global settings!");
+    // Next, attempt to instantiate a slack client using a bot token from static config or
+    // settings. Bot token provided in dynamic settings
+    // takes precedence over that provided in static sink config.
+    if (globalSettings.getIntegrations().hasSlackSettings()
+        && globalSettings.getIntegrations().getSlackSettings().hasEncryptedBotToken()) {
+      try {
+        final String botToken =
+            this.secretProvider.decryptSecret(
+                globalSettings.getIntegrations().getSlackSettings().getEncryptedBotToken());
+        createSlackClient(botToken);
+      } catch (Exception e) {
+        log.error(
+            "Caught exception while attempting to resolve bot token secret. Failed to create slack client.",
+            e);
       }
+    } else if (this.staticConfigBotToken != null) {
+      // Bot token provided in static configuration.
+      createSlackClient(this.staticConfigBotToken);
+    } else {
+      log.warn(
+          "Failed to create Slack client - could not resolve a bot token from static config or global settings!");
     }
   }
 
   private void initSlackClientFromConnection(@Nonnull final ObjectNode jsonConnection) {
     // Attempt to init the slack client from the connection object
-    if (slackClient == null) {
-      // Next, attempt to instantiate a slack client using a bot token from static config or
-      // settings. Bot token provided in dynamic settings
-      // takes precedence over that provided in static sink config.
-      if (jsonConnection.has("bot_token")) {
-        try {
-          this.slackClient = slack.methods(jsonConnection.get("bot_token").asText());
-        } catch (Exception e) {
-          log.error(
-              "Caught exception while attempting to resolve bot token secret. Failed to create slack client.",
-              e);
-        }
-      } else {
-        log.warn(
-            "Failed to create Slack client using Connection JSON! Falling back to legacy settings.");
+    // Next, attempt to instantiate a slack client using a bot token from static config or
+    // settings. Bot token provided in dynamic settings
+    // takes precedence over that provided in static sink config.
+    if (jsonConnection.has("bot_token")) {
+      try {
+        final String botToken = jsonConnection.get("bot_token").asText();
+        createSlackClient(botToken);
+      } catch (Exception e) {
+        log.error(
+            "Caught exception while attempting to resolve bot token secret. Failed to create slack client.",
+            e);
       }
+    } else {
+      log.warn(
+          "Failed to create Slack client using Connection JSON! Falling back to legacy settings.");
+    }
+  }
+
+  private void createSlackClient(final String botToken) {
+    if (hasChanged(botToken)) {
+      log.info(
+          "New slack bot token was found. Updating bot token and reinitializing slack client.");
+      updateBotToken(botToken);
+      this.slackClient = slack.methods(botToken);
+    } else {
+      log.debug("Bot token has not changed. Skipping reinitialization of slack client.");
     }
   }
 
@@ -951,5 +961,13 @@ public class SlackNotificationSink implements NotificationSink {
       }
     }
     return null;
+  }
+
+  private synchronized boolean hasChanged(final String newBotToken) {
+    return !newBotToken.equals(this.botToken);
+  }
+
+  public synchronized  void updateBotToken(final String newBotToken) {
+    this.botToken = newBotToken;
   }
 }
