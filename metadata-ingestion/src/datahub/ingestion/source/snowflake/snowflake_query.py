@@ -594,6 +594,7 @@ class SnowflakeQuery:
                         snowflake.account_usage.access_history
                     LEFT JOIN
                         snowflake.account_usage.users USERS
+                        ON access_history.user_name = users.name
                     WHERE
                         query_start_time >= to_timestamp_ltz({start_time_millis}, 3)
                         AND query_start_time < to_timestamp_ltz({end_time_millis}, 3)
