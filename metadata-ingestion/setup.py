@@ -403,6 +403,9 @@ all_exclude_plugins: Set[str] = {
     # duckdb doesn't have a prebuilt wheel for Linux arm7l or aarch64, so we
     # simply exclude it.
     "datahub-lite",
+    # Feast tends to have overly restrictive dependencies and hence doesn't
+    # play nice with the "all" installation.
+    "feast",
 }
 
 mypy_stubs = {

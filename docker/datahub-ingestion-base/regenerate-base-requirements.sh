@@ -13,14 +13,12 @@ VENV_DIR=$(mktemp -d)
 python -c "import sys; assert sys.version_info >= (3, 9), 'Python 3.9 or higher is required.'"
 python -m venv $VENV_DIR
 source $VENV_DIR/bin/activate
-pip install --upgrade pip setuptools wheel
+pip install --upgrade pip uv setuptools wheel
 echo "Using virtualenv at $VENV_DIR"
 
 # Install stuff.
 pushd $DATAHUB_DIR/metadata-ingestion
-pip install -e .
-pip install -e '../metadata-ingestion-modules/airflow-plugin/[plugin-v2]'
-pip install -e '.[all]'
+uv pip install -e '.[all]' -e '../metadata-ingestion-modules/airflow-plugin/[plugin-v2]'
 popd
 
 # Generate the requirements file.
