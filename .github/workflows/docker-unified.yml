@@ -34,19 +34,29 @@ jobs:
     steps:
       - name: Check out the repo
         uses: hsheth2/sane-checkout-action@v1
+      - uses: dorny/paths-filter@v2
+        id: filter
+        with:
+          filters: |
+            enable-lint:
+              - '!(docs-website/**|docs/**|**.md)'
       - uses: actions/setup-python@v4
+        if: ${{ steps.filter.outputs.enable-lint == 'true' }}
         with:
           python-version: "3.10"
           cache: "pip"
       - name: Set up JDK 17
+        if: ${{ steps.filter.outputs.enable-lint == 'true' }}
         uses: actions/setup-java@v3
         with:
           distribution: "zulu"
           java-version: 17
       - name: Ensure packages are correct
+        if: ${{ steps.filter.outputs.enable-lint == 'true' }}
         run: |
           python ./.github/scripts/check_python_package.py
       - name: Run lint on smoke test
+        if: ${{ steps.filter.outputs.enable-lint == 'true' }}
         run: |
           ./gradlew :smoke-test:lint
   setup:
