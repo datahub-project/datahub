@@ -138,7 +138,7 @@ public class EntityHealthResolver implements DataFetcher<CompletableFuture<List<
       final Filter filter = buildIncidentsEntityFilter(entityUrn, IncidentState.ACTIVE.toString());
       final SearchResult searchResult =
           _entityClient.filter(
-              Constants.INCIDENT_ENTITY_NAME, filter, null, 0, 1, context.getAuthentication());
+              context.getOperationContext(), Constants.INCIDENT_ENTITY_NAME, filter, null, 0, 1);
       final Integer activeIncidentCount = searchResult.getNumEntities();
       if (activeIncidentCount > 0) {
         // There are active incidents.

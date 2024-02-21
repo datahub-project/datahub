@@ -317,6 +317,7 @@ public interface EntitySearchService {
   int maxResultSize();
 
   ExplainResponse explain(
+      @Nonnull OperationContext opContext,
       @Nonnull String query,
       @Nonnull String documentId,
       @Nonnull String entityName,

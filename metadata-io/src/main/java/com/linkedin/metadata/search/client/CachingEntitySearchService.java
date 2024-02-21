@@ -20,8 +20,8 @@ import java.util.Optional;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
+import org.javatuples.Octet;
 import org.javatuples.Septet;
-import org.javatuples.Sextet;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
 
@@ -43,6 +43,7 @@ public class CachingEntitySearchService {
    * Retrieves cached search results. If the query has been cached, this will return quickly. If
    * not, a full search request will be made.
    *
+   * @param opContext the operation's context
    * @param entityName the name of the entity to search
    * @param query the search query
    * @param filters the filters to include
@@ -99,13 +100,14 @@ public class CachingEntitySearchService {
    * @return a {@link SearchResult} containing the requested batch of search results
    */
   public BrowseResult browse(
+      @Nonnull OperationContext opContext,
       @Nonnull String entityName,
       @Nonnull String path,
       @Nullable Filter filters,
       int from,
       int size,
       @Nullable SearchFlags flags) {
-    return getCachedBrowseResults(entityName, path, filters, from, size, flags);
+    return getCachedBrowseResults(opContext, entityName, path, filters, from, size, flags);
   }
 
   /**
@@ -167,7 +169,8 @@ public class CachingEntitySearchService {
                     flags,
                     facets),
             querySize ->
-                Septet.with(
+                Octet.with(
+                    opContext.getContextId(),
                     entityNames,
                     query,
                     filters != null ? toJsonString(filters) : null,
@@ -199,7 +202,8 @@ public class CachingEntitySearchService {
           Timer.Context cacheAccess =
               MetricUtils.timer(this.getClass(), "autocomplete_cache_access").time();
           Object cacheKey =
-              Sextet.with(
+              Septet.with(
+                  opContext.getContextId(),
                   entityName,
                   input,
                   field,
@@ -230,6 +234,7 @@ public class CachingEntitySearchService {
 
   /** Returns cached browse results. */
   public BrowseResult getCachedBrowseResults(
+      @Nonnull OperationContext opContext,
       @Nonnull String entityName,
       @Nonnull String path,
       @Nullable Filter filters,
@@ -246,7 +251,8 @@ public class CachingEntitySearchService {
           Timer.Context cacheAccess =
               MetricUtils.timer(this.getClass(), "browse_cache_access").time();
           Object cacheKey =
-              Sextet.with(
+              Septet.with(
+                  opContext.getContextId(),
                   entityName,
                   path,
                   filters != null ? toJsonString(filters) : null,
@@ -293,7 +299,8 @@ public class CachingEntitySearchService {
         Timer.Context cacheAccess =
             MetricUtils.timer(this.getClass(), "scroll_cache_access").time();
         Object cacheKey =
-            Septet.with(
+            Octet.with(
+                opContext.getContextId(),
                 entities,
                 query,
                 filters != null ? toJsonString(filters) : null,
@@ -417,7 +424,7 @@ public class CachingEntitySearchService {
   }
 
   /** Returns true if the cache should be used or skipped when fetching search results */
-  private boolean enableCache(final SearchFlags searchFlags) {
+  private boolean enableCache(@Nullable final SearchFlags searchFlags) {
     return enableCache && (searchFlags == null || !searchFlags.isSkipCache());
   }
 }

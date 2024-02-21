@@ -69,8 +69,9 @@ public abstract class TestEntityTestBase extends AbstractTestNGSpringContextTest
   @BeforeClass
   public void setup() {
     indexConvention = new IndexConventionImpl("es_service_test");
-      opContext =
-              TestOperationContexts.systemContextNoSearchAuthorization(aspectRetriever.getEntityRegistry(), indexConvention);
+    opContext =
+        TestOperationContexts.systemContextNoSearchAuthorization(
+            aspectRetriever.getEntityRegistry(), indexConvention);
     settingsBuilder = new SettingsBuilder(null);
     elasticSearchService = buildService();
     elasticSearchService.configure();

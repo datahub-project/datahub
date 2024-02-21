@@ -11,6 +11,7 @@ import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.config.cache.client.EntityClientCacheConfig;
 import com.linkedin.util.Pair;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
@@ -28,14 +29,19 @@ import lombok.NonNull;
 public class EntityClientCache {
   @NonNull private EntityClientCacheConfig config;
   @NonNull private final ClientCache<Key, EnvelopedAspect, EntityClientCacheConfig> cache;
-  @NonNull private BiFunction<Set<Urn>, Set<String>, Map<Urn, EntityResponse>> loadFunction;
+  @NonNull private Function<CollectionKey, Map<Urn, EntityResponse>> loadFunction;
 
-  public EntityResponse getV2(@Nonnull final Urn urn, @Nonnull final Set<String> aspectNames) {
-    return batchGetV2(Set.of(urn), aspectNames).get(urn);
+  public EntityResponse getV2(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn urn,
+      @Nonnull final Set<String> aspectNames) {
+    return batchGetV2(opContext, Set.of(urn), aspectNames).get(urn);
   }
 
   public Map<Urn, EntityResponse> batchGetV2(
-      @Nonnull final Set<Urn> urns, @Nonnull final Set<String> aspectNames) {
+      @Nonnull OperationContext opContext,
+      @Nonnull final Set<Urn> urns,
+      @Nonnull final Set<String> aspectNames) {
     final Map<Urn, EntityResponse> response;
 
     if (config.isEnabled()) {
@@ -43,7 +49,14 @@ public class EntityClientCache {
           urns.stream()
               .flatMap(
                   urn ->
-                      aspectNames.stream().map(a -> Key.builder().urn(urn).aspectName(a).build()))
+                      aspectNames.stream()
+                          .map(
+                              a ->
+                                  Key.builder()
+                                      .contextId(opContext.getContextId())
+                                      .urn(urn)
+                                      .aspectName(a)
+                                      .build()))
               .collect(Collectors.toSet());
       Map<Key, EnvelopedAspect> envelopedAspects = cache.getAll(keys);
 
@@ -61,7 +74,13 @@ public class EntityClientCache {
       response =
           responses.stream().collect(Collectors.toMap(EntityResponse::getUrn, Function.identity()));
     } else {
-      response = loadFunction.apply(urns, aspectNames);
+      response =
+          loadFunction.apply(
+              CollectionKey.builder()
+                  .contextId(opContext.getContextId())
+                  .urns(urns)
+                  .aspectNames(aspectNames)
+                  .build());
     }
 
     return response;
@@ -93,39 +112,16 @@ public class EntityClientCache {
       // batch loads data from entity client (restli or java)
       Function<Iterable<? extends Key>, Map<Key, EnvelopedAspect>> loader =
           (Iterable<? extends Key> keys) -> {
-            Map<String, Set<Key>> keysByEntity =
-                StreamSupport.stream(keys.spliterator(), false)
-                    .collect(Collectors.groupingBy(Key::getEntityName, Collectors.toSet()));
+            Map<String, Map<String, Set<Key>>> keysByContextEntity = groupByContextEntity(keys);
 
-            Map<Key, EnvelopedAspect> results =
-                keysByEntity.entrySet().stream()
-                    .flatMap(
-                        entry -> {
-                          Set<Urn> urns =
-                              entry.getValue().stream()
-                                  .map(Key::getUrn)
-                                  .collect(Collectors.toSet());
-                          Set<String> aspects =
-                              entry.getValue().stream()
-                                  .map(Key::getAspectName)
-                                  .collect(Collectors.toSet());
-                          return loadFunction.apply(urns, aspects).entrySet().stream();
-                        })
-                    .flatMap(
-                        resp ->
-                            resp.getValue().getAspects().values().stream()
-                                .map(
-                                    envAspect -> {
-                                      Key key =
-                                          Key.builder()
-                                              .urn(resp.getKey())
-                                              .aspectName(envAspect.getName())
-                                              .build();
-                                      return Map.entry(key, envAspect);
-                                    }))
-                    .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-
-            return results;
+            // load responses by context and combine
+            return keysByContextEntity.entrySet().stream()
+                .flatMap(
+                    entry ->
+                        loadByEntity(entry.getKey(), entry.getValue(), loadFunction)
+                            .entrySet()
+                            .stream())
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
           };
 
       // ideally the cache time comes from caching headers from service, but configuration driven
@@ -149,14 +145,77 @@ public class EntityClientCache {
     }
   }
 
+  private static Map<String, Map<String, Set<Key>>> groupByContextEntity(
+      Iterable<? extends Key> keys) {
+    // group by context
+    Map<String, Set<Key>> byContext =
+        StreamSupport.stream(keys.spliterator(), false)
+            .collect(Collectors.groupingBy(Key::getContextId, Collectors.toSet()));
+
+    // then by entity
+    return byContext.entrySet().stream()
+        .map(
+            contextSet ->
+                Pair.of(
+                    contextSet.getKey(),
+                    contextSet.getValue().stream()
+                        .collect(Collectors.groupingBy(Key::getEntityName, Collectors.toSet()))))
+        .collect(Collectors.toMap(Pair::getKey, Pair::getValue));
+  }
+
+  private static Map<Key, EnvelopedAspect> loadByEntity(
+      String contextId,
+      Map<String, Set<Key>> keysByEntity,
+      Function<CollectionKey, Map<Urn, EntityResponse>> loadFunction) {
+    return keysByEntity.entrySet().stream()
+        .flatMap(
+            entry -> {
+              Set<Urn> urns =
+                  entry.getValue().stream().map(Key::getUrn).collect(Collectors.toSet());
+              Set<String> aspects =
+                  entry.getValue().stream().map(Key::getAspectName).collect(Collectors.toSet());
+              return loadFunction
+                  .apply(
+                      CollectionKey.builder()
+                          .contextId(contextId)
+                          .urns(urns)
+                          .aspectNames(aspects)
+                          .build())
+                  .entrySet()
+                  .stream();
+            })
+        .flatMap(
+            resp ->
+                resp.getValue().getAspects().values().stream()
+                    .map(
+                        envAspect -> {
+                          Key key =
+                              Key.builder()
+                                  .urn(resp.getKey())
+                                  .aspectName(envAspect.getName())
+                                  .build();
+                          return Map.entry(key, envAspect);
+                        }))
+        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+  }
+
   @Data
   @Builder
   protected static class Key {
+    private final String contextId;
     private final Urn urn;
     private final String aspectName;
 
     public String getEntityName() {
       return urn.getEntityType();
     }
+  }
+
+  @Data
+  @Builder
+  public static class CollectionKey {
+    private final String contextId;
+    private final Set<Urn> urns;
+    private final Set<String> aspectNames;
   }
 }

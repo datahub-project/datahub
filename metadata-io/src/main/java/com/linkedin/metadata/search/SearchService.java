@@ -39,14 +39,15 @@ public class SearchService {
     _entityDocCountCache = entityDocCountCache;
   }
 
-  public Map<String, Long> docCountPerEntity(@Nonnull List<String> entityNames) {
+  public Map<String, Long> docCountPerEntity(
+      @Nonnull OperationContext opContext, @Nonnull List<String> entityNames) {
     return entityNames.stream()
         .collect(
             Collectors.toMap(
                 Function.identity(),
                 entityName ->
                     _entityDocCountCache
-                        .getEntityDocCount()
+                        .getEntityDocCount(opContext)
                         .getOrDefault(entityName.toLowerCase(), 0L)));
   }
 
@@ -75,7 +76,7 @@ public class SearchService {
       int from,
       int size,
       @Nullable SearchFlags searchFlags) {
-    List<String> entitiesToSearch = getEntitiesToSearch(entityNames);
+    List<String> entitiesToSearch = getEntitiesToSearch(opContext, entityNames);
     if (entitiesToSearch.isEmpty()) {
       // Optimization: If the indices are all empty, return empty result
       return getEmptySearchResult(from, size);
@@ -159,7 +160,7 @@ public class SearchService {
       facets = new ArrayList<>(facets);
       facets.add(INDEX_VIRTUAL_FIELD);
     }
-    List<String> nonEmptyEntities = getEntitiesToSearch(entities);
+    List<String> nonEmptyEntities = getEntitiesToSearch(opContext, entities);
     if (nonEmptyEntities.isEmpty()) {
       // Optimization: If the indices are all empty, return empty result
       return getEmptySearchResult(from, size);
@@ -226,7 +227,8 @@ public class SearchService {
    * @param inputEntities the requested entities
    * @return some entities to search
    */
-  private List<String> getEntitiesToSearch(@Nonnull List<String> inputEntities) {
+  private List<String> getEntitiesToSearch(
+      @Nonnull OperationContext opContext, @Nonnull List<String> inputEntities) {
     List<String> nonEmptyEntities;
     List<String> lowercaseEntities =
         inputEntities.stream().map(String::toLowerCase).collect(Collectors.toList());
@@ -234,7 +236,7 @@ public class SearchService {
     if (lowercaseEntities.isEmpty()) {
       try (Timer.Context ignored =
           MetricUtils.timer(this.getClass(), "getNonEmptyEntities").time()) {
-        nonEmptyEntities = _entityDocCountCache.getNonEmptyEntities();
+        nonEmptyEntities = _entityDocCountCache.getNonEmptyEntities(opContext);
       }
     } else {
       nonEmptyEntities = lowercaseEntities;
@@ -273,7 +275,7 @@ public class SearchService {
         String.format(
             "Searching Search documents entities: %s, input: %s, postFilters: %s, sortCriterion: %s, from: %s, size: %s",
             entities, input, postFilters, sortCriterion, scrollId, size));
-    List<String> entitiesToSearch = getEntitiesToSearch(entities);
+    List<String> entitiesToSearch = getEntitiesToSearch(opContext, entities);
     if (entitiesToSearch.isEmpty()) {
       // No indices with non-zero entries: skip querying and return empty result
       return getEmptyScrollResult(size);

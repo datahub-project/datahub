@@ -147,13 +147,15 @@ public class DataHubAuthorizer implements Authorizer {
         _entitySpecResolver.resolve(new EntitySpec(actorUrn.getEntityType(), actorUrn.toString()));
 
     return policiesToEvaluate.stream()
+        .filter(policy -> PoliciesConfig.ACTIVE_POLICY_STATE.equals(policy.getState()))
         .filter(
             policy ->
-                _policyEngine.isActorMatch(
-                    resolvedActorSpec,
-                    policy.getActors(),
-                    Optional.empty(),
-                    new PolicyEngine.PolicyEvaluationContext()))
+                policy.getActors().isResourceOwners()
+                    || _policyEngine.isActorMatch(
+                        resolvedActorSpec,
+                        policy.getActors(),
+                        Optional.empty(),
+                        new PolicyEngine.PolicyEvaluationContext()))
         .collect(Collectors.toSet());
   }
 

@@ -10,6 +10,7 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
+import java.util.Objects;
 import java.util.Optional;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -57,10 +58,8 @@ public class OperationContext {
             systemOperationContext.getOperationContextConfig().toBuilder()
                 .allowSystemAuthentication(allowSystemAuthentication)
                 .build())
-        .build(
-            systemOperationContext.getEntityRegistryContext().getEntityRegistry(),
-            authorizer,
-            sessionAuthentication);
+        .authorizerContext(AuthorizerContext.builder().authorizer(authorizer).build())
+        .build(sessionAuthentication);
   }
 
   public static OperationContext withSearchFlags(
@@ -68,10 +67,7 @@ public class OperationContext {
     return opContext.toBuilder()
         // update search flags for the request's session
         .searchContext(opContext.getSearchContext().toBuilder().searchFlags(searchFlags).build())
-        .build(
-            opContext.getEntityRegistryContext().getEntityRegistry(),
-            opContext.getAuthorizerContext().getAuthorizer(),
-            opContext.getSessionAuthentication());
+        .build(opContext.getSessionAuthentication());
   }
 
   /**
@@ -104,8 +100,11 @@ public class OperationContext {
         .operationContextConfig(systemConfig)
         .systemActorContext(systemActorContext)
         .searchContext(systemSearchContext)
+        .entityRegistryContext(
+            EntityRegistryContext.builder().entityRegistry(entityRegistry).build())
         // Authorizer.EMPTY doesn't actually apply to system auth
-        .build(entityRegistry, Authorizer.EMPTY, systemAuthentication);
+        .authorizerContext(AuthorizerContext.builder().authorizer(Authorizer.EMPTY).build())
+        .build(systemAuthentication);
   }
 
   @Nonnull private final OperationContextConfig operationContextConfig;
@@ -193,10 +192,7 @@ public class OperationContext {
 
   public static class OperationContextBuilder {
 
-    public OperationContext build(
-        @Nonnull EntityRegistry entityRegistry,
-        @Nonnull Authorizer authorizer,
-        @Nonnull Authentication sessionAuthentication) {
+    public OperationContext build(@Nonnull Authentication sessionAuthentication) {
       final Urn actorUrn = UrnUtils.getUrn(sessionAuthentication.getActor().toUrnStr());
       return new OperationContext(
           this.operationContextConfig,
@@ -205,13 +201,13 @@ public class OperationContext {
               .systemAuthentication(
                   this.systemActorContext != null
                       && this.systemActorContext.getAuthentication().equals(sessionAuthentication))
-              .policyInfoSet(authorizer.getActorPolicies(actorUrn))
-              .groupMembership(authorizer.getActorGroups(actorUrn))
+              .policyInfoSet(this.authorizerContext.getAuthorizer().getActorPolicies(actorUrn))
+              .groupMembership(this.authorizerContext.getAuthorizer().getActorGroups(actorUrn))
               .build(),
           this.systemActorContext,
-          this.searchContext,
-          AuthorizerContext.builder().authorizer(authorizer).build(),
-          EntityRegistryContext.builder().entityRegistry(entityRegistry).build());
+          Objects.requireNonNull(this.searchContext),
+          Objects.requireNonNull(this.authorizerContext),
+          Objects.requireNonNull(this.entityRegistryContext));
     }
 
     private OperationContext build() {

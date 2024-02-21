@@ -29,6 +29,19 @@ public class ActorContext implements ContextInterface {
   @Override
   public Optional<Integer> getCacheKeyComponent() {
     return Optional.of(
-        policyInfoSet.stream().mapToInt(policy -> policy.toString().hashCode()).sum());
+        policyInfoSet.stream()
+            .mapToInt(
+                policy -> {
+                  if (policy.getActors().hasResourceOwners()
+                      || policy.getActors().hasResourceOwnersTypes()) {
+                    // results are based on actor, distinct() added to remove duplicate sums of
+                    // multiple owner policies
+                    return authentication.getActor().toUrnStr().hashCode();
+                  } else {
+                    return policy.toString().hashCode();
+                  }
+                })
+            .distinct()
+            .sum());
   }
 }

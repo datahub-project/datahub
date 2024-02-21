@@ -228,7 +228,7 @@ public class JavaEntityClient implements EntityClient {
       throws RemoteInvocationException {
     return ValidationUtils.validateBrowseResult(
         cachingEntitySearchService.browse(
-            entityType, path, newFilter(requestFilters), start, limit, searchFlags),
+            opContext, entityType, path, newFilter(requestFilters), start, limit, searchFlags),
         entityService);
   }
 
@@ -623,7 +623,7 @@ public class JavaEntityClient implements EntityClient {
   public Map<String, Long> batchGetTotalEntityCount(
       @Nonnull List<String> entityNames, @Nonnull final Authentication authentication)
       throws RemoteInvocationException {
-    return searchService.docCountPerEntity(entityNames);
+    return searchService.docCountPerEntity(opContext, entityNames);
   }
 
   /** List all urns existing for a particular Entity type. */

@@ -41,11 +41,12 @@ import com.linkedin.metadata.search.ranker.SimpleRanker;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import com.linkedin.r2.RemoteInvocationException;
-import java.net.URISyntaxException;
-import java.util.Map;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.net.URISyntaxException;
+import java.util.Map;
 import javax.annotation.Nonnull;
+import lombok.Getter;
 import org.opensearch.client.RestHighLevelClient;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.concurrent.ConcurrentMapCacheManager;
@@ -77,14 +78,9 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
   private ElasticSearchService elasticSearchService;
   private CacheManager cacheManager;
   private SearchService searchService;
+  @Getter private OperationContext operationContext;
 
   private static final String ENTITY_NAME = "testEntity";
-
-  @Nonnull
-  protected OperationContext getOperationContext() {
-    return TestOperationContexts.userContextNoSearchAuthorization(
-        _entityRegistry, Authorizer.EMPTY, TestOperationContexts.TEST_USER_AUTH);
-  }
 
   @BeforeClass
   public void setup() throws RemoteInvocationException, URISyntaxException {
@@ -93,6 +89,10 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
         .thenReturn(new SnapshotEntityRegistry(new Snapshot()));
     when(aspectRetriever.getLatestAspectObjects(any(), any())).thenReturn(Map.of());
     indexConvention = new IndexConventionImpl("search_service_test");
+    operationContext =
+        TestOperationContexts.systemContextNoSearchAuthorization(
+                aspectRetriever.getEntityRegistry(), indexConvention)
+            .asSession(Authorizer.EMPTY, TestOperationContexts.TEST_USER_AUTH);
     settingsBuilder = new SettingsBuilder(null);
     elasticSearchService = buildEntitySearchService();
     elasticSearchService.configure();
@@ -110,7 +110,6 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
     searchService =
         new SearchService(
             new EntityDocCountCache(
-                    getOperationContext(),
                 aspectRetriever.getEntityRegistry(),
                 elasticSearchService,
                 entityDocCountCacheConfiguration),
@@ -154,7 +153,7 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
             getBulkProcessor(),
             1);
     return new ElasticSearchService(
-        getOperationContext(), indexBuilders, searchDAO, browseDAO, writeDAO)
+            getOperationContext(), indexBuilders, searchDAO, browseDAO, writeDAO)
         .postConstruct(aspectRetriever);
   }
 

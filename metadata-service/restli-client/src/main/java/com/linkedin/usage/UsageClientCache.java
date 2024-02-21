@@ -4,6 +4,7 @@ import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.github.benmanes.caffeine.cache.Weigher;
 import com.linkedin.common.client.ClientCache;
 import com.linkedin.metadata.config.cache.client.UsageClientCacheConfig;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Map;
 import java.util.function.BiFunction;
 import java.util.function.Function;
@@ -18,13 +19,18 @@ import lombok.NonNull;
 public class UsageClientCache {
   @NonNull private UsageClientCacheConfig config;
   @NonNull private final ClientCache<Key, UsageQueryResult, UsageClientCacheConfig> cache;
-  @NonNull private BiFunction<String, UsageTimeRange, UsageQueryResult> loadFunction;
+  @NonNull private Function<Key, UsageQueryResult> loadFunction;
 
-  public UsageQueryResult getUsageStats(@Nonnull String resource, @Nonnull UsageTimeRange range) {
+  public UsageQueryResult getUsageStats(
+      @Nonnull OperationContext opContext,
+      @Nonnull String resource,
+      @Nonnull UsageTimeRange range) {
+    Key cacheKey =
+        Key.builder().contextId(opContext.getContextId()).resource(resource).range(range).build();
     if (config.isEnabled()) {
-      return cache.get(Key.builder().resource(resource).range(range).build());
+      return cache.get(cacheKey);
     } else {
-      return loadFunction.apply(resource, range);
+      return loadFunction.apply(cacheKey);
     }
   }
 
@@ -43,7 +49,7 @@ public class UsageClientCache {
       Function<Iterable<? extends Key>, Map<Key, UsageQueryResult>> loader =
           (Iterable<? extends Key> keys) ->
               StreamSupport.stream(keys.spliterator(), false)
-                  .map(k -> Map.entry(k, loadFunction.apply(k.getResource(), k.getRange())))
+                  .map(k -> Map.entry(k, loadFunction.apply(k)))
                   .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
       // default ttl only
@@ -64,7 +70,8 @@ public class UsageClientCache {
 
   @Data
   @Builder
-  protected static class Key {
+  public static class Key {
+    private final String contextId;
     private final String resource;
     private final UsageTimeRange range;
   }

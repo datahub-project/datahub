@@ -1,6 +1,5 @@
 package com.linkedin.gms.factory.entityclient;
 
-import com.datahub.authentication.Authentication;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.client.JavaEntityClient;
@@ -60,7 +59,7 @@ public class JavaEntityClientFactory {
   @Bean("systemEntityClient")
   @Singleton
   public SystemEntityClient systemEntityClient(
-      final OperationContext opContext,
+      final @Qualifier("systemOperationContext") OperationContext systemOperationContext,
       final @Qualifier("entityService") EntityService<?> _entityService,
       final @Qualifier("deleteEntityService") DeleteEntityService _deleteEntityService,
       final @Qualifier("searchService") SearchService _searchService,
@@ -71,10 +70,9 @@ public class JavaEntityClientFactory {
       final @Qualifier("relationshipSearchService") LineageSearchService _lineageSearchService,
       final @Qualifier("kafkaEventProducer") EventProducer _eventProducer,
       final RollbackService rollbackService,
-      final EntityClientCacheConfig entityClientCacheConfig,
-      @Qualifier("systemAuthentication") final Authentication systemAuthentication) {
+      final EntityClientCacheConfig entityClientCacheConfig) {
     return new SystemJavaEntityClient(
-        opContext,
+        systemOperationContext,
         _entityService,
         _deleteEntityService,
         _entitySearchService,
@@ -84,7 +82,6 @@ public class JavaEntityClientFactory {
         _timeseriesAspectService,
         rollbackService,
         _eventProducer,
-        systemAuthentication,
         entityClientCacheConfig);
   }
 }

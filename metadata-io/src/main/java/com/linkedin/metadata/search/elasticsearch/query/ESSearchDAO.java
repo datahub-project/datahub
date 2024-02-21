@@ -91,7 +91,11 @@ public class ESSearchDAO {
         new CountRequest(indexConvention.getIndexName(entitySpec))
             .query(
                 SearchRequestHandler.getFilterQuery(
-                    opContext, null, searchFlags, entitySpec.getSearchableFieldTypes(), aspectRetriever));
+                    opContext,
+                    null,
+                    searchFlags,
+                    entitySpec.getSearchableFieldTypes(),
+                    aspectRetriever));
     try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "docCount").time()) {
       return client.count(countRequest, RequestOptions.DEFAULT).getCount();
     } catch (IOException e) {
@@ -445,6 +449,7 @@ public class ESSearchDAO {
     // TODO: Align scroll and search using facets
     final SearchRequest searchRequest =
         getScrollRequest(
+            opContext,
             scrollId,
             keepAlive,
             indexArray,
@@ -464,10 +469,18 @@ public class ESSearchDAO {
 
     scrollRequestTimer.stop();
     return executeAndExtract(
-        entitySpecs, searchRequest, transformedFilters, scrollId, keepAlive, size);
+        opContext,
+        entitySpecs,
+        searchRequest,
+        transformedFilters,
+        searchFlags,
+        scrollId,
+        keepAlive,
+        size);
   }
 
   private SearchRequest getScrollRequest(
+      @Nonnull OperationContext opContext,
       @Nullable String scrollId,
       @Nullable String keepAlive,
       String[] indexArray,
@@ -476,7 +489,7 @@ public class ESSearchDAO {
       List<EntitySpec> entitySpecs,
       String finalInput,
       @Nullable SortCriterion sortCriterion,
-      @Nullable SearchFlags searchFlags,
+      @Nonnull SearchFlags searchFlags,
       @Nullable List<String> facets) {
     String pitId = null;
     Object[] sort = null;
@@ -494,13 +507,12 @@ public class ESSearchDAO {
       pitId = createPointInTime(indexArray, keepAlive);
     }
 
-      Filter transformedFilters = transformFilterForEntities(postFilters, indexConvention);
     return SearchRequestHandler.getBuilder(
             entitySpecs, searchConfiguration, customSearchConfiguration, aspectRetriever)
         .getSearchRequest(
-                opContext,
+            opContext,
             finalInput,
-            ,
+            postFilters,
             sortCriterion,
             sort,
             pitId,
@@ -553,12 +565,13 @@ public class ESSearchDAO {
   }
 
   public ExplainResponse explain(
+      @Nonnull OperationContext opContext,
       @Nonnull String query,
       @Nonnull String documentId,
       @Nonnull String entityName,
       @Nullable Filter postFilters,
       @Nullable SortCriterion sortCriterion,
-      @Nullable SearchFlags searchFlags,
+      @Nonnull SearchFlags searchFlags,
       @Nullable String scrollId,
       @Nullable String keepAlive,
       int size,
@@ -569,6 +582,7 @@ public class ESSearchDAO {
     final String finalQuery = query.isEmpty() ? "*" : query;
     final SearchRequest searchRequest =
         getScrollRequest(
+            opContext,
             scrollId,
             keepAlive,
             indexArray,

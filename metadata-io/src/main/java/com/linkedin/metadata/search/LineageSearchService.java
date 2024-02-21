@@ -155,7 +155,13 @@ public class LineageSearchService {
     // Cache multihop result for faster performance
     final EntityLineageResultCacheKey cacheKey =
         new EntityLineageResultCacheKey(
-            sourceUrn, direction, startTimeMillis, endTimeMillis, maxHops, ChronoUnit.DAYS);
+            opContext.getContextId(),
+            sourceUrn,
+            direction,
+            startTimeMillis,
+            endTimeMillis,
+            maxHops,
+            ChronoUnit.DAYS);
     CachedEntityLineageResult cachedLineageResult = null;
 
     if (cacheEnabled) {
@@ -736,7 +742,13 @@ public class LineageSearchService {
     // Cache multihop result for faster performance
     final EntityLineageResultCacheKey cacheKey =
         new EntityLineageResultCacheKey(
-            sourceUrn, direction, startTimeMillis, endTimeMillis, maxHops, ChronoUnit.DAYS);
+            opContext.getContextId(),
+            sourceUrn,
+            direction,
+            startTimeMillis,
+            endTimeMillis,
+            maxHops,
+            ChronoUnit.DAYS);
     CachedEntityLineageResult cachedLineageResult =
         cacheEnabled ? cache.get(cacheKey, CachedEntityLineageResult.class) : null;
     EntityLineageResult lineageResult;

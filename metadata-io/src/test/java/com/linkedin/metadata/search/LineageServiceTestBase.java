@@ -77,6 +77,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.Getter;
 import org.junit.Assert;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
@@ -115,18 +116,14 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
   private LineageSearchService lineageSearchService;
   private RestHighLevelClient searchClientSpy;
 
+  @Getter private OperationContext operationContext;
+
   private static final String ENTITY_NAME = "testEntity";
   private static final Urn TEST_URN = TestEntityUtil.getTestEntityUrn();
   private static final String TEST = "test";
   private static final String TEST1 = "test1";
   private static final Urn TEST_DATASET_URN =
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,test,PROD)");
-
-  @Nonnull
-  protected OperationContext getOperationContext() {
-    return TestOperationContexts.userContextNoSearchAuthorization(
-        _entityRegistry, Authorizer.EMPTY, TestOperationContexts.TEST_USER_AUTH);
-  }
 
   @BeforeClass
   public void disableAssert() {
@@ -142,6 +139,10 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
         .thenReturn(new SnapshotEntityRegistry(new Snapshot()));
     when(aspectRetriever.getLatestAspectObjects(any(), any())).thenReturn(Map.of());
     indexConvention = new IndexConventionImpl("lineage_search_service_test");
+    operationContext =
+        TestOperationContexts.systemContextNoSearchAuthorization(
+                aspectRetriever.getEntityRegistry(), indexConvention)
+            .asSession(Authorizer.EMPTY, TestOperationContexts.TEST_USER_AUTH);
     settingsBuilder = new SettingsBuilder(null);
     elasticSearchService = buildEntitySearchService();
     elasticSearchService.configure();
@@ -168,7 +169,6 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
                 getOperationContext(),
                 new SearchService(
                     new EntityDocCountCache(
-                            getOperationContext(),
                         aspectRetriever.getEntityRegistry(),
                         elasticSearchService,
                         entityDocCountCacheConfiguration),
@@ -218,7 +218,7 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
             getBulkProcessor(),
             1);
     return new ElasticSearchService(
-        getOperationContext(), indexBuilders, searchDAO, browseDAO, writeDAO)
+            getOperationContext(), indexBuilders, searchDAO, browseDAO, writeDAO)
         .postConstruct(aspectRetriever);
   }
 
