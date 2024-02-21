@@ -135,7 +135,7 @@ datahub ingest -c ./examples/recipes/example_to_datahub_rest.dhub.yml -n --previ
 
 The `ingest deploy` command instructs the cli to upload an ingestion recipe to DataHub to be run by DataHub's [UI Ingestion](./ui-ingestion.md).
 This command can also be used to schedule the ingestion while uploading or even to update existing sources. It will upload to the remote instance the
-CLI is connected to, not the sink of the recipe. Use `datahub init` to set the remote, if not already set.
+CLI is connected to, not the sink of the recipe. Use `datahub init` to set the remote if not already set.
 
 To schedule a recipe called "test", to run at 5am everyday, London time with the recipe configured in a local `recipe.yaml` file: 
 ````shell
