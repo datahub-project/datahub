@@ -163,6 +163,7 @@ setuptools.setup(
     # Dependencies.
     install_requires=list(base_requirements),
     extras_require={
+        "ignore": [],  # This is a dummy extra to allow for trailing commas in the list.
         **{plugin: list(dependencies) for plugin, dependencies in plugins.items()},
         "dev": list(dev_requirements),
         "integration-tests": list(integration_test_requirements),
