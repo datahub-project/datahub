@@ -56,5 +56,9 @@
                 }
             ]
         }
-    ]
+    ],
+    "debug_info": {
+        "confidence": 0.4,
+        "generalized_statement": "CREATE VIEW my_view AS SELECT * FROM my_project_2.my_dataset_2.sometable UNION DISTINCT SELECT * FROM my_project_2.my_dataset_2.sometable2 AS a"
+    }
 }
