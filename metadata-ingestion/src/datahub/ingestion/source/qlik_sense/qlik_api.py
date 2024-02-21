@@ -256,28 +256,34 @@ class QlikAPI:
     def get_items(self) -> List[Item]:
         items: List[Item] = []
         try:
-            response = self.session.get(f"{self.rest_api_url}/items")
-            response.raise_for_status()
-            data = response.json()[Constant.DATA]
-            for item in data:
-                # spaceId none indicates item present in personal space
-                if not item.get(Constant.SPACEID):
-                    item[Constant.SPACEID] = Constant.PERSONAL_SPACE_ID
-                if self.config.space_pattern.allowed(
-                    self.spaces[item[Constant.SPACEID]]
-                ):
-                    resource_type = item[Constant.RESOURCETYPE]
-                    if resource_type == Constant.APP:
-                        app = self._get_app(app_id=item[Constant.RESOURCEID])
-                        if app:
-                            items.append(app)
-                    elif resource_type == Constant.DATASET:
-                        dataset = self._get_dataset(
-                            dataset_id=item[Constant.RESOURCEID],
-                            item_id=item[Constant.ID],
-                        )
-                        if dataset:
-                            items.append(dataset)
+            url = f"{self.rest_api_url}/items"
+            while True:
+                response = self.session.get(url)
+                response.raise_for_status()
+                response_dict = response.json()
+                for item in response_dict[Constant.DATA]:
+                    # spaceId none indicates item present in personal space
+                    if not item.get(Constant.SPACEID):
+                        item[Constant.SPACEID] = Constant.PERSONAL_SPACE_ID
+                    if self.config.space_pattern.allowed(
+                        self.spaces[item[Constant.SPACEID]]
+                    ):
+                        resource_type = item[Constant.RESOURCETYPE]
+                        if resource_type == Constant.APP:
+                            app = self._get_app(app_id=item[Constant.RESOURCEID])
+                            if app:
+                                items.append(app)
+                        elif resource_type == Constant.DATASET:
+                            dataset = self._get_dataset(
+                                dataset_id=item[Constant.RESOURCEID],
+                                item_id=item[Constant.ID],
+                            )
+                            if dataset:
+                                items.append(dataset)
+                if Constant.NEXT in response_dict[Constant.LINKS]:
+                    url = response_dict[Constant.LINKS][Constant.NEXT][Constant.HREF]
+                else:
+                    break
 
         except Exception as e:
             self._log_http_error(message=f"Unable to fetch items. Exception: {e}")

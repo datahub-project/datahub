@@ -184,6 +184,11 @@ def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
                         "resourceSize": {"appFile": 0, "appMemory": 0},
                     },
                 ],
+                "links": {
+                    "self": {
+                        "href": "https://iq37k6byr9lgam8.us.qlikcloud.com/api/v1/items"
+                    }
+                },
             },
         },
         "https://iq37k6byr9lgam8.us.qlikcloud.com/api/v1/users/657b5abe656297cec3d8b205": {
