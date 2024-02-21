@@ -138,7 +138,6 @@ interface Props {
 const GlossaryNodeCard = (props: Props) => {
     const { name, type, description, count, displayProperties , urn} = props;
     const glossaryColor = displayProperties?.colorHex || generateColor.hex(urn);
-    console.log('GlossaryNodeCard',urn)
 
     return (
         <GlossaryItemCard>

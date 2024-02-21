@@ -15,7 +15,7 @@ import { DomainColoredIcon } from '../../../links/DomainColoredIcon';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import { EntityBackButton } from '../sidebar/EntityBackButton';
 import EntityMenuActions, { EntityMenuItems } from '../../../EntityDropdown/EntityMenuActions';
-import { generateColor } from '../../../components/styled/StyledTag';
+import { EntityHeaderDecoration } from './EntityHeaderDecoration';
 
 export const TitleWrapper = styled.div`
     display: flex;
@@ -81,21 +81,6 @@ const EntityTitleWrapper = styled.div`
     flex-direction: column;
 `;
 
-interface GlossaryItemBadgeProps {
-    color: string;
-}
-
-const GlossaryItemBadge = styled.span<GlossaryItemBadgeProps>`
-    position: absolute;
-    left: -20px;
-    top: 4px;
-    width: 80px;
-    transform: rotate(-45deg);
-    padding: 8px;
-    opacity: 1;
-    background-color: ${(props) =>  `${props.color}`};
-`;
-
 export type Props = {
     urn: string;
     entityType: EntityType;
@@ -140,13 +125,16 @@ export const DefaultEntityHeader = ({
     displayProperties,
 }: Props) => {
     const [showIconPicker, setShowIconPicker] = useState(false);
-    const glossaryColor = displayProperties?.colorHex || generateColor.hex(urn);
     const entityRegistry = useEntityRegistry();
 
     return (
         <>
             <Row>
-                <GlossaryItemBadge color={glossaryColor}/>
+                <EntityHeaderDecoration 
+                urn={urn}
+                entityType={entityType}
+                displayProperties={displayProperties}
+                />
                 <EntityBackButton />
                 <LeftColumn>
                     {(loading && <EntityTitleLoadingSection />) || (
@@ -198,9 +186,7 @@ export const DefaultEntityHeader = ({
                         {headerActionItems && (
                             <EntityActions urn={urn} actionItems={headerActionItems} refetchForEntity={refetch} />
                         )}
-                        {entityType !== EntityType.GlossaryNode &&
-                            entityType !== EntityType.GlossaryTerm &&
-                            headerDropdownItems && <EntityMenuActions menuItems={headerDropdownItems} />}
+                        {headerDropdownItems && <EntityMenuActions menuItems={headerDropdownItems} />}
                     </TopButtonsWrapper>
                 </RightColumn>
             </Row>

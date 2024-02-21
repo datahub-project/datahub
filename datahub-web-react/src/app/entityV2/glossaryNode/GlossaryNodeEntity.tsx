@@ -1,4 +1,4 @@
-import { AppstoreOutlined, FileOutlined, FolderFilled, FolderOutlined, UnorderedListOutlined } from '@ant-design/icons';
+import Icon, { AppstoreOutlined, FileOutlined, FolderFilled, FolderOutlined, UnorderedListOutlined } from '@ant-design/icons';
 import React from 'react';
 import { useGetGlossaryNodeQuery } from '../../../graphql/glossaryNode.generated';
 import { EntityType, GlossaryNode, SearchResult } from '../../../types.generated';
@@ -15,6 +15,7 @@ import { Preview } from './preview/Preview';
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
 import { EntityActionItem } from '../shared/entity/EntityActions';
 import { TYPE_ICON_CLASS_NAME } from '../shared/components/subtypes';
+import GlossaryNodeIcon from '../../../images/glossary_collections_bookmark.svg?react';
 
 class GlossaryNodeEntity implements Entity<GlossaryNode> {
     getLineageVizConfig?: ((entity: GlossaryNode) => FetchedEntity) | undefined;
@@ -28,6 +29,10 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
 
         if (styleType === IconStyleType.HIGHLIGHT) {
             return <FolderFilled className={TYPE_ICON_CLASS_NAME} style={{ fontSize, color: color || '#B37FEB' }} />;
+        }
+
+        if(styleType === IconStyleType.ACCENT){
+            return <Icon style={{ fontSize: 10, color: '#6C6B88' }} component={GlossaryNodeIcon} />;
         }
 
         return (

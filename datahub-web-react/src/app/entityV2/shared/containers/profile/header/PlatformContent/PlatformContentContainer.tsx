@@ -1,5 +1,4 @@
 import React from 'react';
-import Icon from '@ant-design/icons';
 import { Container, EntityType } from '../../../../../../../types.generated';
 import { useEntityRegistry } from '../../../../../../useEntityRegistry';
 import { IconStyleType } from '../../../../../Entity';
@@ -10,7 +9,6 @@ import ContainerIcon from './ContainerIcon';
 import PlatformContentView from './PlatformContentView';
 import useContentTruncation from '../../../../../../shared/useContentTruncation';
 import { getDisplayedEntityType } from '../utils';
-import GlossaryTermIcon from '../../../../../../../images/glossary_collections_bookmark.svg?react';
 
 function PlatformContentContainer() {
     const { entityType, entityData } = useEntityData();
@@ -22,7 +20,7 @@ function PlatformContentContainer() {
         entityType === EntityType.Container ? (
             <ContainerIcon container={entityData as Container} />
         ) : (
-            <Icon style={{ fontSize: 10, color: '#6C6B88' }} component={GlossaryTermIcon} />
+            entityRegistry.getIcon(entityType, 12, IconStyleType.ACCENT)
         );
     const displayedEntityType = getDisplayedEntityType(entityData, entityRegistry, entityType);
     const instanceId = entityData?.dataPlatformInstance?.instanceId;
