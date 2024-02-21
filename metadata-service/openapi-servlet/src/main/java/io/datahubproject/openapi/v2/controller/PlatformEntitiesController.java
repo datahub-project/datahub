@@ -1,4 +1,4 @@
-package io.datahubproject.openapi.platform.entities;
+package io.datahubproject.openapi.v2.controller;
 
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
@@ -38,7 +38,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/platform/entities/v1")
+@RequestMapping("/v2/platform/entities/v1")
 @Slf4j
 @Tag(
     name = "Platform Entities",

@@ -1,4 +1,4 @@
-package io.datahubproject.openapi.relationships;
+package io.datahubproject.openapi.v1.relationships;
 
 import static com.linkedin.metadata.search.utils.QueryUtils.*;
 

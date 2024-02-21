@@ -85,6 +85,10 @@ public class MergedEntityRegistry implements EntityRegistry {
       }
     }
 
+    if (!patchEntityRegistry.getAspectSpecs().isEmpty()) {
+      _aspectNameToSpec.putAll(patchEntityRegistry.getAspectSpecs());
+    }
+
     // Merge Event Specs
     if (!patchEntityRegistry.getEventSpecs().isEmpty()) {
       eventNameToSpec.putAll(patchEntityRegistry.getEventSpecs());

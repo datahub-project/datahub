@@ -7,6 +7,8 @@ import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthorizerChain;
 import com.datahub.util.RecordUtils;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
@@ -14,11 +16,15 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.ByteString;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.EnvelopedAspect;
+import com.linkedin.metadata.aspect.batch.AspectsBatch;
+import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.UpsertItem;
 import com.linkedin.metadata.aspect.patch.GenericJsonPatch;
 import com.linkedin.metadata.aspect.patch.template.common.GenericPatchTemplate;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.EntityUtils;
+import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.entity.UpdateAspectResult;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.entity.ebean.batch.MCPUpsertBatchItem;
@@ -45,6 +51,8 @@ import java.lang.reflect.InvocationTargetException;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.util.HashSet;
+import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -190,7 +198,9 @@ public class EntityController {
   public ResponseEntity<Object> getAspect(
       @PathVariable("entityName") String entityName,
       @PathVariable("entityUrn") String entityUrn,
-      @PathVariable("aspectName") String aspectName)
+      @PathVariable("aspectName") String aspectName,
+      @RequestParam(value = "systemMetadata", required = false, defaultValue = "false")
+          Boolean withSystemMetadata)
       throws URISyntaxException {
 
     if (restApiAuthorizationEnabled) {
@@ -205,9 +215,16 @@ public class EntityController {
     }
 
     return ResponseEntity.of(
-        toRecordTemplates(List.of(UrnUtils.getUrn(entityUrn)), Set.of(aspectName), true).stream()
+        toRecordTemplates(
+                List.of(UrnUtils.getUrn(entityUrn)), Set.of(aspectName), withSystemMetadata)
+            .stream()
             .findFirst()
-            .flatMap(e -> e.getAspects().values().stream().findFirst()));
+            .flatMap(
+                e ->
+                    e.getAspects().entrySet().stream()
+                        .filter(entry -> entry.getKey().equals(aspectName))
+                        .map(Map.Entry::getValue)
+                        .findFirst()));
   }
 
   @Tag(name = "Generic Aspects")
@@ -255,6 +272,42 @@ public class EntityController {
     }
 
     entityService.deleteAspect(entityUrn, entitySpec.getKeyAspectName(), Map.of(), true);
+  }
+
+  @Tag(name = "Generic Entities")
+  @PostMapping(value = "/{entityName}", produces = MediaType.APPLICATION_JSON_VALUE)
+  @Operation(summary = "Create a batch of entities.")
+  public ResponseEntity<List<GenericEntity>> createEntity(
+      @PathVariable("entityName") String entityName,
+      @RequestParam(value = "async", required = false, defaultValue = "true") Boolean async,
+      @RequestParam(value = "systemMetadata", required = false, defaultValue = "false")
+          Boolean withSystemMetadata,
+      @RequestBody @Nonnull String jsonEntityList)
+      throws URISyntaxException, JsonProcessingException {
+
+    EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
+    Authentication authentication = AuthenticationContext.getAuthentication();
+
+    AspectsBatch batch = toBatch(jsonEntityList, authentication.getActor());
+
+    if (restApiAuthorizationEnabled) {
+      for (BatchItem item : batch.getItems()) {
+        checkAuthorized(
+            authorizationChain,
+            authentication.getActor(),
+            entitySpec,
+            item.getUrn().toString(),
+            ImmutableList.of(PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType()));
+      }
+    }
+
+    Set<IngestResult> results = entityService.ingestProposal(batch, async);
+
+    if (!async) {
+      return ResponseEntity.ok(toEntityListResponse(results, withSystemMetadata));
+    } else {
+      return ResponseEntity.accepted().body(toEntityListResponse(results, withSystemMetadata));
+    }
   }
 
   @Tag(name = "Generic Aspects")
@@ -503,5 +556,76 @@ public class EntityController {
         genericPatchTemplate,
         AuditStampUtils.createAuditStamp(actor.toUrnStr()),
         entityService);
+  }
+
+  private AspectsBatch toBatch(String entityArrayList, Actor actor)
+      throws JsonProcessingException, URISyntaxException {
+    JsonNode entities = objectMapper.readTree(entityArrayList);
+
+    List<BatchItem> items = new LinkedList<>();
+    if (entities.isArray()) {
+      Iterator<JsonNode> entityItr = entities.iterator();
+      while (entityItr.hasNext()) {
+        JsonNode entity = entityItr.next();
+        Urn entityUrn = UrnUtils.getUrn(entity.get("urn").asText());
+
+        Iterator<Map.Entry<String, JsonNode>> aspectItr = entity.get("aspects").fields();
+        while (aspectItr.hasNext()) {
+          Map.Entry<String, JsonNode> aspect = aspectItr.next();
+
+          AspectSpec aspectSpec = lookupAspectSpec(entityUrn, aspect.getKey());
+
+          if (aspectSpec != null) {
+            MCPUpsertBatchItem.MCPUpsertBatchItemBuilder builder =
+                MCPUpsertBatchItem.builder()
+                    .urn(entityUrn)
+                    .aspectName(aspectSpec.getName())
+                    .auditStamp(AuditStampUtils.createAuditStamp(actor.toUrnStr()))
+                    .recordTemplate(
+                        GenericRecordUtils.deserializeAspect(
+                            ByteString.copyString(
+                                objectMapper.writeValueAsString(aspect.getValue().get("value")),
+                                StandardCharsets.UTF_8),
+                            GenericRecordUtils.JSON,
+                            aspectSpec));
+
+            if (aspect.getValue().has("systemMetadata")) {
+              builder.systemMetadata(
+                  EntityUtils.parseSystemMetadata(
+                      objectMapper.writeValueAsString(aspect.getValue().get("systemMetadata"))));
+            }
+
+            items.add(builder.build(entityService));
+          }
+        }
+      }
+    }
+
+    return AspectsBatchImpl.builder().items(items).build();
+  }
+
+  public List<GenericEntity> toEntityListResponse(
+      Set<IngestResult> ingestResults, boolean withSystemMetadata) {
+    List<GenericEntity> responseList = new LinkedList<>();
+
+    Map<Urn, List<IngestResult>> entityMap =
+        ingestResults.stream().collect(Collectors.groupingBy(IngestResult::getUrn));
+    for (Map.Entry<Urn, List<IngestResult>> urnAspects : entityMap.entrySet()) {
+      Map<String, Pair<RecordTemplate, SystemMetadata>> aspectsMap =
+          urnAspects.getValue().stream()
+              .map(
+                  ingest ->
+                      Map.entry(
+                          ingest.getRequest().getAspectName(),
+                          Pair.of(
+                              ingest.getRequest().getRecordTemplate(),
+                              withSystemMetadata ? ingest.getRequest().getSystemMetadata() : null)))
+              .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+      responseList.add(
+          GenericEntity.builder()
+              .urn(urnAspects.getKey().toString())
+              .build(objectMapper, aspectsMap));
+    }
+    return responseList;
   }
 }

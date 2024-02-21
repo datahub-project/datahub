@@ -243,6 +243,7 @@ project.ext.externalDependency = [
     'springActuator': "org.springframework.boot:spring-boot-starter-actuator:$springBootVersion",
     'swaggerAnnotations': 'io.swagger.core.v3:swagger-annotations:2.2.15',
     'swaggerCli': 'io.swagger.codegen.v3:swagger-codegen-cli:3.0.46',
+    'swaggerCore': 'io.swagger.core.v3:swagger-core:2.2.7',
     'springBootAutoconfigureJdk11': 'org.springframework.boot:spring-boot-autoconfigure:2.7.18',
     'testng': 'org.testng:testng:7.8.0',
     'testContainers': 'org.testcontainers:testcontainers:' + testContainersVersion,

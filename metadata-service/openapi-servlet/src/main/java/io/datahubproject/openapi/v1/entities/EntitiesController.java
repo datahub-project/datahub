@@ -1,4 +1,4 @@
-package io.datahubproject.openapi.entities;
+package io.datahubproject.openapi.v1.entities;
 
 import static com.linkedin.metadata.utils.PegasusUtils.urnToEntityName;
 

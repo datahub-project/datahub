@@ -276,7 +276,7 @@ public class DefaultAspectsUtil {
     return null;
   }
 
-  private static MetadataChangeProposal getProposalFromAspect(
+  public static MetadataChangeProposal getProposalFromAspect(
       String aspectName,
       RecordTemplate aspect,
       RecordTemplate entityKeyAspect,

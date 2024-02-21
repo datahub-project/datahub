@@ -1114,15 +1114,13 @@ public class EntityServiceImpl implements EntityService<MCPUpsertBatchItem> {
         nonTimeseries.getMCPItems().stream()
             .filter(
                 item ->
-                    item.getMetadataChangeProposal().getChangeType() != ChangeType.PATCH
-                        && item.getMetadataChangeProposal().getChangeType() != ChangeType.UPSERT)
+                    item.getChangeType() != ChangeType.PATCH
+                        && item.getChangeType() != ChangeType.UPSERT)
             .collect(Collectors.toList());
     if (!unsupported.isEmpty()) {
       throw new UnsupportedOperationException(
           "ChangeType not supported: "
-              + unsupported.stream()
-                  .map(item -> item.getMetadataChangeProposal().getChangeType())
-                  .collect(Collectors.toSet()));
+              + unsupported.stream().map(item -> item.getChangeType()).collect(Collectors.toSet()));
     }
 
     List<UpdateAspectResult> upsertResults = ingestAspects(nonTimeseries, true, true);

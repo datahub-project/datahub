@@ -10,7 +10,7 @@ import com.google.common.collect.ImmutableList;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import io.datahubproject.openapi.exception.UnauthorizedException;
-import io.datahubproject.openapi.generated.controller.DatahubUsageEventsApiDelegate;
+import io.datahubproject.openapi.v2.generated.controller.DatahubUsageEventsApiDelegate;
 import java.util.Objects;
 import java.util.Optional;
 import org.springframework.beans.factory.annotation.Autowired;

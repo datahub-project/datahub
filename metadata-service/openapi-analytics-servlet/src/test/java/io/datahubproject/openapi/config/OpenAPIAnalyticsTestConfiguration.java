@@ -11,6 +11,7 @@ import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.AuthorizerChain;
+import com.linkedin.metadata.models.registry.*;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import java.io.IOException;
 import java.util.Optional;
@@ -43,5 +44,14 @@ public class OpenAPIAnalyticsTestConfiguration {
     AuthenticationContext.setAuthentication(authentication);
 
     return authorizerChain;
+  }
+
+  @Bean("entityRegistry")
+  @Primary
+  public EntityRegistry entityRegistry() throws EntityRegistryException, InterruptedException {
+    return new ConfigEntityRegistry(
+        OpenAPIAnalyticsTestConfiguration.class
+            .getClassLoader()
+            .getResourceAsStream("entity-registry.yml"));
   }
 }

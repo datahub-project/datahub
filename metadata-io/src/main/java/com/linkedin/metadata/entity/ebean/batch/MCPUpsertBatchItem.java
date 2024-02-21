@@ -16,6 +16,7 @@ import com.linkedin.metadata.aspect.plugins.hooks.MutationHook;
 import com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator;
 import com.linkedin.metadata.aspect.plugins.validation.AspectRetriever;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
+import com.linkedin.metadata.aspect.utils.DefaultAspectsUtil;
 import com.linkedin.metadata.entity.EntityAspect;
 import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.metadata.entity.validation.ValidationUtils;
@@ -88,6 +89,17 @@ public class MCPUpsertBatchItem extends UpsertItem {
   @Override
   public ChangeType getChangeType() {
     return ChangeType.UPSERT;
+  }
+
+  @Override
+  @Nonnull
+  public MetadataChangeProposal getMetadataChangeProposal() {
+    if (metadataChangeProposal != null) {
+      return metadataChangeProposal;
+    } else {
+      return DefaultAspectsUtil.getProposalFromAspect(
+          getAspectName(), getRecordTemplate(), null, this);
+    }
   }
 
   public void applyMutationHooks(
