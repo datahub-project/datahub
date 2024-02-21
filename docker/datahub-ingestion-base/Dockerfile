@@ -56,19 +56,19 @@ RUN apt-get update && apt-get install -y -qq \
 # compiled against newer golang for security fixes
 COPY --from=dockerize-binary /go/bin/dockerize /usr/local/bin
 
-RUN addgroup --gid 1000 datahub && \
-    adduser --disabled-password --uid 1000 --gid 1000 --home /datahub-ingestion datahub
-
 COPY ./docker/datahub-ingestion-base/base-requirements.txt requirements.txt
 COPY ./docker/datahub-ingestion-base/entrypoint.sh /entrypoint.sh
+
+RUN addgroup --gid 1000 datahub && \
+    adduser --disabled-password --uid 1000 --gid 1000 --home /datahub-ingestion datahub && \
+    chmod +x /entrypoint.sh
 
 USER datahub
 ENV VIRTUAL_ENV=/datahub-ingestion/.venv
 ENV PATH="${VIRTUAL_ENV}/bin:$PATH"
 RUN python3 -m venv $VIRTUAL_ENV && \
     uv pip install --no-cache -r requirements.txt && \
-    pip uninstall -y acryl-datahub && \
-    chmod +x /entrypoint.sh
+    pip uninstall -y acryl-datahub
 
 ENTRYPOINT [ "/entrypoint.sh" ]
 
