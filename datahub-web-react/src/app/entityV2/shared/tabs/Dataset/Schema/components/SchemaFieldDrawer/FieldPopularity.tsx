@@ -34,7 +34,7 @@ export const FieldPopularity = ({ isFieldSelected, usageStats, fieldPath, displa
                 <PopularityBars
                     status={usageStatus}
                     isFieldSelected={isFieldSelected}
-                    displayOnDrawer={displayOnDrawer}
+                    size={displayOnDrawer ? 'default' : 'small'}
                 />
             </div>
         </Tooltip>
