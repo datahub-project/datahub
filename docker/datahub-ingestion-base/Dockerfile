@@ -56,21 +56,25 @@ RUN apt-get update && apt-get install -y -qq \
 # compiled against newer golang for security fixes
 COPY --from=dockerize-binary /go/bin/dockerize /usr/local/bin
 
+RUN addgroup --gid 1000 datahub && \
+    adduser --disabled-password --uid 1000 --gid 1000 --home /datahub-ingestion datahub
+
 COPY ./docker/datahub-ingestion-base/base-requirements.txt requirements.txt
 COPY ./docker/datahub-ingestion-base/entrypoint.sh /entrypoint.sh
 
+USER datahub
 ENV VIRTUAL_ENV=/.venv
+ENV PATH="${VIRTUAL_ENV}/bin:$PATH"
 RUN python3 -m venv $VIRTUAL_ENV && \
     uv pip install --no-cache -r requirements.txt && \
     pip uninstall -y acryl-datahub && \
-    chmod +x /entrypoint.sh && \
-    addgroup --gid 1000 datahub && \
-    adduser --disabled-password --uid 1000 --gid 1000 --home /datahub-ingestion datahub
+    chmod +x /entrypoint.sh
 
 ENTRYPOINT [ "/entrypoint.sh" ]
 
 FROM ${BASE_IMAGE} as full-install
 
+USER 0
 RUN apt-get update && apt-get install -y -qq \
     default-jre-headless \
     && rm -rf /var/lib/apt/lists/* /var/cache/apk/*
@@ -93,10 +97,11 @@ RUN if [ $(arch) = "x86_64" ]; then \
     ldconfig; \
     fi;
 
+USER datahub
+
 FROM ${BASE_IMAGE} as slim-install
 # Do nothing else on top of base
 
 FROM ${APP_ENV}-install
 
-USER datahub
 ENV PATH="/datahub-ingestion/.local/bin:$PATH"

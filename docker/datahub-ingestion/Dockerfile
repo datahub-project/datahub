@@ -39,7 +39,8 @@ USER datahub
 COPY ./docker/datahub-ingestion/pyspark_jars.sh .
 
 RUN if [ "${PIP_MIRROR_URL}" != "null" ] ; then pip config set global.index-url ${PIP_MIRROR_URL} ; fi
-RUN uv pip install --no-cache "acryl-datahub[base,all] @ ." "acryl-datahub-airflow-plugin[plugin-v2] @ ./airflow-plugin"
+RUN uv pip install --no-cache "acryl-datahub[base,all] @ ." "acryl-datahub-airflow-plugin[plugin-v2] @ ./airflow-plugin" && \
+    datahub --version
 RUN ./pyspark_jars.sh
 
 FROM base as full-install
@@ -54,4 +55,4 @@ FROM base as dev-install
 FROM ${APP_ENV}-install as final
 
 USER datahub
-ENV PATH="/datahub-ingestion/.local/bin:$VIRTUAL_ENV/bin:$PATH"
+ENV PATH="/datahub-ingestion/.local/bin:$PATH"
