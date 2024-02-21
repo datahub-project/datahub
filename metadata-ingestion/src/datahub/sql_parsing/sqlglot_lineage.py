@@ -39,7 +39,7 @@ from datahub.sql_parsing.sql_parsing_common import (
 from datahub.sql_parsing.sqlglot_utils import (
     DialectOrStr,
     get_dialect,
-    get_query_fingerprint,
+    get_query_fingerprint_debug,
     is_dialect_instance,
     parse_statement,
 )
@@ -181,11 +181,13 @@ class ColumnLineageInfo(_ParserBaseModel):
 class SqlParsingDebugInfo(_ParserBaseModel):
     confidence: float = 0.0
 
-    tables_discovered: int = 0
-    table_schemas_resolved: int = 0
+    tables_discovered: int = pydantic.Field(0, exclude=True)
+    table_schemas_resolved: int = pydantic.Field(0, exclude=True)
 
-    table_error: Optional[Exception] = None
-    column_error: Optional[Exception] = None
+    generalized_statement: Optional[str] = None
+
+    table_error: Optional[Exception] = pydantic.Field(default=None, exclude=True)
+    column_error: Optional[Exception] = pydantic.Field(default=None, exclude=True)
 
     @property
     def error(self) -> Optional[Exception]:
@@ -206,8 +208,7 @@ class SqlParsingResult(_ParserBaseModel):
     # TODO include list of referenced columns
 
     debug_info: SqlParsingDebugInfo = pydantic.Field(
-        default_factory=lambda: SqlParsingDebugInfo(),
-        exclude=True,
+        default_factory=lambda: SqlParsingDebugInfo()
     )
 
     @classmethod
@@ -887,7 +888,9 @@ def _sqlglot_lineage_inner(
     query_type, query_type_props = get_query_type_of_sql(
         original_statement, dialect=dialect
     )
-    query_fingerprint = get_query_fingerprint(original_statement, dialect=dialect)
+    query_fingerprint, debug_info.generalized_statement = get_query_fingerprint_debug(
+        original_statement, dialect=dialect
+    )
     return SqlParsingResult(
         query_type=query_type,
         query_type_props=query_type_props,
