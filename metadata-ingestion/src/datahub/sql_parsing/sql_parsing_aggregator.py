@@ -105,6 +105,7 @@ class KnownQueryLineageInfo:
     column_lineage: Optional[List[ColumnLineageInfo]] = None
 
     timestamp: Optional[datetime] = None
+    session_id: Optional[str] = None
     query_type: QueryType = QueryType.UNKNOWN
 
 
@@ -338,7 +339,7 @@ class SqlParsingAggregator:
             QueryMetadata(
                 query_id=query_fingerprint,
                 formatted_query_string=known_query_lineage.query_text,
-                session_id=_MISSING_SESSION_ID,
+                session_id=known_query_lineage.session_id or _MISSING_SESSION_ID,
                 query_type=known_query_lineage.query_type,
                 lineage_type=models.DatasetLineageTypeClass.TRANSFORMED,
                 latest_timestamp=known_query_lineage.timestamp,
