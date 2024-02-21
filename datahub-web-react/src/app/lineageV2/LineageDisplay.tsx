@@ -99,9 +99,7 @@ function useFitView(loaded: boolean) {
     const { nodeVersion, displayVersion } = useContext(LineageNodesContext);
 
     useEffect(() => {
-        if (!loaded) {
-            return () => {};
-        }
+        if (!loaded) return () => {};
         const timeout = setTimeout(() => fitView({ duration: 1000 }), 100);
         return () => {
             clearTimeout(timeout);
@@ -109,9 +107,7 @@ function useFitView(loaded: boolean) {
     }, [loaded, nodeVersion, fitView]);
 
     useEffect(() => {
-        if (!loaded) {
-            return () => {};
-        }
+        if (!loaded) return () => {};
         const [, nodes] = displayVersion;
         const timeout = setTimeout(
             () =>
