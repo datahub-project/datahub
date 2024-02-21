@@ -588,13 +588,9 @@ class SnowflakeQuery:
                         query_id,
                         query_start_time,
                         user_name,
-                        NVL(USERS.email, CONCAT(user_name, '{email_domain}')) AS user_email,
                         {objects_column}
                     from
                         snowflake.account_usage.access_history
-                    LEFT JOIN
-                        snowflake.account_usage.users USERS
-                        ON access_history.user_name = users.name
                     WHERE
                         query_start_time >= to_timestamp_ltz({start_time_millis}, 3)
                         AND query_start_time < to_timestamp_ltz({end_time_millis}, 3)
@@ -651,7 +647,7 @@ class SnowflakeQuery:
                 DATE_TRUNC('{time_bucket_size.value}', CONVERT_TIMEZONE('UTC', query_start_time)) AS bucket_start_time,
                 count(distinct(query_id)) AS total_queries,
                 user_name,
-                ANY_VALUE(users.email) AS user_email
+                ANY_VALUE(NVL(users.email, CONCAT(user_name, '{email_domain}'))) AS user_email
             FROM
                 object_access_history
                 LEFT JOIN
