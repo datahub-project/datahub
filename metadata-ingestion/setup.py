@@ -94,8 +94,7 @@ usage_common = {
 sqlglot_lib = {
     # Using an Acryl fork of sqlglot.
     # https://github.com/tobymao/sqlglot/compare/main...hsheth2:sqlglot:hsheth?expand=1
-    "acryl-sqlglot==21.1.2.dev9",
-    "wrapt_timeout_decorator",
+    "acryl-sqlglot==21.1.2.dev10",
 }
 
 sql_common = (

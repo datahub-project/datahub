@@ -12,7 +12,6 @@ import sqlglot.lineage
 import sqlglot.optimizer.annotate_types
 import sqlglot.optimizer.optimizer
 import sqlglot.optimizer.qualify
-import wrapt_timeout_decorator
 
 from datahub.cli.env_utils import get_boolean_env_variable
 from datahub.ingestion.graph.client import DataHubGraph
@@ -45,6 +44,10 @@ from datahub.sql_parsing.sqlglot_utils import (
     get_query_fingerprint_debug,
     is_dialect_instance,
     parse_statement,
+)
+from datahub.utilities.cooperative_timeout import (
+    CooperativeTimeout,
+    CooperativeTimeoutError,
 )
 
 logger = logging.getLogger(__name__)
@@ -311,9 +314,6 @@ class SqlUnderstandingError(Exception):
 
 
 # TODO: Break this up into smaller functions.
-@wrapt_timeout_decorator.timeout(
-    SQL_LINEAGE_TIMEOUT_SECONDS if SQL_LINEAGE_TIMEOUT_ENABLED else None,
-)
 def _column_level_lineage(  # noqa: C901
     statement: sqlglot.exp.Expression,
     dialect: sqlglot.Dialect,
@@ -873,19 +873,27 @@ def _sqlglot_lineage_inner(
     column_lineage: Optional[List[_ColumnLineageInfo]] = None
     try:
         if select_statement is not None:
-            column_lineage = _column_level_lineage(
-                select_statement,
-                dialect=dialect,
-                table_schemas=table_name_schema_mapping,
-                output_table=downstream_table,
-                default_db=default_db,
-                default_schema=default_schema,
-            )
+            with CooperativeTimeout(
+                timeout=SQL_LINEAGE_TIMEOUT_SECONDS
+                if SQL_LINEAGE_TIMEOUT_ENABLED
+                else None
+            ):
+                column_lineage = _column_level_lineage(
+                    select_statement,
+                    dialect=dialect,
+                    table_schemas=table_name_schema_mapping,
+                    output_table=downstream_table,
+                    default_db=default_db,
+                    default_schema=default_schema,
+                )
     except UnsupportedStatementTypeError as e:
         # Inject details about the outer statement type too.
         e.args = (f"{e.args[0]} (outer statement type: {type(statement)})",)
         debug_info.column_error = e
         logger.debug(debug_info.column_error)
+    except CooperativeTimeoutError as e:
+        logger.debug(f"Timed out while generating column-level lineage: {e}")
+        debug_info.column_error = e
     except SqlUnderstandingError as e:
         logger.debug(f"Failed to generate column-level lineage: {e}", exc_info=True)
         debug_info.column_error = e
