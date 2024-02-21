@@ -11,7 +11,7 @@ from packaging import version
 from pydantic.fields import Field
 from sqlalchemy import exc, sql
 from sqlalchemy.engine import reflection
-from sqlalchemy.engine.base import Connection
+from sqlalchemy.engine.base import Engine
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.sql import sqltypes
 from sqlalchemy.types import TypeEngine
@@ -86,18 +86,19 @@ if version.parse(trino.__version__) >= version.parse("0.317.0"):
 
 
 @functools.lru_cache()
-def get_catalog_connector_name(
-    connection: Connection, catalog_name: str
-) -> Optional[str]:
+def gen_catalog_connector_dict(engine: Engine) -> Dict[str, str]:
     query = dedent(
         """
         SELECT *
         FROM "system"."metadata"."catalogs"
     """
     ).strip()
-    res = connection.execute(sql.text(query))
-    catalog_connector_dict = {row.catalog_name: row.connector_name for row in res}
-    return catalog_connector_dict.get(catalog_name)
+    res = engine.execute(sql.text(query))
+    return {row.catalog_name: row.connector_name for row in res}
+
+
+def get_catalog_connector_name(engine: Engine, catalog_name: str) -> Optional[str]:
+    return gen_catalog_connector_dict(engine).get(catalog_name)
 
 
 # Read only table names and skip view names, as view names will also be returned
@@ -125,7 +126,7 @@ def get_table_comment(self, connection, table_name: str, schema: str = None, **k
         catalog_name = self._get_default_catalog_name(connection)
         if catalog_name is None:
             raise exc.NoSuchTableError("catalog is required in connection")
-        connector_name = get_catalog_connector_name(connection, catalog_name)
+        connector_name = get_catalog_connector_name(connection.engine, catalog_name)
         if connector_name is None:
             return {}
         if connector_name in PROPERTIES_TABLE_SUPPORTED_CONNECTORS:
@@ -251,16 +252,14 @@ class TrinoSource(SQLAlchemySource):
         table: str,
     ) -> Optional[str]:
         catalog_name = dataset_name.split(".")[0]
-        connector_name = get_catalog_connector_name(inspector.bind, catalog_name)
+        connector_name = get_catalog_connector_name(inspector.engine, catalog_name)
         if not connector_name:
             return None
         connector_details = self.config.catalog_to_connector_details.get(
             catalog_name, ConnectorDetail()
         )
         connector_platform_name = KNOWN_CONNECTOR_PLATFORM_MAPPING.get(
-            connector_details.connector_platform
-            if connector_details.connector_platform
-            else connector_name
+            connector_details.connector_platform or connector_name
         )
         if not connector_platform_name:
             logging.debug(f"Platform '{connector_platform_name}' is not yet supported.")
@@ -280,6 +279,8 @@ class TrinoSource(SQLAlchemySource):
                 platform_instance=connector_details.platform_instance,
                 env=connector_details.env,
             )
+        else:
+            logging.warning(f"Connector database missing for Catalog '{catalog_name}'.")
         return None
 
     def gen_siblings_workunit(
