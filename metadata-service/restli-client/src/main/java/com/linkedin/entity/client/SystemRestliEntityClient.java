@@ -1,9 +1,10 @@
 package com.linkedin.entity.client;
 
-import com.datahub.authentication.Authentication;
 import com.linkedin.metadata.config.cache.client.EntityClientCacheConfig;
 import com.linkedin.parseq.retry.backoff.BackoffPolicy;
 import com.linkedin.restli.client.Client;
+import io.datahubproject.metadata.context.OperationContext;
+import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nonnull;
 import lombok.Getter;
 
@@ -11,17 +12,19 @@ import lombok.Getter;
 @Getter
 public class SystemRestliEntityClient extends RestliEntityClient implements SystemEntityClient {
   private final EntityClientCache entityClientCache;
-  private final Authentication systemAuthentication;
+  private final OperationContext systemOperationContext;
+  private final ConcurrentHashMap<String, OperationContext> operationContextMap;
 
   public SystemRestliEntityClient(
+      @Nonnull OperationContext systemOperationContext,
       @Nonnull final Client restliClient,
       @Nonnull final BackoffPolicy backoffPolicy,
       int retryCount,
-      @Nonnull Authentication systemAuthentication,
       EntityClientCacheConfig cacheConfig) {
     super(restliClient, backoffPolicy, retryCount);
-    this.systemAuthentication = systemAuthentication;
-    this.entityClientCache =
-        buildEntityClientCache(SystemRestliEntityClient.class, systemAuthentication, cacheConfig);
+    this.operationContextMap = new ConcurrentHashMap<>();
+    this.operationContextMap.put(systemOperationContext.getContextId(), systemOperationContext);
+    this.systemOperationContext = systemOperationContext;
+    this.entityClientCache = buildEntityClientCache(SystemRestliEntityClient.class, cacheConfig);
   }
 }

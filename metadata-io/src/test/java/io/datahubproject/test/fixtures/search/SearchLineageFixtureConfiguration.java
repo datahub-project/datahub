@@ -213,7 +213,7 @@ public class SearchLineageFixtureConfiguration {
     SearchService service =
         new SearchService(
             new EntityDocCountCache(
-                opContext, entityRegistry, entitySearchService, entityDocCountCacheConfiguration),
+                entityRegistry, entitySearchService, entityDocCountCacheConfiguration),
             new CachingEntitySearchService(cacheManager, entitySearchService, batchSize, false),
             ranker);
 

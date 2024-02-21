@@ -18,7 +18,7 @@ record Ownership {
    */
   @Searchable = {
     "/*": {
-      "fieldType": "OBJECT",
+      "fieldType": "MAP_ARRAY",
       "queryByDefault": false
     }
   }

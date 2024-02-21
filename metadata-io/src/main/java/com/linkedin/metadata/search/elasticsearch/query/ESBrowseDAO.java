@@ -616,7 +616,11 @@ public class ESBrowseDAO {
 
     queryBuilder.filter(
         SearchRequestHandler.getFilterQuery(
-            opContext, filter, finalSearchFlags, entitySpec.getSearchableFieldTypes(), aspectRetriever));
+            opContext,
+            filter,
+            finalSearchFlags,
+            entitySpec.getSearchableFieldTypes(),
+            aspectRetriever));
 
     return queryBuilder;
   }
@@ -659,7 +663,8 @@ public class ESBrowseDAO {
                       return set1;
                     }));
     queryBuilder.filter(
-        SearchRequestHandler.getFilterQuery(opContext, filter, finalSearchFlags, searchableFields, aspectRetriever));
+        SearchRequestHandler.getFilterQuery(
+            opContext, filter, finalSearchFlags, searchableFields, aspectRetriever));
 
     return queryBuilder;
   }

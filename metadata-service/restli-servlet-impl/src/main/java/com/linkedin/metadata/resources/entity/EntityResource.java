@@ -981,8 +981,10 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       throw new RestLiServiceException(
           HttpStatus.S_401_UNAUTHORIZED, "User is unauthorized to get entity counts.");
     }
+    OperationContext opContext = OperationContext.asSession(
+            systemOperationContext, _authorizer, auth, true);
     return RestliUtil.toTask(
-        () -> new LongMap(_searchService.docCountPerEntity(Arrays.asList(entityNames))));
+        () -> new LongMap(_searchService.docCountPerEntity(opContext, Arrays.asList(entityNames))));
   }
 
   @Action(name = ACTION_LIST_URNS)

@@ -190,7 +190,7 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
       @Nonnull OperationContext opContext,
       @Nonnull String entityName,
       @Nullable Filter filters,
-      @Nonnull SearchFlags searchFlags,
+      @Nullable SearchFlags searchFlags,
       @Nullable SortCriterion sortCriterion,
       int from,
       int size) {
@@ -198,8 +198,10 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
         String.format(
             "Filtering Search documents entityName: %s, filters: %s, sortCriterion: %s, from: %s, size: %s",
             entityName, filters, sortCriterion, from, size));
+    SearchFlags finalSearchFlags =
+        applyDefaultSearchFlags(searchFlags, null, DEFAULT_SERVICE_SEARCH_FLAGS);
     return esSearchDAO.filter(
-        opContext, entityName, filters, searchFlags, sortCriterion, from, size);
+        opContext, entityName, filters, finalSearchFlags, sortCriterion, from, size);
   }
 
   @Nonnull
@@ -317,10 +319,19 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
         String.format(
             "Scrolling Structured Search documents entities: %s, input: %s, postFilters: %s, sortCriterion: %s, scrollId: %s, size: %s",
             entities, input, postFilters, sortCriterion, scrollId, size));
-    SearchFlags flags = Optional.ofNullable(searchFlags).orElse(new SearchFlags());
-    flags.setFulltext(true);
+    SearchFlags finalSearchFlags =
+        applyDefaultSearchFlags(searchFlags, null, DEFAULT_SERVICE_SEARCH_FLAGS);
+    finalSearchFlags.setFulltext(true);
     return esSearchDAO.scroll(
-        opContext, entities, input, postFilters, sortCriterion, scrollId, keepAlive, size, flags);
+        opContext,
+        entities,
+        input,
+        postFilters,
+        sortCriterion,
+        scrollId,
+        keepAlive,
+        size,
+        finalSearchFlags);
   }
 
   @Nonnull
@@ -339,10 +350,19 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
         String.format(
             "Scrolling FullText Search documents entities: %s, input: %s, postFilters: %s, sortCriterion: %s, scrollId: %s, size: %s",
             entities, input, postFilters, sortCriterion, scrollId, size));
-    SearchFlags flags = Optional.ofNullable(searchFlags).orElse(new SearchFlags());
-    flags.setFulltext(false);
+    SearchFlags finalSearchFlags =
+        applyDefaultSearchFlags(searchFlags, null, DEFAULT_SERVICE_SEARCH_FLAGS);
+    finalSearchFlags.setFulltext(false);
     return esSearchDAO.scroll(
-        opContext, entities, input, postFilters, sortCriterion, scrollId, keepAlive, size, flags);
+        opContext,
+        entities,
+        input,
+        postFilters,
+        sortCriterion,
+        scrollId,
+        keepAlive,
+        size,
+        finalSearchFlags);
   }
 
   public Optional<SearchResponse> raw(@Nonnull String indexName, @Nullable String jsonQuery) {
@@ -356,6 +376,7 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
 
   @Override
   public ExplainResponse explain(
+      @Nonnull OperationContext opContext,
       @Nonnull String query,
       @Nonnull String documentId,
       @Nonnull String entityName,
@@ -366,13 +387,17 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
       @Nullable String keepAlive,
       int size,
       @Nullable List<String> facets) {
+    SearchFlags finalSearchFlags =
+        applyDefaultSearchFlags(searchFlags, null, DEFAULT_SERVICE_SEARCH_FLAGS);
+
     return esSearchDAO.explain(
+        opContext,
         query,
         documentId,
         entityName,
         postFilters,
         sortCriterion,
-        searchFlags,
+        finalSearchFlags,
         scrollId,
         keepAlive,
         size,

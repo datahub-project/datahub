@@ -1,6 +1,7 @@
 package com.linkedin.metadata.search.utils;
 
 import static com.linkedin.metadata.utils.SearchUtil.ES_INDEX_FIELD;
+import static com.linkedin.metadata.utils.SearchUtil.KEYWORD_SUFFIX;
 
 import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.ConjunctivePrivilegeGroup;
@@ -101,8 +102,7 @@ public class ESAccessControlUtil {
       @Nonnull OperationContext opContext, T searchEntities) {
     if (opContext.getOperationContextConfig().getSearchAuthorizationConfiguration().isEnabled()
         && opContext.getSearchContext().isRestrictedSearch()) {
-      final EntityRegistry entityRegistry =
-          opContext.getEntityRegistryContext().getEntityRegistry();
+      final EntityRegistry entityRegistry = opContext.getEntityRegistry();
       final String actorUrnStr =
           opContext.getSessionActorContext().getAuthentication().getActor().toUrnStr();
       final DisjunctivePrivilegeGroup orGroup =
@@ -116,7 +116,7 @@ public class ESAccessControlUtil {
         if (!AuthUtil.isAuthorized(
             opContext.getAuthorizerContext().getAuthorizer(), actorUrnStr, resourceSpec, orGroup)) {
           final String keyAspectName =
-              entityRegistry.getEntitySpecs().get(entityType).getKeyAspectName();
+              entityRegistry.getEntitySpecs().get(entityType.toLowerCase()).getKeyAspectName();
           searchEntity.setRestrictedAspects(new StringArray(List.of(keyAspectName)));
         }
       }
@@ -209,22 +209,19 @@ public class ESAccessControlUtil {
       BoolQueryBuilder orQuery = QueryBuilders.boolQuery();
       orQuery.minimumShouldMatch(1);
 
-      Set<String> fields =
-          actorAndGroupUrns.stream()
+      Set<String> typeFields =
+          actorFilter.getResourceOwnersTypes().stream()
               .map(
-                  urnStr ->
+                  typeUrn ->
                       String.format(
-                          "%s.%s", OWNER_TYPES_FIELD, OwnerTypeMap.encodeFieldName(urnStr)))
+                          "%s.%s%s",
+                          OWNER_TYPES_FIELD,
+                          OwnerTypeMap.encodeFieldName(typeUrn.toString()),
+                          KEYWORD_SUFFIX))
               .collect(Collectors.toSet());
 
-      fields.forEach(
-          field ->
-              orQuery.should(
-                  QueryBuilders.termsQuery(
-                      field,
-                      actorFilter.getResourceOwnersTypes().stream()
-                          .map(Urn::toString)
-                          .collect(Collectors.toSet()))));
+      typeFields.forEach(
+          field -> orQuery.should(QueryBuilders.termsQuery(field, actorAndGroupUrns)));
 
       return orQuery;
     }

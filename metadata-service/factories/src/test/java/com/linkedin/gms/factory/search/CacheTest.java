@@ -181,7 +181,7 @@ public class CacheTest extends JetTestSupport {
 
     EntityLineageResultCacheKey key =
         new EntityLineageResultCacheKey(
-            corpuserUrn, LineageDirection.DOWNSTREAM, 0L, 1L, 1, ChronoUnit.DAYS);
+            "", corpuserUrn, LineageDirection.DOWNSTREAM, 0L, 1L, 1, ChronoUnit.DAYS);
 
     cache1.put(key, cachedEntityLineageResult);
 

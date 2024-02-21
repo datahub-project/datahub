@@ -1,4 +1,4 @@
-package com.linkedin.gms.factory.common;
+package com.linkedin.gms.factory.context;
 
 import com.datahub.authentication.Authentication;
 import com.linkedin.gms.factory.config.ConfigurationProvider;

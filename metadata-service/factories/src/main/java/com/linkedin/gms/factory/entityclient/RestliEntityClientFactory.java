@@ -1,6 +1,5 @@
 package com.linkedin.gms.factory.entityclient;
 
-import com.datahub.authentication.Authentication;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.client.RestliEntityClient;
 import com.linkedin.entity.client.SystemEntityClient;
@@ -10,6 +9,7 @@ import com.linkedin.metadata.restli.DefaultRestliClientFactory;
 import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import com.linkedin.parseq.retry.backoff.ExponentialBackoff;
 import com.linkedin.restli.client.Client;
+import io.datahubproject.metadata.context.OperationContext;
 import java.net.URI;
 import javax.inject.Singleton;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -48,6 +48,7 @@ public class RestliEntityClientFactory {
   @Bean("systemEntityClient")
   @Singleton
   public SystemEntityClient systemEntityClient(
+      @Qualifier("systemOperationContext") final OperationContext systemOperationContext,
       @Value("${datahub.gms.host}") String gmsHost,
       @Value("${datahub.gms.port}") int gmsPort,
       @Value("${datahub.gms.useSSL}") boolean gmsUseSSL,
@@ -55,8 +56,7 @@ public class RestliEntityClientFactory {
       @Value("${datahub.gms.sslContext.protocol}") String gmsSslProtocol,
       @Value("${entityClient.retryInterval:2}") int retryInterval,
       @Value("${entityClient.numRetries:3}") int numRetries,
-      final EntityClientCacheConfig entityClientCacheConfig,
-      @Qualifier("systemAuthentication") final Authentication systemAuthentication) {
+      final EntityClientCacheConfig entityClientCacheConfig) {
 
     final Client restClient;
     if (gmsUri != null) {
@@ -66,10 +66,10 @@ public class RestliEntityClientFactory {
           DefaultRestliClientFactory.getRestLiClient(gmsHost, gmsPort, gmsUseSSL, gmsSslProtocol);
     }
     return new SystemRestliEntityClient(
+        systemOperationContext,
         restClient,
         new ExponentialBackoff(retryInterval),
         numRetries,
-        systemAuthentication,
         entityClientCacheConfig);
   }
 }

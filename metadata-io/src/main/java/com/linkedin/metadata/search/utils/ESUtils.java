@@ -1,6 +1,7 @@
 package com.linkedin.metadata.search.utils;
 
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.models.annotation.SearchableAnnotation.OBJECT_FIELD_TYPES;
 import static com.linkedin.metadata.search.elasticsearch.query.request.SearchFieldConfig.KEYWORD_FIELDS;
 import static com.linkedin.metadata.search.elasticsearch.query.request.SearchFieldConfig.PATH_HIERARCHY_FIELDS;
 import static com.linkedin.metadata.search.utils.SearchUtils.isUrn;
@@ -266,7 +267,7 @@ public class ESUtils {
       return LONG_FIELD_TYPE;
     } else if (fieldType == SearchableAnnotation.FieldType.DATETIME) {
       return DATE_FIELD_TYPE;
-    } else if (fieldType == SearchableAnnotation.FieldType.OBJECT) {
+    } else if (OBJECT_FIELD_TYPES.contains(fieldType)) {
       return OBJECT_FIELD_TYPE;
     } else if (fieldType == SearchableAnnotation.FieldType.DOUBLE) {
       return DOUBLE_FIELD_TYPE;

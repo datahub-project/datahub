@@ -580,6 +580,7 @@ plugins:
       supportedOperations:
         - UPSERT
         - CREATE
+        - RESTATE
       supportedEntityAspectNames:
         - entityName: '*'
           aspectName: ownership

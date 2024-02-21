@@ -638,7 +638,11 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
 
     BoolQueryBuilder test =
         SearchRequestHandler.getFilterQuery(
-            operationContext, filter, new SearchFlags().setFulltext(false), new HashMap<>(), aspectRetriever);
+            operationContext,
+            filter,
+            new SearchFlags().setFulltext(false),
+            new HashMap<>(),
+            aspectRetriever);
 
     assertEquals(test.should().size(), 1);
 
