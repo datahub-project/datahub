@@ -46,8 +46,8 @@ from datahub.sql_parsing.sqlglot_utils import (
     parse_statement,
 )
 from datahub.utilities.cooperative_timeout import (
-    CooperativeTimeout,
     CooperativeTimeoutError,
+    cooperative_timeout,
 )
 
 logger = logging.getLogger(__name__)
@@ -873,7 +873,7 @@ def _sqlglot_lineage_inner(
     column_lineage: Optional[List[_ColumnLineageInfo]] = None
     try:
         if select_statement is not None:
-            with CooperativeTimeout(
+            with cooperative_timeout(
                 timeout=SQL_LINEAGE_TIMEOUT_SECONDS
                 if SQL_LINEAGE_TIMEOUT_ENABLED
                 else None
