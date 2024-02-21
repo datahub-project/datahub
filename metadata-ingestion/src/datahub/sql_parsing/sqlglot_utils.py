@@ -1,8 +1,11 @@
 import hashlib
+import logging
 from typing import Dict, Iterable, Optional, Union
 
 import sqlglot
+import sqlglot.errors
 
+logger = logging.getLogger(__name__)
 DialectOrStr = Union[sqlglot.Dialect, str]
 
 
@@ -139,10 +142,17 @@ def get_query_fingerprint(
         The fingerprint for the SQL query.
     """
 
-    dialect = get_dialect(dialect)
-    expression_sql = generalize_query(expression, dialect=dialect)
-    fingerprint = generate_hash(expression_sql)
+    try:
+        dialect = get_dialect(dialect)
+        expression_sql = generalize_query(expression, dialect=dialect)
+    except (ValueError, sqlglot.errors.SqlglotError) as e:
+        if not isinstance(expression, str):
+            raise
 
+        logger.debug("Failed to generalize query for fingerprinting: %s", e)
+        expression_sql = expression
+
+    fingerprint = generate_hash(expression_sql)
     return fingerprint
 
 
