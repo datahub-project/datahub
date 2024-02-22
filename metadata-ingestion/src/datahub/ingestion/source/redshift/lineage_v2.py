@@ -75,6 +75,8 @@ class RedshiftSqlLineageV2:
             self.report.lineage_end_time,
         ) = self._lineage_v1.get_time_window()
 
+        self.known_urns = set()  # will be set later
+
     def build(
         self,
         connection: redshift_connector.Connection,
@@ -82,7 +84,7 @@ class RedshiftSqlLineageV2:
         db_schemas: Dict[str, Dict[str, RedshiftSchema]],
     ) -> None:
         # Assume things not in `all_tables` as temp tables.
-        known_urns = set(
+        self.known_urns = set(
             DatasetUrn.create_from_ids(
                 self.platform,
                 f"{db}.{schema}.{table.name}",
@@ -93,7 +95,7 @@ class RedshiftSqlLineageV2:
             for schema, tables in schemas.items()
             for table in tables
         )
-        self.aggregator.is_temp_table = lambda urn: urn not in known_urns
+        self.aggregator.is_temp_table = lambda urn: urn not in self.known_urns
 
         # Handle all the temp tables up front.
         if self.config.resolve_temp_table_in_lineage:
@@ -238,13 +240,26 @@ class RedshiftSqlLineageV2:
             query_timestamp=lineage_row.timestamp,
         )
 
-    def _process_stl_scan_lineage(self, lineage_row: LineageRow) -> None:
+    def _make_filtered_target(self, lineage_row: LineageRow) -> Optional[DatasetUrn]:
         target = DatasetUrn.create_from_ids(
             self.platform,
             f"{self.database}.{lineage_row.target_schema}.{lineage_row.target_table}",
             env=self.config.env,
             platform_instance=self.config.platform_instance,
         )
+        if target.urn() not in self.known_urns:
+            logger.debug(
+                f"Skipping lineage for {target.urn()} as it is not in known_urns"
+            )
+            return
+
+        return target
+
+    def _process_stl_scan_lineage(self, lineage_row: LineageRow) -> None:
+        target = self._make_filtered_target(lineage_row)
+        if not target:
+            return
+
         source = DatasetUrn.create_from_ids(
             self.platform,
             f"{self.database}.{lineage_row.source_schema}.{lineage_row.source_table}",
@@ -268,15 +283,9 @@ class RedshiftSqlLineageV2:
         if ddl is None:
             return
 
-        target_name = (
-            f"{self.database}.{lineage_row.target_schema}.{lineage_row.target_table}"
-        )
-        target = DatasetUrn.create_from_ids(
-            self.platform,
-            target_name,
-            env=self.config.env,
-            platform_instance=self.config.platform_instance,
-        )
+        target = self._make_filtered_target(lineage_row)
+        if not target:
+            return
 
         self.aggregator.add_view_definition(
             view_urn=target,
@@ -300,12 +309,9 @@ class RedshiftSqlLineageV2:
 
         if not lineage_row.target_schema or not lineage_row.target_table:
             return
-        target = DatasetUrn.create_from_ids(
-            self.platform,
-            f"{self.database}.{lineage_row.target_schema}.{lineage_row.target_table}",
-            env=self.config.env,
-            platform_instance=self.config.platform_instance,
-        )
+        target = self._make_filtered_target(lineage_row)
+        if not target:
+            return
 
         self.aggregator.add_known_lineage_mapping(
             upstream_urn=s3_urn, downstream_urn=target.urn()
@@ -330,6 +336,11 @@ class RedshiftSqlLineageV2:
             env=self.config.env,
             platform_instance=self.config.platform_instance,
         )
+        if source.urn() not in self.known_urns:
+            logger.debug(
+                f"Skipping unload lineage for {source.urn()} as it is not in known_urns"
+            )
+            return
 
         self.aggregator.add_known_lineage_mapping(
             upstream_urn=source.urn(), downstream_urn=output_urn
