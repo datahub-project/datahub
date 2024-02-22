@@ -41,6 +41,7 @@ class Constant:
     SECUREQRI = "secureQri"
     QRI = "qri"
     SPACEID = "spaceId"
+    SPACE = "space"
     CREATEDTIME = "createdTime"
     LASTMODIFIEDTIME = "lastModifiedTime"
     OPERATIONAL = "operational"
@@ -63,6 +64,7 @@ class Constant:
     LINEAGE = "lineage"
     TABLELABEL = "tableLabel"
     TABLEQRI = "tableQRI"
+    OWNERID = "ownerId"
     # Websocket response key constants
     QID = "qId"
     RESULT = "result"
