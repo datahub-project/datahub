@@ -161,15 +161,16 @@ public class SlackNotificationSinkTest {
     Assert.assertTrue(sink.isEnabled());
     Assert.assertEquals(sink.botToken, TEST_BOT_TOKEN);
 
-    // Case 4: Changing the connection details at runtime should change the bot token and slack client.
+    // Case 4: Changing the connection details at runtime should change the bot token and slack
+    // client.
     Mockito.when(mockSettingsProvider.getGlobalSettings()).thenReturn(enabledSettings());
     Mockito.when(mockConnectionService.getConnectionDetails(Mockito.eq(SLACK_CONNECTION_URN)))
-            .thenReturn(
-                    new DataHubConnectionDetails()
-                            .setType(DataHubConnectionDetailsType.JSON)
-                            .setJson(new DataHubJsonConnection().setEncryptedBlob("blob")));
+        .thenReturn(
+            new DataHubConnectionDetails()
+                .setType(DataHubConnectionDetailsType.JSON)
+                .setJson(new DataHubJsonConnection().setEncryptedBlob("blob")));
     Mockito.when(mockSecretProvider.decryptSecret("blob"))
-            .thenReturn("{\"bot_token\": \"test-token\"}");
+        .thenReturn("{\"bot_token\": \"test-token\"}");
 
     Assert.assertTrue(sink.isEnabled());
     Assert.assertEquals(sink.botToken, "test-token");
@@ -177,19 +178,19 @@ public class SlackNotificationSinkTest {
 
     // Changing the bot token
     Mockito.when(mockConnectionService.getConnectionDetails(Mockito.eq(SLACK_CONNECTION_URN)))
-            .thenReturn(
-                    new DataHubConnectionDetails()
-                            .setType(DataHubConnectionDetailsType.JSON)
-                            .setJson(new DataHubJsonConnection().setEncryptedBlob("blob")));
+        .thenReturn(
+            new DataHubConnectionDetails()
+                .setType(DataHubConnectionDetailsType.JSON)
+                .setJson(new DataHubJsonConnection().setEncryptedBlob("blob")));
     Mockito.when(mockSecretProvider.decryptSecret("blob"))
-            .thenReturn("{\"bot_token\": \"test-token-2\"}");
+        .thenReturn("{\"bot_token\": \"test-token-2\"}");
 
     Assert.assertTrue(sink.isEnabled());
     Assert.assertEquals(sink.botToken, "test-token-2"); // Bot token was updated.
     MethodsClient methodsClient2 = sink.slackClient;
 
-    Assert.assertNotEquals(methodsClient1, methodsClient2); // Different clients were used for different bot tokens.
-
+    Assert.assertNotEquals(
+        methodsClient1, methodsClient2); // Different clients were used for different bot tokens.
   }
 
   @Test
@@ -402,7 +403,7 @@ public class SlackNotificationSinkTest {
                     ":white_check_mark:",
                     "http://localhost:9002/datasets/test",
                     "SampleName",
-                    "http://localhost:9002/datasets/test/Validation/Assertions"))
+                    "http://localhost:9002/datasets/test/Validation/Assertions?assertion_urn=urn%3Ali%3Aassertion%3Atest"))
             .iconUrl(String.format("http://localhost:9002%s", ACRYL_LOGO_FILE_PATH))
             .build();
     ChatPostMessageResponse defaultChannelMsgResponse = new ChatPostMessageResponse();
@@ -432,6 +433,8 @@ public class SlackNotificationSinkTest {
             .setParameters(
                 new StringMap(
                     ImmutableMap.of(
+                        "assertionUrn",
+                        "urn:li:assertion:test",
                         "assertionType",
                         "FIELD",
                         "entityName",
@@ -526,6 +529,8 @@ public class SlackNotificationSinkTest {
             .setParameters(
                 new StringMap(
                     ImmutableMap.of(
+                        "assertionUrn",
+                        "urn:li:assertion:test",
                         "assertionType",
                         "DATASET",
                         "entityName",
@@ -594,7 +599,7 @@ public class SlackNotificationSinkTest {
                     ":white_check_mark:",
                     "http://localhost:9002/datasets/test",
                     "SampleName",
-                    "http://localhost:9002/datasets/test/Validation/Assertions"))
+                    "http://localhost:9002/datasets/test/Validation/Assertions?assertion_urn=urn%3Ali%3Aassertion%3Atest"))
             .iconUrl(String.format("http://localhost:9002%s", ACRYL_LOGO_FILE_PATH))
             .build();
 
@@ -626,6 +631,8 @@ public class SlackNotificationSinkTest {
             .setParameters(
                 new StringMap(
                     ImmutableMap.of(
+                        "assertionUrn",
+                        "urn:li:assertion:test",
                         "assertionType",
                         "FIELD",
                         "entityName",

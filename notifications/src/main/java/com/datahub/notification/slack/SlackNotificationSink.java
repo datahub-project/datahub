@@ -38,6 +38,8 @@ import com.slack.api.methods.response.chat.ChatPostMessageResponse;
 import com.slack.api.methods.response.users.UsersLookupByEmailResponse;
 import com.slack.api.model.User;
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
+import java.net.URLEncoder;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -568,11 +570,16 @@ public class SlackNotificationSink implements NotificationSink {
   }
 
   private String buildAssertionStatusChangeMessage(NotificationRequest request) {
+    final String assertionUrn = request.getMessage().getParameters().get("assertionUrn");
     final String assertionType = request.getMessage().getParameters().get("assertionType");
     final String entityName = request.getMessage().getParameters().get("entityName");
     final String entityPath = request.getMessage().getParameters().get("entityPath");
     final String entityUrl = String.format("%s%s", this.baseUrl, entityPath);
-    final String resultsUrl = String.format("%s%s/Validation/Assertions", this.baseUrl, entityPath);
+    final String resultsUrl =
+        String.format(
+            "%s%s/Validation/Assertions?assertion_urn=%s",
+            this.baseUrl, entityPath, urlEncode(assertionUrn));
+
     final String result = request.getMessage().getParameters().get("result");
     final String description = request.getMessage().getParameters().get("description");
     final String maybeExternalUrl =
@@ -963,11 +970,19 @@ public class SlackNotificationSink implements NotificationSink {
     return null;
   }
 
+  private String urlEncode(String s) {
+    try {
+      return URLEncoder.encode(s, "UTF-8");
+    } catch (UnsupportedEncodingException e) {
+      throw new RuntimeException("Failed to encode string", e);
+    }
+  }
+
   private synchronized boolean hasChanged(final String newBotToken) {
     return !newBotToken.equals(this.botToken);
   }
 
-  public synchronized  void updateBotToken(final String newBotToken) {
+  public synchronized void updateBotToken(final String newBotToken) {
     this.botToken = newBotToken;
   }
 }
