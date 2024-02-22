@@ -19,7 +19,6 @@ const StatsSummaryRowContent = styled.div`
 const TrendDetailContainer = styled.div`
     display: flex;
     flex-direction: column;
-    // gap: 5px;
 `;
 const StatSummarySubtitle = styled.div`
     display: flex;
@@ -97,36 +96,6 @@ interface Props {
 }
 
 export default function StatsSummaryRow({ expandedField, fieldProfile, profiles }: Props) {
-    // const [noOfIncreasingTrends, setNoOfIncreasingTrends] = useState(0);
-    // const [noOfDecreasingTrends, setNoOfDecreasingTrends] = useState(0);
-    // const [noOfConstantTrends, setNoOfConstantTrends] = useState(0);
-
-    // useEffect(() => {
-    //     let increasingTrends = 0;
-    //     let decreasingTrends = 0;
-    //     let constantTrends = 0;
-
-    //     if (fieldProfile && profiles.length > 1) {
-    //         Object.entries(fieldProfile).forEach((stat) => {
-    //             if (typeof stat[1] !== 'number') return;
-
-    //             const statValues = extractChartValuesFromFieldProfiles(profiles, expandedField.fieldPath, stat[0]);
-    //             if (!statValues[1]) return;
-
-    //             const currentValue = stat[1];
-    //             const lastValue = statValues[1].value;
-
-    //             if (currentValue > lastValue) {
-    //                 increasingTrends++;
-    //             } else if (currentValue < lastValue) {
-    //                 decreasingTrends++;
-    //             } else constantTrends++;
-    //         });
-    //         setNoOfIncreasingTrends(increasingTrends);
-    //         setNoOfDecreasingTrends(decreasingTrends);
-    //         setNoOfConstantTrends(constantTrends);
-    //     }
-    // }, [expandedField.fieldPath, fieldProfile, profiles, profiles.length]);
     const totalStats = (fieldProfile && Object.entries(fieldProfile).length) || 0;
 
     const historicalNullProportion = extractChartValuesFromFieldProfiles(
@@ -144,8 +113,6 @@ export default function StatsSummaryRow({ expandedField, fieldProfile, profiles 
     const nullCount = fieldProfile?.nullCount;
     const uniqueProportion = fieldProfile?.uniqueProportion;
     const uniqueCount = fieldProfile?.uniqueCount;
-
-    console.log({ fieldProfile });
 
     const numericalStatsCount =
         (fieldProfile?.min !== null && fieldProfile?.min !== undefined ? 1 : 0) +
