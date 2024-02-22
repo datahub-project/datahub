@@ -63,6 +63,8 @@ const Tab = styled(Tabs.TabPane)`
     font-weight: 400;
 `;
 
+const tabIconStyle = { fontSize: 14, marginRight: 6 };
+
 export const EntityTabs = <T,>({ tabs, selectedTab }: Props) => {
     const { entityData, loading } = useEntityData();
     const routeToTab = useRouteToTab();
@@ -84,10 +86,21 @@ export const EntityTabs = <T,>({ tabs, selectedTab }: Props) => {
             onTabClick={(tab: string) => routeToTab({ tabName: tab })}
         >
             {tabs.map((tab) => {
+                const TabIcon = tab.icon;
                 if (!tab.display?.enabled(entityData, baseEntity)) {
                     return <Tab tab={tab.name} key={tab.name} disabled />;
                 }
-                return <Tab tab={<>{tab.name}</>} key={tab.name} />;
+                return (
+                    <Tab
+                        tab={
+                            <>
+                                {TabIcon && <TabIcon style={tabIconStyle} />}
+                                {tab.name}
+                            </>
+                        }
+                        key={tab.name}
+                    />
+                );
             })}
         </UnborderedTabs>
     );

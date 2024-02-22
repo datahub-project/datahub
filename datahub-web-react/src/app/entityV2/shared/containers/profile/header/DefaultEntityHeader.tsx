@@ -162,12 +162,7 @@ export const DefaultEntityHeader = ({
                                         icon={displayProperties?.icon?.name}
                                     />
                                 )}
-                                <EntityTitleWrapper>
-                                    <PlatformRow>
-                                        {(loading && <EntityPlatformLoadingSection />) || <PlatformContent />}
-                                    </PlatformRow>
-                                    <EntityName isNameEditable={showEditName} />
-                                </EntityTitleWrapper>
+                                <EntityName isNameEditable={showEditName} />
                                 {entityData?.deprecation?.deprecated && (
                                     <DeprecationPill
                                         urn={urn}
