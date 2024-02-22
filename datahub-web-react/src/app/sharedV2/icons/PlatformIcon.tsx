@@ -1,26 +1,77 @@
-import React from 'react';
-import styled from 'styled-components';
-import { DataPlatform } from '../../../types.generated';
+import React, { useRef, useState } from 'react';
+import styled, { css, CSSObject } from 'styled-components/macro';
+import ColorThief from 'colorthief';
+import { DataPlatform, EntityType } from '../../../types.generated';
+import { useEntityRegistry } from '../../useEntityRegistry';
+import { IconStyleType } from '../../entityV2/Entity';
 
-const Icon = styled.img`
-    height: 1em;
-    width: 1em;
+type PlatformIconProps = {
+    platform: DataPlatform | null | undefined;
+    size?: number;
+    alt?: string;
+    entityType?: EntityType;
+    styles?: CSSObject | undefined;
+    title?: string;
+    imageStyles?: CSSObject | undefined;
+};
+
+const IconContainer = styled.div<{ background?: string; styles: CSSObject | undefined }>`
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: auto;
+    padding: 6px;
+    border-radius: 8px;
+    background-color: ${(props) => props.background || 'transparent'};
+    ${({ styles }) => (styles ? css(styles) : undefined)};
 `;
 
-interface Props {
-    platform?: DataPlatform | null;
-    className?: string;
-}
+const PreviewImage = styled.img<{ size: number; imageStyles?: CSSObject | undefined }>`
+    height: ${(props) => props.size}px;
+    width: ${(props) => props.size}px;
+    min-width: ${(props) => props.size}px;
+    object-fit: contain;
+    background-color: transparent;
+    ${({ imageStyles }) => (imageStyles ? css(imageStyles) : undefined)};
+`;
 
-export default function PlatformIcon({ platform, className }: Props): JSX.Element | null {
-    if (!platform?.properties?.logoUrl) {
-        return null;
-    }
+const PlatformIcon: React.FC<PlatformIconProps> = ({
+    platform,
+    size = 17,
+    alt = 'Platform Logo',
+    entityType = EntityType.DataPlatform,
+    title,
+    styles,
+    imageStyles,
+}) => {
+    const [background, setBackground] = useState<string | undefined>(undefined);
+    const imgRef = useRef<HTMLImageElement>(null);
+    const entityRegistry = useEntityRegistry();
+    const logoUrl = platform?.properties?.logoUrl;
     return (
-        <Icon
-            src={platform.properties?.logoUrl}
-            alt={platform.properties?.displayName || platform.name}
-            className={className}
-        />
+        <IconContainer background={background} styles={styles} title={title}>
+            {logoUrl ? (
+                <PreviewImage
+                    size={size}
+                    ref={imgRef}
+                    onLoad={() => {
+                        const colorThief = new ColorThief();
+                        const img = imgRef.current;
+                        if (img) {
+                            img.crossOrigin = 'anonymous';
+                        }
+                        const result = colorThief.getColor(img, 25);
+                        setBackground(`rgb(${result[0]}, ${result[1]}, ${result[2]}, .1)`);
+                    }}
+                    src={logoUrl}
+                    alt={alt}
+                    imageStyles={imageStyles}
+                />
+            ) : (
+                entityRegistry.getIcon(entityType, size, IconStyleType.ACCENT)
+            )}
+        </IconContainer>
     );
-}
+};
+
+export default PlatformIcon;

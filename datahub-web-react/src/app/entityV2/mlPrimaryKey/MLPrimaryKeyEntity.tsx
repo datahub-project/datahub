@@ -16,7 +16,7 @@ import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domai
 import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
 import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
 import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
-import { getDataProduct, isOutputPort } from '../shared/utils';
+import { SidebarTitleActionType, getDataProduct, isOutputPort } from '../shared/utils';
 import { TYPE_ICON_CLASS_NAME } from '../shared/components/subtypes';
 
 /**
@@ -124,6 +124,9 @@ export class MLPrimaryKeyEntity implements Entity<MlPrimaryKey> {
             component: LineageTab,
             description: "View this data asset's upstream and downstream dependencies",
             icon: PartitionOutlined,
+            properties: {
+                actionType: SidebarTitleActionType.LineageExplore,
+            },
         },
     ];
 

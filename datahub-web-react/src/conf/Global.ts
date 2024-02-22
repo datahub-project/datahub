@@ -23,6 +23,7 @@ export enum PageRoutes {
     IDENTITIES = '/identities',
     INGESTION = '/ingestion',
     SETTINGS = '/settings',
+    GOVERN_DASHBOARD = '/govern/dashboard',
     DOMAINS = '/domains',
     DOMAIN = '/domain',
     GLOSSARY = '/glossary',

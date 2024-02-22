@@ -29,7 +29,7 @@ import { EntityMenuItems } from '../shared/EntityDropdown/EntityMenuActions';
 import { DataFlowEntity } from '../dataFlow/DataFlowEntity';
 import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
 import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
-import { getDataProduct, isOutputPort } from '../shared/utils';
+import { SidebarTitleActionType, getDataProduct, isOutputPort } from '../shared/utils';
 import SidebarLineageSection from '../shared/containers/profile/sidebar/Lineage/SidebarLineageSection';
 import { TYPE_ICON_CLASS_NAME } from '../shared/components/subtypes';
 
@@ -162,6 +162,9 @@ export class DataJobEntity implements Entity<DataJob> {
             component: LineageTab,
             description: "View this data asset's upstream and downstream dependencies",
             icon: PartitionOutlined,
+            properties: {
+                actionType: SidebarTitleActionType.LineageExplore,
+            },
         },
         {
             name: 'Properties',

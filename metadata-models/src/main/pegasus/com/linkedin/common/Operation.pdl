@@ -48,6 +48,13 @@ record Operation includes TimeseriesAspectBase {
    sourceType: optional OperationSourceType
 
   /**
+   * The source urn for the operation. Only provided is sourceType == MONITOR currently,
+   * where it will be set to the monitor urn that sampled the operation.
+   */
+   @TimeseriesField = {}
+   sourceUrn: optional Urn
+
+  /**
    * Custom properties
    */
    customProperties: optional map[string, string]
