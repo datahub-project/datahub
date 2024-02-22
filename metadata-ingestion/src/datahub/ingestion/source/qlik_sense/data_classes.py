@@ -191,7 +191,6 @@ class Sheet(BaseModel):
 
 class QlikTable(BaseModel):
     tableName: str
-    databaseName: str
     type: BoxType = Field(alias="boxType")
     tableAlias: str
     dataconnectorid: str
@@ -200,22 +199,17 @@ class QlikTable(BaseModel):
     spaceId: str
     datasetSchema: List[SchemaField] = Field(alias="fields")
     tableQri: Optional[str] = None
+    selectStatement: Optional[str] = None
+    databaseName: Optional[str] = None
     schemaName: Optional[str] = None
 
     @root_validator(pre=True)
     def update_values(cls, values: Dict) -> Dict:
-        if values["boxType"] == BoxType.BLACKBOX.value:
-            values[Constant.DATABASENAME] = values[Constant.CONNECTORPROPERTIES][
-                Constant.TABLEQUALIFIERS
-            ][0]
-            values[Constant.SCHEMANAME] = values[Constant.CONNECTORPROPERTIES][
-                Constant.TABLEQUALIFIERS
-            ][1]
         values[Constant.DATACONNECTORID] = values[Constant.CONNECTIONINFO][Constant.ID]
         values[Constant.DATACONNECTORPLATFORM] = values[Constant.CONNECTIONINFO][
             Constant.SOURCECONNECTORID
         ]
-        values[Constant.SPACEID] = values[Constant.CONNECTIONINFO]["space"]
+        values[Constant.SPACEID] = values[Constant.CONNECTIONINFO][Constant.SPACE]
         return values
 
 

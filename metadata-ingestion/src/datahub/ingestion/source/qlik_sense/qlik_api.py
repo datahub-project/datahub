@@ -124,6 +124,9 @@ class QlikAPI:
             )
             response = websocket_connection.websocket_send_request(method="GetLayout")
             sheet_dict = response[Constant.QLAYOUT]
+            if Constant.OWNERID not in sheet_dict[Constant.QMETA]:
+                # That means sheet is private sheet
+                return None
             sheet = Sheet.parse_obj(sheet_dict[Constant.QMETA])
             for i, chart_dict in enumerate(
                 sheet_dict[Constant.QCHILDLIST][Constant.QITEMS]
@@ -159,20 +162,27 @@ class QlikAPI:
                     f"{self.rest_api_url}/lineage-graphs/nodes/{app_qri}/actions/expand?node={table_node_qri}&level=FIELD"
                 )
                 response.raise_for_status()
-                field_node_qri = list(
+                field_nodes_qris = list(
                     response.json()[Constant.GRAPH][Constant.NODES].keys()
-                )[0]
-                response = self.session.post(
-                    f"{self.rest_api_url}/lineage-graphs/nodes/{app_qri}/overview",
-                    json=[field_node_qri],
                 )
-                response.raise_for_status()
-                for each_lineage in response.json()[Constant.RESOURCES][0][
-                    Constant.LINEAGE
-                ]:
-                    table_qri_dict[each_lineage[Constant.TABLELABEL]] = each_lineage[
-                        Constant.TABLEQRI
-                    ]
+                for field_node_qri in field_nodes_qris:
+                    response = self.session.post(
+                        f"{self.rest_api_url}/lineage-graphs/nodes/{app_qri}/overview",
+                        json=[field_node_qri],
+                    )
+                    response.raise_for_status()
+                    # Some fields might not have lineage overview, in that case status code is 207
+                    if response.status_code == 200:
+                        for each_lineage in response.json()[Constant.RESOURCES][0][
+                            Constant.LINEAGE
+                        ]:
+                            table_name = (
+                                each_lineage[Constant.TABLELABEL]
+                                .replace('"', "")
+                                .split(".")[-1]
+                            )
+                            table_qri_dict[table_name] = each_lineage[Constant.TABLEQRI]
+                        break
             for table in tables:
                 if table.tableName in table_qri_dict:
                     table.tableQri = table_qri_dict[table.tableName]

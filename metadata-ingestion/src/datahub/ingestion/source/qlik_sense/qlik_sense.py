@@ -84,6 +84,7 @@ from datahub.metadata.schema_classes import (
     OwnershipTypeClass,
     SchemaFieldDataTypeClass,
 )
+from datahub.sql_parsing.sqlglot_lineage import create_lineage_sql_parsed_result
 
 # Logger instance
 logger = logging.getLogger(__name__)
@@ -331,14 +332,17 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                     ),
                 )
             )
-            upstream_dataset_urn = builder.make_dataset_urn_with_platform_instance(
-                name=f"{table.databaseName}.{table.schemaName}.{table.tableName}".lower(),
+            if not table.selectStatement:
+                return None
+            upstream_dataset_urn = create_lineage_sql_parsed_result(
+                query=table.selectStatement.strip(),
+                default_db=None,
                 platform=KNOWN_DATA_PLATFORM_MAPPING.get(
                     table.dataconnectorPlatform, table.dataconnectorPlatform
                 ),
                 env=upstream_dataset_platform_detail.env,
                 platform_instance=upstream_dataset_platform_detail.platform_instance,
-            )
+            ).in_tables[0]
         elif table.type == BoxType.LOADFILE:
             upstream_dataset_urn = self._gen_qlik_dataset_urn(
                 f"{table.spaceId}.{table.databaseName}".lower()
