@@ -1,6 +1,6 @@
 import logging
 import traceback
-from typing import Callable, Dict, Iterable, List, Optional, Tuple
+from typing import Callable, Iterable, List, Optional, Tuple
 
 import redshift_connector
 
@@ -21,7 +21,10 @@ from datahub.ingestion.source.state.redundant_run_skip_handler import (
     RedundantLineageRunSkipHandler,
 )
 from datahub.metadata.urns import DatasetUrn
-from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
+from datahub.sql_parsing.sql_parsing_aggregator import (
+    KnownQueryLineageInfo,
+    SqlParsingAggregator,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -80,12 +83,17 @@ class RedshiftSqlLineageV2:
 
         populate_calls: List[Tuple[LineageCollectorType, str, Callable]] = []
 
-        table_renames: Dict[str, str] = {}
         if self.config.include_table_rename_lineage:
-            pass
-            # table_renames, all_tables_set = self._process_table_renames(
-            #     connection=connection,
-            # )  # TODO table_renames
+            # Process all the ALTER TABLE RENAME statements
+            table_renames, _ = self._lineage_v1._process_table_renames(
+                database=self.database,
+                connection=connection,
+                all_tables={},
+            )
+            for new_urn, original_urn in table_renames.items():
+                self.aggregator.add_table_rename(
+                    original_urn=original_urn, new_urn=new_urn
+                )
 
         if self.config.table_lineage_mode in {
             LineageMode.SQL_BASED,
@@ -114,7 +122,9 @@ class RedshiftSqlLineageV2:
                 self.start_time,
                 self.end_time,
             )
-            # populate_calls.append((query, LineageCollectorType.QUERY_SCAN))  # TODO
+            populate_calls.append(
+                (LineageCollectorType.QUERY_SCAN, query, self._process_stl_scan_lineage)
+            )
 
         if self.config.include_views and self.config.include_view_lineage:
             # Populate lineage for views
@@ -165,13 +175,6 @@ class RedshiftSqlLineageV2:
 
         # TODO add lineage for external tables
 
-        # Handling for alter table statements.
-        if self.config.include_table_rename_lineage:
-            # self._update_lineage_map_for_table_renames(
-            #     table_renames=table_renames
-            # )  # TODO
-            pass
-
     def _populate_lineage_agg(
         self,
         query: str,
@@ -199,7 +202,6 @@ class RedshiftSqlLineageV2:
         if ddl is None:
             return
 
-        # TODO query timestamp
         # TODO actor
         # TODO session id
 
@@ -207,6 +209,32 @@ class RedshiftSqlLineageV2:
             query=ddl,
             default_db=self.database,
             default_schema=self.config.default_schema,
+            query_timestamp=lineage_row.timestamp,
+        )
+
+    def _process_stl_scan_lineage(self, lineage_row: LineageRow) -> None:
+        target = DatasetUrn.create_from_ids(
+            "redshift",
+            f"{self.database}.{lineage_row.target_schema}.{lineage_row.target_table}",
+            env=self.config.env,
+            platform_instance=self.config.platform_instance,
+        )
+        source = DatasetUrn.create_from_ids(
+            "redshift",
+            f"{self.database}.{lineage_row.source_schema}.{lineage_row.source_table}",
+            env=self.config.env,
+            platform_instance=self.config.platform_instance,
+        )
+
+        assert lineage_row.ddl, "stl scan entry is missing query text"
+        self.aggregator.add_known_query_lineage(
+            KnownQueryLineageInfo(
+                query_text=lineage_row.ddl,
+                downstream=target.urn(),
+                upstreams=[source.urn()],
+                timestamp=lineage_row.timestamp,
+            ),
+            merge_lineage=True,
         )
 
     def _process_view_lineage(self, lineage_row: LineageRow) -> None:

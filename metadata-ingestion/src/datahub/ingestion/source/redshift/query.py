@@ -225,7 +225,9 @@ SELECT  schemaname as schema_name,
                             target_table,
                             username as username,
                             source_schema,
-                            source_table
+                            source_table,
+                            query as ddl,
+                            starttime as timestamp
                         from
                                 (
                             select
@@ -385,7 +387,8 @@ SELECT  schemaname as schema_name,
                     target_table,
                     username,
                     query as query_id,
-                    LISTAGG(CASE WHEN LEN(RTRIM(querytxt)) = 0 THEN querytxt ELSE RTRIM(querytxt) END) WITHIN GROUP (ORDER BY sequence) as ddl
+                    LISTAGG(CASE WHEN LEN(RTRIM(querytxt)) = 0 THEN querytxt ELSE RTRIM(querytxt) END) WITHIN GROUP (ORDER BY sequence) as ddl,
+                    starttime as timestamp
                 from
                         (
                     select

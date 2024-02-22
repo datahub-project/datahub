@@ -318,7 +318,7 @@ class SqlParsingAggregator:
         )
 
     def add_known_query_lineage(
-        self, known_query_lineage: KnownQueryLineageInfo
+        self, known_query_lineage: KnownQueryLineageInfo, merge_lineage: bool = False
     ) -> None:
         """Add a query and it's precomputed lineage to the aggregator.
 
@@ -352,7 +352,8 @@ class SqlParsingAggregator:
                 upstreams=known_query_lineage.upstreams,
                 column_lineage=known_query_lineage.column_lineage or [],
                 confidence_score=1.0,
-            )
+            ),
+            merge_lineage=merge_lineage,
         )
 
         # Register the lineage.
@@ -673,7 +674,9 @@ class SqlParsingAggregator:
 
         return parsed
 
-    def _add_to_query_map(self, new: QueryMetadata) -> None:
+    def _add_to_query_map(
+        self, new: QueryMetadata, merge_lineage: bool = False
+    ) -> None:
         query_fingerprint = new.query_id
 
         if query_fingerprint in self._query_map:
@@ -686,12 +689,22 @@ class SqlParsingAggregator:
             current.latest_timestamp = new.latest_timestamp or current.latest_timestamp
             current.actor = new.actor or current.actor
 
-            # An invariant of the fingerprinting is that if two queries have the
-            # same fingerprint, they must also have the same lineage. We overwrite
-            # here just in case more schemas got registered in the interim.
-            current.upstreams = new.upstreams
-            current.column_lineage = new.column_lineage
-            current.confidence_score = new.confidence_score
+            if not merge_lineage:
+                # An invariant of the fingerprinting is that if two queries have the
+                # same fingerprint, they must also have the same lineage. We overwrite
+                # here just in case more schemas got registered in the interim.
+                current.upstreams = new.upstreams
+                current.column_lineage = new.column_lineage
+                current.confidence_score = new.confidence_score
+            else:
+                # In the case of known query lineage, we might get things one at a time.
+                # TODO: We don't yet support merging CLL for a single query.
+                current.upstreams = list(
+                    OrderedSet(current.upstreams) | OrderedSet(new.upstreams)
+                )
+                current.confidence_score = min(
+                    current.confidence_score, new.confidence_score
+                )
         else:
             self._query_map[query_fingerprint] = new
 
