@@ -118,11 +118,11 @@ class RedshiftConfig(
     )
 
     include_table_rename_lineage: bool = Field(
-        default=False,
+        default=True,
         description="Whether we should follow `alter table ... rename to` statements when computing lineage. ",
     )
-    table_lineage_mode: Optional[LineageMode] = Field(
-        default=LineageMode.STL_SCAN_BASED,
+    table_lineage_mode: LineageMode = Field(
+        default=LineageMode.MIXED,
         description="Which table lineage collector mode to use. Available modes are: [stl_scan_based, sql_based, mixed]",
     )
     extra_client_options: Dict[str, Any] = {}
@@ -143,7 +143,7 @@ class RedshiftConfig(
     )
 
     resolve_temp_table_in_lineage: bool = Field(
-        default=False,
+        default=True,
         description="Whether to resolve temp table appear in lineage to upstream permanent tables.",
     )
 
