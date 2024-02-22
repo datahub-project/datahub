@@ -300,8 +300,10 @@ public class OpenLineageToDataHub {
       UrnArray downstreamsFields = new UrnArray();
       Optional<DatasetUrn> datasetUrn =
           convertOpenlineageDatasetToDatasetUrn(dataset, mappingConfig);
-      datasetUrn.ifPresent(urn -> downstreamsFields.add(
-          UrnUtils.getUrn("urn:li:schemaField:" + "(" + urn + "," + field.getKey() + ")")));
+      datasetUrn.ifPresent(
+          urn ->
+              downstreamsFields.add(
+                  UrnUtils.getUrn("urn:li:schemaField:" + "(" + urn + "," + field.getKey() + ")")));
       OpenLineage.StaticDatasetBuilder staticDatasetBuilder =
           new OpenLineage.StaticDatasetBuilder();
       field

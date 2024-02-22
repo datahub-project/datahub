@@ -356,7 +356,8 @@ public class DatahubEventEmitter extends EventEmitter {
 
   public void emit(StreamingQueryProgress event) throws URISyntaxException {
     List<MetadataChangeProposal> mcps = new ArrayList<>();
-    for (MetadataChangeProposalWrapper mcpw : generateMcpFromStreamingProgressEvent(event, datahubConf, schemaMap)) {
+    for (MetadataChangeProposalWrapper mcpw :
+        generateMcpFromStreamingProgressEvent(event, datahubConf, schemaMap)) {
       try {
         mcps.add(eventFormatter.convert(mcpw));
       } catch (IOException e) {

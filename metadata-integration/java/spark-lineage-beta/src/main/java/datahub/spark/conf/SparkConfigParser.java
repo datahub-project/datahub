@@ -309,7 +309,6 @@ public class SparkConfigParser {
     return datahubConfig.hasPath(PATCH_ENABLED) && datahubConfig.getBoolean(PATCH_ENABLED);
   }
 
-
   public static boolean isEmitCoalescePeriodically(Config datahubConfig) {
     if (!datahubConfig.hasPath(STAGE_METADATA_COALESCING)) {
       // if databricks tags are present and stage_metadata_coalescing is not present, then default

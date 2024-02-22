@@ -34,6 +34,7 @@ import com.linkedin.metadata.aspect.patch.builder.DataJobInputOutputPatchBuilder
 import com.linkedin.metadata.aspect.patch.builder.GlobalTagsPatchBuilder;
 import com.linkedin.metadata.aspect.patch.builder.UpstreamLineagePatchBuilder;
 import com.linkedin.metadata.key.DatasetKey;
+import com.linkedin.mxe.MetadataChangeProposal;
 import datahub.event.EventFormatter;
 import datahub.event.MetadataChangeProposalWrapper;
 import io.datahubproject.openlineage.config.DatahubOpenlineageConfig;
@@ -56,10 +57,8 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
-import com.linkedin.mxe.MetadataChangeProposal;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
-
 
 @EqualsAndHashCode
 @Getter
@@ -102,7 +101,8 @@ public class DatahubJob {
         .setPlatform(new DataPlatformUrn(datasetUrn.getPlatformEntity().getPlatformNameEntity()));
 
     return MetadataChangeProposalWrapper.create(
-        b -> b.entityType(DATASET_ENTITY_TYPE).entityUrn(datasetUrn).upsert().aspect(datasetAspect));
+        b ->
+            b.entityType(DATASET_ENTITY_TYPE).entityUrn(datasetUrn).upsert().aspect(datasetAspect));
   }
 
   public List<MetadataChangeProposal> toMcps(DatahubOpenlineageConfig config) throws IOException {
@@ -112,7 +112,6 @@ public class DatahubJob {
     log.info("Generating MCPs for job: {}", jobUrn);
     addAspectToMcps(flowUrn, DATA_FLOW_ENTITY_TYPE, dataFlowInfo, mcps);
     generateStatus(flowUrn, DATA_FLOW_ENTITY_TYPE, mcps);
-
 
     // Generate and add PlatformInstance Aspect
     if (flowPlatformInstance != null) {
@@ -154,7 +153,7 @@ public class DatahubJob {
     UrnArray inputUrnArray = inputsTuple.getLeft();
     EdgeArray inputEdges = inputsTuple.getRight();
 
-    Pair<UrnArray, EdgeArray> outputTuple =  processDownstreams(config, mcps);
+    Pair<UrnArray, EdgeArray> outputTuple = processDownstreams(config, mcps);
     UrnArray outputUrnArray = outputTuple.getLeft();
     EdgeArray outputEdges = outputTuple.getRight();
 
@@ -168,11 +167,16 @@ public class DatahubJob {
     return mcps;
   }
 
-  private void generateDataJobInputOutputMcp(EdgeArray inputEdges, EdgeArray outputEdges, DatahubOpenlineageConfig config, List<MetadataChangeProposal> mcps) {
+  private void generateDataJobInputOutputMcp(
+      EdgeArray inputEdges,
+      EdgeArray outputEdges,
+      DatahubOpenlineageConfig config,
+      List<MetadataChangeProposal> mcps) {
     DataJobInputOutput dataJobInputOutput = new DataJobInputOutput();
     log.info("Adding DataJob edges to {}", jobUrn);
     if (config.isUsePatch()) {
-      DataJobInputOutputPatchBuilder dataJobInputOutputPatchBuilder = new DataJobInputOutputPatchBuilder().urn(jobUrn);
+      DataJobInputOutputPatchBuilder dataJobInputOutputPatchBuilder =
+          new DataJobInputOutputPatchBuilder().urn(jobUrn);
       for (DatahubDataset dataset : inSet) {
         dataJobInputOutputPatchBuilder.addInputDatasetEdge(dataset.getUrn());
       }
@@ -183,7 +187,9 @@ public class DatahubJob {
         dataJobInputOutputPatchBuilder.addInputDatajobEdge(parentJob);
       }
       MetadataChangeProposal dataJobInputOutputMcp = dataJobInputOutputPatchBuilder.build();
-      log.info("dataJobInputOutputMcp: {}", dataJobInputOutputMcp.getAspect().getValue().asString(Charset.defaultCharset()));
+      log.info(
+          "dataJobInputOutputMcp: {}",
+          dataJobInputOutputMcp.getAspect().getValue().asString(Charset.defaultCharset()));
       mcps.add(dataJobInputOutputPatchBuilder.build());
 
     } else {
@@ -194,32 +200,41 @@ public class DatahubJob {
       DataJobUrnArray parentDataJobUrnArray = new DataJobUrnArray();
       parentDataJobUrnArray.addAll(parentJobs);
 
-      log.info("Adding input data jobs {} Number of jobs: {}", jobUrn, parentDataJobUrnArray.size());
+      log.info(
+          "Adding input data jobs {} Number of jobs: {}", jobUrn, parentDataJobUrnArray.size());
       dataJobInputOutput.setInputDatajobs(parentDataJobUrnArray);
       addAspectToMcps(jobUrn, DATAJOB_ENTITY_TYPE, dataJobInputOutput, mcps);
     }
   }
 
-  private void generateDataProcessInstanceMcp(UrnArray inputUrnArray, UrnArray outputUrnArray, List<MetadataChangeProposal> mcps) {
+  private void generateDataProcessInstanceMcp(
+      UrnArray inputUrnArray, UrnArray outputUrnArray, List<MetadataChangeProposal> mcps) {
     DataProcessInstanceInput dataProcessInstanceInput = new DataProcessInstanceInput();
     dataProcessInstanceInput.setInputs(inputUrnArray);
 
     DataProcessInstanceOutput dataProcessInstanceOutput = new DataProcessInstanceOutput();
     dataProcessInstanceOutput.setOutputs(outputUrnArray);
 
-    addAspectToMcps(dataProcessInstanceUrn, DATA_PROCESS_INSTANCE_ENTITY_TYPE, dataProcessInstanceInput, mcps);
-    addAspectToMcps(dataProcessInstanceUrn, DATA_PROCESS_INSTANCE_ENTITY_TYPE, dataProcessInstanceOutput, mcps);
+    addAspectToMcps(
+        dataProcessInstanceUrn, DATA_PROCESS_INSTANCE_ENTITY_TYPE, dataProcessInstanceInput, mcps);
+    addAspectToMcps(
+        dataProcessInstanceUrn, DATA_PROCESS_INSTANCE_ENTITY_TYPE, dataProcessInstanceOutput, mcps);
 
     if (dataProcessInstanceProperties != null) {
       log.info("Adding dataProcessInstanceProperties to {}", jobUrn);
-      addAspectToMcps(dataProcessInstanceUrn, DATA_PROCESS_INSTANCE_ENTITY_TYPE, dataProcessInstanceProperties, mcps);
+      addAspectToMcps(
+          dataProcessInstanceUrn,
+          DATA_PROCESS_INSTANCE_ENTITY_TYPE,
+          dataProcessInstanceProperties,
+          mcps);
     }
 
     generateDataProcessInstanceRunEvent(mcps);
     generateDataProcessInstanceRelationship(mcps);
   }
 
-  private Pair<UrnArray, EdgeArray> processDownstreams(DatahubOpenlineageConfig config, List<MetadataChangeProposal> mcps) {
+  private Pair<UrnArray, EdgeArray> processDownstreams(
+      DatahubOpenlineageConfig config, List<MetadataChangeProposal> mcps) {
     UrnArray outputUrnArray = new UrnArray();
     EdgeArray outputEdges = new EdgeArray();
 
@@ -242,32 +257,44 @@ public class DatahubJob {
           outputEdges.add(edge);
 
           if ((dataset.getSchemaMetadata() != null) && (config.isIncludeSchemaMetadata())) {
-            addAspectToMcps(dataset.getUrn(), DATASET_ENTITY_TYPE, dataset.getSchemaMetadata(), mcps);
+            addAspectToMcps(
+                dataset.getUrn(), DATASET_ENTITY_TYPE, dataset.getSchemaMetadata(), mcps);
           }
 
           if (dataset.getLineage() != null) {
             if (config.isUsePatch()) {
-              UpstreamLineagePatchBuilder upstreamLineagePatchBuilder = new UpstreamLineagePatchBuilder().urn(dataset.getUrn());
+              UpstreamLineagePatchBuilder upstreamLineagePatchBuilder =
+                  new UpstreamLineagePatchBuilder().urn(dataset.getUrn());
               for (Upstream upstream : dataset.getLineage().getUpstreams()) {
                 upstreamLineagePatchBuilder.addUpstream(upstream.getDataset(), upstream.getType());
               }
 
               log.info("Adding FineGrainedLineage to {}", dataset.getUrn());
-              for (FineGrainedLineage fineGrainedLineage : Objects.requireNonNull(
-                  dataset.getLineage().getFineGrainedLineages())) {
+              for (FineGrainedLineage fineGrainedLineage :
+                  Objects.requireNonNull(dataset.getLineage().getFineGrainedLineages())) {
                 for (Urn upstream : Objects.requireNonNull(fineGrainedLineage.getUpstreams())) {
                   upstreamLineagePatchBuilder.addFineGrainedUpstreamField(
-                      upstream, fineGrainedLineage.getConfidenceScore(), StringUtils.defaultIfEmpty(fineGrainedLineage.getTransformOperation(), "TRANSFORM"), fineGrainedLineage.getUpstreamType());
+                      upstream,
+                      fineGrainedLineage.getConfidenceScore(),
+                      StringUtils.defaultIfEmpty(
+                          fineGrainedLineage.getTransformOperation(), "TRANSFORM"),
+                      fineGrainedLineage.getUpstreamType());
                 }
                 for (Urn downstream : Objects.requireNonNull(fineGrainedLineage.getDownstreams())) {
                   upstreamLineagePatchBuilder.addFineGrainedDownstreamField(
-                      downstream, fineGrainedLineage.getConfidenceScore(), StringUtils.defaultIfEmpty(fineGrainedLineage.getTransformOperation(), "TRANSFORM"), fineGrainedLineage.getDownstreamType());
+                      downstream,
+                      fineGrainedLineage.getConfidenceScore(),
+                      StringUtils.defaultIfEmpty(
+                          fineGrainedLineage.getTransformOperation(), "TRANSFORM"),
+                      fineGrainedLineage.getDownstreamType());
                 }
               }
               MetadataChangeProposal mcp = upstreamLineagePatchBuilder.build();
-              log.info("upstreamLineagePatch: {}", mcp.getAspect().getValue().asString(Charset.defaultCharset()));
+              log.info(
+                  "upstreamLineagePatch: {}",
+                  mcp.getAspect().getValue().asString(Charset.defaultCharset()));
               mcps.add(mcp);
-            }else {
+            } else {
               addAspectToMcps(dataset.getUrn(), DATASET_ENTITY_TYPE, dataset.getLineage(), mcps);
             }
           }
@@ -275,7 +302,8 @@ public class DatahubJob {
     return Pair.of(outputUrnArray, outputEdges);
   }
 
-  private Pair<UrnArray, EdgeArray> processUpstreams(DatahubOpenlineageConfig config, List<MetadataChangeProposal> mcps) {
+  private Pair<UrnArray, EdgeArray> processUpstreams(
+      DatahubOpenlineageConfig config, List<MetadataChangeProposal> mcps) {
     UrnArray inputUrnArray = new UrnArray();
     EdgeArray inputEdges = new EdgeArray();
 
@@ -298,7 +326,8 @@ public class DatahubJob {
           }
 
           if (dataset.getSchemaMetadata() != null && config.isIncludeSchemaMetadata()) {
-            addAspectToMcps(dataset.getUrn(), DATASET_ENTITY_TYPE, dataset.getSchemaMetadata(), mcps);
+            addAspectToMcps(
+                dataset.getUrn(), DATASET_ENTITY_TYPE, dataset.getSchemaMetadata(), mcps);
           }
 
           if (dataset.getLineage() != null) {
@@ -308,11 +337,16 @@ public class DatahubJob {
     return Pair.of(inputUrnArray, inputEdges);
   }
 
-  private void generateFlowDomainsAspect(List<MetadataChangeProposal> mcps, StringMap customProperties) {
+  private void generateFlowDomainsAspect(
+      List<MetadataChangeProposal> mcps, StringMap customProperties) {
     if (flowDomains != null) {
       MetadataChangeProposalWrapper domains =
           MetadataChangeProposalWrapper.create(
-              b -> b.entityType(DATAFLOW_ENTITY_TYPE).entityUrn(flowUrn).upsert().aspect(flowDomains));
+              b ->
+                  b.entityType(DATAFLOW_ENTITY_TYPE)
+                      .entityUrn(flowUrn)
+                      .upsert()
+                      .aspect(flowDomains));
       try {
         mcps.add(eventFormatter.convert(domains));
       } catch (IOException e) {
@@ -321,7 +355,11 @@ public class DatahubJob {
     }
   }
 
-  private void generateFlowGlobalTagsAspect(Urn flowUrn, GlobalTags flowGlobalTags, DatahubOpenlineageConfig config, List<MetadataChangeProposal> mcps) {
+  private void generateFlowGlobalTagsAspect(
+      Urn flowUrn,
+      GlobalTags flowGlobalTags,
+      DatahubOpenlineageConfig config,
+      List<MetadataChangeProposal> mcps) {
     if (flowGlobalTags != null) {
       if (config.isUsePatch()) {
         GlobalTagsPatchBuilder globalTagsPatchBuilder = new GlobalTagsPatchBuilder().urn(flowUrn);
@@ -341,9 +379,11 @@ public class DatahubJob {
     addAspectToMcps(entityUrn, entityType, statusInfo, mcps);
   }
 
-  private void addAspectToMcps(Urn entityUrn, String entityType, DataTemplate aspect, List<MetadataChangeProposal> mcps) {
-    MetadataChangeProposalWrapper mcpw = MetadataChangeProposalWrapper.create(
-        b -> b.entityType(entityType).entityUrn(entityUrn).upsert().aspect(aspect));
+  private void addAspectToMcps(
+      Urn entityUrn, String entityType, DataTemplate aspect, List<MetadataChangeProposal> mcps) {
+    MetadataChangeProposalWrapper mcpw =
+        MetadataChangeProposalWrapper.create(
+            b -> b.entityType(entityType).entityUrn(entityUrn).upsert().aspect(aspect));
     try {
       mcps.add(eventFormatter.convert(mcpw));
     } catch (IOException e) {
@@ -355,13 +395,14 @@ public class DatahubJob {
     if (dataProcessInstanceRelationships != null) {
       log.info("Adding dataProcessInstanceRelationships to {}", jobUrn);
       try {
-        mcps.add(eventFormatter.convert(
-            MetadataChangeProposalWrapper.create(
-                b ->
-                    b.entityType(DATA_PROCESS_INSTANCE_ENTITY_TYPE)
-                        .entityUrn(dataProcessInstanceUrn)
-                        .upsert()
-                        .aspect(dataProcessInstanceRelationships))));
+        mcps.add(
+            eventFormatter.convert(
+                MetadataChangeProposalWrapper.create(
+                    b ->
+                        b.entityType(DATA_PROCESS_INSTANCE_ENTITY_TYPE)
+                            .entityUrn(dataProcessInstanceUrn)
+                            .upsert()
+                            .aspect(dataProcessInstanceRelationships))));
       } catch (IOException e) {
         throw new RuntimeException(e);
       }
@@ -372,13 +413,14 @@ public class DatahubJob {
     if (dataProcessInstanceRunEvent != null) {
       log.info("Adding dataProcessInstanceRunEvent to {}", jobUrn);
       try {
-        mcps.add(eventFormatter.convert(
-            MetadataChangeProposalWrapper.create(
-                b ->
-                    b.entityType(DATA_PROCESS_INSTANCE_ENTITY_TYPE)
-                        .entityUrn(dataProcessInstanceUrn)
-                        .upsert()
-                        .aspect(dataProcessInstanceRunEvent))));
+        mcps.add(
+            eventFormatter.convert(
+                MetadataChangeProposalWrapper.create(
+                    b ->
+                        b.entityType(DATA_PROCESS_INSTANCE_ENTITY_TYPE)
+                            .entityUrn(dataProcessInstanceUrn)
+                            .upsert()
+                            .aspect(dataProcessInstanceRunEvent))));
       } catch (IOException e) {
         throw new RuntimeException(e);
       }

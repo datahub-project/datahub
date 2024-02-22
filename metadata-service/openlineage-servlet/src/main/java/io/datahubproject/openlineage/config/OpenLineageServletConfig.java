@@ -17,9 +17,10 @@ public class OpenLineageServletConfig {
             .commonDatasetPlatformInstance(null)
             .platform(null)
             .filePartitionRegexpPattern(null)
-            .materializeDataset(false)
-            .includeSchemaMetadata(false)
+            .materializeDataset(true)
+            .includeSchemaMetadata(true)
             .captureColumnLevelLineage(true)
+            .usePatch(false)
             .parentJobUrn(null)
             .build();
     return RunEventMapper.MappingConfig.builder().datahubConfig(datahubOpenlineageConfig).build();
