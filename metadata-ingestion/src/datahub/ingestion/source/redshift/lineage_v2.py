@@ -212,7 +212,7 @@ class RedshiftSqlLineageV2:
     ) -> None:
         logger.info(f"Extracting {lineage_type.name} lineage for db {self.database}")
         try:
-            logger.debug(f"Processing lineage query: {query}")
+            logger.debug(f"Processing {lineage_type.name} lineage query: {query}")
 
             for lineage_row in RedshiftDataDictionary.get_lineage_rows(
                 conn=connection, query=query
