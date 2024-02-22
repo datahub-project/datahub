@@ -1,9 +1,10 @@
 import logging
 import traceback
-from typing import Callable, Iterable, List, Optional, Tuple
+from typing import Callable, Dict, Iterable, List, Optional, Tuple, Union
 
 import redshift_connector
 
+from datahub.emitter import mce_builder
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.redshift.config import LineageMode, RedshiftConfig
@@ -15,6 +16,9 @@ from datahub.ingestion.source.redshift.query import RedshiftQuery
 from datahub.ingestion.source.redshift.redshift_schema import (
     LineageRow,
     RedshiftDataDictionary,
+    RedshiftSchema,
+    RedshiftTable,
+    RedshiftView,
 )
 from datahub.ingestion.source.redshift.report import RedshiftReport
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
@@ -40,13 +44,14 @@ class RedshiftSqlLineageV2:
         database: str,
         redundant_run_skip_handler: Optional[RedundantLineageRunSkipHandler] = None,
     ):
+        self.platform = "redshift"
         self.config = config
         self.report = report
         self.context = context
 
         self.database = database
         self.aggregator = SqlParsingAggregator(
-            platform="redshift",
+            platform=self.platform,
             platform_instance=self.config.platform_instance,
             env=self.config.env,
             generate_lineage=True,
@@ -70,7 +75,27 @@ class RedshiftSqlLineageV2:
             self.report.lineage_end_time,
         ) = self._lineage_v1.get_time_window()
 
-    def build(self, connection: redshift_connector.Connection) -> None:
+    def build(
+        self,
+        connection: redshift_connector.Connection,
+        all_tables: Dict[str, Dict[str, List[Union[RedshiftView, RedshiftTable]]]],
+        db_schemas: Dict[str, Dict[str, RedshiftSchema]],
+    ) -> None:
+        # Assume things not in `all_tables` as temp tables.
+        known_urns = set(
+            DatasetUrn.create_from_ids(
+                self.platform,
+                f"{db}.{schema}.{table.name}",
+                env=self.config.env,
+                platform_instance=self.config.platform_instance,
+            ).urn()
+            for db, schemas in all_tables.items()
+            for schema, tables in schemas.items()
+            for table in tables
+        )
+        self.aggregator.is_temp_table = lambda urn: urn not in known_urns
+
+        # Handle all the temp tables up front.
         if self.config.resolve_temp_table_in_lineage:
             for temp_row in self._lineage_v1.get_temp_tables(connection=connection):
                 self.aggregator.add_observed_query(
@@ -173,7 +198,8 @@ class RedshiftSqlLineageV2:
                 connection=connection,
             )
 
-        # TODO add lineage for external tables
+        # Populate lineage for external tables.
+        self._process_external_tables(all_tables=all_tables, db_schemas=db_schemas)
 
     def _populate_lineage_agg(
         self,
@@ -214,13 +240,13 @@ class RedshiftSqlLineageV2:
 
     def _process_stl_scan_lineage(self, lineage_row: LineageRow) -> None:
         target = DatasetUrn.create_from_ids(
-            "redshift",
+            self.platform,
             f"{self.database}.{lineage_row.target_schema}.{lineage_row.target_table}",
             env=self.config.env,
             platform_instance=self.config.platform_instance,
         )
         source = DatasetUrn.create_from_ids(
-            "redshift",
+            self.platform,
             f"{self.database}.{lineage_row.source_schema}.{lineage_row.source_table}",
             env=self.config.env,
             platform_instance=self.config.platform_instance,
@@ -246,7 +272,7 @@ class RedshiftSqlLineageV2:
             f"{self.database}.{lineage_row.target_schema}.{lineage_row.target_table}"
         )
         target = DatasetUrn.create_from_ids(
-            "redshift",
+            self.platform,
             target_name,
             env=self.config.env,
             platform_instance=self.config.platform_instance,
@@ -275,7 +301,7 @@ class RedshiftSqlLineageV2:
         if not lineage_row.target_schema or not lineage_row.target_table:
             return
         target = DatasetUrn.create_from_ids(
-            "redshift",
+            self.platform,
             f"{self.database}.{lineage_row.target_schema}.{lineage_row.target_table}",
             env=self.config.env,
             platform_instance=self.config.platform_instance,
@@ -299,7 +325,7 @@ class RedshiftSqlLineageV2:
         if not lineage_row.source_schema or not lineage_row.source_table:
             return
         source = DatasetUrn.create_from_ids(
-            "redshift",
+            self.platform,
             f"{self.database}.{lineage_row.source_schema}.{lineage_row.source_table}",
             env=self.config.env,
             platform_instance=self.config.platform_instance,
@@ -308,6 +334,41 @@ class RedshiftSqlLineageV2:
         self.aggregator.add_known_lineage_mapping(
             upstream_urn=source.urn(), downstream_urn=output_urn
         )
+
+    def _process_external_tables(
+        self,
+        all_tables: Dict[str, Dict[str, List[Union[RedshiftView, RedshiftTable]]]],
+        db_schemas: Dict[str, Dict[str, RedshiftSchema]],
+    ) -> None:
+        for schema_name, tables in all_tables[self.database].items():
+            for table in tables:
+                if table.type == "EXTERNAL_TABLE":
+                    schema = db_schemas[self.database][schema_name]
+
+                    # external_db_params = schema.option
+                    upstream_platform = schema.type.lower()
+
+                    table_urn = mce_builder.make_dataset_urn_with_platform_instance(
+                        self.platform,
+                        f"{self.database}.{schema_name}.{table.name}",
+                        platform_instance=self.config.platform_instance,
+                        env=self.config.env,
+                    )
+                    upstream_urn = mce_builder.make_dataset_urn_with_platform_instance(
+                        upstream_platform,
+                        f"{schema.external_database}.{table.name}",
+                        platform_instance=(
+                            self.config.platform_instance_map.get(upstream_platform)
+                            if self.config.platform_instance_map
+                            else None
+                        ),
+                        env=self.config.env,
+                    )
+
+                    self.aggregator.add_known_lineage_mapping(
+                        upstream_urn=upstream_urn,
+                        downstream_urn=table_urn,
+                    )
 
     def generate(self) -> Iterable[MetadataWorkUnit]:
         for mcp in self.aggregator.gen_metadata():

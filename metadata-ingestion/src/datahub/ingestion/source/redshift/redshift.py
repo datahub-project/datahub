@@ -961,13 +961,17 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             return
 
         with PerfTimer() as timer:
-            lineage_extractor.build(connection=connection)
+            all_tables = self.get_all_tables()
+
+            lineage_extractor.build(
+                connection=connection, all_tables=all_tables, db_schemas=self.db_schemas
+            )
+
+            yield from lineage_extractor.generate()
 
             self.report.lineage_extraction_sec[f"{database}"] = round(
                 timer.elapsed_seconds(), 2
             )
-
-            yield from lineage_extractor.generate()
 
         if self.redundant_lineage_run_skip_handler:
             # Update the checkpoint state for this run.
