@@ -96,7 +96,7 @@ export const EvaluationScheduleBuilder = ({
     const updateInterval = (newInterval: string, extra: SetValueFunctionExtra) => {
         let cron = newInterval
         // If period has changed, reset to default
-        if (currentIntervalPeriodRef.current != extra.selectedPeriod) {
+        if (currentIntervalPeriodRef.current !== extra.selectedPeriod) {
             currentIntervalPeriodRef.current = extra.selectedPeriod
             switch (extra.selectedPeriod) {
                 case 'month':
@@ -113,6 +113,8 @@ export const EvaluationScheduleBuilder = ({
                     break;
                 case 'minute':
                     cron = '* * * * *'
+                    break;
+                default:
                     break;
             }
         }
