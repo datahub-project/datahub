@@ -1,13 +1,11 @@
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
 import { Divider } from 'antd';
-import PlatformContent from './PlatformContent';
 import { EntityHealth } from './EntityHealth';
 import EntityName from './EntityName';
 import { DeprecationPill } from '../../../components/styled/DeprecationPill';
 import EntityActions, { EntityActionItem } from '../../../entity/EntityActions';
 import EntityTitleLoadingSection from './EntityHeaderLoadingSection';
-import EntityPlatformLoadingSection from './EntityPlatformLoadingSection';
 import IconColorPicker from './IconPicker/IconColorPicker';
 import { EntitySubHeaderSection } from '../../../types';
 import { DisplayProperties, Domain, EntityType } from '../../../../../../types.generated';
@@ -74,11 +72,6 @@ export const StyledDivider = styled(Divider)`
 // TODO: Fix the styles here to avoid requiring this.
 const SubHeader = styled.div`
     padding: 0px 24px 8px 24px;
-`;
-
-const EntityTitleWrapper = styled.div`
-    display: flex;
-    flex-direction: column;
 `;
 
 export type Props = {
