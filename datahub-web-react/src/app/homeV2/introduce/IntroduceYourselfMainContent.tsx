@@ -10,6 +10,7 @@ import { PLATFORMS_MODULE_ID } from '../content/tabs/discovery/sections/platform
 import { ROLE_TO_PERSONA_TYPE } from '../shared/types';
 import { useUpdateCorpUserPropertiesMutation } from '../../../graphql/user.generated';
 import { useGetDataPlatforms } from '../content/tabs/discovery/sections/platform/useGetDataPlatforms';
+import analytics, { EventType } from '../../analytics';
 import PlatformIcon from '../../sharedV2/icons/PlatformIcon';
 
 const Container = styled.div`
@@ -29,6 +30,11 @@ const Content = styled.div`
     min-height: 100%;
     display: flex;
     flex-direction: column;
+    .ant-select-selection-item {
+        align-items: center;
+        gap: 4px;
+        height: 42px !important;
+    }
 `;
 
 const Title = styled.div`
@@ -186,6 +192,11 @@ export const IntroduceYourselfMainContent = () => {
             },
         })
             .then(async () => {
+                analytics.event({
+                    type: EventType.IntroduceYourselfSubmitEvent,
+                    role: selectedPersona,
+                    platformUrns: selectedPlatforms || [],
+                });
                 await refetchUser();
                 history.push('/');
             })

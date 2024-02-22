@@ -99,7 +99,8 @@ public enum DataHubUsageEventType {
   INBOX_PAGE_VIEW_EVENT("InboxPageViewEvent"),
   SHOW_THEME_V2_EVENT("ShowV2ThemeEvent"),
   REVERT_THEME_V2_EVENT("RevertV2ThemeEvent"),
-  INTRODUCE_YOURSELF_VIEW_EVENT("IntroduceYourselfViewEvent");
+  INTRODUCE_YOURSELF_VIEW_EVENT("IntroduceYourselfViewEvent"),
+  INTRODUCE_YOURSELF_SUBMIT_EVENT("IntroduceYourselfSubmitEvent");
 
   private final String type;
 
