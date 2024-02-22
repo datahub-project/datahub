@@ -502,20 +502,20 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         # generate sibling and lineage aspects in case of EXTERNAL DELTA TABLE
         if (
             table_props.customProperties.get("table_type")
-            == HiveTableType.HIVE_EXTERNAL_TABLE
+            == "EXTERNAL"
             and table_props.customProperties.get("data_source_format") == "DELTA"
         ):
             storage_location = str(table_props.customProperties.get("storage_location"))
-            browse_path = strip_s3_prefix(storage_location)
-
-            source_dataset_urn = make_dataset_urn_with_platform_instance(
-                self.platform,
-                browse_path,
-                self.platform_instance_name,
-                self.config.env,
-            )
-            yield from self.gen_siblings_workunit(dataset_urn, source_dataset_urn)
-            yield from self.gen_lineage_workunit(dataset_urn, source_dataset_urn)
+            if storage_location.startswith("s3://"):
+                browse_path = strip_s3_prefix(storage_location)
+                source_dataset_urn = make_dataset_urn_with_platform_instance(
+                    self.platform,
+                    browse_path,
+                    self.platform_instance_name,
+                    self.config.env,
+                )
+                yield from self.gen_siblings_workunit(dataset_urn, source_dataset_urn)
+                yield from self.gen_lineage_workunit(dataset_urn, source_dataset_urn)
 
         yield from [
             mcp.as_workunit()
