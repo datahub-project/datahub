@@ -87,6 +87,10 @@ export const EDITED_DESCRIPTIONS_CACHE_NAME = 'editedDescriptions';
 
 export const FORBIDDEN_URN_CHARS_REGEX = /.*[(),\\].*/;
 
+export enum SidebarTitleActionType {
+    LineageExplore = 'Lineage Explore',
+};
+
 /**
  * Utility function for checking whether a list is a subset of another.
  */

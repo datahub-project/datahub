@@ -51,7 +51,7 @@ import { IncidentTab } from '../shared/tabs/Incident/IncidentTab';
 import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
 import { GenericEntityProperties, TabContextType } from '../shared/types';
-import { getDataProduct, isOutputPort } from '../shared/utils';
+import { SidebarTitleActionType, getDataProduct, isOutputPort } from '../shared/utils';
 import { Preview } from './preview/Preview';
 import { OperationsTab } from './profile/OperationsTab';
 import { DatasetStatsSummarySubHeader } from './profile/stats/stats/DatasetStatsSummarySubHeader';
@@ -283,6 +283,9 @@ export class DatasetEntity implements Entity<Dataset> {
             component: LineageTab,
             description: "View this data asset's upstream and downstream dependencies",
             icon: PartitionOutlined,
+            properties: {
+                actionType: SidebarTitleActionType.LineageExplore,
+            },
         },
         {
             name: 'Columns',
@@ -340,13 +343,13 @@ export class DatasetEntity implements Entity<Dataset> {
                 externalUrl={data.properties?.externalUrl}
                 health={data.health}
                 tier={
-                    (isValuePresent(data?.statsSummary?.queryCountPercentileLast30Days) &&
-                        isValuePresent(data?.statsSummary?.uniqueUserPercentileLast30Days) &&
-                        getDatasetPopularityTier(
-                            data.statsSummary?.queryCountPercentileLast30Days,
-                            data.statsSummary?.uniqueUserPercentileLast30Days,
-                        )) ||
-                    undefined
+                    isValuePresent(data?.statsSummary?.queryCountPercentileLast30Days) &&
+                    isValuePresent(data?.statsSummary?.uniqueUserPercentileLast30Days)
+                        ? getDatasetPopularityTier(
+                              data.statsSummary?.queryCountPercentileLast30Days,
+                              data.statsSummary?.uniqueUserPercentileLast30Days,
+                          )
+                        : undefined
                 }
                 upstreamTotal={(data as any)?.upstream?.total}
                 downstreamTotal={(data as any)?.downstream?.total}
@@ -396,13 +399,13 @@ export class DatasetEntity implements Entity<Dataset> {
                 paths={(result as any).paths}
                 isOutputPort={isOutputPort(result)}
                 tier={
-                    (isValuePresent(data?.statsSummary?.queryCountPercentileLast30Days) &&
-                        isValuePresent(data?.statsSummary?.uniqueUserPercentileLast30Days) &&
-                        getDatasetPopularityTier(
-                            data.statsSummary?.queryCountPercentileLast30Days,
-                            data.statsSummary?.uniqueUserPercentileLast30Days,
-                        )) ||
-                    undefined
+                    isValuePresent(data?.statsSummary?.queryCountPercentileLast30Days) &&
+                    isValuePresent(data?.statsSummary?.uniqueUserPercentileLast30Days)
+                        ? getDatasetPopularityTier(
+                              data.statsSummary?.queryCountPercentileLast30Days,
+                              data.statsSummary?.uniqueUserPercentileLast30Days,
+                          )
+                        : undefined
                 }
                 upstreamTotal={(data as any)?.upstream?.total}
                 downstreamTotal={(data as any)?.downstream?.total}

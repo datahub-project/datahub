@@ -4,6 +4,7 @@ import { Typography } from 'antd';
 import EntitySidebarContext from '../../../../../shared/EntitySidebarContext';
 import { REDESIGN_COLORS } from '../../../constants';
 import { EntitySidebarTab } from '../../../types';
+import { TitleAction } from './TitleAction';
 
 const Controls = styled.div<{ isCollapsed: boolean }>`
     display: flex;
@@ -20,6 +21,7 @@ const Title = styled.div`
     align-items: start;
     justify-content: center;
     gap: 2px;
+    width: 100%;
 `;
 
 const TabTitle = styled(Typography.Text)`
@@ -36,6 +38,12 @@ const TitleDescription = styled(Typography.Text)`
     opacity: 0.5;
 `;
 
+const Top = styled.div`
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+`;
+
 interface Props {
     currentTab?: EntitySidebarTab;
 }
@@ -45,12 +53,18 @@ export default function SidebarCollapsibleHeader({ currentTab }: Props) {
 
     const currentTabName = currentTab?.name === 'About' ? 'Summary' : currentTab?.name;
     const currentTabDescription = currentTab?.description;
+    const actionType = currentTab?.properties?.actionType;
+    const icon = currentTab?.icon;
 
     return (
         <Controls isCollapsed={isClosed}>
             {!isClosed && currentTab && (
                 <Title>
-                    <TabTitle>{currentTabName}</TabTitle>
+                    <Top>
+                        <TabTitle>{currentTabName}</TabTitle>
+                        {actionType && <TitleAction actionType={actionType} icon={icon} />}
+                    </Top>
+
                     {currentTabDescription && <TitleDescription> {currentTabDescription}</TitleDescription>}
                 </Title>
             )}
