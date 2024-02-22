@@ -1,14 +1,12 @@
 package com.linkedin.metadata.entity.ebean.batch;
 
-import static com.linkedin.metadata.entity.AspectUtils.validateAspect;
-
 import com.datahub.util.exception.ModelConversionException;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.events.metadata.ChangeType;
-import com.linkedin.metadata.aspect.batch.MCLBatchItem;
-import com.linkedin.metadata.aspect.plugins.validation.AspectRetriever;
-import com.linkedin.metadata.entity.EntityUtils;
+import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.aspect.batch.MCLItem;
+import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.entity.validation.ValidationUtils;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
@@ -26,7 +24,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @Getter
 @Builder(toBuilder = true)
-public class MCLBatchItemImpl implements MCLBatchItem {
+public class MCLItemImpl implements MCLItem {
 
   @Nonnull private final MetadataChangeLog metadataChangeLog;
 
@@ -38,19 +36,18 @@ public class MCLBatchItemImpl implements MCLBatchItem {
   private final EntitySpec entitySpec;
   private final AspectSpec aspectSpec;
 
-  public static class MCLBatchItemImplBuilder {
+  public static class MCLItemImplBuilder {
 
     // Ensure use of other builders
-    private MCLBatchItemImpl build() {
+    private MCLItemImpl build() {
       return null;
     }
 
-    public MCLBatchItemImpl build(
-        MetadataChangeLog metadataChangeLog, AspectRetriever aspectRetriever) {
-      return MCLBatchItemImpl.builder().metadataChangeLog(metadataChangeLog).build(aspectRetriever);
+    public MCLItemImpl build(MetadataChangeLog metadataChangeLog, AspectRetriever aspectRetriever) {
+      return MCLItemImpl.builder().metadataChangeLog(metadataChangeLog).build(aspectRetriever);
     }
 
-    public MCLBatchItemImpl build(AspectRetriever aspectRetriever) {
+    public MCLItemImpl build(AspectRetriever aspectRetriever) {
       EntityRegistry entityRegistry = aspectRetriever.getEntityRegistry();
 
       log.debug("entity type = {}", this.metadataChangeLog.getEntityType());
@@ -58,7 +55,7 @@ public class MCLBatchItemImpl implements MCLBatchItem {
           aspectRetriever
               .getEntityRegistry()
               .getEntitySpec(this.metadataChangeLog.getEntityType()));
-      aspectSpec(validateAspect(this.metadataChangeLog, this.entitySpec));
+      aspectSpec(AspectUtils.validateAspect(this.metadataChangeLog, this.entitySpec));
 
       Urn urn = this.metadataChangeLog.getEntityUrn();
       if (urn == null) {
@@ -66,7 +63,7 @@ public class MCLBatchItemImpl implements MCLBatchItem {
             EntityKeyUtils.getUrnFromLog(
                 this.metadataChangeLog, this.entitySpec.getKeyAspectSpec());
       }
-      EntityUtils.validateUrn(entityRegistry, urn);
+      ValidationUtils.validateUrn(entityRegistry, urn);
       log.debug("entity type = {}", urn.getEntityType());
 
       entitySpec(entityRegistry.getEntitySpec(urn.getEntityType()));
@@ -80,14 +77,9 @@ public class MCLBatchItemImpl implements MCLBatchItem {
 
       // validate new
       ValidationUtils.validateRecordTemplate(
-          this.metadataChangeLog.getChangeType(),
-          this.entitySpec,
-          this.aspectSpec,
-          urn,
-          aspects.getFirst(),
-          aspectRetriever);
+          this.entitySpec, urn, aspects.getFirst(), aspectRetriever);
 
-      return new MCLBatchItemImpl(
+      return new MCLItemImpl(
           this.metadataChangeLog,
           aspects.getFirst(),
           aspects.getSecond(),
@@ -95,12 +87,12 @@ public class MCLBatchItemImpl implements MCLBatchItem {
           this.aspectSpec);
     }
 
-    private MCLBatchItemImplBuilder entitySpec(EntitySpec entitySpec) {
+    private MCLItemImplBuilder entitySpec(EntitySpec entitySpec) {
       this.entitySpec = entitySpec;
       return this;
     }
 
-    private MCLBatchItemImplBuilder aspectSpec(AspectSpec aspectSpec) {
+    private MCLItemImplBuilder aspectSpec(AspectSpec aspectSpec) {
       this.aspectSpec = aspectSpec;
       return this;
     }
@@ -150,7 +142,7 @@ public class MCLBatchItemImpl implements MCLBatchItem {
       return false;
     }
 
-    MCLBatchItemImpl that = (MCLBatchItemImpl) o;
+    MCLItemImpl that = (MCLItemImpl) o;
 
     return metadataChangeLog.equals(that.metadataChangeLog);
   }
