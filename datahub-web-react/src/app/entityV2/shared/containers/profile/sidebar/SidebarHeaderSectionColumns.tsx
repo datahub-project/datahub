@@ -59,18 +59,14 @@ const Title = styled.div`
     color: ${REDESIGN_COLORS.DARK_GREY};
 `;
 
-const EntityTitle = styled.div<{ showEntityName?: boolean }>`
+const EntityTitle = styled.div`
     font-size: 16px;
-    font-weight: 800;
+    font-weight: 700;
     line-height: 20px;
-    color: ${REDESIGN_COLORS.HEADING_COLOR};
-    ${(props) =>
-        props.showEntityName &&
-        `
+    color: ${REDESIGN_COLORS.LINK_HOVER_BLUE};
     :hover {
-        color: ${REDESIGN_COLORS.TITLE_PURPLE};
+        text-decoration: underline;
     }
-    `}
 `;
 
 type SidebarStatsColumn = {
@@ -97,7 +93,7 @@ export const SidebarHeaderSectionColumns = ({ columns }: Props) => {
             {showEntityName && (
                 <EntityName>
                     <a href={entityRegistry.getEntityUrl(entityType, urn)}>
-                        <EntityTitle showEntityName={showEntityName}> {entityName}</EntityTitle>
+                        <EntityTitle> {entityName}</EntityTitle>
                     </a>
                 </EntityName>
             )}

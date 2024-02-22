@@ -15,7 +15,7 @@ const PillsContainer = styled.div`
     gap: 5px;
     display: flex;
     flex-direction: row;
-    align-items: left;
+    align-items: center;
     height: 30px;
 `;
 
