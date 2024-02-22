@@ -41,7 +41,7 @@ import { DashboardDatasetsTab } from '../shared/tabs/Entity/DashboardDatasetsTab
 import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
 import { GenericEntityProperties } from '../shared/types';
-import { getDataProduct, isOutputPort } from '../shared/utils';
+import { SidebarTitleActionType, getDataProduct, isOutputPort } from '../shared/utils';
 import { DashboardPreview } from './preview/DashboardPreview';
 import { DashboardStatsSummarySubHeader } from './profile/DashboardStatsSummarySubHeader';
 
@@ -200,6 +200,9 @@ export class DashboardEntity implements Entity<Dashboard> {
             component: LineageTab,
             description: "View this data asset's upstream and downstream dependencies",
             icon: PartitionOutlined,
+            properties: {
+                actionType: SidebarTitleActionType.LineageExplore,
+            },
         },
         {
             name: 'Properties',
@@ -245,13 +248,13 @@ export class DashboardEntity implements Entity<Dashboard> {
                 createdMs={data.properties?.created?.time}
                 subtype={data.subTypes?.typeNames?.[0]}
                 tier={
-                    (isValuePresent(data?.statsSummary?.viewCountPercentileLast30Days) &&
-                        isValuePresent(data?.statsSummary?.uniqueUserPercentileLast30Days) &&
-                        getDashboardPopularityTier(
-                            data.statsSummary?.viewCountPercentileLast30Days,
-                            data.statsSummary?.uniqueUserPercentileLast30Days,
-                        )) ||
-                    undefined
+                    isValuePresent(data?.statsSummary?.viewCountPercentileLast30Days) &&
+                    isValuePresent(data?.statsSummary?.uniqueUserPercentileLast30Days)
+                        ? getDashboardPopularityTier(
+                              data.statsSummary?.viewCountPercentileLast30Days,
+                              data.statsSummary?.uniqueUserPercentileLast30Days,
+                          )
+                        : undefined
                 }
                 upstreamTotal={(data as any)?.upstream?.total}
                 downstreamTotal={(data as any)?.downstream?.total}
@@ -296,13 +299,13 @@ export class DashboardEntity implements Entity<Dashboard> {
                 paths={(result as any).paths}
                 isOutputPort={isOutputPort(result)}
                 tier={
-                    (isValuePresent(data?.statsSummary?.viewCountPercentileLast30Days) &&
-                        isValuePresent(data?.statsSummary?.uniqueUserPercentileLast30Days) &&
-                        getDashboardPopularityTier(
-                            data.statsSummary?.viewCountPercentileLast30Days,
-                            data.statsSummary?.uniqueUserPercentileLast30Days,
-                        )) ||
-                    undefined
+                    isValuePresent(data?.statsSummary?.viewCountPercentileLast30Days) &&
+                    isValuePresent(data?.statsSummary?.uniqueUserPercentileLast30Days)
+                        ? getDashboardPopularityTier(
+                              data.statsSummary?.viewCountPercentileLast30Days,
+                              data.statsSummary?.uniqueUserPercentileLast30Days,
+                          )
+                        : undefined
                 }
                 upstreamTotal={(data as any)?.upstream?.total}
                 downstreamTotal={(data as any)?.downstream?.total}

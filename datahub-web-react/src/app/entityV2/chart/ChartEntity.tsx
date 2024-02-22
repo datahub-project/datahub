@@ -37,7 +37,7 @@ import { InputFieldsTab } from '../shared/tabs/Entity/InputFieldsTab';
 import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
 import { GenericEntityProperties } from '../shared/types';
-import { getDataProduct, isOutputPort } from '../shared/utils';
+import { SidebarTitleActionType, getDataProduct, isOutputPort } from '../shared/utils';
 import { ChartPreview } from './preview/ChartPreview';
 import { ChartStatsSummarySubHeader } from './profile/stats/ChartStatsSummarySubHeader';
 import ChartSummaryTab from './summary/ChartSummaryTab';
@@ -203,6 +203,9 @@ export class ChartEntity implements Entity<Chart> {
             component: LineageTab,
             description: "View this data asset's upstream and downstream dependencies",
             icon: PartitionOutlined,
+            properties: {
+                actionType: SidebarTitleActionType.LineageExplore,
+            },
         },
         {
             name: 'Properties',

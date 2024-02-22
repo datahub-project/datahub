@@ -17,7 +17,7 @@ import { FeatureTableTab } from '../shared/tabs/ML/MlFeatureFeatureTableTab';
 import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
 import { EntityMenuItems } from '../shared/EntityDropdown/EntityMenuActions';
 import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
-import { getDataProduct, isOutputPort } from '../shared/utils';
+import { SidebarTitleActionType, getDataProduct, isOutputPort } from '../shared/utils';
 import { TYPE_ICON_CLASS_NAME } from '../shared/components/subtypes';
 
 /**
@@ -126,6 +126,9 @@ export class MLFeatureEntity implements Entity<MlFeature> {
             component: LineageTab,
             description: "View this data asset's upstream and downstream dependencies",
             icon: PartitionOutlined,
+            properties: {
+                actionType: SidebarTitleActionType.LineageExplore,
+            },
         },
     ];
 

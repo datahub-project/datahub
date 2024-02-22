@@ -1,14 +1,12 @@
-import { ArrowDownOutlined, ArrowUpOutlined, PartitionOutlined, SearchOutlined } from '@ant-design/icons';
-import { Button, Divider, Tooltip, Typography } from 'antd';
-import React, { useCallback, useEffect, useState } from 'react';
-import { useHistory } from 'react-router';
+import { ArrowDownOutlined, ArrowUpOutlined, SearchOutlined } from '@ant-design/icons';
+import { Button, Divider, Tooltip } from 'antd';
+import React, { useEffect, useState } from 'react';
 import styled from 'styled-components/macro';
 import { LineageDirection } from '../../../../../types.generated';
 import { UnionType } from '../../../../search/utils/constants';
 import { useEntityRegistry } from '../../../../useEntityRegistry';
 import { useEntityData } from '../../EntityContext';
 import { ANTD_GRAY, SEARCH_COLORS } from '../../constants';
-import { getEntityPath } from '../../containers/profile/utils';
 import { ImpactAnalysis } from './ImpactAnalysis';
 import { LineageTabContext } from './LineageTabContext';
 
@@ -19,30 +17,6 @@ const Container = styled.div`
     overflow: hidden;
     display: flex;
     flex-direction: column;
-`;
-
-const Header = styled.div`
-    padding: 20px 20px;
-`;
-
-const TitleRow = styled.div`
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-`;
-
-const Title = styled(Typography.Title)`
-    && {
-        padding: 0px;
-        margin-bottom: 8px;
-    }
-`;
-
-const Paragraph = styled(Typography.Paragraph)`
-    && {
-        margin: 0px;
-        padding: 0px;
-    }
 `;
 
 const LineageButton = styled(Button)<{ isSelected: boolean }>`
@@ -120,6 +94,9 @@ const StyledArrowUpOutlined = styled(ArrowUpOutlined)`
 const Results = styled.div`
     flex: 1;
     overflow: auto;
+    .ant-list {
+        background-color: white !important;
+    }
 `;
 
 enum LevelFilterType {
@@ -130,17 +107,12 @@ enum LevelFilterType {
 const DEFAULT_SELECTED_LEVELS = new Set([LevelFilterType.DIRECT]);
 
 export const CompactLineageTab = ({ defaultDirection }: { defaultDirection: LineageDirection }) => {
-    const history = useHistory();
     const entityRegistry = useEntityRegistry();
     const { urn, entityData, entityType } = useEntityData();
     const [selectedDirection, setDirection] = useState<LineageDirection>(defaultDirection);
     const [selectedLevels, setSelectedLevels] = useState<Set<LevelFilterType>>(DEFAULT_SELECTED_LEVELS);
     const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
     const entityName = (entityData && entityRegistry.getDisplayName(entityType, entityData)) || '-';
-
-    const routeToLineage = useCallback(() => {
-        history.push(getEntityPath(entityType, urn, entityRegistry, true, false, 'Lineage'));
-    }, [history, entityType, urn, entityRegistry]);
 
     const toggleLevelFilter = (level: LevelFilterType) => {
         if (selectedLevels.has(level)) {
@@ -209,25 +181,6 @@ export const CompactLineageTab = ({ defaultDirection }: { defaultDirection: Line
 
     return (
         <Container>
-            <Header>
-                <TitleRow>
-                    <Title level={3}>Lineage</Title>
-                    <Button type="text" onClick={routeToLineage}>
-                        <PartitionOutlined />
-                        <Tooltip
-                            placement="left"
-                            showArrow={false}
-                            title={`Visually explore the upstreams and downstreams of ${entityName}`}
-                        >
-                            <Typography.Text>
-                                <b>Explore</b>
-                            </Typography.Text>
-                        </Tooltip>
-                    </Button>
-                </TitleRow>
-                <Paragraph type="secondary">View upstream and downstream data assets</Paragraph>
-            </Header>
-            <ThinDivider />
             <Actions>
                 {directionOptions.map((option) => (
                     <Tooltip title={option.tip} placement="bottom" showArrow={false}>
