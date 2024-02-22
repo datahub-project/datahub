@@ -27,7 +27,7 @@ export const StyledEntitySidebarContainer = styled.div<{
         display: none;
     }
     margin: ${(props) => (props.isCard ? '12px 12px 12px 0px' : '0px 0px 0px 0px')};
-    transition: max-width 0.2s ease-in-out, min-width 0.2s ease-in-out;
+    transition: all 0.4s;
 `;
 
 export const StyledSidebar = styled.div<{ isCard: boolean; isFocused?: boolean; isInSearch?: boolean }>`
