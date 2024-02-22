@@ -105,7 +105,7 @@ export const ViewSelectHeader = ({
                         onClick={() => onClickViewTypeFilter('all')}
                         role="none"
                     >
-                        <Tooltip placement="bottom" showArrow title={'All'}>
+                        <Tooltip placement="bottom" showArrow title='All'>
                             <GridViewIconStyle />
                         </Tooltip>
                     </div>
@@ -114,7 +114,7 @@ export const ViewSelectHeader = ({
                         onClick={() => onClickViewTypeFilter('private')}
                         role="none"
                     >
-                        <Tooltip placement="bottom" showArrow title={'Private'}>
+                        <Tooltip placement="bottom" showArrow title='Private'>
                             <LockOutlinedIconStyle />
                         </Tooltip>
                     </div>
@@ -123,7 +123,7 @@ export const ViewSelectHeader = ({
                         onClick={() => onClickViewTypeFilter('public')}
                         role="none"
                     >
-                        <Tooltip placement="bottom" showArrow title={'Public'}>
+                        <Tooltip placement="bottom" showArrow title='Public'>
                             <PublicIconStyle />
                         </Tooltip>
                     </div>
