@@ -119,12 +119,14 @@ export const DefaultEntityHeader = ({
 }: Props) => {
     const [showIconPicker, setShowIconPicker] = useState(false);
     const entityRegistry = useEntityRegistry();
+    console.log(entityData)
 
     return (
         <>
             <Row>
                 <EntityHeaderDecoration 
                 urn={urn}
+                entityData={entityData}
                 entityType={entityType}
                 displayProperties={displayProperties}
                 />

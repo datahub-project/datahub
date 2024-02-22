@@ -22,9 +22,15 @@ const Container = styled.div`
     position: sticky;
     top: 0;
     z-index: 99;
-    background-color: #fff;
-    border-bottom: 1px solid ${ANTD_GRAY[4.5]};
-    padding: 4px 20px;
+    background-color: #f6f7fa;
+    border-top-left-radius: 4px;
+    border-bottom-left-radius: 4px;
+    border-left: 2px solid #5c3fd1;
+    padding: 8px 20px;
+    margin: 2px 14px 2px 12px;
+    & button {
+        line-height: 0;
+    }
 `;
 
 export const Toolbar = () => {

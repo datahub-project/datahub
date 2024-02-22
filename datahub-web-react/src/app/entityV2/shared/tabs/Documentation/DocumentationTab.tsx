@@ -4,7 +4,7 @@ import { useLocation } from 'react-router-dom';
 
 import styled from 'styled-components';
 import { Button, Divider, Typography } from 'antd';
-import { EditOutlined, ExpandAltOutlined } from '@ant-design/icons';
+import { EditOutlined, ExpandAltOutlined, PlusOutlined } from '@ant-design/icons';
 
 import TabToolbar from '../../components/styled/TabToolbar';
 import { AddLinkModal } from '../../components/styled/AddLinkModal';
@@ -21,6 +21,37 @@ const DocumentationContainer = styled.div`
     margin: 0 32px;
     padding: 40px 0;
     max-width: calc(100% - 10px);
+`;
+
+const StyledTabToolbar = styled(TabToolbar)`
+    background-color: #f6f7fa;
+    border-top-left-radius: 4px;
+    border-bottom-left-radius: 4px;
+    border-left: 2px solid #5c3fd1;
+    padding: 8px 20px;
+    margin: 2px 14px 2px 12px;
+`;
+
+const PrimaryButton = styled(Button)`
+    color: #ffffff;
+    font-size: 12px;
+    box-shadow: none;
+    border-color: #533fd1;
+    background-color: #533fd1;
+    margin-left: 9px;
+    &:hover {
+        transition: 0.15s;
+        opacity: 0.9;
+        border-color: #533fd1;
+        background-color: #533fd1;
+    }
+`;
+
+const EmptyTabWrapper = styled.div`
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    height: 100%;
 `;
 
 interface Props {
@@ -40,6 +71,13 @@ export const DocumentationTab = ({ properties }: { properties?: Props }) => {
     const showModal = queryString.parse(useLocation().search, { parseBooleans: true }).modal;
 
     useEffect(() => {
+        routeToTab({
+            tabName: 'Documentation',
+            tabParams: { editing: true, modal: !!showModal },
+        });
+    }, []);
+
+    useEffect(() => {
         const editedDescriptions = (localStorageDictionary && JSON.parse(localStorageDictionary)) || {};
         if (editedDescriptions.hasOwnProperty(urn)) {
             routeToTab({
@@ -57,7 +95,7 @@ export const DocumentationTab = ({ properties }: { properties?: Props }) => {
         <>
             {description || links.length ? (
                 <>
-                    <TabToolbar>
+                    <StyledTabToolbar>
                         <div>
                             <Button
                                 data-testid="edit-documentation-button"
@@ -81,7 +119,7 @@ export const DocumentationTab = ({ properties }: { properties?: Props }) => {
                                 <ExpandAltOutlined />
                             </Button>
                         </div>
-                    </TabToolbar>
+                    </StyledTabToolbar>
                     <div>
                         {description ? (
                             <Editor content={description} readOnly />
@@ -97,15 +135,19 @@ export const DocumentationTab = ({ properties }: { properties?: Props }) => {
                     </div>
                 </>
             ) : (
-                <EmptyTab tab="documentation">
-                    <Button
-                        data-testid="add-documentation"
-                        onClick={() => routeToTab({ tabName: 'Documentation', tabParams: { editing: true } })}
-                    >
-                        <EditOutlined /> Add Documentation
-                    </Button>
-                    {!hideLinksButton && <AddLinkModal refetch={refetch} />}
-                </EmptyTab>
+                <EmptyTabWrapper>
+                    <EmptyTab tab="documentation" hideImage={false}>
+                        {!hideLinksButton && <AddLinkModal buttonType="transparent" refetch={refetch} />}
+                        <PrimaryButton
+                            type="primary"
+                            size="large"
+                            data-testid="add-documentation"
+                            onClick={() => routeToTab({ tabName: 'Documentation', tabParams: { editing: true } })}
+                        >
+                            <PlusOutlined /> Add Documentation
+                        </PrimaryButton>
+                    </EmptyTab>
+                </EmptyTabWrapper>
             )}
             {showModal && (
                 <DescriptionPreviewModal

@@ -176,6 +176,12 @@ export const DescriptionEditor = ({ onComplete }: DescriptionEditorProps) => {
 
     return entityData ? (
         <>
+            <EditorSourceWrapper>
+                <EditorContainer>
+                    <Editor content={updatedDescription} onChange={handleEditorChange} />
+                </EditorContainer>
+                <SourceDescription />
+            </EditorSourceWrapper>
             <DescriptionEditorToolbar
                 onSave={handleSave}
                 onPropose={proposeUpdate}
@@ -183,12 +189,6 @@ export const DescriptionEditor = ({ onComplete }: DescriptionEditorProps) => {
                 disableSave={!isDescriptionUpdated}
                 showPropose={shouldShowProposeButton}
             />
-            <EditorSourceWrapper>
-                <EditorContainer>
-                    <Editor content={updatedDescription} onChange={handleEditorChange} />
-                </EditorContainer>
-                <SourceDescription />
-            </EditorSourceWrapper>
             {confirmCloseModalVisible && (
                 <DiscardDescriptionModal
                     cancelModalVisible={confirmCloseModalVisible}
