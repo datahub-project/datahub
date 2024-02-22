@@ -1,9 +1,11 @@
 package com.linkedin.metadata.search.query.request;
 
+import static org.mockito.Mockito.mock;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 import com.linkedin.metadata.TestEntitySpecBuilder;
+import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.search.elasticsearch.query.request.AutocompleteRequestHandler;
 import java.util.List;
 import java.util.Map;
@@ -18,7 +20,8 @@ import org.testng.annotations.Test;
 
 public class AutocompleteRequestHandlerTest {
   private AutocompleteRequestHandler handler =
-      AutocompleteRequestHandler.getBuilder(TestEntitySpecBuilder.getSpec());
+      AutocompleteRequestHandler.getBuilder(
+          TestEntitySpecBuilder.getSpec(), mock(AspectRetriever.class));
 
   @Test
   public void testDefaultAutocompleteRequest() {

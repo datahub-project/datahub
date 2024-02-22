@@ -1,6 +1,12 @@
 package io.datahubproject.test.search.config;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
+import com.datahub.test.Snapshot;
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
+import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.config.search.CustomConfiguration;
 import com.linkedin.metadata.config.search.ExactMatchConfiguration;
 import com.linkedin.metadata.config.search.PartialConfiguration;
@@ -10,6 +16,10 @@ import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistryException;
+import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
+import com.linkedin.r2.RemoteInvocationException;
+import java.net.URISyntaxException;
+import java.util.Map;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 
@@ -58,5 +68,24 @@ public class SearchCommonTestConfiguration {
         SearchCommonTestConfiguration.class
             .getClassLoader()
             .getResourceAsStream("entity-registry.yml"));
+  }
+
+  @Bean(name = "aspectRetriever")
+  protected AspectRetriever aspectRetriever(final EntityRegistry entityRegistry)
+      throws RemoteInvocationException, URISyntaxException {
+    AspectRetriever aspectRetriever = mock(AspectRetriever.class);
+    when(aspectRetriever.getEntityRegistry()).thenReturn(entityRegistry);
+    when(aspectRetriever.getLatestAspectObjects(any(), any())).thenReturn(Map.of());
+    return aspectRetriever;
+  }
+
+  @Bean(name = "snapshotRegistryAspectRetriever")
+  protected AspectRetriever snapshotRegistryAspectRetriever()
+      throws RemoteInvocationException, URISyntaxException {
+    AspectRetriever aspectRetriever = mock(AspectRetriever.class);
+    when(aspectRetriever.getEntityRegistry())
+        .thenReturn(new SnapshotEntityRegistry(new Snapshot()));
+    when(aspectRetriever.getLatestAspectObjects(any(), any())).thenReturn(Map.of());
+    return aspectRetriever;
   }
 }
