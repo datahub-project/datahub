@@ -460,6 +460,7 @@ entities:
     keyAspect: schemaFieldKey
     aspects:
       - structuredProperties
+      - schemaFieldProfile
   ## Not in OSS
   - name: constraint
     keyAspect: constraintKey
