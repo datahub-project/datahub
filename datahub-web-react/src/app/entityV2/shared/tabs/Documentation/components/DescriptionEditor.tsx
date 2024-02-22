@@ -155,13 +155,6 @@ export const DescriptionEditor = ({ onComplete }: DescriptionEditorProps) => {
         }
     };
 
-    // Handling the Discard Modal
-    const handleConfirmClose = (showConfirm: boolean | undefined = true) => {
-        if (showConfirm && isDescriptionUpdated) {
-            setConfirmCloseModalVisible(true);
-        } else if (onComplete) onComplete();
-    };
-
     const handleCloseWithoutSaving = () => {
         delete editedDescriptions[mutationUrn];
         if (Object.keys(editedDescriptions).length === 0) {
@@ -185,7 +178,6 @@ export const DescriptionEditor = ({ onComplete }: DescriptionEditorProps) => {
             <DescriptionEditorToolbar
                 onSave={handleSave}
                 onPropose={proposeUpdate}
-                onClose={handleConfirmClose}
                 disableSave={!isDescriptionUpdated}
                 showPropose={shouldShowProposeButton}
             />

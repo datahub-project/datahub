@@ -75,7 +75,7 @@ export const DocumentationTab = ({ properties }: { properties?: Props }) => {
             tabName: 'Documentation',
             tabParams: { editing: true, modal: !!showModal },
         });
-    }, []);
+    }, [routeToTab, showModal]);
 
     useEffect(() => {
         const editedDescriptions = (localStorageDictionary && JSON.parse(localStorageDictionary)) || {};

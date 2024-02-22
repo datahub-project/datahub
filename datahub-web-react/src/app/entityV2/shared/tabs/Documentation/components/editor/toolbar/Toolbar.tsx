@@ -11,7 +11,6 @@ import {
 } from '@ant-design/icons';
 import { useActive, useCommands } from '@remirror/react';
 import styled from 'styled-components';
-import { ANTD_GRAY } from '../../../../../constants';
 import { CommandButton } from './CommandButton';
 import { HeadingMenu } from './HeadingMenu';
 import { AddImageButton } from './AddImageButton';

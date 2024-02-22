@@ -1,4 +1,3 @@
-import { CheckOutlined, MailOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
 import { Button } from 'antd';
 import React from 'react';
@@ -39,7 +38,6 @@ const StyledButton = styled(Button)`
 
 type DescriptionEditorToolbarProps = {
     disableSave: boolean;
-    onClose: () => void;
     onSave: () => void;
     onPropose: () => void;
     showPropose: boolean;
@@ -47,7 +45,6 @@ type DescriptionEditorToolbarProps = {
 
 export const DescriptionEditorToolbar = ({
     disableSave,
-    onClose,
     onSave,
     onPropose,
     showPropose,
