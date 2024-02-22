@@ -1,6 +1,6 @@
 import { PlusOutlined } from '@ant-design/icons';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
-import { Button, message } from 'antd';
+import { message } from 'antd';
 import DOMPurify from 'dompurify';
 import React, { useState } from 'react';
 import styled from 'styled-components';

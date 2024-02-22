@@ -70,7 +70,6 @@ export function AboutFieldTab({ properties }: AboutFieldTabProps) {
                             expandedField={expandedField}
                             fieldProfile={properties.fieldProfile}
                             profiles={properties.profiles}
-                            setSelectedTabName={properties.setSelectedTabName}
                         />
                     </MetadataSections>
                 </>

@@ -5,7 +5,6 @@ import styled from 'styled-components';
 import { UsageQueryResult } from '../../../../../../../../types.generated';
 import { REDESIGN_COLORS } from '../../../../../constants';
 import { FieldPopularity } from './FieldPopularity';
-import { SectionHeader } from './components';
 
 const FieldDetailsWrapper = styled.div`
     padding: 16px 24px;

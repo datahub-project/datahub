@@ -24,28 +24,10 @@ const StatSummarySubtitle = styled.div`
     display: flex;
     flex-direction: row;
 `;
-const TrendingUpIconContainer = styled.div`
-    border-radius: 50%;
-    background: ${REDESIGN_COLORS.TERTIARY_GREEN};
-    color: ${REDESIGN_COLORS.WHITE};
-    height: 30px;
-    width: 30px;
-    padding: 3px;
-`;
 
 const TrendingIconContainer = styled.div<{ color: string }>`
     border-radius: 50%;
     background: ${(props) => props.color};
-    color: ${REDESIGN_COLORS.WHITE};
-    height: 15px;
-    width: 15px;
-    padding-left: 2px;
-    margin-right: 2px;
-`;
-
-const TrendingDownIconContainer = styled.div`
-    border-radius: 50%;
-    background: #d07b7b;
     color: ${REDESIGN_COLORS.WHITE};
     height: 15px;
     width: 15px;
@@ -96,8 +78,6 @@ interface Props {
 }
 
 export default function StatsSummaryRow({ expandedField, fieldProfile, profiles }: Props) {
-    const totalStats = (fieldProfile && Object.entries(fieldProfile).length) || 0;
-
     const historicalNullProportion = extractChartValuesFromFieldProfiles(
         profiles,
         expandedField.fieldPath,

@@ -1,14 +1,9 @@
 import React from 'react';
-import styled from 'styled-components';
 import { EditableSchemaMetadata, GlobalTags, SchemaField } from '../../../../../../../../types.generated';
 import SchemaEditableContext from '../../../../../../../shared/SchemaEditableContext';
 import { SidebarSection } from '../../../../../containers/profile/sidebar/SidebarSection';
 import useTagsAndTermsRenderer from '../../utils/useTagsAndTermsRenderer';
 import { StyledDivider } from './components';
-
-const TermsWrapper = styled.div`
-    margin-bottom: 24px;
-`;
 
 interface Props {
     expandedField: SchemaField;
