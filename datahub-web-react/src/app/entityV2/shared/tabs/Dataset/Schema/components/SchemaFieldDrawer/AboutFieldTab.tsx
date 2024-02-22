@@ -11,10 +11,11 @@ import FieldDescription from './FieldDescription';
 import { FieldDetails } from './FieldDetails';
 import FieldTags from './FieldTags';
 import FieldTerms from './FieldTerms';
+import SampleValuesSection from './SampleValuesSection';
 import StatsSection from './StatsSection';
 
 const MetadataSections = styled.div`
-    padding: 16px 24px;
+    padding: 16px 12px;
     padding-top: 0px;
 `;
 
@@ -49,7 +50,6 @@ export function AboutFieldTab({ properties }: AboutFieldTabProps) {
             {expandedField && (
                 <>
                     <FieldDetails usageStats={properties.usageStats} fieldPath={properties.expandedDrawerFieldPath} />
-
                     <MetadataSections>
                         <FieldDescription expandedField={expandedField} editableFieldInfo={editableFieldInfo} />
                         <FieldTags
@@ -61,6 +61,12 @@ export function AboutFieldTab({ properties }: AboutFieldTabProps) {
                             editableSchemaMetadata={properties.editableSchemaMetadata}
                         />
                         <StatsSection
+                            expandedField={expandedField}
+                            fieldProfile={properties.fieldProfile}
+                            profiles={properties.profiles}
+                            setSelectedTabName={properties.setSelectedTabName}
+                        />
+                        <SampleValuesSection
                             expandedField={expandedField}
                             fieldProfile={properties.fieldProfile}
                             profiles={properties.profiles}

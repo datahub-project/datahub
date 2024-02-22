@@ -1,14 +1,16 @@
+import Icon from '@ant-design/icons/lib/components/Icon';
 import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import Icon from '@ant-design/icons/lib/components/Icon';
+import NoStatsAvailble from '../../../../../../../../images/no-stats-available.svg?react';
+import TrendingDownIcon from '../../../../../../../../images/trending-down-icon.svg?react';
+import TrendingUpIcon from '../../../../../../../../images/trending-up-icon.svg?react';
 import { DatasetFieldProfile, SchemaField } from '../../../../../../../../types.generated';
 import { REDESIGN_COLORS } from '../../../../../constants';
 import { extractChartValuesFromFieldProfiles } from '../../../Stats/historical/HistoricalStats';
-import TrendingUpIcon from '../../../../../../../../images/trending-up-icon.svg?react';
-import TrendingDownIcon from '../../../../../../../../images/trending-down-icon.svg?react';
-import NoStatsAvailble from '../../../../../../../../images/no-stats-available.svg?react';
-import StatsCounts from './StatsCounts';
+import SampleValueTag from '../../../Stats/snapshot/SampleValueTag';
+import { decimalToPercentStr } from '../../utils/statsUtil';
+import StatsSummaryRow from './StatsSummaryRow';
 import { SectionHeader, StyledDivider } from './components';
 
 const maxLabelWidth = 150;
@@ -29,12 +31,19 @@ const Header = styled.div`
 const StatRow = styled.div`
     display: flex;
     flex-direction: column;
+    padding-top: 12px;
+    padding-bottom: 12px;
 `;
 
 const StatLabel = styled.div`
     display: flex;
     align-items: center;
-    margin-bottom: 8px;
+    padding-top: 12px;
+    padding-bottom: 12px;
+    :not(:last-child) {
+        border-bottom: 1px dashed;
+        border-color: rgba(0, 0, 0, 0.3);
+    }
 `;
 
 const LabelText = styled(Typography.Text)`
@@ -85,7 +94,7 @@ interface Props {
     };
 }
 
-export function StatsTab({ properties }: Props) {
+export function StatsSidebarContent({ properties }: Props) {
     const { expandedField, fieldProfile, profiles } = properties;
 
     const historicFieldProfiles = profiles.filter((profile) =>
@@ -125,9 +134,24 @@ export function StatsTab({ properties }: Props) {
     const statsData = {
         stats: [
             {
-                name: 'Name',
-                value: fieldProfile.fieldPath,
-                trend: null,
+                name: 'Null Count',
+                value: fieldProfile.nullCount,
+                trend: getFieldStatTrendComponent('nullCount'),
+            },
+            {
+                name: 'Null %',
+                value: decimalToPercentStr(fieldProfile.nullProportion, 2),
+                trend: getFieldStatTrendComponent('nullProportion'),
+            },
+            {
+                name: 'Distinct Count',
+                value: fieldProfile.uniqueCount,
+                trend: getFieldStatTrendComponent('uniqueCount'),
+            },
+            {
+                name: 'Distinct %',
+                value: decimalToPercentStr(fieldProfile.uniqueProportion, 2),
+                trend: getFieldStatTrendComponent('uniqueProportion'),
             },
             {
                 name: 'Min',
@@ -145,26 +169,6 @@ export function StatsTab({ properties }: Props) {
                 trend: getFieldStatTrendComponent('median'),
             },
             {
-                name: 'Null Count',
-                value: fieldProfile.nullCount,
-                trend: getFieldStatTrendComponent('nullCount'),
-            },
-            {
-                name: 'Null %',
-                value: fieldProfile.nullProportion,
-                trend: getFieldStatTrendComponent('nullProportion'),
-            },
-            {
-                name: 'Distinct Count',
-                value: fieldProfile.uniqueCount,
-                trend: getFieldStatTrendComponent('uniqueCount'),
-            },
-            {
-                name: 'Distinct %',
-                value: fieldProfile.uniqueProportion,
-                trend: getFieldStatTrendComponent('uniqueProportion'),
-            },
-            {
                 name: 'Std Dev',
                 value: fieldProfile.stdev,
                 trend: getFieldStatTrendComponent('stdev'),
@@ -174,7 +178,7 @@ export function StatsTab({ properties }: Props) {
                 value: fieldProfile.sampleValues
                     ?.filter((value) => value !== undefined)
                     .slice(0, 2)
-                    .join(', '),
+                    .map((value) => <SampleValueTag value={value} />),
                 trend: null,
             },
         ],
@@ -185,18 +189,24 @@ export function StatsTab({ properties }: Props) {
             <Header>
                 <SectionHeader>Stats</SectionHeader>
             </Header>
-            <StatsCounts expandedField={expandedField} fieldProfile={fieldProfile} profiles={historicFieldProfiles} />
+            <StatsSummaryRow
+                expandedField={expandedField}
+                fieldProfile={fieldProfile}
+                profiles={historicFieldProfiles}
+            />
             <StyledDivider dashed />
 
             {fieldProfile && (
                 <StatRow>
-                    {statsData.stats.map((stat) => (
-                        <StatLabel key={stat.name}>
-                            <LabelText>{stat.name}</LabelText>
-                            <StatValue isDecreasing={stat.trend ? stat.trend[1] : false}>{stat.value}</StatValue>
-                            <TrendLines>{stat.trend && stat.trend[0]}</TrendLines>
-                        </StatLabel>
-                    ))}
+                    {statsData.stats.map((stat) => {
+                        return (
+                            <StatLabel key={stat.name}>
+                                <LabelText>{stat.name}</LabelText>
+                                <StatValue isDecreasing={stat.trend ? stat.trend[1] : false}>{stat.value}</StatValue>
+                                <TrendLines>{stat.trend && stat.trend[0]}</TrendLines>
+                            </StatLabel>
+                        );
+                    })}
                 </StatRow>
             )}
         </StatsWrapper>

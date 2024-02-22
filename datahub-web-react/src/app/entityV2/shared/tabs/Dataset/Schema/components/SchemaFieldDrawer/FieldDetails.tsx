@@ -2,10 +2,10 @@ import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 // import DeprecationIcon from '../../../../../../../../images/announcement-icon.svg?react';
-import { REDESIGN_COLORS } from '../../../../../constants';
-import { SectionHeader } from './components';
-import { FieldPopularity } from './FieldPopularity';
 import { UsageQueryResult } from '../../../../../../../../types.generated';
+import { REDESIGN_COLORS } from '../../../../../constants';
+import { FieldPopularity } from './FieldPopularity';
+import { SectionHeader } from './components';
 
 const FieldDetailsWrapper = styled.div`
     padding: 16px 24px;
@@ -16,7 +16,6 @@ const FieldDetailsContent = styled.div`
     display: flex;
     flex-direction: row;
     gap: 10px;
-    margin-top: 15px;
 `;
 
 const PopularityContainer = styled.div`
@@ -71,7 +70,6 @@ type FieldDetailsProps = {
 export const FieldDetails = ({ fieldPath, usageStats }: FieldDetailsProps) => {
     return (
         <FieldDetailsWrapper>
-            <SectionHeader>Overview</SectionHeader>
             <FieldDetailsContent>
                 <PopularityContainer>
                     <DetailLabel>Popularity</DetailLabel>

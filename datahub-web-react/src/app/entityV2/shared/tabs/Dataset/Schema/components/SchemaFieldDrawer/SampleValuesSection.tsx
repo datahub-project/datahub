@@ -3,9 +3,17 @@ import styled from 'styled-components';
 import { DatasetFieldProfile, SchemaField } from '../../../../../../../../types.generated';
 import { REDESIGN_COLORS } from '../../../../../constants';
 import { SidebarSection } from '../../../../../containers/profile/sidebar/SidebarSection';
+import SampleValueTag from '../../../Stats/snapshot/SampleValueTag';
 import StatsSummaryRow from './StatsSummaryRow';
-import { StyledDivider } from './components';
+import { SectionHeader, StyledDivider } from './components';
 
+const StatsSectionWrapper = styled.div`
+    margin-bottom: 50px;
+`;
+const Header = styled.div`
+    display: flex;
+    justify-content: space-between;
+`;
 const ViewAll = styled.div`
     color: ${REDESIGN_COLORS.DARK_GREY};
     font-family: Mulish;
@@ -24,7 +32,7 @@ interface Props {
     setSelectedTabName: any;
 }
 
-export default function StatsSection({ expandedField, fieldProfile, profiles, setSelectedTabName }: Props) {
+export default function SampleValuesSection({ expandedField, fieldProfile, profiles, setSelectedTabName }: Props) {
     const historicFieldProfiles = profiles.filter((profile) =>
         profile.fieldProfiles?.some((fieldProf) => fieldProf.fieldPath === expandedField.fieldPath),
     );
@@ -35,15 +43,13 @@ export default function StatsSection({ expandedField, fieldProfile, profiles, se
     return (
         <>
             <SidebarSection
-                title="Stats"
-                extra={<ViewAll onClick={() => setSelectedTabName('Statistics')}>View all</ViewAll>}
-                content={
-                    <StatsSummaryRow
-                        expandedField={expandedField}
-                        fieldProfile={fieldProfile}
-                        profiles={historicFieldProfiles}
-                    />
-                }
+                title="Sample Values"
+                content={fieldProfile.sampleValues
+                    ?.filter((value) => value !== undefined)
+                    .slice(0, 2)
+                    .map((value) => (
+                        <SampleValueTag value={value} />
+                    ))}
             />
             <StyledDivider dashed />
         </>

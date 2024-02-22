@@ -1,9 +1,10 @@
 import React from 'react';
 import styled from 'styled-components';
 import { EditableSchemaMetadata, GlobalTags, SchemaField } from '../../../../../../../../types.generated';
-import useTagsAndTermsRenderer from '../../utils/useTagsAndTermsRenderer';
-import { SectionHeader, StyledDivider } from './components';
 import SchemaEditableContext from '../../../../../../../shared/SchemaEditableContext';
+import { SidebarSection } from '../../../../../containers/profile/sidebar/SidebarSection';
+import useTagsAndTermsRenderer from '../../utils/useTagsAndTermsRenderer';
+import { StyledDivider } from './components';
 
 const TermsWrapper = styled.div`
     margin-bottom: 24px;
@@ -27,11 +28,12 @@ export default function FieldTerms({ expandedField, editableSchemaMetadata }: Pr
     );
 
     return (
-        <TermsWrapper>
-            <SectionHeader>Glossary Terms</SectionHeader>
-            {/* pass in globalTags since this is a shared component, tags will not be shown or used */}
-            {termRenderer(expandedField.globalTags as GlobalTags, expandedField)}
+        <>
+            <SidebarSection
+                title="Glossary Terms"
+                content={termRenderer(expandedField.globalTags as GlobalTags, expandedField)}
+            />
             <StyledDivider dashed />
-        </TermsWrapper>
+        </>
     );
 }

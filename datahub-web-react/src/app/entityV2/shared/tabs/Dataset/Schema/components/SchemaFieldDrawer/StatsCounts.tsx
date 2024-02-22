@@ -69,6 +69,7 @@ export default function StatsCounts({ expandedField, fieldProfile, profiles }: P
     const [noOfIncreasingTrends, setNoOfIncreasingTrends] = useState(0);
     const [noOfDecreasingTrends, setNoOfDecreasingTrends] = useState(0);
     const [noOfConstantTrends, setNoOfConstantTrends] = useState(0);
+
     useEffect(() => {
         let increasingTrends = 0;
         let decreasingTrends = 0;

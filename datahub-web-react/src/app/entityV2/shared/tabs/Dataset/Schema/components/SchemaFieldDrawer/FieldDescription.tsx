@@ -1,36 +1,22 @@
-import { EditOutlined, PlusOutlined } from '@ant-design/icons';
+import { PlusOutlined } from '@ant-design/icons';
+import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import { Button, message } from 'antd';
 import DOMPurify from 'dompurify';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { SectionHeader, StyledDivider } from './components';
-import UpdateDescriptionModal from '../../../../../components/legacy/DescriptionModal';
-import { EditableSchemaFieldInfo, SchemaField, SubResourceType } from '../../../../../../../../types.generated';
-import DescriptionSection from '../../../../../containers/profile/sidebar/AboutSection/DescriptionSection';
-import { useEntityData, useMutationUrn, useRefetch } from '../../../../../EntityContext';
-import { useSchemaRefetch } from '../../SchemaContext';
 import { useUpdateDescriptionMutation } from '../../../../../../../../graphql/mutations.generated';
 import { useProposeUpdateDescriptionMutation } from '../../../../../../../../graphql/proposals.generated';
+import { EditableSchemaFieldInfo, SchemaField, SubResourceType } from '../../../../../../../../types.generated';
 import analytics, { EntityActionType, EventType } from '../../../../../../../analytics';
 import SchemaEditableContext from '../../../../../../../shared/SchemaEditableContext';
+import { useEntityData, useMutationUrn, useRefetch } from '../../../../../EntityContext';
+import UpdateDescriptionModal from '../../../../../components/legacy/DescriptionModal';
 import { REDESIGN_COLORS } from '../../../../../constants';
-
-const DescriptionWrapper = styled.div`
-    display: flex;
-    justify-content: space-between;
-    margin-bottom: 24px;
-`;
-
-const EditIcon = styled(Button)`
-    border: none;
-    box-shadow: none;
-    height: 20px;
-    width: 20px;
-    color: ${REDESIGN_COLORS.DARK_GREY};
-    :hover {
-        color: ${REDESIGN_COLORS.LINK_HOVER_BLUE};
-    }
-`;
+import DescriptionSection from '../../../../../containers/profile/sidebar/AboutSection/DescriptionSection';
+import SectionActionButton from '../../../../../containers/profile/sidebar/SectionActionButton';
+import { SidebarSection } from '../../../../../containers/profile/sidebar/SidebarSection';
+import { useSchemaRefetch } from '../../SchemaContext';
+import { StyledDivider } from './components';
 
 const AddNewDescription = styled.div`
     margin: 0px;
@@ -113,48 +99,59 @@ export default function FieldDescription({ expandedField, editableFieldInfo }: P
 
     return (
         <>
-            <DescriptionWrapper>
-                <div>
-                    <SectionHeader>Description</SectionHeader>
-                    {!displayedDescription && isSchemaEditable && (
-                        <AddNewDescription
-                            onClick={() => {
-                                setIsModalVisible(true);
-                            }}
-                        >
-                            <StyledPlusOutlined />
-                            <AddDescriptionText>Add Description</AddDescriptionText>
-                        </AddNewDescription>
-                    )}
-                    {!!displayedDescription && <DescriptionSection description={displayedDescription} isExpandable />}
-                </div>
-                {isSchemaEditable && !!displayedDescription && (
-                    <EditIcon onClick={() => setIsModalVisible(true)} icon={<EditOutlined />} />
-                )}
-                {isModalVisible && (
-                    <UpdateDescriptionModal
-                        title={displayedDescription ? 'Update description' : 'Add description'}
-                        description={displayedDescription || ''}
-                        original={expandedField.description || ''}
-                        onClose={() => setIsModalVisible(false)}
-                        onSubmit={(updatedDescription: string) => {
-                            message.loading({ content: 'Updating...' });
-                            updateDescription(generateMutationVariables(updatedDescription))
-                                .then(onSuccessfulMutation)
-                                .catch(onFailMutation);
-                            setIsModalVisible(false);
+            <SidebarSection
+                title="Description"
+                extra={
+                    <SectionActionButton
+                        onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setIsModalVisible(true);
                         }}
-                        onPropose={(updatedDescription) => {
-                            message.loading({ content: 'Updating...' });
-                            proposeUpdateDescription(generateMutationVariables(updatedDescription))
-                                .then(onSuccessfulMutation)
-                                .catch(onFailMutation);
-                            setIsModalVisible(false);
-                        }}
-                        isAddDesc={!displayedDescription}
+                        button={<EditOutlinedIcon />}
                     />
-                )}
-            </DescriptionWrapper>
+                }
+                content={
+                    <>
+                        {!displayedDescription && isSchemaEditable && (
+                            <AddNewDescription
+                                onClick={() => {
+                                    setIsModalVisible(true);
+                                }}
+                            >
+                                <StyledPlusOutlined />
+                                <AddDescriptionText>Add Description</AddDescriptionText>
+                            </AddNewDescription>
+                        )}
+                        {!!displayedDescription && (
+                            <DescriptionSection description={displayedDescription} isExpandable />
+                        )}
+                    </>
+                }
+            />
+            {isModalVisible && (
+                <UpdateDescriptionModal
+                    title={displayedDescription ? 'Update description' : 'Add description'}
+                    description={displayedDescription || ''}
+                    original={expandedField.description || ''}
+                    onClose={() => setIsModalVisible(false)}
+                    onSubmit={(updatedDescription: string) => {
+                        message.loading({ content: 'Updating...' });
+                        updateDescription(generateMutationVariables(updatedDescription))
+                            .then(onSuccessfulMutation)
+                            .catch(onFailMutation);
+                        setIsModalVisible(false);
+                    }}
+                    onPropose={(updatedDescription) => {
+                        message.loading({ content: 'Updating...' });
+                        proposeUpdateDescription(generateMutationVariables(updatedDescription))
+                            .then(onSuccessfulMutation)
+                            .catch(onFailMutation);
+                        setIsModalVisible(false);
+                    }}
+                    isAddDesc={!displayedDescription}
+                />
+            )}
             <StyledDivider dashed />
         </>
     );

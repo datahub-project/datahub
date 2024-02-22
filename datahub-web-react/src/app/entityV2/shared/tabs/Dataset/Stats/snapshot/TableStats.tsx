@@ -2,11 +2,11 @@ import { Tooltip, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 import { CorpUser, Maybe, UserUsageCounts } from '../../../../../../../types.generated';
+import { countFormatter } from '../../../../../../../utils/formatter/index';
+import { formatNumberWithoutAbbreviation } from '../../../../../../shared/formatNumber';
+import { ExpandedActorGroup } from '../../../../components/styled/ExpandedActorGroup';
 import { InfoItem } from '../../../../components/styled/InfoItem';
 import { ANTD_GRAY } from '../../../../constants';
-import { countFormatter } from '../../../../../../../utils/formatter/index';
-import { ExpandedActorGroup } from '../../../../components/styled/ExpandedActorGroup';
-import { formatNumberWithoutAbbreviation } from '../../../../../../shared/formatNumber';
 
 type Props = {
     rowCount?: number;
