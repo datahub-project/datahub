@@ -26,4 +26,5 @@ public class AuditStampUtils {
     auditStamp.setTime(Clock.systemUTC().millis());
     return auditStamp;
   }
+
 }
