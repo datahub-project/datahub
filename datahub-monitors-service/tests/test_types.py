@@ -3,7 +3,7 @@ from typing import Any, Dict
 import pytest
 from pydantic import ValidationError
 
-from datahub_monitors.types import FieldValuesAssertion
+from datahub_monitors.common.types import FieldValuesAssertion
 
 
 class TestFieldValuesAssertion:

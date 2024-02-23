@@ -1,0 +1,34 @@
+query getIngestion($input: ListIngestionSourcesInput!) {
+  listIngestionSources(input: $input) {
+    start
+    count
+    total
+    ingestionSources {
+      urn
+      type
+      name
+      schedule {
+        timezone
+        interval
+      }
+      platform {
+        urn
+      }
+      config {
+        recipe
+        executorId
+        version
+        debugMode
+      }
+      executions {
+        start
+        count
+        total
+        executionRequests {
+          urn
+          id
+        }
+      }
+    }
+  }
+}

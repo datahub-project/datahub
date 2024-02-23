@@ -275,6 +275,7 @@ public class GraphQLEngineFactory {
     args.setIntegrationsService(_integrationsService);
     args.setConnectionService(_connectionService);
     args.setSubscriptionService(_subscriptionService);
+    args.setExecutorConfiguration(_configProvider.getExecutors());
 
     return new GmsGraphQLEngine(args).builder().build();
   }
