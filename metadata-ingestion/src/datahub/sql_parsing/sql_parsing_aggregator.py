@@ -500,7 +500,7 @@ class SqlParsingAggregator:
             upstream_fields = compute_upstream_fields(parsed)
             for upstream_urn in parsed.in_tables:
                 # If the upstream table is a temp table, don't log usage for it.
-                if (self.is_temp_table and not self.is_temp_table(upstream_urn)) or (
+                if (self.is_temp_table and self.is_temp_table(upstream_urn)) or (
                     require_out_table_schema
                     and not self._schema_resolver.has_urn(upstream_urn)
                 ):

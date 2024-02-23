@@ -226,7 +226,7 @@ SELECT  schemaname as schema_name,
                             username as username,
                             source_schema,
                             source_table,
-                            query as query_id,
+                            querytxt as query,  -- TODO: this querytxt is truncated to 4000 characters
                             starttime as timestamp
                         from
                                 (
@@ -252,7 +252,8 @@ SELECT  schemaname as schema_name,
                                 sti.schema as source_schema,
                                 sti.table as source_table,
                                 scan_type,
-                                sq.query as query
+                                sq.query as query,
+                                sq.querytxt as querytxt
                             from
                                 (
                                 select
