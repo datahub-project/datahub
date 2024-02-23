@@ -1,8 +1,8 @@
 import { useContext, useEffect } from 'react';
-import { LineageNodesContext } from './common';
-import { setDifference } from './useColumnHighlighting';
 import { useGetLineagePreviewQuery } from '../../graphql/lineage.generated';
 import { useEntityRegistry } from '../useEntityRegistry';
+import { LineageNodesContext } from './common';
+import { setDifference } from './useColumnHighlighting';
 
 export default function useLineageNodePreview(shownUrns: string[]) {
     const { nodes, setDataVersion } = useContext(LineageNodesContext);
@@ -18,7 +18,7 @@ export default function useLineageNodePreview(shownUrns: string[]) {
     });
 
     useEffect(() => {
-        if (data?.entities) {
+        if (data?.entities?.length) {
             data.entities.forEach((rawEntity) => {
                 if (!rawEntity) {
                     return;
