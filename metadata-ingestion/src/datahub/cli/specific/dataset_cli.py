@@ -93,7 +93,7 @@ def add_sibling(urn: str, sibling_urns: Tuple[str]) -> None:
 def _emit_sibling(
     graph: DataHubGraph, primary_urn: str, urn: str, all_urns: Set[str]
 ) -> None:
-    siblings = _get_existing_siblings(urn, graph)
+    siblings = _get_existing_siblings(graph, urn)
     for sibling_urn in all_urns:
         if sibling_urn != urn:
             siblings.add(sibling_urn)
