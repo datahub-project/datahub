@@ -459,7 +459,7 @@ type FeatureFlagsConfig {
   """
   Whether ERModelRelation Tables Feature should be shown.
   """
-  ermodelrelationFeatureEnabled: Boolean!
+  erModelRelationshipFeatureEnabled: Boolean!
 
   """
   Whether we should show AccessManagement tab in the datahub UI.
