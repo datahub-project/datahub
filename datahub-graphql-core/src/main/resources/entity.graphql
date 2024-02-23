@@ -727,9 +727,15 @@ type Mutation {
     verifyForm(input: VerifyFormInput!): Boolean
 
     """
-    Add an access request to an object by URN. Supported currently for Dataset and Containers.
+    Add an access request to an object by URN. Supported currently for Dataset, Containers & Data Products.
     """
     addAccessRequest(input: AddAccessRequestInput!): Boolean
+
+
+    """
+    Remove an access request to an object by URN.
+    """
+    removeAccessRequest(input: RemoveAccessRequestInput!): Boolean
 }
 
 """
@@ -11616,18 +11622,38 @@ type EntityTypeInfo {
     description: String
 }
 
-
 """
 Input provided when adding an access request to an Entity.
 """
 input AddAccessRequestInput {
     """
-    The target Metadata Entity to add or remove the access request to
+    The target Metadata Entity to add the access request to
     """
     resourceUrn: String!
 
     """
-    Additional metadata to apply to the tag. Takes in a JSON string containing additional properties.
+    Additional metadata to apply to the tag. Takes in a JSON string containing additional properties
     """
     additionalMetadata: [StringMapEntryInput]!
+}
+
+
+"""
+Input provided when removing an access request to an Entity.
+"""
+input RemoveAccessRequestInput {
+    """
+    The target Metadata Entity to remove the access request to
+    """
+    resourceUrn: String!
+
+    """
+    The URN of the user who requested access which can be found in the audit stamp
+    """
+    requesterUrn: String!
+
+    """
+    Created epoch timestamp of the access request which can be found in the audit stamp
+    """
+    requestedAt: Long!
 }
