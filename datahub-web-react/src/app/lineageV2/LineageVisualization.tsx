@@ -1,20 +1,9 @@
 import React, { useContext, useEffect } from 'react';
-import ReactFlow, {
-    useEdgesState,
-    useNodesState,
-    Edge,
-    NodeTypes,
-    Background,
-    BackgroundVariant,
-    useReactFlow,
-    MiniMap,
-    EdgeTypes,
-} from 'reactflow';
+import ReactFlow, { Edge, NodeTypes, Background, BackgroundVariant, MiniMap, EdgeTypes } from 'reactflow';
 import styled from 'styled-components';
 
 import 'reactflow/dist/style.css';
-import { LineageDisplayContext } from './common';
-import { TRANSITION_DURATION_MS } from './LineageEntityNode/useDisplayedColumns';
+import { LineageDisplayContext, TRANSITION_DURATION_MS } from './common';
 import LineageEntityNode, { LINEAGE_ENTITY_NODE_NAME } from './LineageEntityNode/LineageEntityNode';
 import LineageTransformationNode, {
     LINEAGE_TRANSFORMATION_NODE_NAME,
@@ -50,34 +39,7 @@ interface Props {
 }
 
 export default function LineageVisualization({ initialNodes, initialEdges }: Props) {
-    const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
-    const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
-    const { getNode, getEdge } = useReactFlow();
     const { setSelectedColumn } = useContext(LineageDisplayContext);
-
-    useEffect(() => {
-        const initialNodeMap = new Map(initialNodes.map((node) => [node.id, node]));
-        const nodesToAdd = initialNodes.filter((node) => !getNode(node.id));
-        const layersToRedraw = new Set<number>(
-            nodesToAdd.map((node) => node?.layer).filter((layer): layer is number => !!layer),
-        );
-        const nodesToRedraw = initialNodes.filter((node) => node.layer && layersToRedraw.has(node.layer));
-        setNodes((oldNodes) => [
-            ...oldNodes
-                .filter((n) => initialNodeMap.has(n.id))
-                .map((n) => ({
-                    ...n,
-                    data: initialNodeMap.get(n.id)?.data || n.data,
-                })),
-            ...nodesToAdd,
-            ...nodesToRedraw,
-        ]);
-    }, [initialNodes, getNode, setNodes]);
-
-    useEffect(() => {
-        const edgesToAdd = initialEdges.filter((edge) => !getEdge(edge.id));
-        setEdges((oldEdges) => [...oldEdges, ...edgesToAdd]);
-    }, [initialEdges, getEdge, setEdges]);
 
     useEffect(() => {
         function handleKeyPress(e: KeyboardEvent) {
@@ -97,10 +59,8 @@ export default function LineageVisualization({ initialNodes, initialEdges }: Pro
 
     return (
         <StyledReactFlow
-            nodes={nodes}
-            edges={edges}
-            onNodesChange={onNodesChange}
-            onEdgesChange={onEdgesChange}
+            defaultNodes={initialNodes}
+            defaultEdges={initialEdges}
             onPaneClick={() => setSelectedColumn(null)}
             nodeTypes={nodeTypes}
             edgeTypes={edgeTypes}
@@ -110,7 +70,7 @@ export default function LineageVisualization({ initialNodes, initialEdges }: Pro
             minZoom={0.3}
             maxZoom={5}
             fitView
-            fitViewOptions={{ maxZoom: 1 }}
+            fitViewOptions={{ maxZoom: 1, duration: 0 }}
         >
             <Background variant={BackgroundVariant.Lines} />
             <ZoomControls />

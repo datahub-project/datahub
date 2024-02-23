@@ -1,34 +1,30 @@
-import React, { useCallback, useContext, useEffect, useState } from 'react';
+import React, { Dispatch, SetStateAction, useCallback, useEffect, useState } from 'react';
 import { Handle, Position } from 'reactflow';
 import styled from 'styled-components';
 import { KeyboardArrowDown, KeyboardArrowUp } from '@mui/icons-material';
-import { Spin } from 'antd';
+import { Skeleton, Spin } from 'antd';
 import { LoadingOutlined } from '@ant-design/icons';
 import { EntityType, LineageDirection } from '../../../types.generated';
 import { ContainerIconBase } from '../../entityV2/shared/containers/profile/header/PlatformContent/ContainerIcon';
 import { useEntityRegistry } from '../../useEntityRegistry';
-import {
-    FetchStatus,
-    getNodeColor,
-    LineageDisplayContext,
-    LineageEntity,
-    onMouseDownCapturePreventSelect,
-} from '../common';
+import { FetchStatus, getNodeColor, LineageEntity, onMouseDownCapturePreventSelect } from '../common';
 import { NUM_COLUMNS_PER_PAGE } from '../constants';
 import Columns from './Columns';
 import { ExpandLineageButton } from './ExpandLineageButton';
+import NodeSkeleton from './NodeSkeleton';
 import useAvoidIntersections from './useAvoidIntersections';
-import useDisplayedColumns, {
-    LINEAGE_NODE_HEIGHT,
-    LINEAGE_NODE_WIDTH,
-    TRANSITION_DURATION_MS,
-} from './useDisplayedColumns';
+import { DisplayedColumns, LINEAGE_NODE_HEIGHT, LINEAGE_NODE_WIDTH } from './useDisplayedColumns';
 import { ANTD_GRAY, LINEAGE_COLORS } from '../../entityV2/shared/constants';
 import getTypeIcon from '../../sharedV2/icons/getTypeIcon';
 import { EntityHealth } from '../../entityV2/shared/containers/profile/header/EntityHealth';
 import { FetchedEntityV2 } from '../types';
 
-const NodeWrapper = styled.div<{ selected: boolean; expandHeight?: number; color: string }>`
+const NodeWrapper = styled.div<{
+    selected: boolean;
+    expandHeight?: number;
+    color: string;
+    $transitionDuration: number;
+}>`
     align-items: center;
     background-color: white;
     border: 1px solid ${({ color, selected }) => (selected ? color : ANTD_GRAY[4.5])};
@@ -37,7 +33,7 @@ const NodeWrapper = styled.div<{ selected: boolean; expandHeight?: number; color
     flex-direction: column;
     max-height: ${({ expandHeight }) => expandHeight}px;
     overflow-y: hidden;
-    transition: max-height ${TRANSITION_DURATION_MS}ms ease-in-out;
+    transition: max-height ${({ $transitionDuration }) => $transitionDuration}ms ease-in-out;
     width: ${LINEAGE_NODE_WIDTH}px;
     cursor: pointer;
 `;
@@ -48,6 +44,7 @@ const CARD_HEIGHT = LINEAGE_NODE_HEIGHT - 2; // Inside border
 // Also allows the expand lineage buttons to not be children of CardWrapper
 const FakeCard = styled.div`
     min-height: ${CARD_HEIGHT}px;
+    max-height: ${CARD_HEIGHT}px;
     width: 100%;
 `;
 
@@ -165,59 +162,84 @@ const ExpandColumnsWrapper = styled.div`
     }
 `;
 
+const SkeletonImage = styled(Skeleton.Avatar)`
+    line-height: 0;
+`;
+
 interface Props {
     urn: string;
     type: EntityType;
     selected: boolean;
     entity?: FetchedEntityV2;
+    transitionDuration: number;
+    rootUrn: string;
+    setHoveredNode: (urn: string | null) => void;
+    expanded: boolean;
+    setExpanded: Dispatch<SetStateAction<boolean>>;
+    onlyWithLineage: boolean;
+    setOnlyWithLineage: Dispatch<SetStateAction<boolean>>;
+    filterText: string;
+    setFilterText: Dispatch<SetStateAction<string>>;
+    pageIndex: number;
+    setPageIndex: Dispatch<SetStateAction<number>>;
 }
 
-export default function NodeContents(props: Props & LineageEntity) {
-    const { urn, type, selected, entity, fetchStatus } = props;
+export default React.memo(NodeContents);
 
-    const { setHoveredNode } = useContext(LineageDisplayContext);
-
-    const [expanded, setExpanded] = useState(false);
-    const [onlyWithLineage, setOnlyWithLineage] = useState(false);
-    const showAllColumns = expanded;
+function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
+    const {
+        urn,
+        type,
+        selected,
+        entity,
+        fetchStatus,
+        transitionDuration,
+        rootUrn,
+        setHoveredNode,
+        expanded,
+        setExpanded,
+        onlyWithLineage,
+        setOnlyWithLineage,
+        filterText,
+        setFilterText,
+        pageIndex,
+        setPageIndex,
+        paginatedColumns,
+        extraHighlightedColumns,
+        numColumnsTotal,
+        numFilteredColumns,
+        numColumnsWithLineage,
+    } = props;
 
     const entityRegistry = useEntityRegistry();
 
-    // In here, not Columns.tsx, to calculate height correctly...
-    const [pageIndex, setPageIndex] = useState(0);
-    const [filterText, setFilterText] = useState('');
-
     useEffect(() => {
         setPageIndex(0);
-    }, [filterText]);
+    }, [filterText, setPageIndex]);
 
-    const { paginatedColumns, extraHighlightedColumns, numFilteredColumns, numColumnsWithLineage, numColumnsTotal } =
-        useDisplayedColumns({
-            urn,
-            entity,
-            showAllColumns,
-            filterText,
-            pageIndex,
-            onlyWithLineage,
-        });
-
-    const numDisplayedColumns = extraHighlightedColumns.length + (showAllColumns ? paginatedColumns.length : 0);
+    const numDisplayedColumns = extraHighlightedColumns.length + (expanded ? paginatedColumns.length : 0);
     const expandHeight =
         LINEAGE_NODE_HEIGHT +
         (numDisplayedColumns ? 17 : 0) + // Expansion base
-        (showAllColumns && numColumnsTotal ? 30 : 0) + // Search bar
+        (expanded && numColumnsTotal ? 30 : 0) + // Search bar
         20 * numDisplayedColumns + // Columns
-        (showAllColumns && paginatedColumns.length && extraHighlightedColumns.length ? 9 : 0) + // Column divider
-        (showAllColumns && numFilteredColumns > NUM_COLUMNS_PER_PAGE ? 38 : 0); // Pagination
+        (expanded && paginatedColumns.length && extraHighlightedColumns.length ? 9 : 0) + // Column divider
+        (expanded && numFilteredColumns > NUM_COLUMNS_PER_PAGE ? 38 : 0); // Pagination
 
     useAvoidIntersections(urn, expandHeight);
 
     const platformName = entityRegistry.getDisplayName(EntityType.DataPlatform, entity?.platform);
     const [nodeColor] = getNodeColor(type);
     return (
-        <NodeWrapper selected={selected} expandHeight={expandHeight} color={nodeColor}>
+        <NodeWrapper
+            selected={selected}
+            expandHeight={expandHeight}
+            color={nodeColor}
+            $transitionDuration={transitionDuration}
+        >
             <EntityTypeShadow color={nodeColor} />
-            <FakeCard>
+            <FakeCard />
+            <FakeCard style={{ position: 'absolute' }}>
                 {!!entity?.upstreamChildren?.length &&
                     [FetchStatus.UNFETCHED, FetchStatus.LOADING].includes(fetchStatus[LineageDirection.Upstream]) && (
                         <ExpandLineageButton urn={urn} direction={LineageDirection.Upstream} />
@@ -228,59 +250,66 @@ export default function NodeContents(props: Props & LineageEntity) {
                     )}
                 {fetchStatus[LineageDirection.Upstream] === FetchStatus.LOADING && (
                     <LoadingWrapper className="nodrag" style={{ left: -30 }}>
-                        <Spin delay={500} indicator={<LoadingOutlined />} />
+                        <Spin delay={urn === rootUrn ? undefined : 500} indicator={<LoadingOutlined />} />
                     </LoadingWrapper>
                 )}
                 {fetchStatus[LineageDirection.Downstream] === FetchStatus.LOADING && (
                     <LoadingWrapper className="nodrag" style={{ right: -30 }}>
-                        <Spin delay={500} indicator={<LoadingOutlined />} />
+                        <Spin delay={urn === rootUrn ? undefined : 500} indicator={<LoadingOutlined />} />
                     </LoadingWrapper>
                 )}
             </FakeCard>
             <CardWrapper onMouseEnter={() => setHoveredNode(urn)} onMouseLeave={() => setHoveredNode(null)}>
                 <CustomHandle type="target" position={Position.Left} isConnectable={false} />
-                <>
-                    <IconsWrapper>
-                        {!!entity?.icon && (
-                            <PlatformIcon src={entity.icon} alt={platformName || 'platform'} title={platformName} />
-                        )}
-                        {!!entity && getTypeIcon(entityRegistry, entity.type, entity.subtype, true)}
-                    </IconsWrapper>
-                    <VerticalDivider margin={8} />
-                </>
-                <MainTextWrapper>
-                    <TitleWrapper>
-                        <Title title={entity?.name} />
-                        {entity?.health && (
-                            <StyledEntityHealth
-                                health={entity.health}
-                                baseUrl={entityRegistry.getEntityUrl(type, urn)}
-                                fontSize={10}
-                            />
-                        )}
-                    </TitleWrapper>
-                    <ContainerPath parentContainers={entity?.parentContainers} />
-                    {!!numColumnsTotal && (
-                        <>
-                            <ExpandColumnsWrapper
-                                onMouseDownCapture={onMouseDownCapturePreventSelect}
-                                onClick={() => setExpanded((v) => !v)}
-                            >
-                                {numColumnsTotal} columns
-                                {expanded && <KeyboardArrowUp fontSize="inherit" style={{ marginLeft: 3 }} />}
-                                {!expanded && <KeyboardArrowDown fontSize="inherit" style={{ marginLeft: 3 }} />}
-                            </ExpandColumnsWrapper>
-                        </>
-                    )}
-                </MainTextWrapper>
                 <CustomHandle type="source" position={Position.Right} isConnectable={false} />
+                <IconsWrapper>
+                    {entity?.icon ? (
+                        <PlatformIcon src={entity.icon} alt={platformName || 'platform'} title={platformName} />
+                    ) : (
+                        <SkeletonImage size="small" shape="square" style={{ borderRadius: '20%' }} />
+                    )}
+                    {entity ? (
+                        getTypeIcon(entityRegistry, entity.type, entity.subtype, true)
+                    ) : (
+                        <SkeletonImage size="small" shape="square" style={{ borderRadius: '20%' }} />
+                    )}
+                </IconsWrapper>
+                <VerticalDivider margin={8} />
+                {entity && (
+                    <MainTextWrapper>
+                        <TitleWrapper>
+                            <Title title={entity?.name} />
+                            {entity?.health && (
+                                <StyledEntityHealth
+                                    health={entity.health}
+                                    baseUrl={entityRegistry.getEntityUrl(type, urn)}
+                                    fontSize={10}
+                                />
+                            )}
+                        </TitleWrapper>
+                        <ContainerPath parentContainers={entity?.parentContainers} />
+                        {!!numColumnsTotal && (
+                            <>
+                                <ExpandColumnsWrapper
+                                    onMouseDownCapture={onMouseDownCapturePreventSelect}
+                                    onClick={() => setExpanded((v) => !v)}
+                                >
+                                    {numColumnsTotal} columns
+                                    {expanded && <KeyboardArrowUp fontSize="inherit" style={{ marginLeft: 3 }} />}
+                                    {!expanded && <KeyboardArrowDown fontSize="inherit" style={{ marginLeft: 3 }} />}
+                                </ExpandColumnsWrapper>
+                            </>
+                        )}
+                    </MainTextWrapper>
+                )}
+                {!entity && <NodeSkeleton />}
             </CardWrapper>
             {!!entity && !!numColumnsTotal && (
                 <>
                     <HorizontalDivider margin={0} />
                     <Columns
                         entity={entity}
-                        showAllColumns={showAllColumns}
+                        showAllColumns={expanded}
                         paginatedColumns={paginatedColumns}
                         highlightedColumns={extraHighlightedColumns}
                         numFiltered={numFilteredColumns}

@@ -13,7 +13,7 @@ type Props = {
 
 export default function LineageExplorer(props: Props) {
     const { urn, type } = props;
-    const [nodes] = useState(new Map<string, LineageEntity>());
+    const [nodes] = useState(new Map<string, LineageEntity>([[urn, makeInitialNode(urn, type)]]));
     const [nodeVersion, setNodeVersion] = useState(0);
     const [dataVersion, setDataVersion] = useState(0);
     const [displayVersion, setDisplayVersion] = useState<[number, string[]]>([0, []]);
@@ -32,7 +32,9 @@ export default function LineageExplorer(props: Props) {
 
     return (
         <LineageNodesContext.Provider value={context}>
-            <ReactFlowProvider>{loaded && <LineageDisplay {...props} />}</ReactFlowProvider>
+            <ReactFlowProvider>
+                <LineageDisplay {...props} loaded={loaded} />
+            </ReactFlowProvider>
         </LineageNodesContext.Provider>
     );
 }
@@ -68,4 +70,17 @@ function useInitializeNodes(context: NodeContext, urn: string, type: EntityType)
     const { processed: downstreamProcessed } = useSearchAcrossLineage(urn, context, LineageDirection.Downstream);
 
     return upstreamProcessed && downstreamProcessed;
+}
+
+function makeInitialNode(urn: string, type: EntityType): LineageEntity {
+    return {
+        id: urn,
+        urn,
+        type,
+        paths: [],
+        fetchStatus: {
+            [LineageDirection.Upstream]: FetchStatus.LOADING,
+            [LineageDirection.Downstream]: FetchStatus.LOADING,
+        },
+    };
 }
