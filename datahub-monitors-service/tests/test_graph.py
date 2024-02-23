@@ -3,7 +3,7 @@ from unittest.mock import ANY, Mock, patch
 
 from datahub.ingestion.graph.client import DatahubClientConfig
 
-from datahub_monitors.graph import DataHubAssertionGraph
+from datahub_monitors.common.graph import DataHubAssertionGraph
 
 
 @patch.object(DataHubAssertionGraph, "test_connection", return_value=None)
