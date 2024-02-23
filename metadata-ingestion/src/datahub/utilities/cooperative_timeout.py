@@ -55,8 +55,10 @@ def cooperative_timeout(timeout: Optional[float] = None) -> Iterator[None]:
 
     if timeout is not None:
         _cooperation.deadline = time.perf_counter_ns() + timeout * 1_000_000_000
-        yield
-        del _cooperation.deadline
+        try:
+            yield
+        finally:
+            del _cooperation.deadline
 
     else:
         # No-op.
