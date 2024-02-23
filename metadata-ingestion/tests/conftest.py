@@ -33,6 +33,10 @@ try:
 except ImportError:
     pass
 
+import freezegun  # noqa: F401,E402
+
+freezegun.configure(extend_ignore_list=["datahub.utilities.cooperative_timeout"])
+
 
 @pytest.fixture
 def mock_time(monkeypatch):
