@@ -1,6 +1,5 @@
 package com.linkedin.metadata.entity.ebean.batch;
 
-import static com.linkedin.metadata.Constants.ASPECT_LATEST_VERSION;
 import static com.linkedin.metadata.entity.AspectUtils.validateAspect;
 
 import com.datahub.util.exception.ModelConversionException;
@@ -9,13 +8,11 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.events.metadata.ChangeType;
-import com.linkedin.metadata.aspect.batch.SystemAspect;
-import com.linkedin.metadata.aspect.batch.UpsertItem;
+import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.aspect.SystemAspect;
+import com.linkedin.metadata.aspect.batch.ChangeMCP;
+import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.aspect.patch.template.common.GenericPatchTemplate;
-import com.linkedin.metadata.aspect.plugins.hooks.MutationHook;
-import com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator;
-import com.linkedin.metadata.aspect.plugins.validation.AspectRetriever;
-import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
 import com.linkedin.metadata.entity.EntityAspect;
 import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.metadata.entity.validation.ValidationUtils;
@@ -33,26 +30,24 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.Builder;
 import lombok.Getter;
+import lombok.Setter;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @Getter
 @Builder(toBuilder = true)
-public class MCPUpsertBatchItem extends UpsertItem {
+public class ChangeItemImpl implements ChangeMCP {
 
-  public static MCPUpsertBatchItem fromPatch(
+  public static ChangeItemImpl fromPatch(
       @Nonnull Urn urn,
       @Nonnull AspectSpec aspectSpec,
       @Nullable RecordTemplate recordTemplate,
       GenericPatchTemplate<? extends RecordTemplate> genericPatchTemplate,
       @Nonnull AuditStamp auditStamp,
       AspectRetriever aspectRetriever) {
-    MCPUpsertBatchItem.MCPUpsertBatchItemBuilder builder =
-        MCPUpsertBatchItem.builder()
-            .urn(urn)
-            .auditStamp(auditStamp)
-            .aspectName(aspectSpec.getName());
+    ChangeItemImplBuilder builder =
+        ChangeItemImpl.builder().urn(urn).auditStamp(auditStamp).aspectName(aspectSpec.getName());
 
     RecordTemplate currentValue =
         recordTemplate != null ? recordTemplate : genericPatchTemplate.getDefault();
@@ -84,76 +79,45 @@ public class MCPUpsertBatchItem extends UpsertItem {
   @Nonnull private final EntitySpec entitySpec;
   @Nonnull private final AspectSpec aspectSpec;
 
+  @Setter @Nullable private SystemAspect previousSystemAspect;
+  @Setter private long nextAspectVersion;
+
   @Nonnull
   @Override
   public ChangeType getChangeType() {
     return ChangeType.UPSERT;
   }
 
-  public void applyMutationHooks(
-      @Nullable RecordTemplate oldAspectValue,
-      @Nullable SystemMetadata oldSystemMetadata,
-      @Nonnull AspectRetriever aspectRetriever) {
-    // add audit stamp/system meta if needed
-    for (MutationHook mutationHook :
-        aspectRetriever
-            .getEntityRegistry()
-            .getMutationHooks(getChangeType(), entitySpec.getName(), aspectSpec.getName())) {
-      mutationHook.applyMutation(
-          getChangeType(),
-          entitySpec,
-          aspectSpec,
-          oldAspectValue,
-          recordTemplate,
-          oldSystemMetadata,
-          systemMetadata,
-          auditStamp,
-          aspectRetriever);
-    }
-  }
-
+  @Nonnull
   @Override
-  public SystemAspect toLatestEntityAspect() {
-    EntityAspect latest = new EntityAspect();
-    latest.setAspect(getAspectName());
-    latest.setMetadata(EntityUtils.toJsonAspect(getRecordTemplate()));
-    latest.setUrn(getUrn().toString());
-    latest.setVersion(ASPECT_LATEST_VERSION);
-    latest.setCreatedOn(new Timestamp(auditStamp.getTime()));
-    latest.setCreatedBy(auditStamp.getActor().toString());
-    return latest.asSystemAspect();
+  public SystemAspect getSystemAspect(@Nullable Long version) {
+    EntityAspect entityAspect = new EntityAspect();
+    entityAspect.setAspect(getAspectName());
+    entityAspect.setMetadata(EntityUtils.toJsonAspect(getRecordTemplate()));
+    entityAspect.setUrn(getUrn().toString());
+    entityAspect.setVersion(version == null ? getNextAspectVersion() : version);
+    entityAspect.setCreatedOn(new Timestamp(getAuditStamp().getTime()));
+    entityAspect.setCreatedBy(getAuditStamp().getActor().toString());
+    entityAspect.setSystemMetadata(EntityUtils.toJsonAspect(getSystemMetadata()));
+    return EntityAspect.EntitySystemAspect.builder()
+        .build(getEntitySpec(), getAspectSpec(), entityAspect);
   }
 
-  @Override
-  public void validatePreCommit(
-      @Nullable RecordTemplate previous, @Nonnull AspectRetriever aspectRetriever)
-      throws AspectValidationException {
-
-    for (AspectPayloadValidator validator :
-        aspectRetriever
-            .getEntityRegistry()
-            .getAspectPayloadValidators(
-                getChangeType(), entitySpec.getName(), aspectSpec.getName())) {
-      validator.validatePreCommit(
-          getChangeType(), urn, getAspectSpec(), previous, this.recordTemplate, aspectRetriever);
-    }
-  }
-
-  public static class MCPUpsertBatchItemBuilder {
+  public static class ChangeItemImplBuilder {
 
     // Ensure use of other builders
-    private MCPUpsertBatchItem build() {
+    private ChangeItemImpl build() {
       return null;
     }
 
-    public MCPUpsertBatchItemBuilder systemMetadata(SystemMetadata systemMetadata) {
+    public ChangeItemImplBuilder systemMetadata(SystemMetadata systemMetadata) {
       this.systemMetadata = SystemMetadataUtils.generateSystemMetadataIfEmpty(systemMetadata);
       return this;
     }
 
     @SneakyThrows
-    public MCPUpsertBatchItem build(AspectRetriever aspectRetriever) {
-      EntityUtils.validateUrn(aspectRetriever.getEntityRegistry(), this.urn);
+    public ChangeItemImpl build(AspectRetriever aspectRetriever) {
+      ValidationUtils.validateUrn(aspectRetriever.getEntityRegistry(), this.urn);
       log.debug("entity type = {}", this.urn.getEntityType());
 
       entitySpec(aspectRetriever.getEntityRegistry().getEntitySpec(this.urn.getEntityType()));
@@ -163,14 +127,9 @@ public class MCPUpsertBatchItem extends UpsertItem {
       log.debug("aspect spec = {}", this.aspectSpec);
 
       ValidationUtils.validateRecordTemplate(
-          ChangeType.UPSERT,
-          this.entitySpec,
-          this.aspectSpec,
-          this.urn,
-          this.recordTemplate,
-          aspectRetriever);
+          this.entitySpec, this.urn, this.recordTemplate, aspectRetriever);
 
-      return new MCPUpsertBatchItem(
+      return new ChangeItemImpl(
           this.urn,
           this.aspectName,
           this.recordTemplate,
@@ -178,10 +137,12 @@ public class MCPUpsertBatchItem extends UpsertItem {
           this.auditStamp,
           this.metadataChangeProposal,
           this.entitySpec,
-          this.aspectSpec);
+          this.aspectSpec,
+          this.previousSystemAspect,
+          this.nextAspectVersion);
     }
 
-    public static MCPUpsertBatchItem build(
+    public static ChangeItemImpl build(
         MetadataChangeProposal mcp, AuditStamp auditStamp, AspectRetriever aspectRetriever) {
       if (!mcp.getChangeType().equals(ChangeType.UPSERT)) {
         throw new IllegalArgumentException(
@@ -193,7 +154,7 @@ public class MCPUpsertBatchItem extends UpsertItem {
           aspectRetriever.getEntityRegistry().getEntitySpec(mcp.getEntityType());
       AspectSpec aspectSpec = validateAspect(mcp, entitySpec);
 
-      if (!isValidChangeType(ChangeType.UPSERT, aspectSpec)) {
+      if (!MCPItem.isValidChangeType(ChangeType.UPSERT, aspectSpec)) {
         throw new UnsupportedOperationException(
             "ChangeType not supported: "
                 + mcp.getChangeType()
@@ -206,7 +167,7 @@ public class MCPUpsertBatchItem extends UpsertItem {
         urn = EntityKeyUtils.getUrnFromProposal(mcp, entitySpec.getKeyAspectSpec());
       }
 
-      return MCPUpsertBatchItem.builder()
+      return ChangeItemImpl.builder()
           .urn(urn)
           .aspectName(mcp.getAspectName())
           .systemMetadata(
@@ -215,16 +176,6 @@ public class MCPUpsertBatchItem extends UpsertItem {
           .auditStamp(auditStamp)
           .recordTemplate(convertToRecordTemplate(mcp, aspectSpec))
           .build(aspectRetriever);
-    }
-
-    private MCPUpsertBatchItemBuilder entitySpec(EntitySpec entitySpec) {
-      this.entitySpec = entitySpec;
-      return this;
-    }
-
-    private MCPUpsertBatchItemBuilder aspectSpec(AspectSpec aspectSpec) {
-      this.aspectSpec = aspectSpec;
-      return this;
     }
 
     private static RecordTemplate convertToRecordTemplate(
@@ -241,7 +192,6 @@ public class MCPUpsertBatchItem extends UpsertItem {
                 "Could not deserialize %s for aspect %s",
                 mcp.getAspect().getValue(), mcp.getAspectName()));
       }
-      log.debug("aspect = {}", aspect);
       return aspect;
     }
   }
@@ -254,7 +204,7 @@ public class MCPUpsertBatchItem extends UpsertItem {
     if (o == null || getClass() != o.getClass()) {
       return false;
     }
-    MCPUpsertBatchItem that = (MCPUpsertBatchItem) o;
+    ChangeItemImpl that = (ChangeItemImpl) o;
     return urn.equals(that.urn)
         && aspectName.equals(that.aspectName)
         && Objects.equals(systemMetadata, that.systemMetadata)

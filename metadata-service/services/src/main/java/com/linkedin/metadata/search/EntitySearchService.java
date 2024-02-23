@@ -1,6 +1,7 @@
 package com.linkedin.metadata.search;
 
 import com.linkedin.common.urn.Urn;
+import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.browse.BrowseResultV2;
 import com.linkedin.metadata.query.AutoCompleteResult;
@@ -14,6 +15,13 @@ import javax.annotation.Nullable;
 import org.opensearch.action.explain.ExplainResponse;
 
 public interface EntitySearchService {
+
+  /**
+   * Set aspect retriever after construction to prevent circular dependencies
+   *
+   * @param aspectRetriever
+   */
+  EntitySearchService postConstruct(AspectRetriever aspectRetriever);
 
   void configure();
 
