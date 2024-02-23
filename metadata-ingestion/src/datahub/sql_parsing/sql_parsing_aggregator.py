@@ -36,6 +36,7 @@ from datahub.sql_parsing.sqlglot_lineage import (
     sqlglot_lineage,
 )
 from datahub.sql_parsing.sqlglot_utils import generate_hash, get_query_fingerprint
+from datahub.utilities.cooperative_timeout import CooperativeTimeoutError
 from datahub.utilities.file_backed_collections import (
     ConnectionWrapper,
     FileBackedDict,
@@ -116,6 +117,7 @@ class SqlAggregatorReport(Report):
 
     num_observed_queries: int = 0
     num_observed_queries_failed: int = 0
+    num_observed_queries_column_timeout: int = 0
     num_observed_queries_column_failed: int = 0
     observed_query_parse_failures: LossyList[str] = dataclasses.field(
         default_factory=LossyList
@@ -123,6 +125,7 @@ class SqlAggregatorReport(Report):
 
     num_view_definitions: int = 0
     num_views_failed: int = 0
+    num_views_column_timeout: int = 0
     num_views_column_failed: int = 0
     views_parse_failures: LossyDict[UrnStr, str] = dataclasses.field(
         default_factory=LossyDict
@@ -487,7 +490,9 @@ class SqlParsingAggregator:
         if parsed.debug_info.table_error:
             self.report.num_observed_queries_failed += 1
             return  # we can't do anything with this query
-        elif parsed.debug_info.error:
+        elif isinstance(parsed.debug_info.column_error, CooperativeTimeoutError):
+            self.report.num_observed_queries_column_timeout += 1
+        elif parsed.debug_info.column_error:
             self.report.num_observed_queries_column_failed += 1
 
         # Register the query's usage.
@@ -634,11 +639,15 @@ class SqlParsingAggregator:
             schema_resolver=self._schema_resolver,
         )
         if parsed.debug_info.error:
-            self.report.views_parse_failures[view_urn] = str(parsed.debug_info.error)
+            self.report.views_parse_failures[view_urn] = (
+                f"{parsed.debug_info.error} on query: {view_definition.view_definition[:100]}"
+            )
         if parsed.debug_info.table_error:
             self.report.num_views_failed += 1
             return  # we can't do anything with this query
-        elif parsed.debug_info.error:
+        elif isinstance(parsed.debug_info.column_error, CooperativeTimeoutError):
+            self.report.num_views_column_timeout += 1
+        elif parsed.debug_info.column_error:
             self.report.num_views_column_failed += 1
 
         query_fingerprint = self._view_query_id(view_urn)
