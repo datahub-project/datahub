@@ -7,6 +7,18 @@ from datahub.testing.check_sql_parser_result import assert_sql_result
 RESOURCE_DIR = pathlib.Path(__file__).parent / "goldens"
 
 
+def test_invalid_sql():
+    assert_sql_result(
+        """
+SELECT as '
+FROM snowflake_sample_data.tpch_sf1.orders o
+""",
+        dialect="snowflake",
+        expected_file=RESOURCE_DIR / "test_invalid_sql.json",
+        allow_table_error=True,
+    )
+
+
 def test_select_max():
     # The COL2 should get normalized to col2.
     assert_sql_result(
