@@ -1065,7 +1065,7 @@ AS (
     FROM
         "public"."permanent_1" AS "permanent_1"
     WHERE (
-        (CAST("permanent_1"."insertxid" AS INT8) <= 41990135) 
+        (CAST("permanent_1"."insertxid" AS INT8) <= 41990135)
         AND (CAST("permanent_1"."deletexid" AS INT8) > 41990135)
     )
     OR (
