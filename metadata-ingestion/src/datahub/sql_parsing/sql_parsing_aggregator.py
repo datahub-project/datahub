@@ -5,15 +5,18 @@ import json
 import logging
 import pathlib
 import tempfile
+import uuid
 from collections import defaultdict
 from datetime import datetime, timezone
-from typing import Callable, Dict, Iterable, List, Optional, Set, cast
+from typing import Callable, Dict, Iterable, List, Optional, Set, Union, cast
 
+import datahub.emitter.mce_builder as builder
 import datahub.metadata.schema_classes as models
 from datahub.emitter.mce_builder import get_sys_time, make_ts_millis
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.sql_parsing_builder import compute_upstream_fields
 from datahub.ingestion.api.report import Report
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig, UsageAggregator
 from datahub.metadata.urns import (
@@ -32,7 +35,7 @@ from datahub.sql_parsing.sqlglot_lineage import (
     infer_output_schema,
     sqlglot_lineage,
 )
-from datahub.sql_parsing.sqlglot_utils import generate_hash
+from datahub.sql_parsing.sqlglot_utils import generate_hash, get_query_fingerprint
 from datahub.utilities.file_backed_collections import (
     ConnectionWrapper,
     FileBackedDict,
@@ -57,8 +60,6 @@ class QueryLogSetting(enum.Enum):
 
 @dataclasses.dataclass
 class ViewDefinition:
-    # TODO view urn?
-
     view_definition: str
     default_db: Optional[str] = None
     default_schema: Optional[str] = None
@@ -96,6 +97,19 @@ class QueryMetadata:
 
 
 @dataclasses.dataclass
+class KnownQueryLineageInfo:
+    query_text: str
+
+    downstream: UrnStr
+    upstreams: List[UrnStr]
+    column_lineage: Optional[List[ColumnLineageInfo]] = None
+
+    timestamp: Optional[datetime] = None
+    session_id: Optional[str] = None
+    query_type: QueryType = QueryType.UNKNOWN
+
+
+@dataclasses.dataclass
 class SqlAggregatorReport(Report):
     _aggregator: "SqlParsingAggregator"
     query_log_path: Optional[str] = None
@@ -103,12 +117,16 @@ class SqlAggregatorReport(Report):
     num_observed_queries: int = 0
     num_observed_queries_failed: int = 0
     num_observed_queries_column_failed: int = 0
-    observed_query_parse_failures = LossyList[str]()
+    observed_query_parse_failures: LossyList[str] = dataclasses.field(
+        default_factory=LossyList
+    )
 
     num_view_definitions: int = 0
     num_views_failed: int = 0
     num_views_column_failed: int = 0
-    views_parse_failures = LossyDict[UrnStr, str]()
+    views_parse_failures: LossyDict[UrnStr, str] = dataclasses.field(
+        default_factory=LossyDict
+    )
 
     num_queries_with_temp_tables_in_session: int = 0
 
@@ -142,8 +160,8 @@ class SqlParsingAggregator:
         self,
         *,
         platform: str,
-        platform_instance: Optional[str],
-        env: str,
+        platform_instance: Optional[str] = None,
+        env: str = builder.DEFAULT_ENV,
         graph: Optional[DataHubGraph] = None,
         generate_lineage: bool = True,
         generate_queries: bool = True,
@@ -246,7 +264,7 @@ class SqlParsingAggregator:
         return self.generate_lineage or self.generate_usage_statistics
 
     def register_schema(
-        self, urn: DatasetUrn, schema: models.SchemaMetadataClass
+        self, urn: Union[str, DatasetUrn], schema: models.SchemaMetadataClass
     ) -> None:
         # If lineage or usage is enabled, adds the schema to the schema resolver
         # by putting the condition in here, we can avoid all the conditional
@@ -254,6 +272,16 @@ class SqlParsingAggregator:
 
         if self._need_schemas:
             self._schema_resolver.add_schema_metadata(str(urn), schema)
+
+    def register_schemas_from_stream(
+        self, stream: Iterable[MetadataWorkUnit]
+    ) -> Iterable[MetadataWorkUnit]:
+        for wu in stream:
+            schema_metadata = wu.get_aspect_of_type(models.SchemaMetadataClass)
+            if schema_metadata:
+                self.register_schema(wu.get_urn(), schema_metadata)
+
+            yield wu
 
     def _initialize_schema_resolver_from_graph(self, graph: DataHubGraph) -> None:
         # requires a graph instance
@@ -283,6 +311,96 @@ class SqlParsingAggregator:
             platform_instance=self.platform_instance,
             env=self.env,
         )
+
+    def add_known_query_lineage(
+        self, known_query_lineage: KnownQueryLineageInfo
+    ) -> None:
+        """Add a query and it's precomputed lineage to the aggregator.
+
+        This is useful for cases where we have lineage information that was
+        computed outside of the SQL parsing aggregator, e.g. from a data
+        warehouse's system tables.
+
+        This will also generate an operation aspect for the query if there is
+        a timestamp and the query type field is set to a mutation type.
+
+        Args:
+            known_query_lineage: The known query lineage information.
+        """
+
+        # Generate a fingerprint for the query.
+        query_fingerprint = get_query_fingerprint(
+            known_query_lineage.query_text, self.platform.platform_name
+        )
+        # TODO format the query text?
+
+        # Register the query.
+        self._add_to_query_map(
+            QueryMetadata(
+                query_id=query_fingerprint,
+                formatted_query_string=known_query_lineage.query_text,
+                session_id=known_query_lineage.session_id or _MISSING_SESSION_ID,
+                query_type=known_query_lineage.query_type,
+                lineage_type=models.DatasetLineageTypeClass.TRANSFORMED,
+                latest_timestamp=known_query_lineage.timestamp,
+                actor=None,
+                upstreams=known_query_lineage.upstreams,
+                column_lineage=known_query_lineage.column_lineage or [],
+                confidence_score=1.0,
+            )
+        )
+
+        # Register the lineage.
+        self._lineage_map.for_mutation(
+            known_query_lineage.downstream, OrderedSet()
+        ).add(query_fingerprint)
+
+    def add_known_lineage_mapping(
+        self,
+        upstream_urn: UrnStr,
+        downstream_urn: UrnStr,
+        lineage_type: str = models.DatasetLineageTypeClass.COPY,
+    ) -> None:
+        """Add a known lineage mapping to the aggregator.
+
+        By mapping, we mean that the downstream is effectively a copy or
+        alias of the upstream. This is useful for things like external tables
+        (e.g. Redshift Spectrum, Redshift UNLOADs, Snowflake external tables).
+
+        Because this method takes in urns, it does not require that the urns
+        are part of the platform that the aggregator is configured for.
+
+        TODO: In the future, this method will also generate CLL if we have
+        schemas for either the upstream or downstream.
+
+        The known lineage mapping does not contribute to usage statistics or operations.
+
+        Args:
+            upstream_urn: The upstream dataset URN.
+            downstream_urn: The downstream dataset URN.
+        """
+
+        # We generate a fake "query" object to hold the lineage.
+        query_id = self._known_lineage_query_id()
+
+        # Register the query.
+        self._add_to_query_map(
+            QueryMetadata(
+                query_id=query_id,
+                formatted_query_string="-skip-",
+                session_id=_MISSING_SESSION_ID,
+                query_type=QueryType.UNKNOWN,
+                lineage_type=lineage_type,
+                latest_timestamp=None,
+                actor=None,
+                upstreams=[upstream_urn],
+                column_lineage=[],
+                confidence_score=1.0,
+            )
+        )
+
+        # Register the lineage.
+        self._lineage_map.for_mutation(downstream_urn, OrderedSet()).add(query_id)
 
     def add_view_definition(
         self,
@@ -449,6 +567,10 @@ class SqlParsingAggregator:
     def _process_view_definition(
         self, view_urn: UrnStr, view_definition: ViewDefinition
     ) -> None:
+        # Note that in some cases, the view definition will be a SELECT statement
+        # instead of a CREATE VIEW ... AS SELECT statement. In those cases, we can't
+        # trust the parsed query type or downstream urn.
+
         # Run the SQL parser.
         parsed = self._run_sql_parser(
             view_definition.view_definition,
@@ -463,10 +585,6 @@ class SqlParsingAggregator:
             return  # we can't do anything with this query
         elif parsed.debug_info.error:
             self.report.num_views_column_failed += 1
-
-        # Note that in some cases, the view definition will be a SELECT statement
-        # instead of a CREATE VIEW ... AS SELECT statement. In those cases, we can't
-        # trust the parsed query type or downstream urn.
 
         query_fingerprint = self._view_query_id(view_urn)
 
@@ -540,15 +658,6 @@ class SqlParsingAggregator:
         else:
             self._query_map[query_fingerprint] = new
 
-    """
-    def add_lineage(self) -> None:
-        # A secondary mechanism for adding non-SQL-based lineage
-        # e.g. redshift external tables might use this when pointing at s3
-
-        # TODO Add this once we have a use case for it
-        pass
-    """
-
     def gen_metadata(self) -> Iterable[MetadataChangeProposalWrapper]:
         # diff from v1 - we generate operations here, and it also
         # generates MCPWs instead of workunits
@@ -569,7 +678,7 @@ class SqlParsingAggregator:
 
         # Generate lineage and queries.
         queries_generated: Set[QueryId] = set()
-        for downstream_urn in self._lineage_map:
+        for downstream_urn in sorted(self._lineage_map):
             yield from self._gen_lineage_for_downstream(
                 downstream_urn, queries_generated=queries_generated
             )
@@ -640,7 +749,9 @@ class SqlParsingAggregator:
                     dataset=upstream_urn,
                     type=queries_map[query_id].lineage_type,
                     query=(
-                        self._query_urn(query_id) if self.generate_queries else None
+                        self._query_urn(query_id)
+                        if self.can_generate_query(query_id)
+                        else None
                     ),
                     created=query.make_created_audit_stamp(),
                     auditStamp=models.AuditStampClass(
@@ -671,7 +782,9 @@ class SqlParsingAggregator:
                             SchemaFieldUrn(downstream_urn, downstream_column).urn()
                         ],
                         query=(
-                            self._query_urn(query_id) if self.generate_queries else None
+                            self._query_urn(query_id)
+                            if self.can_generate_query(query_id)
+                            else None
                         ),
                         confidenceScore=queries_map[query_id].confidence_score,
                     )
@@ -682,9 +795,10 @@ class SqlParsingAggregator:
             aspect=upstream_aspect,
         )
 
-        if not self.generate_queries:
-            return
         for query_id in required_queries:
+            if not self.can_generate_query(query_id):
+                continue
+
             # Avoid generating the same query twice.
             if query_id in queries_generated:
                 continue
@@ -728,6 +842,19 @@ class SqlParsingAggregator:
     @classmethod
     def _view_query_id(cls, view_urn: UrnStr) -> str:
         return f"view_{DatasetUrn.url_encode(view_urn)}"
+
+    @classmethod
+    def _known_lineage_query_id(cls) -> str:
+        return f"known_{uuid.uuid4()}"
+
+    @classmethod
+    def _is_known_lineage_query_id(cls, query_id: QueryId) -> bool:
+        # Our query fingerprints are hex and won't have underscores, so this will
+        # never conflict with a real query fingerprint.
+        return query_id.startswith("known_")
+
+    def can_generate_query(self, query_id: QueryId) -> bool:
+        return self.generate_queries and not self._is_known_lineage_query_id(query_id)
 
     def _resolve_query_with_temp_tables(
         self,
@@ -895,8 +1022,10 @@ class SqlParsingAggregator:
             operationType=operation_type,
             lastUpdatedTimestamp=make_ts_millis(query.latest_timestamp),
             actor=query.actor.urn() if query.actor else None,
-            customProperties={
-                "query_urn": self._query_urn(query_id),
-            },
+            customProperties=(
+                {"query_urn": self._query_urn(query_id)}
+                if self.can_generate_query(query_id)
+                else None
+            ),
         )
         yield MetadataChangeProposalWrapper(entityUrn=downstream_urn, aspect=aspect)

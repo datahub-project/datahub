@@ -86,6 +86,50 @@ Example Response:
 
 ### Delete Property Definition
 
+There are two types of deletion present in DataHub: `hard` and `soft` delete. As of the current release only the `soft` delete
+is supported for Structured Properties. See the subsections below for more details.
+
+#### Soft Delete
+
+A `soft` deleted Structured Property does not remove any underlying data on the Structured Property entity
+or the Structured Property's values written to other entities. The `soft` delete is 100% reversible with zero data loss.
+When a Structured Property is `soft` deleted, a few operations are not available.
+
+Structured Property Soft Delete Effects:
+
+* Entities with a `soft` deleted Structured Property value will not return the `soft` deleted properties
+* Updates to a `soft` deleted Structured Property's definition are denied
+* Adding a `soft` deleted Structured Property's value to an entity is denied
+* Search filters using a `soft` deleted Structured Property will be denied
+
+The following command will `soft` delete the test property `MyProperty01` created in this guide by writing
+to the `status` aspect.
+
+```shell
+curl -X 'POST' \
+  'http://localhost:8080/openapi/v2/entity/structuredProperty/urn%3Ali%3AstructuredProperty%3Amy.test.MyProperty01/status?systemMetadata=false' \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '{
+"removed": true
+}' | jq
+```
+
+Removing the `soft` delete from the Structured Property can be done by either `hard` deleting the `status` aspect or
+changing the `removed` boolean to `false.
+
+```shell
+curl -X 'POST' \
+  'http://localhost:8080/openapi/v2/entity/structuredProperty/urn%3Ali%3AstructuredProperty%3Amy.test.MyProperty01/status?systemMetadata=false' \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '{
+"removed": false
+}' | jq
+```
+
+#### Hard Delete
+
 ⚠ **Not Implemented** ⚠
 
 ## Applying Structured Properties

@@ -35,5 +35,9 @@
             },
             "upstreams": []
         }
-    ]
+    ],
+    "debug_info": {
+        "confidence": 0.2,
+        "generalized_statement": "SELECT A, B, C FROM t1 INNER JOIN t2 ON t1.id = t2.id"
+    }
 }

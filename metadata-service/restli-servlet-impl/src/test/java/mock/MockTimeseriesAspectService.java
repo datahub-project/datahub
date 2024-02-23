@@ -2,6 +2,7 @@ package mock;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
@@ -37,6 +38,11 @@ public class MockTimeseriesAspectService implements TimeseriesAspectService {
     this._count = count;
     this._filteredCount = filteredCount;
     this._taskId = taskId;
+  }
+
+  @Override
+  public TimeseriesAspectService postConstruct(AspectRetriever aspectRetriever) {
+    return this;
   }
 
   @Override
