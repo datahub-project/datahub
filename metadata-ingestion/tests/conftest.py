@@ -35,9 +35,8 @@ except ImportError:
 
 import freezegun  # noqa: F401,E402
 
-# The freezegun library has incomplete type annotations. Compare
-# https://github.com/spulec/freezegun/blob/master/freezegun/__init__.py and
-# https://github.com/spulec/freezegun/blob/10924ba1b69ead08e6e9951988996df6ccf5bb03/freezegun/__init__.pyi
+# The freezegun library has incomplete type annotations.
+# See https://github.com/spulec/freezegun/issues/469
 freezegun.configure(extend_ignore_list=["datahub.utilities.cooperative_timeout"])  # type: ignore[attr-defined]
 
 
