@@ -15,7 +15,8 @@ ARG RELEASE_VERSION
 WORKDIR /datahub-ingestion
 RUN sed -i.bak "s/__version__ = \"1\!0.0.0.dev0\"/__version__ = \"$(echo $RELEASE_VERSION|sed s/-/+/)\"/" src/datahub/__init__.py && \
     sed -i.bak "s/__version__ = \"1\!0.0.0.dev0\"/__version__ = \"$(echo $RELEASE_VERSION|sed s/-/+/)\"/" airflow-plugin/src/datahub_airflow_plugin/__init__.py && \
-    cat src/datahub/__init__.py && \
+    cat src/datahub/__init__.py | grep __version__ && \
+    cat airflow-plugin/src/datahub_airflow_plugin/__init__.py | grep __version__ && \
     chown -R datahub /datahub-ingestion
 
 USER datahub
