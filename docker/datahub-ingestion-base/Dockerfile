@@ -50,7 +50,7 @@ RUN apt-get update && apt-get install -y -qq \
     ldap-utils \
     unixodbc \
     libodbc2 \
-    && python -m pip install --no-cache --upgrade pip uv wheel setuptools \
+    && python -m pip install --no-cache --upgrade pip uv>=0.1.10 wheel setuptools \
     && rm -rf /var/lib/apt/lists/* /var/cache/apk/*
 
 # compiled against newer golang for security fixes
