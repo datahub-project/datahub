@@ -6,6 +6,10 @@ package_metadata: dict = {}
 with open("./src/datahub/__init__.py") as fp:
     exec(fp.read(), package_metadata)
 
+_version: str = package_metadata["__version__"]
+_self_pin = (
+    f"=={_version}" if not (_version.endswith("dev0") or "docker" in _version) else ""
+)
 
 base_requirements = {
     # Typing extension should be >=3.10.0.2 ideally but we can't restrict due to a Airflow 2.1 dependency conflict.
@@ -272,7 +276,7 @@ plugins: Dict[str, Set[str]] = {
     },
     # Integrations.
     "airflow": {
-        f"acryl-datahub-airflow-plugin == {package_metadata['__version__']}",
+        f"acryl-datahub-airflow-plugin{_self_pin}",
     },
     "circuit-breaker": {
         "gql>=3.3.0",
@@ -679,7 +683,7 @@ entry_points = {
 setuptools.setup(
     # Package metadata.
     name=package_metadata["__package_name__"],
-    version=package_metadata["__version__"],
+    version=_version,
     url="https://datahubproject.io/",
     project_urls={
         "Documentation": "https://datahubproject.io/docs/",
