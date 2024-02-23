@@ -226,7 +226,7 @@ SELECT  schemaname as schema_name,
                             username as username,
                             source_schema,
                             source_table,
-                            query as ddl,
+                            query as query_id,
                             starttime as timestamp
                         from
                                 (
@@ -388,6 +388,7 @@ SELECT  schemaname as schema_name,
                     username,
                     query as query_id,
                     LISTAGG(CASE WHEN LEN(RTRIM(querytxt)) = 0 THEN querytxt ELSE RTRIM(querytxt) END) WITHIN GROUP (ORDER BY sequence) as ddl,
+                    ANY_VALUE(pid) as session_id,
                     starttime as timestamp
                 from
                         (
@@ -400,7 +401,8 @@ SELECT  schemaname as schema_name,
                         text as querytxt,
                         sq.query,
                         sequence,
-                        si.starttime as starttime
+                        si.starttime as starttime,
+                        pid
                     from
                         stl_insert as si
                     join SVV_TABLE_INFO sti on

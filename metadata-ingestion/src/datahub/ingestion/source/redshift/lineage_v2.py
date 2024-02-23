@@ -1,6 +1,6 @@
 import logging
 import traceback
-from typing import Callable, Dict, Iterable, List, Optional, Tuple, Union
+from typing import Callable, Dict, Iterable, List, Optional, Set, Tuple, Union
 
 import redshift_connector
 
@@ -75,7 +75,7 @@ class RedshiftSqlLineageV2:
             self.report.lineage_end_time,
         ) = self._lineage_v1.get_time_window()
 
-        self.known_urns = set()  # will be set later
+        self.known_urns: Set[str] = set()  # will be set later
 
     def build(
         self,
@@ -105,6 +105,7 @@ class RedshiftSqlLineageV2:
                     default_db=self.database,
                     default_schema=self.config.default_schema,
                     session_id=temp_row.session_id,
+                    query_timestamp=temp_row.start_time,
                     is_known_temp_table=True,
                 )
 
@@ -231,13 +232,13 @@ class RedshiftSqlLineageV2:
             return
 
         # TODO actor
-        # TODO session id
 
         self.aggregator.add_observed_query(
             query=ddl,
             default_db=self.database,
             default_schema=self.config.default_schema,
             query_timestamp=lineage_row.timestamp,
+            session_id=lineage_row.session_id,
         )
 
     def _make_filtered_target(self, lineage_row: LineageRow) -> Optional[DatasetUrn]:
@@ -251,7 +252,7 @@ class RedshiftSqlLineageV2:
             logger.debug(
                 f"Skipping lineage for {target.urn()} as it is not in known_urns"
             )
-            return
+            return None
 
         return target
 

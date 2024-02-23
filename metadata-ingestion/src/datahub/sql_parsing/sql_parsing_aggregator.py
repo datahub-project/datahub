@@ -128,6 +128,10 @@ class SqlAggregatorReport(Report):
         default_factory=LossyDict
     )
 
+    num_known_query_lineage: int = 0
+    num_known_mapping_lineage: int = 0
+    num_table_renames: int = 0
+
     num_queries_with_temp_tables_in_session: int = 0
 
     num_unique_query_fingerprints: Optional[int] = None
@@ -333,6 +337,8 @@ class SqlParsingAggregator:
             known_query_lineage: The known query lineage information.
         """
 
+        self.report.num_known_query_lineage += 1
+
         # Generate a fingerprint for the query.
         query_fingerprint = get_query_fingerprint(
             known_query_lineage.query_text, self.platform.platform_name
@@ -385,6 +391,8 @@ class SqlParsingAggregator:
             upstream_urn: The upstream dataset URN.
             downstream_urn: The downstream dataset URN.
         """
+
+        self.report.num_known_mapping_lineage += 1
 
         # We generate a fake "query" object to hold the lineage.
         query_id = self._known_lineage_query_id()
@@ -474,7 +482,7 @@ class SqlParsingAggregator:
         )
         if parsed.debug_info.error:
             self.report.observed_query_parse_failures.append(
-                str(parsed.debug_info.error)
+                f"{parsed.debug_info.error} on query: {query[:100]}"
             )
         if parsed.debug_info.table_error:
             self.report.num_observed_queries_failed += 1
@@ -491,6 +499,13 @@ class SqlParsingAggregator:
             # TODO: We need a full list of columns referenced, not just the out tables.
             upstream_fields = compute_upstream_fields(parsed)
             for upstream_urn in parsed.in_tables:
+                # If the upstream table is a temp table, don't log usage for it.
+                if (self.is_temp_table and not self.is_temp_table(upstream_urn)) or (
+                    require_out_table_schema
+                    and not self._schema_resolver.has_urn(upstream_urn)
+                ):
+                    continue
+
                 self._usage_aggregator.aggregate_event(
                     resource=upstream_urn,
                     start_time=query_timestamp,
@@ -579,6 +594,8 @@ class SqlParsingAggregator:
             original_urn: The original dataset URN.
             new_urn: The new dataset URN.
         """
+
+        self.report.num_table_renames += 1
 
         # This will not work if the table is renamed multiple times.
         self._table_renames[original_urn] = new_urn

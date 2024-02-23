@@ -80,6 +80,7 @@ class LineageRow:
     ddl: Optional[str]
     filename: Optional[str]
     timestamp: Optional[datetime]
+    session_id: Optional[str]
 
 
 @dataclass
@@ -357,12 +358,6 @@ class RedshiftDataDictionary:
         return table_columns
 
     @staticmethod
-    def _parse_timestamp(timestamp: Optional[str]) -> Optional[datetime]:
-        if not timestamp:
-            return None
-        return datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S.%f")
-
-    @staticmethod
     def get_lineage_rows(
         conn: redshift_connector.Connection,
         query: str,
@@ -408,10 +403,14 @@ class RedshiftDataDictionary:
                         else None
                     ),
                     timestamp=(
-                        RedshiftDataDictionary._parse_timestamp(
-                            row[field_names.index("timestamp")]
-                        )
+                        row[field_names.index("timestamp")]
                         if "timestamp" in field_names
+                        else None
+                    ),
+                    session_id=(
+                        str(row[field_names.index("session_id")])
+                        if "session_id" in field_names
+                        and row[field_names.index("session_id")]
                         else None
                     ),
                 )
