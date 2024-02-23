@@ -11,7 +11,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.schema.DataSchema;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.Aspect;
-import com.linkedin.metadata.aspect.plugins.validation.AspectRetriever;
+import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.validation.StructuredPropertiesValidator;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;

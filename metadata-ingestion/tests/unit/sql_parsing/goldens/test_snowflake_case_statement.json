@@ -47,5 +47,9 @@
                 }
             ]
         }
-    ]
+    ],
+    "debug_info": {
+        "confidence": 0.9,
+        "generalized_statement": "SELECT CASE WHEN o.\"totalprice\" > ? THEN ? WHEN o.\"totalprice\" > ? THEN ? ELSE ? END AS total_price_category, CASE WHEN o.\"is_payment_successful\" THEN o.\"totalprice\" ELSE ? END AS total_price_success FROM snowflake_sample_data.tpch_sf1.orders AS o"
+    }
 }

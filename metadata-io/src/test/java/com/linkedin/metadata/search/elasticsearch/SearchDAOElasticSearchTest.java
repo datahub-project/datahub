@@ -31,7 +31,7 @@ public class SearchDAOElasticSearchTest extends SearchDAOTestBase {
   IndexConvention indexConvention;
 
   @Override
-  protected EntityRegistry getInjectedRegistry() {
+  protected EntityRegistry getEntityRegistry() {
     return entityRegistry;
   }
 

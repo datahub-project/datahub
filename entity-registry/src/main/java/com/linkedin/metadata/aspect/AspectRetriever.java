@@ -1,4 +1,4 @@
-package com.linkedin.metadata.aspect.plugins.validation;
+package com.linkedin.metadata.aspect;
 
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;

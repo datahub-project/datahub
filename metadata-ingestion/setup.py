@@ -94,7 +94,7 @@ usage_common = {
 sqlglot_lib = {
     # Using an Acryl fork of sqlglot.
     # https://github.com/tobymao/sqlglot/compare/main...hsheth2:sqlglot:hsheth?expand=1
-    "acryl-sqlglot==20.4.1.dev14",
+    "acryl-sqlglot==21.1.2.dev9",
 }
 
 sql_common = (
@@ -245,9 +245,7 @@ delta_lake = {
 
 powerbi_report_server = {"requests", "requests_ntlm"}
 
-slack = {
-    "slack-sdk==3.18.1"
-}
+slack = {"slack-sdk==3.18.1"}
 
 databricks = {
     # 0.1.11 appears to have authentication issues with azure databricks

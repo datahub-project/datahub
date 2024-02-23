@@ -25,5 +25,9 @@
                 }
             ]
         }
-    ]
+    ],
+    "debug_info": {
+        "confidence": 0.9,
+        "generalized_statement": "SELECT GREATEST(`col1`, COL2, `this_will_not_resolve`) AS max_col FROM mytable"
+    }
 }

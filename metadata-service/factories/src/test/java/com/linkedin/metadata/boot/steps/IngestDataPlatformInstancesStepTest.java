@@ -8,7 +8,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.entity.AspectMigrationsDao;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.entity.ebean.batch.MCPUpsertBatchItem;
+import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
@@ -122,7 +122,7 @@ public class IngestDataPlatformInstancesStepTest {
                                 item.getUrn().getEntityType().equals("chart")
                                     && item.getAspectName()
                                         .equals(DATA_PLATFORM_INSTANCE_ASPECT_NAME)
-                                    && ((MCPUpsertBatchItem) item).getRecordTemplate()
+                                    && ((ChangeItemImpl) item).getRecordTemplate()
                                         instanceof DataPlatformInstance)),
             anyBoolean(),
             anyBoolean());
@@ -136,7 +136,7 @@ public class IngestDataPlatformInstancesStepTest {
                                 item.getUrn().getEntityType().equals("chart")
                                     && item.getAspectName()
                                         .equals(DATA_PLATFORM_INSTANCE_ASPECT_NAME)
-                                    && ((MCPUpsertBatchItem) item).getRecordTemplate()
+                                    && ((ChangeItemImpl) item).getRecordTemplate()
                                         instanceof DataPlatformInstance)),
             anyBoolean(),
             anyBoolean());

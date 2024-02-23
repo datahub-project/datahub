@@ -54,13 +54,8 @@ public class DeleteEntityServiceTest {
     preProcessHooks.setUiEnabled(true);
     _entityServiceImpl =
         new EntityServiceImpl(
-            _aspectDao,
-            mock(EventProducer.class),
-            _entityRegistry,
-            true,
-            _mockUpdateIndicesService,
-            preProcessHooks,
-            true);
+            _aspectDao, mock(EventProducer.class), _entityRegistry, true, preProcessHooks, true);
+    _entityServiceImpl.setUpdateIndicesService(_mockUpdateIndicesService);
     _deleteEntityService = new DeleteEntityService(_entityServiceImpl, _graphService);
   }
 
