@@ -39,6 +39,7 @@ from datahub.metadata.schema_classes import (
     ChartTypeClass,
     DashboardInfoClass,
 )
+from datahub.utilities.lossy_collections import LossyDict, LossyList
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.sql_parser import SQLParser
 
@@ -282,7 +283,7 @@ class RedashConfig(ConfigModel):
 @dataclass
 class RedashSourceReport(SourceReport):
     items_scanned: int = 0
-    filtered: List[str] = field(default_factory=list)
+    filtered: LossyList[str] = field(default_factory=LossyList)
     queries_problem_parsing: Set[str] = field(default_factory=set)
     queries_no_dataset: Set[str] = field(default_factory=set)
     charts_no_input: Set[str] = field(default_factory=set)
@@ -295,7 +296,7 @@ class RedashSourceReport(SourceReport):
     )
     max_page_dashboards: Optional[int] = field(default=None)
     api_page_limit: Optional[float] = field(default=None)
-    timing: Dict[str, int] = field(default_factory=dict)
+    timing: LossyDict[str, int] = field(default_factory=LossyDict)
 
     def report_item_scanned(self) -> None:
         self.items_scanned += 1
@@ -358,12 +359,12 @@ class RedashSource(Source):
         )
 
     def error(self, log: logging.Logger, key: str, reason: str) -> None:
-        self.report.report_failure(key, reason)
-        log.error(f"{key} => {reason}")
+        # TODO: Remove this method.
+        self.report.failure(key, reason)
 
     def warn(self, log: logging.Logger, key: str, reason: str) -> None:
-        self.report.report_warning(key, reason)
-        log.warning(f"{key} => {reason}")
+        # TODO: Remove this method.
+        self.report.warning(key, reason)
 
     def validate_connection(self) -> None:
         test_response = self.client._get(f"{self.config.connect_uri}/api")

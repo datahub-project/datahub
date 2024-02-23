@@ -35,6 +35,9 @@ query getGlossaryNode($urn: String!) {
                 ...structuredPropertiesFields
             }
         }
+        forms {
+            ...formsFields
+        }
         children: relationships(
             input: {
                 types: ["IsPartOf"]

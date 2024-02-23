@@ -25,5 +25,9 @@
                 }
             ]
         }
-    ]
+    ],
+    "debug_info": {
+        "confidence": 0.2,
+        "generalized_statement": "SELECT COUNT(etl_data_dt_id) FROM something_prd.fact_complaint_snapshot WHERE etl_data_dt_id = ?"
+    }
 }
