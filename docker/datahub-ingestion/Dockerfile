@@ -6,20 +6,18 @@ ARG PIP_MIRROR_URL=null
 ARG DEBIAN_REPO_URL=https://deb.debian.org/debian
 
 FROM $BASE_IMAGE:$DOCKER_VERSION as base
-USER 0
+USER datahub
 
-COPY ./metadata-ingestion /datahub-ingestion
-COPY ./metadata-ingestion-modules/airflow-plugin /datahub-ingestion/airflow-plugin
+COPY --chown=datahub ./metadata-ingestion /datahub-ingestion
+COPY --chown=datahub ./metadata-ingestion-modules/airflow-plugin /datahub-ingestion/airflow-plugin
 
 ARG RELEASE_VERSION
 WORKDIR /datahub-ingestion
 RUN sed -i.bak "s/__version__ = \"1\!0.0.0.dev0\"/__version__ = \"$(echo $RELEASE_VERSION|sed s/-/+/)\"/" src/datahub/__init__.py && \
     sed -i.bak "s/__version__ = \"1\!0.0.0.dev0\"/__version__ = \"$(echo $RELEASE_VERSION|sed s/-/+/)\"/" airflow-plugin/src/datahub_airflow_plugin/__init__.py && \
     cat src/datahub/__init__.py | grep __version__ && \
-    cat airflow-plugin/src/datahub_airflow_plugin/__init__.py | grep __version__ && \
-    chown -R datahub /datahub-ingestion
+    cat airflow-plugin/src/datahub_airflow_plugin/__init__.py | grep __version__
 
-USER datahub
 ENV PATH="/datahub-ingestion/.local/bin:$PATH"
 
 FROM base as slim-install
