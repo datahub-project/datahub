@@ -57,7 +57,7 @@ jobs:
     timeout-minutes: 60
     needs: setup
     steps:
-      - uses: szenius/set-timezone@v1.2
+      - uses: MathRobin/timezone-action@v1.1
         with:
           timezoneLinux: ${{ matrix.timezone }}
       - name: Check out the repo
