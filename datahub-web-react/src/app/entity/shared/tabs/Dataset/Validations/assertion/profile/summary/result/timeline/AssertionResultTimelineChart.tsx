@@ -15,7 +15,7 @@ import { generateTickValues, getCustomTickValue, getFillColor } from './utils';
 export type AssertionResult = {
     type: AssertionResultType;
     title: React.ReactNode;
-    content: React.ReactNode;
+    popoverContent: React.ReactNode;
     resultUrl?: Maybe<string>;
 };
 
@@ -39,8 +39,8 @@ type Props = {
  * Assertion run results displayed on a horizontal timeline.
  */
 export const AssertionResultTimelineChart = ({ data, timeRange, width }: Props) => {
-    const yMax = 60;
-    const left = 0;
+    const maxHeightPx = 60;
+    const leftOffsetPx = 0;
 
     const xScale = useMemo(
         () =>
@@ -55,7 +55,7 @@ export const AssertionResultTimelineChart = ({ data, timeRange, width }: Props) 
         return {
             index: i,
             title: result.result.title,
-            content: result.result.content,
+            popoverContent: result.result.popoverContent,
             type: result.result.type,
             time: result.time,
             url: result.result.resultUrl,
@@ -70,7 +70,7 @@ export const AssertionResultTimelineChart = ({ data, timeRange, width }: Props) 
                         const barWidth = 8;
                         const barHeight = 28;
                         const barX = xScale(new Date(d.time));
-                        const barY = yMax - barHeight;
+                        const barY = maxHeightPx - barHeight;
                         const fillColor = getFillColor(d.type);
                         return (
                             <LinkWrapper to={d.url} target="_blank">
@@ -81,7 +81,7 @@ export const AssertionResultTimelineChart = ({ data, timeRange, width }: Props) 
                                         maxWidth: 440,
                                         wordWrap: 'break-word',
                                     }}
-                                    content={d.content}
+                                    content={d.popoverContent}
                                     showArrow={false}
                                 >
                                     <Bar
@@ -99,8 +99,8 @@ export const AssertionResultTimelineChart = ({ data, timeRange, width }: Props) 
                     })}
                 </Group>
                 <AxisBottom
-                    top={yMax}
-                    left={left}
+                    top={maxHeightPx}
+                    left={leftOffsetPx}
                     scale={xScale}
                     stroke={ANTD_GRAY[5]}
                     tickValues={generateTickValues(timeRange.startMs, timeRange.endMs)}

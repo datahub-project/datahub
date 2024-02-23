@@ -6,7 +6,7 @@ import {
     AssertionRunStatus,
     DataPlatform,
 } from '../../../../../../../../../../../types.generated';
-import { AssertionResultTimelineChart, TimeRange } from './AssertionResultTimelineChart';
+import { AssertionDataPoint, AssertionResultTimelineChart, TimeRange } from './AssertionResultTimelineChart';
 import { AssertionResultPopoverContent } from '../../../shared/result/AssertionResultPopoverContent';
 
 const RESULT_CHART_WIDTH_PX = 540;
@@ -25,7 +25,7 @@ export const AssertionResultsTimelineViz = ({ assertion, results, platform, time
     /**
      * Data for the timeline of assertion results.
      */
-    const timelineData =
+    const timelineData: AssertionDataPoint[] =
         completedRuns
             .filter((runEvent) => !!runEvent.result)
             .map((runEvent) => {
@@ -41,11 +41,10 @@ export const AssertionResultsTimelineViz = ({ assertion, results, platform, time
                         type: result.type,
                         resultUrl,
                         title: undefined,
-                        content: (
+                        popoverContent: (
                             <AssertionResultPopoverContent
                                 assertion={assertion}
                                 run={runEvent}
-                                platform={platform || undefined}
                             />
                         ),
                     },

@@ -20,8 +20,8 @@ export const getFillColor = (type: AssertionResultType) => {
     }
 };
 
-export function generateTickValues(startMs, endMs) {
-    const ticks: any[] = [];
+export function generateTickValues(startMs, endMs): Date[] {
+    const ticks: Date[] = [];
     const minDate = new Date(startMs);
     const maxDate = new Date(endMs);
     const diff = maxDate.getTime() - minDate.getTime();
