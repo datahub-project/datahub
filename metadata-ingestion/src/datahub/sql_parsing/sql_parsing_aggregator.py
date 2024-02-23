@@ -256,8 +256,8 @@ class SqlParsingAggregator:
             shared_connection=self._shared_connection, tablename="inferred_temp_schemas"
         )
 
-        # Map of table renames, from original URN to new URN.
-        self._table_renames = FileBackedDict[UrnStr, UrnStr](
+        # Map of table renames, from original UrnStr to new UrnStr.
+        self._table_renames = FileBackedDict[UrnStr](
             shared_connection=self._shared_connection, tablename="table_renames"
         )
 
