@@ -1,7 +1,7 @@
 import dayjs from "dayjs";
 import { scaleOrdinal } from "@visx/scale";
 
-import { COMPLETED_COLOR, NOT_STARTED_COLOR, IN_PROGRESS_COLOR } from '../../dataviz/constants';
+import { COMPLETED_COLOR, NOT_STARTED_COLOR, IN_PROGRESS_COLOR } from './constants';
 
 // Mock Data Util
 export const generateCount = (totalAssets) => {
