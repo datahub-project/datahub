@@ -73,7 +73,6 @@ from datahub.ingestion.source.unity.proxy_types import (
     Catalog,
     Column,
     CustomCatalogType,
-    HiveTableType,
     Metastore,
     Notebook,
     NotebookId,
@@ -501,8 +500,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
         # generate sibling and lineage aspects in case of EXTERNAL DELTA TABLE
         if (
-            table_props.customProperties.get("table_type")
-            == "EXTERNAL"
+            table_props.customProperties.get("table_type") == "EXTERNAL"
             and table_props.customProperties.get("data_source_format") == "DELTA"
         ):
             storage_location = str(table_props.customProperties.get("storage_location"))

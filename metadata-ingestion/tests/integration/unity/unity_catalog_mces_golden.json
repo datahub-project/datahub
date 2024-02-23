@@ -1748,6 +1748,41 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,main.default.quickstart_table_external,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:d6f502d4d8165f68d5b594ab4cb2171e"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,main.default.quickstart_table_external,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "siblings",
+    "aspect": {
+        "json": {
+            "siblings": [
+                "urn:li:dataset:(urn:li:dataPlatform:databricks,db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896,PROD)"
+            ],
+            "primary": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.default.quickstart_table,PROD)",
     "changeType": "UPSERT",
     "aspectName": "ownership",
@@ -1763,6 +1798,50 @@
                 "time": 0,
                 "actor": "urn:li:corpuser:unknown"
             }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "siblings",
+    "aspect": {
+        "json": {
+            "siblings": [
+                "urn:li:dataset:(urn:li:dataPlatform:databricks,main.default.quickstart_table_external,PROD)"
+            ],
+            "primary": true
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,main.default.quickstart_table_external,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:045573d60442121f01b8d66a3eb95622",
+                    "urn": "urn:li:container:045573d60442121f01b8d66a3eb95622"
+                },
+                {
+                    "id": "urn:li:container:d6f502d4d8165f68d5b594ab4cb2171e",
+                    "urn": "urn:li:container:d6f502d4d8165f68d5b594ab4cb2171e"
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -1811,6 +1890,152 @@
     "aspect": {
         "json": {
             "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,main.default.quickstart_table_external,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "main.default.quickstart_table_external",
+            "platform": "urn:li:dataPlatform:databricks",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.MySqlDDL": {
+                    "tableSchema": ""
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "columnA",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "int",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "columnB",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,main.default.quickstart_table_external,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "storage_location": "s3://db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896",
+                "data_source_format": "DELTA",
+                "generation": "2",
+                "table_type": "EXTERNAL",
+                "created_by": "abc@acryl.io",
+                "delta.lastCommitTimestamp": "1666185711000",
+                "delta.lastUpdateVersion": "1",
+                "delta.minReaderVersion": "1",
+                "delta.minWriterVersion": "2",
+                "spark.sql.statistics.numRows": "10",
+                "spark.sql.statistics.totalSize": "512",
+                "table_id": "cff27aa1-1c6a-4d78-b713-562c660c2896",
+                "owner": "account users",
+                "updated_by": "abc@acryl.io",
+                "updated_at": "2022-10-19 13:27:29.633000+00:00",
+                "created_at": "2022-10-19 13:21:38.688000+00:00"
+            },
+            "externalUrl": "https://dummy.cloud.databricks.com/explore/data/main/default/quickstart_table_external",
+            "name": "quickstart_table_external",
+            "qualifiedName": "main.default.quickstart_table_external",
+            "created": {
+                "time": 1666185698688,
+                "actor": "urn:li:corpuser:abc@acryl.io"
+            },
+            "lastModified": {
+                "time": 1666186049633,
+                "actor": "urn:li:corpuser:abc@acryl.io"
+            },
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,main.default.quickstart_table_external,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:databricks,db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896,PROD)",
+                    "type": "VIEW"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,main.default.quickstart_table_external,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
         }
     },
     "systemMetadata": {
@@ -1890,6 +2115,31 @@
                     "urn": "urn:li:container:045573d60442121f01b8d66a3eb95622"
                 }
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,main.default.quickstart_table_external,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:account users",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
         }
     },
     "systemMetadata": {
@@ -2104,6 +2354,41 @@
     }
 },
 {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,main.quickstart_schema.quickstart_table_external,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:c45a3b960d7503abfb5549f583eb0517"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,main.quickstart_schema.quickstart_table_external,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "siblings",
+    "aspect": {
+        "json": {
+            "siblings": [
+                "urn:li:dataset:(urn:li:dataPlatform:databricks,db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896,PROD)"
+            ],
+            "primary": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "container",
     "entityUrn": "urn:li:container:730e95cd0271453376b3c1d9623838d6",
     "changeType": "UPSERT",
@@ -2118,6 +2403,31 @@
             "externalUrl": "https://dummy.cloud.databricks.com/explore/data/quickstart_catalog",
             "name": "quickstart_catalog",
             "description": ""
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,main.quickstart_schema.quickstart_table_external,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:045573d60442121f01b8d66a3eb95622",
+                    "urn": "urn:li:container:045573d60442121f01b8d66a3eb95622"
+                },
+                {
+                    "id": "urn:li:container:c45a3b960d7503abfb5549f583eb0517",
+                    "urn": "urn:li:container:c45a3b960d7503abfb5549f583eb0517"
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -2168,6 +2478,171 @@
     }
 },
 {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "siblings",
+    "aspect": {
+        "json": {
+            "siblings": [
+                "urn:li:dataset:(urn:li:dataPlatform:databricks,main.quickstart_schema.quickstart_table_external,PROD)"
+            ],
+            "primary": true
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,main.quickstart_schema.quickstart_table_external,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "main.quickstart_schema.quickstart_table_external",
+            "platform": "urn:li:dataPlatform:databricks",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.MySqlDDL": {
+                    "tableSchema": ""
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "columnA",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "int",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "columnB",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,main.quickstart_schema.quickstart_table_external,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "storage_location": "s3://db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896",
+                "data_source_format": "DELTA",
+                "generation": "2",
+                "table_type": "EXTERNAL",
+                "created_by": "abc@acryl.io",
+                "delta.lastCommitTimestamp": "1666185711000",
+                "delta.lastUpdateVersion": "1",
+                "delta.minReaderVersion": "1",
+                "delta.minWriterVersion": "2",
+                "spark.sql.statistics.numRows": "10",
+                "spark.sql.statistics.totalSize": "512",
+                "table_id": "cff27aa1-1c6a-4d78-b713-562c660c2896",
+                "owner": "account users",
+                "updated_by": "abc@acryl.io",
+                "updated_at": "2022-10-19 13:27:29.633000+00:00",
+                "created_at": "2022-10-19 13:21:38.688000+00:00"
+            },
+            "externalUrl": "https://dummy.cloud.databricks.com/explore/data/main/quickstart_schema/quickstart_table_external",
+            "name": "quickstart_table_external",
+            "qualifiedName": "main.quickstart_schema.quickstart_table_external",
+            "created": {
+                "time": 1666185698688,
+                "actor": "urn:li:corpuser:abc@acryl.io"
+            },
+            "lastModified": {
+                "time": 1666186049633,
+                "actor": "urn:li:corpuser:abc@acryl.io"
+            },
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,main.quickstart_schema.quickstart_table_external,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:databricks,db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896,PROD)",
+                    "type": "VIEW"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,main.quickstart_schema.quickstart_table_external,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "container",
     "entityUrn": "urn:li:container:730e95cd0271453376b3c1d9623838d6",
     "changeType": "UPSERT",
@@ -2193,6 +2668,31 @@
             "owners": [
                 {
                     "owner": "urn:li:corpuser:abc@acryl.io",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,main.quickstart_schema.quickstart_table_external,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:account users",
                     "type": "DATAOWNER"
                 }
             ],
@@ -2669,6 +3169,60 @@
     }
 },
 {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.default.quickstart_table_external,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:39e66cf95f60943f217d96142ffd9ddc"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "siblings",
+    "aspect": {
+        "json": {
+            "siblings": [
+                "urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.default.quickstart_table_external,PROD)"
+            ],
+            "primary": true
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.default.quickstart_table_external,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "siblings",
+    "aspect": {
+        "json": {
+            "siblings": [
+                "urn:li:dataset:(urn:li:dataPlatform:databricks,db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896,PROD)"
+            ],
+            "primary": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "container",
     "entityUrn": "urn:li:container:94af9873ac56d46a4bcc995836dc15d4",
     "changeType": "UPSERT",
@@ -2676,6 +3230,31 @@
     "aspect": {
         "json": {
             "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.default.quickstart_table_external,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:730e95cd0271453376b3c1d9623838d6",
+                    "urn": "urn:li:container:730e95cd0271453376b3c1d9623838d6"
+                },
+                {
+                    "id": "urn:li:container:39e66cf95f60943f217d96142ffd9ddc",
+                    "urn": "urn:li:container:39e66cf95f60943f217d96142ffd9ddc"
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -2749,6 +3328,187 @@
     }
 },
 {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.default.quickstart_table_external,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "quickstart_catalog.default.quickstart_table_external",
+            "platform": "urn:li:dataPlatform:databricks",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.MySqlDDL": {
+                    "tableSchema": ""
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "columnA",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "int",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "columnB",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.default.quickstart_table_external,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "storage_location": "s3://db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896",
+                "data_source_format": "DELTA",
+                "generation": "2",
+                "table_type": "EXTERNAL",
+                "created_by": "abc@acryl.io",
+                "delta.lastCommitTimestamp": "1666185711000",
+                "delta.lastUpdateVersion": "1",
+                "delta.minReaderVersion": "1",
+                "delta.minWriterVersion": "2",
+                "spark.sql.statistics.numRows": "10",
+                "spark.sql.statistics.totalSize": "512",
+                "table_id": "cff27aa1-1c6a-4d78-b713-562c660c2896",
+                "owner": "account users",
+                "updated_by": "abc@acryl.io",
+                "updated_at": "2022-10-19 13:27:29.633000+00:00",
+                "created_at": "2022-10-19 13:21:38.688000+00:00"
+            },
+            "externalUrl": "https://dummy.cloud.databricks.com/explore/data/quickstart_catalog/default/quickstart_table_external",
+            "name": "quickstart_table_external",
+            "qualifiedName": "quickstart_catalog.default.quickstart_table_external",
+            "created": {
+                "time": 1666185698688,
+                "actor": "urn:li:corpuser:abc@acryl.io"
+            },
+            "lastModified": {
+                "time": 1666186049633,
+                "actor": "urn:li:corpuser:abc@acryl.io"
+            },
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.default.quickstart_table_external,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:databricks,db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896,PROD)",
+                    "type": "VIEW"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.default.quickstart_table_external,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.quickstart_table_external,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:934b6043df189ef6dc63ac3519be34ac"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.quickstart_table_external,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "siblings",
+    "aspect": {
+        "json": {
+            "siblings": [
+                "urn:li:dataset:(urn:li:dataPlatform:databricks,db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896,PROD)"
+            ],
+            "primary": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "container",
     "entityUrn": "urn:li:container:b84ba0cc36e3b2636942fc34ec5724d6",
     "changeType": "UPSERT",
@@ -2765,8 +3525,58 @@
     }
 },
 {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.quickstart_table_external,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:730e95cd0271453376b3c1d9623838d6",
+                    "urn": "urn:li:container:730e95cd0271453376b3c1d9623838d6"
+                },
+                {
+                    "id": "urn:li:container:934b6043df189ef6dc63ac3519be34ac",
+                    "urn": "urn:li:container:934b6043df189ef6dc63ac3519be34ac"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "container",
     "entityUrn": "urn:li:container:934b6043df189ef6dc63ac3519be34ac",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:account users",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.default.quickstart_table_external,PROD)",
     "changeType": "UPSERT",
     "aspectName": "ownership",
     "aspect": {
@@ -2806,6 +3616,152 @@
     }
 },
 {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.quickstart_table_external,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "quickstart_catalog.quickstart_schema.quickstart_table_external",
+            "platform": "urn:li:dataPlatform:databricks",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.MySqlDDL": {
+                    "tableSchema": ""
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "columnA",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "int",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "columnB",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.quickstart_table_external,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "storage_location": "s3://db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896",
+                "data_source_format": "DELTA",
+                "generation": "2",
+                "table_type": "EXTERNAL",
+                "created_by": "abc@acryl.io",
+                "delta.lastCommitTimestamp": "1666185711000",
+                "delta.lastUpdateVersion": "1",
+                "delta.minReaderVersion": "1",
+                "delta.minWriterVersion": "2",
+                "spark.sql.statistics.numRows": "10",
+                "spark.sql.statistics.totalSize": "512",
+                "table_id": "cff27aa1-1c6a-4d78-b713-562c660c2896",
+                "owner": "account users",
+                "updated_by": "abc@acryl.io",
+                "updated_at": "2022-10-19 13:27:29.633000+00:00",
+                "created_at": "2022-10-19 13:21:38.688000+00:00"
+            },
+            "externalUrl": "https://dummy.cloud.databricks.com/explore/data/quickstart_catalog/quickstart_schema/quickstart_table_external",
+            "name": "quickstart_table_external",
+            "qualifiedName": "quickstart_catalog.quickstart_schema.quickstart_table_external",
+            "created": {
+                "time": 1666185698688,
+                "actor": "urn:li:corpuser:abc@acryl.io"
+            },
+            "lastModified": {
+                "time": 1666186049633,
+                "actor": "urn:li:corpuser:abc@acryl.io"
+            },
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.quickstart_table_external,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:databricks,db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896,PROD)",
+                    "type": "VIEW"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.quickstart_table_external,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "container",
     "entityUrn": "urn:li:container:934b6043df189ef6dc63ac3519be34ac",
     "changeType": "UPSERT",
@@ -2831,6 +3787,31 @@
             "owners": [
                 {
                     "owner": "urn:li:corpuser:abc@acryl.io",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.quickstart_table_external,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:account users",
                     "type": "DATAOWNER"
                 }
             ],
@@ -2933,6 +3914,25 @@
                     "urn": "urn:li:container:94af9873ac56d46a4bcc995836dc15d4"
                 }
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "siblings",
+    "aspect": {
+        "json": {
+            "siblings": [
+                "urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.quickstart_table_external,PROD)"
+            ],
+            "primary": true
         }
     },
     "systemMetadata": {
@@ -3693,6 +4693,25 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "siblings",
+    "aspect": {
+        "json": {
+            "siblings": [
+                "urn:li:dataset:(urn:li:dataPlatform:databricks,system.default.quickstart_table_external,PROD)"
+            ],
+            "primary": true
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,system.default.quickstart_table,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
@@ -3701,6 +4720,41 @@
             "typeNames": [
                 "Table"
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,system.default.quickstart_table_external,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:b84ba0cc36e3b2636942fc34ec5724d6"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,system.default.quickstart_table_external,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "siblings",
+    "aspect": {
+        "json": {
+            "siblings": [
+                "urn:li:dataset:(urn:li:dataPlatform:databricks,db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896,PROD)"
+            ],
+            "primary": false
         }
     },
     "systemMetadata": {
@@ -3726,6 +4780,31 @@
                 "time": 0,
                 "actor": "urn:li:corpuser:unknown"
             }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,system.default.quickstart_table_external,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:94af9873ac56d46a4bcc995836dc15d4",
+                    "urn": "urn:li:container:94af9873ac56d46a4bcc995836dc15d4"
+                },
+                {
+                    "id": "urn:li:container:b84ba0cc36e3b2636942fc34ec5724d6",
+                    "urn": "urn:li:container:b84ba0cc36e3b2636942fc34ec5724d6"
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -3835,6 +4914,152 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,system.default.quickstart_table_external,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "system.default.quickstart_table_external",
+            "platform": "urn:li:dataPlatform:databricks",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.MySqlDDL": {
+                    "tableSchema": ""
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "columnA",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "int",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "columnB",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,system.default.quickstart_table_external,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "storage_location": "s3://db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896",
+                "data_source_format": "DELTA",
+                "generation": "2",
+                "table_type": "EXTERNAL",
+                "created_by": "abc@acryl.io",
+                "delta.lastCommitTimestamp": "1666185711000",
+                "delta.lastUpdateVersion": "1",
+                "delta.minReaderVersion": "1",
+                "delta.minWriterVersion": "2",
+                "spark.sql.statistics.numRows": "10",
+                "spark.sql.statistics.totalSize": "512",
+                "table_id": "cff27aa1-1c6a-4d78-b713-562c660c2896",
+                "owner": "account users",
+                "updated_by": "abc@acryl.io",
+                "updated_at": "2022-10-19 13:27:29.633000+00:00",
+                "created_at": "2022-10-19 13:21:38.688000+00:00"
+            },
+            "externalUrl": "https://dummy.cloud.databricks.com/explore/data/system/default/quickstart_table_external",
+            "name": "quickstart_table_external",
+            "qualifiedName": "system.default.quickstart_table_external",
+            "created": {
+                "time": 1666185698688,
+                "actor": "urn:li:corpuser:abc@acryl.io"
+            },
+            "lastModified": {
+                "time": 1666186049633,
+                "actor": "urn:li:corpuser:abc@acryl.io"
+            },
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,system.default.quickstart_table_external,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:databricks,db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896,PROD)",
+                    "type": "VIEW"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,system.default.quickstart_table_external,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,main.default.quickstart_table,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetProfile",
@@ -3865,6 +5090,31 @@
     "aspect": {
         "json": {
             "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,system.default.quickstart_table_external,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:account users",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
         }
     },
     "systemMetadata": {
@@ -3916,6 +5166,512 @@
 {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.quickstart_table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,system.quickstart_schema.quickstart_table_external,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:databricks,db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896,PROD)",
+                    "type": "VIEW"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,system.quickstart_schema.quickstart_table_external,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:a1123d3ed81951784140565f5085b96d"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,system.quickstart_schema.quickstart_table_external,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:account users",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "siblings",
+    "aspect": {
+        "json": {
+            "siblings": [
+                "urn:li:dataset:(urn:li:dataPlatform:databricks,system.quickstart_schema.quickstart_table_external,PROD)"
+            ],
+            "primary": true
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.quickstart_table_external,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1708671016385,
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
+            },
+            "rowCount": 10,
+            "columnCount": 2,
+            "fieldProfiles": [],
+            "sizeInBytes": 512
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,system.quickstart_schema.quickstart_table_external,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,system.quickstart_schema.quickstart_table_external,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "storage_location": "s3://db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896",
+                "data_source_format": "DELTA",
+                "generation": "2",
+                "table_type": "EXTERNAL",
+                "created_by": "abc@acryl.io",
+                "delta.lastCommitTimestamp": "1666185711000",
+                "delta.lastUpdateVersion": "1",
+                "delta.minReaderVersion": "1",
+                "delta.minWriterVersion": "2",
+                "spark.sql.statistics.numRows": "10",
+                "spark.sql.statistics.totalSize": "512",
+                "table_id": "cff27aa1-1c6a-4d78-b713-562c660c2896",
+                "owner": "account users",
+                "updated_by": "abc@acryl.io",
+                "updated_at": "2022-10-19 13:27:29.633000+00:00",
+                "created_at": "2022-10-19 13:21:38.688000+00:00"
+            },
+            "externalUrl": "https://dummy.cloud.databricks.com/explore/data/system/quickstart_schema/quickstart_table_external",
+            "name": "quickstart_table_external",
+            "qualifiedName": "system.quickstart_schema.quickstart_table_external",
+            "created": {
+                "time": 1666185698688,
+                "actor": "urn:li:corpuser:abc@acryl.io"
+            },
+            "lastModified": {
+                "time": 1666186049633,
+                "actor": "urn:li:corpuser:abc@acryl.io"
+            },
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,system.quickstart_schema.quickstart_table_external,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:94af9873ac56d46a4bcc995836dc15d4",
+                    "urn": "urn:li:container:94af9873ac56d46a4bcc995836dc15d4"
+                },
+                {
+                    "id": "urn:li:container:a1123d3ed81951784140565f5085b96d",
+                    "urn": "urn:li:container:a1123d3ed81951784140565f5085b96d"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,system.quickstart_schema.quickstart_table_external,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "siblings",
+    "aspect": {
+        "json": {
+            "siblings": [
+                "urn:li:dataset:(urn:li:dataPlatform:databricks,db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896,PROD)"
+            ],
+            "primary": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,main.quickstart_schema.quickstart_table_external,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1708671016385,
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
+            },
+            "rowCount": 10,
+            "columnCount": 2,
+            "fieldProfiles": [],
+            "sizeInBytes": 512
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,system.quickstart_schema.quickstart_table_external,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,system.quickstart_schema.quickstart_table_external,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1708671016386,
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
+            },
+            "rowCount": 10,
+            "columnCount": 2,
+            "fieldProfiles": [],
+            "sizeInBytes": 512
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,system.quickstart_schema.quickstart_table_external,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "system.quickstart_schema.quickstart_table_external",
+            "platform": "urn:li:dataPlatform:databricks",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.MySqlDDL": {
+                    "tableSchema": ""
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "columnA",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "int",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "columnB",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,main.default.quickstart_table_external,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,main.default.quickstart_table_external,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1708671016386,
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
+            },
+            "rowCount": 10,
+            "columnCount": 2,
+            "fieldProfiles": [],
+            "sizeInBytes": 512
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.default.quickstart_table_external,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.default.quickstart_table_external,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1708671016394,
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
+            },
+            "rowCount": 10,
+            "columnCount": 2,
+            "fieldProfiles": [],
+            "sizeInBytes": 512
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,system.default.quickstart_table_external,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,system.default.quickstart_table_external,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1708671016395,
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
+            },
+            "rowCount": 10,
+            "columnCount": 2,
+            "fieldProfiles": [],
+            "sizeInBytes": 512
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.quickstart_table_external,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,main.quickstart_schema.quickstart_table_external,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
