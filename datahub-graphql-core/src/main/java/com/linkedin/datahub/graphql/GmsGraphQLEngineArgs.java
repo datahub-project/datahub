@@ -17,6 +17,7 @@ import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.config.ActionPipelineConfiguration;
 import com.linkedin.metadata.config.ChromeExtensionConfiguration;
 import com.linkedin.metadata.config.DataHubConfiguration;
+import com.linkedin.metadata.config.ExecutorConfiguration;
 import com.linkedin.metadata.config.IngestionConfiguration;
 import com.linkedin.metadata.config.TestsConfiguration;
 import com.linkedin.metadata.config.ViewsConfiguration;
@@ -97,4 +98,5 @@ public class GmsGraphQLEngineArgs {
   ConnectionService connectionService;
   ActionPipelineConfiguration actionPipelineConfiguration;
   SubscriptionService subscriptionService;
+  ExecutorConfiguration executorConfiguration;
 }

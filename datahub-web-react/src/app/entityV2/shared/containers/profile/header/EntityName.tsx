@@ -7,19 +7,27 @@ import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import { useEntityData, useRefetch } from '../../../EntityContext';
 import { useGlossaryEntityData } from '../../../GlossaryEntityContext';
 
-const EntityTitle = styled(Typography.Title)`
+const EntityTitle = styled(Typography.Text)`
+    font-size: 14px;
+    font-weight: 400;
+    color: #533fd1;
+    line-height: normal;
     margin-right: 10px;
 
     &&& {
         margin-bottom: 0;
         word-break: break-all;
-        overflow: hidden; 
+        overflow: hidden;
         text-overflow: ellipsis;
     }
 
     .ant-typography-edit {
-        font-size: 16px;
-        margin-left: 10px;
+        font-size: 12px;
+        margin-left: 2px;
+
+        & svg {
+            fill: #533fd1;
+        }
     }
 `;
 
@@ -75,7 +83,6 @@ function EntityName(props: Props) {
         <>
             {isNameEditable ? (
                 <EntityTitle
-                    level={3}
                     disabled={isMutatingName}
                     editable={{
                         editing: isEditing,
@@ -86,7 +93,7 @@ function EntityName(props: Props) {
                     {updatedName}
                 </EntityTitle>
             ) : (
-                <EntityTitle level={3}>{entityName}</EntityTitle>
+                <EntityTitle>{entityName}</EntityTitle>
             )}
         </>
     );
