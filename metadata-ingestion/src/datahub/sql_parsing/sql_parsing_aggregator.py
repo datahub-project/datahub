@@ -639,9 +639,9 @@ class SqlParsingAggregator:
             schema_resolver=self._schema_resolver,
         )
         if parsed.debug_info.error:
-            self.report.views_parse_failures[view_urn] = (
-                f"{parsed.debug_info.error} on query: {view_definition.view_definition[:100]}"
-            )
+            self.report.views_parse_failures[
+                view_urn
+            ] = f"{parsed.debug_info.error} on query: {view_definition.view_definition[:100]}"
         if parsed.debug_info.table_error:
             self.report.num_views_failed += 1
             return  # we can't do anything with this query
