@@ -1,4 +1,4 @@
-import { AppstoreOutlined, BookFilled, FileOutlined, LayoutOutlined, UnorderedListOutlined } from '@ant-design/icons';
+import Icon, { AppstoreOutlined, BookFilled, FileOutlined, LayoutOutlined, UnorderedListOutlined } from '@ant-design/icons';
 import * as React from 'react';
 import { GetGlossaryTermQuery, useGetGlossaryTermQuery } from '../../../graphql/glossaryTerm.generated';
 import BookOutlined from '../../../images/glossary_term_material_logo.svg?react';
@@ -20,6 +20,7 @@ import { GenericEntityProperties } from '../shared/types';
 import { Preview } from './preview/Preview';
 import GlossaryRelatedEntity from './profile/GlossaryRelatedEntity';
 import GlossayRelatedTerms from './profile/GlossaryRelatedTerms';
+import GlossaryTermIcon from '../../../images/collections_bookmark.svg?react';
 
 /**
  * Definition of the DataHub Dataset entity.
@@ -36,6 +37,10 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
 
         if (styleType === IconStyleType.HIGHLIGHT) {
             return <BookFilled className={TYPE_ICON_CLASS_NAME} style={{ fontSize, color: color || '#B37FEB' }} />;
+        }
+
+        if(styleType === IconStyleType.ACCENT){
+            return <Icon style={{ fontSize: 10, color: '#6C6B88' }} component={GlossaryTermIcon} />;
         }
 
         return (
