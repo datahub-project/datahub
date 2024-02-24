@@ -346,7 +346,7 @@ uc-micro-py==1.0.3
 ujson==5.9.0
 unicodecsv==0.14.1
 urllib3==1.26.18
-uv==0.1.6
+uv==0.1.10
 vertica-python==1.3.8
 vertica-sqlalchemy-dialect==0.0.8.1
 vininfo==1.8.0

@@ -144,7 +144,7 @@ task testQuick(type: Exec, dependsOn: [installDev, ':metadata-models:generateJso
   outputs.dir("${venv_name}")
   def cvg_arg = get_coverage_arg("quick")
   commandLine 'bash', '-c',
-    "source ${venv_name}/bin/activate && " +
+    "source ${venv_name}/bin/activate && set -x && " +
     "pytest ${cvg_arg} tests/unit --random-order --durations=20 -m 'not integration' -vv --continue-on-collection-errors --junit-xml=junit.quick.xml"
 }
 
@@ -176,22 +176,26 @@ task testSingle(dependsOn: [installDevTest]) {
 task testIntegrationBatch0(type: Exec, dependsOn: [installDevTest]) {
   def cvg_arg = get_coverage_arg("intBatch0")
   commandLine 'bash', '-c',
-    "source ${venv_name}/bin/activate && pytest ${cvg_arg} --durations=50 -m 'integration_batch_0' -vv --continue-on-collection-errors --junit-xml=junit.integrationbatch0.xml"
+    "source ${venv_name}/bin/activate && set -x && " +
+    "pytest ${cvg_arg} --durations=50 -m 'integration_batch_0' -vv --continue-on-collection-errors --junit-xml=junit.integrationbatch0.xml"
 }
 task testIntegrationBatch1(type: Exec, dependsOn: [installDevTest]) {
   def cvg_arg = get_coverage_arg("intBatch1")
   commandLine 'bash', '-c',
-    "source ${venv_name}/bin/activate && pytest ${cvg_arg} --durations=50 -m 'integration_batch_1' -vv --continue-on-collection-errors --junit-xml=junit.integrationbatch1.xml"
+    "source ${venv_name}/bin/activate && set -x && " +
+    "pytest ${cvg_arg} --durations=50 -m 'integration_batch_1' -vv --continue-on-collection-errors --junit-xml=junit.integrationbatch1.xml"
 }
 task testIntegrationBatch2(type: Exec, dependsOn: [installDevTest]) {
   def cvg_arg = get_coverage_arg("intBatch2")
   commandLine 'bash', '-c',
-    "source ${venv_name}/bin/activate && pytest ${cvg_arg} --durations=20 -m 'integration_batch_2' -vv --continue-on-collection-errors --junit-xml=junit.integrationbatch2.xml"
+    "source ${venv_name}/bin/activate && set -x && " +
+    "pytest ${cvg_arg} --durations=20 -m 'integration_batch_2' -vv --continue-on-collection-errors --junit-xml=junit.integrationbatch2.xml"
 }
 
 task testFull(type: Exec, dependsOn: [installDevTest]) {
   commandLine 'bash', '-c',
-    "source ${venv_name}/bin/activate && pytest --durations=50 -vv --continue-on-collection-errors --junit-xml=junit.full.xml"
+    "source ${venv_name}/bin/activate && set -x && " +
+    "pytest --durations=50 -vv --continue-on-collection-errors --junit-xml=junit.full.xml"
 }
 
 task specGen(type: Exec, dependsOn: [codegen, installDevTest]) {

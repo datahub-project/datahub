@@ -401,6 +401,9 @@ plugins: Dict[str, Set[str]] = {
 
 # This is mainly used to exclude plugins from the Docker image.
 all_exclude_plugins: Set[str] = {
+    # The Airflow extra is only retained for compatibility, but new users should
+    # be using the datahub-airflow-plugin package instead.
+    "airflow",
     # SQL Server ODBC requires additional drivers, and so we don't want to keep
     # it included in the default "all" installation.
     "mssql-odbc",
