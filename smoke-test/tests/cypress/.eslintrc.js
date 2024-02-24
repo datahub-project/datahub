@@ -3,7 +3,8 @@ module.exports = {
     es2021: true,
     node: true,
   },
-  extends: ["airbnb-base", "prettier"],
+  plugins: ["cypress"],
+  extends: ["airbnb-base", "plugin:cypress/recommended", "prettier"],
   overrides: [
     {
       env: {
@@ -19,5 +20,8 @@ module.exports = {
     ecmaVersion: "latest",
     sourceType: "module",
   },
-  rules: {},
+  rules: {
+    camelcase: "off",
+    "cypress/no-unnecessary-waiting": "warn",
+  },
 };
