@@ -8,7 +8,7 @@ function openViewEditDropDownAndClickId(data_id) {
 describe("view select", () => {
   it("click view select, create view, clear view, make defaults, clear view", () => {
     cy.login();
-    let randomNumber = Math.floor(Math.random() * 100000);
+    const randomNumber = Math.floor(Math.random() * 100000);
     const viewName = `Test View ${randomNumber}`;
     const newViewName = `New View Name ${randomNumber}`;
 

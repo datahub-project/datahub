@@ -1,5 +1,5 @@
-describe('analytics', () => {
-  it('can go to a chart and see analytics in Section Views', () => {
+describe("analytics", () => {
+  it("can go to a chart and see analytics in Section Views", () => {
     cy.login();
 
     cy.goToChart("urn:li:chart:(looker,cypress_baz1)");
@@ -9,8 +9,8 @@ describe('analytics', () => {
 
     cy.goToAnalytics();
     cy.contains("Section Views across Entity Types").scrollIntoView({
-      ensureScrollable: false
-    })
+      ensureScrollable: false,
+    });
     cy.waitTextPresent("dashboards");
   });
-})
+});

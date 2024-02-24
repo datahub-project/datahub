@@ -5,10 +5,10 @@ const correct_url = "https://www.linkedin.com";
 
 describe("edit documentation and link to dataset", () => {
   it("open test dataset page, edit documentation", () => {
-    //edit documentation and verify changes saved
+    // edit documentation and verify changes saved
     cy.loginWithCredentials();
     cy.visit(
-      "/dataset/urn:li:dataset:(urn:li:dataPlatform:hive,SampleCypressHiveDataset,PROD)/Schema"
+      "/dataset/urn:li:dataset:(urn:li:dataPlatform:hive,SampleCypressHiveDataset,PROD)/Schema",
     );
     cy.openEntityTab("Documentation");
     cy.waitTextVisible("my hive dataset");
@@ -19,7 +19,7 @@ describe("edit documentation and link to dataset", () => {
     cy.clickOptionWithTestId("description-editor-save-button");
     cy.waitTextVisible("Description Updated");
     cy.waitTextVisible(documentation_edited);
-    //return documentation to original state
+    // return documentation to original state
     cy.clickOptionWithTestId("edit-documentation-button");
     cy.focused().clear().wait(1000);
     cy.focused().type("my hive dataset");
@@ -31,7 +31,7 @@ describe("edit documentation and link to dataset", () => {
   it("open test dataset page, remove and add dataset link", () => {
     cy.loginWithCredentials();
     cy.visit(
-      "/dataset/urn:li:dataset:(urn:li:dataPlatform:hive,SampleCypressHiveDataset,PROD)/Schema"
+      "/dataset/urn:li:dataset:(urn:li:dataPlatform:hive,SampleCypressHiveDataset,PROD)/Schema",
     );
     cy.openEntityTab("Documentation");
     cy.contains("Sample doc").trigger("mouseover", { force: true });
@@ -76,7 +76,7 @@ describe("edit documentation and link to dataset", () => {
   it("edit field documentation", () => {
     cy.loginWithCredentials();
     cy.visit(
-      "/dataset/urn:li:dataset:(urn:li:dataPlatform:hive,SampleCypressHiveDataset,PROD)/Schema"
+      "/dataset/urn:li:dataset:(urn:li:dataPlatform:hive,SampleCypressHiveDataset,PROD)/Schema",
     );
     cy.clickOptionWithText("field_foo");
     cy.clickOptionWithTestId("edit-field-description");
