@@ -13,4 +13,4 @@ describe('analytics', () => {
     })
     cy.waitTextPresent("dashboards");
   });
-})
+});
