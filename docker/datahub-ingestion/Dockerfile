@@ -18,8 +18,6 @@ RUN sed -i.bak "s/__version__ = \"1\!0.0.0.dev0\"/__version__ = \"$(echo $RELEAS
     cat src/datahub/__init__.py | grep __version__ && \
     cat airflow-plugin/src/datahub_airflow_plugin/__init__.py | grep __version__
 
-ENV PATH="/datahub-ingestion/.local/bin:$PATH"
-
 FROM base as slim-install
 ARG PIP_MIRROR_URL
 
@@ -44,7 +42,6 @@ RUN ./pyspark_jars.sh
 
 FROM base as full-install
 
-COPY --from=full-install-build /datahub-ingestion/.local /datahub-ingestion/.local
 COPY --from=full-install-build ${VIRTUAL_ENV} ${VIRTUAL_ENV}
 
 FROM base as dev-install
@@ -54,4 +51,3 @@ FROM base as dev-install
 FROM ${APP_ENV}-install as final
 
 USER datahub
-ENV PATH="/datahub-ingestion/.local/bin:$PATH"

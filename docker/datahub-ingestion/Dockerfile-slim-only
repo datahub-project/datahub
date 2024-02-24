@@ -15,7 +15,6 @@ RUN sed -i.bak "s/__version__ = \"1\!0.0.0.dev0\"/__version__ = \"$(echo $RELEAS
     chown -R datahub /datahub-ingestion
 
 USER datahub
-ENV PATH="/datahub-ingestion/.local/bin:$PATH"
 
 FROM base as slim-install
 
@@ -28,4 +27,3 @@ RUN uv pip install --no-cache "acryl-datahub[base,datahub-rest,datahub-kafka,sno
 FROM slim-install as final
 
 USER datahub
-ENV PATH="/datahub-ingestion/.local/bin:$PATH"
