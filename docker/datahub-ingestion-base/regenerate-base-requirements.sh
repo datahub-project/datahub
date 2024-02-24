@@ -29,6 +29,7 @@ popd
 echo "# Generated requirements file. Run ./$SCRIPT_NAME to regenerate." > base-requirements.txt
 pip freeze \
     | grep -v -E "^-e" \
+    | grep -v -E "^uv==" \
     | grep -v "Flask-" \
     | grep -v -E "(py4j|PyJWT)==" \
     | grep -v -E "(pyspark|pydeequ)==" \
