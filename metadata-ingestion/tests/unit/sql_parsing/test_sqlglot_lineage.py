@@ -1040,3 +1040,54 @@ SELECT * FROM cte
         },
         expected_file=RESOURCE_DIR / "test_redshift_temp_table_shortcut.json",
     )
+
+
+def test_redshift_union_view():
+    # TODO: This currently fails to generate CLL. Need to debug further.
+    assert_sql_result(
+        """
+CREATE VIEW sales_vw AS SELECT * FROM public.sales UNION ALL SELECT * FROM spectrum.sales WITH NO SCHEMA BINDING
+""",
+        dialect="redshift",
+        default_db="my_db",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:redshift,my_db.public.sales,PROD)": {
+                "col1": "INTEGER",
+                "col2": "INTEGER",
+            },
+            # Testing a case where we only have one schema available.
+        },
+        expected_file=RESOURCE_DIR / "test_redshift_union_view.json",
+    )
+
+
+@pytest.mark.skip(reason="sqlglot doesn't recognize the BACKUP directive right now")
+def test_redshift_system_automove() -> None:
+    # Came across this in the Redshift query log, but it seems to be a system-generated query.
+    assert_sql_result(
+        """
+CREATE TABLE "pg_automv"."mv_tbl__auto_mv_12708107__0_recomputed"
+BACKUP YES
+DISTSTYLE KEY
+DISTKEY(2)
+AS (
+    SELECT
+        COUNT(CAST(1 AS INT4)) AS "aggvar_3",
+        COUNT(CAST(1 AS INT4)) AS "num_rec"
+    FROM
+        "public"."permanent_1" AS "permanent_1"
+    WHERE (
+        (CAST("permanent_1"."insertxid" AS INT8) <= 41990135)
+        AND (CAST("permanent_1"."deletexid" AS INT8) > 41990135)
+    )
+    OR (
+        CAST(FALSE AS BOOL)
+        AND (CAST("permanent_1"."insertxid" AS INT8) = 0)
+        AND (CAST("permanent_1"."deletexid" AS INT8) <> 0)
+    )
+)
+""",
+        dialect="redshift",
+        default_db="my_db",
+        expected_file=RESOURCE_DIR / "test_redshift_system_automove.json",
+    )
