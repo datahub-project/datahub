@@ -67,7 +67,7 @@ describe("add remove domain", () => {
     setDomainsFeatureFlag(false);
     cy.loginWithCredentials();
     cy.goToDomainList();
-    cy.get(`[data-testid="dropdown-menu-${  test_domain_urn  }"]`).click();
+    cy.get(`[data-testid="dropdown-menu-${test_domain_urn}"]`).click();
     cy.clickOptionWithText("Delete");
     cy.clickOptionWithText("Yes");
     cy.ensureTextNotPresent(test_domain);
