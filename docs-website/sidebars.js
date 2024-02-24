@@ -47,7 +47,7 @@ module.exports = {
         "docs/how/search",
         "docs/schema-history",
         // "docs/how/ui-tabs-guide",
-        // "datahub-monitors-service/README.md",
+        // "datahub-executor/README.md",
         "docs/domains",
         "docs/dataproducts",
         "docs/glossary/business-glossary",
