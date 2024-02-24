@@ -14,11 +14,10 @@ describe("view select", () => {
 
     // Resize Observer Loop warning can be safely ignored - ref. https://github.com/cypress-io/cypress/issues/22113
     const resizeObserverLoopErrRe = "ResizeObserver loop limit exceeded";
-    cy.on("uncaught:exception", (err) => {
-      if (err.message.includes(resizeObserverLoopErrRe)) {
-        return false;
-      }
-    });
+    cy.on(
+      "uncaught:exception",
+      (err) => !err.message.includes(resizeObserverLoopErrRe),
+    );
 
     cy.goToStarSearchList();
 

@@ -187,7 +187,7 @@ describe("Verify nested domains test functionalities", () => {
       .then(() => {
         cy.get(".ant-typography-edit-content").type(" Edited").type("{enter}");
       });
-    cy.waitTextVisible(`${domainName  } Edited`);
+    cy.waitTextVisible(`${domainName} Edited`);
   });
 
   it("Verify Remove the domain", () => {

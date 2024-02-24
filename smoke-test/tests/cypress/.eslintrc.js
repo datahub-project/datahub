@@ -22,6 +22,10 @@ module.exports = {
   },
   rules: {
     camelcase: "off",
-    "cypress/no-unnecessary-waiting": "warn",
+    "import/prefer-default-export": "off",
+    // TODO: These should be upgraded to warnings and fixed.
+    "cypress/no-unnecessary-waiting": "off",
+    "cypress/unsafe-to-chain-command": "off",
+    "no-unused-vars": "off",
   },
 };

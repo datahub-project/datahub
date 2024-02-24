@@ -58,16 +58,16 @@ describe("ingestion source creation flow", () => {
     cy.clickOptionWithTestId("ingestion-schedule-next-button");
     cy.get('[data-testid="source-name-input"]')
       .clear()
-      .type(`${ingestion_source_name  } EDITED`);
+      .type(`${ingestion_source_name} EDITED`);
     cy.clickOptionWithTestId("ingestion-source-save-button");
     cy.waitTextVisible("Successfully updated ingestion source!");
-    cy.waitTextVisible(`${ingestion_source_name  } EDITED`);
+    cy.waitTextVisible(`${ingestion_source_name} EDITED`);
 
     // Remove ingestion source
     cy.get('[data-testid="delete-button"]').first().click();
     cy.waitTextVisible("Confirm Ingestion Source Removal");
     cy.get("button").contains("Yes").click();
     cy.waitTextVisible("Removed ingestion source.");
-    cy.ensureTextNotPresent(`${ingestion_source_name  } EDITED`);
+    cy.ensureTextNotPresent(`${ingestion_source_name} EDITED`);
   });
 });

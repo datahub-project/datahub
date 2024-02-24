@@ -14,7 +14,7 @@
 import dayjs from "dayjs";
 
 function selectorWithtestId(id) {
-  return `[data-testid="${  id  }"]`;
+  return `[data-testid="${id}"]`;
 }
 
 export function getTimestampMillisNumDaysAgo(numDays) {
@@ -105,7 +105,7 @@ Cypress.Commands.add("goToIngestionPage", () => {
 });
 
 Cypress.Commands.add("goToDataset", (urn, dataset_name) => {
-  cy.visit(`/dataset/${  urn}`);
+  cy.visit(`/dataset/${urn}`);
   cy.waitTextVisible(dataset_name);
 });
 
@@ -132,15 +132,15 @@ Cypress.Commands.add("lineageTabClickOnUpstream", () => {
 });
 
 Cypress.Commands.add("goToChart", (urn) => {
-  cy.visit(`/chart/${  urn}`);
+  cy.visit(`/chart/${urn}`);
 });
 
 Cypress.Commands.add("goToContainer", (urn) => {
-  cy.visit(`/container/${  urn}`);
+  cy.visit(`/container/${urn}`);
 });
 
 Cypress.Commands.add("goToDomain", (urn) => {
-  cy.visit(`/domain/${  urn}`);
+  cy.visit(`/domain/${urn}`);
 });
 
 Cypress.Commands.add("goToAnalytics", () => {
@@ -194,7 +194,7 @@ Cypress.Commands.add("addViaFormModal", (text, modelHeader) => {
 Cypress.Commands.add("addViaModal", (text, modelHeader, value, dataTestId) => {
   cy.waitTextVisible(modelHeader);
   cy.get(".ant-input-affix-wrapper > input[type='text']").first().type(text);
-  cy.get(`[data-testid="${  dataTestId  }"]`).click();
+  cy.get(`[data-testid="${dataTestId}"]`).click();
   cy.contains(value).should("be.visible");
 });
 
@@ -299,16 +299,14 @@ Cypress.Commands.add(
   (urn, dataset_name, domain_urn) => {
     cy.goToDataset(urn, dataset_name);
     cy.get(
-      `.sidebar-domain-section [href="/domain/${ 
-        domain_urn 
-        }"] .anticon-close`,
+      `.sidebar-domain-section [href="/domain/${domain_urn}"] .anticon-close`,
     ).click();
     cy.clickOptionWithText("Yes");
   },
 );
 
 Cypress.Commands.add("openEntityTab", (tab) => {
-  const selector = `div[id$="${  tab  }"]:nth-child(1)`;
+  const selector = `div[id$="${tab}"]:nth-child(1)`;
   cy.highlighElement(selector);
   cy.get(selector).click();
 });
@@ -321,7 +319,9 @@ Cypress.Commands.add("highlighElement", (selector) => {
   cy.wait(3000);
 });
 
-Cypress.Commands.add("mouseover", (selector) => cy.get(selector).trigger("mouseover", { force: true }));
+Cypress.Commands.add("mouseover", (selector) =>
+  cy.get(selector).trigger("mouseover", { force: true }),
+);
 
 Cypress.Commands.add("createUser", (name, password, email) => {
   cy.visit("/settings/identities/users");
