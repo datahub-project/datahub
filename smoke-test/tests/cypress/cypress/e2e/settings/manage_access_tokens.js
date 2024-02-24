@@ -25,10 +25,10 @@ describe("manage access tokens", () => {
     cy.loginWithCredentials();
     cy.goToAccessTokenSettings();
     cy.clickOptionWithTestId("add-token-button");
-    cy.enterTextInTestId("create-access-token-name", `Token Name${  test_id}`);
+    cy.enterTextInTestId("create-access-token-name", `Token Name${test_id}`);
     cy.enterTextInTestId(
       "create-access-token-description",
-      `Token Description${  test_id}`,
+      `Token Description${test_id}`,
     );
     cy.clickOptionWithTestId("create-access-token-button");
     cy.waitTextVisible("New Personal Access Token");
@@ -38,12 +38,12 @@ describe("manage access tokens", () => {
       .should("match", /^[a-zA-Z0-9-_]+\.[a-zA-Z0-9-_]+\.[a-zA-Z0-9-_]+$/);
     cy.clickOptionWithTestId("access-token-modal-close-button");
     // revoke access token, verify token removed from ui
-    cy.waitTextVisible(`Token Name${  test_id}`);
-    cy.waitTextVisible(`Token Description${  test_id}`);
+    cy.waitTextVisible(`Token Name${test_id}`);
+    cy.waitTextVisible(`Token Description${test_id}`);
     cy.clickOptionWithTestId("revoke-token-button");
     cy.waitTextVisible("Are you sure you want to revoke this token?");
     cy.clickOptionWithText("Yes");
-    cy.ensureTextNotPresent(`Token Name${  test_id}`);
-    cy.ensureTextNotPresent(`Token Description${  test_id}`);
+    cy.ensureTextNotPresent(`Token Name${test_id}`);
+    cy.ensureTextNotPresent(`Token Description${test_id}`);
   });
 });
