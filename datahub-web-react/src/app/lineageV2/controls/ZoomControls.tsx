@@ -3,7 +3,7 @@ import { Button } from 'antd';
 import React from 'react';
 import { Panel, useReactFlow } from 'reactflow';
 import styled from 'styled-components';
-import { TRANSITION_DURATION_MS } from '../LineageEntityNode/useDisplayedColumns';
+import { TRANSITION_DURATION_MS } from '../common';
 
 const StyledZoomButton = styled(Button)`
     border-radius: 8px;

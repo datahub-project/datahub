@@ -111,6 +111,7 @@ export enum EventType {
     NotificationSettingsErrorEvent,
     InboxPageViewEvent,
     IntroduceYourselfViewEvent,
+    IntroduceYourselfSubmitEvent,
 }
 
 /**
@@ -137,6 +138,15 @@ export interface PageViewEvent extends BaseEvent {
  */
 export interface IntroduceYourselfViewEvent extends BaseEvent {
     type: EventType.IntroduceYourselfViewEvent;
+}
+
+/**
+ * Submitted the "Introduce Yourself" page through the UI.
+ */
+export interface IntroduceYourselfSubmitEvent extends BaseEvent {
+    type: EventType.IntroduceYourselfSubmitEvent;
+    role: string;
+    platformUrns: Array<string>;
 }
 
 /**
@@ -825,6 +835,7 @@ export type Event =
     | PageViewEvent
     | HomePageViewEvent
     | IntroduceYourselfViewEvent
+    | IntroduceYourselfSubmitEvent
     | SignUpEvent
     | LogInEvent
     | LogOutEvent

@@ -1,10 +1,11 @@
-import React, { Dispatch, SetStateAction } from 'react';
 import { Maybe } from 'graphql/jsutils/Maybe';
+import React, { Dispatch, SetStateAction } from 'react';
 import { EntityType, LineageDirection, SchemaFieldRef } from '../../types.generated';
-import { ColumnQueryData } from '../shared/EntitySidebarContext';
 import { GenericEntityProperties } from '../entityV2/shared/types';
+import { ColumnQueryData } from '../shared/EntitySidebarContext';
 import { FetchedEntityV2 } from './types';
 
+export const TRANSITION_DURATION_MS = 200;
 export const LINEAGE_FILTER_PAGINATION = 4;
 type Urn = string;
 
@@ -31,7 +32,7 @@ export interface Filters {
     facetFilters: Map<string, Set<string>>;
 }
 
-interface NodeBase {
+export interface NodeBase {
     id: string;
     direction?: LineageDirection;
 }
@@ -140,6 +141,7 @@ interface DisplayContext {
     fineGrainedLineage: FineGrainedLineage;
     columnQueryData: Map<ColumnRef, ColumnQueryData>;
     childMaps: Record<LineageDirection, ChildMap>;
+    numNodes: number;
 }
 
 export const LineageDisplayContext = React.createContext<DisplayContext>({
@@ -155,6 +157,7 @@ export const LineageDisplayContext = React.createContext<DisplayContext>({
     fineGrainedLineage: { forward: new Map(), backward: new Map() },
     columnQueryData: new Map(),
     childMaps: { [LineageDirection.Upstream]: new Map(), [LineageDirection.Downstream]: new Map() },
+    numNodes: 0,
 });
 
 interface SetDefaultArguments {

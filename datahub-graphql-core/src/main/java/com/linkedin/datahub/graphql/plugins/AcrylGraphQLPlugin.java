@@ -59,6 +59,8 @@ import com.linkedin.datahub.graphql.resolvers.dataset.DatasetStatsSummaryResolve
 import com.linkedin.datahub.graphql.resolvers.incident.EntityIncidentsResolver;
 import com.linkedin.datahub.graphql.resolvers.incident.RaiseIncidentResolver;
 import com.linkedin.datahub.graphql.resolvers.incident.UpdateIncidentStatusResolver;
+import com.linkedin.datahub.graphql.resolvers.ingest.credentials.ListExecutorConfigsResolver;
+import com.linkedin.datahub.graphql.resolvers.ingest.execution.ListSignalRequestsResolver;
 import com.linkedin.datahub.graphql.resolvers.integration.GetLinkPreviewResolver;
 import com.linkedin.datahub.graphql.resolvers.load.EntityRelationshipsResultResolver;
 import com.linkedin.datahub.graphql.resolvers.load.EntityTypeBatchResolver;
@@ -114,6 +116,7 @@ import com.linkedin.datahub.graphql.types.monitor.MonitorType;
 import com.linkedin.datahub.graphql.types.tag.TagType;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.client.SystemEntityClient;
+import com.linkedin.metadata.config.ExecutorConfiguration;
 import com.linkedin.metadata.connection.ConnectionService;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphClient;
@@ -160,6 +163,9 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
   private GroupService groupService;
   private SettingsService settingsService;
 
+  // Config
+  private ExecutorConfiguration executorConfiguration;
+
   // Clients
   private UsageClient usageClient;
   private EntityClient entityClient;
@@ -176,7 +182,6 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
 
   @Override
   public void init(GmsGraphQLEngineArgs args) {
-
     this.graphClient = args.getGraphClient();
     this.entityClient = args.getEntityClient();
     this.systemEntityClient = args.getSystemEntityClient();
@@ -214,6 +219,7 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
             this.incidentType,
             this.anomalyType,
             this.dataContractType);
+    this.executorConfiguration = args.getExecutorConfiguration();
 
     this.initialized = true;
   }
@@ -232,7 +238,8 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
         NOTIFICATIONS_SCHEMA_FILE,
         SUBSCRIPTIONS_SCHEMA_FILE,
         CONTRACTS_SCHEMA_FILE,
-        AI_SCHEMA_FILE);
+        AI_SCHEMA_FILE,
+        EXECUTOR_SCHEMA_FILE);
   }
 
   @Override
@@ -269,6 +276,7 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
     configureTestResolvers(builder);
     configureProposalResolvers(builder);
     configureContractResolvers(builder, baseEngine);
+    configureExecutorResolvers(builder, baseEngine);
   }
 
   private void configureMutationResolvers(
@@ -808,5 +816,19 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
             typeWiring.dataFetcher(
                 "upsertDataContract",
                 new UpsertDataContractResolver(this.entityClient, this.graphClient)));
+  }
+
+  private void configureExecutorResolvers(
+      final RuntimeWiring.Builder builder, final GmsGraphQLEngine baseEngine) {
+    builder.type(
+        "Query",
+        typeWiring ->
+            typeWiring
+                .dataFetcher(
+                    "listSignalRequests", new ListSignalRequestsResolver(this.entityClient))
+                .dataFetcher(
+                    "listExecutorConfigs",
+                    new ListExecutorConfigsResolver(
+                        this.entityClient, this.executorConfiguration)));
   }
 }

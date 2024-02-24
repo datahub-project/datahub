@@ -45,6 +45,7 @@ public class SlackNotificationSinkTest {
 
   private static final Urn TEST_USER_URN = Urn.createFromTuple(CORP_USER_ENTITY_NAME, "test");
   private static final String TEST_BASE_URL = "http://localhost:9002";
+  private static final String TEST_BOT_TOKEN = "abc";
 
   @Test
   public void testInit() throws Exception {
@@ -115,7 +116,7 @@ public class SlackNotificationSinkTest {
 
     sink.init(
         new NotificationSinkConfig(
-            ImmutableMap.of("botToken", "abc", "defaultChannel", "#test"),
+            ImmutableMap.of("botToken", TEST_BOT_TOKEN, "defaultChannel", "#test"),
             mockSettingsProvider,
             mockIdentityProvider,
             mockSecretProvider,
@@ -123,14 +124,16 @@ public class SlackNotificationSinkTest {
             TEST_BASE_URL));
 
     Assert.assertTrue(sink.isEnabled());
+    Assert.assertEquals(sink.botToken, "test-token");
 
     // Case 2: Slack configs are stored in legacy settings.
     mockConnectionService = Mockito.mock(ConnectionService.class);
+    Mockito.when(mockSettingsProvider.getGlobalSettings()).thenReturn(enabledSettings());
     Mockito.when(mockConnectionService.getConnectionDetails(Mockito.eq(SLACK_CONNECTION_URN)))
         .thenReturn(null);
     sink.init(
         new NotificationSinkConfig(
-            ImmutableMap.of("botToken", "abc", "defaultChannel", "#test"),
+            ImmutableMap.of("botToken", TEST_BOT_TOKEN, "defaultChannel", "#test"),
             mockSettingsProvider,
             mockIdentityProvider,
             mockSecretProvider,
@@ -138,6 +141,7 @@ public class SlackNotificationSinkTest {
             TEST_BASE_URL));
 
     Assert.assertTrue(sink.isEnabled());
+    Assert.assertEquals(sink.botToken, TEST_BOT_TOKEN);
 
     // Case 3: Slack configs are stored in static configs
     mockSettingsProvider = Mockito.mock(SettingsProvider.class);
@@ -147,7 +151,7 @@ public class SlackNotificationSinkTest {
         .thenReturn(null);
     sink.init(
         new NotificationSinkConfig(
-            ImmutableMap.of("botToken", "abc", "defaultChannel", "#test"),
+            ImmutableMap.of("botToken", TEST_BOT_TOKEN, "defaultChannel", "#test"),
             mockSettingsProvider,
             mockIdentityProvider,
             mockSecretProvider,
@@ -155,6 +159,38 @@ public class SlackNotificationSinkTest {
             TEST_BASE_URL));
 
     Assert.assertTrue(sink.isEnabled());
+    Assert.assertEquals(sink.botToken, TEST_BOT_TOKEN);
+
+    // Case 4: Changing the connection details at runtime should change the bot token and slack
+    // client.
+    Mockito.when(mockSettingsProvider.getGlobalSettings()).thenReturn(enabledSettings());
+    Mockito.when(mockConnectionService.getConnectionDetails(Mockito.eq(SLACK_CONNECTION_URN)))
+        .thenReturn(
+            new DataHubConnectionDetails()
+                .setType(DataHubConnectionDetailsType.JSON)
+                .setJson(new DataHubJsonConnection().setEncryptedBlob("blob")));
+    Mockito.when(mockSecretProvider.decryptSecret("blob"))
+        .thenReturn("{\"bot_token\": \"test-token\"}");
+
+    Assert.assertTrue(sink.isEnabled());
+    Assert.assertEquals(sink.botToken, "test-token");
+    MethodsClient methodsClient1 = sink.slackClient;
+
+    // Changing the bot token
+    Mockito.when(mockConnectionService.getConnectionDetails(Mockito.eq(SLACK_CONNECTION_URN)))
+        .thenReturn(
+            new DataHubConnectionDetails()
+                .setType(DataHubConnectionDetailsType.JSON)
+                .setJson(new DataHubJsonConnection().setEncryptedBlob("blob")));
+    Mockito.when(mockSecretProvider.decryptSecret("blob"))
+        .thenReturn("{\"bot_token\": \"test-token-2\"}");
+
+    Assert.assertTrue(sink.isEnabled());
+    Assert.assertEquals(sink.botToken, "test-token-2"); // Bot token was updated.
+    MethodsClient methodsClient2 = sink.slackClient;
+
+    Assert.assertNotEquals(
+        methodsClient1, methodsClient2); // Different clients were used for different bot tokens.
   }
 
   @Test
@@ -222,9 +258,10 @@ public class SlackNotificationSinkTest {
 
     // Init with a mock slack client.
     SlackNotificationSink sink = new SlackNotificationSink(mockSlackClient);
+    sink.botToken = TEST_BOT_TOKEN;
     sink.init(
         new NotificationSinkConfig(
-            ImmutableMap.of("botToken", "abc", "defaultChannel", "#test"),
+            ImmutableMap.of("botToken", TEST_BOT_TOKEN, "defaultChannel", "#test"),
             mockSettingsProvider,
             mockIdentityProvider,
             mockSecretProvider,
@@ -366,7 +403,7 @@ public class SlackNotificationSinkTest {
                     ":white_check_mark:",
                     "http://localhost:9002/datasets/test",
                     "SampleName",
-                    "http://localhost:9002/datasets/test/Validation/Assertions"))
+                    "http://localhost:9002/datasets/test/Validation/Assertions?assertion_urn=urn%3Ali%3Aassertion%3Atest"))
             .iconUrl(String.format("http://localhost:9002%s", ACRYL_LOGO_FILE_PATH))
             .build();
     ChatPostMessageResponse defaultChannelMsgResponse = new ChatPostMessageResponse();
@@ -376,9 +413,10 @@ public class SlackNotificationSinkTest {
 
     // Init with a mock slack client.
     SlackNotificationSink sink = new SlackNotificationSink(mockSlackClient);
+    sink.botToken = TEST_BOT_TOKEN;
     sink.init(
         new NotificationSinkConfig(
-            ImmutableMap.of("botToken", "abc", "defaultChannel", "#test"),
+            ImmutableMap.of("botToken", TEST_BOT_TOKEN, "defaultChannel", "#test"),
             mockSettingsProvider,
             mockIdentityProvider,
             mockSecretProvider,
@@ -395,6 +433,8 @@ public class SlackNotificationSinkTest {
             .setParameters(
                 new StringMap(
                     ImmutableMap.of(
+                        "assertionUrn",
+                        "urn:li:assertion:test",
                         "assertionType",
                         "FIELD",
                         "entityName",
@@ -469,9 +509,10 @@ public class SlackNotificationSinkTest {
 
     // Init with a mock slack client.
     SlackNotificationSink sink = new SlackNotificationSink(mockSlackClient);
+    sink.botToken = TEST_BOT_TOKEN;
     sink.init(
         new NotificationSinkConfig(
-            ImmutableMap.of("botToken", "abc", "defaultChannel", "#test"),
+            ImmutableMap.of("botToken", TEST_BOT_TOKEN, "defaultChannel", "#test"),
             mockSettingsProvider,
             mockIdentityProvider,
             mockSecretProvider,
@@ -488,6 +529,8 @@ public class SlackNotificationSinkTest {
             .setParameters(
                 new StringMap(
                     ImmutableMap.of(
+                        "assertionUrn",
+                        "urn:li:assertion:test",
                         "assertionType",
                         "DATASET",
                         "entityName",
@@ -556,7 +599,7 @@ public class SlackNotificationSinkTest {
                     ":white_check_mark:",
                     "http://localhost:9002/datasets/test",
                     "SampleName",
-                    "http://localhost:9002/datasets/test/Validation/Assertions"))
+                    "http://localhost:9002/datasets/test/Validation/Assertions?assertion_urn=urn%3Ali%3Aassertion%3Atest"))
             .iconUrl(String.format("http://localhost:9002%s", ACRYL_LOGO_FILE_PATH))
             .build();
 
@@ -568,9 +611,10 @@ public class SlackNotificationSinkTest {
 
     // Init with a mock slack client.
     SlackNotificationSink sink = new SlackNotificationSink(mockSlackClient);
+    sink.botToken = TEST_BOT_TOKEN;
     sink.init(
         new NotificationSinkConfig(
-            ImmutableMap.of("botToken", "abc", "defaultChannel", "#test"),
+            ImmutableMap.of("botToken", TEST_BOT_TOKEN, "defaultChannel", "#test"),
             mockSettingsProvider,
             mockIdentityProvider,
             mockSecretProvider,
@@ -587,6 +631,8 @@ public class SlackNotificationSinkTest {
             .setParameters(
                 new StringMap(
                     ImmutableMap.of(
+                        "assertionUrn",
+                        "urn:li:assertion:test",
                         "assertionType",
                         "FIELD",
                         "entityName",

@@ -9,7 +9,14 @@ enum OperationSourceType {
    */
   DATA_PROCESS
   /**
-   * Rows were updated
+   * Update was provided by consulting the data platform metadata, e.g. audit log or information schema,
+   * during normal ingestion.
    */
   DATA_PLATFORM
+  /**
+   * The operation was detected and reported by a freshness assertion monitor.
+   * We are capturing this here to allow for the UI or other readers to filter
+   * out operations that were sampled as part of the monitoring process.
+   */
+  MONITOR
 }

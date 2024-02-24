@@ -75,6 +75,7 @@ const PrimaryButton = styled(Button)`
         transition: 0.15s;
         opacity: 0.9;
         background-color: #533fd1;
+        border-color: #533fd1;
     }
 `;
 
@@ -120,7 +121,7 @@ const GlossaryContentProvider = (props: Props) => {
                         // can not be disabled on acryl-main due to ability to propose
                         onClick={() => setIsCreateNodeModalVisible(true)}
                     >
-                        <PlusOutlined style={{ fontSize: '12px' }} /> Add Term Group
+                        <PlusOutlined style={{ fontSize: '12px' }} /> Add Glossary
                     </TransparentButton>
                     <PrimaryButton
                         data-testid="add-term-button"
@@ -130,7 +131,7 @@ const GlossaryContentProvider = (props: Props) => {
                         // can not be disabled on acryl-main due to ability to propose
                         onClick={() => setIsCreateTermModalVisible(true)}
                     >
-                        <PlusOutlined style={{ fontSize: '12px' }} /> Add Term
+                        <PlusOutlined style={{ fontSize: '12px' }} /> Add Glossary Term
                     </PrimaryButton>
                 </ButtonContainer>
             </HeaderWrapper>

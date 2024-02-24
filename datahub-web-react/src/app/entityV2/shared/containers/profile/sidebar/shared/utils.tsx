@@ -91,7 +91,7 @@ export function isValuePresent(value) {
 }
 
 export const getBarsStatusFromPopularityTier = (tier: number) => {
-    let status;
+    let status = 0;
     if (tier === 0) status = 3;
     else if (tier === 1) status = 2;
     else if (tier === 2) status = 1;

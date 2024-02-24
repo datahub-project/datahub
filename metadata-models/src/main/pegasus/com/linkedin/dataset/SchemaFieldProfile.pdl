@@ -1,0 +1,80 @@
+namespace com.linkedin.dataset
+
+import com.linkedin.timeseries.TimeseriesAspectBase
+
+/**
+ * Metrics corresponding to a single schema field.
+ * Notice that this aspect may be partially completed so the user
+ * should filter for existence of the stats they need when querying.
+ *
+ * In the long term, this serves as a replacement for the DatasetFieldProfile object.
+ * Note that it does not yet support quantiles, histograms, etc, but may evolve to in the future.
+ */
+@Aspect = {
+  "name": "schemaFieldProfile",
+  "type": "timeseries",
+}
+record SchemaFieldProfile includes TimeseriesAspectBase {
+  /**
+   * The count of unique values for the field across the dataset.
+   * Useful for understanding the diversity of field values.
+   */
+  @TimeseriesField = {}
+  uniqueCount: optional long
+
+  /**
+   * The proportion of unique values over the total number of non-null entries.
+   * Helps in assessing the uniqueness of the data in the field.
+   */
+  @TimeseriesField = {}
+  uniqueProportion: optional float
+
+  /**
+   * The count of null or missing entries for the field.
+   * Important for data quality assessments.
+   */
+  @TimeseriesField = {}
+  nullCount: optional long
+
+  /**
+   * The proportion of null entries over the total number of entries in the field.
+   * Useful for identifying fields with a high rate of missing values.
+   */
+  @TimeseriesField = {}
+  nullProportion: optional float
+
+  /**
+   * The minimum value in the field for string-representable data types.
+   * Provides a sense of the lower bound of field values.
+   */
+  @TimeseriesField = {}
+  min: optional string
+
+  /**
+   * The maximum value in the field for string-representable data types.
+   * Provides a sense of the upper bound of field values.
+   */
+  @TimeseriesField = {}
+  max: optional string
+
+  /**
+   * The mean (average) value of the field, represented as a string.
+   * Useful for numerical fields to understand the central tendency.
+   */
+  @TimeseriesField = {}
+  mean: optional string
+
+  /**
+   * The median value of the field, represented as a string.
+   * Useful for understanding the middle value when data is sorted.
+   */
+  @TimeseriesField = {}
+  median: optional string
+
+  /**
+   * The standard deviation of the field values, represented as a string.
+   * Indicates the amount of variation or dispersion of field values.
+   */
+  @TimeseriesField = {}
+  stdev: optional string
+}

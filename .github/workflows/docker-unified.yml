@@ -37,7 +37,7 @@ env:
   DATAHUB_INGESTION_BASE_IMAGE: '795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-ingestion-base'
   DATAHUB_INGESTION_IMAGE: '795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-ingestion'
   DATAHUB_INTEGRATIONS_IMAGE: '795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-integrations-service'
-  DATAHUB_MONITORS_IMAGE: '795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-monitors-service'
+  DATAHUB_MONITORS_IMAGE: '795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-executor'
 
 jobs:
   check_lint:

@@ -154,13 +154,13 @@ export const AnalyticsPage = () => {
                 )}
                 {domain === '' && query === ''
                     ? !chartLoading && (
-                          <MetadataAnalyticsPlaceholder>
-                              Please specify domain or query to get granular results
-                          </MetadataAnalyticsPlaceholder>
-                      )
+                        <MetadataAnalyticsPlaceholder>
+                            Please specify domain or query to get granular results
+                        </MetadataAnalyticsPlaceholder>
+                    )
                     : metadataAnalyticsData?.getMetadataAnalyticsCharts?.map((chartGroup) => (
-                          <ChartGroup chartGroup={chartGroup} />
-                      ))}
+                        <ChartGroup chartGroup={chartGroup} />
+                    ))}
             </>
             <>
                 {chartError && <Alert type="error" message={chartError?.message || 'Charts failed to load'} />}

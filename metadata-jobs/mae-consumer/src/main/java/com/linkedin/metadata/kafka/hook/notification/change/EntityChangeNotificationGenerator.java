@@ -779,6 +779,7 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
     final String entityName = _entityNameProvider.getName(entityUrn);
     final Map<String, String> templateParams = new HashMap<>();
     templateParams.put("assertionType", assertionInfo.getType().toString());
+    templateParams.put("assertionUrn", assertionUrn.toString());
     templateParams.put("entityName", entityName);
     templateParams.put("entityPath", generateEntityPath(entityUrn));
     templateParams.put("result", result.getType().toString());

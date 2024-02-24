@@ -1,5 +1,5 @@
 # Dockerfiles specific to Acryl
-version: '3.8'
+version: "3.8"
 services:
   datahub-integrations-service:
     container_name: datahub-integrations-service

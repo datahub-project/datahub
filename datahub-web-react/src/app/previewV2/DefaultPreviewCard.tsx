@@ -26,8 +26,10 @@ import {
 import { PreviewType } from '../entityV2/Entity';
 import { useEntityData } from '../entityV2/shared/EntityContext';
 import { ANTD_GRAY } from '../entityV2/shared/constants';
-import PopularityIcon from '../entityV2/shared/containers/profile/sidebar/shared/popularity/PopularityIcon';
-import { PopularityTier } from '../entityV2/shared/containers/profile/sidebar/shared/utils';
+import {
+    PopularityTier,
+    getBarsStatusFromPopularityTier,
+} from '../entityV2/shared/containers/profile/sidebar/shared/utils';
 import { getNumberWithOrdinal } from '../entityV2/shared/utils';
 import useContentTruncation from '../shared/useContentTruncation';
 import { useEntityRegistryV2 } from '../useEntityRegistry';
@@ -38,6 +40,7 @@ import Pills from './Pills';
 import StatusBadges from './StatusBadges';
 import EntityHeader from './EntityHeader';
 import EntityExternalLink from '../entityV2/shared/links/EntityExternalLink';
+import { PopularityBars } from '../entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/PopularityBars';
 
 const PreviewContainer = styled.div`
     display: flex;
@@ -296,6 +299,8 @@ export default function DefaultPreviewCard({
         platform || logoUrl || (platforms && platforms.length) || (logoUrls && logoUrls.length) || isOutputPort;
     const isIconPresent = !!hasPlatformIcons || !!entityIcon;
 
+    const status = tier !== undefined ? getBarsStatusFromPopularityTier(tier) : 0;
+
     return (
         <PreviewContainer data-testid={dataTestID} onMouseDown={onPreventMouseDown}>
             <RowContainer alignment="self-start">
@@ -399,7 +404,7 @@ export default function DefaultPreviewCard({
                 style={{
                     borderTop: `1px solid ${ANTD_GRAY[4]}`,
                     paddingTop: 12,
-                    marginBottom: -14,
+                    marginBottom: -6,
                 }}
             >
                 <Pills
@@ -411,7 +416,7 @@ export default function DefaultPreviewCard({
                 <EntityLink>{entityTitleSuffix}</EntityLink>
                 {tier !== undefined && (
                     <div>
-                        <PopularityIcon tier={tier} />
+                        <PopularityBars status={status} />
                     </div>
                 )}
             </RowContainer>
