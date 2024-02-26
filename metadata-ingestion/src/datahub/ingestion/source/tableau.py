@@ -1336,7 +1336,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                         else None
                     )
                     logger.debug(
-                        f"Adding datasource {datasource_name}({datasource.get('id')}) to container"
+                        f"Adding datasource {datasource_name}({datasource.get('id')}) to workbook container"
                     )
                     yield from add_entity_to_container(
                         self.gen_workbook_key(workbook[c.ID]),
@@ -1345,17 +1345,23 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                     )
                 else:
                     project_luid = self._get_datasource_project_luid(datasource)
-                    logger.debug(
-                        f"Adding datasource {datasource_name}({datasource.get('id')}) to project container"
-                    )
-                    # TODO: Technically, we should have another layer of hierarchy with the datasource name here.
-                    # Same with the workbook name above. However, in practice most projects/workbooks have a single
-                    # datasource, so the extra nesting just gets in the way.
-                    yield from add_entity_to_container(
-                        self.gen_project_key(project_luid),
-                        c.DATASET,
-                        dataset_snapshot.urn,
-                    )
+                    if project_luid:
+                        logger.debug(
+                            f"Adding datasource {datasource_name}({datasource.get('id')}) to project {project_luid} container"
+                        )
+                        # TODO: Technically, we should have another layer of hierarchy with the datasource name here.
+                        # Same with the workbook name above. However, in practice most projects/workbooks have a single
+                        # datasource, so the extra nesting just gets in the way.
+                        yield from add_entity_to_container(
+                            self.gen_project_key(project_luid),
+                            c.DATASET,
+                            dataset_snapshot.urn,
+                        )
+                    else:
+                        logger.debug(
+                            f"Datasource {datasource_name}({datasource.get('id')}) project_luid not found"
+                        )
+
                 project = self._get_project_browse_path_name(datasource)
 
                 tables = csql.get(c.TABLES, [])
