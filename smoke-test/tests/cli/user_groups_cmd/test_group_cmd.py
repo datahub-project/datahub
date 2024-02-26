@@ -3,7 +3,6 @@ import sys
 import tempfile
 from typing import Any, Dict, Iterable, List
 
-import pytest
 import yaml
 from click.testing import CliRunner, Result
 from datahub.api.entities.corpgroup.corpgroup import CorpGroup
