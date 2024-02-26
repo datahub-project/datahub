@@ -1073,7 +1073,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
         dataset_properties = DatasetProperties(
             name=datahub_dataset_name.get_table_display_name(),
-            description=table.comment,
+            description=self.unquote_and_decode_unicode_escape_seq(table.comment)
+            if table.comment
+            else "",
             qualifiedName=str(datahub_dataset_name),
             created=(
                 TimeStamp(time=int(table.created.timestamp() * 1000))
@@ -1381,3 +1383,21 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             self.config.start_time,
             self.config.end_time,
         )
+
+    def unquote_and_decode_unicode_escape_seq(
+        self,
+        string: str,
+        leading_quote: str = '"',
+        trailing_quote: Optional[str] = None,
+    ) -> str:
+        """
+        If string starts and ends with a quote, unquote it and decode Unicode escape sequences
+        """
+        trailing_quote = trailing_quote if trailing_quote else leading_quote
+
+        if string.startswith(leading_quote) and string.endswith(trailing_quote):
+            string = string[1:-1]
+
+        cleaned_string = string.encode().decode("unicode-escape")
+
+        return cleaned_string
