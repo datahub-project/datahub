@@ -39,7 +39,7 @@ jobs:
           python-version: "3.10"
           cache: "pip"
       - name: Set up JDK 17
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           distribution: "zulu"
           java-version: 17
@@ -108,7 +108,7 @@ jobs:
     if: ${{ needs.setup.outputs.backend_change == 'true' || needs.setup.outputs.publish == 'true' }}
     steps:
       - name: Set up JDK 17
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           distribution: "zulu"
           java-version: 17
@@ -142,7 +142,7 @@ jobs:
     if: ${{ needs.setup.outputs.backend_change == 'true' || needs.setup.outputs.publish == 'true' }}
     steps:
       - name: Checkout # adding checkout step just to make trivy upload happy
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Download image
         uses: ishworkh/docker-image-artifact-download@v1
         if: ${{ needs.setup.outputs.publish != 'true' }}
@@ -172,7 +172,7 @@ jobs:
     if: ${{ needs.setup.outputs.backend_change == 'true' || needs.setup.outputs.publish == 'true' }}
     steps:
       - name: Set up JDK 17
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           distribution: "zulu"
           java-version: 17
@@ -206,7 +206,7 @@ jobs:
       actions: read # only required for a private repository by github/codeql-action/upload-sarif to get the Action run status
     steps:
       - name: Checkout # adding checkout step just to make trivy upload happy
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Download image
         uses: ishworkh/docker-image-artifact-download@v1
         if: ${{ needs.setup.outputs.publish != 'true' }}
@@ -236,7 +236,7 @@ jobs:
     if: ${{ needs.setup.outputs.backend_change == 'true' || needs.setup.outputs.publish == 'true' }}
     steps:
       - name: Set up JDK 17
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           distribution: "zulu"
           java-version: 17
@@ -270,7 +270,7 @@ jobs:
       actions: read # only required for a private repository by github/codeql-action/upload-sarif to get the Action run status
     steps:
       - name: Checkout # adding checkout step just to make trivy upload happy
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Download image
         uses: ishworkh/docker-image-artifact-download@v1
         if: ${{ needs.setup.outputs.publish != 'true' }}
@@ -300,7 +300,7 @@ jobs:
     if: ${{ needs.setup.outputs.backend_change == 'true' || needs.setup.outputs.publish == 'true' }}
     steps:
       - name: Set up JDK 17
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           distribution: "zulu"
           java-version: 17
@@ -334,7 +334,7 @@ jobs:
       actions: read # only required for a private repository by github/codeql-action/upload-sarif to get the Action run status
     steps:
       - name: Checkout # adding checkout step just to make trivy upload happy
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Download image
         uses: ishworkh/docker-image-artifact-download@v1
         if: ${{ needs.setup.outputs.publish != 'true' }}
@@ -364,7 +364,7 @@ jobs:
     if: ${{ needs.setup.outputs.frontend_change == 'true' || needs.setup.outputs.publish == 'true' }}
     steps:
       - name: Set up JDK 17
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           distribution: "zulu"
           java-version: 17
@@ -400,7 +400,7 @@ jobs:
       actions: read # only required for a private repository by github/codeql-action/upload-sarif to get the Action run status
     steps:
       - name: Checkout # adding checkout step just to make trivy upload happy
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Download image
         uses: ishworkh/docker-image-artifact-download@v1
         if: ${{ needs.setup.outputs.publish != 'true' }}
@@ -510,7 +510,7 @@ jobs:
           images: |
             ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}
           tags: ${{ needs.setup.outputs.tag }}
-          username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
+          userdorny/paths-filter@v3YL_DOCKER_USERNAME }}
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
           publish: ${{ needs.setup.outputs.publish }}
           context: .
@@ -543,7 +543,7 @@ jobs:
       - name: Build and push Base-Slim Image
         if: ${{ steps.filter.outputs.datahub-ingestion-base == 'true' }}
         uses: ./.github/actions/docker-custom-build-and-push
-        with:
+        with:dorny/paths-filter@v3
           target: slim-install
           images: |
             ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}
@@ -584,7 +584,7 @@ jobs:
       - name: Build and push (Base-Full) Image
         if: ${{ steps.filter.outputs.datahub-ingestion-base == 'true' }}
         uses: ./.github/actions/docker-custom-build-and-push
-        with:
+        with:dorny/paths-filter@v3
           target: full-install
           images: |
             ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}
@@ -612,7 +612,7 @@ jobs:
     if: ${{ needs.setup.outputs.ingestion_change == 'true' || needs.setup.outputs.publish == 'true' }}
     steps:
       - name: Set up JDK 17
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           distribution: "zulu"
           java-version: 17
@@ -633,7 +633,7 @@ jobs:
       - name: Download Base Image
         uses: ishworkh/docker-image-artifact-download@v1
         if: ${{ needs.setup.outputs.publish != 'true' && steps.filter.outputs.datahub-ingestion-base == 'true' }}
-        with:
+        with:dorny/paths-filter@v3
           image: ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}:${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.unique_slim_tag || 'head-slim' }}
       - name: Build and push Slim Image
         if: ${{ steps.filter.outputs.datahub-ingestion-base == 'true' || steps.filter.outputs.datahub-ingestion == 'true' || needs.setup.outputs.publish }}
@@ -668,7 +668,7 @@ jobs:
     if: ${{ needs.setup.outputs.ingestion_change == 'true' || needs.setup.outputs.publish == 'true' }}
     steps:
       - name: Checkout # adding checkout step just to make trivy upload happy
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Download image Slim Image
         uses: ishworkh/docker-image-artifact-download@v1
         if: ${{ needs.datahub_ingestion_slim_build.outputs.needs_artifact_download == 'true' }}
@@ -701,7 +701,7 @@ jobs:
     if: ${{ needs.setup.outputs.ingestion_change == 'true' || needs.setup.outputs.publish == 'true' }}
     steps:
       - name: Set up JDK 17
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           distribution: "zulu"
           java-version: 17
@@ -722,7 +722,7 @@ jobs:
       - name: Download Base Image
         uses: ishworkh/docker-image-artifact-download@v1
         if: ${{ needs.setup.outputs.publish != 'true' && steps.filter.outputs.datahub-ingestion-base == 'true' }}
-        with:
+        with:dorny/paths-filter@v3
           image: ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}:${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.unique_tag || 'head' }}
       - name: Build and push Full Image
         if: ${{ steps.filter.outputs.datahub-ingestion-base == 'true' || steps.filter.outputs.datahub-ingestion == 'true' || needs.setup.outputs.publish }}
@@ -756,7 +756,7 @@ jobs:
     if: ${{ needs.setup.outputs.ingestion_change == 'true' || needs.setup.outputs.publish == 'true' }}
     steps:
       - name: Checkout # adding checkout step just to make trivy upload happy
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Download image Full Image
         uses: ishworkh/docker-image-artifact-download@v1
         if: ${{ needs.datahub_ingestion_full_build.outputs.needs_artifact_download == 'true' }}
@@ -823,9 +823,9 @@ jobs:
       - name: Disk Check
         run: df -h . && docker images
       - name: Check out the repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Set up JDK 17
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           distribution: "zulu"
           java-version: 17
