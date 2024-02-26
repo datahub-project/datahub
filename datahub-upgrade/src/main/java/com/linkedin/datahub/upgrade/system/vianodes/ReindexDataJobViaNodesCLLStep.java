@@ -1,4 +1,4 @@
-package com.linkedin.datahub.upgrade.system.via;
+package com.linkedin.datahub.upgrade.system.vianodes;
 
 import static com.linkedin.metadata.Constants.*;
 
@@ -68,7 +68,8 @@ public class ReindexDataJobViaNodesCLLStep implements UpgradeStep {
    * variable SKIP_REINDEX_DATA_JOB_INPUT_OUTPUT to determine whether to skip.
    */
   public boolean skip(UpgradeContext context) {
-    boolean previouslyRun = entityService.exists(UPGRADE_ID_URN, true);
+    boolean previouslyRun =
+        entityService.exists(UPGRADE_ID_URN, DATA_HUB_UPGRADE_RESULT_ASPECT_NAME, true);
     boolean envFlagRecommendsSkip =
         Boolean.parseBoolean(System.getenv("SKIP_REINDEX_DATA_JOB_INPUT_OUTPUT"));
     if (previouslyRun) {

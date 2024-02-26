@@ -329,6 +329,11 @@ systemUpdate:
     batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_POLICY_FIELDS_BATCH_SIZE:5000}
     reprocess:
       enabled: ${REPROCESS_DEFAULT_POLICY_FIELDS:false}
+  ownershipTypes:
+    enabled: ${BOOTSTRAP_SYSTEM_UPDATE_OWNERSHIP_TYPES_ENABLED:true}
+    batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_OWNERSHIP_TYPES_BATCH_SIZE:1000}
+    reprocess:
+      enabled: ${BOOTSTRAP_SYSTEM_UPDATE_OWNERSHIP_TYPES_REPROCESS:false}
 
 structuredProperties:
   enabled: ${ENABLE_STRUCTURED_PROPERTIES_HOOK:true} # applies structured properties mappings
