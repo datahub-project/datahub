@@ -4,6 +4,7 @@ import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.policy.DataHubPolicyInfo;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -165,9 +166,9 @@ public class AuthorizerChain implements Authorizer {
   }
 
   @Override
-  public Set<Urn> getActorGroups(@Nonnull Urn actorUrn) {
+  public Collection<Urn> getActorGroups(@Nonnull Urn actorUrn) {
     return authorizers.stream()
         .flatMap(authorizer -> authorizer.getActorGroups(actorUrn).stream())
-        .collect(Collectors.toSet());
+        .collect(Collectors.toList());
   }
 }

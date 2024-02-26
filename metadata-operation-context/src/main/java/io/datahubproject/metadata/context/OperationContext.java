@@ -87,10 +87,7 @@ public class OperationContext {
       @Nonnull IndexConvention indexConvention) {
 
     ActorContext systemActorContext =
-        ActorContext.builder()
-            .systemAuthentication(true)
-            .authentication(systemAuthentication)
-            .build();
+        ActorContext.builder().allowSystemAuth(true).authentication(systemAuthentication).build();
     OperationContextConfig systemConfig =
         config.toBuilder().allowSystemAuthentication(true).build();
     SearchContext systemSearchContext =
@@ -198,7 +195,7 @@ public class OperationContext {
           this.operationContextConfig,
           ActorContext.builder()
               .authentication(sessionAuthentication)
-              .systemAuthentication(
+              .allowSystemAuth(
                   this.systemActorContext != null
                       && this.systemActorContext.getAuthentication().equals(sessionAuthentication))
               .policyInfoSet(this.authorizerContext.getAuthorizer().getActorPolicies(actorUrn))
