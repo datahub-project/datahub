@@ -8684,9 +8684,9 @@ input ListPoliciesInput {
   query: String
 
   """
-  Optional Facet filters to apply to the result set
+  A list of disjunctive criterion for the filter. (or operation to combine filters)
   """
-  filters: [FacetFilterInput!]
+  orFilters: [AndFilterInput!]
 }
 
 """
