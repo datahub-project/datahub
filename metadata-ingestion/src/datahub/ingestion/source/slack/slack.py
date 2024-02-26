@@ -119,7 +119,8 @@ class SlackSource(TestableSource):
     ) -> Iterable[MetadataWorkUnit]:
         assert self.ctx.graph is not None
         auth_resp = self.get_slack_client().auth_test()
-        self.workspace_base_url = auth_resp.data.get("url")
+        assert type(auth_resp.data) == dict
+        self.workspace_base_url = str(auth_resp.data.get("url"))
         logger.info("Successfully connected to Slack")
         logger.info(auth_resp.data)
         if self.config.ingest_public_channels:
@@ -128,6 +129,7 @@ class SlackSource(TestableSource):
             yield from self.get_user_info()
 
     def get_user_info(self) -> Iterable[MetadataWorkUnit]:
+        assert self.ctx.graph is not None
         for user_obj in self.get_user_to_be_updated():
             self.populate_slack_id_from_email(user_obj)
             if user_obj.slack_id is None:
@@ -159,13 +161,14 @@ class SlackSource(TestableSource):
 
     def _get_channel_info(
         self, cursor: Optional[str]
-    ) -> Tuple[List[MetadataWorkUnit], str]:
-        result_channels = []
+    ) -> Tuple[List[MetadataWorkUnit], Optional[str]]:
+        result_channels: List[MetadataWorkUnit] = []
         response = self.get_slack_client().conversations_list(
             types="public_channel",
             limit=self.config.channels_iteration_limit,
             cursor=cursor,
         )
+        assert type(response.data) == dict
         if not response.data["ok"]:
             logger.error("Failed to fetch public channels")
             return result_channels, None
@@ -226,7 +229,7 @@ class SlackSource(TestableSource):
                     ),
                 )
             )
-        cursor = response.data["response_metadata"]["next_cursor"]
+        cursor = str(response.data["response_metadata"]["next_cursor"])
         return result_channels, cursor
 
     def get_public_channels(self) -> Iterable[MetadataWorkUnit]:
