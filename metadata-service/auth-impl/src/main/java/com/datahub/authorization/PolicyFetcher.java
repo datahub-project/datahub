@@ -9,6 +9,7 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.query.SearchFlags;
+import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.ScrollResult;
@@ -45,7 +46,7 @@ public class PolicyFetcher {
    */
   @Deprecated
   public CompletableFuture<PolicyFetchResult> fetchPolicies(
-      int start, String query, int count, Authentication authentication) {
+      int start, String query, int count, Filter filter, Authentication authentication) {
     return CompletableFuture.supplyAsync(
         () -> {
           try {
@@ -55,7 +56,8 @@ public class PolicyFetcher {
 
             while (PolicyFetchResult.EMPTY.equals(result) && scrollId != null) {
               PolicyFetchResult tmpResult =
-                  fetchPolicies(query, count, scrollId.isEmpty() ? null : scrollId, authentication);
+                  fetchPolicies(
+                      query, count, scrollId.isEmpty() ? null : scrollId, filter, authentication);
               fetchedResults += tmpResult.getPolicies().size();
               scrollId = tmpResult.getScrollId();
               if (fetchedResults > start) {
@@ -71,13 +73,17 @@ public class PolicyFetcher {
   }
 
   public PolicyFetchResult fetchPolicies(
-      int count, @Nullable String scrollId, Authentication authentication)
+      int count, @Nullable String scrollId, Filter filter, Authentication authentication)
       throws RemoteInvocationException, URISyntaxException {
-    return fetchPolicies("", count, scrollId, authentication);
+    return fetchPolicies("", count, scrollId, filter, authentication);
   }
 
   public PolicyFetchResult fetchPolicies(
-      String query, int count, @Nullable String scrollId, Authentication authentication)
+      String query,
+      int count,
+      @Nullable String scrollId,
+      Filter filter,
+      Authentication authentication)
       throws RemoteInvocationException, URISyntaxException {
     log.debug(String.format("Batch fetching policies. count: %s, scroll: %s", count, scrollId));
 
@@ -86,7 +92,7 @@ public class PolicyFetcher {
         _entityClient.scrollAcrossEntities(
             List.of(POLICY_ENTITY_NAME),
             query,
-            null,
+            filter,
             scrollId,
             null,
             count,
