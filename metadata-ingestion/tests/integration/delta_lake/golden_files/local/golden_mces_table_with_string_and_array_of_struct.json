@@ -2,7 +2,7 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,tests/integration/delta_lake/test_data/delta_tables/table_with_string_and_array_of_struct,UAT)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,tests/integration/delta_lake/test_data/delta_tables_nested_datatype/table_with_string_and_array_of_struct,UAT)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.common.Status": {
@@ -16,7 +16,7 @@
                             "table_creation_time": "1708329893422",
                             "id": "6f3b01e4-ae1e-415a-979a-34861346809b",
                             "version": "0",
-                            "location": "tests/integration/delta_lake/test_data/delta_tables/table_with_string_and_array_of_struct"
+                            "location": "tests/integration/delta_lake/test_data/delta_tables_nested_datatype/table_with_string_and_array_of_struct"
                         },
                         "name": "table_with_string_and_array_of_struct",
                         "tags": []
@@ -549,7 +549,7 @@
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:ad4b596846e8e010114b1ec82b324fab",
+    "entityUrn": "urn:li:container:1b996eaf75c86d26be0ff469b332e89b",
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
@@ -557,9 +557,9 @@
             "customProperties": {
                 "platform": "delta-lake",
                 "env": "UAT",
-                "folder_abs_path": "tests/integration/delta_lake/test_data/delta_tables"
+                "folder_abs_path": "tests/integration/delta_lake/test_data/delta_tables_nested_datatype"
             },
-            "name": "delta_tables"
+            "name": "delta_tables_nested_datatype"
         }
     },
     "systemMetadata": {
@@ -570,7 +570,7 @@
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:ad4b596846e8e010114b1ec82b324fab",
+    "entityUrn": "urn:li:container:1b996eaf75c86d26be0ff469b332e89b",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -586,7 +586,7 @@
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:ad4b596846e8e010114b1ec82b324fab",
+    "entityUrn": "urn:li:container:1b996eaf75c86d26be0ff469b332e89b",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -602,7 +602,7 @@
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:ad4b596846e8e010114b1ec82b324fab",
+    "entityUrn": "urn:li:container:1b996eaf75c86d26be0ff469b332e89b",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -620,7 +620,7 @@
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:ad4b596846e8e010114b1ec82b324fab",
+    "entityUrn": "urn:li:container:1b996eaf75c86d26be0ff469b332e89b",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -636,7 +636,7 @@
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:ad4b596846e8e010114b1ec82b324fab",
+    "entityUrn": "urn:li:container:1b996eaf75c86d26be0ff469b332e89b",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -669,12 +669,12 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,tests/integration/delta_lake/test_data/delta_tables/table_with_string_and_array_of_struct,UAT)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,tests/integration/delta_lake/test_data/delta_tables_nested_datatype/table_with_string_and_array_of_struct,UAT)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:ad4b596846e8e010114b1ec82b324fab"
+            "container": "urn:li:container:1b996eaf75c86d26be0ff469b332e89b"
         }
     },
     "systemMetadata": {
@@ -685,7 +685,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,tests/integration/delta_lake/test_data/delta_tables/table_with_string_and_array_of_struct,UAT)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,tests/integration/delta_lake/test_data/delta_tables_nested_datatype/table_with_string_and_array_of_struct,UAT)",
     "changeType": "UPSERT",
     "aspectName": "operation",
     "aspect": {
@@ -720,7 +720,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,tests/integration/delta_lake/test_data/delta_tables/table_with_string_and_array_of_struct,UAT)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,tests/integration/delta_lake/test_data/delta_tables_nested_datatype/table_with_string_and_array_of_struct,UAT)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -743,8 +743,8 @@
                     "urn": "urn:li:container:ee050cda8eca59687021c24cbc0bb8a4"
                 },
                 {
-                    "id": "urn:li:container:ad4b596846e8e010114b1ec82b324fab",
-                    "urn": "urn:li:container:ad4b596846e8e010114b1ec82b324fab"
+                    "id": "urn:li:container:1b996eaf75c86d26be0ff469b332e89b",
+                    "urn": "urn:li:container:1b996eaf75c86d26be0ff469b332e89b"
                 }
             ]
         }
@@ -848,7 +848,7 @@
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:ad4b596846e8e010114b1ec82b324fab",
+    "entityUrn": "urn:li:container:1b996eaf75c86d26be0ff469b332e89b",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -881,7 +881,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,tests/integration/delta_lake/test_data/delta_tables/table_with_string_and_array_of_struct,UAT)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,tests/integration/delta_lake/test_data/delta_tables_nested_datatype/table_with_string_and_array_of_struct,UAT)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -904,8 +904,8 @@
                     "urn": "urn:li:container:ee050cda8eca59687021c24cbc0bb8a4"
                 },
                 {
-                    "id": "urn:li:container:ad4b596846e8e010114b1ec82b324fab",
-                    "urn": "urn:li:container:ad4b596846e8e010114b1ec82b324fab"
+                    "id": "urn:li:container:1b996eaf75c86d26be0ff469b332e89b",
+                    "urn": "urn:li:container:1b996eaf75c86d26be0ff469b332e89b"
                 }
             ]
         }

@@ -2,7 +2,7 @@
   "type": "delta-lake",
   "config": {
     "env": "UAT",
-    "base_path": "tests/integration/delta_lake/test_data/delta_tables/table_with_string_and_array",
+    "base_path": "tests/integration/delta_lake/test_data/delta_tables_nested_datatype/table_with_string_and_array",
     "require_files":"False"
   }
 }
