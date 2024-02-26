@@ -119,7 +119,7 @@ class SlackSource(TestableSource):
     ) -> Iterable[MetadataWorkUnit]:
         assert self.ctx.graph is not None
         auth_resp = self.get_slack_client().auth_test()
-        assert type(auth_resp.data) == dict
+        assert isinstance(auth_resp.data, dict)
         self.workspace_base_url = str(auth_resp.data.get("url"))
         logger.info("Successfully connected to Slack")
         logger.info(auth_resp.data)
@@ -168,7 +168,7 @@ class SlackSource(TestableSource):
             limit=self.config.channels_iteration_limit,
             cursor=cursor,
         )
-        assert type(response.data) == dict
+        assert isinstance(response.data, dict)
         if not response.data["ok"]:
             logger.error("Failed to fetch public channels")
             return result_channels, None
