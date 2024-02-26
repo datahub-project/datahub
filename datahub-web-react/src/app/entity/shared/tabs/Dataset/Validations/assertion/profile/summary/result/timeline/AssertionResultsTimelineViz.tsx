@@ -8,6 +8,7 @@ import {
 } from '../../../../../../../../../../../types.generated';
 import { AssertionDataPoint, AssertionResultTimelineChart, TimeRange } from './AssertionResultTimelineChart';
 import { AssertionResultPopoverContent } from '../../../shared/result/AssertionResultPopoverContent';
+import { getAssertionDataPointsFromRunEvents } from './utils';
 
 const RESULT_CHART_WIDTH_PX = 540;
 
@@ -25,31 +26,13 @@ export const AssertionResultsTimelineViz = ({ assertion, results, platform, time
     /**
      * Data for the timeline of assertion results.
      */
-    const timelineData: AssertionDataPoint[] =
-        completedRuns
-            .filter((runEvent) => !!runEvent.result)
-            .map((runEvent) => {
-                const { result } = runEvent;
-                if (!result) throw new Error('Completed assertion run event does not have a result.');
-                const resultUrl = result.externalUrl;
-                /**
-                 * Create a "result" to render in the timeline chart.
-                 */
-                return {
-                    time: runEvent.timestampMillis,
-                    result: {
-                        type: result.type,
-                        resultUrl,
-                        title: undefined,
-                        popoverContent: (
-                            <AssertionResultPopoverContent
-                                assertion={assertion}
-                                run={runEvent}
-                            />
-                        ),
-                    },
-                };
-            }) || [];
+    const timelineData: AssertionDataPoint[] = getAssertionDataPointsFromRunEvents(completedRuns, {
+        getPopOverContent: (runEvent) => <AssertionResultPopoverContent
+            assertion={assertion}
+            run={runEvent}
+        />,
+        getTitleElement: () => undefined,
+    })
 
     return <AssertionResultTimelineChart width={RESULT_CHART_WIDTH_PX} data={timelineData} timeRange={timeRange} />;
 };

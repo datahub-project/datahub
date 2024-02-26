@@ -1,4 +1,5 @@
-import { AssertionResultType } from '../../../../../../../../../../../types.generated';
+import { AssertionResultType, AssertionRunEvent } from '../../../../../../../../../../../types.generated';
+import { AssertionDataPoint } from './AssertionResultTimelineChart';
 
 export const SUCCESS_COLOR_HEX = '#52C41A';
 export const FAILURE_COLOR_HEX = '#F5222D';
@@ -139,3 +140,28 @@ export const getFormattedTimeString = (timestampMs) => {
     // If the time is more than 1 year ago, show the date in month and year.
     return new Date(timestampMs).toLocaleDateString('en-us', { month: 'short', year: 'numeric' });
 };
+
+export const getAssertionDataPointsFromRunEvents = (runEvents: AssertionRunEvent[], options?: {
+    getPopOverContent?: (runEvent: AssertionRunEvent) => JSX.Element | undefined
+    getTitleElement?: (runEvent: AssertionRunEvent) => JSX.Element | undefined,
+}): AssertionDataPoint[] => {
+    return runEvents
+        .filter((runEvent) => !!runEvent.result)
+        .map((runEvent) => {
+            const { result } = runEvent;
+            if (!result) throw new Error('Completed assertion run event does not have a result.');
+            const resultUrl = result.externalUrl;
+            /**
+             * Create a "result" to render in the timeline chart.
+             */
+            return {
+                time: runEvent.timestampMillis,
+                result: {
+                    type: result.type,
+                    resultUrl,
+                    title: options?.getTitleElement?.(runEvent),
+                    popoverContent: options?.getPopOverContent?.(runEvent),
+                },
+            };
+        }) || [];
+}
