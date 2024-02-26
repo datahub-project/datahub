@@ -5,24 +5,33 @@ import LanguageIcon from '@mui/icons-material/Language';
 import CloseIcon from '@mui/icons-material/Close';
 import { ANTD_GRAY, SEARCH_COLORS } from '../../shared/constants';
 
-const SelectButton = styled(Button)<{ isOpen: boolean }>`
-    background-color: ${(props) => (props.isOpen ? SEARCH_COLORS.TITLE_PURPLE : 'transparent')};
-    border-color: ${(props) => (props.isOpen ? SEARCH_COLORS.TITLE_PURPLE : 'transparent')};
+const SelectButton = styled(Button)<{ selectedViewName: string }>`
+    background-color: ${(props) => (props.selectedViewName ? SEARCH_COLORS.TITLE_PURPLE : 'transparent')};
+    border-color: ${(props) => (props.selectedViewName ? SEARCH_COLORS.TITLE_PURPLE : 'transparent')};
     color: ${ANTD_GRAY[1]};
     &: hover {
         background: ${SEARCH_COLORS.TITLE_PURPLE};
         color: ${ANTD_GRAY[1]};
-        border-color: ${(props) => (props.isOpen ? SEARCH_COLORS.TITLE_PURPLE : 'transparent')};
+        border-color: ${(props) => (props.selectedViewName ? SEARCH_COLORS.TITLE_PURPLE : 'transparent')};
     }
     &: focus {
-        background-color: ${(props) => (props.isOpen ? SEARCH_COLORS.TITLE_PURPLE : 'transparent')};
+        background-color: ${(props) => (props.selectedViewName ? SEARCH_COLORS.TITLE_PURPLE : 'transparent')};
         color: ${ANTD_GRAY[1]};
-        border-color: ${(props) => (props.isOpen ? SEARCH_COLORS.TITLE_PURPLE : 'transparent')};
+        border-color: ${(props) => (props.selectedViewName ? SEARCH_COLORS.TITLE_PURPLE : 'transparent')};
     }
 `;
 
 const SelectButtonContainer = styled.div`
     position: relative;
+    &&&& .close-container {
+        display: none;
+    }
+    &:hover,
+    &:focus {
+        &&&& .close-container {
+            display: flex;
+        }
+    }
 `;
 
 const CloseButtonContainer = styled.div`
@@ -30,7 +39,6 @@ const CloseButtonContainer = styled.div`
     top: 0px;
     right: 0px;
     background-color: ${ANTD_GRAY[1]};
-    display: flex;
     align-items: center;
     border-radius: 100%;
     padding: 5px;
@@ -49,15 +57,14 @@ const LanguageIconStyle = styled(LanguageIcon)`
 
 type Props = {
     selectedViewName: string;
-    isOpen: boolean;
     onClear: () => void;
 };
 
-export const renderSelectedView = ({ selectedViewName, isOpen, onClear }: Props) => {
+export const renderSelectedView = ({ selectedViewName, onClear }: Props) => {
     return (
         <SelectButtonContainer>
-            <SelectButton isOpen={isOpen}>{selectedViewName || <LanguageIconStyle />}</SelectButton>
-            {selectedViewName && isOpen && (
+            <SelectButton selectedViewName={selectedViewName}>{selectedViewName || <LanguageIconStyle />}</SelectButton>
+            {selectedViewName && (
                 <CloseButtonContainer
                     className="close-container"
                     onClick={(e) => {

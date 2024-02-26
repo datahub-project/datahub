@@ -181,6 +181,7 @@ export const ViewSelect = () => {
             ...userContext.localState,
             selectedViewUrn: newUrn,
         });
+        setIsOpen(false);
     };
 
     const onClickCreateView = () => {
@@ -218,10 +219,12 @@ export const ViewSelect = () => {
             ...userContext.localState,
             selectedViewUrn: undefined,
         });
+        setIsOpen(false);
     };
 
     const onClickManageViews = () => {
         history.push(PageRoutes.SETTINGS_VIEWS);
+        setIsOpen(false);
     };
 
     const onClickViewTypeFilter = (type: string) => {
@@ -233,7 +236,7 @@ export const ViewSelect = () => {
      * Render variables
      */
     const privateViews = highlightedPrivateViewData || [];
-    const publicViews = highlightedPrivateViewData || [];
+    const publicViews = highlightedPublicViewData || [];
     const privateViewCount = privateViews?.length || 0;
     const publicViewCount = publicViews?.length || 0;
     const hasViews = privateViewCount > 0 || publicViewCount > 0 || false;
@@ -241,6 +244,7 @@ export const ViewSelect = () => {
     return (
         <ViewSelectContainer>
             <Popover
+                open={isOpen}
                 onOpenChange={() => {
                     scrollToRef?.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
                     setIsOpen(!isOpen);
@@ -295,7 +299,7 @@ export const ViewSelect = () => {
                 popupVisible={false}
                 ref={selectRef}
             >
-                {renderSelectedView({ selectedViewName, isOpen, onClear })}
+                {renderSelectedView({ selectedViewName, onClear })}
             </Popover>
             {viewBuilderDisplayState.visible && (
                 <ViewBuilder
