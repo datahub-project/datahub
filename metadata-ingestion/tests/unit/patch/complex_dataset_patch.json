@@ -62,8 +62,8 @@
                },
                {
                   "op": "add",
-                  "path": "/fineGrainedLineages/TRANSFORM/upstreamType/DATASET/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Ahive%2Cfct_users_created_upstream%2CPROD%29",
-                  "value": 1.0
+                  "path": "/fineGrainedLineages/TRANSFORM/urn%3Ali%3AschemaField%3A%28urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Ahive%2Cfct_users_created_upstream%2CPROD%29%2Cfoo%29/NONE/urn%3Ali%3AschemaField%3A%28urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Ahive%2Cfct_users_created_upstream%2CPROD%29%2Cbar%29",
+                  "value": { "confidenceScore": 1.0 }
                }
       ]
   }
