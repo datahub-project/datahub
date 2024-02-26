@@ -283,6 +283,8 @@ public class FormService extends BaseService {
     updateFieldPromptToComplete(
         formPromptAssociation, fieldPath, UrnUtils.getUrn(authentication.getActor().toUrnStr()));
 
+    formAssociation.setLastModified(createAuditStamp(authentication));
+
     // field prompt is complete if all fields in entity's schema metadata are marked complete
     if (isFieldPromptComplete(entityUrn, formPromptAssociation, authentication)) {
       // if this is complete, the prompt as a whole should be marked as complete
@@ -532,6 +534,8 @@ public class FormService extends BaseService {
               }
             });
     formAssociation.setIncompletePrompts(incompletePrompts);
+
+    formAssociation.setLastModified(createAuditStamp(authentication));
   }
 
   /** Performs the operation of changing the status of a form prompt from complete to incomplete. */
@@ -539,7 +543,8 @@ public class FormService extends BaseService {
       @Nonnull final FormAssociation form,
       @Nonnull final Urn entityUrn,
       @Nonnull final Urn formUrn,
-      @Nonnull final String formPromptId) {
+      @Nonnull final String formPromptId,
+      @Nonnull final Authentication authentication) {
     // Remove the prompt from completed.
     final List<FormPromptAssociation> newCompletedPrompts =
         form.getCompletedPrompts().stream()
@@ -561,6 +566,8 @@ public class FormService extends BaseService {
     newIncompletePrompts.add(
         new FormPromptAssociation().setId(formPromptId).setLastModified(createSystemAuditStamp()));
     form.setIncompletePrompts(new FormPromptAssociationArray(newIncompletePrompts));
+
+    form.setLastModified(createAuditStamp(authentication));
   }
 
   private List<MetadataChangeProposal> buildAssignFormChanges(
@@ -638,6 +645,8 @@ public class FormService extends BaseService {
             });
     newAssociation.setIncompletePrompts(formPromptAssociations);
     newAssociation.setCompletedPrompts(new FormPromptAssociationArray());
+    newAssociation.setCreated(createAuditStamp(authentication));
+    newAssociation.setLastModified(createAuditStamp(authentication));
     incompleteForms.add(newAssociation);
     formsAspect.setIncompleteForms(incompleteForms);
     return buildMetadataChangeProposal(entityUrn, FORMS_ASPECT_NAME, formsAspect);
@@ -755,7 +764,7 @@ public class FormService extends BaseService {
 
     if (formAssociation != null) {
       // 1. Find and mark the provided form prompt as incomplete.
-      updatePromptToIncomplete(formAssociation, entityUrn, formUrn, formPromptId);
+      updatePromptToIncomplete(formAssociation, entityUrn, formUrn, formPromptId, authentication);
 
       // 2. Update the form's completion status given the incomplete prompt.
       updateFormCompletion(forms, formAssociation, formDefinition);
