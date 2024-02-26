@@ -1,5 +1,5 @@
-import tenacity
 import pytest
+import tenacity
 
 from tests.privileges.utils import (
     assign_role,
@@ -317,6 +317,7 @@ def test_privilege_to_create_and_manage_ingestion_source():
     _ensure_cant_perform_action(
         user_session, create_ingestion_source, "createIngestionSource"
     )
+
 
 @pytest.mark.skip(reason="Functionality and test needs to be validated for correctness")
 @pytest.mark.dependency(depends=["test_healthchecks"])
