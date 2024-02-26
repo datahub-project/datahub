@@ -1,23 +1,23 @@
-package com.linkedin.datahub.upgrade.system.entity.steps;
+package com.linkedin.datahub.upgrade.system.ownershiptypes;
 
-import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.Constants.DATA_HUB_UPGRADE_RESULT_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.DEFAULT_RUN_ID;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
-import com.linkedin.common.BrowsePathsV2;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.common.urn.UrnUtils;
-import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
+import com.linkedin.entity.Aspect;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.aspect.utils.DefaultAspectsUtil;
+import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
@@ -27,21 +27,25 @@ import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
+import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchService;
+import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import io.datahubproject.metadata.context.OperationContext;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
-public class BackfillBrowsePathsV2Step implements UpgradeStep {
+public class OwnershipTypesStep implements UpgradeStep {
 
-  private static final String UPGRADE_ID = "BackfillBrowsePathsV2Step";
+  private static final String UPGRADE_ID = OwnershipTypes.class.getSimpleName();
   private static final Urn UPGRADE_ID_URN = BootstrapStep.getUpgradeUrn(UPGRADE_ID);
-  public static final String DEFAULT_BROWSE_PATH_V2 = "␟Default";
 
   private static final Set<String> ENTITY_TYPES_TO_MIGRATE =
       ImmutableSet.of(
@@ -53,24 +57,37 @@ public class BackfillBrowsePathsV2Step implements UpgradeStep {
           Constants.ML_MODEL_ENTITY_NAME,
           Constants.ML_MODEL_GROUP_ENTITY_NAME,
           Constants.ML_FEATURE_TABLE_ENTITY_NAME,
-          Constants.ML_FEATURE_ENTITY_NAME);
+          Constants.ML_FEATURE_ENTITY_NAME,
+          Constants.ML_PRIMARY_KEY_ENTITY_NAME,
+          Constants.GLOSSARY_TERM_ENTITY_NAME,
+          Constants.GLOSSARY_NODE_ENTITY_NAME,
+          Constants.TAG_ENTITY_NAME,
+          Constants.ROLE_ENTITY_NAME,
+          Constants.CORP_GROUP_ENTITY_NAME,
+          Constants.CORP_USER_ENTITY_NAME,
+          Constants.CONTAINER_ENTITY_NAME,
+          Constants.DOMAIN_ENTITY_NAME,
+          Constants.DATA_PRODUCT_ENTITY_NAME,
+          Constants.NOTEBOOK_ENTITY_NAME);
 
   private final OperationContext opContext;
   private final EntityService<?> entityService;
   private final SearchService searchService;
-
+  private final boolean enabled;
   private final boolean reprocessEnabled;
   private final Integer batchSize;
 
-  public BackfillBrowsePathsV2Step(
+  public OwnershipTypesStep(
       OperationContext opContext,
       EntityService<?> entityService,
       SearchService searchService,
+      boolean enabled,
       boolean reprocessEnabled,
       Integer batchSize) {
     this.opContext = opContext;
-    this.searchService = searchService;
     this.entityService = entityService;
+    this.searchService = searchService;
+    this.enabled = enabled;
     this.reprocessEnabled = reprocessEnabled;
     this.batchSize = batchSize;
   }
@@ -78,10 +95,7 @@ public class BackfillBrowsePathsV2Step implements UpgradeStep {
   @Override
   public Function<UpgradeContext, UpgradeStepResult> executable() {
     return (context) -> {
-      final AuditStamp auditStamp =
-          new AuditStamp()
-              .setActor(UrnUtils.getUrn(Constants.SYSTEM_ACTOR))
-              .setTime(System.currentTimeMillis());
+      final AuditStamp auditStamp = AuditStampUtils.createDefaultAuditStamp();
 
       String scrollId = null;
       for (String entityType : ENTITY_TYPES_TO_MIGRATE) {
@@ -91,7 +105,7 @@ public class BackfillBrowsePathsV2Step implements UpgradeStep {
               String.format(
                   "Upgrading batch %s-%s of browse paths for entity type %s",
                   migratedCount, migratedCount + batchSize, entityType));
-          scrollId = backfillBrowsePathsV2(entityType, auditStamp, scrollId);
+          scrollId = ownershipTypes(entityType, auditStamp, scrollId);
           migratedCount += batchSize;
         } while (scrollId != null);
       }
@@ -102,14 +116,14 @@ public class BackfillBrowsePathsV2Step implements UpgradeStep {
     };
   }
 
-  private String backfillBrowsePathsV2(String entityType, AuditStamp auditStamp, String scrollId) {
+  private String ownershipTypes(String entityType, AuditStamp auditStamp, String scrollId) {
 
     final Filter filter;
 
     if (reprocessEnabled) {
-      filter = backfillDefaultBrowsePathsV2Filter();
+      filter = backfillDefaultOwnershipTypesFilter();
     } else {
-      filter = backfillBrowsePathsV2Filter();
+      filter = backfillOwnershipTypesFilter();
     }
 
     final ScrollResult scrollResult =
@@ -132,35 +146,35 @@ public class BackfillBrowsePathsV2Step implements UpgradeStep {
       return null;
     }
 
-    for (SearchEntity searchEntity : scrollResult.getEntities()) {
-      try {
-        ingestBrowsePathsV2(searchEntity.getEntity(), auditStamp);
-      } catch (Exception e) {
-        // don't stop the whole step because of one bad urn or one bad ingestion
-        log.error(
-            String.format(
-                "Error ingesting default browsePathsV2 aspect for urn %s",
-                searchEntity.getEntity()),
-            e);
-      }
+    try {
+      ingestOwnershipTypes(scrollResult.getEntities(), auditStamp);
+    } catch (Exception e) {
+      // don't stop the whole step because of one bad urn or one bad ingestion
+      log.error(
+          String.format(
+              "Error ingesting ownership aspect for urn %s",
+              scrollResult.getEntities().stream()
+                  .map(SearchEntity::getEntity)
+                  .collect(Collectors.toList())),
+          e);
     }
 
     return scrollResult.getScrollId();
   }
 
-  private Filter backfillBrowsePathsV2Filter() {
-    // Condition: has `browsePaths` AND does NOT have `browsePathV2`
-    Criterion missingBrowsePathV2 = new Criterion();
-    missingBrowsePathV2.setCondition(Condition.IS_NULL);
-    missingBrowsePathV2.setField("browsePathV2");
-    // Excludes entities without browsePaths
-    Criterion hasBrowsePathV1 = new Criterion();
-    hasBrowsePathV1.setCondition(Condition.EXISTS);
-    hasBrowsePathV1.setField("browsePaths");
+  private Filter backfillOwnershipTypesFilter() {
+    // Condition: has `owners` AND does NOT have `ownershipTypes`
+    Criterion hasOwners = new Criterion();
+    hasOwners.setCondition(Condition.EXISTS);
+    hasOwners.setField("owners");
+    // Excludes entities with ownershipTypes
+    Criterion missingOwnershipTypes = new Criterion();
+    missingOwnershipTypes.setCondition(Condition.IS_NULL);
+    missingOwnershipTypes.setField("ownershipTypes");
 
     CriterionArray criterionArray = new CriterionArray();
-    criterionArray.add(missingBrowsePathV2);
-    criterionArray.add(hasBrowsePathV1);
+    criterionArray.add(hasOwners);
+    criterionArray.add(missingOwnershipTypes);
 
     ConjunctiveCriterion conjunctiveCriterion = new ConjunctiveCriterion();
     conjunctiveCriterion.setAnd(criterionArray);
@@ -173,18 +187,14 @@ public class BackfillBrowsePathsV2Step implements UpgradeStep {
     return filter;
   }
 
-  private Filter backfillDefaultBrowsePathsV2Filter() {
-    // Condition: has default `browsePathV2`
-    Criterion hasDefaultBrowsePathV2 = new Criterion();
-    hasDefaultBrowsePathV2.setCondition(Condition.EQUAL);
-    hasDefaultBrowsePathV2.setField("browsePathV2");
-    StringArray values = new StringArray();
-    values.add(DEFAULT_BROWSE_PATH_V2);
-    hasDefaultBrowsePathV2.setValues(values);
-    hasDefaultBrowsePathV2.setValue(DEFAULT_BROWSE_PATH_V2); // not used, but required field?
+  private Filter backfillDefaultOwnershipTypesFilter() {
+    // Condition: has `owners`
+    Criterion hasOwners = new Criterion();
+    hasOwners.setCondition(Condition.EXISTS);
+    hasOwners.setField("owners");
 
     CriterionArray criterionArray = new CriterionArray();
-    criterionArray.add(hasDefaultBrowsePathV2);
+    criterionArray.add(hasOwners);
 
     ConjunctiveCriterion conjunctiveCriterion = new ConjunctiveCriterion();
     conjunctiveCriterion.setAnd(criterionArray);
@@ -197,19 +207,38 @@ public class BackfillBrowsePathsV2Step implements UpgradeStep {
     return filter;
   }
 
-  private void ingestBrowsePathsV2(Urn urn, AuditStamp auditStamp) throws Exception {
-    BrowsePathsV2 browsePathsV2 =
-        DefaultAspectsUtil.buildDefaultBrowsePathV2(urn, true, entityService);
-    log.debug(String.format("Adding browse path v2 for urn %s with value %s", urn, browsePathsV2));
-    MetadataChangeProposal proposal = new MetadataChangeProposal();
-    proposal.setEntityUrn(urn);
-    proposal.setEntityType(urn.getEntityType());
-    proposal.setAspectName(Constants.BROWSE_PATHS_V2_ASPECT_NAME);
-    proposal.setChangeType(ChangeType.UPSERT);
-    proposal.setSystemMetadata(
-        new SystemMetadata().setRunId(DEFAULT_RUN_ID).setLastObserved(System.currentTimeMillis()));
-    proposal.setAspect(GenericRecordUtils.serializeAspect(browsePathsV2));
-    entityService.ingestProposal(proposal, auditStamp, true);
+  private void ingestOwnershipTypes(SearchEntityArray searchBatch, AuditStamp auditStamp)
+      throws Exception {
+    Map<Urn, Map<String, Aspect>> existing =
+        entityService.getLatestAspectObjects(
+            searchBatch.stream().map(SearchEntity::getEntity).collect(Collectors.toSet()),
+            Set.of(Constants.OWNERSHIP_ASPECT_NAME));
+
+    List<MetadataChangeProposal> mcps =
+        existing.entrySet().stream()
+            .filter(result -> result.getValue().containsKey(Constants.OWNERSHIP_ASPECT_NAME))
+            .map(
+                result -> {
+                  MetadataChangeProposal proposal = new MetadataChangeProposal();
+                  proposal.setEntityUrn(result.getKey());
+                  proposal.setEntityType(result.getKey().getEntityType());
+                  proposal.setAspectName(Constants.OWNERSHIP_ASPECT_NAME);
+                  proposal.setChangeType(ChangeType.UPSERT);
+                  proposal.setSystemMetadata(
+                      new SystemMetadata()
+                          .setRunId(DEFAULT_RUN_ID)
+                          .setLastObserved(System.currentTimeMillis()));
+                  proposal.setAspect(
+                      GenericRecordUtils.serializeAspect(
+                          result.getValue().get(Constants.OWNERSHIP_ASPECT_NAME)));
+                  return proposal;
+                })
+            .collect(Collectors.toList());
+
+    log.debug(String.format("Reingesting ownership for %s urns", mcps.size()));
+    AspectsBatch batch = AspectsBatchImpl.builder().mcps(mcps, auditStamp, entityService).build();
+
+    entityService.ingestProposal(batch, false);
   }
 
   @Override
@@ -229,20 +258,19 @@ public class BackfillBrowsePathsV2Step implements UpgradeStep {
   @Override
   /**
    * Returns whether the upgrade should be skipped. Uses previous run history or the environment
-   * variables REPROCESS_DEFAULT_BROWSE_PATHS_V2 & BACKFILL_BROWSE_PATHS_V2 to determine whether to
-   * skip.
+   * variables to determine whether to skip.
    */
   public boolean skip(UpgradeContext context) {
-    boolean envEnabled = Boolean.parseBoolean(System.getenv("BACKFILL_BROWSE_PATHS_V2"));
-
-    if (reprocessEnabled && envEnabled) {
+    if (reprocessEnabled && enabled) {
       return false;
     }
 
-    boolean previouslyRun = entityService.exists(UPGRADE_ID_URN, true);
+    boolean previouslyRun =
+        entityService.exists(UPGRADE_ID_URN, DATA_HUB_UPGRADE_RESULT_ASPECT_NAME, true);
+
     if (previouslyRun) {
       log.info("{} was already run. Skipping.", id());
     }
-    return (previouslyRun || !envEnabled);
+    return (previouslyRun || !enabled);
   }
 }

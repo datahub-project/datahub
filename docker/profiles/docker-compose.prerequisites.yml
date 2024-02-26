@@ -290,7 +290,7 @@ services:
           memory: 1G
     healthcheck:
       test: curl -sS --fail http://search:$${DATAHUB_ELASTIC_PORT:-9200}/_cluster/health?wait_for_status=yellow&timeout=0s
-      start_period: 20s
+      start_period: 30s
       interval: 1s
       retries: 3
       timeout: 5s
@@ -325,7 +325,7 @@ services:
           memory: 1G
     healthcheck:
       test: curl -sS --fail http://search:$${DATAHUB_ELASTIC_PORT:-9200}/_cluster/health?wait_for_status=yellow&timeout=0s
-      start_period: 20s
+      start_period: 30s
       interval: 1s
       retries: 3
       timeout: 5s
