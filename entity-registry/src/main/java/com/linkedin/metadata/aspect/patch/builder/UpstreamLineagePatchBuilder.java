@@ -54,7 +54,7 @@ public class UpstreamLineagePatchBuilder
   /**
    * Adds a field as a fine grained upstream
    *
-   * @param schemaFieldUrn a schema field to be marked as upstream, format:
+   * @param upstreamSchemaField a schema field to be marked as upstream, format:
    *     urn:li:schemaField(DATASET_URN, COLUMN NAME)
    * @param confidenceScore optional, confidence score for the lineage edge. Defaults to 1.0 for
    *     full confidence
@@ -66,7 +66,7 @@ public class UpstreamLineagePatchBuilder
    * @return this builder
    */
   public UpstreamLineagePatchBuilder addFineGrainedUpstreamField(
-      @Nonnull Urn schemaFieldUrn,
+      @Nonnull Urn upstreamSchemaField,
       @Nullable Float confidenceScore,
       @Nonnull String transformationOperation,
       @Nonnull Urn downstreamSchemaField,
@@ -89,9 +89,9 @@ public class UpstreamLineagePatchBuilder
                 + "/"
                 + downstreamSchemaField
                 + "/"
-                + queryUrn
+                + finalQueryUrn
                 + "/"
-                + schemaFieldUrn,
+                + upstreamSchemaField,
             fineGrainedLineageNode));
 
     return this;
@@ -137,8 +137,6 @@ public class UpstreamLineagePatchBuilder
             PatchOperationType.REMOVE.getValue(),
             FINE_GRAINED_PATH_START
                 + transformationOperation
-                + "/"
-                + downstreamSchemaField
                 + "/"
                 + downstreamSchemaField
                 + "/"
