@@ -1,4 +1,5 @@
 import tenacity
+import pytest
 
 from tests.privileges.utils import (
     assign_role,
@@ -159,7 +160,7 @@ def test_privilege_to_create_and_manage_secrets():
     (admin_user, admin_pass) = get_admin_credentials()
     admin_session = login_as(admin_user, admin_pass)
     user_session = login_as("user", "user")
-    secret_urn = "urn:li:dataHubSecret:TestName"
+    secret_urn = "urn:li:dataHubSecret:TestSecretName"
 
     # Verify new user can't create secrets
     create_secret = {
@@ -167,7 +168,7 @@ def test_privilege_to_create_and_manage_secrets():
             createSecret(input: $input)\n}""",
         "variables": {
             "input": {
-                "name": "TestName",
+                "name": "TestSecretName",
                 "value": "Test Secret Value",
                 "description": "Test Secret Description",
             }
@@ -316,7 +317,6 @@ def test_privilege_to_create_and_manage_ingestion_source():
     _ensure_cant_perform_action(
         user_session, create_ingestion_source, "createIngestionSource"
     )
-
 
 @pytest.mark.skip(reason="Functionality and test needs to be validated for correctness")
 @pytest.mark.dependency(depends=["test_healthchecks"])
@@ -504,7 +504,7 @@ def test_privilege_from_group_role_can_create_and_manage_secret():
     (admin_user, admin_pass) = get_admin_credentials()
     admin_session = login_as(admin_user, admin_pass)
     user_session = login_as("user", "user")
-    secret_urn = "urn:li:dataHubSecret:TestSecretName"
+    secret_urn = "urn:li:dataHubSecret:TestName"
 
     # Verify new user can't create secrets
     create_secret = {
@@ -512,7 +512,7 @@ def test_privilege_from_group_role_can_create_and_manage_secret():
             createSecret(input: $input)\n}""",
         "variables": {
             "input": {
-                "name": "TestSecretName",
+                "name": "TestName",
                 "value": "Test Secret Value",
                 "description": "Test Secret Description",
             }
