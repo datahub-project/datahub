@@ -496,7 +496,7 @@ jobs:
     steps:
       - name: Check out the repo
         uses: hsheth2/sane-checkout-action@v1
-      - uses: dorny/paths-filter@v2
+      - uses: dorny/paths-filter@v3
         id: filter
         with:
           filters: |
@@ -510,7 +510,7 @@ jobs:
           images: |
             ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}
           tags: ${{ needs.setup.outputs.tag }}
-          userdorny/paths-filter@v3YL_DOCKER_USERNAME }}
+          username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
           publish: ${{ needs.setup.outputs.publish }}
           context: .
@@ -529,7 +529,7 @@ jobs:
     steps:
       - name: Check out the repo
         uses: hsheth2/sane-checkout-action@v1
-      - uses: dorny/paths-filter@v2
+      - uses: dorny/paths-filter@v3
         id: filter
         with:
           filters: |
@@ -543,7 +543,7 @@ jobs:
       - name: Build and push Base-Slim Image
         if: ${{ steps.filter.outputs.datahub-ingestion-base == 'true' }}
         uses: ./.github/actions/docker-custom-build-and-push
-        with:dorny/paths-filter@v3
+        with:
           target: slim-install
           images: |
             ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}
@@ -570,7 +570,7 @@ jobs:
     steps:
       - name: Check out the repo
         uses: hsheth2/sane-checkout-action@v1
-      - uses: dorny/paths-filter@v2
+      - uses: dorny/paths-filter@v3
         id: filter
         with:
           filters: |
@@ -584,7 +584,7 @@ jobs:
       - name: Build and push (Base-Full) Image
         if: ${{ steps.filter.outputs.datahub-ingestion-base == 'true' }}
         uses: ./.github/actions/docker-custom-build-and-push
-        with:dorny/paths-filter@v3
+        with:
           target: full-install
           images: |
             ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}
@@ -619,7 +619,7 @@ jobs:
       - uses: gradle/actions/setup-gradle@v3
       - name: Check out the repo
         uses: hsheth2/sane-checkout-action@v1
-      - uses: dorny/paths-filter@v2
+      - uses: dorny/paths-filter@v3
         id: filter
         with:
           filters: |
@@ -633,7 +633,7 @@ jobs:
       - name: Download Base Image
         uses: ishworkh/docker-image-artifact-download@v1
         if: ${{ needs.setup.outputs.publish != 'true' && steps.filter.outputs.datahub-ingestion-base == 'true' }}
-        with:dorny/paths-filter@v3
+        with:
           image: ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}:${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.unique_slim_tag || 'head-slim' }}
       - name: Build and push Slim Image
         if: ${{ steps.filter.outputs.datahub-ingestion-base == 'true' || steps.filter.outputs.datahub-ingestion == 'true' || needs.setup.outputs.publish }}
@@ -708,7 +708,7 @@ jobs:
       - uses: gradle/actions/setup-gradle@v3
       - name: Check out the repo
         uses: hsheth2/sane-checkout-action@v1
-      - uses: dorny/paths-filter@v2
+      - uses: dorny/paths-filter@v3
         id: filter
         with:
           filters: |
@@ -722,7 +722,7 @@ jobs:
       - name: Download Base Image
         uses: ishworkh/docker-image-artifact-download@v1
         if: ${{ needs.setup.outputs.publish != 'true' && steps.filter.outputs.datahub-ingestion-base == 'true' }}
-        with:dorny/paths-filter@v3
+        with:
           image: ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}:${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.unique_tag || 'head' }}
       - name: Build and push Full Image
         if: ${{ steps.filter.outputs.datahub-ingestion-base == 'true' || steps.filter.outputs.datahub-ingestion == 'true' || needs.setup.outputs.publish }}
