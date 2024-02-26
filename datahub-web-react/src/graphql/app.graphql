@@ -40,6 +40,7 @@ query appConfig {
         visualConfig {
             logoUrl
             faviconUrl
+            appTitle
             hideGlossary
             queriesTab {
                 queriesTabResultSize

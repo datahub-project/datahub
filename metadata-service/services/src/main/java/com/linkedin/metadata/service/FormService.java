@@ -8,6 +8,7 @@ import static com.linkedin.metadata.entity.AspectUtils.buildMetadataChangePropos
 
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.FieldFormPromptAssociation;
@@ -23,6 +24,7 @@ import com.linkedin.common.Forms;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.form.DynamicFormAssignment;
@@ -33,6 +35,10 @@ import com.linkedin.form.FormType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.authorization.OwnershipUtils;
 import com.linkedin.metadata.entity.AspectUtils;
+import com.linkedin.metadata.query.SearchFlags;
+import com.linkedin.metadata.query.filter.*;
+import com.linkedin.metadata.search.SearchEntity;
+import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.service.util.SearchBasedFormAssignmentRunner;
 import com.linkedin.metadata.utils.FormUtils;
 import com.linkedin.metadata.utils.SchemaFieldUtils;
@@ -45,11 +51,7 @@ import com.linkedin.structured.StructuredProperties;
 import com.linkedin.structured.StructuredPropertyValueAssignment;
 import com.linkedin.structured.StructuredPropertyValueAssignmentArray;
 import java.net.URISyntaxException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
@@ -65,6 +67,8 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 public class FormService extends BaseService {
+
+  private static final int FORMS_BATCH_SIZE = 1000;
   private static final int BATCH_FORM_ENTITY_COUNT = 500;
 
   public FormService(
@@ -1100,6 +1104,125 @@ public class FormService extends BaseService {
       throw new RuntimeException(
           String.format("Entity %s does not exist. Skipping batch form assignment", entityUrn));
     }
+  }
+
+  /*
+   * Get forms that are explicitly assigned to a given actor through either being assigned to
+   * the user or one of the groups provided.
+   */
+  public List<Urn> getFormsAssignedToActor(
+      @Nonnull final Urn userUrn,
+      @Nonnull final List<Urn> groupUrns,
+      @Nullable final SearchFlags searchFlags,
+      @Nonnull final Authentication authentication)
+      throws RemoteInvocationException {
+    // first, create a filter for the userUrn or the groupUrns matching the form actor assignment
+    final CriterionArray assignedUserArray = new CriterionArray();
+    assignedUserArray.add(
+        new Criterion()
+            .setField("assignedUsers")
+            .setValue(userUrn.toString())
+            .setCondition(Condition.EQUAL));
+    final CriterionArray assignedGroupsArray = new CriterionArray();
+    assignedGroupsArray.add(
+        new Criterion()
+            .setField("assignedGroups")
+            .setValue("")
+            .setValues(
+                new StringArray(groupUrns.stream().map(Urn::toString).collect(Collectors.toList())))
+            .setCondition(Condition.EQUAL));
+
+    Filter filter =
+        new Filter()
+            .setOr(
+                new ConjunctiveCriterionArray(
+                    new ConjunctiveCriterion().setAnd(assignedUserArray),
+                    new ConjunctiveCriterion().setAnd(assignedGroupsArray)));
+
+    SearchResult result =
+        this.entityClient.search(
+            FORM_ENTITY_NAME, "*", filter, null, 0, FORMS_BATCH_SIZE, authentication, searchFlags);
+
+    return result.getEntities().stream().map(SearchEntity::getEntity).collect(Collectors.toList());
+  }
+
+  /*
+   * Get forms that are assigned to owners of entities that this form is assigned to.
+   */
+  public List<Urn> getOwnershipForms(
+      @Nullable final SearchFlags searchFlags, @Nonnull final Authentication authentication)
+      throws RemoteInvocationException {
+    final SearchResult result =
+        this.entityClient.search(
+            FORM_ENTITY_NAME,
+            "*",
+            ImmutableMap.of("isOwnershipForm", "true"),
+            0,
+            FORMS_BATCH_SIZE,
+            authentication,
+            searchFlags);
+
+    return result.getEntities().stream().map(SearchEntity::getEntity).collect(Collectors.toList());
+  }
+
+  /*
+   * Get forms that are implicitly assigned to this user because the user owns an entity that has an
+   * ownership form on it.
+   * So, of the ownership forms, return the ones that are on entities that this user owns.
+   */
+  public List<Urn> getFormsAssignedByOwnership(
+      @Nonnull List<String> entities,
+      @Nonnull final Urn userUrn,
+      @Nonnull final List<Urn> ownershipFormUrns,
+      @Nullable final SearchFlags searchFlags,
+      @Nonnull final Authentication authentication)
+      throws RemoteInvocationException {
+    // create filter for entities owned by this user
+    Filter filter =
+        new Filter()
+            .setOr(
+                new ConjunctiveCriterionArray(
+                    new ConjunctiveCriterion()
+                        .setAnd(
+                            new CriterionArray(
+                                new Criterion()
+                                    .setField("owners")
+                                    .setValue(userUrn.toString())
+                                    .setCondition(Condition.EQUAL)))));
+
+    // do an aggregations query to get all the form urns in completedForms and incompleteForms for
+    // entities that this user owns
+    List<String> formFacets = ImmutableList.of("completedForms", "incompleteForms");
+    SearchResult result =
+        this.entityClient.searchAcrossEntities(
+            entities,
+            "*",
+            filter,
+            0,
+            0, // doing an aggregate request here, count = 0
+            searchFlags,
+            null,
+            authentication,
+            formFacets);
+
+    // get the form urns from the aggregations query we make above
+    final Set<Urn> formsOnOwnedEntities = new HashSet<>();
+    result
+        .getMetadata()
+        .getAggregations()
+        .forEach(
+            agg -> {
+              if (formFacets.contains(agg.getName())) {
+                formsOnOwnedEntities.addAll(
+                    agg.getFilterValues().stream()
+                        .map(f -> UrnUtils.getUrn(f.getValue()))
+                        .collect(Collectors.toList()));
+              }
+            });
+
+    return ownershipFormUrns.stream()
+        .filter(formsOnOwnedEntities::contains)
+        .collect(Collectors.toList());
   }
 
   private AuditStamp createSystemAuditStamp() {

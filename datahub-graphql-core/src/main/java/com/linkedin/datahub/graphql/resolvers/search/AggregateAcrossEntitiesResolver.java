@@ -61,6 +61,13 @@ public class AggregateAcrossEntitiesResolver
                   : null;
 
           final Filter inputFilter = ResolverUtils.buildFilter(null, input.getOrFilters());
+          final Filter formFilter =
+              SearchUtils.getFormFilter(
+                  input.getFormFilter(), _formService, context.getAuthentication());
+          final Filter baseFilter =
+              formFilter != null
+                  ? SearchUtils.combineFilters(inputFilter, formFilter)
+                  : inputFilter;
 
           final SearchFlags searchFlags = mapInputFlags(input.getSearchFlags());
 
@@ -77,8 +84,8 @@ public class AggregateAcrossEntitiesResolver
                     sanitizedQuery,
                     maybeResolvedView != null
                         ? SearchUtils.combineFilters(
-                            inputFilter, maybeResolvedView.getDefinition().getFilter())
-                        : inputFilter,
+                            baseFilter, maybeResolvedView.getDefinition().getFilter())
+                        : baseFilter,
                     0,
                     0, // 0 entity count because we don't want resolved entities
                     searchFlags,
