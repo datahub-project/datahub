@@ -992,14 +992,14 @@ jobs:
         if: failure()
         run: |
           docker ps -a
-          docker logs datahub-gms >& gms-${{ matrix.test_strategy }}.log || true
-          docker logs datahub-actions >& actions-${{ matrix.test_strategy }}.log || true
-          docker logs datahub-mae-consumer >& mae-${{ matrix.test_strategy }}.log || true
-          docker logs datahub-mce-consumer >& mce-${{ matrix.test_strategy }}.log || true
-          docker logs broker >& broker-${{ matrix.test_strategy }}.log || true
-          docker logs mysql >& mysql-${{ matrix.test_strategy }}.log || true
-          docker logs elasticsearch >& elasticsearch-${{ matrix.test_strategy }}.log || true
-          docker logs datahub-frontend-react >& frontend-${{ matrix.test_strategy }}.log || true
+          docker logs datahub-datahub-gms-1 >& gms-${{ matrix.test_strategy }}.log || true
+          docker logs datahub-datahub-actions-1 >& actions-${{ matrix.test_strategy }}.log || true
+          docker logs datahub-datahub-mae-consumer-1 >& mae-${{ matrix.test_strategy }}.log || true
+          docker logs datahub-datahub-mce-consumer-1 >& mce-${{ matrix.test_strategy }}.log || true
+          docker logs datahub-broker-1 >& broker-${{ matrix.test_strategy }}.log || true
+          docker logs datahub-mysql-1 >& mysql-${{ matrix.test_strategy }}.log || true
+          docker logs datahub-elasticsearch-1 >& elasticsearch-${{ matrix.test_strategy }}.log || true
+          docker logs datahub-datahub-frontend-react-1 >& frontend-${{ matrix.test_strategy }}.log || true
       - name: Upload logs
         uses: actions/upload-artifact@v3
         if: failure()
