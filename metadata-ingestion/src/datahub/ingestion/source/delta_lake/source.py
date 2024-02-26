@@ -37,6 +37,7 @@ from datahub.ingestion.source.delta_lake.delta_lake_utils import (
 )
 from datahub.ingestion.source.delta_lake.report import DeltaLakeSourceReport
 from datahub.ingestion.source.schema_inference.csv_tsv import tableschema_type_map
+from datahub.metadata._schema_classes import SchemaFieldClass
 from datahub.metadata.com.linkedin.pegasus2avro.common import Status
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
@@ -115,8 +116,8 @@ class DeltaLakeSource(Source):
         self.report = DeltaLakeSourceReport()
         if self.source_config.is_s3:
             if (
-                self.source_config.s3 is None
-                or self.source_config.s3.aws_config is None
+                    self.source_config.s3 is None
+                    or self.source_config.s3.aws_config is None
             ):
                 raise ValueError("AWS Config must be provided for S3 base path.")
             self.s3_client = self.source_config.s3.aws_config.get_s3_client()
@@ -140,16 +141,16 @@ class DeltaLakeSource(Source):
     inner_data_type = ""
     counter = 0
 
-    def _get_inner_field_details(self, raw_field):
+    def _inner_field_details(self, raw_field):
         if "elementType" in raw_field and type(raw_field.get("elementType")) == dict:
             self.inner_data_type = (
-                self.inner_data_type
-                + "item:"
-                + str(raw_field.get("elementType").get("type"))
-                + "<"
+                    self.inner_data_type
+                    + "item:"
+                    + str(raw_field.get("elementType").get("type"))
+                    + "<"
             )
             self.counter = self.counter + 1
-            self._get_inner_field_details(raw_field.get("elementType"))
+            self._inner_field_details(raw_field.get("elementType"))
         elif "fields" in raw_field and type(raw_field.get("fields")) == list:
             data_type = ""
             data_type = data_type + ",".join(
@@ -159,17 +160,20 @@ class DeltaLakeSource(Source):
             self.inner_data_type = self.inner_data_type + data_type
         else:
             self.inner_data_type = (
-                self.inner_data_type + "item:" + raw_field.get("elementType")
+                    self.inner_data_type + "item:" + raw_field.get("elementType")
             )
 
-    def _parse_datatype(self, raw_field_json_str):
+    def _parse_datatype(self, raw_field_json_str: str) -> List[SchemaFieldClass]:
         raw_field_json = json.loads(raw_field_json_str)
 
         # get the parent field name and type
         field_name, field_type = _get_parent_field_details(raw_field_json)
 
+        # resetting inner_data_type
+        self.inner_data_type = ""
+
         # recursively parse the fields to get the native data type
-        self._get_inner_field_details(raw_field_json.get("type"))
+        self._inner_field_details(raw_field_json.get("type"))
 
         for count in range(self.counter):
             self.inner_data_type = self.inner_data_type + ">"
@@ -189,11 +193,14 @@ class DeltaLakeSource(Source):
         for raw_field in delta_table.schema().fields:
             # parse the complex fields like array, structure and get the native type
             # feed that native type and get the avro schema
-            if raw_field.type.type in ["array", "struct"]:
+            if raw_field.type.type == "array":
                 complex_fields = complex_fields + self._parse_datatype(
                     raw_field.to_json()
                 )
-
+            elif raw_field.type.type == "struct":
+                complex_fields = complex_fields + self._parse_datatype(
+                    raw_field.to_json()
+                )
             else:
                 field = SchemaField(
                     fieldPath=raw_field.name,
@@ -216,10 +223,10 @@ class DeltaLakeSource(Source):
         return fields
 
     def _create_operation_aspect_wu(
-        self, delta_table: DeltaTable, dataset_urn: str
+            self, delta_table: DeltaTable, dataset_urn: str
     ) -> Iterable[MetadataWorkUnit]:
         for hist in delta_table.history(
-            limit=self.source_config.version_history_lookback
+                limit=self.source_config.version_history_lookback
         ):
             # History schema picked up from https://docs.delta.io/latest/delta-utility.html#retrieve-delta-table-history
             reported_time: int = int(time.time() * 1000)
@@ -258,7 +265,7 @@ class DeltaLakeSource(Source):
             ).as_workunit()
 
     def ingest_table(
-        self, delta_table: DeltaTable, path: str
+            self, delta_table: DeltaTable, path: str
     ) -> Iterable[MetadataWorkUnit]:
         table_name = (
             delta_table.metadata().name
@@ -321,12 +328,12 @@ class DeltaLakeSource(Source):
         dataset_snapshot.aspects.append(schema_metadata)
 
         if (
-            self.source_config.is_s3
-            and self.source_config.s3
-            and (
+                self.source_config.is_s3
+                and self.source_config.s3
+                and (
                 self.source_config.s3.use_s3_bucket_tags
                 or self.source_config.s3.use_s3_object_tags
-            )
+        )
         ):
             bucket = get_bucket_name(path)
             key_prefix = get_key_prefix(path)
@@ -352,9 +359,9 @@ class DeltaLakeSource(Source):
 
     def get_storage_options(self) -> Dict[str, str]:
         if (
-            self.source_config.is_s3
-            and self.source_config.s3 is not None
-            and self.source_config.s3.aws_config is not None
+                self.source_config.is_s3
+                and self.source_config.s3 is not None
+                and self.source_config.s3.aws_config is not None
         ):
             aws_config = self.source_config.s3.aws_config
             creds = aws_config.get_credentials()
@@ -394,7 +401,7 @@ class DeltaLakeSource(Source):
     def s3_get_folders(self, path: str) -> Iterable[str]:
         parse_result = urlparse(path)
         for page in self.s3_client.get_paginator("list_objects_v2").paginate(
-            Bucket=parse_result.netloc, Prefix=parse_result.path[1:], Delimiter="/"
+                Bucket=parse_result.netloc, Prefix=parse_result.path[1:], Delimiter="/"
         ):
             for o in page.get("CommonPrefixes", []):
                 yield f"{parse_result.scheme}://{parse_result.netloc}/{o.get('Prefix')}"
