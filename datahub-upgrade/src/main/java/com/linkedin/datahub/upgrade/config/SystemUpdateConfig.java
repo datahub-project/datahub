@@ -4,6 +4,7 @@ import com.linkedin.datahub.upgrade.system.SystemUpdate;
 import com.linkedin.datahub.upgrade.system.elasticsearch.BuildIndices;
 import com.linkedin.datahub.upgrade.system.elasticsearch.CleanIndices;
 import com.linkedin.datahub.upgrade.system.entity.steps.BackfillBrowsePathsV2;
+import com.linkedin.datahub.upgrade.system.entity.steps.BackfillPolicyFields;
 import com.linkedin.datahub.upgrade.system.via.ReindexDataJobViaNodesCLL;
 import com.linkedin.gms.factory.common.TopicConventionFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
@@ -40,7 +41,8 @@ public class SystemUpdateConfig {
       final GitVersion gitVersion,
       @Qualifier("revision") String revision,
       final BackfillBrowsePathsV2 backfillBrowsePathsV2,
-      final ReindexDataJobViaNodesCLL reindexDataJobViaNodesCLL) {
+      final ReindexDataJobViaNodesCLL reindexDataJobViaNodesCLL,
+      final BackfillPolicyFields backfillPolicyFields) {
 
     String version = String.format("%s-%s", gitVersion.getVersion(), revision);
     return new SystemUpdate(
@@ -49,7 +51,8 @@ public class SystemUpdateConfig {
         kafkaEventProducer,
         version,
         backfillBrowsePathsV2,
-        reindexDataJobViaNodesCLL);
+        reindexDataJobViaNodesCLL,
+        backfillPolicyFields);
   }
 
   @Value("#{systemEnvironment['DATAHUB_REVISION'] ?: '0'}")
