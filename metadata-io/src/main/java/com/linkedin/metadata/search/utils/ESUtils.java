@@ -6,6 +6,7 @@ import static com.linkedin.metadata.search.elasticsearch.query.request.SearchFie
 import static com.linkedin.metadata.search.utils.SearchUtils.isUrn;
 
 import com.google.common.collect.ImmutableList;
+import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.StructuredPropertyUtils;
@@ -131,11 +132,15 @@ public class ESUtils {
   public static BoolQueryBuilder buildFilterQuery(
       @Nullable Filter filter,
       boolean isTimeseries,
-      final Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes) {
+      final Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes,
+      @Nonnull AspectRetriever aspectRetriever) {
     BoolQueryBuilder finalQueryBuilder = QueryBuilders.boolQuery();
     if (filter == null) {
       return finalQueryBuilder;
     }
+
+    StructuredPropertyUtils.validateFilter(filter, aspectRetriever);
+
     if (filter.getOr() != null) {
       // If caller is using the new Filters API, build boolean query from that.
       filter
@@ -386,11 +391,11 @@ public class ESUtils {
   public static String toFacetField(@Nonnull final String filterField) {
     String fieldName = filterField;
     if (fieldName.startsWith(STRUCTURED_PROPERTY_MAPPING_FIELD + ".")) {
+      String fqn = fieldName.substring(STRUCTURED_PROPERTY_MAPPING_FIELD.length() + 1);
       fieldName =
           STRUCTURED_PROPERTY_MAPPING_FIELD
               + "."
-              + StructuredPropertyUtils.sanitizeStructuredPropertyFQN(
-                  fieldName.substring(STRUCTURED_PROPERTY_MAPPING_FIELD.length() + 1));
+              + StructuredPropertyUtils.sanitizeStructuredPropertyFQN(fqn);
     }
     return fieldName.replace(ESUtils.KEYWORD_SUFFIX, "");
   }

@@ -62,5 +62,9 @@
                 }
             ]
         }
-    ]
+    ],
+    "debug_info": {
+        "confidence": 0.9,
+        "generalized_statement": "SELECT a, b, (SELECT c FROM table2 WHERE table2.id = table1.id) AS c FROM table1"
+    }
 }

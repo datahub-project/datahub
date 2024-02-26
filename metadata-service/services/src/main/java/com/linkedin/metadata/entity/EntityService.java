@@ -8,10 +8,10 @@ import com.linkedin.entity.Entity;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
-import com.linkedin.metadata.aspect.batch.UpsertItem;
-import com.linkedin.metadata.aspect.plugins.validation.AspectRetriever;
+import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesResult;
 import com.linkedin.metadata.models.AspectSpec;
@@ -33,16 +33,60 @@ import java.util.function.Consumer;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
-public interface EntityService<U extends UpsertItem> extends AspectRetriever {
+public interface EntityService<U extends ChangeMCP> extends AspectRetriever {
 
   /**
    * Just whether the entity/aspect exists
    *
-   * @param urn urn for the entity
-   * @param aspectName aspect for the entity
-   * @return exists or not
+   * @param urns urns for the entities
+   * @param aspectName aspect for the entity, if null, assumes key aspect
+   * @param includeSoftDelete including soft deleted entities
+   * @return set of urns with the specified aspect existing
    */
-  Boolean exists(Urn urn, String aspectName);
+  Set<Urn> exists(
+      @Nonnull final Collection<Urn> urns, @Nullable String aspectName, boolean includeSoftDelete);
+
+  /**
+   * Just whether the entity/aspect exists, prefer batched method.
+   *
+   * @param urn urn for the entity
+   * @param aspectName aspect for the entity, if null use the key aspect
+   * @param includeSoftDelete including soft deleted entities
+   * @return boolean if the entity/aspect exists
+   */
+  default boolean exists(@Nonnull Urn urn, @Nullable String aspectName, boolean includeSoftDelete) {
+    return exists(Set.of(urn), aspectName, includeSoftDelete).contains(urn);
+  }
+
+  /**
+   * Returns a set of urns of entities that exist (has materialized aspects).
+   *
+   * @param urns the list of urns of the entities to check
+   * @return a set of urns of entities that exist.
+   */
+  default Set<Urn> exists(@Nonnull final Collection<Urn> urns, boolean includeSoftDelete) {
+    return exists(urns, null, includeSoftDelete);
+  }
+
+  /**
+   * Returns a set of urns of entities that exist (has materialized aspects).
+   *
+   * @param urns the list of urns of the entities to check
+   * @return a set of urns of entities that exist.
+   */
+  default Set<Urn> exists(@Nonnull final Collection<Urn> urns) {
+    return exists(urns, true);
+  }
+
+  /**
+   * Returns whether the urn of the entity exists (has materialized aspects).
+   *
+   * @param urn the urn of the entity to check
+   * @return entities exists.
+   */
+  default boolean exists(@Nonnull Urn urn, boolean includeSoftDelete) {
+    return exists(List.of(urn), includeSoftDelete).contains(urn);
+  }
 
   /**
    * Retrieves the latest aspects corresponding to a batch of {@link Urn}s based on a provided set
@@ -285,29 +329,11 @@ public interface EntityService<U extends UpsertItem> extends AspectRetriever {
   IngestResult ingestProposal(
       MetadataChangeProposal proposal, AuditStamp auditStamp, final boolean async);
 
-  /**
-   * Returns a set of urns of entities that exist (has materialized aspects).
-   *
-   * @param urns the list of urns of the entities to check
-   * @return a set of urns of entities that exist.
-   */
-  Set<Urn> exists(@Nonnull final Collection<Urn> urns, boolean includeSoftDelete);
-
-  /**
-   * Returns a set of urns of entities that exist (has materialized aspects).
-   *
-   * @param urns the list of urns of the entities to check
-   * @return a set of urns of entities that exist.
-   */
-  default Set<Urn> exists(@Nonnull final Collection<Urn> urns) {
-    return exists(urns, true);
-  }
-
-  default boolean exists(@Nonnull Urn urn, boolean includeSoftDelete) {
-    return exists(List.of(urn), includeSoftDelete).contains(urn);
-  }
-
   void setWritable(boolean canWrite);
 
   RecordTemplate getLatestAspect(@Nonnull final Urn urn, @Nonnull final String aspectName);
+
+  SearchIndicesService getUpdateIndicesService();
+
+  void setUpdateIndicesService(@Nullable SearchIndicesService updateIndicesService);
 }

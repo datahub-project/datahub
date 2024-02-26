@@ -43,5 +43,9 @@
                 }
             ]
         }
-    ]
+    ],
+    "debug_info": {
+        "confidence": 0.9,
+        "generalized_statement": "SELECT ? AS label, SUM(totalprice) AS total_agg FROM snowflake_sample_data.tpch_sf10.orders UNION ALL SELECT ? AS label, SUM(totalprice) AS total_agg FROM snowflake_sample_data.tpch_sf100.orders"
+    }
 }

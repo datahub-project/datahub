@@ -17,7 +17,6 @@ import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.UpdateAspectResult;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.service.UpdateIndicesService;
 import io.datahubproject.openapi.dto.UpsertAspectRequest;
 import io.datahubproject.openapi.entities.EntitiesController;
 import io.datahubproject.openapi.generated.AuditStamp;
@@ -79,16 +78,11 @@ public class EntitiesControllerTest {
                         .apply(Mockito.mock(Transaction.class))));
 
     EventProducer mockEntityEventProducer = Mockito.mock(EventProducer.class);
-    UpdateIndicesService mockUpdateIndicesService = mock(UpdateIndicesService.class);
     PreProcessHooks preProcessHooks = new PreProcessHooks();
     preProcessHooks.setUiEnabled(true);
     MockEntityService mockEntityService =
         new MockEntityService(
-            aspectDao,
-            mockEntityEventProducer,
-            mockEntityRegistry,
-            mockUpdateIndicesService,
-            preProcessHooks);
+            aspectDao, mockEntityEventProducer, mockEntityRegistry, preProcessHooks);
     AuthorizerChain authorizerChain = Mockito.mock(AuthorizerChain.class);
     _entitiesController =
         new EntitiesController(mockEntityService, new ObjectMapper(), authorizerChain);

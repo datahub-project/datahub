@@ -16,6 +16,8 @@ public class Constants {
   public static final String ENTITY_TYPE_URN_PREFIX = "urn:li:entityType:";
   public static final String DATA_TYPE_URN_PREFIX = "urn:li:dataType:";
   public static final String STRUCTURED_PROPERTY_MAPPING_FIELD = "structuredProperties";
+  public static final String STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX =
+      STRUCTURED_PROPERTY_MAPPING_FIELD + ".";
 
   // !!!!!!! IMPORTANT !!!!!!!
   // This effectively sets the max aspect size to 16 MB. Used in deserialization of messages.
