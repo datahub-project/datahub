@@ -365,7 +365,7 @@
             "siblings": [
                 "urn:li:dataset:(urn:li:dataPlatform:postgres,local_server.postgres.librarydb.book,PROD)"
             ],
-            "primary": false
+            "primary": true
         }
     },
     "systemMetadata": {
@@ -409,7 +409,7 @@
             "siblings": [
                 "urn:li:dataset:(urn:li:dataPlatform:trino,postgresqldb.librarydb.book,PROD)"
             ],
-            "primary": true
+            "primary": false
         }
     },
     "systemMetadata": {
@@ -584,7 +584,7 @@
             "siblings": [
                 "urn:li:dataset:(urn:li:dataPlatform:postgres,local_server.postgres.librarydb.issue_history,PROD)"
             ],
-            "primary": false
+            "primary": true
         }
     },
     "systemMetadata": {
@@ -628,7 +628,7 @@
             "siblings": [
                 "urn:li:dataset:(urn:li:dataPlatform:trino,postgresqldb.librarydb.issue_history,PROD)"
             ],
-            "primary": true
+            "primary": false
         }
     },
     "systemMetadata": {
@@ -779,7 +779,7 @@
             "siblings": [
                 "urn:li:dataset:(urn:li:dataPlatform:postgres,local_server.postgres.librarydb.member,PROD)"
             ],
-            "primary": false
+            "primary": true
         }
     },
     "systemMetadata": {
@@ -823,7 +823,7 @@
             "siblings": [
                 "urn:li:dataset:(urn:li:dataPlatform:trino,postgresqldb.librarydb.member,PROD)"
             ],
-            "primary": true
+            "primary": false
         }
     },
     "systemMetadata": {
@@ -1022,7 +1022,7 @@
             "siblings": [
                 "urn:li:dataset:(urn:li:dataPlatform:postgres,local_server.postgres.librarydb.book_in_circulation,PROD)"
             ],
-            "primary": false
+            "primary": true
         }
     },
     "systemMetadata": {
@@ -1066,7 +1066,7 @@
             "siblings": [
                 "urn:li:dataset:(urn:li:dataPlatform:trino,postgresqldb.librarydb.book_in_circulation,PROD)"
             ],
-            "primary": true
+            "primary": false
         }
     },
     "systemMetadata": {

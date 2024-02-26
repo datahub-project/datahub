@@ -231,7 +231,7 @@
                             "numrows": "1",
                             "rawdatasize": "32",
                             "totalsize": "33",
-                            "transient_lastddltime": "1708001962"
+                            "transient_lastddltime": "1708925463"
                         },
                         "name": "array_struct_test",
                         "description": "This table has array of structs",
@@ -359,7 +359,7 @@
             "siblings": [
                 "urn:li:dataset:(urn:li:dataPlatform:hive,db1.array_struct_test,PROD)"
             ],
-            "primary": false
+            "primary": true
         }
     },
     "systemMetadata": {
@@ -403,7 +403,7 @@
             "siblings": [
                 "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.array_struct_test,PROD)"
             ],
-            "primary": true
+            "primary": false
         }
     },
     "systemMetadata": {
@@ -471,7 +471,7 @@
                             "numrows": "0",
                             "rawdatasize": "0",
                             "totalsize": "0",
-                            "transient_lastddltime": "1708001965"
+                            "transient_lastddltime": "1708925466"
                         },
                         "name": "map_test",
                         "tags": []
@@ -565,7 +565,7 @@
             "siblings": [
                 "urn:li:dataset:(urn:li:dataPlatform:hive,db1.map_test,PROD)"
             ],
-            "primary": false
+            "primary": true
         }
     },
     "systemMetadata": {
@@ -609,7 +609,7 @@
             "siblings": [
                 "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.map_test,PROD)"
             ],
-            "primary": true
+            "primary": false
         }
     },
     "systemMetadata": {
@@ -677,7 +677,7 @@
                             "numrows": "0",
                             "rawdatasize": "0",
                             "totalsize": "0",
-                            "transient_lastddltime": "1708001965"
+                            "transient_lastddltime": "1708925466"
                         },
                         "name": "nested_struct_test",
                         "tags": []
@@ -820,7 +820,7 @@
             "siblings": [
                 "urn:li:dataset:(urn:li:dataPlatform:hive,db1.nested_struct_test,PROD)"
             ],
-            "primary": false
+            "primary": true
         }
     },
     "systemMetadata": {
@@ -864,7 +864,7 @@
             "siblings": [
                 "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.nested_struct_test,PROD)"
             ],
-            "primary": true
+            "primary": false
         }
     },
     "systemMetadata": {
@@ -927,7 +927,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "transient_lastddltime": "1708001956"
+                            "transient_lastddltime": "1708925457"
                         },
                         "name": "pokes",
                         "tags": []
@@ -1029,7 +1029,7 @@
             "siblings": [
                 "urn:li:dataset:(urn:li:dataPlatform:hive,db1.pokes,PROD)"
             ],
-            "primary": false
+            "primary": true
         }
     },
     "systemMetadata": {
@@ -1073,7 +1073,7 @@
             "siblings": [
                 "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.pokes,PROD)"
             ],
-            "primary": true
+            "primary": false
         }
     },
     "systemMetadata": {
@@ -1141,7 +1141,7 @@
                             "numrows": "0",
                             "rawdatasize": "0",
                             "totalsize": "0",
-                            "transient_lastddltime": "1708001958"
+                            "transient_lastddltime": "1708925459"
                         },
                         "name": "struct_test",
                         "tags": []
@@ -1262,7 +1262,7 @@
             "siblings": [
                 "urn:li:dataset:(urn:li:dataPlatform:hive,db1.struct_test,PROD)"
             ],
-            "primary": false
+            "primary": true
         }
     },
     "systemMetadata": {
@@ -1306,7 +1306,7 @@
             "siblings": [
                 "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.struct_test,PROD)"
             ],
-            "primary": true
+            "primary": false
         }
     },
     "systemMetadata": {
@@ -1371,7 +1371,7 @@
                         "customProperties": {
                             "numfiles": "0",
                             "totalsize": "0",
-                            "transient_lastddltime": "1708001964"
+                            "transient_lastddltime": "1708925466"
                         },
                         "name": "struct_test_view_materialized",
                         "tags": []
@@ -1492,7 +1492,7 @@
             "siblings": [
                 "urn:li:dataset:(urn:li:dataPlatform:hive,db1.struct_test_view_materialized,PROD)"
             ],
-            "primary": false
+            "primary": true
         }
     },
     "systemMetadata": {
@@ -1536,7 +1536,7 @@
             "siblings": [
                 "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.struct_test_view_materialized,PROD)"
             ],
-            "primary": true
+            "primary": false
         }
     },
     "systemMetadata": {
@@ -1604,7 +1604,7 @@
                             "numrows": "0",
                             "rawdatasize": "0",
                             "totalsize": "0",
-                            "transient_lastddltime": "1708001958"
+                            "transient_lastddltime": "1708925459"
                         },
                         "name": "_test_table_underscore",
                         "tags": []
@@ -1694,7 +1694,7 @@
             "siblings": [
                 "urn:li:dataset:(urn:li:dataPlatform:hive,db1._test_table_underscore,PROD)"
             ],
-            "primary": false
+            "primary": true
         }
     },
     "systemMetadata": {
@@ -1738,7 +1738,7 @@
             "siblings": [
                 "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1._test_table_underscore,PROD)"
             ],
-            "primary": true
+            "primary": false
         }
     },
     "systemMetadata": {
@@ -1806,7 +1806,7 @@
                             "numrows": "0",
                             "rawdatasize": "0",
                             "totalsize": "0",
-                            "transient_lastddltime": "1708001965"
+                            "transient_lastddltime": "1708925466"
                         },
                         "name": "union_test",
                         "tags": []
@@ -1980,7 +1980,7 @@
             "siblings": [
                 "urn:li:dataset:(urn:li:dataPlatform:hive,db1.union_test,PROD)"
             ],
-            "primary": false
+            "primary": true
         }
     },
     "systemMetadata": {
@@ -2024,7 +2024,7 @@
             "siblings": [
                 "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.union_test,PROD)"
             ],
-            "primary": true
+            "primary": false
         }
     },
     "systemMetadata": {
@@ -2087,7 +2087,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "transient_lastddltime": "1708001965",
+                            "transient_lastddltime": "1708925466",
                             "view_definition": "SELECT \"property_id\", \"service\"\nFROM \"db1\".\"array_struct_test\"",
                             "is_view": "True"
                         },
@@ -2232,7 +2232,7 @@
             "siblings": [
                 "urn:li:dataset:(urn:li:dataPlatform:hive,db1.array_struct_test_view,PROD)"
             ],
-            "primary": false
+            "primary": true
         }
     },
     "systemMetadata": {
@@ -2276,7 +2276,7 @@
             "siblings": [
                 "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.array_struct_test_view,PROD)"
             ],
-            "primary": true
+            "primary": false
         }
     },
     "systemMetadata": {

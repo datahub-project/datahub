@@ -211,6 +211,11 @@ class TrinoConfig(BasicSQLAlchemyConfig):
         description="Whether lineage of datasets to connectors should be ingested",
     )
 
+    trino_as_primary: bool = Field(
+        default=True,
+        description="Experimental feature. Whether trino dataset should be primary entity of the set of siblings",
+    )
+
     def get_identifier(self: BasicSQLAlchemyConfig, schema: str, table: str) -> str:
         return f"{self.database}.{schema}.{table}"
 
@@ -293,12 +298,16 @@ class TrinoSource(SQLAlchemySource):
         """
         yield MetadataChangeProposalWrapper(
             entityUrn=dataset_urn,
-            aspect=Siblings(primary=False, siblings=[source_dataset_urn]),
+            aspect=Siblings(
+                primary=self.config.trino_as_primary, siblings=[source_dataset_urn]
+            ),
         ).as_workunit()
 
         yield MetadataChangeProposalWrapper(
             entityUrn=source_dataset_urn,
-            aspect=Siblings(primary=True, siblings=[dataset_urn]),
+            aspect=Siblings(
+                primary=not self.config.trino_as_primary, siblings=[dataset_urn]
+            ),
         ).as_workunit()
 
     def gen_lineage_workunit(
