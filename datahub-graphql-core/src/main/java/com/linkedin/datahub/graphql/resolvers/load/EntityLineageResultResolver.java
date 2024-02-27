@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.resolvers.load;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
+import com.datahub.authorization.AuthorizationConfiguration;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -19,7 +20,6 @@ import com.linkedin.metadata.graph.SiblingGraphService;
 import com.linkedin.metadata.service.RestrictedService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
-import java.net.URISyntaxException;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -38,10 +38,15 @@ public class EntityLineageResultResolver
 
   private final SiblingGraphService _siblingGraphService;
   private final RestrictedService _restrictedService;
+  private final AuthorizationConfiguration _authorizationConfiguration;
 
-  public EntityLineageResultResolver(final SiblingGraphService siblingGraphService, final RestrictedService restrictedService) {
+  public EntityLineageResultResolver(
+      final SiblingGraphService siblingGraphService,
+      final RestrictedService restrictedService,
+      final AuthorizationConfiguration authorizationConfiguration) {
     _siblingGraphService = siblingGraphService;
     _restrictedService = restrictedService;
+    _authorizationConfiguration = authorizationConfiguration;
   }
 
   @Override
@@ -68,35 +73,41 @@ public class EntityLineageResultResolver
     return CompletableFuture.supplyAsync(
         () -> {
           try {
-            com.linkedin.metadata.graph.EntityLineageResult entityLineageResult = _siblingGraphService.getLineage(
-                finalUrn,
-                resolvedDirection,
-                start != null ? start : 0,
-                count != null ? count : 100,
-                1,
-                separateSiblings != null ? input.getSeparateSiblings() : false,
-                new HashSet<>(),
-                startTimeMillis,
-                endTimeMillis);
+            com.linkedin.metadata.graph.EntityLineageResult entityLineageResult =
+                _siblingGraphService.getLineage(
+                    finalUrn,
+                    resolvedDirection,
+                    start != null ? start : 0,
+                    count != null ? count : 100,
+                    1,
+                    separateSiblings != null ? input.getSeparateSiblings() : false,
+                    new HashSet<>(),
+                    startTimeMillis,
+                    endTimeMillis);
 
-              Set<Urn> restrictedUrns = new HashSet<>();
-              entityLineageResult.getRelationships().forEach(rel -> {
-                // check flag here
-                if (!AuthorizationUtils.canViewEntity(rel.getEntity(), context)) {
-                  restrictedUrns.add(rel.getEntity());
-                }
-              });
+            Set<Urn> restrictedUrns = new HashSet<>();
+            entityLineageResult
+                .getRelationships()
+                .forEach(
+                    rel -> {
+                      if (_authorizationConfiguration.getSearch().isEnabled()
+                          && !AuthorizationUtils.canViewEntity(rel.getEntity(), context)) {
+                        restrictedUrns.add(rel.getEntity());
+                      }
+                    });
 
-              return mapEntityRelationships(entityLineageResult, restrictedUrns);
+            return mapEntityRelationships(entityLineageResult, restrictedUrns);
           } catch (Exception e) {
             log.error("Failed to fetch lineage for {}", finalUrn);
-            throw new RuntimeException(String.format("Failed to fetch lineage for {}", finalUrn), e);
+            throw new RuntimeException(
+                String.format("Failed to fetch lineage for {}", finalUrn), e);
           }
         });
   }
 
   private EntityLineageResult mapEntityRelationships(
-      final com.linkedin.metadata.graph.EntityLineageResult entityLineageResult, final Set<Urn> restrictedUrns) {
+      final com.linkedin.metadata.graph.EntityLineageResult entityLineageResult,
+      final Set<Urn> restrictedUrns) {
     final EntityLineageResult result = new EntityLineageResult();
     result.setStart(entityLineageResult.getStart());
     result.setCount(entityLineageResult.getCount());
@@ -110,12 +121,14 @@ public class EntityLineageResultResolver
   }
 
   private LineageRelationship mapEntityRelationship(
-      final com.linkedin.metadata.graph.LineageRelationship lineageRelationship, final Set<Urn> restrictedUrns) {
+      final com.linkedin.metadata.graph.LineageRelationship lineageRelationship,
+      final Set<Urn> restrictedUrns) {
     final LineageRelationship result = new LineageRelationship();
     if (restrictedUrns.contains(lineageRelationship.getEntity())) {
       final Restricted restrictedEntity = new Restricted();
       restrictedEntity.setType(EntityType.RESTRICTED);
-      String restrictedUrnString = _restrictedService.encryptRestrictedUrn(lineageRelationship.getEntity()).toString();
+      String restrictedUrnString =
+          _restrictedService.encryptRestrictedUrn(lineageRelationship.getEntity()).toString();
 
       restrictedEntity.setUrn(restrictedUrnString);
       result.setEntity(restrictedEntity);

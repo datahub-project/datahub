@@ -1464,7 +1464,12 @@ public class GmsGraphQLEngine {
                     .dataFetcher(
                         "relationships", new EntityRelationshipsResultResolver(graphClient))
                     .dataFetcher("browsePaths", new EntityBrowsePathsResolver(this.datasetType))
-                    .dataFetcher("lineage", new EntityLineageResultResolver(siblingGraphService, restrictedService))
+                    .dataFetcher(
+                        "lineage",
+                        new EntityLineageResultResolver(
+                            siblingGraphService,
+                            restrictedService,
+                            this.authorizationConfiguration))
                     .dataFetcher(
                         "platform",
                         new LoadableTypeResolver<>(
@@ -1831,7 +1836,10 @@ public class GmsGraphQLEngine {
             typeWiring
                 .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
                 .dataFetcher("browsePaths", new EntityBrowsePathsResolver(this.dashboardType))
-                .dataFetcher("lineage", new EntityLineageResultResolver(siblingGraphService, restrictedService))
+                .dataFetcher(
+                    "lineage",
+                    new EntityLineageResultResolver(
+                        siblingGraphService, restrictedService, this.authorizationConfiguration))
                 .dataFetcher(
                     "aspects", new WeaklyTypedAspectsResolver(entityClient, entityRegistry))
                 .dataFetcher(
@@ -1958,7 +1966,10 @@ public class GmsGraphQLEngine {
                 .dataFetcher("browsePaths", new EntityBrowsePathsResolver(this.chartType))
                 .dataFetcher(
                     "aspects", new WeaklyTypedAspectsResolver(entityClient, entityRegistry))
-                .dataFetcher("lineage", new EntityLineageResultResolver(siblingGraphService, restrictedService))
+                .dataFetcher(
+                    "lineage",
+                    new EntityLineageResultResolver(
+                        siblingGraphService, restrictedService, this.authorizationConfiguration))
                 .dataFetcher(
                     "platform",
                     new LoadableTypeResolver<>(
@@ -2080,7 +2091,12 @@ public class GmsGraphQLEngine {
                     .dataFetcher(
                         "relationships", new EntityRelationshipsResultResolver(graphClient))
                     .dataFetcher("browsePaths", new EntityBrowsePathsResolver(this.dataJobType))
-                    .dataFetcher("lineage", new EntityLineageResultResolver(siblingGraphService, restrictedService))
+                    .dataFetcher(
+                        "lineage",
+                        new EntityLineageResultResolver(
+                            siblingGraphService,
+                            restrictedService,
+                            this.authorizationConfiguration))
                     .dataFetcher(
                         "aspects", new WeaklyTypedAspectsResolver(entityClient, entityRegistry))
                     .dataFetcher(
@@ -2152,7 +2168,10 @@ public class GmsGraphQLEngine {
             typeWiring
                 .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
                 .dataFetcher("browsePaths", new EntityBrowsePathsResolver(this.dataFlowType))
-                .dataFetcher("lineage", new EntityLineageResultResolver(siblingGraphService, restrictedService))
+                .dataFetcher(
+                    "lineage",
+                    new EntityLineageResultResolver(
+                        siblingGraphService, restrictedService, this.authorizationConfiguration))
                 .dataFetcher(
                     "aspects", new WeaklyTypedAspectsResolver(entityClient, entityRegistry))
                 .dataFetcher(
@@ -2196,7 +2215,12 @@ public class GmsGraphQLEngine {
                         "browsePaths", new EntityBrowsePathsResolver(this.mlFeatureTableType))
                     .dataFetcher(
                         "aspects", new WeaklyTypedAspectsResolver(entityClient, entityRegistry))
-                    .dataFetcher("lineage", new EntityLineageResultResolver(siblingGraphService, restrictedService))
+                    .dataFetcher(
+                        "lineage",
+                        new EntityLineageResultResolver(
+                            siblingGraphService,
+                            restrictedService,
+                            this.authorizationConfiguration))
                     .dataFetcher("exists", new EntityExistsResolver(entityService))
                     .dataFetcher(
                         "platform",
@@ -2279,7 +2303,12 @@ public class GmsGraphQLEngine {
                     .dataFetcher(
                         "relationships", new EntityRelationshipsResultResolver(graphClient))
                     .dataFetcher("browsePaths", new EntityBrowsePathsResolver(this.mlModelType))
-                    .dataFetcher("lineage", new EntityLineageResultResolver(siblingGraphService, restrictedService))
+                    .dataFetcher(
+                        "lineage",
+                        new EntityLineageResultResolver(
+                            siblingGraphService,
+                            restrictedService,
+                            this.authorizationConfiguration))
                     .dataFetcher("exists", new EntityExistsResolver(entityService))
                     .dataFetcher(
                         "aspects", new WeaklyTypedAspectsResolver(entityClient, entityRegistry))
@@ -2324,7 +2353,12 @@ public class GmsGraphQLEngine {
                         "browsePaths", new EntityBrowsePathsResolver(this.mlModelGroupType))
                     .dataFetcher(
                         "aspects", new WeaklyTypedAspectsResolver(entityClient, entityRegistry))
-                    .dataFetcher("lineage", new EntityLineageResultResolver(siblingGraphService, restrictedService))
+                    .dataFetcher(
+                        "lineage",
+                        new EntityLineageResultResolver(
+                            siblingGraphService,
+                            restrictedService,
+                            this.authorizationConfiguration))
                     .dataFetcher(
                         "platform",
                         new LoadableTypeResolver<>(
@@ -2347,7 +2381,12 @@ public class GmsGraphQLEngine {
                 typeWiring
                     .dataFetcher(
                         "relationships", new EntityRelationshipsResultResolver(graphClient))
-                    .dataFetcher("lineage", new EntityLineageResultResolver(siblingGraphService, restrictedService))
+                    .dataFetcher(
+                        "lineage",
+                        new EntityLineageResultResolver(
+                            siblingGraphService,
+                            restrictedService,
+                            this.authorizationConfiguration))
                     .dataFetcher(
                         "aspects", new WeaklyTypedAspectsResolver(entityClient, entityRegistry))
                     .dataFetcher("exists", new EntityExistsResolver(entityService))
@@ -2367,7 +2406,12 @@ public class GmsGraphQLEngine {
                 typeWiring
                     .dataFetcher(
                         "relationships", new EntityRelationshipsResultResolver(graphClient))
-                    .dataFetcher("lineage", new EntityLineageResultResolver(siblingGraphService, restrictedService))
+                    .dataFetcher(
+                        "lineage",
+                        new EntityLineageResultResolver(
+                            siblingGraphService,
+                            restrictedService,
+                            this.authorizationConfiguration))
                     .dataFetcher(
                         "aspects", new WeaklyTypedAspectsResolver(entityClient, entityRegistry))
                     .dataFetcher("exists", new EntityExistsResolver(entityService))
@@ -2664,7 +2708,10 @@ public class GmsGraphQLEngine {
         typeWiring ->
             typeWiring
                 .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
-                .dataFetcher("lineage", new EntityLineageResultResolver(siblingGraphService, restrictedService))
+                .dataFetcher(
+                    "lineage",
+                    new EntityLineageResultResolver(
+                        siblingGraphService, restrictedService, this.authorizationConfiguration))
                 .dataFetcher(
                     "state",
                     new TimeSeriesAspectResolver(
@@ -2773,7 +2820,10 @@ public class GmsGraphQLEngine {
         "Restricted",
         typeWiring ->
             typeWiring
-                .dataFetcher("lineage", new EntityLineageResultResolver(siblingGraphService, restrictedService))
+                .dataFetcher(
+                    "lineage",
+                    new EntityLineageResultResolver(
+                        siblingGraphService, restrictedService, this.authorizationConfiguration))
                 .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient)));
   }
 }

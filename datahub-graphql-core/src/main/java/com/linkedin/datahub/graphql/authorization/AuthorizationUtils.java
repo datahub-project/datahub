@@ -25,10 +25,10 @@ public class AuthorizationUtils {
   private static final Clock CLOCK = Clock.systemUTC();
 
   /*
-  These two privileges should be logically the same for search even
-  if one might allow search but not the entity page view at some point.
-  This list should mimic the list in ESAccessControlUtil - update both places.
-*/
+    These two privileges should be logically the same for search even
+    if one might allow search but not the entity page view at some point.
+    This list should mimic the list in ESAccessControlUtil - update both places.
+  */
   private static final Set<String> FILTER_PRIVILEGES =
       Set.of(
           PoliciesConfig.VIEW_ENTITY_PRIVILEGE.getType(),
@@ -209,7 +209,8 @@ public class AuthorizationUtils {
     final Authorizer authorizer = context.getAuthorizer();
     final String actor = context.getActorUrn();
     final String entityType = entityUrn.getEntityType();
-    final Optional<EntitySpec> resourceSpec = Optional.of(new EntitySpec(entityType, entityUrn.toString()));
+    final Optional<EntitySpec> resourceSpec =
+        Optional.of(new EntitySpec(entityType, entityUrn.toString()));
 
     return AuthUtil.isAuthorized(authorizer, actor, resourceSpec, orGroup);
   }
