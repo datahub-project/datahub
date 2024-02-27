@@ -33,14 +33,31 @@ logger = logging.getLogger(__name__)
 
 
 class JsonInferrer(SchemaInferenceBase):
+    def __init__(self, max_rows: int = None, format: str = "json"):
+        self.max_rows = max_rows
+        self.format = format
+
     def infer_schema(self, file: IO[bytes]) -> List[SchemaField]:
-        try:
-            datastore = ujson.load(file)
-        except ujson.JSONDecodeError as e:
-            logger.info(f"Got ValueError: {e}. Retry with jsonlines")
+        if self.format == "jsonl":
             file.seek(0)
             reader = jsl.Reader(file)
-            datastore = [obj for obj in reader.iter(type=dict, skip_invalid=True)]
+            datastore = []
+            while len(datastore) < self.max_rows:
+                try:
+                    obj = reader.read(type=dict)
+                    datastore.append(obj)
+                except jsl.InvalidLineError:
+                    pass
+                except EOFError:
+                    break
+        else:
+            try:
+                datastore = ujson.load(file)
+            except ujson.JSONDecodeError as e:
+                logger.info(f"Got ValueError: {e}. Retry with jsonlines")
+                file.seek(0)
+                reader = jsl.Reader(file)
+                datastore = [obj for obj in reader.iter(type=dict, skip_invalid=True)]
 
         if not isinstance(datastore, list):
             datastore = [datastore]
