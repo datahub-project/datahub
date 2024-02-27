@@ -13,24 +13,26 @@ import { Assertion } from '../../../../../../../../../../../types.generated';
 import { getTimeRangeDisplay } from './utils';
 
 const RESULT_CHART_WIDTH_PX = 560;
+const VIZ_CONTAINER_HEIGHT = 200;
+const VIZ_CONTAINER_TITLE_HEIGHT = 36;
 
 const Container = styled.div`
     width: ${RESULT_CHART_WIDTH_PX}px;
 `;
 
 const VisualizationContainer = styled.div`
-    margin-top: 8px;
     background-color: ${ANTD_GRAY[2]};
     border-radius: 4px;
-    height: 200px;
+    height: ${VIZ_CONTAINER_HEIGHT}px;
     display: flex;
     flex-direction: column;
-    justify-content: space-between;
+    align-items: center;
     padding: 8px;
 `;
 
 const EvaluationsSummary = styled.div`
-    width: 300px;
+    width: 100%;
+    height: ${VIZ_CONTAINER_TITLE_HEIGHT}px;
     display: flex;
     align-items: center;
     justify-content: left;
@@ -38,6 +40,8 @@ const EvaluationsSummary = styled.div`
 
 const EvaluationDateRange = styled(Typography.Text)`
     margin: 12px;
+    margin-bottom: 20px;
+    margin-top: 4px;
     color: ${ANTD_GRAY[9]};
     font-size: 12px;
 `;
@@ -85,6 +89,10 @@ export const AssertionResultsTimeline = ({ assertion }: Props) => {
                 </EvaluationsSummary>
                 <AssertionResultsTimelineViz
                     assertion={assertion}
+                    dimensions={{
+                        height: VIZ_CONTAINER_HEIGHT - VIZ_CONTAINER_TITLE_HEIGHT - 8, // margin below
+                        width: RESULT_CHART_WIDTH_PX - 24, // margin on the sides
+                    }}
                     timeRange={selectedWindowTimeRange}
                     results={results as any}
                     platform={data?.assertion?.platform as any}

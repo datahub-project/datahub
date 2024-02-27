@@ -6,33 +6,44 @@ import {
     AssertionRunStatus,
     DataPlatform,
 } from '../../../../../../../../../../../types.generated';
-import { AssertionDataPoint, AssertionResultTimelineChart, TimeRange } from './AssertionResultTimelineChart';
-import { AssertionResultPopoverContent } from '../../../shared/result/AssertionResultPopoverContent';
-import { getAssertionDataPointsFromRunEvents } from './utils';
-
-const RESULT_CHART_WIDTH_PX = 540;
+import { TimeAndValueBasedAssertionResultChart } from './charts/TimeAndValueBasedAssertionResultChart';
+import { AssertionDataPoint, TimeRange } from './types';
+import { getAssertionDataPointsFromRunEvents } from './transformers';
+import { TIME_AND_VALUE_BASED_ASSERTION_TYPES } from './constants';
+import { TimeBasedAssertionResultChart } from './charts/TimeBasedAssertionResultChart';
+import ParentSize from '@visx/responsive/lib/components/ParentSize'
 
 type Props = {
     assertion: Assertion;
     timeRange: TimeRange;
     results?: AssertionRunEventsResult | null;
     platform?: DataPlatform | null;
+    dimensions: { width: number, height: number }
 };
 
-export const AssertionResultsTimelineViz = ({ assertion, results, platform, timeRange }: Props) => {
+export const AssertionResultsTimelineViz = ({ assertion, results, timeRange, dimensions }: Props) => {
     const completedRuns =
         results?.runEvents.filter((runEvent) => runEvent.status === AssertionRunStatus.Complete) || [];
 
-    /**
-     * Data for the timeline of assertion results.
-     */
-    const timelineData: AssertionDataPoint[] = getAssertionDataPointsFromRunEvents(completedRuns, {
-        getPopOverContent: (runEvent) => <AssertionResultPopoverContent
-            assertion={assertion}
-            run={runEvent}
-        />,
-        getTitleElement: () => undefined,
-    })
+    const timelineDataPoints: AssertionDataPoint[] = getAssertionDataPointsFromRunEvents(completedRuns)
 
-    return <AssertionResultTimelineChart width={RESULT_CHART_WIDTH_PX} data={timelineData} timeRange={timeRange} />;
+    return assertion.info?.type && TIME_AND_VALUE_BASED_ASSERTION_TYPES.includes(assertion.info.type) ? <TimeAndValueBasedAssertionResultChart
+        chartDimensions={dimensions}
+        data={{
+            dataPoints: timelineDataPoints,
+            context: {
+                assertion,
+            }
+        }}
+        timeRange={timeRange}
+    /> : <TimeBasedAssertionResultChart
+        chartDimensions={dimensions}
+        data={{
+            dataPoints: timelineDataPoints,
+            context: {
+                assertion,
+            }
+        }}
+        timeRange={timeRange}
+    />;
 };
