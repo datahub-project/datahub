@@ -214,13 +214,13 @@ public class AssertionUtils {
             getOperatorText(datasetAssertion.getOperator()),
             getParameterText(datasetAssertion.getParameters()));
       default:
+        // Unknown dataset assertion scope - TODO: What to return here?
+        log.warn(
+            String.format(
+                "Attempted to generate description for native dataset assertion: %s",
+                datasetAssertion));
+        return "Unknown native assertion";
     }
-
-    log.warn(
-        String.format(
-            "Attempted to generate description for native dataset assertion: %s",
-            datasetAssertion));
-    return "Unknown native assertion";
   }
 
   private static String getOperatorText(@Nonnull final AssertionStdOperator operator) {
