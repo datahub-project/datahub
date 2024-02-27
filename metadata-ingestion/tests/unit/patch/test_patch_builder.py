@@ -131,7 +131,6 @@ def test_complex_dataset_patch(
 
     out_path = tmp_path / "patch.json"
     write_metadata_file(out_path, patcher.build())
-    breakpoint()
 
     assert json.loads(out_path.read_text()) == json.loads(
         (
