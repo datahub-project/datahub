@@ -199,6 +199,7 @@ class DeltaLakeSource(Source):
             field = self._parse_datatype(raw_field.to_json())
             fields = fields + field
 
+        fields = sorted(fields, key=lambda f: f.fieldPath)
         return fields
 
     def _create_operation_aspect_wu(
