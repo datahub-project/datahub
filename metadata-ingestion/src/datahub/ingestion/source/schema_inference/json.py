@@ -1,3 +1,4 @@
+import itertools
 import logging
 from typing import IO, Dict, List, Type, Union
 
@@ -41,15 +42,12 @@ class JsonInferrer(SchemaInferenceBase):
         if self.format == "jsonl":
             file.seek(0)
             reader = jsl.Reader(file)
-            datastore = []
-            while len(datastore) < self.max_rows:
-                try:
-                    obj = reader.read(type=dict)
-                    datastore.append(obj)
-                except jsl.InvalidLineError:
-                    pass
-                except EOFError:
-                    break
+            datastore = [
+                obj
+                for obj in itertools.islice(
+                    reader.iter(type=dict, skip_invalid=True), self.max_rows
+                )
+            ]
         else:
             try:
                 datastore = ujson.load(file)
