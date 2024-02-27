@@ -65,7 +65,7 @@ class MetadataPatchProposal:
     def _add_patch(
         self, aspect_name: str, op: str, path: Union[str, Sequence[str]], value: Any
     ) -> None:
-        if isinstance(path, list):
+        if not isinstance(path, str):
             path = "/" + "/".join(self.quote(p) for p in path)
 
         # TODO: Validate that aspectName is a valid aspect for this entityType
