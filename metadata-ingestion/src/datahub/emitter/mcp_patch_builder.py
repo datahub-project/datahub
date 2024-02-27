@@ -58,8 +58,8 @@ class MetadataPatchProposal:
         self.patches = defaultdict(list)
 
     # Json Patch quoting based on https://jsonpatch.com/#json-pointer
-    @staticmethod
-    def quote(value: str) -> str:
+    @classmethod
+    def quote(cls, value: str) -> str:
         return value.replace("~", "~0").replace("/", "~1")
 
     def _add_patch(self, aspect_name: str, op: str, path: str, value: Any) -> None:
