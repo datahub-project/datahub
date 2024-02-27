@@ -8,6 +8,7 @@ import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.client.JavaEntityClient;
 import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.config.cache.EntityDocCountCacheConfiguration;
@@ -138,25 +139,29 @@ public class SampleDataFixtureConfiguration {
   protected ElasticSearchService entitySearchService(
       @Qualifier("entityRegistry") EntityRegistry entityRegistry,
       @Qualifier("sampleDataEntityIndexBuilders") EntityIndexBuilders indexBuilders,
-      @Qualifier("sampleDataIndexConvention") IndexConvention indexConvention)
+      @Qualifier("sampleDataIndexConvention") IndexConvention indexConvention,
+      @Qualifier("aspectRetriever") final AspectRetriever aspectRetriever)
       throws IOException {
-    return entitySearchServiceHelper(entityRegistry, indexBuilders, indexConvention);
+    return entitySearchServiceHelper(
+        entityRegistry, indexBuilders, indexConvention, aspectRetriever);
   }
 
   @Bean(name = "longTailEntitySearchService")
   protected ElasticSearchService longTailEntitySearchService(
       @Qualifier("entityRegistry") EntityRegistry longTailEntityRegistry,
       @Qualifier("longTailEntityIndexBuilders") EntityIndexBuilders longTailEndexBuilders,
-      @Qualifier("longTailIndexConvention") IndexConvention longTailIndexConvention)
+      @Qualifier("longTailIndexConvention") IndexConvention longTailIndexConvention,
+      @Qualifier("aspectRetriever") final AspectRetriever aspectRetriever)
       throws IOException {
     return entitySearchServiceHelper(
-        longTailEntityRegistry, longTailEndexBuilders, longTailIndexConvention);
+        longTailEntityRegistry, longTailEndexBuilders, longTailIndexConvention, aspectRetriever);
   }
 
   protected ElasticSearchService entitySearchServiceHelper(
       EntityRegistry entityRegistry,
       EntityIndexBuilders indexBuilders,
-      IndexConvention indexConvention)
+      IndexConvention indexConvention,
+      AspectRetriever aspectRetriever)
       throws IOException {
     CustomConfiguration customConfiguration = new CustomConfiguration();
     customConfiguration.setEnabled(true);
@@ -166,7 +171,6 @@ public class SampleDataFixtureConfiguration {
 
     ESSearchDAO searchDAO =
         new ESSearchDAO(
-            entityRegistry,
             _searchClient,
             indexConvention,
             false,
@@ -175,14 +179,11 @@ public class SampleDataFixtureConfiguration {
             customSearchConfiguration);
     ESBrowseDAO browseDAO =
         new ESBrowseDAO(
-            entityRegistry,
-            _searchClient,
-            indexConvention,
-            _searchConfiguration,
-            _customSearchConfiguration);
+            _searchClient, indexConvention, _searchConfiguration, _customSearchConfiguration);
     ESWriteDAO writeDAO =
         new ESWriteDAO(entityRegistry, _searchClient, indexConvention, _bulkProcessor, 1);
-    return new ElasticSearchService(indexBuilders, searchDAO, browseDAO, writeDAO);
+    return new ElasticSearchService(indexBuilders, searchDAO, browseDAO, writeDAO)
+        .postConstruct(aspectRetriever);
   }
 
   @Bean(name = "sampleDataSearchService")
@@ -296,8 +297,7 @@ public class SampleDataFixtureConfiguration {
     PreProcessHooks preProcessHooks = new PreProcessHooks();
     preProcessHooks.setUiEnabled(true);
     return new JavaEntityClient(
-        new EntityServiceImpl(
-            mockAspectDao, null, entityRegistry, true, null, preProcessHooks, true),
+        new EntityServiceImpl(mockAspectDao, null, entityRegistry, true, preProcessHooks, true),
         null,
         entitySearchService,
         cachingEntitySearchService,

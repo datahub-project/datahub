@@ -1,6 +1,7 @@
 import functools
 import itertools
 import logging
+import traceback
 from collections import defaultdict
 from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
@@ -12,6 +13,7 @@ import sqlglot.optimizer.annotate_types
 import sqlglot.optimizer.optimizer
 import sqlglot.optimizer.qualify
 
+from datahub.cli.env_utils import get_boolean_env_variable
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import (
     ArrayTypeClass,
@@ -39,9 +41,13 @@ from datahub.sql_parsing.sql_parsing_common import (
 from datahub.sql_parsing.sqlglot_utils import (
     DialectOrStr,
     get_dialect,
-    get_query_fingerprint,
+    get_query_fingerprint_debug,
     is_dialect_instance,
     parse_statement,
+)
+from datahub.utilities.cooperative_timeout import (
+    CooperativeTimeoutError,
+    cooperative_timeout,
 )
 
 logger = logging.getLogger(__name__)
@@ -49,6 +55,10 @@ logger = logging.getLogger(__name__)
 Urn = str
 
 SQL_PARSE_RESULT_CACHE_SIZE = 1000
+SQL_LINEAGE_TIMEOUT_ENABLED = get_boolean_env_variable(
+    "SQL_LINEAGE_TIMEOUT_ENABLED", True
+)
+SQL_LINEAGE_TIMEOUT_SECONDS = 10
 
 
 RULES_BEFORE_TYPE_ANNOTATION: tuple = tuple(
@@ -181,15 +191,27 @@ class ColumnLineageInfo(_ParserBaseModel):
 class SqlParsingDebugInfo(_ParserBaseModel):
     confidence: float = 0.0
 
-    tables_discovered: int = 0
-    table_schemas_resolved: int = 0
+    tables_discovered: int = pydantic.Field(0, exclude=True)
+    table_schemas_resolved: int = pydantic.Field(0, exclude=True)
 
-    table_error: Optional[Exception] = None
-    column_error: Optional[Exception] = None
+    generalized_statement: Optional[str] = None
+
+    table_error: Optional[Exception] = pydantic.Field(default=None, exclude=True)
+    column_error: Optional[Exception] = pydantic.Field(default=None, exclude=True)
 
     @property
     def error(self) -> Optional[Exception]:
         return self.table_error or self.column_error
+
+    @pydantic.validator("table_error", "column_error")
+    def remove_variables_from_error(cls, v: Optional[Exception]) -> Optional[Exception]:
+        if v and v.__traceback__:
+            # Remove local variables from the traceback to avoid memory leaks.
+            # See https://docs.python.org/3/library/traceback.html#traceback.clear_frames
+            # and https://docs.python.org/3/reference/datamodel.html#frame.clear
+            traceback.clear_frames(v.__traceback__)
+
+        return v
 
 
 class SqlParsingResult(_ParserBaseModel):
@@ -206,8 +228,7 @@ class SqlParsingResult(_ParserBaseModel):
     # TODO include list of referenced columns
 
     debug_info: SqlParsingDebugInfo = pydantic.Field(
-        default_factory=lambda: SqlParsingDebugInfo(),
-        exclude=True,
+        default_factory=lambda: SqlParsingDebugInfo()
     )
 
     @classmethod
@@ -500,6 +521,12 @@ def _column_level_lineage(  # noqa: C901
                 elif isinstance(node.expression, sqlglot.exp.Table):
                     table_ref = _TableName.from_sqlglot_table(node.expression)
 
+                    if node.name == "*":
+                        # This will happen if we couldn't expand the * to actual columns e.g. if
+                        # we don't have schema info for the table. In this case, we can't generate
+                        # column-level lineage, so we skip it.
+                        continue
+
                     # Parse the column name out of the node name.
                     # Sqlglot calls .sql(), so we have to do the inverse.
                     if node.name == "*":
@@ -556,7 +583,7 @@ def _column_level_lineage(  # noqa: C901
             )
 
         # TODO: Also extract referenced columns (aka auxillary / non-SELECT lineage)
-    except (sqlglot.errors.OptimizeError, ValueError) as e:
+    except (sqlglot.errors.OptimizeError, ValueError, IndexError) as e:
         raise SqlUnderstandingError(
             f"sqlglot failed to compute some lineage: {e}"
         ) from e
@@ -856,20 +883,33 @@ def _sqlglot_lineage_inner(
     column_lineage: Optional[List[_ColumnLineageInfo]] = None
     try:
         if select_statement is not None:
-            column_lineage = _column_level_lineage(
-                select_statement,
-                dialect=dialect,
-                table_schemas=table_name_schema_mapping,
-                output_table=downstream_table,
-                default_db=default_db,
-                default_schema=default_schema,
-            )
+            with cooperative_timeout(
+                timeout=SQL_LINEAGE_TIMEOUT_SECONDS
+                if SQL_LINEAGE_TIMEOUT_ENABLED
+                else None
+            ):
+                column_lineage = _column_level_lineage(
+                    select_statement,
+                    dialect=dialect,
+                    table_schemas=table_name_schema_mapping,
+                    output_table=downstream_table,
+                    default_db=default_db,
+                    default_schema=default_schema,
+                )
     except UnsupportedStatementTypeError as e:
         # Inject details about the outer statement type too.
         e.args = (f"{e.args[0]} (outer statement type: {type(statement)})",)
         debug_info.column_error = e
         logger.debug(debug_info.column_error)
-    except SqlUnderstandingError as e:
+    except CooperativeTimeoutError as e:
+        logger.debug(f"Timed out while generating column-level lineage: {e}")
+        debug_info.column_error = e
+    except (
+        SqlUnderstandingError,
+        ValueError,
+        IndexError,
+        sqlglot.errors.SqlglotError,
+    ) as e:
         logger.debug(f"Failed to generate column-level lineage: {e}", exc_info=True)
         debug_info.column_error = e
 
@@ -891,9 +931,9 @@ def _sqlglot_lineage_inner(
     query_type, query_type_props = get_query_type_of_sql(
         original_statement, dialect=dialect
     )
-
-    query_fingerprint = get_query_fingerprint(original_statement, dialect=dialect)
-
+    query_fingerprint, debug_info.generalized_statement = get_query_fingerprint_debug(
+        original_statement, dialect=dialect
+    )
     return SqlParsingResult(
         query_type=query_type,
         query_type_props=query_type_props,

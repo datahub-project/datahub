@@ -27,5 +27,9 @@
                 }
             ]
         }
-    ]
+    ],
+    "debug_info": {
+        "confidence": 0.9,
+        "generalized_statement": "UPDATE snowflake_sample_data.tpch_sf1.orders SET orderkey = orderkey + ?"
+    }
 }

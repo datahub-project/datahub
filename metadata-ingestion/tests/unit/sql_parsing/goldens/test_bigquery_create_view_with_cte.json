@@ -85,5 +85,9 @@
                 }
             ]
         }
-    ]
+    ],
+    "debug_info": {
+        "confidence": 0.425,
+        "generalized_statement": "CREATE VIEW `my-proj-2`.dataset.my_view AS WITH cte1 AS (SELECT * FROM dataset.table1 WHERE col1 = ?), cte2 AS (SELECT col3, col4 AS join_key FROM dataset.table2 WHERE col3 = ?) SELECT col5, cte1.*, col3 FROM dataset.table3 JOIN cte1 ON table3.col5 = cte1.col2 JOIN cte2 USING (join_key)"
+    }
 }

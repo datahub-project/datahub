@@ -1,8 +1,11 @@
 import hashlib
-from typing import Dict, Iterable, Optional, Union
+import logging
+from typing import Dict, Iterable, Optional, Tuple, Union
 
 import sqlglot
+import sqlglot.errors
 
+logger = logging.getLogger(__name__)
 DialectOrStr = Union[sqlglot.Dialect, str]
 
 
@@ -147,6 +150,23 @@ def generate_hash(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
+def get_query_fingerprint_debug(
+    expression: sqlglot.exp.ExpOrStr, dialect: DialectOrStr
+) -> Tuple[str, str]:
+    try:
+        dialect = get_dialect(dialect)
+        expression_sql = generalize_query(expression, dialect=dialect)
+    except (ValueError, sqlglot.errors.SqlglotError) as e:
+        if not isinstance(expression, str):
+            raise
+
+        logger.debug("Failed to generalize query for fingerprinting: %s", e)
+        expression_sql = expression
+
+    fingerprint = generate_hash(expression_sql)
+    return fingerprint, expression_sql
+
+
 def get_query_fingerprint(
     expression: sqlglot.exp.ExpOrStr, dialect: DialectOrStr
 ) -> str:
@@ -170,11 +190,7 @@ def get_query_fingerprint(
         The fingerprint for the SQL query.
     """
 
-    dialect = get_dialect(dialect)
-    expression_sql = generalize_query(expression, dialect=dialect)
-    fingerprint = generate_hash(expression_sql)
-
-    return fingerprint
+    return get_query_fingerprint_debug(expression, dialect)[0]
 
 
 def detach_ctes(

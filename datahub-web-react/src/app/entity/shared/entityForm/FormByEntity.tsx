@@ -46,6 +46,7 @@ export default function FormByEntity({ formUrn }: Props) {
                 dataNotCombinedWithSiblings: selectedEntityData,
                 routeToTab: () => {},
                 refetch,
+                lineage: undefined,
             }}
         >
             <ContentWrapper>
