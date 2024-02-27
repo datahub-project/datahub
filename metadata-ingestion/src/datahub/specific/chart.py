@@ -1,6 +1,5 @@
 import time
 from typing import Dict, List, Optional, TypeVar, Union
-from urllib.parse import quote
 
 from datahub.emitter.mcp_patch_builder import MetadataPatchProposal
 from datahub.metadata.schema_classes import (
@@ -159,7 +158,7 @@ class ChartPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             ChartInfo.ASPECT_NAME,
             "add",
-            path=f"/inputEdges/{quote(input_urn, safe='')}",
+            path=f"/inputEdges/{self.quote(input_urn)}",
             value=input_urn,
         )
         return self
@@ -177,7 +176,7 @@ class ChartPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             ChartInfo.ASPECT_NAME,
             "remove",
-            path=f"/inputEdges/{input}",
+            path=f"/inputEdges/{self.quote(str(input))}",
             value={},
         )
         return self

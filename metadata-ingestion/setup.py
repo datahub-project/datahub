@@ -6,6 +6,10 @@ package_metadata: dict = {}
 with open("./src/datahub/__init__.py") as fp:
     exec(fp.read(), package_metadata)
 
+_version: str = package_metadata["__version__"]
+_self_pin = (
+    f"=={_version}" if not (_version.endswith("dev0") or "docker" in _version) else ""
+)
 
 base_requirements = {
     # Typing extension should be >=3.10.0.2 ideally but we can't restrict due to a Airflow 2.1 dependency conflict.
@@ -17,7 +21,7 @@ base_requirements = {
     # pydantic 1.10.3 is incompatible with typing-extensions 4.1.1 - https://github.com/pydantic/pydantic/issues/4885
     "pydantic>=1.10.0,!=1.10.3",
     "mixpanel>=4.9.0",
-    "sentry-sdk",
+    "sentry-sdk>=1.40.5",
 }
 
 framework_common = {
@@ -272,7 +276,7 @@ plugins: Dict[str, Set[str]] = {
     },
     # Integrations.
     "airflow": {
-        f"acryl-datahub-airflow-plugin == {package_metadata['__version__']}",
+        f"acryl-datahub-airflow-plugin{_self_pin}",
     },
     "circuit-breaker": {
         "gql>=3.3.0",
@@ -398,12 +402,18 @@ plugins: Dict[str, Set[str]] = {
 
 # This is mainly used to exclude plugins from the Docker image.
 all_exclude_plugins: Set[str] = {
+    # The Airflow extra is only retained for compatibility, but new users should
+    # be using the datahub-airflow-plugin package instead.
+    "airflow",
     # SQL Server ODBC requires additional drivers, and so we don't want to keep
     # it included in the default "all" installation.
     "mssql-odbc",
     # duckdb doesn't have a prebuilt wheel for Linux arm7l or aarch64, so we
     # simply exclude it.
     "datahub-lite",
+    # Feast tends to have overly restrictive dependencies and hence doesn't
+    # play nice with the "all" installation.
+    "feast",
 }
 
 mypy_stubs = {
@@ -678,7 +688,7 @@ entry_points = {
 setuptools.setup(
     # Package metadata.
     name=package_metadata["__package_name__"],
-    version=package_metadata["__version__"],
+    version=_version,
     url="https://datahubproject.io/",
     project_urls={
         "Documentation": "https://datahubproject.io/docs/",
