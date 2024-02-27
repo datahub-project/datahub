@@ -18,6 +18,7 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.utilities.time import datetime_to_ts_millis
+
 from tests.patch.common_patch_tests import (
     get_dataset_property,
     helper_test_custom_properties_patch,
