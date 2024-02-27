@@ -94,6 +94,7 @@ entities:
       - structuredProperties
       - incidentsSummary
       - forms
+      - subTypes
   - name: dataProcess
     keyAspect: dataProcessKey
     aspects:

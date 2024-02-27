@@ -1,5 +1,4 @@
 from typing import Dict, Generic, List, Optional, Tuple, TypeVar, Union
-from urllib.parse import quote
 
 from datahub.emitter.mcp_patch_builder import MetadataPatchProposal
 from datahub.metadata.schema_classes import (
@@ -125,7 +124,7 @@ class DatasetPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             UpstreamLineage.ASPECT_NAME,
             "add",
-            path=f"/upstreams/{quote(upstream.dataset, safe='')}",
+            path=f"/upstreams/{self.quote(upstream.dataset)}",
             value=upstream,
         )
         return self
@@ -178,13 +177,13 @@ class DatasetPatchBuilder(MetadataPatchProposal):
         query_id = fine_grained_lineage.query or "NONE"
         return transform_op, downstream_urn, query_id
 
-    @staticmethod
+    @classmethod
     def quote_fine_grained_path(
-        transform_op: str, downstream_urn: str, query_id: str, upstream_urn: str
+        cls, transform_op: str, downstream_urn: str, query_id: str, upstream_urn: str
     ) -> str:
         return (
-            f"/fineGrainedLineages/{quote(transform_op, safe='')}/"
-            f"{quote(downstream_urn, safe='')}/{quote(query_id, safe='')}/{quote(upstream_urn, safe='')}"
+            f"/fineGrainedLineages/{cls.quote(transform_op)}/"
+            f"{cls.quote(downstream_urn)}/{cls.quote(query_id)}/{cls.quote(upstream_urn)}"
         )
 
     def remove_fine_grained_upstream_lineage(

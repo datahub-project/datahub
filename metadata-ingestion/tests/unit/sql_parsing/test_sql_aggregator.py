@@ -317,3 +317,41 @@ def test_add_known_query_lineage(pytestconfig: pytest.Config) -> None:
         outputs=mcps,
         golden_path=RESOURCE_DIR / "test_add_known_query_lineage.json",
     )
+
+
+@freeze_time(FROZEN_TIME)
+def test_table_rename(pytestconfig: pytest.Config) -> None:
+    aggregator = SqlParsingAggregator(
+        platform="redshift",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+    )
+
+    # Register that foo_staging is renamed to foo.
+    aggregator.add_table_rename(
+        original_urn=DatasetUrn("redshift", "dev.public.foo_staging").urn(),
+        new_urn=DatasetUrn("redshift", "dev.public.foo").urn(),
+    )
+
+    # Add an unrelated query.
+    aggregator.add_observed_query(
+        query="create table bar as select a, b from baz",
+        default_db="dev",
+        default_schema="public",
+    )
+
+    # Add the query that created the staging table.
+    aggregator.add_observed_query(
+        query="create table foo_staging as select a, b from foo_dep",
+        default_db="dev",
+        default_schema="public",
+    )
+
+    mcps = list(aggregator.gen_metadata())
+
+    mce_helpers.check_goldens_stream(
+        pytestconfig,
+        outputs=mcps,
+        golden_path=RESOURCE_DIR / "test_table_rename.json",
+    )

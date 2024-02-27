@@ -64,6 +64,14 @@ def test_complex_dataset_patch(
                 type=DatasetLineageTypeClass.TRANSFORMED,
             )
         )
+        .add_upstream_lineage(
+            upstream=UpstreamClass(
+                dataset=make_dataset_urn(
+                    platform="s3", name="my-bucket/my-folder/my-file.txt", env="PROD"
+                ),
+                type=DatasetLineageTypeClass.TRANSFORMED,
+            )
+        )
         .add_fine_grained_upstream_lineage(
             fine_grained_lineage=FineGrainedLineageClass(
                 upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
@@ -92,11 +100,38 @@ def test_complex_dataset_patch(
                 confidenceScore=1.0,
             )
         )
+        .add_fine_grained_upstream_lineage(
+            fine_grained_lineage=FineGrainedLineageClass(
+                upstreamType=FineGrainedLineageUpstreamTypeClass.DATASET,
+                upstreams=[
+                    make_schema_field_urn(
+                        make_dataset_urn(
+                            platform="s3",
+                            name="my-bucket/my-folder/my-file.txt",
+                            env="PROD",
+                        ),
+                        field_path="foo",
+                    )
+                ],
+                downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD_SET,
+                downstreams=[
+                    make_schema_field_urn(
+                        make_dataset_urn(
+                            platform="hive",
+                            name="fct_users_created_upstream",
+                            env="PROD",
+                        ),
+                        field_path="foo",
+                    )
+                ],
+            )
+        )
     )
     patcher.for_field("field1").add_tag(TagAssociationClass(tag=make_tag_urn("tag1")))
 
     out_path = tmp_path / "patch.json"
     write_metadata_file(out_path, patcher.build())
+    breakpoint()
 
     assert json.loads(out_path.read_text()) == json.loads(
         (
