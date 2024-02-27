@@ -50,7 +50,7 @@ jobs:
           distribution: "zulu"
           java-version: 17
       - uses: gradle/gradle-build-action@v2
-      - uses: actions/checkout@v3
+      - uses: acryldata/sane-checkout-action@v3
       - uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
