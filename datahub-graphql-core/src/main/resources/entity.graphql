@@ -966,6 +966,11 @@ enum EntityType {
 Input for the get entity counts endpoint
 """
 input EntityCountInput {
+    """
+    Optional - A View to apply when generating results
+    """
+    viewUrn: String
+
     types: [EntityType!]
 }
 
