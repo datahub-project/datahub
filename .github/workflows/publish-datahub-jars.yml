@@ -36,7 +36,7 @@ jobs:
       tag: ${{ steps.tag.outputs.tag }}
     steps:
       - name: Checkout
-        uses: acryldata/sane-checkout-action@v3rc1
+        uses: acryldata/sane-checkout-action@v3
       - name: Compute Tag
         id: tag
         run: |
@@ -48,7 +48,7 @@ jobs:
     needs: ["check-secret", "setup"]
     if: ${{ needs.check-secret.outputs.publish-enabled == 'true' }}
     steps:
-      - uses: acryldata/sane-checkout-action@v3rc1
+      - uses: acryldata/sane-checkout-action@v3
       - name: Set up JDK 17
         uses: actions/setup-java@v3
         with:
