@@ -10,6 +10,9 @@ import lombok.Getter;
 @Getter
 public class AuthorizerContext implements ContextInterface {
 
+  public static final AuthorizerContext EMPTY =
+      AuthorizerContext.builder().authorizer(Authorizer.EMPTY).build();
+
   @Nonnull private final Authorizer authorizer;
 
   /**

@@ -66,10 +66,10 @@ public class ESAccessControlUtil {
      If search authorization is enabled AND we're also not the system performing the query
     */
     if (opContext.getOperationContextConfig().getSearchAuthorizationConfiguration().isEnabled()
-        && !opContext.getSessionActorContext().isSystemAuthentication()
+        && !opContext.getSessionActorContext().isAllowSystemAuth()
         && !opContext.getSearchContext().isRestrictedSearch()) {
+
       BoolQueryBuilder builder = QueryBuilders.boolQuery();
-      builder.minimumShouldMatch(1);
 
       // Apply access policies
       streamViewQueries(opContext).distinct().forEach(builder::should);
@@ -78,7 +78,8 @@ public class ESAccessControlUtil {
         // default deny if no filters
         return Optional.of(builder.mustNot(MATCH_ALL));
       } else if (!builder.should().contains(MATCH_ALL)) {
-        // if MATCH_ALL is not present, apply filters
+        // if MATCH_ALL is not present, apply filters requiring at least 1
+        builder.minimumShouldMatch(1);
         response = Optional.of(builder);
       }
     }
@@ -181,7 +182,8 @@ public class ESAccessControlUtil {
       OperationContext opContext, DataHubPolicyInfo policy) {
     DataHubActorFilter actorFilter = policy.getActors();
 
-    if (!policy.hasActors() || !policy.getActors().isResourceOwners()) {
+    if (!policy.hasActors()
+        || !(actorFilter.isResourceOwners() || actorFilter.hasResourceOwnersTypes())) {
       // no owner restriction
       return MATCH_ALL;
     }
@@ -189,16 +191,13 @@ public class ESAccessControlUtil {
     ActorContext actorContext = opContext.getSessionActorContext();
 
     // policy might apply to the actor via user or group
-    Set<String> actorAndGroupUrns =
+    List<String> actorAndGroupUrns =
         Stream.concat(
                 Stream.of(actorContext.getAuthentication().getActor().toUrnStr()),
-                actorContext.getGroupMembership().stream()
-                    .filter(
-                        groupUrn ->
-                            actorFilter.getGroups() != null
-                                && actorFilter.getGroups().contains(groupUrn))
-                    .map(Urn::toString))
-            .collect(Collectors.toSet());
+                actorContext.getGroupMembership().stream().map(Urn::toString))
+            .map(String::toLowerCase)
+            .distinct()
+            .collect(Collectors.toList());
 
     if (!actorFilter.hasResourceOwnersTypes()) {
       // owners without owner type restrictions

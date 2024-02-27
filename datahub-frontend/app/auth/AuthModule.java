@@ -16,7 +16,6 @@ import com.google.inject.name.Named;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.entity.client.SystemRestliEntityClient;
 import com.linkedin.metadata.restli.DefaultRestliClientFactory;
-import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import com.linkedin.parseq.retry.backoff.ExponentialBackoff;
 import com.linkedin.util.Configuration;
 import config.ConfigurationProvider;
@@ -42,14 +41,10 @@ import org.pac4j.play.store.PlayCacheSessionStore;
 import org.pac4j.play.store.PlayCookieSessionStore;
 import org.pac4j.play.store.PlaySessionStore;
 import org.pac4j.play.store.ShiroAesDataEncrypter;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
-import org.springframework.context.annotation.Bean;
 import play.Environment;
 import play.cache.SyncCacheApi;
 import utils.ConfigUtil;
-
-import javax.annotation.Nonnull;
 
 /** Responsible for configuring, validating, and providing authentication related components. */
 @Slf4j
@@ -173,7 +168,7 @@ public class AuthModule extends AbstractModule {
                                                      final ConfigurationProvider configurationProvider) {
     ActorContext systemActorContext =
             ActorContext.builder()
-                    .systemAuthentication(true)
+                    .allowSystemAuth(true)
                     .authentication(systemAuthentication)
                     .build();
     OperationContextConfig systemConfig = OperationContextConfig.builder()

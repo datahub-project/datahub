@@ -23,7 +23,7 @@ public class TestOperationContexts {
       new Authentication(new Actor(ActorType.USER, "testSystemUser"), "");
   public static final Authentication TEST_USER_AUTH =
       new Authentication(new Actor(ActorType.USER, "datahub"), "");
-  public static final IndexConvention TEST_EMPTY_INDEX_CONVENTION = new IndexConventionImpl(null);
+  public static final IndexConvention TEST_EMPTY_INDEX_CONVENTION = IndexConventionImpl.NO_PREFIX;
 
   public static OperationContext systemContextNoSearchAuthorization(
       @Nonnull EntityRegistry entityRegistry) {
