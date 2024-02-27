@@ -1,7 +1,7 @@
 import json
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Union
 
 from datahub.emitter.aspect import JSON_PATCH_CONTENT_TYPE
 from datahub.emitter.serialization_helper import pre_json_transform
@@ -62,7 +62,12 @@ class MetadataPatchProposal:
     def quote(cls, value: str) -> str:
         return value.replace("~", "~0").replace("/", "~1")
 
-    def _add_patch(self, aspect_name: str, op: str, path: str, value: Any) -> None:
+    def _add_patch(
+        self, aspect_name: str, op: str, path: Union[str, Sequence[str]], value: Any
+    ) -> None:
+        if isinstance(path, list):
+            path = "/" + "/".join(self.quote(p) for p in path)
+
         # TODO: Validate that aspectName is a valid aspect for this entityType
         self.patches[aspect_name].append(_Patch(op, path, value))
 
