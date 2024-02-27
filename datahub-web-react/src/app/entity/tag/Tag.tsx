@@ -7,6 +7,7 @@ import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Ent
 import { getDataForEntityType } from '../shared/containers/profile/utils';
 import { urlEncodeUrn } from '../shared/utils';
 import TagProfile from './TagProfile';
+import { useGetTagQuery } from '../../../graphql/tag.generated';
 
 const PreviewTagIcon = styled(TagOutlined)`
     font-size: 20px;
@@ -50,6 +51,8 @@ export class TagEntity implements Entity<Tag> {
     getCollectionName: () => string = () => 'Tags';
 
     getEntityName: () => string = () => 'Tag';
+
+    useEntityQuery = useGetTagQuery;
 
     renderProfile: (urn: string) => JSX.Element = (_) => <TagProfile />;
 

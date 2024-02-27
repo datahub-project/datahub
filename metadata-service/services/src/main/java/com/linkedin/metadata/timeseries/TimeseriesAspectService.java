@@ -2,6 +2,7 @@ package com.linkedin.metadata.timeseries;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
@@ -15,6 +16,13 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 public interface TimeseriesAspectService {
+
+  /**
+   * Set aspect retriever after construction to prevent circular dependencies
+   *
+   * @param aspectRetriever
+   */
+  TimeseriesAspectService postConstruct(AspectRetriever aspectRetriever);
 
   /** Configure the Time-Series aspect service one time at boot-up. */
   void configure();

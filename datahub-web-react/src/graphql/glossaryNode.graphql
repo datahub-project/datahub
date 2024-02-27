@@ -30,6 +30,14 @@ query getGlossaryNode($urn: String!) {
         autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
             ...autoRenderAspectFields
         }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
+        forms {
+            ...formsFields
+        }
         children: relationships(
             input: {
                 types: ["IsPartOf"]

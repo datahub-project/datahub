@@ -1,12 +1,12 @@
 package com.linkedin.metadata.search.utils;
 
 import static com.linkedin.metadata.Constants.*;
-import static com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder.*;
 import static com.linkedin.metadata.search.elasticsearch.query.request.SearchFieldConfig.KEYWORD_FIELDS;
 import static com.linkedin.metadata.search.elasticsearch.query.request.SearchFieldConfig.PATH_HIERARCHY_FIELDS;
 import static com.linkedin.metadata.search.utils.SearchUtils.isUrn;
 
 import com.google.common.collect.ImmutableList;
+import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.StructuredPropertyUtils;
@@ -132,11 +132,15 @@ public class ESUtils {
   public static BoolQueryBuilder buildFilterQuery(
       @Nullable Filter filter,
       boolean isTimeseries,
-      final Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes) {
+      final Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes,
+      @Nonnull AspectRetriever aspectRetriever) {
     BoolQueryBuilder finalQueryBuilder = QueryBuilders.boolQuery();
     if (filter == null) {
       return finalQueryBuilder;
     }
+
+    StructuredPropertyUtils.validateFilter(filter, aspectRetriever);
+
     if (filter.getOr() != null) {
       // If caller is using the new Filters API, build boolean query from that.
       filter
@@ -261,6 +265,8 @@ public class ESUtils {
       return DATE_FIELD_TYPE;
     } else if (fieldType == SearchableAnnotation.FieldType.OBJECT) {
       return OBJECT_FIELD_TYPE;
+    } else if (fieldType == SearchableAnnotation.FieldType.DOUBLE) {
+      return DOUBLE_FIELD_TYPE;
     } else {
       log.warn("FieldType {} has no mappings implemented", fieldType);
       return null;
@@ -385,11 +391,11 @@ public class ESUtils {
   public static String toFacetField(@Nonnull final String filterField) {
     String fieldName = filterField;
     if (fieldName.startsWith(STRUCTURED_PROPERTY_MAPPING_FIELD + ".")) {
+      String fqn = fieldName.substring(STRUCTURED_PROPERTY_MAPPING_FIELD.length() + 1);
       fieldName =
           STRUCTURED_PROPERTY_MAPPING_FIELD
               + "."
-              + StructuredPropertyUtils.sanitizeStructuredPropertyFQN(
-                  fieldName.substring(STRUCTURED_PROPERTY_MAPPING_FIELD.length() + 1));
+              + StructuredPropertyUtils.sanitizeStructuredPropertyFQN(fqn);
     }
     return fieldName.replace(ESUtils.KEYWORD_SUFFIX, "");
   }
@@ -598,16 +604,16 @@ public class ESUtils {
     String documentFieldName;
     if (fieldTypes.contains(BOOLEAN_FIELD_TYPE)) {
       criterionValue = Boolean.parseBoolean(criterionValueString);
-      documentFieldName = criterion.getField();
+      documentFieldName = fieldName;
     } else if (fieldTypes.contains(LONG_FIELD_TYPE) || fieldTypes.contains(DATE_FIELD_TYPE)) {
       criterionValue = Long.parseLong(criterionValueString);
-      documentFieldName = criterion.getField();
+      documentFieldName = fieldName;
     } else if (fieldTypes.contains(DOUBLE_FIELD_TYPE)) {
       criterionValue = Double.parseDouble(criterionValueString);
-      documentFieldName = criterion.getField();
+      documentFieldName = fieldName;
     } else {
       criterionValue = criterionValueString;
-      documentFieldName = toKeywordField(criterion.getField(), isTimeseries);
+      documentFieldName = toKeywordField(fieldName, isTimeseries);
     }
 
     // Set up QueryBuilder based on condition

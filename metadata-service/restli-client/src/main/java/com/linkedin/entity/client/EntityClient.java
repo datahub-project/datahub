@@ -12,6 +12,7 @@ import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.Aspect;
 import com.linkedin.entity.Entity;
 import com.linkedin.entity.EntityResponse;
+import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.browse.BrowseResult;
@@ -43,6 +44,9 @@ import javax.annotation.Nullable;
 
 // Consider renaming this to datahub client.
 public interface EntityClient {
+
+  /** Perform post construction asks if needed. Can be used to break circular dependencies */
+  default void postConstruct(AspectRetriever aspectRetriever) {}
 
   @Nullable
   public EntityResponse getV2(
@@ -154,7 +158,8 @@ public interface EntityClient {
       @Nonnull String input,
       int start,
       int count,
-      @Nonnull Authentication authentication)
+      @Nonnull Authentication authentication,
+      @Nullable SearchFlags searchFlags)
       throws RemoteInvocationException;
 
   /**
@@ -176,7 +181,8 @@ public interface EntityClient {
       @Nonnull String input,
       int start,
       int count,
-      @Nonnull Authentication authentication)
+      @Nonnull Authentication authentication,
+      @Nullable SearchFlags searchFlags)
       throws RemoteInvocationException;
 
   @Deprecated

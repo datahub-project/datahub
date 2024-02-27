@@ -52,6 +52,11 @@ const client = new ApolloClient({
                             return { ...oldObj, ...newObj };
                         },
                     },
+                    entity: {
+                        merge: (oldObj, newObj) => {
+                            return { ...oldObj, ...newObj };
+                        },
+                    },
                 },
             },
         },

@@ -26,6 +26,11 @@ entities:
     keyAspect: chartKey
     aspects:
       - domains
+  - name: incident
+    keyAspect: incidentKey
+    aspects:
+      - incidentInfo
+      - status
   - name: schemaField
     category: core
     keyAspect: schemaFieldKey
