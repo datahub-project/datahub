@@ -4,7 +4,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Dict, List, Optional, Set, Tuple, Union, cast
+from typing import Dict, List, Optional, Set, Tuple, Union
 from urllib.parse import urlparse
 
 import humanfriendly
@@ -12,7 +12,7 @@ import redshift_connector
 import sqlglot
 
 import datahub.emitter.mce_builder as builder
-import datahub.utilities.sqlglot_lineage as sqlglot_l
+import datahub.sql_parsing.sqlglot_lineage as sqlglot_l
 from datahub.emitter import mce_builder
 from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.ingestion.api.common import PipelineContext
@@ -31,7 +31,6 @@ from datahub.ingestion.source.redshift.report import RedshiftReport
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
     RedundantLineageRunSkipHandler,
 )
-from datahub.metadata._schema_classes import SchemaFieldDataTypeClass
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     FineGrainedLineage,
     FineGrainedLineageDownstreamType,
@@ -48,9 +47,10 @@ from datahub.metadata.schema_classes import (
     UpstreamClass,
     UpstreamLineageClass,
 )
+from datahub.metadata.urns import DatasetUrn
+from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.utilities import memory_footprint
 from datahub.utilities.dedup_list import deduplicate_list
-from datahub.utilities.urns import dataset_urn
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -137,9 +137,7 @@ def parse_alter_table_rename(default_schema: str, query: str) -> Tuple[str, str,
 
 
 def split_qualified_table_name(urn: str) -> Tuple[str, str, str]:
-    qualified_table_name = dataset_urn.DatasetUrn.create_from_string(
-        urn
-    ).get_entity_id()[1]
+    qualified_table_name = DatasetUrn.from_string(urn).name
 
     # -3 because platform instance is optional and that can cause the split to have more than 3 elements
     db, schema, table = qualified_table_name.split(".")[-3:]
@@ -174,12 +172,10 @@ class RedshiftLineageExtractor:
         if self.context.graph is None:  # to silent lint
             return
 
-        schema_resolver: sqlglot_l.SchemaResolver = (
-            self.context.graph._make_schema_resolver(
-                platform=LineageDatasetPlatform.REDSHIFT.value,
-                platform_instance=self.config.platform_instance,
-                env=self.config.env,
-            )
+        schema_resolver: SchemaResolver = self.context.graph._make_schema_resolver(
+            platform=LineageDatasetPlatform.REDSHIFT.value,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
         )
 
         dataset_vs_columns: Dict[str, List[SchemaField]] = {}
@@ -201,7 +197,7 @@ class RedshiftLineageExtractor:
             if (
                 result is None
                 or result.column_lineage is None
-                or result.query_type != sqlglot_l.QueryType.CREATE
+                or not result.query_type.is_create()
                 or not result.out_tables
             ):
                 logger.debug(f"Unsupported temp table query found: {table.query_text}")
@@ -216,26 +212,18 @@ class RedshiftLineageExtractor:
         for table in self.temp_tables.values():
             if (
                 table.parsed_result is None
+                or table.urn is None
                 or table.parsed_result.column_lineage is None
             ):
                 continue
-            for column_lineage in table.parsed_result.column_lineage:
-                if column_lineage.downstream.table not in dataset_vs_columns:
-                    dataset_vs_columns[cast(str, column_lineage.downstream.table)] = []
-                    # Initialise the temp table urn, we later need this to merge CLL
 
-                dataset_vs_columns[cast(str, column_lineage.downstream.table)].append(
-                    SchemaField(
-                        fieldPath=column_lineage.downstream.column,
-                        type=cast(
-                            SchemaFieldDataTypeClass,
-                            column_lineage.downstream.column_type,
-                        ),
-                        nativeDataType=cast(
-                            str, column_lineage.downstream.native_column_type
-                        ),
-                    )
-                )
+            # Initialise the temp table urn, we later need this to merge CLL
+            downstream_urn = table.urn
+            if downstream_urn not in dataset_vs_columns:
+                dataset_vs_columns[downstream_urn] = []
+            dataset_vs_columns[downstream_urn].extend(
+                sqlglot_l.infer_output_schema(table.parsed_result) or []
+            )
 
         # Add datasets, and it's respective fields in schema_resolver, so that later schema_resolver would be able
         # correctly generates the upstreams for temporary tables
@@ -265,8 +253,8 @@ class RedshiftLineageExtractor:
             return self.config.start_time, self.config.end_time
 
     def warn(self, log: logging.Logger, key: str, reason: str) -> None:
-        self.report.report_warning(key, reason)
-        log.warning(f"{key} => {reason}")
+        # TODO: Remove this method.
+        self.report.warning(key, reason)
 
     def _get_s3_path(self, path: str) -> str:
         if self.config.s3_lineage_config:
@@ -320,9 +308,11 @@ class RedshiftLineageExtractor:
 
         return (
             sources,
-            parsed_result.column_lineage
-            if self.config.include_view_column_lineage
-            else None,
+            (
+                parsed_result.column_lineage
+                if self.config.include_view_column_lineage
+                else None
+            ),
         )
 
     def _build_s3_path_from_row(self, filename: str) -> str:
@@ -376,11 +366,11 @@ class RedshiftLineageExtractor:
                     platform=platform.value,
                     name=path,
                     env=self.config.env,
-                    platform_instance=self.config.platform_instance_map.get(
-                        platform.value
-                    )
-                    if self.config.platform_instance_map is not None
-                    else None,
+                    platform_instance=(
+                        self.config.platform_instance_map.get(platform.value)
+                        if self.config.platform_instance_map is not None
+                        else None
+                    ),
                 )
             elif source_schema is not None and source_table is not None:
                 platform = LineageDatasetPlatform.REDSHIFT
@@ -545,11 +535,11 @@ class RedshiftLineageExtractor:
                     platform=target_platform.value,
                     name=target_path,
                     env=self.config.env,
-                    platform_instance=self.config.platform_instance_map.get(
-                        target_platform.value
-                    )
-                    if self.config.platform_instance_map is not None
-                    else None,
+                    platform_instance=(
+                        self.config.platform_instance_map.get(target_platform.value)
+                        if self.config.platform_instance_map is not None
+                        else None
+                    ),
                 )
             except ValueError as e:
                 self.warn(logger, "non-s3-lineage", str(e))
@@ -776,7 +766,7 @@ class RedshiftLineageExtractor:
         table: Union[RedshiftTable, RedshiftView],
         dataset_urn: str,
         schema: RedshiftSchema,
-    ) -> Optional[Tuple[UpstreamLineageClass, Dict[str, str]]]:
+    ) -> Optional[UpstreamLineageClass]:
         upstream_lineage: List[UpstreamClass] = []
 
         cll_lineage: List[FineGrainedLineage] = []
@@ -803,11 +793,11 @@ class RedshiftLineageExtractor:
                 mce_builder.make_dataset_urn_with_platform_instance(
                     upstream_platform,
                     f"{schema.external_database}.{tablename}",
-                    platform_instance=self.config.platform_instance_map.get(
-                        upstream_platform
-                    )
-                    if self.config.platform_instance_map
-                    else None,
+                    platform_instance=(
+                        self.config.platform_instance_map.get(upstream_platform)
+                        if self.config.platform_instance_map
+                        else None
+                    ),
                     env=self.config.env,
                 ),
                 DatasetLineageTypeClass.COPY,
@@ -821,11 +811,9 @@ class RedshiftLineageExtractor:
         else:
             return None
 
-        return (
-            UpstreamLineage(
-                upstreams=upstream_lineage, fineGrainedLineages=cll_lineage or None
-            ),
-            {},
+        return UpstreamLineage(
+            upstreams=upstream_lineage,
+            fineGrainedLineages=cll_lineage or None,
         )
 
     def report_status(self, step: str, status: bool) -> None:

@@ -1,8 +1,5 @@
 package com.linkedin.datahub.graphql.resolvers.dataset;
 
-import com.datahub.authorization.EntitySpec;
-import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -10,7 +7,6 @@ import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.generated.CorpUser;
 import com.linkedin.datahub.graphql.generated.DatasetStatsSummary;
 import com.linkedin.datahub.graphql.generated.Entity;
-import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.usage.UsageClient;
 import com.linkedin.usage.UsageTimeRange;
 import com.linkedin.usage.UserUsageCounts;
@@ -18,9 +14,7 @@ import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 
@@ -36,16 +30,9 @@ public class DatasetStatsSummaryResolver
   private static final Integer MAX_TOP_USERS = 5;
 
   private final UsageClient usageClient;
-  private final Cache<Urn, DatasetStatsSummary> summaryCache;
 
   public DatasetStatsSummaryResolver(final UsageClient usageClient) {
     this.usageClient = usageClient;
-    this.summaryCache =
-        CacheBuilder.newBuilder()
-            .maximumSize(10000)
-            .expireAfterWrite(
-                6, TimeUnit.HOURS) // TODO: Make caching duration configurable externally.
-            .build();
   }
 
   @Override
@@ -56,13 +43,8 @@ public class DatasetStatsSummaryResolver
 
     return CompletableFuture.supplyAsync(
         () -> {
-          if (this.summaryCache.getIfPresent(resourceUrn) != null) {
-            return this.summaryCache.getIfPresent(resourceUrn);
-          }
-
           try {
-
-            if (!isAuthorized(resourceUrn, context)) {
+            if (!AuthorizationUtils.isViewDatasetUsageAuthorized(resourceUrn, context)) {
               log.debug(
                   "User {} is not authorized to view profile information for dataset {}",
                   context.getActorUrn(),
@@ -88,7 +70,7 @@ public class DatasetStatsSummaryResolver
                                   createPartialUser(Objects.requireNonNull(userCounts.getUser())))
                           .collect(Collectors.toList())));
             }
-            this.summaryCache.put(resourceUrn, result);
+
             return result;
           } catch (Exception e) {
             log.error(
@@ -111,12 +93,5 @@ public class DatasetStatsSummaryResolver
     final CorpUser result = new CorpUser();
     result.setUrn(userUrn.toString());
     return result;
-  }
-
-  private boolean isAuthorized(final Urn resourceUrn, final QueryContext context) {
-    return AuthorizationUtils.isAuthorized(
-        context,
-        Optional.of(new EntitySpec(resourceUrn.getEntityType(), resourceUrn.toString())),
-        PoliciesConfig.VIEW_DATASET_USAGE_PRIVILEGE);
   }
 }

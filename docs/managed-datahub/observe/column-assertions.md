@@ -340,6 +340,91 @@ This entity defines _when_ to run the check (Using CRON format - every 8th hour)
 
 After creating the monitor, the new assertion will start to be evaluated every 8 hours in your selected timezone.
 
+Alternatively you can use `upsertDatasetFieldAssertionMonitor` graphql endpoint for creating a Column Assertion and corresponding Monitor for a dataset. 
+
+```json
+mutation upsertDatasetFieldAssertionMonitor {
+  upsertDatasetFieldAssertionMonitor(
+    input: {
+      entityUrn: "<urn of entity being monitored>"
+      type: FIELD_VALUES,
+      fieldValuesAssertion: {
+        field: {
+          path: "<name of the column to be monitored>",
+          type: "NUMBER",
+          nativeType: "NUMBER(38,0)"
+        },
+        operator: GREATER_THAN,
+        parameters: {
+          value: {
+            type: NUMBER,
+            value: "10"
+          }
+        },
+        failThreshold: {
+          type: COUNT,
+          value: 0
+        },
+        excludeNulls: true
+      }
+      evaluationSchedule: {
+        timezone: "America/Los_Angeles"
+        cron: "0 */8 * * *"
+      }
+      evaluationParameters: {
+        sourceType: ALL_ROWS_QUERY
+      }
+      mode: ACTIVE
+    }
+  ){
+    urn
+  }
+}
+```
+
+You can use same endpoint with assertion urn input to update an existing Column Assertion and corresponding Monitor.
+
+```json
+mutation upsertDatasetFieldAssertionMonitor {
+  upsertDatasetFieldAssertionMonitor(
+    assertionUrn: "<urn of assertion created in earlier query>"
+    input: {
+      entityUrn: "<urn of entity being monitored>"
+      type: FIELD_VALUES,
+      fieldValuesAssertion: {
+        field: {
+          path: "<name of the column to be monitored>",
+          type: "NUMBER",
+          nativeType: "NUMBER(38,0)"
+        },
+        operator: GREATER_THAN_OR_EQUAL_TO,
+        parameters: {
+          value: {
+            type: NUMBER,
+            value: "10"
+          }
+        },
+        failThreshold: {
+          type: COUNT,
+          value: 0
+        },
+        excludeNulls: true
+      }
+      evaluationSchedule: {
+        timezone: "America/Los_Angeles"
+        cron: "0 */8 * * *"
+      }
+      evaluationParameters: {
+        sourceType: ALL_ROWS_QUERY
+      }
+      mode: ACTIVE
+    }
+  ){
+    urn
+  }
+}
+```
+
 You can delete assertions along with their monitors using GraphQL mutations: `deleteAssertion` and `deleteMonitor`.
 
 ### Tips

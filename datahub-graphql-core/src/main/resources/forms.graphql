@@ -1,3 +1,10 @@
+extend type Mutation {
+    """
+    Remove a form from a given list of entities.
+    """
+    batchRemoveForm(input: BatchRemoveFormInput!): Boolean!
+}
+
 """
 Requirements forms that are assigned to an entity.
 """
@@ -275,20 +282,6 @@ input SubmitFormPromptInput {
     structuredPropertyParams: StructuredPropertyInputParams
 }
 
-"""
-Input for responding to a singular prompt in a form for a batch of entities
-"""
-input BatchSubmitFormPromptInput {
-    """
-    The urns of the entities this prompt submission is for
-    """
-    assetUrns: [String!]!
-
-    """
-    Input for responding to a specific prompt on a form
-    """
-    input: SubmitFormPromptInput
-}
 
 """
 Input for collecting structured property values to apply to entities
@@ -392,16 +385,16 @@ input VerifyFormInput {
 }
 
 """
-Input for verifying a batch of entities for a give form
+Input for batch removing a form from different entities
 """
-input BatchVerifyFormInput {
+input BatchRemoveFormInput {
     """
-    The urns of the entities getting verified for this form
-    """
-    assetUrns: [String!]!
-
-    """
-    The urn of the form being verified on the given entities
+    The urn of the form being removed from entities
     """
     formUrn: String!
+
+    """
+    The entities that this form is being removed from
+    """
+    entityUrns: [String!]!
 }

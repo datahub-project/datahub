@@ -371,7 +371,7 @@ export default function LineageEntityNode({
                                 health={health as any}
                                 baseUrl={baseUrl as any}
                                 fontSize={20}
-                                tooltipPlacement="left"
+                                tooltipPlacement="top"
                             />
                         )}
                     </foreignObject>

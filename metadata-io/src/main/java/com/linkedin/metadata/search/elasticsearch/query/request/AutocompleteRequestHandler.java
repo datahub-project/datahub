@@ -5,6 +5,7 @@ import static com.linkedin.metadata.models.SearchableFieldSpecExtractor.PRIMARY_
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
+import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
@@ -46,7 +47,10 @@ public class AutocompleteRequestHandler {
   private static final Map<EntitySpec, AutocompleteRequestHandler>
       AUTOCOMPLETE_QUERY_BUILDER_BY_ENTITY_NAME = new ConcurrentHashMap<>();
 
-  public AutocompleteRequestHandler(@Nonnull EntitySpec entitySpec) {
+  private final AspectRetriever aspectRetriever;
+
+  public AutocompleteRequestHandler(
+      @Nonnull EntitySpec entitySpec, @Nonnull AspectRetriever aspectRetriever) {
     List<SearchableFieldSpec> fieldSpecs = entitySpec.getSearchableFieldSpecs();
     _defaultAutocompleteFields =
         Stream.concat(
@@ -70,11 +74,13 @@ public class AutocompleteRequestHandler {
                       set1.addAll(set2);
                       return set1;
                     }));
+    this.aspectRetriever = aspectRetriever;
   }
 
-  public static AutocompleteRequestHandler getBuilder(@Nonnull EntitySpec entitySpec) {
+  public static AutocompleteRequestHandler getBuilder(
+      @Nonnull EntitySpec entitySpec, @Nonnull AspectRetriever aspectRetriever) {
     return AUTOCOMPLETE_QUERY_BUILDER_BY_ENTITY_NAME.computeIfAbsent(
-        entitySpec, k -> new AutocompleteRequestHandler(entitySpec));
+        entitySpec, k -> new AutocompleteRequestHandler(entitySpec, aspectRetriever));
   }
 
   public SearchRequest getSearchRequest(
@@ -83,7 +89,8 @@ public class AutocompleteRequestHandler {
     SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
     searchSourceBuilder.size(limit);
     searchSourceBuilder.query(getQuery(input, field));
-    searchSourceBuilder.postFilter(ESUtils.buildFilterQuery(filter, false, searchableFieldTypes));
+    searchSourceBuilder.postFilter(
+        ESUtils.buildFilterQuery(filter, false, searchableFieldTypes, aspectRetriever));
     searchSourceBuilder.highlighter(getHighlights(field));
     searchRequest.source(searchSourceBuilder);
     return searchRequest;

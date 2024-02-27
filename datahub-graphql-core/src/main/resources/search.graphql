@@ -1230,6 +1230,11 @@ input BrowseV2Input {
   The search query string
   """
   query: String
+
+  """
+  Flags controlling search options
+  """
+  searchFlags: SearchFlags
 }
 
 """

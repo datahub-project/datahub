@@ -6,9 +6,9 @@ from typing import Any, Dict, Optional
 import deepdiff
 
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIdentifier
-from datahub.utilities.sqlglot_lineage import (
+from datahub.sql_parsing.schema_resolver import SchemaResolver
+from datahub.sql_parsing.sqlglot_lineage import (
     SchemaInfo,
-    SchemaResolver,
     SqlParsingResult,
     sqlglot_lineage,
 )

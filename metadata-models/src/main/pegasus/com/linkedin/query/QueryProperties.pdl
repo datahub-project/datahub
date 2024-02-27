@@ -76,7 +76,9 @@ record QueryProperties {
   lastModified: AuditStamp
 
   /**
-   * The urn of the DataPlatform where the Query was executed.
+   * The origin of the Query.
+   * This is the source of the Query (e.g. a View, Stored Procedure, dbt Model, etc.) that the Query was created from.
    */
-  dataPlatform: optional Urn
+   origin: optional Urn
+
 }

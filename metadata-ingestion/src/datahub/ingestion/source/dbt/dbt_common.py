@@ -107,15 +107,16 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
     ViewPropertiesClass,
 )
-from datahub.utilities.mapping import Constants, OperationProcessor
-from datahub.utilities.sqlglot_lineage import (
+from datahub.sql_parsing.schema_resolver import SchemaResolver
+from datahub.sql_parsing.sqlglot_lineage import (
     SchemaInfo,
-    SchemaResolver,
     SqlParsingDebugInfo,
     SqlParsingResult,
-    detach_ctes,
+    infer_output_schema,
     sqlglot_lineage,
 )
+from datahub.sql_parsing.sqlglot_utils import detach_ctes
+from datahub.utilities.mapping import Constants, OperationProcessor
 from datahub.utilities.time import datetime_to_ts_millis
 from datahub.utilities.topological_sort import topological_sort
 
@@ -184,17 +185,18 @@ class DBTEntitiesEnabled(ConfigModel):
 
         return values
 
-    def can_emit_node_type(self, node_type: str) -> bool:
+    def _node_type_allow_map(self):
         # Node type comes from dbt's node types.
-
-        node_type_allow_map = {
+        return {
             "model": self.models,
             "source": self.sources,
             "seed": self.seeds,
             "snapshot": self.snapshots,
             "test": self.test_definitions,
         }
-        allowed = node_type_allow_map.get(node_type)
+
+    def can_emit_node_type(self, node_type: str) -> bool:
+        allowed = self._node_type_allow_map().get(node_type)
         if allowed is None:
             return False
 
@@ -203,6 +205,11 @@ class DBTEntitiesEnabled(ConfigModel):
     @property
     def can_emit_test_results(self) -> bool:
         return self.test_results == EmitDirective.YES
+
+    def is_only_test_results(self) -> bool:
+        return self.test_results == EmitDirective.YES and all(
+            v == EmitDirective.NO for v in self._node_type_allow_map().values()
+        )
 
 
 class DBTCommonConfig(
@@ -877,6 +884,9 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         5. If we haven't already added the node's schema to the schema resolver, do that.
         """
 
+        if self.config.entities_enabled.is_only_test_results():
+            # If we're not emitting any other entities, so there's no need to infer schemas.
+            return
         if not self.config.infer_dbt_schemas:
             if self.config.include_column_lineage:
                 raise ConfigurationError(
@@ -951,9 +961,11 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             ):
                 schema_fields = [
                     SchemaField(
-                        fieldPath=column.name.lower()
-                        if self.config.convert_column_urns_to_lowercase
-                        else column.name,
+                        fieldPath=(
+                            column.name.lower()
+                            if self.config.convert_column_urns_to_lowercase
+                            else column.name
+                        ),
                         type=column.datahub_data_type
                         or SchemaFieldDataType(type=NullTypeClass()),
                         nativeDataType=column.data_type,
@@ -1029,17 +1041,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
             # If we didn't fetch the schema from the graph, use the inferred schema.
             inferred_schema_fields = None
-            if sql_result and sql_result.column_lineage:
-                inferred_schema_fields = [
-                    SchemaField(
-                        fieldPath=column_lineage.downstream.column,
-                        type=column_lineage.downstream.column_type
-                        or SchemaFieldDataType(type=NullTypeClass()),
-                        nativeDataType=column_lineage.downstream.native_column_type
-                        or "",
-                    )
-                    for column_lineage in sql_result.column_lineage
-                ]
+            if sql_result:
+                inferred_schema_fields = infer_output_schema(sql_result)
 
             # Conditionally add the inferred schema to the schema resolver.
             if (
@@ -1541,9 +1544,9 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     downstreams=[
                         mce_builder.make_schema_field_urn(node_urn, downstream)
                     ],
-                    confidenceScore=node.cll_debug_info.confidence
-                    if node.cll_debug_info
-                    else None,
+                    confidenceScore=(
+                        node.cll_debug_info.confidence if node.cll_debug_info else None
+                    ),
                 )
                 for downstream, upstreams in itertools.groupby(
                     node.upstream_cll, lambda x: x.downstream_col

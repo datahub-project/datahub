@@ -39,6 +39,7 @@ import {
     DataJobInputOutput,
     ParentDomainsResult,
     StructuredProperties,
+    Forms,
 } from '../../../types.generated';
 import { FetchedEntity } from '../../lineage/types';
 
@@ -119,6 +120,7 @@ export type GenericEntityProperties = {
     origin?: Maybe<FabricType>;
     browsePathV2?: Maybe<BrowsePathV2>;
     inputOutput?: Maybe<DataJobInputOutput>;
+    forms?: Maybe<Forms>;
 };
 
 export type GenericEntityUpdate = {
