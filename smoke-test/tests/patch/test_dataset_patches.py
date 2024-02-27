@@ -385,7 +385,6 @@ def test_timestamp_patch_types(wait_for_healthchecks):
             for patch_mcp in patch_method(TimeStamp(new_test_time)).build():
                 graph.emit_mcp(patch_mcp)
 
-            assert (
-                get_dataset_property(graph, dataset_urn, patch_type).time
-                == new_test_time
-            )
+            dataset_property = get_dataset_property(graph, dataset_urn, patch_type)
+            assert dataset_property
+            assert dataset_property.time == new_test_time
