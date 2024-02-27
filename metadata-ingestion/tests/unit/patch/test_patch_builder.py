@@ -1,4 +1,3 @@
-import json
 import pathlib
 
 import pytest
@@ -24,6 +23,7 @@ from datahub.metadata.schema_classes import (
 from datahub.specific.chart import ChartPatchBuilder
 from datahub.specific.dashboard import DashboardPatchBuilder
 from datahub.specific.dataset import DatasetPatchBuilder
+from tests.test_helpers import mce_helpers
 
 
 def test_basic_dataset_patch_builder():
@@ -79,7 +79,7 @@ def test_complex_dataset_patch(
                     make_schema_field_urn(
                         make_dataset_urn(
                             platform="hive",
-                            name="fct_users_created_upstream",
+                            name="fct_users_created",
                             env="PROD",
                         ),
                         field_path="foo",
@@ -118,7 +118,7 @@ def test_complex_dataset_patch(
                     make_schema_field_urn(
                         make_dataset_urn(
                             platform="hive",
-                            name="fct_users_created_upstream",
+                            name="fct_users_created",
                             env="PROD",
                         ),
                         field_path="foo",
@@ -132,10 +132,10 @@ def test_complex_dataset_patch(
     out_path = tmp_path / "patch.json"
     write_metadata_file(out_path, patcher.build())
 
-    assert json.loads(out_path.read_text()) == json.loads(
-        (
-            pytestconfig.rootpath / "tests/unit/patch/complex_dataset_patch.json"
-        ).read_text()
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        out_path,
+        pytestconfig.rootpath / "tests/unit/patch/complex_dataset_patch.json",
     )
 
 
