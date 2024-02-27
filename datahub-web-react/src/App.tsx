@@ -59,8 +59,7 @@ const client = new ApolloClient({
                     },
                 },
             },
-        },
-        // need to define possibleTypes to allow us to use Apollo cache with union types
+        }, // need to define possibleTypes to allow us to use Apollo cache with union types
         possibleTypes: possibleTypesResult.possibleTypes,
     }),
     credentials: 'include',
@@ -76,23 +75,23 @@ const client = new ApolloClient({
 
 export const InnerApp: React.VFC = () => {
     return (
-        <HelmetProvider>
-            <CustomThemeProvider>
-                <Helmet>
-                    <title>{useCustomTheme().theme?.content.title}</title>
-                </Helmet>
-                <Router>
-                    <Routes />
-                </Router>
-            </CustomThemeProvider>
-        </HelmetProvider>
+        <Router>
+            <Routes />
+        </Router>
     );
 };
 
 export const App: React.VFC = () => {
     return (
         <ApolloProvider client={client}>
-            <InnerApp />
+            <HelmetProvider>
+                <CustomThemeProvider>
+                    <Helmet>
+                        <title>{useCustomTheme().theme?.content.title}</title>
+                    </Helmet>
+                    <InnerApp />
+                </CustomThemeProvider>
+            </HelmetProvider>
         </ApolloProvider>
     );
 };
