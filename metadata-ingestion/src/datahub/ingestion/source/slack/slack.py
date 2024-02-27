@@ -170,7 +170,9 @@ class SlackSource(TestableSource):
         )
         assert isinstance(response.data, dict)
         if not response.data["ok"]:
-            logger.error("Failed to fetch public channels")
+            self.report.report_failure(
+                "public_channel", "Failed to fetch public channels"
+            )
             return result_channels, None
         for channel in response.data["channels"]:
             num_members = channel["num_members"]
@@ -186,7 +188,7 @@ class SlackSource(TestableSource):
                 if not self.config.should_ingest_archived_channels:
                     continue
                 self.report.archived_channels_reported += 1
-                print(f"Archived channel: {name}")
+                logger.info(f"Archived channel: {name}")
                 result_channels.append(
                     MetadataWorkUnit(
                         id=f"{urn_channel}-deprecation",
