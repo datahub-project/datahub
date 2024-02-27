@@ -17,11 +17,22 @@ import com.linkedin.metadata.authorization.PoliciesConfig;
 import java.time.Clock;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import javax.annotation.Nonnull;
 
 public class AuthorizationUtils {
 
   private static final Clock CLOCK = Clock.systemUTC();
+
+  /*
+  These two privileges should be logically the same for search even
+  if one might allow search but not the entity page view at some point.
+  This list should mimic the list in ESAccessControlUtil - update both places.
+*/
+  private static final Set<String> FILTER_PRIVILEGES =
+      Set.of(
+          PoliciesConfig.VIEW_ENTITY_PRIVILEGE.getType(),
+          PoliciesConfig.VIEW_ENTITY_PAGE_PRIVILEGE.getType());
 
   public static AuditStamp createAuditStamp(@Nonnull QueryContext context) {
     return new AuditStamp()
@@ -188,6 +199,19 @@ public class AuthorizationUtils {
       @Nonnull Urn entityUrn, @Nonnull List<Urn> subjectUrns, @Nonnull QueryContext context) {
     // Currently - you only need permission to edit an entity's queries to remove any query.
     return canEditEntityQueries(subjectUrns, context);
+  }
+
+  public static boolean canViewEntity(@Nonnull Urn entityUrn, @Nonnull QueryContext context) {
+    final DisjunctivePrivilegeGroup orGroup =
+        new DisjunctivePrivilegeGroup(
+            ImmutableList.of(new ConjunctivePrivilegeGroup(FILTER_PRIVILEGES)));
+
+    final Authorizer authorizer = context.getAuthorizer();
+    final String actor = context.getActorUrn();
+    final String entityType = entityUrn.getEntityType();
+    final Optional<EntitySpec> resourceSpec = Optional.of(new EntitySpec(entityType, entityUrn.toString()));
+
+    return AuthUtil.isAuthorized(authorizer, actor, resourceSpec, orGroup);
   }
 
   public static boolean isAuthorized(
