@@ -8,6 +8,7 @@ import com.datahub.authorization.EntitySpec;
 import com.datahub.plugins.Plugin;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.policy.DataHubPolicyInfo;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
@@ -60,7 +61,7 @@ public interface Authorizer extends Plugin {
   }
 
   /** Given the actor's urn retrieve the actor's groups */
-  default Set<Urn> getActorGroups(@Nonnull Urn actorUrn) {
-    return Collections.emptySet();
+  default Collection<Urn> getActorGroups(@Nonnull Urn actorUrn) {
+    return Collections.emptyList();
   }
 }

@@ -11,6 +11,7 @@ import com.linkedin.policy.DataHubPolicyInfo;
 import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -160,14 +161,14 @@ public class DataHubAuthorizer implements Authorizer {
   }
 
   @Override
-  public Set<Urn> getActorGroups(@Nonnull Urn actorUrn) {
+  public Collection<Urn> getActorGroups(@Nonnull Urn actorUrn) {
     // 1. Actor identity
     final ResolvedEntitySpec resolvedActorSpec =
         _entitySpecResolver.resolve(new EntitySpec(actorUrn.getEntityType(), actorUrn.toString()));
 
     return resolvedActorSpec.getGroupMembership().stream()
         .map(UrnUtils::getUrn)
-        .collect(Collectors.toSet());
+        .collect(Collectors.toList());
   }
 
   /**

@@ -56,7 +56,8 @@ public class PolicyFetcher {
 
             while (PolicyFetchResult.EMPTY.equals(result) && scrollId != null) {
               PolicyFetchResult tmpResult =
-                  fetchPolicies(opContext, query, count, scrollId.isEmpty() ? null : scrollId, filter);
+                  fetchPolicies(
+                      opContext, query, count, scrollId.isEmpty() ? null : scrollId, filter);
               fetchedResults += tmpResult.getPolicies().size();
               scrollId = tmpResult.getScrollId();
               if (fetchedResults > start) {
@@ -78,8 +79,7 @@ public class PolicyFetcher {
   }
 
   public PolicyFetchResult fetchPolicies(
-      OperationContext opContext, String query, int count, @Nullable String scrollId,
-      Filter filter)
+      OperationContext opContext, String query, int count, @Nullable String scrollId, Filter filter)
       throws RemoteInvocationException, URISyntaxException {
     log.debug(String.format("Batch fetching policies. count: %s, scroll: %s", count, scrollId));
 
