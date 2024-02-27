@@ -18,7 +18,6 @@ import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
-import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
@@ -128,19 +127,20 @@ public class OwnershipTypesStep implements UpgradeStep {
 
     final ScrollResult scrollResult =
         searchService.scrollAcrossEntities(
-            opContext,
+            opContext.withSearchFlags(
+                flags ->
+                    flags
+                        .setFulltext(true)
+                        .setSkipCache(true)
+                        .setSkipHighlighting(true)
+                        .setSkipAggregates(true)),
             ImmutableList.of(entityType),
             "*",
             filter,
             null,
             scrollId,
             null,
-            batchSize,
-            new SearchFlags()
-                .setFulltext(true)
-                .setSkipCache(true)
-                .setSkipHighlighting(true)
-                .setSkipAggregates(true));
+            batchSize);
 
     if (scrollResult.getNumEntities() == 0 || scrollResult.getEntities().size() == 0) {
       return null;

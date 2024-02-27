@@ -5,7 +5,6 @@ import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.browse.BrowseResultV2;
 import com.linkedin.metadata.query.AutoCompleteResult;
-import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import io.datahubproject.metadata.context.OperationContext;
@@ -34,7 +33,7 @@ public interface EntitySearchService {
    *
    * @param entityName name of the entity
    */
-  long docCount(@Nonnull String entityName, @Nullable SearchFlags searchFlags);
+  long docCount(@Nonnull OperationContext opContext, @Nonnull String entityName);
 
   /**
    * Updates or inserts the given search document.
@@ -77,7 +76,6 @@ public interface EntitySearchService {
    * @param sortCriterion {@link SortCriterion} to be applied to search results
    * @param from index to start the search from
    * @param size the number of search hits to return
-   * @param searchFlags flags controlling search options
    * @return a {@link SearchResult} that contains a list of matched documents and related search
    *     result metadata
    */
@@ -89,8 +87,7 @@ public interface EntitySearchService {
       @Nullable Filter postFilters,
       @Nullable SortCriterion sortCriterion,
       int from,
-      int size,
-      @Nullable SearchFlags searchFlags);
+      int size);
 
   /**
    * Gets a list of documents that match given search request. The results are aggregated and
@@ -107,7 +104,6 @@ public interface EntitySearchService {
    * @param sortCriterion {@link SortCriterion} to be applied to search results
    * @param from index to start the search from
    * @param size the number of search hits to return
-   * @param searchFlags flags controlling search options
    * @param facets list of facets we want aggregations for
    * @return a {@link SearchResult} that contains a list of matched documents and related search
    *     result metadata
@@ -121,7 +117,6 @@ public interface EntitySearchService {
       @Nullable SortCriterion sortCriterion,
       int from,
       int size,
-      @Nullable SearchFlags searchFlags,
       @Nullable List<String> facets);
 
   /**
@@ -141,7 +136,6 @@ public interface EntitySearchService {
       @Nonnull OperationContext opContext,
       @Nonnull String entityName,
       @Nullable Filter filters,
-      SearchFlags searchFlags,
       @Nullable SortCriterion sortCriterion,
       int from,
       int size);
@@ -166,8 +160,7 @@ public interface EntitySearchService {
       @Nonnull String query,
       @Nullable String field,
       @Nullable Filter requestParams,
-      int limit,
-      @Nullable SearchFlags searchFlags);
+      int limit);
 
   /**
    * Returns number of documents per field value given the field and filters
@@ -185,8 +178,7 @@ public interface EntitySearchService {
       @Nullable List<String> entityNames,
       @Nonnull String field,
       @Nullable Filter requestParams,
-      int limit,
-      @Nullable SearchFlags searchFlags);
+      int limit);
 
   /**
    * Gets a list of groups/entities that match given browse request.
@@ -200,12 +192,12 @@ public interface EntitySearchService {
    */
   @Nonnull
   BrowseResult browse(
+      @Nonnull OperationContext opContext,
       @Nonnull String entityName,
       @Nonnull String path,
       @Nullable Filter requestParams,
       int from,
-      int size,
-      @Nullable SearchFlags searchFlags);
+      int size);
 
   /**
    * Gets browse snapshot of a given path
@@ -216,17 +208,16 @@ public interface EntitySearchService {
    * @param input search query
    * @param start start offset of first group
    * @param count max number of results requested
-   * @param searchFlags configuration options for search
    */
   @Nonnull
-  public BrowseResultV2 browseV2(
+  BrowseResultV2 browseV2(
+      @Nonnull OperationContext opContext,
       @Nonnull String entityName,
       @Nonnull String path,
       @Nullable Filter filter,
       @Nonnull String input,
       int start,
-      int count,
-      @Nullable SearchFlags searchFlags);
+      int count);
 
   /**
    * Gets browse snapshot of a given path
@@ -237,17 +228,16 @@ public interface EntitySearchService {
    * @param input search query
    * @param start start offset of first group
    * @param count max number of results requested
-   * @param searchFlags configuration options for search
    */
   @Nonnull
   BrowseResultV2 browseV2(
+      @Nonnull OperationContext opContext,
       @Nonnull List<String> entityNames,
       @Nonnull String path,
       @Nullable Filter filter,
       @Nonnull String input,
       int start,
-      int count,
-      @Nullable SearchFlags searchFlags);
+      int count);
 
   /**
    * Gets a list of paths for a given urn.
@@ -270,7 +260,6 @@ public interface EntitySearchService {
    * @param sortCriterion {@link SortCriterion} to be applied to search results
    * @param scrollId opaque scroll identifier to pass to search service
    * @param size the number of search hits to return
-   * @param searchFlags flags controlling search options
    * @return a {@link ScrollResult} that contains a list of matched documents and related search
    *     result metadata
    */
@@ -283,8 +272,7 @@ public interface EntitySearchService {
       @Nullable SortCriterion sortCriterion,
       @Nullable String scrollId,
       @Nullable String keepAlive,
-      int size,
-      @Nullable SearchFlags searchFlags);
+      int size);
 
   /**
    * Gets a list of documents that match given search request. The results are aggregated and
@@ -297,7 +285,6 @@ public interface EntitySearchService {
    * @param sortCriterion {@link SortCriterion} to be applied to search results
    * @param scrollId opaque scroll identifier to pass to search service
    * @param size the number of search hits to return
-   * @param searchFlags flags controlling search options
    * @return a {@link ScrollResult} that contains a list of matched documents and related search
    *     result metadata
    */
@@ -310,8 +297,7 @@ public interface EntitySearchService {
       @Nullable SortCriterion sortCriterion,
       @Nullable String scrollId,
       @Nullable String keepAlive,
-      int size,
-      @Nullable SearchFlags searchFlags);
+      int size);
 
   /** Max result size returned by the underlying search backend */
   int maxResultSize();
@@ -323,7 +309,6 @@ public interface EntitySearchService {
       @Nonnull String entityName,
       @Nullable Filter postFilters,
       @Nullable SortCriterion sortCriterion,
-      @Nullable SearchFlags searchFlags,
       @Nullable String scrollId,
       @Nullable String keepAlive,
       int size,

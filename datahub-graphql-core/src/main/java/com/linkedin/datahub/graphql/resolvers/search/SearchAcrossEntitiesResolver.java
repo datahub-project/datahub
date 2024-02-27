@@ -77,7 +77,7 @@ public class SearchAcrossEntitiesResolver implements DataFetcher<CompletableFutu
 
             return UrnSearchResultsMapper.map(
                 _entityClient.searchAcrossEntities(
-                    context.getOperationContext(),
+                    context.getOperationContext().withSearchFlags(flags -> searchFlags),
                     maybeResolvedView != null
                         ? SearchUtils.intersectEntityTypes(
                             entityNames, maybeResolvedView.getDefinition().getEntityTypes())
@@ -89,7 +89,6 @@ public class SearchAcrossEntitiesResolver implements DataFetcher<CompletableFutu
                         : baseFilter,
                     start,
                     count,
-                    searchFlags,
                     sortCriterion));
           } catch (Exception e) {
             log.error(

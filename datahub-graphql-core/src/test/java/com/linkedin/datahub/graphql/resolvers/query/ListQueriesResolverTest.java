@@ -17,7 +17,6 @@ import com.linkedin.datahub.graphql.generated.QuerySource;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
@@ -26,7 +25,6 @@ import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetchingEnvironment;
-import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -63,7 +61,7 @@ public class ListQueriesResolverTest {
 
     Mockito.when(
             mockClient.search(
-                any(OperationContext.class),
+                any(),
                 Mockito.eq(Constants.QUERY_ENTITY_NAME),
                 Mockito.eq(
                     input.getQuery() == null
@@ -75,8 +73,7 @@ public class ListQueriesResolverTest {
                         .setField(ListQueriesResolver.CREATED_AT_FIELD)
                         .setOrder(SortOrder.DESCENDING)),
                 Mockito.eq(input.getStart()),
-                Mockito.eq(input.getCount()),
-                Mockito.eq(new SearchFlags().setFulltext(true).setSkipHighlighting(true))))
+                Mockito.eq(input.getCount())))
         .thenReturn(
             new SearchResult()
                 .setFrom(0)
@@ -117,13 +114,12 @@ public class ListQueriesResolverTest {
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
     Mockito.verify(mockClient, Mockito.times(0))
         .search(
-            any(OperationContext.class),
+            any(),
             Mockito.any(),
             Mockito.eq("*"),
             Mockito.anyMap(),
             Mockito.anyInt(),
-            Mockito.anyInt(),
-            Mockito.eq(new SearchFlags().setFulltext(true).setSkipHighlighting(true)));
+            Mockito.anyInt());
   }
 
   @Test
@@ -133,13 +129,12 @@ public class ListQueriesResolverTest {
     Mockito.doThrow(RemoteInvocationException.class)
         .when(mockClient)
         .search(
-            any(OperationContext.class),
+            any(),
             Mockito.any(),
             Mockito.eq(""),
             Mockito.anyMap(),
             Mockito.anyInt(),
-            Mockito.anyInt(),
-            Mockito.eq(new SearchFlags().setFulltext(true).setSkipHighlighting(true)));
+            Mockito.anyInt());
     ListQueriesResolver resolver = new ListQueriesResolver(mockClient);
 
     // Execute resolver

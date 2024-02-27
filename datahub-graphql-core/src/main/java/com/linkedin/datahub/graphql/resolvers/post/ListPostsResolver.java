@@ -11,7 +11,6 @@ import com.linkedin.datahub.graphql.generated.ListPostsResult;
 import com.linkedin.datahub.graphql.types.post.PostMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
-import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.SearchEntity;
@@ -57,14 +56,13 @@ public class ListPostsResolver implements DataFetcher<CompletableFuture<ListPost
             // First, get all Post Urns.
             final SearchResult gmsResult =
                 _entityClient.search(
-                    context.getOperationContext(),
+                    context.getOperationContext().withSearchFlags(flags -> flags.setFulltext(true)),
                     POST_ENTITY_NAME,
                     query,
                     null,
                     sortCriterion,
                     start,
-                    count,
-                    new SearchFlags().setFulltext(true));
+                    count);
 
             // Then, get and hydrate all Posts.
             final Map<Urn, EntityResponse> entities =

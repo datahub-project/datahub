@@ -111,15 +111,7 @@ public class BackfillBrowsePathsV2Step extends UpgradeStep {
 
     final ScrollResult scrollResult =
         searchService.scrollAcrossEntities(
-            opContext,
-            ImmutableList.of(entityType),
-            "*",
-            filter,
-            null,
-            scrollId,
-            "5m",
-            BATCH_SIZE,
-            null);
+            opContext, ImmutableList.of(entityType), "*", filter, null, scrollId, "5m", BATCH_SIZE);
     if (scrollResult.getNumEntities() == 0 || scrollResult.getEntities().size() == 0) {
       return null;
     }

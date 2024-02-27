@@ -45,7 +45,7 @@ public class GetInviteTokenResolverTest {
     QueryContext mockContext = getMockAllowContext();
     when(_dataFetchingEnvironment.getContext()).thenReturn(mockContext);
     when(mockContext.getAuthentication()).thenReturn(_authentication);
-    when(_inviteTokenService.getInviteToken(any(OperationContext.class), any(), eq(false)))
+    when(_inviteTokenService.getInviteToken(any(), any(), eq(false)))
         .thenReturn(INVITE_TOKEN_STRING);
 
     GetInviteTokenInput input = new GetInviteTokenInput();

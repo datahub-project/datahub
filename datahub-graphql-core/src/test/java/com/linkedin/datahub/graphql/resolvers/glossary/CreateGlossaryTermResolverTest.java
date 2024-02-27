@@ -26,7 +26,6 @@ import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetchingEnvironment;
-import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -129,7 +128,7 @@ public class CreateGlossaryTermResolverTest {
 
     Mockito.when(
             mockClient.filter(
-                any(OperationContext.class),
+                any(),
                 Mockito.eq(GLOSSARY_TERM_ENTITY_NAME),
                 Mockito.any(),
                 Mockito.eq(null),
@@ -179,7 +178,7 @@ public class CreateGlossaryTermResolverTest {
 
     Mockito.when(
             mockClient.filter(
-                any(OperationContext.class),
+                any(),
                 Mockito.eq(GLOSSARY_TERM_ENTITY_NAME),
                 Mockito.any(),
                 Mockito.eq(null),

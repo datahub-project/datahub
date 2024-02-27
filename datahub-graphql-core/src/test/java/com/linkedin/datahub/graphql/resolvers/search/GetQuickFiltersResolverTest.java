@@ -23,7 +23,6 @@ import com.linkedin.metadata.search.SearchResultMetadata;
 import com.linkedin.metadata.service.ViewService;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetchingEnvironment;
-import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletionException;
@@ -109,7 +108,7 @@ public class GetQuickFiltersResolverTest {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     Mockito.when(
             mockClient.searchAcrossEntities(
-                any(OperationContext.class),
+                any(),
                 Mockito.anyList(),
                 Mockito.anyString(),
                 Mockito.any(),
@@ -295,7 +294,7 @@ public class GetQuickFiltersResolverTest {
     EntityClient client = Mockito.mock(EntityClient.class);
     Mockito.when(
             client.searchAcrossEntities(
-                any(OperationContext.class),
+                any(),
                 Mockito.eq(entityTypes),
                 Mockito.eq(query),
                 Mockito.eq(filter),

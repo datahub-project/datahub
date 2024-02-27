@@ -96,7 +96,7 @@ public class EntitySearchAggregationCandidateSourceTest {
   public void testWhenSearchServiceReturnsEmpty() {
     Mockito.when(
             _entitySearchService.aggregateByValue(
-                any(OperationContext.class), eq(null), eq("testValue"), eq(null), anyInt(), any()))
+                any(OperationContext.class), eq(null), eq("testValue"), eq(null), anyInt()))
         .thenReturn(Collections.emptyMap());
     List<RecommendationContent> candidates =
         _valueBasedCandidateSource.getRecommendations(USER, CONTEXT);
@@ -109,7 +109,7 @@ public class EntitySearchAggregationCandidateSourceTest {
     // One result
     Mockito.when(
             _entitySearchService.aggregateByValue(
-                any(OperationContext.class), any(), eq("testValue"), eq(null), anyInt(), any()))
+                any(OperationContext.class), any(), eq("testValue"), eq(null), anyInt()))
         .thenReturn(ImmutableMap.of("value1", 1L));
     List<RecommendationContent> candidates =
         _valueBasedCandidateSource.getRecommendations(USER, CONTEXT);
@@ -132,7 +132,7 @@ public class EntitySearchAggregationCandidateSourceTest {
     // Multiple result
     Mockito.when(
             _entitySearchService.aggregateByValue(
-                any(OperationContext.class), any(), eq("testValue"), eq(null), anyInt(), any()))
+                any(OperationContext.class), any(), eq("testValue"), eq(null), anyInt()))
         .thenReturn(ImmutableMap.of("value1", 1L, "value2", 2L, "value3", 3L));
     candidates = _valueBasedCandidateSource.getRecommendations(USER, CONTEXT);
     assertEquals(candidates.size(), 2);
@@ -173,7 +173,7 @@ public class EntitySearchAggregationCandidateSourceTest {
     Urn testUrn3 = new TestEntityUrn("testUrn3", "testUrn3", "testUrn3");
     Mockito.when(
             _entitySearchService.aggregateByValue(
-                any(OperationContext.class), any(), eq("testUrn"), eq(null), anyInt(), any()))
+                any(OperationContext.class), any(), eq("testUrn"), eq(null), anyInt()))
         .thenReturn(ImmutableMap.of(testUrn1.toString(), 1L));
     List<RecommendationContent> candidates =
         _urnBasedCandidateSource.getRecommendations(USER, CONTEXT);
@@ -196,7 +196,7 @@ public class EntitySearchAggregationCandidateSourceTest {
     // Multiple result
     Mockito.when(
             _entitySearchService.aggregateByValue(
-                any(OperationContext.class), any(), eq("testUrn"), eq(null), anyInt(), any()))
+                any(OperationContext.class), any(), eq("testUrn"), eq(null), anyInt()))
         .thenReturn(
             ImmutableMap.of(
                 testUrn1.toString(), 1L, testUrn2.toString(), 2L, testUrn3.toString(), 3L));

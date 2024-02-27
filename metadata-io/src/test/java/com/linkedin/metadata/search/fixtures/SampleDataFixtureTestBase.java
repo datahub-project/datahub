@@ -29,7 +29,6 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
@@ -1504,14 +1503,14 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
                     try {
                       return getEntityClient()
                           .search(
-                              getOperationContext(),
+                              getOperationContext()
+                                  .withSearchFlags(flags -> flags.setFulltext(fulltextFlag)),
                               "dataset",
                               "*",
                               filter,
                               null,
                               0,
-                              100,
-                              new SearchFlags().setFulltext(fulltextFlag));
+                              100);
                     } catch (RemoteInvocationException e) {
                       throw new RuntimeException(e);
                     }
@@ -1971,14 +1970,14 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
     SearchResult result =
         getSearchService()
             .searchAcrossEntities(
-                getOperationContext(),
+                getOperationContext()
+                    .withSearchFlags(flags -> flags.setFulltext(true).setSkipCache(true)),
                 SEARCHABLE_ENTITIES,
                 query,
                 null,
                 criterion,
                 0,
                 100,
-                new SearchFlags().setFulltext(true).setSkipCache(true),
                 null);
     assertTrue(
         result.getEntities().size() > 2,

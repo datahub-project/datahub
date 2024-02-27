@@ -38,7 +38,6 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
-import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -95,13 +94,12 @@ public class NotebookType
     final Map<String, String> facetFilters = Collections.emptyMap();
     final SearchResult searchResult =
         _entityClient.search(
-            context.getOperationContext(),
+            context.getOperationContext().withSearchFlags(flags -> flags.setFulltext(true)),
             NOTEBOOK_ENTITY_NAME,
             query,
             facetFilters,
             start,
-            count,
-            new SearchFlags().setFulltext(true));
+            count);
     return UrnSearchResultsMapper.map(searchResult);
   }
 
@@ -135,13 +133,12 @@ public class NotebookType
         path.size() > 0 ? BROWSE_PATH_DELIMITER + String.join(BROWSE_PATH_DELIMITER, path) : "";
     final BrowseResult result =
         _entityClient.browse(
+            context.getOperationContext().withSearchFlags(flags -> flags.setFulltext(false)),
             NOTEBOOK_ENTITY_NAME,
             pathStr,
             facetFilters,
             start,
-            count,
-            context.getAuthentication(),
-            new SearchFlags().setFulltext(false));
+            count);
     return BrowseResultMapper.map(result);
   }
 

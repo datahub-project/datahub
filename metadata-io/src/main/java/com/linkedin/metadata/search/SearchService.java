@@ -4,7 +4,6 @@ import static com.linkedin.metadata.utils.SearchUtil.*;
 
 import com.codahale.metrics.Timer;
 import com.linkedin.data.template.LongMap;
-import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.cache.EntityDocCountCache;
@@ -62,7 +61,6 @@ public class SearchService {
    * @param sortCriterion {@link SortCriterion} to be applied to search results
    * @param from index to start the search from
    * @param size the number of search hits to return
-   * @param searchFlags optional set of flags to control search behavior
    * @return a {@link SearchResult} that contains a list of matched documents and related search
    *     result metadata
    */
@@ -74,8 +72,7 @@ public class SearchService {
       @Nullable Filter postFilters,
       @Nullable SortCriterion sortCriterion,
       int from,
-      int size,
-      @Nullable SearchFlags searchFlags) {
+      int size) {
     List<String> entitiesToSearch = getEntitiesToSearch(opContext, entityNames);
     if (entitiesToSearch.isEmpty()) {
       // Optimization: If the indices are all empty, return empty result
@@ -83,15 +80,7 @@ public class SearchService {
     }
     SearchResult result =
         _cachingEntitySearchService.search(
-            opContext,
-            entitiesToSearch,
-            input,
-            postFilters,
-            sortCriterion,
-            from,
-            size,
-            searchFlags,
-            null);
+            opContext, entitiesToSearch, input, postFilters, sortCriterion, from, size, null);
 
     try {
       return result
@@ -111,10 +100,9 @@ public class SearchService {
       @Nullable Filter postFilters,
       @Nullable SortCriterion sortCriterion,
       int from,
-      int size,
-      @Nullable SearchFlags searchFlags) {
+      int size) {
     return searchAcrossEntities(
-        opContext, entities, input, postFilters, sortCriterion, from, size, searchFlags, null);
+        opContext, entities, input, postFilters, sortCriterion, from, size, null);
   }
 
   /**
@@ -128,7 +116,6 @@ public class SearchService {
    * @param sortCriterion {@link SortCriterion} to be applied to search results
    * @param from index to start the search from
    * @param size the number of search hits to return
-   * @param searchFlags optional set of flags to control search behavior
    * @param facets list of facets we want aggregations for
    * @return a {@link SearchResult} that contains a list of matched documents and related search
    *     result metadata
@@ -142,7 +129,6 @@ public class SearchService {
       @Nullable SortCriterion sortCriterion,
       int from,
       int size,
-      @Nullable SearchFlags searchFlags,
       @Nullable List<String> facets) {
     log.debug(
         String.format(
@@ -167,15 +153,7 @@ public class SearchService {
     }
     SearchResult result =
         _cachingEntitySearchService.search(
-            opContext,
-            nonEmptyEntities,
-            input,
-            postFilters,
-            sortCriterion,
-            from,
-            size,
-            searchFlags,
-            facets);
+            opContext, nonEmptyEntities, input, postFilters, sortCriterion, from, size, facets);
     if (facets == null || facets.contains("entity") || facets.contains("_entityType")) {
       Optional<AggregationMetadata> entityTypeAgg =
           result.getMetadata().getAggregations().stream()
@@ -256,7 +234,6 @@ public class SearchService {
    * @param sortCriterion {@link SortCriterion} to be applied to search results
    * @param scrollId opaque scroll identifier for passing to search backend
    * @param size the number of search hits to return
-   * @param searchFlags optional set of flags to control search behavior
    * @return a {@link ScrollResult} that contains a list of matched documents and related search
    *     result metadata
    */
@@ -269,8 +246,7 @@ public class SearchService {
       @Nullable SortCriterion sortCriterion,
       @Nullable String scrollId,
       @Nullable String keepAlive,
-      int size,
-      @Nullable SearchFlags searchFlags) {
+      int size) {
     log.debug(
         String.format(
             "Searching Search documents entities: %s, input: %s, postFilters: %s, sortCriterion: %s, from: %s, size: %s",
@@ -281,15 +257,7 @@ public class SearchService {
       return getEmptyScrollResult(size);
     }
     return _cachingEntitySearchService.scroll(
-        opContext,
-        entitiesToSearch,
-        input,
-        postFilters,
-        sortCriterion,
-        scrollId,
-        keepAlive,
-        size,
-        searchFlags);
+        opContext, entitiesToSearch, input, postFilters, sortCriterion, scrollId, keepAlive, size);
   }
 
   private static SearchResult getEmptySearchResult(int from, int size) {

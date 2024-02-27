@@ -386,7 +386,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
           // This API is not used by the frontend for search bars so we default to structured
           result =
               _entitySearchService.search(opContext,
-                  List.of(entityName), input, filter, sortCriterion, start, count, searchFlags);
+                  List.of(entityName), input, filter, sortCriterion, start, count);
           return validateSearchResult(result, _entityService);
         },
         MetricRegistry.name(this.getClass(), "search"));
@@ -414,17 +414,16 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
           HttpStatus.S_401_UNAUTHORIZED, "User is unauthorized to search.");
     }
     OperationContext opContext = OperationContext.asSession(
-            systemOperationContext, _authorizer, auth, true);
+            systemOperationContext, _authorizer, auth, true)
+            .withSearchFlags(flags -> searchFlags != null ? searchFlags : new SearchFlags().setFulltext(true));
 
     List<String> entityList = entities == null ? Collections.emptyList() : Arrays.asList(entities);
     log.info("GET SEARCH RESULTS ACROSS ENTITIES for {} with query {}", entityList, input);
-    final SearchFlags finalFlags =
-        searchFlags != null ? searchFlags : new SearchFlags().setFulltext(true);
     return RestliUtil.toTask(
         () ->
             validateSearchResult(
                 _searchService.searchAcrossEntities(opContext,
-                    entityList, input, filter, sortCriterion, start, count, finalFlags),
+                    entityList, input, filter, sortCriterion, start, count),
                 _entityService),
         "searchAcrossEntities");
   }
@@ -443,7 +442,8 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       @ActionParam(PARAM_SEARCH_FLAGS) @Optional SearchFlags searchFlags) {
     Authentication auth = AuthenticationContext.getAuthentication();
     OperationContext opContext = OperationContext.asSession(
-            systemOperationContext, _authorizer, auth, true);
+            systemOperationContext, _authorizer, auth, true)
+            .withSearchFlags(flags -> searchFlags != null ? searchFlags : new SearchFlags().setFulltext(true));
 
     List<String> entityList = entities == null ? Collections.emptyList() : Arrays.asList(entities);
     log.info(
@@ -451,8 +451,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
         entityList,
         input,
         scrollId);
-    final SearchFlags finalFlags =
-        searchFlags != null ? searchFlags : new SearchFlags().setFulltext(true);
+
     return RestliUtil.toTask(
         () ->
             validateScrollResult(
@@ -464,8 +463,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
                     sortCriterion,
                     scrollId,
                     keepAlive,
-                    count,
-                    finalFlags),
+                    count),
                 _entityService),
         "scrollAcrossEntities");
   }
@@ -487,7 +485,12 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       @ActionParam(PARAM_END_TIME_MILLIS) @Optional @Nullable Long endTimeMillis,
       @Optional @Nullable @ActionParam(PARAM_SEARCH_FLAGS) SearchFlags searchFlags)
       throws URISyntaxException {
+
     Authentication auth = AuthenticationContext.getAuthentication();
+    OperationContext opContext = OperationContext.asSession(
+                    systemOperationContext, _authorizer, auth, true)
+            .withSearchFlags(flags -> searchFlags != null ? searchFlags : new SearchFlags().setFulltext(true));
+
     if (Boolean.parseBoolean(System.getenv(REST_API_AUTHORIZATION_ENABLED_ENV))
         && !isAuthorized(
             auth,
@@ -509,6 +512,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
         () ->
             validateLineageSearchResult(
                 _lineageSearchService.searchAcrossLineage(
+                        opContext,
                     urn,
                     LineageDirection.valueOf(direction),
                     entityList,
@@ -519,8 +523,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
                     start,
                     count,
                     startTimeMillis,
-                    endTimeMillis,
-                    searchFlags),
+                    endTimeMillis),
                 _entityService),
         "searchAcrossRelationships");
   }
@@ -543,6 +546,12 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       @ActionParam(PARAM_END_TIME_MILLIS) @Optional @Nullable Long endTimeMillis,
       @ActionParam(PARAM_SEARCH_FLAGS) @Optional @Nullable SearchFlags searchFlags)
       throws URISyntaxException {
+
+    Authentication auth = AuthenticationContext.getAuthentication();
+    OperationContext opContext = OperationContext.asSession(
+                    systemOperationContext, _authorizer, auth, true)
+            .withSearchFlags(flags -> searchFlags != null ? searchFlags : new SearchFlags().setSkipCache(true));
+
     Urn urn = Urn.createFromString(urnStr);
     List<String> entityList = entities == null ? Collections.emptyList() : Arrays.asList(entities);
     log.info(
@@ -551,12 +560,12 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
         direction,
         entityList,
         input);
-    final SearchFlags finalFlags =
-        searchFlags != null ? searchFlags : new SearchFlags().setSkipCache(true);
+
     return RestliUtil.toTask(
         () ->
             validateLineageScrollResult(
                 _lineageSearchService.scrollAcrossLineage(
+                        opContext,
                     urn,
                     LineageDirection.valueOf(direction),
                     entityList,
@@ -568,8 +577,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
                     keepAlive,
                     count,
                     startTimeMillis,
-                    endTimeMillis,
-                    finalFlags),
+                    endTimeMillis),
                 _entityService),
         "scrollAcrossLineage");
   }
@@ -595,14 +603,15 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
           HttpStatus.S_401_UNAUTHORIZED, "User is unauthorized to search.");
     }
     OperationContext opContext = OperationContext.asSession(
-            systemOperationContext, _authorizer, auth, true);
+            systemOperationContext, _authorizer, auth, true)
+            .withSearchFlags(flags -> new SearchFlags().setFulltext(false));
 
     log.info("GET LIST RESULTS for {} with filter {}", entityName, filter);
     return RestliUtil.toTask(
         () ->
             validateListResult(
                 toListResult(
-                    _entitySearchService.filter(opContext, entityName, filter, new SearchFlags().setFulltext(false), sortCriterion, start, count)),
+                    _entitySearchService.filter(opContext, entityName, filter, sortCriterion, start, count)),
                 _entityService),
         MetricRegistry.name(this.getClass(), "filter"));
   }
@@ -629,10 +638,11 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
           HttpStatus.S_401_UNAUTHORIZED, "User is unauthorized to search.");
     }
     OperationContext opContext = OperationContext.asSession(
-            systemOperationContext, _authorizer, auth, true);
+            systemOperationContext, _authorizer, auth, true)
+            .withSearchFlags(flags -> searchFlags != null ? searchFlags : flags);
 
     return RestliUtil.toTask(
-        () -> _entitySearchService.autoComplete(opContext, entityName, query, field, filter, limit, searchFlags),
+        () -> _entitySearchService.autoComplete(opContext, entityName, query, field, filter, limit),
         MetricRegistry.name(this.getClass(), "autocomplete"));
   }
 
@@ -657,12 +667,15 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       throw new RestLiServiceException(
           HttpStatus.S_401_UNAUTHORIZED, "User is unauthorized to search.");
     }
+    OperationContext opContext = OperationContext.asSession(
+                    systemOperationContext, _authorizer, auth, true)
+            .withSearchFlags(flags -> searchFlags != null ? searchFlags : flags);
 
     log.info("GET BROWSE RESULTS for {} at path {}", entityName, path);
     return RestliUtil.toTask(
         () ->
             validateBrowseResult(
-                _entitySearchService.browse(entityName, path, filter, start, limit, searchFlags),
+                _entitySearchService.browse(opContext, entityName, path, filter, start, limit),
                 _entityService),
         MetricRegistry.name(this.getClass(), "browse"));
   }
@@ -963,7 +976,9 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       throw new RestLiServiceException(
           HttpStatus.S_401_UNAUTHORIZED, "User is unauthorized to get entity counts.");
     }
-    return RestliUtil.toTask(() -> _entitySearchService.docCount(entityName, null));
+    OperationContext opContext = OperationContext.asSession(
+                    systemOperationContext, _authorizer, auth, true);
+    return RestliUtil.toTask(() -> _entitySearchService.docCount(opContext, entityName));
   }
 
   @Action(name = "batchGetTotalEntityCount")
@@ -1064,7 +1079,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     return RestliUtil.toTask(
         () ->
             validateSearchResult(
-                _entitySearchService.filter(opContext, entityName, filter, new SearchFlags().setFulltext(false), sortCriterion, start, count),
+                _entitySearchService.filter(opContext.withSearchFlags(flags -> flags.setFulltext(true)), entityName, filter, sortCriterion, start, count),
                 _entityService),
         MetricRegistry.name(this.getClass(), "search"));
   }

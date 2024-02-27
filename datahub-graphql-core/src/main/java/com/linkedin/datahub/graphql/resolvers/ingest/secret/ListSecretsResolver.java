@@ -17,7 +17,6 @@ import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.SearchEntity;
@@ -67,7 +66,9 @@ public class ListSecretsResolver implements DataFetcher<CompletableFuture<ListSe
               // First, get all secrets
               final SearchResult gmsResult =
                   _entityClient.search(
-                      context.getOperationContext(),
+                      context
+                          .getOperationContext()
+                          .withSearchFlags(flags -> flags.setFulltext(true)),
                       Constants.SECRETS_ENTITY_NAME,
                       query,
                       null,
@@ -75,8 +76,7 @@ public class ListSecretsResolver implements DataFetcher<CompletableFuture<ListSe
                           .setField(DOMAIN_CREATED_TIME_INDEX_FIELD_NAME)
                           .setOrder(SortOrder.DESCENDING),
                       start,
-                      count,
-                      new SearchFlags().setFulltext(true));
+                      count);
 
               // Then, resolve all secrets
               final Map<Urn, EntityResponse> entities =

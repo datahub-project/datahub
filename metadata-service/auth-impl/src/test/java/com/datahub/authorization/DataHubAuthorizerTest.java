@@ -40,7 +40,6 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.identity.GroupMembership;
 import com.linkedin.identity.RoleMembership;
 import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
@@ -169,13 +168,7 @@ public class DataHubAuthorizerTest {
             isNull(),
             any(),
             isNull(),
-            anyInt(),
-            eq(
-                new SearchFlags()
-                    .setFulltext(true)
-                    .setSkipAggregates(true)
-                    .setSkipHighlighting(true)
-                    .setSkipCache(true))))
+            anyInt()))
         .thenReturn(policySearchResult1)
         .thenReturn(policySearchResult2)
         .thenReturn(policySearchResult3)
@@ -375,8 +368,7 @@ public class DataHubAuthorizerTest {
             isNull(),
             any(),
             anyInt(),
-            anyInt(),
-            eq(new SearchFlags().setFulltext(true))))
+            anyInt()))
         .thenReturn(emptyResult);
     when(_entityClient.batchGetV2(
             eq(POLICY_ENTITY_NAME), eq(Collections.emptySet()), eq(null), any()))

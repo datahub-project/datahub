@@ -11,7 +11,6 @@ import com.linkedin.datahub.graphql.generated.ListOwnershipTypesResult;
 import com.linkedin.datahub.graphql.generated.OwnershipTypeEntity;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.SearchEntity;
@@ -60,14 +59,13 @@ public class ListOwnershipTypesResolver
 
             final SearchResult gmsResult =
                 _entityClient.search(
-                    context.getOperationContext(),
+                    context.getOperationContext().withSearchFlags(flags -> flags.setFulltext(true)),
                     Constants.OWNERSHIP_TYPE_ENTITY_NAME,
                     query,
                     buildFilter(filters, Collections.emptyList()),
                     DEFAULT_SORT_CRITERION,
                     start,
-                    count,
-                    new SearchFlags().setFulltext(true));
+                    count);
 
             final ListOwnershipTypesResult result = new ListOwnershipTypesResult();
             result.setStart(gmsResult.getFrom());

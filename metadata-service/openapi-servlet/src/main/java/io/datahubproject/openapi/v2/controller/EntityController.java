@@ -123,15 +123,14 @@ public class EntityController {
 
     ScrollResult result =
         searchService.scrollAcrossEntities(
-            opContext,
+            opContext.withSearchFlags(flags -> DEFAULT_SEARCH_FLAGS),
             List.of(entitySpec.getName()),
             query,
             null,
             sortCriterion,
             scrollId,
             null,
-            count,
-            DEFAULT_SEARCH_FLAGS);
+            count);
 
     return ResponseEntity.ok(
         GenericScrollResult.<GenericEntity>builder()

@@ -12,6 +12,7 @@ import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Function;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.Builder;
@@ -62,11 +63,19 @@ public class OperationContext {
         .build(sessionAuthentication);
   }
 
+  /**
+   * Apply a set of default flags on top of any existing search flags
+   *
+   * @param opContext
+   * @param flagDefaults
+   * @return
+   */
   public static OperationContext withSearchFlags(
-      OperationContext opContext, @Nullable SearchFlags searchFlags) {
+      OperationContext opContext, Function<SearchFlags, SearchFlags> flagDefaults) {
+
     return opContext.toBuilder()
         // update search flags for the request's session
-        .searchContext(opContext.getSearchContext().toBuilder().searchFlags(searchFlags).build())
+        .searchContext(opContext.getSearchContext().withFlagDefaults(flagDefaults))
         .build(opContext.getSessionAuthentication());
   }
 
@@ -111,8 +120,9 @@ public class OperationContext {
   @Nonnull private final AuthorizerContext authorizerContext;
   @Nonnull private final EntityRegistryContext entityRegistryContext;
 
-  public OperationContext withSearchFlags(@Nonnull SearchFlags searchFlags) {
-    return OperationContext.withSearchFlags(this, searchFlags);
+  public OperationContext withSearchFlags(
+      @Nonnull Function<SearchFlags, SearchFlags> flagDefaults) {
+    return OperationContext.withSearchFlags(this, flagDefaults);
   }
 
   public OperationContext asSession(
@@ -176,11 +186,52 @@ public class OperationContext {
    * different context components to create a single string representation of the hashcode across
    * the contexts.
    *
+   * <p>The overall context id can be comprised of one or more other contexts depending on the
+   * requirements.
+   *
    * @return id representing this context instance's unique identifier
    */
-  public String getContextId() {
+  public String getGlobalContextId() {
     return String.valueOf(
-        ImmutableSet.of(getActorContext(), getSearchContext(), getEntityRegistryContext()).stream()
+        ImmutableSet.<ContextInterface>builder()
+            .add(getOperationContextConfig())
+            .add(getAuthorizerContext())
+            .add(getActorContext())
+            .add(getSearchContext())
+            .add(getEntityRegistryContext())
+            .build()
+            .stream()
+            .map(ContextInterface::getCacheKeyComponent)
+            .filter(Optional::isPresent)
+            .mapToInt(Optional::get)
+            .sum());
+  }
+
+  // Context id specific to contexts which impact search responses
+  public String getSearchContextId() {
+    return String.valueOf(
+        ImmutableSet.<ContextInterface>builder()
+            .add(getOperationContextConfig())
+            .add(getActorContext())
+            .add(getSearchContext())
+            .add(getEntityRegistryContext())
+            .build()
+            .stream()
+            .map(ContextInterface::getCacheKeyComponent)
+            .filter(Optional::isPresent)
+            .mapToInt(Optional::get)
+            .sum());
+  }
+
+  // Context id specific to entity lookups (not search)
+  public String getEntityContextId() {
+    return String.valueOf(
+        ImmutableSet.<ContextInterface>builder()
+            .add(getOperationContextConfig())
+            .add(getActorContext())
+            .add(getEntityRegistryContext())
+            .build()
+            .stream()
             .map(ContextInterface::getCacheKeyComponent)
             .filter(Optional::isPresent)
             .mapToInt(Optional::get)

@@ -20,7 +20,6 @@ import com.linkedin.metadata.config.cache.EntityDocCountCacheConfiguration;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
-import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
@@ -152,8 +151,7 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
             indexConvention,
             getBulkProcessor(),
             1);
-    return new ElasticSearchService(
-            getOperationContext(), indexBuilders, searchDAO, browseDAO, writeDAO)
+    return new ElasticSearchService(indexBuilders, searchDAO, browseDAO, writeDAO)
         .postConstruct(aspectRetriever);
   }
 
@@ -166,25 +164,24 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
   public void testSearchService() throws Exception {
     SearchResult searchResult =
         searchService.searchAcrossEntities(
-            getOperationContext(),
+            getOperationContext()
+                .withSearchFlags(flags -> flags.setFulltext(true).setSkipCache(true)),
             ImmutableList.of(ENTITY_NAME),
             "test",
             null,
             null,
             0,
-            10,
-            new SearchFlags().setFulltext(true).setSkipCache(true));
+            10);
     assertEquals(searchResult.getNumEntities().intValue(), 0);
     searchResult =
         searchService.searchAcrossEntities(
-            getOperationContext(),
+            getOperationContext().withSearchFlags(flags -> flags.setFulltext(true)),
             ImmutableList.of(),
             "test",
             null,
             null,
             0,
-            10,
-            new SearchFlags().setFulltext(true));
+            10);
     assertEquals(searchResult.getNumEntities().intValue(), 0);
     clearCache();
 
@@ -199,14 +196,13 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
 
     searchResult =
         searchService.searchAcrossEntities(
-            getOperationContext(),
+            getOperationContext().withSearchFlags(flags -> flags.setFulltext(true)),
             ImmutableList.of(),
             "test",
             null,
             null,
             0,
-            10,
-            new SearchFlags().setFulltext(true));
+            10);
     assertEquals(searchResult.getNumEntities().intValue(), 1);
     assertEquals(searchResult.getEntities().get(0).getEntity(), urn);
     clearCache();
@@ -222,20 +218,20 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
 
     searchResult =
         searchService.searchAcrossEntities(
-            getOperationContext(),
+            getOperationContext().withSearchFlags(flags -> flags.setFulltext(true)),
             ImmutableList.of(),
             "'test2'",
             null,
             null,
             0,
-            10,
-            new SearchFlags().setFulltext(true));
+            10);
     assertEquals(searchResult.getNumEntities().intValue(), 1);
     assertEquals(searchResult.getEntities().get(0).getEntity(), urn2);
     clearCache();
 
     long docCount =
-        elasticSearchService.docCount(ENTITY_NAME, new SearchFlags().setFulltext(false));
+        elasticSearchService.docCount(
+            getOperationContext().withSearchFlags(flags -> flags.setFulltext(false)), ENTITY_NAME);
     assertEquals(docCount, 2L);
 
     elasticSearchService.deleteDocument(ENTITY_NAME, urn.toString());
@@ -243,14 +239,13 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
     syncAfterWrite(getBulkProcessor());
     searchResult =
         searchService.searchAcrossEntities(
-            getOperationContext(),
+            getOperationContext().withSearchFlags(flags -> flags.setFulltext(true)),
             ImmutableList.of(),
             "'test2'",
             null,
             null,
             0,
-            10,
-            new SearchFlags().setFulltext(true));
+            10);
     assertEquals(searchResult.getNumEntities().intValue(), 0);
   }
 
@@ -281,14 +276,13 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
 
     SearchResult searchResult =
         searchService.searchAcrossEntities(
-            getOperationContext(),
+            getOperationContext().withSearchFlags(flags -> flags.setFulltext(true)),
             ImmutableList.of(ENTITY_NAME),
             "test",
             filterWithCondition,
             null,
             0,
-            10,
-            new SearchFlags().setFulltext(true));
+            10);
 
     assertEquals(searchResult.getNumEntities().intValue(), 0);
     clearCache();
@@ -327,14 +321,13 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
 
     searchResult =
         searchService.searchAcrossEntities(
-            getOperationContext(),
+            getOperationContext().withSearchFlags(flags -> flags.setFulltext(true)),
             ImmutableList.of(),
             "test",
             filterWithCondition,
             null,
             0,
-            10,
-            new SearchFlags().setFulltext(true));
+            10);
     assertEquals(searchResult.getNumEntities().intValue(), 2);
     assertEquals(searchResult.getEntities().get(0).getEntity(), urn);
     assertEquals(searchResult.getEntities().get(1).getEntity(), urn2);
@@ -368,14 +361,13 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
 
     SearchResult searchResult =
         searchService.searchAcrossEntities(
-            getOperationContext(),
+            getOperationContext().withSearchFlags(flags -> flags.setFulltext(true)),
             ImmutableList.of(ENTITY_NAME),
             "test",
             filterWithCondition,
             null,
             0,
-            10,
-            new SearchFlags().setFulltext(true));
+            10);
 
     assertEquals(searchResult.getNumEntities().intValue(), 0);
     clearCache();
@@ -417,14 +409,13 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
 
     searchResult =
         searchService.searchAcrossEntities(
-            getOperationContext(),
+            getOperationContext().withSearchFlags(flags -> flags.setFulltext(true)),
             ImmutableList.of(),
             "test",
             filterWithCondition,
             null,
             0,
-            10,
-            new SearchFlags().setFulltext(true));
+            10);
     assertEquals(searchResult.getNumEntities().intValue(), 1);
     assertEquals(searchResult.getEntities().get(0).getEntity(), urn);
     clearCache();
@@ -449,14 +440,13 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
 
     SearchResult searchResult =
         searchService.searchAcrossEntities(
-            getOperationContext(),
+            getOperationContext().withSearchFlags(flags -> flags.setFulltext(true)),
             ImmutableList.of(ENTITY_NAME),
             "test",
             filterWithCondition,
             null,
             0,
-            10,
-            new SearchFlags().setFulltext(true));
+            10);
 
     assertEquals(searchResult.getNumEntities().intValue(), 0);
     clearCache();
@@ -498,14 +488,13 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
 
     searchResult =
         searchService.searchAcrossEntities(
-            getOperationContext(),
+            getOperationContext().withSearchFlags(flags -> flags.setFulltext(true)),
             ImmutableList.of(),
             "test",
             filterWithCondition,
             null,
             0,
-            10,
-            new SearchFlags().setFulltext(true));
+            10);
     assertEquals(searchResult.getNumEntities().intValue(), 1);
     assertEquals(searchResult.getEntities().get(0).getEntity(), urn3);
     clearCache();

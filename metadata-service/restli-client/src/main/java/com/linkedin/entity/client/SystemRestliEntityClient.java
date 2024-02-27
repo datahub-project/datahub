@@ -23,7 +23,6 @@ public class SystemRestliEntityClient extends RestliEntityClient implements Syst
       EntityClientCacheConfig cacheConfig) {
     super(restliClient, backoffPolicy, retryCount);
     this.operationContextMap = new ConcurrentHashMap<>();
-    this.operationContextMap.put(systemOperationContext.getContextId(), systemOperationContext);
     this.systemOperationContext = systemOperationContext;
     this.entityClientCache = buildEntityClientCache(SystemRestliEntityClient.class, cacheConfig);
   }

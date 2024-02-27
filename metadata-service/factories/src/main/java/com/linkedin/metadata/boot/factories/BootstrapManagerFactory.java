@@ -104,10 +104,12 @@ public class BootstrapManagerFactory {
   @Bean(name = "bootstrapManager")
   @Scope("singleton")
   @Nonnull
-  protected BootstrapManager createInstance(final OperationContext opContext) {
+  protected BootstrapManager createInstance(
+      @Qualifier("systemOperationContext") final OperationContext systemOpContext) {
     final IngestRootUserStep ingestRootUserStep = new IngestRootUserStep(_entityService);
     final IngestPoliciesStep ingestPoliciesStep =
         new IngestPoliciesStep(
+            systemOpContext,
             _entityRegistry,
             _entityService,
             _entitySearchService,
@@ -120,7 +122,7 @@ public class BootstrapManagerFactory {
         new IngestDataPlatformInstancesStep(_entityService, _migrationsDao);
     final RestoreGlossaryIndices restoreGlossaryIndicesStep =
         new RestoreGlossaryIndices(
-            opContext, _entityService, _entitySearchService, _entityRegistry);
+            systemOpContext, _entityService, _entitySearchService, _entityRegistry);
     final IndexDataPlatformsStep indexDataPlatformsStep =
         new IndexDataPlatformsStep(_entityService, _entitySearchService, _entityRegistry);
     final RestoreDbtSiblingsIndices restoreDbtSiblingsIndices =
@@ -163,7 +165,8 @@ public class BootstrapManagerFactory {
     }
 
     if (_backfillBrowsePathsV2Enabled) {
-      finalSteps.add(new BackfillBrowsePathsV2Step(opContext, _entityService, _searchService));
+      finalSteps.add(
+          new BackfillBrowsePathsV2Step(systemOpContext, _entityService, _searchService));
     }
 
     return new BootstrapManager(finalSteps);

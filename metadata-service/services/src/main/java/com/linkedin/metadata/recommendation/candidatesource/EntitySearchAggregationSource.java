@@ -76,12 +76,7 @@ public abstract class EntitySearchAggregationSource implements RecommendationSou
       @Nonnull Urn userUrn, @Nullable RecommendationRequestContext requestContext) {
     Map<String, Long> aggregationResult =
         entitySearchService.aggregateByValue(
-            opContext,
-            getEntityNames(entityRegistry),
-            getSearchFieldName(),
-            null,
-            getMaxContent(),
-            null);
+            opContext, getEntityNames(entityRegistry), getSearchFieldName(), null, getMaxContent());
 
     if (aggregationResult.isEmpty()) {
       return Collections.emptyList();

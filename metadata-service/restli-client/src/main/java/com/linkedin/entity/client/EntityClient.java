@@ -21,7 +21,6 @@ import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.ListResult;
 import com.linkedin.metadata.query.ListUrnsResult;
-import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.LineageScrollResult;
@@ -132,13 +131,12 @@ public interface EntityClient {
    */
   @Nonnull
   BrowseResult browse(
+      @Nonnull OperationContext opContext,
       @Nonnull String entityType,
       @Nonnull String path,
       @Nullable Map<String, String> requestFilters,
       int start,
-      int limit,
-      @Nonnull Authentication authentication,
-      @Nullable SearchFlags searchFlags)
+      int limit)
       throws RemoteInvocationException;
 
   /**
@@ -154,14 +152,13 @@ public interface EntityClient {
    */
   @Nonnull
   BrowseResultV2 browseV2(
+      @Nonnull OperationContext opContext,
       @Nonnull String entityName,
       @Nonnull String path,
       @Nullable Filter filter,
       @Nonnull String input,
       int start,
-      int count,
-      @Nonnull Authentication authentication,
-      @Nullable SearchFlags searchFlags)
+      int count)
       throws RemoteInvocationException;
 
   /**
@@ -177,14 +174,13 @@ public interface EntityClient {
    */
   @Nonnull
   BrowseResultV2 browseV2(
+      @Nonnull OperationContext opContext,
       @Nonnull List<String> entityNames,
       @Nonnull String path,
       @Nullable Filter filter,
       @Nonnull String input,
       int start,
-      int count,
-      @Nonnull Authentication authentication,
-      @Nullable SearchFlags searchFlags)
+      int count)
       throws RemoteInvocationException;
 
   @Deprecated
@@ -210,7 +206,6 @@ public interface EntityClient {
    * @param requestFilters search filters
    * @param start start offset for search results
    * @param count max number of search results requested
-   * @param searchFlags configuration flags for the search request
    * @return a set of search results
    * @throws RemoteInvocationException
    */
@@ -221,8 +216,7 @@ public interface EntityClient {
       @Nonnull String input,
       @Nullable Map<String, String> requestFilters,
       int start,
-      int count,
-      @Nullable SearchFlags searchFlags)
+      int count)
       throws RemoteInvocationException;
 
   /**
@@ -238,11 +232,11 @@ public interface EntityClient {
    */
   @Nonnull
   ListResult list(
+      @Nonnull OperationContext opContext,
       @Nonnull String entity,
       @Nullable Map<String, String> requestFilters,
       int start,
-      int count,
-      @Nonnull Authentication authentication)
+      int count)
       throws RemoteInvocationException;
 
   /**
@@ -253,7 +247,6 @@ public interface EntityClient {
    * @param sortCriterion sort criterion
    * @param start start offset for search results
    * @param count max number of search results requested
-   * @param searchFlags configuration flags for the search request
    * @return Snapshot key
    * @throws RemoteInvocationException
    */
@@ -265,8 +258,7 @@ public interface EntityClient {
       @Nullable Filter filter,
       SortCriterion sortCriterion,
       int start,
-      int count,
-      @Nullable SearchFlags searchFlags)
+      int count)
       throws RemoteInvocationException;
 
   /**
@@ -277,7 +269,6 @@ public interface EntityClient {
    * @param filter search filters
    * @param start start offset for search results
    * @param count max number of search results requested
-   * @param searchFlags configuration flags for the search request
    * @return Snapshot key
    * @throws RemoteInvocationException
    */
@@ -289,7 +280,6 @@ public interface EntityClient {
       @Nullable Filter filter,
       int start,
       int count,
-      @Nullable SearchFlags searchFlags,
       @Nullable SortCriterion sortCriterion)
       throws RemoteInvocationException;
 
@@ -301,7 +291,6 @@ public interface EntityClient {
    * @param filter search filters
    * @param start start offset for search results
    * @param count max number of search results requested
-   * @param searchFlags configuration flags for the search request
    * @param facets list of facets we want aggregations for
    * @return Snapshot key
    * @throws RemoteInvocationException
@@ -314,7 +303,6 @@ public interface EntityClient {
       @Nullable Filter filter,
       int start,
       int count,
-      @Nullable SearchFlags searchFlags,
       @Nullable SortCriterion sortCriterion,
       List<String> facets)
       throws RemoteInvocationException;
@@ -339,8 +327,7 @@ public interface EntityClient {
       @Nullable Filter filter,
       @Nullable String scrollId,
       @Nullable String keepAlive,
-      int count,
-      @Nullable SearchFlags searchFlags)
+      int count)
       throws RemoteInvocationException;
 
   /**
@@ -355,12 +342,12 @@ public interface EntityClient {
    * @param sortCriterion {@link SortCriterion} to be applied to search results
    * @param start index to start the search from
    * @param count the number of search hits to return
-   * @param searchFlags configuration flags for the search request
    * @return a {@link SearchResult} that contains a list of matched documents and related search
    *     result metadata
    */
   @Nonnull
   LineageSearchResult searchAcrossLineage(
+      @Nonnull OperationContext opContext,
       @Nonnull Urn sourceUrn,
       @Nonnull LineageDirection direction,
       @Nonnull List<String> entities,
@@ -369,9 +356,7 @@ public interface EntityClient {
       @Nullable Filter filter,
       @Nullable SortCriterion sortCriterion,
       int start,
-      int count,
-      @Nullable SearchFlags searchFlags,
-      @Nonnull final Authentication authentication)
+      int count)
       throws RemoteInvocationException;
 
   /**
@@ -388,13 +373,12 @@ public interface EntityClient {
    * @param count the number of search hits to return
    * @param endTimeMillis end time to filter to
    * @param startTimeMillis start time to filter from
-   * @param searchFlags configuration flags for the search request
-   * @param authentication a reference to an authentication
    * @return a {@link SearchResult} that contains a list of matched documents and related search
    *     result metadata
    */
   @Nonnull
   LineageSearchResult searchAcrossLineage(
+      @Nonnull OperationContext opContext,
       @Nonnull Urn sourceUrn,
       @Nonnull LineageDirection direction,
       @Nonnull List<String> entities,
@@ -405,9 +389,7 @@ public interface EntityClient {
       int start,
       int count,
       @Nullable final Long startTimeMillis,
-      @Nullable final Long endTimeMillis,
-      @Nullable SearchFlags searchFlags,
-      @Nonnull final Authentication authentication)
+      @Nullable final Long endTimeMillis)
       throws RemoteInvocationException;
 
   /**
@@ -430,6 +412,7 @@ public interface EntityClient {
    */
   @Nonnull
   LineageScrollResult scrollAcrossLineage(
+      @Nonnull OperationContext opContext,
       @Nonnull Urn sourceUrn,
       @Nonnull LineageDirection direction,
       @Nonnull List<String> entities,
@@ -441,9 +424,7 @@ public interface EntityClient {
       @Nonnull String keepAlive,
       int count,
       @Nullable final Long startTimeMillis,
-      @Nullable final Long endTimeMillis,
-      @Nullable SearchFlags searchFlags,
-      @Nonnull final Authentication authentication)
+      @Nullable final Long endTimeMillis)
       throws RemoteInvocationException;
 
   /**
@@ -462,7 +443,7 @@ public interface EntityClient {
 
   @Nonnull
   Map<String, Long> batchGetTotalEntityCount(
-      @Nonnull List<String> entityName, @Nonnull Authentication authentication)
+      @Nonnull OperationContext opContext, @Nonnull List<String> entityName)
       throws RemoteInvocationException;
 
   /** List all urns existing for a particular Entity type. */

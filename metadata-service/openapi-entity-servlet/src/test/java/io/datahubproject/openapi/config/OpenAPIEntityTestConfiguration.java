@@ -64,15 +64,7 @@ public class OpenAPIEntityTestConfiguration {
   public SearchService searchService() {
     SearchService searchService = mock(SearchService.class);
     when(searchService.scrollAcrossEntities(
-            any(OperationContext.class),
-            anyList(),
-            any(),
-            any(),
-            any(),
-            any(),
-            any(),
-            anyInt(),
-            any()))
+            any(OperationContext.class), anyList(), any(), any(), any(), any(), any(), anyInt()))
         .thenReturn(new ScrollResult().setEntities(new SearchEntityArray()));
 
     return searchService;

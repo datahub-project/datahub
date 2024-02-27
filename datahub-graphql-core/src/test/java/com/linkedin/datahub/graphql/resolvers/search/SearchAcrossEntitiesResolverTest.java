@@ -34,7 +34,6 @@ import com.linkedin.view.DataHubViewDefinition;
 import com.linkedin.view.DataHubViewInfo;
 import com.linkedin.view.DataHubViewType;
 import graphql.schema.DataFetchingEnvironment;
-import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletionException;
@@ -433,7 +432,7 @@ public class SearchAcrossEntitiesResolverTest {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     Mockito.when(
             mockClient.searchAcrossEntities(
-                any(OperationContext.class),
+                any(),
                 Mockito.anyList(),
                 Mockito.anyString(),
                 Mockito.any(),
@@ -482,13 +481,12 @@ public class SearchAcrossEntitiesResolverTest {
     EntityClient client = Mockito.mock(EntityClient.class);
     Mockito.when(
             client.searchAcrossEntities(
-                any(OperationContext.class),
+                any(),
                 Mockito.eq(entityTypes),
                 Mockito.eq(query),
                 Mockito.eq(filter),
                 Mockito.eq(start),
                 Mockito.eq(limit),
-                Mockito.eq(null),
                 Mockito.eq(null)))
         .thenReturn(result);
     return client;
@@ -504,13 +502,12 @@ public class SearchAcrossEntitiesResolverTest {
       throws Exception {
     Mockito.verify(mockClient, Mockito.times(1))
         .searchAcrossEntities(
-            any(OperationContext.class),
+            any(),
             Mockito.eq(entityTypes),
             Mockito.eq(query),
             Mockito.eq(filter),
             Mockito.eq(start),
             Mockito.eq(limit),
-            Mockito.eq(null),
             Mockito.eq(null));
   }
 

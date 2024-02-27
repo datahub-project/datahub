@@ -12,7 +12,6 @@ import com.linkedin.datahub.graphql.generated.ListTestsResult;
 import com.linkedin.datahub.graphql.generated.Test;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
@@ -57,13 +56,14 @@ public class ListTestsResolver implements DataFetcher<CompletableFuture<ListTest
               // First, get all group Urns.
               final SearchResult gmsResult =
                   _entityClient.search(
-                      context.getOperationContext(),
+                      context
+                          .getOperationContext()
+                          .withSearchFlags(flags -> flags.setFulltext(true)),
                       Constants.TEST_ENTITY_NAME,
                       query,
                       Collections.emptyMap(),
                       start,
-                      count,
-                      new SearchFlags().setFulltext(true));
+                      count);
 
               // Now that we have entities we can bind this to a result.
               final ListTestsResult result = new ListTestsResult();

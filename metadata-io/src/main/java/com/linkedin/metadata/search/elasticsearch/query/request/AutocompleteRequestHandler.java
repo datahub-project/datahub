@@ -13,7 +13,6 @@ import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import com.linkedin.metadata.query.AutoCompleteEntity;
 import com.linkedin.metadata.query.AutoCompleteEntityArray;
 import com.linkedin.metadata.query.AutoCompleteResult;
-import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.utils.ESUtils;
 import io.datahubproject.metadata.context.OperationContext;
@@ -90,14 +89,13 @@ public class AutocompleteRequestHandler {
       @Nonnull String input,
       @Nullable String field,
       @Nullable Filter filter,
-      int limit,
-      @Nonnull SearchFlags searchFlags) {
+      int limit) {
     SearchRequest searchRequest = new SearchRequest();
     SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
     searchSourceBuilder.size(limit);
     // apply default filters
     BoolQueryBuilder boolQueryBuilder =
-        applyDefaultSearchFilters(opContext, filter, getQuery(input, field), searchFlags);
+        applyDefaultSearchFilters(opContext, filter, getQuery(input, field));
 
     searchSourceBuilder.query(boolQueryBuilder);
     searchSourceBuilder.postFilter(

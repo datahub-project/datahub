@@ -12,7 +12,6 @@ import com.linkedin.metadata.boot.UpgradeStep;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
@@ -90,14 +89,15 @@ public class RestoreGlossaryIndices extends UpgradeStep {
       int start, AuditStamp auditStamp, AspectSpec termAspectSpec) throws Exception {
     SearchResult termsResult =
         entitySearchService.search(
-            opContext,
+            opContext.withSearchFlags(
+                flags ->
+                    flags.setFulltext(false).setSkipAggregates(true).setSkipHighlighting(true)),
             List.of(Constants.GLOSSARY_TERM_ENTITY_NAME),
             "",
             null,
             null,
             start,
-            BATCH_SIZE,
-            new SearchFlags().setFulltext(false).setSkipAggregates(true).setSkipHighlighting(true));
+            BATCH_SIZE);
     List<Urn> termUrns =
         termsResult.getEntities().stream()
             .map(SearchEntity::getEntity)
@@ -159,14 +159,15 @@ public class RestoreGlossaryIndices extends UpgradeStep {
       int start, AuditStamp auditStamp, AspectSpec nodeAspectSpec) throws Exception {
     SearchResult nodesResult =
         entitySearchService.search(
-            opContext,
+            opContext.withSearchFlags(
+                flags ->
+                    flags.setFulltext(false).setSkipAggregates(true).setSkipHighlighting(true)),
             List.of(Constants.GLOSSARY_NODE_ENTITY_NAME),
             "",
             null,
             null,
             start,
-            BATCH_SIZE,
-            new SearchFlags().setFulltext(false).setSkipAggregates(true).setSkipHighlighting(true));
+            BATCH_SIZE);
     List<Urn> nodeUrns =
         nodesResult.getEntities().stream()
             .map(SearchEntity::getEntity)

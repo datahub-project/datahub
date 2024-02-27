@@ -234,7 +234,10 @@ public class OperationsController {
       log.error("{} is not authorized to get timeseries index sizes", actorUrnStr);
       return ResponseEntity.status(HttpStatus.FORBIDDEN).body(null);
     }
-    OperationContext opContext = systemOperationContext.asSession(authorizerChain, authentication);
+    OperationContext opContext =
+        systemOperationContext
+            .asSession(authorizerChain, authentication)
+            .withSearchFlags(flags -> searchFlags);
 
     ExplainResponse response =
         searchService.explain(
@@ -244,7 +247,6 @@ public class OperationsController {
             entityName,
             filters,
             sortCriterion,
-            searchFlags,
             scrollId,
             keepAlive,
             size,

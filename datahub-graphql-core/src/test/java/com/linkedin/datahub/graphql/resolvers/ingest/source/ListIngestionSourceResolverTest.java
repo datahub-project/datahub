@@ -18,7 +18,6 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.ingestion.DataHubIngestionSourceInfo;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.key.DataHubIngestionSourceKey;
-import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
@@ -45,14 +44,13 @@ public class ListIngestionSourceResolverTest {
 
     Mockito.when(
             mockClient.search(
-                any(OperationContext.class),
+                any(),
                 Mockito.eq(Constants.INGESTION_SOURCE_ENTITY_NAME),
                 Mockito.eq(""),
                 Mockito.any(),
                 Mockito.any(),
                 Mockito.eq(0),
-                Mockito.eq(20),
-                Mockito.eq(new SearchFlags().setFulltext(true))))
+                Mockito.eq(20)))
         .thenReturn(
             new SearchResult()
                 .setFrom(0)
@@ -120,13 +118,12 @@ public class ListIngestionSourceResolverTest {
             Mockito.any(), Mockito.anySet(), Mockito.anySet(), Mockito.any(Authentication.class));
     Mockito.verify(mockClient, Mockito.times(0))
         .search(
-            any(OperationContext.class),
+            any(),
             Mockito.any(),
             Mockito.eq(""),
             Mockito.anyMap(),
             Mockito.anyInt(),
-            Mockito.anyInt(),
-            Mockito.eq(new SearchFlags().setFulltext(true)));
+            Mockito.anyInt());
   }
 
   @Test

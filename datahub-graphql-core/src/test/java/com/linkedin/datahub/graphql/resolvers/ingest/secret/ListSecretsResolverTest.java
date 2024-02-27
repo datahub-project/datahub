@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.resolvers.ingest.secret;
 
 import static com.linkedin.datahub.graphql.resolvers.ingest.IngestTestUtils.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
 import static org.testng.Assert.*;
 
 import com.datahub.authentication.Authentication;
@@ -15,7 +16,6 @@ import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
@@ -41,14 +41,13 @@ public class ListSecretsResolverTest {
 
     Mockito.when(
             mockClient.search(
-                any(OperationContext.class),
+                any(),
                 Mockito.eq(Constants.SECRETS_ENTITY_NAME),
                 Mockito.eq(""),
                 Mockito.eq(null),
                 Mockito.any(SortCriterion.class),
                 Mockito.eq(0),
-                Mockito.eq(20),
-                Mockito.eq(new SearchFlags().setFulltext(true))))
+                Mockito.eq(20)))
         .thenReturn(
             new SearchResult()
                 .setFrom(0)
@@ -103,6 +102,7 @@ public class ListSecretsResolverTest {
     QueryContext mockContext = getMockDenyContext();
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_INPUT);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+    Mockito.when(mockContext.getOperationContext()).thenReturn(mock(OperationContext.class));
 
     assertThrows(RuntimeException.class, () -> resolver.get(mockEnv).join());
     Mockito.verify(mockClient, Mockito.times(0))
@@ -110,14 +110,13 @@ public class ListSecretsResolverTest {
             Mockito.any(), Mockito.anySet(), Mockito.anySet(), Mockito.any(Authentication.class));
     Mockito.verify(mockClient, Mockito.times(0))
         .search(
-            any(OperationContext.class),
+            any(),
             Mockito.any(),
             Mockito.eq(""),
             Mockito.eq(null),
             Mockito.any(SortCriterion.class),
             Mockito.anyInt(),
-            Mockito.anyInt(),
-            Mockito.eq(new SearchFlags().setFulltext(true)));
+            Mockito.anyInt());
   }
 
   @Test

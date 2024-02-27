@@ -53,13 +53,11 @@ public interface SystemEntityClient extends EntityClient {
                       "Urns must be of the same entity type. RestliEntityClient API limitation.");
                 }
 
-                OperationContext opContext =
-                    getOperationContextMap().get(collectionKey.getContextId());
                 return batchGetV2(
                     entityName,
                     collectionKey.getUrns(),
                     collectionKey.getAspectNames(),
-                    opContext.getAuthentication());
+                    getSystemOperationContext().getAuthentication());
               } catch (RemoteInvocationException | URISyntaxException e) {
                 throw new RuntimeException(e);
               }

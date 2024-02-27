@@ -53,7 +53,7 @@ public class EntityClientCache {
                           .map(
                               a ->
                                   Key.builder()
-                                      .contextId(opContext.getContextId())
+                                      .contextId(opContext.getEntityContextId())
                                       .urn(urn)
                                       .aspectName(a)
                                       .build()))
@@ -77,7 +77,7 @@ public class EntityClientCache {
       response =
           loadFunction.apply(
               CollectionKey.builder()
-                  .contextId(opContext.getContextId())
+                  .contextId(opContext.getEntityContextId())
                   .urns(urns)
                   .aspectNames(aspectNames)
                   .build());

@@ -12,14 +12,12 @@ import com.linkedin.datahub.graphql.generated.ListOwnershipTypesInput;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.key.OwnershipTypeKey;
-import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.ownership.OwnershipTypeInfo;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetchingEnvironment;
-import io.datahubproject.metadata.context.OperationContext;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
@@ -42,14 +40,13 @@ public class ListOwnershipTypesResolverTest {
 
     Mockito.when(
             mockClient.search(
-                any(OperationContext.class),
+                any(),
                 Mockito.eq(Constants.OWNERSHIP_TYPE_ENTITY_NAME),
                 Mockito.eq(""),
                 Mockito.eq(null),
                 Mockito.any(),
                 Mockito.eq(0),
-                Mockito.eq(20),
-                Mockito.eq(new SearchFlags().setFulltext(true))))
+                Mockito.eq(20)))
         .thenReturn(
             new SearchResult()
                 .setFrom(0)
@@ -92,13 +89,12 @@ public class ListOwnershipTypesResolverTest {
             Mockito.any(), Mockito.anySet(), Mockito.anySet(), Mockito.any(Authentication.class));
     Mockito.verify(mockClient, Mockito.times(0))
         .search(
-            any(OperationContext.class),
+            any(),
             Mockito.any(),
             Mockito.eq(""),
             Mockito.anyMap(),
             Mockito.anyInt(),
-            Mockito.anyInt(),
-            Mockito.eq(new SearchFlags().setFulltext(true)));
+            Mockito.anyInt());
   }
 
   @Test

@@ -57,7 +57,8 @@ public abstract class LineageDataFixtureTestBase extends AbstractTestNGSpringCon
         "urn:li:dataset:(urn:li:dataPlatform:9cf8c96,e3859789eed1cef55288b44f016ee08290d9fd08973e565c112d8,PROD)");
 
     LineageSearchResult lineageResult =
-        lineage(getLineageService(), result.getEntities().get(0).getEntity(), 1);
+        lineage(
+            getOperationContext(), getLineageService(), result.getEntities().get(0).getEntity(), 1);
     assertEquals(lineageResult.getEntities().size(), 10);
   }
 
@@ -76,7 +77,11 @@ public abstract class LineageDataFixtureTestBase extends AbstractTestNGSpringCon
     hopsExpectedResultsStream.forEach(
         hopsExpectedResults -> {
           LineageSearchResult lineageResult =
-              lineage(getLineageService(), testUrn, hopsExpectedResults.getFirst());
+              lineage(
+                  getOperationContext(),
+                  getLineageService(),
+                  testUrn,
+                  hopsExpectedResults.getFirst());
           assertEquals(lineageResult.getEntities().size(), hopsExpectedResults.getSecond());
         });
   }

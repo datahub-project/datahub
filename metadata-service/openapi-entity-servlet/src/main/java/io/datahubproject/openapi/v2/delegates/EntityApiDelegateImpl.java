@@ -482,15 +482,14 @@ public class EntityApiDelegateImpl<I, O, S> {
 
     ScrollResult result =
         _searchService.scrollAcrossEntities(
-            opContext,
+            opContext.withSearchFlags(flags -> searchFlags),
             List.of(entitySpec.getName()),
             query,
             null,
             sortCriterion,
             scrollId,
             null,
-            count,
-            searchFlags);
+            count);
 
     String[] urns =
         result.getEntities().stream()
