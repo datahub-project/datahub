@@ -8,7 +8,7 @@ import com.google.common.collect.Streams;
 import com.linkedin.common.urn.TestEntityUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.query.SearchFlags;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.AggregationMetadataArray;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
