@@ -28,29 +28,29 @@ export const ERModelRelationPreview = ({ ermodelrelationData, baseEntityUrn, pre
         window.open(entityUrl, '_blank');
     };
     const [modalVisible, setModalVisible] = useState(false);
-    const shuffleFlag = !(prePageType === 'Dataset' && baseEntityUrn === ermodelrelationData?.properties?.datasetA?.urn);
+    const shuffleFlag = !(prePageType === 'Dataset' && baseEntityUrn === ermodelrelationData?.properties?.source?.urn);
     const table1EditableName = shuffleFlag
-        ? getDatasetName(ermodelrelationData?.properties?.datasetB)
-        : getDatasetName(ermodelrelationData?.properties?.datasetA);
+        ? getDatasetName(ermodelrelationData?.properties?.destination)
+        : getDatasetName(ermodelrelationData?.properties?.source);
     const table2EditableName = shuffleFlag
-        ? getDatasetName(ermodelrelationData?.properties?.datasetA)
-        : getDatasetName(ermodelrelationData?.properties?.datasetB);
+        ? getDatasetName(ermodelrelationData?.properties?.source)
+        : getDatasetName(ermodelrelationData?.properties?.destination);
     const table1Name =
         shuffleFlag && prePageType !== 'ERModelRelation'
-            ? ermodelrelationData?.properties?.datasetB?.name
-            : ermodelrelationData?.properties?.datasetA?.name;
+            ? ermodelrelationData?.properties?.destination?.name
+            : ermodelrelationData?.properties?.source?.name;
     const table2Name =
         shuffleFlag && prePageType !== 'ERModelRelation'
-            ? ermodelrelationData?.properties?.datasetA?.name
-            : ermodelrelationData?.properties?.datasetB?.name;
+            ? ermodelrelationData?.properties?.source?.name
+            : ermodelrelationData?.properties?.destination?.name;
     const table1Urn =
         shuffleFlag && prePageType !== 'ERModelRelation'
-            ? ermodelrelationData?.properties?.datasetB?.urn
-            : ermodelrelationData?.properties?.datasetA?.urn;
+            ? ermodelrelationData?.properties?.destination?.urn
+            : ermodelrelationData?.properties?.source?.urn;
     const table2Urn =
         shuffleFlag && prePageType !== 'ERModelRelation'
-            ? ermodelrelationData?.properties?.datasetA?.urn
-            : ermodelrelationData?.properties?.datasetB?.urn;
+            ? ermodelrelationData?.properties?.source?.urn
+            : ermodelrelationData?.properties?.destination?.urn;
     const ermodelrelationHeader = ermodelrelationData?.editableProperties?.name || ermodelrelationData?.properties?.name || '';
     function getFieldMap(): ERModelRelationRecord[] {
         const newData = [] as ERModelRelationRecord[];

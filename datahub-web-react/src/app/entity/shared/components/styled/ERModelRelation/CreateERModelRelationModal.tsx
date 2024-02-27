@@ -45,10 +45,10 @@ export const CreateERModelRelationModal = ({
     const { user } = useUserContext();
     const ownerEntityType =
         user && user.type === EntityType.CorpGroup ? OwnerEntityType.CorpGroup : OwnerEntityType.CorpUser;
-    const table1Dataset = editERModelRelation?.properties?.datasetA || table1?.dataset;
-    const table1DatasetSchema = editERModelRelation?.properties?.datasetA || table1Schema;
-    const table2Dataset = editERModelRelation?.properties?.datasetB || table2?.dataset;
-    const table2DatasetSchema = editERModelRelation?.properties?.datasetB || table2Schema?.dataset;
+    const table1Dataset = editERModelRelation?.properties?.source || table1?.dataset;
+    const table1DatasetSchema = editERModelRelation?.properties?.source || table1Schema;
+    const table2Dataset = editERModelRelation?.properties?.destination || table2?.dataset;
+    const table2DatasetSchema = editERModelRelation?.properties?.destination || table2Schema?.dataset;
 
     const [details, setDetails] = useState<string>(editERModelRelation?.editableProperties?.description || '');
     const [ermodelrelationName, setERModelRelationName] = useState<string>(
@@ -112,8 +112,8 @@ export const CreateERModelRelationModal = ({
             variables: {
                 input: {
                     properties: {
-                        dataSetA: table1Dataset?.urn || '',
-                        datasetB: table2Dataset?.urn || '',
+                        source: table1Dataset?.urn || '',
+                        destination: table2Dataset?.urn || '',
                         name: ermodelrelationName,
                         ermodelrelationFieldmapping: {
                             fieldMappings: tableData.map((r) => {
@@ -167,8 +167,8 @@ export const CreateERModelRelationModal = ({
                 urn: editERModelRelation?.urn || '',
                 input: {
                     properties: {
-                        dataSetA: table1Dataset?.urn || '',
-                        datasetB: table2Dataset?.urn || '',
+                        source: table1Dataset?.urn || '',
+                        destination: table2Dataset?.urn || '',
                         name: originalERModelRelationName || '',
                         createdBy: editERModelRelation?.properties?.createdActor?.urn || user?.urn,
                         createdAt: editERModelRelation?.properties?.createdTime || 0,

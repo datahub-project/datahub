@@ -34,7 +34,7 @@ record ERModelRelationProperties includes CustomProperties {
     "enableAutocomplete": true,
     "boostScore": 10.0
   }
-  datasetA: DatasetUrn
+  source: DatasetUrn
 
   /**
   * Second dataset in the ermodelrelation (no directionality)
@@ -48,7 +48,8 @@ record ERModelRelationProperties includes CustomProperties {
     "enableAutocomplete": true,
     "boostScore": 10.0
   }
-  datasetB: DatasetUrn
+  destination: DatasetUrn
+
 
   /**
    * ERModelRelationFieldMapping (in future we can make it an array)

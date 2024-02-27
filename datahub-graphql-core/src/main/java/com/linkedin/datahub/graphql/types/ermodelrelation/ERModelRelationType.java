@@ -215,7 +215,7 @@ public class ERModelRelationType
   }
 
   public static boolean canCreateERModelRelation(
-      @Nonnull QueryContext context, Urn datasetAUrn, Urn datasetBUrn) {
+      @Nonnull QueryContext context, Urn sourceUrn, Urn destinationUrn) {
     final ConjunctivePrivilegeGroup editPrivilegesGroup =
         new ConjunctivePrivilegeGroup(
             ImmutableList.of(PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType()));
@@ -226,20 +226,20 @@ public class ERModelRelationType
     // authorized.
     DisjunctivePrivilegeGroup orPrivilegeGroups =
         new DisjunctivePrivilegeGroup(ImmutableList.of(editPrivilegesGroup, createPrivilegesGroup));
-    boolean datasetAPrivilege =
+    boolean sourcePrivilege =
         AuthorizationUtils.isAuthorized(
             context.getAuthorizer(),
             context.getActorUrn(),
-            datasetAUrn.getEntityType(),
-            datasetAUrn.toString(),
+            sourceUrn.getEntityType(),
+            sourceUrn.toString(),
             orPrivilegeGroups);
-    boolean datasetBPrivilege =
+    boolean destinationPrivilege =
         AuthorizationUtils.isAuthorized(
             context.getAuthorizer(),
             context.getActorUrn(),
-            datasetBUrn.getEntityType(),
-            datasetBUrn.toString(),
+            destinationUrn.getEntityType(),
+            destinationUrn.toString(),
             orPrivilegeGroups);
-    return datasetAPrivilege && datasetBPrivilege;
+    return sourcePrivilege && destinationPrivilege;
   }
 }

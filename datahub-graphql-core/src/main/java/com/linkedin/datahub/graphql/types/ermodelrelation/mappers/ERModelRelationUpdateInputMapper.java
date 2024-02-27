@@ -69,13 +69,13 @@ public class ERModelRelationUpdateInputMapper
       ermodelrelationProperties.setName(inputProperties.getName());
     }
     try {
-      if (inputProperties.getDataSetA() != null) {
-        ermodelrelationProperties.setDatasetA(
-            DatasetUrn.createFromString(inputProperties.getDataSetA()));
+      if (inputProperties.getSource() != null) {
+        ermodelrelationProperties.setSource(
+            DatasetUrn.createFromString(inputProperties.getSource()));
       }
-      if (inputProperties.getDatasetB() != null) {
-        ermodelrelationProperties.setDatasetB(
-            DatasetUrn.createFromString(inputProperties.getDatasetB()));
+      if (inputProperties.getDestination() != null) {
+        ermodelrelationProperties.setDestination(
+            DatasetUrn.createFromString(inputProperties.getDestination()));
       }
     } catch (URISyntaxException e) {
       e.printStackTrace();

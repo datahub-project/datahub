@@ -333,14 +333,14 @@ type ERModelRelationProperties {
     """
     name: String!
     """
-    The urn of datasetA
+    The urn of source
     """
-    datasetA: Dataset!
+    source: Dataset!
 
     """
-    The urn of datasetB
+    The urn of destination
     """
-    datasetB: Dataset!
+    destination: Dataset!
 
     """
     The ermodelrelationFieldMappings
@@ -4859,11 +4859,11 @@ input ERModelRelationPropertiesInput {
     """
     Details about the ERModelRelation
     """
-    dataSetA: String!
+    source: String!
     """
     Details about the ERModelRelation
     """
-    datasetB: String!
+    destination: String!
     """
     Details about the ERModelRelation
     """

@@ -2091,25 +2091,25 @@ public class GmsGraphQLEngine {
             typeWiring ->
                 typeWiring
                     .dataFetcher(
-                        "datasetA",
+                        "source",
                         new LoadableTypeResolver<>(
                             datasetType,
                             (env) -> {
                               final ERModelRelationProperties ermodelrelationProperties =
                                   env.getSource();
-                              return ermodelrelationProperties.getDatasetA() != null
-                                  ? ermodelrelationProperties.getDatasetA().getUrn()
+                              return ermodelrelationProperties.getSource() != null
+                                  ? ermodelrelationProperties.getSource().getUrn()
                                   : null;
                             }))
                     .dataFetcher(
-                        "datasetB",
+                        "destination",
                         new LoadableTypeResolver<>(
                             datasetType,
                             (env) -> {
                               final ERModelRelationProperties ermodelrelationProperties =
                                   env.getSource();
-                              return ermodelrelationProperties.getDatasetB() != null
-                                  ? ermodelrelationProperties.getDatasetB().getUrn()
+                              return ermodelrelationProperties.getDestination() != null
+                                  ? ermodelrelationProperties.getDestination().getUrn()
                                   : null;
                             })))
         .type(
