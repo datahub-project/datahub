@@ -57,6 +57,11 @@ class MetadataPatchProposal:
         self.audit_header = audit_header
         self.patches = defaultdict(list)
 
+    # Json Patch quoting based on https://jsonpatch.com/#json-pointer
+    @staticmethod
+    def quote(value: str) -> str:
+        return value.replace("~", "~0").replace("/", "~1")
+
     def _add_patch(self, aspect_name: str, op: str, path: str, value: Any) -> None:
         # TODO: Validate that aspectName is a valid aspect for this entityType
         self.patches[aspect_name].append(_Patch(op, path, value))
