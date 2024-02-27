@@ -15,6 +15,7 @@ import com.linkedin.metadata.kafka.hook.form.FormAssignmentHook;
 import com.linkedin.metadata.kafka.hook.incident.IncidentsSummaryHook;
 import com.linkedin.metadata.kafka.hook.ingestion.IngestionSchedulerHook;
 import com.linkedin.metadata.kafka.hook.siblings.SiblingAssociationHook;
+import com.linkedin.metadata.kafka.hook.subscription.OwnerSubscriptionHook;
 import com.linkedin.metadata.kafka.hook.test.MetadataTestHook;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeLog;
@@ -47,7 +48,8 @@ import org.springframework.stereotype.Component;
   MetadataTestHook.class,
   AssertionsSummaryHook.class,
   IncidentsSummaryHook.class,
-  AssertionActionsHook.class
+  AssertionActionsHook.class,
+  OwnerSubscriptionHook.class
 })
 @EnableKafka
 public class MetadataChangeLogProcessor {

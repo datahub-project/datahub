@@ -4,7 +4,6 @@ import static com.linkedin.datahub.graphql.AcrylConstants.*;
 
 import com.datahub.authentication.group.GroupService;
 import com.datahub.authentication.proposal.ProposalService;
-import com.datahub.subscription.SubscriptionService;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.datahub.graphql.GmsGraphQLEngine;
 import com.linkedin.datahub.graphql.GmsGraphQLEngineArgs;
@@ -112,6 +111,7 @@ import com.linkedin.metadata.service.AssertionService;
 import com.linkedin.metadata.service.FormService;
 import com.linkedin.metadata.service.MonitorService;
 import com.linkedin.metadata.service.SettingsService;
+import com.linkedin.metadata.service.SubscriptionService;
 import com.linkedin.metadata.test.TestEngine;
 import com.linkedin.usage.UsageClient;
 import graphql.schema.idl.RuntimeWiring;

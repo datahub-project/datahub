@@ -21,6 +21,7 @@ import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.service.SubscriptionService;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.subscription.EntityChangeDetails;
 import com.linkedin.subscription.EntityChangeDetailsArray;
@@ -107,7 +108,7 @@ public class SubscriptionServiceTest {
   @BeforeMethod
   public void setup() {
     _entityClient = mock(EntityClient.class);
-    _subscriptionService = new SubscriptionService(_entityClient);
+    _subscriptionService = new SubscriptionService(_entityClient, SYSTEM_AUTHENTICATION);
   }
 
   @Test

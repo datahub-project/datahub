@@ -46,6 +46,17 @@ public class SettingsService extends BaseService {
    * Returns the settings for a particular user, or null if they do not exist yet.
    *
    * @param userUrn the urn of the user to fetch settings for
+   * @return an instance of {@link CorpUserSettings} for the specified user, or null if none exists.
+   */
+  @Nullable
+  public CorpUserSettings getCorpUserSettings(@Nonnull final Urn userUrn) {
+    return getCorpUserSettings(userUrn, this.systemAuthentication);
+  }
+
+  /**
+   * Returns the settings for a particular user, or null if they do not exist yet.
+   *
+   * @param userUrn the urn of the user to fetch settings for
    * @param authentication the current authentication
    * @return an instance of {@link CorpUserSettings} for the specified user, or null if none exists.
    */
@@ -76,6 +87,18 @@ public class SettingsService extends BaseService {
       throw new RuntimeException(
           String.format("Failed to get CorpUserSettings for user with urn %s", userUrn), e);
     }
+  }
+
+  /**
+   * Returns the settings for a particular group, or null if they do not exist yet.
+   *
+   * @param groupUrn the urn of the grouo to fetch settings for
+   * @return an instance of {@link CorpGroupSettings} for the specified group or null if none
+   *     exists.
+   */
+  @Nullable
+  public CorpGroupSettings getCorpGroupSettings(@Nonnull final Urn groupUrn) {
+    return getCorpGroupSettings(groupUrn, this.systemAuthentication);
   }
 
   /**
