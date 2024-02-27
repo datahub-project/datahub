@@ -240,6 +240,60 @@ public class AssertionsSummaryHookTest {
   }
 
   @Test(dataProvider = "assertionsSummaryProvider")
+  public void testInvokeAssertionRunEventSuccessIgnoredIfEarlier(AssertionsSummary summary)
+      throws Exception {
+    AssertionService service = mockAssertionService(summary);
+    AssertionsSummaryHook hook = new AssertionsSummaryHook(ENTITY_REGISTRY, service, true);
+    final AssertionInfo info =
+        new AssertionInfo()
+            .setType(AssertionType.DATASET)
+            .setSource(new AssertionSource().setType(AssertionSourceType.EXTERNAL));
+
+    // 1. Mock failing assertion
+    final AssertionRunEvent runEvent =
+        mockAssertionRunEventWithTSMillis(
+            TEST_ASSERTION_URN, AssertionRunStatus.COMPLETE, AssertionResultType.FAILURE, 2L);
+    final MetadataChangeLog event =
+        buildMetadataChangeLog(
+            TEST_ASSERTION_URN, ASSERTION_RUN_EVENT_ASPECT_NAME, ChangeType.UPSERT, runEvent);
+    hook.invoke(event);
+    Mockito.verify(service, Mockito.times(1)).getAssertionInfo(Mockito.eq(TEST_ASSERTION_URN));
+    Mockito.verify(service, Mockito.times(1)).getAssertionsSummary(Mockito.eq(TEST_DATASET_URN));
+    // 2. Mock succeeding assertion that's older (i.e. was back-filled)
+    final AssertionRunEvent runEvent2 =
+        mockAssertionRunEventWithTSMillis(
+            TEST_ASSERTION_URN, AssertionRunStatus.COMPLETE, AssertionResultType.SUCCESS, 1L);
+    final MetadataChangeLog event2 =
+        buildMetadataChangeLog(
+            TEST_ASSERTION_URN, ASSERTION_RUN_EVENT_ASPECT_NAME, ChangeType.UPSERT, runEvent2);
+    hook.invoke(event2);
+
+    if (summary == null) {
+      summary = new AssertionsSummary();
+    }
+
+    // Expected summary
+    AssertionsSummary expectedSummary = new AssertionsSummary(summary.data());
+    expectedSummary.setPassingAssertionDetails(
+        new AssertionSummaryDetailsArray(
+            expectedSummary.getPassingAssertionDetails().stream()
+                .filter(details -> !details.getUrn().equals(TEST_ASSERTION_URN))
+                .collect(Collectors.toList())));
+    expectedSummary.setFailingAssertionDetails(
+        new AssertionSummaryDetailsArray(
+            expectedSummary.getFailingAssertionDetails().stream()
+                .filter(details -> !details.getUrn().equals(TEST_ASSERTION_URN))
+                .collect(Collectors.toList())));
+    expectedSummary
+        .getFailingAssertionDetails()
+        .add(buildAssertionSummaryDetails(TEST_ASSERTION_URN, info, runEvent));
+
+    // Ensure we ingested a new aspect.
+    Mockito.verify(service, Mockito.times(1))
+        .updateAssertionsSummary(Mockito.eq(TEST_DATASET_URN), Mockito.eq(expectedSummary));
+  }
+
+  @Test(dataProvider = "assertionsSummaryProvider")
   public void testInvokeAssertionSoftDeleted(AssertionsSummary summary) throws Exception {
     AssertionService service = mockAssertionService(summary);
     AssertionsSummaryHook hook = new AssertionsSummaryHook(ENTITY_REGISTRY, service, true);
@@ -306,8 +360,16 @@ public class AssertionsSummaryHookTest {
 
   private AssertionRunEvent mockAssertionRunEvent(
       final Urn urn, final AssertionRunStatus status, final AssertionResultType resultType) {
+    return mockAssertionRunEventWithTSMillis(urn, status, resultType, 1L);
+  }
+
+  private AssertionRunEvent mockAssertionRunEventWithTSMillis(
+      final Urn urn,
+      final AssertionRunStatus status,
+      final AssertionResultType resultType,
+      long tsMillis) {
     AssertionRunEvent event = new AssertionRunEvent();
-    event.setTimestampMillis(1L);
+    event.setTimestampMillis(tsMillis);
     event.setAssertionUrn(urn);
     event.setStatus(status);
     event.setResult(new AssertionResult().setType(resultType).setRowCount(0L));
