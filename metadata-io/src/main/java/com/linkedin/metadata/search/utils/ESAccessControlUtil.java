@@ -59,7 +59,7 @@ public class ESAccessControlUtil {
      If search authorization is enabled AND we're also not the system performing the query
     */
     if (opContext.getOperationContextConfig().getSearchAuthorizationConfiguration().isEnabled()
-        && !opContext.getSessionActorContext().isAllowSystemAuth()
+        && !opContext.isSystemAuth()
         && !opContext.getSearchContext().isRestrictedSearch()) {
 
       BoolQueryBuilder builder = QueryBuilders.boolQuery();
@@ -68,7 +68,7 @@ public class ESAccessControlUtil {
       streamViewQueries(opContext).distinct().forEach(builder::should);
 
       if (builder.should().isEmpty()) {
-        // default deny if no filters
+        // default no filters
         return Optional.of(builder.mustNot(MATCH_ALL));
       } else if (!builder.should().contains(MATCH_ALL)) {
         // if MATCH_ALL is not present, apply filters requiring at least 1
@@ -139,7 +139,7 @@ public class ESAccessControlUtil {
                 return actorQuery;
               } else {
 
-                // No filters or criteria, deny access
+                // No filters or criteria
                 if (!policy.getResources().hasFilter()
                     || !policy.getResources().getFilter().hasCriteria()) {
                   return null;
@@ -147,7 +147,7 @@ public class ESAccessControlUtil {
 
                 PolicyMatchCriterionArray criteriaArray =
                     policy.getResources().getFilter().getCriteria();
-                // Cannot apply policy if we can't map every field, deny access
+                // Cannot apply policy if we can't map every field
                 if (!criteriaArray.stream().allMatch(criteria -> toESField(criteria).isPresent())) {
                   return null;
                 }

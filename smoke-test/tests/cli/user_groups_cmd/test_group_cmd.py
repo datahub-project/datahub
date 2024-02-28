@@ -106,6 +106,11 @@ def test_group_upsert(wait_for_healthchecks: Any) -> None:
                 "owners": [
                     {"owner": "urn:li:corpuser:user1", "type": "TECHNICAL_OWNER"}
                 ],
+                "ownerTypes": {
+                    "urn:li:ownershipType:__system__none": [
+                        "urn:li:corpuser:user1",
+                    ],
+                },
             },
             "status": {"removed": False},
         }

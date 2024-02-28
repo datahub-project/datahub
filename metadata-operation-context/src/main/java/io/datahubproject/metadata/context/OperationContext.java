@@ -97,7 +97,7 @@ public class OperationContext {
       @Nonnull IndexConvention indexConvention) {
 
     ActorContext systemActorContext =
-        ActorContext.builder().allowSystemAuth(true).authentication(systemAuthentication).build();
+        ActorContext.builder().systemAuth(true).authentication(systemAuthentication).build();
     OperationContextConfig systemConfig =
         config.toBuilder().allowSystemAuthentication(true).build();
     SearchContext systemSearchContext =
@@ -161,6 +161,16 @@ public class OperationContext {
    */
   public Collection<Urn> getActorPeers() {
     return authorizerContext.getAuthorizer().getActorPeers(sessionActorContext.getActorUrn());
+  }
+
+  /**
+   * Whether default authentication is system level
+   *
+   * @return
+   */
+  public boolean isSystemAuth() {
+    return operationContextConfig.isAllowSystemAuthentication()
+        && sessionActorContext.isSystemAuth();
   }
 
   /**
@@ -256,7 +266,7 @@ public class OperationContext {
           this.operationContextConfig,
           ActorContext.builder()
               .authentication(sessionAuthentication)
-              .allowSystemAuth(
+              .systemAuth(
                   this.systemActorContext != null
                       && this.systemActorContext.getAuthentication().equals(sessionAuthentication))
               .policyInfoSet(this.authorizerContext.getAuthorizer().getActorPolicies(actorUrn))

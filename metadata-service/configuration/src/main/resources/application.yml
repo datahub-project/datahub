@@ -46,7 +46,7 @@ authorization:
   # Enables authorization of reads, writes, and deletes on REST APIs. Defaults to false for backwards compatibility, but should become true down the road
   restApiAuthorization: ${REST_API_AUTHORIZATION_ENABLED:false}
   search:
-    enabled: ${SEARCH_AUTHORIZATION_ENABLED:true}
+    enabled: ${SEARCH_AUTHORIZATION_ENABLED:false}
     recommendations:
       # Currently limited to the actor only, see TODO: DataHubAuthorizer
       peerGroupEnabled: ${SEARCH_AUTHORIZATION_RECOMMENDATIONS_PEER_GROUP_ENABLED:true}

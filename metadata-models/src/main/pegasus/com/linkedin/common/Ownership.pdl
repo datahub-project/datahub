@@ -14,7 +14,7 @@ record Ownership {
   owners: array[Owner]
 
   /**
-   * Owners to ownership type map, populated with mutation hook.
+   * Ownership type to Owners map, populated via mutation hook.
    */
   @Searchable = {
     "/*": {

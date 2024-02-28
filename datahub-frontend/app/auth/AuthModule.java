@@ -168,7 +168,7 @@ public class AuthModule extends AbstractModule {
                                                      final ConfigurationProvider configurationProvider) {
     ActorContext systemActorContext =
             ActorContext.builder()
-                    .allowSystemAuth(true)
+                    .systemAuth(true)
                     .authentication(systemAuthentication)
                     .build();
     OperationContextConfig systemConfig = OperationContextConfig.builder()

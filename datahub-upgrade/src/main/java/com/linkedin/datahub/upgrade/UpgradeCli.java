@@ -57,11 +57,11 @@ public class UpgradeCli implements CommandLineRunner {
   private SystemUpdate systemUpdate;
 
   @Autowired(required = false)
-  @Named("systemUpdate")
+  @Named("systemUpdateBlocking")
   private SystemUpdateBlocking systemUpdateBlocking;
 
   @Autowired(required = false)
-  @Named("systemUpdate")
+  @Named("systemUpdateNonBlocking")
   private SystemUpdateNonBlocking systemUpdateNonBlocking;
 
   @Override

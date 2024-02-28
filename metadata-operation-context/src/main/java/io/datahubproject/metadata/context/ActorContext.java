@@ -17,10 +17,7 @@ import lombok.Getter;
 public class ActorContext implements ContextInterface {
 
   public static ActorContext asSystem(Authentication systemAuthentication) {
-    return ActorContext.builder()
-        .allowSystemAuth(true)
-        .authentication(systemAuthentication)
-        .build();
+    return ActorContext.builder().systemAuth(true).authentication(systemAuthentication).build();
   }
 
   public static ActorContext asSessionRestricted(
@@ -28,7 +25,7 @@ public class ActorContext implements ContextInterface {
       Set<DataHubPolicyInfo> dataHubPolicySet,
       Collection<Urn> groupMembership) {
     return ActorContext.builder()
-        .allowSystemAuth(false)
+        .systemAuth(false)
         .authentication(authentication)
         .policyInfoSet(dataHubPolicySet)
         .groupMembership(groupMembership)
@@ -38,7 +35,7 @@ public class ActorContext implements ContextInterface {
   private final Authentication authentication;
   @Builder.Default private final Set<DataHubPolicyInfo> policyInfoSet = Collections.emptySet();
   @Builder.Default private final Collection<Urn> groupMembership = Collections.emptyList();
-  private final boolean allowSystemAuth;
+  private final boolean systemAuth;
 
   public Urn getActorUrn() {
     return UrnUtils.getUrn(authentication.getActor().toUrnStr());

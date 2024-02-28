@@ -93,7 +93,8 @@ public class ESBrowseDAO {
           .setFulltext(false)
           .setSkipHighlighting(true)
           .setGetSuggestions(false)
-          .setIncludeSoftDeleted(false);
+          .setIncludeSoftDeleted(false)
+          .setIncludeRestricted(false);
 
   @Value
   private class BrowseGroupsResult {

@@ -159,7 +159,7 @@ public class MostPopularSource implements EntityRecommendationSource {
 
     if (config.isEnabled()
         && config.getRecommendations().isPeerGroupEnabled()
-        && !opContext.getSessionActorContext().isAllowSystemAuth()) {
+        && !opContext.isSystemAuth()) {
       return Optional.of(
           QueryBuilders.termsQuery(
               DataHubUsageEventConstants.ACTOR_URN + ".keyword",
