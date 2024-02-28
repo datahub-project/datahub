@@ -142,12 +142,12 @@ from datahub.metadata.schema_classes import (
     SubTypesClass,
     ViewPropertiesClass,
 )
-from datahub.utilities import config_clean
-from datahub.utilities.sqlglot_lineage import (
+from datahub.sql_parsing.sqlglot_lineage import (
     ColumnLineageInfo,
     SqlParsingResult,
     create_lineage_sql_parsed_result,
 )
+from datahub.utilities import config_clean
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -729,7 +729,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
             logger.info("Authenticated to Tableau server")
         # Note that we're not catching ConfigurationError, since we want that to throw.
         except ValueError as e:
-            self.report.report_failure(
+            self.report.failure(
                 key="tableau-login",
                 reason=str(e),
             )
@@ -737,11 +737,13 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
     def get_data_platform_instance(self) -> DataPlatformInstanceClass:
         return DataPlatformInstanceClass(
             platform=builder.make_data_platform_urn(self.platform),
-            instance=builder.make_dataplatform_instance_urn(
-                self.platform, self.config.platform_instance
-            )
-            if self.config.platform_instance
-            else None,
+            instance=(
+                builder.make_dataplatform_instance_urn(
+                    self.platform, self.config.platform_instance
+                )
+                if self.config.platform_instance
+                else None
+            ),
         )
 
     def get_connection_object_page(
@@ -808,7 +810,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                 error and (error.get(c.EXTENSIONS) or {}).get(c.SEVERITY) == c.WARNING
                 for error in errors
             ):
-                self.report.report_warning(key=connection_type, reason=f"{errors}")
+                self.report.warning(key=connection_type, reason=f"{errors}")
             else:
                 raise RuntimeError(f"Query {connection_type} error: {errors}")
 
@@ -1327,19 +1329,39 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                 if datasource.get(
                     c.TYPE_NAME
                 ) == c.EMBEDDED_DATA_SOURCE and datasource.get(c.WORKBOOK):
+                    workbook = datasource.get(c.WORKBOOK)
                     datasource_name = (
-                        f"{datasource.get(c.WORKBOOK).get(c.NAME)}/{datasource_name}"
-                        if datasource_name and datasource.get(c.WORKBOOK).get(c.NAME)
+                        f"{workbook.get(c.NAME)}/{datasource_name}"
+                        if datasource_name and workbook.get(c.NAME)
                         else None
                     )
                     logger.debug(
-                        f"Adding datasource {datasource_name}({datasource.get('id')}) to container"
+                        f"Adding datasource {datasource_name}({datasource.get('id')}) to workbook container"
                     )
                     yield from add_entity_to_container(
-                        self.gen_workbook_key(datasource[c.WORKBOOK][c.ID]),
+                        self.gen_workbook_key(workbook[c.ID]),
                         c.DATASET,
                         dataset_snapshot.urn,
                     )
+                else:
+                    project_luid = self._get_datasource_project_luid(datasource)
+                    if project_luid:
+                        logger.debug(
+                            f"Adding datasource {datasource_name}({datasource.get('id')}) to project {project_luid} container"
+                        )
+                        # TODO: Technically, we should have another layer of hierarchy with the datasource name here.
+                        # Same with the workbook name above. However, in practice most projects/workbooks have a single
+                        # datasource, so the extra nesting just gets in the way.
+                        yield from add_entity_to_container(
+                            self.gen_project_key(project_luid),
+                            c.DATASET,
+                            dataset_snapshot.urn,
+                        )
+                    else:
+                        logger.debug(
+                            f"Datasource {datasource_name}({datasource.get('id')}) project_luid not found"
+                        )
+
                 project = self._get_project_browse_path_name(datasource)
 
                 tables = csql.get(c.TABLES, [])
@@ -1371,9 +1393,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
 
             if project and datasource_name:
                 browse_paths = BrowsePathsClass(
-                    paths=[
-                        f"{self.dataset_browse_prefix}/{project}/{datasource[c.NAME]}"
-                    ]
+                    paths=[f"{self.dataset_browse_prefix}/{project}/{datasource_name}"]
                 )
                 dataset_snapshot.aspects.append(browse_paths)
             else:
@@ -2088,9 +2108,11 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
             description="",
             title=sheet.get(c.NAME) or "",
             lastModified=last_modified,
-            externalUrl=sheet_external_url
-            if self.config.ingest_external_links_for_charts
-            else None,
+            externalUrl=(
+                sheet_external_url
+                if self.config.ingest_external_links_for_charts
+                else None
+            ),
             inputs=sorted(datasource_urn),
             customProperties=self.get_custom_props_from_dict(sheet, [c.LUID]),
         )
@@ -2365,9 +2387,11 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
             title=title,
             charts=chart_urns,
             lastModified=last_modified,
-            dashboardUrl=dashboard_external_url
-            if self.config.ingest_external_links_for_dashboards
-            else None,
+            dashboardUrl=(
+                dashboard_external_url
+                if self.config.ingest_external_links_for_dashboards
+                else None
+            ),
             customProperties=self.get_custom_props_from_dict(dashboard, [c.LUID]),
         )
         dashboard_snapshot.aspects.append(dashboard_info_class)
@@ -2498,9 +2522,11 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                 name=project.name,
                 description=project.description,
                 sub_types=[c.PROJECT],
-                parent_container_key=self.gen_project_key(project.parent_id)
-                if project.parent_id
-                else None,
+                parent_container_key=(
+                    self.gen_project_key(project.parent_id)
+                    if project.parent_id
+                    else None
+                ),
             )
             if (
                 project.parent_id is not None
@@ -2547,7 +2573,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
             if self.database_tables:
                 yield from self.emit_upstream_tables()
         except MetadataQueryException as md_exception:
-            self.report.report_failure(
+            self.report.failure(
                 key="tableau-metadata",
                 reason=f"Unable to retrieve metadata from tableau. Information: {str(md_exception)}",
             )

@@ -18,8 +18,13 @@ public class ReindexDataJobViaNodesCLL implements Upgrade {
 
   private final List<UpgradeStep> _steps;
 
-  public ReindexDataJobViaNodesCLL(EntityService<?> entityService) {
-    _steps = ImmutableList.of(new ReindexDataJobViaNodesCLLStep(entityService));
+  public ReindexDataJobViaNodesCLL(
+      EntityService<?> entityService, boolean enabled, Integer batchSize) {
+    if (enabled) {
+      _steps = ImmutableList.of(new ReindexDataJobViaNodesCLLStep(entityService, batchSize));
+    } else {
+      _steps = ImmutableList.of();
+    }
   }
 
   @Override

@@ -9,6 +9,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.DoubleMap;
+import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
@@ -72,40 +73,45 @@ public class SearchRequestHandler {
           .setSkipHighlighting(false);
   private static final Map<List<EntitySpec>, SearchRequestHandler> REQUEST_HANDLER_BY_ENTITY_NAME =
       new ConcurrentHashMap<>();
-  private final List<EntitySpec> _entitySpecs;
-  private final Set<String> _defaultQueryFieldNames;
-  private final HighlightBuilder _highlights;
+  private final List<EntitySpec> entitySpecs;
+  private final Set<String> defaultQueryFieldNames;
+  private final HighlightBuilder highlights;
 
-  private final SearchConfiguration _configs;
-  private final SearchQueryBuilder _searchQueryBuilder;
-  private final AggregationQueryBuilder _aggregationQueryBuilder;
+  private final SearchConfiguration configs;
+  private final SearchQueryBuilder searchQueryBuilder;
+  private final AggregationQueryBuilder aggregationQueryBuilder;
   private final Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes;
+
+  private final AspectRetriever aspectRetriever;
 
   private SearchRequestHandler(
       @Nonnull EntitySpec entitySpec,
       @Nonnull SearchConfiguration configs,
-      @Nullable CustomSearchConfiguration customSearchConfiguration) {
-    this(ImmutableList.of(entitySpec), configs, customSearchConfiguration);
+      @Nullable CustomSearchConfiguration customSearchConfiguration,
+      @Nonnull AspectRetriever aspectRetriever) {
+    this(ImmutableList.of(entitySpec), configs, customSearchConfiguration, aspectRetriever);
   }
 
   private SearchRequestHandler(
       @Nonnull List<EntitySpec> entitySpecs,
       @Nonnull SearchConfiguration configs,
-      @Nullable CustomSearchConfiguration customSearchConfiguration) {
-    _entitySpecs = entitySpecs;
+      @Nullable CustomSearchConfiguration customSearchConfiguration,
+      @Nonnull AspectRetriever aspectRetriever) {
+    this.entitySpecs = entitySpecs;
     Map<EntitySpec, List<SearchableAnnotation>> entitySearchAnnotations =
         getSearchableAnnotations();
     List<SearchableAnnotation> annotations =
         entitySearchAnnotations.values().stream()
             .flatMap(List::stream)
             .collect(Collectors.toList());
-    _defaultQueryFieldNames = getDefaultQueryFieldNames(annotations);
-    _highlights = getHighlights();
-    _searchQueryBuilder = new SearchQueryBuilder(configs, customSearchConfiguration);
-    _aggregationQueryBuilder = new AggregationQueryBuilder(configs, entitySearchAnnotations);
-    _configs = configs;
+    defaultQueryFieldNames = getDefaultQueryFieldNames(annotations);
+    highlights = getHighlights();
+    searchQueryBuilder = new SearchQueryBuilder(configs, customSearchConfiguration);
+    aggregationQueryBuilder =
+        new AggregationQueryBuilder(configs, entitySearchAnnotations, aspectRetriever);
+    this.configs = configs;
     searchableFieldTypes =
-        _entitySpecs.stream()
+        this.entitySpecs.stream()
             .flatMap(entitySpec -> entitySpec.getSearchableFieldTypes().entrySet().stream())
             .collect(
                 Collectors.toMap(
@@ -115,28 +121,35 @@ public class SearchRequestHandler {
                       set1.addAll(set2);
                       return set1;
                     }));
+    this.aspectRetriever = aspectRetriever;
   }
 
   public static SearchRequestHandler getBuilder(
       @Nonnull EntitySpec entitySpec,
       @Nonnull SearchConfiguration configs,
-      @Nullable CustomSearchConfiguration customSearchConfiguration) {
+      @Nullable CustomSearchConfiguration customSearchConfiguration,
+      @Nonnull AspectRetriever aspectRetriever) {
     return REQUEST_HANDLER_BY_ENTITY_NAME.computeIfAbsent(
         ImmutableList.of(entitySpec),
-        k -> new SearchRequestHandler(entitySpec, configs, customSearchConfiguration));
+        k ->
+            new SearchRequestHandler(
+                entitySpec, configs, customSearchConfiguration, aspectRetriever));
   }
 
   public static SearchRequestHandler getBuilder(
       @Nonnull List<EntitySpec> entitySpecs,
       @Nonnull SearchConfiguration configs,
-      @Nullable CustomSearchConfiguration customSearchConfiguration) {
+      @Nullable CustomSearchConfiguration customSearchConfiguration,
+      @Nonnull AspectRetriever aspectRetriever) {
     return REQUEST_HANDLER_BY_ENTITY_NAME.computeIfAbsent(
         ImmutableList.copyOf(entitySpecs),
-        k -> new SearchRequestHandler(entitySpecs, configs, customSearchConfiguration));
+        k ->
+            new SearchRequestHandler(
+                entitySpecs, configs, customSearchConfiguration, aspectRetriever));
   }
 
   private Map<EntitySpec, List<SearchableAnnotation>> getSearchableAnnotations() {
-    return _entitySpecs.stream()
+    return entitySpecs.stream()
         .map(
             spec ->
                 Pair.of(
@@ -158,13 +171,15 @@ public class SearchRequestHandler {
   }
 
   public BoolQueryBuilder getFilterQuery(@Nullable Filter filter) {
-    return getFilterQuery(filter, searchableFieldTypes);
+    return getFilterQuery(filter, searchableFieldTypes, aspectRetriever);
   }
 
   public static BoolQueryBuilder getFilterQuery(
       @Nullable Filter filter,
-      Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes) {
-    BoolQueryBuilder filterQuery = ESUtils.buildFilterQuery(filter, false, searchableFieldTypes);
+      Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes,
+      @Nonnull AspectRetriever aspectRetriever) {
+    BoolQueryBuilder filterQuery =
+        ESUtils.buildFilterQuery(filter, false, searchableFieldTypes, aspectRetriever);
 
     return filterSoftDeletedByDefault(filter, filterQuery);
   }
@@ -209,12 +224,12 @@ public class SearchRequestHandler {
             .must(getQuery(input, Boolean.TRUE.equals(finalSearchFlags.isFulltext())))
             .filter(filterQuery));
     if (Boolean.FALSE.equals(finalSearchFlags.isSkipAggregates())) {
-      _aggregationQueryBuilder.getAggregations(facets).forEach(searchSourceBuilder::aggregation);
+      aggregationQueryBuilder.getAggregations(facets).forEach(searchSourceBuilder::aggregation);
     }
     if (Boolean.FALSE.equals(finalSearchFlags.isSkipHighlighting())) {
-      searchSourceBuilder.highlighter(_highlights);
+      searchSourceBuilder.highlighter(highlights);
     }
-    ESUtils.buildSortOrder(searchSourceBuilder, sortCriterion, _entitySpecs);
+    ESUtils.buildSortOrder(searchSourceBuilder, sortCriterion, entitySpecs);
 
     if (Boolean.TRUE.equals(finalSearchFlags.isGetSuggestions())) {
       ESUtils.buildNameSuggestions(searchSourceBuilder, input);
@@ -248,7 +263,8 @@ public class SearchRequestHandler {
       @Nullable String pitId,
       @Nullable String keepAlive,
       int size,
-      SearchFlags searchFlags) {
+      SearchFlags searchFlags,
+      @Nullable List<String> facets) {
     SearchRequest searchRequest = new PITAwareSearchRequest();
     SearchFlags finalSearchFlags =
         applyDefaultSearchFlags(searchFlags, input, DEFAULT_SERVICE_SEARCH_FLAGS);
@@ -265,12 +281,12 @@ public class SearchRequestHandler {
             .must(getQuery(input, Boolean.TRUE.equals(finalSearchFlags.isFulltext())))
             .filter(filterQuery));
     if (Boolean.FALSE.equals(finalSearchFlags.isSkipAggregates())) {
-      _aggregationQueryBuilder.getAggregations().forEach(searchSourceBuilder::aggregation);
+      aggregationQueryBuilder.getAggregations(facets).forEach(searchSourceBuilder::aggregation);
     }
     if (Boolean.FALSE.equals(finalSearchFlags.isSkipHighlighting())) {
-      searchSourceBuilder.highlighter(_highlights);
+      searchSourceBuilder.highlighter(highlights);
     }
-    ESUtils.buildSortOrder(searchSourceBuilder, sortCriterion, _entitySpecs);
+    ESUtils.buildSortOrder(searchSourceBuilder, sortCriterion, entitySpecs);
     searchRequest.source(searchSourceBuilder);
     log.debug("Search request is: " + searchRequest);
     searchRequest.indicesOptions(null);
@@ -297,7 +313,7 @@ public class SearchRequestHandler {
     final SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
     searchSourceBuilder.query(filterQuery);
     searchSourceBuilder.from(from).size(size);
-    ESUtils.buildSortOrder(searchSourceBuilder, sortCriterion, _entitySpecs);
+    ESUtils.buildSortOrder(searchSourceBuilder, sortCriterion, entitySpecs);
     searchRequest.source(searchSourceBuilder);
 
     return searchRequest;
@@ -328,7 +344,7 @@ public class SearchRequestHandler {
   }
 
   public QueryBuilder getQuery(@Nonnull String query, boolean fulltext) {
-    return _searchQueryBuilder.buildQuery(_entitySpecs, query, fulltext);
+    return searchQueryBuilder.buildQuery(entitySpecs, query, fulltext);
   }
 
   @VisibleForTesting
@@ -340,7 +356,7 @@ public class SearchRequestHandler {
     highlightBuilder.postTags("");
 
     // Check for each field name and any subfields
-    _defaultQueryFieldNames.stream()
+    defaultQueryFieldNames.stream()
         .flatMap(fieldName -> Stream.of(fieldName, fieldName + ".*"))
         .distinct()
         .forEach(highlightBuilder::field);
@@ -445,7 +461,7 @@ public class SearchRequestHandler {
 
   @Nonnull
   private Optional<String> getFieldName(String matchedField) {
-    return _defaultQueryFieldNames.stream().filter(matchedField::startsWith).findFirst();
+    return defaultQueryFieldNames.stream().filter(matchedField::startsWith).findFirst();
   }
 
   private Map<String, Double> extractFeatures(@Nonnull SearchHit searchHit) {
@@ -498,7 +514,7 @@ public class SearchRequestHandler {
         new SearchResultMetadata().setAggregations(new AggregationMetadataArray());
 
     final List<AggregationMetadata> aggregationMetadataList =
-        _aggregationQueryBuilder.extractAggregationMetadata(searchResponse, filter);
+        aggregationQueryBuilder.extractAggregationMetadata(searchResponse, filter);
     searchResultMetadata.setAggregations(new AggregationMetadataArray(aggregationMetadataList));
 
     final List<SearchSuggestion> searchSuggestions = extractSearchSuggestions(searchResponse);

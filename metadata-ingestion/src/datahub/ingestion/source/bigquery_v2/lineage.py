@@ -59,14 +59,11 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
 )
 from datahub.specific.dataset import DatasetPatchBuilder
+from datahub.sql_parsing.schema_resolver import SchemaResolver
+from datahub.sql_parsing.sqlglot_lineage import SqlParsingResult, sqlglot_lineage
 from datahub.utilities import memory_footprint
 from datahub.utilities.file_backed_collections import FileBackedDict
 from datahub.utilities.perf_timer import PerfTimer
-from datahub.utilities.sqlglot_lineage import (
-    SchemaResolver,
-    SqlParsingResult,
-    sqlglot_lineage,
-)
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -255,8 +252,9 @@ class BigqueryLineageExtractor:
             return self.config.start_time, self.config.end_time
 
     def error(self, log: logging.Logger, key: str, reason: str) -> None:
-        self.report.report_warning(key, reason)
-        log.error(f"{key} => {reason}")
+        # TODO: Remove this method.
+        # Note that this downgrades the error to a warning.
+        self.report.warning(key, reason)
 
     def _should_ingest_lineage(self) -> bool:
         if (

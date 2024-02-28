@@ -34,8 +34,8 @@ from datahub.metadata.schema_classes import (
     OperationClass,
     TimeWindowSizeClass,
 )
+from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.testing.compare_metadata_json import diff_metadata_json
-from datahub.utilities.sqlglot_lineage import SchemaResolver
 from tests.performance.bigquery.bigquery_events import generate_events, ref_from_table
 from tests.performance.data_generation import generate_data, generate_queries
 from tests.performance.data_model import Container, FieldAccess, Query, Table, View
@@ -922,12 +922,16 @@ def test_operational_stats(
                 timestampMillis=int(FROZEN_TIME.timestamp() * 1000),
                 lastUpdatedTimestamp=int(query.timestamp.timestamp() * 1000),
                 actor=f"urn:li:corpuser:{query.actor.split('@')[0]}",
-                operationType=query.type
-                if query.type in OPERATION_STATEMENT_TYPES.values()
-                else "CUSTOM",
-                customOperationType=None
-                if query.type in OPERATION_STATEMENT_TYPES.values()
-                else query.type,
+                operationType=(
+                    query.type
+                    if query.type in OPERATION_STATEMENT_TYPES.values()
+                    else "CUSTOM"
+                ),
+                customOperationType=(
+                    None
+                    if query.type in OPERATION_STATEMENT_TYPES.values()
+                    else query.type
+                ),
                 affectedDatasets=list(
                     dict.fromkeys(  # Preserve order
                         BigQueryTableRef.from_string_name(

@@ -6,7 +6,7 @@ from typing import Dict, Iterable, List, Optional, Tuple, Union
 import dateutil.parser as dp
 import pydantic
 import requests
-from pydantic import Field, validator
+from pydantic import Field, root_validator, validator
 from requests.models import HTTPError
 
 import datahub.emitter.mce_builder as builder
@@ -41,8 +41,8 @@ from datahub.metadata.schema_classes import (
     OwnershipClass,
     OwnershipTypeClass,
 )
+from datahub.sql_parsing.sqlglot_lineage import create_lineage_sql_parsed_result
 from datahub.utilities import config_clean
-from datahub.utilities.sqlglot_lineage import create_lineage_sql_parsed_result
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +53,10 @@ class MetabaseConfig(DatasetLineageProviderConfigBase):
     # See the Metabase /api/session endpoint for details
     # https://www.metabase.com/docs/latest/api-documentation.html#post-apisession
     connect_uri: str = Field(default="localhost:3000", description="Metabase host URL.")
+    display_uri: Optional[str] = Field(
+        default=None,
+        description="optional URL to use in links (if `connect_uri` is only for ingestion)",
+    )
     username: Optional[str] = Field(default=None, description="Metabase username.")
     password: Optional[pydantic.SecretStr] = Field(
         default=None, description="Metabase password."
@@ -76,9 +80,16 @@ class MetabaseConfig(DatasetLineageProviderConfigBase):
         description="Default schema name to use when schema is not provided in an SQL query",
     )
 
-    @validator("connect_uri")
+    @validator("connect_uri", "display_uri")
     def remove_trailing_slash(cls, v):
         return config_clean.remove_trailing_slashes(v)
+
+    @root_validator(skip_on_failure=True)
+    def default_display_uri_to_connect_uri(cls, values):
+        base = values.get("display_uri")
+        if base is None:
+            values["display_uri"] = values.get("connect_uri")
+        return values
 
 
 @platform_name("Metabase")
@@ -149,9 +160,11 @@ class MetabaseSource(Source):
             None,
             {
                 "username": self.config.username,
-                "password": self.config.password.get_secret_value()
-                if self.config.password
-                else None,
+                "password": (
+                    self.config.password.get_secret_value()
+                    if self.config.password
+                    else None
+                ),
             },
         )
 
@@ -239,7 +252,7 @@ class MetabaseSource(Source):
         self, dashboard_info: dict
     ) -> Optional[DashboardSnapshot]:
         dashboard_id = dashboard_info.get("id", "")
-        dashboard_url = f"{self.config.connect_uri}/api/dashboard/{dashboard_id}"
+        dashboard_url = f"{self.config.display_uri}/api/dashboard/{dashboard_id}"
         try:
             dashboard_response = self.session.get(dashboard_url)
             dashboard_response.raise_for_status()
@@ -297,7 +310,7 @@ class MetabaseSource(Source):
 
     @lru_cache(maxsize=None)
     def _get_ownership(self, creator_id: int) -> Optional[OwnershipClass]:
-        user_info_url = f"{self.config.connect_uri}/api/user/{creator_id}"
+        user_info_url = f"{self.config.display_uri}/api/user/{creator_id}"
         try:
             user_info_response = self.session.get(user_info_url)
             user_info_response.raise_for_status()
@@ -362,7 +375,7 @@ class MetabaseSource(Source):
         :param int datasource_id: Numeric datasource ID received from Metabase API
         :return: dict with info or empty dict
         """
-        card_url = f"{self.config.connect_uri}/api/card/{card_id}"
+        card_url = f"{self.config.display_uri}/api/card/{card_id}"
         try:
             card_response = self.session.get(card_url)
             card_response.raise_for_status()
@@ -482,9 +495,11 @@ class MetabaseSource(Source):
         metrics, dimensions = [], []
         for meta_data in result_metadata:
             display_name = meta_data.get("display_name", "") or ""
-            metrics.append(display_name) if "aggregation" in meta_data.get(
-                "field_ref", ""
-            ) else dimensions.append(display_name)
+            (
+                metrics.append(display_name)
+                if "aggregation" in meta_data.get("field_ref", "")
+                else dimensions.append(display_name)
+            )
 
         filters = (card_details.get("dataset_query", {}).get("query", {})).get(
             "filter", []

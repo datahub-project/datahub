@@ -65,6 +65,7 @@
         "react-helmet-async": "^1.3.0",
         "react-highlighter": "^0.4.3",
         "react-icons": "4.3.1",
+        "react-intersection-observer": "^9.5.3",
         "react-js-cron": "^2.1.0",
         "react-router": "^5.3",
         "react-router-dom": "^5.3",
@@ -87,8 +88,10 @@
         "build": "yarn run generate && NODE_OPTIONS='--max-old-space-size=3072 --openssl-legacy-provider' CI=false vite build",
         "test": "vitest",
         "generate": "graphql-codegen --config codegen.yml",
-        "lint": "eslint . --ext .ts,.tsx --quiet",
-        "lint-fix": "eslint '*/**/*.{ts,tsx}' --quiet --fix"
+        "lint": "eslint . --ext .ts,.tsx --quiet && yarn type-check",
+        "lint-fix": "eslint '*/**/*.{ts,tsx}' --quiet --fix",
+        "type-check": "tsc --noEmit -p tsconfig.test.json",
+        "type-watch": "tsc -w --noEmit -p tsconfig.test.json"
     },
     "browserslist": {
         "production": [

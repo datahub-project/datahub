@@ -26,7 +26,7 @@ task environmentSetup(type: Exec, dependsOn: checkPythonVersion) {
   outputs.file(sentinel_file)
   commandLine 'bash', '-c',
     "${python_executable} -m venv ${venv_name} && " +
-    "${venv_name}/bin/python -m pip install --upgrade pip wheel 'setuptools>=63.0.0' && " +
+    "${venv_name}/bin/python -m pip install --upgrade pip uv wheel 'setuptools>=63.0.0' && " +
     "touch ${sentinel_file}"
 }
 
@@ -43,7 +43,8 @@ task installPackageOnly(type: Exec, dependsOn: runPreFlightScript) {
   inputs.file file('setup.py')
   outputs.file(sentinel_file)
   commandLine 'bash', '-x', '-c',
-    "${venv_name}/bin/pip install -e . &&" +
+    "source ${venv_name}/bin/activate && " +
+    "uv pip install -e . &&" +
     "touch ${sentinel_file}"
 }
 
@@ -52,7 +53,8 @@ task installPackage(type: Exec, dependsOn: installPackageOnly) {
   inputs.file file('setup.py')
   outputs.file(sentinel_file)
   commandLine 'bash', '-x', '-c',
-    "${venv_name}/bin/pip install -e . ${extra_pip_requirements} && " +
+    "source ${venv_name}/bin/activate && " +
+    "uv pip install -e . ${extra_pip_requirements} && " +
     "touch ${sentinel_file}"
 }
 
@@ -70,7 +72,7 @@ task customPackageGenerate(type: Exec, dependsOn: [environmentSetup, installPack
   def package_version = project.findProperty('package_version')
   commandLine 'bash', '-c',
     "source ${venv_name}/bin/activate && " +
-    "pip install build && " +
+    "uv pip install build && " +
     "./scripts/custom_package_codegen.sh '${package_name}' '${package_version}'"
 }
 
@@ -82,7 +84,7 @@ task installDev(type: Exec, dependsOn: [install]) {
   outputs.file(sentinel_file)
   commandLine 'bash', '-c',
     "source ${venv_name}/bin/activate && set -x && " +
-    "${venv_name}/bin/pip install -e .[dev] ${extra_pip_requirements} && " +
+    "uv pip install -e .[dev] ${extra_pip_requirements} && " +
     "touch ${sentinel_file}"
 }
 
@@ -92,7 +94,7 @@ task installAll(type: Exec, dependsOn: [install]) {
   outputs.file(sentinel_file)
   commandLine 'bash', '-c',
     "source ${venv_name}/bin/activate && set -x && " +
-    "${venv_name}/bin/pip install -e .[all] ${extra_pip_requirements} && " +
+    "uv pip install -e .[all] ${extra_pip_requirements} && " +
     "touch ${sentinel_file}"
 }
 
@@ -142,7 +144,8 @@ task testQuick(type: Exec, dependsOn: [installDev, ':metadata-models:generateJso
   outputs.dir("${venv_name}")
   def cvg_arg = get_coverage_arg("quick")
   commandLine 'bash', '-c',
-    "source ${venv_name}/bin/activate && pytest ${cvg_arg} tests/unit --durations=20 -m 'not integration' -vv --continue-on-collection-errors --junit-xml=junit.quick.xml"
+    "source ${venv_name}/bin/activate && set -x && " +
+    "pytest ${cvg_arg} tests/unit --random-order --durations=20 -m 'not integration' -vv --continue-on-collection-errors --junit-xml=junit.quick.xml"
 }
 
 task installDevTest(type: Exec, dependsOn: [install]) {
@@ -151,7 +154,9 @@ task installDevTest(type: Exec, dependsOn: [install]) {
   outputs.dir("${venv_name}")
   outputs.file(sentinel_file)
   commandLine 'bash', '-c',
-    "${venv_name}/bin/pip install -e .[dev,integration-tests] ${extra_pip_requirements} && touch ${sentinel_file}"
+    "source ${venv_name}/bin/activate && set -x && " +
+    "uv pip install -e .[dev,integration-tests] ${extra_pip_requirements} && " +
+    "touch ${sentinel_file}"
 }
 
 def testFile = hasProperty('testFile') ? testFile : 'unknown'
@@ -171,22 +176,26 @@ task testSingle(dependsOn: [installDevTest]) {
 task testIntegrationBatch0(type: Exec, dependsOn: [installDevTest]) {
   def cvg_arg = get_coverage_arg("intBatch0")
   commandLine 'bash', '-c',
-    "source ${venv_name}/bin/activate && pytest ${cvg_arg} --durations=50 -m 'integration_batch_0' -vv --continue-on-collection-errors --junit-xml=junit.integrationbatch0.xml"
+    "source ${venv_name}/bin/activate && set -x && " +
+    "pytest ${cvg_arg} --durations=50 -m 'integration_batch_0' -vv --continue-on-collection-errors --junit-xml=junit.integrationbatch0.xml"
 }
 task testIntegrationBatch1(type: Exec, dependsOn: [installDevTest]) {
   def cvg_arg = get_coverage_arg("intBatch1")
   commandLine 'bash', '-c',
-    "source ${venv_name}/bin/activate && pytest ${cvg_arg} --durations=50 -m 'integration_batch_1' -vv --continue-on-collection-errors --junit-xml=junit.integrationbatch1.xml"
+    "source ${venv_name}/bin/activate && set -x && " +
+    "pytest ${cvg_arg} --durations=50 -m 'integration_batch_1' -vv --continue-on-collection-errors --junit-xml=junit.integrationbatch1.xml"
 }
 task testIntegrationBatch2(type: Exec, dependsOn: [installDevTest]) {
   def cvg_arg = get_coverage_arg("intBatch2")
   commandLine 'bash', '-c',
-    "source ${venv_name}/bin/activate && pytest ${cvg_arg} --durations=20 -m 'integration_batch_2' -vv --continue-on-collection-errors --junit-xml=junit.integrationbatch2.xml"
+    "source ${venv_name}/bin/activate && set -x && " +
+    "pytest ${cvg_arg} --durations=20 -m 'integration_batch_2' -vv --continue-on-collection-errors --junit-xml=junit.integrationbatch2.xml"
 }
 
 task testFull(type: Exec, dependsOn: [installDevTest]) {
   commandLine 'bash', '-c',
-    "source ${venv_name}/bin/activate && pytest --durations=50 -vv --continue-on-collection-errors --junit-xml=junit.full.xml"
+    "source ${venv_name}/bin/activate && set -x && " +
+    "pytest --durations=50 -vv --continue-on-collection-errors --junit-xml=junit.full.xml"
 }
 
 task specGen(type: Exec, dependsOn: [codegen, installDevTest]) {
@@ -203,7 +212,7 @@ task cleanPythonCache(type: Exec) {
     "find src tests -type f -name '*.py[co]' -delete -o -type d -name __pycache__ -delete -o -type d -empty -delete"
 }
 task buildWheel(type: Exec, dependsOn: [install, codegen, cleanPythonCache]) {
-  commandLine 'bash', '-c', "source ${venv_name}/bin/activate && " + 'pip install build && RELEASE_VERSION="\${RELEASE_VERSION:-0.0.0.dev1}" RELEASE_SKIP_TEST=1 RELEASE_SKIP_UPLOAD=1 ./scripts/release.sh'
+  commandLine 'bash', '-c', "source ${venv_name}/bin/activate && " + 'uv pip install build && RELEASE_VERSION="\${RELEASE_VERSION:-0.0.0.dev1}" RELEASE_SKIP_TEST=1 RELEASE_SKIP_UPLOAD=1 ./scripts/release.sh'
 }
 
 build.dependsOn install

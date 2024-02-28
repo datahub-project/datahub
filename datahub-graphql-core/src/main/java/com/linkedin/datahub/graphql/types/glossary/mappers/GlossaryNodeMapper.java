@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.types.glossary.mappers;
 
 import static com.linkedin.metadata.Constants.*;
 
+import com.linkedin.common.Forms;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
@@ -11,11 +12,14 @@ import com.linkedin.datahub.graphql.generated.GlossaryNodeProperties;
 import com.linkedin.datahub.graphql.types.common.mappers.CustomPropertiesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
+import com.linkedin.datahub.graphql.types.form.FormsMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
+import com.linkedin.datahub.graphql.types.structuredproperty.StructuredPropertiesMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.glossary.GlossaryNodeInfo;
 import com.linkedin.metadata.key.GlossaryNodeKey;
+import com.linkedin.structured.StructuredProperties;
 import javax.annotation.Nonnull;
 
 public class GlossaryNodeMapper implements ModelMapper<EntityResponse, GlossaryNode> {
@@ -44,6 +48,15 @@ public class GlossaryNodeMapper implements ModelMapper<EntityResponse, GlossaryN
         OWNERSHIP_ASPECT_NAME,
         (glossaryNode, dataMap) ->
             glossaryNode.setOwnership(OwnershipMapper.map(new Ownership(dataMap), entityUrn)));
+    mappingHelper.mapToResult(
+        STRUCTURED_PROPERTIES_ASPECT_NAME,
+        ((entity, dataMap) ->
+            entity.setStructuredProperties(
+                StructuredPropertiesMapper.map(new StructuredProperties(dataMap)))));
+    mappingHelper.mapToResult(
+        FORMS_ASPECT_NAME,
+        ((entity, dataMap) ->
+            entity.setForms(FormsMapper.map(new Forms(dataMap), entityUrn.toString()))));
 
     return mappingHelper.getResult();
   }

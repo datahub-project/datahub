@@ -2011,5 +2011,76 @@
       "contentType": "application/json"
     },
     "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,cypress_health_test,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "description": "table for health",
+              "uri": null,
+              "tags": [],
+              "customProperties": {
+                "encoding": "utf-8"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:358c683782c93c2fc2bd4bdd4fdb0153",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+      "value": "{\"customProperties\": {\"expectation_suite_name\": \"test_suite\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:hive,cypress_health_test,PROD)\", \"scope\": \"DATASET_COLUMN\", \"fields\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,cypress_health_test,PROD),field_foo)\"], \"aggregation\": \"IDENTITY\", \"operator\": \"EQUAL_TO\", \"parameters\": {\"value\": {\"value\": \"true\", \"type\": \"UNKNOWN\"} }, \"nativeType\": \"expect_column_values_to_equal\", \"nativeParameters\": {\"column\": \"field_foo\", \"value\": \"true\"}}}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:358c683782c93c2fc2bd4bdd4fdb0153",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "assertionRunEvent",
+    "aspect": {
+      "value": "{\"timestampMillis\": 1675155843000, \"partitionSpec\": {\"type\": \"PARTITION\", \"partition\": \"{\\\"category\\\": \\\"catA\\\"}\"}, \"runId\": \"2021-12-28T12:00:00Z\", \"assertionUrn\": \"urn:li:assertion:358c683782c93c2fc2bd4bdd4fdb0153\", \"asserteeUrn\": \"urn:li:dataset:(urn:li:dataPlatform:hive,cypress_health_test,PROD)\", \"batchSpec\": {\"customProperties\": {\"data_asset_name\": \"data__foo1__asset\", \"datasource_name\": \"my_hive_datasource\"}, \"nativeBatchId\": \"c8f12129f2e57412eee5fb8656154d05\", \"limit\": 10}, \"status\": \"COMPLETE\", \"result\": {\"type\": \"FAILURE\", \"nativeResults\": {}}}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "incident",
+    "entityUrn": "urn:li:incident:test",
+    "changeType": "UPSERT",
+    "aspectName": "incidentInfo",
+    "aspect": {
+      "value": "{\"entities\":[\"urn:li:dataset:(urn:li:dataPlatform:hive,cypress_health_test,PROD)\"],\"created\":{\"actor\":\"urn:li:corpuser:admin\",\"time\":1692301854918},\"description\":\"test\",\"source\":{\"type\":\"MANUAL\"},\"title\":\"test\",\"type\":\"OPERATIONAL\",\"status\":{\"lastUpdated\":{\"actor\":\"urn:li:corpuser:admin\",\"time\":1692301854919},\"state\":\"ACTIVE\"}}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,cypress_health_test,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "incidentsSummary",
+    "aspect": {
+      "value": "{\"resolvedIncidentDetails\":[], \"activeIncidentDetails\": [{ \"urn\": \"urn:li:incident:test\", \"type\": \"OPERATIONAL\", \"createdAt\": 0 }]}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
   }
 ]
