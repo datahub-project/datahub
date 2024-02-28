@@ -1,17 +1,20 @@
+from typing import Iterable
+
 import pytest
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp import MetadataChangeProposalClass
+
+from datahub.emitter.mcp import (
+    MetadataChangeProposalClass,
+    MetadataChangeProposalWrapper,
+)
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.redshift.config import RedshiftConfig
 from datahub.ingestion.source.redshift.redshift import RedshiftSource
 from datahub.ingestion.source.redshift.redshift_schema import RedshiftTable
 
-from typing import Iterable
-from datahub.ingestion.api.workunit import MetadataWorkUnit
-
 
 @pytest.fixture
-def redshift_source_setup(request) -> Iterable[MetadataWorkUnit]:
+def redshift_source_setup(request: pytest.FixtureRequest) -> Iterable[MetadataWorkUnit]:
     custom_props_flag = request.param
     config = RedshiftConfig(
         host_port="localhost:5439",
