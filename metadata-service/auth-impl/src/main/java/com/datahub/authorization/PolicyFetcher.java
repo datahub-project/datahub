@@ -7,7 +7,6 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
-import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
@@ -86,18 +85,19 @@ public class PolicyFetcher {
     // First fetch all policy urns
     ScrollResult result =
         entityClient.scrollAcrossEntities(
-            opContext,
+            opContext.withSearchFlags(
+                flags ->
+                    flags
+                        .setSkipCache(true)
+                        .setSkipAggregates(true)
+                        .setSkipHighlighting(true)
+                        .setFulltext(true)),
             List.of(POLICY_ENTITY_NAME),
             query,
             filter,
             scrollId,
             null,
-            count,
-            new SearchFlags()
-                .setSkipCache(true)
-                .setSkipAggregates(true)
-                .setSkipHighlighting(true)
-                .setFulltext(true));
+            count);
     List<Urn> policyUrns =
         result.getEntities().stream().map(SearchEntity::getEntity).collect(Collectors.toList());
 

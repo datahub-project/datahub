@@ -18,7 +18,6 @@ import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchResultMetadata;
 import graphql.schema.DataFetchingEnvironment;
-import io.datahubproject.metadata.context.OperationContext;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
@@ -149,14 +148,13 @@ public class SearchResolverTest {
     EntityClient client = Mockito.mock(EntityClient.class);
     Mockito.when(
             client.search(
-                any(OperationContext.class),
+                any(),
                 Mockito.anyString(),
                 Mockito.anyString(),
                 Mockito.any(),
                 Mockito.any(),
                 Mockito.anyInt(),
-                Mockito.anyInt(),
-                Mockito.any()))
+                Mockito.anyInt()))
         .thenReturn(
             new SearchResult()
                 .setEntities(new SearchEntityArray())
@@ -179,14 +177,13 @@ public class SearchResolverTest {
       throws Exception {
     Mockito.verify(mockClient, Mockito.times(1))
         .search(
-            any(OperationContext.class),
+            any(),
             Mockito.eq(entityName),
             Mockito.eq(query),
             Mockito.eq(filter),
             Mockito.eq(sortCriterion),
             Mockito.eq(start),
-            Mockito.eq(limit),
-            Mockito.eq(searchFlags));
+            Mockito.eq(limit));
   }
 
   private SearchResolverTest() {}

@@ -26,7 +26,11 @@ public class UsageClientCache {
       @Nonnull String resource,
       @Nonnull UsageTimeRange range) {
     Key cacheKey =
-        Key.builder().contextId(opContext.getContextId()).resource(resource).range(range).build();
+        Key.builder()
+            .contextId(opContext.getEntityContextId())
+            .resource(resource)
+            .range(range)
+            .build();
     if (config.isEnabled()) {
       return cache.get(cacheKey);
     } else {

@@ -1,5 +1,6 @@
 package com.linkedin.metadata.search.utils;
 
+import static com.linkedin.metadata.authorization.PoliciesConfig.VIEW_ENTITY_PRIVILEGES;
 import static com.linkedin.metadata.utils.SearchUtil.ES_INDEX_FIELD;
 import static com.linkedin.metadata.utils.SearchUtil.KEYWORD_SUFFIX;
 
@@ -43,14 +44,6 @@ public class ESAccessControlUtil {
 
   private static final String OWNER_TYPES_FIELD = "ownerTypes";
   private static final QueryBuilder MATCH_ALL = QueryBuilders.matchAllQuery();
-  /*
-    These two privileges should be logically the same for search even
-    if one might allow search but not the entity page view at some point.
-  */
-  private static final Set<String> FILTER_PRIVILEGES =
-      Set.of(
-          PoliciesConfig.VIEW_ENTITY_PRIVILEGE.getType(),
-          PoliciesConfig.VIEW_ENTITY_PAGE_PRIVILEGE.getType());
 
   /**
    * Given the OperationContext produce a filter for search results
@@ -108,7 +101,7 @@ public class ESAccessControlUtil {
           opContext.getSessionActorContext().getAuthentication().getActor().toUrnStr();
       final DisjunctivePrivilegeGroup orGroup =
           new DisjunctivePrivilegeGroup(
-              ImmutableList.of(new ConjunctivePrivilegeGroup(FILTER_PRIVILEGES)));
+              ImmutableList.of(new ConjunctivePrivilegeGroup(VIEW_ENTITY_PRIVILEGES)));
 
       for (SearchEntity searchEntity : searchEntities) {
         final String entityType = searchEntity.getEntity().getEntityType();
@@ -130,7 +123,8 @@ public class ESAccessControlUtil {
           policy.getPrivileges() != null
               && PoliciesConfig.ACTIVE_POLICY_STATE.equals(policy.getState())
               && PoliciesConfig.METADATA_POLICY_TYPE.equals(policy.getType())
-              && FILTER_PRIVILEGES.stream().anyMatch(priv -> policy.getPrivileges().contains(priv));
+              && VIEW_ENTITY_PRIVILEGES.stream()
+                  .anyMatch(priv -> policy.getPrivileges().contains(priv));
 
   private static Stream<QueryBuilder> streamViewQueries(OperationContext opContext) {
     return opContext.getSessionActorContext().getPolicyInfoSet().stream()

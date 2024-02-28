@@ -18,6 +18,7 @@ import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.mxe.MetadataChangeProposal;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.List;
 import org.mockito.Mockito;
 
@@ -49,10 +50,13 @@ public class TestUtils {
     Mockito.when(mockAuthorizer.authorize(Mockito.any())).thenReturn(result);
 
     Mockito.when(mockContext.getAuthorizer()).thenReturn(mockAuthorizer);
-    Mockito.when(mockContext.getAuthentication())
-        .thenReturn(
-            new Authentication(
-                new Actor(ActorType.USER, UrnUtils.getUrn(actorUrn).getId()), "creds"));
+    Authentication authentication =
+        new Authentication(new Actor(ActorType.USER, UrnUtils.getUrn(actorUrn).getId()), "creds");
+    Mockito.when(mockContext.getAuthentication()).thenReturn(authentication);
+    OperationContext operationContext =
+        TestOperationContexts.userContextNoSearchAuthorization(
+            mock(EntityRegistry.class), mockAuthorizer, authentication);
+    Mockito.when(mockContext.getOperationContext()).thenReturn(operationContext);
     Mockito.when(mockContext.getOperationContext())
         .thenReturn(Mockito.mock(OperationContext.class));
     return mockContext;

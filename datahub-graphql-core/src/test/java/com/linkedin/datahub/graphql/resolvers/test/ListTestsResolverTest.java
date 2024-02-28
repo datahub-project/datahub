@@ -10,13 +10,11 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.ListTestsInput;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetchingEnvironment;
-import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collections;
 import java.util.concurrent.CompletionException;
 import org.mockito.Mockito;
@@ -35,13 +33,12 @@ public class ListTestsResolverTest {
 
     Mockito.when(
             mockClient.search(
-                any(OperationContext.class),
+                any(),
                 Mockito.eq(Constants.TEST_ENTITY_NAME),
                 Mockito.eq(""),
                 Mockito.eq(Collections.emptyMap()),
                 Mockito.eq(0),
-                Mockito.eq(20),
-                Mockito.eq(new SearchFlags().setFulltext(true))))
+                Mockito.eq(20)))
         .thenReturn(
             new SearchResult()
                 .setFrom(0)
@@ -81,14 +78,7 @@ public class ListTestsResolverTest {
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
     Mockito.verify(mockClient, Mockito.times(0))
-        .search(
-            any(OperationContext.class),
-            any(),
-            Mockito.eq(""),
-            Mockito.anyMap(),
-            Mockito.anyInt(),
-            Mockito.anyInt(),
-            Mockito.eq(new SearchFlags().setFulltext(true)));
+        .search(any(), any(), Mockito.eq(""), Mockito.anyMap(), Mockito.anyInt(), Mockito.anyInt());
   }
 
   @Test
@@ -97,14 +87,7 @@ public class ListTestsResolverTest {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     Mockito.doThrow(RemoteInvocationException.class)
         .when(mockClient)
-        .search(
-            any(OperationContext.class),
-            any(),
-            Mockito.eq(""),
-            Mockito.anyMap(),
-            Mockito.anyInt(),
-            Mockito.anyInt(),
-            Mockito.eq(new SearchFlags().setFulltext(true)));
+        .search(any(), any(), Mockito.eq(""), Mockito.anyMap(), Mockito.anyInt(), Mockito.anyInt());
     ListTestsResolver resolver = new ListTestsResolver(mockClient);
 
     // Execute resolver

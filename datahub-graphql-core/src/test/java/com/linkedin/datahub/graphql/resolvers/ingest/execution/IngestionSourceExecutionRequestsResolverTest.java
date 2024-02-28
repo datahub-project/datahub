@@ -44,7 +44,7 @@ public class IngestionSourceExecutionRequestsResolverTest {
     // Mock filter response
     Mockito.when(
             mockClient.filter(
-                any(OperationContext.class),
+                any(),
                 Mockito.eq(Constants.EXECUTION_REQUEST_ENTITY_NAME),
                 Mockito.any(Filter.class),
                 Mockito.any(SortCriterion.class),
@@ -144,12 +144,7 @@ public class IngestionSourceExecutionRequestsResolverTest {
         .batchGetV2(
             Mockito.any(), Mockito.anySet(), Mockito.anySet(), Mockito.any(Authentication.class));
     Mockito.verify(mockClient, Mockito.times(0))
-        .list(
-            Mockito.any(),
-            Mockito.anyMap(),
-            Mockito.anyInt(),
-            Mockito.anyInt(),
-            Mockito.any(Authentication.class));
+        .list(Mockito.any(), Mockito.any(), Mockito.anyMap(), Mockito.anyInt(), Mockito.anyInt());
   }
 
   @Test

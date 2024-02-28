@@ -12,7 +12,6 @@ import com.linkedin.metadata.config.search.PartialConfiguration;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.config.search.WordGramConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
-import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
@@ -109,13 +108,13 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
             TestEntitySpecBuilder.getSpec(), testQueryConfig, null, aspectRetriever);
     SearchRequest searchRequest =
         requestHandler.getSearchRequest(
-            operationContext,
+            operationContext.withSearchFlags(
+                flags -> flags.setFulltext(false).setSkipHighlighting(true)),
             "testQuery",
             null,
             null,
             0,
             10,
-            new SearchFlags().setFulltext(false).setSkipHighlighting(true),
             null);
     SearchSourceBuilder sourceBuilder = searchRequest.source();
     assertEquals(sourceBuilder.from(), 0);
@@ -150,13 +149,12 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
             TestEntitySpecBuilder.getSpec(), testQueryConfig, null, aspectRetriever);
     SearchRequest searchRequest =
         requestHandler.getSearchRequest(
-            operationContext,
+            operationContext.withSearchFlags(flags -> flags.setFulltext(false)),
             "testQuery",
             null,
             null,
             0,
             10,
-            new SearchFlags().setFulltext(false),
             null);
     SearchSourceBuilder sourceBuilder = searchRequest.source();
     assertEquals(sourceBuilder.from(), 0);
@@ -215,13 +213,12 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
         String.format("_entityType%stextFieldOverride", AGGREGATION_SEPARATOR_CHAR);
     SearchRequest searchRequest =
         requestHandler.getSearchRequest(
-            operationContext,
+            operationContext.withSearchFlags(flags -> flags.setFulltext(true)),
             "*",
             null,
             null,
             0,
             10,
-            new SearchFlags().setFulltext(true),
             List.of(
                 "textFieldOverride",
                 "_entityType",
@@ -317,7 +314,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
           (BoolQueryBuilder)
               requestHandler
                   .getSearchRequest(
-                      operationContext,
+                      operationContext.withSearchFlags(flags -> flags.setFulltext(false)),
                       "testQuery",
                       filterWithoutRemovedCondition,
                       null,
@@ -325,7 +322,6 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
                       null,
                       "5m",
                       10,
-                      new SearchFlags().setFulltext(false),
                       null)
                   .source()
                   .query();
@@ -334,13 +330,12 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
           (BoolQueryBuilder)
               requestHandler
                   .getSearchRequest(
-                      operationContext,
+                      operationContext.withSearchFlags(flags -> flags.setFulltext(false)),
                       "testQuery",
                       filterWithoutRemovedCondition,
                       null,
                       0,
                       10,
-                      new SearchFlags().setFulltext(false),
                       null)
                   .source()
                   .query();
@@ -394,7 +389,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
           (BoolQueryBuilder)
               requestHandler
                   .getSearchRequest(
-                      operationContext,
+                      operationContext.withSearchFlags(flags -> flags.setFulltext(false)),
                       "testQuery",
                       filterWithRemovedCondition,
                       null,
@@ -402,7 +397,6 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
                       null,
                       "5m",
                       10,
-                      new SearchFlags().setFulltext(false),
                       null)
                   .source()
                   .query();
@@ -411,13 +405,12 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
           (BoolQueryBuilder)
               requestHandler
                   .getSearchRequest(
-                      operationContext,
+                      operationContext.withSearchFlags(flags -> flags.setFulltext(false)),
                       "testQuery",
                       filterWithRemovedCondition,
                       null,
                       0,
                       10,
-                      new SearchFlags().setFulltext(false),
                       null)
                   .source()
                   .query();
@@ -638,9 +631,8 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
 
     BoolQueryBuilder test =
         SearchRequestHandler.getFilterQuery(
-            operationContext,
+            operationContext.withSearchFlags(flags -> flags.setFulltext(false)),
             filter,
-            new SearchFlags().setFulltext(false),
             new HashMap<>(),
             aspectRetriever);
 
@@ -671,13 +663,12 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     return (BoolQueryBuilder)
         requestHandler
             .getSearchRequest(
-                operationContext,
+                operationContext.withSearchFlags(flags -> flags.setFulltext(false)),
                 "",
                 filter,
                 null,
                 0,
                 10,
-                new SearchFlags().setFulltext(false),
                 null)
             .source()
             .query();

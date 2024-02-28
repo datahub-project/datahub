@@ -29,7 +29,6 @@ import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetchingEnvironment;
-import io.datahubproject.metadata.context.OperationContext;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletionException;
@@ -73,7 +72,7 @@ public class CreateDomainResolverTest {
 
     Mockito.when(
             mockClient.filter(
-                any(OperationContext.class),
+                any(),
                 Mockito.eq(Constants.DOMAIN_ENTITY_NAME),
                 Mockito.eq(
                     DomainUtils.buildNameAndParentDomainFilter(
@@ -123,7 +122,7 @@ public class CreateDomainResolverTest {
 
     Mockito.when(
             mockClient.filter(
-                any(OperationContext.class),
+                any(),
                 Mockito.eq(Constants.DOMAIN_ENTITY_NAME),
                 Mockito.eq(DomainUtils.buildNameAndParentDomainFilter(TEST_INPUT.getName(), null)),
                 Mockito.eq(null),
@@ -196,7 +195,7 @@ public class CreateDomainResolverTest {
 
     Mockito.when(
             mockClient.filter(
-                any(OperationContext.class),
+                any(),
                 Mockito.eq(Constants.DOMAIN_ENTITY_NAME),
                 Mockito.eq(
                     DomainUtils.buildNameAndParentDomainFilter(

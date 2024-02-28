@@ -166,21 +166,18 @@ public class SearchRequestHandler {
   }
 
   public BoolQueryBuilder getFilterQuery(
-      @Nonnull OperationContext opContext,
-      @Nullable Filter filter,
-      @Nonnull SearchFlags searchFlags) {
-    return getFilterQuery(opContext, filter, searchFlags, searchableFieldTypes, aspectRetriever);
+      @Nonnull OperationContext opContext, @Nullable Filter filter) {
+    return getFilterQuery(opContext, filter, searchableFieldTypes, aspectRetriever);
   }
 
   public static BoolQueryBuilder getFilterQuery(
       @Nonnull OperationContext opContext,
       @Nullable Filter filter,
-      @Nonnull SearchFlags searchFlags,
       Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes,
       @Nonnull AspectRetriever aspectRetriever) {
     BoolQueryBuilder filterQuery =
         ESUtils.buildFilterQuery(filter, false, searchableFieldTypes, aspectRetriever);
-    return applyDefaultSearchFilters(opContext, filter, filterQuery, searchFlags);
+    return applyDefaultSearchFilters(opContext, filter, filterQuery);
   }
 
   /**
@@ -193,7 +190,6 @@ public class SearchRequestHandler {
    * @param filter the search filter
    * @param from index to start the search from
    * @param size the number of search hits to return
-   * @param searchFlags Various flags controlling search query options
    * @param facets list of facets we want aggregations for
    * @return a valid search request
    */
@@ -206,9 +202,9 @@ public class SearchRequestHandler {
       @Nullable SortCriterion sortCriterion,
       int from,
       int size,
-      @Nonnull SearchFlags searchFlags,
       @Nullable List<String> facets) {
 
+    SearchFlags searchFlags = opContext.getSearchContext().getSearchFlags();
     SearchRequest searchRequest = new SearchRequest();
     SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
 
@@ -216,7 +212,7 @@ public class SearchRequestHandler {
     searchSourceBuilder.size(size);
     searchSourceBuilder.fetchSource("urn", null);
 
-    BoolQueryBuilder filterQuery = getFilterQuery(opContext, filter, searchFlags);
+    BoolQueryBuilder filterQuery = getFilterQuery(opContext, filter);
     searchSourceBuilder.query(
         QueryBuilders.boolQuery()
             .must(getQuery(input, Boolean.TRUE.equals(searchFlags.isFulltext())))
@@ -262,8 +258,8 @@ public class SearchRequestHandler {
       @Nullable String pitId,
       @Nullable String keepAlive,
       int size,
-      @Nonnull SearchFlags searchFlags,
       @Nullable List<String> facets) {
+    SearchFlags searchFlags = opContext.getSearchContext().getSearchFlags();
     SearchRequest searchRequest = new PITAwareSearchRequest();
 
     SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
@@ -273,7 +269,7 @@ public class SearchRequestHandler {
     searchSourceBuilder.size(size);
     searchSourceBuilder.fetchSource("urn", null);
 
-    BoolQueryBuilder filterQuery = getFilterQuery(opContext, filter, searchFlags);
+    BoolQueryBuilder filterQuery = getFilterQuery(opContext, filter);
     searchSourceBuilder.query(
         QueryBuilders.boolQuery()
             .must(getQuery(input, Boolean.TRUE.equals(searchFlags.isFulltext())))
@@ -308,11 +304,10 @@ public class SearchRequestHandler {
       @Nullable Filter filters,
       @Nullable SortCriterion sortCriterion,
       int from,
-      int size,
-      @Nonnull SearchFlags searchFlags) {
+      int size) {
     SearchRequest searchRequest = new SearchRequest();
 
-    BoolQueryBuilder filterQuery = getFilterQuery(opContext, filters, searchFlags);
+    BoolQueryBuilder filterQuery = getFilterQuery(opContext, filters);
     final SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
     searchSourceBuilder.query(filterQuery);
     searchSourceBuilder.from(from).size(size);
@@ -335,11 +330,10 @@ public class SearchRequestHandler {
       @Nonnull OperationContext opContext,
       @Nonnull String field,
       @Nullable Filter filter,
-      int limit,
-      @Nonnull SearchFlags searchFlags) {
+      int limit) {
 
     SearchRequest searchRequest = new SearchRequest();
-    BoolQueryBuilder filterQuery = getFilterQuery(opContext, filter, searchFlags);
+    BoolQueryBuilder filterQuery = getFilterQuery(opContext, filter);
 
     final SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
     searchSourceBuilder.query(filterQuery);
@@ -378,13 +372,11 @@ public class SearchRequestHandler {
       @Nonnull SearchResponse searchResponse,
       Filter filter,
       int from,
-      int size,
-      @Nonnull SearchFlags searchFlags) {
+      int size) {
     int totalCount = (int) searchResponse.getHits().getTotalHits().value;
-    List<SearchEntity> resultList =
-        getResults(opContext.withSearchFlags(searchFlags), searchResponse);
+    List<SearchEntity> resultList = getResults(opContext, searchResponse);
     SearchResultMetadata searchResultMetadata =
-        extractSearchResultMetadata(searchResponse, filter, searchFlags);
+        extractSearchResultMetadata(opContext, searchResponse, filter);
 
     return new SearchResult()
         .setEntities(new SearchEntityArray(resultList))
@@ -399,7 +391,6 @@ public class SearchRequestHandler {
       @Nonnull OperationContext opContext,
       @Nonnull SearchResponse searchResponse,
       Filter filter,
-      @Nonnull SearchFlags searchFlags,
       @Nullable String scrollId,
       @Nullable String keepAlive,
       int size,
@@ -407,7 +398,7 @@ public class SearchRequestHandler {
     int totalCount = (int) searchResponse.getHits().getTotalHits().value;
     List<SearchEntity> resultList = getResults(opContext, searchResponse);
     SearchResultMetadata searchResultMetadata =
-        extractSearchResultMetadata(searchResponse, filter, searchFlags);
+        extractSearchResultMetadata(opContext, searchResponse, filter);
     SearchHit[] searchHits = searchResponse.getHits().getHits();
     // Only return next scroll ID if there are more results, indicated by full size results
     String nextScrollId = null;
@@ -530,10 +521,10 @@ public class SearchRequestHandler {
    */
   @Nonnull
   private SearchResultMetadata extractSearchResultMetadata(
+      @Nonnull OperationContext opContext,
       @Nonnull SearchResponse searchResponse,
-      @Nullable Filter filter,
-      @Nonnull SearchFlags searchFlags) {
-
+      @Nullable Filter filter) {
+    final SearchFlags searchFlags = opContext.getSearchContext().getSearchFlags();
     final SearchResultMetadata searchResultMetadata =
         new SearchResultMetadata().setAggregations(new AggregationMetadataArray());
 

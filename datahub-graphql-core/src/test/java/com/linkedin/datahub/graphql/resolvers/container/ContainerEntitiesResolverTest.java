@@ -50,7 +50,7 @@ public class ContainerEntitiesResolverTest {
 
     Mockito.when(
             mockClient.searchAcrossEntities(
-                any(OperationContext.class),
+                any(),
                 Mockito.eq(ContainerEntitiesResolver.CONTAINABLE_ENTITY_NAMES),
                 Mockito.eq("*"),
                 Mockito.eq(

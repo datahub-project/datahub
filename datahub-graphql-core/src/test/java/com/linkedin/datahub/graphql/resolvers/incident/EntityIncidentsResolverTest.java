@@ -88,7 +88,7 @@ public class EntityIncidentsResolverTest {
 
     Mockito.when(
             mockClient.filter(
-                Mockito.any(OperationContext.class),
+                Mockito.any(),
                 Mockito.eq(Constants.INCIDENT_ENTITY_NAME),
                 Mockito.eq(expectedFilter),
                 Mockito.eq(expectedSort),

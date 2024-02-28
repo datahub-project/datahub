@@ -45,7 +45,7 @@ public class GetRootGlossaryTermsResolverTest {
 
     Mockito.when(
             mockClient.filter(
-                any(OperationContext.class),
+                any(),
                 Mockito.eq(Constants.GLOSSARY_TERM_ENTITY_NAME),
                 Mockito.eq(buildGlossaryEntitiesFilter()),
                 Mockito.eq(null),

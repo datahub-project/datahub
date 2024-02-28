@@ -475,14 +475,14 @@ public abstract class SearchDAOTestBase extends AbstractTestNGSpringContextTests
             .setAspectRetriever(aspectRetriever);
     ExplainResponse explainResponse =
         searchDAO.explain(
-            getOperationContext(),
+            getOperationContext()
+                .withSearchFlags(flags -> ElasticSearchService.DEFAULT_SERVICE_SEARCH_FLAGS),
             "*",
             "urn:li:dataset:(urn:li:dataPlatform:bigquery,bigquery-public-data.covid19_geotab_mobility_impact."
                 + "ca_border_wait_times,PROD)",
             DATASET_ENTITY_NAME,
             null,
             null,
-            ElasticSearchService.DEFAULT_SERVICE_SEARCH_FLAGS,
             null,
             null,
             10,

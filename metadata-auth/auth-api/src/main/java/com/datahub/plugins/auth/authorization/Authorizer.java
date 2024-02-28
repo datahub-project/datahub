@@ -64,4 +64,9 @@ public interface Authorizer extends Plugin {
   default Collection<Urn> getActorGroups(@Nonnull Urn actorUrn) {
     return Collections.emptyList();
   }
+
+  /** Given an actor's urn retrieve the actor's peers */
+  default Collection<Urn> getActorPeers(@Nonnull Urn actorUrn) {
+    return Collections.emptyList();
+  }
 }

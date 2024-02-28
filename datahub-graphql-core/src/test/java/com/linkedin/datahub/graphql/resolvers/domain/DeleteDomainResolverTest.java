@@ -10,7 +10,6 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.search.SearchResult;
 import graphql.schema.DataFetchingEnvironment;
-import io.datahubproject.metadata.context.OperationContext;
 import java.util.concurrent.CompletionException;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
@@ -33,7 +32,7 @@ public class DeleteDomainResolverTest {
     // Domain has 0 child domains
     Mockito.when(
             mockClient.filter(
-                any(OperationContext.class),
+                any(),
                 Mockito.eq("domain"),
                 Mockito.any(),
                 Mockito.any(),
@@ -62,7 +61,7 @@ public class DeleteDomainResolverTest {
     // Domain has child domains
     Mockito.when(
             mockClient.filter(
-                any(OperationContext.class),
+                any(),
                 Mockito.eq("domain"),
                 Mockito.any(),
                 Mockito.any(),

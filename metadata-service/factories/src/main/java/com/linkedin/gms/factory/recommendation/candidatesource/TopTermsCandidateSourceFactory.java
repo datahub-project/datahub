@@ -4,7 +4,6 @@ import com.linkedin.gms.factory.search.EntitySearchServiceFactory;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.recommendation.candidatesource.TopTermsSource;
 import com.linkedin.metadata.search.EntitySearchService;
-import io.datahubproject.metadata.context.OperationContext;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -22,8 +21,7 @@ public class TopTermsCandidateSourceFactory {
 
   @Bean(name = "topTermsCandidateSource")
   @Nonnull
-  protected TopTermsSource getInstance(
-      final OperationContext opContext, final EntityService<?> entityService) {
-    return new TopTermsSource(opContext, entitySearchService, entityService);
+  protected TopTermsSource getInstance(final EntityService<?> entityService) {
+    return new TopTermsSource(entitySearchService, entityService);
   }
 }

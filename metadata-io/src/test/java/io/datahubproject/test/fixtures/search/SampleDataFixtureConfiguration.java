@@ -185,7 +185,7 @@ public class SampleDataFixtureConfiguration {
             _searchClient, indexConvention, _searchConfiguration, _customSearchConfiguration);
     ESWriteDAO writeDAO =
         new ESWriteDAO(entityRegistry, _searchClient, indexConvention, _bulkProcessor, 1);
-    return new ElasticSearchService(opContext, indexBuilders, searchDAO, browseDAO, writeDAO)
+    return new ElasticSearchService(indexBuilders, searchDAO, browseDAO, writeDAO)
         .postConstruct(aspectRetriever);
   }
 

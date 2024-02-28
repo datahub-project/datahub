@@ -75,7 +75,10 @@ public class GetQuickFiltersResolver
         });
   }
 
-  /** Do a star search with view filter applied to get info about all data in this instance. */
+  /**
+   * Do a star search with view filter applied to get info about all data in this instance. Include
+   * aggregations.
+   */
   private SearchResult getSearchResults(
       @Nonnull final OperationContext opContext, @Nonnull final GetQuickFiltersInput input)
       throws Exception {
@@ -90,7 +93,7 @@ public class GetQuickFiltersResolver
             .collect(Collectors.toList());
 
     return _entityClient.searchAcrossEntities(
-        opContext,
+        opContext.withSearchFlags(flags -> flags.setSkipAggregates(false)),
         maybeResolvedView != null
             ? SearchUtils.intersectEntityTypes(
                 entityNames, maybeResolvedView.getDefinition().getEntityTypes())

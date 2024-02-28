@@ -32,16 +32,18 @@ public class EntityDocCountCache {
     this.entityDocCounts = new ConcurrentHashMap<>();
   }
 
-  private Map<String, Long> fetchEntityDocCount() {
+  private Map<String, Long> fetchEntityDocCount(@Nonnull OperationContext opContext) {
     return ConcurrencyUtils.transformAndCollectAsync(
         entityRegistry.getEntitySpecs().keySet(),
         Function.identity(),
-        Collectors.toMap(Function.identity(), v -> entitySearchService.docCount(v, null)));
+        Collectors.toMap(Function.identity(), v -> entitySearchService.docCount(opContext, v)));
   }
 
   @WithSpan
   public Map<String, Long> getEntityDocCount(@Nonnull OperationContext opContext) {
-    return entityDocCounts.computeIfAbsent(opContext.getContextId(), k -> buildSupplier()).get();
+    return entityDocCounts
+        .computeIfAbsent(opContext.getSearchContextId(), k -> buildSupplier(opContext))
+        .get();
   }
 
   public List<String> getNonEmptyEntities(@Nonnull OperationContext opContext) {
@@ -51,8 +53,8 @@ public class EntityDocCountCache {
         .collect(Collectors.toList());
   }
 
-  private Supplier<Map<String, Long>> buildSupplier() {
+  private Supplier<Map<String, Long>> buildSupplier(@Nonnull OperationContext opContext) {
     return Suppliers.memoizeWithExpiration(
-        this::fetchEntityDocCount, config.getTtlSeconds(), TimeUnit.SECONDS);
+        () -> fetchEntityDocCount(opContext), config.getTtlSeconds(), TimeUnit.SECONDS);
   }
 }

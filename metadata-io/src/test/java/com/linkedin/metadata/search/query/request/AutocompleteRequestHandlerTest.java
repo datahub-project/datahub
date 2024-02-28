@@ -7,7 +7,6 @@ import static org.testng.Assert.assertTrue;
 import com.linkedin.metadata.TestEntitySpecBuilder;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.search.elasticsearch.query.request.AutocompleteRequestHandler;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
@@ -33,8 +32,7 @@ public class AutocompleteRequestHandlerTest {
   public void testDefaultAutocompleteRequest() {
     // When field is null
     SearchRequest autocompleteRequest =
-        handler.getSearchRequest(
-            mockOpContext, "input", null, null, 10, new SearchFlags().setFulltext(false));
+        handler.getSearchRequest(mockOpContext, "input", null, null, 10);
     SearchSourceBuilder sourceBuilder = autocompleteRequest.source();
     assertEquals(sourceBuilder.size(), 10);
     BoolQueryBuilder query = (BoolQueryBuilder) sourceBuilder.query();
@@ -73,8 +71,7 @@ public class AutocompleteRequestHandlerTest {
   public void testAutocompleteRequestWithField() {
     // When field is null
     SearchRequest autocompleteRequest =
-        handler.getSearchRequest(
-            mockOpContext, "input", "field", null, 10, new SearchFlags().setFulltext(false));
+        handler.getSearchRequest(mockOpContext, "input", "field", null, 10);
     SearchSourceBuilder sourceBuilder = autocompleteRequest.source();
     assertEquals(sourceBuilder.size(), 10);
     BoolQueryBuilder query = (BoolQueryBuilder) sourceBuilder.query();

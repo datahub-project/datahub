@@ -171,6 +171,12 @@ public class DataHubAuthorizer implements Authorizer {
         .collect(Collectors.toList());
   }
 
+  @Override
+  public Collection<Urn> getActorPeers(@Nonnull Urn actorUrn) {
+    // TODO: Fetch users from groups the actor is a member of
+    return List.of(actorUrn);
+  }
+
   /**
    * Retrieves the current list of actors authorized to for a particular privilege against an
    * optional resource

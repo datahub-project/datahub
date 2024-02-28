@@ -53,7 +53,7 @@ public class DomainEntitiesResolverTest {
 
     Mockito.when(
             mockClient.searchAcrossEntities(
-                any(OperationContext.class),
+                any(),
                 Mockito.eq(
                     SEARCHABLE_ENTITY_TYPES.stream()
                         .map(EntityTypeMapper::getName)

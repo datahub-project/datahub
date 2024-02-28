@@ -128,7 +128,8 @@ public class SearchLineageFixtureConfiguration {
     ESWriteDAO writeDAO =
         new ESWriteDAO(
             aspectRetriever.getEntityRegistry(), searchClient, indexConvention, bulkProcessor, 1);
-    return new ElasticSearchService(opContext, indexBuilders, searchDAO, browseDAO, writeDAO)
+
+    return new ElasticSearchService(indexBuilders, searchDAO, browseDAO, writeDAO)
         .postConstruct(aspectRetriever);
   }
 
@@ -191,8 +192,7 @@ public class SearchLineageFixtureConfiguration {
         .build()
         .read();
 
-    return new LineageSearchService(
-        opContext, searchService, graphService, null, false, cacheConfiguration);
+    return new LineageSearchService(searchService, graphService, null, false, cacheConfiguration);
   }
 
   @Bean(name = "searchLineageSearchService")

@@ -86,6 +86,7 @@ public class Constants {
   public static final String DATA_TYPE_ENTITY_NAME = "dataType";
   public static final String ENTITY_TYPE_ENTITY_NAME = "entityType";
   public static final String FORM_ENTITY_NAME = "form";
+  public static final String RESTRICTED_ENTITY_NAME = "restricted";
 
   /** Aspects */
   // Common

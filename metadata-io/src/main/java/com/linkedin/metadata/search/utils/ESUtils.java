@@ -153,6 +153,8 @@ public class ESUtils {
               or ->
                   finalQueryBuilder.should(
                       ESUtils.buildConjunctiveFilterQuery(or, isTimeseries, searchableFieldTypes)));
+      // The default is not always 1 (ensure consistent default)
+      finalQueryBuilder.minimumShouldMatch(1);
     } else if (filter.getCriteria() != null) {
       // Otherwise, build boolean query from the deprecated "criteria" field.
       log.warn("Received query Filter with a deprecated field 'criteria'. Use 'or' instead.");
@@ -169,6 +171,8 @@ public class ESUtils {
                 }
               });
       finalQueryBuilder.should(andQueryBuilder);
+      // The default is not always 1 (ensure consistent default)
+      finalQueryBuilder.minimumShouldMatch(1);
     }
     return finalQueryBuilder;
   }
@@ -675,13 +679,11 @@ public class ESUtils {
   public static BoolQueryBuilder applyDefaultSearchFilters(
       @Nonnull OperationContext opContext,
       @Nullable Filter filter,
-      @Nonnull BoolQueryBuilder filterQuery,
-      @Nonnull SearchFlags searchFlags) {
+      @Nonnull BoolQueryBuilder filterQuery) {
     // filter soft deleted entities by default
-    filterSoftDeletedByDefault(filter, filterQuery, searchFlags);
+    filterSoftDeletedByDefault(filter, filterQuery, opContext.getSearchContext().getSearchFlags());
     // filter based on access controls
-    ESAccessControlUtil.buildAccessControlFilters(opContext.withSearchFlags(searchFlags))
-        .ifPresent(filterQuery::filter);
+    ESAccessControlUtil.buildAccessControlFilters(opContext).ifPresent(filterQuery::filter);
     return filterQuery;
   }
 

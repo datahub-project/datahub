@@ -31,7 +31,6 @@ import com.linkedin.view.DataHubViewDefinition;
 import com.linkedin.view.DataHubViewInfo;
 import com.linkedin.view.DataHubViewType;
 import graphql.schema.DataFetchingEnvironment;
-import io.datahubproject.metadata.context.OperationContext;
 import org.mockito.Mockito;
 import org.testng.Assert;
 import org.testng.annotations.Test;
@@ -194,7 +193,7 @@ public class AutoCompleteForMultipleResolverTest {
     // types
     Mockito.verify(mockClient, Mockito.times(0))
         .autoComplete(
-            any(OperationContext.class),
+            any(),
             Mockito.eq(Constants.DATASET_ENTITY_NAME),
             Mockito.eq("test"),
             Mockito.eq(viewInfo.getDefinition().getFilter()),
@@ -227,7 +226,7 @@ public class AutoCompleteForMultipleResolverTest {
     EntityClient client = Mockito.mock(EntityClient.class);
     Mockito.when(
             client.autoComplete(
-                any(OperationContext.class),
+                any(),
                 Mockito.eq(entityName),
                 Mockito.eq(query),
                 Mockito.eq(filters),
@@ -248,7 +247,7 @@ public class AutoCompleteForMultipleResolverTest {
       throws Exception {
     Mockito.verify(mockClient, Mockito.times(1))
         .autoComplete(
-            any(OperationContext.class),
+            any(),
             Mockito.eq(entityName),
             Mockito.eq(query),
             Mockito.eq(filters),

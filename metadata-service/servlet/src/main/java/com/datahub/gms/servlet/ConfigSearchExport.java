@@ -10,7 +10,6 @@ import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchRequestHandler;
 import io.datahubproject.metadata.context.OperationContext;
 import jakarta.servlet.http.HttpServlet;
@@ -89,16 +88,18 @@ public class ConfigSearchExport extends HttpServlet {
                   SearchRequestHandler.getBuilder(
                           entitySpec, searchConfiguration, null, aspectRetriever)
                       .getSearchRequest(
-                          getOperationContext(ctx),
+                          getOperationContext(ctx)
+                              .withSearchFlags(
+                                  flags ->
+                                      flags
+                                          .setFulltext(true)
+                                          .setSkipHighlighting(true)
+                                          .setSkipAggregates(true)),
                           "*",
                           null,
                           null,
                           0,
                           0,
-                          new SearchFlags()
-                              .setFulltext(true)
-                              .setSkipHighlighting(true)
-                              .setSkipAggregates(true),
                           null);
 
               FunctionScoreQueryBuilder rankingQuery =

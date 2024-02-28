@@ -16,7 +16,6 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
@@ -126,19 +125,20 @@ public class BackfillPolicyFieldsStep implements UpgradeStep {
     final Filter filter = backfillPolicyFieldFilter();
     final ScrollResult scrollResult =
         _searchService.scrollAcrossEntities(
-            opContext,
+            opContext.withSearchFlags(
+                flags ->
+                    flags
+                        .setFulltext(true)
+                        .setSkipCache(true)
+                        .setSkipHighlighting(true)
+                        .setSkipAggregates(true)),
             ImmutableList.of(Constants.POLICY_ENTITY_NAME),
             "*",
             filter,
             null,
             scrollId,
             null,
-            batchSize,
-            new SearchFlags()
-                .setFulltext(true)
-                .setSkipCache(true)
-                .setSkipHighlighting(true)
-                .setSkipAggregates(true));
+            batchSize);
 
     if (scrollResult.getNumEntities() == 0 || scrollResult.getEntities().isEmpty()) {
       return null;

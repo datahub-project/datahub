@@ -25,14 +25,14 @@ public class SearchContextTest {
     SearchContext testWithFlags =
         SearchContext.builder()
             .indexConvention(IndexConventionImpl.NO_PREFIX)
-            .searchFlags(new SearchFlags())
+            .searchFlags(new SearchFlags().setFulltext(true))
             .build();
 
     assertEquals(
         testWithFlags.getCacheKeyComponent(),
         SearchContext.builder()
             .indexConvention(IndexConventionImpl.NO_PREFIX)
-            .searchFlags(new SearchFlags())
+            .searchFlags(new SearchFlags().setFulltext(true))
             .build()
             .getCacheKeyComponent(),
         "Expected consistent context ids across instances");

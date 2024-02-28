@@ -19,16 +19,13 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
-import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchResultMetadata;
 import com.linkedin.policy.DataHubRoleInfo;
 import graphql.schema.DataFetchingEnvironment;
-import io.datahubproject.metadata.context.OperationContext;
 import java.util.Map;
-import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -103,13 +100,7 @@ public class ListRolesResolverTest {
                 new SearchEntity().setEntity(Urn.createFromString(EDITOR_ROLE_URN_STRING)))));
 
     when(_entityClient.search(
-            any(OperationContext.class),
-            eq(DATAHUB_ROLE_ENTITY_NAME),
-            any(),
-            any(),
-            anyInt(),
-            anyInt(),
-            Mockito.eq(new SearchFlags().setFulltext(true))))
+            any(), eq(DATAHUB_ROLE_ENTITY_NAME), any(), any(), anyInt(), anyInt()))
         .thenReturn(roleSearchResult);
     when(_entityClient.batchGetV2(eq(DATAHUB_ROLE_ENTITY_NAME), any(), any(), any()))
         .thenReturn(_entityResponseMap);

@@ -49,7 +49,6 @@ public class SystemJavaEntityClient extends JavaEntityClient implements SystemEn
         rollbackService,
         eventProducer);
     this.operationContextMap = new ConcurrentHashMap<>();
-    this.operationContextMap.put(systemOperationContext.getContextId(), systemOperationContext);
     this.systemOperationContext = systemOperationContext;
     this.entityClientCache = buildEntityClientCache(SystemJavaEntityClient.class, cacheConfig);
   }

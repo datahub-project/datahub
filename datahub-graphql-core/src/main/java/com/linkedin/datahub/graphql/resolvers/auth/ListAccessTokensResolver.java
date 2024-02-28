@@ -13,7 +13,6 @@ import com.linkedin.datahub.graphql.generated.ListAccessTokenInput;
 import com.linkedin.datahub.graphql.generated.ListAccessTokenResult;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.SearchResult;
@@ -65,14 +64,15 @@ public class ListAccessTokensResolver
                       .setOrder(SortOrder.DESCENDING);
               final SearchResult searchResult =
                   _entityClient.search(
-                      context.getOperationContext(),
+                      context
+                          .getOperationContext()
+                          .withSearchFlags(flags -> flags.setFulltext(true)),
                       Constants.ACCESS_TOKEN_ENTITY_NAME,
                       "",
                       buildFilter(filters, Collections.emptyList()),
                       sortCriterion,
                       start,
-                      count,
-                      new SearchFlags().setFulltext(true));
+                      count);
 
               final List<AccessTokenMetadata> tokens =
                   searchResult.getEntities().stream()

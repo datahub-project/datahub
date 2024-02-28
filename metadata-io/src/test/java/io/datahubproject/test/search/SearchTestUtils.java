@@ -14,7 +14,6 @@ import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.SearchableEntityType;
 import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
 import com.linkedin.metadata.graph.LineageDirection;
-import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.LineageSearchResult;
 import com.linkedin.metadata.search.LineageSearchService;
@@ -71,14 +70,13 @@ public class SearchTestUtils {
       @Nullable List<String> facets,
       @Nullable Filter filter) {
     return searchService.searchAcrossEntities(
-        opContext,
+        opContext.withSearchFlags(flags -> flags.setFulltext(true).setSkipCache(true)),
         entityNames,
         query,
         filter,
         null,
         0,
         100,
-        new SearchFlags().setFulltext(true).setSkipCache(true),
         facets);
   }
 
@@ -102,14 +100,13 @@ public class SearchTestUtils {
       String query,
       Filter filter) {
     return searchService.searchAcrossEntities(
-        opContext,
+        opContext.withSearchFlags(flags -> flags.setFulltext(true).setSkipCache(true)),
         entityNames,
         query,
         filter,
         null,
         0,
         100,
-        new SearchFlags().setFulltext(true).setSkipCache(true),
         null);
   }
 
@@ -124,14 +121,13 @@ public class SearchTestUtils {
       List<String> entities,
       String query) {
     return searchService.search(
-        opContext,
+        opContext.withSearchFlags(flags -> flags.setFulltext(true).setSkipCache(true)),
         entities,
         query,
         null,
         null,
         0,
-        100,
-        new SearchFlags().setFulltext(true).setSkipCache(true));
+        100);
   }
 
   public static ScrollResult scroll(
@@ -141,32 +137,30 @@ public class SearchTestUtils {
       int batchSize,
       @Nullable String scrollId) {
     return searchService.scrollAcrossEntities(
-        opContext,
+        opContext.withSearchFlags(flags -> flags.setFulltext(true).setSkipCache(true)),
         SEARCHABLE_ENTITIES,
         query,
         null,
         null,
         scrollId,
         "3m",
-        batchSize,
-        new SearchFlags().setFulltext(true).setSkipCache(true));
+        batchSize);
   }
 
   public static SearchResult searchStructured(
       OperationContext opContext, SearchService searchService, String query) {
     return searchService.searchAcrossEntities(
-        opContext,
+        opContext.withSearchFlags(flags -> flags.setFulltext(false).setSkipCache(true)),
         SEARCHABLE_ENTITIES,
         query,
         null,
         null,
         0,
-        100,
-        new SearchFlags().setFulltext(false).setSkipCache(true));
+        100);
   }
 
   public static LineageSearchResult lineage(
-      LineageSearchService lineageSearchService, Urn root, int hops) {
+      OperationContext opContext, LineageSearchService lineageSearchService, Urn root, int hops) {
     String degree = hops >= 3 ? "3+" : String.valueOf(hops);
     List<FacetFilterInput> filters =
         List.of(
@@ -178,6 +172,7 @@ public class SearchTestUtils {
                 .build());
 
     return lineageSearchService.searchAcrossLineage(
+        opContext.withSearchFlags(flags -> flags.setSkipCache(true)),
         root,
         LineageDirection.DOWNSTREAM,
         SEARCHABLE_ENTITY_TYPES.stream()
@@ -190,8 +185,7 @@ public class SearchTestUtils {
         0,
         100,
         null,
-        null,
-        new SearchFlags().setSkipCache(true));
+        null);
   }
 
   public static AutoCompleteResults autocomplete(

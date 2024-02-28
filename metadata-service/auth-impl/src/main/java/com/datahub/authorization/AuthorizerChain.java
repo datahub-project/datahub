@@ -171,4 +171,12 @@ public class AuthorizerChain implements Authorizer {
         .flatMap(authorizer -> authorizer.getActorGroups(actorUrn).stream())
         .collect(Collectors.toList());
   }
+
+  @Override
+  public Collection<Urn> getActorPeers(@Nonnull Urn actorUrn) {
+    return authorizers.stream()
+        .flatMap(authorizer -> authorizer.getActorPeers(actorUrn).stream())
+        .distinct()
+        .collect(Collectors.toList());
+  }
 }

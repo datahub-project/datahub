@@ -15,7 +15,6 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
@@ -55,18 +54,13 @@ public class RestoreGlossaryIndicesTest {
             .setAspects(new EnvelopedAspectMap(termInfoAspects)));
     Mockito.when(
             mockSearchService.search(
-                Mockito.any(OperationContext.class),
+                Mockito.any(),
                 Mockito.eq(List.of(Constants.GLOSSARY_TERM_ENTITY_NAME)),
                 Mockito.eq(""),
                 Mockito.any(),
                 Mockito.any(),
                 Mockito.eq(0),
-                Mockito.eq(1000),
-                Mockito.eq(
-                    new SearchFlags()
-                        .setFulltext(false)
-                        .setSkipAggregates(true)
-                        .setSkipHighlighting(true))))
+                Mockito.eq(1000)))
         .thenReturn(
             new SearchResult()
                 .setNumEntities(1)
@@ -96,18 +90,13 @@ public class RestoreGlossaryIndicesTest {
             .setAspects(new EnvelopedAspectMap(nodeInfoAspects)));
     Mockito.when(
             mockSearchService.search(
-                Mockito.any(OperationContext.class),
+                Mockito.any(),
                 Mockito.eq(List.of(Constants.GLOSSARY_NODE_ENTITY_NAME)),
                 Mockito.eq(""),
                 Mockito.any(),
                 Mockito.any(),
                 Mockito.eq(0),
-                Mockito.eq(1000),
-                Mockito.eq(
-                    new SearchFlags()
-                        .setFulltext(false)
-                        .setSkipAggregates(true)
-                        .setSkipHighlighting(true))))
+                Mockito.eq(1000)))
         .thenReturn(
             new SearchResult()
                 .setNumEntities(1)
@@ -336,32 +325,22 @@ public class RestoreGlossaryIndicesTest {
         .getEntitySpec(Constants.GLOSSARY_NODE_ENTITY_NAME);
     Mockito.verify(mockSearchService, Mockito.times(0))
         .search(
-            Mockito.any(OperationContext.class),
+            Mockito.any(),
             Mockito.eq(List.of(Constants.GLOSSARY_TERM_ENTITY_NAME)),
             Mockito.eq(""),
             Mockito.any(),
             Mockito.any(),
             Mockito.eq(0),
-            Mockito.eq(1000),
-            Mockito.eq(
-                new SearchFlags()
-                    .setFulltext(false)
-                    .setSkipAggregates(true)
-                    .setSkipHighlighting(true)));
+            Mockito.eq(1000));
     Mockito.verify(mockSearchService, Mockito.times(0))
         .search(
-            Mockito.any(OperationContext.class),
+            Mockito.any(),
             Mockito.eq(List.of(Constants.GLOSSARY_NODE_ENTITY_NAME)),
             Mockito.eq(""),
             Mockito.any(),
             Mockito.any(),
             Mockito.eq(0),
-            Mockito.eq(1000),
-            Mockito.eq(
-                new SearchFlags()
-                    .setFulltext(false)
-                    .setSkipAggregates(true)
-                    .setSkipHighlighting(true)));
+            Mockito.eq(1000));
     Mockito.verify(mockService, Mockito.times(0))
         .ingestProposal(
             Mockito.any(MetadataChangeProposal.class),

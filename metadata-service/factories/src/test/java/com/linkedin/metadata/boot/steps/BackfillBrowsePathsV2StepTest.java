@@ -100,8 +100,7 @@ public class BackfillBrowsePathsV2StepTest {
             Mockito.eq(null),
             Mockito.eq(null),
             Mockito.eq("5m"),
-            Mockito.eq(5000),
-            Mockito.eq(null));
+            Mockito.eq(5000));
     // Verify that 11 aspects are ingested, 2 for the upgrade request / result, 9 for ingesting 1 of
     // each entity type
     Mockito.verify(mockService, Mockito.times(11))
@@ -168,8 +167,7 @@ public class BackfillBrowsePathsV2StepTest {
                   Mockito.eq(null),
                   Mockito.eq(null),
                   Mockito.eq("5m"),
-                  Mockito.eq(5000),
-                  Mockito.eq(null)))
+                  Mockito.eq(5000)))
           .thenReturn(
               new ScrollResult()
                   .setNumEntities(1)
