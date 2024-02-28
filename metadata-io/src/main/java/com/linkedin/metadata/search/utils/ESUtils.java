@@ -153,6 +153,7 @@ public class ESUtils {
               or ->
                   finalQueryBuilder.should(
                       ESUtils.buildConjunctiveFilterQuery(or, isTimeseries, searchableFieldTypes)));
+      finalQueryBuilder.minimumShouldMatch(1);
     } else if (filter.getCriteria() != null) {
       // Otherwise, build boolean query from the deprecated "criteria" field.
       log.warn("Received query Filter with a deprecated field 'criteria'. Use 'or' instead.");
@@ -169,6 +170,7 @@ public class ESUtils {
                 }
               });
       finalQueryBuilder.should(andQueryBuilder);
+      finalQueryBuilder.minimumShouldMatch(1);
     }
     return finalQueryBuilder;
   }

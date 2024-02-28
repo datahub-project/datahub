@@ -46,6 +46,7 @@ public class ESAccessControlUtil {
   /*
     These two privileges should be logically the same for search even
     if one might allow search but not the entity page view at some point.
+    This list should mimic the list in AuthorizationUtils - update both places.
   */
   private static final Set<String> FILTER_PRIVILEGES =
       Set.of(
