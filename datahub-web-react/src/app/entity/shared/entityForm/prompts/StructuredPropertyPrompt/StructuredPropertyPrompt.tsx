@@ -8,13 +8,13 @@ import {
     StdDataType,
     SubmitFormPromptInput,
 } from '../../../../../../types.generated';
-import SingleSelectInput from './SingleSelectInput';
-import MultiSelectInput from './MultiSelectInput';
+import SingleSelectInput from '../../../components/styled/StructuredProperty/SingleSelectInput';
+import MultiSelectInput from '../../../components/styled/StructuredProperty/MultiSelectInput';
 import useStructuredPropertyPrompt from './useStructuredPropertyPrompt';
-import StringInput from './StringInput';
-import RichTextInput from './RichTextInput';
-import DateInput from './DateInput';
-import NumberInput from './NumberInput';
+import StringInput from '../../../components/styled/StructuredProperty/StringInput';
+import RichTextInput from '../../../components/styled/StructuredProperty/RichTextInput';
+import DateInput from '../../../components/styled/StructuredProperty/DateInput';
+import NumberInput from '../../../components/styled/StructuredProperty/NumberInput';
 import UrnInput from './UrnInput/UrnInput';
 import CompletedPromptAuditStamp from './CompletedPromptAuditStamp';
 import { applyOpacity } from '../../../../../shared/styleUtils';
@@ -87,7 +87,7 @@ export default function StructuredPropertyPrompt({
     optimisticCompletedTimestamp,
 }: Props) {
     const {
-        hasEditedPrompt,
+        hasEdited,
         selectedValues,
         selectSingleValue,
         toggleSelectedValue,
@@ -104,8 +104,8 @@ export default function StructuredPropertyPrompt({
     if (!structuredProperty) return null;
 
     const { displayName, description, allowedValues, cardinality, valueType } = structuredProperty.definition;
-    const showSaveButton = hasEditedPrompt && selectedValues.length > 0;
-    const showConfirmButton = !hasEditedPrompt && !isComplete && selectedValues.length > 0;
+    const showSaveButton = hasEdited && selectedValues.length > 0;
+    const showConfirmButton = !hasEdited && !isComplete && selectedValues.length > 0;
 
     return (
         <>
@@ -118,6 +118,7 @@ export default function StructuredPropertyPrompt({
                     </PromptTitle>
                     {description && <PromptSubTitle>{description}</PromptSubTitle>}
                     <InputSection>
+                        {/* TODO: reuse structured property input here */}
                         {allowedValues && allowedValues.length > 0 && (
                             <>
                                 {cardinality === PropertyCardinality.Single && (
@@ -165,7 +166,7 @@ export default function StructuredPropertyPrompt({
                         )}
                     </InputSection>
                 </PromptInputWrapper>
-                {isComplete && !hasEditedPrompt && (
+                {isComplete && !hasEdited && (
                     <CompletedPromptAuditStamp completedByName={completedByName} completedByTime={completedByTime} />
                 )}
             </PromptWrapper>

@@ -11,6 +11,7 @@ import NameColumn from './NameColumn';
 import TabHeader from './TabHeader';
 import useUpdateExpandedRowsFromFilter from './useUpdateExpandedRowsFromFilter';
 import { useEntityRegistry } from '../../../../useEntityRegistry';
+import { EditColumn } from './Edit/EditColumn';
 
 const StyledTable = styled(Table)`
     &&& .ant-table-cell-with-append {
@@ -33,6 +34,11 @@ export const PropertiesTab = () => {
         {
             title: 'Value',
             render: (propertyRow: PropertyRow) => <ValuesColumn propertyRow={propertyRow} filterText={filterText} />,
+        },
+        {
+            title: '',
+            width: '10%',
+            render: (propertyRow: PropertyRow) => <EditColumn propertyRow={propertyRow} />,
         },
     ];
 
