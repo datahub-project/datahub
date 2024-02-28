@@ -502,7 +502,7 @@ class TeradataSource(TwoTierSQLAlchemySource):
 
     TABLES_AND_VIEWS_QUERY: str = """
 SELECT
-    t.DatabaseName,
+    t.DataBaseName,
     t.TableName as name,
     t.CommentString as description,
     CASE t.TableKind
@@ -517,8 +517,8 @@ SELECT
     t.LastAlterName,
     t.LastAlterTimeStamp,
     t.RequestText
-FROM dbc.Tables t
-WHERE DatabaseName NOT IN (
+FROM dbc.TablesV t
+WHERE DataBaseName NOT IN (
                 'All',
                 'Crashdumps',
                 'Default',
@@ -564,7 +564,7 @@ WHERE DatabaseName NOT IN (
                 'dbc'
 )
 AND t.TableKind in ('T', 'V', 'Q', 'O')
-ORDER by DatabaseName, TableName;
+ORDER by DataBaseName, TableName;
      """.strip()
 
     _tables_cache: MutableMapping[str, List[TeradataTable]] = defaultdict(list)
@@ -779,7 +779,7 @@ ORDER by DatabaseName, TableName;
         engine = self.get_metadata_engine()
         for entry in engine.execute(self.TABLES_AND_VIEWS_QUERY):
             table = TeradataTable(
-                database=entry.DatabaseName.strip(),
+                database=entry.DataBaseName.strip(),
                 name=entry.name.strip(),
                 description=entry.description.strip() if entry.description else None,
                 object_type=entry.object_type,
