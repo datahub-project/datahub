@@ -37,7 +37,6 @@ def wait_for_writes_to_sync(max_timeout_in_sec: int = 120) -> None:
                 shell=True,
                 text=True,
             )
-
             result = str(completed_process.stdout)
             lines = result.splitlines()
             lag_values = [int(line) for line in lines if line != ""]
