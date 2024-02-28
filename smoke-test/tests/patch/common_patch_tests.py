@@ -8,7 +8,6 @@ from datahub.emitter.mcp_patch_builder import MetadataPatchProposal
 from datahub.ingestion.graph.client import DataHubGraph, DataHubGraphConfig
 from datahub.metadata.schema_classes import (
     AuditStampClass,
-    DatasetPropertiesClass,
     GlobalTagsClass,
     GlossaryTermAssociationClass,
     GlossaryTermsClass,
@@ -18,26 +17,6 @@ from datahub.metadata.schema_classes import (
     TagAssociationClass,
     _Aspect,
 )
-
-
-def get_dataset_property(
-    graph: DataHubGraph, dataset_urn: str, property_name: str
-) -> Optional[Dict[str, str]]:
-    """
-    Generic function to get a specific property of a dataset.
-
-    :param graph: Instance of DataHubGraph.
-    :param dataset_urn: URN of the dataset.
-    :param property_name: Name of the property to retrieve.
-    :return: Property value or None if the property doesn't exist.
-    """
-    dataset_properties = graph.get_aspect(
-        entity_urn=dataset_urn,
-        aspect_type=DatasetPropertiesClass,
-    )
-    assert dataset_properties
-
-    return getattr(dataset_properties, property_name, None)
 
 
 def helper_test_entity_terms_patch(

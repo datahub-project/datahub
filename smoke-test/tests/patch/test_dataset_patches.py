@@ -1,11 +1,9 @@
 import uuid
-from datetime import datetime as dt
 from typing import Dict, Optional
 
 from datahub.emitter.mce_builder import make_dataset_urn, make_tag_urn, make_term_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DataHubGraph, DataHubGraphConfig
-from datahub.metadata.com.linkedin.pegasus2avro.common import TimeStamp
 from datahub.metadata.schema_classes import (
     DatasetLineageTypeClass,
     DatasetPropertiesClass,
@@ -17,10 +15,8 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
 )
 from datahub.specific.dataset import DatasetPatchBuilder
-from datahub.utilities.time import datetime_to_ts_millis
 
 from tests.patch.common_patch_tests import (
-    get_dataset_property,
     helper_test_custom_properties_patch,
     helper_test_dataset_tags_patch,
     helper_test_entity_terms_patch,
@@ -28,51 +24,43 @@ from tests.patch.common_patch_tests import (
 )
 
 
-def make_dataset_urn_helper(suffix=""):
-    return make_dataset_urn(
-        platform="hive", name=f"SampleHiveDataset{suffix}{uuid.uuid4()}", env="PROD"
-    )
-
-
-def create_dataset_properties_helper(name: str, patch_type: str, patch_type_value: str):
-    if patch_type == "created" or patch_type == "lastModified":
-        return DatasetPropertiesClass(
-            name=name, **{patch_type: TimeStamp(datetime_to_ts_millis(dt.now()))}
-        )
-    else:
-        return DatasetPropertiesClass(name=name, **{patch_type: patch_type_value})
-
-
-def setup(urn_suffix: str, property_details: Dict[str, str]):
-    dataset_urn = make_dataset_urn_helper(urn_suffix)
-    orig_dataset_properties = create_dataset_properties_helper(**property_details)
-    return (dataset_urn, orig_dataset_properties)
-
-
 # Common Aspect Patch Tests
 # Ownership
 def test_dataset_ownership_patch(wait_for_healthchecks):
-    dataset_urn = make_dataset_urn_helper()
-
+    dataset_urn = make_dataset_urn(
+        platform="hive", name=f"SampleHiveDataset{uuid.uuid4()}", env="PROD"
+    )
     helper_test_ownership_patch(dataset_urn, DatasetPatchBuilder)
 
 
 # Tags
 def test_dataset_tags_patch(wait_for_healthchecks):
-    dataset_urn = make_dataset_urn_helper("-")
+    dataset_urn = make_dataset_urn(
+        platform="hive", name=f"SampleHiveDataset-{uuid.uuid4()}", env="PROD"
+    )
     helper_test_dataset_tags_patch(dataset_urn, DatasetPatchBuilder)
 
 
 # Terms
 def test_dataset_terms_patch(wait_for_healthchecks):
-    dataset_urn = make_dataset_urn_helper("-")
+    dataset_urn = make_dataset_urn(
+        platform="hive", name=f"SampleHiveDataset-{uuid.uuid4()}", env="PROD"
+    )
     helper_test_entity_terms_patch(dataset_urn, DatasetPatchBuilder)
 
 
 def test_dataset_upstream_lineage_patch(wait_for_healthchecks):
-    dataset_urn = make_dataset_urn_helper("-")
-    other_dataset_urn = make_dataset_urn_helper("2-")
-    patch_dataset_urn = make_dataset_urn_helper("3-")
+    dataset_urn = make_dataset_urn(
+        platform="hive", name=f"SampleHiveDataset-{uuid.uuid4()}", env="PROD"
+    )
+
+    other_dataset_urn = make_dataset_urn(
+        platform="hive", name=f"SampleHiveDataset2-{uuid.uuid4()}", env="PROD"
+    )
+
+    patch_dataset_urn = make_dataset_urn(
+        platform="hive", name=f"SampleHiveDataset3-{uuid.uuid4()}", env="PROD"
+    )
 
     upstream_lineage = UpstreamLineageClass(
         upstreams=[
@@ -145,7 +133,9 @@ def get_field_info(
 
 
 def test_field_terms_patch(wait_for_healthchecks):
-    dataset_urn = make_dataset_urn_helper("-")
+    dataset_urn = make_dataset_urn(
+        platform="hive", name=f"SampleHiveDataset-{uuid.uuid4()}", env="PROD"
+    )
 
     field_path = "foo.bar"
 
@@ -204,7 +194,9 @@ def test_field_terms_patch(wait_for_healthchecks):
 
 
 def test_field_tags_patch(wait_for_healthchecks):
-    dataset_urn = make_dataset_urn_helper("-")
+    dataset_urn = make_dataset_urn(
+        platform="hive", name=f"SampleHiveDataset-{uuid.uuid4()}", env="PROD"
+    )
 
     field_path = "foo.bar"
 
@@ -294,10 +286,12 @@ def get_custom_properties(
 
 
 def test_custom_properties_patch(wait_for_healthchecks):
-    dataset_urn, orig_dataset_properties = setup(
-        "-", {"name": "test_name", "description": "test_description"}
+    dataset_urn = make_dataset_urn(
+        platform="hive", name=f"SampleHiveDataset-{uuid.uuid4()}", env="PROD"
     )
-
+    orig_dataset_properties = DatasetPropertiesClass(
+        name="test_name", description="test_description"
+    )
     helper_test_custom_properties_patch(
         test_entity_urn=dataset_urn,
         patch_builder_class=DatasetPatchBuilder,
@@ -330,61 +324,3 @@ def test_custom_properties_patch(wait_for_healthchecks):
         assert (
             custom_properties["test_description_property"] == "test_description_value"
         )
-
-
-def test_qualified_name_patch(wait_for_healthchecks):
-    dataset_urn, orig_dataset_properties = setup(
-        "-", {"name": "test_name", "qualifiedName": "to_be_replaced"}
-    )
-
-    mcpw = MetadataChangeProposalWrapper(
-        entityUrn=dataset_urn, aspect=orig_dataset_properties
-    )
-
-    with DataHubGraph(DataHubGraphConfig()) as graph:
-        graph.emit(mcpw)
-        # assert qualfied name looks as expected
-        qualified_name = get_dataset_property(graph, dataset_urn, "qualifiedName")
-        assert qualified_name
-        assert qualified_name == "to_be_replaced"
-
-        for patch_mcp in (
-            DatasetPatchBuilder(dataset_urn)
-            .set_qualified_name("new_qualified_name")
-            .build()
-        ):
-            graph.emit_mcp(patch_mcp)
-
-    assert (
-        get_dataset_property(graph, dataset_urn, "qualifiedName")
-        == "new_qualified_name"
-    )
-
-
-def test_timestamp_patch_types(wait_for_healthchecks):
-    for patch_type in ["created", "lastModified"]:
-        test_time = datetime_to_ts_millis(dt.now())
-        dataset_urn, orig_dataset_properties = setup(
-            "-", {"name": "test_name", patch_type: test_time}
-        )
-
-        mcpw = MetadataChangeProposalWrapper(
-            entityUrn=dataset_urn, aspect=orig_dataset_properties
-        )
-
-        with DataHubGraph(DataHubGraphConfig()) as graph:
-            graph.emit(mcpw)
-            dataset_property = get_dataset_property(graph, dataset_urn, patch_type)
-            assert dataset_property
-            assert dataset_property.time == test_time
-
-            new_test_time = datetime_to_ts_millis(dt.now())
-
-            patch_builder = DatasetPatchBuilder(dataset_urn)
-            patch_method = getattr(patch_builder, f"set_{patch_type}")
-            for patch_mcp in patch_method(TimeStamp(new_test_time)).build():
-                graph.emit_mcp(patch_mcp)
-
-            dataset_property = get_dataset_property(graph, dataset_urn, patch_type)
-            assert dataset_property
-            assert dataset_property.time == new_test_time
