@@ -2,6 +2,7 @@ import styled from 'styled-components';
 import { Button } from 'antd';
 import React from 'react';
 import TabToolbar from '../../../components/styled/TabToolbar';
+import { REDESIGN_COLORS,ANTD_GRAY } from '../../../constants';
 
 const StyledTabToolbar = styled(TabToolbar)`
     justify-content: flex-end !important;
@@ -10,29 +11,29 @@ const StyledTabToolbar = styled(TabToolbar)`
 const ProposeButton = styled(Button)`
     margin-right: 10px;
     margin-left: 10px;
-    background-color: #6c6b88;
-    color: #fff;
+    background-color: ${REDESIGN_COLORS.DARK_PURPLE};
+    color: ${ANTD_GRAY[1]};
     box-shadow: none;
-    border-color: #6c6b88;
+    border-color: ${REDESIGN_COLORS.DARK_PURPLE};
     line-height: 0;
     &:hover,
     &:focus {
-        background-color: #fff;
-        color: #6c6b88;
-        border-color: #6c6b88;
+        background-color: ${ANTD_GRAY[1]};
+        color: ${REDESIGN_COLORS.DARK_PURPLE};
+        border-color: ${REDESIGN_COLORS.DARK_PURPLE};
     }
 `;
 
 const StyledButton = styled(Button)`
     box-shadow: none;
-    color: #6c6b88;
-    border-color: #6c6b88;
+    color: ${REDESIGN_COLORS.DARK_PURPLE};
+    border-color: ${REDESIGN_COLORS.DARK_PURPLE};
     line-height: 0;
     &:hover,
     &:focus {
-        background-color: #6c6b88;
+        background-color: ${REDESIGN_COLORS.DARK_PURPLE};
         color: #fff;
-        border-color: #6c6b88;
+        border-color: ${REDESIGN_COLORS.DARK_PURPLE};
     }
 `;
 

@@ -16,6 +16,7 @@ import { useEntityData, useRefetch, useRouteToTab } from '../../EntityContext';
 import { EDITED_DESCRIPTIONS_CACHE_NAME } from '../../utils';
 import { Editor } from './components/editor/Editor';
 import { DescriptionPreviewModal } from './components/DescriptionPreviewModal';
+import { REDESIGN_COLORS,ANTD_GRAY } from '../../constants';
 
 const DocumentationContainer = styled.div`
     margin: 0 32px;
@@ -24,7 +25,7 @@ const DocumentationContainer = styled.div`
 `;
 
 const StyledTabToolbar = styled(TabToolbar)`
-    background-color: #f6f7fa;
+    background-color: ${REDESIGN_COLORS.LIGHT_GREY};
     border-top-left-radius: 4px;
     border-bottom-left-radius: 4px;
     border-left: 2px solid #5c3fd1;
@@ -33,17 +34,17 @@ const StyledTabToolbar = styled(TabToolbar)`
 `;
 
 const PrimaryButton = styled(Button)`
-    color: #ffffff;
+    color: ${ANTD_GRAY[1]};
     font-size: 12px;
     box-shadow: none;
-    border-color: #533fd1;
-    background-color: #533fd1;
+    border-color: ${REDESIGN_COLORS.TITLE_PURPLE};
+    background-color: ${REDESIGN_COLORS.TITLE_PURPLE};
     margin-left: 9px;
     &:hover {
         transition: 0.15s;
         opacity: 0.9;
-        border-color: #533fd1;
-        background-color: #533fd1;
+        border-color: ${REDESIGN_COLORS.TITLE_PURPLE};
+        background-color: ${REDESIGN_COLORS.TITLE_PURPLE};
     }
 `;
 

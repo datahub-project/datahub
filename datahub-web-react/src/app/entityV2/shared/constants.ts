@@ -27,6 +27,7 @@ export const REDESIGN_COLORS = {
     BORDER_1: '#4b4b54',
     SECONDARY_LIGHT_GREY: '#9DA7C0',
     ACTION_ICON_GREY: '#676b75',
+    DARK_PURPLE: '#6C6B88'
 };
 
 export const SEARCH_COLORS = {

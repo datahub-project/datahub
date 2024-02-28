@@ -16,15 +16,16 @@ import { HeadingMenu } from './HeadingMenu';
 import { AddImageButton } from './AddImageButton';
 import { AddLinkButton } from './AddLinkButton';
 import { CodeBlockIcon, CodeIcon } from './Icons';
+import { REDESIGN_COLORS } from '../../../../../constants';
 
 const Container = styled.div`
     position: sticky;
     top: 0;
     z-index: 99;
-    background-color: #f6f7fa;
+    background-color: ${REDESIGN_COLORS.LIGHT_GREY};
     border-top-left-radius: 4px;
     border-bottom-left-radius: 4px;
-    border-left: 2px solid #5c3fd1;
+    border-left: 2px solid ${REDESIGN_COLORS.TITLE_PURPLE};
     padding: 8px 20px;
     margin: 2px 14px 2px 12px;
     & button {

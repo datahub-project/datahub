@@ -38,7 +38,7 @@ interface ItemWrapperProps {
 const ItemWrapper = styled.div<ItemWrapperProps>`
     transition: 0.15s;
     width: 100%;
-    flex-basis: ${(props) => (props.type === EntityType.GlossaryNode && props.entityData.urn === '' ? '24%' : 'auto')};
+    flex-basis: ${(props) => (props.type === EntityType.GlossaryNode && !props.entityData.urn ? '24%' : 'auto')};
 
     & a {
         display: block;
@@ -65,7 +65,7 @@ function GlossaryEntityItem(props: Props) {
         <ItemWrapper type={type} entityData={entityData} >
             <Link to={`${entityRegistry.getEntityUrl(type, urn)}`}>
                 <GlossaryItem>
-                    {type === EntityType.GlossaryNode && entityData.urn === '' ? (
+                    {type === EntityType.GlossaryNode && !entityData.urn ? (
                         <GlossaryNodeCard
                             name={name}
                             type={type}

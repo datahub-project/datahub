@@ -6,17 +6,18 @@ import { useEntityData, useMutationUrn } from '../../EntityContext';
 import { useAddLinkMutation } from '../../../../../graphql/mutations.generated';
 import analytics, { EventType, EntityActionType } from '../../../../analytics';
 import { useUserContext } from '../../../../context/useUserContext';
+import { REDESIGN_COLORS } from '../../constants';
 
 const TransparentButton = styled(Button)`
-    color: #533fd1;
+    color: ${REDESIGN_COLORS.TITLE_PURPLE};
     font-size: 12px;
     box-shadow: none;
-    border-color: #533fd1;
+    border-color: ${REDESIGN_COLORS.TITLE_PURPLE};
     &:hover {
         transition: 0.15s;
         opacity: 0.9;
-        border-color: #533fd1;
-        color: #533fd1;
+        border-color: ${REDESIGN_COLORS.TITLE_PURPLE};
+        color: ${REDESIGN_COLORS.TITLE_PURPLE};
     }
 `;
 
