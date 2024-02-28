@@ -141,28 +141,43 @@ class DeltaLakeSource(Source):
 
     inner_data_type = ""
 
-    def _inner_field_details(self, raw_field):
+    def _inner_field_details(self, raw_field, parsed_struct=""):
         if raw_field.get("type") == "array":
             if isinstance(raw_field.get("elementType"), dict):
-                self.inner_data_type = (
-                    self.inner_data_type
-                    + str(raw_field.get("elementType").get("type"))
+                return (
+                    str(raw_field.get("elementType").get("type"))
                     + "<"
+                    + self._inner_field_details(raw_field.get("elementType"))
+                    + ">"
                 )
-                self._inner_field_details(raw_field.get("elementType"))
             else:
-                self.inner_data_type = self.inner_data_type + str(
-                    raw_field.get("elementType")
-                )
+                return str(raw_field.get("elementType"))
         elif raw_field.get("type") == "struct":
-            data_type = ""
-            data_type = data_type + ",".join(
-                "{0}:{1}".format(field.get("name"), field.get("type"))
-                for field in raw_field.get("fields")
+            for field in raw_field.get("fields"):
+                if isinstance(field.get("type"), dict):
+                    parsed_struct += (
+                        "{0}:".format(field.get("name"))
+                        if parsed_struct
+                        else "" + "{0}:".format(field.get("name"))
+                    )
+                    parsed_struct += field.get("type").get("type") + "<"
+                    return self._inner_field_details(field.get("type"), parsed_struct)
+                else:
+                    parsed_struct = (
+                            parsed_struct
+                            + "{0}:{1}".format(field.get("name"), field.get("type"))
+                            + ","
+                    )
+
+            parsed_struct = parsed_struct.rstrip(",")
+            parsed_struct = (
+                parsed_struct + ">"
+                if parsed_struct.count(">") < parsed_struct.count("<")
+                else parsed_struct
             )
-            self.inner_data_type = self.inner_data_type + data_type
+            return parsed_struct
         else:
-            self.inner_data_type = self.inner_data_type + raw_field.get("elementType")
+            return str(raw_field.get("elementType"))
 
     def _parse_datatype(self, raw_field_json_str: str) -> List[SchemaFieldClass]:
         raw_field_json = json.loads(raw_field_json_str)
@@ -175,21 +190,14 @@ class DeltaLakeSource(Source):
         if isinstance(inner_field, str):
             return get_schema_fields_for_hive_column(field_name, field_type)
         else:
-            # resetting inner_data_type
-            self.inner_data_type = ""
-
             # recursively parse the fields to get the native data type
-            self._inner_field_details(inner_field)
+            inner_data_type = self._inner_field_details(inner_field)
 
-            for count in range(self.inner_data_type.count("<")):
-                self.inner_data_type = self.inner_data_type + ">"
-
-            native_data_type = field_type + "<" + self.inner_data_type + ">"
+            native_data_type = field_type + "<" + inner_data_type + ">"
 
             avro_schema_data = get_schema_fields_for_hive_column(
                 field_name, native_data_type
             )
-
             return avro_schema_data
 
     def get_fields(self, delta_table: DeltaTable) -> List[SchemaField]:
