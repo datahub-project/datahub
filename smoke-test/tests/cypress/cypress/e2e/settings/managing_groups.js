@@ -96,7 +96,7 @@ describe("create and manage group", () => {
         cy.waitTextVisible(`#${test_id}`);
     });
 
-    it("test user verify group participation", () => {
+    it("test User verify group participation", () => {
         cy.loginWithCredentials();
         cy.visit("/settings/identities/groups");
         cy.hideOnboardingTour();
