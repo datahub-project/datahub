@@ -11,17 +11,12 @@ import { ANTD_GRAY } from '../../../../../../../../../constants';
 import { LinkWrapper } from '../../../../../../../../../../../shared/LinkWrapper';
 import { Assertion, AssertionResultType } from '../../../../../../../../../../../../types.generated';
 import { generateTimeScaleTickValues, getCustomTimeScaleTickValue, getFillColor } from './utils';
-import { AssertionDataPoint, TimeRange } from '../types';
+import { AssertionDataPoint, AssertionResultChartData, TimeRange } from '../types';
 import { AssertionResultPopoverContent } from '../../../../shared/result/AssertionResultPopoverContent';
 import { scaleLinear } from 'd3-scale';
 
 type Props = {
-    data: {
-        dataPoints: AssertionDataPoint[],
-        context: {
-            assertion: Assertion
-        }
-    };
+    data: AssertionResultChartData;
     timeRange: TimeRange;
     chartDimensions: {
         width: number;
@@ -36,7 +31,7 @@ const CHART_AXIS_BOTTOM_HEIGHT = 40;
 /**
  * Assertion run results displayed on a horizontal timeline.
  */
-export const TimeBasedAssertionResultChart = ({ data, timeRange, chartDimensions }: Props) => {
+export const StatusOverTimeAssertionResultChart = ({ data, timeRange, chartDimensions }: Props) => {
 
     const chartInnerHeight = chartDimensions.height - CHART_AXIS_BOTTOM_HEIGHT
 

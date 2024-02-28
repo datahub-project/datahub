@@ -1,5 +1,5 @@
 import { Maybe } from "graphql/jsutils/Maybe";
-import { AssertionResultType, AssertionRunEvent, AssertionStdOperator, DateInterval } from "../../../../../../../../../../../types.generated";
+import { Assertion, AssertionResultType, AssertionRunEvent, AssertionStdOperator, DateInterval } from "../../../../../../../../../../../types.generated";
 
 export type AssertionResult = {
     type: AssertionResultType;
@@ -12,6 +12,14 @@ export type AssertionDataPoint = {
     result: AssertionResult;
     relatedRunEvent: AssertionRunEvent;
 };
+
+export type AssertionResultChartData = {
+    dataPoints: AssertionDataPoint[];
+    yAxisLabel?: string;
+    context: {
+        assertion: Assertion;
+    };
+}
 
 export type TimeRange = {
     startMs: number;

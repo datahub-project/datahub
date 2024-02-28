@@ -6,12 +6,11 @@ import {
     AssertionRunStatus,
     DataPlatform,
 } from '../../../../../../../../../../../types.generated';
-import { TimeAndValueBasedAssertionResultChart } from './charts/TimeAndValueBasedAssertionResultChart';
-import { AssertionDataPoint, TimeRange } from './types';
-import { getAssertionDataPointsFromRunEvents } from './transformers';
-import { TIME_AND_VALUE_BASED_ASSERTION_TYPES } from './constants';
-import { TimeBasedAssertionResultChart } from './charts/TimeBasedAssertionResultChart';
-import ParentSize from '@visx/responsive/lib/components/ParentSize'
+import { ValuesOverTimeAssertionResultChart } from './charts/ValuesOverTimeAssertionResultChart';
+import { AssertionDataPoint, AssertionResultChartData, TimeRange } from './types';
+import { getAssertionDataPointsFromRunEvents, getAssertionResultChartData } from './transformers';
+import { AssertionChartType, getBestChartTypeForAssertion } from './charts/constants';
+import { StatusOverTimeAssertionResultChart } from './charts/StatusOverTimeAssertionResultChart';
 
 type Props = {
     assertion: Assertion;
@@ -25,25 +24,21 @@ export const AssertionResultsTimelineViz = ({ assertion, results, timeRange, dim
     const completedRuns =
         results?.runEvents.filter((runEvent) => runEvent.status === AssertionRunStatus.Complete) || [];
 
-    const timelineDataPoints: AssertionDataPoint[] = getAssertionDataPointsFromRunEvents(completedRuns)
+    console.log(completedRuns)
+    const assertionResultChartData: AssertionResultChartData = getAssertionResultChartData(
+        assertion,
+        completedRuns,
+    )
 
-    return assertion.info?.type && TIME_AND_VALUE_BASED_ASSERTION_TYPES.includes(assertion.info.type) ? <TimeAndValueBasedAssertionResultChart
-        chartDimensions={dimensions}
-        data={{
-            dataPoints: timelineDataPoints,
-            context: {
-                assertion,
-            }
-        }}
-        timeRange={timeRange}
-    /> : <TimeBasedAssertionResultChart
-        chartDimensions={dimensions}
-        data={{
-            dataPoints: timelineDataPoints,
-            context: {
-                assertion,
-            }
-        }}
-        timeRange={timeRange}
-    />;
+    return getBestChartTypeForAssertion(assertion.info) == AssertionChartType.ValuesOverTime
+        ? <ValuesOverTimeAssertionResultChart
+            chartDimensions={dimensions}
+            data={assertionResultChartData}
+            timeRange={timeRange}
+        />
+        : <StatusOverTimeAssertionResultChart
+            chartDimensions={dimensions}
+            data={assertionResultChartData}
+            timeRange={timeRange}
+        />;
 };

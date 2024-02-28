@@ -1,5 +1,15 @@
-import { AssertionRunEvent, AssertionType } from "../../../../../../../../../../../types.generated";
-import { AssertionDataPoint } from "./types";
+import { Assertion, AssertionRunEvent, AssertionType } from "../../../../../../../../../../../types.generated";
+import { AssertionDataPoint, AssertionResultChartData } from "./types";
+
+export const getAssertionResultChartData = (assertion: Assertion, completedRuns: AssertionRunEvent[]): AssertionResultChartData => {
+    const timelineDataPoints: AssertionDataPoint[] = getAssertionDataPointsFromRunEvents(completedRuns)
+    return {
+        dataPoints: timelineDataPoints,
+        context: {
+            assertion,
+        }
+    }
+}
 
 export const getAssertionDataPointsFromRunEvents = (runEvents: AssertionRunEvent[]): AssertionDataPoint[] => {
     return runEvents

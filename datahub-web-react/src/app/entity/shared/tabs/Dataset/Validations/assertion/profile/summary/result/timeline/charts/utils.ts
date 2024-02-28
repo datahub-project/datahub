@@ -1,6 +1,7 @@
 import { AssertionResultType } from "../../../../../../../../../../../../types.generated";
 
-export const SUCCESS_COLOR_HEX = '#52C41A';
+export const ACCENT_COLOR_HEX = '#4050E7'
+export const SUCCESS_COLOR_HEX = ACCENT_COLOR_HEX;// '#52C41A';
 export const FAILURE_COLOR_HEX = '#F5222D';
 export const ERROR_COLOR_HEX = '#FAAD14';
 export const INIT_COLOR_HEX = '#8C8C8C';
@@ -73,7 +74,6 @@ export function generateTimeScaleTickValues(startMs, endMs): Date[] {
         }
     }
 
-    console.log(ticks)
     return ticks;
 }
 
