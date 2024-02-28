@@ -226,7 +226,7 @@ class CSVEnricherSource(Source):
 
         if not current_ownership:
             # If we want to overwrite or there are no existing tags, create a new GlobalTags object
-            current_ownership = OwnershipClass(owners, get_audit_stamp())
+            current_ownership = OwnershipClass(owners, lastModified=get_audit_stamp())
         else:
             current_owner_urns: Set[str] = set(
                 [owner.owner for owner in current_ownership.owners]

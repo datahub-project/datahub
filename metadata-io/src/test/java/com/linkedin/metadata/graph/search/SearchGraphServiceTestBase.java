@@ -54,7 +54,7 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
   @Nonnull
   protected abstract ESIndexBuilder getIndexBuilder();
 
-  private final IndexConvention _indexConvention = new IndexConventionImpl(null);
+  private final IndexConvention _indexConvention = IndexConventionImpl.NO_PREFIX;
   private final String _indexName = _indexConvention.getIndexName(INDEX_NAME);
   private ElasticSearchGraphService _client;
   private boolean _enableMultiPathSearch =

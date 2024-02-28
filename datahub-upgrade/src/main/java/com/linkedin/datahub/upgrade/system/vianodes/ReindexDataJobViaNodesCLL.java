@@ -1,10 +1,8 @@
-package com.linkedin.datahub.upgrade.system.via;
-
-import static com.linkedin.metadata.Constants.*;
+package com.linkedin.datahub.upgrade.system.vianodes;
 
 import com.google.common.collect.ImmutableList;
-import com.linkedin.datahub.upgrade.Upgrade;
 import com.linkedin.datahub.upgrade.UpgradeStep;
+import com.linkedin.datahub.upgrade.system.NonBlockingSystemUpgrade;
 import com.linkedin.metadata.entity.EntityService;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
@@ -14,7 +12,7 @@ import lombok.extern.slf4j.Slf4j;
  * required to index column-level lineage correctly using via nodes.
  */
 @Slf4j
-public class ReindexDataJobViaNodesCLL implements Upgrade {
+public class ReindexDataJobViaNodesCLL implements NonBlockingSystemUpgrade {
 
   private final List<UpgradeStep> _steps;
 
