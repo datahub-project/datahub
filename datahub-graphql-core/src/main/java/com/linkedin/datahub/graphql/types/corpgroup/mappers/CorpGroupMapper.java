@@ -4,11 +4,13 @@ import static com.linkedin.metadata.Constants.*;
 
 import com.linkedin.common.Origin;
 import com.linkedin.common.Ownership;
+import com.linkedin.common.Share;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.datahub.graphql.generated.CorpGroup;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.ShareMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.entity.EntityResponse;
@@ -45,6 +47,9 @@ public class CorpGroupMapper implements ModelMapper<EntityResponse, CorpGroup> {
     mappingHelper.mapToResult(CORP_GROUP_EDITABLE_INFO_ASPECT_NAME, this::mapCorpGroupEditableInfo);
     mappingHelper.mapToResult(
         OWNERSHIP_ASPECT_NAME, (entity, dataMap) -> this.mapOwnership(entity, dataMap, entityUrn));
+    mappingHelper.mapToResult(
+        SHARE_ASPECT_NAME,
+        (entity, dataMap) -> entity.setShare(ShareMapper.map(new Share(dataMap))));
     if (aspectMap.containsKey(ORIGIN_ASPECT_NAME)) {
       mappingHelper.mapToResult(ORIGIN_ASPECT_NAME, this::mapEntityOriginType);
     } else {

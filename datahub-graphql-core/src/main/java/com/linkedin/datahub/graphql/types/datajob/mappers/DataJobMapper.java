@@ -3,15 +3,7 @@ package com.linkedin.datahub.graphql.types.datajob.mappers;
 import static com.linkedin.metadata.Constants.*;
 
 import com.google.common.collect.ImmutableList;
-import com.linkedin.common.BrowsePathsV2;
-import com.linkedin.common.DataPlatformInstance;
-import com.linkedin.common.Deprecation;
-import com.linkedin.common.GlobalTags;
-import com.linkedin.common.GlossaryTerms;
-import com.linkedin.common.InstitutionalMemory;
-import com.linkedin.common.Ownership;
-import com.linkedin.common.Status;
-import com.linkedin.common.SubTypes;
+import com.linkedin.common.*;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.datahub.graphql.generated.DataFlow;
@@ -22,15 +14,7 @@ import com.linkedin.datahub.graphql.generated.DataJobInputOutput;
 import com.linkedin.datahub.graphql.generated.DataJobProperties;
 import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.EntityType;
-import com.linkedin.datahub.graphql.types.common.mappers.BrowsePathsV2Mapper;
-import com.linkedin.datahub.graphql.types.common.mappers.CustomPropertiesMapper;
-import com.linkedin.datahub.graphql.types.common.mappers.DataPlatformInstanceAspectMapper;
-import com.linkedin.datahub.graphql.types.common.mappers.DeprecationMapper;
-import com.linkedin.datahub.graphql.types.common.mappers.FineGrainedLineagesMapper;
-import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
-import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
-import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
-import com.linkedin.datahub.graphql.types.common.mappers.SubTypesMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.*;
 import com.linkedin.datahub.graphql.types.common.mappers.util.SystemMetadataUtils;
 import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
@@ -119,6 +103,8 @@ public class DataJobMapper implements ModelMapper<EntityResponse, DataJob> {
                 result.setBrowsePathV2(BrowsePathsV2Mapper.map(new BrowsePathsV2(data)));
               } else if (SUB_TYPES_ASPECT_NAME.equals(name)) {
                 result.setSubTypes(SubTypesMapper.map(new SubTypes(data)));
+              } else if (SHARE_ASPECT_NAME.equals(name)) {
+                result.setShare(ShareMapper.map(new Share(data)));
               }
             });
 

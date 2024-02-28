@@ -75,7 +75,8 @@
         "PRODUCE_PLATFORM_EVENT_PRIVILEGE",
         "MANAGE_DATA_PRODUCTS",
         "MANAGE_GLOBAL_OWNERSHIP_TYPES",
-        "DELETE_ENTITY"
+        "DELETE_ENTITY",
+        "SHARE_ENTITY"
       ],
       "displayName":"Root User - Edit and View All Resources",
       "description":"Grants full edit and view privileges for all resources to root 'datahub' root user.",
@@ -288,7 +289,8 @@
         "MANAGE_GROUP_NOTIFICATION_SETTINGS",
         "MANAGE_GROUP_SUBSCRIPTIONS",
         "DELETE_ENTITY",
-        "MANAGE_ENTITY_DATA_CONTRACT_PROPOSALS"
+        "MANAGE_ENTITY_DATA_CONTRACT_PROPOSALS",
+        "SHARE_ENTITY"
       ],
       "displayName":"Admins - Metadata Policy",
       "description":"Admins have all metadata privileges.",
@@ -373,7 +375,8 @@
         "MANAGE_DATA_PRODUCTS",
         "MANAGE_GROUP_NOTIFICATION_SETTINGS",
         "MANAGE_GROUP_SUBSCRIPTIONS",
-        "MANAGE_ENTITY_DATA_CONTRACT_PROPOSALS"
+        "MANAGE_ENTITY_DATA_CONTRACT_PROPOSALS",
+        "SHARE_ENTITY"
       ],
       "displayName":"Editors - Metadata Policy",
       "description":"Editors have all metadata privileges.",

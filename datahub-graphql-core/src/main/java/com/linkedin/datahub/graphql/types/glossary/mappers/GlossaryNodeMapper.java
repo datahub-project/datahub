@@ -4,6 +4,7 @@ import static com.linkedin.metadata.Constants.*;
 
 import com.linkedin.common.DisplayProperties;
 import com.linkedin.common.Ownership;
+import com.linkedin.common.Share;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.datahub.graphql.generated.EntityType;
@@ -12,6 +13,7 @@ import com.linkedin.datahub.graphql.generated.GlossaryNodeProperties;
 import com.linkedin.datahub.graphql.types.common.mappers.CustomPropertiesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.DisplayPropertiesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.ShareMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.entity.EntityResponse;
@@ -51,6 +53,9 @@ public class GlossaryNodeMapper implements ModelMapper<EntityResponse, GlossaryN
         ((glossaryNode, dataMap) ->
             glossaryNode.setDisplayProperties(
                 DisplayPropertiesMapper.map(new DisplayProperties(dataMap)))));
+    mappingHelper.mapToResult(
+        SHARE_ASPECT_NAME,
+        (entity, dataMap) -> entity.setShare(ShareMapper.map(new Share(dataMap))));
 
     return mappingHelper.getResult();
   }

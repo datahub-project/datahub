@@ -1,6 +1,12 @@
 query getDataProduct($urn: String!) {
     dataProduct(urn: $urn) {
         ...dataProductFields
+        share {
+            ...shareFields
+        }
+        privileges {
+            ...entityPrivileges
+        }
         autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
             ...autoRenderAspectFields
         }

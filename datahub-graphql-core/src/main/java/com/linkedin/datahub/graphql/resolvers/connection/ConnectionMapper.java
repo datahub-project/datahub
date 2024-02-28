@@ -67,6 +67,9 @@ public class ConnectionMapper {
     if (gmsDetails.hasJson()) {
       result.setJson(mapJsonConnectionDetails(gmsDetails.getJson(), secretService));
     }
+    if (gmsDetails.hasName()) {
+      result.setName(gmsDetails.getName());
+    }
     return result;
   }
 

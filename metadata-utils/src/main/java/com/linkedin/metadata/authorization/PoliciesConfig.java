@@ -222,6 +222,12 @@ public class PoliciesConfig {
           "Manage Documentation Proposals",
           "The ability to manage a proposal update an asset's documentation");
 
+  public static final Privilege SHARE_ENTITY_PRIVILEGE =
+      Privilege.of(
+          "SHARE_ENTITY",
+          "Share Entity",
+          "The ability to share an entity with another Acryl instance.");
+
   public static final Privilege EDIT_ENTITY_DOCS_PRIVILEGE =
       Privilege.of(
           "EDIT_ENTITY_DOCS",
@@ -315,7 +321,8 @@ public class PoliciesConfig {
           EDIT_ENTITY_PRIVILEGE,
           DELETE_ENTITY_PRIVILEGE,
           PROPOSE_ENTITY_DOCS_PRIVILEGE,
-          MANAGE_ENTITY_DOCS_PROPOSALS_PRIVILEGE);
+          MANAGE_ENTITY_DOCS_PROPOSALS_PRIVILEGE,
+          SHARE_ENTITY_PRIVILEGE);
 
   // Dataset Privileges
   public static final Privilege EDIT_DATASET_COL_TAGS_PRIVILEGE =
@@ -617,7 +624,8 @@ public class PoliciesConfig {
               EDIT_TAG_COLOR_PRIVILEGE,
               EDIT_ENTITY_DOCS_PRIVILEGE,
               EDIT_ENTITY_PRIVILEGE,
-              DELETE_ENTITY_PRIVILEGE));
+              DELETE_ENTITY_PRIVILEGE,
+              SHARE_ENTITY_PRIVILEGE));
 
   // Container Privileges
   public static final ResourcePrivileges CONTAINER_PRIVILEGES =
@@ -644,7 +652,8 @@ public class PoliciesConfig {
               EDIT_ENTITY_DOC_LINKS_PRIVILEGE,
               EDIT_ENTITY_PRIVILEGE,
               DELETE_ENTITY_PRIVILEGE,
-              MANAGE_DATA_PRODUCTS_PRIVILEGE));
+              MANAGE_DATA_PRODUCTS_PRIVILEGE,
+              SHARE_ENTITY_PRIVILEGE));
 
   // Data Product Privileges
   public static final ResourcePrivileges DATA_PRODUCT_PRIVILEGES =
@@ -661,7 +670,8 @@ public class PoliciesConfig {
               DELETE_ENTITY_PRIVILEGE,
               EDIT_ENTITY_TAGS_PRIVILEGE,
               EDIT_ENTITY_GLOSSARY_TERMS_PRIVILEGE,
-              EDIT_ENTITY_DOMAINS_PRIVILEGE));
+              EDIT_ENTITY_DOMAINS_PRIVILEGE,
+              SHARE_ENTITY_PRIVILEGE));
 
   // Glossary Term Privileges
   public static final ResourcePrivileges GLOSSARY_TERM_PRIVILEGES =
@@ -675,7 +685,8 @@ public class PoliciesConfig {
               EDIT_ENTITY_DOCS_PRIVILEGE,
               EDIT_ENTITY_DOC_LINKS_PRIVILEGE,
               EDIT_ENTITY_DEPRECATION_PRIVILEGE,
-              EDIT_ENTITY_PRIVILEGE));
+              EDIT_ENTITY_PRIVILEGE,
+              SHARE_ENTITY_PRIVILEGE));
 
   // Glossary Node Privileges
   public static final ResourcePrivileges GLOSSARY_NODE_PRIVILEGES =
@@ -691,7 +702,8 @@ public class PoliciesConfig {
               EDIT_ENTITY_DEPRECATION_PRIVILEGE,
               EDIT_ENTITY_PRIVILEGE,
               MANAGE_GLOSSARY_CHILDREN_PRIVILEGE,
-              MANAGE_ALL_GLOSSARY_CHILDREN_PRIVILEGE));
+              MANAGE_ALL_GLOSSARY_CHILDREN_PRIVILEGE,
+              SHARE_ENTITY_PRIVILEGE));
 
   // Group Privileges
   public static final ResourcePrivileges CORP_GROUP_PRIVILEGES =
@@ -707,7 +719,8 @@ public class PoliciesConfig {
               MANAGE_GROUP_SUBSCRIPTIONS_PRIVILEGE,
               EDIT_CONTACT_INFO_PRIVILEGE,
               EDIT_ENTITY_DOCS_PRIVILEGE,
-              EDIT_ENTITY_PRIVILEGE));
+              EDIT_ENTITY_PRIVILEGE,
+              SHARE_ENTITY_PRIVILEGE));
 
   // User Privileges
   public static final ResourcePrivileges CORP_USER_PRIVILEGES =
@@ -719,7 +732,8 @@ public class PoliciesConfig {
               VIEW_ENTITY_PAGE_PRIVILEGE,
               EDIT_CONTACT_INFO_PRIVILEGE,
               EDIT_USER_PROFILE_PRIVILEGE,
-              EDIT_ENTITY_PRIVILEGE));
+              EDIT_ENTITY_PRIVILEGE,
+              SHARE_ENTITY_PRIVILEGE));
 
   public static final List<ResourcePrivileges> ENTITY_RESOURCE_PRIVILEGES =
       ImmutableList.of(

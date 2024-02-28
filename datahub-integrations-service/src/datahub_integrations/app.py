@@ -5,6 +5,10 @@ from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
 from fastapi import APIRouter, FastAPI, Response
 from fastapi.responses import RedirectResponse
 
+from datahub_integrations._logging_setup import LOGGING_SETUP_COMPLETE
+
+assert LOGGING_SETUP_COMPLETE
+
 STATIC_ASSETS_DIR = pathlib.Path(__file__).parent / "../../static"
 
 app = FastAPI()

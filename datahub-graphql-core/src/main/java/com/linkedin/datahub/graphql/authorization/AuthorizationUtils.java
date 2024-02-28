@@ -15,6 +15,7 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import java.time.Clock;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import javax.annotation.Nonnull;
@@ -235,6 +236,25 @@ public class AuthorizationUtils {
       @Nonnull Urn entityUrn, @Nonnull List<Urn> subjectUrns, @Nonnull QueryContext context) {
     // Currently - you only need permission to edit an entity's queries to remove any query.
     return canEditEntityQueries(subjectUrns, context);
+  }
+
+  public static boolean canShareEntity(Urn urn, QueryContext context) {
+    final ConjunctivePrivilegeGroup allPrivilegesGroup =
+        new ConjunctivePrivilegeGroup(
+            ImmutableList.of(PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType()));
+    DisjunctivePrivilegeGroup orPrivilegesGroup =
+        new DisjunctivePrivilegeGroup(
+            ImmutableList.of(
+                allPrivilegesGroup,
+                new ConjunctivePrivilegeGroup(
+                    Collections.singletonList(PoliciesConfig.SHARE_ENTITY_PRIVILEGE.getType()))));
+
+    return isAuthorized(
+        context.getAuthorizer(),
+        context.getActorUrn(),
+        urn.getEntityType(),
+        urn.toString(),
+        orPrivilegesGroup);
   }
 
   public static boolean isAuthorized(

@@ -14,6 +14,7 @@ import { EntityActionItem } from '../shared/entity/EntityActions';
 import DataProductsTab from './DataProductsTab/DataProductsTab';
 import { EntityProfileTab } from '../shared/constants';
 import DomainIcon from '../../domain/DomainIcon';
+import { SidebarMetadataSection } from '../shared/containers/profile/sidebar/SidebarMetadataSection';
 
 /**
  * Definition of the DataHub Domain entity.
@@ -97,6 +98,9 @@ export class DomainEntity implements Entity<Domain> {
             sidebarSections={[
                 {
                     component: SidebarAboutSection,
+                },
+                {
+                    component: SidebarMetadataSection,
                 },
                 {
                     component: SidebarOwnerSection,

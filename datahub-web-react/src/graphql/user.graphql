@@ -30,6 +30,12 @@ query getUser($urn: String!, $groupsCount: Int) {
                 urn
             }
         }
+        share {
+            ...shareFields
+        }
+        privileges {
+            ...entityPrivileges
+        }
         globalTags {
             ...globalTagsFields
         }

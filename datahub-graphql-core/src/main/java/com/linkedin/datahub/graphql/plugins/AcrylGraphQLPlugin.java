@@ -71,6 +71,7 @@ import com.linkedin.datahub.graphql.resolvers.settings.group.GetGroupNotificatio
 import com.linkedin.datahub.graphql.resolvers.settings.group.UpdateGroupNotificationSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.user.GetUserNotificationSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.user.UpdateUserNotificationSettingsResolver;
+import com.linkedin.datahub.graphql.resolvers.share.ShareEntityResolver;
 import com.linkedin.datahub.graphql.resolvers.subscription.CreateSubscriptionResolver;
 import com.linkedin.datahub.graphql.resolvers.subscription.DeleteSubscriptionResolver;
 import com.linkedin.datahub.graphql.resolvers.subscription.GetEntitySubscriptionSummaryResolver;
@@ -111,6 +112,7 @@ import com.linkedin.metadata.service.AssertionService;
 import com.linkedin.metadata.service.FormService;
 import com.linkedin.metadata.service.MonitorService;
 import com.linkedin.metadata.service.SettingsService;
+import com.linkedin.metadata.service.ShareService;
 import com.linkedin.metadata.service.SubscriptionService;
 import com.linkedin.metadata.test.TestEngine;
 import com.linkedin.usage.UsageClient;
@@ -148,6 +150,7 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
   private SubscriptionService subscriptionService;
   private GroupService groupService;
   private SettingsService settingsService;
+  private ShareService shareService;
   private FormService formService;
 
   // Config
@@ -186,6 +189,7 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
     this.groupService = args.getGroupService();
     this.settingsService = args.getSettingsService();
     this.testEngine = args.getTestEngine();
+    this.shareService = args.getShareService();
     this.formService = args.getFormService();
 
     this.glossaryTermType = new GlossaryTermType(args.getEntityClient());
@@ -228,6 +232,7 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
         SUBSCRIPTIONS_SCHEMA_FILE,
         CONTRACTS_SCHEMA_FILE,
         AI_SCHEMA_FILE,
+        SHARE_SCHEMA_FILE,
         FORMS_ACRYL_SCHEMA_FILE,
         EXECUTOR_SCHEMA_FILE);
   }
@@ -266,6 +271,7 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
     configureTestResolvers(builder);
     configureProposalResolvers(builder);
     configureContractResolvers(builder, baseEngine);
+    configureShareResolvers(builder, baseEngine);
     configureFormsForActorResolver(builder);
     configureExecutorResolvers(builder, baseEngine);
   }
@@ -511,6 +517,37 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
                           ? connection.getPlatform().getUrn()
                           : null;
                     })));
+  }
+
+  private void configureShareResolvers(
+      final RuntimeWiring.Builder builder, GmsGraphQLEngine baseEngine) {
+    builder.type(
+        "Mutation",
+        typeWiring ->
+            typeWiring.dataFetcher(
+                "shareEntity", new ShareEntityResolver(shareService, integrationsService)));
+    builder.type(
+        "ShareResult",
+        typeWiring ->
+            typeWiring
+                .dataFetcher(
+                    "destination",
+                    new LoadableTypeResolver<>(
+                        connectionType,
+                        (env) -> {
+                          final ShareResult shareResult = env.getSource();
+                          return shareResult.getDestination().getUrn();
+                        }))
+                .dataFetcher(
+                    "implicitShareEntity",
+                    new EntityTypeResolver(
+                        baseEngine.entityTypes,
+                        (env) -> {
+                          final ShareResult shareResult = env.getSource();
+                          return shareResult.getImplicitShareEntity() != null
+                              ? shareResult.getImplicitShareEntity()
+                              : null;
+                        })));
   }
 
   private void configureIncidentResolvers(

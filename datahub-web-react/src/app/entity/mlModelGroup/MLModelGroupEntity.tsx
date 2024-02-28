@@ -15,6 +15,7 @@ import ModelGroupModels from './profile/ModelGroupModels';
 import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
 import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
 import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
+import { SidebarMetadataSection } from '../shared/containers/profile/sidebar/SidebarMetadataSection';
 
 /**
  * Definition of the DataHub MlModelGroup entity.
@@ -82,6 +83,9 @@ export class MLModelGroupEntity implements Entity<MlModelGroup> {
             sidebarSections={[
                 {
                     component: SidebarAboutSection,
+                },
+                {
+                    component: SidebarMetadataSection,
                 },
                 {
                     component: SidebarOwnerSection,

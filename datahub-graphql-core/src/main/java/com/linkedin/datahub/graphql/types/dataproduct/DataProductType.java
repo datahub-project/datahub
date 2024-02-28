@@ -1,12 +1,6 @@
 package com.linkedin.datahub.graphql.types.dataproduct;
 
-import static com.linkedin.metadata.Constants.DATA_PRODUCT_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.DATA_PRODUCT_PROPERTIES_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.DOMAINS_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.GLOBAL_TAGS_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.GLOSSARY_TERMS_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.INSTITUTIONAL_MEMORY_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.OWNERSHIP_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.*;
 
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
@@ -49,7 +43,8 @@ public class DataProductType
           GLOBAL_TAGS_ASPECT_NAME,
           GLOSSARY_TERMS_ASPECT_NAME,
           DOMAINS_ASPECT_NAME,
-          INSTITUTIONAL_MEMORY_ASPECT_NAME);
+          INSTITUTIONAL_MEMORY_ASPECT_NAME,
+          SHARE_ASPECT_NAME);
   private final EntityClient _entityClient;
 
   @Override

@@ -26,6 +26,9 @@ query getGlossaryNode($urn: String!) {
         privileges {
             ...entityPrivileges
         }
+        share {
+            ...shareFields
+        }
         autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
             ...autoRenderAspectFields
         }

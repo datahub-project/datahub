@@ -44,6 +44,7 @@ import {
     DashboardStatsSummary,
     DatasetStatsSummary,
     Forms,
+    Share,
 } from '../../../types.generated';
 import { FetchedEntity } from '../../lineage/types';
 
@@ -128,6 +129,7 @@ export type GenericEntityProperties = {
     termProposals?: Maybe<ActionRequest[]>;
     statsSummary?: Maybe<ChartStatsSummary | DashboardStatsSummary | DatasetStatsSummary>;
     forms?: Maybe<Forms>;
+    share?: Maybe<Share>;
 };
 
 export type GenericEntityUpdate = {

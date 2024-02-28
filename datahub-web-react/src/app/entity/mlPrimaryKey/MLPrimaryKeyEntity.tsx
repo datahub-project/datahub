@@ -16,6 +16,7 @@ import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Owners
 import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
 import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
 import { getDataProduct } from '../shared/utils';
+import { SidebarMetadataSection } from '../shared/containers/profile/sidebar/SidebarMetadataSection';
 
 /**
  * Definition of the DataHub MLPrimaryKey entity.
@@ -89,6 +90,9 @@ export class MLPrimaryKeyEntity implements Entity<MlPrimaryKey> {
             sidebarSections={[
                 {
                     component: SidebarAboutSection,
+                },
+                {
+                    component: SidebarMetadataSection,
                 },
                 {
                     component: SidebarOwnerSection,

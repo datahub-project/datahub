@@ -2,14 +2,7 @@ package com.linkedin.datahub.graphql.types.container.mappers;
 
 import static com.linkedin.metadata.Constants.*;
 
-import com.linkedin.common.DataPlatformInstance;
-import com.linkedin.common.Deprecation;
-import com.linkedin.common.GlobalTags;
-import com.linkedin.common.GlossaryTerms;
-import com.linkedin.common.InstitutionalMemory;
-import com.linkedin.common.Ownership;
-import com.linkedin.common.Status;
-import com.linkedin.common.SubTypes;
+import com.linkedin.common.*;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.container.ContainerProperties;
 import com.linkedin.container.EditableContainerProperties;
@@ -17,13 +10,7 @@ import com.linkedin.data.DataMap;
 import com.linkedin.datahub.graphql.generated.Container;
 import com.linkedin.datahub.graphql.generated.DataPlatform;
 import com.linkedin.datahub.graphql.generated.EntityType;
-import com.linkedin.datahub.graphql.types.common.mappers.CustomPropertiesMapper;
-import com.linkedin.datahub.graphql.types.common.mappers.DataPlatformInstanceAspectMapper;
-import com.linkedin.datahub.graphql.types.common.mappers.DeprecationMapper;
-import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
-import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
-import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
-import com.linkedin.datahub.graphql.types.common.mappers.SubTypesMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.*;
 import com.linkedin.datahub.graphql.types.common.mappers.util.SystemMetadataUtils;
 import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
@@ -137,6 +124,11 @@ public class ContainerMapper {
     if (envelopedDeprecation != null) {
       result.setDeprecation(
           DeprecationMapper.map(new Deprecation(envelopedDeprecation.getValue().data())));
+    }
+
+    final EnvelopedAspect envelopedShare = aspects.get(SHARE_ASPECT_NAME);
+    if (envelopedShare != null) {
+      result.setShare(ShareMapper.map(new Share(envelopedShare.getValue().data())));
     }
 
     return result;

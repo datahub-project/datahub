@@ -25,4 +25,5 @@ public class FeatureFlags {
   private boolean dataContractsEnabled = false;
   private boolean documentationAiEnabled = false;
   private boolean themeV2 = false;
+  private boolean metadataShareEnabled = false;
 }

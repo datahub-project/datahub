@@ -18,6 +18,7 @@ import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
 import { EntityActionItem } from '../shared/entity/EntityActions';
 import { FetchedEntity } from '../../lineage/types';
 import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
+import { SidebarMetadataSection } from '../shared/containers/profile/sidebar/SidebarMetadataSection';
 
 /**
  * Definition of the DataHub Dataset entity.
@@ -111,6 +112,9 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
                 sidebarSections={[
                     {
                         component: SidebarAboutSection,
+                    },
+                    {
+                        component: SidebarMetadataSection,
                     },
                     {
                         component: SidebarOwnerSection,

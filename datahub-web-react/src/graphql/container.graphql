@@ -14,6 +14,12 @@ query getContainer($urn: String!) {
                 value
             }
         }
+        share {
+            ...shareFields
+        }
+        privileges {
+            ...entityPrivileges
+        }
         editableProperties {
             description
         }

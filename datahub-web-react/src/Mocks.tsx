@@ -64,6 +64,7 @@ export const entityPrivileges: EntityPrivileges = {
     canEditEmbed: true,
     canManageEntity: true,
     canManageChildren: true,
+    canShareEntity: true,
 };
 
 export const user1 = {
@@ -465,6 +466,7 @@ export const dataset3 = {
         __typename: 'EntityPrivileges',
         ...entityPrivileges,
     },
+    share: null,
     exists: true,
     lastIngested: null,
     dataPlatformInstance: null,

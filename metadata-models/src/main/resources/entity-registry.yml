@@ -55,6 +55,7 @@ entities:
       - access
       - structuredProperties
       - forms
+      - share
   - name: dataHubPolicy
     doc: DataHub Policies represent access policies granted to users or groups on metadata operations like edit, view etc.
     category: internal
@@ -85,6 +86,7 @@ entities:
       - structuredProperties
       - anomaliesSummary
       - subTypes
+      - share
   - name: dataFlow
     category: core
     keyAspect: dataFlowKey
@@ -106,6 +108,7 @@ entities:
       - browsePathsV2
       - structuredProperties
       - subTypes
+      - share
   - name: dataProcess
     keyAspect: dataProcessKey
     aspects:
@@ -146,6 +149,7 @@ entities:
       - glossaryTerms
       - browsePathsV2
       - subTypes
+      - share
   - name: dashboard
     keyAspect: dashboardKey
     aspects:
@@ -169,6 +173,7 @@ entities:
       - institutionalMemory
       - dataPlatformInstance
       - browsePathsV2
+      - share
   - name: notebook
     doc: Notebook represents a combination of query, text, chart and etc. This is in BETA version
     keyAspect: notebookKey
@@ -187,6 +192,7 @@ entities:
       - dataPlatformInstance
       - proposals
       - browsePathsV2
+      - share
   - name: corpuser
     doc: CorpUser represents an identity of a person (or an account) in the enterprise.
     keyAspect: corpUserKey
@@ -202,6 +208,7 @@ entities:
       - corpUserSettings
       - origin
       - roleMembership
+      - share
   - name: corpGroup
     doc: CorpGroup represents an identity of a group of users in the enterprise.
     keyAspect: corpGroupKey
@@ -214,6 +221,7 @@ entities:
       - origin
       - corpGroupSettings
       - roleMembership
+      - share
   - name: domain
     doc: A data domain within an organization.
     category: core
@@ -223,6 +231,7 @@ entities:
       - institutionalMemory
       - ownership
       - displayProperties
+      - share
   - name: container
     doc: A container of related data assets.
     category: core
@@ -243,6 +252,7 @@ entities:
       - testResults
       - proposals
       - browsePathsV2
+      - share
   - name: tag
     category: core
     keyAspect: tagKey
@@ -252,6 +262,7 @@ entities:
       - deprecation
       - testResults
       - status
+      - share
   - name: glossaryTerm
     category: core
     keyAspect: glossaryTermKey
@@ -266,6 +277,7 @@ entities:
       - domains
       - status
       - browsePaths
+      - share
   - name: glossaryNode
     category: core
     keyAspect: glossaryNodeKey
@@ -276,6 +288,7 @@ entities:
       - status
       - testResults
       - displayProperties
+      - share
   - name: dataHubIngestionSource
     category: internal
     keyAspect: dataHubIngestionSourceKey
@@ -347,6 +360,7 @@ entities:
       - globalTags
       - dataPlatformInstance
       - browsePathsV2
+      - share
   - name: mlModelGroup
     category: core
     keyAspect: mlModelGroupKey
@@ -364,6 +378,7 @@ entities:
       - globalTags
       - dataPlatformInstance
       - browsePathsV2
+      - share
   - name: mlModelDeployment
     category: core
     keyAspect: mlModelDeploymentKey
@@ -392,6 +407,7 @@ entities:
       - globalTags
       - dataPlatformInstance
       - browsePathsV2
+      - share
   - name: mlFeature
     category: core
     keyAspect: mlFeatureKey
@@ -410,6 +426,7 @@ entities:
       - globalTags
       - dataPlatformInstance
       - browsePathsV2
+      - share
   - name: mlPrimaryKey
     category: core
     keyAspect: mlPrimaryKeyKey
@@ -426,6 +443,7 @@ entities:
       - deprecation
       - globalTags
       - dataPlatformInstance
+      - share
   - name: telemetry
     category: internal
     keyAspect: telemetryKey
@@ -528,6 +546,7 @@ entities:
       - dataProductProperties
       - institutionalMemory
       - status
+      - share
   - name: ownershipType
     doc: Ownership Type represents a user-created ownership category for a person or group who is responsible for an asset.
     category: core

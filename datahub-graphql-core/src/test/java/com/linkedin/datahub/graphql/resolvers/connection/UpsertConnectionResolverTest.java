@@ -77,6 +77,7 @@ public class UpsertConnectionResolverTest {
             Mockito.eq(platformUrn),
             Mockito.eq(details.getType()),
             Mockito.eq(details.getJson()),
+            Mockito.eq(null),
             Mockito.any(Authentication.class)))
         .thenReturn(connectionUrn);
     when(connectionService.getConnectionEntityResponse(
