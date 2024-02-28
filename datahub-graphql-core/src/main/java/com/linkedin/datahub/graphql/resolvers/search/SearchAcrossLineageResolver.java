@@ -6,6 +6,7 @@ import static com.linkedin.metadata.Constants.QUERY_ENTITY_NAME;
 
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.datahub.graphql.generated.AndFilterInput;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.LineageDirection;
@@ -92,9 +93,14 @@ public class SearchAcrossLineageResolver
 
     final int start = input.getStart() != null ? input.getStart() : DEFAULT_START;
     final int count = input.getCount() != null ? input.getCount() : DEFAULT_COUNT;
-    final List<FacetFilterInput> filters =
-        input.getFilters() != null ? input.getFilters() : new ArrayList<>();
-    final Integer maxHops = getMaxHops(filters);
+    final List<AndFilterInput> filters =
+        input.getOrFilters() != null ? input.getOrFilters() : new ArrayList<>();
+    final List<FacetFilterInput> facetFilters =
+        filters.stream()
+            .map(AndFilterInput::getAnd)
+            .flatMap(List::stream)
+            .collect(Collectors.toList());
+    final Integer maxHops = getMaxHops(facetFilters);
 
     @Nullable
     final Long startTimeMillis =
@@ -117,7 +123,8 @@ public class SearchAcrossLineageResolver
                 start,
                 count);
 
-            final Filter filter = ResolverUtils.buildFilter(filters, input.getOrFilters());
+            final Filter filter =
+                ResolverUtils.buildFilter(input.getFilters(), input.getOrFilters());
             SearchFlags searchFlags = null;
             com.linkedin.datahub.graphql.generated.SearchFlags inputFlags = input.getSearchFlags();
             if (inputFlags != null) {

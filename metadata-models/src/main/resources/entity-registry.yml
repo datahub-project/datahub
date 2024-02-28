@@ -28,6 +28,7 @@ entities:
       - testResults
       - siblings
       - embed
+      - incidentsSummary
       - datasetProperties
       - editableDatasetProperties
       - datasetDeprecation
@@ -72,6 +73,7 @@ entities:
       - structuredProperties
       - forms
       - subTypes
+      - incidentsSummary
   - name: dataFlow
     category: core
     keyAspect: dataFlowKey
@@ -90,7 +92,9 @@ entities:
       - dataPlatformInstance
       - browsePathsV2
       - structuredProperties
+      - incidentsSummary
       - forms
+      - subTypes
   - name: dataProcess
     keyAspect: dataProcessKey
     aspects:
@@ -129,6 +133,7 @@ entities:
       - browsePathsV2
       - subTypes
       - structuredProperties
+      - incidentsSummary
       - forms
   - name: dashboard
     keyAspect: dashboardKey
@@ -151,6 +156,7 @@ entities:
       - dataPlatformInstance
       - browsePathsV2
       - structuredProperties
+      - incidentsSummary
       - forms
   - name: notebook
     doc: Notebook represents a combination of query, text, chart and etc. This is in BETA version
@@ -450,6 +456,12 @@ entities:
     keyAspect: globalSettingsKey
     aspects:
       - globalSettingsInfo
+  - name: incident
+    doc: An incident for an asset.
+    category: core
+    keyAspect: incidentKey
+    aspects:
+      - incidentInfo
   - name: dataHubRole
     category: core
     keyAspect: dataHubRoleKey
@@ -477,6 +489,8 @@ entities:
       - queryProperties
       - querySubjects
       - status
+      - dataPlatformInstance
+      - subTypes
   - name: dataProduct
     category: core
     keyAspect: dataProductKey
@@ -542,13 +556,22 @@ plugins:
       enabled: true
       supportedOperations:
         - UPSERT
+        - DELETE
       supportedEntityAspectNames:
         - entityName: structuredProperty
           aspectName: propertyDefinition
+        - entityName: structuredProperty
+          aspectName: structuredPropertyKey
     - className: 'com.linkedin.metadata.aspect.validation.StructuredPropertiesValidator'
       enabled: true
       supportedOperations:
         - UPSERT
+      supportedEntityAspectNames:
+        - entityName: '*'
+          aspectName: structuredProperties
+  mutationHooks:
+    - className: 'com.linkedin.metadata.aspect.hooks.StructuredPropertiesSoftDelete'
+      enabled: true
       supportedEntityAspectNames:
         - entityName: '*'
           aspectName: structuredProperties

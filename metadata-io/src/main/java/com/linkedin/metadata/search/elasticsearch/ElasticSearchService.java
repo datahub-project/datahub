@@ -1,6 +1,7 @@
 package com.linkedin.metadata.search.elasticsearch;
 
 import com.linkedin.common.urn.Urn;
+import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.browse.BrowseResultV2;
 import com.linkedin.metadata.query.AutoCompleteResult;
@@ -28,6 +29,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.opensearch.action.explain.ExplainResponse;
 import org.opensearch.action.search.SearchResponse;
 
 @Slf4j
@@ -39,6 +41,13 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
   private final ESSearchDAO esSearchDAO;
   private final ESBrowseDAO esBrowseDAO;
   private final ESWriteDAO esWriteDAO;
+
+  @Override
+  public ElasticSearchService postConstruct(AspectRetriever aspectRetriever) {
+    esSearchDAO.setAspectRetriever(aspectRetriever);
+    esBrowseDAO.setAspectRetriever(aspectRetriever);
+    return this;
+  }
 
   @Override
   public void configure() {
@@ -290,5 +299,30 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
   @Override
   public int maxResultSize() {
     return ESUtils.MAX_RESULT_SIZE;
+  }
+
+  @Override
+  public ExplainResponse explain(
+      @Nonnull String query,
+      @Nonnull String documentId,
+      @Nonnull String entityName,
+      @Nullable Filter postFilters,
+      @Nullable SortCriterion sortCriterion,
+      @Nullable SearchFlags searchFlags,
+      @Nullable String scrollId,
+      @Nullable String keepAlive,
+      int size,
+      @Nullable List<String> facets) {
+    return esSearchDAO.explain(
+        query,
+        documentId,
+        entityName,
+        postFilters,
+        sortCriterion,
+        searchFlags,
+        scrollId,
+        keepAlive,
+        size,
+        facets);
   }
 }

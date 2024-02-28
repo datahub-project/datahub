@@ -48,5 +48,9 @@
                 }
             ]
         }
-    ]
+    ],
+    "debug_info": {
+        "confidence": 0.35,
+        "generalized_statement": "CREATE TABLE #my_custom_name DISTKEY(1) SORTKEY(\"1\", \"2\") AS WITH cte AS (SELECT * FROM other_schema.table1) SELECT * FROM cte"
+    }
 }

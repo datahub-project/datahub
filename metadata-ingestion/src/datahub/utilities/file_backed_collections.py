@@ -6,6 +6,7 @@ import pickle
 import shutil
 import sqlite3
 import tempfile
+import threading
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
@@ -81,10 +82,16 @@ class ConnectionWrapper:
         if not filename:
             self._temp_directory = tempfile.mkdtemp()
             filename = pathlib.Path(self._temp_directory) / _DEFAULT_FILE_NAME
-
-        self.conn = sqlite3.connect(filename, isolation_level=None)
-        self.conn.row_factory = sqlite3.Row
         self.filename = filename
+
+        # SQLite connections are technically not supposed to be used from multiple threads.
+        # We bypass this restriction by setting `check_same_thread=False`. However, we
+        # still need to be careful to avoid concurrent access.
+        self.conn_lock = threading.Lock()
+        self.conn = sqlite3.connect(
+            filename, isolation_level=None, check_same_thread=False
+        )
+        self.conn.row_factory = sqlite3.Row
 
         # These settings are optimized for performance.
         # See https://www.sqlite.org/pragma.html for more information.
@@ -107,17 +114,20 @@ class ConnectionWrapper:
     def execute(
         self, sql: str, parameters: Union[Dict[str, Any], Sequence[Any]] = ()
     ) -> sqlite3.Cursor:
-        return self.conn.execute(sql, parameters)
+        with self.conn_lock:
+            return self.conn.execute(sql, parameters)
 
     def executemany(
         self, sql: str, parameters: Union[Dict[str, Any], Sequence[Any]] = ()
     ) -> sqlite3.Cursor:
-        return self.conn.executemany(sql, parameters)
+        with self.conn_lock:
+            return self.conn.executemany(sql, parameters)
 
     def close(self) -> None:
         for obj in self._dependent_objects:
             obj.close()
-        self.conn.close()
+        with self.conn_lock:
+            self.conn.close()
         if self._temp_directory:
             shutil.rmtree(self._temp_directory)
             self._temp_directory = None
@@ -165,11 +175,9 @@ def _default_deserializer(value: Any) -> Any:
 
 @dataclass(eq=False)
 class FileBackedDict(MutableMapping[str, _VT], Closeable, Generic[_VT]):
-    """
-    A dict-like object that stores its data in a temporary SQLite database.
-    This is useful for storing large amounts of data that don't fit in memory.
+    """A dict-like object that stores its data in a temporary SQLite database.
 
-    This class is not thread-safe.
+    This is useful for storing large amounts of data that don't fit in memory.
     """
 
     # Use a predefined connection, able to be shared across multiple FileBacked* objects
@@ -433,11 +441,7 @@ class FileBackedDict(MutableMapping[str, _VT], Closeable, Generic[_VT]):
 
 
 class FileBackedList(Generic[_VT]):
-    """
-    An append-only, list-like object that stores its contents in a SQLite database.
-
-    This class is not thread-safe.
-    """
+    """An append-only, list-like object that stores its contents in a SQLite database."""
 
     _len: int = field(default=0)
     _dict: FileBackedDict[_VT] = field(init=False)

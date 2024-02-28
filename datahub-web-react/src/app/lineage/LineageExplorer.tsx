@@ -113,26 +113,30 @@ export default function LineageExplorer({ urn, type }: Props) {
                 );
                 const config = entityRegistry.getLineageVizConfig(entityAndType.type, entityAndType.entity);
 
-                config?.downstreamChildren?.forEach((downstream) => {
-                    newAsyncEntities = extendAsyncEntities(
-                        fineGrainedMap,
-                        fineGrainedMapForSiblings,
-                        newAsyncEntities,
-                        entityRegistry,
-                        downstream,
-                        false,
-                    );
-                });
-                config?.upstreamChildren?.forEach((downstream) => {
-                    newAsyncEntities = extendAsyncEntities(
-                        fineGrainedMap,
-                        fineGrainedMapForSiblings,
-                        newAsyncEntities,
-                        entityRegistry,
-                        downstream,
-                        false,
-                    );
-                });
+                config?.downstreamChildren
+                    ?.filter((child) => child.type)
+                    ?.forEach((downstream) => {
+                        newAsyncEntities = extendAsyncEntities(
+                            fineGrainedMap,
+                            fineGrainedMapForSiblings,
+                            newAsyncEntities,
+                            entityRegistry,
+                            downstream,
+                            false,
+                        );
+                    });
+                config?.upstreamChildren
+                    ?.filter((child) => child.type)
+                    ?.forEach((downstream) => {
+                        newAsyncEntities = extendAsyncEntities(
+                            fineGrainedMap,
+                            fineGrainedMapForSiblings,
+                            newAsyncEntities,
+                            entityRegistry,
+                            downstream,
+                            false,
+                        );
+                    });
                 setAsyncEntities(newAsyncEntities);
             }
         },

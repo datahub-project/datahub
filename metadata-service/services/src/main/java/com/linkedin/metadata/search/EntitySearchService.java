@@ -1,6 +1,7 @@
 package com.linkedin.metadata.search;
 
 import com.linkedin.common.urn.Urn;
+import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.browse.BrowseResultV2;
 import com.linkedin.metadata.query.AutoCompleteResult;
@@ -11,8 +12,16 @@ import java.util.List;
 import java.util.Map;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import org.opensearch.action.explain.ExplainResponse;
 
 public interface EntitySearchService {
+
+  /**
+   * Set aspect retriever after construction to prevent circular dependencies
+   *
+   * @param aspectRetriever
+   */
+  EntitySearchService postConstruct(AspectRetriever aspectRetriever);
 
   void configure();
 
@@ -294,4 +303,16 @@ public interface EntitySearchService {
 
   /** Max result size returned by the underlying search backend */
   int maxResultSize();
+
+  ExplainResponse explain(
+      @Nonnull String query,
+      @Nonnull String documentId,
+      @Nonnull String entityName,
+      @Nullable Filter postFilters,
+      @Nullable SortCriterion sortCriterion,
+      @Nullable SearchFlags searchFlags,
+      @Nullable String scrollId,
+      @Nullable String keepAlive,
+      int size,
+      @Nullable List<String> facets);
 }

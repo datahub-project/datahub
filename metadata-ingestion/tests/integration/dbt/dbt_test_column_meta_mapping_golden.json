@@ -3431,7 +3431,7 @@
         "json": [
             {
                 "op": "add",
-                "path": "/upstreams/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adbt%2Cpagila.public.an-aliased-view-for-monthly-billing%2CPROD%29",
+                "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.an-aliased-view-for-monthly-billing,PROD)",
                 "value": {
                     "auditStamp": {
                         "time": 1643871600000,
@@ -3458,7 +3458,7 @@
         "json": [
             {
                 "op": "add",
-                "path": "/upstreams/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adbt%2Cpagila.public.an_aliased_view_for_payments%2CPROD%29",
+                "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.an_aliased_view_for_payments,PROD)",
                 "value": {
                     "auditStamp": {
                         "time": 1643871600000,
@@ -3485,7 +3485,7 @@
         "json": [
             {
                 "op": "add",
-                "path": "/upstreams/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adbt%2Cpagila.public.payments_by_customer_by_month%2CPROD%29",
+                "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.payments_by_customer_by_month,PROD)",
                 "value": {
                     "auditStamp": {
                         "time": 1643871600000,
@@ -3512,7 +3512,7 @@
         "json": [
             {
                 "op": "add",
-                "path": "/upstreams/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adbt%2Cpagila.public.customer_snapshot%2CPROD%29",
+                "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.customer_snapshot,PROD)",
                 "value": {
                     "auditStamp": {
                         "time": 1643871600000,

@@ -61,5 +61,9 @@
                 }
             ]
         }
-    ]
+    ],
+    "debug_info": {
+        "confidence": 0.9,
+        "generalized_statement": "SELECT CAST(o.o_orderkey AS DECIMAL(?, ?)) AS orderkey, CAST(o.o_totalprice AS INT) AS total_cast_int, CAST(o.o_totalprice AS DECIMAL(?, ?)) AS total_cast_float FROM snowflake_sample_data.tpch_sf1.orders AS o LIMIT ?"
+    }
 }

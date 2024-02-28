@@ -35,6 +35,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
   `datahub delete --platform databricks --soft` and then reingesting with latest cli version.
 
 - #9601 - The Unity Catalog(UC) ingestion source config `include_hive_metastore` is now enabled by default. This requires config `warehouse_id` to be set. You can disable `include_hive_metastore` by setting it to `False` to avoid ingesting legacy hive metastore catalog in Databricks.
+- #9904 - The default Redshift `table_lineage_mode` is now MIXED, instead of `STL_SCAN_BASED`. Improved lineage generation is also available by enabling `use_lineaege_v2`. This v2 implementation will become the default in a future release.
 
 ### Potential Downtime
 

@@ -44,5 +44,9 @@
                 }
             ]
         }
-    ]
+    ],
+    "debug_info": {
+        "confidence": 0.2,
+        "generalized_statement": "SELECT col1, col2 FROM dbc.table1 WHERE col1 = ? EXCEPT SELECT col1, col2 FROM dbc.table2"
+    }
 }
