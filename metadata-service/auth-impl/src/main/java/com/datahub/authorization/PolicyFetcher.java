@@ -7,6 +7,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.ScrollResult;
@@ -44,7 +45,7 @@ public class PolicyFetcher {
    */
   @Deprecated
   public CompletableFuture<PolicyFetchResult> fetchPolicies(
-      OperationContext opContext, int start, String query, int count) {
+      OperationContext opContext, int start, String query, int count, Filter filter) {
     return CompletableFuture.supplyAsync(
         () -> {
           try {
@@ -54,7 +55,8 @@ public class PolicyFetcher {
 
             while (PolicyFetchResult.EMPTY.equals(result) && scrollId != null) {
               PolicyFetchResult tmpResult =
-                  fetchPolicies(opContext, query, count, scrollId.isEmpty() ? null : scrollId);
+                  fetchPolicies(
+                      opContext, query, count, scrollId.isEmpty() ? null : scrollId, filter);
               fetchedResults += tmpResult.getPolicies().size();
               scrollId = tmpResult.getScrollId();
               if (fetchedResults > start) {
@@ -70,13 +72,13 @@ public class PolicyFetcher {
   }
 
   public PolicyFetchResult fetchPolicies(
-      OperationContext opContext, int count, @Nullable String scrollId)
+      OperationContext opContext, int count, @Nullable String scrollId, Filter filter)
       throws RemoteInvocationException, URISyntaxException {
-    return fetchPolicies(opContext, "", count, scrollId);
+    return fetchPolicies(opContext, "", count, scrollId, filter);
   }
 
   public PolicyFetchResult fetchPolicies(
-      OperationContext opContext, String query, int count, @Nullable String scrollId)
+      OperationContext opContext, String query, int count, @Nullable String scrollId, Filter filter)
       throws RemoteInvocationException, URISyntaxException {
     log.debug(String.format("Batch fetching policies. count: %s, scroll: %s", count, scrollId));
 
@@ -92,7 +94,7 @@ public class PolicyFetcher {
                         .setFulltext(true)),
             List.of(POLICY_ENTITY_NAME),
             query,
-            null,
+            filter,
             scrollId,
             null,
             count);

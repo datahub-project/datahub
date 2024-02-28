@@ -606,6 +606,16 @@
     }
   },
   {
+    "urn": "urn:li:dataPlatform:qlik-sense",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "qlik-sense",
+      "displayName": "Qlik Sense",
+      "type": "OTHERS",
+      "logoUrl": "/assets/platforms/qliklogo.png"
+    }
+  },
+  {
     "urn": "urn:li:dataPlatform:file",
     "aspect": {
       "datasetNameDelimiter": ".",
