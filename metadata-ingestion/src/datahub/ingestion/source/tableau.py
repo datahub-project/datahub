@@ -1033,7 +1033,7 @@ class TableauSource(StatefulIngestionSourceBase):
 
             # skip upstream tables if the source is postgres and the database is not whitelisted
             if table.get(c.CONNECTION_TYPE) == "postgres":
-                upstream_db = table.get([c.DATABASE], {}).get([c.NAME], "")
+                upstream_db = table.get(c.DATABASE, {}).get(c.NAME, "")
                 if (
                     upstream_db
                     and upstream_db not in self.upstream_postgres_database_whitelist
