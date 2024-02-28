@@ -17,6 +17,10 @@ from datahub.ingestion.source.state.checkpoint import Checkpoint
 from datahub.ingestion.source.state.sql_common_state import (
     BaseSQLAlchemyCheckpointState,
 )
+from datahub.ingestion.source.state.stateful_ingestion_base import (
+    StatefulIngestionConfig,
+    StateProviderWrapper,
+)
 from datahub.ingestion.source.state.usage_common_state import (
     BaseTimeWindowCheckpointState,
 )
@@ -181,3 +185,32 @@ class TestIngestionCheckpointProviders(unittest.TestCase):
                 state_class=type(job2_state_obj),
             )
             self.assertEqual(job2_last_checkpoint, job2_checkpoint)
+
+    def test_state_provider_wrapper(self):
+        ctx: PipelineContext = PipelineContext(
+            run_id=self.run_id, pipeline_name=self.pipeline_name
+        )
+        ctx.graph = self.mock_graph
+        # Test 1: stateful_ingestion_config provided with enabled as true
+        state_provider = StateProviderWrapper(
+            StatefulIngestionConfig(enabled=True), ctx
+        )
+        assert state_provider.stateful_ingestion_config
+        assert state_provider.ingestion_checkpointing_state_provider
+        ctx.checkpointers = {}
+        # Test 2: stateful_ingestion_config provided with enabled as false
+        state_provider = StateProviderWrapper(
+            StatefulIngestionConfig(enabled=False), ctx
+        )
+        assert state_provider.stateful_ingestion_config
+        assert not state_provider.ingestion_checkpointing_state_provider
+        # Test 3: stateful_ingestion_config not provided but graph object is present
+        state_provider = StateProviderWrapper(None, ctx)
+        assert state_provider.stateful_ingestion_config
+        assert state_provider.ingestion_checkpointing_state_provider
+        ctx.checkpointers = {}
+        # Test 4: stateful_ingestion_config not provided and graph object is none
+        ctx.graph = None
+        state_provider = StateProviderWrapper(None, ctx)
+        assert not state_provider.stateful_ingestion_config
+        assert not state_provider.ingestion_checkpointing_state_provider
