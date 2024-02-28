@@ -61,7 +61,7 @@ public class ListPoliciesResolver implements DataFetcher<CompletableFuture<ListP
       final Filter filter = ResolverUtils.buildFilter(facetFilters, Collections.emptyList());
 
       return _policyFetcher
-          .fetchPolicies(start, query, count, filter, context.getAuthentication())
+          .fetchPolicies(context.getOperationContext(), start, query, count, filter)
           .thenApply(
               policyFetchResult -> {
                 final ListPoliciesResult result = new ListPoliciesResult();

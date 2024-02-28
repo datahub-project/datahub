@@ -2,10 +2,10 @@ package com.linkedin.datahub.graphql.resolvers.domain;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
 import static com.linkedin.metadata.Constants.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertThrows;
 
-import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -13,7 +13,6 @@ import com.linkedin.datahub.graphql.generated.ListDomainsInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.DomainUtils;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.SearchEntity;
@@ -43,6 +42,7 @@ public class ListDomainsResolverTest {
 
     Mockito.when(
             mockClient.search(
+                any(),
                 Mockito.eq(Constants.DOMAIN_ENTITY_NAME),
                 Mockito.eq(""),
                 Mockito.eq(DomainUtils.buildParentDomainFilter(TEST_PARENT_DOMAIN_URN)),
@@ -51,9 +51,7 @@ public class ListDomainsResolverTest {
                         .setField(DOMAIN_CREATED_TIME_INDEX_FIELD_NAME)
                         .setOrder(SortOrder.DESCENDING)),
                 Mockito.eq(0),
-                Mockito.eq(20),
-                Mockito.any(Authentication.class),
-                Mockito.eq(new SearchFlags().setFulltext(true))))
+                Mockito.eq(20)))
         .thenReturn(
             new SearchResult()
                 .setFrom(0)
@@ -87,6 +85,7 @@ public class ListDomainsResolverTest {
 
     Mockito.when(
             mockClient.search(
+                any(),
                 Mockito.eq(Constants.DOMAIN_ENTITY_NAME),
                 Mockito.eq(""),
                 Mockito.eq(DomainUtils.buildParentDomainFilter(null)),
@@ -95,9 +94,7 @@ public class ListDomainsResolverTest {
                         .setField(DOMAIN_CREATED_TIME_INDEX_FIELD_NAME)
                         .setOrder(SortOrder.DESCENDING)),
                 Mockito.eq(0),
-                Mockito.eq(20),
-                Mockito.any(Authentication.class),
-                Mockito.eq(new SearchFlags().setFulltext(true))))
+                Mockito.eq(20)))
         .thenReturn(
             new SearchResult()
                 .setFrom(0)
@@ -139,13 +136,12 @@ public class ListDomainsResolverTest {
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
     Mockito.verify(mockClient, Mockito.times(0))
         .search(
+            any(),
             Mockito.any(),
             Mockito.eq("*"),
             Mockito.anyMap(),
             Mockito.anyInt(),
-            Mockito.anyInt(),
-            Mockito.any(Authentication.class),
-            Mockito.eq(new SearchFlags().setFulltext(true)));
+            Mockito.anyInt());
   }
 
   @Test
@@ -155,13 +151,12 @@ public class ListDomainsResolverTest {
     Mockito.doThrow(RemoteInvocationException.class)
         .when(mockClient)
         .search(
+            any(),
             Mockito.any(),
             Mockito.eq(""),
             Mockito.anyMap(),
             Mockito.anyInt(),
-            Mockito.anyInt(),
-            Mockito.any(Authentication.class),
-            Mockito.eq(new SearchFlags().setFulltext(true)));
+            Mockito.anyInt());
     ListDomainsResolver resolver = new ListDomainsResolver(mockClient);
 
     // Execute resolver
