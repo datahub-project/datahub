@@ -6,6 +6,7 @@ import static com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBu
 import com.datahub.gms.util.CSVWriter;
 import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -38,13 +39,14 @@ public class ConfigSearchExport extends HttpServlet {
     return (ConfigurationProvider) ctx.getBean("configurationProvider");
   }
 
-  private EntityRegistry getEntityRegistry(WebApplicationContext ctx) {
-    return (EntityRegistry) ctx.getBean("entityRegistry");
+  private AspectRetriever getAspectRetriever(WebApplicationContext ctx) {
+    return (AspectRetriever) ctx.getBean("aspectRetriever");
   }
 
   private void writeSearchCsv(WebApplicationContext ctx, PrintWriter pw) {
     SearchConfiguration searchConfiguration = getConfigProvider(ctx).getElasticSearch().getSearch();
-    EntityRegistry entityRegistry = getEntityRegistry(ctx);
+    AspectRetriever aspectRetriever = getAspectRetriever(ctx);
+    EntityRegistry entityRegistry = aspectRetriever.getEntityRegistry();
 
     CSVWriter writer = CSVWriter.builder().printWriter(pw).build();
 
@@ -80,7 +82,7 @@ public class ConfigSearchExport extends HttpServlet {
               EntitySpec entitySpec = entitySpecOpt.get();
               SearchRequest searchRequest =
                   SearchRequestHandler.getBuilder(
-                          entitySpec, entityRegistry, searchConfiguration, null)
+                          entitySpec, searchConfiguration, null, aspectRetriever)
                       .getSearchRequest(
                           "*",
                           null,

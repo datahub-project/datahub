@@ -7,6 +7,7 @@ import com.datahub.util.exception.ESQueryException;
 import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.browse.BrowseResultEntity;
 import com.linkedin.metadata.browse.BrowseResultEntityArray;
@@ -20,7 +21,6 @@ import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
-import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchRequestHandler;
@@ -41,7 +41,9 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
+import lombok.Setter;
 import lombok.Value;
+import lombok.experimental.Accessors;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang.StringUtils;
 import org.opensearch.action.search.SearchRequest;
@@ -62,9 +64,10 @@ import org.opensearch.search.sort.SortOrder;
 
 @Slf4j
 @RequiredArgsConstructor
+@Accessors(chain = true)
 public class ESBrowseDAO {
 
-  private final EntityRegistry entityRegistry;
+  @Setter private AspectRetriever aspectRetriever;
   private final RestHighLevelClient client;
   private final IndexConvention indexConvention;
   @Nonnull private final SearchConfiguration searchConfiguration;
@@ -118,7 +121,8 @@ public class ESBrowseDAO {
 
     try {
       final String indexName =
-          indexConvention.getIndexName(entityRegistry.getEntitySpec(entityName));
+          indexConvention.getIndexName(
+              aspectRetriever.getEntityRegistry().getEntitySpec(entityName));
 
       final SearchResponse groupsResponse;
       try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "esGroupSearch").time()) {
@@ -373,7 +377,8 @@ public class ESBrowseDAO {
    */
   @Nonnull
   public List<String> getBrowsePaths(@Nonnull String entityName, @Nonnull Urn urn) {
-    final String indexName = indexConvention.getIndexName(entityRegistry.getEntitySpec(entityName));
+    final String indexName =
+        indexConvention.getIndexName(aspectRetriever.getEntityRegistry().getEntitySpec(entityName));
     final SearchRequest searchRequest = new SearchRequest(indexName);
     searchRequest.source(
         new SearchSourceBuilder().query(QueryBuilders.termQuery(URN, urn.toString())));
@@ -478,7 +483,8 @@ public class ESBrowseDAO {
       @Nullable Filter filter,
       @Nonnull String input,
       @Nullable SearchFlags searchFlags) {
-    final String indexName = indexConvention.getIndexName(entityRegistry.getEntitySpec(entityName));
+    final String indexName =
+        indexConvention.getIndexName(aspectRetriever.getEntityRegistry().getEntitySpec(entityName));
     final SearchRequest searchRequest = new SearchRequest(indexName);
     final SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
     searchSourceBuilder.size(0);
@@ -503,7 +509,9 @@ public class ESBrowseDAO {
       @Nullable SearchFlags searchFlags) {
 
     List<EntitySpec> entitySpecs =
-        entities.stream().map(entityRegistry::getEntitySpec).collect(Collectors.toList());
+        entities.stream()
+            .map(name -> aspectRetriever.getEntityRegistry().getEntitySpec(name))
+            .collect(Collectors.toList());
 
     String[] indexArray =
         entities.stream().map(indexConvention::getEntityIndexName).toArray(String[]::new);
@@ -553,10 +561,10 @@ public class ESBrowseDAO {
 
     final BoolQueryBuilder queryBuilder = QueryBuilders.boolQuery();
 
-    EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
+    EntitySpec entitySpec = aspectRetriever.getEntityRegistry().getEntitySpec(entityName);
     QueryBuilder query =
         SearchRequestHandler.getBuilder(
-                entitySpec, entityRegistry, searchConfiguration, customSearchConfiguration)
+                entitySpec, searchConfiguration, customSearchConfiguration, aspectRetriever)
             .getQuery(input, Boolean.TRUE.equals(finalSearchFlags.isFulltext()));
     queryBuilder.must(query);
 
@@ -569,7 +577,8 @@ public class ESBrowseDAO {
     queryBuilder.filter(QueryBuilders.rangeQuery(BROWSE_PATH_V2_DEPTH).gt(browseDepthVal));
 
     queryBuilder.filter(
-        SearchRequestHandler.getFilterQuery(filter, entitySpec.getSearchableFieldTypes()));
+        SearchRequestHandler.getFilterQuery(
+            filter, entitySpec.getSearchableFieldTypes(), aspectRetriever));
 
     return queryBuilder;
   }
@@ -589,7 +598,7 @@ public class ESBrowseDAO {
 
     QueryBuilder query =
         SearchRequestHandler.getBuilder(
-                entitySpecs, entityRegistry, searchConfiguration, customSearchConfiguration)
+                entitySpecs, searchConfiguration, customSearchConfiguration, aspectRetriever)
             .getQuery(input, Boolean.TRUE.equals(finalSearchFlags.isFulltext()));
     queryBuilder.must(query);
 
@@ -610,7 +619,8 @@ public class ESBrowseDAO {
                       set1.addAll(set2);
                       return set1;
                     }));
-    queryBuilder.filter(SearchRequestHandler.getFilterQuery(filter, searchableFields));
+    queryBuilder.filter(
+        SearchRequestHandler.getFilterQuery(filter, searchableFields, aspectRetriever));
 
     return queryBuilder;
   }

@@ -1,4 +1,4 @@
-package com.linkedin.metadata.aspect.plugins.validation;
+package com.linkedin.metadata.aspect;
 
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
@@ -21,8 +21,6 @@ public interface AspectRetriever {
         .getOrDefault(urn, Collections.emptyMap())
         .get(aspectName);
   }
-
-  boolean exists(@Nonnull Urn urn) throws RemoteInvocationException, URISyntaxException;
 
   /**
    * Returns for each URN, the map of aspectName to Aspect

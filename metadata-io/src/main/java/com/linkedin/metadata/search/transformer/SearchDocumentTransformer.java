@@ -14,7 +14,7 @@ import com.linkedin.data.schema.DataSchema;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.Aspect;
 import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.aspect.plugins.validation.AspectRetriever;
+import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.validation.StructuredPropertiesValidator;
 import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.metadata.models.AspectSpec;
@@ -438,11 +438,14 @@ public class SearchDocumentTransformer {
       ObjectNode resultNode = JsonNodeFactory.instance.objectNode();
       try {
         Urn eAUrn = EntityUtils.getUrnFromString(fieldValue.toString());
-        if (!aspectRetriever.exists(eAUrn)) {
+        String entityType = eAUrn.getEntityType();
+        String entityKeyAspectName = entityRegistry.getEntitySpec(entityType).getKeyAspectName();
+        Optional<Aspect> entityKeyAspect =
+            Optional.ofNullable(aspectRetriever.getLatestAspectObject(eAUrn, entityKeyAspectName));
+        if (entityKeyAspect.isEmpty()) {
           return Optional.ofNullable(JsonNodeFactory.instance.nullNode());
         }
         resultNode.set("urn", JsonNodeFactory.instance.textNode(fieldValue.toString()));
-        String entityType = eAUrn.getEntityType();
         EntitySpec entitySpec = entityRegistry.getEntitySpec(entityType);
         for (Map.Entry<String, AspectSpec> mapEntry : entitySpec.getAspectSpecMap().entrySet()) {
           String aspectName = mapEntry.getKey();
