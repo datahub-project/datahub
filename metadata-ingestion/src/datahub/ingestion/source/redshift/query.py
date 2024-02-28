@@ -182,6 +182,8 @@ SELECT  schemaname as schema_name,
             ORDER BY "schema", "table_name", "attnum"
 """
 
+    # stl_insert -> SYS_QUERY_DETAIL - showing less accesses
+    # stv_mv_info -> SVV_MV_INFO - not tested, seems to be fine
     additional_table_metadata: str = """
         select
             ti.database,
@@ -199,17 +201,17 @@ SELECT  schemaname as schema_name,
         from
             pg_catalog.svv_table_info as ti
         left join (
-            select
-                tbl,
-                max(endtime) as last_accessed
-            from
-                pg_catalog.stl_insert
-            group by
-                tbl) as la on
+            SELECT 
+                table_id as tbl,
+                max(end_time) as last_accessed
+            FROM 
+                SYS_QUERY_DETAIL
+            GROUP BY 
+                table_id) as la on
             (la.tbl = ti.table_id)
-        left join stv_mv_info smi on
-            smi.db_name = ti.database
-            and smi.schema = ti.schema
+        left join SVV_MV_INFO smi on
+            smi.database_name = ti.database
+            and smi.schema_name = ti.schema
             and smi.name = ti.table
             ;
 """
@@ -219,64 +221,59 @@ SELECT  schemaname as schema_name,
         db_name: str, start_time: datetime, end_time: datetime
     ) -> str:
         return """
-                        select
-                            distinct cluster,
-                            target_schema,
-                            target_table,
-                            username as username,
-                            source_schema,
-                            source_table,
-                            querytxt as ddl,  -- TODO: this querytxt is truncated to 4000 characters
-                            starttime as timestamp
-                        from
-                                (
-                            select
-                                distinct tbl as target_table_id,
-                                sti.schema as target_schema,
-                                sti.table as target_table,
-                                sti.database as cluster,
-                                query,
-                                starttime
-                            from
-                                stl_insert
-                            join SVV_TABLE_INFO sti on
-                                sti.table_id = tbl
-                            where starttime >= '{start_time}'
-                            and starttime < '{end_time}'
-                            and cluster = '{db_name}'
-                                ) as target_tables
-                        join ( (
-                            select
-                                sui.usename as username,
-                                ss.tbl as source_table_id,
-                                sti.schema as source_schema,
-                                sti.table as source_table,
-                                scan_type,
-                                sq.query as query,
-                                sq.querytxt as querytxt
-                            from
-                                (
-                                select
-                                    distinct userid,
-                                    query,
-                                    tbl,
-                                    type as scan_type
-                                from
-                                    stl_scan
-                            ) ss
-                            join SVV_TABLE_INFO sti on
-                                sti.table_id = ss.tbl
-                            left join stl_query sq on
-                                ss.query = sq.query
-                            left join svl_user_info sui on
-                                sq.userid = sui.usesysid
-                            where
-                                sui.usename <> 'rdsdb')
-                        ) as source_tables
-                                using (query)
-                        where
-                            scan_type in (1, 2, 3)
-                        order by cluster, target_schema, target_table, starttime asc
+            SELECT 
+                distinct cluster,
+                target_schema,
+                target_table,
+                username,
+                source_schema,
+                source_table,
+                query_text AS query, -- TODO: this querytxt is truncated to 4000 characters
+                start_time AS timestamp
+            FROM
+            (
+                SELECT
+                    sti.schema AS target_schema,
+                    sti.table AS target_table,
+                    sti.database AS cluster,
+                    qi.table_id AS target_table_id,
+                    qi.query_id AS query_id,
+                    qi.start_time AS start_time
+                FROM
+                    SYS_QUERY_DETAIL qi
+                    JOIN
+                    SVV_TABLE_INFO sti on sti.table_id = qi.table_id
+                WHERE 
+                    start_time >= '{start_time}' and
+                    start_time < '{end_time}' and
+                    cluster = '{db_name}' and
+                    step_name = 'insert'
+            ) AS target_tables
+            JOIN
+            (
+                SELECT
+                    sti.schema AS source_schema,
+                    sti.table AS source_table,
+                    qs.table_id AS source_table_id,
+                    qs.query_id AS query_id,
+                    sui.user_name AS username,
+                    qt."text" AS query_text
+                FROM
+                    SYS_QUERY_DETAIL qs
+                    JOIN
+                    SVV_TABLE_INFO sti ON sti.table_id = qs.table_id
+                    LEFT JOIN
+                    SYS_QUERY_TEXT qt ON qt.query_id = qs.query_id 
+                    LEFT JOIN
+                    SVV_USER_INFO sui ON qs.user_id = sui.user_id
+                WHERE
+                    qs.step_name = 'scan' AND
+                    qs.source = 'Redshift(local)' AND
+                    sti.database = '{db_name}' AND -- this was required to not retrieve some internal redshift tables, try removing to see what happens
+                    sui.user_name <> 'rdsdb' -- not entirely sure about this filter
+            ) AS source_tables ON target_tables.query_id = source_tables.query_id
+            WHERE source_tables.source_table_id <> target_tables.target_table_id
+            ORDER BY cluster, target_schema, target_table, start_time ASC
                     """.format(
             # We need the original database name for filtering
             db_name=db_name,
@@ -431,6 +428,8 @@ SELECT  schemaname as schema_name,
             end_time=end_time.strftime(redshift_datetime_format),
         )
 
+    # when loading from s3 using prefix with a single file it produces 2 lines (for file and just directory) - also
+    # behaves like this when run in the old way
     @staticmethod
     def list_copy_commands_sql(
         db_name: str, start_time: datetime, end_time: datetime
@@ -440,18 +439,18 @@ SELECT  schemaname as schema_name,
                     distinct
                         "schema" as target_schema,
                         "table" as target_table,
-                        filename
+                        c.file_name
                 from
-                    stl_insert as si
-                join stl_load_commits as c on
-                    si.query = c.query
+                    SYS_QUERY_DETAIL as si
+                join SYS_LOAD_DETAIL as c on
+                    si.query_id = c.query_id
                 join SVV_TABLE_INFO sti on
-                    sti.table_id = tbl
+                    sti.table_id = si.table_id
                 where
                     database = '{db_name}'
-                    and si.starttime >= '{start_time}'
-                    and si.starttime < '{end_time}'
-                order by target_schema, target_table, starttime asc
+                    and si.start_time >= '{start_time}'
+                    and si.start_time < '{end_time}'
+                order by target_schema, target_table, si.start_time asc
                 """.format(
             # We need the original database name for filtering
             db_name=db_name,
