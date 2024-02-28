@@ -34,7 +34,7 @@ logger = logging.getLogger(__name__)
 
 
 class JsonInferrer(SchemaInferenceBase):
-    def __init__(self, max_rows: int = 0, format: str = "json"):
+    def __init__(self, max_rows: int = 100, format: str = "json"):
         self.max_rows = max_rows
         self.format = format
 
