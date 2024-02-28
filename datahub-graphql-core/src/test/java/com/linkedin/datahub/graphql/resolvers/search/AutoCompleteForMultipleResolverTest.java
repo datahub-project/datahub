@@ -2,8 +2,11 @@ package com.linkedin.datahub.graphql.resolvers.search;
 
 import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import com.datahub.authentication.Authentication;
+import com.datahub.authorization.AuthorizationConfiguration;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
@@ -74,6 +77,9 @@ public class AutoCompleteForMultipleResolverTest {
   @Test
   public static void testAutoCompleteResolverSuccessForDifferentEntities() throws Exception {
     ViewService viewService = initMockViewService(null, null);
+    AuthorizationConfiguration authorizationConfiguration = mock(AuthorizationConfiguration.class);
+    when(authorizationConfiguration.getSearch().isEnabled()).thenReturn(false);
+
     // Daatasets
     EntityClient mockClient =
         initMockEntityClient(
@@ -90,7 +96,7 @@ public class AutoCompleteForMultipleResolverTest {
         viewService,
         Constants.DATASET_ENTITY_NAME,
         EntityType.DATASET,
-        new DatasetType(mockClient),
+        new DatasetType(mockClient, authorizationConfiguration),
         null,
         null);
 
@@ -140,6 +146,8 @@ public class AutoCompleteForMultipleResolverTest {
   public static void testAutoCompleteResolverWithViewFilter() throws Exception {
     DataHubViewInfo viewInfo = createViewInfo(new StringArray());
     ViewService viewService = initMockViewService(TEST_VIEW_URN, viewInfo);
+    AuthorizationConfiguration authorizationConfiguration = mock(AuthorizationConfiguration.class);
+    when(authorizationConfiguration.getSearch().isEnabled()).thenReturn(false);
     EntityClient mockClient =
         initMockEntityClient(
             Constants.DATASET_ENTITY_NAME,
@@ -155,7 +163,7 @@ public class AutoCompleteForMultipleResolverTest {
         viewService,
         Constants.DATASET_ENTITY_NAME,
         EntityType.DATASET,
-        new DatasetType(mockClient),
+        new DatasetType(mockClient, authorizationConfiguration),
         TEST_VIEW_URN,
         viewInfo.getDefinition().getFilter());
   }
@@ -204,9 +212,11 @@ public class AutoCompleteForMultipleResolverTest {
   public static void testAutoCompleteResolverFailNoQuery() throws Exception {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     ViewService viewService = initMockViewService(null, null);
+    AuthorizationConfiguration authorizationConfiguration = mock(AuthorizationConfiguration.class);
+    when(authorizationConfiguration.getSearch().isEnabled()).thenReturn(false);
     final AutoCompleteForMultipleResolver resolver =
         new AutoCompleteForMultipleResolver(
-            ImmutableList.of(new DatasetType(mockClient)), viewService);
+            ImmutableList.of(new DatasetType(mockClient, authorizationConfiguration)), viewService);
 
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     QueryContext mockContext = getMockAllowContext();

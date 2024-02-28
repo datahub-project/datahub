@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.types.dataset;
 import static com.linkedin.datahub.graphql.Constants.*;
 import static com.linkedin.metadata.Constants.*;
 
+import com.datahub.authorization.AuthorizationConfiguration;
 import com.datahub.authorization.ConjunctivePrivilegeGroup;
 import com.datahub.authorization.DisjunctivePrivilegeGroup;
 import com.google.common.collect.ImmutableList;
@@ -95,9 +96,13 @@ public class DatasetType
   private static final String ENTITY_NAME = "dataset";
 
   private final EntityClient _entityClient;
+  private final AuthorizationConfiguration _authorizationConfiguration;
 
-  public DatasetType(final EntityClient entityClient) {
+  public DatasetType(
+      final EntityClient entityClient,
+      final AuthorizationConfiguration authorizationConfiguration) {
     _entityClient = entityClient;
+    _authorizationConfiguration = authorizationConfiguration;
   }
 
   @Override
@@ -130,6 +135,8 @@ public class DatasetType
       @Nonnull final List<String> urnStrs, @Nonnull final QueryContext context) {
     try {
       final List<Urn> urns = urnStrs.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
+
+      AuthorizationUtils.checkViewPermissions(urns, _authorizationConfiguration, context);
 
       final Map<Urn, EntityResponse> datasetMap =
           _entityClient.batchGetV2(

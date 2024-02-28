@@ -5,6 +5,7 @@ import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.authorization.PoliciesConfig.VIEW_ENTITY_PRIVILEGES;
 
 import com.datahub.authorization.AuthUtil;
+import com.datahub.authorization.AuthorizationConfiguration;
 import com.datahub.authorization.ConjunctivePrivilegeGroup;
 import com.datahub.authorization.DisjunctivePrivilegeGroup;
 import com.datahub.authorization.EntitySpec;
@@ -14,6 +15,7 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import java.time.Clock;
 import java.util.List;
@@ -189,6 +191,25 @@ public class AuthorizationUtils {
       @Nonnull Urn entityUrn, @Nonnull List<Urn> subjectUrns, @Nonnull QueryContext context) {
     // Currently - you only need permission to edit an entity's queries to remove any query.
     return canEditEntityQueries(subjectUrns, context);
+  }
+
+  /*
+   * Optionally check view permissions against a list of urns if the config option is enabled
+   */
+  public static void checkViewPermissions(
+      @Nonnull List<Urn> urns,
+      final AuthorizationConfiguration authorizationConfiguration,
+      @Nonnull QueryContext context) {
+    // if search authorization is disabled, skip the view permission check
+    if (!authorizationConfiguration.getSearch().isEnabled()) {
+      return;
+    }
+    urns.forEach(
+        urn -> {
+          if (!canViewEntity(urn, context)) {
+            throw new AuthorizationException("Unauthorized to view this entity");
+          }
+        });
   }
 
   public static boolean canViewEntity(@Nonnull Urn entityUrn, @Nonnull QueryContext context) {

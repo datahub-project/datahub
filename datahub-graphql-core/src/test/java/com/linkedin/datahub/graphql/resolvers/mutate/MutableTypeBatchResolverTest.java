@@ -1,11 +1,14 @@
 package com.linkedin.datahub.graphql.resolvers.mutate;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 import static org.testng.Assert.*;
 
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
+import com.datahub.authorization.AuthorizationConfiguration;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.Deprecation;
@@ -74,8 +77,10 @@ public class MutableTypeBatchResolverTest {
   @Test
   public void testGetSuccess() throws Exception {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
+    AuthorizationConfiguration authorizationConfiguration = mock(AuthorizationConfiguration.class);
+    when(authorizationConfiguration.getSearch().isEnabled()).thenReturn(false);
     BatchMutableType<DatasetUpdateInput, BatchDatasetUpdateInput, Dataset> batchMutableType =
-        new DatasetType(mockClient);
+        new DatasetType(mockClient, authorizationConfiguration);
 
     MutableTypeBatchResolver<DatasetUpdateInput, BatchDatasetUpdateInput, Dataset> resolver =
         new MutableTypeBatchResolver<>(batchMutableType);
@@ -167,8 +172,10 @@ public class MutableTypeBatchResolverTest {
   @Test
   public void testGetFailureUnauthorized() throws Exception {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
+    AuthorizationConfiguration authorizationConfiguration = mock(AuthorizationConfiguration.class);
+    when(authorizationConfiguration.getSearch().isEnabled()).thenReturn(false);
     BatchMutableType<DatasetUpdateInput, BatchDatasetUpdateInput, Dataset> batchMutableType =
-        new DatasetType(mockClient);
+        new DatasetType(mockClient, authorizationConfiguration);
 
     MutableTypeBatchResolver<DatasetUpdateInput, BatchDatasetUpdateInput, Dataset> resolver =
         new MutableTypeBatchResolver<>(batchMutableType);

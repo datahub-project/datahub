@@ -543,7 +543,7 @@ public class GmsGraphQLEngine {
     this.viewsConfiguration = args.viewsConfiguration;
     this.featureFlags = args.featureFlags;
 
-    this.datasetType = new DatasetType(entityClient);
+    this.datasetType = new DatasetType(entityClient, this.authorizationConfiguration);
     this.roleType = new RoleType(entityClient);
     this.corpUserType = new CorpUserType(entityClient, featureFlags);
     this.corpGroupType = new CorpGroupType(entityClient);
