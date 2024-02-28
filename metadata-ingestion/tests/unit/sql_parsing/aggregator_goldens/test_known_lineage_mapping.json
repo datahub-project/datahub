@@ -19,8 +19,7 @@
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:s3,bucket1/key1,PROD)",
                     "type": "COPY"
                 }
-            ],
-            "fineGrainedLineages": []
+            ]
         }
     }
 },
@@ -44,8 +43,7 @@
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.bar,PROD)",
                     "type": "COPY"
                 }
-            ],
-            "fineGrainedLineages": []
+            ]
         }
     }
 },
@@ -69,8 +67,7 @@
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.foo,PROD)",
                     "type": "COPY"
                 }
-            ],
-            "fineGrainedLineages": []
+            ]
         }
     }
 }
