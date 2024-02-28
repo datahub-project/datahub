@@ -5,6 +5,7 @@ import { Tooltip, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 import { DatasetFieldProfile, SchemaField } from '../../../../../../../../types.generated';
+import { pluralize } from '../../../../../../../shared/textUtil';
 import { REDESIGN_COLORS } from '../../../../../constants';
 import { extractChartValuesFromFieldProfiles } from '../../../Stats/historical/HistoricalStats';
 import { decimalToPercentStr } from '../../utils/statsUtil';
@@ -54,7 +55,6 @@ const SubtitleText = styled(Typography.Text)<{ margin?: number; color?: string }
 
 const PRESENT_ICON = (
     <TrendingIconContainer color={REDESIGN_COLORS.TERTIARY_GREEN}>
-        {/* <CheckIcon style={{ fontSize: 11 }} /> */}
         <Check style={{ fontSize: 11 }} />
     </TrendingIconContainer>
 );
@@ -101,6 +101,7 @@ export default function StatsSummaryRow({ expandedField, fieldProfile, profiles 
         (fieldProfile?.median !== null && fieldProfile?.median !== undefined ? 1 : 0) +
         (fieldProfile?.stdev !== null && fieldProfile?.stdev !== undefined ? 1 : 0);
 
+    // note- 1-index represents the previous profile run
     const nullProportionChange =
         (nullProportion && historicalNullProportion[1] && nullProportion - historicalNullProportion[1].value) || 0;
     const uniqueProportionChange =
@@ -110,7 +111,7 @@ export default function StatsSummaryRow({ expandedField, fieldProfile, profiles 
     return (
         <StatsSummaryRowContent>
             <TrendDetailContainer>
-                <Tooltip title={`${nullCount} null value${nullCount === 1 ? '' : 's'} found in last profile run`}>
+                <Tooltip title={`${nullCount} null ${pluralize(nullCount || 0, 'value')} found in last profile run`}>
                     <Headline>Completeness</Headline>
                     <StatSummarySubtitle>
                         {nullProportionChange < 0 && TRENDING_DOWN_ICON}
@@ -120,7 +121,9 @@ export default function StatsSummaryRow({ expandedField, fieldProfile, profiles 
                 </Tooltip>
             </TrendDetailContainer>
             <TrendDetailContainer>
-                <Tooltip title={`${uniqueCount} distinct value${nullCount === 1 ? '' : 's'} found in last profile run`}>
+                <Tooltip
+                    title={`${uniqueCount} distinct ${pluralize(uniqueCount || 0, 'value')} found in last profile run`}
+                >
                     <Headline>Uniqueness</Headline>
                     <StatSummarySubtitle>
                         {uniqueProportionChange < 0 && TRENDING_DOWN_ICON}

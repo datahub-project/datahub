@@ -177,8 +177,8 @@ export function StatsSidebarContent({ properties }: Props) {
                 name: 'Sample Values',
                 value: fieldProfile.sampleValues
                     ?.filter((value) => value !== undefined)
-                    .slice(0, 2)
-                    .map((value) => <SampleValueTag value={value} />),
+                    .slice(0, 3)
+                    .map((value, idx) => <SampleValueTag value={value} key={`sample-value-${idx}`} />),
                 trend: null,
             },
         ],
@@ -202,8 +202,8 @@ export function StatsSidebarContent({ properties }: Props) {
                         return (
                             <StatLabel key={stat.name}>
                                 <LabelText>{stat.name}</LabelText>
-                                <StatValue isDecreasing={stat.trend ? stat.trend[1] : false}>{stat.value}</StatValue>
-                                <TrendLines>{stat.trend && stat.trend[0]}</TrendLines>
+                                <StatValue isDecreasing={stat.trend?.[1] || false}>{stat.value}</StatValue>
+                                <TrendLines>{stat.trend?.[0]}</TrendLines>
                             </StatLabel>
                         );
                     })}

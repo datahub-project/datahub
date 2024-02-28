@@ -16,7 +16,7 @@ export default function SampleValuesSection({ expandedField, fieldProfile, profi
     );
 
     // If current field profile doesn't exist or historic profiles don't have multiple profiles of the current field
-    if (!fieldProfile || historicFieldProfiles.length <= 1) return null;
+    if (!fieldProfile) return null;
 
     return (
         <>
@@ -24,9 +24,9 @@ export default function SampleValuesSection({ expandedField, fieldProfile, profi
                 title="Sample Values"
                 content={fieldProfile.sampleValues
                     ?.filter((value) => value !== undefined)
-                    .slice(0, 2)
-                    .map((value) => (
-                        <SampleValueTag value={value} />
+                    .slice(0, 3)
+                    .map((value, idx) => (
+                        <SampleValueTag value={value} key={`sample-value-${idx}`} />
                     ))}
             />
             <StyledDivider dashed />

@@ -30,7 +30,7 @@ export default function StatsSection({ expandedField, fieldProfile, profiles, se
     );
 
     // If current field profile doesn't exist or historic profiles don't have multiple profiles of the current field
-    if (!fieldProfile || historicFieldProfiles.length <= 1) return null;
+    if (!fieldProfile) return null;
 
     return (
         <>
