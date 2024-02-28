@@ -37,5 +37,9 @@
                 }
             ]
         }
-    ]
+    ],
+    "debug_info": {
+        "confidence": 0.2,
+        "generalized_statement": "WITH cte1 AS (SELECT col1, col2 FROM table1 WHERE col1 = ?), cte2 AS (SELECT col3, col4 FROM table2 WHERE col2 = ?) SELECT cte1.col1, table3.col6 FROM cte1 JOIN table3 ON table3.col5 = cte1.col2"
+    }
 }

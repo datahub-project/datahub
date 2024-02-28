@@ -21,44 +21,44 @@ import org.testng.annotations.Test;
 })
 public class TestEntityElasticSearchTest extends TestEntityTestBase {
 
-  @Autowired private RestHighLevelClient _searchClient;
-  @Autowired private ESBulkProcessor _bulkProcessor;
-  @Autowired private ESIndexBuilder _esIndexBuilder;
-  @Autowired private SearchConfiguration _searchConfiguration;
-  @Autowired private CustomSearchConfiguration _customSearchConfiguration;
+  @Autowired private RestHighLevelClient searchClient;
+  @Autowired private ESBulkProcessor bulkProcessor;
+  @Autowired private ESIndexBuilder esIndexBuilder;
+  @Autowired private SearchConfiguration searchConfiguration;
+  @Autowired private CustomSearchConfiguration customSearchConfiguration;
 
   @NotNull
   @Override
   protected RestHighLevelClient getSearchClient() {
-    return _searchClient;
+    return searchClient;
   }
 
   @NotNull
   @Override
   protected ESBulkProcessor getBulkProcessor() {
-    return _bulkProcessor;
+    return bulkProcessor;
   }
 
   @NotNull
   @Override
   protected ESIndexBuilder getIndexBuilder() {
-    return _esIndexBuilder;
+    return esIndexBuilder;
   }
 
   @NotNull
   @Override
   protected SearchConfiguration getSearchConfiguration() {
-    return _searchConfiguration;
+    return searchConfiguration;
   }
 
   @NotNull
   @Override
   protected CustomSearchConfiguration getCustomSearchConfiguration() {
-    return _customSearchConfiguration;
+    return customSearchConfiguration;
   }
 
   @Test
   public void initTest() {
-    AssertJUnit.assertNotNull(_searchClient);
+    AssertJUnit.assertNotNull(searchClient);
   }
 }

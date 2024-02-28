@@ -20,9 +20,11 @@ import com.linkedin.dataset.FineGrainedLineageArray;
 import com.linkedin.dataset.UpstreamLineage;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.aspect.batch.MCLBatchItem;
-import com.linkedin.metadata.aspect.plugins.validation.AspectRetriever;
-import com.linkedin.metadata.entity.ebean.batch.MCLBatchItemImpl;
+import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.aspect.batch.AspectsBatch;
+import com.linkedin.metadata.aspect.batch.MCLItem;
+import com.linkedin.metadata.entity.SearchIndicesService;
+import com.linkedin.metadata.entity.ebean.batch.MCLItemImpl;
 import com.linkedin.metadata.graph.Edge;
 import com.linkedin.metadata.graph.GraphIndexUtils;
 import com.linkedin.metadata.graph.GraphService;
@@ -67,7 +69,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 
 @Slf4j
-public class UpdateIndicesService {
+public class UpdateIndicesService implements SearchIndicesService {
   private static final String DOWNSTREAM_OF = "DownstreamOf";
 
   private final GraphService _graphService;
@@ -120,24 +122,21 @@ public class UpdateIndicesService {
     _entityIndexBuilders = entityIndexBuilders;
   }
 
+  @Override
   public void handleChangeEvent(@Nonnull final MetadataChangeLog event) {
     try {
-      MCLBatchItemImpl batch = MCLBatchItemImpl.builder().build(event, aspectRetriever);
+      MCLItemImpl batch = MCLItemImpl.builder().build(event, aspectRetriever);
 
-      Stream<MCLBatchItem> sideEffects =
-          _entityRegistry
-              .getMCLSideEffects(
-                  event.getChangeType(), event.getEntityType(), event.getAspectName())
-              .stream()
-              .flatMap(mclSideEffect -> mclSideEffect.apply(List.of(batch), aspectRetriever));
+      Stream<MCLItem> sideEffects =
+          AspectsBatch.applyMCLSideEffects(List.of(batch), aspectRetriever);
 
-      for (MCLBatchItem mclBatchItem :
+      for (MCLItem mclItem :
           Stream.concat(Stream.of(batch), sideEffects).collect(Collectors.toList())) {
-        MetadataChangeLog hookEvent = mclBatchItem.getMetadataChangeLog();
+        MetadataChangeLog hookEvent = mclItem.getMetadataChangeLog();
         if (UPDATE_CHANGE_TYPES.contains(hookEvent.getChangeType())) {
-          handleUpdateChangeEvent(mclBatchItem);
+          handleUpdateChangeEvent(mclItem);
         } else if (hookEvent.getChangeType() == ChangeType.DELETE) {
-          handleDeleteChangeEvent(mclBatchItem);
+          handleDeleteChangeEvent(mclItem);
         }
       }
     } catch (IOException e) {
@@ -154,7 +153,7 @@ public class UpdateIndicesService {
    *
    * @param event the change event to be processed.
    */
-  private void handleUpdateChangeEvent(@Nonnull final MCLBatchItem event) throws IOException {
+  private void handleUpdateChangeEvent(@Nonnull final MCLItem event) throws IOException {
 
     final EntitySpec entitySpec = event.getEntitySpec();
     final AspectSpec aspectSpec = event.getAspectSpec();
@@ -251,7 +250,7 @@ public class UpdateIndicesService {
    *
    * @param event the change event to be processed.
    */
-  private void handleDeleteChangeEvent(@Nonnull final MCLBatchItem event) {
+  private void handleDeleteChangeEvent(@Nonnull final MCLItem event) {
 
     final EntitySpec entitySpec = event.getEntitySpec();
     final Urn urn = event.getUrn();
@@ -696,7 +695,8 @@ public class UpdateIndicesService {
    *
    * @param aspectRetriever aspect Retriever
    */
-  public void initializeAspectRetriever(AspectRetriever aspectRetriever) {
+  @Override
+  public void initializeAspectRetriever(@Nonnull AspectRetriever aspectRetriever) {
     this.aspectRetriever = aspectRetriever;
     this._entityRegistry = aspectRetriever.getEntityRegistry();
     this._searchDocumentTransformer.setAspectRetriever(aspectRetriever);

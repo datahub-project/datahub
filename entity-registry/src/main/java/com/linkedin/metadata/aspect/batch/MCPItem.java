@@ -7,10 +7,10 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import javax.annotation.Nullable;
 
 /** Represents a proposal to write to the primary data store which may be represented by an MCP */
-public abstract class MCPBatchItem implements BatchItem {
+public interface MCPItem extends BatchItem {
 
   @Nullable
-  public abstract MetadataChangeProposal getMetadataChangeProposal();
+  MetadataChangeProposal getMetadataChangeProposal();
 
   /**
    * Validates that a change type is valid for the given aspect
@@ -19,7 +19,7 @@ public abstract class MCPBatchItem implements BatchItem {
    * @param aspectSpec
    * @return
    */
-  protected static boolean isValidChangeType(ChangeType changeType, AspectSpec aspectSpec) {
+  static boolean isValidChangeType(ChangeType changeType, AspectSpec aspectSpec) {
     if (aspectSpec.isTimeseries()) {
       // Timeseries aspects only support UPSERT
       return ChangeType.UPSERT.equals(changeType);
@@ -32,7 +32,7 @@ public abstract class MCPBatchItem implements BatchItem {
     }
   }
 
-  protected static boolean supportsPatch(AspectSpec aspectSpec) {
+  static boolean supportsPatch(AspectSpec aspectSpec) {
     // Limit initial support to defined templates
     if (!AspectTemplateEngine.SUPPORTED_TEMPLATES.contains(aspectSpec.getName())) {
       // Prevent unexpected behavior for aspects that do not currently have 1st class patch support,
