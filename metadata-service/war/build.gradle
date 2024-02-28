@@ -20,7 +20,6 @@ dependencies {
   runtimeOnly project(':metadata-service:openapi-servlet')
   runtimeOnly project(':metadata-service:openapi-entity-servlet')
   runtimeOnly project(':metadata-service:openapi-analytics-servlet')
-  runtimeOnly project(':metadata-service:openlineage-servlet')
   runtimeOnly project(':metadata-service:schema-registry-servlet')
   runtimeOnly project(':metadata-jobs:mce-consumer')
   runtimeOnly project(':metadata-jobs:mae-consumer')

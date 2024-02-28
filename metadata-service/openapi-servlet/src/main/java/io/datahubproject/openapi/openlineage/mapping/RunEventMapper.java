@@ -1,10 +1,9 @@
-package io.datahubproject.openlineage.mapping;
-
-import static io.datahubproject.openlineage.converter.OpenLineageToDataHub.*;
+package io.datahubproject.openapi.openlineage.mapping;
 
 import com.linkedin.mxe.MetadataChangeProposal;
 import datahub.event.EventFormatter;
 import io.datahubproject.openlineage.config.DatahubOpenlineageConfig;
+import io.datahubproject.openlineage.converter.OpenLineageToDataHub;
 import io.openlineage.client.OpenLineage;
 import java.io.IOException;
 import java.net.URISyntaxException;
@@ -22,7 +21,7 @@ public class RunEventMapper {
       OpenLineage.RunEvent runEvent, RunEventMapper.MappingConfig mappingConfig) {
     EventFormatter eventFormatter = new EventFormatter();
     try {
-      return convertRunEventToJob(runEvent, mappingConfig.getDatahubConfig())
+      return OpenLineageToDataHub.convertRunEventToJob(runEvent, mappingConfig.getDatahubConfig())
           .toMcps(mappingConfig.datahubConfig)
           .stream();
     } catch (IOException | URISyntaxException e) {

@@ -1,4 +1,4 @@
-package io.datahubproject.openlineage.model;
+package io.datahubproject.openapi.openlineage.model;
 
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;

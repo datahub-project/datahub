@@ -1,6 +1,7 @@
-package io.datahubproject.openlineage.config;
+package io.datahubproject.openapi.openlineage.config;
 
-import io.datahubproject.openlineage.mapping.RunEventMapper;
+import io.datahubproject.openapi.openlineage.mapping.RunEventMapper;
+import io.datahubproject.openlineage.config.DatahubOpenlineageConfig;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 

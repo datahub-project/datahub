@@ -1,4 +1,4 @@
-package io.datahubproject.openlineage.controller;
+package io.datahubproject.openapi.openlineage.controller;
 
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
@@ -8,8 +8,8 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.entity.EntityServiceImpl;
 import com.linkedin.mxe.MetadataChangeProposal;
+import io.datahubproject.openapi.openlineage.mapping.RunEventMapper;
 import io.datahubproject.openlineage.generated.controller.LineageApi;
-import io.datahubproject.openlineage.mapping.RunEventMapper;
 import io.openlineage.client.OpenLineage;
 import io.openlineage.client.OpenLineageClientUtils;
 import java.util.Optional;

@@ -69,6 +69,10 @@ public abstract class AbstractMultiFieldPatchBuilder<T extends AbstractMultiFiel
     return value.replace("~ ", "~0").replace("/", "~1");
   }
 
+  protected static String encodeValueUrn(@Nonnull Urn urn) {
+    return encodeValue(urn.toString());
+  }
+
   /**
    * Overrides basic behavior to construct multiple patches based on properties
    *
