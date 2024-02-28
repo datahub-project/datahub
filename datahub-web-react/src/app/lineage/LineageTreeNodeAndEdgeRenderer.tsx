@@ -15,6 +15,7 @@ type Props = {
     onEntityClick: (EntitySelectParams) => void;
     onEntityCenter: (EntitySelectParams) => void;
     onLineageExpand: (data: EntityAndType) => void;
+    onLineageCollapse: (data: VizNode) => void;
     selectedEntity?: EntitySelectParams;
     hoveredEntity?: EntitySelectParams;
     setHoveredEntity: (EntitySelectParams) => void;
@@ -44,6 +45,7 @@ export default function LineageTreeNodeAndEdgeRenderer({
     onEntityClick,
     onEntityCenter,
     onLineageExpand,
+    onLineageCollapse,
     selectedEntity,
     hoveredEntity,
     setHoveredEntity,
@@ -94,6 +96,7 @@ export default function LineageTreeNodeAndEdgeRenderer({
                         onEntityClick={onEntityClick}
                         onEntityCenter={onEntityCenter}
                         onExpandClick={onLineageExpand}
+                        onLineageCollapse={onLineageCollapse}
                         isCenterNode={data.urn === node.data.urn}
                         nodesToRenderByUrn={nodesByUrn}
                         onDrag={onDrag}

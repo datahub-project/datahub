@@ -5,9 +5,10 @@ import { InfoCircleOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
 import { useEntityRegistry } from '../useEntityRegistry';
 import CompactContext from '../shared/CompactContext';
-import { EntityAndType, EntitySelectParams, FetchedEntities } from './types';
+import { EntityAndType, EntitySelectParams, FetchedEntities, VizNode } from './types';
 import LineageViz from './LineageViz';
 import extendAsyncEntities from './utils/extendAsyncEntities';
+import collapseLineageNode from './utils/collapseLineageNode';
 import { EntityType } from '../../types.generated';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { GetEntityLineageQuery, useGetEntityLineageQuery } from '../../graphql/lineage.generated';
@@ -151,6 +152,21 @@ export default function LineageExplorer({ urn, type }: Props) {
         });
     }
 
+    function collapseNode(vizNode: VizNode) {
+        setAsyncEntities((entities) => {
+            const {
+                data: { urn: nodeUrn },
+                direction,
+            } = vizNode;
+
+            if (!nodeUrn) {
+                return entities;
+            }
+
+            return collapseLineageNode(nodeUrn, direction, entities);
+        });
+    }
+
     const handleClose = () => {
         setIsDrawVisible(false);
         setSelectedEntity(undefined);
@@ -195,6 +211,9 @@ export default function LineageExplorer({ urn, type }: Props) {
                                 type: EventType.VisualLineageExpandGraphEvent,
                                 targetEntityType: asyncData?.type,
                             });
+                        }}
+                        onLineageCollapse={(vizNode: VizNode) => {
+                            collapseNode(vizNode);
                         }}
                         refetchCenterNode={() => {
                             refetch().then(() => {

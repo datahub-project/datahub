@@ -1,7 +1,15 @@
 import React, { useContext, useEffect, useMemo, useState } from 'react';
 import { TransformMatrix } from '@visx/zoom/lib/types';
 
-import { NodeData, EntitySelectParams, TreeProps, EntityAndType, FetchedEntity, UpdatedLineages } from './types';
+import {
+    NodeData,
+    EntitySelectParams,
+    TreeProps,
+    EntityAndType,
+    FetchedEntity,
+    UpdatedLineages,
+    VizNode,
+} from './types';
 import LineageTreeNodeAndEdgeRenderer from './LineageTreeNodeAndEdgeRenderer';
 import layoutTree from './utils/layoutTree';
 import { LineageExplorerContext } from './utils/LineageExplorerContext';
@@ -17,6 +25,7 @@ type LineageTreeProps = {
     onEntityClick: (EntitySelectParams) => void;
     onEntityCenter: (EntitySelectParams) => void;
     onLineageExpand: (data: EntityAndType) => void;
+    onLineageCollapse: (data: VizNode) => void;
     selectedEntity?: EntitySelectParams;
     hoveredEntity?: EntitySelectParams;
     setHoveredEntity: (EntitySelectParams) => void;
@@ -37,6 +46,7 @@ export default function LineageTree({
     onEntityClick,
     onEntityCenter,
     onLineageExpand,
+    onLineageCollapse,
     selectedEntity,
     hoveredEntity,
     setHoveredEntity,
@@ -148,6 +158,7 @@ export default function LineageTree({
             onEntityClick={onEntityClick}
             onEntityCenter={onEntityCenter}
             onLineageExpand={onLineageExpand}
+            onLineageCollapse={onLineageCollapse}
             selectedEntity={selectedEntity}
             hoveredEntity={hoveredEntity}
             setHoveredEntity={setHoveredEntity}
