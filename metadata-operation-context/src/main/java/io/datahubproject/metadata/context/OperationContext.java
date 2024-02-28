@@ -10,6 +10,7 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
+import java.util.Collection;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
@@ -151,6 +152,15 @@ public class OperationContext {
     } else {
       return sessionActorContext;
     }
+  }
+
+  /**
+   * Other users within the same group as the actor
+   *
+   * @return
+   */
+  public Collection<Urn> getActorPeers() {
+    return authorizerContext.getAuthorizer().getActorPeers(sessionActorContext.getActorUrn());
   }
 
   /**

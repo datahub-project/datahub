@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.authorization;
 
 import static com.linkedin.datahub.graphql.resolvers.AuthUtils.*;
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.authorization.PoliciesConfig.VIEW_ENTITY_PRIVILEGES;
 
 import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.ConjunctivePrivilegeGroup;
@@ -17,22 +18,11 @@ import com.linkedin.metadata.authorization.PoliciesConfig;
 import java.time.Clock;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 import javax.annotation.Nonnull;
 
 public class AuthorizationUtils {
 
   private static final Clock CLOCK = Clock.systemUTC();
-
-  /*
-    These two privileges should be logically the same for search even
-    if one might allow search but not the entity page view at some point.
-    This list should mimic the list in ESAccessControlUtil - update both places.
-  */
-  private static final Set<String> FILTER_PRIVILEGES =
-      Set.of(
-          PoliciesConfig.VIEW_ENTITY_PRIVILEGE.getType(),
-          PoliciesConfig.VIEW_ENTITY_PAGE_PRIVILEGE.getType());
 
   public static AuditStamp createAuditStamp(@Nonnull QueryContext context) {
     return new AuditStamp()
@@ -204,7 +194,7 @@ public class AuthorizationUtils {
   public static boolean canViewEntity(@Nonnull Urn entityUrn, @Nonnull QueryContext context) {
     final DisjunctivePrivilegeGroup orGroup =
         new DisjunctivePrivilegeGroup(
-            ImmutableList.of(new ConjunctivePrivilegeGroup(FILTER_PRIVILEGES)));
+            ImmutableList.of(new ConjunctivePrivilegeGroup(VIEW_ENTITY_PRIVILEGES)));
 
     final Authorizer authorizer = context.getAuthorizer();
     final String actor = context.getActorUrn();

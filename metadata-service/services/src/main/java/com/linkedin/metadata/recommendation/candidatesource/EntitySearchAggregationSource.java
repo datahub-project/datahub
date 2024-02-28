@@ -39,7 +39,6 @@ import org.apache.commons.lang3.tuple.Pair;
 @Slf4j
 @RequiredArgsConstructor
 public abstract class EntitySearchAggregationSource implements RecommendationSource {
-  @Nonnull private final OperationContext opContext;
   private final EntitySearchService entitySearchService;
   private final EntityRegistry entityRegistry;
 
@@ -73,7 +72,7 @@ public abstract class EntitySearchAggregationSource implements RecommendationSou
   @Override
   @WithSpan
   public List<RecommendationContent> getRecommendations(
-      @Nonnull Urn userUrn, @Nullable RecommendationRequestContext requestContext) {
+      @Nonnull OperationContext opContext, @Nullable RecommendationRequestContext requestContext) {
     Map<String, Long> aggregationResult =
         entitySearchService.aggregateByValue(
             opContext, getEntityNames(entityRegistry), getSearchFieldName(), null, getMaxContent());

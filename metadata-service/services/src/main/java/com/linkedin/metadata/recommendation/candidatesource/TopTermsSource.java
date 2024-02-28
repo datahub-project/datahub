@@ -1,6 +1,5 @@
 package com.linkedin.metadata.recommendation.candidatesource;
 
-import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.recommendation.RecommendationRenderType;
 import com.linkedin.metadata.recommendation.RecommendationRequestContext;
@@ -15,11 +14,8 @@ public class TopTermsSource extends EntitySearchAggregationSource {
 
   private static final String TERMS = "glossaryTerms";
 
-  public TopTermsSource(
-      @Nonnull OperationContext opContext,
-      EntitySearchService entitySearchService,
-      EntityService<?> entityService) {
-    super(opContext, entitySearchService, entityService.getEntityRegistry());
+  public TopTermsSource(EntitySearchService entitySearchService, EntityService<?> entityService) {
+    super(entitySearchService, entityService.getEntityRegistry());
   }
 
   @Override
@@ -39,7 +35,7 @@ public class TopTermsSource extends EntitySearchAggregationSource {
 
   @Override
   public boolean isEligible(
-      @Nonnull Urn userUrn, @Nonnull RecommendationRequestContext requestContext) {
+      @Nonnull OperationContext opContext, @Nonnull RecommendationRequestContext requestContext) {
     return requestContext.getScenario() == ScenarioType.HOME
         || requestContext.getScenario() == ScenarioType.SEARCH_RESULTS;
   }

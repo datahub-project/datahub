@@ -47,6 +47,9 @@ authorization:
   restApiAuthorization: ${REST_API_AUTHORIZATION_ENABLED:false}
   search:
     enabled: ${SEARCH_AUTHORIZATION_ENABLED:true}
+    recommendations:
+      # Currently limited to the actor only, see TODO: DataHubAuthorizer
+      peerGroupEnabled: ${SEARCH_AUTHORIZATION_RECOMMENDATIONS_PEER_GROUP_ENABLED:true}
 
 ingestion:
   # The value of cliMajorVersion is substituted in by the processResources Gradle task.

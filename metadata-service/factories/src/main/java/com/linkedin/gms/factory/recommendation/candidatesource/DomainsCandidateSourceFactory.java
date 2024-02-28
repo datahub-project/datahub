@@ -24,6 +24,6 @@ public class DomainsCandidateSourceFactory {
   @Nonnull
   protected DomainsCandidateSource getInstance(
       final OperationContext opContext, final EntityRegistry entityRegistry) {
-    return new DomainsCandidateSource(opContext, entitySearchService, entityRegistry);
+    return new DomainsCandidateSource(entitySearchService, entityRegistry);
   }
 }

@@ -1,6 +1,5 @@
 package com.linkedin.metadata.recommendation.candidatesource;
 
-import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.recommendation.RecommendationRenderType;
 import com.linkedin.metadata.recommendation.RecommendationRequestContext;
@@ -16,10 +15,8 @@ public class DomainsCandidateSource extends EntitySearchAggregationSource {
   private static final String DOMAINS = "domains";
 
   public DomainsCandidateSource(
-      @Nonnull OperationContext opContext,
-      EntitySearchService entitySearchService,
-      EntityRegistry entityRegistry) {
-    super(opContext, entitySearchService, entityRegistry);
+      EntitySearchService entitySearchService, EntityRegistry entityRegistry) {
+    super(entitySearchService, entityRegistry);
   }
 
   @Override
@@ -39,7 +36,7 @@ public class DomainsCandidateSource extends EntitySearchAggregationSource {
 
   @Override
   public boolean isEligible(
-      @Nonnull Urn userUrn, @Nonnull RecommendationRequestContext requestContext) {
+      @Nonnull OperationContext opContext, @Nonnull RecommendationRequestContext requestContext) {
     return requestContext.getScenario() == ScenarioType.HOME;
   }
 

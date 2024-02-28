@@ -43,10 +43,8 @@ public class TopPlatformsSource extends EntitySearchAggregationSource {
   private static final String PLATFORM = "platform";
 
   public TopPlatformsSource(
-      @Nonnull OperationContext opContext,
-      EntityService<?> entityService,
-      EntitySearchService entitySearchService) {
-    super(opContext, entitySearchService, entityService.getEntityRegistry());
+      EntityService<?> entityService, EntitySearchService entitySearchService) {
+    super(entitySearchService, entityService.getEntityRegistry());
     _entityService = entityService;
   }
 
@@ -67,7 +65,7 @@ public class TopPlatformsSource extends EntitySearchAggregationSource {
 
   @Override
   public boolean isEligible(
-      @Nonnull Urn userUrn, @Nonnull RecommendationRequestContext requestContext) {
+      @Nonnull OperationContext opContext, @Nonnull RecommendationRequestContext requestContext) {
     return requestContext.getScenario() == ScenarioType.HOME;
   }
 
