@@ -160,12 +160,12 @@ def test_json_schema_with_recursion():
             "type": NumberTypeClass,
         },
         {
-            "path": "[version=2.0].[type=TreeNode].[type=array].[type=TreeNode].children",
+            "path": "[version=2.0].[type=TreeNode].[type=array].children",
             "type": ArrayTypeClass,
         },
         {
-            "path": "[version=2.0].[type=TreeNode].[type=array].children",
-            "type": ArrayTypeClass,
+            "path": "[version=2.0].[type=TreeNode].[type=array].children.[type=TreeNode].TreeNode",
+            "type": RecordTypeClass,
         },
     ]
     assert_field_paths_match(fields, expected_field_paths)
@@ -377,10 +377,10 @@ def test_nested_arrays():
 
     fields = list(JsonSchemaTranslator.get_fields_from_schema(schema))
     expected_field_paths: List[str] = [
-        "[version=2.0].[type=NestedArray].[type=array].[type=array].[type=Foo].ar",
-        "[version=2.0].[type=NestedArray].[type=array].[type=array].[type=Foo].ar.[type=integer].a",
-        "[version=2.0].[type=NestedArray].[type=array].[type=array].ar",
         "[version=2.0].[type=NestedArray].[type=array].ar",
+        "[version=2.0].[type=NestedArray].[type=array].ar.[type=array].array",
+        "[version=2.0].[type=NestedArray].[type=array].ar.[type=array].array.[type=Foo].Foo",
+        "[version=2.0].[type=NestedArray].[type=array].ar.[type=array].array.[type=Foo].Foo.[type=integer].a",
     ]
     assert_field_paths_match(fields, expected_field_paths)
     assert isinstance(fields[0].type.type, ArrayTypeClass)
@@ -510,10 +510,10 @@ def test_needs_disambiguation_nested_union_of_records_with_same_field_name():
         "[version=2.0].[type=ABFooUnion].[type=union].[type=A].a.[type=string].f",
         "[version=2.0].[type=ABFooUnion].[type=union].[type=B].a",
         "[version=2.0].[type=ABFooUnion].[type=union].[type=B].a.[type=string].f",
-        "[version=2.0].[type=ABFooUnion].[type=union].[type=array].[type=array].[type=Foo].a",
-        "[version=2.0].[type=ABFooUnion].[type=union].[type=array].[type=array].[type=Foo].a.[type=integer].f",
-        "[version=2.0].[type=ABFooUnion].[type=union].[type=array].[type=array].a",
         "[version=2.0].[type=ABFooUnion].[type=union].[type=array].a",
+        "[version=2.0].[type=ABFooUnion].[type=union].[type=array].a.[type=array].array",
+        "[version=2.0].[type=ABFooUnion].[type=union].[type=array].a.[type=array].array.[type=Foo].Foo",
+        "[version=2.0].[type=ABFooUnion].[type=union].[type=array].a.[type=array].array.[type=Foo].Foo.[type=integer].f",
     ]
     assert_field_paths_match(fields, expected_field_paths)
 
@@ -588,10 +588,10 @@ def test_key_schema_handling():
         "[version=2.0].[key=True].[type=ABFooUnion].[type=union].[type=A].a.[type=string].f",
         "[version=2.0].[key=True].[type=ABFooUnion].[type=union].[type=B].a",
         "[version=2.0].[key=True].[type=ABFooUnion].[type=union].[type=B].a.[type=string].f",
-        "[version=2.0].[key=True].[type=ABFooUnion].[type=union].[type=array].[type=array].[type=Foo].a",
-        "[version=2.0].[key=True].[type=ABFooUnion].[type=union].[type=array].[type=array].[type=Foo].a.[type=number].f",
-        "[version=2.0].[key=True].[type=ABFooUnion].[type=union].[type=array].[type=array].a",
         "[version=2.0].[key=True].[type=ABFooUnion].[type=union].[type=array].a",
+        "[version=2.0].[key=True].[type=ABFooUnion].[type=union].[type=array].a.[type=array].array",
+        "[version=2.0].[key=True].[type=ABFooUnion].[type=union].[type=array].a.[type=array].array.[type=Foo].Foo",
+        "[version=2.0].[key=True].[type=ABFooUnion].[type=union].[type=array].a.[type=array].array.[type=Foo].Foo.[type=number].f",
     ]
     assert_field_paths_match(fields, expected_field_paths)
     for f in fields:
@@ -676,8 +676,8 @@ def test_simple_array():
 
     fields = list(JsonSchemaTranslator.get_fields_from_schema(schema))
     expected_field_paths: List[str] = [
-        "[version=2.0].[type=ObjectWithArray].[type=array].[type=string].ar",
         "[version=2.0].[type=ObjectWithArray].[type=array].ar",
+        "[version=2.0].[type=ObjectWithArray].[type=array].ar.[type=string].string",
     ]
     assert_field_paths_match(fields, expected_field_paths)
     assert isinstance(fields[0].type.type, ArrayTypeClass)
@@ -875,8 +875,8 @@ def test_description_extraction():
     }
     fields = list(JsonSchemaTranslator.get_fields_from_schema(schema))
     expected_field_paths: List[str] = [
-        "[version=2.0].[type=object].[type=array].[type=string].bar",
         "[version=2.0].[type=object].[type=array].bar",
+        "[version=2.0].[type=object].[type=array].bar.[type=string].string",
     ]
     assert_field_paths_match(fields, expected_field_paths)
     assert_fields_are_valid(fields)
