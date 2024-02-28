@@ -4,34 +4,12 @@ import static com.linkedin.datahub.graphql.AcrylConstants.*;
 
 import com.datahub.authentication.group.GroupService;
 import com.datahub.authentication.proposal.ProposalService;
-import com.datahub.subscription.SubscriptionService;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.datahub.graphql.GmsGraphQLEngine;
 import com.linkedin.datahub.graphql.GmsGraphQLEngineArgs;
 import com.linkedin.datahub.graphql.GmsGraphQLPlugin;
 import com.linkedin.datahub.graphql.WeaklyTypedAspectsResolver;
-import com.linkedin.datahub.graphql.generated.ActionRequest;
-import com.linkedin.datahub.graphql.generated.Anomaly;
-import com.linkedin.datahub.graphql.generated.AnomalySource;
-import com.linkedin.datahub.graphql.generated.AssertionEvaluationSpec;
-import com.linkedin.datahub.graphql.generated.ChartStatsSummary;
-import com.linkedin.datahub.graphql.generated.CorpUser;
-import com.linkedin.datahub.graphql.generated.CreateGlossaryEntityProposalProperties;
-import com.linkedin.datahub.graphql.generated.DataHubConnection;
-import com.linkedin.datahub.graphql.generated.DataHubSubscription;
-import com.linkedin.datahub.graphql.generated.DataQualityContract;
-import com.linkedin.datahub.graphql.generated.Entity;
-import com.linkedin.datahub.graphql.generated.EntityAnomaliesResult;
-import com.linkedin.datahub.graphql.generated.EntitySubscriptionSummary;
-import com.linkedin.datahub.graphql.generated.FreshnessContract;
-import com.linkedin.datahub.graphql.generated.GlossaryTermAssociation;
-import com.linkedin.datahub.graphql.generated.GlossaryTermProposalParams;
-import com.linkedin.datahub.graphql.generated.IncidentSource;
-import com.linkedin.datahub.graphql.generated.Monitor;
-import com.linkedin.datahub.graphql.generated.ResolvedAuditStamp;
-import com.linkedin.datahub.graphql.generated.SchemaContract;
-import com.linkedin.datahub.graphql.generated.SystemMonitor;
-import com.linkedin.datahub.graphql.generated.TagProposalParams;
+import com.linkedin.datahub.graphql.generated.*;
 import com.linkedin.datahub.graphql.resolvers.actionrequest.ListActionRequestsResolver;
 import com.linkedin.datahub.graphql.resolvers.actionrequest.ListRejectedActionRequestsResolver;
 import com.linkedin.datahub.graphql.resolvers.ai.SuggestDescriptionResolver;
@@ -56,6 +34,10 @@ import com.linkedin.datahub.graphql.resolvers.datacontract.EntityDataContractRes
 import com.linkedin.datahub.graphql.resolvers.datacontract.UpsertDataContractResolver;
 import com.linkedin.datahub.graphql.resolvers.dataset.AcrylDatasetHealthResolver;
 import com.linkedin.datahub.graphql.resolvers.dataset.DatasetStatsSummaryResolver;
+import com.linkedin.datahub.graphql.resolvers.form.BatchSubmitFormPromptResolver;
+import com.linkedin.datahub.graphql.resolvers.form.BatchVerifyFormResolver;
+import com.linkedin.datahub.graphql.resolvers.form.GetFormsForActorResolver;
+import com.linkedin.datahub.graphql.resolvers.form.NumEntitiesToCompleteResolver;
 import com.linkedin.datahub.graphql.resolvers.incident.EntityIncidentsResolver;
 import com.linkedin.datahub.graphql.resolvers.incident.RaiseIncidentResolver;
 import com.linkedin.datahub.graphql.resolvers.incident.UpdateIncidentStatusResolver;
@@ -109,6 +91,7 @@ import com.linkedin.datahub.graphql.types.LoadableType;
 import com.linkedin.datahub.graphql.types.anomaly.AnomalyType;
 import com.linkedin.datahub.graphql.types.connection.DataHubConnectionType;
 import com.linkedin.datahub.graphql.types.datacontract.DataContractType;
+import com.linkedin.datahub.graphql.types.form.FormType;
 import com.linkedin.datahub.graphql.types.glossary.GlossaryNodeType;
 import com.linkedin.datahub.graphql.types.glossary.GlossaryTermType;
 import com.linkedin.datahub.graphql.types.incident.IncidentType;
@@ -125,8 +108,10 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.secret.SecretService;
 import com.linkedin.metadata.service.AssertionService;
+import com.linkedin.metadata.service.FormService;
 import com.linkedin.metadata.service.MonitorService;
 import com.linkedin.metadata.service.SettingsService;
+import com.linkedin.metadata.service.SubscriptionService;
 import com.linkedin.metadata.test.TestEngine;
 import com.linkedin.usage.UsageClient;
 import graphql.schema.idl.RuntimeWiring;
@@ -141,6 +126,7 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
   private GlossaryTermType glossaryTermType;
   private GlossaryNodeType glossaryNodeType;
   private TagType tagType;
+  private FormType formType;
 
   // Acryl Types
   private DataHubConnectionType connectionType; // Saas-ONLY
@@ -162,6 +148,7 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
   private SubscriptionService subscriptionService;
   private GroupService groupService;
   private SettingsService settingsService;
+  private FormService formService;
 
   // Config
   private ExecutorConfiguration executorConfiguration;
@@ -199,10 +186,12 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
     this.groupService = args.getGroupService();
     this.settingsService = args.getSettingsService();
     this.testEngine = args.getTestEngine();
+    this.formService = args.getFormService();
 
     this.glossaryTermType = new GlossaryTermType(args.getEntityClient());
     this.glossaryNodeType = new GlossaryNodeType(args.getEntityClient());
     this.tagType = new TagType(args.getEntityClient());
+    this.formType = new FormType(args.getEntityClient());
 
     this.connectionType =
         new DataHubConnectionType(args.getEntityClient(), args.getSecretService()); // SaaS only
@@ -239,6 +228,7 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
         SUBSCRIPTIONS_SCHEMA_FILE,
         CONTRACTS_SCHEMA_FILE,
         AI_SCHEMA_FILE,
+        FORMS_ACRYL_SCHEMA_FILE,
         EXECUTOR_SCHEMA_FILE);
   }
 
@@ -276,6 +266,7 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
     configureTestResolvers(builder);
     configureProposalResolvers(builder);
     configureContractResolvers(builder, baseEngine);
+    configureFormsForActorResolver(builder);
     configureExecutorResolvers(builder, baseEngine);
   }
 
@@ -366,6 +357,11 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
                     new DeleteSubscriptionResolver(this.subscriptionService, this.entityClient))
                 .dataFetcher(
                     "suggestDescription", new SuggestDescriptionResolver(this.integrationsService))
+                .dataFetcher(
+                    "batchSubmitFormPrompt", new BatchSubmitFormPromptResolver(this.formService))
+                .dataFetcher(
+                    "batchVerifyForm",
+                    new BatchVerifyFormResolver(this.formService, this.groupService))
                 .dataFetcher("updateHelpLink", new UpdateHelpLinkResolver(this.settingsService)));
   }
 
@@ -389,6 +385,9 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
                     "getSubscription", new GetSubscriptionResolver(this.subscriptionService))
                 .dataFetcher(
                     "listSubscriptions", new ListSubscriptionsResolver(this.subscriptionService))
+                .dataFetcher(
+                    "getFormsForActor",
+                    new GetFormsForActorResolver(this.groupService, this.formService))
                 .dataFetcher(
                     "getEntitySubscriptionSummary",
                     new GetEntitySubscriptionSummaryResolver(
@@ -816,6 +815,19 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
             typeWiring.dataFetcher(
                 "upsertDataContract",
                 new UpsertDataContractResolver(this.entityClient, this.graphClient)));
+  }
+
+  private void configureFormsForActorResolver(final RuntimeWiring.Builder builder) {
+    builder.type(
+        "FormForActor",
+        typeWiring ->
+            typeWiring
+                .dataFetcher(
+                    "form",
+                    new LoadableTypeResolver<>(
+                        formType, (env) -> ((FormForActor) env.getSource()).getForm().getUrn()))
+                .dataFetcher(
+                    "numEntitiesToComplete", new NumEntitiesToCompleteResolver(this.entityClient)));
   }
 
   private void configureExecutorResolvers(

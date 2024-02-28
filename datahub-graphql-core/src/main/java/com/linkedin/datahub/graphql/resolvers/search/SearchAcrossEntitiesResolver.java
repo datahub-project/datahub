@@ -13,6 +13,7 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
+import com.linkedin.metadata.service.FormService;
 import com.linkedin.metadata.service.ViewService;
 import com.linkedin.view.DataHubViewInfo;
 import graphql.schema.DataFetcher;
@@ -32,6 +33,7 @@ public class SearchAcrossEntitiesResolver implements DataFetcher<CompletableFutu
 
   private final EntityClient _entityClient;
   private final ViewService _viewService;
+  private final FormService _formService;
 
   @Override
   public CompletableFuture<SearchResults> get(DataFetchingEnvironment environment) {
@@ -57,8 +59,15 @@ public class SearchAcrossEntitiesResolver implements DataFetcher<CompletableFutu
                       context.getAuthentication())
                   : null;
 
-          final Filter baseFilter =
+          final Filter inputFilter =
               ResolverUtils.buildFilter(input.getFilters(), input.getOrFilters());
+          final Filter formFilter =
+              SearchUtils.getFormFilter(
+                  input.getFormFilter(), _formService, context.getAuthentication());
+          final Filter baseFilter =
+              formFilter != null
+                  ? SearchUtils.combineFilters(inputFilter, formFilter)
+                  : inputFilter;
 
           SearchFlags searchFlags = mapInputFlags(input.getSearchFlags());
           SortCriterion sortCriterion =

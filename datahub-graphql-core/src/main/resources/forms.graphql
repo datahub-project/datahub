@@ -1,21 +1,29 @@
+extend type Query {
+    """
+    Fetch a Form by primary key (urn)
+    """
+    form(urn: String!): Form
+}
+
+
 """
 Requirements forms that are assigned to an entity.
 """
 type Forms {
-  """
-  Forms that are still incomplete.
-  """
-  incompleteForms: [FormAssociation!]!
+    """
+    Forms that are still incomplete.
+    """
+    incompleteForms: [FormAssociation!]!
 
-  """
-  Forms that have been completed.
-  """
-  completedForms: [FormAssociation!]!
+    """
+    Forms that have been completed.
+    """
+    completedForms: [FormAssociation!]!
 
-  """
-  Verifications that have been applied to the entity via completed forms.
-  """
-  verifications: [FormVerificationAssociation!]!
+    """
+    Verifications that have been applied to the entity via completed forms.
+    """
+    verifications: [FormVerificationAssociation!]!
 }
 
 type FormAssociation {
@@ -275,7 +283,6 @@ input SubmitFormPromptInput {
     structuredPropertyParams: StructuredPropertyInputParams
 }
 
-
 """
 Input for collecting structured property values to apply to entities
 """
@@ -340,26 +347,26 @@ input CreateDynamicFormAssignmentInput {
 }
 
 type FormActorAssignment {
-  """
-  Whether the form should be completed by owners of the assets which the form is applied to.
-  """
-  owners: Boolean!
+    """
+    Whether the form should be completed by owners of the assets which the form is applied to.
+    """
+    owners: Boolean!
 
-  """
-  Urns of the users that the form is assigned to. If null, then no users are specifically targeted.
-  """
-  users: [CorpUser!]
+    """
+    Urns of the users that the form is assigned to. If null, then no users are specifically targeted.
+    """
+    users: [CorpUser!]
 
-  """
-  Groups that the form is assigned to. If null, then no groups are specifically targeted.
-  """
-  groups: [CorpGroup!]
+    """
+    Groups that the form is assigned to. If null, then no groups are specifically targeted.
+    """
+    groups: [CorpGroup!]
 
-  """
-  Whether or not the current actor is universally assigned to this form, either by user or by group.
-  Note that this does not take into account entity ownership based assignment.
-  """
-  isAssignedToMe: Boolean!
+    """
+    Whether or not the current actor is universally assigned to this form, either by user or by group.
+    Note that this does not take into account entity ownership based assignment.
+    """
+    isAssignedToMe: Boolean!
 }
 
 """

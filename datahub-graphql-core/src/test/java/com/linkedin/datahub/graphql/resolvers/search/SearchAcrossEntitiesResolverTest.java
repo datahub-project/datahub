@@ -27,6 +27,7 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchResultMetadata;
+import com.linkedin.metadata.service.FormService;
 import com.linkedin.metadata.service.ViewService;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.view.DataHubViewDefinition;
@@ -76,6 +77,7 @@ public class SearchAcrossEntitiesResolverTest {
             .setFilter(viewFilter));
 
     ViewService mockService = initMockViewService(TEST_VIEW_URN, info);
+    FormService mockFormService = Mockito.mock(FormService.class);
 
     EntityClient mockClient =
         initMockEntityClient(
@@ -92,7 +94,7 @@ public class SearchAcrossEntitiesResolverTest {
                 .setMetadata(new SearchResultMetadata()));
 
     final SearchAcrossEntitiesResolver resolver =
-        new SearchAcrossEntitiesResolver(mockClient, mockService);
+        new SearchAcrossEntitiesResolver(mockClient, mockService, mockFormService);
 
     final SearchAcrossEntitiesInput testInput =
         new SearchAcrossEntitiesInput(
@@ -103,6 +105,7 @@ public class SearchAcrossEntitiesResolverTest {
             null,
             null,
             TEST_VIEW_URN.toString(),
+            null,
             null,
             null);
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
@@ -185,8 +188,10 @@ public class SearchAcrossEntitiesResolverTest {
                 .setPageSize(0)
                 .setMetadata(new SearchResultMetadata()));
 
+    FormService mockFormService = Mockito.mock(FormService.class);
+
     final SearchAcrossEntitiesResolver resolver =
-        new SearchAcrossEntitiesResolver(mockClient, mockService);
+        new SearchAcrossEntitiesResolver(mockClient, mockService, mockFormService);
 
     final SearchAcrossEntitiesInput testInput =
         new SearchAcrossEntitiesInput(
@@ -205,6 +210,7 @@ public class SearchAcrossEntitiesResolverTest {
                             false,
                             FilterOperator.EQUAL)))),
             TEST_VIEW_URN.toString(),
+            null,
             null,
             null);
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
@@ -270,12 +276,14 @@ public class SearchAcrossEntitiesResolverTest {
                 .setPageSize(0)
                 .setMetadata(new SearchResultMetadata()));
 
+    FormService mockFormService = Mockito.mock(FormService.class);
+
     final SearchAcrossEntitiesResolver resolver =
-        new SearchAcrossEntitiesResolver(mockClient, mockService);
+        new SearchAcrossEntitiesResolver(mockClient, mockService, mockFormService);
 
     final SearchAcrossEntitiesInput testInput =
         new SearchAcrossEntitiesInput(
-            null, "", 0, 10, null, null, TEST_VIEW_URN.toString(), null, null);
+            null, "", 0, 10, null, null, TEST_VIEW_URN.toString(), null, null, null);
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     QueryContext mockContext = getMockAllowContext();
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(testInput);
@@ -340,8 +348,10 @@ public class SearchAcrossEntitiesResolverTest {
                 .setPageSize(0)
                 .setMetadata(new SearchResultMetadata()));
 
+    FormService mockFormService = Mockito.mock(FormService.class);
+
     final SearchAcrossEntitiesResolver resolver =
-        new SearchAcrossEntitiesResolver(mockClient, mockService);
+        new SearchAcrossEntitiesResolver(mockClient, mockService, mockFormService);
 
     final SearchAcrossEntitiesInput testInput =
         new SearchAcrossEntitiesInput(
@@ -352,6 +362,7 @@ public class SearchAcrossEntitiesResolverTest {
             null,
             null,
             TEST_VIEW_URN.toString(),
+            null,
             null,
             null);
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
@@ -399,8 +410,9 @@ public class SearchAcrossEntitiesResolverTest {
                 .setPageSize(0)
                 .setMetadata(new SearchResultMetadata()));
 
+    FormService mockFormService = Mockito.mock(FormService.class);
     final SearchAcrossEntitiesResolver resolver =
-        new SearchAcrossEntitiesResolver(mockClient, mockService);
+        new SearchAcrossEntitiesResolver(mockClient, mockService, mockFormService);
     final SearchAcrossEntitiesInput testInput =
         new SearchAcrossEntitiesInput(
             Collections.emptyList(), // Empty Entity Types
@@ -410,6 +422,7 @@ public class SearchAcrossEntitiesResolverTest {
             null,
             null,
             TEST_VIEW_URN.toString(),
+            null,
             null,
             null);
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
@@ -441,8 +454,9 @@ public class SearchAcrossEntitiesResolverTest {
                 Mockito.any(Authentication.class)))
         .thenThrow(new RemoteInvocationException());
 
+    FormService mockFormService = Mockito.mock(FormService.class);
     final SearchAcrossEntitiesResolver resolver =
-        new SearchAcrossEntitiesResolver(mockClient, mockService);
+        new SearchAcrossEntitiesResolver(mockClient, mockService, mockFormService);
     final SearchAcrossEntitiesInput testInput =
         new SearchAcrossEntitiesInput(
             Collections.emptyList(), // Empty Entity Types
@@ -452,6 +466,7 @@ public class SearchAcrossEntitiesResolverTest {
             null,
             null,
             TEST_VIEW_URN.toString(),
+            null,
             null,
             null);
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);

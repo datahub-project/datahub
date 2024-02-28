@@ -7,10 +7,10 @@ import static org.testng.Assert.*;
 
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.group.GroupService;
-import com.datahub.subscription.SubscriptionService;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.EntitySubscriptionSummary;
 import com.linkedin.datahub.graphql.generated.GetEntitySubscriptionSummaryInput;
+import com.linkedin.metadata.service.SubscriptionService;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.Collections;
 import org.testng.annotations.BeforeMethod;
@@ -44,7 +44,7 @@ public class GetEntitySubscriptionSummaryResolverTest {
 
   @Test
   public void testGetEntitySubscriptionSummaryExceptionThrown() {
-    when(_subscriptionService.isUserSubscribed(eq(ENTITY_URN_1), eq(USER_URN), eq(_authentication)))
+    when(_subscriptionService.isUserSubscribed(eq(ENTITY_URN_1), eq(USER_URN)))
         .thenThrow(new RuntimeException());
 
     assertThrows(() -> _resolver.get(_dataFetchingEnvironment).join());
@@ -52,8 +52,7 @@ public class GetEntitySubscriptionSummaryResolverTest {
 
   @Test
   public void testGetEntitySubscriptionSummary() throws Exception {
-    when(_subscriptionService.isUserSubscribed(eq(ENTITY_URN_1), eq(USER_URN), eq(_authentication)))
-        .thenReturn(true);
+    when(_subscriptionService.isUserSubscribed(eq(ENTITY_URN_1), eq(USER_URN))).thenReturn(true);
     when(_groupService.getGroupsForUser(eq(USER_URN), eq(_authentication)))
         .thenReturn(Collections.emptyList());
     when(_subscriptionService.isAnyGroupSubscribed(eq(ENTITY_URN_1), any(), eq(_authentication)))

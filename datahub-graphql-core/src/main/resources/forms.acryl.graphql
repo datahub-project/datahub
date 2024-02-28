@@ -1,0 +1,124 @@
+extend type Query {
+    """
+    Get all of the forms that are assigned to this user explicitly or by ownership of assets.
+    Right now this query gets forms for the requesting user.
+    """
+    getFormsForActor(input: GetFormsForActorInput): GetFormsForActorResult!
+}
+
+extend type Mutation {
+    """
+    Batch submit a form prompt response for a set of entities
+    """
+    batchSubmitFormPrompt(input: BatchSubmitFormPromptInput!): Boolean
+
+    """
+    Batch verify a form for a group of entities
+    """
+    batchVerifyForm(input: BatchVerifyFormInput!): Boolean
+}
+
+"""
+Input for responding to a singular prompt in a form for a batch of entities
+"""
+input BatchSubmitFormPromptInput {
+    """
+    The urns of the entities this prompt submission is for
+    """
+    assetUrns: [String!]!
+
+    """
+    Input for responding to a specific prompt on a form
+    """
+    input: SubmitFormPromptInput
+}
+
+"""
+Input for verifying a batch of entities for a give form
+"""
+input BatchVerifyFormInput {
+    """
+    The urns of the entities getting verified for this form
+    """
+    assetUrns: [String!]!
+
+    """
+    The urn of the form being verified on the given entities
+    """
+    formUrn: String!
+}
+
+"""
+Optional input for getting forms for an actor.
+"""
+input GetFormsForActorInput {
+    """
+    Optional search flags for this endpoint
+    """
+    searchFlags: SearchFlags
+}
+
+"""
+Result object containing forms assigned to a given actor
+"""
+type GetFormsForActorResult {
+    """
+    List of result objects about forms for the given actor
+    """
+    formsForActor: [FormForActor!]!
+}
+
+"""
+Result object containing info about a form that is assigned to an actor
+"""
+type FormForActor {
+    """
+    The form this user is assigned to
+    """
+    form: Form!
+
+    """
+    The number of entities that this user still has to complete the given form for
+    """
+    numEntitiesToComplete: Int
+}
+
+"""
+Input arguments for a full text search query across entities
+"""
+input FormFilter {
+    """
+    The urn of the form to get only entities that have this form on them
+    """
+    formUrn: String!
+
+    """
+    The urn of the actor that we want to filter by. If supplied, filter entities
+    down to only those where this actor is assigned to fill them out.
+    """
+    assignedActor: String
+
+    """
+    Optional filter to get only entities that have this form complete or not.
+    If omitted, get entities whether they have this form complete or not.
+    """
+    isFormComplete: Boolean
+
+    """
+    Optional filter to get only entities that have this form verified or not.
+    If omitted, get entities whether they have this form verified or not.
+    """
+    isFormVerified: Boolean
+
+    """
+    Optional filter input to fetch entities based on the state of a specific prompt.
+    This is required if providing the isPromptComplete input.
+    """
+    promptId: String
+
+    """
+    Optional filter to get only entities with a certain prompt complete or not.
+    If left empty, get entities regardless of whether a specific prompt is complete.
+    """
+    isPromptComplete: Boolean
+}

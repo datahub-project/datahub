@@ -1,10 +1,9 @@
 package com.linkedin.gms.factory.subscription;
 
-import com.datahub.subscription.SubscriptionService;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.SystemEntityClient;
+import com.linkedin.metadata.service.SubscriptionService;
 import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import javax.annotation.Nonnull;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.PropertySource;
@@ -16,8 +15,8 @@ public class SubscriptionServiceFactory {
   @Bean(name = "subscriptionService")
   @Scope("singleton")
   @Nonnull
-  protected SubscriptionService getInstance(@Qualifier("entityClient") EntityClient entityClient)
+  protected SubscriptionService getInstance(final SystemEntityClient entityClient)
       throws Exception {
-    return new SubscriptionService(entityClient);
+    return new SubscriptionService(entityClient, entityClient.getSystemAuthentication());
   }
 }

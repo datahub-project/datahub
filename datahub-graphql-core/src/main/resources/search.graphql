@@ -203,6 +203,11 @@ input SearchAcrossEntitiesInput {
   Optional - Information on how to sort this search result
   """
   sortInput: SearchSortInput
+
+  """
+  Optional - filter on how to search for entities by metadata forms
+  """
+  formFilter: FormFilter
 }
 
 """
@@ -240,6 +245,11 @@ input AggregateAcrossEntitiesInput {
   Flags controlling search options
   """
   searchFlags: SearchFlags
+
+  """
+  Optional - filter on how to search for entities by metadata forms
+  """
+  formFilter: FormFilter
 }
 
 """
@@ -1257,6 +1267,11 @@ input BrowseV2Input {
   Flags controlling search options
   """
   searchFlags: SearchFlags
+
+  """
+  Optional - filter on how to search for entities by metadata forms
+  """
+  formFilter: FormFilter
 }
 
 """

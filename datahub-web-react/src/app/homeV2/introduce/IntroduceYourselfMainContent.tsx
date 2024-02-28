@@ -15,7 +15,6 @@ import PlatformIcon from '../../sharedV2/icons/PlatformIcon';
 
 const Container = styled.div`
     flex: 1;
-    // border-radius: 18px;
     padding-left: 52px;
     padding-right: 52px;
 `;
@@ -24,12 +23,11 @@ const Content = styled.div`
     align-items: center;
     text-align: center;
     background-color: #ffffff;
-    // border-radius: 18px;
     padding: 12px 20px 12px 20px;
-    // border: 1.5px solid #efefef;
     min-height: 100%;
     display: flex;
     flex-direction: column;
+
     .ant-select-selection-item {
         align-items: center;
         gap: 4px;
@@ -39,13 +37,12 @@ const Content = styled.div`
 
 const Title = styled.div`
     color: #1f202a;
-
     text-align: center;
     font-family: Mulish;
     font-size: 35px;
     font-style: normal;
     font-weight: 700;
-    line-height: 44px; /* 125.714% */
+    line-height: 44px;
     margin-top: 147px;
     margin-bottom: 3px;
 `;
@@ -53,13 +50,12 @@ const Title = styled.div`
 const Subtitle = styled.div`
     color: #1f202a;
     width: 268px;
-
     text-align: center;
     font-family: Mulish;
     font-size: 13px;
     font-style: normal;
     font-weight: 400;
-    line-height: 21px; /* 161.538% */
+    line-height: 21px;
     opacity: 0.6;
     margin-bottom: 62px;
 `;
@@ -78,6 +74,7 @@ const SelectOption = styled.div`
     gap: 8px;
     padding: 4px 0px;
     align-items: center;
+    font-weight: normal;
 `;
 
 // const RoleCard = styled.div`
@@ -129,14 +126,13 @@ const SelectOption = styled.div`
 export const IntroduceYourselfMainContent = () => {
     const { user, refetchUser } = useUserContext();
     const [selectedPersona, setSelectedPersona] = useState('');
-    const [selectedPlatforms, setSelectedPlatforms] = useState();
-    const [selectedTitle, setSelectedTitle] = useState();
+    const [selectedPlatforms, setSelectedPlatforms] = useState([]);
+    const [selectedTitle, setSelectedTitle] = useState('');
     const defaultDataPlatforms = useGetDataPlatforms();
     const [updateCorpUserMutation, { loading }] = useUpdateCorpUserPropertiesMutation();
 
-    const handlePersonaChange = (value: any) => {
-        const personaType = ROLE_TO_PERSONA_TYPE[value];
-        setSelectedPersona(personaType);
+    const handlePersonaChange = (value: string) => {
+        setSelectedPersona(ROLE_TO_PERSONA_TYPE[value]);
         setSelectedTitle(value);
     };
 
@@ -201,8 +197,8 @@ export const IntroduceYourselfMainContent = () => {
                 history.push('/');
             })
             .catch((err) => {
-                console.log(err);
-                message.error('Failed to save user details . :(');
+                console.error(err);
+                message.error('Failed to save user details. :(');
             });
     };
 
@@ -236,8 +232,9 @@ export const IntroduceYourselfMainContent = () => {
                         ),
                     }))}
                     mode="multiple"
+                    menuItemSelectedIcon
                 />
-                <DoneButton type="primary" size="large" onClick={onSubmitDetails} loading={loading}>
+                <DoneButton type="primary" size="large" onClick={onSubmitDetails} loading={loading} disabled={!selectedPersona}>
                     Done
                 </DoneButton>
             </Content>

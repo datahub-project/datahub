@@ -89,27 +89,6 @@ public class DatasetStatsSummaryResolver
             addUsageFeatures(result, maybeUsageFeatures, resourceUrn, context);
             addStorageFeatures(result, maybeStorageFeatures);
 
-            if (maybeUsageFeatures == null && maybeStorageFeatures == null) {
-              com.linkedin.usage.UsageQueryResult usageQueryResult =
-                  usageClient.getUsageStats(resourceUrn.toString(), UsageTimeRange.MONTH);
-
-              result.setQueryCountLast30Days(
-                  usageQueryResult.getAggregations().getTotalSqlQueries());
-              result.setUniqueUserCountLast30Days(
-                  usageQueryResult.getAggregations().getUniqueUserCount());
-              if (usageQueryResult.getAggregations().hasUsers()) {
-                result.setTopUsersLast30Days(
-                    trimUsers(
-                        usageQueryResult.getAggregations().getUsers().stream()
-                            .filter(UserUsageCounts::hasUser)
-                            .sorted((a, b) -> (b.getCount() - a.getCount()))
-                            .map(
-                                userCounts ->
-                                    createPartialUser(Objects.requireNonNull(userCounts.getUser())))
-                            .collect(Collectors.toList())));
-              }
-            }
-
             return result;
           } catch (Exception e) {
             log.error(

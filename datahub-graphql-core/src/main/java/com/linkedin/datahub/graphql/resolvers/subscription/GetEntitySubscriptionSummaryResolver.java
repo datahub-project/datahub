@@ -4,7 +4,6 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.group.GroupService;
-import com.datahub.subscription.SubscriptionService;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -12,6 +11,7 @@ import com.linkedin.datahub.graphql.generated.CorpGroup;
 import com.linkedin.datahub.graphql.generated.EntitySubscriptionSummary;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.GetEntitySubscriptionSummaryInput;
+import com.linkedin.metadata.service.SubscriptionService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.List;
@@ -48,8 +48,7 @@ public class GetEntitySubscriptionSummaryResolver
             final Urn actorUrn = UrnUtils.getUrn(context.getActorUrn());
 
             final EntitySubscriptionSummary summary = new EntitySubscriptionSummary();
-            summary.setIsUserSubscribed(
-                _subscriptionService.isUserSubscribed(entityUrn, actorUrn, authentication));
+            summary.setIsUserSubscribed(_subscriptionService.isUserSubscribed(entityUrn, actorUrn));
 
             final List<Urn> userGroupUrns =
                 _groupService.getGroupsForUser(actorUrn, authentication);

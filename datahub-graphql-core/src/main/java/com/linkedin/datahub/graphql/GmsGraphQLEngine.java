@@ -859,7 +859,8 @@ public class GmsGraphQLEngine {
                 .dataFetcher("search", new SearchResolver(this.entityClient))
                 .dataFetcher(
                     "searchAcrossEntities",
-                    new SearchAcrossEntitiesResolver(this.entityClient, this.viewService))
+                    new SearchAcrossEntitiesResolver(
+                        this.entityClient, this.viewService, this.formService))
                 .dataFetcher(
                     "scrollAcrossEntities",
                     new ScrollAcrossEntitiesResolver(this.entityClient, this.viewService))
@@ -907,6 +908,7 @@ public class GmsGraphQLEngine {
                 .dataFetcher("mlModel", getResolver(mlModelType))
                 .dataFetcher("mlModelGroup", getResolver(mlModelGroupType))
                 .dataFetcher("assertion", getResolver(assertionType))
+                .dataFetcher("form", getResolver(formType))
                 .dataFetcher("listPolicies", new ListPoliciesResolver(this.entityClient))
                 .dataFetcher("getGrantedPrivileges", new GetGrantedPrivilegesResolver())
                 .dataFetcher("listUsers", new ListUsersResolver(this.entityClient))

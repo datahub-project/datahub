@@ -16,6 +16,7 @@ function useDeleteGlossaryEntity() {
             variables: {
                 urn: entityDataUrn,
             },
+            fetchPolicy: 'cache-first',
         })
             .catch((e) => {
                 message.destroy();
@@ -26,13 +27,11 @@ function useDeleteGlossaryEntity() {
                     content: 'Deleting...',
                     duration: 2,
                 });
-                setTimeout(() => {
                     setHasBeenDeleted(true);
                     message.success({
                         content: `Deleted ${entityRegistry.getEntityName(entityType)}!`,
                         duration: 2,
                     });
-                }, 2000);
             });
     }
 

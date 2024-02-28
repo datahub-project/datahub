@@ -1,3 +1,4 @@
+import { Helmet } from 'react-helmet-async';
 import React, { useEffect } from 'react';
 import './App.less';
 import { THIRD_PARTY_LOGGING_KEY } from './app/analytics/analytics';
@@ -41,6 +42,11 @@ const AppConfigProvider = ({ children }: { children: React.ReactNode }) => {
         <AppConfigContext.Provider
             value={{ config: appConfigData?.appConfig || DEFAULT_APP_CONFIG, refreshContext: refreshAppConfig }}
         >
+            {appConfigData?.appConfig?.visualConfig.appTitle && (
+                <Helmet>
+                    <title>{appConfigData?.appConfig?.visualConfig.appTitle}</title>
+                </Helmet>
+            )}
             {children}
         </AppConfigContext.Provider>
     );

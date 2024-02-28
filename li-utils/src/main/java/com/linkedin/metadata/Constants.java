@@ -1,6 +1,7 @@
 package com.linkedin.metadata;
 
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 
 /** Static class containing commonly-used constants across DataHub services. */
 public class Constants {
@@ -341,6 +342,12 @@ public class Constants {
   // Ownership Types
   public static final String OWNERSHIP_TYPE_KEY_ASPECT_NAME = "ownershipTypeKey";
   public static final String OWNERSHIP_TYPE_INFO_ASPECT_NAME = "ownershipTypeInfo";
+  public static final Urn TECHNICAL_OWNER_TYPE_URN =
+      UrnUtils.getUrn("urn:li:ownershipType:__system__technical_owner");
+  public static final Urn BUSINESS_OWNER_TYPE_URN =
+      UrnUtils.getUrn("urn:li:ownershipType:__system__business_owner");
+  public static final Urn DATA_STEWARD_TYPE_URN =
+      UrnUtils.getUrn("urn:li:ownershipType:__system__data_steward");
 
   // Structured Property
   public static final String STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME = "propertyDefinition";
