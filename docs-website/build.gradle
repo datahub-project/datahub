@@ -127,11 +127,11 @@ task yarnBuild(type: YarnTask, dependsOn: [yarnLint, yarnGenerate, downloadHisto
   outputs.cacheIf { true }
   // See https://stackoverflow.com/questions/53230823/fatal-error-ineffective-mark-compacts-near-heap-limit-allocation-failed-java
   // and https://github.com/facebook/docusaurus/issues/8329.
-  // TODO: As suggested in https://github.com/facebook/docusaurus/issues/4765, try switching to swc-loader.
+  // TODO: As suggested in https://github.com/facebook/docusaurus/issues/4765, try switching to swc-loader or esbuild minification.
   if (project.hasProperty('useSystemNode') && project.getProperty('useSystemNode').toBoolean()) {
-    environment = ['NODE_OPTIONS': '--max-old-space-size=10248']
+    environment = ['NODE_OPTIONS': '--max-old-space-size=14336']
   } else {
-    environment = ['NODE_OPTIONS': '--max-old-space-size=10248 --openssl-legacy-provider']
+    environment = ['NODE_OPTIONS': '--max-old-space-size=14336 --openssl-legacy-provider']
   }
   args = ['run', 'build']
 
