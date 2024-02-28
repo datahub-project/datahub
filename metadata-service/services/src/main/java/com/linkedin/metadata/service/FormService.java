@@ -31,6 +31,7 @@ import com.linkedin.form.DynamicFormAssignment;
 import com.linkedin.form.FormActorAssignment;
 import com.linkedin.form.FormInfo;
 import com.linkedin.form.FormPrompt;
+import com.linkedin.form.FormPromptType;
 import com.linkedin.form.FormType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.authorization.OwnershipUtils;
@@ -39,6 +40,7 @@ import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.*;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.service.util.FormTestBuilder;
 import com.linkedin.metadata.service.util.SearchBasedFormAssignmentRunner;
 import com.linkedin.metadata.utils.FormUtils;
 import com.linkedin.metadata.utils.SchemaFieldUtils;
@@ -50,6 +52,7 @@ import com.linkedin.structured.PrimitivePropertyValueArray;
 import com.linkedin.structured.StructuredProperties;
 import com.linkedin.structured.StructuredPropertyValueAssignment;
 import com.linkedin.structured.StructuredPropertyValueAssignmentArray;
+import com.linkedin.test.TestInfo;
 import java.net.URISyntaxException;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -68,6 +71,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class FormService extends BaseService {
 
+  private static final int TEST_SEARCH_BATCH_SIZE = 10000;
   private static final int FORMS_BATCH_SIZE = 1000;
   private static final int BATCH_FORM_ENTITY_COUNT = 500;
 
@@ -161,15 +165,94 @@ public class FormService extends BaseService {
     }
   }
 
-  /** Assigns the form to an entity for completion. */
-  public void upsertFormAssignmentRunner(
-      @Nonnull final Urn formUrn, @Nonnull final DynamicFormAssignment formFilters) {
+  /**
+   * Creates a form prompt automation, which verifies that the prompt is completed, and unsets it
+   * when it's not.
+   */
+  public void upsertFormPromptCompletionAutomation(
+      @Nonnull final Urn formUrn, @Nonnull final FormPrompt prompt) {
+    if (prompt.getType().equals(FormPromptType.FIELDS_STRUCTURED_PROPERTY)) {
+      log.info(
+          "Encountered FIELDS_STRUCTURED_PROPERTY prompt type. Skipping form prompt completion automation");
+      return;
+    }
+    final Urn metadataTestUrn = FormTestBuilder.createTestUrnForFormPrompt(formUrn, prompt);
+    final TestInfo testDefinition = FormTestBuilder.buildFormPromptCompletionTest(formUrn, prompt);
     try {
+      ingestChangeProposals(
+          ImmutableList.of(
+              AspectUtils.buildMetadataChangeProposal(
+                  metadataTestUrn, TEST_INFO_ASPECT_NAME, testDefinition)),
+          systemAuthentication);
+    } catch (Exception e) {
+      throw new RuntimeException("Failed to create form", e);
+    }
+  }
+
+  /** Creates a form assignment automation, which assigns the form to an entity for completion. */
+  public void upsertFormAssignmentAutomation(
+      @Nonnull final Urn formUrn, @Nonnull final DynamicFormAssignment formFilters) {
+    final Urn metadataTestUrn = FormTestBuilder.createTestUrnForFormAssignment(formUrn);
+    final TestInfo testDefinition = FormTestBuilder.buildFormAssignmentTest(formUrn, formFilters);
+    try {
+      ingestChangeProposals(
+          ImmutableList.of(
+              AspectUtils.buildMetadataChangeProposal(
+                  metadataTestUrn, TEST_INFO_ASPECT_NAME, testDefinition)),
+          systemAuthentication);
       SearchBasedFormAssignmentRunner.assign(
           formFilters, formUrn, BATCH_FORM_ENTITY_COUNT, entityClient, systemAuthentication);
     } catch (Exception e) {
       throw new RuntimeException(
           String.format("Failed to dynamically assign form with urn: %s", formUrn), e);
+    }
+  }
+
+  /** Remove all form automations (metadata tests) for a particular form urn. */
+  public void removeAllFormAutomations(@Nonnull final Urn formUrn) {
+    // Lookup all metadata tests associated with this form urn.
+    try {
+      final SearchResult result =
+          this.entityClient.search(
+              TEST_ENTITY_NAME,
+              "*",
+              ImmutableMap.of("sourceUrn", formUrn.toString()),
+              0,
+              TEST_SEARCH_BATCH_SIZE,
+              this.systemAuthentication,
+              new SearchFlags().setSkipCache(true));
+
+      if (result.hasEntities()) {
+        result
+            .getEntities()
+            .forEach(
+                entity -> {
+                  try {
+                    this.entityClient.deleteEntity(entity.getEntity(), this.systemAuthentication);
+                  } catch (Exception e) {
+                    throw new RuntimeException("Failed to remove form tests!", e);
+                  }
+                });
+      }
+    } catch (Exception e) {
+      log.error(
+          "Failed to remove metadata tests associated with form urn {}. This may mean that there is stale data remaining!",
+          formUrn);
+    }
+  }
+
+  /** Remove all form automations (metadata tests) for a particular form urn. */
+  public void removeFormPromptCompletionAutomation(
+      @Nonnull final Urn formUrn, @Nonnull final FormPrompt prompt) {
+    final Urn metadataTestUrn = FormTestBuilder.createTestUrnForFormPrompt(formUrn, prompt);
+    try {
+      this.entityClient.deleteEntity(metadataTestUrn, this.systemAuthentication);
+    } catch (Exception e) {
+      throw new RuntimeException(
+          String.format(
+              "Failed to remove form prompt test for form %s and prompt id %s!",
+              formUrn, prompt.getId()),
+          e);
     }
   }
 

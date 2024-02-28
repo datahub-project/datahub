@@ -88,4 +88,9 @@ record TestInfo {
      * The current status of the Metadata Test, e.g. whether it is actively running.
      */
     status: optional TestStatus
+
+    /**
+     * The source of the metadata test, e.g. whether the test is user generated or system generated.
+     */
+    source: optional TestSource
 }

@@ -11,6 +11,7 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.ListTestsInput;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
@@ -47,7 +48,7 @@ public class ListTestsResolverTest {
             mockClient.search(
                 Mockito.eq(Constants.TEST_ENTITY_NAME),
                 Mockito.eq(""),
-                Mockito.eq(null),
+                Mockito.any(Filter.class),
                 any(SortCriterion.class),
                 Mockito.eq(0),
                 Mockito.eq(20),
