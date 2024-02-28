@@ -178,7 +178,7 @@ export function StatsSidebarContent({ properties }: Props) {
                 value: fieldProfile.sampleValues
                     ?.filter((value) => value !== undefined)
                     .slice(0, 3)
-                    .map((value, idx) => <SampleValueTag value={value} key={`sample-value-${idx}`} />),
+                    .map((value) => <SampleValueTag value={value} />),
                 trend: null,
             },
         ],
