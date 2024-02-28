@@ -16,19 +16,7 @@ import lombok.Getter;
 public class SearchContext implements ContextInterface {
 
   public static SearchContext EMPTY =
-      SearchContext.builder()
-          .indexConvention(IndexConventionImpl.NO_PREFIX)
-          .searchFlags(SEARCH_CONTEXT_DEFAULT)
-          .build();
-
-  public static SearchContext withFlagDefaults(
-      @Nonnull SearchContext searchContext,
-      @Nonnull Function<SearchFlags, SearchFlags> flagDefaults) {
-    return searchContext.toBuilder()
-        // update search flags
-        .searchFlags(flagDefaults.apply(searchContext.getSearchFlags()))
-        .build();
-  }
+      SearchContext.builder().indexConvention(IndexConventionImpl.NO_PREFIX).build();
 
   public static SearchContext withFlagDefaults(
       @Nonnull SearchContext searchContext,
