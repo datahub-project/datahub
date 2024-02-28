@@ -347,26 +347,23 @@ SELECT  schemaname as schema_name,
         db_name: str, start_time: datetime, end_time: datetime
     ) -> str:
         return """
-            select
-                distinct
-                    sti.database as cluster,
-                    sti.schema as source_schema,
-                    sti."table" as source_table,
-                    unl.path as filename
-            from
-                stl_unload_log unl
-            join stl_scan sc on
-                sc.query = unl.query and
-                sc.starttime >= '{start_time}' and
-                sc.starttime < '{end_time}'
-            join SVV_TABLE_INFO sti on
-                sti.table_id = sc.tbl
-            where
-                unl.start_time >= '{start_time}' and
-                unl.start_time < '{end_time}' and
+            SELECT 
+                DISTINCT
+                sti.database as cluster,
+                sti.schema as source_schema,
+                sti."table" as source_table,
+                unl.file_name as filename
+            FROM SYS_UNLOAD_DETAIL unl
+            JOIN SYS_QUERY_DETAIL qd ON 
+                unl.query_id = qd.query_id
+            JOIN SVV_TABLE_INFO sti ON 
+                sti.table_id = qd.table_id
+            WHERE
+                qd.step_name = 'scan' AND
+                unl.start_time >= '{start_time}' AND
+                unl.start_time < '{end_time}' AND
                 sti.database = '{db_name}'
-              and sc.type in (1, 2, 3)
-            order by cluster, source_schema, source_table, filename, unl.start_time asc
+            ORDER BY cluster, source_schema, source_table, filename, unl.start_time ASC
             """.format(
             # We need the original database name for filtering
             db_name=db_name,
