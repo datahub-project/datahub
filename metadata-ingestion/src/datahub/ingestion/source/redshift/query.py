@@ -371,53 +371,56 @@ SELECT  schemaname as schema_name,
             end_time=end_time.strftime(redshift_datetime_format),
         )
 
+    # the differences vs old query are:
+    # * we additionally get queries like "insert into <table> values (...)" (to be confirmed it is not a problem)
+    # * querytxt do not contain newlines (to be confirmed it is not a problem)
     @staticmethod
     def list_insert_create_queries_sql(
         db_name: str, start_time: datetime, end_time: datetime
     ) -> str:
         return """
-                select
-                    distinct cluster,
-                    target_schema,
-                    target_table,
-                    username,
-                    query as query_id,
-                    LISTAGG(CASE WHEN LEN(RTRIM(querytxt)) = 0 THEN querytxt ELSE RTRIM(querytxt) END) WITHIN GROUP (ORDER BY sequence) as ddl,
-                    ANY_VALUE(pid) as session_id,
-                    starttime as timestamp
-                from
-                        (
-                    select
-                        distinct tbl as target_table_id,
-                        sti.schema as target_schema,
-                        sti.table as target_table,
-                        sti.database as cluster,
-                        usename as username,
-                        text as querytxt,
-                        sq.query,
-                        sequence,
-                        si.starttime as starttime,
-                        pid
-                    from
-                        stl_insert as si
-                    join SVV_TABLE_INFO sti on
-                        sti.table_id = tbl
-                    left join svl_user_info sui on
-                        si.userid = sui.usesysid
-                    left join STL_QUERYTEXT sq on
-                        si.query = sq.query
-                    left join stl_load_commits slc on
-                        slc.query = si.query
-                    where
-                        sui.usename <> 'rdsdb'
-                        and slc.query IS NULL
-                        and cluster = '{db_name}'
-                        and si.starttime >= '{start_time}'
-                        and si.starttime < '{end_time}'
-                        and sequence < 320
-                    ) as target_tables
-                    group by cluster, query_id, target_schema, target_table, username, starttime
-                    order by cluster, query_id, target_schema, target_table, starttime asc
+            SELECT 
+                DISTINCT
+                cluster,
+                target_schema,
+                target_table,
+                username,
+                query_id,
+                LISTAGG(CASE WHEN LEN(RTRIM(querytxt)) = 0 THEN querytxt ELSE RTRIM(querytxt) END) WITHIN GROUP (ORDER BY sequence) AS ddl,
+                ANY_VALUE(session_id) AS session_id,
+                starttime AS timestamp
+            FROM
+            (
+                SELECT
+                    DISTINCT
+                    qd.table_id AS target_table_id,
+                    sti.schema AS target_schema,
+                    sti.table AS target_table,
+                    sti.database AS cluster,
+                    sui.user_name AS username,
+                    qt."text" AS querytxt,
+                    qd.query_id AS query_id,
+                    qd.start_time AS starttime,
+                    qt.sequence AS sequence,
+                    qt.session_id AS session_id
+                FROM
+                    SYS_QUERY_DETAIL qd
+                    JOIN SVV_TABLE_INFO sti ON sti.table_id = qd.table_id
+                    LEFT JOIN SVV_USER_INFO sui ON sui.user_id = qd.user_id
+                    LEFT JOIN SYS_QUERY_TEXT qt ON qt.query_id = qd.query_id
+                    LEFT JOIN SYS_LOAD_DETAIL ld ON ld.query_id = qd.query_id
+                WHERE
+                    qd.step_name = 'insert' AND
+                    sui.user_name <> 'rdsdb' AND
+                    cluster = '{db_name}' AND
+                    qd.start_time >= '{start_time}' AND
+                    qd.start_time < '{end_time}' AND
+                    ld.query_id IS NULL -- filter out queries which are also stored in SYS_LOAD_DETAIL
+                ORDER BY target_table ASC
+            )
+            GROUP BY cluster, query_id, target_schema, target_table, username, starttime
+            ORDER BY cluster, query_id, target_schema, target_table, starttime ASC
+            ;
                 """.format(
             # We need the original database name for filtering
             db_name=db_name,
