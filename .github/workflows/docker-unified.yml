@@ -39,7 +39,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out the repo
-        uses: hsheth2/sane-checkout-action@v1
+        uses: acryldata/sane-checkout-action@v3
       - uses: actions/setup-python@v4
         with:
           python-version: "3.10"
@@ -88,7 +88,7 @@ jobs:
       elasticsearch_setup_change: ${{ steps.ci-optimize.outputs.elasticsearch-setup-change == 'true' }}
     steps:
       - name: Check out the repo
-        uses: hsheth2/sane-checkout-action@v1
+        uses: acryldata/sane-checkout-action@v3
       - name: Compute Tag
         id: tag
         run: |
@@ -154,7 +154,7 @@ jobs:
     if: ${{ needs.setup.outputs.backend_change == 'true' || needs.setup.outputs.publish == 'true' }}
     steps:
       - name: Checkout # adding checkout step just to make trivy upload happy
-        uses: actions/checkout@v3
+        uses: acryldata/sane-checkout-action@v3
       - name: Download image
         uses: ishworkh/docker-image-artifact-download@v1
         if: ${{ needs.setup.outputs.publish != 'true' }}
@@ -218,7 +218,7 @@ jobs:
       actions: read # only required for a private repository by github/codeql-action/upload-sarif to get the Action run status
     steps:
       - name: Checkout # adding checkout step just to make trivy upload happy
-        uses: actions/checkout@v3
+        uses: acryldata/sane-checkout-action@v3
       - name: Download image
         uses: ishworkh/docker-image-artifact-download@v1
         if: ${{ needs.setup.outputs.publish != 'true' }}
@@ -254,7 +254,7 @@ jobs:
           java-version: 17
       - uses: gradle/gradle-build-action@v2
       - name: Check out the repo
-        uses: hsheth2/sane-checkout-action@v1
+        uses: acryldata/sane-checkout-action@v3
       - name: Pre-build artifacts for docker image
         run: |
           ./gradlew :metadata-jobs:mce-consumer-job:build -x test --parallel
@@ -282,7 +282,7 @@ jobs:
       actions: read # only required for a private repository by github/codeql-action/upload-sarif to get the Action run status
     steps:
       - name: Checkout # adding checkout step just to make trivy upload happy
-        uses: actions/checkout@v3
+        uses: acryldata/sane-checkout-action@v3
       - name: Download image
         uses: ishworkh/docker-image-artifact-download@v1
         if: ${{ needs.setup.outputs.publish != 'true' }}
@@ -318,7 +318,7 @@ jobs:
           java-version: 17
       - uses: gradle/gradle-build-action@v2
       - name: Check out the repo
-        uses: hsheth2/sane-checkout-action@v1
+        uses: acryldata/sane-checkout-action@v3
       - name: Pre-build artifacts for docker image
         run: |
           ./gradlew :datahub-upgrade:build -x test --parallel
@@ -346,7 +346,7 @@ jobs:
       actions: read # only required for a private repository by github/codeql-action/upload-sarif to get the Action run status
     steps:
       - name: Checkout # adding checkout step just to make trivy upload happy
-        uses: actions/checkout@v3
+        uses: acryldata/sane-checkout-action@v3
       - name: Download image
         uses: ishworkh/docker-image-artifact-download@v1
         if: ${{ needs.setup.outputs.publish != 'true' }}
@@ -382,7 +382,7 @@ jobs:
           java-version: 17
       - uses: gradle/gradle-build-action@v2
       - name: Check out the repo
-        uses: hsheth2/sane-checkout-action@v1
+        uses: acryldata/sane-checkout-action@v3
       - name: Pre-build artifacts for docker image
         run: |
           ./gradlew :datahub-frontend:dist -x test -x yarnTest -x yarnLint --parallel
@@ -442,7 +442,7 @@ jobs:
     if: ${{ needs.setup.outputs.kafka_setup_change == 'true' || needs.setup.outputs.publish == 'true' }}
     steps:
       - name: Check out the repo
-        uses: hsheth2/sane-checkout-action@v1
+        uses: acryldata/sane-checkout-action@v3
       - name: Build and push
         uses: ./.github/actions/docker-custom-build-and-push
         with:
@@ -463,7 +463,7 @@ jobs:
     if: ${{ needs.setup.outputs.mysql_setup_change == 'true' || needs.setup.outputs.publish == 'true' }}
     steps:
       - name: Check out the repo
-        uses: hsheth2/sane-checkout-action@v1
+        uses: acryldata/sane-checkout-action@v3
       - name: Build and push
         uses: ./.github/actions/docker-custom-build-and-push
         with:
@@ -484,7 +484,7 @@ jobs:
     if: ${{ needs.setup.outputs.elasticsearch_setup_change == 'true' || needs.setup.outputs.publish == 'true' }}
     steps:
       - name: Check out the repo
-        uses: hsheth2/sane-checkout-action@v1
+        uses: acryldata/sane-checkout-action@v3
       - name: Build and push
         uses: ./.github/actions/docker-custom-build-and-push
         with:
@@ -507,7 +507,7 @@ jobs:
     if: ${{ needs.setup.outputs.ingestion_change == 'true' || needs.setup.outputs.publish == 'true' }}
     steps:
       - name: Check out the repo
-        uses: hsheth2/sane-checkout-action@v1
+        uses: acryldata/sane-checkout-action@v3
       - uses: dorny/paths-filter@v2
         id: filter
         with:
@@ -540,7 +540,7 @@ jobs:
     if: ${{ needs.setup.outputs.ingestion_change == 'true' || needs.setup.outputs.publish == 'true' }}
     steps:
       - name: Check out the repo
-        uses: hsheth2/sane-checkout-action@v1
+        uses: acryldata/sane-checkout-action@v3
       - uses: dorny/paths-filter@v2
         id: filter
         with:
@@ -581,7 +581,7 @@ jobs:
     if: ${{ needs.setup.outputs.ingestion_change == 'true' || needs.setup.outputs.publish == 'true' }}
     steps:
       - name: Check out the repo
-        uses: hsheth2/sane-checkout-action@v1
+        uses: acryldata/sane-checkout-action@v3
       - uses: dorny/paths-filter@v2
         id: filter
         with:
@@ -630,7 +630,7 @@ jobs:
           java-version: 17
       - uses: gradle/gradle-build-action@v2
       - name: Check out the repo
-        uses: hsheth2/sane-checkout-action@v1
+        uses: acryldata/sane-checkout-action@v3
       - uses: dorny/paths-filter@v2
         id: filter
         with:
@@ -680,7 +680,7 @@ jobs:
     if: ${{ needs.setup.outputs.ingestion_change == 'true' || needs.setup.outputs.publish == 'true' }}
     steps:
       - name: Checkout # adding checkout step just to make trivy upload happy
-        uses: actions/checkout@v3
+        uses: acryldata/sane-checkout-action@v3
       - name: Download image Slim Image
         uses: ishworkh/docker-image-artifact-download@v1
         if: ${{ needs.datahub_ingestion_slim_build.outputs.needs_artifact_download == 'true' }}
@@ -719,7 +719,7 @@ jobs:
           java-version: 17
       - uses: gradle/gradle-build-action@v2
       - name: Check out the repo
-        uses: hsheth2/sane-checkout-action@v1
+        uses: acryldata/sane-checkout-action@v3
       - uses: dorny/paths-filter@v2
         id: filter
         with:
@@ -768,7 +768,7 @@ jobs:
     if: ${{ needs.setup.outputs.ingestion_change == 'true' || needs.setup.outputs.publish == 'true' }}
     steps:
       - name: Checkout # adding checkout step just to make trivy upload happy
-        uses: actions/checkout@v3
+        uses: acryldata/sane-checkout-action@v3
       - name: Download image Full Image
         uses: ishworkh/docker-image-artifact-download@v1
         if: ${{ needs.datahub_ingestion_full_build.outputs.needs_artifact_download == 'true' }}
@@ -835,7 +835,7 @@ jobs:
       - name: Disk Check
         run: df -h . && docker images
       - name: Check out the repo
-        uses: actions/checkout@v3
+        uses: acryldata/sane-checkout-action@v3
       - name: Set up JDK 17
         uses: actions/setup-java@v3
         with:
