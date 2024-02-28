@@ -15,6 +15,7 @@ import com.linkedin.metadata.aspect.patch.PatchOperationType;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.ToString;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.ImmutableTriple;
 
 @ToString
@@ -42,7 +43,7 @@ public class UpstreamLineagePatchBuilder
     pathValues.add(
         ImmutableTriple.of(
             PatchOperationType.ADD.getValue(),
-            UPSTREAMS_PATH_START + encodeValue(datasetUrn.toString()),
+            UPSTREAMS_PATH_START + encodeValueUrn(datasetUrn),
             value));
     return this;
   }
@@ -51,39 +52,8 @@ public class UpstreamLineagePatchBuilder
     pathValues.add(
         ImmutableTriple.of(
             PatchOperationType.REMOVE.getValue(),
-            UPSTREAMS_PATH_START + encodeValue(datasetUrn.toString()),
+            UPSTREAMS_PATH_START + encodeValueUrn(datasetUrn),
             null));
-    return this;
-  }
-
-  /**
-   * Method for adding an upstream FineGrained Dataset
-   *
-   * @param datasetUrn dataset to be set as upstream
-   * @param confidenceScore optional, confidence score for the lineage edge. Defaults to 1.0 for
-   *     full confidence
-   * @param transformationOperation string operation type that describes the transformation
-   *     operation happening in the lineage edge
-   * @return this builder
-   */
-  public UpstreamLineagePatchBuilder addFineGrainedUpstreamDataset(
-      @Nonnull DatasetUrn datasetUrn,
-      @Nullable Float confidenceScore,
-      @Nonnull String transformationOperation) {
-    Float finalConfidenceScore = getConfidenceScoreOrDefault(confidenceScore);
-
-    pathValues.add(
-        ImmutableTriple.of(
-            PatchOperationType.ADD.getValue(),
-            FINE_GRAINED_PATH_START
-                + transformationOperation
-                + "/"
-                + "upstreamType"
-                + "/"
-                + "DATASET"
-                + "/"
-                + encodeValue(datasetUrn.toString()),
-            instance.numberNode(finalConfidenceScore)));
     return this;
   }
 
@@ -123,7 +93,53 @@ public class UpstreamLineagePatchBuilder
                 + "/"
                 + finalType
                 + "/"
-                + encodeValue(schemaFieldUrn.toString()),
+                + encodeValueUrn(schemaFieldUrn),
+            instance.numberNode(finalConfidenceScore)));
+
+    return this;
+  }
+
+  /**
+   * Adds a field as a fine grained upstream
+   *
+   * @param upstreamSchemaField a schema field to be marked as upstream, format:
+   *     urn:li:schemaField(DATASET_URN, COLUMN NAME)
+   * @param confidenceScore optional, confidence score for the lineage edge. Defaults to 1.0 for
+   *     full confidence
+   * @param transformationOperation string operation type that describes the transformation
+   *     operation happening in the lineage edge
+   * @param downstreamSchemaField the downstream schema field this upstream is derived from, format:
+   *     urn:li:schemaField(DATASET_URN, COLUMN NAME)
+   * @param queryUrn query urn the relationship is derived from
+   * @return this builder
+   */
+  public UpstreamLineagePatchBuilder addFineGrainedUpstreamField(
+      @Nonnull Urn upstreamSchemaField,
+      @Nullable Float confidenceScore,
+      @Nonnull String transformationOperation,
+      @Nonnull Urn downstreamSchemaField,
+      @Nullable Urn queryUrn) {
+    Float finalConfidenceScore = getConfidenceScoreOrDefault(confidenceScore);
+    String finalQueryUrn;
+    if (queryUrn == null || StringUtils.isBlank(queryUrn.toString())) {
+      finalQueryUrn = "NONE";
+    } else {
+      finalQueryUrn = queryUrn.toString();
+    }
+
+    ObjectNode fineGrainedLineageNode = instance.objectNode();
+    fineGrainedLineageNode.put("confidenceScore", instance.numberNode(finalConfidenceScore));
+    pathValues.add(
+        ImmutableTriple.of(
+            PatchOperationType.ADD.getValue(),
+            FINE_GRAINED_PATH_START
+                + transformationOperation
+                + "/"
+                + downstreamSchemaField
+                + "/"
+                + finalQueryUrn
+                + "/"
+                + encodeValueUrn(upstreamSchemaField),
             instance.numberNode(finalConfidenceScore)));
 
     return this;
@@ -165,7 +181,7 @@ public class UpstreamLineagePatchBuilder
                 + "/"
                 + finalType
                 + "/"
-                + encodeValue(schemaFieldUrn.toString()),
+                + encodeValueUrn(schemaFieldUrn),
             instance.numberNode(finalConfidenceScore)));
     return this;
   }
@@ -184,93 +200,40 @@ public class UpstreamLineagePatchBuilder
   /**
    * Removes a field as a fine grained upstream
    *
-   * @param schemaFieldUrn a schema field to be marked as upstream, format:
+   * @param upstreamSchemaFieldUrn a schema field to be marked as upstream, format:
    *     urn:li:schemaField(DATASET_URN, COLUMN NAME)
    * @param transformationOperation string operation type that describes the transformation
    *     operation happening in the lineage edge
-   * @param type the upstream lineage type, either Field or Field Set
+   * @param downstreamSchemaField the downstream schema field this upstream is derived from, format:
+   *     urn:li:schemaField(DATASET_URN, COLUMN NAME)
+   * @param queryUrn query urn the relationship is derived from
    * @return this builder
    */
   public UpstreamLineagePatchBuilder removeFineGrainedUpstreamField(
-      @Nonnull Urn schemaFieldUrn,
+      @Nonnull Urn upstreamSchemaFieldUrn,
       @Nonnull String transformationOperation,
-      @Nullable FineGrainedLineageUpstreamType type) {
-    String finalType;
-    if (type == null) {
-      // Default to set of fields if not explicitly a single field
-      finalType = FineGrainedLineageUpstreamType.FIELD_SET.toString();
+      @Nonnull Urn downstreamSchemaField,
+      @Nullable Urn queryUrn) {
+
+    String finalQueryUrn;
+    if (queryUrn == null || StringUtils.isBlank(queryUrn.toString())) {
+      finalQueryUrn = "NONE";
     } else {
-      finalType = type.toString();
+      finalQueryUrn = queryUrn.toString();
     }
-
     pathValues.add(
         ImmutableTriple.of(
             PatchOperationType.REMOVE.getValue(),
             FINE_GRAINED_PATH_START
                 + transformationOperation
                 + "/"
-                + "upstreamType"
+                + downstreamSchemaField
                 + "/"
-                + finalType
+                + finalQueryUrn
                 + "/"
-                + encodeValue(schemaFieldUrn.toString()),
+                + encodeValueUrn(upstreamSchemaFieldUrn),
             null));
 
-    return this;
-  }
-
-  public UpstreamLineagePatchBuilder removeFineGrainedUpstreamDataset(
-      @Nonnull DatasetUrn datasetUrn, @Nonnull String transformationOperation) {
-
-    pathValues.add(
-        ImmutableTriple.of(
-            PatchOperationType.REMOVE.getValue(),
-            FINE_GRAINED_PATH_START
-                + transformationOperation
-                + "/"
-                + "upstreamType"
-                + "/"
-                + "DATASET"
-                + "/"
-                + encodeValue(datasetUrn.toString()),
-            null));
-    return this;
-  }
-
-  /**
-   * Adds a field as a fine grained downstream
-   *
-   * @param schemaFieldUrn a schema field to be marked as downstream, format:
-   *     urn:li:schemaField(DATASET_URN, COLUMN NAME)
-   * @param transformationOperation string operation type that describes the transformation
-   *     operation happening in the lineage edge
-   * @param type the downstream lineage type, either Field or Field Set
-   * @return this builder
-   */
-  public UpstreamLineagePatchBuilder removeFineGrainedDownstreamField(
-      @Nonnull Urn schemaFieldUrn,
-      @Nonnull String transformationOperation,
-      @Nullable FineGrainedLineageDownstreamType type) {
-    String finalType;
-    if (type == null) {
-      // Default to set of fields if not explicitly a single field
-      finalType = FineGrainedLineageDownstreamType.FIELD_SET.toString();
-    } else {
-      finalType = type.toString();
-    }
-
-    pathValues.add(
-        ImmutableTriple.of(
-            PatchOperationType.REMOVE.getValue(),
-            FINE_GRAINED_PATH_START
-                + transformationOperation
-                + "/"
-                + "downstreamType"
-                + "/"
-                + finalType
-                + "/"
-                + encodeValue(schemaFieldUrn.toString()),
-            null));
     return this;
   }
 

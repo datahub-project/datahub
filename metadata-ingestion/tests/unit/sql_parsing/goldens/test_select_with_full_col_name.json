@@ -39,5 +39,9 @@
                 }
             ]
         }
-    ]
+    ],
+    "debug_info": {
+        "confidence": 0.9,
+        "generalized_statement": "SELECT DISTINCT post_id, widget.asset.id FROM data_reporting.abcde_transformed WHERE post_id LIKE ?"
+    }
 }

@@ -39,6 +39,7 @@ from datahub.metadata.schema_classes import (
     ChartTypeClass,
     DashboardInfoClass,
 )
+from datahub.utilities.lossy_collections import LossyDict, LossyList
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.sql_parser import SQLParser
 
@@ -282,7 +283,7 @@ class RedashConfig(ConfigModel):
 @dataclass
 class RedashSourceReport(SourceReport):
     items_scanned: int = 0
-    filtered: List[str] = field(default_factory=list)
+    filtered: LossyList[str] = field(default_factory=LossyList)
     queries_problem_parsing: Set[str] = field(default_factory=set)
     queries_no_dataset: Set[str] = field(default_factory=set)
     charts_no_input: Set[str] = field(default_factory=set)
@@ -295,7 +296,7 @@ class RedashSourceReport(SourceReport):
     )
     max_page_dashboards: Optional[int] = field(default=None)
     api_page_limit: Optional[float] = field(default=None)
-    timing: Dict[str, int] = field(default_factory=dict)
+    timing: LossyDict[str, int] = field(default_factory=LossyDict)
 
     def report_item_scanned(self) -> None:
         self.items_scanned += 1

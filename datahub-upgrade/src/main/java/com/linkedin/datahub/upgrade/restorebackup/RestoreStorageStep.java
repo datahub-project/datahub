@@ -178,8 +178,9 @@ public class RestoreStorageStep implements UpgradeStep {
       final RecordTemplate aspectRecord;
       try {
         aspectRecord =
-            EntityUtils.toAspectRecord(
-                entityName, aspectName, aspect.getMetadata(), _entityRegistry);
+            EntityUtils.toSystemAspect(aspect.toEntityAspect(), _entityService)
+                .get()
+                .getRecordTemplate();
       } catch (Exception e) {
         context
             .report()

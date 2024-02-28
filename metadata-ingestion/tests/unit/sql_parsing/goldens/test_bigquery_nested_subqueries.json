@@ -43,5 +43,9 @@
                 }
             ]
         }
-    ]
+    ],
+    "debug_info": {
+        "confidence": 0.9,
+        "generalized_statement": "SELECT * FROM (SELECT * FROM (SELECT * FROM `bq-proj`.dataset.table1))"
+    }
 }
