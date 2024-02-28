@@ -15,6 +15,7 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.service.FormService;
 import com.linkedin.metadata.service.ViewService;
 import com.linkedin.view.DataHubViewInfo;
 import graphql.schema.DataFetcher;
@@ -36,6 +37,7 @@ public class AggregateAcrossEntitiesResolver
 
   private final EntityClient _entityClient;
   private final ViewService _viewService;
+  private final FormService _formService;
 
   @Override
   public CompletableFuture<AggregateResults> get(DataFetchingEnvironment environment) {
@@ -58,7 +60,7 @@ public class AggregateAcrossEntitiesResolver
                       context.getAuthentication())
                   : null;
 
-          final Filter baseFilter = ResolverUtils.buildFilter(null, input.getOrFilters());
+          final Filter inputFilter = ResolverUtils.buildFilter(null, input.getOrFilters());
 
           final SearchFlags searchFlags = mapInputFlags(input.getSearchFlags());
 
@@ -75,8 +77,8 @@ public class AggregateAcrossEntitiesResolver
                     sanitizedQuery,
                     maybeResolvedView != null
                         ? SearchUtils.combineFilters(
-                            baseFilter, maybeResolvedView.getDefinition().getFilter())
-                        : baseFilter,
+                            inputFilter, maybeResolvedView.getDefinition().getFilter())
+                        : inputFilter,
                     0,
                     0, // 0 entity count because we don't want resolved entities
                     searchFlags,

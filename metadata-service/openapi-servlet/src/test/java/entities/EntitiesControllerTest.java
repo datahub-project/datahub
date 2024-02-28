@@ -11,12 +11,12 @@ import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.AuthorizerChain;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.UpdateAspectResult;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.service.UpdateIndicesService;
 import io.datahubproject.openapi.dto.UpsertAspectRequest;
 import io.datahubproject.openapi.entities.EntitiesController;
 import io.datahubproject.openapi.generated.AuditStamp;
@@ -67,25 +67,22 @@ public class EntitiesControllerTest {
           IllegalAccessException {
     EntityRegistry mockEntityRegistry = new MockEntityRegistry();
     AspectDao aspectDao = Mockito.mock(AspectDao.class);
-    Mockito.when(
-            aspectDao.runInTransactionWithRetry(
-                ArgumentMatchers.<Function<Transaction, UpdateAspectResult>>any(), any(), anyInt()))
+    when(aspectDao.runInTransactionWithRetry(
+            ArgumentMatchers.<Function<Transaction, List<UpdateAspectResult>>>any(),
+            any(AspectsBatch.class),
+            anyInt()))
         .thenAnswer(
             i ->
-                ((Function<Transaction, UpdateAspectResult>) i.getArgument(0))
-                    .apply(Mockito.mock(Transaction.class)));
+                List.of(
+                    ((Function<Transaction, List<UpdateAspectResult>>) i.getArgument(0))
+                        .apply(Mockito.mock(Transaction.class))));
 
     EventProducer mockEntityEventProducer = Mockito.mock(EventProducer.class);
-    UpdateIndicesService mockUpdateIndicesService = mock(UpdateIndicesService.class);
     PreProcessHooks preProcessHooks = new PreProcessHooks();
     preProcessHooks.setUiEnabled(true);
     MockEntityService mockEntityService =
         new MockEntityService(
-            aspectDao,
-            mockEntityEventProducer,
-            mockEntityRegistry,
-            mockUpdateIndicesService,
-            preProcessHooks);
+            aspectDao, mockEntityEventProducer, mockEntityRegistry, preProcessHooks);
     AuthorizerChain authorizerChain = Mockito.mock(AuthorizerChain.class);
     _entitiesController =
         new EntitiesController(mockEntityService, new ObjectMapper(), authorizerChain);
@@ -217,7 +214,7 @@ public class EntitiesControllerTest {
             .build();
     datasetAspects.add(glossaryTerms);
 
-    _entitiesController.postEntities(datasetAspects);
+    _entitiesController.postEntities(datasetAspects, false);
   }
 
   //  @Test

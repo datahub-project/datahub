@@ -21,8 +21,8 @@ import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
-import com.linkedin.datahub.graphql.resolvers.EntityTypeMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.SearchFlagsInputMapper;
+import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
@@ -88,9 +88,22 @@ public class SearchUtils {
           EntityType.TAG,
           EntityType.CORP_USER,
           EntityType.CORP_GROUP,
-          EntityType.ROLE,
           EntityType.NOTEBOOK,
           EntityType.DATA_PRODUCT);
+
+  /** Entities that are part of browse by default */
+  public static final List<EntityType> BROWSE_ENTITY_TYPES =
+      ImmutableList.of(
+          EntityType.DATASET,
+          EntityType.DASHBOARD,
+          EntityType.CHART,
+          EntityType.CONTAINER,
+          EntityType.MLMODEL,
+          EntityType.MLMODEL_GROUP,
+          EntityType.MLFEATURE_TABLE,
+          EntityType.DATA_FLOW,
+          EntityType.DATA_JOB,
+          EntityType.NOTEBOOK);
 
   /** A prioritized list of source filter types used to generate quick filters */
   public static final List<String> PRIORITIZED_SOURCE_ENTITY_TYPES =

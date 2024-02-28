@@ -1,6 +1,7 @@
 package com.linkedin.metadata.search.elasticsearch;
 
 import com.linkedin.common.urn.Urn;
+import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.browse.BrowseResultV2;
 import com.linkedin.metadata.query.AutoCompleteResult;
@@ -18,6 +19,9 @@ import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.search.utils.SearchUtils;
 import com.linkedin.metadata.shared.ElasticSearchIndexed;
+import com.linkedin.structured.StructuredPropertyDefinition;
+import java.io.IOException;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -25,6 +29,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.opensearch.action.explain.ExplainResponse;
 import org.opensearch.action.search.SearchResponse;
 
 @Slf4j
@@ -38,6 +43,13 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
   private final ESWriteDAO esWriteDAO;
 
   @Override
+  public ElasticSearchService postConstruct(AspectRetriever aspectRetriever) {
+    esSearchDAO.setAspectRetriever(aspectRetriever);
+    esBrowseDAO.setAspectRetriever(aspectRetriever);
+    return this;
+  }
+
+  @Override
   public void configure() {
     indexBuilders.reindexAll();
   }
@@ -45,6 +57,12 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
   @Override
   public List<ReindexConfig> buildReindexConfigs() {
     return indexBuilders.buildReindexConfigs();
+  }
+
+  @Override
+  public List<ReindexConfig> buildReindexConfigsWithAllStructProps(
+      Collection<StructuredPropertyDefinition> properties) throws IOException {
+    return indexBuilders.buildReindexConfigsWithAllStructProps(properties);
   }
 
   @Override
@@ -206,8 +224,22 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
       @Nullable Filter filter,
       @Nonnull String input,
       int start,
-      int count) {
-    return esBrowseDAO.browseV2(entityName, path, filter, input, start, count);
+      int count,
+      @Nullable SearchFlags searchFlags) {
+    return esBrowseDAO.browseV2(entityName, path, filter, input, start, count, searchFlags);
+  }
+
+  @Nonnull
+  @Override
+  public BrowseResultV2 browseV2(
+      @Nonnull List<String> entityNames,
+      @Nonnull String path,
+      @Nullable Filter filter,
+      @Nonnull String input,
+      int start,
+      int count,
+      @Nullable SearchFlags searchFlags) {
+    return esBrowseDAO.browseV2(entityNames, path, filter, input, start, count, searchFlags);
   }
 
   @Nonnull
@@ -267,5 +299,30 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
   @Override
   public int maxResultSize() {
     return ESUtils.MAX_RESULT_SIZE;
+  }
+
+  @Override
+  public ExplainResponse explain(
+      @Nonnull String query,
+      @Nonnull String documentId,
+      @Nonnull String entityName,
+      @Nullable Filter postFilters,
+      @Nullable SortCriterion sortCriterion,
+      @Nullable SearchFlags searchFlags,
+      @Nullable String scrollId,
+      @Nullable String keepAlive,
+      int size,
+      @Nullable List<String> facets) {
+    return esSearchDAO.explain(
+        query,
+        documentId,
+        entityName,
+        postFilters,
+        sortCriterion,
+        searchFlags,
+        scrollId,
+        keepAlive,
+        size,
+        facets);
   }
 }

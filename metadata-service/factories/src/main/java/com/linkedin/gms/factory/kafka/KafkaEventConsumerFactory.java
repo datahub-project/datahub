@@ -21,6 +21,11 @@ import org.springframework.context.annotation.Import;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.config.KafkaListenerContainerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
+import org.springframework.kafka.listener.CommonContainerStoppingErrorHandler;
+import org.springframework.kafka.listener.CommonDelegatingErrorHandler;
+import org.springframework.kafka.listener.DefaultErrorHandler;
+import org.springframework.kafka.support.serializer.DeserializationException;
+import org.springframework.kafka.support.serializer.ErrorHandlingDeserializer;
 
 @Slf4j
 @Configuration
@@ -37,7 +42,7 @@ public class KafkaEventConsumerFactory {
   protected DefaultKafkaConsumerFactory<String, GenericRecord> createConsumerFactory(
       @Qualifier("configurationProvider") ConfigurationProvider provider,
       KafkaProperties baseKafkaProperties,
-      SchemaRegistryConfig schemaRegistryConfig) {
+      @Qualifier("schemaRegistryConfig") SchemaRegistryConfig schemaRegistryConfig) {
     kafkaEventConsumerConcurrency = provider.getKafka().getListener().getConcurrency();
 
     KafkaConfiguration kafkaConfiguration = provider.getKafka();
@@ -66,8 +71,6 @@ public class KafkaEventConsumerFactory {
       SchemaRegistryConfig schemaRegistryConfig) {
     KafkaProperties.Consumer consumerProps = baseKafkaProperties.getConsumer();
 
-    // Specify (de)serializers for record keys and for record values.
-    consumerProps.setKeyDeserializer(StringDeserializer.class);
     // Records will be flushed every 10 seconds.
     consumerProps.setEnableAutoCommit(true);
     consumerProps.setAutoCommitInterval(Duration.ofSeconds(10));
@@ -81,7 +84,13 @@ public class KafkaEventConsumerFactory {
 
     Map<String, Object> customizedProperties = baseKafkaProperties.buildConsumerProperties();
     customizedProperties.put(
-        ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, schemaRegistryConfig.getDeserializer());
+        ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, ErrorHandlingDeserializer.class);
+    customizedProperties.put(
+        ErrorHandlingDeserializer.KEY_DESERIALIZER_CLASS, StringDeserializer.class);
+    customizedProperties.put(
+        ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, ErrorHandlingDeserializer.class);
+    customizedProperties.put(
+        ErrorHandlingDeserializer.VALUE_DESERIALIZER_CLASS, schemaRegistryConfig.getDeserializer());
 
     // Override KafkaProperties with SchemaRegistryConfig only for non-empty values
     schemaRegistryConfig.getProperties().entrySet().stream()
@@ -98,7 +107,8 @@ public class KafkaEventConsumerFactory {
   @Bean(name = "kafkaEventConsumer")
   protected KafkaListenerContainerFactory<?> createInstance(
       @Qualifier("kafkaConsumerFactory")
-          DefaultKafkaConsumerFactory<String, GenericRecord> kafkaConsumerFactory) {
+          DefaultKafkaConsumerFactory<String, GenericRecord> kafkaConsumerFactory,
+      @Qualifier("configurationProvider") ConfigurationProvider configurationProvider) {
 
     ConcurrentKafkaListenerContainerFactory<String, GenericRecord> factory =
         new ConcurrentKafkaListenerContainerFactory<>();
@@ -106,6 +116,17 @@ public class KafkaEventConsumerFactory {
     factory.setContainerCustomizer(new ThreadPoolContainerCustomizer());
     factory.setConcurrency(kafkaEventConsumerConcurrency);
 
+    /* Sets up a delegating error handler for Deserialization errors, if disabled will
+     use DefaultErrorHandler (does back-off retry and then logs) rather than stopping the container. Stopping the container
+     prevents lost messages until the error can be examined, disabling this will allow progress, but may lose data
+    */
+    if (configurationProvider.getKafka().getConsumer().isStopOnDeserializationError()) {
+      CommonDelegatingErrorHandler delegatingErrorHandler =
+          new CommonDelegatingErrorHandler(new DefaultErrorHandler());
+      delegatingErrorHandler.addDelegate(
+          DeserializationException.class, new CommonContainerStoppingErrorHandler());
+      factory.setCommonErrorHandler(delegatingErrorHandler);
+    }
     log.info(
         String.format(
             "Event-based KafkaListenerContainerFactory built successfully. Consumer concurrency = %s",

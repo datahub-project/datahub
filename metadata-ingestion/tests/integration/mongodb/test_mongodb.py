@@ -26,6 +26,7 @@ def test_mongodb_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time
                         "password": "examplepass",
                         "maxDocumentSize": 25000,
                         "platform_instance": "instance",
+                        "schemaSamplingSize": None,
                     },
                 },
                 "sink": {
@@ -44,4 +45,37 @@ def test_mongodb_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time
             pytestconfig,
             output_path=tmp_path / "mongodb_mces.json",
             golden_path=test_resources_dir / "mongodb_mces_golden.json",
+        )
+
+        # Run the metadata ingestion pipeline.
+        pipeline = Pipeline.create(
+            {
+                "run_id": "mongodb-test-small-schema-size",
+                "source": {
+                    "type": "mongodb",
+                    "config": {
+                        "connect_uri": "mongodb://localhost:57017",
+                        "username": "mongoadmin",
+                        "password": "examplepass",
+                        "maxSchemaSize": 10,
+                        "platform_instance": "instance",
+                    },
+                },
+                "sink": {
+                    "type": "file",
+                    "config": {
+                        "filename": f"{tmp_path}/mongodb_mces_small_schema_size.json",
+                    },
+                },
+            }
+        )
+        pipeline.run()
+        pipeline.raise_from_status()
+
+        # Verify the output.
+        mce_helpers.check_golden_file(
+            pytestconfig,
+            output_path=tmp_path / "mongodb_mces_small_schema_size.json",
+            golden_path=test_resources_dir
+            / "mongodb_mces_small_schema_size_golden.json",
         )

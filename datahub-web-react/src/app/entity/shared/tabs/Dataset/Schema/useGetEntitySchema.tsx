@@ -9,7 +9,7 @@ const shouldLoadSchema = (entityType, entityData) => {
     return entityType === EntityType.Dataset && !entityData?.schemaMetadata;
 };
 
-export const useGetEntityWithSchema = () => {
+export const useGetEntityWithSchema = (skip?: boolean) => {
     const { urn, entityData, entityType } = useEntityData();
     // Load the dataset schema lazily.
     const {
@@ -20,7 +20,7 @@ export const useGetEntityWithSchema = () => {
         variables: {
             urn,
         },
-        skip: !shouldLoadSchema(entityType, entityData),
+        skip: skip || !shouldLoadSchema(entityType, entityData),
         fetchPolicy: 'cache-first',
     });
     const isHideSiblingMode = useIsSeparateSiblingsMode();

@@ -14,6 +14,9 @@ import com.linkedin.common.urn.DataFlowUrn;
 import com.linkedin.common.urn.DataJobUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
+import com.linkedin.metadata.config.search.GraphQueryConfiguration;
+import com.linkedin.metadata.graph.dgraph.DgraphGraphService;
+import com.linkedin.metadata.graph.neo4j.Neo4jGraphService;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.query.filter.RelationshipFilter;
@@ -36,6 +39,8 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
@@ -199,6 +204,19 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
   protected abstract GraphService getGraphService() throws Exception;
 
   /**
+   * Graph services that support multi-path search should override this method to provide a
+   * multi-path search enabled GraphService instance.
+   *
+   * @param enableMultiPathSearch
+   * @return
+   * @throws Exception
+   */
+  @Nonnull
+  protected GraphService getGraphService(boolean enableMultiPathSearch) throws Exception {
+    return getGraphService();
+  }
+
+  /**
    * Allows the specific GraphService test implementation to wait for GraphService writes to be
    * synced / become available to reads.
    *
@@ -235,7 +253,12 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
   }
 
   protected GraphService getLineagePopulatedGraphService() throws Exception {
-    GraphService service = getGraphService();
+    return getLineagePopulatedGraphService(
+        GraphQueryConfiguration.testDefaults.isEnableMultiPathSearch());
+  }
+
+  protected GraphService getLineagePopulatedGraphService(boolean multiPathSearch) throws Exception {
+    GraphService service = getGraphService(multiPathSearch);
 
     List<Edge> edges =
         Arrays.asList(
@@ -1821,9 +1844,16 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
     assertEquals(throwables.size(), 0);
   }
 
-  @Test
-  public void testPopulatedGraphServiceGetLineageMultihop() throws Exception {
-    GraphService service = getLineagePopulatedGraphService();
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  public void testPopulatedGraphServiceGetLineageMultihop(boolean attemptMultiPathAlgo)
+      throws Exception {
+
+    GraphService service = getLineagePopulatedGraphService(attemptMultiPathAlgo);
+    // Implementations other than Neo4J and DGraph explore more of the graph to discover nodes at
+    // multiple hops
+    boolean expandedGraphAlgoEnabled =
+        (!((service instanceof Neo4jGraphService) || (service instanceof DgraphGraphService)));
 
     EntityLineageResult upstreamLineage =
         service.getLineage(datasetOneUrn, LineageDirection.UPSTREAM, 0, 1000, 2);
@@ -1838,16 +1868,23 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
     Map<Urn, LineageRelationship> relationships =
         downstreamLineage.getRelationships().stream()
             .collect(Collectors.toMap(LineageRelationship::getEntity, Function.identity()));
+    Set<Urn> entities = relationships.keySet().stream().collect(Collectors.toUnmodifiableSet());
+    assertEquals(entities.size(), 5);
     assertTrue(relationships.containsKey(datasetTwoUrn));
-    assertEquals(relationships.get(datasetTwoUrn).getDegree().intValue(), 1);
+    assertEquals(relationships.get(dataJobTwoUrn).getDegree(), 1);
     assertTrue(relationships.containsKey(datasetThreeUrn));
-    assertEquals(relationships.get(datasetThreeUrn).getDegree().intValue(), 2);
+    assertEquals(relationships.get(datasetThreeUrn).getDegree(), 2);
     assertTrue(relationships.containsKey(datasetFourUrn));
-    assertEquals(relationships.get(datasetFourUrn).getDegree().intValue(), 2);
+    assertEquals(relationships.get(datasetFourUrn).getDegree(), 2);
     assertTrue(relationships.containsKey(dataJobOneUrn));
-    assertEquals(relationships.get(dataJobOneUrn).getDegree().intValue(), 1);
+    assertEquals(relationships.get(dataJobOneUrn).getDegree(), 1);
+    // dataJobOne is present both at degree 1 and degree 2
+    if (expandedGraphAlgoEnabled && attemptMultiPathAlgo) {
+      relationships.get(dataJobOneUrn).getDegrees().contains(Integer.valueOf(1));
+      relationships.get(dataJobOneUrn).getDegrees().contains(Integer.valueOf(2));
+    }
     assertTrue(relationships.containsKey(dataJobTwoUrn));
-    assertEquals(relationships.get(dataJobTwoUrn).getDegree().intValue(), 1);
+    assertEquals(relationships.get(dataJobTwoUrn).getDegree(), 1);
 
     upstreamLineage = service.getLineage(datasetThreeUrn, LineageDirection.UPSTREAM, 0, 1000, 2);
     assertEquals(upstreamLineage.getTotal().intValue(), 3);
@@ -1856,11 +1893,11 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
         upstreamLineage.getRelationships().stream()
             .collect(Collectors.toMap(LineageRelationship::getEntity, Function.identity()));
     assertTrue(relationships.containsKey(datasetOneUrn));
-    assertEquals(relationships.get(datasetOneUrn).getDegree().intValue(), 2);
+    assertEquals(relationships.get(datasetOneUrn).getDegree(), 2);
     assertTrue(relationships.containsKey(datasetTwoUrn));
-    assertEquals(relationships.get(datasetTwoUrn).getDegree().intValue(), 1);
+    assertEquals(relationships.get(datasetTwoUrn).getDegree(), 1);
     assertTrue(relationships.containsKey(dataJobOneUrn));
-    assertEquals(relationships.get(dataJobOneUrn).getDegree().intValue(), 1);
+    assertEquals(relationships.get(dataJobOneUrn).getDegree(), 1);
 
     downstreamLineage =
         service.getLineage(datasetThreeUrn, LineageDirection.DOWNSTREAM, 0, 1000, 2);

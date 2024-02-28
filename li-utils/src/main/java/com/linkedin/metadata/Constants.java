@@ -13,6 +13,11 @@ public class Constants {
   public static final String UNKNOWN_ACTOR = "urn:li:corpuser:UNKNOWN"; // Unknown principal.
   public static final Long ASPECT_LATEST_VERSION = 0L;
   public static final String UNKNOWN_DATA_PLATFORM = "urn:li:dataPlatform:unknown";
+  public static final String ENTITY_TYPE_URN_PREFIX = "urn:li:entityType:";
+  public static final String DATA_TYPE_URN_PREFIX = "urn:li:dataType:";
+  public static final String STRUCTURED_PROPERTY_MAPPING_FIELD = "structuredProperties";
+  public static final String STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX =
+      STRUCTURED_PROPERTY_MAPPING_FIELD + ".";
 
   // !!!!!!! IMPORTANT !!!!!!!
   // This effectively sets the max aspect size to 16 MB. Used in deserialization of messages.
@@ -57,6 +62,7 @@ public class Constants {
   public static final String CONTAINER_ENTITY_NAME = "container";
   public static final String DOMAIN_ENTITY_NAME = "domain";
   public static final String ASSERTION_ENTITY_NAME = "assertion";
+  public static final String INCIDENT_ENTITY_NAME = "incident";
   public static final String INGESTION_SOURCE_ENTITY_NAME = "dataHubIngestionSource";
   public static final String SECRETS_ENTITY_NAME = "dataHubSecret";
   public static final String EXECUTION_REQUEST_ENTITY_NAME = "dataHubExecutionRequest";
@@ -73,6 +79,10 @@ public class Constants {
   public static final String QUERY_ENTITY_NAME = "query";
   public static final String DATA_PRODUCT_ENTITY_NAME = "dataProduct";
   public static final String OWNERSHIP_TYPE_ENTITY_NAME = "ownershipType";
+  public static final String STRUCTURED_PROPERTY_ENTITY_NAME = "structuredProperty";
+  public static final String DATA_TYPE_ENTITY_NAME = "dataType";
+  public static final String ENTITY_TYPE_ENTITY_NAME = "entityType";
+  public static final String FORM_ENTITY_NAME = "form";
 
   /** Aspects */
   // Common
@@ -93,6 +103,7 @@ public class Constants {
   public static final String ORIGIN_ASPECT_NAME = "origin";
   public static final String INPUT_FIELDS_ASPECT_NAME = "inputFields";
   public static final String EMBED_ASPECT_NAME = "embed";
+  public static final String INCIDENTS_SUMMARY_ASPECT_NAME = "incidentsSummary";
 
   // User
   public static final String CORP_USER_KEY_ASPECT_NAME = "corpUserKey";
@@ -124,6 +135,13 @@ public class Constants {
   public static final String EDITABLE_SCHEMA_METADATA_ASPECT_NAME = "editableSchemaMetadata";
   public static final String VIEW_PROPERTIES_ASPECT_NAME = "viewProperties";
   public static final String DATASET_PROFILE_ASPECT_NAME = "datasetProfile";
+
+  public static final String STRUCTURED_PROPERTIES_ASPECT_NAME = "structuredProperties";
+  public static final String FORMS_ASPECT_NAME = "forms";
+  // Aspect support
+  public static final String FINE_GRAINED_LINEAGE_DATASET_TYPE = "DATASET";
+  public static final String FINE_GRAINED_LINEAGE_FIELD_SET_TYPE = "FIELD_SET";
+  public static final String FINE_GRAINED_LINEAGE_FIELD_TYPE = "FIELD";
 
   // Chart
   public static final String CHART_KEY_ASPECT_NAME = "chartKey";
@@ -258,6 +276,10 @@ public class Constants {
   public static final String TEST_INFO_ASPECT_NAME = "testInfo";
   public static final String TEST_RESULTS_ASPECT_NAME = "testResults";
 
+  // Incident
+  public static final String INCIDENT_KEY_ASPECT_NAME = "incidentKey";
+  public static final String INCIDENT_INFO_ASPECT_NAME = "incidentInfo";
+
   // DataHub Ingestion Source
   public static final String INGESTION_SOURCE_KEY_ASPECT_NAME = "dataHubIngestionSourceKey";
   public static final String INGESTION_INFO_ASPECT_NAME = "dataHubIngestionSourceInfo";
@@ -300,6 +322,20 @@ public class Constants {
   // Ownership Types
   public static final String OWNERSHIP_TYPE_KEY_ASPECT_NAME = "ownershipTypeKey";
   public static final String OWNERSHIP_TYPE_INFO_ASPECT_NAME = "ownershipTypeInfo";
+
+  // Structured Property
+  public static final String STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME = "propertyDefinition";
+
+  // Form
+  public static final String FORM_INFO_ASPECT_NAME = "formInfo";
+  public static final String FORM_KEY_ASPECT_NAME = "formKey";
+  public static final String DYNAMIC_FORM_ASSIGNMENT_ASPECT_NAME = "dynamicFormAssignment";
+
+  // Data Type
+  public static final String DATA_TYPE_INFO_ASPECT_NAME = "dataTypeInfo";
+
+  // Entity Type
+  public static final String ENTITY_TYPE_INFO_ASPECT_NAME = "entityTypeInfo";
 
   // Settings
   public static final String GLOBAL_SETTINGS_ENTITY_NAME = "globalSettings";
@@ -357,6 +393,9 @@ public class Constants {
   public static final String PARENT_INSTANCE_URN_KEY = "parentInstanceUrn";
   public static final String DATA_FLOW_URN_KEY = "dataFlowUrn";
   public static final String DATA_JOB_URN_KEY = "dataJobUrn";
+
+  // Incidents
+  public static final String ENTITY_REF = "entities";
 
   // Config
   public static final String ELASTICSEARCH_IMPLEMENTATION_OPENSEARCH = "opensearch";

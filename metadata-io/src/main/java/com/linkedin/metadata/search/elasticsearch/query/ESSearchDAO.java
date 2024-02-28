@@ -1,7 +1,7 @@
 package com.linkedin.metadata.search.elasticsearch.query;
 
 import static com.linkedin.metadata.Constants.*;
-import static com.linkedin.metadata.models.registry.template.util.TemplateUtil.*;
+import static com.linkedin.metadata.aspect.patch.template.TemplateUtil.*;
 import static com.linkedin.metadata.utils.SearchUtil.*;
 
 import com.codahale.metrics.Timer;
@@ -9,10 +9,10 @@ import com.datahub.util.exception.ESQueryException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.data.template.LongMap;
+import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
-import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
@@ -22,9 +22,11 @@ import com.linkedin.metadata.search.AggregationMetadataArray;
 import com.linkedin.metadata.search.FilterValueArray;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.search.elasticsearch.query.request.AggregationQueryBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.request.AutocompleteRequestHandler;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchAfterWrapper;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchRequestHandler;
+import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.opentelemetry.extension.annotations.WithSpan;
@@ -39,7 +41,11 @@ import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
+import lombok.Setter;
+import lombok.experimental.Accessors;
 import lombok.extern.slf4j.Slf4j;
+import org.opensearch.action.explain.ExplainRequest;
+import org.opensearch.action.explain.ExplainResponse;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.client.Request;
@@ -58,6 +64,7 @@ import org.opensearch.search.builder.SearchSourceBuilder;
 /** A search DAO for Elasticsearch backend. */
 @Slf4j
 @RequiredArgsConstructor
+@Accessors(chain = true)
 public class ESSearchDAO {
   private static final NamedXContentRegistry X_CONTENT_REGISTRY;
 
@@ -66,7 +73,7 @@ public class ESSearchDAO {
     X_CONTENT_REGISTRY = new NamedXContentRegistry(searchModule.getNamedXContents());
   }
 
-  private final EntityRegistry entityRegistry;
+  @Setter private AspectRetriever aspectRetriever;
   private final RestHighLevelClient client;
   private final IndexConvention indexConvention;
   private final boolean pointInTimeCreationEnabled;
@@ -75,10 +82,12 @@ public class ESSearchDAO {
   @Nullable private final CustomSearchConfiguration customSearchConfiguration;
 
   public long docCount(@Nonnull String entityName) {
-    EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
+    EntitySpec entitySpec = aspectRetriever.getEntityRegistry().getEntitySpec(entityName);
     CountRequest countRequest =
         new CountRequest(indexConvention.getIndexName(entitySpec))
-            .query(SearchRequestHandler.getFilterQuery(null));
+            .query(
+                SearchRequestHandler.getFilterQuery(
+                    null, entitySpec.getSearchableFieldTypes(), aspectRetriever));
     try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "docCount").time()) {
       return client.count(countRequest, RequestOptions.DEFAULT).getCount();
     } catch (IOException e) {
@@ -103,7 +112,7 @@ public class ESSearchDAO {
       // extract results, validated against document model as well
       return transformIndexIntoEntityName(
           SearchRequestHandler.getBuilder(
-                  entitySpec, searchConfiguration, customSearchConfiguration)
+                  entitySpec, searchConfiguration, customSearchConfiguration, aspectRetriever)
               .extractResult(searchResponse, filter, from, size));
     } catch (Exception e) {
       log.error("Search query failed", e);
@@ -187,7 +196,7 @@ public class ESSearchDAO {
       // extract results, validated against document model as well
       return transformIndexIntoEntityName(
           SearchRequestHandler.getBuilder(
-                  entitySpecs, searchConfiguration, customSearchConfiguration)
+                  entitySpecs, searchConfiguration, customSearchConfiguration, aspectRetriever)
               .extractScrollResult(
                   searchResponse, filter, scrollId, keepAlive, size, supportsPointInTime()));
     } catch (Exception e) {
@@ -224,11 +233,14 @@ public class ESSearchDAO {
     final String finalInput = input.isEmpty() ? "*" : input;
     Timer.Context searchRequestTimer = MetricUtils.timer(this.getClass(), "searchRequest").time();
     List<EntitySpec> entitySpecs =
-        entityNames.stream().map(entityRegistry::getEntitySpec).collect(Collectors.toList());
+        entityNames.stream()
+            .map(name -> aspectRetriever.getEntityRegistry().getEntitySpec(name))
+            .collect(Collectors.toList());
     Filter transformedFilters = transformFilterForEntities(postFilters, indexConvention);
     // Step 1: construct the query
     final SearchRequest searchRequest =
-        SearchRequestHandler.getBuilder(entitySpecs, searchConfiguration, customSearchConfiguration)
+        SearchRequestHandler.getBuilder(
+                entitySpecs, searchConfiguration, customSearchConfiguration, aspectRetriever)
             .getSearchRequest(
                 finalInput, transformedFilters, sortCriterion, from, size, searchFlags, facets);
     searchRequest.indices(
@@ -256,10 +268,11 @@ public class ESSearchDAO {
       @Nullable SortCriterion sortCriterion,
       int from,
       int size) {
-    EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
+    EntitySpec entitySpec = aspectRetriever.getEntityRegistry().getEntitySpec(entityName);
     Filter transformedFilters = transformFilterForEntities(filters, indexConvention);
     final SearchRequest searchRequest =
-        SearchRequestHandler.getBuilder(entitySpec, searchConfiguration, customSearchConfiguration)
+        SearchRequestHandler.getBuilder(
+                entitySpec, searchConfiguration, customSearchConfiguration, aspectRetriever)
             .getFilterRequest(transformedFilters, sortCriterion, from, size);
 
     searchRequest.indices(indexConvention.getIndexName(entitySpec));
@@ -286,8 +299,9 @@ public class ESSearchDAO {
       @Nullable Filter requestParams,
       int limit) {
     try {
-      EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
-      AutocompleteRequestHandler builder = AutocompleteRequestHandler.getBuilder(entitySpec);
+      EntitySpec entitySpec = aspectRetriever.getEntityRegistry().getEntitySpec(entityName);
+      AutocompleteRequestHandler builder =
+          AutocompleteRequestHandler.getBuilder(entitySpec, aspectRetriever);
       SearchRequest req =
           builder.getSearchRequest(
               query, field, transformFilterForEntities(requestParams, indexConvention), limit);
@@ -303,7 +317,7 @@ public class ESSearchDAO {
   /**
    * Returns number of documents per field value given the field and filters
    *
-   * @param entityName name of the entity, if null, aggregates over all entities
+   * @param entityNames names of the entities, if null, aggregates over all entities
    * @param field the field name for aggregate
    * @param requestParams filters to apply before aggregating
    * @param limit the number of aggregations to return
@@ -315,16 +329,27 @@ public class ESSearchDAO {
       @Nonnull String field,
       @Nullable Filter requestParams,
       int limit) {
+    List<EntitySpec> entitySpecs;
+    if (entityNames == null || entityNames.isEmpty()) {
+      entitySpecs = QueryUtils.getQueryByDefaultEntitySpecs(aspectRetriever.getEntityRegistry());
+    } else {
+      entitySpecs =
+          entityNames.stream()
+              .map(name -> aspectRetriever.getEntityRegistry().getEntitySpec(name))
+              .collect(Collectors.toList());
+    }
     final SearchRequest searchRequest =
-        SearchRequestHandler.getAggregationRequest(
-            field, transformFilterForEntities(requestParams, indexConvention), limit);
+        SearchRequestHandler.getBuilder(
+                entitySpecs, searchConfiguration, customSearchConfiguration, aspectRetriever)
+            .getAggregationRequest(
+                field, transformFilterForEntities(requestParams, indexConvention), limit);
     if (entityNames == null) {
       String indexName = indexConvention.getAllEntityIndicesPattern();
       searchRequest.indices(indexName);
     } else {
       Stream<String> stream =
           entityNames.stream()
-              .map(entityRegistry::getEntitySpec)
+              .map(name -> aspectRetriever.getEntityRegistry().getEntitySpec(name))
               .map(indexConvention::getIndexName);
       searchRequest.indices(stream.toArray(String[]::new));
     }
@@ -333,7 +358,7 @@ public class ESSearchDAO {
         MetricUtils.timer(this.getClass(), "aggregateByValue_search").time()) {
       final SearchResponse searchResponse = client.search(searchRequest, RequestOptions.DEFAULT);
       // extract results, validated against document model as well
-      return SearchRequestHandler.extractTermAggregations(searchResponse, field);
+      return AggregationQueryBuilder.extractAggregationsFromResponse(searchResponse, field);
     } catch (Exception e) {
       log.error("Aggregation query failed", e);
       throw new ESQueryException("Aggregation query failed:", e);
@@ -369,7 +394,46 @@ public class ESSearchDAO {
         entities.stream().map(indexConvention::getEntityIndexName).toArray(String[]::new);
     Timer.Context scrollRequestTimer = MetricUtils.timer(this.getClass(), "scrollRequest").time();
     List<EntitySpec> entitySpecs =
-        entities.stream().map(entityRegistry::getEntitySpec).collect(Collectors.toList());
+        entities.stream()
+            .map(name -> aspectRetriever.getEntityRegistry().getEntitySpec(name))
+            .collect(Collectors.toList());
+    Filter transformedFilters = transformFilterForEntities(postFilters, indexConvention);
+    // TODO: Align scroll and search using facets
+    final SearchRequest searchRequest =
+        getScrollRequest(
+            scrollId,
+            keepAlive,
+            indexArray,
+            size,
+            transformedFilters,
+            entitySpecs,
+            finalInput,
+            sortCriterion,
+            searchFlags,
+            null);
+
+    // PIT specifies indices in creation so it doesn't support specifying indices on the request, so
+    // we only specify if not using PIT
+    if (!supportsPointInTime()) {
+      searchRequest.indices(indexArray);
+    }
+
+    scrollRequestTimer.stop();
+    return executeAndExtract(
+        entitySpecs, searchRequest, transformedFilters, scrollId, keepAlive, size);
+  }
+
+  private SearchRequest getScrollRequest(
+      @Nullable String scrollId,
+      @Nullable String keepAlive,
+      String[] indexArray,
+      int size,
+      @Nullable Filter postFilters,
+      List<EntitySpec> entitySpecs,
+      String finalInput,
+      @Nullable SortCriterion sortCriterion,
+      @Nullable SearchFlags searchFlags,
+      @Nullable List<String> facets) {
     String pitId = null;
     Object[] sort = null;
     if (scrollId != null) {
@@ -386,30 +450,18 @@ public class ESSearchDAO {
       pitId = createPointInTime(indexArray, keepAlive);
     }
 
-    Filter transformedFilters = transformFilterForEntities(postFilters, indexConvention);
-    // Step 1: construct the query
-    final SearchRequest searchRequest =
-        SearchRequestHandler.getBuilder(entitySpecs, searchConfiguration, customSearchConfiguration)
-            .getSearchRequest(
-                finalInput,
-                transformedFilters,
-                sortCriterion,
-                sort,
-                pitId,
-                keepAlive,
-                size,
-                searchFlags);
-
-    // PIT specifies indices in creation so it doesn't support specifying indices on the request, so
-    // we only specify if not using PIT
-    if (!supportsPointInTime()) {
-      searchRequest.indices(indexArray);
-    }
-
-    scrollRequestTimer.stop();
-    // Step 2: execute the query and extract results, validated against document model as well
-    return executeAndExtract(
-        entitySpecs, searchRequest, transformedFilters, scrollId, keepAlive, size);
+    return SearchRequestHandler.getBuilder(
+            entitySpecs, searchConfiguration, customSearchConfiguration, aspectRetriever)
+        .getSearchRequest(
+            finalInput,
+            postFilters,
+            sortCriterion,
+            sort,
+            pitId,
+            keepAlive,
+            size,
+            searchFlags,
+            facets);
   }
 
   public Optional<SearchResponse> raw(@Nonnull String indexName, @Nullable String jsonQuery) {
@@ -451,6 +503,48 @@ public class ESSearchDAO {
     } catch (IOException e) {
       log.error("Failed to generate PointInTime Identifier.", e);
       throw new IllegalStateException("Failed to generate PointInTime Identifier.:", e);
+    }
+  }
+
+  public ExplainResponse explain(
+      @Nonnull String query,
+      @Nonnull String documentId,
+      @Nonnull String entityName,
+      @Nullable Filter postFilters,
+      @Nullable SortCriterion sortCriterion,
+      @Nullable SearchFlags searchFlags,
+      @Nullable String scrollId,
+      @Nullable String keepAlive,
+      int size,
+      @Nullable List<String> facets) {
+    EntitySpec entitySpec = aspectRetriever.getEntityRegistry().getEntitySpec(entityName);
+    Filter transformedFilters = transformFilterForEntities(postFilters, indexConvention);
+    final String[] indexArray = new String[] {indexConvention.getEntityIndexName(entityName)};
+    final String finalQuery = query.isEmpty() ? "*" : query;
+    final SearchRequest searchRequest =
+        getScrollRequest(
+            scrollId,
+            keepAlive,
+            indexArray,
+            size,
+            transformedFilters,
+            Collections.singletonList(entitySpec),
+            finalQuery,
+            sortCriterion,
+            searchFlags,
+            facets);
+    ;
+
+    ExplainRequest explainRequest = new ExplainRequest();
+    explainRequest
+        .query(searchRequest.source().query())
+        .id(documentId)
+        .index(indexConvention.getEntityIndexName(entityName));
+    try {
+      return client.explain(explainRequest, RequestOptions.DEFAULT);
+    } catch (IOException e) {
+      log.error("Failed to explain query.", e);
+      throw new IllegalStateException("Failed to explain query:", e);
     }
   }
 }

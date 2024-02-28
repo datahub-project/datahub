@@ -11,11 +11,11 @@ import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.ingestion.DataHubIngestionSourceConfig;
 import com.linkedin.ingestion.DataHubIngestionSourceInfo;
 import com.linkedin.ingestion.DataHubIngestionSourceSchedule;
 import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.client.JavaEntityClient;
 import com.linkedin.metadata.config.IngestionConfiguration;
 import com.linkedin.metadata.query.ListResult;
 import java.util.Collections;
@@ -45,7 +45,7 @@ public class IngestionSchedulerTest {
     info1.setConfig(
         new DataHubIngestionSourceConfig()
             .setExecutorId("default")
-            .setRecipe("{ type }")
+            .setRecipe("{ type: \"type\" }")
             .setVersion("0.8.18"));
 
     final EnvelopedAspect envelopedAspect1 = new EnvelopedAspect();
@@ -72,7 +72,7 @@ public class IngestionSchedulerTest {
     info2.setConfig(
         new DataHubIngestionSourceConfig()
             .setExecutorId("default")
-            .setRecipe("{ type }")
+            .setRecipe("{ type: \"type\" }")
             .setVersion("0.8.18"));
 
     final EnvelopedAspect envelopedAspect2 = new EnvelopedAspect();
@@ -88,7 +88,7 @@ public class IngestionSchedulerTest {
         .thenReturn(Constants.INGESTION_SOURCE_ENTITY_NAME);
     Mockito.when(entityResponse2.getAspects()).thenReturn(map2);
 
-    JavaEntityClient mockClient = Mockito.mock(JavaEntityClient.class);
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
 
     // Set up mocks for ingestion source batch fetching
     Mockito.when(
@@ -144,7 +144,7 @@ public class IngestionSchedulerTest {
     newInfo.setConfig(
         new DataHubIngestionSourceConfig()
             .setExecutorId("default")
-            .setRecipe("{ type }")
+            .setRecipe("{ type: \"type\" }")
             .setVersion("0.8.18"));
 
     // Assert that the new source has been scheduled successfully.
@@ -172,7 +172,7 @@ public class IngestionSchedulerTest {
     newInfo.setConfig(
         new DataHubIngestionSourceConfig()
             .setExecutorId("default")
-            .setRecipe("{ type }")
+            .setRecipe("{ type: \"type\" }")
             .setVersion("0.8.18"));
 
     // Assert that the new source has been scheduled successfully.
@@ -196,7 +196,7 @@ public class IngestionSchedulerTest {
     newInfo.setConfig(
         new DataHubIngestionSourceConfig()
             .setExecutorId("default")
-            .setRecipe("{ type }")
+            .setRecipe("{ type: \"type\" }")
             .setVersion("0.8.18"));
 
     // Assert that no changes have been made to next execution cache.
@@ -216,7 +216,7 @@ public class IngestionSchedulerTest {
     newInfo.setConfig(
         new DataHubIngestionSourceConfig()
             .setExecutorId("default")
-            .setRecipe("{ type }")
+            .setRecipe("{ type: \"type\" }")
             .setVersion("0.8.18"));
 
     // Assert that the schedule has been removed.
@@ -254,7 +254,7 @@ public class IngestionSchedulerTest {
     newInfo.setConfig(
         new DataHubIngestionSourceConfig()
             .setExecutorId("default")
-            .setRecipe("{ type }")
+            .setRecipe("{ type: \"type\" }")
             .setVersion("0.8.18"));
 
     _ingestionScheduler.scheduleNextIngestionSourceExecution(urn, newInfo);
@@ -280,7 +280,7 @@ public class IngestionSchedulerTest {
     newInfo.setConfig(
         new DataHubIngestionSourceConfig()
             .setExecutorId("default")
-            .setRecipe("{ type }")
+            .setRecipe("{ type: \"type\" }")
             .setVersion("0.8.18"));
     _ingestionScheduler.scheduleNextIngestionSourceExecution(urn, newInfo);
 

@@ -57,12 +57,14 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
   private final IndexConvention _indexConvention = new IndexConventionImpl(null);
   private final String _indexName = _indexConvention.getIndexName(INDEX_NAME);
   private ElasticSearchGraphService _client;
+  private boolean _enableMultiPathSearch =
+      GraphQueryConfiguration.testDefaults.isEnableMultiPathSearch();
 
   private static final String TAG_RELATIONSHIP = "SchemaFieldTaggedWith";
 
   @BeforeClass
   public void setup() {
-    _client = buildService();
+    _client = buildService(_enableMultiPathSearch);
     _client.configure();
   }
 
@@ -73,8 +75,10 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
   }
 
   @Nonnull
-  private ElasticSearchGraphService buildService() {
+  private ElasticSearchGraphService buildService(boolean enableMultiPathSearch) {
     LineageRegistry lineageRegistry = new LineageRegistry(SnapshotEntityRegistry.getInstance());
+    GraphQueryConfiguration configuration = GraphQueryConfiguration.testDefaults;
+    configuration.setEnableMultiPathSearch(enableMultiPathSearch);
     ESGraphQueryDAO readDAO =
         new ESGraphQueryDAO(
             getSearchClient(),
@@ -93,8 +97,19 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
 
   @Override
   @Nonnull
-  protected GraphService getGraphService() {
+  protected GraphService getGraphService(boolean enableMultiPathSearch) {
+    if (enableMultiPathSearch != _enableMultiPathSearch) {
+      _enableMultiPathSearch = enableMultiPathSearch;
+      _client = buildService(enableMultiPathSearch);
+      _client.configure();
+    }
     return _client;
+  }
+
+  @Override
+  @Nonnull
+  protected GraphService getGraphService() {
+    return getGraphService(GraphQueryConfiguration.testDefaults.isEnableMultiPathSearch());
   }
 
   @Override
@@ -337,26 +352,26 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
     // Without timestamps
     EntityLineageResult upstreamResult = getUpstreamLineage(datasetTwoUrn, null, null);
     EntityLineageResult downstreamResult = getDownstreamLineage(datasetTwoUrn, null, null);
-    Assert.assertEquals(new Integer(1), upstreamResult.getTotal());
-    Assert.assertEquals(new Integer(3), downstreamResult.getTotal());
+    Assert.assertEquals(Integer.valueOf(1), upstreamResult.getTotal());
+    Assert.assertEquals(Integer.valueOf(3), downstreamResult.getTotal());
 
     // Timestamp before
     upstreamResult = getUpstreamLineage(datasetTwoUrn, 0L, initialTime - 10);
     downstreamResult = getDownstreamLineage(datasetTwoUrn, 0L, initialTime - 10);
-    Assert.assertEquals(new Integer(0), upstreamResult.getTotal());
-    Assert.assertEquals(new Integer(1), downstreamResult.getTotal());
+    Assert.assertEquals(Integer.valueOf(0), upstreamResult.getTotal());
+    Assert.assertEquals(Integer.valueOf(1), downstreamResult.getTotal());
 
     // Timestamp after
     upstreamResult = getUpstreamLineage(datasetTwoUrn, initialTime + 10, initialTime + 100);
     downstreamResult = getDownstreamLineage(datasetTwoUrn, initialTime + 10, initialTime + 100);
-    Assert.assertEquals(new Integer(0), upstreamResult.getTotal());
-    Assert.assertEquals(new Integer(1), downstreamResult.getTotal());
+    Assert.assertEquals(Integer.valueOf(0), upstreamResult.getTotal());
+    Assert.assertEquals(Integer.valueOf(1), downstreamResult.getTotal());
 
     // Timestamp included
     upstreamResult = getUpstreamLineage(datasetTwoUrn, initialTime - 10, initialTime + 10);
     downstreamResult = getDownstreamLineage(datasetTwoUrn, initialTime - 10, initialTime + 10);
-    Assert.assertEquals(new Integer(1), upstreamResult.getTotal());
-    Assert.assertEquals(new Integer(3), downstreamResult.getTotal());
+    Assert.assertEquals(Integer.valueOf(1), upstreamResult.getTotal());
+    Assert.assertEquals(Integer.valueOf(3), downstreamResult.getTotal());
 
     // Update only one of the downstream edges
     Long updatedTime = 2000L;
@@ -387,20 +402,20 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
     // Without timestamps
     upstreamResult = getUpstreamLineage(datasetTwoUrn, null, null);
     downstreamResult = getDownstreamLineage(datasetTwoUrn, null, null);
-    Assert.assertEquals(new Integer(1), upstreamResult.getTotal());
-    Assert.assertEquals(new Integer(3), downstreamResult.getTotal());
+    Assert.assertEquals(Integer.valueOf(1), upstreamResult.getTotal());
+    Assert.assertEquals(Integer.valueOf(3), downstreamResult.getTotal());
 
     // Window includes initial time and updated time
     upstreamResult = getUpstreamLineage(datasetTwoUrn, initialTime - 10, updatedTime + 10);
     downstreamResult = getDownstreamLineage(datasetTwoUrn, initialTime - 10, updatedTime + 10);
-    Assert.assertEquals(new Integer(1), upstreamResult.getTotal());
-    Assert.assertEquals(new Integer(3), downstreamResult.getTotal());
+    Assert.assertEquals(Integer.valueOf(1), upstreamResult.getTotal());
+    Assert.assertEquals(Integer.valueOf(3), downstreamResult.getTotal());
 
     // Window includes updated time but not initial time
     upstreamResult = getUpstreamLineage(datasetTwoUrn, initialTime + 10, updatedTime + 10);
     downstreamResult = getDownstreamLineage(datasetTwoUrn, initialTime + 10, updatedTime + 10);
-    Assert.assertEquals(new Integer(1), upstreamResult.getTotal());
-    Assert.assertEquals(new Integer(2), downstreamResult.getTotal());
+    Assert.assertEquals(Integer.valueOf(1), upstreamResult.getTotal());
+    Assert.assertEquals(Integer.valueOf(2), downstreamResult.getTotal());
   }
 
   /**

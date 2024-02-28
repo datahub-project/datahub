@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.resolvers.tag;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
 import static com.linkedin.metadata.Constants.*;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.testng.Assert.*;
 
 import com.datahub.authentication.Authentication;
@@ -47,7 +48,8 @@ public class SetTagColorResolverTest {
                 Mockito.eq(0L)))
         .thenReturn(oldTagProperties);
 
-    Mockito.when(mockService.exists(Urn.createFromString(TEST_ENTITY_URN))).thenReturn(true);
+    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
+        .thenReturn(true);
 
     SetTagColorResolver resolver = new SetTagColorResolver(mockClient, mockService);
 
@@ -69,7 +71,7 @@ public class SetTagColorResolverTest {
         .ingestProposal(Mockito.eq(proposal), Mockito.any(Authentication.class), Mockito.eq(false));
 
     Mockito.verify(mockService, Mockito.times(1))
-        .exists(Mockito.eq(Urn.createFromString(TEST_ENTITY_URN)));
+        .exists(Mockito.eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true));
   }
 
   @Test
@@ -86,7 +88,8 @@ public class SetTagColorResolverTest {
                 Mockito.eq(0)))
         .thenReturn(null);
 
-    Mockito.when(mockService.exists(Urn.createFromString(TEST_ENTITY_URN))).thenReturn(true);
+    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
+        .thenReturn(true);
 
     SetTagColorResolver resolver = new SetTagColorResolver(mockClient, mockService);
 
@@ -131,7 +134,8 @@ public class SetTagColorResolverTest {
                                 Constants.TAG_PROPERTIES_ASPECT_NAME, oldTagPropertiesAspect)))));
 
     EntityService mockService = getMockEntityService();
-    Mockito.when(mockService.exists(Urn.createFromString(TEST_ENTITY_URN))).thenReturn(false);
+    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
+        .thenReturn(false);
 
     SetTagColorResolver resolver = new SetTagColorResolver(mockClient, mockService);
 

@@ -4,6 +4,7 @@ import static com.linkedin.metadata.Constants.*;
 
 import com.linkedin.common.DataPlatformInstance;
 import com.linkedin.common.Deprecation;
+import com.linkedin.common.Forms;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.GlossaryTerms;
 import com.linkedin.common.InstitutionalMemory;
@@ -26,13 +27,16 @@ import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.SubTypesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.SystemMetadataUtils;
 import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
+import com.linkedin.datahub.graphql.types.form.FormsMapper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
+import com.linkedin.datahub.graphql.types.structuredproperty.StructuredPropertiesMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
 import com.linkedin.domain.Domains;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.Constants;
+import com.linkedin.structured.StructuredProperties;
 import javax.annotation.Nullable;
 
 public class ContainerMapper {
@@ -137,6 +141,19 @@ public class ContainerMapper {
     if (envelopedDeprecation != null) {
       result.setDeprecation(
           DeprecationMapper.map(new Deprecation(envelopedDeprecation.getValue().data())));
+    }
+
+    final EnvelopedAspect envelopedStructuredProps = aspects.get(STRUCTURED_PROPERTIES_ASPECT_NAME);
+    if (envelopedStructuredProps != null) {
+      result.setStructuredProperties(
+          StructuredPropertiesMapper.map(
+              new StructuredProperties(envelopedStructuredProps.getValue().data())));
+    }
+
+    final EnvelopedAspect envelopedForms = aspects.get(FORMS_ASPECT_NAME);
+    if (envelopedForms != null) {
+      result.setForms(
+          FormsMapper.map(new Forms(envelopedForms.getValue().data()), entityUrn.toString()));
     }
 
     return result;

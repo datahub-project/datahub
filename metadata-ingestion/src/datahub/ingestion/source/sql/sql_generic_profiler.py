@@ -35,6 +35,9 @@ class DetailedProfilerReportMixin:
     profiling_skipped_row_limit: TopKDict[str, int] = field(
         default_factory=int_top_k_dict
     )
+
+    profiling_skipped_other: TopKDict[str, int] = field(default_factory=int_top_k_dict)
+
     num_tables_not_eligible_profiling: Dict[str, int] = field(
         default_factory=int_top_k_dict
     )
@@ -274,16 +277,16 @@ class GenericProfiler:
             return False
 
         if self.config.profiling.profile_table_size_limit is not None and (
-            size_in_bytes is None
-            or size_in_bytes / (2**30)
+            size_in_bytes is not None
+            and size_in_bytes / (2**30)
             > self.config.profiling.profile_table_size_limit
         ):
             self.report.profiling_skipped_size_limit[schema_name] += 1
             return False
 
         if self.config.profiling.profile_table_row_limit is not None and (
-            rows_count is None
-            or rows_count > self.config.profiling.profile_table_row_limit
+            rows_count is not None
+            and rows_count > self.config.profiling.profile_table_row_limit
         ):
             self.report.profiling_skipped_row_limit[schema_name] += 1
             return False

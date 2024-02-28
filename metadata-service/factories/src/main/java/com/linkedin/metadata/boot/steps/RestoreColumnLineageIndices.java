@@ -30,7 +30,7 @@ public class RestoreColumnLineageIndices extends UpgradeStep {
   private final EntityRegistry _entityRegistry;
 
   public RestoreColumnLineageIndices(
-      @Nonnull final EntityService entityService, @Nonnull final EntityRegistry entityRegistry) {
+      @Nonnull final EntityService<?> entityService, @Nonnull final EntityRegistry entityRegistry) {
     super(entityService, VERSION, UPGRADE_ID);
     _entityRegistry = Objects.requireNonNull(entityRegistry, "entityRegistry must not be null");
   }

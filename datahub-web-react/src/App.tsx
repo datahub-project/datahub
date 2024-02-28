@@ -1,19 +1,19 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import Cookies from 'js-cookie';
 import { message } from 'antd';
 import { BrowserRouter as Router } from 'react-router-dom';
 import { ApolloClient, ApolloProvider, createHttpLink, InMemoryCache, ServerError } from '@apollo/client';
 import { onError } from '@apollo/client/link/error';
-import { ThemeProvider } from 'styled-components';
 import { Helmet, HelmetProvider } from 'react-helmet-async';
 import './App.less';
 import { Routes } from './app/Routes';
-import { Theme } from './conf/theme/types';
-import defaultThemeConfig from './conf/theme/theme_light.config.json';
 import { PageRoutes } from './conf/Global';
 import { isLoggedInVar } from './app/auth/checkAuthStatus';
 import { GlobalCfg } from './conf';
 import possibleTypesResult from './possibleTypes.generated';
+import { ErrorCodes } from './app/shared/constants';
+import CustomThemeProvider from './CustomThemeProvider';
+import { useCustomTheme } from './customThemeContext';
 
 /*
     Construct Apollo Client
@@ -24,7 +24,7 @@ const errorLink = onError((error) => {
     const { networkError, graphQLErrors } = error;
     if (networkError) {
         const serverError = networkError as ServerError;
-        if (serverError.statusCode === 401) {
+        if (serverError.statusCode === ErrorCodes.Unauthorized) {
             isLoggedInVar(false);
             Cookies.remove(GlobalCfg.CLIENT_AUTH_COOKIE);
             const currentPath = window.location.pathname + window.location.search;
@@ -52,6 +52,11 @@ const client = new ApolloClient({
                             return { ...oldObj, ...newObj };
                         },
                     },
+                    entity: {
+                        merge: (oldObj, newObj) => {
+                            return { ...oldObj, ...newObj };
+                        },
+                    },
                 },
             },
         },
@@ -69,29 +74,25 @@ const client = new ApolloClient({
     },
 });
 
-const App: React.VFC = () => {
-    const [dynamicThemeConfig, setDynamicThemeConfig] = useState<Theme>(defaultThemeConfig);
-
-    useEffect(() => {
-        import(`./conf/theme/${process.env.REACT_APP_THEME_CONFIG}`).then((theme) => {
-            setDynamicThemeConfig(theme);
-        });
-    }, []);
-
+export const InnerApp: React.VFC = () => {
     return (
         <HelmetProvider>
-            <ThemeProvider theme={dynamicThemeConfig}>
+            <CustomThemeProvider>
+                <Helmet>
+                    <title>{useCustomTheme().theme?.content.title}</title>
+                </Helmet>
                 <Router>
-                    <Helmet>
-                        <title>{dynamicThemeConfig.content.title}</title>
-                    </Helmet>
-                    <ApolloProvider client={client}>
-                        <Routes />
-                    </ApolloProvider>
+                    <Routes />
                 </Router>
-            </ThemeProvider>
+            </CustomThemeProvider>
         </HelmetProvider>
     );
 };
 
-export default App;
+export const App: React.VFC = () => {
+    return (
+        <ApolloProvider client={client}>
+            <InnerApp />
+        </ApolloProvider>
+    );
+};

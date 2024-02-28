@@ -121,7 +121,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
 
   @Inject
   @Named("entityService")
-  private EntityService _entityService;
+  private EntityService<?> _entityService;
 
   @Inject
   @Named("searchService")
@@ -1057,6 +1057,6 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     }
     log.info("EXISTS for {}", urnStr);
     return RestliUtil.toTask(
-        () -> _entityService.exists(urn), MetricRegistry.name(this.getClass(), "exists"));
+        () -> _entityService.exists(urn, true), MetricRegistry.name(this.getClass(), "exists"));
   }
 }

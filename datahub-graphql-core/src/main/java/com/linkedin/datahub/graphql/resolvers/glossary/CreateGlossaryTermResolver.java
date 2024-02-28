@@ -2,7 +2,6 @@ package com.linkedin.datahub.graphql.resolvers.glossary;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
-import static com.linkedin.datahub.graphql.resolvers.mutate.util.OwnerUtils.*;
 import static com.linkedin.metadata.Constants.*;
 
 import com.linkedin.common.urn.GlossaryNodeUrn;
@@ -14,7 +13,6 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.CreateGlossaryEntityInput;
 import com.linkedin.datahub.graphql.generated.OwnerEntityType;
-import com.linkedin.datahub.graphql.generated.OwnershipType;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.GlossaryUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.OwnerUtils;
 import com.linkedin.entity.EntityResponse;
@@ -88,19 +86,9 @@ public class CreateGlossaryTermResolver implements DataFetcher<CompletableFuture
 
               String glossaryTermUrn =
                   _entityClient.ingestProposal(proposal, context.getAuthentication(), false);
-              OwnershipType ownershipType = OwnershipType.TECHNICAL_OWNER;
-              if (!_entityService.exists(
-                  UrnUtils.getUrn(mapOwnershipTypeToEntity(ownershipType.name())))) {
-                log.warn("Technical owner does not exist, defaulting to None ownership.");
-                ownershipType = OwnershipType.NONE;
-              }
 
               OwnerUtils.addCreatorAsOwner(
-                  context,
-                  glossaryTermUrn,
-                  OwnerEntityType.CORP_USER,
-                  ownershipType,
-                  _entityService);
+                  context, glossaryTermUrn, OwnerEntityType.CORP_USER, _entityService);
               return glossaryTermUrn;
             } catch (Exception e) {
               log.error(

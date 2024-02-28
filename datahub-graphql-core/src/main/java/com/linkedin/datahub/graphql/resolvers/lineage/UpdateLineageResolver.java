@@ -35,7 +35,7 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class UpdateLineageResolver implements DataFetcher<CompletableFuture<Boolean>> {
 
-  private final EntityService _entityService;
+  private final EntityService<?> _entityService;
   private final LineageService _lineageService;
 
   @Override
@@ -60,9 +60,11 @@ public class UpdateLineageResolver implements DataFetcher<CompletableFuture<Bool
 
     return CompletableFuture.supplyAsync(
         () -> {
+          final Set<Urn> existingDownstreamUrns = _entityService.exists(downstreamUrns, true);
+
           // build MCP for every downstreamUrn
           for (Urn downstreamUrn : downstreamUrns) {
-            if (!_entityService.exists(downstreamUrn)) {
+            if (!existingDownstreamUrns.contains(downstreamUrn)) {
               throw new IllegalArgumentException(
                   String.format(
                       "Cannot upsert lineage as downstream urn %s doesn't exist", downstreamUrn));
@@ -128,9 +130,11 @@ public class UpdateLineageResolver implements DataFetcher<CompletableFuture<Bool
           upstreamUrns.addAll(upstreamToDownstreamsToAdd.keySet());
           upstreamUrns.addAll(upstreamToDownstreamsToRemove.keySet());
 
+          final Set<Urn> existingUpstreamUrns = _entityService.exists(upstreamUrns, true);
+
           // build MCP for upstreamUrn if necessary
           for (Urn upstreamUrn : upstreamUrns) {
-            if (!_entityService.exists(upstreamUrn)) {
+            if (!existingUpstreamUrns.contains(upstreamUrn)) {
               throw new IllegalArgumentException(
                   String.format(
                       "Cannot upsert lineage as downstream urn %s doesn't exist", upstreamUrn));

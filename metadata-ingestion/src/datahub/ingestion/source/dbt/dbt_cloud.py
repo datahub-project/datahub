@@ -2,10 +2,11 @@ import logging
 from datetime import datetime
 from json import JSONDecodeError
 from typing import Dict, List, Optional, Tuple
+from urllib.parse import urlparse
 
 import dateutil.parser
 import requests
-from pydantic import Field
+from pydantic import Field, root_validator
 
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -14,7 +15,12 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import SourceCapability
+from datahub.ingestion.api.source import (
+    CapabilityReport,
+    SourceCapability,
+    TestableSource,
+    TestConnectionReport,
+)
 from datahub.ingestion.source.dbt.dbt_common import (
     DBTColumn,
     DBTCommonConfig,
@@ -27,10 +33,17 @@ logger = logging.getLogger(__name__)
 
 
 class DBTCloudConfig(DBTCommonConfig):
+    access_url: str = Field(
+        description="The base URL of the dbt Cloud instance to use. This should be the URL you use to access the dbt Cloud UI. It should include the scheme (http/https) and not include a trailing slash. See the access url for your dbt Cloud region here: https://docs.getdbt.com/docs/cloud/about-cloud/regions-ip-addresses",
+        default="https://cloud.getdbt.com",
+    )
+
     metadata_endpoint: str = Field(
         default="https://metadata.cloud.getdbt.com/graphql",
-        description="The dbt Cloud metadata API endpoint.",
+        description="The dbt Cloud metadata API endpoint. This is deprecated, and will be removed in a future release. Please use access_url instead.",
+        deprecated=True,
     )
+
     token: str = Field(
         description="The API token to use to authenticate with DBT Cloud.",
     )
@@ -49,6 +62,15 @@ class DBTCloudConfig(DBTCommonConfig):
         None,
         description="The ID of the run to ingest metadata from. If not specified, we'll default to the latest run.",
     )
+
+    @root_validator(pre=True)
+    def set_metadata_endpoint(cls, values: dict) -> dict:
+        if values.get("access_url") and not values.get("metadata_endpoint"):
+            parsed_uri = urlparse(values["access_url"])
+            values[
+                "metadata_endpoint"
+            ] = f"{parsed_uri.scheme}://metadata.{parsed_uri.netloc}/graphql"
+        return values
 
 
 _DBT_GRAPHQL_COMMON_FIELDS = """
@@ -177,7 +199,7 @@ query DatahubMetadataQuery_{type}($jobId: BigInt!, $runId: BigInt) {{
 @support_status(SupportStatus.INCUBATING)
 @capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
 @capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
-class DBTCloudSource(DBTSourceBase):
+class DBTCloudSource(DBTSourceBase, TestableSource):
     """
     This source pulls dbt metadata directly from the dbt Cloud APIs.
 
@@ -199,6 +221,57 @@ class DBTCloudSource(DBTSourceBase):
         config = DBTCloudConfig.parse_obj(config_dict)
         return cls(config, ctx, "dbt")
 
+    @staticmethod
+    def test_connection(config_dict: dict) -> TestConnectionReport:
+        test_report = TestConnectionReport()
+        try:
+            source_config = DBTCloudConfig.parse_obj_allow_extras(config_dict)
+            DBTCloudSource._send_graphql_query(
+                metadata_endpoint=source_config.metadata_endpoint,
+                token=source_config.token,
+                query=_DBT_GRAPHQL_QUERY.format(type="tests", fields="jobId"),
+                variables={
+                    "jobId": source_config.job_id,
+                    "runId": source_config.run_id,
+                },
+            )
+            test_report.basic_connectivity = CapabilityReport(capable=True)
+        except Exception as e:
+            test_report.basic_connectivity = CapabilityReport(
+                capable=False, failure_reason=str(e)
+            )
+        return test_report
+
+    @staticmethod
+    def _send_graphql_query(
+        metadata_endpoint: str, token: str, query: str, variables: Dict
+    ) -> Dict:
+        logger.debug(f"Sending GraphQL query to dbt Cloud: {query}")
+        response = requests.post(
+            metadata_endpoint,
+            json={
+                "query": query,
+                "variables": variables,
+            },
+            headers={
+                "Authorization": f"Bearer {token}",
+                "X-dbt-partner-source": "acryldatahub",
+            },
+        )
+
+        try:
+            res = response.json()
+            if "errors" in res:
+                raise ValueError(
+                    f'Unable to fetch metadata from dbt Cloud: {res["errors"]}'
+                )
+            data = res["data"]
+        except JSONDecodeError as e:
+            response.raise_for_status()
+            raise e
+
+        return data
+
     def load_nodes(self) -> Tuple[List[DBTNode], Dict[str, Optional[str]]]:
         # TODO: In dbt Cloud, commands are scheduled as part of jobs, where
         # each job can have multiple runs. We currently only fully support
@@ -213,6 +286,8 @@ class DBTCloudSource(DBTSourceBase):
         for node_type, fields in _DBT_FIELDS_BY_TYPE.items():
             logger.info(f"Fetching {node_type} from dbt Cloud")
             data = self._send_graphql_query(
+                metadata_endpoint=self.config.metadata_endpoint,
+                token=self.config.token,
                 query=_DBT_GRAPHQL_QUERY.format(type=node_type, fields=fields),
                 variables={
                     "jobId": self.config.job_id,
@@ -231,33 +306,6 @@ class DBTCloudSource(DBTSourceBase):
         }
 
         return nodes, additional_metadata
-
-    def _send_graphql_query(self, query: str, variables: Dict) -> Dict:
-        logger.debug(f"Sending GraphQL query to dbt Cloud: {query}")
-        response = requests.post(
-            self.config.metadata_endpoint,
-            json={
-                "query": query,
-                "variables": variables,
-            },
-            headers={
-                "Authorization": f"Bearer {self.config.token}",
-                "X-dbt-partner-source": "acryldatahub",
-            },
-        )
-
-        try:
-            res = response.json()
-            if "errors" in res:
-                raise ValueError(
-                    f'Unable to fetch metadata from dbt Cloud: {res["errors"]}'
-                )
-            data = res["data"]
-        except JSONDecodeError as e:
-            response.raise_for_status()
-            raise e
-
-        return data
 
     def _parse_into_dbt_node(self, node: Dict) -> DBTNode:
         key = node["uniqueId"]
@@ -425,4 +473,4 @@ class DBTCloudSource(DBTSourceBase):
 
     def get_external_url(self, node: DBTNode) -> Optional[str]:
         # TODO: Once dbt Cloud supports deep linking to specific files, we can use that.
-        return f"https://cloud.getdbt.com/develop/{self.config.account_id}/projects/{self.config.project_id}"
+        return f"{self.config.access_url}/develop/{self.config.account_id}/projects/{self.config.project_id}"

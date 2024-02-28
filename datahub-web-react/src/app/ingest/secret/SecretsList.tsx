@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Button, Empty, message, Modal, Pagination, Typography } from 'antd';
+import { debounce } from 'lodash';
 import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import * as QueryString from 'query-string';
 import { useLocation } from 'react-router';
@@ -8,6 +9,7 @@ import {
     useCreateSecretMutation,
     useDeleteSecretMutation,
     useListSecretsQuery,
+    useUpdateSecretMutation,
 } from '../../../graphql/ingestion.generated';
 import { Message } from '../../shared/Message';
 import TabToolbar from '../../entity/shared/components/styled/TabToolbar';
@@ -17,7 +19,12 @@ import { StyledTable } from '../../entity/shared/components/styled/StyledTable';
 import { SearchBar } from '../../search/SearchBar';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { scrollToTop } from '../../shared/searchUtils';
-import { addSecretToListSecretsCache, removeSecretFromListSecretsCache } from './cacheUtils';
+import {
+    addSecretToListSecretsCache,
+    removeSecretFromListSecretsCache,
+    updateSecretInListSecretsCache,
+} from './cacheUtils';
+import { ONE_SECOND_IN_MS } from '../../entity/shared/tabs/Dataset/Queries/utils/constants';
 
 const DeleteButtonContainer = styled.div`
     display: flex;
@@ -46,10 +53,12 @@ export const SecretsList = () => {
 
     // Whether or not there is an urn to show in the modal
     const [isCreatingSecret, setIsCreatingSecret] = useState<boolean>(false);
+    const [editSecret, setEditSecret] = useState<SecretBuilderState | undefined>(undefined);
 
     const [deleteSecretMutation] = useDeleteSecretMutation();
     const [createSecretMutation] = useCreateSecretMutation();
-    const { loading, error, data, client } = useListSecretsQuery({
+    const [updateSecretMutation] = useUpdateSecretMutation();
+    const { loading, error, data, client, refetch } = useListSecretsQuery({
         variables: {
             input: {
                 start,
@@ -83,6 +92,10 @@ export const SecretsList = () => {
         scrollToTop();
         setPage(newPage);
     };
+
+    const debouncedSetQuery = debounce((newQuery: string | undefined) => {
+        setQuery(newQuery);
+    }, ONE_SECOND_IN_MS);
 
     const onSubmit = (state: SecretBuilderState, resetBuilderState: () => void) => {
         createSecretMutation({
@@ -119,6 +132,47 @@ export const SecretsList = () => {
                 });
             });
     };
+    const onUpdate = (state: SecretBuilderState, resetBuilderState: () => void) => {
+        updateSecretMutation({
+            variables: {
+                input: {
+                    urn: state.urn as string,
+                    name: state.name as string,
+                    value: state.value as string,
+                    description: state.description as string,
+                },
+            },
+        })
+            .then(() => {
+                message.success({
+                    content: `Successfully updated Secret!`,
+                    duration: 3,
+                });
+                resetBuilderState();
+                setIsCreatingSecret(false);
+                setEditSecret(undefined);
+                updateSecretInListSecretsCache(
+                    {
+                        urn: state.urn,
+                        name: state.name,
+                        description: state.description,
+                    },
+                    client,
+                    pageSize,
+                    page,
+                );
+                setTimeout(() => {
+                    refetch();
+                }, 2000);
+            })
+            .catch((e) => {
+                message.destroy();
+                message.error({
+                    content: `Failed to update Secret!: \n ${e.message || ''}`,
+                    duration: 3,
+                });
+            });
+    };
 
     const onDeleteSecret = (urn: string) => {
         Modal.confirm({
@@ -132,6 +186,16 @@ export const SecretsList = () => {
             maskClosable: true,
             closable: true,
         });
+    };
+
+    const onEditSecret = (urnData: any) => {
+        setIsCreatingSecret(true);
+        setEditSecret(urnData);
+    };
+
+    const onCancel = () => {
+        setIsCreatingSecret(false);
+        setEditSecret(undefined);
     };
 
     const tableColumns = [
@@ -155,6 +219,9 @@ export const SecretsList = () => {
             key: 'x',
             render: (_, record: any) => (
                 <DeleteButtonContainer>
+                    <Button style={{ marginRight: 16 }} onClick={() => onEditSecret(record)}>
+                        EDIT
+                    </Button>
                     <Button onClick={() => onDeleteSecret(record.urn)} type="text" shape="circle" danger>
                         <DeleteOutlined />
                     </Button>
@@ -199,7 +266,7 @@ export const SecretsList = () => {
                         onSearch={() => null}
                         onQueryChange={(q) => {
                             setPage(1);
-                            setQuery(q);
+                            debouncedSetQuery(q);
                         }}
                         entityRegistry={entityRegistry}
                         hideRecommendations
@@ -228,8 +295,10 @@ export const SecretsList = () => {
             </div>
             <SecretBuilderModal
                 visible={isCreatingSecret}
+                editSecret={editSecret}
+                onUpdate={onUpdate}
                 onSubmit={onSubmit}
-                onCancel={() => setIsCreatingSecret(false)}
+                onCancel={onCancel}
             />
         </>
     );

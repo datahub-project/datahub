@@ -1,13 +1,18 @@
 package com.linkedin.entity.client;
 
+import static com.linkedin.metadata.utils.GenericRecordUtils.entityResponseToAspectMap;
+
 import com.datahub.authentication.Authentication;
+import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.common.VersionedUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.StringArray;
+import com.linkedin.entity.Aspect;
 import com.linkedin.entity.Entity;
 import com.linkedin.entity.EntityResponse;
+import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.browse.BrowseResult;
@@ -39,6 +44,9 @@ import javax.annotation.Nullable;
 
 // Consider renaming this to datahub client.
 public interface EntityClient {
+
+  /** Perform post construction asks if needed. Can be used to break circular dependencies */
+  default void postConstruct(AspectRetriever aspectRetriever) {}
 
   @Nullable
   public EntityResponse getV2(
@@ -150,7 +158,31 @@ public interface EntityClient {
       @Nonnull String input,
       int start,
       int count,
-      @Nonnull Authentication authentication)
+      @Nonnull Authentication authentication,
+      @Nullable SearchFlags searchFlags)
+      throws RemoteInvocationException;
+
+  /**
+   * Gets browse snapshot of a given path
+   *
+   * @param entityNames entities being browsed
+   * @param path path being browsed
+   * @param filter browse filter
+   * @param input search query
+   * @param start start offset of first group
+   * @param count max number of results requested
+   * @throws RemoteInvocationException
+   */
+  @Nonnull
+  public BrowseResultV2 browseV2(
+      @Nonnull List<String> entityNames,
+      @Nonnull String path,
+      @Nullable Filter filter,
+      @Nonnull String input,
+      int start,
+      int count,
+      @Nonnull Authentication authentication,
+      @Nullable SearchFlags searchFlags)
       throws RemoteInvocationException;
 
   @Deprecated
@@ -355,6 +387,7 @@ public interface EntityClient {
    * @param endTimeMillis end time to filter to
    * @param startTimeMillis start time to filter from
    * @param searchFlags configuration flags for the search request
+   * @param authentication a reference to an authentication
    * @return a {@link SearchResult} that contains a list of matched documents and related search
    *     result metadata
    */
@@ -599,6 +632,26 @@ public interface EntityClient {
       @Nonnull Authentication authentication)
       throws Exception;
 
-  public void rollbackIngestion(@Nonnull String runId, @Nonnull Authentication authentication)
+  public void rollbackIngestion(
+      @Nonnull String runId, @Nonnull Authorizer authorizer, @Nonnull Authentication authentication)
       throws Exception;
+
+  @Nullable
+  default Aspect getLatestAspectObject(
+      @Nonnull Urn urn, @Nonnull String aspectName, @Nonnull Authentication authentication)
+      throws RemoteInvocationException, URISyntaxException {
+    return getLatestAspects(Set.of(urn), Set.of(aspectName), authentication)
+        .getOrDefault(urn, Map.of())
+        .get(aspectName);
+  }
+
+  @Nonnull
+  default Map<Urn, Map<String, Aspect>> getLatestAspects(
+      @Nonnull Set<Urn> urns,
+      @Nonnull Set<String> aspectNames,
+      @Nonnull Authentication authentication)
+      throws RemoteInvocationException, URISyntaxException {
+    String entityName = urns.stream().findFirst().map(Urn::getEntityType).get();
+    return entityResponseToAspectMap(batchGetV2(entityName, urns, aspectNames, authentication));
+  }
 }

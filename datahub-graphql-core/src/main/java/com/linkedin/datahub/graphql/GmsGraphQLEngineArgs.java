@@ -25,6 +25,7 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.recommendation.RecommendationsService;
 import com.linkedin.metadata.secret.SecretService;
 import com.linkedin.metadata.service.DataProductService;
+import com.linkedin.metadata.service.FormService;
 import com.linkedin.metadata.service.LineageService;
 import com.linkedin.metadata.service.OwnershipTypeService;
 import com.linkedin.metadata.service.QueryService;
@@ -73,6 +74,9 @@ public class GmsGraphQLEngineArgs {
   QueryService queryService;
   FeatureFlags featureFlags;
   DataProductService dataProductService;
+  FormService formService;
+  int graphQLQueryComplexityLimit;
+  int graphQLQueryDepthLimit;
 
   // any fork specific args should go below this line
 }

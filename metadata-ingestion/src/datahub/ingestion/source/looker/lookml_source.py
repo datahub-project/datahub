@@ -49,6 +49,7 @@ from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceCapabi
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.git.git_import import GitClone
+from datahub.ingestion.source.looker.lkml_patched import load_lkml
 from datahub.ingestion.source.looker.looker_common import (
     CORPUSER_DATAHUB,
     LookerCommonConfig,
@@ -97,13 +98,6 @@ from datahub.utilities.sql_parser import SQLParser
 logger = logging.getLogger(__name__)
 
 _BASE_PROJECT_NAME = "__BASE"
-
-# Patch lkml to support the local_dependency and remote_dependency keywords.
-lkml.simple.PLURAL_KEYS = (
-    *lkml.simple.PLURAL_KEYS,
-    "local_dependency",
-    "remote_dependency",
-)
 
 _EXPLORE_FILE_EXTENSION = ".explore.lkml"
 _VIEW_FILE_EXTENSION = ".view.lkml"
@@ -384,10 +378,9 @@ class LookerModel:
         ]
         for included_file in explore_files:
             try:
-                with open(included_file, "r") as file:
-                    parsed = lkml.load(file)
-                    included_explores = parsed.get("explores", [])
-                    explores.extend(included_explores)
+                parsed = load_lkml(included_file)
+                included_explores = parsed.get("explores", [])
+                explores.extend(included_explores)
             except Exception as e:
                 reporter.report_warning(
                     path, f"Failed to load {included_file} due to {e}"
@@ -514,24 +507,23 @@ class LookerModel:
                     f"Will be loading {included_file}, traversed here via {traversal_path}"
                 )
                 try:
-                    with open(included_file, "r") as file:
-                        parsed = lkml.load(file)
-                        seen_so_far.add(included_file)
-                        if "includes" in parsed:  # we have more includes to resolve!
-                            resolved.extend(
-                                LookerModel.resolve_includes(
-                                    parsed["includes"],
-                                    resolved_project_name,
-                                    root_project_name,
-                                    base_projects_folder,
-                                    included_file,
-                                    reporter,
-                                    seen_so_far,
-                                    traversal_path=traversal_path
-                                    + "."
-                                    + pathlib.Path(included_file).stem,
-                                )
+                    parsed = load_lkml(included_file)
+                    seen_so_far.add(included_file)
+                    if "includes" in parsed:  # we have more includes to resolve!
+                        resolved.extend(
+                            LookerModel.resolve_includes(
+                                parsed["includes"],
+                                resolved_project_name,
+                                root_project_name,
+                                base_projects_folder,
+                                included_file,
+                                reporter,
+                                seen_so_far,
+                                traversal_path=traversal_path
+                                + "."
+                                + pathlib.Path(included_file).stem,
                             )
+                        )
                 except Exception as e:
                     reporter.report_warning(
                         path, f"Failed to load {included_file} due to {e}"
@@ -648,21 +640,20 @@ class LookerViewFileLoader:
             self.reporter.report_failure(path, f"failed to load view file: {e}")
             return None
         try:
-            with open(path, "r") as file:
-                logger.debug(f"Loading viewfile {path}")
-                parsed = lkml.load(file)
-                looker_viewfile = LookerViewFile.from_looker_dict(
-                    absolute_file_path=path,
-                    looker_view_file_dict=parsed,
-                    project_name=project_name,
-                    root_project_name=self._root_project_name,
-                    base_projects_folder=self._base_projects_folder,
-                    raw_file_content=raw_file_content,
-                    reporter=reporter,
-                )
-                logger.debug(f"adding viewfile for path {path} to the cache")
-                self.viewfile_cache[path] = looker_viewfile
-                return looker_viewfile
+            logger.debug(f"Loading viewfile {path}")
+            parsed = load_lkml(path)
+            looker_viewfile = LookerViewFile.from_looker_dict(
+                absolute_file_path=path,
+                looker_view_file_dict=parsed,
+                project_name=project_name,
+                root_project_name=self._root_project_name,
+                base_projects_folder=self._base_projects_folder,
+                raw_file_content=raw_file_content,
+                reporter=reporter,
+            )
+            logger.debug(f"adding viewfile for path {path} to the cache")
+            self.viewfile_cache[path] = looker_viewfile
+            return looker_viewfile
         except Exception as e:
             self.reporter.report_failure(path, f"failed to load view file: {e}")
             return None
@@ -1498,17 +1489,16 @@ class LookMLSource(StatefulIngestionSourceBase):
                 )
 
     def _load_model(self, path: str) -> LookerModel:
-        with open(path, "r") as file:
-            logger.debug(f"Loading model from file {path}")
-            parsed = lkml.load(file)
-            looker_model = LookerModel.from_looker_dict(
-                parsed,
-                _BASE_PROJECT_NAME,
-                self.source_config.project_name,
-                self.base_projects_folder,
-                path,
-                self.reporter,
-            )
+        logger.debug(f"Loading model from file {path}")
+        parsed = load_lkml(path)
+        looker_model = LookerModel.from_looker_dict(
+            parsed,
+            _BASE_PROJECT_NAME,
+            self.source_config.project_name,
+            self.base_projects_folder,
+            path,
+            self.reporter,
+        )
         return looker_model
 
     def _platform_names_have_2_parts(self, platform: str) -> bool:
@@ -1797,8 +1787,7 @@ class LookMLSource(StatefulIngestionSourceBase):
     def get_manifest_if_present(self, folder: pathlib.Path) -> Optional[LookerManifest]:
         manifest_file = folder / "manifest.lkml"
         if manifest_file.exists():
-            with manifest_file.open() as fp:
-                manifest_dict = lkml.load(fp)
+            manifest_dict = load_lkml(manifest_file)
 
             manifest = LookerManifest(
                 project_name=manifest_dict.get("project_name"),
@@ -2060,10 +2049,9 @@ class LookMLSource(StatefulIngestionSourceBase):
                         )
                         logger.debug("Failed to process explore", exc_info=e)
 
-            processed_view_files = processed_view_map.get(model.connection)
-            if processed_view_files is None:
-                processed_view_map[model.connection] = set()
-                processed_view_files = processed_view_map[model.connection]
+            processed_view_files = processed_view_map.setdefault(
+                model.connection, set()
+            )
 
             project_name = self.get_project_name(model_name)
             logger.debug(f"Model: {model_name}; Includes: {model.resolved_includes}")

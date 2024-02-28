@@ -107,15 +107,16 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
     ViewPropertiesClass,
 )
-from datahub.utilities.mapping import Constants, OperationProcessor
-from datahub.utilities.sqlglot_lineage import (
+from datahub.sql_parsing.schema_resolver import SchemaResolver
+from datahub.sql_parsing.sqlglot_lineage import (
     SchemaInfo,
-    SchemaResolver,
     SqlParsingDebugInfo,
     SqlParsingResult,
-    detach_ctes,
+    infer_output_schema,
     sqlglot_lineage,
 )
+from datahub.sql_parsing.sqlglot_utils import detach_ctes
+from datahub.utilities.mapping import Constants, OperationProcessor
 from datahub.utilities.time import datetime_to_ts_millis
 from datahub.utilities.topological_sort import topological_sort
 
@@ -125,7 +126,9 @@ DBT_PLATFORM = "dbt"
 
 @dataclass
 class DBTSourceReport(StaleEntityRemovalSourceReport):
-    pass
+    sql_statements_parsed: int = 0
+    sql_parser_detach_ctes_failures: int = 0
+    sql_parser_skipped_missing_code: int = 0
 
 
 class EmitDirective(ConfigEnum):
@@ -182,17 +185,18 @@ class DBTEntitiesEnabled(ConfigModel):
 
         return values
 
-    def can_emit_node_type(self, node_type: str) -> bool:
+    def _node_type_allow_map(self):
         # Node type comes from dbt's node types.
-
-        node_type_allow_map = {
+        return {
             "model": self.models,
             "source": self.sources,
             "seed": self.seeds,
             "snapshot": self.snapshots,
             "test": self.test_definitions,
         }
-        allowed = node_type_allow_map.get(node_type)
+
+    def can_emit_node_type(self, node_type: str) -> bool:
+        allowed = self._node_type_allow_map().get(node_type)
         if allowed is None:
             return False
 
@@ -201,6 +205,11 @@ class DBTEntitiesEnabled(ConfigModel):
     @property
     def can_emit_test_results(self) -> bool:
         return self.test_results == EmitDirective.YES
+
+    def is_only_test_results(self) -> bool:
+        return self.test_results == EmitDirective.YES and all(
+            v == EmitDirective.NO for v in self._node_type_allow_map().values()
+        )
 
 
 class DBTCommonConfig(
@@ -300,7 +309,7 @@ class DBTCommonConfig(
         description="When enabled, schemas will be inferred from the dbt node definition.",
     )
     include_column_lineage: bool = Field(
-        default=False,
+        default=True,
         description="When enabled, column-level lineage will be extracted from the dbt node definition. Requires `infer_dbt_schemas` to be enabled. "
         "If you run into issues where the column name casing does not match up with properly, providing a datahub_api or using the rest sink will improve accuracy.",
     )
@@ -696,7 +705,10 @@ def get_column_type(
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
 @capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
-@capability(SourceCapability.LINEAGE_FINE, "Enabled using `include_column_lineage`")
+@capability(
+    SourceCapability.LINEAGE_FINE,
+    "Enabled by default, configure using `include_column_lineage`",
+)
 class DBTSourceBase(StatefulIngestionSourceBase):
     def __init__(self, config: DBTCommonConfig, ctx: PipelineContext, platform: str):
         super().__init__(config, ctx)
@@ -818,6 +830,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         ]
         test_nodes = [test_node for test_node in nodes if test_node.node_type == "test"]
 
+        logger.info(f"Creating dbt metadata for {len(nodes)} nodes")
         yield from self.create_platform_mces(
             non_test_nodes,
             additional_custom_props_filtered,
@@ -826,6 +839,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             self.config.platform_instance,
         )
 
+        logger.info(f"Updating {self.config.target_platform} metadata")
         yield from self.create_platform_mces(
             non_test_nodes,
             additional_custom_props_filtered,
@@ -870,6 +884,9 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         5. If we haven't already added the node's schema to the schema resolver, do that.
         """
 
+        if self.config.entities_enabled.is_only_test_results():
+            # If we're not emitting any other entities, so there's no need to infer schemas.
+            return
         if not self.config.infer_dbt_schemas:
             if self.config.include_column_lineage:
                 raise ConfigurationError(
@@ -899,6 +916,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             ),
         ):
             node = all_nodes_map[dbt_name]
+            logger.debug(f"Processing CLL/schemas for {node.dbt_name}")
 
             target_node_urn = None
             should_fetch_target_node_schema = False
@@ -943,9 +961,11 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             ):
                 schema_fields = [
                     SchemaField(
-                        fieldPath=column.name.lower()
-                        if self.config.convert_column_urns_to_lowercase
-                        else column.name,
+                        fieldPath=(
+                            column.name.lower()
+                            if self.config.convert_column_urns_to_lowercase
+                            else column.name
+                        ),
                         type=column.datahub_data_type
                         or SchemaFieldDataType(type=NullTypeClass()),
                         nativeDataType=column.data_type,
@@ -984,15 +1004,22 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                         },
                     )
                 except Exception as e:
+                    self.report.sql_parser_detach_ctes_failures += 1
+                    logger.debug(
+                        f"Failed to detach CTEs from compiled code. {node.dbt_name} will not have column lineage."
+                    )
                     sql_result = SqlParsingResult.make_from_error(e)
                 else:
                     sql_result = sqlglot_lineage(
                         preprocessed_sql, schema_resolver=schema_resolver
                     )
+                    self.report.sql_statements_parsed += 1
+            else:
+                self.report.sql_parser_skipped_missing_code += 1
 
             # Save the column lineage.
             if self.config.include_column_lineage and sql_result:
-                # We only save the debug info here. We're report errors based on it later, after
+                # We only save the debug info here. We'll report errors based on it later, after
                 # applying the configured node filters.
                 node.cll_debug_info = sql_result.debug_info
 
@@ -1014,17 +1041,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
             # If we didn't fetch the schema from the graph, use the inferred schema.
             inferred_schema_fields = None
-            if sql_result and sql_result.column_lineage:
-                inferred_schema_fields = [
-                    SchemaField(
-                        fieldPath=column_lineage.downstream.column,
-                        type=column_lineage.downstream.column_type
-                        or SchemaFieldDataType(type=NullTypeClass()),
-                        nativeDataType=column_lineage.downstream.native_column_type
-                        or "",
-                    )
-                    for column_lineage in sql_result.column_lineage
-                ]
+            if sql_result:
+                inferred_schema_fields = infer_output_schema(sql_result)
 
             # Conditionally add the inferred schema to the schema resolver.
             if (
@@ -1526,9 +1544,9 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     downstreams=[
                         mce_builder.make_schema_field_urn(node_urn, downstream)
                     ],
-                    confidenceScore=node.cll_debug_info.confidence
-                    if node.cll_debug_info
-                    else None,
+                    confidenceScore=(
+                        node.cll_debug_info.confidence if node.cll_debug_info else None
+                    ),
                 )
                 for downstream, upstreams in itertools.groupby(
                     node.upstream_cll, lambda x: x.downstream_col

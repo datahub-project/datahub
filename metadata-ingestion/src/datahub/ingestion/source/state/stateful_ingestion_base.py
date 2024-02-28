@@ -98,7 +98,7 @@ class StatefulIngestionConfigBase(GenericModel, Generic[CustomConfig]):
     )
 
 
-class StatefulLineageConfigMixin:
+class StatefulLineageConfigMixin(ConfigModel):
     enable_stateful_lineage_ingestion: bool = Field(
         default=True,
         description="Enable stateful lineage ingestion."
@@ -196,12 +196,12 @@ class StatefulIngestionSourceBase(Source):
         self.state_provider = StateProviderWrapper(config.stateful_ingestion, ctx)
 
     def warn(self, log: logging.Logger, key: str, reason: str) -> None:
-        self.report.report_warning(key, reason)
-        log.warning(f"{key} => {reason}")
+        # TODO: Remove this method.
+        self.report.warning(key, reason)
 
     def error(self, log: logging.Logger, key: str, reason: str) -> None:
-        self.report.report_failure(key, reason)
-        log.error(f"{key} => {reason}")
+        # TODO: Remove this method.
+        self.report.failure(key, reason)
 
     def close(self) -> None:
         self.state_provider.prepare_for_commit()

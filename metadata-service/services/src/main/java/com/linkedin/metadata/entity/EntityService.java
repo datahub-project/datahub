@@ -1,20 +1,19 @@
 package com.linkedin.metadata.entity;
 
 import com.linkedin.common.AuditStamp;
-import com.linkedin.common.BrowsePaths;
-import com.linkedin.common.BrowsePathsV2;
 import com.linkedin.common.VersionedUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.Entity;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
-import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.VersionedAspect;
+import com.linkedin.metadata.aspect.batch.AspectsBatch;
+import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesResult;
-import com.linkedin.metadata.entity.transactions.AspectsBatch;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.ListUrnsResult;
@@ -24,6 +23,7 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
 import java.net.URISyntaxException;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -33,16 +33,60 @@ import java.util.function.Consumer;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
-public interface EntityService {
+public interface EntityService<U extends ChangeMCP> extends AspectRetriever {
 
   /**
    * Just whether the entity/aspect exists
    *
-   * @param urn urn for the entity
-   * @param aspectName aspect for the entity
-   * @return exists or not
+   * @param urns urns for the entities
+   * @param aspectName aspect for the entity, if null, assumes key aspect
+   * @param includeSoftDelete including soft deleted entities
+   * @return set of urns with the specified aspect existing
    */
-  Boolean exists(Urn urn, String aspectName);
+  Set<Urn> exists(
+      @Nonnull final Collection<Urn> urns, @Nullable String aspectName, boolean includeSoftDelete);
+
+  /**
+   * Just whether the entity/aspect exists, prefer batched method.
+   *
+   * @param urn urn for the entity
+   * @param aspectName aspect for the entity, if null use the key aspect
+   * @param includeSoftDelete including soft deleted entities
+   * @return boolean if the entity/aspect exists
+   */
+  default boolean exists(@Nonnull Urn urn, @Nullable String aspectName, boolean includeSoftDelete) {
+    return exists(Set.of(urn), aspectName, includeSoftDelete).contains(urn);
+  }
+
+  /**
+   * Returns a set of urns of entities that exist (has materialized aspects).
+   *
+   * @param urns the list of urns of the entities to check
+   * @return a set of urns of entities that exist.
+   */
+  default Set<Urn> exists(@Nonnull final Collection<Urn> urns, boolean includeSoftDelete) {
+    return exists(urns, null, includeSoftDelete);
+  }
+
+  /**
+   * Returns a set of urns of entities that exist (has materialized aspects).
+   *
+   * @param urns the list of urns of the entities to check
+   * @return a set of urns of entities that exist.
+   */
+  default Set<Urn> exists(@Nonnull final Collection<Urn> urns) {
+    return exists(urns, true);
+  }
+
+  /**
+   * Returns whether the urn of the entity exists (has materialized aspects).
+   *
+   * @param urn the urn of the entity to check
+   * @return entities exists.
+   */
+  default boolean exists(@Nonnull Urn urn, boolean includeSoftDelete) {
+    return exists(List.of(urn), includeSoftDelete).contains(urn);
+  }
 
   /**
    * Retrieves the latest aspects corresponding to a batch of {@link Urn}s based on a provided set
@@ -119,15 +163,12 @@ public interface EntityService {
   /**
    * Retrieves the latest aspects for the given set of urns as a list of enveloped aspects
    *
-   * @param entityName name of the entity to fetch
    * @param urns set of urns to fetch
    * @param aspectNames set of aspects to fetch
    * @return a map of {@link Urn} to {@link EnvelopedAspect} object
    */
   Map<Urn, List<EnvelopedAspect>> getLatestEnvelopedAspects(
-      // TODO: entityName is unused, can we remove this as a param?
-      @Nonnull String entityName, @Nonnull Set<Urn> urns, @Nonnull Set<String> aspectNames)
-      throws URISyntaxException;
+      @Nonnull Set<Urn> urns, @Nonnull Set<String> aspectNames) throws URISyntaxException;
 
   /**
    * Retrieves the latest aspects for the given set of urns as a list of enveloped aspects
@@ -169,10 +210,7 @@ public interface EntityService {
       @Nullable SystemMetadata systemMetadata);
 
   List<UpdateAspectResult> ingestAspects(
-      @Nonnull final AspectsBatch aspectsBatch,
-      @Nonnull final AuditStamp auditStamp,
-      boolean emitMCL,
-      boolean overwrite);
+      @Nonnull final AspectsBatch aspectsBatch, boolean emitMCL, boolean overwrite);
 
   /**
    * Ingests (inserts) a new version of an entity aspect & emits a {@link
@@ -233,7 +271,7 @@ public interface EntityService {
       @Nonnull AuditStamp auditStamp,
       @Nonnull final ChangeType changeType);
 
-  RecordTemplate getLatestAspect(@Nonnull final Urn urn, @Nonnull final String aspectName);
+  // RecordTemplate getLatestAspect(@Nonnull final Urn urn, @Nonnull final String aspectName);
 
   @Deprecated
   void ingestEntities(
@@ -250,7 +288,7 @@ public interface EntityService {
       @Nonnull AuditStamp auditStamp,
       @Nonnull SystemMetadata systemMetadata);
 
-  void setRetentionService(RetentionService retentionService);
+  void setRetentionService(RetentionService<U> retentionService);
 
   AspectSpec getKeyAspectSpec(@Nonnull final Urn urn);
 
@@ -259,38 +297,12 @@ public interface EntityService {
 
   String getKeyAspectName(@Nonnull final Urn urn);
 
-  /**
-   * Generate default aspects if not present in the database.
-   *
-   * @param urn entity urn
-   * @param includedAspects aspects being written
-   * @return additional aspects to be written
-   */
-  List<Pair<String, RecordTemplate>> generateDefaultAspectsIfMissing(
-      @Nonnull final Urn urn, Map<String, RecordTemplate> includedAspects);
-
-  /**
-   * Generate default aspects if the entity key aspect is NOT in the database **AND** the key aspect
-   * is being written, present in `includedAspects`.
-   *
-   * <p>Does not automatically create key aspects.
-   *
-   * @see EntityService#generateDefaultAspectsIfMissing if key aspects need autogeneration
-   *     <p>This version is more efficient in that it only generates additional writes when a new
-   *     entity is being minted for the first time. The drawback is that it will not automatically
-   *     add key aspects, in case the producer is not bothering to ensure that the entity exists
-   *     before writing non-key aspects.
-   * @param urn entity urn
-   * @param includedAspects aspects being written
-   * @return whether key aspect exists in database and the additional aspects to be written
-   */
-  Pair<Boolean, List<Pair<String, RecordTemplate>>> generateDefaultAspectsOnFirstWrite(
-      @Nonnull final Urn urn, Map<String, RecordTemplate> includedAspects);
-
   AspectSpec getKeyAspectSpec(@Nonnull final String entityName);
 
   Set<String> getEntityAspectNames(final String entityName);
 
+  @Override
+  @Nonnull
   EntityRegistry getEntityRegistry();
 
   RollbackResult deleteAspect(
@@ -304,8 +316,7 @@ public interface EntityService {
   RollbackRunResult rollbackWithConditions(
       List<AspectRowSummary> aspectRows, Map<String, String> conditions, boolean hardDelete);
 
-  Set<IngestResult> ingestProposal(
-      AspectsBatch aspectsBatch, AuditStamp auditStamp, final boolean async);
+  Set<IngestResult> ingestProposal(AspectsBatch aspectsBatch, final boolean async);
 
   /**
    * If you have more than 1 proposal use the {AspectsBatch} method
@@ -318,29 +329,11 @@ public interface EntityService {
   IngestResult ingestProposal(
       MetadataChangeProposal proposal, AuditStamp auditStamp, final boolean async);
 
-  Boolean exists(Urn urn);
-
-  Boolean isSoftDeleted(@Nonnull final Urn urn);
-
   void setWritable(boolean canWrite);
 
-  BrowsePaths buildDefaultBrowsePath(final @Nonnull Urn urn) throws URISyntaxException;
+  RecordTemplate getLatestAspect(@Nonnull final Urn urn, @Nonnull final String aspectName);
 
-  /**
-   * Builds the default browse path V2 aspects for all entities.
-   *
-   * <p>This method currently supports datasets, charts, dashboards, and data jobs best. Everything
-   * else will have a basic "Default" folder added to their browsePathV2.
-   */
-  @Nonnull
-  BrowsePathsV2 buildDefaultBrowsePathV2(final @Nonnull Urn urn, boolean useContainerPaths)
-      throws URISyntaxException;
+  SearchIndicesService getUpdateIndicesService();
 
-  /**
-   * Allow internal use of the system entity client. Solves recursive dependencies between the
-   * EntityService and the SystemJavaEntityClient
-   *
-   * @param systemEntityClient system entity client
-   */
-  void setSystemEntityClient(SystemEntityClient systemEntityClient);
+  void setUpdateIndicesService(@Nullable SearchIndicesService updateIndicesService);
 }

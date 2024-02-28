@@ -7,6 +7,8 @@ import com.linkedin.datahub.upgrade.system.elasticsearch.BuildIndices;
 import com.linkedin.datahub.upgrade.system.elasticsearch.CleanIndices;
 import com.linkedin.datahub.upgrade.system.elasticsearch.steps.DataHubStartupStep;
 import com.linkedin.datahub.upgrade.system.entity.steps.BackfillBrowsePathsV2;
+import com.linkedin.datahub.upgrade.system.entity.steps.BackfillPolicyFields;
+import com.linkedin.datahub.upgrade.system.via.ReindexDataJobViaNodesCLL;
 import com.linkedin.metadata.dao.producer.KafkaEventProducer;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -24,11 +26,14 @@ public class SystemUpdate implements Upgrade {
       final CleanIndices cleanIndicesJob,
       final KafkaEventProducer kafkaEventProducer,
       final String version,
-      final BackfillBrowsePathsV2 backfillBrowsePathsV2) {
+      final BackfillBrowsePathsV2 backfillBrowsePathsV2,
+      final ReindexDataJobViaNodesCLL upgradeViaNodeCll,
+      final BackfillPolicyFields backfillPolicyFields) {
 
     _preStartupUpgrades = List.of(buildIndicesJob);
     _steps = List.of(new DataHubStartupStep(kafkaEventProducer, version));
-    _postStartupUpgrades = List.of(cleanIndicesJob, backfillBrowsePathsV2);
+    _postStartupUpgrades =
+        List.of(cleanIndicesJob, backfillBrowsePathsV2, upgradeViaNodeCll, backfillPolicyFields);
   }
 
   @Override

@@ -2,7 +2,7 @@ import snowflakeLogo from '../../../../images/snowflakelogo.png';
 import bigqueryLogo from '../../../../images/bigquerylogo.png';
 import redshiftLogo from '../../../../images/redshiftlogo.png';
 import kafkaLogo from '../../../../images/kafkalogo.png';
-import lookerLogo from '../../../../images/lookerlogo.png';
+import lookerLogo from '../../../../images/lookerlogo.svg';
 import tableauLogo from '../../../../images/tableaulogo.png';
 import mysqlLogo from '../../../../images/mysqllogo-2.png';
 import postgresLogo from '../../../../images/postgreslogo.png';
@@ -31,6 +31,7 @@ import mlflowLogo from '../../../../images/mlflowlogo.png';
 import dynamodbLogo from '../../../../images/dynamodblogo.png';
 import fivetranLogo from '../../../../images/fivetranlogo.png';
 import csvLogo from '../../../../images/csv-logo.png';
+import qlikLogo from '../../../../images/qliklogo.png';
 
 export const ATHENA = 'athena';
 export const ATHENA_URN = `urn:li:dataPlatform:${ATHENA}`;
@@ -103,6 +104,8 @@ export const CUSTOM = 'custom';
 export const CUSTOM_URN = `urn:li:dataPlatform:${CUSTOM}`;
 export const UNITY_CATALOG = 'unity-catalog';
 export const UNITY_CATALOG_URN = `urn:li:dataPlatform:${UNITY_CATALOG}`;
+export const DATABRICKS = 'databricks';
+export const DATABRICKS_URN = `urn:li:dataPlatform:${DATABRICKS}`;
 export const DBT_CLOUD = 'dbt-cloud';
 export const DBT_CLOUD_URN = `urn:li:dataPlatform:dbt`;
 export const VERTICA = 'vertica';
@@ -111,6 +114,8 @@ export const FIVETRAN = 'fivetran';
 export const FIVETRAN_URN = `urn:li:dataPlatform:${FIVETRAN}`;
 export const CSV = 'csv-enricher';
 export const CSV_URN = `urn:li:dataPlatform:${CSV}`;
+export const QLIK_SENSE = 'qlik-sense';
+export const QLIK_SENSE_URN = `urn:li:dataPlatform:${QLIK_SENSE}`;
 
 export const PLATFORM_URN_TO_LOGO = {
     [ATHENA_URN]: athenaLogo,
@@ -143,9 +148,11 @@ export const PLATFORM_URN_TO_LOGO = {
     [TRINO_URN]: trinoLogo,
     [SUPERSET_URN]: supersetLogo,
     [UNITY_CATALOG_URN]: databricksLogo,
+    [DATABRICKS_URN]: databricksLogo,
     [VERTICA_URN]: verticaLogo,
     [FIVETRAN_URN]: fivetranLogo,
     [CSV_URN]: csvLogo,
+    [QLIK_SENSE_URN]: qlikLogo,
 };
 
 export const SOURCE_TO_PLATFORM_URN = {

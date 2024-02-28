@@ -43,6 +43,7 @@ Custom SQL Assertions are currently supported for:
 1. Snowflake
 2. Redshift
 3. BigQuery
+4. Databricks
 
 Note that an Ingestion Source _must_ be configured with the data platform of your choice in Acryl DataHub's **Ingestion**
 tab.
@@ -116,7 +117,7 @@ The **Assertion Description**: This is a human-readable description of the Asser
 ### Prerequisites
 
 1. **Permissions**: To create or delete Custom SQL Assertions for a specific entity on DataHub, you'll need to be granted the
-   `Edit Assertions` and `Edit Monitors` privileges for the entity. This is granted to Entity owners by default.
+   `Edit Assertions`, `Edit Monitors`, **and the additional `Edit SQL Assertion Monitors`** privileges for the entity. This is granted to Entity owners by default.
 
 2. **Data Platform Connection**: In order to create a Custom SQL Assertion, you'll need to have an **Ingestion Source** configured to your
    Data Platform: Snowflake, BigQuery, or Redshift under the **Integrations** tab.
@@ -295,6 +296,65 @@ mutation createAssertionMonitor {
 This entity defines _when_ to run the check (Using CRON format - every 8th hour) and _how_ to run the check (using the Information Schema).
 
 After creating the monitor, the new assertion will start to be evaluated every 8 hours in your selected timezone.
+
+Alternatively you can use `upsertDatasetSqlAssertionMonitor` graphql endpoint for creating a Custom SQL Assertion and corresponding Monitor for a dataset. 
+
+```json
+mutation upsertDatasetSqlAssertionMonitor {
+  upsertDatasetSqlAssertionMonitor(
+    input: {
+      entityUrn: "<urn of entity being monitored>"
+      type: METRIC,
+      description: "<description of the custom assertion>",
+      statement: "<SQL query to be evaluated>",
+      operator: GREATER_THAN_OR_EQUAL_TO,
+      parameters: {
+        value: {
+          value: "100",
+          type: NUMBER
+        }
+      }
+      evaluationSchedule: {
+        timezone: "America/Los_Angeles"
+        cron: "0 */8 * * *"
+      }
+      mode: ACTIVE   
+    }
+  ) {
+    urn
+  }
+}
+```
+
+You can use same endpoint with assertion urn input to update an existing Custom SQL Assertion and corresponding Monitor.
+
+```json
+mutation upsertDatasetSqlAssertionMonitor {
+  upsertDatasetSqlAssertionMonitor(
+    assertionUrn: "<urn of assertion created in earlier query>"
+    input: {
+      entityUrn: "<urn of entity being monitored>"
+      type: METRIC,
+      description: "<description of the custom assertion>",
+      statement: "<SQL query to be evaluated>",
+      operator: GREATER_THAN_OR_EQUAL_TO,
+      parameters: {
+        value: {
+          value: "100",
+          type: NUMBER
+        }
+      }
+      evaluationSchedule: {
+        timezone: "America/Los_Angeles"
+        cron: "0 */6 * * *"
+      }
+      mode: ACTIVE   
+    }
+  ) {
+    urn
+  }
+}
+```
 
 You can delete assertions along with their monitors using GraphQL mutations: `deleteAssertion` and `deleteMonitor`.
 

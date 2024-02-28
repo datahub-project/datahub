@@ -16,6 +16,6 @@ public class ThreadPoolContainerCustomizer
     threadPoolTaskExecutor.setCorePoolSize(container.getConcurrency());
     threadPoolTaskExecutor.setMaxPoolSize(container.getConcurrency());
     threadPoolTaskExecutor.initialize();
-    container.getContainerProperties().setConsumerTaskExecutor(threadPoolTaskExecutor);
+    container.getContainerProperties().setListenerTaskExecutor(threadPoolTaskExecutor);
   }
 }

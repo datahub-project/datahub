@@ -126,9 +126,15 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
     appConfig.setAuthConfig(authConfig);
 
     final VisualConfig visualConfig = new VisualConfig();
-    if (_visualConfiguration != null && _visualConfiguration.getAssets() != null) {
-      visualConfig.setLogoUrl(_visualConfiguration.getAssets().getLogoUrl());
-      visualConfig.setFaviconUrl(_visualConfiguration.getAssets().getFaviconUrl());
+    if (_visualConfiguration != null) {
+      if (_visualConfiguration.getAssets() != null) {
+        visualConfig.setLogoUrl(_visualConfiguration.getAssets().getLogoUrl());
+        visualConfig.setFaviconUrl(_visualConfiguration.getAssets().getFaviconUrl());
+      }
+      if (_visualConfiguration.getAppTitle() != null) {
+        visualConfig.setAppTitle(_visualConfiguration.getAppTitle());
+      }
+      visualConfig.setHideGlossary(_visualConfiguration.isHideGlossary());
     }
     if (_visualConfiguration != null && _visualConfiguration.getQueriesTab() != null) {
       QueriesTabConfig queriesTabConfig = new QueriesTabConfig();
@@ -175,6 +181,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
             .setShowAcrylInfo(_featureFlags.isShowAcrylInfo())
             .setShowAccessManagement(_featureFlags.isShowAccessManagement())
             .setNestedDomainsEnabled(_featureFlags.isNestedDomainsEnabled())
+            .setPlatformBrowseV2(_featureFlags.isPlatformBrowseV2())
             .build();
 
     appConfig.setFeatureFlags(featureFlagsConfig);

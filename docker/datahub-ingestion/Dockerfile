@@ -3,29 +3,26 @@ ARG APP_ENV=full
 ARG BASE_IMAGE=acryldata/datahub-ingestion-base
 ARG DOCKER_VERSION=head
 ARG PIP_MIRROR_URL=null
-ARG DEBIAN_REPO_URL=http://deb.debian.org/debian
+ARG DEBIAN_REPO_URL=https://deb.debian.org/debian
 
 FROM $BASE_IMAGE:$DOCKER_VERSION as base
-USER 0
+USER datahub
 
-COPY ./metadata-ingestion /datahub-ingestion
-COPY ./metadata-ingestion-modules/airflow-plugin /datahub-ingestion/airflow-plugin
+COPY --chown=datahub ./metadata-ingestion /datahub-ingestion
+COPY --chown=datahub ./metadata-ingestion-modules/airflow-plugin /datahub-ingestion/airflow-plugin
 
 ARG RELEASE_VERSION
 WORKDIR /datahub-ingestion
-RUN sed -i.bak "s/__version__ = \"1!0.0.0.dev0\"/__version__ = \"$RELEASE_VERSION\"/" src/datahub/__init__.py && \
-    sed -i.bak "s/__version__ = \"1!0.0.0.dev0\"/__version__ = \"$RELEASE_VERSION\"/" airflow-plugin/src/datahub_airflow_plugin/__init__.py && \
-    cat src/datahub/__init__.py && \
-    chown -R datahub /datahub-ingestion
-
-USER datahub
-ENV PATH="/datahub-ingestion/.local/bin:$PATH"
+RUN sed -i.bak "s/__version__ = \"1\!0.0.0.dev0\"/__version__ = \"$(echo $RELEASE_VERSION|sed s/-/+/)\"/" src/datahub/__init__.py && \
+    sed -i.bak "s/__version__ = \"1\!0.0.0.dev0\"/__version__ = \"$(echo $RELEASE_VERSION|sed s/-/+/)\"/" airflow-plugin/src/datahub_airflow_plugin/__init__.py && \
+    cat src/datahub/__init__.py | grep __version__ && \
+    cat airflow-plugin/src/datahub_airflow_plugin/__init__.py | grep __version__
 
 FROM base as slim-install
 ARG PIP_MIRROR_URL
 
 RUN if [ "${PIP_MIRROR_URL}" != "null" ] ; then pip config set global.index-url ${PIP_MIRROR_URL} ; fi
-RUN pip install --no-cache --user ".[base,datahub-rest,datahub-kafka,snowflake,bigquery,redshift,mysql,postgres,hive,clickhouse,glue,dbt,looker,lookml,tableau,powerbi,superset,datahub-business-glossary]"
+RUN uv pip install --no-cache "acryl-datahub[base,datahub-rest,datahub-kafka,snowflake,bigquery,redshift,mysql,postgres,hive,clickhouse,glue,dbt,looker,lookml,tableau,powerbi,superset,datahub-business-glossary] @ ."
 
 FROM base as full-install-build
 ARG PIP_MIRROR_URL
@@ -39,14 +36,13 @@ USER datahub
 COPY ./docker/datahub-ingestion/pyspark_jars.sh .
 
 RUN if [ "${PIP_MIRROR_URL}" != "null" ] ; then pip config set global.index-url ${PIP_MIRROR_URL} ; fi
-RUN pip install --no-cache --user ".[base]" && \
-    pip install --no-cache --user "./airflow-plugin[acryl-datahub-airflow-plugin]" && \
-    pip install --no-cache --user ".[all]"
+RUN uv pip install --no-cache "acryl-datahub[base,all] @ ." "acryl-datahub-airflow-plugin[plugin-v2] @ ./airflow-plugin" && \
+    datahub --version
 RUN ./pyspark_jars.sh
 
 FROM base as full-install
 
-COPY --from=full-install-build /datahub-ingestion/.local /datahub-ingestion/.local
+COPY --from=full-install-build ${VIRTUAL_ENV} ${VIRTUAL_ENV}
 
 FROM base as dev-install
 # Dummy stage for development. Assumes code is built on your machine and mounted to this image.
@@ -55,4 +51,3 @@ FROM base as dev-install
 FROM ${APP_ENV}-install as final
 
 USER datahub
-ENV PATH="/datahub-ingestion/.local/bin:$PATH"

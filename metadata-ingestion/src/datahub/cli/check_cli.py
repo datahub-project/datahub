@@ -126,9 +126,20 @@ def metadata_diff(
     default=False,
     help="Include extra information for each plugin.",
 )
+@click.option(
+    "--source",
+    type=str,
+    default=None,
+)
 @telemetry.with_telemetry()
-def plugins(verbose: bool) -> None:
+def plugins(source: Optional[str], verbose: bool) -> None:
     """List the enabled ingestion plugins."""
+
+    if source:
+        # Quick helper for one-off checks with full stack traces.
+        source_registry.get(source)
+        click.echo(f"Source {source} is enabled.")
+        return
 
     click.secho("Sources:", bold=True)
     click.echo(source_registry.summary(verbose=verbose, col_width=25))
@@ -207,5 +218,7 @@ def sql_lineage(
     )
 
     logger.debug("Sql parsing debug info: %s", lineage.debug_info)
+    if lineage.debug_info.error:
+        logger.debug("Sql parsing error details", exc_info=lineage.debug_info.error)
 
     click.echo(lineage.json(indent=4))

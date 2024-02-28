@@ -6,6 +6,7 @@ from functools import lru_cache
 from typing import Dict, List, MutableMapping, Optional, Sequence, Set, Union, cast
 
 import looker_sdk
+import looker_sdk.rtl.requests_transport as looker_requests_transport
 from looker_sdk.error import SDKError
 from looker_sdk.rtl.transport import TransportOptions
 from looker_sdk.sdk.api40.models import (
@@ -16,11 +17,13 @@ from looker_sdk.sdk.api40.models import (
     Look,
     LookmlModel,
     LookmlModelExplore,
+    LookWithQuery,
     Query,
     User,
     WriteQuery,
 )
 from pydantic import BaseModel, Field
+from requests.adapters import HTTPAdapter
 
 from datahub.configuration import ConfigModel
 from datahub.configuration.common import ConfigurationError
@@ -46,6 +49,7 @@ class LookerAPIConfig(ConfigModel):
         None,
         description="Populates the [TransportOptions](https://github.com/looker-open-source/sdk-codegen/blob/94d6047a0d52912ac082eb91616c1e7c379ab262/python/looker_sdk/rtl/transport.py#L70) struct for looker client",
     )
+    max_retries: int = Field(3, description="Number of retries for Looker API calls")
 
 
 class LookerAPIStats(BaseModel):
@@ -61,6 +65,7 @@ class LookerAPIStats(BaseModel):
     all_looks_calls: int = 0
     all_models_calls: int = 0
     get_query_calls: int = 0
+    get_look_calls: int = 0
     search_looks_calls: int = 0
     search_dashboards_calls: int = 0
 
@@ -76,6 +81,20 @@ class LookerAPI:
         os.environ["LOOKERSDK_BASE_URL"] = config.base_url
 
         self.client = looker_sdk.init40()
+
+        # Somewhat hacky mechanism for enabling retries on the Looker SDK.
+        # Unfortunately, it doesn't expose a cleaner way to do this.
+        if isinstance(
+            self.client.transport, looker_requests_transport.RequestsTransport
+        ):
+            adapter = HTTPAdapter(
+                max_retries=self.config.max_retries,
+            )
+            self.client.transport.session.mount("http://", adapter)
+            self.client.transport.session.mount("https://", adapter)
+        elif self.config.max_retries > 0:
+            logger.warning("Unable to configure retries on the Looker SDK transport.")
+
         self.transport_options = (
             config.transport_options.get_transport_options()
             if config.transport_options is not None
@@ -114,7 +133,7 @@ class LookerAPI:
 
         return permissions
 
-    @lru_cache(maxsize=2000)
+    @lru_cache(maxsize=1000)
     def get_user(self, id_: str, user_fields: str) -> Optional[User]:
         self.client_stats.user_calls += 1
         try:
@@ -234,6 +253,14 @@ class LookerAPI:
         self.client_stats.get_query_calls += 1
         return self.client.query(
             query_id=query_id,
+            fields=self.__fields_mapper(fields),
+            transport_options=self.transport_options,
+        )
+
+    def get_look(self, look_id: str, fields: Union[str, List[str]]) -> LookWithQuery:
+        self.client_stats.get_look_calls += 1
+        return self.client.look(
+            look_id=look_id,
             fields=self.__fields_mapper(fields),
             transport_options=self.transport_options,
         )

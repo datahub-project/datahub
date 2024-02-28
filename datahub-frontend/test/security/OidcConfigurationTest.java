@@ -1,5 +1,6 @@
 package security;
 
+import static auth.AuthUtils.*;
 import static auth.sso.oidc.OidcConfigs.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -24,6 +25,7 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 import org.pac4j.oidc.client.OidcClient;
+import org.json.JSONObject;
 
 public class OidcConfigurationTest {
 
@@ -311,8 +313,32 @@ public class OidcConfigurationTest {
   public void readTimeoutPropagation() {
 
     CONFIG.withValue(OIDC_READ_TIMEOUT, ConfigValueFactory.fromAnyRef("10000"));
-    OidcConfigs oidcConfigs = new OidcConfigs(CONFIG);
+    OidcConfigs.Builder oidcConfigsBuilder = new OidcConfigs.Builder();
+    oidcConfigsBuilder.from(CONFIG);
+    OidcConfigs oidcConfigs = oidcConfigsBuilder.build();
     OidcProvider oidcProvider = new OidcProvider(oidcConfigs);
     assertEquals(10000, ((OidcClient) oidcProvider.client()).getConfiguration().getReadTimeout());
+  }
+
+  @Test
+  public void readPreferredJwsAlgorithmPropagationFromConfig() {
+    final String SSO_SETTINGS_JSON_STR = new JSONObject().put(PREFERRED_JWS_ALGORITHM, "HS256").toString();
+    CONFIG.withValue(OIDC_PREFERRED_JWS_ALGORITHM, ConfigValueFactory.fromAnyRef("RS256"));
+    OidcConfigs.Builder oidcConfigsBuilder = new OidcConfigs.Builder();
+    oidcConfigsBuilder.from(CONFIG, SSO_SETTINGS_JSON_STR);
+    OidcConfigs oidcConfigs = new OidcConfigs(oidcConfigsBuilder);
+    OidcProvider oidcProvider = new OidcProvider(oidcConfigs);
+    assertEquals("RS256", ((OidcClient) oidcProvider.client()).getConfiguration().getPreferredJwsAlgorithm().toString());
+  }
+
+  @Test
+  public void readPreferredJwsAlgorithmPropagationFromJSON() {
+    final String SSO_SETTINGS_JSON_STR = new JSONObject().put(PREFERRED_JWS_ALGORITHM, "Unused").put(PREFERRED_JWS_ALGORITHM_2, "HS256").toString();
+    CONFIG.withValue(OIDC_PREFERRED_JWS_ALGORITHM, ConfigValueFactory.fromAnyRef("RS256"));
+    OidcConfigs.Builder oidcConfigsBuilder = new OidcConfigs.Builder();
+    oidcConfigsBuilder.from(CONFIG, SSO_SETTINGS_JSON_STR);
+    OidcConfigs oidcConfigs = new OidcConfigs(oidcConfigsBuilder);
+    OidcProvider oidcProvider = new OidcProvider(oidcConfigs);
+    assertEquals("HS256", ((OidcClient) oidcProvider.client()).getConfiguration().getPreferredJwsAlgorithm().toString());
   }
 }

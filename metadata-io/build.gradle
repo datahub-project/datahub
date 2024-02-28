@@ -1,5 +1,7 @@
-apply plugin: 'java-library'
-apply plugin: 'org.hidetake.swagger.generator'
+plugins {
+  id 'java-library'
+  id 'pegasus'
+}
 
 configurations {
   enhance
@@ -46,8 +48,8 @@ dependencies {
   implementation externalDependency.ebeanDdl
   implementation externalDependency.opentelemetryAnnotations
   implementation externalDependency.resilience4j
-  api externalDependency.springContext
-  implementation externalDependency.swaggerAnnotations
+  // Newer Spring libraries require JDK17 classes, allow for JDK11
+  compileOnly externalDependency.springBootAutoconfigureJdk11
   implementation(externalDependency.mixpanel) {
     exclude group: 'org.json', module: 'json'
   }
@@ -62,7 +64,10 @@ dependencies {
   testImplementation externalDependency.h2
   testImplementation externalDependency.mysqlConnector
   testImplementation externalDependency.neo4jHarness
-  testImplementation (externalDependency.neo4jApoc) {
+  testImplementation (externalDependency.neo4jApocCore) {
+    exclude group: 'org.yaml', module: 'snakeyaml'
+  }
+  testImplementation (externalDependency.neo4jApocCommon) {
     exclude group: 'org.yaml', module: 'snakeyaml'
   }
   testImplementation externalDependency.mockito

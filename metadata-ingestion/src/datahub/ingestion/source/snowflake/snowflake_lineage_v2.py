@@ -46,12 +46,9 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     UpstreamLineage,
 )
 from datahub.metadata.schema_classes import DatasetLineageTypeClass, UpstreamClass
+from datahub.sql_parsing.schema_resolver import SchemaResolver
+from datahub.sql_parsing.sqlglot_lineage import SqlParsingResult, sqlglot_lineage
 from datahub.utilities.perf_timer import PerfTimer
-from datahub.utilities.sqlglot_lineage import (
-    SchemaResolver,
-    SqlParsingResult,
-    sqlglot_lineage,
-)
 from datahub.utilities.time import ts_millis_to_datetime
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -107,16 +104,20 @@ class SnowflakeLineageExtractor(
     def get_time_window(self) -> Tuple[datetime, datetime]:
         if self.redundant_run_skip_handler:
             return self.redundant_run_skip_handler.suggest_run_time_window(
-                self.config.start_time
-                if not self.config.ignore_start_time_lineage
-                else ts_millis_to_datetime(0),
+                (
+                    self.config.start_time
+                    if not self.config.ignore_start_time_lineage
+                    else ts_millis_to_datetime(0)
+                ),
                 self.config.end_time,
             )
         else:
             return (
-                self.config.start_time
-                if not self.config.ignore_start_time_lineage
-                else ts_millis_to_datetime(0),
+                (
+                    self.config.start_time
+                    if not self.config.ignore_start_time_lineage
+                    else ts_millis_to_datetime(0)
+                ),
                 self.config.end_time,
             )
 
@@ -153,9 +154,11 @@ class SnowflakeLineageExtractor(
         if self.redundant_run_skip_handler:
             # Update the checkpoint state for this run.
             self.redundant_run_skip_handler.update_state(
-                self.config.start_time
-                if not self.config.ignore_start_time_lineage
-                else ts_millis_to_datetime(0),
+                (
+                    self.config.start_time
+                    if not self.config.ignore_start_time_lineage
+                    else ts_millis_to_datetime(0)
+                ),
                 self.config.end_time,
             )
 
@@ -353,13 +356,13 @@ class SnowflakeLineageExtractor(
 
             self._populate_external_lineage_from_copy_history(discovered_tables)
             logger.info(
-                "Done populating external lineage from copy history."
+                "Done populating external lineage from copy history. "
                 f"Found {self.report.num_external_table_edges_scanned} external lineage edges so far."
             )
 
             self._populate_external_lineage_from_show_query(discovered_tables)
             logger.info(
-                "Done populating external lineage from show external tables."
+                "Done populating external lineage from show external tables. "
                 f"Found {self.report.num_external_table_edges_scanned} external lineage edges so far."
             )
 
@@ -629,9 +632,11 @@ class SnowflakeLineageExtractor(
         if (
             self.redundant_run_skip_handler
             and self.redundant_run_skip_handler.should_skip_this_run(
-                cur_start_time=self.config.start_time
-                if not self.config.ignore_start_time_lineage
-                else ts_millis_to_datetime(0),
+                cur_start_time=(
+                    self.config.start_time
+                    if not self.config.ignore_start_time_lineage
+                    else ts_millis_to_datetime(0)
+                ),
                 cur_end_time=self.config.end_time,
             )
         ):

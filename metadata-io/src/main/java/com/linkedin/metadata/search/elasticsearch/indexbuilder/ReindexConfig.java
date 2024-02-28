@@ -11,6 +11,7 @@ import com.google.common.collect.Maps;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -65,6 +66,8 @@ public class ReindexConfig {
   private final boolean requiresApplyMappings;
   private final boolean isPureMappingsAddition;
   private final boolean isSettingsReindex;
+  private final boolean hasNewStructuredProperty;
+  private final boolean isPureStructuredProperty;
 
   public static ReindexConfigBuilder builder() {
     return new CalculatedBuilder();
@@ -89,6 +92,14 @@ public class ReindexConfig {
     }
 
     private ReindexConfigBuilder isSettingsReindexRequired(boolean ignored) {
+      return this;
+    }
+
+    private ReindexConfigBuilder hasNewStructuredProperty(boolean ignored) {
+      return this;
+    }
+
+    private ReindexConfigBuilder isPureStructuredProperty(boolean ignored) {
       return this;
     }
 
@@ -141,6 +152,15 @@ public class ReindexConfig {
         super.requiresApplyMappings =
             !mappingsDiff.entriesDiffering().isEmpty()
                 || !mappingsDiff.entriesOnlyOnRight().isEmpty();
+        super.isPureStructuredProperty =
+            mappingsDiff
+                    .entriesDiffering()
+                    .keySet()
+                    .equals(Set.of(STRUCTURED_PROPERTY_MAPPING_FIELD))
+                || mappingsDiff
+                    .entriesOnlyOnRight()
+                    .keySet()
+                    .equals(Set.of(STRUCTURED_PROPERTY_MAPPING_FIELD));
         super.isPureMappingsAddition =
             super.requiresApplyMappings
                 && mappingsDiff.entriesDiffering().isEmpty()
@@ -157,6 +177,19 @@ public class ReindexConfig {
               super.name,
               mappingsDiff.entriesDiffering());
         }
+        super.hasNewStructuredProperty =
+            (mappingsDiff.entriesDiffering().containsKey(STRUCTURED_PROPERTY_MAPPING_FIELD)
+                    || mappingsDiff
+                        .entriesOnlyOnRight()
+                        .containsKey(STRUCTURED_PROPERTY_MAPPING_FIELD))
+                && getOrDefault(
+                            super.currentMappings,
+                            List.of("properties", STRUCTURED_PROPERTY_MAPPING_FIELD, "properties"))
+                        .size()
+                    < getOrDefault(
+                            super.targetMappings,
+                            List.of("properties", STRUCTURED_PROPERTY_MAPPING_FIELD, "properties"))
+                        .size();
 
         /* Consider analysis and settings changes */
         super.requiresApplySettings = !isSettingsEqual() || !isAnalysisEqual();

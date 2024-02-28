@@ -72,8 +72,10 @@ describe("create and manage group", () => {
         cy.focused().clear().type(`Test group EDITED ${test_id}{enter}`);
         cy.waitTextVisible("Name Updated");
         cy.contains(`Test group EDITED ${test_id}`).should("be.visible");
-        cy.contains("Test group description").find('[aria-label="edit"]').click();
-        cy.focused().type(" EDITED{enter}");
+        cy.get('[data-testid="edit-icon"]').click();
+        cy.waitTextVisible("Edit Description");
+        cy.get("#description").should("be.visible").type(" EDITED");
+        cy.get("#updateGroupButton").click();
         cy.waitTextVisible("Changes saved.");
         cy.contains("Test group description EDITED").should("be.visible");
         cy.clickOptionWithText("Add Owners");
@@ -104,10 +106,19 @@ describe("create and manage group", () => {
         cy.waitTextVisible(username);  
     });
 
+    it("assign role to group ", () => {
+        cy.loginWithCredentials();
+        cy.visit("/settings/identities/groups");
+        cy.get(`[href="/group/urn:li:corpGroup:${test_id}"]`).next().click()
+        cy.get('.ant-select-item-option').contains('Admin').click()
+        cy.get('button.ant-btn-primary').contains('OK').click();
+        cy.get(`[href="/group/urn:li:corpGroup:${test_id}"]`).waitTextVisible('Admin');
+    });
+
     it("remove group", () => {
         cy.loginWithCredentials();
         cy.visit("/settings/identities/groups");
-        cy.get(`[href="/group/urn:li:corpGroup:${test_id}"]`).next().click();
+        cy.get(`[href="/group/urn:li:corpGroup:${test_id}"]`).openThreeDotDropdown()
         cy.clickOptionWithText("Delete");
         cy.clickOptionWithText("Yes");
         cy.waitTextVisible("Deleted Group!"); 
