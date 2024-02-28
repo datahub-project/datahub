@@ -187,6 +187,12 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             if optional_sp:
                 yield optional_sp
 
+    def groups(self):
+        group_list: List[str] = []
+        for group in self._workspace_client.groups.list():
+            group_list.append(str(group.display_name))
+        return group_list
+
     def workspace_notebooks(self) -> Iterable[Notebook]:
         for obj in self._workspace_client.workspace.list("/", recursive=True):
             if obj.object_type == ObjectType.NOTEBOOK and obj.object_id and obj.path:
