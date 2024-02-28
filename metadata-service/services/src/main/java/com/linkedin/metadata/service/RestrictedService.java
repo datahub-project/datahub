@@ -3,7 +3,6 @@ package com.linkedin.metadata.service;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.secret.SecretService;
-
 import javax.annotation.Nonnull;
 
 public class RestrictedService {
@@ -27,5 +26,4 @@ public class RestrictedService {
     final String encryptedUrn = restrictedUrn.getId();
     return UrnUtils.getUrn(this._secretService.decrypt(encryptedUrn));
   }
-
 }
