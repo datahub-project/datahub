@@ -1,4 +1,4 @@
-package com.linkedin.datahub.upgrade.system.entity.steps;
+package com.linkedin.datahub.upgrade.system.policyfields;
 
 import static com.linkedin.metadata.Constants.*;
 
@@ -16,7 +16,6 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
@@ -30,6 +29,7 @@ import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.policy.DataHubPolicyInfo;
+import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.util.Collections;
 import java.util.function.Function;
@@ -44,16 +44,20 @@ import org.jetbrains.annotations.NotNull;
 public class BackfillPolicyFieldsStep implements UpgradeStep {
   private static final String UPGRADE_ID = "BackfillPolicyFieldsStep";
   private static final Urn UPGRADE_ID_URN = BootstrapStep.getUpgradeUrn(UPGRADE_ID);
+
+  private final OperationContext opContext;
   private final boolean reprocessEnabled;
   private final Integer batchSize;
   private final EntityService<?> entityService;
   private final SearchService _searchService;
 
   public BackfillPolicyFieldsStep(
+      OperationContext opContext,
       EntityService<?> entityService,
       SearchService searchService,
       boolean reprocessEnabled,
       Integer batchSize) {
+    this.opContext = opContext;
     this.entityService = entityService;
     this._searchService = searchService;
     this.reprocessEnabled = reprocessEnabled;
@@ -108,7 +112,8 @@ public class BackfillPolicyFieldsStep implements UpgradeStep {
       return false;
     }
 
-    boolean previouslyRun = entityService.exists(UPGRADE_ID_URN, true);
+    boolean previouslyRun =
+        entityService.exists(UPGRADE_ID_URN, DATA_HUB_UPGRADE_RESULT_ASPECT_NAME, true);
     if (previouslyRun) {
       log.info("{} was already run. Skipping.", id());
     }
@@ -120,18 +125,20 @@ public class BackfillPolicyFieldsStep implements UpgradeStep {
     final Filter filter = backfillPolicyFieldFilter();
     final ScrollResult scrollResult =
         _searchService.scrollAcrossEntities(
+            opContext.withSearchFlags(
+                flags ->
+                    flags
+                        .setFulltext(true)
+                        .setSkipCache(true)
+                        .setSkipHighlighting(true)
+                        .setSkipAggregates(true)),
             ImmutableList.of(Constants.POLICY_ENTITY_NAME),
             "*",
             filter,
             null,
             scrollId,
             null,
-            batchSize,
-            new SearchFlags()
-                .setFulltext(true)
-                .setSkipCache(true)
-                .setSkipHighlighting(true)
-                .setSkipAggregates(true));
+            batchSize);
 
     if (scrollResult.getNumEntities() == 0 || scrollResult.getEntities().isEmpty()) {
       return null;
