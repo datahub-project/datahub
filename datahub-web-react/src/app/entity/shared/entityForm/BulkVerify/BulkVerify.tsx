@@ -1,0 +1,171 @@
+import React, { useState } from 'react';
+
+import styled from 'styled-components';
+import { useParams } from 'react-router-dom';
+
+import SearchFilters from '../../../../search/filters/SearchFilters';
+import { SearchResults } from '../../../../search/SearchResults';
+import { SearchCfg } from '../../../../../conf';
+import { Entity } from '../../../../../types.generated';
+import { PreviewType } from '../../../Entity';
+
+import useGetSearchQueryInputs from '../../../../search/useGetSearchQueryInputs';
+import useSearchPage from '../../../../search/useSearchPage';
+import useFilterMode from '../../../../search/filters/useFilterMode';
+import { FormResponsesFilter, useEntityFormContext } from '../EntityFormContext';
+import { useIsSearchV2 } from '../../../../search/useSearchAndBrowseVersion';
+import { OnboardingTour } from '../../../../onboarding/OnboardingTour';
+import {
+    FORM_BULK_VERIFY_ID,
+    FORM_BULK_VERIFY_INTRO_ID,
+    FORM_CHECK_RESPONSES_ID,
+} from '../../../../onboarding/config/FormOnboardingConfig';
+
+import { extractTypeFromUrn } from '../../utils';
+
+import { BulkVerifyEntityModal } from './BulkVerifyEntityModal';
+
+import { EmptyStates } from '../EmptyStates';
+
+const FormByQuestionWrapper = styled.div`
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+`;
+
+interface Props {
+    closeFormModal: () => void;
+}
+
+export default function BulkVerify({ closeFormModal }: Props) {
+    const { urn: paramUrn }: any = useParams();
+
+    const {
+        refetch,
+        search: {
+            results,
+            resultItems,
+            resultItemCount,
+            error,
+            loading,
+        },
+        entity: {
+            selectedEntities,
+            setSelectedEntity,
+            setSelectedEntities,
+            setNumSubmittedEntities
+        },
+        filter: {
+            setFormResponsesFilters,
+        },
+    } = useEntityFormContext();
+
+    const showSearchFiltersV2 = useIsSearchV2();
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const { query, unionType, filters, viewUrn, page } = useGetSearchQueryInputs();
+    const { filterMode, setFilterMode } = useFilterMode(filters, unionType);
+    const [numResultsPerPage, setNumResultsPerPage] = useState(SearchCfg.RESULTS_PER_PAGE);
+
+    const {
+        isSelectMode,
+        setIsSelectMode,
+        downloadSearchResults,
+        onChangeFilters,
+        onChangeUnionType,
+        onChangePage,
+        onChangeSelectAll,
+    } = useSearchPage({
+        searchResults: resultItems,
+        currentPath: window.location.pathname,
+        selectedEntities,
+        setSelectedEntities,
+        defaultIsSelectMode: true,
+    });
+
+    const clearAllFilters = () => {
+        setFormResponsesFilters([]);
+        onChangeFilters([]);
+    }
+
+    const openModal = () => setIsModalOpen(true);
+    const closeModal = () => {
+        const extractedUrn = paramUrn;
+        if (extractedUrn) {
+            const extractedType = extractTypeFromUrn(extractedUrn);
+            setSelectedEntity({
+                urn: extractedUrn,
+                type: extractedType,
+            });
+        }
+        closeFormModal();
+    };
+
+    const closeViewResponseModal = () => setIsModalOpen(false);
+
+    const handleViewRemaining = () => {
+        setFormResponsesFilters([FormResponsesFilter.INCOMPLETE]);
+        onChangeFilters([]);
+        setSelectedEntities([]);
+        setNumSubmittedEntities(0);
+    };
+
+    const handleCardClick = (entity: Entity) => {
+        setSelectedEntity(entity);
+        openModal();
+    };
+
+    return (
+        <>
+            {!!resultItemCount && (
+                <OnboardingTour stepIds={[FORM_BULK_VERIFY_INTRO_ID, FORM_CHECK_RESPONSES_ID, FORM_BULK_VERIFY_ID]} />
+            )}
+            <FormByQuestionWrapper>
+                {showSearchFiltersV2 && (
+                    <SearchFilters
+                        loading={loading}
+                        availableFilters={loading ? [] : results?.searchAcrossEntities?.facets || []}
+                        activeFilters={filters}
+                        unionType={unionType}
+                        mode={filterMode}
+                        onChangeFilters={onChangeFilters}
+                        onClearFilters={clearAllFilters}
+                        onChangeUnionType={onChangeUnionType}
+                        onChangeMode={setFilterMode}
+                    />
+                )}
+                <SearchResults
+                    unionType={unionType}
+                    downloadSearchResults={downloadSearchResults}
+                    page={page}
+                    query={query}
+                    viewUrn={viewUrn || undefined}
+                    error={error}
+                    searchResponse={loading ? undefined :results?.searchAcrossEntities}
+                    facets={results?.searchAcrossEntities?.facets}
+                    suggestions={results?.searchAcrossEntities?.suggestions || []}
+                    selectedFilters={filters}
+                    loading={loading}
+                    onChangeFilters={onChangeFilters}
+                    onChangeUnionType={onChangeUnionType}
+                    onChangePage={onChangePage}
+                    numResultsPerPage={numResultsPerPage}
+                    setNumResultsPerPage={setNumResultsPerPage}
+                    isSelectMode={isSelectMode}
+                    selectedEntities={selectedEntities}
+                    setSelectedEntities={setSelectedEntities}
+                    setIsSelectMode={setIsSelectMode}
+                    onChangeSelectAll={onChangeSelectAll}
+                    refetch={refetch}
+                    previewType={PreviewType.BULK_VERIFY}
+                    onCardClick={handleCardClick}
+                    customSection={<EmptyStates closeModal={closeModal} handleViewRemaining={handleViewRemaining} />}
+                    showCustomSection={resultItemCount === 0}
+                    shouldHideSuggestions
+                    onClickExploreAll={clearAllFilters}
+                    onClickClearFilters={clearAllFilters}
+                />
+            </FormByQuestionWrapper>
+            <BulkVerifyEntityModal isOpen={isModalOpen} onClose={closeViewResponseModal} />
+        </>
+    );
+}

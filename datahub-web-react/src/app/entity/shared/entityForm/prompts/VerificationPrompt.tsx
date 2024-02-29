@@ -26,9 +26,10 @@ const VerifyButton = styled(Button)`
 interface Props {
     formUrn: string;
     associatedUrn?: string;
+    shouldShowVerificationPrompt?: boolean;
 }
 
-export default function VerificationPrompt({ formUrn, associatedUrn }: Props) {
+export default function VerificationPrompt({ formUrn, associatedUrn, shouldShowVerificationPrompt = false }: Props) {
     const urn = useMutationUrn();
     const { refetch } = useEntityContext();
     const [verifyFormMutation] = useVerifyFormMutation();
@@ -50,7 +51,7 @@ export default function VerificationPrompt({ formUrn, associatedUrn }: Props) {
             block: 'start',
             inline: 'nearest',
         });
-    }, []);
+    }, [shouldShowVerificationPrompt]);
 
     return (
         <>

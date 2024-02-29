@@ -1,6 +1,11 @@
 import React from 'react';
 import styled from 'styled-components';
 import AppLogoLink from '../../../../shared/AppLogoLink';
+import EntityNavigation from './EntityNavigation';
+import { FormView, useEntityFormContext } from '../EntityFormContext';
+import FormViewToggle from './FormViewToggle';
+import PromptNavigation from './PromptNavigation';
+import BulkVerifyHeader from '../BulkVerify/BulkVerifyHeader';
 
 const Header = styled.div`
     padding: 12px 24px;
@@ -27,6 +32,8 @@ const TitleWrapper = styled.div`
 `;
 
 export default function FormPageHeader() {
+    const { form: { formView } } = useEntityFormContext();
+
     return (
         <StyledDivider>
             <Header>
@@ -34,7 +41,11 @@ export default function FormPageHeader() {
                     <AppLogoLink />
                     <HeaderText>Complete Documentation Requests</HeaderText>
                 </TitleWrapper>
+                <FormViewToggle />
             </Header>
+            {formView === FormView.BY_ENTITY && <EntityNavigation />}
+            {formView === FormView.BY_QUESTION && <PromptNavigation />}
+            {formView === FormView.BULK_VERIFY && <BulkVerifyHeader />}
         </StyledDivider>
     );
 }

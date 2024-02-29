@@ -18,6 +18,8 @@ import NumberInput from './NumberInput';
 import UrnInput from './UrnInput/UrnInput';
 import CompletedPromptAuditStamp from './CompletedPromptAuditStamp';
 import { applyOpacity } from '../../../../../shared/styleUtils';
+import { useEntityFormContext } from '../../EntityFormContext';
+import BulkSubmissionButton from './BulkSubmissionButton';
 import usePromptCompletionInfo from '../usePromptCompletionInfo';
 
 const PromptWrapper = styled.div<{ displayBulkStyles?: boolean }>`
@@ -94,6 +96,11 @@ export default function StructuredPropertyPrompt({
         submitStructuredPropertyResponse,
         updateSelectedValues,
     } = useStructuredPropertyPrompt({ prompt, submitResponse, field });
+
+    const {
+        prompt: { displayBulkPromptStyles }, entity: { selectedEntities }
+    } = useEntityFormContext();
+
     const { isComplete, completedByName, completedByTime } = usePromptCompletionInfo({
         prompt,
         field,
@@ -104,17 +111,20 @@ export default function StructuredPropertyPrompt({
     if (!structuredProperty) return null;
 
     const { displayName, description, allowedValues, cardinality, valueType } = structuredProperty.definition;
-    const showSaveButton = hasEditedPrompt && selectedValues.length > 0;
-    const showConfirmButton = !hasEditedPrompt && !isComplete && selectedValues.length > 0;
+    const showSaveButton = !displayBulkPromptStyles && hasEditedPrompt && selectedValues.length > 0;
+    const showConfirmButton = !displayBulkPromptStyles && !hasEditedPrompt && !isComplete && selectedValues.length > 0;
+
 
     return (
         <>
-            <PromptWrapper>
+            <PromptWrapper displayBulkStyles={displayBulkPromptStyles}>
                 <PromptInputWrapper>
-                    <PromptTitle>
+                    <PromptTitle displayBulkStyles={displayBulkPromptStyles}>
                         {promptNumber !== undefined && <>{promptNumber}. </>}
                         {displayName}
-                        {prompt.required && <RequiredText>required</RequiredText>}
+                        {prompt.required && (
+                            <RequiredText displayBulkStyles={displayBulkPromptStyles}>required</RequiredText>
+                        )}
                     </PromptTitle>
                     {description && <PromptSubTitle>{description}</PromptSubTitle>}
                     <InputSection>
@@ -151,10 +161,16 @@ export default function StructuredPropertyPrompt({
                             />
                         )}
                         {!allowedValues && valueType.info.type === StdDataType.Date && (
-                            <DateInput selectedValues={selectedValues} updateSelectedValues={updateSelectedValues} />
+                            <DateInput
+                                selectedValues={selectedValues}
+                                updateSelectedValues={updateSelectedValues}
+                            />
                         )}
                         {!allowedValues && valueType.info.type === StdDataType.Number && (
-                            <NumberInput selectedValues={selectedValues} updateSelectedValues={updateSelectedValues} />
+                            <NumberInput
+                                selectedValues={selectedValues}
+                                updateSelectedValues={updateSelectedValues}
+                            />
                         )}
                         {!allowedValues && valueType.info.type === StdDataType.Urn && (
                             <UrnInput
@@ -163,9 +179,15 @@ export default function StructuredPropertyPrompt({
                                 updateSelectedValues={updateSelectedValues}
                             />
                         )}
+                        {displayBulkPromptStyles && (
+                            <BulkSubmissionButton
+                                isDisabled={!selectedValues.length || !selectedEntities.length}
+                                submitResponse={submitStructuredPropertyResponse}
+                            />
+                        )}
                     </InputSection>
                 </PromptInputWrapper>
-                {isComplete && !hasEditedPrompt && (
+                {isComplete && !hasEditedPrompt && !displayBulkPromptStyles && (
                     <CompletedPromptAuditStamp completedByName={completedByName} completedByTime={completedByTime} />
                 )}
             </PromptWrapper>

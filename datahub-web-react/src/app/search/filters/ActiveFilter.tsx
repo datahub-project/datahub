@@ -10,7 +10,7 @@ import useGetBrowseV2LabelOverride from './useGetBrowseV2LabelOverride';
 import { useFilterRendererRegistry } from './render/useFilterRenderer';
 import { IconSpacer, Label } from './styledComponents';
 
-const ActiveFilterWrapper = styled.div`
+export const ActiveFilterWrapper = styled.div`
     border: 1px solid ${ANTD_GRAY[5]};
     border-radius: 4px;
     padding: 2px 8px;
@@ -21,7 +21,7 @@ const ActiveFilterWrapper = styled.div`
     margin: 8px 8px 0 0;
 `;
 
-const StyledButton = styled(Button)`
+export const StyledButton = styled(Button)`
     border: none;
     box-shadow: none;
     padding: 0;

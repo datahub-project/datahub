@@ -285,7 +285,7 @@ export class DatasetEntity implements Entity<Dataset> {
         );
     };
 
-    renderSearch = (result: SearchResult) => {
+    renderSearch = (result: SearchResult, previewType?: PreviewType, onCardClick?: React.MouseEventHandler) => {
         const data = result.entity as Dataset;
         const genericProperties = this.getGenericEntityProperties(data);
 
@@ -324,6 +324,8 @@ export class DatasetEntity implements Entity<Dataset> {
                 health={data.health}
                 degree={(result as any).degree}
                 paths={(result as any).paths}
+                previewType={previewType}
+                onClick={onCardClick}
             />
         );
     };

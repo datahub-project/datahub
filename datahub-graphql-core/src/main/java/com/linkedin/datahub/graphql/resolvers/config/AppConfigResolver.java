@@ -202,6 +202,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
             .setPlatformBrowseV2(_featureFlags.isPlatformBrowseV2())
             .setThemeV2(_featureFlags.isThemeV2())
             .setLineageGraphV2(_featureFlags.isLineageGraphV2())
+            .setTaskCenterEnabled(_featureFlags.isTaskCenterEnabled())
             .setMetadataShareEnabled(_featureFlags.isMetadataShareEnabled())
             .build();
 

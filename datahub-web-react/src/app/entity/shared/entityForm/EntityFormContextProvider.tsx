@@ -1,13 +1,16 @@
 import React, { useEffect, useState } from 'react';
-import { EntityFormContext, FormView } from './EntityFormContext';
+
 import { useEntityContext } from '../EntityContext';
-import { Entity } from '../../../../types.generated';
 import { useGetDatasetQuery } from '../../../../graphql/dataset.generated';
-import { EntityAndType, GenericEntityProperties } from '../types';
-import { getFormAssociation, isFormVerificationType } from '../containers/profile/sidebar/FormInfo/utils';
+import { useEntityFormDataFactory } from './entityFormDataFactory';
 import usePrevious from '../../../shared/usePrevious';
+
+import { EntityFormContext, FormView } from './EntityFormContext';
+import { Entity, FormType } from '../../../../types.generated';
+import { EntityAndType, GenericEntityProperties } from '../types';
+
+import { getBulkByQuestionPrompts } from '../containers/profile/sidebar/FormInfo/utils';
 import { SCHEMA_FIELD_PROMPT_TYPES } from './constants';
-import { useEntityRegistry } from '../../../useEntityRegistry';
 
 interface Props {
     children: React.ReactNode;
@@ -15,65 +18,256 @@ interface Props {
 }
 
 export default function EntityFormContextProvider({ children, formUrn }: Props) {
-    const entityRegistry = useEntityRegistry();
+    // Import external contexts
     const { entityData, refetch: refetchEntityProfile, loading: profileLoading } = useEntityContext();
-    const formAssociation = getFormAssociation(formUrn, entityData);
-    const initialPromptId =
-        formAssociation?.form.info.prompts.filter((prompt) => !SCHEMA_FIELD_PROMPT_TYPES.includes(prompt.type))[0]
-            ?.id || null;
-    const isVerificationType = isFormVerificationType(entityData, formUrn);
+
+    /* 
+    * State setup
+    */
+
     const [formView, setFormView] = useState<FormView>(FormView.BY_ENTITY);
-    const [selectedEntity, setSelectedEntity] = useState<Entity>(entityData as Entity);
-    const [selectedPromptId, setSelectedPromptId] = useState<string | null>(initialPromptId);
+    const [selectedEntity, setSelectedEntity] = useState<Entity | undefined>(entityData as Entity);
+    const [selectedPromptId, setSelectedPromptId] = useState<string>();
     const [selectedEntities, setSelectedEntities] = useState<EntityAndType[]>([]);
-    const [shouldRefetchSearchResults, setShouldRefetchSearchResults] = useState(false);
+    const [submittedEntities, setSubmittedEntities] = useState<EntityAndType[]>([]); // used for optimistic render
+    const [numSubmittedEntities, setNumSubmittedEntities] = useState<number>(0);
+    const [shouldClearFilters, setShouldClearFilters] = useState<boolean>(false);
+    const [shouldRefetch, setShouldRefetch] = useState<boolean>(false);
 
-    useEffect(() => {
-        if (!selectedPromptId && formAssociation) {
-            setSelectedPromptId(initialPromptId);
-        }
-    }, [selectedPromptId, formAssociation, initialPromptId]);
+    /* 
+    * Data setup
+    */
 
+    const {
+        loading,
+        refetch,
+        data: { form, entityUrnsByForm, searchResults, searchError, searchLoading },
+        filter,
+        counts,
+    } = useEntityFormDataFactory(
+        formUrn,
+        selectedPromptId,
+        formView,
+        submittedEntities
+    );
+
+    // Determine the previous form's urn
     const previousFormUrn = usePrevious(formUrn);
+
+    // Determine form type
+    const isVerificationType = form?.info.type === FormType.Verification;
+
+    // Find intitial prompt 
+    const initialPromptId =
+        form?.info.prompts.filter(
+            (prompt) => !SCHEMA_FIELD_PROMPT_TYPES.includes(prompt.type)
+        )[0]?.id || null;
+
+    // Place current entity first in entity array
+    const entitiesForForm = entityUrnsByForm?.searchAcrossEntities?.searchResults
+        .map((result) => result.entity)
+        .filter((result) => result.urn !== entityData?.urn);
+    if (entityData) {
+        entitiesForForm?.unshift(entityData as Entity);
+    }
+
+    // Grab the datasets data
+    // TODO: Determine if we need this? 
+    const {
+        data: fetchedData,
+        refetch: datasetRefetch,
+        loading: datasetLoading,
+    } = useGetDatasetQuery({
+        variables: { urn: selectedEntity?.urn || '' },
+        skip: !selectedEntity,
+    });
+
+    // Entity related utility consts
+    const isOnEntityProfilePage = selectedEntity && selectedEntity.urn === entityData?.urn;
+    const selectedEntityData = isOnEntityProfilePage ? entityData : (fetchedData?.dataset as GenericEntityProperties);
+
+    /* 
+    * Loading conslidation
+    */
+
+    const isProfileLoading = profileLoading || loading;
+    const isDatasetLoading = datasetLoading || loading;
+    const isLoading = isOnEntityProfilePage ? isProfileLoading : isDatasetLoading;
+
+    /* 
+    * Refetch conslidation
+    */
+
+    const handleRefetch = (): any => {
+        if (isOnEntityProfilePage) refetchEntityProfile();
+        else datasetRefetch();
+        refetch();
+    }
+
+    /* 
+    * Pragmatic updates to state
+    */
+
     useEffect(() => {
-        if (formUrn && previousFormUrn !== formUrn) {
+        if (!selectedEntity || (!selectedEntity.urn && entitiesForForm)) {
+            const entity = entitiesForForm && entitiesForForm[0];
+            setSelectedEntity(entity);
+        }
+    }, [entitiesForForm, setSelectedEntity, selectedEntity]);
+
+    useEffect(() => {
+        if (!selectedPromptId && initialPromptId) setSelectedPromptId(initialPromptId);
+    }, [selectedPromptId, initialPromptId]);
+
+    useEffect(() => {
+        if (formUrn && previousFormUrn !== formUrn && initialPromptId) {
             setFormView(FormView.BY_ENTITY);
             setSelectedPromptId(initialPromptId);
         }
     }, [formUrn, previousFormUrn, initialPromptId]);
 
-    const query = entityRegistry.getEntityQuery(selectedEntity.type);
-    const entityQuery = query || useGetDatasetQuery;
-    const {
-        data: fetchedData,
-        refetch,
-        loading,
-    } = entityQuery({
-        variables: { urn: selectedEntity.urn },
-    });
+    /* 
+    * Consolidate context output 
+    */
 
-    const isOnEntityProfilePage = selectedEntity.urn === entityData?.urn;
-    const selectedEntityData = isOnEntityProfilePage ? entityData : (fetchedData?.dataset as GenericEntityProperties);
+    // Search
+    const search = {
+        results: searchResults,
+        resultItems: searchResults?.searchAcrossEntities?.searchResults || [],
+        resultItemCount: searchResults?.searchAcrossEntities?.total || 0,
+        error: searchError,
+        loading: searchLoading,
+    };
+
+    // Form 
+    const formInfo = {
+        formUrn,
+        form,
+        isVerificationType,
+        formView,
+        setFormView,
+    };
+
+    // Entity
+    const entity = {
+        // Entities in Form 
+        entitiesForForm,
+
+        // Entity Data 
+        entityData: selectedEntityData as GenericEntityProperties,
+
+        // Selected Entities
+        selectedEntities,
+        setSelectedEntities,
+
+        // Selected Entity
+        selectedEntity,
+        setSelectedEntity,
+
+        // Submitted Entities
+        submittedEntities,
+        setSubmittedEntities,
+        numSubmittedEntities,
+        setNumSubmittedEntities,
+
+        // Utils
+        isOnEntityProfilePage,
+    };
+
+    // Prompt
+    const prompts = form ? getBulkByQuestionPrompts(form) : [];
+    const prompt = {
+        // All Prompts
+        prompts,
+
+        // Prompt Select
+        selectedPromptId,
+        setSelectedPromptId,
+
+        // Current Prompt Data
+        prompt: prompts.find((p) => p.id === selectedPromptId),
+        promptIndex: selectedPromptId && prompts.findIndex((p) => p.id === selectedPromptId) || 0,
+
+        // Bulk utils on a prompt
+        displayBulkPromptStyles: formView === FormView.BY_QUESTION,
+    };
+
+    // Form States 
+    const { promptCounts, verificationType, completionType } = counts;
+    const isByQuestion = formView === FormView.BY_QUESTION;
+    const isBulkVerify = formView === FormView.BULK_VERIFY;
+    const noSearchResults = search.resultItemCount === 0;
+    const states = {
+        byQuestion: {
+            showFinishRemainingAssets:
+                isByQuestion && (
+                    noSearchResults && promptCounts.numNotComplete > 0
+                ),
+            showContinueToNextQuestion:
+                isByQuestion && (
+                    noSearchResults && promptCounts.numNotComplete === 0
+                ),
+            showCompleted:
+                isByQuestion && (
+                    !isVerificationType && (
+                        completionType.notComplete === 0
+                    )
+                ),
+            showVerifyCTAHeader:
+                isByQuestion && (
+                    isVerificationType && (
+                        verificationType.verifyReady > 0
+                    )
+                ),
+            showVerifyCTA:
+                isByQuestion && (
+                    isVerificationType && (
+                        verificationType.verifyReady > 0 && verificationType.notVerifyReady === 0
+                    )
+                ),
+        },
+        bulkVerify: {
+            showReturnToQuestions:
+                isBulkVerify && (
+                    noSearchResults && verificationType.verifyReady === 0 && verificationType.notVerifyReady > 0
+                ),
+            showFinishRemainingAssets:
+                isBulkVerify && (
+                    noSearchResults && verificationType.verifyReady > 0
+                ),
+            showCompleted:
+                isBulkVerify && (
+                    verificationType.verifyReady === 0 && verificationType.notVerifyReady === 0
+                ),
+        },
+    };
+
+    // Bool for form context?
+    const isInFormContext = true;
+
+    /* 
+    * Build & return the provider
+    */
 
     return (
         <EntityFormContext.Provider
             value={{
-                formUrn,
-                isInFormContext: true,
-                entityData: selectedEntityData as GenericEntityProperties,
-                loading: isOnEntityProfilePage ? profileLoading : loading,
-                refetch: isOnEntityProfilePage ? refetchEntityProfile : refetch,
-                selectedEntity,
-                setSelectedEntity,
-                formView,
-                setFormView,
-                selectedPromptId,
-                setSelectedPromptId,
-                selectedEntities,
-                setSelectedEntities,
-                shouldRefetchSearchResults,
-                setShouldRefetchSearchResults,
-                isVerificationType,
+                isInFormContext,
+                loading: isLoading,
+                refetch: handleRefetch,
+                shouldRefetch,
+                setShouldRefetch,
+                search,
+                form: formInfo,
+                filter: {
+                    ...filter,
+                    shouldClearFilters,
+                    setShouldClearFilters
+                },
+                entity,
+                prompt,
+                counts,
+                states,
             }}
         >
             {children}

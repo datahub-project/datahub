@@ -24,6 +24,7 @@ interface Props {
     displayName: string;
     searchQuery: string;
     loading: boolean;
+    hideSearchBar?: boolean;
     updateIsMenuOpen: (isOpen: boolean) => void;
     setSearchQuery: (query: string) => void;
     updateFilters: () => void;
@@ -37,6 +38,7 @@ export default function SearchFilterView({
     displayName,
     searchQuery,
     loading,
+    hideSearchBar,
     updateIsMenuOpen,
     setSearchQuery,
     updateFilters,
@@ -55,6 +57,7 @@ export default function SearchFilterView({
                     updateSearchQuery={setSearchQuery}
                     isLoading={loading}
                     searchPlaceholder={displayName}
+                    hideSearchBar={hideSearchBar}
                 />
             )}
         >
