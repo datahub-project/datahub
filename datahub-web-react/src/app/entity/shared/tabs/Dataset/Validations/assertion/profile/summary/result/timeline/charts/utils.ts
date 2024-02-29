@@ -45,7 +45,7 @@ export function generateTimeScaleTickValues(startMs, endMs): Date[] {
 
     if (diff <= oneHourInMillis) {
         // Last hour or less: ticks every 15 minutes
-        const currentDate = new Date(Math.floor(minDate.getTime() / oneHourInMillis) * oneHourInMillis);
+        const currentDate = new Date(minDate);
         while (currentDate <= maxDate) {
             ticks.push(new Date(currentDate));
             currentDate.setMinutes(currentDate.getMinutes() + 15);
@@ -54,6 +54,7 @@ export function generateTimeScaleTickValues(startMs, endMs): Date[] {
         // Last day or less: ticks every 4 hours
         const currentDate = new Date(minDate);
         currentDate.setHours(minDate.getHours() - (minDate.getHours() % 4), 0, 0, 0); // Align to the nearest 4-hour mark
+        currentDate.setHours(currentDate.getHours() + 4); // skip hour 0 - looks better on the graph
         while (currentDate <= maxDate) {
             ticks.push(new Date(currentDate));
             currentDate.setHours(currentDate.getHours() + 4);
@@ -62,7 +63,7 @@ export function generateTimeScaleTickValues(startMs, endMs): Date[] {
         // Less than a week: ticks at the start of each day
         const currentDate = new Date(minDate);
         currentDate.setHours(0, 0, 0, 0); // Start of the day
-        currentDate.setDate(currentDate.getDate() + 1); // skip day 0
+        currentDate.setDate(currentDate.getDate() + 1); // skip day 0 - looks better on the graph
         while (currentDate <= maxDate) {
             ticks.push(new Date(currentDate));
             currentDate.setDate(currentDate.getDate() + 1);
