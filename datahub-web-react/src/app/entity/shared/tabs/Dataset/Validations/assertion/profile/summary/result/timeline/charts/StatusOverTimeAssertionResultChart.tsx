@@ -3,17 +3,14 @@ import React, { useMemo } from 'react';
 import { Popover } from 'antd';
 import { Bar } from '@visx/shape';
 import { Group } from '@visx/group';
-import { AxisBottom, AxisLeft } from '@visx/axis';
+import { AxisBottom } from '@visx/axis';
 import { scaleUtc } from '@visx/scale';
-import { Maybe } from 'graphql/jsutils/Maybe';
 
 import { ANTD_GRAY } from '../../../../../../../../../constants';
 import { LinkWrapper } from '../../../../../../../../../../../shared/LinkWrapper';
-import { Assertion, AssertionResultType } from '../../../../../../../../../../../../types.generated';
 import { generateTimeScaleTickValues, getCustomTimeScaleTickValue, getFillColor } from './utils';
-import { AssertionDataPoint, AssertionResultChartData, TimeRange } from './types';
+import { AssertionResultChartData, TimeRange } from './types';
 import { AssertionResultPopoverContent } from '../../../../shared/result/AssertionResultPopoverContent';
-import { scaleLinear } from 'd3-scale';
 
 type Props = {
     data: AssertionResultChartData;
@@ -29,7 +26,8 @@ const CHART_HORIZ_MARGIN = 16;
 const CHART_AXIS_BOTTOM_HEIGHT = 40;
 
 /**
- * Assertion run results displayed on a horizontal timeline.
+ * Assertion run result status displayed on a horizontal timeline.
+ * TODO(jayacryl) refactor to a pretty timeline line-view
  */
 export const StatusOverTimeAssertionResultChart = ({ data, timeRange, chartDimensions }: Props) => {
 

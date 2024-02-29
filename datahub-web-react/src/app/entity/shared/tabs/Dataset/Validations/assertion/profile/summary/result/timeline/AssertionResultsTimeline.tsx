@@ -1,16 +1,13 @@
 import React, { useEffect, useState } from 'react';
 
 import styled from 'styled-components';
-import { Typography } from 'antd';
 
 import { useGetAssertionRunsLazyQuery } from '../../../../../../../../../../../graphql/assertion.generated';
 import { getFixedLookbackWindow } from '../../../../../../../../../../shared/time/timeUtils';
 import { LOOKBACK_WINDOWS } from '../../../../../../Stats/lookbackWindows';
 import { TimeSelect } from './TimeSelect';
 import { AssertionResultsTimelineViz } from './AssertionResultsTimelineViz';
-import { ANTD_GRAY } from '../../../../../../../../constants';
 import { Assertion } from '../../../../../../../../../../../types.generated';
-import { getTimeRangeDisplay } from './utils';
 
 const RESULT_CHART_WIDTH_PX = 560;
 const Container = styled.div`
@@ -61,7 +58,6 @@ export const AssertionResultsTimeline = ({ assertion }: Props) => {
                 assertion={assertion}
                 timeRange={selectedWindowTimeRange}
                 results={results as any}
-                platform={data?.assertion?.platform as any}
             />
             <TimeSelect
                 lookbackWindow={lookbackWindow}

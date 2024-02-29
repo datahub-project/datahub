@@ -1,20 +1,17 @@
 import { Maybe } from "graphql/jsutils/Maybe";
-import { Assertion, AssertionInfo, AssertionResultType, AssertionRunEvent, AssertionType, FieldAssertionType } from "../../../../../../../../../../../types.generated";
+import { Assertion, AssertionInfo, AssertionRunEvent, AssertionType, FieldAssertionType } from "../../../../../../../../../../../types.generated";
 import { AssertionDataPoint, AssertionResultChartData } from "./charts/types";
-import { ASSERTION_RESULT__NATIVE_RESULTS__KEYS_BY_ASSERTION_TYPE } from "../../shared/constants";
 import { getFieldMetricTypeReadableLabel } from "../../../../../fieldDescriptionUtils";
 import { tryGetPrimaryMetricValueFromAssertionRunEvent } from "../../shared/resultUtils";
 
-export const getAssertionResultChartData = (assertion: Assertion, completedRuns: AssertionRunEvent[]): AssertionResultChartData => {
-    const timelineDataPoints: AssertionDataPoint[] = getAssertionDataPointsFromRunEvents(completedRuns)
-    const maybeYAxisLabel: string | undefined = tryGetYAxisLabelForChartFromAssertionInfo(assertion.info)
-    return {
-        dataPoints: timelineDataPoints,
-        yAxisLabel: maybeYAxisLabel,
-        context: {
-            assertion,
-        }
-    }
+
+/**
+ * Gets the Y value that we should be plotting on the graph from the assertion run event
+ * @param runEvent 
+ * @returns {number | undefined}
+ */
+export const tryGetYValueForChartFromAssertionRunEvent = (runEvent: AssertionRunEvent): number | undefined => {
+    return tryGetPrimaryMetricValueFromAssertionRunEvent(runEvent)
 }
 
 export const getAssertionDataPointsFromRunEvents = (runEvents: AssertionRunEvent[]): AssertionDataPoint[] => {
@@ -44,15 +41,6 @@ export const getAssertionDataPointsFromRunEvents = (runEvents: AssertionRunEvent
 }
 
 /**
- * Gets the Y value that we should be plotting on the graph from the assertion run event
- * @param runEvent 
- * @returns {number | undefined}
- */
-export const tryGetYValueForChartFromAssertionRunEvent = (runEvent: AssertionRunEvent): number | undefined => {
-    return tryGetPrimaryMetricValueFromAssertionRunEvent(runEvent)
-}
-
-/**
  * Gets a Y axis label depending on the assertion type
  * @param assertionInfo 
  * @returns {number | undefined}
@@ -65,9 +53,9 @@ export const tryGetYAxisLabelForChartFromAssertionInfo = (assertionInfo?: Assert
             if (!assertionInfo.fieldAssertion?.type) {
                 break;
             }
-            if (assertionInfo.fieldAssertion.type == FieldAssertionType.FieldValues) {
+            if (assertionInfo.fieldAssertion.type === FieldAssertionType.FieldValues) {
                 return 'Invalid Rows'
-            } else if (assertionInfo.fieldAssertion.type == FieldAssertionType.FieldMetric) {
+            } else if (assertionInfo.fieldAssertion.type === FieldAssertionType.FieldMetric) {
                 const maybeMetricType = assertionInfo.fieldAssertion.fieldMetricAssertion?.metric
                 try {
                     if (maybeMetricType) return getFieldMetricTypeReadableLabel(maybeMetricType)
@@ -88,5 +76,17 @@ export const tryGetYAxisLabelForChartFromAssertionInfo = (assertionInfo?: Assert
             break;
         default:
             break;
+    }
+}
+
+export const getAssertionResultChartData = (assertion: Assertion, completedRuns: AssertionRunEvent[]): AssertionResultChartData => {
+    const timelineDataPoints: AssertionDataPoint[] = getAssertionDataPointsFromRunEvents(completedRuns)
+    const maybeYAxisLabel: string | undefined = tryGetYAxisLabelForChartFromAssertionInfo(assertion.info)
+    return {
+        dataPoints: timelineDataPoints,
+        yAxisLabel: maybeYAxisLabel,
+        context: {
+            assertion,
+        }
     }
 }

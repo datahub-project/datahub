@@ -38,7 +38,7 @@ export const statusOrdinalScale = scaleOrdinal({
 
 const ABBREVS = ['k', 'm', 'b', 't']
 function roundToPrecision(n: number, precision: number) {
-	var prec = 10 ** precision;
+	const prec = 10 ** precision;
 	return Math.round(n * prec) / prec;
 }
 

@@ -1,5 +1,5 @@
 import { Maybe } from "graphql/jsutils/Maybe";
-import { Assertion, AssertionResultType, AssertionRunEvent, AssertionStdOperator, DateInterval } from "../../../../../../../../../../../../types.generated";
+import { Assertion, AssertionResultType, AssertionRunEvent } from "../../../../../../../../../../../../types.generated";
 
 export type AssertionResult = {
     type: AssertionResultType;

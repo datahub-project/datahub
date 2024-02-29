@@ -1,6 +1,4 @@
-import { Maybe } from "graphql/jsutils/Maybe";
-import { AssertionInfo, AssertionType, FieldAssertionType } from "../../../../../../../../../../types.generated";
-import { AssertionChartType } from "../result/timeline/charts/types";
+import { AssertionType } from "../../../../../../../../../../types.generated";
 
 export const VALUES_OVER_TIME_ASSERTION_TYPES: AssertionType[] = [AssertionType.Field, AssertionType.Sql, AssertionType.Volume];
 

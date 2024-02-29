@@ -1,6 +1,3 @@
-import { Maybe } from 'graphql/jsutils/Maybe';
-import { AssertionInfo, AssertionResultType, AssertionRunEvent, AssertionStdOperator, AssertionStdParameterType, AssertionStdParameters, AssertionType, FieldAssertionType, FreshnessAssertionScheduleType, FreshnessAssertionType, VolumeAssertionType } from '../../../../../../../../../../../types.generated';
-import { AssertionDataPoint } from './charts/types';
 
 const ONE_HOUR_IN_MS = 60 * 60 * 1000;
 const ONE_DAY_IN_MS = 24 * ONE_HOUR_IN_MS;

@@ -313,17 +313,17 @@ export const tryGetPrimaryMetricValueFromAssertionRunEvent = (runEvent: Assertio
                 case FieldAssertionType.FieldValues:
                     // Invalid rows
                     {
-                        if (runEvent.result.type == AssertionResultType.Init) return 0;
-                        const maybeValue = runEvent.result.nativeResults?.find(result => result.key == ASSERTION_RESULT__NATIVE_RESULTS__KEYS_BY_ASSERTION_TYPE.FIELD_ASSERTIONS.FIELD_VALUES.Y_VALUE_KEY_NAME)?.value
-                        const parsedValue = typeof maybeValue == 'string' ? parseFloat(maybeValue) : maybeValue
-                        return typeof parsedValue == 'number' && !isNaN(parsedValue) ? parsedValue : undefined;
+                        if (runEvent.result.type === AssertionResultType.Init) return 0;
+                        const maybeValue = runEvent.result.nativeResults?.find(result => result.key === ASSERTION_RESULT__NATIVE_RESULTS__KEYS_BY_ASSERTION_TYPE.FIELD_ASSERTIONS.FIELD_VALUES.Y_VALUE_KEY_NAME)?.value
+                        const parsedValue = typeof maybeValue === 'string' ? parseFloat(maybeValue) : maybeValue
+                        return typeof parsedValue === 'number' && !Number.isNaN(parsedValue) ? parsedValue : undefined;
                     }
                 case FieldAssertionType.FieldMetric:
                     // Metric value
                     {
-                        const maybeValue = runEvent.result.nativeResults?.find(result => result.key == ASSERTION_RESULT__NATIVE_RESULTS__KEYS_BY_ASSERTION_TYPE.FIELD_ASSERTIONS.METRIC_VALUES.Y_VALUE_KEY_NAME)?.value
-                        const parsedValue = typeof maybeValue == 'string' ? parseFloat(maybeValue) : maybeValue
-                        return typeof parsedValue == 'number' && !isNaN(parsedValue) ? parsedValue : undefined;
+                        const maybeValue = runEvent.result.nativeResults?.find(result => result.key === ASSERTION_RESULT__NATIVE_RESULTS__KEYS_BY_ASSERTION_TYPE.FIELD_ASSERTIONS.METRIC_VALUES.Y_VALUE_KEY_NAME)?.value
+                        const parsedValue = typeof maybeValue === 'string' ? parseFloat(maybeValue) : maybeValue
+                        return typeof parsedValue === 'number' && !Number.isNaN(parsedValue) ? parsedValue : undefined;
                     }
                 default:
                     break;

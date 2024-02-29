@@ -1,5 +1,7 @@
 import React from 'react';
 
+import styled from 'styled-components';
+import { Typography } from 'antd';
 import {
     Assertion,
     AssertionRunEventsResult,
@@ -7,13 +9,11 @@ import {
     DataPlatform,
 } from '../../../../../../../../../../../types.generated';
 import { ValuesOverTimeAssertionResultChart } from './charts/ValuesOverTimeAssertionResultChart';
-import { AssertionChartType, AssertionDataPoint, AssertionResultChartData, TimeRange } from './charts/types';
-import { getAssertionDataPointsFromRunEvents, getAssertionResultChartData } from './transformers';
+import { AssertionChartType, AssertionResultChartData, TimeRange } from './charts/types';
+import { getAssertionResultChartData } from './transformers';
 import { getBestChartTypeForAssertion } from './charts/utils';
 import { StatusOverTimeAssertionResultChart } from './charts/StatusOverTimeAssertionResultChart';
-import styled from 'styled-components';
 import { ANTD_GRAY } from '../../../../../../../../constants';
-import { Typography } from 'antd';
 import { getTimeRangeDisplay } from './utils';
 
 const VIZ_CONTAINER_HEIGHT = 200;
@@ -49,7 +49,6 @@ type Props = {
     assertion: Assertion;
     timeRange: TimeRange;
     results?: AssertionRunEventsResult | null;
-    platform?: DataPlatform | null;
     parentDimensions: { width: number }
 };
 
@@ -76,7 +75,7 @@ export const AssertionResultsTimelineViz = ({ assertion, results, timeRange, par
         <VizHeader>
             <VizHeaderTitle strong>{assertionResultChartData.yAxisLabel ? `${assertionResultChartData.yAxisLabel} over time` : dateRange}</VizHeaderTitle>
         </VizHeader>
-        {getBestChartTypeForAssertion(assertion.info) == AssertionChartType.ValuesOverTime
+        {getBestChartTypeForAssertion(assertion.info) === AssertionChartType.ValuesOverTime
             ? <ValuesOverTimeAssertionResultChart
                 chartDimensions={chartDimensions}
                 data={assertionResultChartData}
