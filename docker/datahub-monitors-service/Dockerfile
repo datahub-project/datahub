@@ -30,10 +30,10 @@ ARG PIP_MIRROR_URL
 RUN if [ "${PIP_MIRROR_URL}" != "null" ] ; then pip config set global.index-url ${PIP_MIRROR_URL} ; fi
 
 USER datahub
-RUN pip install --no-cache -e .
+RUN uv pip install --no-cache -e .
 
 WORKDIR /datahub-ingestion
-RUN pip install --no-cache -e .
+RUN uv pip install --no-cache -e .
 
 ## Production Image Built From Build Image
 FROM base as prod-install
