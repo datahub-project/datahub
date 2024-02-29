@@ -132,14 +132,6 @@ export const AccessTokens = () => {
     const pageSize = DEFAULT_PAGE_SIZE;
     const start = (page - 1) * pageSize;
 
-    // Filters for Access Tokens list
-    const filtersCurrentUser: Array<FacetFilterInput> = [
-        {
-            field: 'ownerUrn',
-            values: [currentUserUrn],
-        },
-    ];
-
     // Call list Access Token Mutation
     const {
         loading: tokensLoading,
@@ -152,7 +144,7 @@ export const AccessTokens = () => {
             input: {
                 start,
                 count: pageSize,
-                filters: canManageToken ? filters : filtersCurrentUser,
+                filters,
             },
         },
     });
@@ -208,20 +200,6 @@ export const AccessTokens = () => {
     const tokens = useMemo(() => tokensData?.listAccessTokens.tokens || [], [tokensData]);
     const filteredTokens = tokens.filter((token) => !removedTokens.includes(token.id));
 
-    const filteredTokenStatus = useMemo(() => {
-        switch (statusFilter) {
-            case StatusType.ACTIVE:
-                return filteredTokens.filter(
-                    (token) => !token.expiresAt || (token.expiresAt && new Date(token.expiresAt) > new Date()),
-                );
-            case StatusType.INACTIVE:
-                return filteredTokens.filter((token) => token.expiresAt && new Date(token.expiresAt) <= new Date());
-            default:
-                return filteredTokens;
-        }
-    }, [filteredTokens, statusFilter]);
-
-    // Any time a access token  is removed or created, refetch the list.
     const [revokeAccessToken, { error: revokeTokenError }] = useRevokeAccessTokenMutation();
 
     // Revoke token Handler
@@ -257,7 +235,7 @@ export const AccessTokens = () => {
         });
     };
 
-    const tableData = filteredTokenStatus?.map((token) => ({
+    const tableData = filteredTokens?.map((token) => ({
         urn: token.urn,
         type: token.type,
         id: token.id,
