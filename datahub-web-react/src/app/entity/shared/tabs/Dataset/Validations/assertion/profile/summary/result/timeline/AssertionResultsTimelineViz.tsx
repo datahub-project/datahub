@@ -6,7 +6,6 @@ import {
     Assertion,
     AssertionRunEventsResult,
     AssertionRunStatus,
-    DataPlatform,
 } from '../../../../../../../../../../../types.generated';
 import { ValuesOverTimeAssertionResultChart } from './charts/ValuesOverTimeAssertionResultChart';
 import { AssertionChartType, AssertionResultChartData, TimeRange } from './charts/types';

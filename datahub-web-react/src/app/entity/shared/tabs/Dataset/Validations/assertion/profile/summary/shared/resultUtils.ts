@@ -10,7 +10,7 @@ import { formatNumberWithoutAbbreviation } from '../../../../../../../../../shar
 import { toLocalDateString, toLocalTimeString } from '../../../../../../../../../shared/time/timeUtils';
 import { getResultErrorMessage } from '../../../../assertionUtils';
 import { getFieldMetricLabel } from '../../../builder/steps/field/utils';
-import { ASSERTION_RESULT__NATIVE_RESULTS__KEYS_BY_ASSERTION_TYPE } from './constants';
+import { ASSERTION_NATIVE_RESULTS_KEYS_BY_ASSERTION_TYPE } from './constants';
 
 export const getFormattedResultText = (result?: AssertionResultType) => {
     if (result === undefined) {
@@ -314,14 +314,14 @@ export const tryGetPrimaryMetricValueFromAssertionRunEvent = (runEvent: Assertio
                     // Invalid rows
                     {
                         if (runEvent.result.type === AssertionResultType.Init) return 0;
-                        const maybeValue = runEvent.result.nativeResults?.find(result => result.key === ASSERTION_RESULT__NATIVE_RESULTS__KEYS_BY_ASSERTION_TYPE.FIELD_ASSERTIONS.FIELD_VALUES.Y_VALUE_KEY_NAME)?.value
+                        const maybeValue = runEvent.result.nativeResults?.find(result => result.key === ASSERTION_NATIVE_RESULTS_KEYS_BY_ASSERTION_TYPE.FIELD_ASSERTIONS.FIELD_VALUES.Y_VALUE_KEY_NAME)?.value
                         const parsedValue = typeof maybeValue === 'string' ? parseFloat(maybeValue) : maybeValue
                         return typeof parsedValue === 'number' && !Number.isNaN(parsedValue) ? parsedValue : undefined;
                     }
                 case FieldAssertionType.FieldMetric:
                     // Metric value
                     {
-                        const maybeValue = runEvent.result.nativeResults?.find(result => result.key === ASSERTION_RESULT__NATIVE_RESULTS__KEYS_BY_ASSERTION_TYPE.FIELD_ASSERTIONS.METRIC_VALUES.Y_VALUE_KEY_NAME)?.value
+                        const maybeValue = runEvent.result.nativeResults?.find(result => result.key === ASSERTION_NATIVE_RESULTS_KEYS_BY_ASSERTION_TYPE.FIELD_ASSERTIONS.METRIC_VALUES.Y_VALUE_KEY_NAME)?.value
                         const parsedValue = typeof maybeValue === 'string' ? parseFloat(maybeValue) : maybeValue
                         return typeof parsedValue === 'number' && !Number.isNaN(parsedValue) ? parsedValue : undefined;
                     }
@@ -338,4 +338,5 @@ export const tryGetPrimaryMetricValueFromAssertionRunEvent = (runEvent: Assertio
         default:
             break;
     }
+    return undefined;
 }

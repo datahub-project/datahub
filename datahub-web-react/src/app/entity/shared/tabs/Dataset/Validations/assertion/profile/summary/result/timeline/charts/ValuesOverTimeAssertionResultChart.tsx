@@ -1,11 +1,12 @@
 import React, { useMemo } from 'react';
 
 import { Popover } from 'antd';
-import { LinePath } from '@visx/shape';
+import { AreaClosed, LinePath } from '@visx/shape';
 import { Group } from '@visx/group';
 import { AxisBottom, AxisLeft } from '@visx/axis';
 import { scaleUtc } from '@visx/scale';
 import { GlyphCircle } from '@visx/glyph'
+import { LinearGradient } from '@visx/gradient'
 import { scaleLinear } from 'd3-scale';
 
 import { ANTD_GRAY } from '../../../../../../../../../constants';
@@ -96,6 +97,16 @@ export const ValuesOverTimeAssertionResultChart = ({ data, timeRange, chartDimen
                 tickFormat={(v) => getCustomTimeScaleTickValue(v, timeRange)}
             />
 
+            <LinearGradient id="area-gradient" from={ACCENT_COLOR_HEX} to={ACCENT_COLOR_HEX} fromOpacity={0.25} toOpacity={0} />
+            <AreaClosed
+                data={data.dataPoints}
+                x={(d) => xScale(d.time) ?? 0}
+                y={(d) => yScale(d.result.yValue ?? 0) ?? 0}
+                yScale={yScale}
+                strokeWidth={1}
+                fill="url(#area-gradient)"
+            />
+
             <LinePath
                 data={data.dataPoints}
                 x={(d) => xScale(d.time) ?? 0}
@@ -127,10 +138,10 @@ export const ValuesOverTimeAssertionResultChart = ({ data, timeRange, chartDimen
                                 left={xOffset}
                                 top={yOffset}
                                 fill={fillColor}
-                                stroke={'white'}
+                                stroke='white'
                                 strokeWidth={2}
-                                size={60}
-                                filter='drop-shadow(0px 1px 2px rgb(0 0 0 / 0.2))'
+                                size={80}
+                                filter='drop-shadow(0px 1px 2px rgb(0 0 0 / 0.1))'
                             />
                         </Popover>
                     </LinkWrapper>

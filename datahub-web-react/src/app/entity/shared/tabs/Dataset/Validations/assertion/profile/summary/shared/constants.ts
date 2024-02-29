@@ -4,7 +4,7 @@ export const VALUES_OVER_TIME_ASSERTION_TYPES: AssertionType[] = [AssertionType.
 
 // We hard code this here because there's no set schema NativeResults on the AssertionResult document
 // - it's a generic map.
-export const ASSERTION_RESULT__NATIVE_RESULTS__KEYS_BY_ASSERTION_TYPE = {
+export const ASSERTION_NATIVE_RESULTS_KEYS_BY_ASSERTION_TYPE = {
     FIELD_ASSERTIONS: {
         FIELD_VALUES: {
             Y_VALUE_KEY_NAME: 'Invalid Rows',

@@ -53,16 +53,21 @@ export const tryGetYAxisLabelForChartFromAssertionInfo = (assertionInfo?: Assert
             if (!assertionInfo.fieldAssertion?.type) {
                 break;
             }
-            if (assertionInfo.fieldAssertion.type === FieldAssertionType.FieldValues) {
-                return 'Invalid Rows'
-            } else if (assertionInfo.fieldAssertion.type === FieldAssertionType.FieldMetric) {
-                const maybeMetricType = assertionInfo.fieldAssertion.fieldMetricAssertion?.metric
-                try {
-                    if (maybeMetricType) return getFieldMetricTypeReadableLabel(maybeMetricType)
-                } catch (e) {
-                    // Best attempt
+            // Handle field assertion types
+            switch (assertionInfo.fieldAssertion.type) {
+                case FieldAssertionType.FieldValues:
+                    return 'Invalid Rows';
+                case FieldAssertionType.FieldMetric: {
+                    const maybeMetricType = assertionInfo.fieldAssertion.fieldMetricAssertion?.metric
+                    try {
+                        if (maybeMetricType) return getFieldMetricTypeReadableLabel(maybeMetricType)
+                    } catch (e) {
+                        // Best attempt
+                    }
+                    return maybeMetricType?.valueOf() || 'Metric Value';
                 }
-                return maybeMetricType?.valueOf() || 'Metric Value'
+                default:
+                    break;
             }
             break;
         case AssertionType.Sql:
@@ -77,6 +82,7 @@ export const tryGetYAxisLabelForChartFromAssertionInfo = (assertionInfo?: Assert
         default:
             break;
     }
+    return undefined;
 }
 
 export const getAssertionResultChartData = (assertion: Assertion, completedRuns: AssertionRunEvent[]): AssertionResultChartData => {
