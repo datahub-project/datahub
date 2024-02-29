@@ -179,7 +179,7 @@ public class EntityApiDelegateImpl<I, O, S> {
   public ResponseEntity<Void> headAspect(String urn, String aspect) {
     try {
       Urn entityUrn = Urn.createFromString(urn);
-      if (_entityService.exists(entityUrn, aspect)) {
+      if (_entityService.exists(entityUrn, aspect, true)) {
         return new ResponseEntity<>(HttpStatus.NO_CONTENT);
       } else {
         return new ResponseEntity<>(HttpStatus.NOT_FOUND);

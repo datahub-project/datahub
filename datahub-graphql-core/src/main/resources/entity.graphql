@@ -1561,7 +1561,7 @@ type RoleUser {
 
 type RoleProperties {
     """
-    Name of the Role in an organisation 
+    Name of the Role in an organisation
     """
     name: String!
 
@@ -1584,6 +1584,8 @@ type RoleProperties {
 type FineGrainedLineage {
     upstreams: [SchemaFieldRef!]
     downstreams: [SchemaFieldRef!]
+    query: String
+    transformOperation: String
 }
 
 """
@@ -8690,6 +8692,11 @@ input ListPoliciesInput {
   Optional search query
   """
   query: String
+
+  """
+  A list of disjunctive criterion for the filter. (or operation to combine filters)
+  """
+  orFilters: [AndFilterInput!]
 }
 
 """
@@ -11210,6 +11217,11 @@ type QueryProperties {
   An Audit Stamp corresponding to the update of this resource
   """
   lastModified: AuditStamp!
+
+  """
+  The asset that this query originated from, e.g. a View, a dbt Model, etc.
+  """
+  origin: Entity
 }
 
 """
@@ -11250,6 +11262,11 @@ type QueryEntity implements Entity {
   Granular API for querying edges extending from this entity
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+  """
+  Platform from which the Query was detected
+  """
+  platform: DataPlatform
 }
 
 """

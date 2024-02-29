@@ -11,8 +11,8 @@ query getQuery($urn: String!) {
 fragment query on QueryEntity {
     urn
     properties {
-        description
         name
+        description
         source
         statement {
             value
@@ -26,6 +26,12 @@ fragment query on QueryEntity {
             time
             actor
         }
+        origin {
+            ...searchResultFields
+        }
+    }
+    platform {
+        ...platformFields
     }
     subjects {
         dataset {

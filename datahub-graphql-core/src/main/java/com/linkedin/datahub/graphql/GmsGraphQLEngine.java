@@ -90,6 +90,7 @@ import com.linkedin.datahub.graphql.generated.OwnershipTypeEntity;
 import com.linkedin.datahub.graphql.generated.ParentDomainsResult;
 import com.linkedin.datahub.graphql.generated.PolicyMatchCriterionValue;
 import com.linkedin.datahub.graphql.generated.QueryEntity;
+import com.linkedin.datahub.graphql.generated.QueryProperties;
 import com.linkedin.datahub.graphql.generated.QuerySubject;
 import com.linkedin.datahub.graphql.generated.QuickFilter;
 import com.linkedin.datahub.graphql.generated.RecommendationContent;
@@ -140,6 +141,7 @@ import com.linkedin.datahub.graphql.resolvers.embed.UpdateEmbedResolver;
 import com.linkedin.datahub.graphql.resolvers.entity.EntityExistsResolver;
 import com.linkedin.datahub.graphql.resolvers.entity.EntityPrivilegesResolver;
 import com.linkedin.datahub.graphql.resolvers.form.BatchAssignFormResolver;
+import com.linkedin.datahub.graphql.resolvers.form.BatchRemoveFormResolver;
 import com.linkedin.datahub.graphql.resolvers.form.CreateDynamicFormAssignmentResolver;
 import com.linkedin.datahub.graphql.resolvers.form.IsFormAssignedToMeResolver;
 import com.linkedin.datahub.graphql.resolvers.form.SubmitFormPromptResolver;
@@ -1213,6 +1215,7 @@ public class GmsGraphQLEngine {
                     new CreateDynamicFormAssignmentResolver(this.formService))
                 .dataFetcher(
                     "verifyForm", new VerifyFormResolver(this.formService, this.groupService))
+                .dataFetcher("batchRemoveForm", new BatchRemoveFormResolver(this.formService))
                 .dataFetcher("raiseIncident", new RaiseIncidentResolver(this.entityClient))
                 .dataFetcher(
                     "updateIncidentStatus",
@@ -2584,8 +2587,26 @@ public class GmsGraphQLEngine {
         .type(
             "QueryEntity",
             typeWiring ->
+                typeWiring
+                    .dataFetcher(
+                        "relationships", new EntityRelationshipsResultResolver(graphClient))
+                    .dataFetcher(
+                        "platform",
+                        new LoadableTypeResolver<>(
+                            dataPlatformType,
+                            (env) -> {
+                              final QueryEntity query = env.getSource();
+                              return query.getPlatform() != null
+                                  ? query.getPlatform().getUrn()
+                                  : null;
+                            })))
+        .type(
+            "QueryProperties",
+            typeWiring ->
                 typeWiring.dataFetcher(
-                    "relationships", new EntityRelationshipsResultResolver(graphClient)))
+                    "origin",
+                    new EntityTypeResolver(
+                        entityTypes, (env) -> ((QueryProperties) env.getSource()).getOrigin())))
         .type(
             "ListQueriesResult",
             typeWiring ->

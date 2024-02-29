@@ -35,7 +35,6 @@ export const InputFieldsTab = () => {
                             <SchemaTable
                                 schemaMetadata={null}
                                 rows={rows}
-                                editMode={false}
                                 editableSchemaMetadata={null}
                                 usageStats={null}
                                 schemaFieldBlameList={null}
