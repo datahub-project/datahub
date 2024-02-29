@@ -114,6 +114,16 @@ module.exports = {
           type: "docsVersionDropdown",
           position: "left",
           dropdownActiveClassDisabled: true,
+            dropdownItemsAfter: [
+                {
+                to: "https://docs-website-irpoe2osc-acryldata.vercel.app/docs/",
+                label: "0.11.0",
+                },
+                {
+                to: "https://docs-website-1gv2yzn9d-acryldata.vercel.app/docs/",
+                label: "0.10.5",
+                },
+            ],
         },
       ],
     },
