@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
+import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
@@ -20,6 +21,7 @@ import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import java.io.IOException;
 import javax.annotation.Nonnull;
+import javax.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -97,5 +99,21 @@ public class ElasticSearchServiceFactory {
             components.getIndexConvention(),
             components.getBulkProcessor(),
             components.getNumRetries()));
+  }
+
+  @Configuration
+  public static class PostConstructElasticSearchService {
+    @Autowired
+    @Qualifier("entityService")
+    private AspectRetriever aspectRetriever;
+
+    @Autowired
+    @Qualifier("elasticSearchService")
+    private ElasticSearchService elasticSearchService;
+
+    @PostConstruct
+    protected void postConstruct() {
+      elasticSearchService.postConstruct(aspectRetriever);
+    }
   }
 }

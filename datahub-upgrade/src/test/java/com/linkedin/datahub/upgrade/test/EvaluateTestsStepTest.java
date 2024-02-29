@@ -4,7 +4,6 @@ import static com.linkedin.datahub.upgrade.propagate.PropagateTerms.*;
 import static org.mockito.Mockito.*;
 import static org.testng.AssertJUnit.*;
 
-import com.datahub.authentication.Authentication;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -46,10 +45,10 @@ public class EvaluateTestsStepTest {
     configureTestEngineMock(testEngine);
     configureEntitySearchServiceMock(entitySearchService);
     EntityClient entityClient = Mockito.mock(EntityClient.class);
-    Authentication authentication = Mockito.mock(Authentication.class);
+
     OperationContext opContext =
         TestOperationContexts.userContextNoSearchAuthorization(
-            mock(EntityRegistry.class, Authorizer.EMPTY, authentication));
+            mock(EntityRegistry.class), Authorizer.EMPTY, TestOperationContexts.TEST_USER_AUTH);
 
     EvaluateTestsStep testStep =
         new EvaluateTestsStep(opContext, entityClient, entitySearchService, testEngine);
