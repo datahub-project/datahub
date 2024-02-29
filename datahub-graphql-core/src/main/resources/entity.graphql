@@ -987,7 +987,7 @@ enum EntityType {
     MONITOR
 
     """
-    A DataHub incident - SaaS only
+    A DataHub incident
     """
     INCIDENT
 

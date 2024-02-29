@@ -32,7 +32,6 @@ import com.linkedin.datahub.graphql.resolvers.constraint.ConstraintsResolver;
 import com.linkedin.datahub.graphql.resolvers.constraint.CreateTermConstraintResolver;
 import com.linkedin.datahub.graphql.resolvers.datacontract.EntityDataContractResolver;
 import com.linkedin.datahub.graphql.resolvers.datacontract.UpsertDataContractResolver;
-import com.linkedin.datahub.graphql.resolvers.dataset.AcrylDatasetHealthResolver;
 import com.linkedin.datahub.graphql.resolvers.dataset.DatasetStatsSummaryResolver;
 import com.linkedin.datahub.graphql.resolvers.form.BatchSubmitFormPromptResolver;
 import com.linkedin.datahub.graphql.resolvers.form.BatchVerifyFormResolver;
@@ -647,7 +646,6 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
                 .dataFetcher(
                     "statsSummary",
                     new DatasetStatsSummaryResolver(this.systemEntityClient, this.usageClient))
-                .dataFetcher("health", new AcrylDatasetHealthResolver(entityClient))
                 .dataFetcher("testResults", new EntityTestResultsResolver(entityClient))
                 .dataFetcher(
                     "constraints",

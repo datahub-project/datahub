@@ -164,7 +164,7 @@ import com.linkedin.datahub.graphql.resolvers.group.EntityCountsResolver;
 import com.linkedin.datahub.graphql.resolvers.group.ListGroupsResolver;
 import com.linkedin.datahub.graphql.resolvers.group.RemoveGroupMembersResolver;
 import com.linkedin.datahub.graphql.resolvers.group.RemoveGroupResolver;
-import com.linkedin.datahub.graphql.resolvers.health.EntityHealthResolver;
+import com.linkedin.datahub.graphql.resolvers.health.AcrylEntityHealthResolver;
 import com.linkedin.datahub.graphql.resolvers.incident.EntityIncidentsResolver;
 import com.linkedin.datahub.graphql.resolvers.incident.RaiseIncidentResolver;
 import com.linkedin.datahub.graphql.resolvers.incident.UpdateIncidentStatusResolver;
@@ -1513,11 +1513,8 @@ public class GmsGraphQLEngine {
                         new DatasetStatsSummaryResolver(this.systemEntityClient, this.usageClient))
                     .dataFetcher(
                         "health",
-                        new EntityHealthResolver(
-                            entityClient,
-                            graphClient,
-                            timeseriesAspectService,
-                            new EntityHealthResolver.Config(true, true)))
+                        new AcrylEntityHealthResolver(
+                            entityClient, new AcrylEntityHealthResolver.Config(true, true)))
                     .dataFetcher("schemaMetadata", new AspectResolver())
                     .dataFetcher(
                         "assertions", new EntityAssertionsResolver(entityClient, graphClient))
@@ -1894,11 +1891,8 @@ public class GmsGraphQLEngine {
                 .dataFetcher("exists", new EntityExistsResolver(entityService))
                 .dataFetcher(
                     "health",
-                    new EntityHealthResolver(
-                        entityClient,
-                        graphClient,
-                        timeseriesAspectService,
-                        new EntityHealthResolver.Config(false, true))));
+                    new AcrylEntityHealthResolver(
+                        entityClient, new AcrylEntityHealthResolver.Config(false, true))));
     builder.type(
         "DashboardInfo",
         typeWiring ->
@@ -2022,11 +2016,8 @@ public class GmsGraphQLEngine {
                 .dataFetcher("exists", new EntityExistsResolver(entityService))
                 .dataFetcher(
                     "health",
-                    new EntityHealthResolver(
-                        entityClient,
-                        graphClient,
-                        timeseriesAspectService,
-                        new EntityHealthResolver.Config(false, true))));
+                    new AcrylEntityHealthResolver(
+                        entityClient, new AcrylEntityHealthResolver.Config(false, true))));
     builder.type(
         "ChartInfo",
         typeWiring ->
@@ -2140,11 +2131,8 @@ public class GmsGraphQLEngine {
                     .dataFetcher("exists", new EntityExistsResolver(entityService))
                     .dataFetcher(
                         "health",
-                        new EntityHealthResolver(
-                            entityClient,
-                            graphClient,
-                            timeseriesAspectService,
-                            new EntityHealthResolver.Config(false, true))))
+                        new AcrylEntityHealthResolver(
+                            entityClient, new AcrylEntityHealthResolver.Config(false, true))))
         .type(
             "DataJobInputOutput",
             typeWiring ->
@@ -2214,11 +2202,8 @@ public class GmsGraphQLEngine {
                         }))
                 .dataFetcher(
                     "health",
-                    new EntityHealthResolver(
-                        entityClient,
-                        graphClient,
-                        timeseriesAspectService,
-                        new EntityHealthResolver.Config(false, true))));
+                    new AcrylEntityHealthResolver(
+                        entityClient, new AcrylEntityHealthResolver.Config(false, true))));
   }
 
   /**

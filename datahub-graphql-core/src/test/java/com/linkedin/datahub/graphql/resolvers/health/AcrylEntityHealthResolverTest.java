@@ -1,4 +1,4 @@
-package com.linkedin.datahub.graphql.resolvers.dataset;
+package com.linkedin.datahub.graphql.resolvers.health;
 
 import static org.testng.Assert.*;
 
@@ -25,7 +25,7 @@ import java.util.List;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
-public class AcrylDatasetHealthResolverTest {
+public class AcrylEntityHealthResolverTest {
 
   private static final String TEST_DATASET_URN = "urn:li:dataset:(test,test,test)";
   private static final String TEST_ASSERTION_URN = "urn:li:assertion:test-guid";
@@ -35,9 +35,9 @@ public class AcrylDatasetHealthResolverTest {
   public void testGetSuccessHealthyPassingOnly() throws Exception {
     EntityClient entityClient = Mockito.mock(EntityClient.class);
 
-    AcrylDatasetHealthResolver resolver =
-        new AcrylDatasetHealthResolver(
-            entityClient, new AcrylDatasetHealthResolver.Config(true, false, false));
+    AcrylEntityHealthResolver resolver =
+        new AcrylEntityHealthResolver(
+            entityClient, new AcrylEntityHealthResolver.Config(true, false));
 
     AssertionsSummary summary = new AssertionsSummary();
     summary.setPassingAssertionDetails(
@@ -85,9 +85,9 @@ public class AcrylDatasetHealthResolverTest {
   public void testGetSuccessHealthyPassingEmptyFailing() throws Exception {
     EntityClient entityClient = Mockito.mock(EntityClient.class);
 
-    AcrylDatasetHealthResolver resolver =
-        new AcrylDatasetHealthResolver(
-            entityClient, new AcrylDatasetHealthResolver.Config(true, false, false));
+    AcrylEntityHealthResolver resolver =
+        new AcrylEntityHealthResolver(
+            entityClient, new AcrylEntityHealthResolver.Config(true, false));
 
     AssertionsSummary summary = new AssertionsSummary();
     summary.setPassingAssertionDetails(
@@ -136,9 +136,9 @@ public class AcrylDatasetHealthResolverTest {
   public void testGetSuccessNullHealthMissingAspect() throws Exception {
     EntityClient entityClient = Mockito.mock(EntityClient.class);
 
-    AcrylDatasetHealthResolver resolver =
-        new AcrylDatasetHealthResolver(
-            entityClient, new AcrylDatasetHealthResolver.Config(true, false, false));
+    AcrylEntityHealthResolver resolver =
+        new AcrylEntityHealthResolver(
+            entityClient, new AcrylEntityHealthResolver.Config(true, false));
 
     Mockito.when(
             entityClient.getV2(
@@ -167,9 +167,9 @@ public class AcrylDatasetHealthResolverTest {
   public void testGetSuccessNullHealthMissingAspectFields() throws Exception {
     EntityClient entityClient = Mockito.mock(EntityClient.class);
 
-    AcrylDatasetHealthResolver resolver =
-        new AcrylDatasetHealthResolver(
-            entityClient, new AcrylDatasetHealthResolver.Config(true, false, false));
+    AcrylEntityHealthResolver resolver =
+        new AcrylEntityHealthResolver(
+            entityClient, new AcrylEntityHealthResolver.Config(true, false));
 
     AssertionsSummary summary = new AssertionsSummary();
 
@@ -207,9 +207,9 @@ public class AcrylDatasetHealthResolverTest {
   public void testGetSuccessNullHealthEmptyAspectFields() throws Exception {
     EntityClient entityClient = Mockito.mock(EntityClient.class);
 
-    AcrylDatasetHealthResolver resolver =
-        new AcrylDatasetHealthResolver(
-            entityClient, new AcrylDatasetHealthResolver.Config(true, false, false));
+    AcrylEntityHealthResolver resolver =
+        new AcrylEntityHealthResolver(
+            entityClient, new AcrylEntityHealthResolver.Config(true, false));
 
     AssertionsSummary summary = new AssertionsSummary();
     summary.setPassingAssertionDetails(new AssertionSummaryDetailsArray());
@@ -249,9 +249,9 @@ public class AcrylDatasetHealthResolverTest {
   public void testGetSuccessUnhealthyFailingOnly() throws Exception {
     EntityClient entityClient = Mockito.mock(EntityClient.class);
 
-    AcrylDatasetHealthResolver resolver =
-        new AcrylDatasetHealthResolver(
-            entityClient, new AcrylDatasetHealthResolver.Config(true, false, false));
+    AcrylEntityHealthResolver resolver =
+        new AcrylEntityHealthResolver(
+            entityClient, new AcrylEntityHealthResolver.Config(true, false));
 
     AssertionsSummary summary = new AssertionsSummary();
     summary.setFailingAssertionDetails(
@@ -300,9 +300,9 @@ public class AcrylDatasetHealthResolverTest {
   public void testGetSuccessUnhealthyFailingPassingEmpty() throws Exception {
     EntityClient entityClient = Mockito.mock(EntityClient.class);
 
-    AcrylDatasetHealthResolver resolver =
-        new AcrylDatasetHealthResolver(
-            entityClient, new AcrylDatasetHealthResolver.Config(true, false, false));
+    AcrylEntityHealthResolver resolver =
+        new AcrylEntityHealthResolver(
+            entityClient, new AcrylEntityHealthResolver.Config(true, false));
 
     AssertionsSummary summary = new AssertionsSummary();
     summary.setFailingAssertionDetails(
@@ -351,9 +351,9 @@ public class AcrylDatasetHealthResolverTest {
   public void testGetSuccessUnhealthyFailingAndPassing() throws Exception {
     EntityClient entityClient = Mockito.mock(EntityClient.class);
 
-    AcrylDatasetHealthResolver resolver =
-        new AcrylDatasetHealthResolver(
-            entityClient, new AcrylDatasetHealthResolver.Config(true, false, false));
+    AcrylEntityHealthResolver resolver =
+        new AcrylEntityHealthResolver(
+            entityClient, new AcrylEntityHealthResolver.Config(true, false));
 
     AssertionsSummary summary = new AssertionsSummary();
     summary.setFailingAssertionDetails(
