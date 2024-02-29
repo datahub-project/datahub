@@ -4,6 +4,9 @@ import com.linkedin.data.template.GetMode;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.datahub.graphql.generated.CorpGroupEditableProperties;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.Objects;
 import javax.annotation.Nonnull;
 
@@ -15,6 +18,8 @@ import javax.annotation.Nonnull;
 public class CorpGroupEditablePropertiesMapper
     implements ModelMapper<
         com.linkedin.identity.CorpGroupEditableInfo, CorpGroupEditableProperties> {
+
+  private final Logger _logger = LoggerFactory.getLogger(CorpGroupEditablePropertiesMapper.class.getName());
 
   public static final CorpGroupEditablePropertiesMapper INSTANCE =
       new CorpGroupEditablePropertiesMapper();
@@ -31,9 +36,12 @@ public class CorpGroupEditablePropertiesMapper
     result.setDescription(corpGroupEditableInfo.getDescription(GetMode.DEFAULT));
     result.setSlack(corpGroupEditableInfo.getSlack(GetMode.DEFAULT));
     result.setEmail(corpGroupEditableInfo.getEmail(GetMode.DEFAULT));
-    result.setPictureLink(
-        (Objects.requireNonNull(corpGroupEditableInfo.getPictureLink(GetMode.DEFAULT))).toString());
-
+    com.linkedin.common.url.Url pictureLinkObject = corpGroupEditableInfo.getPictureLink(GetMode.NULL);
+    String pictureLink = null;
+    if (pictureLinkObject != null) {
+      pictureLink = pictureLinkObject.toString();
+    }
+    result.setPictureLink(pictureLink);
     return result;
   }
 }
