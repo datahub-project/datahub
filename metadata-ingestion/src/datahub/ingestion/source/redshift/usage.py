@@ -71,59 +71,40 @@ ORDER BY ss.endtime DESC;
 """.strip()
 
 REDSHIFT_OPERATION_ASPECT_QUERY_TEMPLATE: str = """
-  (SELECT
-      DISTINCT si.userid AS userid,
-      si.query AS query,
-      si.rows AS rows,
-      sui.usename AS username,
-      si.tbl AS tbl,
-      sq.querytxt AS querytxt,
-      sti.database AS database,
-      sti.schema AS schema,
-      sti.table AS table,
-      sq.starttime AS starttime,
-      sq.endtime AS endtime,
-      'insert' AS operation_type
-    FROM
-      (select userid, query, sum(rows) as rows, tbl
-        from stl_insert si
-        where si.rows > 0
-        AND si.starttime >= '{start_time}'
-        AND si.starttime < '{end_time}'
-        group by userid, query, tbl
-      ) as si
-      JOIN svv_table_info sti ON si.tbl = sti.table_id
-      JOIN stl_query sq ON si.query = sq.query
-      JOIN svl_user_info sui ON sq.userid = sui.usesysid
-    WHERE
-      sq.aborted = 0)
-UNION
-  (SELECT
-      DISTINCT sd.userid AS userid,
-      sd.query AS query,
-      sd.rows AS ROWS,
-      sui.usename AS username,
-      sd.tbl AS tbl,
-      sq.querytxt AS querytxt,
-      sti.database AS database,
-      sti.schema AS schema,
-      sti.table AS table,
-      sq.starttime AS starttime,
-      sq.endtime AS endtime,
-      'delete' AS operation_type
-    FROM
-      (select userid, query, sum(rows) as rows, tbl
-        from stl_delete sd
-        where sd.rows > 0
-        AND sd.starttime >= '{start_time}'
-        AND sd.starttime < '{end_time}'
-        group by userid, query, tbl
-      ) as sd
-      JOIN svv_table_info sti ON sd.tbl = sti.table_id
-      JOIN stl_query sq ON sd.query = sq.query
-      JOIN svl_user_info sui ON sq.userid = sui.usesysid
-    WHERE
-      sq.aborted = 0)
+SELECT
+    qd.user_id AS userid,
+    qd.query_id AS query,
+    qd.rows AS rows,
+    sui.user_name AS username,
+    qd.table_id AS tbl,
+    qh.query_text AS querytxt, -- truncated to 4k characters, join with SYS_QUERY_TEXT to build full query using "sequence" number field, probably no reason to do so, since we are interested in the begining of the statement anyway
+    sti.database AS database,
+    sti.schema AS schema,
+    sti.table AS table,
+    qh.start_time AS starttime,
+    qh.end_time AS endtime,
+    qd.step_name as operation_type
+FROM
+    (
+        SELECT 
+            qd.user_id, 
+            qd.query_id, 
+            sum(qd.output_rows) as rows, 
+            qd.table_id,
+            qd.step_name
+        FROM
+            SYS_QUERY_DETAIL qd
+        WHERE
+            qd.step_name in ('insert', 'delete')
+            AND qd.start_time >= '{start_time}'
+            AND qd.start_time < '{end_time}'
+        GROUP BY qd.user_id, qd.query_id, qd.table_id, qd.step_name
+    ) qd
+    JOIN SVV_TABLE_INFO sti ON qd.table_id = sti.table_id
+    JOIN SVV_USER_INFO sui ON sui.user_id = qd.user_id
+    JOIN SYS_QUERY_HISTORY qh ON qh.query_id = qd.query_id
+WHERE
+    qh.status = 'success'
 ORDER BY
   endtime DESC
 """.strip()
