@@ -48,36 +48,45 @@ REDSHIFT_DATETIME_FORMAT = "%Y-%m-%d %H:%M:%S"
 # querytext, and user info to get usage stats
 # using non-LEFT joins here to limit the results to
 # queries run by the user on user-defined tables.
+
+# new approach does not include "COPY" commands
 REDSHIFT_USAGE_QUERY_TEMPLATE: str = """
-SELECT DISTINCT ss.userid as userid,
-       ss.query as query,
-       sui.usename as username,
-       ss.tbl as tbl,
-       sq.querytxt as querytxt,
-       sti.database as database,
-       sti.schema as schema,
-       sti.table as table,
-       sq.starttime as starttime,
-       sq.endtime as endtime
-FROM stl_scan ss
-  JOIN svv_table_info sti ON ss.tbl = sti.table_id
-  JOIN stl_query sq ON ss.query = sq.query
-  JOIN svl_user_info sui ON sq.userid = sui.usesysid
-WHERE ss.starttime >= '{start_time}'
-AND ss.starttime < '{end_time}'
-AND sti.database = '{database}'
-AND sq.aborted = 0
-ORDER BY ss.endtime DESC;
+SELECT
+    DISTINCT
+    qh.user_id as userid,
+    qh.query_id as query,
+    sui.user_name as username,
+    qd.table_id as tbl,
+    qh.query_text as querytxt, -- truncated to 4k characters, join with SYS_QUERY_TEXT to build full query using "sequence" number field
+    sti.database as database,
+    sti.schema as schema,
+    sti.table as table,
+    qh.start_time as starttime,
+    qh.end_time as endtime
+FROM
+    SYS_QUERY_DETAIL qd
+    JOIN SVV_TABLE_INFO sti ON qd.table_id = sti.table_id
+    JOIN SVV_USER_INFO sui ON sui.user_id = qd.user_id
+    JOIN SYS_QUERY_HISTORY qh ON qh.query_id = qd.query_id
+WHERE
+    qd.step_name = 'scan'
+    AND qh.start_time >= '{start_time}'
+    AND qh.start_time < '{end_time}'
+    AND sti.database = '{database}'
+    AND qh.status = 'success'
+ORDER BY qh.end_time DESC
+;
 """.strip()
 
 REDSHIFT_OPERATION_ASPECT_QUERY_TEMPLATE: str = """
 SELECT
+    DISTINCT
     qd.user_id AS userid,
     qd.query_id AS query,
     qd.rows AS rows,
     sui.user_name AS username,
     qd.table_id AS tbl,
-    qh.query_text AS querytxt, -- truncated to 4k characters, join with SYS_QUERY_TEXT to build full query using "sequence" number field, probably no reason to do so, since we are interested in the begining of the statement anyway
+    qh.query_text AS querytxt, -- truncated to 4k characters, join with SYS_QUERY_TEXT to build full query using "sequence" number field
     sti.database AS database,
     sti.schema AS schema,
     sti.table AS table,
