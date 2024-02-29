@@ -29,5 +29,5 @@ export type TimeRange = {
 export enum AssertionChartType {
     ValuesOverTime,
     StatusOverTime,
-    // TODO: special case for freshness (for now it'll be status over time)
+    // TODO(jayacryl): special case for freshness (for now it'll be status over time)
 }

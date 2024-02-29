@@ -14,6 +14,11 @@ export const tryGetYValueForChartFromAssertionRunEvent = (runEvent: AssertionRun
     return tryGetPrimaryMetricValueFromAssertionRunEvent(runEvent)
 }
 
+/**
+ * Get assertion data points that can be plotted on the various assertion charts
+ * @param runEvents 
+ * @returns {AssertionDataPoint[]}
+ */
 export const getAssertionDataPointsFromRunEvents = (runEvents: AssertionRunEvent[]): AssertionDataPoint[] => {
     return runEvents
         .filter((runEvent) => !!runEvent.result)
@@ -85,6 +90,12 @@ export const tryGetYAxisLabelForChartFromAssertionInfo = (assertionInfo?: Assert
     return undefined;
 }
 
+/**
+ * Gets all the data necessary to plot assertion and its run events on viz charts
+ * @param assertion 
+ * @param completedRuns 
+ * @returns {AssertionResultChartData}
+ */
 export const getAssertionResultChartData = (assertion: Assertion, completedRuns: AssertionRunEvent[]): AssertionResultChartData => {
     const timelineDataPoints: AssertionDataPoint[] = getAssertionDataPointsFromRunEvents(completedRuns)
     const maybeYAxisLabel: string | undefined = tryGetYAxisLabelForChartFromAssertionInfo(assertion.info)

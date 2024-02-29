@@ -34,8 +34,8 @@ type Props = {
 
 const CHART_AXIS_LEFT_WIDTH = 48;
 const CHART_AXIS_BOTTOM_HEIGHT = 40;
-const CHART_RIGHT_MARGIN = 0; // so points are not cut off from the right
-const CHART_TOP_MARGIN = 8 // so points are not cut off from the top
+const CHART_RIGHT_MARGIN = 2;
+const CHART_TOP_MARGIN = 8;
 
 export const ValuesOverTimeAssertionResultChart = ({ data, timeRange, chartDimensions }: Props) => {
     const chartInnerWidth = chartDimensions.width - CHART_AXIS_LEFT_WIDTH - CHART_RIGHT_MARGIN
@@ -76,6 +76,7 @@ export const ValuesOverTimeAssertionResultChart = ({ data, timeRange, chartDimen
     /* NOTE: the nodes in an svg that are first will have a lower z-index at paint-time */
     return <svg width={chartDimensions.width} height={chartDimensions.height}>
         <Group left={CHART_AXIS_LEFT_WIDTH} top={CHART_TOP_MARGIN}>
+            {/* ----- Axis ----- */}
             <AxisLeft
                 scale={yScale}
                 stroke={ANTD_GRAY[5]}
@@ -97,6 +98,7 @@ export const ValuesOverTimeAssertionResultChart = ({ data, timeRange, chartDimen
                 tickFormat={(v) => getCustomTimeScaleTickValue(v, timeRange)}
             />
 
+            {/* ----- Line with gradient ----- */}
             <LinearGradient id="area-gradient" from={ACCENT_COLOR_HEX} to={ACCENT_COLOR_HEX} fromOpacity={0.25} toOpacity={0} />
             <AreaClosed
                 data={data.dataPoints}
@@ -115,6 +117,7 @@ export const ValuesOverTimeAssertionResultChart = ({ data, timeRange, chartDimen
                 strokeWidth={4}
             />
 
+            {/* ----- Circular datapoints ----- */}
             {data.dataPoints.map(dataPoint => {
                 const xOffset = xScale(new Date(dataPoint.time));
                 const yOffset = yScale(dataPoint.result.yValue ?? 0);
@@ -134,6 +137,7 @@ export const ValuesOverTimeAssertionResultChart = ({ data, timeRange, chartDimen
                             />}
                             showArrow={false}
                         >
+                            {/* TODO(jayacryl) make dots appear/animate when user hovers over */}
                             <GlyphCircle
                                 left={xOffset}
                                 top={yOffset}
