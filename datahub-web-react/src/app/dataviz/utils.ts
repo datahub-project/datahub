@@ -1,7 +1,7 @@
 import dayjs from "dayjs";
 import { scaleOrdinal } from "@visx/scale";
 
-import { COMPLETED_COLOR, NOT_STARTED_COLOR, IN_PROGRESS_COLOR } from '../../dataviz/constants';
+import { COMPLETED_COLOR, NOT_STARTED_COLOR, IN_PROGRESS_COLOR } from './constants';
 
 // Mock Data Util
 export const generateCount = (totalAssets) => {
@@ -34,3 +34,22 @@ export const statusOrdinalScale = scaleOrdinal({
 	domain: ['Completed', 'In Progress', 'Not Started'],
 	range: [COMPLETED_COLOR, IN_PROGRESS_COLOR, NOT_STARTED_COLOR]
 });
+
+
+const ABBREVS = ['k', 'm', 'b', 't']
+function roundToPrecision(n: number, precision: number) {
+	var prec = 10 ** precision;
+	return Math.round(n * prec) / prec;
+}
+
+/**
+ * ie. 24044 -> 24k
+ * @param n
+ */
+export const truncateNumberForDisplay = (n: number): string => {
+	let base = Math.floor(Math.log(Math.abs(n)) / Math.log(1000));
+	const suffix = ABBREVS[Math.min(ABBREVS.length - 1, base - 1)];
+	base = ABBREVS.indexOf(suffix) + 1;
+	return suffix ? roundToPrecision(n / 1000 ** base, 0) + suffix : `${Math.round(n)}`;
+
+}

@@ -1,4 +1,6 @@
-import { AssertionResultType } from "../../../../../../../../../../../../types.generated";
+import { AssertionInfo, AssertionResultType, AssertionType, Maybe } from "../../../../../../../../../../../../types.generated";
+import { VALUES_OVER_TIME_ASSERTION_TYPES } from "../../../shared/constants";
+import { AssertionChartType } from "./types";
 
 export const ACCENT_COLOR_HEX = '#4050E7'
 export const SUCCESS_COLOR_HEX = ACCENT_COLOR_HEX;// '#52C41A';
@@ -60,6 +62,7 @@ export function generateTimeScaleTickValues(startMs, endMs): Date[] {
         // Less than a week: ticks at the start of each day
         const currentDate = new Date(minDate);
         currentDate.setHours(0, 0, 0, 0); // Start of the day
+        currentDate.setDate(currentDate.getDate() + 1); // skip day 0
         while (currentDate <= maxDate) {
             ticks.push(new Date(currentDate));
             currentDate.setDate(currentDate.getDate() + 1);
@@ -92,8 +95,25 @@ export function getCustomTimeScaleTickValue(v, timeRange) {
     }
     if (maxDate.getTime() - minDate.getTime() <= oneDayInMillis) {
         // Format as hour of the day if the range is within a single day
-        return v.toLocaleTimeString('en-us', { hour: '2-digit' });
+        return v.toLocaleTimeString('en-us', { hour: 'numeric' });
     }
     // Format as month and day if the range is more than one day
     return v.toLocaleDateString('en-us', { month: 'short', day: 'numeric' });
 }
+
+
+export const getBestChartTypeForAssertion = (assertionInfo?: AssertionInfo | Maybe<AssertionInfo>): AssertionChartType => {
+    if (assertionInfo && VALUES_OVER_TIME_ASSERTION_TYPES.includes(assertionInfo.type)) {
+        switch (assertionInfo.type) {
+            case AssertionType.Field:
+                return AssertionChartType.ValuesOverTime;
+            case AssertionType.Sql:
+                break;
+            case AssertionType.Volume:
+                return AssertionChartType.ValuesOverTime;
+            default:
+                break;
+        }
+    }
+    return AssertionChartType.StatusOverTime; // safest catch-all fallback
+} 

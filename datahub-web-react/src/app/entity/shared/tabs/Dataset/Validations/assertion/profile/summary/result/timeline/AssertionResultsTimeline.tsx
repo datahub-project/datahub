@@ -13,38 +13,10 @@ import { Assertion } from '../../../../../../../../../../../types.generated';
 import { getTimeRangeDisplay } from './utils';
 
 const RESULT_CHART_WIDTH_PX = 560;
-const VIZ_CONTAINER_HEIGHT = 200;
-const VIZ_CONTAINER_TITLE_HEIGHT = 36;
-
 const Container = styled.div`
     width: ${RESULT_CHART_WIDTH_PX}px;
 `;
 
-const VisualizationContainer = styled.div`
-    background-color: ${ANTD_GRAY[2]};
-    border-radius: 4px;
-    height: ${VIZ_CONTAINER_HEIGHT}px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 8px;
-`;
-
-const EvaluationsSummary = styled.div`
-    width: 100%;
-    height: ${VIZ_CONTAINER_TITLE_HEIGHT}px;
-    display: flex;
-    align-items: center;
-    justify-content: left;
-`;
-
-const EvaluationDateRange = styled(Typography.Text)`
-    margin: 12px;
-    margin-bottom: 20px;
-    margin-top: 4px;
-    color: ${ANTD_GRAY[9]};
-    font-size: 12px;
-`;
 
 type Props = {
     assertion: Assertion;
@@ -78,26 +50,19 @@ export const AssertionResultsTimeline = ({ assertion }: Props) => {
         startMs: selectedWindow.startTime,
         endMs: selectedWindow.endTime,
     };
-    const dateRange = getTimeRangeDisplay(selectedWindowTimeRange);
     const results = data?.assertion?.runEvents;
 
     return (
         <Container>
-            <VisualizationContainer>
-                <EvaluationsSummary>
-                    <EvaluationDateRange strong>{dateRange}</EvaluationDateRange>
-                </EvaluationsSummary>
-                <AssertionResultsTimelineViz
-                    assertion={assertion}
-                    dimensions={{
-                        height: VIZ_CONTAINER_HEIGHT - VIZ_CONTAINER_TITLE_HEIGHT - 8, // margin below
-                        width: RESULT_CHART_WIDTH_PX - 24, // margin on the sides
-                    }}
-                    timeRange={selectedWindowTimeRange}
-                    results={results as any}
-                    platform={data?.assertion?.platform as any}
-                />
-            </VisualizationContainer>
+            <AssertionResultsTimelineViz
+                parentDimensions={{
+                    width: RESULT_CHART_WIDTH_PX,
+                }}
+                assertion={assertion}
+                timeRange={selectedWindowTimeRange}
+                results={results as any}
+                platform={data?.assertion?.platform as any}
+            />
             <TimeSelect
                 lookbackWindow={lookbackWindow}
                 setLookbackWindow={setLookbackWindow}

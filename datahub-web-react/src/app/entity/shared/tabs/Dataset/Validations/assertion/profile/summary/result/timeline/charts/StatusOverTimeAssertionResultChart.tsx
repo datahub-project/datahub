@@ -11,7 +11,7 @@ import { ANTD_GRAY } from '../../../../../../../../../constants';
 import { LinkWrapper } from '../../../../../../../../../../../shared/LinkWrapper';
 import { Assertion, AssertionResultType } from '../../../../../../../../../../../../types.generated';
 import { generateTimeScaleTickValues, getCustomTimeScaleTickValue, getFillColor } from './utils';
-import { AssertionDataPoint, AssertionResultChartData, TimeRange } from '../types';
+import { AssertionDataPoint, AssertionResultChartData, TimeRange } from './types';
 import { AssertionResultPopoverContent } from '../../../../shared/result/AssertionResultPopoverContent';
 import { scaleLinear } from 'd3-scale';
 
@@ -25,7 +25,7 @@ type Props = {
 };
 
 
-const CHART_LEFT_OFFSET_PX = 0;
+const CHART_HORIZ_MARGIN = 16;
 const CHART_AXIS_BOTTOM_HEIGHT = 40;
 
 /**
@@ -34,37 +34,26 @@ const CHART_AXIS_BOTTOM_HEIGHT = 40;
 export const StatusOverTimeAssertionResultChart = ({ data, timeRange, chartDimensions }: Props) => {
 
     const chartInnerHeight = chartDimensions.height - CHART_AXIS_BOTTOM_HEIGHT
+    const chartInnerWidth = chartDimensions.width - CHART_HORIZ_MARGIN
 
     const xScale = useMemo(
         () =>
             scaleUtc({
                 domain: [new Date(timeRange.startMs), new Date(timeRange.endMs)],
-                range: [0, chartDimensions.width],
+                range: [0, chartInnerWidth],
             }),
-        [timeRange, chartDimensions.width],
+        [timeRange, chartInnerWidth],
     );
 
-    const yMax = useMemo(
-        () => Math.max(...data.dataPoints.map(point => point.result.yValue ?? 0)),
-        [data.dataPoints]
-    )
-    const yScale = useMemo(
-        () =>
-            scaleLinear(
-                [0, yMax],
-                [0, chartInnerHeight],
-            ),
-        [yMax]
-    );
 
     return (
         <>
             <svg width={chartDimensions.width} height={chartDimensions.height}>
-                <Group>
+                <Group left={CHART_HORIZ_MARGIN / 2}>
                     {data.dataPoints.map(dataPoint => {
                         const barWidth = 8;
                         const barX = xScale(new Date(dataPoint.time));
-                        const barHeight = yScale(dataPoint.result.yValue ?? 0);
+                        const barHeight = chartDimensions.height / 3;
                         const fillColor = getFillColor(dataPoint.result.type);
                         return (
                             <LinkWrapper key={dataPoint.time} to={dataPoint.result.resultUrl} target="_blank">
@@ -94,22 +83,21 @@ export const StatusOverTimeAssertionResultChart = ({ data, timeRange, chartDimen
                             </LinkWrapper>
                         );
                     })}
-                </Group>
 
-                <AxisBottom
-                    top={chartInnerHeight}
-                    left={CHART_LEFT_OFFSET_PX}
-                    scale={xScale}
-                    stroke={ANTD_GRAY[5]}
-                    tickValues={generateTimeScaleTickValues(timeRange.startMs, timeRange.endMs)}
-                    tickFormat={(v) => getCustomTimeScaleTickValue(v, timeRange)}
-                    tickStroke={ANTD_GRAY[5]}
-                    tickLabelProps={(_) => ({
-                        fontSize: 11,
-                        angle: 0,
-                        textAnchor: 'middle',
-                    })}
-                />
+                    <AxisBottom
+                        top={chartInnerHeight}
+                        scale={xScale}
+                        stroke={ANTD_GRAY[5]}
+                        tickValues={generateTimeScaleTickValues(timeRange.startMs, timeRange.endMs)}
+                        tickFormat={(v) => getCustomTimeScaleTickValue(v, timeRange)}
+                        tickStroke={ANTD_GRAY[5]}
+                        tickLabelProps={(_) => ({
+                            fontSize: 11,
+                            angle: 0,
+                            textAnchor: 'middle',
+                        })}
+                    />
+                </Group>
             </svg>
         </>
     );

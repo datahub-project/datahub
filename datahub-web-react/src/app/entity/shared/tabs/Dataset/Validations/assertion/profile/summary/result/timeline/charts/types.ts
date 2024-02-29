@@ -1,5 +1,5 @@
 import { Maybe } from "graphql/jsutils/Maybe";
-import { Assertion, AssertionResultType, AssertionRunEvent, AssertionStdOperator, DateInterval } from "../../../../../../../../../../../types.generated";
+import { Assertion, AssertionResultType, AssertionRunEvent, AssertionStdOperator, DateInterval } from "../../../../../../../../../../../../types.generated";
 
 export type AssertionResult = {
     type: AssertionResultType;
@@ -25,3 +25,9 @@ export type TimeRange = {
     startMs: number;
     endMs: number;
 };
+
+export enum AssertionChartType {
+    ValuesOverTime,
+    StatusOverTime,
+    // TODO: special case for freshness (for now it'll be status over time)
+}

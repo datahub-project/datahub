@@ -10,6 +10,7 @@ import { formatNumberWithoutAbbreviation } from '../../../../../../../../../shar
 import { toLocalDateString, toLocalTimeString } from '../../../../../../../../../shared/time/timeUtils';
 import { getResultErrorMessage } from '../../../../assertionUtils';
 import { getFieldMetricLabel } from '../../../builder/steps/field/utils';
+import { ASSERTION_RESULT__NATIVE_RESULTS__KEYS_BY_ASSERTION_TYPE } from './constants';
 
 export const getFormattedResultText = (result?: AssertionResultType) => {
     if (result === undefined) {
@@ -35,6 +36,7 @@ const calculateMetricChangePercentage = (previous: number, actual: number) => {
 };
 
 const getActualColumnMetricFromAssertionRunEvent = (run: AssertionRunEvent): number | undefined => {
+    // TODO: move hardcoded keys to {@link ASSERTION_RESULT__NATIVE_RESULTS__KEYS_BY_ASSERTION_TYPE}
     const stringMetric = run?.result?.nativeResults?.find((pair) => pair.key === 'Metric Value')?.value;
     return stringMetric ? parseInt(stringMetric, 10) : undefined;
 };
@@ -130,9 +132,8 @@ const getFormattedReasonTextForRelativeSqlAssertion = (_: Assertion, run: Assert
         actualRowCount && previousRowCount && calculateMetricChangePercentage(previousRowCount, actualRowCount);
     const rowCountChangeTotal = actualRowCount && previousRowCount ? actualRowCount - previousRowCount : 0;
     const positiveChange = (rowCountChangeTotal || 0) >= 0;
-    const rowCountChangeText = `${formatNumberWithoutAbbreviation(rowCountChangeTotal)} (${
-        positiveChange ? '+' : '-'
-    }${rowCountChangePercentage}%)`;
+    const rowCountChangeText = `${formatNumberWithoutAbbreviation(rowCountChangeTotal)} (${positiveChange ? '+' : '-'
+        }${rowCountChangePercentage}%)`;
 
     if (result === AssertionResultType.Success) {
         if (actualRowCount !== undefined && previousRowCount !== undefined) {
@@ -195,9 +196,8 @@ const getFormattedReasonTextForRelativeVolumeAssertion = (_: Assertion, run: Ass
         actualRowCount && previousRowCount && calculateMetricChangePercentage(previousRowCount, actualRowCount);
     const rowCountChangeTotal = actualRowCount && previousRowCount ? actualRowCount - previousRowCount : 0;
     const positiveChange = (rowCountChangeTotal || 0) >= 0;
-    const rowCountChangeText = `${formatNumberWithoutAbbreviation(rowCountChangeTotal)} (${
-        positiveChange ? '+' : '-'
-    }${rowCountChangePercentage}%)`;
+    const rowCountChangeText = `${formatNumberWithoutAbbreviation(rowCountChangeTotal)} (${positiveChange ? '+' : '-'
+        }${rowCountChangePercentage}%)`;
 
     if (result === AssertionResultType.Success) {
         if (actualRowCount !== undefined && previousRowCount !== undefined) {
@@ -292,3 +292,50 @@ export const getResultStatusText = (result: AssertionResultType, type: ResultSta
             throw new Error(`Unsupported Assertion Result Type ${result} provided.`);
     }
 };
+
+
+
+/**
+ * Gets the main metric on an assertion's results that are being monitored over time
+ * @param runEvent 
+ * @returns {number | undefined}
+ */
+export const tryGetPrimaryMetricValueFromAssertionRunEvent = (runEvent: AssertionRunEvent): number | undefined => {
+    switch (runEvent.result?.assertion?.type) {
+        case AssertionType.Sql:
+            // TODO(jayacryl): check if accurate
+            return (runEvent.result.actualAggValue?.valueOf());
+        case AssertionType.Volume:
+            // Row count
+            return (runEvent.result.rowCount?.valueOf());
+        case AssertionType.Field:
+            switch (runEvent.result.assertion.fieldAssertion?.type) {
+                case FieldAssertionType.FieldValues:
+                    // Invalid rows
+                    {
+                        if (runEvent.result.type == AssertionResultType.Init) return 0;
+                        const maybeValue = runEvent.result.nativeResults?.find(result => result.key == ASSERTION_RESULT__NATIVE_RESULTS__KEYS_BY_ASSERTION_TYPE.FIELD_ASSERTIONS.FIELD_VALUES.Y_VALUE_KEY_NAME)?.value
+                        const parsedValue = typeof maybeValue == 'string' ? parseFloat(maybeValue) : maybeValue
+                        return typeof parsedValue == 'number' && !isNaN(parsedValue) ? parsedValue : undefined;
+                    }
+                case FieldAssertionType.FieldMetric:
+                    // Metric value
+                    {
+                        const maybeValue = runEvent.result.nativeResults?.find(result => result.key == ASSERTION_RESULT__NATIVE_RESULTS__KEYS_BY_ASSERTION_TYPE.FIELD_ASSERTIONS.METRIC_VALUES.Y_VALUE_KEY_NAME)?.value
+                        const parsedValue = typeof maybeValue == 'string' ? parseFloat(maybeValue) : maybeValue
+                        return typeof parsedValue == 'number' && !isNaN(parsedValue) ? parsedValue : undefined;
+                    }
+                default:
+                    break;
+            }
+            break;
+        case AssertionType.Dataset:
+            break;
+        case AssertionType.DataSchema:
+            break;
+        case AssertionType.Freshness:
+            break;
+        default:
+            break;
+    }
+}
