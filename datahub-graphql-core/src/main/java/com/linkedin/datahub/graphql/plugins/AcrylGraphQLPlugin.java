@@ -38,9 +38,6 @@ import com.linkedin.datahub.graphql.resolvers.form.BatchSubmitFormPromptResolver
 import com.linkedin.datahub.graphql.resolvers.form.BatchVerifyFormResolver;
 import com.linkedin.datahub.graphql.resolvers.form.GetFormsForActorResolver;
 import com.linkedin.datahub.graphql.resolvers.form.NumEntitiesToCompleteResolver;
-import com.linkedin.datahub.graphql.resolvers.incident.EntityIncidentsResolver;
-import com.linkedin.datahub.graphql.resolvers.incident.RaiseIncidentResolver;
-import com.linkedin.datahub.graphql.resolvers.incident.UpdateIncidentStatusResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.credentials.ListExecutorConfigsResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.execution.ListSignalRequestsResolver;
 import com.linkedin.datahub.graphql.resolvers.integration.GetLinkPreviewResolver;
@@ -95,7 +92,6 @@ import com.linkedin.datahub.graphql.types.datacontract.DataContractType;
 import com.linkedin.datahub.graphql.types.form.FormType;
 import com.linkedin.datahub.graphql.types.glossary.GlossaryNodeType;
 import com.linkedin.datahub.graphql.types.glossary.GlossaryTermType;
-import com.linkedin.datahub.graphql.types.incident.IncidentType;
 import com.linkedin.datahub.graphql.types.monitor.MonitorType;
 import com.linkedin.datahub.graphql.types.tag.TagType;
 import com.linkedin.entity.client.EntityClient;
@@ -133,7 +129,6 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
   // Acryl Types
   private DataHubConnectionType connectionType; // Saas-ONLY
   private MonitorType monitorType; // SaaS only
-  private IncidentType incidentType; // SaaS only
   private AnomalyType anomalyType;
   private DataContractType dataContractType; // SaaS only, will be moved to OSS
 
@@ -200,18 +195,13 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
     this.connectionType =
         new DataHubConnectionType(args.getEntityClient(), args.getSecretService()); // SaaS only
     this.monitorType = new MonitorType(args.getEntityClient()); // SaaS only
-    this.incidentType = new IncidentType(args.getEntityClient()); // SaaS only
     this.anomalyType = new AnomalyType(args.getEntityClient()); // SaaS only
     this.dataContractType = new DataContractType(entityClient); // SaaS only
 
     // New saas types
     this.entityTypes =
         ImmutableList.of(
-            this.connectionType,
-            this.monitorType,
-            this.incidentType,
-            this.anomalyType,
-            this.dataContractType);
+            this.connectionType, this.monitorType, this.anomalyType, this.dataContractType);
     this.executorConfiguration = args.getExecutorConfiguration();
 
     this.initialized = true;
@@ -223,7 +213,6 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
         ACTIONS_SCHEMA_FILE,
         CONSTRAINTS_SCHEMA_FILE,
         ASSERTIONS_SCHEMA_FILE,
-        INCIDENTS_SCHEMA_FILE,
         CONNECTIONS_SCHEMA_FILE,
         MONITORS_SCHEMA_FILE,
         ANOMALY_SCHEMA_FILE,
@@ -243,7 +232,6 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
     return ImmutableList.of(
         connectionType, // Saas only
         monitorType, // SaaS only
-        incidentType, // SaaS only
         anomalyType, // SaaS only
         dataContractType);
   }
@@ -265,7 +253,6 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
     configureConnectionResolvers(builder, baseEngine);
     configureIntegrationResolvers(builder);
     configureMonitorResolvers(builder, baseEngine);
-    configureIncidentResolvers(builder, baseEngine);
     configureResolvedAuditStampResolvers(builder, baseEngine);
     configureGlobalSettingsResolvers(builder);
     configureTestResolvers(builder);
@@ -301,10 +288,6 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
                     new ProposeUpdateDescriptionResolver(proposalService))
                 .dataFetcher(
                     "proposeDataContract", new ProposeDataContractResolver(proposalService))
-                .dataFetcher("raiseIncident", new RaiseIncidentResolver(this.entityClient))
-                .dataFetcher(
-                    "updateIncidentStatus",
-                    new UpdateIncidentStatusResolver(this.entityClient, this.entityService))
                 .dataFetcher(
                     "createDatasetAssertion", new CreateDatasetAssertionResolver(assertionService))
                 .dataFetcher(
@@ -550,38 +533,6 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
                         })));
   }
 
-  private void configureIncidentResolvers(
-      final RuntimeWiring.Builder builder, GmsGraphQLEngine baseEngine) {
-    builder.type(
-        "Incident",
-        typeWiring ->
-            typeWiring.dataFetcher(
-                "relationships", new EntityRelationshipsResultResolver(graphClient)));
-    builder.type(
-        "IncidentSource",
-        typeWiring ->
-            typeWiring.dataFetcher(
-                "source",
-                new LoadableTypeResolver<>(
-                    baseEngine.getAssertionType(),
-                    (env) -> {
-                      final IncidentSource incidentSource = env.getSource();
-                      return incidentSource.getSource() != null
-                          ? incidentSource.getSource().getUrn()
-                          : null;
-                    })));
-
-    // Add incidents attribute to all entities that support it
-    List<String> entitiesWithIncidents = ImmutableList.of("Dataset", "DataJob", "DataFlow");
-
-    for (String entity : entitiesWithIncidents) {
-      builder.type(
-          entity,
-          typeWiring ->
-              typeWiring.dataFetcher("incidents", new EntityIncidentsResolver(entityClient)));
-    }
-  }
-
   private void configureIntegrationResolvers(final RuntimeWiring.Builder builder) {
     builder.type(
         "Query",
@@ -705,8 +656,7 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
                 .dataFetcher(
                     "proposals",
                     new ProposalsResolver(
-                        (env) -> ((Entity) env.getSource()).getUrn(), entityClient))
-                .dataFetcher("incidents", new EntityIncidentsResolver(entityClient)));
+                        (env) -> ((Entity) env.getSource()).getUrn(), entityClient)));
   }
 
   private void configureProposalResolvers(final RuntimeWiring.Builder builder) {
@@ -795,9 +745,8 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
     builder.type(
         "DataJob",
         typeWiring ->
-            typeWiring
-                .dataFetcher("assertions", new EntityAssertionsResolver(entityClient, graphClient))
-                .dataFetcher("incidents", new EntityIncidentsResolver(entityClient)));
+            typeWiring.dataFetcher(
+                "assertions", new EntityAssertionsResolver(entityClient, graphClient)));
   }
 
   private void configureContractResolvers(
