@@ -1,23 +1,23 @@
+import { ReadOutlined } from '@ant-design/icons';
+import QueryStatsOutlinedIcon from '@mui/icons-material/QueryStatsOutlined';
 import { Drawer, Typography } from 'antd';
 import React, { useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
-import { ReadOutlined } from '@ant-design/icons';
-import QueryStatsOutlinedIcon from '@mui/icons-material/QueryStatsOutlined';
+import { GetDatasetQuery, useGetDataProfilesLazyQuery } from '../../../../../../../../graphql/dataset.generated';
 import {
     DatasetProfile,
     EditableSchemaMetadata,
     SchemaField,
     UsageQueryResult,
 } from '../../../../../../../../types.generated';
+import { useBaseEntity } from '../../../../../EntityContext';
 import { REDESIGN_COLORS } from '../../../../../constants';
 import { SchemaTimelineSection } from '../../../Timeline/SchemaTimelineSection';
-import DrawerFooter from './DrawerFooter';
-import { SchemaFieldDrawerTabs } from './SchemaFieldDrawerTabs';
 import { AboutFieldTab } from './AboutFieldTab';
-import { StatsTab } from './StatsTab';
+import DrawerFooter from './DrawerFooter';
 import FieldHeader from './FieldHeader';
-import { useBaseEntity } from '../../../../../EntityContext';
-import { GetDatasetQuery, useGetDataProfilesLazyQuery } from '../../../../../../../../graphql/dataset.generated';
+import { SchemaFieldDrawerTabs } from './SchemaFieldDrawerTabs';
+import { StatsSidebarContent } from './StatsSidebarContent';
 
 const StyledDrawer = styled(Drawer)`
     &&& .ant-drawer-body {
@@ -58,7 +58,7 @@ const TimelineHeaderWrapper = styled.div`
 const Body = styled.div`
     display: flex;
     flex-direction: row;
-    height: 100%
+    height: 100%;
 `;
 const Content = styled.div`
     flex: 1;
@@ -135,7 +135,7 @@ export default function SchemaFieldDrawer({
         {
             name: 'Statistics',
             icon: QueryStatsOutlinedIcon,
-            component: StatsTab,
+            component: StatsSidebarContent,
             properties: {
                 expandedField,
                 fieldProfile,
