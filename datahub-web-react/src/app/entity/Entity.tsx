@@ -23,6 +23,10 @@ export enum PreviewType {
      * Previews rendered when hovering over the entity in a compact list
      */
     HOVER_CARD,
+    /**
+     * Previews rendered during the bulk verify form flow
+     */
+    BULK_VERIFY,
 }
 
 export enum IconStyleType {
@@ -152,7 +156,7 @@ export interface Entity<T> {
      *
      * TODO: Explore using getGenericEntityProperties for rendering profiles.
      */
-    renderSearch: (result: SearchResult) => JSX.Element;
+    renderSearch: (result: SearchResult, previewType?: PreviewType, onCardClick?: (any: any) => any) => JSX.Element;
 
     /**
      * Constructs config to add entity to lineage viz

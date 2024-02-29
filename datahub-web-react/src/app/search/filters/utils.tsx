@@ -44,6 +44,7 @@ import { GetAutoCompleteMultipleResultsQuery } from '../../../graphql/search.gen
 import { FACETS_TO_ENTITY_TYPES } from './constants';
 import { FilterOptionType } from './types';
 import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
+import { FORM_RESPONSES_FILTER, FormResponsesFilter } from '../../entity/shared/entityForm/EntityFormContext';
 
 // either adds or removes selectedFilterValues to/from activeFilters for a given filterField
 export function getNewFilters(filterField: string, activeFilters: FacetFilterInput[], selectedFilterValues: string[]) {
@@ -156,6 +157,16 @@ function getFilterWithEntityIconAndLabel(
     return { icon, label };
 }
 
+export function getLabelForFormResponsesFilter(filterValue: string) {
+    if (filterValue === FormResponsesFilter.INCOMPLETE) {
+        return 'Missing Response';
+    }
+    if (filterValue === FormResponsesFilter.COMPLETE) {
+        return 'Has a Response';
+    }
+    return null;
+}
+
 export function getFilterIconAndLabel(
     filterField: string,
     filterValue: string,
@@ -198,6 +209,8 @@ export function getFilterIconAndLabel(
         );
         icon = newIcon;
         label = newLabel;
+    } else if (filterField === FORM_RESPONSES_FILTER) {
+        label = getLabelForFormResponsesFilter(filterValue);
     } else {
         label = filterValue;
     }

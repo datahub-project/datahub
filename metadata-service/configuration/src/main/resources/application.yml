@@ -424,6 +424,7 @@ featureFlags:
   nestedDomainsEnabled: ${NESTED_DOMAINS_ENABLED:true} # Enables the nested Domains feature that allows users to have sub-Domains. If this is off, Domains appear "flat" again
   schemaFieldEntityFetchEnabled: ${SCHEMA_FIELD_ENTITY_FETCH_ENABLED:true} # Enables fetching for schema field entities from the database when we hydrate them on schema fields
   themeV2: ${THEME_V2:false} # Acryl only! Enables a suite of UI improvements around search, home and more.
+  taskCenterEnabled: ${TASK_CENTER_ENABLED:false} # Acryl only! Enables a change to the inbox to show the new task center and documentation requests
   metadataShareEnabled: ${METADATA_SHARE_ENABLED:true} # Enables the metadata sharing feature to share entities between instances
 
 entityChangeEvents:

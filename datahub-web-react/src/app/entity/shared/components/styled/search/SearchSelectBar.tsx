@@ -4,6 +4,7 @@ import styled from 'styled-components';
 import { ANTD_GRAY } from '../../../constants';
 import { EntityAndType } from '../../../types';
 import { SearchSelectActions } from './SearchSelectActions';
+import { useEntityFormContext } from '../../../entityForm/EntityFormContext';
 
 const CheckboxContainer = styled.div`
     display: flex;
@@ -53,6 +54,7 @@ export const SearchSelectBar = ({
     onCancel,
     refetch,
 }: Props) => {
+    const { isInFormContext } = useEntityFormContext();
     const selectedEntityCount = selectedEntities.length;
     const onClickCancel = () => {
         if (selectedEntityCount > 0) {
@@ -83,14 +85,16 @@ export const SearchSelectBar = ({
                     {selectedEntityCount} selected
                 </Typography.Text>
             </CheckboxContainer>
-            <ActionsContainer>
-                {showActions && <SearchSelectActions selectedEntities={selectedEntities} refetch={refetch} />}
-                {showCancel && (
-                    <CancelButton onClick={onClickCancel} type="link">
-                        Done
-                    </CancelButton>
-                )}
-            </ActionsContainer>
+            {!isInFormContext && (
+                <ActionsContainer>
+                    {showActions && <SearchSelectActions selectedEntities={selectedEntities} refetch={refetch} />}
+                    {showCancel && (
+                        <CancelButton onClick={onClickCancel} type="link">
+                            Done
+                        </CancelButton>
+                    )}
+                </ActionsContainer>
+            )}
         </>
     );
 };
