@@ -12,6 +12,11 @@ import EntityInfo from '../containers/profile/sidebar/EntityInfo/EntityInfo';
 
 import Form from './Form';
 import ProgressBar from './ProgressBar';
+import { OnboardingTour } from '../../../onboarding/OnboardingTour';
+import {
+    FORM_QUESTION_VIEW_BUTTON,
+    WELCOME_TO_BULK_BY_ENTITY_ID,
+} from '../../../onboarding/config/FormOnboardingConfig';
 
 const ContentWrapper = styled.div`
     background-color: ${ANTD_GRAY_V2[1]};
@@ -34,7 +39,9 @@ interface Props {
 }
 
 export default function FormByEntity({ formUrn }: Props) {
-    const { entity: { selectedEntity, entityData: selectedEntityData } } = useEntityFormContext();
+    const {
+        entity: { selectedEntity, entityData: selectedEntityData },
+    } = useEntityFormContext();
     const { entityType, loading, refetch } = useEntityContext();
     const entityRegistry = useEntityRegistry();
     const type = selectedEntity?.type || entityType;
@@ -49,11 +56,12 @@ export default function FormByEntity({ formUrn }: Props) {
                 loading,
                 baseEntity: selectedEntityData,
                 dataNotCombinedWithSiblings: selectedEntityData,
-                routeToTab: () => { },
+                routeToTab: () => {},
                 refetch,
                 lineage: undefined,
             }}
         >
+            <OnboardingTour stepIds={[WELCOME_TO_BULK_BY_ENTITY_ID, FORM_QUESTION_VIEW_BUTTON]} />
             <ContentWrapper>
                 <ProgressBar formUrn={formUrn} />
                 <FlexWrapper>
