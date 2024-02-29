@@ -43,6 +43,7 @@ public class EntityTypeMapper {
           .put(EntityType.SCHEMA_FIELD, "schemaField")
           .put(EntityType.STRUCTURED_PROPERTY, Constants.STRUCTURED_PROPERTY_ENTITY_NAME)
           .put(EntityType.ASSERTION, Constants.ASSERTION_ENTITY_NAME)
+          .put(EntityType.RESTRICTED, Constants.RESTRICTED_ENTITY_NAME)
           .put(EntityType.DATAHUB_CONNECTION, Constants.DATAHUB_CONNECTION_ENTITY_NAME)
           .put(EntityType.MONITOR, Constants.MONITOR_ENTITY_NAME) // SaaS only
           .put(EntityType.INCIDENT, Constants.INCIDENT_ENTITY_NAME) // SaaS only

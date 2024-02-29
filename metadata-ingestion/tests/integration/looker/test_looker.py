@@ -311,15 +311,17 @@ def setup_mock_look(mocked_client):
         )
     ]
 
-    mocked_client.query.return_value = Query(
-        id="1",
-        view="sales_explore",
-        model="sales_model",
-        fields=[
-            "sales.profit",
-        ],
-        dynamic_fields=None,
-        filters=None,
+    mocked_client.look.return_value = LookWithQuery(
+        query=Query(
+            id="1",
+            view="sales_explore",
+            model="sales_model",
+            fields=[
+                "sales.profit",
+            ],
+            dynamic_fields=None,
+            filters=None,
+        )
     )
 
 

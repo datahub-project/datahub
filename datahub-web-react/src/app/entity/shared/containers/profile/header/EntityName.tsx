@@ -7,7 +7,7 @@ import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import { useEntityData, useRefetch } from '../../../EntityContext';
 import { useGlossaryEntityData } from '../../../GlossaryEntityContext';
 
-const EntityTitle = styled(Typography.Title)`
+export const EntityTitle = styled(Typography.Title)`
     margin-right: 10px;
 
     &&& {

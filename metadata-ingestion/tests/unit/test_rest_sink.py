@@ -235,7 +235,7 @@ basicAuditStamp = models.AuditStampClass(
                     "changeType": "UPSERT",
                     "aspectName": "ownership",
                     "aspect": {
-                        "value": '{"owners": [{"owner": "urn:li:corpuser:fbar", "type": "DATAOWNER"}], "lastModified": {"time": 0, "actor": "urn:li:corpuser:fbar"}}',
+                        "value": '{"owners": [{"owner": "urn:li:corpuser:fbar", "type": "DATAOWNER"}], "ownerTypes": {}, "lastModified": {"time": 0, "actor": "urn:li:corpuser:fbar"}}',
                         "contentType": "application/json",
                     },
                 }

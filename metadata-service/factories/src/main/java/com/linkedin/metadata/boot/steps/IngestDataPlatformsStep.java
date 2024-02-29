@@ -13,7 +13,7 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
-import com.linkedin.metadata.entity.ebean.batch.MCPUpsertBatchItem;
+import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.util.List;
@@ -62,7 +62,7 @@ public class IngestDataPlatformsStep implements BootstrapStep {
     }
 
     // 2. For each JSON object, cast into a DataPlatformSnapshot object.
-    List<MCPUpsertBatchItem> dataPlatformAspects =
+    List<ChangeItemImpl> dataPlatformAspects =
         StreamSupport.stream(
                 Spliterators.spliteratorUnknownSize(dataPlatforms.iterator(), Spliterator.ORDERED),
                 false)
@@ -83,7 +83,7 @@ public class IngestDataPlatformsStep implements BootstrapStep {
                           DataPlatformInfo.class, dataPlatform.get("aspect").toString());
 
                   try {
-                    return MCPUpsertBatchItem.builder()
+                    return ChangeItemImpl.builder()
                         .urn(urn)
                         .aspectName(PLATFORM_ASPECT_NAME)
                         .recordTemplate(info)
@@ -99,6 +99,11 @@ public class IngestDataPlatformsStep implements BootstrapStep {
             .collect(Collectors.toList());
 
     _entityService.ingestAspects(
-        AspectsBatchImpl.builder().items(dataPlatformAspects).build(), true, false);
+        AspectsBatchImpl.builder()
+            .aspectRetriever(_entityService)
+            .items(dataPlatformAspects)
+            .build(),
+        true,
+        false);
   }
 }

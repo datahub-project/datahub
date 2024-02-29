@@ -7,7 +7,6 @@ import { Entity, EntityType, Tag } from '../../../types.generated';
 import { generateColor } from '../../entity/shared/components/styled/StyledTag';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import { useEntityRegistry } from '../../useEntityRegistry';
-import { IconSpacer, Label } from './styledComponents';
 import {
     ENTITY_SUB_TYPE_FILTER_NAME,
     MAX_COUNT_VAL,
@@ -15,6 +14,7 @@ import {
     TAGS_FILTER_NAME,
     TYPE_NAMES_FILTER_NAME,
 } from '../utils/constants';
+import { IconSpacer, Label } from './styledComponents';
 import { isFilterOptionSelected, getFilterIconAndLabel, isAnyOptionSelected, getParentEntities } from './utils';
 import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
 import ParentEntities from './ParentEntities';

@@ -1,5 +1,7 @@
 {
     "query_type": "SELECT",
+    "query_type_props": {},
+    "query_fingerprint": "58d404ff045cd7d48c59383145619c04dbbc8ead2ffdf2b7236b7546e81e27fc",
     "in_tables": [
         "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_sample_data.tpch_sf1.orders,PROD)"
     ],
@@ -185,5 +187,9 @@
                 }
             ]
         }
-    ]
+    ],
+    "debug_info": {
+        "confidence": 0.9,
+        "generalized_statement": "SELECT SUM(totalprice) AS total_agg, * FROM snowflake_sample_data.tpch_sf1.orders WHERE orderdate = ?"
+    }
 }

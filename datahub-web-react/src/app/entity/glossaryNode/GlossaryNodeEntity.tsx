@@ -13,6 +13,7 @@ import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab'
 import ChildrenTab from './ChildrenTab';
 import { Preview } from './preview/Preview';
 import { SidebarMetadataSection } from '../shared/containers/profile/sidebar/SidebarMetadataSection';
+import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
 
 class GlossaryNodeEntity implements Entity<GlossaryNode> {
     getLineageVizConfig?: ((entity: GlossaryNode) => FetchedEntity) | undefined;
@@ -52,6 +53,8 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
 
     getEntityName = () => 'Term Group';
 
+    useEntityQuery = useGetGlossaryNodeQuery;
+
     renderProfile = (urn: string) => {
         return (
             <EntityProfile
@@ -73,21 +76,12 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
                             hideLinksButton: true,
                         },
                     },
-                ]}
-                sidebarSections={[
                     {
-                        component: SidebarAboutSection,
-                        properties: {
-                            hideLinksButton: true,
-                        },
-                    },
-                    {
-                        component: SidebarMetadataSection,
-                    },
-                    {
-                        component: SidebarOwnerSection,
+                        name: 'Properties',
+                        component: PropertiesTab,
                     },
                 ]}
+                sidebarSections={this.getSidebarSections()}
                 headerDropdownItems={
                     new Set([
                         EntityMenuItems.ADD_TERM_GROUP,
@@ -99,6 +93,21 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
             />
         );
     };
+
+    getSidebarSections = () => [
+        {
+            component: SidebarAboutSection,
+            properties: {
+                hideLinksButton: true,
+            },
+        },
+        {
+            component: SidebarMetadataSection,
+        },
+        {
+            component: SidebarOwnerSection,
+        },
+    ];
 
     displayName = (data: GlossaryNode) => {
         return data.properties?.name || data.urn;

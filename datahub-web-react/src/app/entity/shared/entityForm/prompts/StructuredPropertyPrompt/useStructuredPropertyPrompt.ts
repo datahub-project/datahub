@@ -5,6 +5,7 @@ import { getInitialValues } from './utils';
 import usePrevious from '../../../../../shared/usePrevious';
 import { useGetEntityWithSchema } from '../../../tabs/Dataset/Schema/useGetEntitySchema';
 import { FormView, useEntityFormContext } from '../../EntityFormContext';
+import { SCHEMA_FIELD_PROMPT_TYPES } from '../../constants';
 
 interface Props {
     prompt: FormPrompt;
@@ -13,10 +14,10 @@ interface Props {
 }
 
 export default function useStructuredPropertyPrompt({ prompt, submitResponse, field }: Props) {
-    const { refetch: refetchSchema } = useGetEntityWithSchema();
+    const { refetch: refetchSchema } = useGetEntityWithSchema(!SCHEMA_FIELD_PROMPT_TYPES.includes(prompt.type));
     const { refetch, entityData } = useEntityContext();
     const { selectedPromptId, formView } = useEntityFormContext();
-    const [isSaveVisible, setIsSaveVisible] = useState(false);
+    const [hasEditedPrompt, setHasEditedPrompt] = useState(false);
     const initialValues = useMemo(
         () => (formView === FormView.BY_ENTITY ? getInitialValues(prompt, entityData, field) : []),
         [formView, entityData, prompt, field],
@@ -35,19 +36,19 @@ export default function useStructuredPropertyPrompt({ prompt, submitResponse, fi
     const previousSelectedPromptId = usePrevious(selectedPromptId);
     useEffect(() => {
         if (selectedPromptId !== previousSelectedPromptId) {
-            setIsSaveVisible(false);
+            setHasEditedPrompt(false);
             setSelectedValues(initialValues || []);
         }
     }, [previousSelectedPromptId, selectedPromptId, initialValues]);
 
     // respond to prompts
     function selectSingleValue(value: string | number) {
-        setIsSaveVisible(true);
+        setHasEditedPrompt(true);
         setSelectedValues([value as string]);
     }
 
     function toggleSelectedValue(value: string | number) {
-        setIsSaveVisible(true);
+        setHasEditedPrompt(true);
         if (selectedValues.includes(value)) {
             setSelectedValues((prev) => prev.filter((v) => v !== value));
         } else {
@@ -57,7 +58,7 @@ export default function useStructuredPropertyPrompt({ prompt, submitResponse, fi
 
     function updateSelectedValues(values: any[]) {
         setSelectedValues(values);
-        setIsSaveVisible(true);
+        setHasEditedPrompt(true);
     }
 
     // submit structured property prompt
@@ -80,7 +81,7 @@ export default function useStructuredPropertyPrompt({ prompt, submitResponse, fi
             },
             () => {
                 refetch();
-                setIsSaveVisible(false);
+                setHasEditedPrompt(false);
                 if (field) {
                     refetchSchema();
                 }
@@ -89,7 +90,7 @@ export default function useStructuredPropertyPrompt({ prompt, submitResponse, fi
     }
 
     return {
-        isSaveVisible,
+        hasEditedPrompt,
         selectedValues,
         selectSingleValue,
         toggleSelectedValue,

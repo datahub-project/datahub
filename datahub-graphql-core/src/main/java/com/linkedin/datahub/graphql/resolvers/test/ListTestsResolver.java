@@ -65,6 +65,7 @@ public class ListTestsResolver implements DataFetcher<CompletableFuture<ListTest
               // First, get all group Urns.
               final SearchResult gmsResult =
                   _entityClient.search(
+                      context.getOperationContext().withSearchFlags(flags -> SEARCH_FLAGS),
                       Constants.TEST_ENTITY_NAME,
                       query,
                       buildTestsFilter(),
@@ -72,9 +73,7 @@ public class ListTestsResolver implements DataFetcher<CompletableFuture<ListTest
                           .setField(TESTS_LAST_UPDATED_TIME_INDEX_FIELD_NAME)
                           .setOrder(SortOrder.DESCENDING),
                       start,
-                      count,
-                      context.getAuthentication(),
-                      SEARCH_FLAGS);
+                      count);
 
               // Now that we have entities we can bind this to a result.
               final ListTestsResult result = new ListTestsResult();

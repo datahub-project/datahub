@@ -55,7 +55,7 @@ def entities_to_dataset_urn_list(iolets: List[str]) -> List[DatasetUrn]:
     dataset_urn_list: List[DatasetUrn] = []
     for let in iolets:
         if guess_entity_type(let) == "dataset":
-            dataset_urn_list.append(DatasetUrn.create_from_string(let))
+            dataset_urn_list.append(DatasetUrn.from_string(let))
     return dataset_urn_list
 
 
@@ -63,5 +63,5 @@ def entities_to_datajob_urn_list(inlets: List[str]) -> List[DataJobUrn]:
     datajob_urn_list: List[DataJobUrn] = []
     for let in inlets:
         if guess_entity_type(let) == "dataJob":
-            datajob_urn_list.append(DataJobUrn.create_from_string(let))
+            datajob_urn_list.append(DataJobUrn.from_string(let))
     return datajob_urn_list

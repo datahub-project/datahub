@@ -18,6 +18,7 @@ import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
+import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.util.Collections;
 import java.util.Map;
@@ -53,7 +54,8 @@ public class TermFetcherTest {
     Set<String> allowedGlossaryNodes = Set.of(ALLOWED_NODE_1.toString(), ALLOWED_NODE_2.toString());
 
     TermFetcher termFetcher =
-        new TermFetcher(entityService, entitySearchService, allowedGlossaryNodes);
+        new TermFetcher(
+            mock(OperationContext.class), entityService, entitySearchService, allowedGlossaryNodes);
     Set<Urn> fetchedAllowedNodes = termFetcher.fetchAllowedTerms();
     assertEquals(Set.of(ALLOWED_TERM_1, ALLOWED_TERM_2), fetchedAllowedNodes);
   }
@@ -112,6 +114,7 @@ public class TermFetcherTest {
 
     Mockito.when(
             mockSearchService.scroll(
+                Mockito.any(),
                 Mockito.eq(Collections.singletonList(Constants.GLOSSARY_TERM_ENTITY_NAME)),
                 Mockito.eq(null),
                 Mockito.eq(null),
@@ -133,6 +136,7 @@ public class TermFetcherTest {
 
     Mockito.when(
             mockSearchService.scroll(
+                Mockito.any(),
                 Mockito.eq(Collections.singletonList(Constants.GLOSSARY_TERM_ENTITY_NAME)),
                 Mockito.eq(null),
                 Mockito.eq(null),

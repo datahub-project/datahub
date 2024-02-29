@@ -56,11 +56,11 @@ public class ProposeTagResolver implements DataFetcher<CompletableFuture<Boolean
           }
 
           if (ProposalUtils.isTagAlreadyProposedToTarget(
+              ((QueryContext) environment.getContext()).getOperationContext(),
               tagUrn,
               targetUrn,
               input.getSubResource(),
-              _entityClient,
-              ((QueryContext) environment.getContext()).getAuthentication())) {
+              _entityClient)) {
             throw new DataHubGraphQLException(
                 "Tag has already been proposed to target", DataHubGraphQLErrorCode.BAD_REQUEST);
           }

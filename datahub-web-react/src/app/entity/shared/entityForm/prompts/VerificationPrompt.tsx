@@ -4,8 +4,6 @@ import { Button, Divider, message } from 'antd';
 import { useVerifyFormMutation } from '../../../../../graphql/form.generated';
 import { useEntityContext, useMutationUrn } from '../../EntityContext';
 import { PromptWrapper } from './Prompt';
-import { useUpdateEducationStepsAllowList } from '../../../../onboarding/useUpdateEducationStepsAllowList';
-import { FORM_ASSET_COMPLETION } from '../../../../onboarding/config/FormOnboardingConfig';
 
 const ContentWrapper = styled.div`
     display: flex;
@@ -34,13 +32,11 @@ export default function VerificationPrompt({ formUrn, associatedUrn }: Props) {
     const urn = useMutationUrn();
     const { refetch } = useEntityContext();
     const [verifyFormMutation] = useVerifyFormMutation();
-    const { addIdToAllowList } = useUpdateEducationStepsAllowList();
 
     function verifyForm() {
         verifyFormMutation({ variables: { input: { entityUrn: associatedUrn || urn || '', formUrn } } })
             .then(() => {
                 refetch();
-                addIdToAllowList(FORM_ASSET_COMPLETION);
             })
             .catch(() => {
                 message.error('Error when verifying responses on form');

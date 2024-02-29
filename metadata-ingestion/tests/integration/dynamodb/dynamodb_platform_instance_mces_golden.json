@@ -47,9 +47,93 @@
                     "isPartOfKey": false
                 },
                 {
+                    "fieldPath": "contactNumbers",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.ArrayType": {}
+                        }
+                    },
+                    "nativeDataType": "List",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
                     "fieldPath": "partitionKey",
                     "nullable": false,
                     "description": "Partition Key",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "String",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "services",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.RecordType": {}
+                        }
+                    },
+                    "nativeDataType": "Map",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "services.hours",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.RecordType": {}
+                        }
+                    },
+                    "nativeDataType": "Map",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "services.hours.close",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "String",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "services.hours.open",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "String",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "services.parking",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.BooleanType": {}
+                        }
+                    },
+                    "nativeDataType": "Boolean",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "services.wifi",
+                    "nullable": true,
                     "type": {
                         "type": {
                             "com.linkedin.schema.StringType": {}
@@ -76,7 +160,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1693396800000,
-        "runId": "dynamodb-test"
+        "runId": "dynamodb-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -95,7 +180,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1693396800000,
-        "runId": "dynamodb-test"
+        "runId": "dynamodb-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -111,7 +197,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1693396800000,
-        "runId": "dynamodb-test"
+        "runId": "dynamodb-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -126,7 +213,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1693396800000,
-        "runId": "dynamodb-test"
+        "runId": "dynamodb-test",
+        "lastRunId": "no-run-id-provided"
     }
 }
 ]

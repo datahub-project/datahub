@@ -1,0 +1,19 @@
+{
+    "query_type": "CREATE_VIEW",
+    "query_type_props": {
+        "kind": "VIEW"
+    },
+    "query_fingerprint": "c39068cf687524197dc7039afa9512f39cb35cdad6813037d4d5c348980e71cf",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:redshift,my_db.public.sales,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:redshift,my_db.spectrum.sales,PROD)"
+    ],
+    "out_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:redshift,my_db.sales_vw,PROD)"
+    ],
+    "column_lineage": null,
+    "debug_info": {
+        "confidence": 0.3,
+        "generalized_statement": "CREATE VIEW sales_vw AS SELECT * FROM public.sales UNION ALL SELECT * FROM spectrum.sales WITH NO SCHEMA BINDING"
+    }
+}

@@ -2,7 +2,6 @@ package com.linkedin.metadata.kafka.hook.notification.proposal;
 
 import static com.linkedin.metadata.kafka.hook.notification.NotificationUtils.*;
 
-import com.datahub.authentication.Authentication;
 import com.datahub.notification.NotificationScenarioType;
 import com.datahub.notification.NotificationTemplateType;
 import com.datahub.notification.provider.EntityNameProvider;
@@ -30,6 +29,7 @@ import com.linkedin.metadata.kafka.hook.notification.BaseMclNotificationGenerato
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.subscription.EntityChangeType;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -50,21 +50,22 @@ public class ProposalNotificationGenerator extends BaseMclNotificationGenerator 
   private final FeatureFlags _featureFlags;
 
   public ProposalNotificationGenerator(
+      @Nonnull OperationContext systemOpContext,
       @Nonnull final EventProducer eventProducer,
       @Nonnull final EntityClient entityClient,
       @Nonnull final GraphClient graphClient,
       @Nonnull final SettingsProvider settingsProvider,
-      @Nonnull final Authentication systemAuthentication,
       @Nonnull final SlackNotificationRecipientBuilder slackNotificationRecipientBuilder,
       @Nonnull final FeatureFlags featureFlags) {
     super(
+        systemOpContext,
         eventProducer,
         entityClient,
         graphClient,
         settingsProvider,
-        systemAuthentication,
         ImmutableMap.of(NotificationSinkType.SLACK, slackNotificationRecipientBuilder));
-    this.entityNameProvider = new EntityNameProvider(entityClient, systemAuthentication);
+    this.entityNameProvider =
+        new EntityNameProvider(entityClient, systemOpContext.getAuthentication());
     _featureFlags = featureFlags;
   }
 

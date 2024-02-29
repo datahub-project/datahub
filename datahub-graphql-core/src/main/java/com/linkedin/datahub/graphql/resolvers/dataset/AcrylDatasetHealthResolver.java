@@ -22,6 +22,7 @@ import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -99,7 +100,8 @@ public class AcrylDatasetHealthResolver implements DataFetcher<CompletableFuture
 
     // Incidents are saas-only.
     if (_config.getIncidentsEnabled()) {
-      final Health incidentsHealth = computeIncidentsHealthForDataset(datasetUrn, context);
+      final Health incidentsHealth =
+          computeIncidentsHealthForDataset(context.getOperationContext(), datasetUrn);
       if (incidentsHealth != null) {
         healthStatuses.add(incidentsHealth);
       }
@@ -188,12 +190,11 @@ public class AcrylDatasetHealthResolver implements DataFetcher<CompletableFuture
    * @return an instance of {@link Health} for the entity, null if one cannot be computed.
    */
   private Health computeIncidentsHealthForDataset(
-      final String entityUrn, final QueryContext context) {
+      @Nonnull OperationContext opContext, final String entityUrn) {
     try {
       final Filter filter = buildIncidentsEntityFilter(entityUrn, IncidentState.ACTIVE.toString());
       final SearchResult searchResult =
-          _entityClient.filter(
-              Constants.INCIDENT_ENTITY_NAME, filter, null, 0, 1, context.getAuthentication());
+          _entityClient.filter(opContext, Constants.INCIDENT_ENTITY_NAME, filter, null, 0, 1);
       final Integer activeIncidentCount = searchResult.getNumEntities();
       if (activeIncidentCount > 0) {
         // There are active incidents.

@@ -17,6 +17,7 @@ import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.service.IncidentService;
 import com.linkedin.metadata.service.IncidentsSummaryUtils;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -35,14 +36,17 @@ public class MigrateIncidentsSummaryStep extends UpgradeStep {
 
   private final EntitySearchService _entitySearchService;
   private final IncidentService _incidentService;
+  private final OperationContext systemOpContext;
 
   public MigrateIncidentsSummaryStep(
+      @Nonnull OperationContext systemOpContext,
       EntityService entityService,
       EntitySearchService entitySearchService,
       IncidentService incidentService) {
     super(entityService, VERSION, UPGRADE_ID);
     _entitySearchService = entitySearchService;
     _incidentService = incidentService;
+    this.systemOpContext = systemOpContext;
   }
 
   @Nonnull
@@ -60,6 +64,7 @@ public class MigrateIncidentsSummaryStep extends UpgradeStep {
 
       ScrollResult scrollResult =
           _entitySearchService.scroll(
+              systemOpContext,
               Collections.singletonList(Constants.INCIDENT_ENTITY_NAME),
               null,
               null,

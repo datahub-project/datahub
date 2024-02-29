@@ -271,3 +271,98 @@ input UpdateIncidentStatusInput {
   """
   message: String
 }
+
+extend type Dataset {
+  """
+  Incidents associated with the Dataset
+  """
+  incidents(
+    """
+    Optional incident state to filter by, defaults to any state.
+    """
+    state: IncidentState,
+    """
+    Optional start offset, defaults to 0.
+    """
+    start: Int,
+    """
+    Optional start offset, defaults to 20.
+    """
+    count: Int): EntityIncidentsResult
+}
+
+extend type DataJob {
+  """
+  Incidents associated with the DataJob
+  """
+  incidents(
+    """
+    Optional incident state to filter by, defaults to any state.
+    """
+    state: IncidentState,
+    """
+    Optional start offset, defaults to 0.
+    """
+    start: Int,
+    """
+    Optional start offset, defaults to 20.
+    """
+    count: Int): EntityIncidentsResult
+}
+
+extend type DataFlow {
+  """
+  Incidents associated with the DataFlow
+  """
+  incidents(
+    """
+    Optional incident state to filter by, defaults to any state.
+    """
+    state: IncidentState,
+    """
+    Optional start offset, defaults to 0.
+    """
+    start: Int,
+    """
+    Optional start offset, defaults to 20.
+    """
+    count: Int): EntityIncidentsResult
+}
+
+extend type Dashboard {
+  """
+  Incidents associated with the Dashboard
+  """
+  incidents(
+    """
+    Optional incident state to filter by, defaults to any state.
+    """
+    state: IncidentState,
+    """
+    Optional start offset, defaults to 0.
+    """
+    start: Int,
+    """
+    Optional start offset, defaults to 20.
+    """
+    count: Int): EntityIncidentsResult
+}
+
+extend type Chart {
+  """
+  Incidents associated with the Chart
+  """
+  incidents(
+    """
+    Optional incident state to filter by, defaults to any state.
+    """
+    state: IncidentState,
+    """
+    Optional start offset, defaults to 0.
+    """
+    start: Int,
+    """
+    Optional start offset, defaults to 20.
+    """
+    count: Int): EntityIncidentsResult
+}

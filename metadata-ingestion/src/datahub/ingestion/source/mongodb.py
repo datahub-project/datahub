@@ -419,11 +419,6 @@ class MongoDBSource(StatefulIngestionSourceBase):
                             key=dataset_urn,
                             reason=f"Downsampling the collection schema because it has {collection_schema_size} fields. Threshold is {max_schema_size}",
                         )
-                        collection_fields = sorted(
-                            collection_schema.values(),
-                            key=lambda x: (x["count"], x["delimited_name"]),
-                            reverse=True,
-                        )[0:max_schema_size]
                         # Add this information to the custom properties so user can know they are looking at downsampled schema
                         dataset_properties.customProperties[
                             "schema.downsampled"
@@ -437,8 +432,12 @@ class MongoDBSource(StatefulIngestionSourceBase):
                     )
                     # append each schema field (sort so output is consistent)
                     for schema_field in sorted(
-                        collection_fields, key=lambda x: x["delimited_name"]
-                    ):
+                        collection_fields,
+                        key=lambda x: (
+                            -x["count"],
+                            x["delimited_name"],
+                        ),  # Negate `count` for descending order, `delimited_name` stays the same for ascending
+                    )[0:max_schema_size]:
                         field = SchemaField(
                             fieldPath=schema_field["delimited_name"],
                             nativeDataType=self.get_pymongo_type_string(

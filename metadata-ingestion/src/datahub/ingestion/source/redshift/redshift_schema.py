@@ -8,8 +8,8 @@ import redshift_connector
 from datahub.ingestion.source.redshift.query import RedshiftQuery
 from datahub.ingestion.source.sql.sql_generic import BaseColumn, BaseTable
 from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
+from datahub.sql_parsing.sqlglot_lineage import SqlParsingResult
 from datahub.utilities.hive_schema_to_avro import get_schema_fields_for_hive_column
-from datahub.utilities.sqlglot_lineage import SqlParsingResult
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -79,6 +79,8 @@ class LineageRow:
     target_table: Optional[str]
     ddl: Optional[str]
     filename: Optional[str]
+    timestamp: Optional[datetime]
+    session_id: Optional[str]
 
 
 @dataclass
@@ -368,26 +370,49 @@ class RedshiftDataDictionary:
         while rows:
             for row in rows:
                 yield LineageRow(
-                    source_schema=row[field_names.index("source_schema")]
-                    if "source_schema" in field_names
-                    else None,
-                    source_table=row[field_names.index("source_table")]
-                    if "source_table" in field_names
-                    else None,
-                    target_schema=row[field_names.index("target_schema")]
-                    if "target_schema" in field_names
-                    else None,
-                    target_table=row[field_names.index("target_table")]
-                    if "target_table" in field_names
-                    else None,
+                    source_schema=(
+                        row[field_names.index("source_schema")]
+                        if "source_schema" in field_names
+                        else None
+                    ),
+                    source_table=(
+                        row[field_names.index("source_table")]
+                        if "source_table" in field_names
+                        else None
+                    ),
+                    target_schema=(
+                        row[field_names.index("target_schema")]
+                        if "target_schema" in field_names
+                        else None
+                    ),
+                    target_table=(
+                        row[field_names.index("target_table")]
+                        if "target_table" in field_names
+                        else None
+                    ),
                     # See https://docs.aws.amazon.com/redshift/latest/dg/r_STL_QUERYTEXT.html
                     # for why we need to remove the \\n.
-                    ddl=row[field_names.index("ddl")].replace("\\n", "\n")
-                    if "ddl" in field_names
-                    else None,
-                    filename=row[field_names.index("filename")]
-                    if "filename" in field_names
-                    else None,
+                    ddl=(
+                        row[field_names.index("ddl")].replace("\\n", "\n")
+                        if "ddl" in field_names
+                        else None
+                    ),
+                    filename=(
+                        row[field_names.index("filename")]
+                        if "filename" in field_names
+                        else None
+                    ),
+                    timestamp=(
+                        row[field_names.index("timestamp")]
+                        if "timestamp" in field_names
+                        else None
+                    ),
+                    session_id=(
+                        str(row[field_names.index("session_id")])
+                        if "session_id" in field_names
+                        and row[field_names.index("session_id")]
+                        else None
+                    ),
                 )
             rows = cursor.fetchmany()
 

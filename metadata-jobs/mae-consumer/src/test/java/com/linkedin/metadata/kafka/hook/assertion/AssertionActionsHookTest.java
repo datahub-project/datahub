@@ -64,6 +64,7 @@ import com.linkedin.metadata.service.util.AssertionUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataChangeProposal;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collections;
 import javax.annotation.Nonnull;
 import org.mockito.Mockito;
@@ -76,13 +77,19 @@ public class AssertionActionsHookTest {
   private static final Urn TEST_DATASET_URN =
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,name,PROD)");
 
+  private static OperationContext mockOperationContext() {
+    OperationContext mockOpContext = mock(OperationContext.class);
+    when(mockOpContext.getEntityRegistry()).thenReturn(ENTITY_REGISTRY);
+    return mockOpContext;
+  }
+
   @Test
   public void testInvokeNotEnabled() throws Exception {
     SystemEntityClient entityClient = mock(SystemEntityClient.class);
     when(entityClient.getSystemAuthentication()).thenReturn(mock(Authentication.class));
 
     final AssertionActionsHook hook =
-        new AssertionActionsHook(ENTITY_REGISTRY, entityClient, false);
+        new AssertionActionsHook(mockOperationContext(), entityClient, false);
 
     final MetadataChangeLog event =
         buildMetadataChangeLog(
@@ -106,7 +113,8 @@ public class AssertionActionsHookTest {
     SystemEntityClient entityClient = mock(SystemEntityClient.class);
     when(entityClient.getSystemAuthentication()).thenReturn(mock(Authentication.class));
 
-    final AssertionActionsHook hook = new AssertionActionsHook(ENTITY_REGISTRY, entityClient, true);
+    final AssertionActionsHook hook =
+        new AssertionActionsHook(mockOperationContext(), entityClient, true);
 
     // Case 1: Incorrect aspect --- Assertion Info
     MetadataChangeLog event =
@@ -186,7 +194,8 @@ public class AssertionActionsHookTest {
                 .setOnFailure(new AssertionActionArray())
                 .setOnSuccess(new AssertionActionArray()));
 
-    final AssertionActionsHook hook = new AssertionActionsHook(ENTITY_REGISTRY, entityClient, true);
+    final AssertionActionsHook hook =
+        new AssertionActionsHook(mockOperationContext(), entityClient, true);
 
     MetadataChangeLog event =
         buildMetadataChangeLog(
@@ -213,6 +222,7 @@ public class AssertionActionsHookTest {
     // Ensure that we did not apply any actions or look up anything for incidents.
     Mockito.verify(entityClient, Mockito.times(0))
         .search(
+            Mockito.any(),
             Mockito.eq(INCIDENT_ENTITY_NAME),
             Mockito.eq("*"),
             Mockito.any(Filter.class),
@@ -251,7 +261,8 @@ public class AssertionActionsHookTest {
                         ImmutableList.of(
                             new AssertionAction().setType(AssertionActionType.RESOLVE_INCIDENT)))));
 
-    final AssertionActionsHook hook = new AssertionActionsHook(ENTITY_REGISTRY, entityClient, true);
+    final AssertionActionsHook hook =
+        new AssertionActionsHook(mockOperationContext(), entityClient, true);
 
     MetadataChangeLog event =
         buildMetadataChangeLog(
@@ -278,14 +289,13 @@ public class AssertionActionsHookTest {
     // Ensure that we searched for the active incidents associated with the assertion..
     Mockito.verify(entityClient, Mockito.times(1))
         .search(
+            Mockito.any(),
             Mockito.eq(INCIDENT_ENTITY_NAME),
             Mockito.eq("*"),
             Mockito.any(Filter.class),
             Mockito.eq(null),
             Mockito.anyInt(),
-            Mockito.anyInt(),
-            Mockito.any(Authentication.class),
-            Mockito.any(SearchFlags.class));
+            Mockito.anyInt());
 
     // Verify that nothing was ingested in this case
     Mockito.verify(entityClient, Mockito.times(0))
@@ -333,7 +343,8 @@ public class AssertionActionsHookTest {
                         ImmutableList.of(
                             new AssertionAction().setType(AssertionActionType.RESOLVE_INCIDENT)))));
 
-    final AssertionActionsHook hook = new AssertionActionsHook(ENTITY_REGISTRY, entityClient, true);
+    final AssertionActionsHook hook =
+        new AssertionActionsHook(mockOperationContext(), entityClient, true);
 
     MetadataChangeLog event =
         buildMetadataChangeLog(
@@ -360,14 +371,13 @@ public class AssertionActionsHookTest {
     // Ensure that we searched for the active incidents associated with the assertion..
     Mockito.verify(entityClient, Mockito.times(1))
         .search(
+            Mockito.any(),
             Mockito.eq(INCIDENT_ENTITY_NAME),
             Mockito.eq("*"),
             Mockito.any(Filter.class),
             Mockito.eq(null),
             Mockito.anyInt(),
-            Mockito.anyInt(),
-            Mockito.any(Authentication.class),
-            Mockito.any(SearchFlags.class));
+            Mockito.anyInt());
 
     IncidentInfo expectedInfo = new IncidentInfo(activeIncidentInfo.data());
     expectedInfo.setStatus(
@@ -404,7 +414,8 @@ public class AssertionActionsHookTest {
                         .setDataset(TEST_DATASET_URN)
                         .setScope(DatasetAssertionScope.DATASET_COLUMN)));
 
-    final AssertionActionsHook hook = new AssertionActionsHook(ENTITY_REGISTRY, entityClient, true);
+    final AssertionActionsHook hook =
+        new AssertionActionsHook(mockOperationContext(), entityClient, true);
 
     MetadataChangeLog event =
         buildMetadataChangeLog(
@@ -431,14 +442,13 @@ public class AssertionActionsHookTest {
     // Ensure that we searched for the active anomalies associated with the assertion..
     Mockito.verify(entityClient, Mockito.times(1))
         .search(
+            Mockito.any(),
             Mockito.eq(ANOMALY_ENTITY_NAME),
             Mockito.eq("*"),
             Mockito.any(Filter.class),
             Mockito.eq(null),
             Mockito.anyInt(),
-            Mockito.anyInt(),
-            Mockito.any(Authentication.class),
-            Mockito.any(SearchFlags.class));
+            Mockito.anyInt());
 
     // Verify that nothing was ingested in this case -- no anomalies to ingest since it was a
     // success.
@@ -481,7 +491,8 @@ public class AssertionActionsHookTest {
                         .setDataset(TEST_DATASET_URN)
                         .setScope(DatasetAssertionScope.DATASET_COLUMN)));
 
-    final AssertionActionsHook hook = new AssertionActionsHook(ENTITY_REGISTRY, entityClient, true);
+    final AssertionActionsHook hook =
+        new AssertionActionsHook(mockOperationContext(), entityClient, true);
 
     MetadataChangeLog event =
         buildMetadataChangeLog(
@@ -508,14 +519,13 @@ public class AssertionActionsHookTest {
     // Ensure that we searched for the active anomalies associated with the assertion..
     Mockito.verify(entityClient, Mockito.times(1))
         .search(
+            Mockito.any(),
             Mockito.eq(ANOMALY_ENTITY_NAME),
             Mockito.eq("*"),
             Mockito.any(Filter.class),
             Mockito.eq(null),
             Mockito.anyInt(),
-            Mockito.anyInt(),
-            Mockito.any(Authentication.class),
-            Mockito.any(SearchFlags.class));
+            Mockito.anyInt());
 
     AnomalyInfo expectedInfo = new AnomalyInfo(activeAnomalyInfo.data());
     expectedInfo.setStatus(
@@ -550,7 +560,8 @@ public class AssertionActionsHookTest {
                 .setOnFailure(new AssertionActionArray())
                 .setOnSuccess(new AssertionActionArray()));
 
-    final AssertionActionsHook hook = new AssertionActionsHook(ENTITY_REGISTRY, entityClient, true);
+    final AssertionActionsHook hook =
+        new AssertionActionsHook(mockOperationContext(), entityClient, true);
 
     MetadataChangeLog event =
         buildMetadataChangeLog(
@@ -577,14 +588,13 @@ public class AssertionActionsHookTest {
     // Ensure that we did not apply any actions or look up anything for incidents.
     Mockito.verify(entityClient, Mockito.times(0))
         .search(
+            Mockito.any(),
             Mockito.eq(INCIDENT_ENTITY_NAME),
             Mockito.eq("*"),
             Mockito.any(Filter.class),
             Mockito.any(SortCriterion.class),
             Mockito.anyInt(),
-            Mockito.anyInt(),
-            Mockito.any(Authentication.class),
-            Mockito.any(SearchFlags.class));
+            Mockito.anyInt());
 
     // No ingestion to perform
     Mockito.verify(entityClient, Mockito.times(0))
@@ -624,7 +634,8 @@ public class AssertionActionsHookTest {
                         ImmutableList.of(
                             new AssertionAction().setType(AssertionActionType.RAISE_INCIDENT)))));
 
-    final AssertionActionsHook hook = new AssertionActionsHook(ENTITY_REGISTRY, entityClient, true);
+    final AssertionActionsHook hook =
+        new AssertionActionsHook(mockOperationContext(), entityClient, true);
 
     MetadataChangeLog event =
         buildMetadataChangeLog(
@@ -651,14 +662,13 @@ public class AssertionActionsHookTest {
     // Ensure that we searched for the active incidents associated with the assertion..
     Mockito.verify(entityClient, Mockito.times(1))
         .search(
+            Mockito.any(),
             Mockito.eq(INCIDENT_ENTITY_NAME),
             Mockito.eq("*"),
             Mockito.any(Filter.class),
             Mockito.eq(null),
             Mockito.anyInt(),
-            Mockito.anyInt(),
-            Mockito.any(Authentication.class),
-            Mockito.any(SearchFlags.class));
+            Mockito.anyInt());
 
     IncidentInfo expectedInfo = new IncidentInfo();
     expectedInfo.setType(IncidentType.DATASET_COLUMN);
@@ -727,7 +737,8 @@ public class AssertionActionsHookTest {
                         ImmutableList.of(
                             new AssertionAction().setType(AssertionActionType.RAISE_INCIDENT)))));
 
-    final AssertionActionsHook hook = new AssertionActionsHook(ENTITY_REGISTRY, entityClient, true);
+    final AssertionActionsHook hook =
+        new AssertionActionsHook(mockOperationContext(), entityClient, true);
 
     MetadataChangeLog event =
         buildMetadataChangeLog(
@@ -754,14 +765,13 @@ public class AssertionActionsHookTest {
     // Ensure that we searched for the active incidents associated with the assertion..
     Mockito.verify(entityClient, Mockito.times(1))
         .search(
+            Mockito.any(),
             Mockito.eq(INCIDENT_ENTITY_NAME),
             Mockito.eq("*"),
             Mockito.any(Filter.class),
             Mockito.eq(null),
             Mockito.anyInt(),
-            Mockito.anyInt(),
-            Mockito.any(Authentication.class),
-            Mockito.any(SearchFlags.class));
+            Mockito.anyInt());
 
     // Verify that nothing was ingested due to existing active incident
     Mockito.verify(entityClient, Mockito.times(0))
@@ -789,7 +799,8 @@ public class AssertionActionsHookTest {
                         .setDataset(TEST_DATASET_URN)
                         .setScope(DatasetAssertionScope.DATASET_COLUMN)));
 
-    final AssertionActionsHook hook = new AssertionActionsHook(ENTITY_REGISTRY, entityClient, true);
+    final AssertionActionsHook hook =
+        new AssertionActionsHook(mockOperationContext(), entityClient, true);
 
     MetadataChangeLog event =
         buildMetadataChangeLog(
@@ -816,14 +827,13 @@ public class AssertionActionsHookTest {
     // Ensure that we searched for the active anomalies associated with the assertion..
     Mockito.verify(entityClient, Mockito.times(1))
         .search(
+            Mockito.any(),
             Mockito.eq(ANOMALY_ENTITY_NAME),
             Mockito.eq("*"),
             Mockito.any(Filter.class),
             Mockito.eq(null),
             Mockito.anyInt(),
-            Mockito.anyInt(),
-            Mockito.any(Authentication.class),
-            Mockito.any(SearchFlags.class));
+            Mockito.anyInt());
 
     AnomalyInfo expectedInfo = new AnomalyInfo();
     expectedInfo.setType(AnomalyType.DATASET_COLUMN);
@@ -881,7 +891,8 @@ public class AssertionActionsHookTest {
                         .setDataset(TEST_DATASET_URN)
                         .setScope(DatasetAssertionScope.DATASET_COLUMN)));
 
-    final AssertionActionsHook hook = new AssertionActionsHook(ENTITY_REGISTRY, entityClient, true);
+    final AssertionActionsHook hook =
+        new AssertionActionsHook(mockOperationContext(), entityClient, true);
 
     MetadataChangeLog event =
         buildMetadataChangeLog(
@@ -908,14 +919,13 @@ public class AssertionActionsHookTest {
     // Ensure that we searched for the active anomalies associated with the assertion..
     Mockito.verify(entityClient, Mockito.times(1))
         .search(
+            Mockito.any(),
             Mockito.eq(ANOMALY_ENTITY_NAME),
             Mockito.eq("*"),
             Mockito.any(Filter.class),
             Mockito.eq(null),
             Mockito.anyInt(),
-            Mockito.anyInt(),
-            Mockito.any(Authentication.class),
-            Mockito.any(SearchFlags.class));
+            Mockito.anyInt());
 
     // Verify that no anomaly is raised since one already exists!
     Mockito.verify(entityClient, Mockito.times(0))
@@ -958,7 +968,8 @@ public class AssertionActionsHookTest {
                 .setOnSuccess(new AssertionActionArray())
                 .setOnFailure(new AssertionActionArray()));
 
-    final AssertionActionsHook hook = new AssertionActionsHook(ENTITY_REGISTRY, entityClient, true);
+    final AssertionActionsHook hook =
+        new AssertionActionsHook(mockOperationContext(), entityClient, true);
 
     MetadataChangeLog event =
         buildMetadataChangeLog(
@@ -980,14 +991,13 @@ public class AssertionActionsHookTest {
     // Ensure that we searched for the active incidents associated with the assertion..
     Mockito.verify(entityClient, Mockito.times(1))
         .search(
+            Mockito.any(),
             Mockito.eq(INCIDENT_ENTITY_NAME),
             Mockito.eq("*"),
             Mockito.any(Filter.class),
             Mockito.eq(null),
             Mockito.anyInt(),
-            Mockito.anyInt(),
-            Mockito.any(Authentication.class),
-            Mockito.any(SearchFlags.class));
+            Mockito.anyInt());
 
     // Verify that we've deleted the active incidents.
     Mockito.verify(entityClient, Mockito.times(1))
@@ -1029,7 +1039,8 @@ public class AssertionActionsHookTest {
                 .setOnSuccess(new AssertionActionArray())
                 .setOnFailure(new AssertionActionArray()));
 
-    final AssertionActionsHook hook = new AssertionActionsHook(ENTITY_REGISTRY, entityClient, true);
+    final AssertionActionsHook hook =
+        new AssertionActionsHook(mockOperationContext(), entityClient, true);
 
     MetadataChangeLog event =
         buildMetadataChangeLog(
@@ -1051,14 +1062,13 @@ public class AssertionActionsHookTest {
     // Ensure that we searched for the active incidents associated with the assertion..
     Mockito.verify(entityClient, Mockito.times(1))
         .search(
+            Mockito.any(),
             Mockito.eq(INCIDENT_ENTITY_NAME),
             Mockito.eq("*"),
             Mockito.any(Filter.class),
             Mockito.eq(null),
             Mockito.anyInt(),
-            Mockito.anyInt(),
-            Mockito.any(Authentication.class),
-            Mockito.any(SearchFlags.class));
+            Mockito.anyInt());
 
     // Verify that we've deleted the active incidents.
     Mockito.verify(entityClient, Mockito.times(1))
@@ -1097,7 +1107,8 @@ public class AssertionActionsHookTest {
                         .setDataset(TEST_DATASET_URN)
                         .setScope(DatasetAssertionScope.DATASET_COLUMN)));
 
-    final AssertionActionsHook hook = new AssertionActionsHook(ENTITY_REGISTRY, entityClient, true);
+    final AssertionActionsHook hook =
+        new AssertionActionsHook(mockOperationContext(), entityClient, true);
 
     MetadataChangeLog event =
         buildMetadataChangeLog(
@@ -1119,14 +1130,13 @@ public class AssertionActionsHookTest {
     // Ensure that we searched for the active anomalies associated with the assertion..
     Mockito.verify(entityClient, Mockito.times(1))
         .search(
+            Mockito.any(),
             Mockito.eq(ANOMALY_ENTITY_NAME),
             Mockito.eq("*"),
             Mockito.any(Filter.class),
             Mockito.eq(null),
             Mockito.anyInt(),
-            Mockito.anyInt(),
-            Mockito.any(Authentication.class),
-            Mockito.any(SearchFlags.class));
+            Mockito.anyInt());
 
     // Verify that we've deleted the active anomalies.
     Mockito.verify(entityClient, Mockito.times(1))
@@ -1165,7 +1175,8 @@ public class AssertionActionsHookTest {
                         .setDataset(TEST_DATASET_URN)
                         .setScope(DatasetAssertionScope.DATASET_COLUMN)));
 
-    final AssertionActionsHook hook = new AssertionActionsHook(ENTITY_REGISTRY, entityClient, true);
+    final AssertionActionsHook hook =
+        new AssertionActionsHook(mockOperationContext(), entityClient, true);
 
     MetadataChangeLog event =
         buildMetadataChangeLog(
@@ -1188,14 +1199,13 @@ public class AssertionActionsHookTest {
     // Ensure that we searched for the active anomalies associated with the assertion..
     Mockito.verify(entityClient, Mockito.times(1))
         .search(
+            Mockito.any(),
             Mockito.eq(ANOMALY_ENTITY_NAME),
             Mockito.eq("*"),
             Mockito.any(Filter.class),
             Mockito.eq(null),
             Mockito.anyInt(),
-            Mockito.anyInt(),
-            Mockito.any(Authentication.class),
-            Mockito.any(SearchFlags.class));
+            Mockito.anyInt());
 
     // Verify that we've deleted the active anomalies.
     Mockito.verify(entityClient, Mockito.times(1))
@@ -1266,14 +1276,13 @@ public class AssertionActionsHookTest {
             : new SearchEntityArray(ImmutableList.of(new SearchEntity().setEntity(incidentUrn)));
 
     when(mockClient.search(
+            Mockito.any(),
             Mockito.eq(INCIDENT_ENTITY_NAME),
             Mockito.eq("*"),
             Mockito.any(Filter.class),
             Mockito.eq(null),
             Mockito.anyInt(),
-            Mockito.anyInt(),
-            Mockito.any(Authentication.class),
-            Mockito.any(SearchFlags.class)))
+            Mockito.anyInt()))
         .thenReturn(
             new SearchResult()
                 .setNumEntities(1)
@@ -1338,14 +1347,13 @@ public class AssertionActionsHookTest {
             : new SearchEntityArray(ImmutableList.of(new SearchEntity().setEntity(anomalyUrn)));
 
     when(mockClient.search(
+            Mockito.any(),
             Mockito.eq(ANOMALY_ENTITY_NAME),
             Mockito.eq("*"),
             Mockito.any(Filter.class),
             Mockito.eq(null),
             Mockito.anyInt(),
-            Mockito.anyInt(),
-            Mockito.any(Authentication.class),
-            Mockito.any(SearchFlags.class)))
+            Mockito.anyInt()))
         .thenReturn(
             new SearchResult()
                 .setNumEntities(1)

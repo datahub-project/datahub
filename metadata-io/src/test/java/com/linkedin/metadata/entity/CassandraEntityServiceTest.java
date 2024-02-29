@@ -72,13 +72,8 @@ public class CassandraEntityServiceTest
     preProcessHooks.setUiEnabled(true);
     _entityServiceImpl =
         new EntityServiceImpl(
-            _aspectDao,
-            _mockProducer,
-            _testEntityRegistry,
-            false,
-            _mockUpdateIndicesService,
-            preProcessHooks,
-            true);
+            _aspectDao, _mockProducer, _testEntityRegistry, false, preProcessHooks, true);
+    _entityServiceImpl.setUpdateIndicesService(_mockUpdateIndicesService);
     _retentionService = new CassandraRetentionService(_entityServiceImpl, session, 1000);
     _entityServiceImpl.setRetentionService(_retentionService);
   }

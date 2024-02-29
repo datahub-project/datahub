@@ -1,45 +1,19 @@
 package com.linkedin.metadata.aspect.batch;
 
 import com.linkedin.common.AuditStamp;
-import com.linkedin.common.urn.Urn;
-import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.events.metadata.ChangeType;
-import com.linkedin.metadata.models.AspectSpec;
-import com.linkedin.metadata.models.EntitySpec;
-import com.linkedin.mxe.SystemMetadata;
+import com.linkedin.metadata.aspect.ReadItem;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
-public interface BatchItem {
-  /**
-   * The urn associated with the aspect
-   *
-   * @return
-   */
-  Urn getUrn();
-
-  /**
-   * Aspect's name
-   *
-   * @return the name
-   */
-  @Nonnull
-  default String getAspectName() {
-    return getAspectSpec().getName();
-  }
-
-  /**
-   * System information
-   *
-   * @return the system metadata
-   */
-  SystemMetadata getSystemMetadata();
+public interface BatchItem extends ReadItem {
 
   /**
    * Timestamp and actor
    *
    * @return the audit information
    */
+  @Nullable
   AuditStamp getAuditStamp();
 
   /**
@@ -49,28 +23,4 @@ public interface BatchItem {
    */
   @Nonnull
   ChangeType getChangeType();
-
-  /**
-   * The entity's schema
-   *
-   * @return entity specification
-   */
-  @Nonnull
-  EntitySpec getEntitySpec();
-
-  /**
-   * The aspect's schema
-   *
-   * @return aspect's specification
-   */
-  @Nonnull
-  AspectSpec getAspectSpec();
-
-  /**
-   * The aspect's record template. Null when patch
-   *
-   * @return record template if it exists
-   */
-  @Nullable
-  RecordTemplate getRecordTemplate();
 }

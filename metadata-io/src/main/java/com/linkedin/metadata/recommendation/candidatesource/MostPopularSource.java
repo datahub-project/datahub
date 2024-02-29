@@ -1,6 +1,7 @@
 package com.linkedin.metadata.recommendation.candidatesource;
 
 import com.codahale.metrics.Timer;
+import com.datahub.authorization.config.SearchAuthorizationConfiguration;
 import com.datahub.util.exception.ESQueryException;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
@@ -17,9 +18,11 @@ import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+import io.datahubproject.metadata.context.OperationContext;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.io.IOException;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -31,6 +34,7 @@ import org.opensearch.client.RequestOptions;
 import org.opensearch.client.RestHighLevelClient;
 import org.opensearch.client.indices.GetIndexRequest;
 import org.opensearch.index.query.BoolQueryBuilder;
+import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.search.aggregations.AggregationBuilder;
 import org.opensearch.search.aggregations.AggregationBuilders;
@@ -89,7 +93,7 @@ public class MostPopularSource
 
   @Override
   public boolean isEligible(
-      @Nonnull Urn userUrn, @Nonnull RecommendationRequestContext requestContext) {
+      @Nonnull OperationContext opContext, @Nonnull RecommendationRequestContext requestContext) {
     boolean analyticsEnabled = false;
     try {
       analyticsEnabled =
@@ -107,8 +111,8 @@ public class MostPopularSource
   @Override
   @WithSpan
   public List<RecommendationContent> getRecommendations(
-      @Nonnull Urn userUrn, @Nonnull RecommendationRequestContext requestContext) {
-    SearchRequest searchRequest = buildSearchRequest(userUrn);
+      @Nonnull OperationContext opContext, @Nonnull RecommendationRequestContext requestContext) {
+    SearchRequest searchRequest = buildSearchRequest(opContext);
     try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "getMostPopular").time()) {
       final SearchResponse searchResponse =
           _searchClient.search(searchRequest, RequestOptions.DEFAULT);
@@ -132,11 +136,15 @@ public class MostPopularSource
     return SUPPORTED_ENTITY_TYPES;
   }
 
-  private SearchRequest buildSearchRequest(@Nonnull Urn userUrn) {
+  private SearchRequest buildSearchRequest(@Nonnull OperationContext opContext) {
     // TODO: Proactively filter for entity types in the supported set.
     SearchRequest request = new SearchRequest();
     SearchSourceBuilder source = new SearchSourceBuilder();
     BoolQueryBuilder query = QueryBuilders.boolQuery();
+
+    // Potentially limit actors
+    restrictPeers(opContext).ifPresent(query::must);
+
     // Filter for all entity view events
     query.must(
         QueryBuilders.termQuery(
@@ -156,6 +164,25 @@ public class MostPopularSource
     return request;
   }
 
+  // If search access controls enabled, restrict user activity to peers
+  private static Optional<QueryBuilder> restrictPeers(@Nonnull OperationContext opContext) {
+    SearchAuthorizationConfiguration config =
+        opContext.getOperationContextConfig().getSearchAuthorizationConfiguration();
+
+    if (config.isEnabled()
+        && config.getRecommendations().isPeerGroupEnabled()
+        && !opContext.isSystemAuth()) {
+      return Optional.of(
+          QueryBuilders.termsQuery(
+              DataHubUsageEventConstants.ACTOR_URN + ".keyword",
+              opContext.getActorPeers().stream()
+                  .map(Object::toString)
+                  .collect(Collectors.toList())));
+    }
+
+    return Optional.empty();
+  }
+
   @Override
   public EntityService<?> getEntityService() {
     return _entityService;
@@ -168,7 +195,7 @@ public class MostPopularSource
 
   @Override
   public Urn getRecommendationModuleUrn(
-      @Nonnull Urn userUrn, @Nonnull RecommendationRequestContext requestContext) {
+      @Nonnull OperationContext opContext, @Nonnull RecommendationRequestContext requestContext) {
     return MODULE_URN;
   }
 }

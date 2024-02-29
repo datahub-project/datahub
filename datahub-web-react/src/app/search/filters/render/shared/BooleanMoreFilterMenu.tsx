@@ -46,11 +46,11 @@ interface Props {
 
 export default function BooleanMoreFilterMenu({ menuOption, onUpdate, alignRight }: Props) {
     return (
-        <DropdownMenu alignRight={alignRight} data-testid="filter-dropdown">
+        <DropdownMenu alignRight={alignRight} data-testid="boolean-filter-dropdown">
             <ScrollableContent>
                 {React.cloneElement(menuOption as React.ReactElement, { style: { boxShadow: 'none' } })}
             </ScrollableContent>
-            <StyledButton type="text" onClick={onUpdate} data-testid="update-filters">
+            <StyledButton type="text" onClick={onUpdate} data-testid="boolean-update-filters">
                 Update
             </StyledButton>
         </DropdownMenu>

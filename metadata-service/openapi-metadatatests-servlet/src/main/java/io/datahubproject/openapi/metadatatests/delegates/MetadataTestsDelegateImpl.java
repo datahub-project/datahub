@@ -8,7 +8,6 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.test.TestEngine;
 import com.linkedin.metadata.test.TestFetcher;
@@ -22,6 +21,7 @@ import com.linkedin.test.TestMode;
 import com.linkedin.test.TestResults;
 import com.linkedin.test.TestStatus;
 import com.linkedin.util.Pair;
+import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.openapi.generated.MetadataTestEntityResultV1;
 import io.datahubproject.openapi.generated.MetadataTestEntityResultV1Failing;
 import io.datahubproject.openapi.generated.MetadataTestEntityResultV1Passing;
@@ -42,12 +42,13 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.springframework.http.ResponseEntity;
 
 public class MetadataTestsDelegateImpl implements MetadataTestApiDelegate {
 
-  private final EntityRegistry entityRegistry;
+  private final OperationContext systemOpContext;
   private final EntityService<?> entityService;
   private final EntitySearchService entitySearchService;
   private final EntityApiDelegateImpl<
@@ -63,6 +64,7 @@ public class MetadataTestsDelegateImpl implements MetadataTestApiDelegate {
   private final PredicateEvaluator predicateEvaluator;
 
   public MetadataTestsDelegateImpl(
+      @Nonnull OperationContext systemOpContext,
       EntityService<?> entityService,
       EntitySearchService entitySearchService,
       EntityApiDelegateImpl<TestEntityRequestV2, TestEntityResponseV2, ScrollTestEntityResponseV2>
@@ -72,9 +74,9 @@ public class MetadataTestsDelegateImpl implements MetadataTestApiDelegate {
       QueryEngine queryEngine,
       ActionApplier actionApplier,
       PredicateEvaluator predicateEvaluator) {
+    this.systemOpContext = systemOpContext;
     this.entityService = entityService;
     this.entitySearchService = entitySearchService;
-    this.entityRegistry = entityService.getEntityRegistry();
     this.entityApiDelegate = entityApiDelegate;
     this.authorizationChain = authorizationChain;
     this.restApiAuthorizationEnabled = restApiAuthorizationEnabled;
@@ -84,6 +86,7 @@ public class MetadataTestsDelegateImpl implements MetadataTestApiDelegate {
   }
 
   public MetadataTestsDelegateImpl(
+      @Nonnull OperationContext systemOpContext,
       EntityService<?> entityService,
       EntitySearchService entitySearchService,
       EntityApiDelegateImpl<TestEntityRequestV2, TestEntityResponseV2, ScrollTestEntityResponseV2>
@@ -93,6 +96,7 @@ public class MetadataTestsDelegateImpl implements MetadataTestApiDelegate {
       QueryEngine queryEngine,
       ActionApplier actionApplier) {
     this(
+        systemOpContext,
         entityService,
         entitySearchService,
         entityApiDelegate,
@@ -257,10 +261,11 @@ public class MetadataTestsDelegateImpl implements MetadataTestApiDelegate {
               .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
     }
 
-    return Pair.of(testInfoMap, buildTestEngine(testInfoMap));
+    return Pair.of(testInfoMap, buildTestEngine(systemOpContext, testInfoMap));
   }
 
-  private TestEngine buildTestEngine(Map<Urn, TestInfo> testInfoMap) {
+  private TestEngine buildTestEngine(
+      @Nonnull OperationContext systemOpContext, Map<Urn, TestInfo> testInfoMap) {
     final TestFetcher testFetcher;
 
     if (testInfoMap.isEmpty()) {
@@ -270,6 +275,7 @@ public class MetadataTestsDelegateImpl implements MetadataTestApiDelegate {
     }
 
     return new TestEngine(
+        systemOpContext,
         entityService,
         testFetcher,
         new TestDefinitionParser(predicateEvaluator),
@@ -388,7 +394,8 @@ public class MetadataTestsDelegateImpl implements MetadataTestApiDelegate {
     }
 
     @Override
-    public TestFetchResult fetch(int start, int count, String query)
+    public TestFetchResult fetch(
+        @Nonnull OperationContext opContext, int start, int count, String query)
         throws RemoteInvocationException, URISyntaxException {
       return new TestFetchResult(
           tests.subList(start, Math.min(tests.size(), start + count)), tests.size());

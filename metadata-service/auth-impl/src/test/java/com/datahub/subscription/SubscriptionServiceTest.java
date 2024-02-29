@@ -8,6 +8,7 @@ import static org.testng.Assert.*;
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
+import com.datahub.plugins.auth.authorization.Authorizer;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
@@ -18,6 +19,7 @@ import com.linkedin.event.notification.NotificationSinkType;
 import com.linkedin.event.notification.NotificationSinkTypeArray;
 import com.linkedin.event.notification.settings.NotificationSettings;
 import com.linkedin.metadata.entity.AspectUtils;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
@@ -29,6 +31,8 @@ import com.linkedin.subscription.SubscriptionInfo;
 import com.linkedin.subscription.SubscriptionNotificationConfig;
 import com.linkedin.subscription.SubscriptionType;
 import com.linkedin.subscription.SubscriptionTypeArray;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
@@ -105,10 +109,15 @@ public class SubscriptionServiceTest {
   private EntityClient _entityClient;
   private SubscriptionService _subscriptionService;
 
+  private OperationContext opContext;
+
   @BeforeMethod
   public void setup() {
     _entityClient = mock(EntityClient.class);
-    _subscriptionService = new SubscriptionService(_entityClient, SYSTEM_AUTHENTICATION);
+    this.opContext =
+        TestOperationContexts.userContextNoSearchAuthorization(
+            mock(EntityRegistry.class), Authorizer.EMPTY, SYSTEM_AUTHENTICATION);
+    _subscriptionService = new SubscriptionService(opContext, _entityClient);
   }
 
   @Test
@@ -271,12 +280,7 @@ public class SubscriptionServiceTest {
   public void testListSubscriptionsNoSearchResults() throws Exception {
     when(_entityClient.exists(eq(USER_URN), eq(SYSTEM_AUTHENTICATION))).thenReturn(true);
     when(_entityClient.filter(
-            eq(SUBSCRIPTION_ENTITY_NAME),
-            any(),
-            any(),
-            anyInt(),
-            anyInt(),
-            eq(SYSTEM_AUTHENTICATION)))
+            any(), eq(SUBSCRIPTION_ENTITY_NAME), any(), any(), anyInt(), anyInt()))
         .thenReturn(new SearchResult().setEntities(new SearchEntityArray()));
 
     final SearchResult searchResult = new SearchResult();
@@ -290,12 +294,7 @@ public class SubscriptionServiceTest {
   public void testListSubscriptions() throws Exception {
     when(_entityClient.exists(eq(USER_URN), eq(SYSTEM_AUTHENTICATION))).thenReturn(true);
     when(_entityClient.filter(
-            eq(SUBSCRIPTION_ENTITY_NAME),
-            any(),
-            any(),
-            anyInt(),
-            anyInt(),
-            eq(SYSTEM_AUTHENTICATION)))
+            any(), eq(SUBSCRIPTION_ENTITY_NAME), any(), any(), anyInt(), anyInt()))
         .thenReturn(
             new SearchResult()
                 .setEntities(

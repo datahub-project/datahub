@@ -19,10 +19,10 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.aspect.batch.BatchItem;
-import com.linkedin.metadata.aspect.batch.MCPBatchItem;
+import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityUtils;
-import com.linkedin.metadata.entity.ebean.batch.MCPUpsertBatchItem;
+import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.DataPlatformInstanceUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
@@ -49,10 +49,10 @@ public class DefaultAspectsUtil {
   public static final Set<ChangeType> SUPPORTED_TYPES =
       Set.of(ChangeType.UPSERT, ChangeType.CREATE, ChangeType.PATCH);
 
-  public static List<MCPBatchItem> getAdditionalChanges(
+  public static List<MCPItem> getAdditionalChanges(
       @Nonnull AspectsBatch batch, @Nonnull EntityService<?> entityService, boolean browsePathV2) {
 
-    Map<Urn, List<MCPBatchItem>> itemsByUrn =
+    Map<Urn, List<MCPItem>> itemsByUrn =
         batch.getMCPItems().stream()
             .filter(item -> SUPPORTED_TYPES.contains(item.getChangeType()))
             .collect(Collectors.groupingBy(BatchItem::getUrn));
@@ -79,13 +79,13 @@ public class DefaultAspectsUtil {
               RecordTemplate entityKeyAspect = defaultAspects.get(0).getSecond();
 
               // pick the first item as a template (use entity information)
-              MCPBatchItem templateItem = aspectsEntry.getValue().get(0);
+              MCPItem templateItem = aspectsEntry.getValue().get(0);
 
               // generate default aspects (including key aspect, always upserts)
               return defaultAspects.stream()
                   .map(
                       entry ->
-                          MCPUpsertBatchItem.MCPUpsertBatchItemBuilder.build(
+                          ChangeItemImpl.ChangeItemImplBuilder.build(
                               getProposalFromAspect(
                                   entry.getKey(), entry.getValue(), entityKeyAspect, templateItem),
                               templateItem.getAuditStamp(),
@@ -280,7 +280,7 @@ public class DefaultAspectsUtil {
       String aspectName,
       RecordTemplate aspect,
       RecordTemplate entityKeyAspect,
-      MCPBatchItem templateItem) {
+      MCPItem templateItem) {
     MetadataChangeProposal proposal = new MetadataChangeProposal();
     GenericAspect genericAspect = GenericRecordUtils.serializeAspect(aspect);
 

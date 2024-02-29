@@ -34,6 +34,7 @@ import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.service.AssertionService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -62,6 +63,7 @@ public class MigrateAssertionsSummaryStepTest {
 
     final MigrateAssertionsSummaryStep step =
         new MigrateAssertionsSummaryStep(
+            mock(OperationContext.class),
             entityService,
             entitySearchService,
             assertionService,
@@ -105,6 +107,7 @@ public class MigrateAssertionsSummaryStepTest {
 
     final MigrateAssertionsSummaryStep step =
         new MigrateAssertionsSummaryStep(
+            mock(OperationContext.class),
             entityService,
             entitySearchService,
             assertionService,
@@ -136,6 +139,7 @@ public class MigrateAssertionsSummaryStepTest {
 
     Mockito.when(
             mockSearchService.scroll(
+                Mockito.any(),
                 Mockito.eq(Collections.singletonList(Constants.ASSERTION_ENTITY_NAME)),
                 Mockito.eq(null),
                 Mockito.eq(null),
@@ -149,6 +153,7 @@ public class MigrateAssertionsSummaryStepTest {
 
     Mockito.when(
             mockSearchService.scroll(
+                Mockito.any(),
                 Mockito.eq(Collections.singletonList(Constants.ASSERTION_ENTITY_NAME)),
                 Mockito.eq(null),
                 Mockito.eq(null),

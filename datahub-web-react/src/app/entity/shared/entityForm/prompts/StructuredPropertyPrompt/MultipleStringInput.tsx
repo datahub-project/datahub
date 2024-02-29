@@ -53,7 +53,7 @@ export default function MultipleStringInput({ selectedValues, updateSelectedValu
     }
 
     return (
-        <>
+        <div>
             {selectedValues.length > 1 &&
                 selectedValues.map((selectedValue, index) => {
                     const key = `${index}`;
@@ -78,6 +78,6 @@ export default function MultipleStringInput({ selectedValues, updateSelectedValu
             <StyledButton type="link" onClick={addNewValue}>
                 + Add More
             </StyledButton>
-        </>
+        </div>
     );
 }

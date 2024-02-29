@@ -1,10 +1,7 @@
 package com.linkedin.metadata.aspect.patch.template.dataset;
 
 import static com.fasterxml.jackson.databind.node.JsonNodeFactory.instance;
-import static com.linkedin.metadata.Constants.FINE_GRAINED_LINEAGE_DATASET_TYPE;
-import static com.linkedin.metadata.Constants.FINE_GRAINED_LINEAGE_FIELD_SET_TYPE;
-import static com.linkedin.metadata.Constants.FINE_GRAINED_LINEAGE_FIELD_TYPE;
-import static com.linkedin.metadata.Constants.SCHEMA_FIELD_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.*;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -22,6 +19,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import org.codehaus.plexus.util.StringUtils;
 
 public class UpstreamLineageTemplate extends CompoundKeyTemplate<UpstreamLineage> {
 
@@ -35,10 +33,12 @@ public class UpstreamLineageTemplate extends CompoundKeyTemplate<UpstreamLineage
   private static final String FINE_GRAINED_DOWNSTREAMS = "downstreams";
   private static final String FINE_GRAINED_TRANSFORMATION_OPERATION = "transformOperation";
   private static final String FINE_GRAINED_CONFIDENCE_SCORE = "confidenceScore";
+  private static final String FINE_GRAINED_QUERY_ID = "query";
 
   // Template support
   private static final String NONE_TRANSFORMATION_TYPE = "NONE";
   private static final Float DEFAULT_CONFIDENCE_SCORE = 1.0f;
+  private static final String DEFAULT_QUERY_ID = "NONE";
 
   @Override
   public UpstreamLineage getSubtype(RecordTemplate recordTemplate) throws ClassCastException {
@@ -94,7 +94,7 @@ public class UpstreamLineageTemplate extends CompoundKeyTemplate<UpstreamLineage
   /**
    * Combines fine grained lineage array into a map using upstream and downstream types as keys,
    * defaulting when not present. Due to this construction, patches will look like: path:
-   * /fineGrainedLineages/TRANSFORMATION_OPERATION/(upstreamType || downstreamType)/TYPE/FIELD_URN,
+   * /fineGrainedLineages/TRANSFORMATION_OPERATION/DOWNSTREAM_FIELD_URN/QUERY_ID/UPSTREAM_FIELD_URN,
    * op: ADD/REMOVE, value: float (confidenceScore) Due to the way FineGrainedLineage was designed
    * it doesn't necessarily have a consistent key we can reference, so this specialized method
    * mimics the arrayFieldToMap of the super class with the specialization that it does not put the
@@ -128,6 +128,18 @@ public class UpstreamLineageTemplate extends CompoundKeyTemplate<UpstreamLineage
               ObjectNode transformationOperationNode =
                   (ObjectNode) mapNode.get(transformationOperation);
 
+              ArrayNode downstreams =
+                  nodeClone.has(FINE_GRAINED_DOWNSTREAMS)
+                      ? (ArrayNode) nodeClone.get(FINE_GRAINED_DOWNSTREAMS)
+                      : null;
+
+              if (downstreams == null || downstreams.size() != 1) {
+                throw new UnsupportedOperationException(
+                    "Patching not supported on fine grained lineages with not"
+                        + " exactly one downstream. Current fine grained lineage implementation is downstream derived and "
+                        + "patches are keyed on the root of this derivation.");
+              }
+
               Float confidenceScore =
                   nodeClone.has(FINE_GRAINED_CONFIDENCE_SCORE)
                       ? nodeClone.get(FINE_GRAINED_CONFIDENCE_SCORE).floatValue()
@@ -145,69 +157,73 @@ public class UpstreamLineageTemplate extends CompoundKeyTemplate<UpstreamLineage
                   nodeClone.has(FINE_GRAINED_UPSTREAMS)
                       ? (ArrayNode) nodeClone.get(FINE_GRAINED_UPSTREAMS)
                       : null;
-              ArrayNode downstreams =
-                  nodeClone.has(FINE_GRAINED_DOWNSTREAMS)
-                      ? (ArrayNode) nodeClone.get(FINE_GRAINED_DOWNSTREAMS)
-                      : null;
 
-              // Handle upstreams
+              String queryId =
+                  nodeClone.has(FINE_GRAINED_QUERY_ID)
+                      ? nodeClone.get(FINE_GRAINED_QUERY_ID).asText()
+                      : DEFAULT_QUERY_ID;
+
               if (upstreamType == null) {
                 // Determine default type
                 Urn upstreamUrn =
                     upstreams != null ? UrnUtils.getUrn(upstreams.get(0).asText()) : null;
                 if (upstreamUrn != null
-                    && SCHEMA_FIELD_ENTITY_NAME.equals(upstreamUrn.getEntityType())) {
-                  upstreamType = FINE_GRAINED_LINEAGE_FIELD_SET_TYPE;
-                } else {
+                    && DATASET_ENTITY_NAME.equals(upstreamUrn.getEntityType())) {
                   upstreamType = FINE_GRAINED_LINEAGE_DATASET_TYPE;
+                } else {
+                  upstreamType = FINE_GRAINED_LINEAGE_FIELD_SET_TYPE;
                 }
-              }
-              if (!transformationOperationNode.has(FINE_GRAINED_UPSTREAM_TYPE)) {
-                transformationOperationNode.set(FINE_GRAINED_UPSTREAM_TYPE, instance.objectNode());
-              }
-              ObjectNode upstreamTypeNode =
-                  (ObjectNode) transformationOperationNode.get(FINE_GRAINED_UPSTREAM_TYPE);
-              if (!upstreamTypeNode.has(upstreamType)) {
-                upstreamTypeNode.set(upstreamType, instance.objectNode());
-              }
-              if (upstreams != null) {
-                addUrnsToSubType(upstreamTypeNode, upstreams, upstreamType, confidenceScore);
               }
 
-              // Handle downstreams
               if (downstreamType == null) {
-                // Determine default type
-                if (downstreams != null && downstreams.size() > 1) {
-                  downstreamType = FINE_GRAINED_LINEAGE_FIELD_SET_TYPE;
-                } else {
-                  downstreamType = FINE_GRAINED_LINEAGE_FIELD_TYPE;
-                }
+                // Always use FIELD type, only support patches for single field downstream
+                downstreamType = FINE_GRAINED_LINEAGE_FIELD_TYPE;
               }
-              if (!transformationOperationNode.has(FINE_GRAINED_DOWNSTREAM_TYPE)) {
-                transformationOperationNode.set(
-                    FINE_GRAINED_DOWNSTREAM_TYPE, instance.objectNode());
+
+              String downstreamRoot = downstreams.get(0).asText();
+              if (!transformationOperationNode.has(downstreamRoot)) {
+                transformationOperationNode.set(downstreamRoot, instance.objectNode());
               }
-              ObjectNode downstreamTypeNode =
-                  (ObjectNode) transformationOperationNode.get(FINE_GRAINED_DOWNSTREAM_TYPE);
-              if (!downstreamTypeNode.has(downstreamType)) {
-                downstreamTypeNode.set(downstreamType, instance.objectNode());
+              ObjectNode downstreamRootNode =
+                  (ObjectNode) transformationOperationNode.get(downstreamRoot);
+              if (!downstreamRootNode.has(queryId)) {
+                downstreamRootNode.set(queryId, instance.objectNode());
               }
-              if (downstreams != null) {
-                addUrnsToSubType(downstreamTypeNode, downstreams, downstreamType, confidenceScore);
+              ObjectNode queryNode = (ObjectNode) downstreamRootNode.get(queryId);
+              if (upstreams != null) {
+                addUrnsToParent(
+                    queryNode, upstreams, confidenceScore, upstreamType, downstreamType);
               }
             });
     return mapNode;
   }
 
-  private void addUrnsToSubType(
-      JsonNode superType, ArrayNode urnsList, String subType, Float confidenceScore) {
-    ObjectNode upstreamSubTypeNode = (ObjectNode) superType.get(subType);
+  private void addUrnsToParent(
+      JsonNode parentNode,
+      ArrayNode urnsList,
+      Float confidenceScore,
+      String upstreamType,
+      String downstreamType) {
     // Will overwrite repeat urns with different confidence scores with the most recently seen
-    upstreamSubTypeNode.setAll(
-        Streams.stream(urnsList.elements())
-            .map(JsonNode::asText)
-            .distinct()
-            .collect(Collectors.toMap(urn -> urn, urn -> instance.numberNode(confidenceScore))));
+    ((ObjectNode) parentNode)
+        .setAll(
+            Streams.stream(urnsList.elements())
+                .map(JsonNode::asText)
+                .distinct()
+                .collect(
+                    Collectors.toMap(
+                        urn -> urn,
+                        urn ->
+                            mapToLineageValueNode(confidenceScore, upstreamType, downstreamType))));
+  }
+
+  private JsonNode mapToLineageValueNode(
+      Float confidenceScore, String upstreamType, String downstreamType) {
+    ObjectNode objectNode = instance.objectNode();
+    objectNode.set(FINE_GRAINED_CONFIDENCE_SCORE, instance.numberNode(confidenceScore));
+    objectNode.set(FINE_GRAINED_UPSTREAM_TYPE, instance.textNode(upstreamType));
+    objectNode.set(FINE_GRAINED_DOWNSTREAM_TYPE, instance.textNode(downstreamType));
+    return objectNode;
   }
 
   /**
@@ -225,7 +241,7 @@ public class UpstreamLineageTemplate extends CompoundKeyTemplate<UpstreamLineage
       return (ArrayNode) transformedFineGrainedLineages;
     }
     ObjectNode mapNode = (ObjectNode) transformedFineGrainedLineages;
-    ArrayNode arrayNode = instance.arrayNode();
+    ArrayNode fineGrainedLineages = instance.arrayNode();
 
     mapNode
         .fieldNames()
@@ -233,83 +249,95 @@ public class UpstreamLineageTemplate extends CompoundKeyTemplate<UpstreamLineage
             transformationOperation -> {
               final ObjectNode transformationOperationNode =
                   (ObjectNode) mapNode.get(transformationOperation);
-              final ObjectNode upstreamType =
-                  transformationOperationNode.has(FINE_GRAINED_UPSTREAM_TYPE)
-                      ? (ObjectNode) transformationOperationNode.get(FINE_GRAINED_UPSTREAM_TYPE)
-                      : instance.objectNode();
-              final ObjectNode downstreamType =
-                  transformationOperationNode.has(FINE_GRAINED_DOWNSTREAM_TYPE)
-                      ? (ObjectNode) transformationOperationNode.get(FINE_GRAINED_DOWNSTREAM_TYPE)
-                      : instance.objectNode();
-
-              // Handle upstreams
-              if (!upstreamType.isEmpty()) {
-                populateTypeNode(
-                    upstreamType,
-                    transformationOperation,
-                    FINE_GRAINED_UPSTREAM_TYPE,
-                    FINE_GRAINED_UPSTREAMS,
-                    FINE_GRAINED_DOWNSTREAM_TYPE,
-                    arrayNode);
-              }
-
-              // Handle downstreams
-              if (!downstreamType.isEmpty()) {
-                populateTypeNode(
-                    downstreamType,
-                    transformationOperation,
-                    FINE_GRAINED_DOWNSTREAM_TYPE,
-                    FINE_GRAINED_DOWNSTREAMS,
-                    FINE_GRAINED_UPSTREAM_TYPE,
-                    arrayNode);
-              }
+              transformationOperationNode
+                  .fieldNames()
+                  .forEachRemaining(
+                      downstreamName -> {
+                        final ObjectNode downstreamNode =
+                            (ObjectNode) transformationOperationNode.get(downstreamName);
+                        downstreamNode
+                            .fieldNames()
+                            .forEachRemaining(
+                                queryId ->
+                                    buildFineGrainedLineage(
+                                        downstreamName,
+                                        downstreamNode,
+                                        queryId,
+                                        transformationOperation,
+                                        fineGrainedLineages));
+                      });
             });
 
-    return arrayNode;
+    return fineGrainedLineages;
   }
 
-  private void populateTypeNode(
-      JsonNode typeNode,
-      String transformationOperation,
-      String typeName,
-      String arrayTypeName,
-      String defaultTypeName,
-      ArrayNode arrayNode) {
-    typeNode
+  private void buildFineGrainedLineage(
+      final String downstreamName,
+      final ObjectNode downstreamNode,
+      final String queryId,
+      final String transformationOperation,
+      final ArrayNode fineGrainedLineages) {
+    final ObjectNode fineGrainedLineage = instance.objectNode();
+    final ObjectNode queryNode = (ObjectNode) downstreamNode.get(queryId);
+    if (queryNode.isEmpty()) {
+      // Short circuit if no upstreams left
+      return;
+    }
+    ArrayNode downstream = instance.arrayNode();
+    downstream.add(instance.textNode(downstreamName));
+    // Set defaults, if found in sub nodes override, for confidenceScore take lowest
+    AtomicReference<Float> minimumConfidenceScore = new AtomicReference<>(DEFAULT_CONFIDENCE_SCORE);
+    AtomicReference<String> upstreamType =
+        new AtomicReference<>(FINE_GRAINED_LINEAGE_FIELD_SET_TYPE);
+    AtomicReference<String> downstreamType = new AtomicReference<>(FINE_GRAINED_LINEAGE_FIELD_TYPE);
+    ArrayNode upstreams = instance.arrayNode();
+    queryNode
         .fieldNames()
         .forEachRemaining(
-            subTypeName -> {
-              ObjectNode subType = (ObjectNode) typeNode.get(subTypeName);
-              if (!subType.isEmpty()) {
-                ObjectNode fineGrainedLineage = instance.objectNode();
-                AtomicReference<Float> minimumConfidenceScore = new AtomicReference<>(1.0f);
+            upstream ->
+                processUpstream(
+                    queryNode,
+                    upstream,
+                    minimumConfidenceScore,
+                    upstreamType,
+                    downstreamType,
+                    upstreams));
+    fineGrainedLineage.set(FINE_GRAINED_DOWNSTREAMS, downstream);
+    fineGrainedLineage.set(FINE_GRAINED_UPSTREAMS, upstreams);
+    if (StringUtils.isNotBlank(queryId) && !DEFAULT_QUERY_ID.equals(queryId)) {
+      fineGrainedLineage.set(FINE_GRAINED_QUERY_ID, instance.textNode(queryId));
+    }
+    fineGrainedLineage.set(FINE_GRAINED_UPSTREAM_TYPE, instance.textNode(upstreamType.get()));
+    fineGrainedLineage.set(FINE_GRAINED_DOWNSTREAM_TYPE, instance.textNode(downstreamType.get()));
+    fineGrainedLineage.set(
+        FINE_GRAINED_CONFIDENCE_SCORE, instance.numberNode(minimumConfidenceScore.get()));
+    fineGrainedLineage.set(
+        FINE_GRAINED_TRANSFORMATION_OPERATION, instance.textNode(transformationOperation));
+    fineGrainedLineages.add(fineGrainedLineage);
+  }
 
-                fineGrainedLineage.put(typeName, subTypeName);
-                fineGrainedLineage.put(
-                    FINE_GRAINED_TRANSFORMATION_OPERATION, transformationOperation);
-                // Array to actually be filled out
-                fineGrainedLineage.set(arrayTypeName, instance.arrayNode());
-                // Added to pass model validation, because we have no way of appropriately pairing
-                // upstreams and downstreams
-                // within fine grained lineages consistently due to being able to have multiple
-                // downstream types paired with a single
-                // transform operation, we just set a default type because it's a required property
-                fineGrainedLineage.put(defaultTypeName, FINE_GRAINED_LINEAGE_FIELD_SET_TYPE);
-                subType
-                    .fieldNames()
-                    .forEachRemaining(
-                        subTypeKey -> {
-                          ((ArrayNode) fineGrainedLineage.get(arrayTypeName)).add(subTypeKey);
-                          Float scoreValue = subType.get(subTypeKey).floatValue();
-                          if (scoreValue <= minimumConfidenceScore.get()) {
-                            minimumConfidenceScore.set(scoreValue);
-                            fineGrainedLineage.set(
-                                FINE_GRAINED_CONFIDENCE_SCORE,
-                                instance.numberNode(minimumConfidenceScore.get()));
-                          }
-                        });
-                arrayNode.add(fineGrainedLineage);
-              }
-            });
+  private void processUpstream(
+      final ObjectNode queryNode,
+      final String upstream,
+      final AtomicReference<Float> minimumConfidenceScore,
+      final AtomicReference<String> upstreamType,
+      final AtomicReference<String> downstreamType,
+      final ArrayNode upstreams) {
+    final ObjectNode upstreamNode = (ObjectNode) queryNode.get(upstream);
+    if (upstreamNode.has(FINE_GRAINED_CONFIDENCE_SCORE)) {
+      Float scoreValue = upstreamNode.get(FINE_GRAINED_CONFIDENCE_SCORE).floatValue();
+      if (scoreValue <= minimumConfidenceScore.get()) {
+        minimumConfidenceScore.set(scoreValue);
+      }
+    }
+    // Set types to last encountered, should never change, but this at least tries to support
+    // other types being specified.
+    if (upstreamNode.has(FINE_GRAINED_UPSTREAM_TYPE)) {
+      upstreamType.set(upstreamNode.get(FINE_GRAINED_UPSTREAM_TYPE).asText());
+    }
+    if (upstreamNode.has(FINE_GRAINED_DOWNSTREAM_TYPE)) {
+      downstreamType.set(upstreamNode.get(FINE_GRAINED_DOWNSTREAM_TYPE).asText());
+    }
+    upstreams.add(instance.textNode(upstream));
   }
 }

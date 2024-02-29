@@ -14,14 +14,14 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.ByteString;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.EnvelopedAspect;
-import com.linkedin.metadata.aspect.batch.UpsertItem;
+import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.patch.GenericJsonPatch;
 import com.linkedin.metadata.aspect.patch.template.common.GenericPatchTemplate;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.UpdateAspectResult;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
-import com.linkedin.metadata.entity.ebean.batch.MCPUpsertBatchItem;
+import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -37,6 +37,7 @@ import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.SearchUtil;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
+import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.openapi.v2.models.GenericEntity;
 import io.datahubproject.openapi.v2.models.GenericScrollResult;
 import io.swagger.v3.oas.annotations.Operation;
@@ -55,6 +56,7 @@ import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -82,6 +84,10 @@ public class EntityController {
   @Autowired private boolean restApiAuthorizationEnabled;
   @Autowired private ObjectMapper objectMapper;
 
+  @Qualifier("systemOperationContext")
+  @Autowired
+  private OperationContext systemOperationContext;
+
   @Tag(name = "Generic Entities", description = "API for interacting with generic entities.")
   @GetMapping(value = "/{entityName}", produces = MediaType.APPLICATION_JSON_VALUE)
   @Operation(summary = "Scroll entities")
@@ -100,28 +106,31 @@ public class EntityController {
 
     EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
 
+    Authentication authentication = AuthenticationContext.getAuthentication();
     if (restApiAuthorizationEnabled) {
-      Authentication authentication = AuthenticationContext.getAuthentication();
       checkAuthorized(
           authorizationChain,
           authentication.getActor(),
           entitySpec,
           ImmutableList.of(PoliciesConfig.GET_ENTITY_PRIVILEGE.getType()));
     }
+    OperationContext opContext =
+        OperationContext.asSession(
+            systemOperationContext, authorizationChain, authentication, true);
 
     // TODO: support additional and multiple sort params
     SortCriterion sortCriterion = SearchUtil.sortBy(sortField, SortOrder.valueOf(sortOrder));
 
     ScrollResult result =
         searchService.scrollAcrossEntities(
+            opContext.withSearchFlags(flags -> DEFAULT_SEARCH_FLAGS),
             List.of(entitySpec.getName()),
             query,
             null,
             sortCriterion,
             scrollId,
             null,
-            count,
-            DEFAULT_SEARCH_FLAGS);
+            count);
 
     return ResponseEntity.ok(
         GenericScrollResult.<GenericEntity>builder()
@@ -306,12 +315,17 @@ public class EntityController {
     }
 
     AspectSpec aspectSpec = entitySpec.getAspectSpec(aspectName);
-    UpsertItem upsert =
+    ChangeMCP upsert =
         toUpsertItem(UrnUtils.getUrn(entityUrn), aspectSpec, jsonAspect, authentication.getActor());
 
     List<UpdateAspectResult> results =
         entityService.ingestAspects(
-            AspectsBatchImpl.builder().items(List.of(upsert)).build(), true, true);
+            AspectsBatchImpl.builder()
+                .aspectRetriever(entityService)
+                .items(List.of(upsert))
+                .build(),
+            true,
+            true);
 
     return ResponseEntity.of(
         results.stream()
@@ -371,7 +385,7 @@ public class EntityController {
             .templateDefault(
                 aspectSpec.getDataTemplateClass().getDeclaredConstructor().newInstance())
             .build();
-    UpsertItem upsert =
+    ChangeMCP upsert =
         toUpsertItem(
             UrnUtils.getUrn(entityUrn),
             aspectSpec,
@@ -381,7 +395,12 @@ public class EntityController {
 
     List<UpdateAspectResult> results =
         entityService.ingestAspects(
-            AspectsBatchImpl.builder().items(List.of(upsert)).build(), true, true);
+            AspectsBatchImpl.builder()
+                .aspectRetriever(entityService)
+                .items(List.of(upsert))
+                .build(),
+            true,
+            true);
 
     return ResponseEntity.of(
         results.stream()
@@ -409,7 +428,9 @@ public class EntityController {
   }
 
   private Boolean exists(Urn urn, @Nullable String aspect) {
-    return aspect == null ? entityService.exists(urn, true) : entityService.exists(urn, aspect);
+    return aspect == null
+        ? entityService.exists(urn, true)
+        : entityService.exists(urn, aspect, true);
   }
 
   private List<GenericEntity> toRecordTemplates(
@@ -474,10 +495,10 @@ public class EntityController {
         aspectSpec.getDataTemplateClass(), envelopedAspect.getValue().data());
   }
 
-  private UpsertItem toUpsertItem(
+  private ChangeMCP toUpsertItem(
       Urn entityUrn, AspectSpec aspectSpec, String jsonAspect, Actor actor)
       throws URISyntaxException {
-    return MCPUpsertBatchItem.builder()
+    return ChangeItemImpl.builder()
         .urn(entityUrn)
         .aspectName(aspectSpec.getName())
         .auditStamp(AuditStampUtils.createAuditStamp(actor.toUrnStr()))
@@ -489,14 +510,14 @@ public class EntityController {
         .build(entityService);
   }
 
-  private UpsertItem toUpsertItem(
+  private ChangeMCP toUpsertItem(
       @Nonnull Urn urn,
       @Nonnull AspectSpec aspectSpec,
       @Nullable RecordTemplate currentValue,
       @Nonnull GenericPatchTemplate<? extends RecordTemplate> genericPatchTemplate,
       @Nonnull Actor actor)
       throws URISyntaxException {
-    return MCPUpsertBatchItem.fromPatch(
+    return ChangeItemImpl.fromPatch(
         urn,
         aspectSpec,
         currentValue,

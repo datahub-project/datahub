@@ -15,8 +15,6 @@ import FormRequestedBy from './FormSelectionModal/FormRequestedBy';
 import useHasComponentRendered from '../../../shared/useHasComponentRendered';
 import Loading from '../../../shared/Loading';
 import { DeferredRenderComponent } from '../../../shared/DeferredRenderComponent';
-import { OnboardingTour } from '../../../onboarding/OnboardingTour';
-import { FORM_ASSET_COMPLETION } from '../../../onboarding/config/FormOnboardingConfig';
 
 const TabWrapper = styled.div`
     background-color: ${ANTD_GRAY_V2[1]};
@@ -62,7 +60,6 @@ function Form({ formUrn }: Props) {
 
     return (
         <TabWrapper>
-            <OnboardingTour stepIds={[FORM_ASSET_COMPLETION]} />
             <HeaderWrapper>
                 <IntroTitle>
                     {title ? <>{title}</> : <>{entityRegistry.getEntityName(entityType)} Requirements</>}

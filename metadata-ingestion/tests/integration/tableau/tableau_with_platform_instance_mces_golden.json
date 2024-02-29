@@ -33407,7 +33407,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/acryl_site1/default/Customer Payment Query"
+                            "/prod/tableau/acryl_site1/default/Dvdrental Workbook/Customer Payment Query"
                         ]
                     }
                 },
@@ -33474,6 +33474,22 @@
                     "urn": "urn:li:container:fd3437da0a5c1a43130608562ba3f532"
                 }
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:tableau,acryl_site1.4fb670d5-3e19-9656-e684-74aa9729cf18,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:66fa1e14620418276c85f3b552c7ec65"
         }
     },
     "systemMetadata": {
@@ -33703,13 +33719,8 @@
                     "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:tableau,acryl_site1)"
                 },
                 {
-                    "id": "acryl_site1"
-                },
-                {
-                    "id": "default"
-                },
-                {
-                    "id": "test publish datasource"
+                    "id": "urn:li:container:66fa1e14620418276c85f3b552c7ec65",
+                    "urn": "urn:li:container:66fa1e14620418276c85f3b552c7ec65"
                 }
             ]
         }
@@ -45163,13 +45174,8 @@
                     "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:tableau,acryl_site1)"
                 },
                 {
-                    "id": "acryl_site1"
-                },
-                {
-                    "id": "default"
-                },
-                {
-                    "id": "test publish datasource"
+                    "id": "urn:li:container:66fa1e14620418276c85f3b552c7ec65",
+                    "urn": "urn:li:container:66fa1e14620418276c85f3b552c7ec65"
                 }
             ]
         }

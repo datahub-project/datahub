@@ -66,6 +66,36 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
         return {};
     };
 
+    useEntityQuery = useGetMlFeatureTableQuery;
+
+    getSidebarSections = () => [
+        {
+            component: SidebarAboutSection,
+        },
+        {
+            component: SidebarMetadataSection,
+        },
+        {
+            component: SidebarOwnerSection,
+            properties: {
+                defaultOwnerType: OwnershipType.TechnicalOwner,
+            },
+        },
+        {
+            component: SidebarTagsSection,
+            properties: {
+                hasTags: true,
+                hasTerms: true,
+            },
+        },
+        {
+            component: SidebarDomainSection,
+        },
+        {
+            component: DataProductSection,
+        },
+    ];
+
     renderProfile = (urn: string) => (
         <EntityProfile
             urn={urn}
@@ -92,33 +122,7 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
                     component: DocumentationTab,
                 },
             ]}
-            sidebarSections={[
-                {
-                    component: SidebarAboutSection,
-                },
-                {
-                    component: SidebarMetadataSection,
-                },
-                {
-                    component: SidebarOwnerSection,
-                    properties: {
-                        defaultOwnerType: OwnershipType.TechnicalOwner,
-                    },
-                },
-                {
-                    component: SidebarTagsSection,
-                    properties: {
-                        hasTags: true,
-                        hasTerms: true,
-                    },
-                },
-                {
-                    component: SidebarDomainSection,
-                },
-                {
-                    component: DataProductSection,
-                },
-            ]}
+            sidebarSections={this.getSidebarSections()}
         />
     );
 

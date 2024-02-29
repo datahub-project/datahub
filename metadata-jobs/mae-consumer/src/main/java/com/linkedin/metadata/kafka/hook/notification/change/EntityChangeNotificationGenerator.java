@@ -3,7 +3,6 @@ package com.linkedin.metadata.kafka.hook.notification.change;
 import static com.linkedin.metadata.Constants.ASSERTION_RESULT_KEY;
 import static com.linkedin.metadata.kafka.hook.notification.NotificationUtils.*;
 
-import com.datahub.authentication.Authentication;
 import com.datahub.notification.NotificationScenarioType;
 import com.datahub.notification.NotificationTemplateType;
 import com.datahub.notification.provider.EntityNameProvider;
@@ -46,6 +45,7 @@ import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.subscription.EntityChangeType;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -129,27 +129,26 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
   private final AssertionService _assertionService;
 
   public EntityChangeNotificationGenerator(
+      @Nonnull OperationContext systemOpContext,
       @Nonnull final EntityChangeEventGeneratorRegistry entityChangeEventGeneratorRegistry,
-      @Nonnull final EntityRegistry entityRegistry,
       @Nonnull final EventProducer eventProducer,
       @Nonnull final EntityClient entityClient,
       @Nonnull final GraphClient graphClient,
       @Nonnull final SettingsProvider settingsProvider,
       @Nonnull final AssertionService assertionService,
-      @Nonnull final Authentication systemAuthentication,
       @Nonnull final SlackNotificationRecipientBuilder slackNotificationRecipientBuilder,
       @Nonnull final FeatureFlags featureFlags) {
     super(
+        systemOpContext,
         eventProducer,
         entityClient,
         graphClient,
         settingsProvider,
-        systemAuthentication,
         ImmutableMap.of(NotificationSinkType.SLACK, slackNotificationRecipientBuilder));
-    _entityNameProvider = new EntityNameProvider(entityClient, systemAuthentication);
+    _entityNameProvider = new EntityNameProvider(entityClient, systemOpContext.getAuthentication());
     _entityChangeEventGeneratorRegistry =
         Objects.requireNonNull(entityChangeEventGeneratorRegistry);
-    _entityRegistry = Objects.requireNonNull(entityRegistry);
+    _entityRegistry = Objects.requireNonNull(systemOpContext.getEntityRegistry());
     _assertionService = Objects.requireNonNull(assertionService);
     _featureFlags = featureFlags;
   }

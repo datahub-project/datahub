@@ -40,7 +40,9 @@ export default function MultiSelectInput({
     allowedValues,
     selectedValues,
 }: Props) {
-    return allowedValues.length > 5 ? (
+    const shouldShowSelectDropdown = allowedValues.length > 5;
+
+    return shouldShowSelectDropdown ? (
         <Select
             style={DROPDOWN_STYLE as any}
             placeholder="Select"
@@ -65,7 +67,7 @@ export default function MultiSelectInput({
             onChange={(value) => updateSelectedValues(value)}
         />
     ) : (
-        <>
+        <div>
             {allowedValues.map((allowedValue) => (
                 <StyledCheckbox
                     key={getStructuredPropertyValue(allowedValue.value)}
@@ -77,6 +79,6 @@ export default function MultiSelectInput({
                     {allowedValue.description && <ValueDescription description={allowedValue.description} />}
                 </StyledCheckbox>
             ))}
-        </>
+        </div>
     );
 }

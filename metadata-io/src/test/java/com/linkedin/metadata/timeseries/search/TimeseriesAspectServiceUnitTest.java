@@ -5,7 +5,7 @@ import static org.mockito.Mockito.*;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.NumericNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.timeseries.elastic.ElasticSearchTimeseriesAspectService;
@@ -34,17 +34,18 @@ public class TimeseriesAspectServiceUnitTest {
   private final IndexConvention _indexConvention = mock(IndexConvention.class);
   private final TimeseriesAspectIndexBuilders _timeseriesAspectIndexBuilders =
       mock(TimeseriesAspectIndexBuilders.class);
-  private final EntityRegistry _entityRegistry = mock(EntityRegistry.class);
+  private final AspectRetriever aspectRetriever = mock(AspectRetriever.class);
   private final ESBulkProcessor _bulkProcessor = mock(ESBulkProcessor.class);
   private final RestClient _restClient = mock(RestClient.class);
   private final TimeseriesAspectService _timeseriesAspectService =
       new ElasticSearchTimeseriesAspectService(
-          _searchClient,
-          _indexConvention,
-          _timeseriesAspectIndexBuilders,
-          _entityRegistry,
-          _bulkProcessor,
-          0);
+              _searchClient,
+              _indexConvention,
+              _timeseriesAspectIndexBuilders,
+              aspectRetriever.getEntityRegistry(),
+              _bulkProcessor,
+              0)
+          .postConstruct(aspectRetriever);
 
   private static final String INDEX_PATTERN = "indexPattern";
 

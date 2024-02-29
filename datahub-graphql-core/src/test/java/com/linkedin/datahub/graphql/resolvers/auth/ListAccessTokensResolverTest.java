@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.auth;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
+import static org.mockito.ArgumentMatchers.any;
 
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
@@ -11,7 +12,6 @@ import com.linkedin.datahub.graphql.generated.ListAccessTokenInput;
 import com.linkedin.datahub.graphql.generated.ListAccessTokenResult;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
@@ -43,14 +43,13 @@ public class ListAccessTokensResolverTest {
     final Authentication testAuth = getAuthentication(mockEnv);
     Mockito.when(
             mockClient.search(
+                any(),
                 Mockito.eq(Constants.ACCESS_TOKEN_ENTITY_NAME),
                 Mockito.eq(""),
                 Mockito.eq(buildFilter(filters, Collections.emptyList())),
                 Mockito.any(SortCriterion.class),
                 Mockito.eq(input.getStart()),
-                Mockito.eq(input.getCount()),
-                Mockito.eq(testAuth),
-                Mockito.any(SearchFlags.class)))
+                Mockito.eq(input.getCount())))
         .thenReturn(
             new SearchResult()
                 .setFrom(0)

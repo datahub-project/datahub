@@ -19,6 +19,7 @@ import com.linkedin.metadata.test.action.tag.AddTagsAction;
 import com.linkedin.metadata.test.action.tag.RemoveTagsAction;
 import com.linkedin.metadata.test.action.term.AddGlossaryTermsAction;
 import com.linkedin.metadata.test.action.term.RemoveGlossaryTermsAction;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.List;
 import javax.annotation.Nonnull;
@@ -37,7 +38,9 @@ public class TestActionApplierFactory {
 
   @Bean(name = "testActionApplier")
   @Nonnull
-  protected ActionApplier getInstance(final SystemEntityClient systemEntityClient) {
+  protected ActionApplier getInstance(
+      @Qualifier("systemOperationContext") final OperationContext systemOpContext,
+      final SystemEntityClient systemEntityClient) {
     List<Action> appliers = new ArrayList<>();
     TagService tagService =
         new TagService(systemEntityClient, systemEntityClient.getSystemAuthentication());
@@ -47,8 +50,7 @@ public class TestActionApplierFactory {
         new OwnerService(systemEntityClient, systemEntityClient.getSystemAuthentication());
     DomainService domainService =
         new DomainService(systemEntityClient, systemEntityClient.getSystemAuthentication());
-    FormService formService =
-        new FormService(systemEntityClient, systemEntityClient.getSystemAuthentication());
+    FormService formService = new FormService(systemOpContext, systemEntityClient);
     appliers.add(new AddTagsAction(tagService));
     appliers.add(new RemoveTagsAction(tagService));
     appliers.add(new AddGlossaryTermsAction(termsService));
