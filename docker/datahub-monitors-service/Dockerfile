@@ -3,6 +3,7 @@ ARG APP_ENV=prod
 ARG BASE_IMAGE=acryldata/datahub-ingestion
 ARG DOCKER_VERSION=head-slim
 ARG PIP_MIRROR_URL=null
+ARG VIRTUAL_ENV=/datahub-ingestion/.venv
 
 # Base Image Common To All
 FROM $BASE_IMAGE:$DOCKER_VERSION as base
@@ -29,16 +30,16 @@ ARG PIP_MIRROR_URL
 RUN if [ "${PIP_MIRROR_URL}" != "null" ] ; then pip config set global.index-url ${PIP_MIRROR_URL} ; fi
 
 USER datahub
-RUN pip install --no-cache --user -e .
+RUN pip install --no-cache -e .
 
 WORKDIR /datahub-ingestion
-RUN pip install --no-cache --user -e .
+RUN pip install --no-cache -e .
 
 ## Production Image Built From Build Image
 FROM base as prod-install
 
 COPY --from=build /datahub-monitors-service /datahub-monitors-service
-COPY --from=build /datahub-ingestion/.local /datahub-ingestion/.local
+COPY --from=build $VIRTUAL_ENV $VIRTUAL_ENV
 COPY --from=build /start_datahub_monitors_service.sh /start_datahub_monitors_service.sh
 COPY --from=build /health_status.py /health_status
 
