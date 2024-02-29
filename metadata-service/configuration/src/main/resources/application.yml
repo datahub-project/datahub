@@ -45,6 +45,11 @@ authorization:
     cachePolicyFetchSize: ${POLICY_CACHE_FETCH_SIZE:1000}
   # Enables authorization of reads, writes, and deletes on REST APIs. Defaults to false for backwards compatibility, but should become true down the road
   restApiAuthorization: ${REST_API_AUTHORIZATION_ENABLED:false}
+  search:
+    enabled: ${SEARCH_AUTHORIZATION_ENABLED:false}
+    recommendations:
+      # Currently limited to the actor only, see TODO: DataHubAuthorizer
+      peerGroupEnabled: ${SEARCH_AUTHORIZATION_RECOMMENDATIONS_PEER_GROUP_ENABLED:true}
 
 ingestion:
   # The value of cliMajorVersion is substituted in by the processResources Gradle task.
@@ -327,6 +332,11 @@ systemUpdate:
     batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_POLICY_FIELDS_BATCH_SIZE:5000}
     reprocess:
       enabled: ${REPROCESS_DEFAULT_POLICY_FIELDS:false}
+  ownershipTypes:
+    enabled: ${BOOTSTRAP_SYSTEM_UPDATE_OWNERSHIP_TYPES_ENABLED:true}
+    batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_OWNERSHIP_TYPES_BATCH_SIZE:1000}
+    reprocess:
+      enabled: ${BOOTSTRAP_SYSTEM_UPDATE_OWNERSHIP_TYPES_REPROCESS:false}
 
 structuredProperties:
   enabled: ${ENABLE_STRUCTURED_PROPERTIES_HOOK:true} # applies structured properties mappings

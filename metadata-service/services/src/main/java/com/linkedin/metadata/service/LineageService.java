@@ -1,6 +1,7 @@
 package com.linkedin.metadata.service;
 
 import static com.linkedin.metadata.entity.AspectUtils.*;
+import static com.linkedin.metadata.utils.AuditStampUtils.getAuditStamp;
 
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableSet;
