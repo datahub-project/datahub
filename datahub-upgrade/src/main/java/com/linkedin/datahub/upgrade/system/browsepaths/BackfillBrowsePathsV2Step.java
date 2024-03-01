@@ -1,4 +1,4 @@
-package com.linkedin.datahub.upgrade.system.entity.steps;
+package com.linkedin.datahub.upgrade.system.browsepaths;
 
 import static com.linkedin.metadata.Constants.*;
 
@@ -18,7 +18,6 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.utils.DefaultAspectsUtil;
 import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
@@ -31,6 +30,7 @@ import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Set;
 import java.util.function.Function;
 import lombok.extern.slf4j.Slf4j;
@@ -54,6 +54,7 @@ public class BackfillBrowsePathsV2Step implements UpgradeStep {
           Constants.ML_FEATURE_TABLE_ENTITY_NAME,
           Constants.ML_FEATURE_ENTITY_NAME);
 
+  private final OperationContext opContext;
   private final EntityService<?> entityService;
   private final SearchService searchService;
 
@@ -61,10 +62,12 @@ public class BackfillBrowsePathsV2Step implements UpgradeStep {
   private final Integer batchSize;
 
   public BackfillBrowsePathsV2Step(
+      OperationContext opContext,
       EntityService<?> entityService,
       SearchService searchService,
       boolean reprocessEnabled,
       Integer batchSize) {
+    this.opContext = opContext;
     this.searchService = searchService;
     this.entityService = entityService;
     this.reprocessEnabled = reprocessEnabled;
@@ -110,18 +113,20 @@ public class BackfillBrowsePathsV2Step implements UpgradeStep {
 
     final ScrollResult scrollResult =
         searchService.scrollAcrossEntities(
+            opContext.withSearchFlags(
+                flags ->
+                    flags
+                        .setFulltext(true)
+                        .setSkipCache(true)
+                        .setSkipHighlighting(true)
+                        .setSkipAggregates(true)),
             ImmutableList.of(entityType),
             "*",
             filter,
             null,
             scrollId,
             null,
-            batchSize,
-            new SearchFlags()
-                .setFulltext(true)
-                .setSkipCache(true)
-                .setSkipHighlighting(true)
-                .setSkipAggregates(true));
+            batchSize);
 
     if (scrollResult.getNumEntities() == 0 || scrollResult.getEntities().size() == 0) {
       return null;
@@ -234,7 +239,8 @@ public class BackfillBrowsePathsV2Step implements UpgradeStep {
       return false;
     }
 
-    boolean previouslyRun = entityService.exists(UPGRADE_ID_URN, true);
+    boolean previouslyRun =
+        entityService.exists(UPGRADE_ID_URN, DATA_HUB_UPGRADE_RESULT_ASPECT_NAME, true);
     if (previouslyRun) {
       log.info("{} was already run. Skipping.", id());
     }
