@@ -103,9 +103,13 @@ public class ElasticSearchServiceFactory {
 
   @Configuration
   public static class PostConstructElasticSearchService {
-    @Autowired
+    @Autowired(required = false)
     @Qualifier("entityService")
     private AspectRetriever aspectRetriever;
+
+    @Autowired
+    @Qualifier("cachingAspectRetriever")
+    private AspectRetriever cachingAspectRetriever;
 
     @Autowired
     @Qualifier("elasticSearchService")
@@ -113,7 +117,11 @@ public class ElasticSearchServiceFactory {
 
     @PostConstruct
     protected void postConstruct() {
-      elasticSearchService.postConstruct(aspectRetriever);
+      if (aspectRetriever != null) {
+        elasticSearchService.postConstruct(aspectRetriever);
+      } else {
+        elasticSearchService.postConstruct(cachingAspectRetriever);
+      }
     }
   }
 }

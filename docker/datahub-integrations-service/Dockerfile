@@ -27,7 +27,7 @@ FROM base as build
 ARG PIP_MIRROR_URL
 RUN if [ "${PIP_MIRROR_URL}" != "null" ] ; then pip config set global.index-url ${PIP_MIRROR_URL} ; fi
 
-RUN uv pip install --no-cache -r requirements.txt && \
+RUN pip install --no-cache -r requirements.txt && \
     uv pip install --no-cache -e "."
 
 # Production Image Built From Build Image
