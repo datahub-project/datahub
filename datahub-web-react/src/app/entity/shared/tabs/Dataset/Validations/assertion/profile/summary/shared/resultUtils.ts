@@ -1,5 +1,7 @@
+import { Maybe } from 'graphql/jsutils/Maybe';
 import {
     Assertion,
+    AssertionResult,
     AssertionResultType,
     AssertionRunEvent,
     AssertionType,
@@ -309,26 +311,7 @@ export const tryGetPrimaryMetricValueFromAssertionRunEvent = (runEvent: Assertio
             // Row count
             return (runEvent.result.rowCount?.valueOf());
         case AssertionType.Field:
-            switch (runEvent.result.assertion.fieldAssertion?.type) {
-                case FieldAssertionType.FieldValues:
-                    // Invalid rows
-                    {
-                        if (runEvent.result.type === AssertionResultType.Init) return 0;
-                        const maybeValue = runEvent.result.nativeResults?.find(result => result.key === ASSERTION_NATIVE_RESULTS_KEYS_BY_ASSERTION_TYPE.FIELD_ASSERTIONS.FIELD_VALUES.Y_VALUE_KEY_NAME)?.value
-                        const parsedValue = typeof maybeValue === 'string' ? parseFloat(maybeValue) : maybeValue
-                        return typeof parsedValue === 'number' && !Number.isNaN(parsedValue) ? parsedValue : undefined;
-                    }
-                case FieldAssertionType.FieldMetric:
-                    // Metric value
-                    {
-                        const maybeValue = runEvent.result.nativeResults?.find(result => result.key === ASSERTION_NATIVE_RESULTS_KEYS_BY_ASSERTION_TYPE.FIELD_ASSERTIONS.METRIC_VALUES.Y_VALUE_KEY_NAME)?.value
-                        const parsedValue = typeof maybeValue === 'string' ? parseFloat(maybeValue) : maybeValue
-                        return typeof parsedValue === 'number' && !Number.isNaN(parsedValue) ? parsedValue : undefined;
-                    }
-                default:
-                    break;
-            }
-            break;
+            return tryGetPrimaryMetricValueFromFieldAssertionRunEvent(runEvent.result)
         case AssertionType.Dataset:
             break;
         case AssertionType.DataSchema:
@@ -339,4 +322,27 @@ export const tryGetPrimaryMetricValueFromAssertionRunEvent = (runEvent: Assertio
             break;
     }
     return undefined;
+}
+
+function tryGetPrimaryMetricValueFromFieldAssertionRunEvent(runEventResult?: Maybe<AssertionResult>): number | undefined {
+    if (!runEventResult) return;
+    switch (runEventResult.assertion?.fieldAssertion?.type) {
+        case FieldAssertionType.FieldValues:
+            // Invalid rows
+            {
+                if (runEventResult.type === AssertionResultType.Init) return 0;
+                const maybeValue = runEventResult.nativeResults?.find(result => result.key === ASSERTION_NATIVE_RESULTS_KEYS_BY_ASSERTION_TYPE.FIELD_ASSERTIONS.FIELD_VALUES.Y_VALUE_KEY_NAME)?.value
+                const parsedValue = typeof maybeValue === 'string' ? parseFloat(maybeValue) : maybeValue
+                return typeof parsedValue === 'number' && !Number.isNaN(parsedValue) ? parsedValue : undefined;
+            }
+        case FieldAssertionType.FieldMetric:
+            // Metric value
+            {
+                const maybeValue = runEventResult.nativeResults?.find(result => result.key === ASSERTION_NATIVE_RESULTS_KEYS_BY_ASSERTION_TYPE.FIELD_ASSERTIONS.METRIC_VALUES.Y_VALUE_KEY_NAME)?.value
+                const parsedValue = typeof maybeValue === 'string' ? parseFloat(maybeValue) : maybeValue
+                return typeof parsedValue === 'number' && !Number.isNaN(parsedValue) ? parsedValue : undefined;
+            }
+        default:
+            break;
+    }
 }

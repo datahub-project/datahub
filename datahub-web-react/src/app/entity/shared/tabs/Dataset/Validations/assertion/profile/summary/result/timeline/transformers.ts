@@ -1,5 +1,5 @@
 import { Maybe } from "graphql/jsutils/Maybe";
-import { Assertion, AssertionInfo, AssertionRunEvent, AssertionType, FieldAssertionType } from "../../../../../../../../../../../types.generated";
+import { Assertion, AssertionInfo, AssertionRunEvent, AssertionType, FieldAssertionInfo, FieldAssertionType } from "../../../../../../../../../../../types.generated";
 import { AssertionDataPoint, AssertionResultChartData } from "./charts/types";
 import { getFieldMetricTypeReadableLabel } from "../../../../../fieldDescriptionUtils";
 import { tryGetPrimaryMetricValueFromAssertionRunEvent } from "../../shared/resultUtils";
@@ -25,8 +25,7 @@ export const getAssertionDataPointsFromRunEvents = (runEvents: AssertionRunEvent
         // TODO(jayacryl): filter out run events that don't have the same general metrics as the latest run event
         // ie. if user changed a column assertion to do something completely different on a different column
         .map((runEvent) => {
-            const { result } = runEvent;
-            if (!result) throw new Error('Completed assertion run event does not have a result.');
+            const result = runEvent.result!; // NOTE: we've done `!` because we filter it out in the earlier lambda
             const resultUrl = result.externalUrl;
 
             /**
@@ -55,25 +54,7 @@ export const tryGetYAxisLabelForChartFromAssertionInfo = (assertionInfo?: Assert
         case AssertionType.Volume:
             return 'Row count';
         case AssertionType.Field:
-            if (!assertionInfo.fieldAssertion?.type) {
-                break;
-            }
-            // Handle field assertion types
-            switch (assertionInfo.fieldAssertion.type) {
-                case FieldAssertionType.FieldValues:
-                    return 'Invalid Rows';
-                case FieldAssertionType.FieldMetric: {
-                    const maybeMetricType = assertionInfo.fieldAssertion.fieldMetricAssertion?.metric
-                    try {
-                        if (maybeMetricType) return getFieldMetricTypeReadableLabel(maybeMetricType)
-                    } catch (e) {
-                        // Best attempt
-                    }
-                    return maybeMetricType?.valueOf() || 'Metric Value';
-                }
-                default:
-                    break;
-            }
+            tryGetFieldAssertionYAxisLabel(assertionInfo.fieldAssertion)
             break;
         case AssertionType.Sql:
             // TODO(jayacryl)
@@ -88,6 +69,29 @@ export const tryGetYAxisLabelForChartFromAssertionInfo = (assertionInfo?: Assert
             break;
     }
     return undefined;
+}
+
+function tryGetFieldAssertionYAxisLabel(info?: Maybe<FieldAssertionInfo>): string | undefined {
+    if (!info?.type) {
+        return;
+    }
+    // Handle field assertion types
+    switch (info.type) {
+        case FieldAssertionType.FieldValues:
+            return 'Invalid Rows';
+        case FieldAssertionType.FieldMetric: {
+            const maybeMetricType = info.fieldMetricAssertion?.metric
+            try {
+                if (maybeMetricType) return getFieldMetricTypeReadableLabel(maybeMetricType)
+            } catch (e) {
+                // Best attempt
+            }
+            return maybeMetricType?.valueOf() || 'Metric Value';
+        }
+        default:
+            break;
+    }
+
 }
 
 /**
