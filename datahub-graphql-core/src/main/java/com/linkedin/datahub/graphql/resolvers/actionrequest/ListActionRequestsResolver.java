@@ -122,12 +122,12 @@ public class ListActionRequestsResolver
 
             final SearchResult searchResult =
                 _entityClient.filter(
+                    context.getOperationContext(),
                     ACTION_REQUEST_ENTITY_NAME,
                     filter,
                     sortCriterion,
                     start,
-                    count,
-                    context.getAuthentication());
+                    count);
 
             final List<Urn> entityUrns =
                 searchResult.getEntities().stream()

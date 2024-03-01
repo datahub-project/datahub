@@ -9,6 +9,7 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
+import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.util.Collections;
 import java.util.HashSet;
@@ -20,6 +21,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @RequiredArgsConstructor
 class TermFetcher {
+  private final OperationContext systemOpContext;
   private final EntityService<?> _entityService;
   private final EntitySearchService _entitySearchService;
   private final Set<String> allowedGlossaryNodes;
@@ -36,6 +38,7 @@ class TermFetcher {
       batch++;
       ScrollResult scrollResult =
           _entitySearchService.scroll(
+              systemOpContext,
               Collections.singletonList(Constants.GLOSSARY_TERM_ENTITY_NAME),
               null,
               null,

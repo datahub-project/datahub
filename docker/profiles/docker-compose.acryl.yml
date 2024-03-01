@@ -25,7 +25,7 @@ x-datahub-integrations-service-dev-head: &datahub-integrations-service-dev-head
 
 
 #################################
-# Monitors Service
+# Executor Service
 #################################
 x-datahub-executor: &datahub-executor
   hostname: datahub-executor
@@ -41,6 +41,7 @@ x-datahub-executor-dev: &datahub-executor-dev
     PYTHONPATH: "/metadata-ingestion/src:/datahub-executor/src/datahub_executor:$${PYTHONPATH}"
   volumes:
     - ./datahub-executor/start.sh:/start_datahub_executor.sh
+    - ./datahub-executor/ingestion-pipeline-config.yaml:/etc/datahub-executor/ingestion-pipeline-config.yaml
     - ../../metadata-ingestion/src:/metadata-ingestion/src
     - ../../datahub-executor:/datahub-executor
 
@@ -71,7 +72,7 @@ services:
     profiles:
       - debug-pyservices
   #################################
-  # Monitors Service
+  # Executor Service
   #################################
   datahub-executor-quickstart-consumers:
     <<: *datahub-executor
@@ -88,6 +89,6 @@ services:
       datahub-gms-debug:
         condition: service_healthy
   datahub-executor-quickstart-dev-head:
-    <<: *datahub-executor-service-dev-head
+    <<: *datahub-executor-dev-head
     profiles:
       - debug-pyservices

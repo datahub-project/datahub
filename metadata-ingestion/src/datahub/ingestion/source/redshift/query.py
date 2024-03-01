@@ -225,7 +225,9 @@ SELECT  schemaname as schema_name,
                             target_table,
                             username as username,
                             source_schema,
-                            source_table
+                            source_table,
+                            querytxt as query,  -- TODO: this querytxt is truncated to 4000 characters
+                            starttime as timestamp
                         from
                                 (
                             select
@@ -250,7 +252,8 @@ SELECT  schemaname as schema_name,
                                 sti.schema as source_schema,
                                 sti.table as source_table,
                                 scan_type,
-                                sq.query as query
+                                sq.query as query,
+                                sq.querytxt as querytxt
                             from
                                 (
                                 select
@@ -358,12 +361,12 @@ SELECT  schemaname as schema_name,
             join stl_scan sc on
                 sc.query = unl.query and
                 sc.starttime >= '{start_time}' and
-                sc.endtime < '{end_time}'
+                sc.starttime < '{end_time}'
             join SVV_TABLE_INFO sti on
                 sti.table_id = sc.tbl
             where
                 unl.start_time >= '{start_time}' and
-                unl.end_time < '{end_time}' and
+                unl.start_time < '{end_time}' and
                 sti.database = '{db_name}'
               and sc.type in (1, 2, 3)
             order by cluster, source_schema, source_table, filename, unl.start_time asc
@@ -385,7 +388,9 @@ SELECT  schemaname as schema_name,
                     target_table,
                     username,
                     query as query_id,
-                    LISTAGG(CASE WHEN LEN(RTRIM(querytxt)) = 0 THEN querytxt ELSE RTRIM(querytxt) END) WITHIN GROUP (ORDER BY sequence) as ddl
+                    LISTAGG(CASE WHEN LEN(RTRIM(querytxt)) = 0 THEN querytxt ELSE RTRIM(querytxt) END) WITHIN GROUP (ORDER BY sequence) as ddl,
+                    ANY_VALUE(pid) as session_id,
+                    starttime as timestamp
                 from
                         (
                     select
@@ -397,7 +402,8 @@ SELECT  schemaname as schema_name,
                         text as querytxt,
                         sq.query,
                         sequence,
-                        si.starttime as starttime
+                        si.starttime as starttime,
+                        pid
                     from
                         stl_insert as si
                     join SVV_TABLE_INFO sti on

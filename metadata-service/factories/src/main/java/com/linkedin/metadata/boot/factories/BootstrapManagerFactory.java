@@ -41,6 +41,7 @@ import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.service.AssertionService;
 import com.linkedin.metadata.service.IncidentService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
@@ -132,10 +133,12 @@ public class BootstrapManagerFactory {
   @Bean(name = "bootstrapManager")
   @Scope("singleton")
   @Nonnull
-  protected BootstrapManager createInstance() {
+  protected BootstrapManager createInstance(
+      @Qualifier("systemOperationContext") final OperationContext systemOpContext) {
     final IngestRootUserStep ingestRootUserStep = new IngestRootUserStep(_entityService);
     final IngestPoliciesStep ingestPoliciesStep =
         new IngestPoliciesStep(
+            systemOpContext,
             _entityRegistry,
             _entityService,
             _entitySearchService,
@@ -147,7 +150,8 @@ public class BootstrapManagerFactory {
     final IngestDataPlatformInstancesStep ingestDataPlatformInstancesStep =
         new IngestDataPlatformInstancesStep(_entityService, _migrationsDao);
     final RestoreGlossaryIndices restoreGlossaryIndicesStep =
-        new RestoreGlossaryIndices(_entityService, _entitySearchService, _entityRegistry);
+        new RestoreGlossaryIndices(
+            systemOpContext, _entityService, _entitySearchService, _entityRegistry);
     final IndexDataPlatformsStep indexDataPlatformsStep =
         new IndexDataPlatformsStep(_entityService, _entitySearchService, _entityRegistry);
     final RestoreDbtSiblingsIndices restoreDbtSiblingsIndices =
@@ -168,13 +172,15 @@ public class BootstrapManagerFactory {
 
     final MigrateAssertionsSummaryStep assertionsSummaryStep =
         new MigrateAssertionsSummaryStep(
+            systemOpContext,
             _entityService,
             _entitySearchService,
             _assertionService,
             _timeseriesAspectService,
             _configurationProvider);
     final MigrateIncidentsSummaryStep incidentsSummaryStep =
-        new MigrateIncidentsSummaryStep(_entityService, _entitySearchService, _incidentService);
+        new MigrateIncidentsSummaryStep(
+            systemOpContext, _entityService, _entitySearchService, _incidentService);
 
     final List<BootstrapStep> finalSteps =
         Stream.of(
@@ -207,7 +213,8 @@ public class BootstrapManagerFactory {
     }
 
     if (_backfillBrowsePathsV2Enabled) {
-      finalSteps.add(new BackfillBrowsePathsV2Step(_entityService, _searchService));
+      finalSteps.add(
+          new BackfillBrowsePathsV2Step(systemOpContext, _entityService, _searchService));
     }
 
     return new BootstrapManager(finalSteps);

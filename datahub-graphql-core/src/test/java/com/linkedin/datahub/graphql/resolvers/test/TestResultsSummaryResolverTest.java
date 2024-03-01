@@ -37,6 +37,7 @@ public class TestResultsSummaryResolverTest {
     // set up passing mock
     Mockito.when(
             mockService.aggregateByValue(
+                Mockito.any(),
                 Mockito.eq(null),
                 Mockito.eq(PASSING_TESTS_FIELD),
                 Mockito.eq(buildFilter(PASSING_TESTS_FIELD)),
@@ -46,6 +47,7 @@ public class TestResultsSummaryResolverTest {
     // set up failing mock
     Mockito.when(
             mockService.aggregateByValue(
+                Mockito.any(),
                 Mockito.eq(null),
                 Mockito.eq(FAILING_TESTS_FIELD),
                 Mockito.eq(buildFilter(FAILING_TESTS_FIELD)),
@@ -77,6 +79,7 @@ public class TestResultsSummaryResolverTest {
     // set up passing mock
     Mockito.when(
             mockService.aggregateByValue(
+                Mockito.any(),
                 Mockito.eq(null),
                 Mockito.eq(PASSING_TESTS_FIELD),
                 Mockito.eq(buildFilter(PASSING_TESTS_FIELD)),
@@ -86,6 +89,7 @@ public class TestResultsSummaryResolverTest {
     // set up failing mock
     Mockito.when(
             mockService.aggregateByValue(
+                Mockito.any(),
                 Mockito.eq(null),
                 Mockito.eq(FAILING_TESTS_FIELD),
                 Mockito.eq(buildFilter(FAILING_TESTS_FIELD)),

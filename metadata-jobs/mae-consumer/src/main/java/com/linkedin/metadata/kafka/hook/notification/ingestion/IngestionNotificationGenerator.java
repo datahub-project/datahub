@@ -1,6 +1,5 @@
 package com.linkedin.metadata.kafka.hook.notification.ingestion;
 
-import com.datahub.authentication.Authentication;
 import com.datahub.notification.NotificationScenarioType;
 import com.datahub.notification.NotificationTemplateType;
 import com.datahub.notification.provider.SettingsProvider;
@@ -23,6 +22,7 @@ import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.kafka.hook.notification.BaseMclNotificationGenerator;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeLog;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -38,18 +38,18 @@ import lombok.extern.slf4j.Slf4j;
 public class IngestionNotificationGenerator extends BaseMclNotificationGenerator {
 
   public IngestionNotificationGenerator(
+      @Nonnull OperationContext systemOpContext,
       @Nonnull final EventProducer eventProducer,
       @Nonnull final EntityClient entityClient,
       @Nonnull final GraphClient graphClient,
       @Nonnull final SettingsProvider settingsProvider,
-      @Nonnull final SlackNotificationRecipientBuilder slackNotificationRecipientBuilder,
-      @Nonnull final Authentication systemAuthentication) {
+      @Nonnull final SlackNotificationRecipientBuilder slackNotificationRecipientBuilder) {
     super(
+        systemOpContext,
         eventProducer,
         entityClient,
         graphClient,
         settingsProvider,
-        systemAuthentication,
         ImmutableMap.of(NotificationSinkType.SLACK, slackNotificationRecipientBuilder));
   }
 

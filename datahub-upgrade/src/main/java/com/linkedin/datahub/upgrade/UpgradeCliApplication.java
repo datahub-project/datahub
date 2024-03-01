@@ -32,9 +32,9 @@ import org.springframework.context.annotation.FilterType;
             DataHubAuthorizerFactory.class,
             SimpleKafkaConsumerFactory.class,
             KafkaEventConsumerFactory.class,
-            NotificationSinkManagerFactory.class,
             InternalSchemaRegistryFactory.class,
-            GraphQLEngineFactory.class
+            GraphQLEngineFactory.class,
+            NotificationSinkManagerFactory.class
           })
     })
 public class UpgradeCliApplication {

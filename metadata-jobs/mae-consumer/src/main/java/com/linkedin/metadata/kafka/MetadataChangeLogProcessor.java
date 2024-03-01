@@ -44,6 +44,7 @@ import org.springframework.stereotype.Component;
   KafkaEventConsumerFactory.class,
   SiblingAssociationHook.class,
   FormAssignmentHook.class,
+  IncidentsSummaryHook.class,
   SiblingAssociationHook.class,
   MetadataTestHook.class,
   AssertionsSummaryHook.class,
@@ -65,6 +66,11 @@ public class MetadataChangeLogProcessor {
             .filter(MetadataChangeLogHook::isEnabled)
             .sorted(Comparator.comparing(MetadataChangeLogHook::executionOrder))
             .collect(Collectors.toList());
+    log.info(
+        "Enabled hooks: {}",
+        this.hooks.stream()
+            .map(hook -> hook.getClass().getSimpleName())
+            .collect(Collectors.toList()));
     this.hooks.forEach(MetadataChangeLogHook::init);
   }
 

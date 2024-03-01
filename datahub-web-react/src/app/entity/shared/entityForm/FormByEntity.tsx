@@ -39,7 +39,9 @@ interface Props {
 }
 
 export default function FormByEntity({ formUrn }: Props) {
-    const { entity: { selectedEntity, entityData: selectedEntityData } } = useEntityFormContext();
+    const {
+        entity: { selectedEntity, entityData: selectedEntityData },
+    } = useEntityFormContext();
     const { entityType, loading, refetch } = useEntityContext();
     const entityRegistry = useEntityRegistry();
     const type = selectedEntity?.type || entityType;
@@ -54,8 +56,9 @@ export default function FormByEntity({ formUrn }: Props) {
                 loading,
                 baseEntity: selectedEntityData,
                 dataNotCombinedWithSiblings: selectedEntityData,
-                routeToTab: () => { },
+                routeToTab: () => {},
                 refetch,
+                lineage: undefined,
             }}
         >
             <OnboardingTour stepIds={[WELCOME_TO_BULK_BY_ENTITY_ID, FORM_QUESTION_VIEW_BUTTON]} />

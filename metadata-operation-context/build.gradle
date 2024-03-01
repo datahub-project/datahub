@@ -1,0 +1,15 @@
+plugins {
+  id 'java-library'
+}
+
+dependencies {
+  implementation project(':metadata-utils')
+  implementation project(':metadata-auth:auth-api')
+
+  implementation externalDependency.slf4jApi
+  compileOnly externalDependency.lombok
+
+  annotationProcessor externalDependency.lombok
+  testImplementation externalDependency.testng
+  testImplementation externalDependency.mockito
+}

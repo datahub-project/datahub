@@ -5,7 +5,7 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
-import com.linkedin.metadata.aspect.batch.UpsertItem;
+import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.RetentionService;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
@@ -40,7 +40,7 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @RequiredArgsConstructor
-public class EbeanRetentionService<U extends UpsertItem> extends RetentionService<U> {
+public class EbeanRetentionService<U extends ChangeMCP> extends RetentionService<U> {
   private final EntityService<U> _entityService;
   private final Database _server;
   private final int _batchSize;

@@ -11,6 +11,9 @@ import javax.annotation.Nonnull;
 public class MappingsBuilder {
 
   public static final String URN_FIELD = "urn";
+  public static final String TAGS_FIELD = "tags";
+  public static final String OWNERS_FIELD = "owners";
+  public static final String DOMAINS_FIELD = "domains";
   public static final String MESSAGE_ID_FIELD = "messageId";
   public static final String TIMESTAMP_FIELD = "@timestamp";
   public static final String TIMESTAMP_MILLIS_FIELD = "timestampMillis";

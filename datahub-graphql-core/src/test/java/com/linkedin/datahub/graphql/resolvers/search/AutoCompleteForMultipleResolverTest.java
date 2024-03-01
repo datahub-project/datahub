@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.search;
 
 import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
+import static org.mockito.ArgumentMatchers.any;
 
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
@@ -192,11 +193,11 @@ public class AutoCompleteForMultipleResolverTest {
     // types
     Mockito.verify(mockClient, Mockito.times(0))
         .autoComplete(
+            any(),
             Mockito.eq(Constants.DATASET_ENTITY_NAME),
             Mockito.eq("test"),
             Mockito.eq(viewInfo.getDefinition().getFilter()),
-            Mockito.eq(10),
-            Mockito.any(Authentication.class));
+            Mockito.eq(10));
   }
 
   @Test
@@ -225,11 +226,11 @@ public class AutoCompleteForMultipleResolverTest {
     EntityClient client = Mockito.mock(EntityClient.class);
     Mockito.when(
             client.autoComplete(
+                any(),
                 Mockito.eq(entityName),
                 Mockito.eq(query),
                 Mockito.eq(filters),
-                Mockito.eq(limit),
-                Mockito.any(Authentication.class)))
+                Mockito.eq(limit)))
         .thenReturn(result);
     return client;
   }
@@ -246,11 +247,11 @@ public class AutoCompleteForMultipleResolverTest {
       throws Exception {
     Mockito.verify(mockClient, Mockito.times(1))
         .autoComplete(
+            any(),
             Mockito.eq(entityName),
             Mockito.eq(query),
             Mockito.eq(filters),
-            Mockito.eq(limit),
-            Mockito.any(Authentication.class));
+            Mockito.eq(limit));
   }
 
   private static DataHubViewInfo createViewInfo(StringArray entityNames) {

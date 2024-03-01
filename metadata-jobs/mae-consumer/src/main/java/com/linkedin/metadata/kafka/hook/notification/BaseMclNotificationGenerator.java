@@ -41,6 +41,7 @@ import com.linkedin.settings.global.GlobalSettingsInfo;
 import com.linkedin.subscription.EntityChangeType;
 import com.linkedin.subscription.SubscriptionInfo;
 import com.linkedin.subscription.SubscriptionNotificationConfig;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -72,19 +73,21 @@ public abstract class BaseMclNotificationGenerator implements MclNotificationGen
   protected final SettingsProvider _settingsProvider;
   protected final Authentication _systemAuthentication;
   protected final Map<NotificationSinkType, NotificationRecipientBuilder> _recipientBuilders;
+  protected final OperationContext systemOpContext;
 
   public BaseMclNotificationGenerator(
+      @Nonnull OperationContext systemOpContext,
       @Nonnull final EventProducer eventProducer,
       @Nonnull final EntityClient entityClient,
       @Nonnull final GraphClient graphClient,
       @Nonnull final SettingsProvider settingsProvider,
-      @Nonnull final Authentication systemAuthentication,
       @Nonnull final Map<NotificationSinkType, NotificationRecipientBuilder> recipientBuilders) {
+    this.systemOpContext = systemOpContext;
     _eventProducer = Objects.requireNonNull(eventProducer);
     _entityClient = Objects.requireNonNull(entityClient);
     _graphClient = Objects.requireNonNull(graphClient);
     _settingsProvider = Objects.requireNonNull(settingsProvider);
-    _systemAuthentication = Objects.requireNonNull(systemAuthentication);
+    _systemAuthentication = Objects.requireNonNull(systemOpContext.getAuthentication());
     _recipientBuilders = Objects.requireNonNull(recipientBuilders);
   }
 
@@ -239,8 +242,7 @@ public abstract class BaseMclNotificationGenerator implements MclNotificationGen
     SearchResult searchResult;
     try {
       searchResult =
-          _entityClient.filter(
-              SUBSCRIPTION_ENTITY_NAME, filter, null, 0, 1000, _systemAuthentication);
+          _entityClient.filter(systemOpContext, SUBSCRIPTION_ENTITY_NAME, filter, null, 0, 1000);
       MetricUtils.counter(this.getClass(), NOTIFICATIONS_SEARCH_CALL_COUNT).inc();
     } catch (Exception e) {
       log.error("Failed to fetch subscriptions for filter {}", filter, e);

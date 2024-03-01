@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.resolvers.domain;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
 import static com.linkedin.metadata.Constants.DOMAIN_PROPERTIES_ASPECT_NAME;
+import static org.mockito.ArgumentMatchers.any;
 import static org.testng.Assert.*;
 
 import com.datahub.authentication.Authentication;
@@ -71,14 +72,14 @@ public class CreateDomainResolverTest {
 
     Mockito.when(
             mockClient.filter(
+                any(),
                 Mockito.eq(Constants.DOMAIN_ENTITY_NAME),
                 Mockito.eq(
                     DomainUtils.buildNameAndParentDomainFilter(
                         TEST_INPUT.getName(), TEST_PARENT_DOMAIN_URN)),
                 Mockito.eq(null),
                 Mockito.any(Integer.class),
-                Mockito.any(Integer.class),
-                Mockito.any(Authentication.class)))
+                Mockito.any(Integer.class)))
         .thenReturn(new SearchResult().setEntities(new SearchEntityArray()));
 
     resolver.get(mockEnv).get();
@@ -121,12 +122,12 @@ public class CreateDomainResolverTest {
 
     Mockito.when(
             mockClient.filter(
+                any(),
                 Mockito.eq(Constants.DOMAIN_ENTITY_NAME),
                 Mockito.eq(DomainUtils.buildNameAndParentDomainFilter(TEST_INPUT.getName(), null)),
                 Mockito.eq(null),
                 Mockito.any(Integer.class),
-                Mockito.any(Integer.class),
-                Mockito.any(Authentication.class)))
+                Mockito.any(Integer.class)))
         .thenReturn(new SearchResult().setEntities(new SearchEntityArray()));
 
     resolver.get(mockEnv).get();
@@ -194,14 +195,14 @@ public class CreateDomainResolverTest {
 
     Mockito.when(
             mockClient.filter(
+                any(),
                 Mockito.eq(Constants.DOMAIN_ENTITY_NAME),
                 Mockito.eq(
                     DomainUtils.buildNameAndParentDomainFilter(
                         TEST_INPUT.getName(), TEST_PARENT_DOMAIN_URN)),
                 Mockito.eq(null),
                 Mockito.any(Integer.class),
-                Mockito.any(Integer.class),
-                Mockito.any(Authentication.class)))
+                Mockito.any(Integer.class)))
         .thenReturn(
             new SearchResult()
                 .setEntities(new SearchEntityArray(new SearchEntity().setEntity(TEST_DOMAIN_URN))));

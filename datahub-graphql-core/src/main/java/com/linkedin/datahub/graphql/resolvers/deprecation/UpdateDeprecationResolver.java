@@ -50,7 +50,7 @@ public class UpdateDeprecationResolver implements DataFetcher<CompletableFuture<
 
     return CompletableFuture.supplyAsync(
         () -> {
-          if (!isAuthorizedToUpdateDeprecationForEntity(environment.getContext(), entityUrn)) {
+          if (!isAuthorizedToUpdateDeprecationForEntity(context, entityUrn)) {
             throw new AuthorizationException(
                 "Unauthorized to perform this action. Please contact your DataHub administrator.");
           }

@@ -57,7 +57,7 @@ public class ProposalsResolver implements DataFetcher<CompletableFuture<List<Act
           try {
             final SearchResult searchResult =
                 _entityClient.filter(
-                    ACTION_REQUEST_ENTITY_NAME, filter, null, 0, 20, context.getAuthentication());
+                    context.getOperationContext(), ACTION_REQUEST_ENTITY_NAME, filter, null, 0, 20);
 
             final Map<Urn, Entity> entities =
                 _entityClient.batchGet(

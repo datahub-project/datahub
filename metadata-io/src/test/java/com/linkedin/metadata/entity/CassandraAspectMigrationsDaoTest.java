@@ -48,14 +48,8 @@ public class CassandraAspectMigrationsDaoTest extends AspectMigrationsDaoTest<Ca
     PreProcessHooks preProcessHooks = new PreProcessHooks();
     preProcessHooks.setUiEnabled(true);
     _entityServiceImpl =
-        new EntityServiceImpl(
-            dao,
-            _mockProducer,
-            _testEntityRegistry,
-            true,
-            _mockUpdateIndicesService,
-            preProcessHooks,
-            true);
+        new EntityServiceImpl(dao, _mockProducer, _testEntityRegistry, true, preProcessHooks, true);
+    _entityServiceImpl.setUpdateIndicesService(_mockUpdateIndicesService);
     _retentionService = new CassandraRetentionService(_entityServiceImpl, session, 1000);
     _entityServiceImpl.setRetentionService(_retentionService);
 

@@ -18,8 +18,8 @@ venv: $(VENV_SENTINEL)
 
 $(VENV_SENTINEL): requirements.txt
 	python3 -m venv $(VENV_DIR)
-	$(VENV_DIR)/bin/pip install --upgrade pip wheel setuptools
-	$(VENV_DIR)/bin/pip install -r requirements.txt
+	$(VENV_DIR)/bin/pip install --upgrade pip uv wheel setuptools
+	VIRTUAL_ENV=$(VENV_DIR) $(VENV_DIR)/bin/uv pip install -r requirements.txt
 	touch $(VENV_SENTINEL)
 
 .PHONY: help html doctest linkcheck clean clean_all serve md

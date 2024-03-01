@@ -35,6 +35,9 @@ outputs:
   elasticsearch-setup-change:
     description: "Elasticsearch setup docker change"
     value: ${{ steps.filter.outputs.elasticsearch-setup == 'true' }}
+  smoke-test-change:
+    description: "Smoke test change"
+    value: ${{ steps.filter.outputs.smoke-test == 'true' }}
   # Saas Only
   integrations-service-change:
     description: "Integrations Service code has changed"
@@ -84,6 +87,9 @@ runs:
             - "docker/postgres-setup/**"
           elasticsearch-setup:
             - "docker/elasticsearch-setup/**"
+          smoke-test:
+            - "smoke-test/**"
+
           integrations-service:
             - "datahub-integrations-service/**"
             - "metadata-ingestion/**"

@@ -35,6 +35,7 @@ import com.linkedin.schema.EditableSchemaFieldInfo;
 import com.linkedin.schema.EditableSchemaFieldInfoArray;
 import com.linkedin.schema.EditableSchemaMetadata;
 import com.linkedin.schema.SchemaField;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -57,6 +58,7 @@ import org.apache.commons.lang3.RandomStringUtils;
 @RequiredArgsConstructor
 public class PropagateTermsStep implements UpgradeStep {
 
+  private final OperationContext systemOpContext;
   private final EntityService _entityService;
   private final EntitySearchService _entitySearchService;
   private final EntityMatcher _entityMatcher;
@@ -68,7 +70,11 @@ public class PropagateTermsStep implements UpgradeStep {
   private static final String KEY_VALUE_DELIMITER = "-";
   private static final String URN_FILTER = "urn";
 
-  public PropagateTermsStep(EntityService entityService, EntitySearchService entitySearchService) {
+  public PropagateTermsStep(
+      @Nonnull OperationContext systemOpContext,
+      EntityService entityService,
+      EntitySearchService entitySearchService) {
+    this.systemOpContext = systemOpContext;
     _entityService = entityService;
     _entitySearchService = entitySearchService;
     _entityMatcher = new SchemaBasedMatcher();
@@ -114,7 +120,7 @@ public class PropagateTermsStep implements UpgradeStep {
         Set<String> allowedNodes =
             Arrays.stream(allowedNodesStr.get().split(";")).collect(Collectors.toSet());
         TermFetcher termFetcher =
-            new TermFetcher(_entityService, _entitySearchService, allowedNodes);
+            new TermFetcher(systemOpContext, _entityService, _entitySearchService, allowedNodes);
         allowedTerms = Optional.of(termFetcher.fetchAllowedTerms());
       } else {
         allowedTerms = Optional.empty();
@@ -127,7 +133,8 @@ public class PropagateTermsStep implements UpgradeStep {
       context.report().addLine("Fetching source entities to propagate from");
 
       SearchResult sourceSearchResults =
-          _entitySearchService.filter(Constants.DATASET_ENTITY_NAME, sourceFilter, null, 0, 5000);
+          _entitySearchService.filter(
+              systemOpContext, Constants.DATASET_ENTITY_NAME, sourceFilter, null, 0, 5000);
 
       context
           .report()
@@ -157,6 +164,7 @@ public class PropagateTermsStep implements UpgradeStep {
         context.report().addLine(String.format("Fetching batch %d", batch));
         ScrollResult scrollResult =
             _entitySearchService.scroll(
+                systemOpContext,
                 Collections.singletonList(Constants.DATASET_ENTITY_NAME),
                 destinationFilter,
                 null,
