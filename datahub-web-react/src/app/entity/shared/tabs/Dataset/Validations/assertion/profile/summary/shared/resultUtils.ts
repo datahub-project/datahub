@@ -38,6 +38,18 @@ const calculateMetricChangePercentage = (previous: number, actual: number) => {
     return previous ? ((actual - previous) / previous) * 100 : undefined;
 };
 
+/**
+ * Attempts to extract a numerical value from native results with a given key
+ * @param nativeResults 
+ * @param key 
+ * @returns {number | undefined}
+ */
+export function tryExtractNumericalValueFromNativeResults(nativeResults: Maybe<StringMapEntry[]> | undefined, key: string): number | undefined {
+    const maybeValue = nativeResults?.find(result => result.key === key)?.value
+    const parsedValue = typeof maybeValue === 'string' ? parseFloat(maybeValue) : maybeValue
+    return typeof parsedValue === 'number' && !Number.isNaN(parsedValue) ? parsedValue : undefined;
+}
+
 const tryGetFieldMetricAssertionNumericalResult = (result?: Maybe<AssertionResult>): number | undefined => {
     return tryExtractNumericalValueFromNativeResults(result?.nativeResults, ASSERTION_NATIVE_RESULTS_KEYS_BY_ASSERTION_TYPE.FIELD_ASSERTIONS.METRIC_VALUES.Y_VALUE_KEY_NAME);
 };
@@ -50,7 +62,7 @@ const tryGetSqlAssertionNumericalResult = (result?: Maybe<AssertionResult>) => {
     return tryExtractNumericalValueFromNativeResults(result?.nativeResults, ASSERTION_NATIVE_RESULTS_KEYS_BY_ASSERTION_TYPE.SQL_ASSERTIONS.Y_VALUE_KEY_NAME);
 };
 
-const getPreviousSqlAssertionNumericalResult = (result?: Maybe<AssertionResult>) => {
+const tryGetPreviousSqlAssertionNumericalResult = (result?: Maybe<AssertionResult>) => {
     return tryExtractNumericalValueFromNativeResults(result?.nativeResults, ASSERTION_NATIVE_RESULTS_KEYS_BY_ASSERTION_TYPE.SQL_ASSERTIONS.PREVIOUS_Y_VALUE_KEY_NAME);
 };
 
@@ -123,7 +135,7 @@ const getFormattedReasonTextForAbsoluteSqlAssertion = (_: Assertion, run: Assert
 const getFormattedReasonTextForRelativeSqlAssertion = (_: Assertion, run: AssertionRunEvent) => {
     const result = run.result?.type;
     const actualRowCount = tryGetSqlAssertionNumericalResult(run.result);
-    const previousRowCount = getPreviousSqlAssertionNumericalResult(run.result);
+    const previousRowCount = tryGetPreviousSqlAssertionNumericalResult(run.result);
     const rowCountChangePercentage =
         actualRowCount && previousRowCount && calculateMetricChangePercentage(previousRowCount, actualRowCount);
     const rowCountChangeTotal = actualRowCount && previousRowCount ? actualRowCount - previousRowCount : 0;
@@ -327,15 +339,4 @@ function tryGetPrimaryMetricValueFromFieldAssertionRunEvent(runEventResult?: May
         default:
             return undefined;
     }
-}
-/**
- * Attempts to extract a numerical value from native results with a given key
- * @param nativeResults 
- * @param key 
- * @returns {number | undefined}
- */
-export function tryExtractNumericalValueFromNativeResults(nativeResults: Maybe<StringMapEntry[]> | undefined, key: string): number | undefined {
-    const maybeValue = nativeResults?.find(result => result.key === key)?.value
-    const parsedValue = typeof maybeValue === 'string' ? parseFloat(maybeValue) : maybeValue
-    return typeof parsedValue === 'number' && !Number.isNaN(parsedValue) ? parsedValue : undefined;
 }
