@@ -6,12 +6,15 @@ ARG DEBIAN_REPO_URL=https://deb.debian.org/debian
 ARG PIP_MIRROR_URL=https://pypi.python.org/simple
 
 FROM $BASE_IMAGE:$DOCKER_VERSION as base
+
+# Optionally set corporate mirror for deb
+USER 0
+ARG DEBIAN_REPO_URL
+RUN if [ "${DEBIAN_REPO_URL}" != "http://deb.debian.org/debian" ] ; then sed -i "s#http.*://deb.debian.org/debian#${DEBIAN_REPO_URL}#g" /etc/apt/sources.list.d/debian.sources ; fi
 USER datahub
 
-# Optionally set corporate mirror for apk and pip
-ARG DEBIAN_REPO_URL
+# Optionally set corporate mirror for pip
 ARG PIP_MIRROR_URL
-RUN if [ "${DEBIAN_REPO_URL}" != "http://deb.debian.org/debian" ] ; then sed -i "s#http.*://deb.debian.org/debian#${DEBIAN_REPO_URL}#g" /etc/apt/sources.list.d/debian.sources ; fi
 RUN if [ "${PIP_MIRROR_URL}" != "https://pypi.python.org/simple" ] ; then pip config set global.index-url ${PIP_MIRROR_URL} ; fi
 ENV UV_INDEX_URL=${PIP_MIRROR_URL}
 
