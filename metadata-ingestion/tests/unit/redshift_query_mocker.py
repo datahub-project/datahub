@@ -59,9 +59,9 @@ query_vs_cursor_mocker = {
         "-- DataHub Redshift Source temp table DDL query\n                    SELECT\n                       "
         " *\n                    FROM\n                    (\n                        SELECT\n               "
         "             session_id,\n                            transaction_id,\n                            s"
-        "tart_time,\n                            query_type AS \"type\",\n                            user_id"
+        'tart_time,\n                            query_type AS "type",\n                            user_id'
         " AS userid,\n                            query_text, -- truncated to 4k characters, join with SYS_QU"
-        "ERY_TEXT to build full query using \"sequence\" number field, probably no reason to do so, since we "
+        'ERY_TEXT to build full query using "sequence" number field, probably no reason to do so, since we '
         "are interested in the begining of the statement anyway\n                            REGEXP_REPLACE(R"
         "EGEXP_SUBSTR(REGEXP_REPLACE(query_text,'\\\\\\\\n','\\\\n'), '(CREATE(?:[\\\\n\\\\s\\\\t]+(?:temp|te"
         "mporary))?(?:[\\\\n\\\\s\\\\t]+)table(?:[\\\\n\\\\s\\\\t]+)[^\\\\n\\\\s\\\\t()-]+)', 0, 1, 'ipe'),'["

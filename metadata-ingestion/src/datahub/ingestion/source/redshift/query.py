@@ -201,12 +201,12 @@ SELECT  schemaname as schema_name,
         from
             pg_catalog.svv_table_info as ti
         left join (
-            SELECT 
+            SELECT
                 table_id as tbl,
                 max(end_time) as last_accessed
-            FROM 
+            FROM
                 SYS_QUERY_DETAIL
-            GROUP BY 
+            GROUP BY
                 table_id) as la on
             (la.tbl = ti.table_id)
         left join SVV_MV_INFO smi on
@@ -221,7 +221,7 @@ SELECT  schemaname as schema_name,
         db_name: str, start_time: datetime, end_time: datetime
     ) -> str:
         return """
-            SELECT 
+            SELECT
                 distinct cluster,
                 target_schema,
                 target_table,
@@ -243,7 +243,7 @@ SELECT  schemaname as schema_name,
                     SYS_QUERY_DETAIL qi
                     JOIN
                     SVV_TABLE_INFO sti on sti.table_id = qi.table_id
-                WHERE 
+                WHERE
                     start_time >= '{start_time}' and
                     start_time < '{end_time}' and
                     cluster = '{db_name}' and
@@ -263,7 +263,7 @@ SELECT  schemaname as schema_name,
                     JOIN
                     SVV_TABLE_INFO sti ON sti.table_id = qs.table_id
                     LEFT JOIN
-                    SYS_QUERY_TEXT qt ON qt.query_id = qs.query_id 
+                    SYS_QUERY_TEXT qt ON qt.query_id = qs.query_id
                     LEFT JOIN
                     SVV_USER_INFO sui ON qs.user_id = sui.user_id
                 WHERE
@@ -347,16 +347,16 @@ SELECT  schemaname as schema_name,
         db_name: str, start_time: datetime, end_time: datetime
     ) -> str:
         return """
-            SELECT 
+            SELECT
                 DISTINCT
                 sti.database as cluster,
                 sti.schema as source_schema,
                 sti."table" as source_table,
                 unl.file_name as filename
             FROM SYS_UNLOAD_DETAIL unl
-            JOIN SYS_QUERY_DETAIL qd ON 
+            JOIN SYS_QUERY_DETAIL qd ON
                 unl.query_id = qd.query_id
-            JOIN SVV_TABLE_INFO sti ON 
+            JOIN SVV_TABLE_INFO sti ON
                 sti.table_id = qd.table_id
             WHERE
                 qd.step_name = 'scan' AND
@@ -379,7 +379,7 @@ SELECT  schemaname as schema_name,
         db_name: str, start_time: datetime, end_time: datetime
     ) -> str:
         return """
-            SELECT 
+            SELECT
                 DISTINCT
                 cluster,
                 target_schema,

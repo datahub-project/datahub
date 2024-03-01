@@ -95,10 +95,10 @@ SELECT
     qd.step_name as operation_type
 FROM
     (
-        SELECT 
-            qd.user_id, 
-            qd.query_id, 
-            sum(qd.output_rows) as rows, 
+        SELECT
+            qd.user_id,
+            qd.query_id,
+            sum(qd.output_rows) as rows,
             qd.table_id,
             qd.step_name
         FROM
