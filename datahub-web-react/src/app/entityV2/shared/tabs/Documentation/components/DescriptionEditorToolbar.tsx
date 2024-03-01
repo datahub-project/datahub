@@ -9,8 +9,6 @@ const StyledTabToolbar = styled(TabToolbar)`
 `;
 
 const ProposeButton = styled(Button)`
-    margin-right: 10px;
-    margin-left: 10px;
     background-color: ${REDESIGN_COLORS.DARK_PURPLE};
     color: ${ANTD_GRAY[1]};
     box-shadow: none;
@@ -25,6 +23,7 @@ const ProposeButton = styled(Button)`
 `;
 
 const StyledButton = styled(Button)`
+    margin-right: 10px;
     box-shadow: none;
     color: ${REDESIGN_COLORS.DARK_PURPLE};
     border-color: ${REDESIGN_COLORS.DARK_PURPLE};
@@ -41,6 +40,7 @@ type DescriptionEditorToolbarProps = {
     disableSave: boolean;
     onSave: () => void;
     onPropose: () => void;
+    onCancel: () => void;
     showPropose: boolean;
 };
 
@@ -48,10 +48,14 @@ export const DescriptionEditorToolbar = ({
     disableSave,
     onSave,
     onPropose,
+    onCancel,
     showPropose,
 }: DescriptionEditorToolbarProps) => {
     return (
         <StyledTabToolbar>
+            <StyledButton data-testid="description-editor-cancel-button" onClick={onCancel}>
+                Cancel
+            </StyledButton>
             <StyledButton data-testid="description-editor-save-button" onClick={onSave} disabled={disableSave}>
                 Save
             </StyledButton>

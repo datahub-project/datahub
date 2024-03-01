@@ -122,7 +122,7 @@ const HeaderAndTabsFlex = styled.div`
 `;
 
 const Header = styled.div`
-    padding: 12px 16px 0px 16px;
+    padding: 0px 16px 0px 16px;
     display: flex;
     align-items: center;
 `;
@@ -133,7 +133,7 @@ const HeaderContent = styled.div`
     box-shadow: 0px 0px 5px rgba(0, 0, 0, 0.08);
     flex: 1;
     flex-shrink: 0;
-    padding: 8px 0px 8px 0px;
+    padding: 0px 0px 8px 0px;
 `;
 
 const Body = styled.div`

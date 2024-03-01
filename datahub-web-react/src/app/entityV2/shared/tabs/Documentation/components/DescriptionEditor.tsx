@@ -145,6 +145,10 @@ export const DescriptionEditor = ({ onComplete }: DescriptionEditorProps) => {
             });
     }
 
+    function handleCancel() {
+        if (onComplete) onComplete();
+    };
+
     // Function to handle all changes in Editor
     const handleEditorChange = (editedDescription: string) => {
         setUpdatedDescription(editedDescription);
@@ -178,6 +182,7 @@ export const DescriptionEditor = ({ onComplete }: DescriptionEditorProps) => {
             <DescriptionEditorToolbar
                 onSave={handleSave}
                 onPropose={proposeUpdate}
+                onCancel={handleCancel}
                 disableSave={!isDescriptionUpdated}
                 showPropose={shouldShowProposeButton}
             />

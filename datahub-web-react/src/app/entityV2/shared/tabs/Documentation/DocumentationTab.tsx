@@ -72,13 +72,6 @@ export const DocumentationTab = ({ properties }: { properties?: Props }) => {
     const showModal = queryString.parse(useLocation().search, { parseBooleans: true }).modal;
 
     useEffect(() => {
-        routeToTab({
-            tabName: 'Documentation',
-            tabParams: { editing: true, modal: !!showModal },
-        });
-    }, [routeToTab, showModal]);
-
-    useEffect(() => {
         const editedDescriptions = (localStorageDictionary && JSON.parse(localStorageDictionary)) || {};
         if (editedDescriptions.hasOwnProperty(urn)) {
             routeToTab({
@@ -106,19 +99,6 @@ export const DocumentationTab = ({ properties }: { properties?: Props }) => {
                                 <EditOutlined /> Edit
                             </Button>
                             {!hideLinksButton && <AddLinkModal buttonProps={{ type: 'text' }} refetch={refetch} />}
-                        </div>
-                        <div>
-                            <Button
-                                type="text"
-                                onClick={() =>
-                                    routeToTab({
-                                        tabName: 'Documentation',
-                                        tabParams: { modal: true },
-                                    })
-                                }
-                            >
-                                <ExpandAltOutlined />
-                            </Button>
                         </div>
                     </StyledTabToolbar>
                     <div>
