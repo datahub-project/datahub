@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.authorization;
 
 import static com.linkedin.datahub.graphql.resolvers.AuthUtils.*;
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.authorization.PoliciesConfig.VIEW_ENTITY_PRIVILEGES;
 
 import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.ConjunctivePrivilegeGroup;
@@ -15,6 +16,7 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import java.time.Clock;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import javax.annotation.Nonnull;
@@ -87,13 +89,6 @@ public class AuthorizationUtils {
 
   public static boolean canManageTags(@Nonnull QueryContext context) {
     return isAuthorized(context, Optional.empty(), PoliciesConfig.MANAGE_TAGS_PRIVILEGE);
-  }
-
-  public static boolean canViewEntity(@Nonnull Urn entityUrn, @Nonnull QueryContext context) {
-    return isAuthorized(
-        context,
-        Optional.of(new EntitySpec(entityUrn.getEntityType(), entityUrn.toString())),
-        PoliciesConfig.VIEW_ENTITY_PAGE_PRIVILEGE);
   }
 
   public static boolean canDeleteEntity(@Nonnull Urn entityUrn, @Nonnull QueryContext context) {
@@ -235,6 +230,39 @@ public class AuthorizationUtils {
       @Nonnull Urn entityUrn, @Nonnull List<Urn> subjectUrns, @Nonnull QueryContext context) {
     // Currently - you only need permission to edit an entity's queries to remove any query.
     return canEditEntityQueries(subjectUrns, context);
+  }
+
+  public static boolean canViewEntity(@Nonnull Urn entityUrn, @Nonnull QueryContext context) {
+    final DisjunctivePrivilegeGroup orGroup =
+        new DisjunctivePrivilegeGroup(
+            ImmutableList.of(new ConjunctivePrivilegeGroup(VIEW_ENTITY_PRIVILEGES)));
+
+    final Authorizer authorizer = context.getAuthorizer();
+    final String actor = context.getActorUrn();
+    final String entityType = entityUrn.getEntityType();
+    final Optional<EntitySpec> resourceSpec =
+        Optional.of(new EntitySpec(entityType, entityUrn.toString()));
+
+    return AuthUtil.isAuthorized(authorizer, actor, resourceSpec, orGroup);
+  }
+
+  public static boolean canShareEntity(Urn urn, QueryContext context) {
+    final ConjunctivePrivilegeGroup allPrivilegesGroup =
+        new ConjunctivePrivilegeGroup(
+            ImmutableList.of(PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType()));
+    DisjunctivePrivilegeGroup orPrivilegesGroup =
+        new DisjunctivePrivilegeGroup(
+            ImmutableList.of(
+                allPrivilegesGroup,
+                new ConjunctivePrivilegeGroup(
+                    Collections.singletonList(PoliciesConfig.SHARE_ENTITY_PRIVILEGE.getType()))));
+
+    return isAuthorized(
+        context.getAuthorizer(),
+        context.getActorUrn(),
+        urn.getEntityType(),
+        urn.toString(),
+        orPrivilegesGroup);
   }
 
   public static boolean isAuthorized(

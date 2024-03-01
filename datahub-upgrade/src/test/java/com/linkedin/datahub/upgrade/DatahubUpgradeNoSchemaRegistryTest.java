@@ -49,7 +49,7 @@ public class DatahubUpgradeNoSchemaRegistryTest extends AbstractTestNGSpringCont
   @Test
   public void testSystemUpdateKafkaProducerOverride() {
     assertEquals(kafkaEventProducer, duheKafkaEventProducer);
-    assertEquals(entityService.get_producer(), duheKafkaEventProducer);
+    assertEquals(entityService.getProducer(), duheKafkaEventProducer);
   }
 
   @Test

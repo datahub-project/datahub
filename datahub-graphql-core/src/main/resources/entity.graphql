@@ -987,7 +987,7 @@ enum EntityType {
     MONITOR
 
     """
-    A DataHub incident - SaaS only
+    A DataHub incident
     """
     INCIDENT
 
@@ -1024,6 +1024,11 @@ enum EntityType {
     A type of entity registered to DataHub
     """
     ENTITY_TYPE
+
+    """"
+    A type of entity that is restricted to the user
+    """
+    RESTRICTED
 
     """
     Another entity type - refer to a provided entity type urn.
@@ -1572,6 +1577,11 @@ type Dataset implements EntityWithRelationships & Entity & BrowsableEntity {
     Structured properties about this Dataset
     """
     structuredProperties: StructuredProperties
+
+    """
+    Info about the results from sharing metadata for this entity
+    """
+    share: Share
 }
 
 type RoleAssociation {
@@ -1847,7 +1857,7 @@ type VersionedDataset implements Entity {
     domain: DomainAssociation
 
     """
-    Experimental! The resolved health status of the Dataset
+    Experimental! The resolved health status of the asset
     """
     health: [Health!]
 
@@ -2133,6 +2143,21 @@ type GlossaryTerm implements Entity {
     For fetching extra entities that do not have custom UI code yet
     """
     aspects(input: AspectParams): [RawAspect!]
+
+    """
+    Structured properties about this asset
+    """
+    structuredProperties: StructuredProperties
+
+    """
+    The forms associated with the Dataset
+    """
+    forms: Forms
+
+    """
+    Info about the results from sharing metadata for this entity
+    """
+    share: Share
 }
 
 """
@@ -2278,9 +2303,24 @@ type GlossaryNode implements Entity {
     aspects(input: AspectParams): [RawAspect!]
 
     """
+    Structured properties about this asset
+    """
+    structuredProperties: StructuredProperties
+
+    """
+    The forms associated with the Dataset
+    """
+    forms: Forms
+
+    """
     Display properties for the domain
     """
     displayProperties: DisplayProperties
+
+    """
+    Info about the results from sharing metadata for this entity
+    """
+    share: Share
 }
 
 """
@@ -2709,6 +2749,26 @@ type Container implements Entity {
     For fetching extra entities that do not have custom UI code yet
     """
     aspects(input: AspectParams): [RawAspect!]
+
+    """
+    Structured properties about this asset
+    """
+    structuredProperties: StructuredProperties
+
+    """
+    The forms associated with the Dataset
+    """
+    forms: Forms
+
+    """
+    Privileges given to a user relevant to this entity
+    """
+    privileges: EntityPrivileges
+
+    """
+    Info about the results from sharing metadata for this entity
+    """
+    share: Share
 }
 
 """
@@ -3088,6 +3148,11 @@ type SchemaFieldEntity implements Entity {
     Structured properties on this schema field
     """
     structuredProperties: StructuredProperties
+
+    """
+    The forms associated with the Dataset
+    """
+    forms: Forms
 
     """
     Granular API for querying edges extending from this entity
@@ -3732,6 +3797,26 @@ type CorpUser implements Entity {
     For fetching extra aspects that do not have custom UI code yet
     """
     aspects(input: AspectParams): [RawAspect!]
+
+    """
+    Structured properties about this asset
+    """
+    structuredProperties: StructuredProperties
+
+    """
+    The forms associated with the Dataset
+    """
+    forms: Forms
+
+    """
+    Privileges given to a user relevant to this entity
+    """
+    privileges: EntityPrivileges
+
+    """
+    Info about the results from sharing metadata for this entity
+    """
+    share: Share
 }
 
 """
@@ -4123,6 +4208,26 @@ type CorpGroup implements Entity {
     For fetching extra entities that do not have custom UI code yet
     """
     aspects(input: AspectParams): [RawAspect!]
+
+    """
+    Structured properties about this asset
+    """
+    structuredProperties: StructuredProperties
+
+    """
+    The forms associated with the Dataset
+    """
+    forms: Forms
+
+    """
+    Privileges given to a user relevant to this entity
+    """
+    privileges: EntityPrivileges
+
+    """
+    Info about the results from sharing metadata for this entity
+    """
+    share: Share
 }
 
 """
@@ -4345,6 +4450,16 @@ type Tag implements Entity {
     For fetching extra entities that do not have custom UI code yet
     """
     aspects(input: AspectParams): [RawAspect!]
+
+    """
+    Privileges given to a user relevant to this entity
+    """
+    privileges: EntityPrivileges
+
+    """
+    Info about the results from sharing metadata for this entity
+    """
+    share: Share
 }
 
 """
@@ -4986,6 +5101,16 @@ type Notebook implements Entity & BrowsableEntity {
     For fetching extra entities that do not have custom UI code yet
     """
     aspects(input: AspectParams): [RawAspect!]
+
+    """
+    Privileges given to a user relevant to this entity
+    """
+    privileges: EntityPrivileges
+
+    """
+    Info about the results from sharing metadata for this entity
+    """
+    share: Share
 }
 
 """
@@ -5312,6 +5437,26 @@ type Dashboard implements EntityWithRelationships & Entity & BrowsableEntity {
     For fetching extra entities that do not have custom UI code yet
     """
     aspects(input: AspectParams): [RawAspect!]
+
+    """
+    Structured properties about this asset
+    """
+    structuredProperties: StructuredProperties
+
+    """
+    Experimental! The resolved health statuses of the asset
+    """
+    health: [Health!]
+
+    """
+    The forms associated with the Dataset
+    """
+    forms: Forms
+
+    """
+    Info about the results from sharing metadata for this entity
+    """
+    share: Share
 }
 
 """
@@ -5628,6 +5773,26 @@ type Chart implements EntityWithRelationships & Entity & BrowsableEntity {
     For fetching extra entities that do not have custom UI code yet
     """
     aspects(input: AspectParams): [RawAspect!]
+
+    """
+    Structured properties about this asset
+    """
+    structuredProperties: StructuredProperties
+
+    """
+    Experimental! The resolved health statuses of the asset
+    """
+    health: [Health!]
+
+    """
+    The forms associated with the Dataset
+    """
+    forms: Forms
+
+    """
+    Info about the results from sharing metadata for this entity
+    """
+    share: Share
 }
 
 """
@@ -6008,6 +6173,31 @@ type DataFlow implements EntityWithRelationships & Entity & BrowsableEntity {
     For fetching extra entities that do not have custom UI code yet
     """
     aspects(input: AspectParams): [RawAspect!]
+
+    """
+    Structured properties about this asset
+    """
+    structuredProperties: StructuredProperties
+
+    """
+    Experimental! The resolved health statuses of the asset
+    """
+    health: [Health!]
+
+    """
+    The forms associated with the Dataset
+    """
+    forms: Forms
+
+    """
+    Privileges given to a user relevant to this entity
+    """
+    privileges: EntityPrivileges
+
+    """
+    Info about the results from sharing metadata for this entity
+    """
+    share: Share
 }
 
 """
@@ -6236,6 +6426,26 @@ type DataJob implements EntityWithRelationships & Entity & BrowsableEntity {
     For fetching extra entities that do not have custom UI code yet
     """
     aspects(input: AspectParams): [RawAspect!]
+
+    """
+    Structured properties about this asset
+    """
+    structuredProperties: StructuredProperties
+
+    """
+    Experimental! The resolved health statuses of the asset
+    """
+    health: [Health!]
+
+    """
+    The forms associated with the Dataset
+    """
+    forms: Forms
+
+    """
+    Info about the results from sharing metadata for this entity
+    """
+    share: Share
 }
 
 """
@@ -7274,7 +7484,7 @@ The result of evaluating an assertion.
 """
 type AssertionResult {
     """
-    The final result, e.g. either INIT, SUCCESS, FAILURE, or ERROR.
+    The final result, e.g. either SUCCESS or FAILURE.
     """
     type: AssertionResultType!
 
@@ -9027,6 +9237,11 @@ input ListPoliciesInput {
   Optional search query
   """
   query: String
+
+  """
+  A list of disjunctive criterion for the filter. (or operation to combine filters)
+  """
+  orFilters: [AndFilterInput!]
 }
 
 """
@@ -9403,6 +9618,26 @@ type MLModel implements EntityWithRelationships & Entity & BrowsableEntity {
     For fetching extra entities that do not have custom UI code yet
     """
     aspects(input: AspectParams): [RawAspect!]
+
+    """
+    Structured properties about this asset
+    """
+    structuredProperties: StructuredProperties
+
+    """
+    The forms associated with the Dataset
+    """
+    forms: Forms
+
+    """
+    Privileges given to a user relevant to this entity
+    """
+    privileges: EntityPrivileges
+
+    """
+    Info about the results from sharing metadata for this entity
+    """
+    share: Share
 }
 
 """
@@ -9520,6 +9755,26 @@ type MLModelGroup implements EntityWithRelationships & Entity & BrowsableEntity 
     For fetching extra entities that do not have custom UI code yet
     """
     aspects(input: AspectParams): [RawAspect!]
+
+    """
+    Structured properties about this asset
+    """
+    structuredProperties: StructuredProperties
+
+    """
+    The forms associated with the Dataset
+    """
+    forms: Forms
+
+    """
+    Privileges given to a user relevant to this entity
+    """
+    privileges: EntityPrivileges
+
+    """
+    Info about the results from sharing metadata for this entity
+    """
+    share: Share
 }
 
 type MLModelGroupProperties {
@@ -9650,6 +9905,26 @@ type MLFeature implements EntityWithRelationships & Entity {
     For fetching extra entities that do not have custom UI code yet
     """
     aspects(input: AspectParams): [RawAspect!]
+
+    """
+    Structured properties about this asset
+    """
+    structuredProperties: StructuredProperties
+
+    """
+    The forms associated with the Dataset
+    """
+    forms: Forms
+
+    """
+    Privileges given to a user relevant to this entity
+    """
+    privileges: EntityPrivileges
+
+    """
+    Info about the results from sharing metadata for this entity
+    """
+    share: Share
 }
 
 type MLHyperParam {
@@ -9821,10 +10096,30 @@ type MLPrimaryKey implements EntityWithRelationships & Entity {
     exists: Boolean
 
     """
+    Privileges given to a user relevant to this entity
+    """
+    privileges: EntityPrivileges
+
+    """
     Experimental API.
     For fetching extra entities that do not have custom UI code yet
     """
     aspects(input: AspectParams): [RawAspect!]
+
+    """
+    Structured properties about this asset
+    """
+    structuredProperties: StructuredProperties
+
+    """
+    The forms associated with the Dataset
+    """
+    forms: Forms
+
+    """
+    Info about the results from sharing metadata for this entity
+    """
+    share: Share
 }
 
 type MLPrimaryKeyProperties {
@@ -9958,6 +10253,26 @@ type MLFeatureTable implements EntityWithRelationships & Entity & BrowsableEntit
     For fetching extra entities that do not have custom UI code yet
     """
     aspects(input: AspectParams): [RawAspect!]
+
+    """
+    Structured properties about this asset
+    """
+    structuredProperties: StructuredProperties
+
+    """
+    The forms associated with the Dataset
+    """
+    forms: Forms
+
+    """
+    Privileges given to a user relevant to this entity
+    """
+    privileges: EntityPrivileges
+
+    """
+    Info about the results from sharing metadata for this entity
+    """
+    share: Share
 }
 
 type MLFeatureTableEditableProperties {
@@ -10357,9 +10672,29 @@ type Domain implements Entity {
     aspects(input: AspectParams): [RawAspect!]
 
     """
+    Structured properties about this asset
+    """
+    structuredProperties: StructuredProperties
+
+    """
+    The forms associated with the Dataset
+    """
+    forms: Forms
+
+    """
     Display properties for the domain
     """
     displayProperties: DisplayProperties
+
+    """
+    Privileges given to a user relevant to this entity
+    """
+    privileges: EntityPrivileges
+
+    """
+    Info about the results from sharing metadata for this entity
+    """
+    share: Share
 }
 
 """
@@ -10387,10 +10722,9 @@ type DomainProperties {
   name: String!
 
   """
-  Description of the domain.
+  Description of the Domain
   """
   description: String
-
 }
 
 """
@@ -11826,6 +12160,26 @@ type DataProduct implements Entity {
     For fetching extra entities that do not have custom UI code yet
     """
     aspects(input: AspectParams): [RawAspect!]
+
+    """
+    Structured properties about this asset
+    """
+    structuredProperties: StructuredProperties
+
+    """
+    The forms associated with the Dataset
+    """
+    forms: Forms
+
+    """
+    Privileges given to a user relevant to this entity
+    """
+    privileges: EntityPrivileges
+
+    """
+    Info about the results from sharing metadata for this entity
+    """
+    share: Share
 }
 
 """
@@ -12171,6 +12525,32 @@ type EntityTypeInfo {
     The description of this type
     """
     description: String
+}
+
+"""
+A restricted entity that the user does not have full permissions to view.
+This entity type does not relate to an entity type in the database.
+"""
+type Restricted implements Entity & EntityWithRelationships {
+    """
+    The primary key of the restricted entity
+    """
+    urn: String!
+
+    """
+    The standard Entity Type
+    """
+    type: EntityType!
+
+    """
+    Edges extending from this entity
+    """
+    relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+    """
+    Edges extending from this entity grouped by direction in the lineage graph
+    """
+    lineage(input: LineageInput!): EntityLineageResult
 }
 
 

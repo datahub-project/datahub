@@ -32,11 +32,11 @@ entities:
       - testResults
       - siblings
       - embed
+      - incidentsSummary
       - inferredNeighbors
       - inferredMetadata
       - schemaFieldsInferredMetadata
       - schemaFieldsInferredNeighbors
-      - incidentsSummary
       - assertionsSummary
       - datasetProperties
       - editableDatasetProperties
@@ -55,6 +55,7 @@ entities:
       - access
       - structuredProperties
       - forms
+      - share
   - name: dataHubPolicy
     doc: DataHub Policies represent access policies granted to users or groups on metadata operations like edit, view etc.
     category: internal
@@ -83,8 +84,11 @@ entities:
       - dataPlatformInstance
       - browsePathsV2
       - structuredProperties
+      - forms
       - anomaliesSummary
       - subTypes
+      - incidentsSummary
+      - share
   - name: dataFlow
     category: core
     keyAspect: dataFlowKey
@@ -105,7 +109,10 @@ entities:
       - dataPlatformInstance
       - browsePathsV2
       - structuredProperties
+      - incidentsSummary
+      - forms
       - subTypes
+      - share
   - name: dataProcess
     keyAspect: dataProcessKey
     aspects:
@@ -146,6 +153,10 @@ entities:
       - glossaryTerms
       - browsePathsV2
       - subTypes
+      - structuredProperties
+      - incidentsSummary
+      - forms
+      - share
   - name: dashboard
     keyAspect: dashboardKey
     aspects:
@@ -169,6 +180,10 @@ entities:
       - institutionalMemory
       - dataPlatformInstance
       - browsePathsV2
+      - structuredProperties
+      - incidentsSummary
+      - forms
+      - share
   - name: notebook
     doc: Notebook represents a combination of query, text, chart and etc. This is in BETA version
     keyAspect: notebookKey
@@ -187,6 +202,7 @@ entities:
       - dataPlatformInstance
       - proposals
       - browsePathsV2
+      - share
   - name: corpuser
     doc: CorpUser represents an identity of a person (or an account) in the enterprise.
     keyAspect: corpUserKey
@@ -202,6 +218,9 @@ entities:
       - corpUserSettings
       - origin
       - roleMembership
+      - structuredProperties
+      - forms
+      - share
   - name: corpGroup
     doc: CorpGroup represents an identity of a group of users in the enterprise.
     keyAspect: corpGroupKey
@@ -214,6 +233,9 @@ entities:
       - origin
       - corpGroupSettings
       - roleMembership
+      - structuredProperties
+      - forms
+      - share
   - name: domain
     doc: A data domain within an organization.
     category: core
@@ -222,7 +244,10 @@ entities:
       - domainProperties
       - institutionalMemory
       - ownership
+      - structuredProperties
+      - forms
       - displayProperties
+      - share
   - name: container
     doc: A container of related data assets.
     category: core
@@ -243,6 +268,9 @@ entities:
       - testResults
       - proposals
       - browsePathsV2
+      - structuredProperties
+      - forms
+      - share
   - name: tag
     category: core
     keyAspect: tagKey
@@ -252,6 +280,7 @@ entities:
       - deprecation
       - testResults
       - status
+      - share
   - name: glossaryTerm
     category: core
     keyAspect: glossaryTermKey
@@ -266,6 +295,9 @@ entities:
       - domains
       - status
       - browsePaths
+      - structuredProperties
+      - forms
+      - share
   - name: glossaryNode
     category: core
     keyAspect: glossaryNodeKey
@@ -274,8 +306,11 @@ entities:
       - institutionalMemory
       - ownership
       - status
+      - structuredProperties
+      - forms
       - testResults
       - displayProperties
+      - share
   - name: dataHubIngestionSource
     category: internal
     keyAspect: dataHubIngestionSourceKey
@@ -347,6 +382,9 @@ entities:
       - globalTags
       - dataPlatformInstance
       - browsePathsV2
+      - structuredProperties
+      - forms
+      - share
   - name: mlModelGroup
     category: core
     keyAspect: mlModelGroupKey
@@ -364,6 +402,9 @@ entities:
       - globalTags
       - dataPlatformInstance
       - browsePathsV2
+      - structuredProperties
+      - forms
+      - share
   - name: mlModelDeployment
     category: core
     keyAspect: mlModelDeploymentKey
@@ -392,6 +433,9 @@ entities:
       - globalTags
       - dataPlatformInstance
       - browsePathsV2
+      - structuredProperties
+      - forms
+      - share
   - name: mlFeature
     category: core
     keyAspect: mlFeatureKey
@@ -410,6 +454,9 @@ entities:
       - globalTags
       - dataPlatformInstance
       - browsePathsV2
+      - structuredProperties
+      - forms
+      - share
   - name: mlPrimaryKey
     category: core
     keyAspect: mlPrimaryKeyKey
@@ -426,6 +473,9 @@ entities:
       - deprecation
       - globalTags
       - dataPlatformInstance
+      - structuredProperties
+      - forms
+      - share
   - name: telemetry
     category: internal
     keyAspect: telemetryKey
@@ -460,6 +510,7 @@ entities:
     keyAspect: schemaFieldKey
     aspects:
       - structuredProperties
+      - forms
       - schemaFieldProfile
   ## Not in OSS
   - name: constraint
@@ -528,6 +579,9 @@ entities:
       - dataProductProperties
       - institutionalMemory
       - status
+      - structuredProperties
+      - forms
+      - share
   - name: ownershipType
     doc: Ownership Type represents a user-created ownership category for a person or group who is responsible for an asset.
     category: core
@@ -620,9 +674,12 @@ plugins:
       enabled: true
       supportedOperations:
         - UPSERT
+        - DELETE
       supportedEntityAspectNames:
         - entityName: structuredProperty
           aspectName: propertyDefinition
+        - entityName: structuredProperty
+          aspectName: structuredPropertyKey
     - className: 'com.linkedin.metadata.aspect.validation.StructuredPropertiesValidator'
       enabled: true
       supportedOperations:
@@ -630,4 +687,18 @@ plugins:
       supportedEntityAspectNames:
         - entityName: '*'
           aspectName: structuredProperties
-
+  mutationHooks:
+    - className: 'com.linkedin.metadata.aspect.hooks.StructuredPropertiesSoftDelete'
+      enabled: true
+      supportedEntityAspectNames:
+        - entityName: '*'
+          aspectName: structuredProperties
+    - className: 'com.linkedin.metadata.aspect.hooks.OwnerTypeMap'
+      enabled: true
+      supportedOperations:
+        - UPSERT
+        - CREATE
+        - RESTATE
+      supportedEntityAspectNames:
+        - entityName: '*'
+          aspectName: ownership

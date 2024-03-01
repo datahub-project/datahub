@@ -36,7 +36,7 @@ jobs:
       elasticsearch_setup_change: ${{ steps.ci-optimize.outputs.elasticsearch-setup-change == 'true' }}
     steps:
       - name: Check out the repo
-        uses: hsheth2/sane-checkout-action@v1
+        uses: acryldata/sane-checkout-action@v3
       - uses: ./.github/actions/ci-optimization
         id: ci-optimize
 
@@ -62,13 +62,15 @@ jobs:
         with:
           timezoneLinux: ${{ matrix.timezone }}
       - name: Check out the repo
-        uses: hsheth2/sane-checkout-action@v1
+        uses: acryldata/sane-checkout-action@v3
       - name: Set up JDK 17
         uses: actions/setup-java@v3
         with:
           distribution: "zulu"
           java-version: 17
       - uses: gradle/gradle-build-action@v2
+      - name: Install libcurl dev
+        run: sudo apt-get install libcurl4-openssl-dev
       - uses: actions/setup-python@v4
         if: ${{ needs.setup.outputs.ingestion_change == 'true' }}
         with:
@@ -106,7 +108,7 @@ jobs:
     if: ${{ needs.setup.outputs.docker_change == 'true' }}
     steps:
       - name: Check out the repo
-        uses: hsheth2/sane-checkout-action@v1
+        uses: acryldata/sane-checkout-action@v3
       - uses: actions/setup-python@v4
         with:
           python-version: "3.10"

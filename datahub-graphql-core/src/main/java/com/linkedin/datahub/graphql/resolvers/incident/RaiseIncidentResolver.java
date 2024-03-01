@@ -5,12 +5,15 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
 import static com.linkedin.metadata.Constants.*;
 
+import com.datahub.authorization.ConjunctivePrivilegeGroup;
+import com.datahub.authorization.DisjunctivePrivilegeGroup;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.RaiseIncidentInput;
 import com.linkedin.entity.client.EntityClient;
@@ -20,6 +23,7 @@ import com.linkedin.incident.IncidentSourceType;
 import com.linkedin.incident.IncidentState;
 import com.linkedin.incident.IncidentStatus;
 import com.linkedin.incident.IncidentType;
+import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.key.IncidentKey;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetcher;
@@ -47,7 +51,7 @@ public class RaiseIncidentResolver implements DataFetcher<CompletableFuture<Stri
 
     return CompletableFuture.supplyAsync(
         () -> {
-          if (!IncidentUtils.isAuthorizedToEditIncidentForResource(resourceUrn, context)) {
+          if (!isAuthorizedToCreateIncidentForResource(resourceUrn, context)) {
             throw new AuthorizationException(
                 "Unauthorized to perform this action. Please contact your DataHub administrator.");
           }
@@ -104,5 +108,22 @@ public class RaiseIncidentResolver implements DataFetcher<CompletableFuture<Stri
     result.setSource(new IncidentSource().setType(IncidentSourceType.MANUAL), SetMode.IGNORE_NULL);
     result.setPriority(input.getPriority(), SetMode.IGNORE_NULL);
     return result;
+  }
+
+  private boolean isAuthorizedToCreateIncidentForResource(
+      final Urn resourceUrn, final QueryContext context) {
+    final DisjunctivePrivilegeGroup orPrivilegeGroups =
+        new DisjunctivePrivilegeGroup(
+            ImmutableList.of(
+                ALL_PRIVILEGES_GROUP,
+                new ConjunctivePrivilegeGroup(
+                    ImmutableList.of(PoliciesConfig.EDIT_ENTITY_INCIDENTS_PRIVILEGE.getType()))));
+
+    return AuthorizationUtils.isAuthorized(
+        context.getAuthorizer(),
+        context.getActorUrn(),
+        resourceUrn.getEntityType(),
+        resourceUrn.toString(),
+        orPrivilegeGroups);
   }
 }

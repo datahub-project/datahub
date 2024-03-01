@@ -10,6 +10,8 @@ fi
 
 source venv/bin/activate
 
+export KAFKA_BROKER_CONTAINER="datahub-kafka-broker-1"
+export KAFKA_BOOTSTRAP_SERVER="broker:9092"
 python -c 'from tests.cypress.integration_test import ingest_data; ingest_data()'
 
 cd tests/cypress

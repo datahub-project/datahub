@@ -2,7 +2,6 @@ package com.linkedin.metadata.kafka.hook.assertion;
 
 import static com.linkedin.metadata.Constants.*;
 
-import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.anomaly.AnomalySource;
@@ -35,7 +34,6 @@ import com.linkedin.incident.IncidentType;
 import com.linkedin.metadata.kafka.hook.HookUtils;
 import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
 import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
@@ -46,6 +44,7 @@ import com.linkedin.metadata.service.IncidentService;
 import com.linkedin.metadata.service.util.AssertionUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeLog;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -137,19 +136,18 @@ public class AssertionActionsHook implements MetadataChangeLogHook {
   private final AssertionService _assertionService;
   private final IncidentService _incidentService;
   private final AnomalyService _anomalyService;
-  private final Authentication _authentication;
+  private final OperationContext systemOpContext;
   private final boolean _isEnabled;
 
   @Autowired
   public AssertionActionsHook(
-      @Nonnull final EntityRegistry entityRegistry,
+      @Nonnull OperationContext systemOpContext,
       @Nonnull final SystemEntityClient systemEntityClient,
       @Nonnull @Value("${assertionActions.hook.enabled:true}") Boolean isEnabled) {
-    _entityRegistry = Objects.requireNonNull(entityRegistry, "entityRegistry is required");
+    _entityRegistry =
+        Objects.requireNonNull(systemOpContext.getEntityRegistry(), "entityRegistry is required");
     _entityClient = Objects.requireNonNull(systemEntityClient, "entityClient is required");
-    _authentication =
-        Objects.requireNonNull(
-            systemEntityClient.getSystemAuthentication(), "authentication is required");
+    this.systemOpContext = Objects.requireNonNull(systemOpContext, "authentication is required");
     _assertionService =
         new AssertionService(systemEntityClient, systemEntityClient.getSystemAuthentication());
     _incidentService =
@@ -309,14 +307,13 @@ public class AssertionActionsHook implements MetadataChangeLogHook {
     try {
       final SearchResult searchResult =
           _entityClient.search(
+              systemOpContext.withSearchFlags(flags -> flags.setFulltext(false).setSkipCache(true)),
               INCIDENT_ENTITY_NAME,
               "*",
               buildActiveEntityIncidentsFilter(entityUrn, assertionUrn),
               null,
               0,
-              SEARCH_BATCH_SIZE, // This SHOULD NOT exceed 1 in reality.
-              _authentication,
-              new SearchFlags().setFulltext(false).setSkipCache(true));
+              SEARCH_BATCH_SIZE); // This SHOULD NOT exceed 1 in reality.
 
       // 2. If there are active incidents, resolve them.
       if (searchResult.hasEntities() && searchResult.getEntities().size() > 0) {
@@ -361,14 +358,13 @@ public class AssertionActionsHook implements MetadataChangeLogHook {
       try {
         final SearchResult searchResult =
             _entityClient.search(
+                systemOpContext.withSearchFlags(flags -> flags.setSkipCache(true)),
                 ANOMALY_ENTITY_NAME,
                 "*",
                 buildActiveEntityAnomaliesFilter(entityUrn, assertionUrn),
                 null,
                 0,
-                SEARCH_BATCH_SIZE, // This SHOULD NOT exceed 1 in reality.
-                _authentication,
-                new SearchFlags().setSkipCache(true));
+                SEARCH_BATCH_SIZE); // This SHOULD NOT exceed 1 in reality.
 
         // 2. If there are active anomalies, resolve them.
         if (searchResult.hasEntities() && searchResult.getEntities().size() > 0) {
@@ -517,14 +513,13 @@ public class AssertionActionsHook implements MetadataChangeLogHook {
     try {
       final SearchResult searchResult =
           _entityClient.search(
+              systemOpContext.withSearchFlags(flags -> flags.setFulltext(false).setSkipCache(true)),
               INCIDENT_ENTITY_NAME,
               "*",
               buildActiveEntityIncidentsFilter(entityUrn, assertionUrn),
               null,
               0,
-              SEARCH_BATCH_SIZE, // This SHOULD NOT exceed 1 in reality.
-              _authentication,
-              new SearchFlags().setFulltext(false).setSkipCache(true));
+              SEARCH_BATCH_SIZE); // This SHOULD NOT exceed 1 in reality.
 
       return searchResult.hasEntities() && searchResult.getEntities().size() > 0;
     } catch (Exception e) {
@@ -542,14 +537,13 @@ public class AssertionActionsHook implements MetadataChangeLogHook {
     try {
       final SearchResult searchResult =
           _entityClient.search(
+              systemOpContext.withSearchFlags(flags -> flags.setSkipCache(true)),
               ANOMALY_ENTITY_NAME,
               "*",
               buildActiveEntityAnomaliesFilter(entityUrn, assertionUrn),
               null,
               0,
-              SEARCH_BATCH_SIZE, // This SHOULD NOT exceed 1 in reality.
-              _authentication,
-              new SearchFlags().setSkipCache(true));
+              SEARCH_BATCH_SIZE); // This SHOULD NOT exceed 1 in reality.
 
       return searchResult.hasEntities() && searchResult.getEntities().size() > 0;
     } catch (Exception e) {
@@ -595,14 +589,13 @@ public class AssertionActionsHook implements MetadataChangeLogHook {
     // If we ever support multi-entity assertions, this will need to change.
     final SearchResult searchResult =
         _entityClient.search(
+            systemOpContext.withSearchFlags(flags -> flags.setFulltext(false).setSkipCache(true)),
             INCIDENT_ENTITY_NAME,
             "*",
             buildActiveIncidentsFilter(assertionUrn),
             null,
             0,
-            SEARCH_BATCH_SIZE, // This SHOULD NOT exceed 1 in reality.
-            _authentication,
-            new SearchFlags().setFulltext(false).setSkipCache(true));
+            SEARCH_BATCH_SIZE); // This SHOULD NOT exceed 1 in reality.
 
     if (searchResult.hasEntities() && searchResult.getEntities().size() > 0) {
       log.info(
@@ -642,14 +635,13 @@ public class AssertionActionsHook implements MetadataChangeLogHook {
     // (as of today).
     final SearchResult searchResult =
         _entityClient.search(
+            systemOpContext.withSearchFlags(flags -> flags.setSkipCache(true).setFulltext(false)),
             ANOMALY_ENTITY_NAME,
             "*",
             buildActiveAnomaliesFilter(assertionUrn),
             null,
             0,
-            SEARCH_BATCH_SIZE, // This SHOULD NOT exceed 1 in reality.
-            _authentication,
-            new SearchFlags().setSkipCache(true).setFulltext(false));
+            SEARCH_BATCH_SIZE); // This SHOULD NOT exceed 1 in reality.
 
     if (searchResult.hasEntities() && searchResult.getEntities().size() > 0) {
       log.info(

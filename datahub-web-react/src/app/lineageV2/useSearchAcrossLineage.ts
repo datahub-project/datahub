@@ -27,6 +27,7 @@ export default function useSearchAcrossLineage(
         urn,
         direction,
         start: 0,
+        count: 10000,
         startTimeMillis: startTimeMillis || undefined,
         endTimeMillis: endTimeMillis || undefined,
         orFilters: [
@@ -73,7 +74,7 @@ export default function useSearchAcrossLineage(
             node.paths.push(...paths);
             // TODO: Clean up logic, a little redundant with setNodeDefault
             if (maxDepth) {
-                node.fetchStatus[direction] = FetchStatus.COMPLETE;
+                node.fetchStatus = { ...node.fetchStatus, [direction]: FetchStatus.COMPLETE };
             }
         });
 
@@ -104,7 +105,7 @@ export default function useSearchAcrossLineage(
 
         const node = nodes.get(urn);
         if (data && node) {
-            node.fetchStatus[direction] = FetchStatus.COMPLETE;
+            node.fetchStatus = { ...node.fetchStatus, [direction]: FetchStatus.COMPLETE };
         }
 
         if (data) {

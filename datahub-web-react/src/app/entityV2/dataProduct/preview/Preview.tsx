@@ -3,6 +3,7 @@ import { EntityType, Owner, GlobalTags, GlossaryTerms, Domain, EntityPath } from
 import DefaultPreviewCard from '../../../previewV2/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { IconStyleType } from '../../Entity';
+import { EntityMenuItems } from '../../shared/EntityDropdown/EntityMenuActions';
 
 interface Props {
     urn: string;
@@ -16,6 +17,7 @@ interface Props {
     externalUrl?: string | null;
     degree?: number;
     paths?: EntityPath[];
+    headerDropdownItems?: Set<EntityMenuItems>;
 }
 
 export const Preview = ({
@@ -30,6 +32,7 @@ export const Preview = ({
     externalUrl,
     degree,
     paths,
+    headerDropdownItems,
 }: Props): JSX.Element => {
     const entityRegistry = useEntityRegistry();
 
@@ -50,6 +53,7 @@ export const Preview = ({
             externalUrl={externalUrl}
             degree={degree}
             paths={paths}
+            headerDropdownItems={headerDropdownItems}
         />
     );
 };

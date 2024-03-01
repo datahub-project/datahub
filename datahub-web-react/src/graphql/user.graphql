@@ -30,11 +30,25 @@ query getUser($urn: String!, $groupsCount: Int) {
                 urn
             }
         }
+        share {
+            ...shareFields
+        }
+        privileges {
+            ...entityPrivileges
+        }
         globalTags {
             ...globalTagsFields
         }
         autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
             ...autoRenderAspectFields
+        }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
+        forms {
+            ...formsFields
         }
         groups: relationships(
             input: {

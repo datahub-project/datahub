@@ -40,6 +40,7 @@ query appConfig {
         visualConfig {
             logoUrl
             faviconUrl
+            appTitle
             hideGlossary
             queriesTab {
                 queriesTabResultSize
@@ -78,6 +79,8 @@ query appConfig {
             documentationAiEnabled
             themeV2
             lineageGraphV2
+            taskCenterEnabled
+            metadataShareEnabled
         }
         chromeExtensionConfig {
             enabled

@@ -1,11 +1,14 @@
 import React, { useState } from 'react';
 import { message, Modal, Button, Form, Input, Typography, Select } from 'antd';
 import { useApolloClient } from '@apollo/client';
+import TextArea from 'antd/lib/input/TextArea';
 import analytics, { EventType, EntityActionType } from '../../../../../analytics';
-import { useEntityData, useRefetch } from '../../../EntityContext';
-import { IncidentType } from '../../../../../../types.generated';
-import { INCIDENT_DISPLAY_TYPES, PAGE_SIZE, updateListIncidentsCache } from '../incidentUtils';
+import { useEntityData } from '../../../EntityContext';
+import { EntityType, IncidentSourceType, IncidentState, IncidentType } from '../../../../../../types.generated';
+import { INCIDENT_DISPLAY_TYPES, PAGE_SIZE, addActiveIncidentToCache } from '../incidentUtils';
 import { useRaiseIncidentMutation } from '../../../../../../graphql/mutations.generated';
+import handleGraphQLError from '../../../../../shared/handleGraphQLError';
+import { useUserContext } from '../../../../../context/useUserContext';
 
 type AddIncidentProps = {
     visible: boolean;
@@ -15,7 +18,7 @@ type AddIncidentProps = {
 
 export const AddIncidentModal = ({ visible, onClose, refetch }: AddIncidentProps) => {
     const { urn, entityType } = useEntityData();
-    const refetchEntity = useRefetch();
+    const { user } = useUserContext();
     const incidentTypes = INCIDENT_DISPLAY_TYPES;
     const [selectedIncidentType, setSelectedIncidentType] = useState<IncidentType>(IncidentType.Operational);
     const [isOtherTypeSelected, setIsOtherTypeSelected] = useState<boolean>(false);
@@ -27,6 +30,7 @@ export const AddIncidentModal = ({ visible, onClose, refetch }: AddIncidentProps
     const handleClose = () => {
         form.resetFields();
         setIsOtherTypeSelected(false);
+        setSelectedIncidentType(IncidentType.Operational);
         onClose?.();
     };
 
@@ -41,26 +45,42 @@ export const AddIncidentModal = ({ visible, onClose, refetch }: AddIncidentProps
     };
 
     const handleAddIncident = async (formData: any) => {
-        try {
-            await raiseIncidentMutation({
-                variables: {
-                    input: {
-                        type: selectedIncidentType,
-                        title: formData.title,
-                        description: formData.description,
-                        resourceUrn: urn,
-                        customType: formData.customType,
-                    },
-                },
-            }).then(({data})=>{
-                const newIncident = {
-                    urn: data?.raiseIncident,
+        raiseIncidentMutation({
+            variables: {
+                input: {
                     type: selectedIncidentType,
                     title: formData.title,
                     description: formData.description,
                     resourceUrn: urn,
                     customType: formData.customType,
-                }
+                },
+            },
+        })
+            .then(({ data }) => {
+                const newIncident = {
+                    urn: data?.raiseIncident,
+                    type: EntityType.Incident,
+                    incidentType: selectedIncidentType,
+                    customType: formData.customType || null,
+                    title: formData.title,
+                    description: formData.description,
+                    status: {
+                        state: IncidentState.Active,
+                        message: null,
+                        lastUpdated: {
+                            __typename: 'AuditStamp',
+                            time: Date.now(),
+                            actor: user?.urn,
+                        },
+                    },
+                    source: {
+                        type: IncidentSourceType.Manual,
+                    },
+                    created: {
+                        time: Date.now(),
+                        actor: user?.urn,
+                    },
+                };
                 message.success({ content: 'Incident Added', duration: 2 });
                 analytics.event({
                     type: EventType.EntityActionEvent,
@@ -68,20 +88,21 @@ export const AddIncidentModal = ({ visible, onClose, refetch }: AddIncidentProps
                     entityUrn: urn,
                     actionType: EntityActionType.AddIncident,
                 });
-                updateListIncidentsCache(client,newIncident,PAGE_SIZE)
+                addActiveIncidentToCache(client, urn, newIncident, PAGE_SIZE);
+                handleClose();
                 setTimeout(() => {
                     refetch?.();
-                    refetchEntity?.();
-                }, 1000);
-                handleClose();
+                }, 2000);
             })
-        } catch (e: unknown) {
-            message.destroy();
-            if (e instanceof Error) {
-                message.error({ content: `Failed to add incident: \n ${e.message || ''}`, duration: 3 });
-            }
-        }
-        
+            .catch((error) => {
+                console.error(error);
+                handleGraphQLError({
+                    error,
+                    defaultMessage: 'Failed to raise incident! An unexpected error occurred',
+                    permissionMessage:
+                        'Unauthorized to raise incident for this asset. Please contact your DataHub administrator.',
+                });
+            });
     };
 
     return (
@@ -128,7 +149,7 @@ export const AddIncidentModal = ({ visible, onClose, refetch }: AddIncidentProps
                                 },
                             ]}
                         >
-                            <Input />
+                            <Input placeholder="Freshness" />
                         </Form.Item>
                     )}
                     <Form.Item
@@ -141,7 +162,7 @@ export const AddIncidentModal = ({ visible, onClose, refetch }: AddIncidentProps
                             },
                         ]}
                     >
-                        <Input placeholder="A title for this incident" />
+                        <Input placeholder="What went wrong?" />
                     </Form.Item>
                     <Form.Item
                         name="description"
@@ -153,7 +174,7 @@ export const AddIncidentModal = ({ visible, onClose, refetch }: AddIncidentProps
                             },
                         ]}
                     >
-                        <Input placeholder="A short description for this incident" />
+                        <TextArea placeholder="Provide some additional details" />
                     </Form.Item>
                 </Form>
             </Modal>

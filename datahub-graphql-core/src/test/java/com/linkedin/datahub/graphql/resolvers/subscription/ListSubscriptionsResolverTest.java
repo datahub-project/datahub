@@ -6,7 +6,6 @@ import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
 import com.datahub.authentication.Authentication;
-import com.datahub.subscription.SubscriptionService;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -15,6 +14,7 @@ import com.linkedin.datahub.graphql.generated.ListSubscriptionsInput;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.service.SubscriptionService;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.Comparator;
 import java.util.List;
@@ -65,8 +65,7 @@ public class ListSubscriptionsResolverTest {
                     ImmutableSet.of(
                         new SearchEntity().setEntity(SUBSCRIPTION_URN_1),
                         new SearchEntity().setEntity(SUBSCRIPTION_URN_2))));
-    when(_subscriptionService.getSubscriptionsSearchResult(
-            eq(USER_URN), anyInt(), anyInt(), eq(_authentication)))
+    when(_subscriptionService.getSubscriptionsSearchResult(eq(USER_URN), anyInt(), anyInt(), any()))
         .thenReturn(searchResult);
     when(_subscriptionService.listSubscriptions(any(SearchResult.class), eq(_authentication)))
         .thenReturn(

@@ -423,6 +423,12 @@ fragment dataJobFields on DataJob {
     subTypes {
         typeNames
     }
+    health {
+        ...entityHealth
+    }
+    activeIncidents: incidents(start: 0, count: 1, state: ACTIVE) {
+        total
+    }
 }
 
 fragment dashboardFields on Dashboard {
@@ -520,6 +526,9 @@ fragment dashboardFields on Dashboard {
     }
     privileges {
         ...entityPrivileges
+    }
+    health {
+        ...entityHealth
     }
 }
 
@@ -1061,35 +1070,6 @@ fragment entityDataProduct on Entity {
     }
 }
 
-fragment incidentsFields on EntityIncidentsResult {
-    count
-    start
-    total
-    incidents {
-        urn
-        type
-        incidentType
-        customType
-        title
-        description
-        status {
-            state
-            message
-            lastUpdated {
-                time
-                actor
-            }
-        }
-        source {
-            type
-        }
-        created {
-            time
-            actor
-        }
-    }
-}
-
 fragment inputFieldsFields on InputFields {
     fields {
         schemaFieldUrn
@@ -1444,6 +1424,36 @@ fragment formPromptAssociationFields on FormPromptAssociation {
     }
 }
 
+fragment entityHealth on Health {
+    type
+    status
+    message
+    causes
+}
+
+
+fragment formsFields on Forms {
+    completedForms {
+        ...formAssociationFields
+    }
+    incompleteForms {
+        ...formAssociationFields
+    }
+    verifications {
+        form {
+            urn
+        }
+        lastModified {
+            time
+            actor {
+                urn
+                type
+                ...entityDisplayNameFields
+            }
+        }
+    }
+}
+
 fragment entityPrivileges on EntityPrivileges {
     canEditLineage
     canEditDomains
@@ -1463,4 +1473,20 @@ fragment entityPrivileges on EntityPrivileges {
     canEditEmbed
     canManageEntity
     canManageChildren
+    canShareEntity
+}
+
+fragment shareFields on Share {
+    lastShareResults {
+        lastSuccess {
+            time
+        }
+        destination {
+            urn
+            details {
+                name
+            }
+        }
+        status
+    }
 }

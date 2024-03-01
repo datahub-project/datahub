@@ -4,7 +4,7 @@ import static com.linkedin.datahub.upgrade.propagate.PropagateTerms.*;
 import static org.mockito.Mockito.*;
 import static org.testng.AssertJUnit.*;
 
-import com.datahub.authentication.Authentication;
+import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.upgrade.UpgradeContext;
@@ -13,12 +13,15 @@ import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeReport;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.test.TestEngine;
 import com.linkedin.test.TestResults;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -42,10 +45,13 @@ public class EvaluateTestsStepTest {
     configureTestEngineMock(testEngine);
     configureEntitySearchServiceMock(entitySearchService);
     EntityClient entityClient = Mockito.mock(EntityClient.class);
-    Authentication authentication = Mockito.mock(Authentication.class);
+
+    OperationContext opContext =
+        TestOperationContexts.userContextNoSearchAuthorization(
+            mock(EntityRegistry.class), Authorizer.EMPTY, TestOperationContexts.TEST_USER_AUTH);
 
     EvaluateTestsStep testStep =
-        new EvaluateTestsStep(entityClient, entitySearchService, testEngine, authentication);
+        new EvaluateTestsStep(opContext, entityClient, entitySearchService, testEngine);
     Function<UpgradeContext, UpgradeStepResult> fun = testStep.executable();
     final UpgradeContext upgradeContext = mock(UpgradeContext.class);
     UpgradeReport report = new DefaultUpgradeReport();
@@ -116,6 +122,7 @@ public class EvaluateTestsStepTest {
 
     Mockito.when(
             mockSearchService.scroll(
+                Mockito.any(),
                 Mockito.eq(Collections.singletonList(Constants.DATASET_ENTITY_NAME)),
                 Mockito.eq(null),
                 Mockito.eq(null),
@@ -134,6 +141,7 @@ public class EvaluateTestsStepTest {
 
     Mockito.when(
             mockSearchService.scroll(
+                Mockito.any(),
                 Mockito.eq(Collections.singletonList(Constants.CHART_ENTITY_NAME)),
                 Mockito.eq(null),
                 Mockito.eq(null),
@@ -152,6 +160,7 @@ public class EvaluateTestsStepTest {
 
     Mockito.when(
             mockSearchService.scroll(
+                Mockito.any(),
                 Mockito.eq(Collections.singletonList(Constants.CHART_ENTITY_NAME)),
                 Mockito.eq(null),
                 Mockito.eq(null),

@@ -15,27 +15,25 @@ const EntityTitleContainer = styled.div`
 
 const StyledLink = styled(Link)`
     display: block;
-    width: 100%;
 `;
 
 const EntityTitle = styled(Typography.Text)<{ $titleSizePx?: number }>`
     display: block;
-    &&&:hover {
-        text-decoration: underline;
-    }
     &&& {
         margin-right 8px;
         font-size: ${(props) => props.$titleSizePx || 16}px;
         font-weight: 700;
+        line-height: 16px;
         vertical-align: middle;
+        :hover {
+            font-weight: bold;
+        }
     }
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    font-family: Manrope;
     font-size: 13px;
-    color: ${SEARCH_COLORS.LINK_BLUE};
-    width: 75%;
+    color: ${SEARCH_COLORS.TITLE_PURPLE};
     height: 100%;
 `;
 

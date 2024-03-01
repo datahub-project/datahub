@@ -1,10 +1,13 @@
-import { CloseOutlined } from '@ant-design/icons';
 import React from 'react';
+
+import { CloseOutlined } from '@ant-design/icons';
 import { Modal } from 'antd';
 import styled from 'styled-components';
+
 import EntityForm from './EntityForm';
 import FormPageHeader from './FormHeader/FormPageHeader';
 import EntityFormContextProvider from './EntityFormContextProvider';
+import { useUserContext } from '../../../context/useUserContext';
 
 const StyledModal = styled(Modal)`
     &&& .ant-modal-content {
@@ -41,18 +44,26 @@ interface Props {
 }
 
 export default function EntityFormModal({ selectedFormUrn, isFormVisible, hideFormModal }: Props) {
+    const { refetchUnfinishedTaskCount } = useUserContext();
+
+    // Refetch unfinished tasks when closing modal
+    const handleClose = () => {
+        refetchUnfinishedTaskCount();
+        hideFormModal();
+    };
+
     return (
         <EntityFormContextProvider formUrn={selectedFormUrn || ''}>
             <StyledModal
                 open={isFormVisible}
-                onCancel={hideFormModal}
+                onCancel={handleClose}
                 footer={null}
                 title={<FormPageHeader />}
                 closeIcon={<StyledClose />}
                 style={{ top: 0, height: '100vh', minWidth: '100vw' }}
                 destroyOnClose
             >
-                <EntityForm formUrn={selectedFormUrn || ''} />
+                <EntityForm formUrn={selectedFormUrn || ''} closeModal={handleClose} />
             </StyledModal>
         </EntityFormContextProvider>
     );

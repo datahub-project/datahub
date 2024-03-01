@@ -52,7 +52,7 @@ const getSummaryIcon = (summary: IncidentsSummary) => {
 
 const getSummaryMessage = (summary: IncidentsSummary) => {
     if (summary.totalIncident === 0) {
-        return 'No Incidents';
+        return 'No incidents have been raised';
     }
     if (summary.resolvedIncident === summary.totalIncident) {
         return 'There are no active incidents';

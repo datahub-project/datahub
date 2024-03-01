@@ -5,14 +5,19 @@ import static com.linkedin.metadata.Constants.*;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.form.DynamicFormAssignment;
+import com.linkedin.form.FormInfo;
+import com.linkedin.form.FormPrompt;
 import com.linkedin.gms.factory.auth.SystemAuthenticationFactory;
 import com.linkedin.gms.factory.form.FormServiceFactory;
 import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
 import com.linkedin.metadata.service.FormService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeLog;
+import java.util.Collections;
+import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.inject.Singleton;
 import lombok.extern.slf4j.Slf4j;
@@ -78,9 +83,51 @@ public class FormAssignmentHook implements MetadataChangeLogHook {
   @Override
   public void invoke(@Nonnull final MetadataChangeLog event) {
     if (_isEnabled && isEligibleForProcessing(event)) {
-      if (isFormDynamicFilterUpdated(event)) {
+      if (isFormPromptSetUpdated(event)) {
+        handleFormPromptSetUpdated(event);
+      } else if (isFormDynamicFilterUpdated(event)) {
         handleFormFilterUpdated(event);
+      } else if (isFormDeleted(event)) {
+        handleFormDeleted(event);
       }
+    }
+  }
+
+  /** Handle a form prompt set update by adding or removing new automation for it. */
+  private void handleFormPromptSetUpdated(@Nonnull final MetadataChangeLog event) {
+
+    // 1. Get the new + prev form definitions
+    final FormInfo formDefinition =
+        GenericRecordUtils.deserializeAspect(
+            event.getAspect().getValue(), event.getAspect().getContentType(), FormInfo.class);
+
+    final FormInfo prevDefinition =
+        event.hasPreviousAspectValue()
+            ? GenericRecordUtils.deserializeAspect(
+                event.getPreviousAspectValue().getValue(),
+                event.getPreviousAspectValue().getContentType(),
+                FormInfo.class)
+            : null;
+
+    // 2. Get the prompts to be added, prompts to be removed.
+    final List<FormPrompt> promptsToUpsert = formDefinition.getPrompts();
+    final Set<String> newPromptIds =
+        formDefinition.getPrompts().stream().map(FormPrompt::getId).collect(Collectors.toSet());
+    final List<FormPrompt> promptsToRemove =
+        prevDefinition != null
+            ? prevDefinition.getPrompts().stream()
+                .filter(prompt -> !newPromptIds.contains(prompt.getId()))
+                .collect(Collectors.toList())
+            : Collections.emptyList();
+
+    // 3. For each prompt to upsert, generate a new automation
+    for (final FormPrompt prompt : promptsToUpsert) {
+      _formService.upsertFormPromptCompletionAutomation(event.getEntityUrn(), prompt);
+    }
+
+    // 4. Remove tests for any prompts that were removed.
+    for (final FormPrompt prompt : promptsToRemove) {
+      _formService.removeFormPromptCompletionAutomation(event.getEntityUrn(), prompt);
     }
   }
 
@@ -94,7 +141,13 @@ public class FormAssignmentHook implements MetadataChangeLogHook {
             DynamicFormAssignment.class);
 
     // 2. Register a automation to assign it.
-    _formService.upsertFormAssignmentRunner(event.getEntityUrn(), formFilters);
+    _formService.upsertFormAssignmentAutomation(event.getEntityUrn(), formFilters);
+  }
+
+  /** Handles an form deletion by removing the all automations associated with it. */
+  private void handleFormDeleted(@Nonnull final MetadataChangeLog event) {
+    // Simply delete all automation associated with the form.
+    _formService.removeAllFormAutomations(event.getEntityUrn());
   }
 
   /**

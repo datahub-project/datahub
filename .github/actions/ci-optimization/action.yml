@@ -35,13 +35,16 @@ outputs:
   elasticsearch-setup-change:
     description: "Elasticsearch setup docker change"
     value: ${{ steps.filter.outputs.elasticsearch-setup == 'true' }}
+  smoke-test-change:
+    description: "Smoke test change"
+    value: ${{ steps.filter.outputs.smoke-test == 'true' }}
   # Saas Only
   integrations-service-change:
     description: "Integrations Service code has changed"
     value: ${{ steps.filter.outputs.integrations-service == 'true' }}
-  monitors-service-change:
-    description: "Monitors Service code has changed"
-    value: ${{ steps.filter.outputs.monitors-service == 'true' }}
+  datahub-executor-change:
+    description: "Datahub executor code has changed"
+    value: ${{ steps.filter.outputs.datahub-executor == 'true' }}
 runs:
   using: "composite"
   steps:
@@ -84,15 +87,18 @@ runs:
             - "docker/postgres-setup/**"
           elasticsearch-setup:
             - "docker/elasticsearch-setup/**"
+          smoke-test:
+            - "smoke-test/**"
+
           integrations-service:
             - "datahub-integrations-service/**"
             - "metadata-ingestion/**"
             - "metadata-models/**"
             - "docker/datahub-ingestion-**"
             - "docker/datahub-integrations-service/**"
-          monitors-service:
-            - "datahub-monitors-service/**"
+          datahub-executor:
+            - "datahub-executor/**"
             - "metadata-ingestion/**"
             - "metadata-models/**"
             - "docker/datahub-ingestion-**"
-            - "docker/datahub-monitors-service/**"
+            - "docker/datahub-executor/**"

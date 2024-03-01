@@ -5,11 +5,13 @@ import static org.testng.Assert.assertEquals;
 import com.datahub.test.TestEntityProfile;
 import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
 import com.linkedin.events.metadata.ChangeType;
-import com.linkedin.metadata.aspect.batch.UpsertItem;
+import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
-import com.linkedin.metadata.aspect.plugins.validation.AspectRetriever;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
+import java.util.Collection;
 import java.util.List;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import org.testng.annotations.BeforeTest;
@@ -32,7 +34,10 @@ public class MCPSideEffectTest {
             TestEntityProfile.class.getClassLoader().getResourceAsStream(REGISTRY_FILE));
 
     List<MCPSideEffect> mcpSideEffects =
-        configEntityRegistry.getMCPSideEffects(ChangeType.UPSERT, "dataset", "datasetKey");
+        configEntityRegistry.getAllMCPSideEffects().stream()
+            .filter(validator -> validator.shouldApply(ChangeType.UPSERT, "dataset", "datasetKey"))
+            .collect(Collectors.toList());
+
     assertEquals(
         mcpSideEffects,
         List.of(
@@ -58,9 +63,9 @@ public class MCPSideEffectTest {
     }
 
     @Override
-    protected Stream<UpsertItem> applyMCPSideEffect(
-        UpsertItem input, @Nonnull AspectRetriever aspectRetriever) {
-      return Stream.of(input);
+    protected Stream<ChangeMCP> applyMCPSideEffect(
+        Collection<ChangeMCP> changeMCPS, @Nonnull AspectRetriever aspectRetriever) {
+      return changeMCPS.stream();
     }
   }
 }

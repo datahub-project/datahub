@@ -95,7 +95,7 @@ function useOnClickExpandLineage(urn: string, direction: LineageDirection, maxDe
         const node = nodes.get(urn);
         const fetchStatus = node?.fetchStatus?.[direction];
         if (node && fetchStatus !== FetchStatus.COMPLETE) {
-            node.fetchStatus[direction] = FetchStatus.LOADING;
+            node.fetchStatus = { ...node.fetchStatus, [direction]: FetchStatus.LOADING };
             setDataVersion((v) => v + 1);
             fetchLineage();
         }

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Button, message } from 'antd';
-import { LinkOutlined } from '@ant-design/icons';
+import styled from 'styled-components/macro';
+import { LinkOutlined, PlusOutlined } from '@ant-design/icons';
 import { SearchSelectModal } from '../components/styled/search/SearchSelectModal';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { EntityCapabilityType } from '../../Entity';
@@ -33,6 +34,49 @@ export enum EntityActionItem {
      */
     ADD_CHILD_GLOSSARY_NODE,
 }
+
+const ButtonWrapper = styled.div`
+    margin-left: 8;
+    & button:hover {
+        opacity: 0.9;
+    }
+`;
+
+const TransparentButton = styled(Button)`
+    color: #533fd1;
+    font-size: 12px;
+    box-shadow: none;
+    border-color: #533fd1;
+    padding: 10px 20px;
+
+    &:hover {
+        transition: 0.15s;
+        opacity: 0.9;
+        border-color: #533fd1;
+        color: #533fd1;
+    }
+`;
+
+const PrimaryButton = styled(Button)`
+    color: #ffffff;
+    font-size: 12px;
+    box-shadow: none;
+    border-color: #533fd1;
+    background-color: #533fd1;
+    margin-left: 9px;
+    padding: 10px 20px;
+
+    &:hover {
+        transition: 0.15s;
+        opacity: 0.9;
+        border-color: #533fd1;
+        background-color: #533fd1;
+    }
+`;
+
+const StyledPlusOutlined = styled(PlusOutlined)`
+    font-size: 12px;
+`;
 
 interface Props {
     urn: string;
@@ -170,7 +214,7 @@ function EntityActions(props: Props) {
 
     return (
         <>
-            <div style={{ marginLeft: 8 }}>
+            <ButtonWrapper>
                 {actionItems.has(EntityActionItem.BATCH_ADD_GLOSSARY_TERM) && (
                     <Button onClick={() => setIsBatchAddGlossaryTermModalVisible(true)}>
                         <LinkOutlined /> Add to assets
@@ -187,14 +231,16 @@ function EntityActions(props: Props) {
                     </Button>
                 )}
                 {actionItems.has(EntityActionItem.ADD_CHILD_GLOSSARY_TERM) && (
-                    <Button onClick={() => setIsCreateTermModalVisible(true)}>Add Term</Button>
+                    <TransparentButton size="large" onClick={() => setIsCreateNodeModalVisible(true)}>
+                        <StyledPlusOutlined /> Add Term Group
+                    </TransparentButton>
                 )}
                 {actionItems.has(EntityActionItem.ADD_CHILD_GLOSSARY_NODE) && (
-                    <Button style={{ marginLeft: 8 }} onClick={() => setIsCreateNodeModalVisible(true)}>
-                        Add Term Group
-                    </Button>
+                    <PrimaryButton type="primary" size="large" onClick={() => setIsCreateTermModalVisible(true)}>
+                        <StyledPlusOutlined /> Add Glossary Term
+                    </PrimaryButton>
                 )}
-            </div>
+            </ButtonWrapper>
             {isBatchAddGlossaryTermModalVisible && (
                 <SearchSelectModal
                     titleText="Add Glossary Term to assets"

@@ -3,7 +3,6 @@ import styled from 'styled-components';
 import { Typography, Image } from 'antd';
 import { Maybe } from 'graphql/jsutils/Maybe';
 import { Container, Entity } from '../../../../../../../types.generated';
-import { ANTD_GRAY } from '../../../../constants';
 import ContainerLink from './ContainerLink';
 import { ParentNodesWrapper as ParentContainersWrapper, Ellipsis, StyledTooltip } from './ParentNodesView';
 import ParentEntities from '../../../../../../search/filters/ParentEntities';
@@ -11,7 +10,7 @@ import ParentEntities from '../../../../../../search/filters/ParentEntities';
 const LogoIcon = styled.span`
     display: flex;
     gap: 4px;
-    margin-right: 8px;
+    margin-right: 4px;
 `;
 
 const PreviewImage = styled(Image)`
@@ -24,16 +23,15 @@ const PreviewImage = styled(Image)`
 const PlatformContentWrapper = styled.div`
     display: flex;
     align-items: center;
-    height: 22px;
     margin: 0px 8px 0px 0;
     flex-wrap: nowrap;
     flex: 1;
 `;
 
 const PlatformText = styled(Typography.Text)`
-    font-size: 14px;
-    line-height: 20px;
-    color: ${ANTD_GRAY[8]};
+    font-size: 10px;
+    font-weight: 400;
+    color: #6c6b88;
     text-transform: capitalize;
     white-space: nowrap;
 `;

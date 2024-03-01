@@ -109,7 +109,7 @@ public class NativeUserServiceTest {
 
   @Test
   public void testCreateNativeUserPasses() throws Exception {
-    when(_entityService.exists(any(), any())).thenReturn(false);
+    when(_entityService.exists(any(Urn.class), anyBoolean())).thenReturn(false);
     when(_secretService.generateSalt(anyInt())).thenReturn(SALT);
     when(_secretService.encrypt(any())).thenReturn(ENCRYPTED_SALT);
     when(_secretService.getHashedPassword(any(), any())).thenReturn(HASHED_PASSWORD);

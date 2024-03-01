@@ -44,6 +44,7 @@ public class ConnectionService {
       @Nonnull final Urn platformUrn,
       @Nonnull final DataHubConnectionDetailsType type,
       @Nullable final DataHubJsonConnection json,
+      @Nullable final String name,
       @Nonnull final Authentication authentication) {
     Objects.requireNonNull(platformUrn, "platformUrn must not be null");
     Objects.requireNonNull(type, "type must not be null");
@@ -58,7 +59,9 @@ public class ConnectionService {
     // 2. Build Connection Details
     final DataHubConnectionDetails details = new DataHubConnectionDetails();
     details.setType(type);
+    // default set name as ID if it exists, otherwise use name if it exists
     details.setName(id, SetMode.IGNORE_NULL);
+    details.setName(name, SetMode.IGNORE_NULL);
 
     if (DataHubConnectionDetailsType.JSON.equals(details.getType())) {
       if (json != null) {

@@ -20,8 +20,8 @@ from datahub.metadata.schema_classes import (
     UpstreamClass,
     UpstreamLineageClass,
 )
+from datahub.sql_parsing.sqlglot_lineage import ColumnLineageInfo, SqlParsingResult
 from datahub.utilities.file_backed_collections import FileBackedDict
-from datahub.utilities.sqlglot_lineage import ColumnLineageInfo, SqlParsingResult
 
 logger = logging.getLogger(__name__)
 
@@ -47,11 +47,14 @@ class LineageEdge:
 
     def gen_upstream_aspect(self) -> UpstreamClass:
         return UpstreamClass(
-            auditStamp=AuditStampClass(
-                time=int(self.audit_stamp.timestamp() * 1000), actor=self.actor or ""
-            )
-            if self.audit_stamp
-            else None,
+            auditStamp=(
+                AuditStampClass(
+                    time=int(self.audit_stamp.timestamp() * 1000),
+                    actor=self.actor or "",
+                )
+                if self.audit_stamp
+                else None
+            ),
             dataset=self.upstream_urn,
             type=self.type,
         )
@@ -133,9 +136,9 @@ class SqlParsingBuilder:
                 self._lineage_map[downstream_urn] = _merge_lineage_data(
                     downstream_urn=downstream_urn,
                     upstream_urns=result.in_tables,
-                    column_lineage=result.column_lineage
-                    if include_column_lineage
-                    else None,
+                    column_lineage=(
+                        result.column_lineage if include_column_lineage else None
+                    ),
                     upstream_edges=self._lineage_map.get(downstream_urn, {}),
                     query_timestamp=query_timestamp,
                     is_view_ddl=is_view_ddl,
@@ -143,7 +146,7 @@ class SqlParsingBuilder:
                 )
 
         if self.generate_usage_statistics and query_timestamp is not None:
-            upstream_fields = _compute_upstream_fields(result)
+            upstream_fields = compute_upstream_fields(result)
             for upstream_urn in upstreams_to_ingest:
                 self._usage_aggregator.aggregate_event(
                     resource=upstream_urn,
@@ -237,9 +240,11 @@ def _merge_lineage_data(
                 upstream_urn=upstream_urn,
                 audit_stamp=query_timestamp,
                 actor=user,
-                type=DatasetLineageTypeClass.VIEW
-                if is_view_ddl
-                else DatasetLineageTypeClass.TRANSFORMED,
+                type=(
+                    DatasetLineageTypeClass.VIEW
+                    if is_view_ddl
+                    else DatasetLineageTypeClass.TRANSFORMED
+                ),
             ),
         )
         if query_timestamp and (  # Use the most recent query
@@ -261,7 +266,7 @@ def _merge_lineage_data(
     return upstream_edges
 
 
-def _compute_upstream_fields(
+def compute_upstream_fields(
     result: SqlParsingResult,
 ) -> Dict[DatasetUrn, Set[DatasetUrn]]:
     upstream_fields: Dict[DatasetUrn, Set[DatasetUrn]] = defaultdict(set)

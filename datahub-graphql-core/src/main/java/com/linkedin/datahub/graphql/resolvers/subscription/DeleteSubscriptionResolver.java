@@ -5,12 +5,12 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import static com.linkedin.metadata.Constants.*;
 
 import com.datahub.authentication.Authentication;
-import com.datahub.subscription.SubscriptionService;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.DeleteSubscriptionInput;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.service.SubscriptionService;
 import com.linkedin.subscription.SubscriptionInfo;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;

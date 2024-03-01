@@ -29,6 +29,7 @@ const GlossaryWrapper = styled.div`
 const MainWrapper = styled.div`
     flex: 1;
     margin-right: 16px;
+    margin-top: 12px;
 `;
 
 const BusinessGlossaryPage = () => {

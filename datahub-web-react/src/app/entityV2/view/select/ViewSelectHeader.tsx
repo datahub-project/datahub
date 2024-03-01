@@ -3,7 +3,7 @@ import styled from 'styled-components';
 import GridViewIcon from '@mui/icons-material/GridView';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import PublicIcon from '@mui/icons-material/Public';
-import { Input } from 'antd';
+import { Input, Tooltip } from 'antd';
 import { SearchOutlined } from '@ant-design/icons';
 import { ANTD_GRAY, REDESIGN_COLORS } from '../../shared/constants';
 
@@ -105,21 +105,27 @@ export const ViewSelectHeader = ({
                         onClick={() => onClickViewTypeFilter('all')}
                         role="none"
                     >
-                        <GridViewIconStyle />
+                        <Tooltip placement="bottom" showArrow title='All'>
+                            <GridViewIconStyle />
+                        </Tooltip>
                     </div>
                     <div
                         className={`${!publicView && privateView ? 'active' : ''}`}
                         onClick={() => onClickViewTypeFilter('private')}
                         role="none"
                     >
-                        <LockOutlinedIconStyle />
+                        <Tooltip placement="bottom" showArrow title='Private'>
+                            <LockOutlinedIconStyle />
+                        </Tooltip>
                     </div>
                     <div
                         className={`${publicView && !privateView ? 'active' : ''}`}
                         onClick={() => onClickViewTypeFilter('public')}
                         role="none"
                     >
-                        <PublicIconStyle />
+                        <Tooltip placement="bottom" showArrow title='Public'>
+                            <PublicIconStyle />
+                        </Tooltip>
                     </div>
                 </div>
                 <div className="select-view-label">Select Your View</div>

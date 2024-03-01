@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
+import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
@@ -20,6 +21,7 @@ import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import java.io.IOException;
 import javax.annotation.Nonnull;
+import javax.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -63,7 +65,7 @@ public class ElasticSearchServiceFactory {
 
   @Bean(name = "elasticSearchService")
   @Nonnull
-  protected ElasticSearchService getInstance(ConfigurationProvider configurationProvider)
+  protected ElasticSearchService getInstance(final ConfigurationProvider configurationProvider)
       throws IOException {
     log.info("Search configuration: {}", configurationProvider.getElasticSearch().getSearch());
 
@@ -77,7 +79,6 @@ public class ElasticSearchServiceFactory {
 
     ESSearchDAO esSearchDAO =
         new ESSearchDAO(
-            entityRegistry,
             components.getSearchClient(),
             components.getIndexConvention(),
             configurationProvider.getFeatureFlags().isPointInTimeCreationEnabled(),
@@ -88,7 +89,6 @@ public class ElasticSearchServiceFactory {
         entityIndexBuilders,
         esSearchDAO,
         new ESBrowseDAO(
-            entityRegistry,
             components.getSearchClient(),
             components.getIndexConvention(),
             searchConfiguration,
@@ -99,5 +99,29 @@ public class ElasticSearchServiceFactory {
             components.getIndexConvention(),
             components.getBulkProcessor(),
             components.getNumRetries()));
+  }
+
+  @Configuration
+  public static class PostConstructElasticSearchService {
+    @Autowired(required = false)
+    @Qualifier("entityService")
+    private AspectRetriever aspectRetriever;
+
+    @Autowired
+    @Qualifier("cachingAspectRetriever")
+    private AspectRetriever cachingAspectRetriever;
+
+    @Autowired
+    @Qualifier("elasticSearchService")
+    private ElasticSearchService elasticSearchService;
+
+    @PostConstruct
+    protected void postConstruct() {
+      if (aspectRetriever != null) {
+        elasticSearchService.postConstruct(aspectRetriever);
+      } else {
+        elasticSearchService.postConstruct(cachingAspectRetriever);
+      }
+    }
   }
 }

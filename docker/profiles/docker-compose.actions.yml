@@ -15,7 +15,6 @@ x-datahub-actions-service-dev: &datahub-actions-service-dev
 services:
   datahub-actions-quickstart:
     <<: *datahub-actions-service
-    container_name: actions
     profiles:
       - quickstart
       - quickstart-backend
@@ -24,7 +23,6 @@ services:
         condition: service_healthy
   datahub-actions-quickstart-cassandra:
     <<: *datahub-actions-service
-    container_name: actions
     profiles:
       - quickstart-cassandra
     depends_on:
@@ -32,7 +30,6 @@ services:
         condition: service_healthy
   datahub-actions-quickstart-postgres:
     <<: *datahub-actions-service
-    container_name: actions
     profiles:
       - quickstart-postgres
     depends_on:
@@ -40,7 +37,6 @@ services:
         condition: service_healthy
   datahub-actions-quickstart-consumers:
     <<: *datahub-actions-service
-    container_name: actions
     profiles:
       - quickstart-consumers
     depends_on:
@@ -48,7 +44,6 @@ services:
         condition: service_healthy
   datahub-actions-debug:
     <<: *datahub-actions-service-dev
-    container_name: actions-dev
     profiles:
       - debug
       - debug-backend
@@ -57,7 +52,6 @@ services:
         condition: service_healthy
   datahub-actions-debug-postgres:
     <<: *datahub-actions-service-dev
-    container_name: actions-dev
     profiles:
       - debug-postgres
     depends_on:
@@ -65,7 +59,6 @@ services:
         condition: service_healthy
   datahub-actions-debug-cassandra:
     <<: *datahub-actions-service-dev
-    container_name: actions-dev
     profiles:
       - debug-cassandra
     depends_on:
@@ -73,7 +66,6 @@ services:
         condition: service_healthy
   datahub-actions-debug-consumers:
     <<: *datahub-actions-service-dev
-    container_name: actions-dev
     profiles:
       - debug-consumers
     depends_on:
@@ -81,7 +73,6 @@ services:
         condition: service_healthy
   datahub-actions-debug-neo4j:
     <<: *datahub-actions-service-dev
-    container_name: actions-dev
     profiles:
       - debug-neo4j
     depends_on:
@@ -89,7 +80,6 @@ services:
         condition: service_healthy
   datahub-actions-debug-elasticsearch:
     <<: *datahub-actions-service-dev
-    container_name: actions-dev
     profiles:
       - debug-elasticsearch
     depends_on:

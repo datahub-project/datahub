@@ -2,10 +2,7 @@ package com.linkedin.gms.factory.test;
 
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.service.DomainService;
-import com.linkedin.metadata.service.GlossaryTermService;
-import com.linkedin.metadata.service.OwnerService;
-import com.linkedin.metadata.service.TagService;
+import com.linkedin.metadata.service.*;
 import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import com.linkedin.metadata.test.action.Action;
 import com.linkedin.metadata.test.action.ActionApplier;
@@ -13,12 +10,16 @@ import com.linkedin.metadata.test.action.cleanup.DeprecationAction;
 import com.linkedin.metadata.test.action.cleanup.UnDeprecationAction;
 import com.linkedin.metadata.test.action.domain.SetDomainAction;
 import com.linkedin.metadata.test.action.domain.UnsetDomainAction;
+import com.linkedin.metadata.test.action.form.AssignFormAction;
+import com.linkedin.metadata.test.action.form.SetFormPromptIncompleteAction;
+import com.linkedin.metadata.test.action.form.UnassignFormAction;
 import com.linkedin.metadata.test.action.owner.AddOwnersAction;
 import com.linkedin.metadata.test.action.owner.RemoveOwnersAction;
 import com.linkedin.metadata.test.action.tag.AddTagsAction;
 import com.linkedin.metadata.test.action.tag.RemoveTagsAction;
 import com.linkedin.metadata.test.action.term.AddGlossaryTermsAction;
 import com.linkedin.metadata.test.action.term.RemoveGlossaryTermsAction;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.List;
 import javax.annotation.Nonnull;
@@ -37,7 +38,9 @@ public class TestActionApplierFactory {
 
   @Bean(name = "testActionApplier")
   @Nonnull
-  protected ActionApplier getInstance(final SystemEntityClient systemEntityClient) {
+  protected ActionApplier getInstance(
+      @Qualifier("systemOperationContext") final OperationContext systemOpContext,
+      final SystemEntityClient systemEntityClient) {
     List<Action> appliers = new ArrayList<>();
     TagService tagService =
         new TagService(systemEntityClient, systemEntityClient.getSystemAuthentication());
@@ -47,6 +50,7 @@ public class TestActionApplierFactory {
         new OwnerService(systemEntityClient, systemEntityClient.getSystemAuthentication());
     DomainService domainService =
         new DomainService(systemEntityClient, systemEntityClient.getSystemAuthentication());
+    FormService formService = new FormService(systemOpContext, systemEntityClient);
     appliers.add(new AddTagsAction(tagService));
     appliers.add(new RemoveTagsAction(tagService));
     appliers.add(new AddGlossaryTermsAction(termsService));
@@ -57,6 +61,9 @@ public class TestActionApplierFactory {
     appliers.add(new UnsetDomainAction(domainService));
     appliers.add(new DeprecationAction(entityService));
     appliers.add(new UnDeprecationAction(entityService));
+    appliers.add(new AssignFormAction(formService));
+    appliers.add(new UnassignFormAction(formService));
+    appliers.add(new SetFormPromptIncompleteAction(formService));
     return new ActionApplier(appliers);
   }
 }

@@ -246,7 +246,7 @@
                         "owners": [
                             {
                                 "owner": "urn:li:corpuser:mjames",
-                                "type": "DEVELOPER"
+                                "type": "DATAOWNER"
                             }
                         ],
                         "lastModified": {
@@ -331,7 +331,7 @@
                         "owners": [
                             {
                                 "owner": "urn:li:corpuser:mjames",
-                                "type": "DEVELOPER"
+                                "type": "DATAOWNER"
                             }
                         ],
                         "lastModified": {
@@ -377,7 +377,7 @@
                         "owners": [
                             {
                                 "owner": "urn:li:corpuser:mjames",
-                                "type": "DEVELOPER"
+                                "type": "DATAOWNER"
                             }
                         ],
                         "lastModified": {
@@ -412,7 +412,8 @@
                         "owners": [
                             {
                                 "owner": "urn:li:corpGroup:finance",
-                                "type": "DEVELOPER"
+                                "type": "CUSTOM",
+                                "typeUrn": "urn:li:ownershipType:my_cutom_type"
                             }
                         ],
                         "lastModified": {
@@ -461,7 +462,8 @@
                         "owners": [
                             {
                                 "owner": "urn:li:corpGroup:finance",
-                                "type": "DEVELOPER"
+                                "type": "CUSTOM",
+                                "typeUrn": "urn:li:ownershipType:my_cutom_type"
                             }
                         ],
                         "lastModified": {
@@ -500,7 +502,8 @@
                         "owners": [
                             {
                                 "owner": "urn:li:corpGroup:finance",
-                                "type": "DEVELOPER"
+                                "type": "CUSTOM",
+                                "typeUrn": "urn:li:ownershipType:my_cutom_type"
                             }
                         ],
                         "lastModified": {

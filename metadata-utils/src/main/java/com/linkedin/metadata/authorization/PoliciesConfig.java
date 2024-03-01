@@ -3,6 +3,7 @@ package com.linkedin.metadata.authorization;
 import com.google.common.collect.ImmutableList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import lombok.AllArgsConstructor;
@@ -170,6 +171,19 @@ public class PoliciesConfig {
   public static final Privilege VIEW_ENTITY_PAGE_PRIVILEGE =
       Privilege.of("VIEW_ENTITY_PAGE", "View Entity Page", "The ability to view the entity page.");
 
+  public static final Privilege VIEW_ENTITY_PRIVILEGE =
+      Privilege.of(
+          "VIEW_ENTITY", "View Entity", "The ability to view the entity in search results.");
+
+  /*
+    These two privileges are logically the same for search for now.
+    In the future, we might allow search but not the entity page view.
+  */
+  public static final Set<String> VIEW_ENTITY_PRIVILEGES =
+      Set.of(
+          PoliciesConfig.VIEW_ENTITY_PRIVILEGE.getType(),
+          PoliciesConfig.VIEW_ENTITY_PAGE_PRIVILEGE.getType());
+
   public static final Privilege EDIT_ENTITY_TAGS_PRIVILEGE =
       Privilege.of(
           "EDIT_ENTITY_TAGS", "Edit Tags", "The ability to add and remove tags to an asset.");
@@ -221,6 +235,12 @@ public class PoliciesConfig {
           "MANAGE_ENTITY_DOCS_PROPOSALS_PRIVILEGE",
           "Manage Documentation Proposals",
           "The ability to manage a proposal update an asset's documentation");
+
+  public static final Privilege SHARE_ENTITY_PRIVILEGE =
+      Privilege.of(
+          "SHARE_ENTITY",
+          "Share Entity",
+          "The ability to share an entity with another Acryl instance.");
 
   public static final Privilege EDIT_ENTITY_DOCS_PRIVILEGE =
       Privilege.of(
@@ -314,8 +334,11 @@ public class PoliciesConfig {
           EDIT_ENTITY_INCIDENTS_PRIVILEGE,
           EDIT_ENTITY_PRIVILEGE,
           DELETE_ENTITY_PRIVILEGE,
+          VIEW_ENTITY_PRIVILEGE,
+          EDIT_ENTITY_INCIDENTS_PRIVILEGE,
           PROPOSE_ENTITY_DOCS_PRIVILEGE,
-          MANAGE_ENTITY_DOCS_PROPOSALS_PRIVILEGE);
+          MANAGE_ENTITY_DOCS_PROPOSALS_PRIVILEGE,
+          SHARE_ENTITY_PRIVILEGE);
 
   // Dataset Privileges
   public static final Privilege EDIT_DATASET_COL_TAGS_PRIVILEGE =
@@ -508,6 +531,12 @@ public class PoliciesConfig {
           "Get ES task status API",
           "The ability to use the get task status API for an ElasticSearch task.");
 
+  public static final Privilege ES_EXPLAIN_QUERY_PRIVILEGE =
+      Privilege.of(
+          "ES_EXPLAIN_QUERY_PRIVILEGE",
+          "Explain ElasticSearch Query API",
+          "The ability to use the Operations API explain endpoint.");
+
   public static final Privilege SEARCH_PRIVILEGE =
       Privilege.of("SEARCH_PRIVILEGE", "Search API", "The ability to access search APIs.");
 
@@ -617,7 +646,8 @@ public class PoliciesConfig {
               EDIT_TAG_COLOR_PRIVILEGE,
               EDIT_ENTITY_DOCS_PRIVILEGE,
               EDIT_ENTITY_PRIVILEGE,
-              DELETE_ENTITY_PRIVILEGE));
+              DELETE_ENTITY_PRIVILEGE,
+              SHARE_ENTITY_PRIVILEGE));
 
   // Container Privileges
   public static final ResourcePrivileges CONTAINER_PRIVILEGES =
@@ -644,7 +674,8 @@ public class PoliciesConfig {
               EDIT_ENTITY_DOC_LINKS_PRIVILEGE,
               EDIT_ENTITY_PRIVILEGE,
               DELETE_ENTITY_PRIVILEGE,
-              MANAGE_DATA_PRODUCTS_PRIVILEGE));
+              MANAGE_DATA_PRODUCTS_PRIVILEGE,
+              SHARE_ENTITY_PRIVILEGE));
 
   // Data Product Privileges
   public static final ResourcePrivileges DATA_PRODUCT_PRIVILEGES =
@@ -661,7 +692,8 @@ public class PoliciesConfig {
               DELETE_ENTITY_PRIVILEGE,
               EDIT_ENTITY_TAGS_PRIVILEGE,
               EDIT_ENTITY_GLOSSARY_TERMS_PRIVILEGE,
-              EDIT_ENTITY_DOMAINS_PRIVILEGE));
+              EDIT_ENTITY_DOMAINS_PRIVILEGE,
+              SHARE_ENTITY_PRIVILEGE));
 
   // Glossary Term Privileges
   public static final ResourcePrivileges GLOSSARY_TERM_PRIVILEGES =
@@ -675,7 +707,8 @@ public class PoliciesConfig {
               EDIT_ENTITY_DOCS_PRIVILEGE,
               EDIT_ENTITY_DOC_LINKS_PRIVILEGE,
               EDIT_ENTITY_DEPRECATION_PRIVILEGE,
-              EDIT_ENTITY_PRIVILEGE));
+              EDIT_ENTITY_PRIVILEGE,
+              SHARE_ENTITY_PRIVILEGE));
 
   // Glossary Node Privileges
   public static final ResourcePrivileges GLOSSARY_NODE_PRIVILEGES =
@@ -691,7 +724,8 @@ public class PoliciesConfig {
               EDIT_ENTITY_DEPRECATION_PRIVILEGE,
               EDIT_ENTITY_PRIVILEGE,
               MANAGE_GLOSSARY_CHILDREN_PRIVILEGE,
-              MANAGE_ALL_GLOSSARY_CHILDREN_PRIVILEGE));
+              MANAGE_ALL_GLOSSARY_CHILDREN_PRIVILEGE,
+              SHARE_ENTITY_PRIVILEGE));
 
   // Group Privileges
   public static final ResourcePrivileges CORP_GROUP_PRIVILEGES =
@@ -707,7 +741,8 @@ public class PoliciesConfig {
               MANAGE_GROUP_SUBSCRIPTIONS_PRIVILEGE,
               EDIT_CONTACT_INFO_PRIVILEGE,
               EDIT_ENTITY_DOCS_PRIVILEGE,
-              EDIT_ENTITY_PRIVILEGE));
+              EDIT_ENTITY_PRIVILEGE,
+              SHARE_ENTITY_PRIVILEGE));
 
   // User Privileges
   public static final ResourcePrivileges CORP_USER_PRIVILEGES =
@@ -719,7 +754,8 @@ public class PoliciesConfig {
               VIEW_ENTITY_PAGE_PRIVILEGE,
               EDIT_CONTACT_INFO_PRIVILEGE,
               EDIT_USER_PROFILE_PRIVILEGE,
-              EDIT_ENTITY_PRIVILEGE));
+              EDIT_ENTITY_PRIVILEGE,
+              SHARE_ENTITY_PRIVILEGE));
 
   public static final List<ResourcePrivileges> ENTITY_RESOURCE_PRIVILEGES =
       ImmutableList.of(

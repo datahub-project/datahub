@@ -9,11 +9,6 @@ apply plugin: 'maven-publish'
 apply plugin: 'io.codearte.nexus-staging'
 apply from: '../../metadata-integration/java/versioning.gradle'
 
-
-test {
-  useJUnit()
-}
-
 jar {
   archiveClassifier = "lib"
 }

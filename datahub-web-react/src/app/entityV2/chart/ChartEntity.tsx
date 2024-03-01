@@ -42,6 +42,13 @@ import { ChartPreview } from './preview/ChartPreview';
 import { ChartStatsSummarySubHeader } from './profile/stats/ChartStatsSummarySubHeader';
 import ChartSummaryTab from './summary/ChartSummaryTab';
 
+const headerDropdownItems = new Set([
+    EntityMenuItems.EXTERNAL_URL,
+    EntityMenuItems.SHARE,
+    EntityMenuItems.SUBSCRIBE,
+    EntityMenuItems.UPDATE_DEPRECATION,
+]);
+
 /**
  * Definition of the DataHub Chart entity.
  */
@@ -102,14 +109,7 @@ export class ChartEntity implements Entity<Chart> {
             useEntityQuery={useGetChartQuery}
             useUpdateQuery={useUpdateChartMutation}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
-            headerDropdownItems={
-                new Set([
-                    EntityMenuItems.EXTERNAL_URL,
-                    EntityMenuItems.SHARE,
-                    EntityMenuItems.SUBSCRIBE,
-                    EntityMenuItems.UPDATE_DEPRECATION,
-                ])
-            }
+            headerDropdownItems={headerDropdownItems}
             subHeader={{
                 component: ChartStatsSummarySubHeader,
             }}
@@ -255,6 +255,7 @@ export class ChartEntity implements Entity<Chart> {
                 }
                 upstreamTotal={(data as any).upstream?.total}
                 downstreamTotal={(data as any).downstream?.total}
+                headerDropdownItems={headerDropdownItems}
             />
         );
     };
@@ -302,6 +303,7 @@ export class ChartEntity implements Entity<Chart> {
                 }
                 upstreamTotal={(data as any).upstream?.total}
                 downstreamTotal={(data as any).downstream?.total}
+                headerDropdownItems={headerDropdownItems}
             />
         );
     };

@@ -4,7 +4,6 @@
 import LaunchIcon from '@mui/icons-material/Launch';
 import { Tooltip, Typography } from 'antd';
 import React, { ReactNode } from 'react';
-import { useHistory } from 'react-router';
 import styled from 'styled-components';
 import {
     Container,
@@ -36,18 +35,19 @@ import { useEntityRegistryV2 } from '../useEntityRegistry';
 import CardActionCircle from './CardActionCircle';
 import ColoredBackgroundPlatformIconGroup from './ColoredBackgroundPlatformIconGroup';
 import SearchCardBrowsePath from './SearchCardBrowsePath';
-import Pills from './Pills';
-import StatusBadges from './StatusBadges';
 import EntityHeader from './EntityHeader';
 import EntityExternalLink from '../entityV2/shared/links/EntityExternalLink';
-import { PopularityBars } from '../entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/PopularityBars';
+import { EntityMenuItems } from '../entityV2/shared/EntityDropdown/EntityMenuActions';
+import MoreOptionsMenuAction from '../entityV2/shared/EntityDropdown/MoreOptionsMenuAction';
+// import StatusBadges from './StatusBadges';
+import DefaultPreviewCardFooter from './DefaultPreviewCardFooter';
 
 const PreviewContainer = styled.div`
     display: flex;
     flex-direction: column;
     width: 100%;
     justify-content: space-between;
-    align-items: left;
+    align-items: start;
 
     .entityCount {
         margin-bottom: 2px;
@@ -64,17 +64,12 @@ const RowContainer = styled.div<RowContainerProps>`
     display: ${(props) => (props.hidden ? 'none' : 'flex')};
     flex-direction: row;
     justify-content: space-between;
+    width: 100%;
 `;
 
 const RowContainerJustifyStart = styled(RowContainer)`
     justify-content: start;
 `;
-
-// const HorizontalDivider = styled.hr`
-//     margin: 10px 0;
-//     opacity: 0.1;
-//     width: 100%;
-// `;
 
 const SummaryContainer = styled.div`
     display: flex;
@@ -83,12 +78,6 @@ const SummaryContainer = styled.div`
     margin-bottom: 12px;
     margin-top: 2px;
 `;
-
-// const SummaryTitle = styled.span`
-//     font-size: 10px;
-//     opacity: 0.5;
-//     margin-bottom: 4px;
-// `;
 
 const StatsContainer = styled.div`
     display: flex;
@@ -113,11 +102,6 @@ const DegreeText = styled.span`
     margin-top: 12px;
     width: fit-content;
 `;
-
-// const InsightsContainer = styled.div`
-//     display: flex;
-//     margin-top: 7px;
-// `;
 
 const InsightsText = styled(Typography.Text)`
     font-size: 12px;
@@ -179,6 +163,7 @@ interface Props {
     upstreamTotal?: number;
     downstreamTotal?: number;
     entityIcon?: JSX.Element;
+    headerDropdownItems?: Set<EntityMenuItems>;
 }
 
 const ActionsSection = styled.div`
@@ -191,30 +176,6 @@ const ActionsAndStatusSection = styled.div`
     display: flex;
     flex-direction: row;
     gap: 5px;
-`;
-
-const EntityLink = styled.div`
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-
-    .ant-btn-link {
-        display: flex;
-        align-items: center;
-        color: #56668e;
-        height: 100%;
-
-        :hover {
-            color: #533fd1;
-        }
-
-        > span:first-child {
-            display: flex;
-            align-items: center;
-            height: 100%;
-            line-height: normal;
-        }
-    }
 `;
 
 export default function DefaultPreviewCard({
@@ -259,17 +220,21 @@ export default function DefaultPreviewCard({
     platforms,
     logoUrls,
     previewType,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     health,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     lastUpdatedMs,
     externalUrl,
     tier,
     isOutputPort,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     upstreamTotal,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     downstreamTotal,
     entityIcon,
+    headerDropdownItems,
 }: Props) {
     const entityRegistry = useEntityRegistryV2();
-    const history = useHistory();
     const supportedCapabilities = entityRegistry.getSupportedEntityCapabilities(entityType);
 
     // sometimes these lists will be rendered inside an entity container (for example, in the case of impact analysis)
@@ -317,7 +282,7 @@ export default function DefaultPreviewCard({
                     <div />
                 )}
                 <ActionsAndStatusSection>
-                    <StatusBadges
+                    {/* <StatusBadges
                         upstreamTotal={upstreamTotal}
                         downstreamTotal={downstreamTotal}
                         health={health}
@@ -331,15 +296,25 @@ export default function DefaultPreviewCard({
                         finalType={finalType}
                         platform={platform}
                         logoUrl={logoUrl}
-                    />
+                    /> */}
                     <ActionsSection>
                         {externalUrl && (
                             <EntityExternalLink url={externalUrl}>
                                 <CardActionCircle enabled={!!externalUrl} icon={<LaunchIcon />} />
                             </EntityExternalLink>
                         )}
-                        {/* <CardActionCircle enabled={deprecation?.deprecated} icon={<ErrorOutlineIcon />} /> */}
-                        {/* <CardActionCircle enabled icon={<ReportGmailerrorredIcon />} /> */}
+
+                        {headerDropdownItems && (
+                            <MoreOptionsMenuAction
+                                menuItems={headerDropdownItems}
+                                urn={urn}
+                                entityType={entityType}
+                                entityData={entityData}
+                            />
+                        )}
+
+                        {/* <CardActionCircle enabled={deprecation?.deprecated} icon={<ErrorOutlineIcon />} />
+                        <CardActionCircle enabled icon={<ReportGmailerrorredIcon />} />  */}
                     </ActionsSection>
                 </ActionsAndStatusSection>
             </RowContainer>
@@ -400,26 +375,16 @@ export default function DefaultPreviewCard({
                     </RowContainerJustifyStart>
                 </>
             )}
-            <RowContainer
-                style={{
-                    borderTop: `1px solid ${ANTD_GRAY[4]}`,
-                    paddingTop: 12,
-                    marginBottom: -6,
-                }}
-            >
-                <Pills
-                    glossaryTerms={glossaryTerms}
-                    tags={tags}
-                    owners={owners}
-                    entityCapabilities={supportedCapabilities}
-                />
-                <EntityLink>{entityTitleSuffix}</EntityLink>
-                {tier !== undefined && (
-                    <div>
-                        <PopularityBars status={status} />
-                    </div>
-                )}
-            </RowContainer>
+            <DefaultPreviewCardFooter
+                glossaryTerms={glossaryTerms}
+                tags={tags}
+                owners={owners}
+                entityCapabilities={supportedCapabilities}
+                tier={tier}
+                status={status}
+                previewType={previewType}
+                entityTitleSuffix={entityTitleSuffix}
+            />
             {/* {!!(insights?.length || groupedMatches.length) && isMatchExpanded && (
                     <>
                         <HorizontalDivider />
@@ -434,7 +399,7 @@ export default function DefaultPreviewCard({
                         </InsightsContainer>
                     </>
                 )} */}
-            {degree !== undefined && degree !== null && (
+            {degree !== undefined && (
                 <Tooltip
                     title={`This entity is a ${getNumberWithOrdinal(degree)} degree connection to ${
                         entityData?.name || 'the source entity'

@@ -21,6 +21,7 @@ import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.service.AssertionService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -42,8 +43,10 @@ public class MigrateAssertionsSummaryStep extends UpgradeStep {
   private final AssertionService _assertionService;
   private final TimeseriesAspectService _timeseriesAspectService;
   private final ConfigurationProvider _configurationProvider;
+  private final OperationContext systemOpContext;
 
   public MigrateAssertionsSummaryStep(
+      @Nonnull OperationContext systemOpContext,
       EntityService entityService,
       EntitySearchService entitySearchService,
       AssertionService assertionService,
@@ -54,6 +57,7 @@ public class MigrateAssertionsSummaryStep extends UpgradeStep {
     _assertionService = assertionService;
     _timeseriesAspectService = timeseriesAspectService;
     _configurationProvider = configurationProvider;
+    this.systemOpContext = systemOpContext;
   }
 
   @Nonnull
@@ -72,6 +76,7 @@ public class MigrateAssertionsSummaryStep extends UpgradeStep {
     do {
       ScrollResult scrollResult =
           _entitySearchService.scroll(
+              systemOpContext,
               Collections.singletonList(Constants.ASSERTION_ENTITY_NAME),
               null,
               null,

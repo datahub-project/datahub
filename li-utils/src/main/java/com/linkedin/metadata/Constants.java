@@ -1,6 +1,7 @@
 package com.linkedin.metadata;
 
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 
 /** Static class containing commonly-used constants across DataHub services. */
 public class Constants {
@@ -17,6 +18,8 @@ public class Constants {
   public static final String ENTITY_TYPE_URN_PREFIX = "urn:li:entityType:";
   public static final String DATA_TYPE_URN_PREFIX = "urn:li:dataType:";
   public static final String STRUCTURED_PROPERTY_MAPPING_FIELD = "structuredProperties";
+  public static final String STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX =
+      STRUCTURED_PROPERTY_MAPPING_FIELD + ".";
 
   // !!!!!!! IMPORTANT !!!!!!!
   // This effectively sets the max aspect size to 16 MB. Used in deserialization of messages.
@@ -83,10 +86,13 @@ public class Constants {
   public static final String TELEMETRY_ENTITY_NAME = "telemetry";
   public static final String DATA_PRODUCT_ENTITY_NAME = "dataProduct";
   public static final String OWNERSHIP_TYPE_ENTITY_NAME = "ownershipType";
+  public static final Urn DEFAULT_OWNERSHIP_TYPE_URN =
+      UrnUtils.getUrn("urn:li:ownershipType:__system__none");
   public static final String STRUCTURED_PROPERTY_ENTITY_NAME = "structuredProperty";
   public static final String DATA_TYPE_ENTITY_NAME = "dataType";
   public static final String ENTITY_TYPE_ENTITY_NAME = "entityType";
   public static final String FORM_ENTITY_NAME = "form";
+  public static final String RESTRICTED_ENTITY_NAME = "restricted";
 
   /** Aspects */
   // Common
@@ -109,6 +115,7 @@ public class Constants {
   public static final String EMBED_ASPECT_NAME = "embed";
   public static final String INCIDENTS_SUMMARY_ASPECT_NAME = "incidentsSummary";
   public static final String ASSERTIONS_SUMMARY_ASPECT_NAME = "assertionsSummary";
+  public static final String SHARE_ASPECT_NAME = "share";
 
   // User
   public static final String CORP_USER_KEY_ASPECT_NAME = "corpUserKey";
@@ -341,6 +348,12 @@ public class Constants {
   // Ownership Types
   public static final String OWNERSHIP_TYPE_KEY_ASPECT_NAME = "ownershipTypeKey";
   public static final String OWNERSHIP_TYPE_INFO_ASPECT_NAME = "ownershipTypeInfo";
+  public static final Urn TECHNICAL_OWNER_TYPE_URN =
+      UrnUtils.getUrn("urn:li:ownershipType:__system__technical_owner");
+  public static final Urn BUSINESS_OWNER_TYPE_URN =
+      UrnUtils.getUrn("urn:li:ownershipType:__system__business_owner");
+  public static final Urn DATA_STEWARD_TYPE_URN =
+      UrnUtils.getUrn("urn:li:ownershipType:__system__data_steward");
 
   // Structured Property
   public static final String STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME = "propertyDefinition";

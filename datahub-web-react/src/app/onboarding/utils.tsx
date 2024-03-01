@@ -86,3 +86,8 @@ export function getStepsToRender(
             ),
         }));
 }
+
+// filter out action steps from the initial steps that should be shown
+export function getInitialAllowListIds() {
+    return OnboardingConfig.filter((config) => !config.isActionStep).map((config) => config.id as string);
+}

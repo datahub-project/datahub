@@ -17,6 +17,7 @@ import { DataProductEntitiesTab } from './DataProductEntitiesTab';
 import { EntityActionItem } from '../shared/entity/EntityActions';
 import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
+import { SidebarMetadataSection } from '../shared/containers/profile/sidebar/SidebarMetadataSection';
 
 /**
  * Definition of the DataHub Data Product entity.
@@ -63,6 +64,8 @@ export class DataProductEntity implements Entity<DataProduct> {
 
     getCollectionName = () => 'Data Products';
 
+    useEntityQuery = useGetDataProductQuery;
+
     renderProfile = (urn: string) => (
         <EntityProfile
             urn={urn}
@@ -87,40 +90,44 @@ export class DataProductEntity implements Entity<DataProduct> {
                     component: PropertiesTab,
                 },
             ]}
-            sidebarSections={[
-                {
-                    component: SidebarAboutSection,
-                },
-                {
-                    component: SidebarOwnerSection,
-                    properties: {
-                        defaultOwnerType: OwnershipType.TechnicalOwner,
-                    },
-                },
-                {
-                    component: SidebarViewDefinitionSection,
-                    display: {
-                        // to do - change when we have a GetDataProductQuery
-                        visible: (_, dataset: GetDatasetQuery) =>
-                            (dataset?.dataset?.viewProperties?.logic && true) || false,
-                    },
-                },
-                {
-                    component: SidebarTagsSection,
-                    properties: {
-                        hasTags: true,
-                        hasTerms: true,
-                    },
-                },
-                {
-                    component: SidebarDomainSection,
-                    properties: {
-                        updateOnly: true,
-                    },
-                },
-            ]}
+            sidebarSections={this.getSidebarSections()}
         />
     );
+
+    getSidebarSections = () => [
+        {
+            component: SidebarAboutSection,
+        },
+        {
+            component: SidebarMetadataSection,
+        },
+        {
+            component: SidebarOwnerSection,
+            properties: {
+                defaultOwnerType: OwnershipType.TechnicalOwner,
+            },
+        },
+        {
+            component: SidebarViewDefinitionSection,
+            display: {
+                // to do - change when we have a GetDataProductQuery
+                visible: (_, dataset: GetDatasetQuery) => (dataset?.dataset?.viewProperties?.logic && true) || false,
+            },
+        },
+        {
+            component: SidebarTagsSection,
+            properties: {
+                hasTags: true,
+                hasTerms: true,
+            },
+        },
+        {
+            component: SidebarDomainSection,
+            properties: {
+                updateOnly: true,
+            },
+        },
+    ];
 
     renderPreview = (_: PreviewType, data: DataProduct) => {
         return (

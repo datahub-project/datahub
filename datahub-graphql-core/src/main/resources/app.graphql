@@ -1020,6 +1020,16 @@ type FeatureFlagsConfig {
   Note that this would override any personal settings. Only available as part of Acryl.
   """
   themeV2: Boolean!
+
+  """
+  Enables the new Task Center which replaces the old inbox and includes displaying documentation requests
+  """
+  taskCenterEnabled: Boolean!
+
+  """
+  Whether the metadata sharing feature between instances is enabled
+  """
+  metadataShareEnabled: Boolean!
 }
 
 """

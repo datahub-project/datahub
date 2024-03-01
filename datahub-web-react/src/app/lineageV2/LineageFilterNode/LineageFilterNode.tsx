@@ -1,9 +1,10 @@
 import React from 'react';
 import { Handle, NodeProps, Position } from 'reactflow';
 import styled from 'styled-components';
+import useAvoidIntersections from '../LineageEntityNode/useAvoidIntersections';
 import { LINEAGE_NODE_WIDTH } from '../LineageEntityNode/useDisplayedColumns';
 import useFetchFilterNodeContents from './useFetchFilterNodeContents';
-import { LINEAGE_COLORS, REDESIGN_COLORS } from '../../entityV2/shared/constants';
+import { REDESIGN_COLORS } from '../../entityV2/shared/constants';
 import { PlatformEntry, SubtypeEntry } from './LineageFilterPills';
 import { LineageFilter } from '../common';
 import { ShowMoreButton } from './ShowMoreButton';
@@ -48,7 +49,6 @@ const TitleWrapper = styled.div`
 `;
 
 const Title = styled.div`
-    color: ${LINEAGE_COLORS.BLUE_1};
     flex-shrink: 1;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -93,6 +93,13 @@ export default function LineageFilterNode(props: NodeProps<LineageFilter>) {
     const { contents, shown } = data;
 
     const { platforms, subtypes } = useFetchFilterNodeContents(contents);
+
+    const numPillRows = Math.min(Math.max(platforms?.length || 0, subtypes?.length || 0), PILL_COLUMN_MAX);
+    const nodeHeight =
+        49 + // Title, padding, border, extra card, pill wrapper margin
+        23.5 * numPillRows;
+    useAvoidIntersections(id, nodeHeight);
+
     return (
         <NodeWrapper className="nodrag">
             <ExtraCard className="extra-card" bottom={-3} />

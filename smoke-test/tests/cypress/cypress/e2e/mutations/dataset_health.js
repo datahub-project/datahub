@@ -1,8 +1,8 @@
-const urn = "urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleCypressHdfsDataset,PROD)";
-const datasetName = "SampleCypressHdfsDataset";
+const urn = "urn:li:dataset:(urn:li:dataPlatform:hive,cypress_health_test,PROD)";
+const datasetName = "cypress_health_test";
 
 describe("dataset health test", () => {
-    it("go to dataset with failing assertions and verify health of dataset", () => {
+    it("go to dataset with failing assertions and active incidents and verify health of dataset", () => {
         cy.login();
         cy.goToDataset(urn, datasetName);
         //Ensure that the “Health” badge is present and there is an active incident warning
@@ -12,7 +12,6 @@ describe("dataset health test", () => {
         cy.waitTextVisible("Assertions 1 of 1 assertions are failing");
         cy.get('[data-testid="assertions-details"]').click();
         // cy.clickOptionWithText("details");
-        cy.waitTextVisible("All assertions are failing");
-        cy.clickOptionWithText("Other");
+        cy.waitTextVisible("This asset may be unhealthy");
     });
 });

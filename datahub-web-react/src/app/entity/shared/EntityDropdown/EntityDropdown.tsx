@@ -9,8 +9,8 @@ import {
     LinkOutlined,
     MoreOutlined,
     PlusOutlined,
-    WarningOutlined,
     CopyOutlined,
+    WarningOutlined,
 } from '@ant-design/icons';
 import { Redirect, useHistory } from 'react-router';
 import { EntityType } from '../../../../types.generated';
@@ -20,15 +20,15 @@ import { useUpdateDeprecationMutation } from '../../../../graphql/mutations.gene
 import MoveGlossaryEntityModal from './MoveGlossaryEntityModal';
 import { ANTD_GRAY } from '../constants';
 import { useEntityRegistry } from '../../../useEntityRegistry';
-import { AddIncidentModal } from '../tabs/Incident/components/AddIncidentModal';
-import { getEntityPath } from '../containers/profile/utils';
 import useDeleteEntity from './useDeleteEntity';
 import { getEntityProfileDeleteRedirectPath } from '../../../shared/deleteUtils';
-import { useIsSeparateSiblingsMode } from '../siblingUtils';
 import { shouldDisplayChildDeletionWarning, isDeleteDisabled, isMoveDisabled } from './utils';
 import { useUserContext } from '../../../context/useUserContext';
 import MoveDomainModal from './MoveDomainModal';
 import { useIsNestedDomainsEnabled } from '../../../useAppConfig';
+import { getEntityPath } from '../containers/profile/utils';
+import { useIsSeparateSiblingsMode } from '../siblingUtils';
+import { AddIncidentModal } from '../tabs/Incident/components/AddIncidentModal';
 
 export enum EntityMenuItems {
     COPY_URL,
@@ -37,9 +37,8 @@ export enum EntityMenuItems {
     ADD_TERM_GROUP,
     DELETE,
     MOVE,
-    // acryl-main only
-    RAISE_INCIDENT,
     CLONE,
+    RAISE_INCIDENT,
 }
 
 export const MenuIcon = styled(MoreOutlined)<{ fontSize?: number }>`
@@ -121,7 +120,6 @@ function EntityDropdown(props: Props) {
     const [isCloneEntityModalVisible, setIsCloneEntityModalVisible] = useState<boolean>(false);
     const [isDeprecationModalVisible, setIsDeprecationModalVisible] = useState(false);
     const [isMoveModalVisible, setIsMoveModalVisible] = useState(false);
-    // acryl-main only
     const [isRaiseIncidentModalVisible, setIsRaiseIncidentModalVisible] = useState(false);
 
     const handleUpdateDeprecation = async (deprecatedStatus: boolean) => {
@@ -245,14 +243,6 @@ function EntityDropdown(props: Props) {
                                 </Tooltip>
                             </StyledMenuItem>
                         )}
-                        {/** acryl-main only */}
-                        {menuItems.has(EntityMenuItems.RAISE_INCIDENT) && (
-                            <StyledMenuItem key="6" disabled={false}>
-                                <MenuItem onClick={() => setIsRaiseIncidentModalVisible(true)}>
-                                    <WarningOutlined /> &nbsp;Raise Incident
-                                </MenuItem>
-                            </StyledMenuItem>
-                        )}
                         {menuItems.has(EntityMenuItems.CLONE) && (
                             <StyledMenuItem
                                 key="6"
@@ -261,6 +251,13 @@ function EntityDropdown(props: Props) {
                             >
                                 <MenuItem>
                                     <CopyOutlined /> &nbsp;Clone
+                                </MenuItem>
+                            </StyledMenuItem>
+                        )}
+                        {menuItems.has(EntityMenuItems.RAISE_INCIDENT) && (
+                            <StyledMenuItem key="6" disabled={false}>
+                                <MenuItem onClick={() => setIsRaiseIncidentModalVisible(true)}>
+                                    <WarningOutlined /> &nbsp;Raise Incident
                                 </MenuItem>
                             </StyledMenuItem>
                         )}
@@ -307,7 +304,6 @@ function EntityDropdown(props: Props) {
             )}
             {isMoveModalVisible && isDomainEntity && <MoveDomainModal onClose={() => setIsMoveModalVisible(false)} />}
             {hasBeenDeleted && !onDelete && deleteRedirectPath && <Redirect to={deleteRedirectPath} />}
-            {/* acryl-main only */}
             {isRaiseIncidentModalVisible && (
                 <AddIncidentModal
                     visible={isRaiseIncidentModalVisible}

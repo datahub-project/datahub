@@ -1,7 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
 import { Tooltip } from 'antd';
-import SyncProblemIcon from '@mui/icons-material/SyncProblem';
+import FilterCenterFocusOutlinedIcon from '@mui/icons-material/FilterCenterFocusOutlined';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import PublicIcon from '@mui/icons-material/Public';
 import { ANTD_GRAY, REDESIGN_COLORS, SEARCH_COLORS } from '../../shared/constants';
@@ -57,7 +57,7 @@ const LockOutlinedIconStyle = styled(LockOutlinedIcon)`
     font-size: 12px !important;
 `;
 
-const SyncProblemIconStyle = styled(SyncProblemIcon)`
+const FilterCenterFocusOutlinedIconStyle = styled(FilterCenterFocusOutlinedIcon)`
     font-size: 18px !important;
 `;
 
@@ -92,7 +92,7 @@ export const ViewOptionName = ({
     return (
         <ViewContainer role="row">
             <ViewIcon className="create-view-icon" selected={selected}>
-                <SyncProblemIconStyle />
+                <FilterCenterFocusOutlinedIconStyle />
                 {(isUserDefault || isGlobalDefault) && (
                     <IconPlaceholder>
                         {isGlobalDefault && (
@@ -111,10 +111,12 @@ export const ViewOptionName = ({
                         )}
                     </IconPlaceholder>
                 )}
-                <ViewType>
-                    {type === 'GLOBAL' && <PublicIconStyle />}
-                    {type === 'PERSONAL' && <LockOutlinedIconStyle />}
-                </ViewType>
+                <Tooltip placement="bottom" showArrow title={type === 'GLOBAL' ? 'Public' : 'Private'}>
+                    <ViewType>
+                        {type === 'GLOBAL' && <PublicIconStyle />}
+                        {type === 'PERSONAL' && <LockOutlinedIconStyle />}
+                    </ViewType>
+                </Tooltip>
             </ViewIcon>
             <Tooltip
                 placement="bottom"

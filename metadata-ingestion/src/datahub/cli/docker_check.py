@@ -14,7 +14,10 @@ from datahub.configuration.common import ExceptionWithProps
 # Docker seems to under-report memory allocated, so we also need a bit of buffer to account for it.
 MIN_MEMORY_NEEDED = 3.8  # GB
 
-DATAHUB_COMPOSE_PROJECT_FILTER = {"label": "com.docker.compose.project=datahub"}
+DOCKER_COMPOSE_PROJECT_NAME = os.getenv("DATAHUB_COMPOSE_PROJECT_NAME", "datahub")
+DATAHUB_COMPOSE_PROJECT_FILTER = {
+    "label": f"com.docker.compose.project={DOCKER_COMPOSE_PROJECT_NAME}"
+}
 
 DATAHUB_COMPOSE_LEGACY_VOLUME_FILTERS = [
     {"name": "datahub_neo4jdata"},

@@ -220,9 +220,11 @@ export default function LineageExplorer({ urn, type }: Props) {
                             <Button onClick={handleClose} type="text">
                                 Close
                             </Button>
-                            <Button href={entityRegistry.getEntityUrl(selectedEntity.type, selectedEntity.urn)}>
-                                <InfoCircleOutlined /> View details
-                            </Button>
+                            {selectedEntity.type !== EntityType.Restricted && (
+                                <Button href={entityRegistry.getEntityUrl(selectedEntity.type, selectedEntity.urn)}>
+                                    <InfoCircleOutlined /> View details
+                                </Button>
+                            )}
                         </FooterButtonGroup>
                     )
                 }

@@ -93,10 +93,10 @@ function CreateGlossaryEntityModal(props: Props) {
                     description: sanitizedDescription || null,
                 },
             },
+            fetchPolicy: 'cache-first',
         })
             .then((res) => {
                 message.loading({ content: 'Updating...', duration: 2 });
-                setTimeout(() => {
                     analytics.event({
                         type: EventType.CreateGlossaryEntityEvent,
                         entityType,
@@ -122,7 +122,6 @@ function CreateGlossaryEntityModal(props: Props) {
                                 : res.data?.createGlossaryNode;
                         history.push(getEntityPath(entityType, redirectUrn, entityRegistry, false, false));
                     }
-                }, 2000);
             })
             .catch((e) => {
                 message.destroy();

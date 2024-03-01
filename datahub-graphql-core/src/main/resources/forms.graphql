@@ -1,3 +1,18 @@
+extend type Query {
+    """
+    Fetch a Form by primary key (urn)
+    """
+    form(urn: String!): Form
+}
+
+
+extend type Mutation {
+    """
+    Remove a form from a given list of entities.
+    """
+    batchRemoveForm(input: BatchRemoveFormInput!): Boolean!
+}
+
 """
 Requirements forms that are assigned to an entity.
 """
@@ -375,4 +390,19 @@ input VerifyFormInput {
     The urn of the entity that is having a form verified on it
     """
     entityUrn: String!
+}
+
+"""
+Input for batch removing a form from different entities
+"""
+input BatchRemoveFormInput {
+    """
+    The urn of the form being removed from entities
+    """
+    formUrn: String!
+
+    """
+    The entities that this form is being removed from
+    """
+    entityUrns: [String!]!
 }

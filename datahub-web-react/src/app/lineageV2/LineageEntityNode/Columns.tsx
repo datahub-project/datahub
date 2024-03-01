@@ -7,9 +7,9 @@ import { NUM_COLUMNS_PER_PAGE } from '../constants';
 import Column from './Column';
 import ColumnSearch from './ColumnSearch';
 import { FetchedEntity } from '../../lineage/types';
-import { LineageDisplayColumn, TRANSITION_DURATION_MS } from './useDisplayedColumns';
+import { LineageDisplayColumn } from './useDisplayedColumns';
 import { LINEAGE_COLORS, REDESIGN_COLORS } from '../../entityV2/shared/constants';
-import { onMouseDownCapturePreventSelect } from '../common';
+import { onMouseDownCapturePreventSelect, TRANSITION_DURATION_MS } from '../common';
 
 const MainColumnsWrapper = styled.div`
     align-items: center;

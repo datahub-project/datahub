@@ -55,6 +55,7 @@ public class EntityPrivilegesResolverTest {
     EntityPrivileges result = resolver.get(mockEnv).get();
 
     assertTrue(result.getCanManageEntity());
+    assertTrue(result.getCanShareEntity());
   }
 
   @Test
@@ -70,6 +71,7 @@ public class EntityPrivilegesResolverTest {
 
     assertTrue(result.getCanManageEntity());
     assertTrue(result.getCanManageChildren());
+    assertTrue(result.getCanShareEntity());
   }
 
   private DataFetchingEnvironment setUpTestWithoutPermissions(Entity entity) {
@@ -93,6 +95,7 @@ public class EntityPrivilegesResolverTest {
     EntityPrivileges result = resolver.get(mockEnv).get();
 
     assertFalse(result.getCanManageEntity());
+    assertFalse(result.getCanShareEntity());
   }
 
   @Test
@@ -108,6 +111,7 @@ public class EntityPrivilegesResolverTest {
 
     assertFalse(result.getCanManageEntity());
     assertFalse(result.getCanManageChildren());
+    assertFalse(result.getCanShareEntity());
   }
 
   @Test
@@ -282,6 +286,7 @@ public class EntityPrivilegesResolverTest {
     assertTrue(result.getCanEditLinks());
     assertTrue(result.getCanEditAssertions());
     assertTrue(result.getCanEditIncidents());
+    assertTrue(result.getCanShareEntity());
   }
 
   public void validateMissingCommonEntityPrivileges(EntityPrivileges result) {
@@ -296,5 +301,6 @@ public class EntityPrivilegesResolverTest {
     assertFalse(result.getCanEditLinks());
     assertFalse(result.getCanEditAssertions());
     assertFalse(result.getCanEditIncidents());
+    assertFalse(result.getCanShareEntity());
   }
 }

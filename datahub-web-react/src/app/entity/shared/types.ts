@@ -44,6 +44,7 @@ import {
     DashboardStatsSummary,
     DatasetStatsSummary,
     Forms,
+    Share,
 } from '../../../types.generated';
 import { FetchedEntity } from '../../lineage/types';
 
@@ -128,6 +129,7 @@ export type GenericEntityProperties = {
     termProposals?: Maybe<ActionRequest[]>;
     statsSummary?: Maybe<ChartStatsSummary | DashboardStatsSummary | DatasetStatsSummary>;
     forms?: Maybe<Forms>;
+    share?: Maybe<Share>;
 };
 
 export type GenericEntityUpdate = {
@@ -161,7 +163,7 @@ export type EntityContextType = {
     updateEntity?: UpdateEntityType<any> | null;
     routeToTab: (params: { tabName: string; tabParams?: Record<string, any>; method?: 'push' | 'replace' }) => void;
     refetch: () => Promise<any>;
-    lineage: FetchedEntity | undefined;
+    lineage?: FetchedEntity | undefined;
     shouldRefetchEmbeddedListSearch?: boolean;
     setShouldRefetchEmbeddedListSearch?: React.Dispatch<React.SetStateAction<boolean>>;
 };
