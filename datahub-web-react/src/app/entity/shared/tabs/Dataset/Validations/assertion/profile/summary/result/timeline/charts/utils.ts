@@ -109,6 +109,7 @@ export const getBestChartTypeForAssertion = (assertionInfo?: AssertionInfo | May
             case AssertionType.Field:
                 return AssertionChartType.ValuesOverTime;
             case AssertionType.Sql:
+                return AssertionChartType.ValuesOverTime;
                 break;
             case AssertionType.Volume:
                 return AssertionChartType.ValuesOverTime;

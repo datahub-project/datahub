@@ -17,4 +17,8 @@ export const ASSERTION_NATIVE_RESULTS_KEYS_BY_ASSERTION_TYPE = {
             COMPARED_MAX_VALUE_KEY_NAME: 'Compared Max Value', // ^
         }
     },
+    SQL_ASSERTIONS: {
+        Y_VALUE_KEY_NAME: 'Value',
+        PREVIOUS_Y_VALUE_KEY_NAME: 'Previous Value',
+    },
 }

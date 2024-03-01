@@ -50,15 +50,16 @@ export const getAssertionDataPointsFromRunEvents = (runEvents: AssertionRunEvent
  * @returns {number | undefined}
  */
 export const tryGetYAxisLabelForChartFromAssertionInfo = (assertionInfo?: AssertionInfo | Maybe<AssertionInfo>): string | undefined => {
+    let label: string | undefined;
     switch (assertionInfo?.type) {
         case AssertionType.Volume:
-            return 'Row count';
+            label = 'Row count';
+            break;
         case AssertionType.Field:
             tryGetFieldAssertionYAxisLabel(assertionInfo.fieldAssertion)
             break;
         case AssertionType.Sql:
-            // TODO(jayacryl)
-            break;
+            return 'SQL query result';
         case AssertionType.DataSchema:
             break;
         case AssertionType.Freshness:
@@ -68,29 +69,29 @@ export const tryGetYAxisLabelForChartFromAssertionInfo = (assertionInfo?: Assert
         default:
             break;
     }
-    return undefined;
+    return label;
 }
 
 function tryGetFieldAssertionYAxisLabel(info?: Maybe<FieldAssertionInfo>): string | undefined {
-    if (!info?.type) {
-        return;
-    }
-    // Handle field assertion types
-    switch (info.type) {
+    let label: string | undefined;
+    switch (info?.type) {
         case FieldAssertionType.FieldValues:
-            return 'Invalid Rows';
+            label = 'Invalid Rows';
+            break;
         case FieldAssertionType.FieldMetric: {
             const maybeMetricType = info.fieldMetricAssertion?.metric
             try {
-                if (maybeMetricType) return getFieldMetricTypeReadableLabel(maybeMetricType)
+                label = maybeMetricType && getFieldMetricTypeReadableLabel(maybeMetricType)
             } catch (e) {
                 // Best attempt
             }
-            return maybeMetricType?.valueOf() || 'Metric Value';
+            label = label || maybeMetricType?.valueOf() || 'Metric Value';
+            break;
         }
         default:
             break;
     }
+    return label;
 
 }
 
