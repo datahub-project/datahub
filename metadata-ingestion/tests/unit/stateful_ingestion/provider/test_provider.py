@@ -186,31 +186,33 @@ class TestIngestionCheckpointProviders(unittest.TestCase):
             )
             self.assertEqual(job2_last_checkpoint, job2_checkpoint)
 
-    def test_state_provider_wrapper(self):
-        ctx: PipelineContext = PipelineContext(
-            run_id=self.run_id, pipeline_name=self.pipeline_name
-        )
+    def test_state_provider_wrapper_with_config_provided(self):
+        # stateful_ingestion_config.enabled as true
+        ctx = PipelineContext(run_id=self.run_id, pipeline_name=self.pipeline_name)
         ctx.graph = self.mock_graph
-        # Test 1: stateful_ingestion_config provided with enabled as true
         state_provider = StateProviderWrapper(
             StatefulIngestionConfig(enabled=True), ctx
         )
         assert state_provider.stateful_ingestion_config
         assert state_provider.ingestion_checkpointing_state_provider
-        ctx.checkpointers = {}
-        # Test 2: stateful_ingestion_config provided with enabled as false
+        # stateful_ingestion_config.enabled as false
+        ctx = PipelineContext(run_id=self.run_id, pipeline_name=self.pipeline_name)
+        ctx.graph = self.mock_graph
         state_provider = StateProviderWrapper(
             StatefulIngestionConfig(enabled=False), ctx
         )
         assert state_provider.stateful_ingestion_config
         assert not state_provider.ingestion_checkpointing_state_provider
-        # Test 3: stateful_ingestion_config not provided but graph object is present
+
+    def test_state_provider_wrapper_with_config_not_provided(self):
+        # graph object is present
+        ctx = PipelineContext(run_id=self.run_id, pipeline_name=self.pipeline_name)
+        ctx.graph = self.mock_graph
         state_provider = StateProviderWrapper(None, ctx)
         assert state_provider.stateful_ingestion_config
         assert state_provider.ingestion_checkpointing_state_provider
-        ctx.checkpointers = {}
-        # Test 4: stateful_ingestion_config not provided and graph object is none
-        ctx.graph = None
+        # graph object is none
+        ctx = PipelineContext(run_id=self.run_id, pipeline_name=self.pipeline_name)
         state_provider = StateProviderWrapper(None, ctx)
         assert not state_provider.stateful_ingestion_config
         assert not state_provider.ingestion_checkpointing_state_provider
