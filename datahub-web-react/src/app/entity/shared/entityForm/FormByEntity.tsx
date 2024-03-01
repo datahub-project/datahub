@@ -1,12 +1,16 @@
 import React from 'react';
+
 import styled from 'styled-components';
-import Form from './Form';
-import { ANTD_GRAY_V2 } from '../constants';
-import ProfileSidebar from '../containers/profile/sidebar/ProfileSidebar';
+
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import EntityContext, { useEntityContext } from '../EntityContext';
-import EntityInfo from '../containers/profile/sidebar/EntityInfo/EntityInfo';
 import { useEntityFormContext } from './EntityFormContext';
+
+import { ANTD_GRAY_V2 } from '../constants';
+import ProfileSidebar from '../containers/profile/sidebar/ProfileSidebar';
+import EntityInfo from '../containers/profile/sidebar/EntityInfo/EntityInfo';
+
+import Form from './Form';
 import ProgressBar from './ProgressBar';
 import { OnboardingTour } from '../../../onboarding/OnboardingTour';
 import {
@@ -35,10 +39,13 @@ interface Props {
 }
 
 export default function FormByEntity({ formUrn }: Props) {
-    const { selectedEntity, entityData: selectedEntityData, refetch, loading } = useEntityFormContext();
-    const { entityType } = useEntityContext();
+    const {
+        entity: { selectedEntity, entityData: selectedEntityData },
+    } = useEntityFormContext();
+    const { entityType, loading, refetch } = useEntityContext();
     const entityRegistry = useEntityRegistry();
-    const sidebarSections = entityRegistry.getSidebarSections(selectedEntity?.type || entityType);
+    const type = selectedEntity?.type || entityType;
+    const sidebarSections = type ? entityRegistry.getSidebarSections(type) : [];
 
     return (
         <EntityContext.Provider
@@ -51,6 +58,7 @@ export default function FormByEntity({ formUrn }: Props) {
                 dataNotCombinedWithSiblings: selectedEntityData,
                 routeToTab: () => {},
                 refetch,
+                lineage: undefined,
             }}
         >
             <OnboardingTour stepIds={[WELCOME_TO_BULK_BY_ENTITY_ID, FORM_QUESTION_VIEW_BUTTON]} />

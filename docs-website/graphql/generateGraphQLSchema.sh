@@ -18,7 +18,10 @@ cat ../../datahub-graphql-core/src/main/resources/step.graphql >> combined.graph
 cat ../../datahub-graphql-core/src/main/resources/lineage.graphql >> combined.graphql
 cat ../../datahub-graphql-core/src/main/resources/properties.graphql >> combined.graphql
 cat ../../datahub-graphql-core/src/main/resources/forms.graphql >> combined.graphql
+cat ../../datahub-graphql-core/src/main/resources/forms.acryl.graphql >> combined.graphql
 cat ../../datahub-graphql-core/src/main/resources/incident.graphql >> combined.graphql
 cat ../../datahub-graphql-core/src/main/resources/anomaly.graphql >> combined.graphql
 cat ../../datahub-graphql-core/src/main/resources/monitor.graphql >> combined.graphql
 cat ../../datahub-graphql-core/src/main/resources/contract.graphql >> combined.graphql
+cat ../../datahub-graphql-core/src/main/resources/connection.graphql >> combined.graphql
+cat ../../datahub-graphql-core/src/main/resources/share.graphql >> combined.graphql

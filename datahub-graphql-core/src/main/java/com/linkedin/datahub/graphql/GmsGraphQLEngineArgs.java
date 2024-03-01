@@ -9,7 +9,6 @@ import com.datahub.authentication.token.StatefulTokenService;
 import com.datahub.authentication.user.NativeUserService;
 import com.datahub.authorization.AuthorizationConfiguration;
 import com.datahub.authorization.role.RoleService;
-import com.datahub.subscription.SubscriptionService;
 import com.linkedin.datahub.graphql.analytics.service.AnalyticsService;
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.entity.client.EntityClient;
@@ -17,6 +16,7 @@ import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.config.ActionPipelineConfiguration;
 import com.linkedin.metadata.config.ChromeExtensionConfiguration;
 import com.linkedin.metadata.config.DataHubConfiguration;
+import com.linkedin.metadata.config.ExecutorConfiguration;
 import com.linkedin.metadata.config.IngestionConfiguration;
 import com.linkedin.metadata.config.TestsConfiguration;
 import com.linkedin.metadata.config.ViewsConfiguration;
@@ -38,7 +38,10 @@ import com.linkedin.metadata.service.LineageService;
 import com.linkedin.metadata.service.MonitorService;
 import com.linkedin.metadata.service.OwnershipTypeService;
 import com.linkedin.metadata.service.QueryService;
+import com.linkedin.metadata.service.RestrictedService;
 import com.linkedin.metadata.service.SettingsService;
+import com.linkedin.metadata.service.ShareService;
+import com.linkedin.metadata.service.SubscriptionService;
 import com.linkedin.metadata.service.ViewService;
 import com.linkedin.metadata.test.TestEngine;
 import com.linkedin.metadata.timeline.TimelineService;
@@ -85,6 +88,9 @@ public class GmsGraphQLEngineArgs {
   FeatureFlags featureFlags;
   DataProductService dataProductService;
   FormService formService;
+  RestrictedService restrictedService;
+  int graphQLQueryComplexityLimit;
+  int graphQLQueryDepthLimit;
   ChromeExtensionConfiguration chromeExtensionConfiguration;
   AssertionService assertionService;
 
@@ -97,4 +103,6 @@ public class GmsGraphQLEngineArgs {
   ConnectionService connectionService;
   ActionPipelineConfiguration actionPipelineConfiguration;
   SubscriptionService subscriptionService;
+  ShareService shareService;
+  ExecutorConfiguration executorConfiguration;
 }

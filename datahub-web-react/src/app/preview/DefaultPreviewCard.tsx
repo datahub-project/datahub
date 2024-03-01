@@ -1,5 +1,6 @@
 import React, { ReactNode, useState } from 'react';
 import { Divider, Tooltip, Typography } from 'antd';
+import { ArrowRightOutlined } from '@ant-design/icons';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
@@ -36,6 +37,7 @@ import { DataProductLink } from '../shared/tags/DataProductLink';
 import { EntityHealth } from '../entity/shared/containers/profile/header/EntityHealth';
 import SearchTextHighlighter from '../search/matches/SearchTextHighlighter';
 import { getUniqueOwners } from './utils';
+import { FORM_CHECK_RESPONSES_ID } from '../onboarding/config/FormOnboardingConfig';
 
 const PreviewContainer = styled.div`
     display: flex;
@@ -156,6 +158,31 @@ const UserListTitle = styled(Typography.Text)`
     padding-right: 12px;
 `;
 
+const PlatformContentContainer = styled.div`
+    display: flex;
+    align-items: 'center;
+`;
+
+const BulkVerifyViewLink = styled.a`
+    display: inline-block;
+    font-weight: 600;
+    margin-left: 0.5rem;
+
+    > span {
+        margin-left: 0.15rem;
+
+        > svg {
+            height: 10px;
+        }
+    }
+
+    &:hover {
+        > span {
+            margin-left: 0.25rem;
+        }
+    }
+`;
+
 interface Props {
     name: string;
     urn: string;
@@ -187,7 +214,7 @@ interface Props {
     displayAssetCount?: boolean;
     dataTestID?: string;
     titleSizePx?: number;
-    onClick?: () => void;
+    onClick?: (any: any) => any;
     // this is provided by the impact analysis view. it is used to display
     // how the listed node is connected to the source node
     degree?: number;
@@ -267,24 +294,33 @@ export default function DefaultPreviewCard({
     const shouldShowRightColumn = (topUsers && topUsers.length > 0) || (owners && owners.length > 0);
     const uniqueOwners = getUniqueOwners(owners);
 
+    const previewEnum = previewType && PreviewType[previewType];
+
     return (
         <PreviewContainer data-testid={dataTestID} onMouseDown={onPreventMouseDown}>
-            <LeftColumn key='left-column' expandWidth={!shouldShowRightColumn}>
+            <LeftColumn expandWidth={!shouldShowRightColumn}>
                 <TitleContainer>
-                    <PlatformContentView
-                        platformName={platform}
-                        platformLogoUrl={logoUrl}
-                        platformNames={platforms}
-                        platformLogoUrls={logoUrls}
-                        entityLogoComponent={logoComponent}
-                        instanceId={platformInstanceId}
-                        typeIcon={typeIcon}
-                        entityType={type}
-                        parentContainers={parentContainers?.containers}
-                        parentEntities={parentEntities}
-                        parentContainersRef={contentRef}
-                        areContainersTruncated={isContentTruncated}
-                    />
+                    <PlatformContentContainer>
+                        <PlatformContentView
+                            platformName={platform}
+                            platformLogoUrl={logoUrl}
+                            platformNames={platforms}
+                            platformLogoUrls={logoUrls}
+                            entityLogoComponent={logoComponent}
+                            instanceId={platformInstanceId}
+                            typeIcon={typeIcon}
+                            entityType={type}
+                            parentContainers={parentContainers?.containers}
+                            parentEntities={parentEntities}
+                            parentContainersRef={contentRef}
+                            areContainersTruncated={isContentTruncated}
+                        />
+                        {previewEnum === 'BULK_VERIFY' && onClick && (
+                            <BulkVerifyViewLink id={FORM_CHECK_RESPONSES_ID} onClick={() => onClick({ urn, type })}>
+                                View Responses <ArrowRightOutlined />
+                            </BulkVerifyViewLink>
+                        )}
+                    </PlatformContentContainer>
                     <EntityTitleContainer>
                         <Link to={url}>
                             {previewType === PreviewType.HOVER_CARD ? (

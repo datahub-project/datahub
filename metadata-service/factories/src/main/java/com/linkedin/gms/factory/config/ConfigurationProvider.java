@@ -6,6 +6,8 @@ import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.metadata.config.ChromeExtensionConfiguration;
 import com.linkedin.metadata.config.DataHubConfiguration;
 import com.linkedin.metadata.config.EbeanConfiguration;
+import com.linkedin.metadata.config.ExecutorConfiguration;
+import com.linkedin.metadata.config.GraphQLConfiguration;
 import com.linkedin.metadata.config.IngestionConfiguration;
 import com.linkedin.metadata.config.IntegrationsServiceConfiguration;
 import com.linkedin.metadata.config.MonitorServiceConfiguration;
@@ -91,9 +93,15 @@ public class ConfigurationProvider {
   /** Ebean related configuration */
   private EbeanConfiguration ebean;
 
+  /** GraphQL Configurations */
+  private GraphQLConfiguration graphQL;
+
   /** Configuration for the integrations service. */
   private IntegrationsServiceConfiguration integrationsService;
 
   /** Configuration for the monitor service. */
   private MonitorServiceConfiguration monitorService;
+
+  /** Configuration related to datahub executors */
+  private ExecutorConfiguration executors;
 }

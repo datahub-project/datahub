@@ -14,6 +14,8 @@ jobs:
           exempt-protected-branches: true
           operations-per-run: 25
           days-before-branch-stale: 365
+          ignore-unknown-authors: true
+          default-recipient: anshbansal
           # (days when branch is noticed as stale)
           days-before-branch-delete: 0
           dry-run: false

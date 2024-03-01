@@ -6,6 +6,7 @@ import { useEntityRegistry } from '../../../useEntityRegistry';
 import { IconStyleType, PreviewType } from '../../Entity';
 import UrlButton from '../../shared/UrlButton';
 import { getRelatedEntitiesUrl } from '../utils';
+import { EntityMenuItems } from '../../shared/EntityDropdown/EntityMenuActions';
 
 export const Preview = ({
     urn,
@@ -16,6 +17,7 @@ export const Preview = ({
     parentNodes,
     previewType,
     domain,
+    headerDropdownItems,
 }: {
     urn: string;
     name: string;
@@ -25,6 +27,7 @@ export const Preview = ({
     parentNodes?: ParentNodesResult | null;
     previewType: PreviewType;
     domain?: Domain | undefined;
+    headerDropdownItems?: Set<EntityMenuItems>;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     return (
@@ -44,6 +47,7 @@ export const Preview = ({
             entityTitleSuffix={
                 <UrlButton href={getRelatedEntitiesUrl(entityRegistry, urn)}>View Related Entities</UrlButton>
             }
+            headerDropdownItems={headerDropdownItems}
         />
     );
 };

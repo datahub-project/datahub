@@ -63,10 +63,7 @@ const EntityTitle = styled.div`
     font-size: 16px;
     font-weight: 700;
     line-height: 20px;
-    color: ${REDESIGN_COLORS.LINK_HOVER_BLUE};
-    :hover {
-        text-decoration: underline;
-    }
+    color: ${REDESIGN_COLORS.TITLE_PURPLE};
 `;
 
 type SidebarStatsColumn = {

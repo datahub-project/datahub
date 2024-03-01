@@ -25,28 +25,29 @@ x-datahub-integrations-service-dev-head: &datahub-integrations-service-dev-head
 
 
 #################################
-# Monitors Service
+# Executor Service
 #################################
-x-datahub-monitors-service: &datahub-monitors-service
-  hostname: datahub-monitors-service
-  image: ${DATAHUB_MONITORS_IMAGE:-${DATAHUB_REPO:-795586375822.dkr.ecr.us-west-2.amazonaws.com}/datahub-monitors-service}:${DATAHUB_MONITORS_VERSION:-head}
+x-datahub-executor: &datahub-executor
+  hostname: datahub-executor
+  image: ${DATAHUB_EXECUTOR_IMAGE:-${DATAHUB_REPO:-795586375822.dkr.ecr.us-west-2.amazonaws.com}/datahub-executor}:${DATAHUB_EXECUTOR_VERSION:-head}
   ports:
-    - ${DATAHUB_MAPPED_MONITORS_PORT:-9004}:9004
-  env_file: datahub-monitors-service/env/docker.env
+    - ${DATAHUB_MAPPED_EXECUTOR_PORT:-9004}:9004
+  env_file: datahub-executor/env/docker.env
 
-x-datahub-monitors-service-dev: &datahub-monitors-service-dev
-  <<: *datahub-monitors-service
-  image: ${DATAHUB_MONITORS_IMAGE:-${DATAHUB_REPO:-795586375822.dkr.ecr.us-west-2.amazonaws.com}/datahub-monitors-service}:${DATAHUB_MONITORS_VERSION:-debug}
+x-datahub-executor-dev: &datahub-executor-dev
+  <<: *datahub-executor
+  image: ${DATAHUB_EXECUTOR_IMAGE:-${DATAHUB_REPO:-795586375822.dkr.ecr.us-west-2.amazonaws.com}/datahub-executor}:${DATAHUB_EXECUTOR_VERSION:-debug}
   environment:
-    PYTHONPATH: "/metadata-ingestion/src:/datahub-monitors-service/src/datahub_monitors:$${PYTHONPATH}"
+    PYTHONPATH: "/metadata-ingestion/src:/datahub-executor/src/datahub_executor:$${PYTHONPATH}"
   volumes:
-    - ./datahub-monitors-service/start.sh:/start_datahub_monitors_service.sh
+    - ./datahub-executor/start.sh:/start_datahub_executor.sh
+    - ./datahub-executor/ingestion-pipeline-config.yaml:/etc/datahub-executor/ingestion-pipeline-config.yaml
     - ../../metadata-ingestion/src:/metadata-ingestion/src
-    - ../../datahub-monitors-service:/datahub-monitors-service
+    - ../../datahub-executor:/datahub-executor
 
-x-datahub-monitors-service-dev-head: &datahub-monitors-service-dev-head
-  <<: *datahub-monitors-service-dev
-  image: ${DATAHUB_MONITORS_IMAGE:-${DATAHUB_REPO:-795586375822.dkr.ecr.us-west-2.amazonaws.com}/datahub-monitors-service}:${DATAHUB_MONITORS_VERSION:-head}
+x-datahub-executor-dev-head: &datahub-executor-dev-head
+  <<: *datahub-executor-dev
+  image: ${DATAHUB_EXECUTOR_IMAGE:-${DATAHUB_REPO:-795586375822.dkr.ecr.us-west-2.amazonaws.com}/datahub-executor}:${DATAHUB_EXECUTOR_VERSION:-head}
 
 services:
   #################################
@@ -71,23 +72,23 @@ services:
     profiles:
       - debug-pyservices
   #################################
-  # Monitors Service
+  # Executor Service
   #################################
-  datahub-monitors-quickstart-consumers:
-    <<: *datahub-monitors-service
+  datahub-executor-quickstart-consumers:
+    <<: *datahub-executor
     profiles:
       - quickstart-consumers
     depends_on:
       datahub-gms-quickstart-consumers:
         condition: service_healthy
-  datahub-monitors-quickstart-dev:
-    <<: *datahub-monitors-service-dev
+  datahub-executor-quickstart-dev:
+    <<: *datahub-executor-dev
     profiles:
       - debug
     depends_on:
       datahub-gms-debug:
         condition: service_healthy
-  datahub-monitors-quickstart-dev-head:
-    <<: *datahub-monitors-service-dev-head
+  datahub-executor-quickstart-dev-head:
+    <<: *datahub-executor-dev-head
     profiles:
       - debug-pyservices

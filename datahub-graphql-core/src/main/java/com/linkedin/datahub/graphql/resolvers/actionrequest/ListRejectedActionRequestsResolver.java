@@ -72,12 +72,12 @@ public class ListRejectedActionRequestsResolver
 
             final SearchResult searchResult =
                 _entityClient.filter(
+                    context.getOperationContext(),
                     ACTION_REQUEST_ENTITY_NAME,
                     filter,
                     sortCriterion,
                     start,
-                    count,
-                    context.getAuthentication());
+                    count);
 
             final Map<Urn, Entity> entities =
                 _entityClient.batchGet(

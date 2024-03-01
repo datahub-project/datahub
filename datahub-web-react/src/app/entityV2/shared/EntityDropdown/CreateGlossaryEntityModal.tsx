@@ -138,7 +138,7 @@ function CreateGlossaryEntityModal(props: Props) {
 
     return (
         <Modal
-            title={`Create ${entityRegistry.getEntityName(entityType)}`}
+            title={`Create ${selectedParentUrn ? entityRegistry.getEntityName(entityType) : 'Glossary'}`}
             visible
             onCancel={onClose}
             footer={

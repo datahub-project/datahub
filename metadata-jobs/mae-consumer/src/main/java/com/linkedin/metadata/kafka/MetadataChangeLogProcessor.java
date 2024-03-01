@@ -15,6 +15,7 @@ import com.linkedin.metadata.kafka.hook.form.FormAssignmentHook;
 import com.linkedin.metadata.kafka.hook.incident.IncidentsSummaryHook;
 import com.linkedin.metadata.kafka.hook.ingestion.IngestionSchedulerHook;
 import com.linkedin.metadata.kafka.hook.siblings.SiblingAssociationHook;
+import com.linkedin.metadata.kafka.hook.subscription.OwnerSubscriptionHook;
 import com.linkedin.metadata.kafka.hook.test.MetadataTestHook;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeLog;
@@ -43,11 +44,13 @@ import org.springframework.stereotype.Component;
   KafkaEventConsumerFactory.class,
   SiblingAssociationHook.class,
   FormAssignmentHook.class,
+  IncidentsSummaryHook.class,
   SiblingAssociationHook.class,
   MetadataTestHook.class,
   AssertionsSummaryHook.class,
   IncidentsSummaryHook.class,
-  AssertionActionsHook.class
+  AssertionActionsHook.class,
+  OwnerSubscriptionHook.class
 })
 @EnableKafka
 public class MetadataChangeLogProcessor {
@@ -63,6 +66,11 @@ public class MetadataChangeLogProcessor {
             .filter(MetadataChangeLogHook::isEnabled)
             .sorted(Comparator.comparing(MetadataChangeLogHook::executionOrder))
             .collect(Collectors.toList());
+    log.info(
+        "Enabled hooks: {}",
+        this.hooks.stream()
+            .map(hook -> hook.getClass().getSimpleName())
+            .collect(Collectors.toList()));
     this.hooks.forEach(MetadataChangeLogHook::init);
   }
 

@@ -1,6 +1,8 @@
 package com.linkedin.datahub.graphql.resolvers.domain;
 
 import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
 import static org.testng.Assert.*;
 
 import com.datahub.authentication.Authentication;
@@ -24,6 +26,7 @@ import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchResultMetadata;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collections;
 import java.util.stream.Collectors;
 import org.mockito.Mockito;
@@ -50,6 +53,7 @@ public class DomainEntitiesResolverTest {
 
     Mockito.when(
             mockClient.searchAcrossEntities(
+                any(),
                 Mockito.eq(
                     SEARCHABLE_ENTITY_TYPES.stream()
                         .map(EntityTypeMapper::getName)
@@ -65,8 +69,7 @@ public class DomainEntitiesResolverTest {
                 Mockito.eq(0),
                 Mockito.eq(20),
                 Mockito.eq(null),
-                Mockito.eq(null),
-                Mockito.any(Authentication.class)))
+                Mockito.eq(null)))
         .thenReturn(
             new SearchResult()
                 .setFrom(0)
@@ -84,6 +87,7 @@ public class DomainEntitiesResolverTest {
     // Execute resolver
     QueryContext mockContext = Mockito.mock(QueryContext.class);
     Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
+    Mockito.when(mockContext.getOperationContext()).thenReturn(mock(OperationContext.class));
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_INPUT);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);

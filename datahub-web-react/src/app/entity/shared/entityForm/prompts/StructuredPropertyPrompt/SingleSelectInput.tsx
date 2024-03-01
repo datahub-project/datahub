@@ -6,12 +6,14 @@ import { getStructuredPropertyValue } from '../../../utils';
 import ValueDescription from './ValueDescription';
 import { AllowedValue } from '../../../../../../types.generated';
 import DropdownLabel from './DropdownLabel';
+import { useEntityFormContext } from '../../EntityFormContext';
 
-const StyledRadio = styled(Radio)`
+const StyledRadio = styled(Radio) <{ displayBulkStyles?: boolean }>`
     display: block;
     .ant-radio-inner {
         border-color: ${ANTD_GRAY_V2[8]};
     }
+    ${(props) => props.displayBulkStyles && 'color: white;'}
 `;
 
 const DROPDOWN_STYLE = { minWidth: 320, maxWidth: 320, textAlign: 'left', fontSize: '14px' };
@@ -23,7 +25,11 @@ interface Props {
 }
 
 export default function SingleSelectInput({ selectSingleValue, allowedValues, selectedValues }: Props) {
-    return allowedValues.length > 5 ? (
+    const { prompt: { displayBulkPromptStyles } } = useEntityFormContext();
+
+    const shouldShowSelectDropdown = allowedValues.length > 5 || displayBulkPromptStyles;
+
+    return shouldShowSelectDropdown ? (
         <Select
             style={DROPDOWN_STYLE as any}
             placeholder="Select"
@@ -41,11 +47,15 @@ export default function SingleSelectInput({ selectSingleValue, allowedValues, se
             ))}
         </Select>
     ) : (
-        <Radio.Group value={selectedValues[0]} onChange={(e) => selectSingleValue(e.target.value)}>
+        <Radio.Group
+            value={selectedValues[0]}
+            onChange={(e) => selectSingleValue(e.target.value)}
+        >
             {allowedValues.map((allowedValue) => (
                 <StyledRadio
                     key={getStructuredPropertyValue(allowedValue.value)}
                     value={getStructuredPropertyValue(allowedValue.value)}
+                    displayBulkStyles={displayBulkPromptStyles}
                 >
                     {getStructuredPropertyValue(allowedValue.value)}
                     {allowedValue.description && <ValueDescription description={allowedValue.description} />}

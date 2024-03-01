@@ -75,20 +75,26 @@ public class BrowseV2Resolver implements DataFetcher<CompletableFuture<BrowseRes
                         + String.join(BROWSE_PATH_V2_DELIMITER, input.getPath())
                     : "";
             final Filter inputFilter = ResolverUtils.buildFilter(null, input.getOrFilters());
+            final Filter formFilter =
+                SearchUtils.getFormFilter(
+                    input.getFormFilter(), _formService, context.getAuthentication());
+            final Filter baseFilter =
+                formFilter != null
+                    ? SearchUtils.combineFilters(inputFilter, formFilter)
+                    : inputFilter;
 
             BrowseResultV2 browseResults =
                 _entityClient.browseV2(
+                    context.getOperationContext().withSearchFlags(flags -> searchFlags),
                     entityNames,
                     pathStr,
                     maybeResolvedView != null
                         ? SearchUtils.combineFilters(
-                            inputFilter, maybeResolvedView.getDefinition().getFilter())
-                        : inputFilter,
+                            baseFilter, maybeResolvedView.getDefinition().getFilter())
+                        : baseFilter,
                     sanitizedQuery,
                     start,
-                    count,
-                    context.getAuthentication(),
-                    searchFlags);
+                    count);
             return mapBrowseResults(browseResults);
           } catch (Exception e) {
             throw new RuntimeException("Failed to execute browse V2", e);

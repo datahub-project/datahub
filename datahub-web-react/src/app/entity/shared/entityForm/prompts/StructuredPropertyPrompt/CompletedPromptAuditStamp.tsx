@@ -1,7 +1,7 @@
 import { Typography } from 'antd';
 import React from 'react';
 import Icon from '@ant-design/icons';
-import styled from 'styled-components';
+import styled from 'styled-components/macro';
 import GreenCircleIcon from '../../../../../../images/greenCircleTwoTone.svg?react';
 import { ANTD_GRAY_V2 } from '../../../constants';
 

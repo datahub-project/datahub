@@ -9,7 +9,7 @@ import {
 } from '../../../../../types.generated';
 import StructuredPropertyPrompt from './StructuredPropertyPrompt/StructuredPropertyPrompt';
 import { useSubmitFormPromptMutation } from '../../../../../graphql/form.generated';
-import { useMutationUrn } from '../../EntityContext';
+import { useEntityContext, useMutationUrn } from '../../EntityContext';
 
 export const PromptWrapper = styled.div`
     background-color: white;
@@ -26,15 +26,17 @@ interface Props {
 }
 
 export default function Prompt({ promptNumber, prompt, field, associatedUrn }: Props) {
+    const { refetch } = useEntityContext();
     const [optimisticCompletedTimestamp, setOptimisticCompletedTimestamp] = useState<number | null>(null);
-    const urn = useMutationUrn();
     const [submitFormPrompt] = useSubmitFormPromptMutation();
+    const urn = useMutationUrn();
 
     function submitResponse(input: SubmitFormPromptInput, onSuccess: () => void) {
         submitFormPrompt({ variables: { urn: associatedUrn || urn, input } })
             .then(() => {
                 onSuccess();
                 setOptimisticCompletedTimestamp(Date.now());
+                refetch();
             })
             .catch(() => {
                 message.error('Unknown error while submitting form response');

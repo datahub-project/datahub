@@ -17,3 +17,8 @@ export function useIsNestedDomainsEnabled() {
     const appConfig = useAppConfig();
     return appConfig.config.featureFlags.nestedDomainsEnabled;
 }
+
+export function useIsTaskCenterEnabled() {
+    const appConfig = useAppConfig();
+    return appConfig.config.featureFlags.taskCenterEnabled;
+}

@@ -8,7 +8,7 @@ import com.linkedin.common.urn.DataPlatformUrn;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.EbeanTestUtils;
-import com.linkedin.metadata.aspect.batch.MCPBatchItem;
+import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.aspect.patch.builder.DatasetPropertiesPatchBuilder;
 import com.linkedin.metadata.config.EbeanConfiguration;
 import com.linkedin.metadata.config.PreProcessHooks;
@@ -50,7 +50,7 @@ public class DefaultAspectsUtilTest {
     preProcessHooks.setUiEnabled(true);
     EntityServiceImpl entityServiceImpl =
         new EntityServiceImpl(
-            aspectDao, mockProducer, _testEntityRegistry, true, null, preProcessHooks, false);
+            aspectDao, mockProducer, _testEntityRegistry, true, preProcessHooks, false);
 
     MetadataChangeProposal proposal1 =
         new DatasetPropertiesPatchBuilder()
@@ -71,7 +71,7 @@ public class DefaultAspectsUtilTest {
                 entityServiceImpl,
                 false)
             .stream()
-            .map(MCPBatchItem::getMetadataChangeProposal)
+            .map(MCPItem::getMetadataChangeProposal)
             .collect(Collectors.toList());
     // proposals for key aspect, browsePath, browsePathV2, dataPlatformInstance
     Assert.assertEquals(proposalList.size(), 4);

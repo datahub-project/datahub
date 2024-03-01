@@ -1,8 +1,9 @@
 import React from 'react';
 import styled from 'styled-components/macro';
+import { Typography } from 'antd';
 import { GlossaryNodeFragment } from '../../graphql/fragments.generated';
 import { ChildGlossaryTermFragment } from '../../graphql/glossaryNode.generated';
-import { GlossaryNode, GlossaryTerm } from '../../types.generated';
+import { EntityType, GlossaryNode, GlossaryTerm } from '../../types.generated';
 import { useEntityRegistry } from '../useEntityRegistry';
 import GlossaryEntityItem from './GlossaryEntityItem';
 
@@ -15,12 +16,23 @@ const GlossaryEntityWrapper = styled.div<GlossaryEntityWrapperProps>`
     height: ${(props) => (props.termsTotal ? '70vh' : '80vh')};
 `;
 
-const EntitiesWrapper = styled.div`
+interface EntitiesWrapperProps {
+    type: EntityType;
+}
+
+const EntitiesWrapper = styled.div<EntitiesWrapperProps>`
     display: flex;
     overflow: auto;
-    padding: 25px 29px;
     flex-wrap: wrap;
-    gap: 14px;
+    padding: ${(props) => (props.type === EntityType.GlossaryNode ? '25px 29px' : 0)};
+    gap: ${(props) => (props.type === EntityType.GlossaryNode ? '14px' : 'unset')};
+`;
+
+const EntityTitle = styled(Typography)`
+    margin: 11px 0 12px 19px;
+    font-size: 12px;
+    font-weight: 400;
+    color: #434863;
 `;
 
 interface Props {
@@ -35,8 +47,9 @@ function GlossaryEntitiesList(props: Props) {
 
     return (
         <GlossaryEntityWrapper termsTotal={termsTotal}>
-            <EntitiesWrapper>
-                {nodes.map((node, index) => (
+            <EntitiesWrapper type={nodes[0]?.type}>
+                {nodes[0]?.type !== EntityType.GlossaryNode && <EntityTitle>Glossary Terms</EntityTitle>}
+                {nodes.map((node) => (
                     <GlossaryEntityItem
                         key={node.urn}
                         name={node.properties?.name || ''}
@@ -44,16 +57,15 @@ function GlossaryEntitiesList(props: Props) {
                         urn={node.urn}
                         type={node.type}
                         count={(node as GlossaryNodeFragment).children?.total}
-                        index={index}
+                        displayProperties={node.displayProperties}
                     />
                 ))}
-                {terms.map((term, index) => (
+                {terms.map((term) => (
                     <GlossaryEntityItem
                         key={term.urn}
                         name={entityRegistry.getDisplayName(term.type, term)}
                         urn={term.urn}
                         type={term.type}
-                        index={index}
                     />
                 ))}
             </EntitiesWrapper>

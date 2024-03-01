@@ -19,6 +19,8 @@ import DataProductSection from '../shared/containers/profile/sidebar/DataProduct
 import { TYPE_ICON_CLASS_NAME } from '../shared/components/subtypes';
 import { isOutputPort } from '../shared/utils';
 
+const headerDropdownItems = new Set([EntityMenuItems.UPDATE_DEPRECATION]);
+
 /**
  * Definition of the DataHub MlModelGroup entity.
  */
@@ -74,7 +76,7 @@ export class MLModelGroupEntity implements Entity<MlModelGroup> {
             entityType={EntityType.MlmodelGroup}
             useEntityQuery={useGetMlModelGroupQuery}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
-            headerDropdownItems={new Set([EntityMenuItems.UPDATE_DEPRECATION])}
+            headerDropdownItems={headerDropdownItems}
             tabs={[
                 {
                     name: 'Models',
@@ -112,7 +114,7 @@ export class MLModelGroupEntity implements Entity<MlModelGroup> {
     );
 
     renderPreview = (_: PreviewType, data: MlModelGroup) => {
-        return <Preview group={data} />;
+        return <Preview group={data} headerDropdownItems={headerDropdownItems} />;
     };
 
     renderSearch = (result: SearchResult) => {
@@ -123,6 +125,7 @@ export class MLModelGroupEntity implements Entity<MlModelGroup> {
                 degree={(result as any).degree}
                 paths={(result as any).paths}
                 isOutputPort={isOutputPort(result)}
+                headerDropdownItems={headerDropdownItems}
             />
         );
     };

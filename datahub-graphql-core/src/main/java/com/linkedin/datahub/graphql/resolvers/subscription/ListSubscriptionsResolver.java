@@ -4,7 +4,6 @@ import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.*;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
 import com.datahub.authentication.Authentication;
-import com.datahub.subscription.SubscriptionService;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -13,6 +12,7 @@ import com.linkedin.datahub.graphql.generated.ListSubscriptionsInput;
 import com.linkedin.datahub.graphql.generated.ListSubscriptionsResult;
 import com.linkedin.datahub.graphql.types.subscription.mappers.DataHubSubscriptionMapper;
 import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.service.SubscriptionService;
 import com.linkedin.subscription.SubscriptionInfo;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;

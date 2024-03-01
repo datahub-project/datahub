@@ -22,7 +22,7 @@ const getVolumeTypeDescription = (volumeType: VolumeAssertionType) => {
             return 'has';
         case VolumeAssertionType.RowCountChange:
         case VolumeAssertionType.IncrementingSegmentRowCountChange:
-            return 'grows by';
+            return 'should grow by';
         default:
             throw new Error(`Unknown volume type ${volumeType}`);
     }
@@ -31,9 +31,9 @@ const getVolumeTypeDescription = (volumeType: VolumeAssertionType) => {
 const getOperatorDescription = (operator: AssertionStdOperator) => {
     switch (operator) {
         case AssertionStdOperator.GreaterThanOrEqualTo:
-            return 'greater than or equal to';
+            return 'at least';
         case AssertionStdOperator.LessThanOrEqualTo:
-            return 'less than or equal to';
+            return 'at most';
         case AssertionStdOperator.Between:
             return 'between';
         default:
@@ -69,8 +69,8 @@ export const VolumeAssertionDescription = ({ assertionInfo }: Props) => {
     const volumeType = assertionInfo.type;
     const volumeTypeInfo = getVolumeTypeInfo(assertionInfo);
     const volumeTypeDescription = getVolumeTypeDescription(volumeType);
-    const operatorDescription = getOperatorDescription(volumeTypeInfo.operator);
-    const parameterDescription = getParameterDescription(volumeTypeInfo.parameters);
+    const operatorDescription = volumeTypeInfo ? getOperatorDescription(volumeTypeInfo.operator) : '';
+    const parameterDescription = volumeTypeInfo ? getParameterDescription(volumeTypeInfo.parameters) : '';
     const valueChangeTypeDescription = getIsRowCountChange(volumeType)
         ? getValueChangeTypeDescription((volumeTypeInfo as RowCountChange | IncrementingSegmentRowCountChange).type)
         : 'rows';

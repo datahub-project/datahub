@@ -31,6 +31,7 @@ import com.linkedin.test.TestResult;
 import com.linkedin.test.TestResultArray;
 import com.linkedin.test.TestResultType;
 import com.linkedin.test.TestResults;
+import io.datahubproject.metadata.context.OperationContext;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -106,6 +107,7 @@ public class TestEngine {
   }
 
   public TestEngine(
+      @Nonnull OperationContext systemOpContext,
       EntityService<?> entityService,
       TestFetcher testFetcher,
       TestDefinitionParser testDefinitionParser,
@@ -123,6 +125,7 @@ public class TestEngine {
     isPartialFetcher = testFetcher.isPartial();
     _testRefreshRunnable =
         new TestRefreshRunnable(
+            systemOpContext,
             testFetcher,
             testDefinitionParser,
             _testCache,
@@ -710,6 +713,7 @@ public class TestEngine {
   @RequiredArgsConstructor
   static class TestRefreshRunnable implements Runnable {
 
+    private final OperationContext systemOpContext;
     private final TestFetcher _testFetcher;
     private final TestDefinitionParser _testDefinitionParser;
     private final Map<Urn, TestDefinition> _testCache;
@@ -729,7 +733,8 @@ public class TestEngine {
 
         while (start < total) {
           try {
-            final TestFetcher.TestFetchResult testFetchResult = _testFetcher.fetch(start, count);
+            final TestFetcher.TestFetchResult testFetchResult =
+                _testFetcher.fetch(systemOpContext, start, count);
 
             addTestsToCache(newTestCache, newTestPerEntityCache, testFetchResult.getTests());
 

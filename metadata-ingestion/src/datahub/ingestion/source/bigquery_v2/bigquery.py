@@ -110,6 +110,7 @@ from datahub.metadata.schema_classes import (
     GlobalTagsClass,
     TagAssociationClass,
 )
+from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.utilities.file_backed_collections import FileBackedDict
 from datahub.utilities.hive_schema_to_avro import (
     HiveColumnToAvroConverter,
@@ -118,7 +119,6 @@ from datahub.utilities.hive_schema_to_avro import (
 from datahub.utilities.mapping import Constants
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.registries.domain_registry import DomainRegistry
-from datahub.utilities.sqlglot_lineage import SchemaResolver
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -484,9 +484,11 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
     ) -> MetadataWorkUnit:
         aspect = DataPlatformInstanceClass(
             platform=make_data_platform_urn(self.platform),
-            instance=make_dataplatform_instance_urn(self.platform, project_id)
-            if self.config.include_data_platform_instance
-            else None,
+            instance=(
+                make_dataplatform_instance_urn(self.platform, project_id)
+                if self.config.include_data_platform_instance
+                else None
+            ),
         )
         return MetadataChangeProposalWrapper(
             entityUrn=dataset_urn, aspect=aspect
@@ -539,11 +541,13 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             domain_config=self.config.domain,
             schema_container_key=schema_container_key,
             database_container_key=database_container_key,
-            external_url=BQ_EXTERNAL_DATASET_URL_TEMPLATE.format(
-                project=project_id, dataset=dataset
-            )
-            if self.config.include_external_url
-            else None,
+            external_url=(
+                BQ_EXTERNAL_DATASET_URL_TEMPLATE.format(
+                    project=project_id, dataset=dataset
+                )
+                if self.config.include_external_url
+                else None
+            ),
             tags=tags_joined,
         )
 
@@ -1071,19 +1075,27 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             name=datahub_dataset_name.get_table_display_name(),
             description=table.comment,
             qualifiedName=str(datahub_dataset_name),
-            created=TimeStamp(time=int(table.created.timestamp() * 1000))
-            if table.created is not None
-            else None,
-            lastModified=TimeStamp(time=int(table.last_altered.timestamp() * 1000))
-            if table.last_altered is not None
-            else TimeStamp(time=int(table.created.timestamp() * 1000))
-            if table.created is not None
-            else None,
-            externalUrl=BQ_EXTERNAL_TABLE_URL_TEMPLATE.format(
-                project=project_id, dataset=dataset_name, table=table.name
-            )
-            if self.config.include_external_url
-            else None,
+            created=(
+                TimeStamp(time=int(table.created.timestamp() * 1000))
+                if table.created is not None
+                else None
+            ),
+            lastModified=(
+                TimeStamp(time=int(table.last_altered.timestamp() * 1000))
+                if table.last_altered is not None
+                else (
+                    TimeStamp(time=int(table.created.timestamp() * 1000))
+                    if table.created is not None
+                    else None
+                )
+            ),
+            externalUrl=(
+                BQ_EXTERNAL_TABLE_URL_TEMPLATE.format(
+                    project=project_id, dataset=dataset_name, table=table.name
+                )
+                if self.config.include_external_url
+                else None
+            ),
         )
         if custom_properties:
             dataset_properties.customProperties.update(custom_properties)

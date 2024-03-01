@@ -1,6 +1,12 @@
 query getDataJob($urn: String!) {
     dataJob(urn: $urn) {
         ...dataJobFields
+        share {
+            ...shareFields
+        }
+        privileges {
+            ...entityPrivileges
+        }
         runs(start: 0, count: 20) {
             count
             start
@@ -8,6 +14,14 @@ query getDataJob($urn: String!) {
         }
         autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
             ...autoRenderAspectFields
+        }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
+        forms {
+            ...formsFields
         }
         termProposals: proposals(type: TERM_ASSOCIATION) {
             ...proposalsFragment

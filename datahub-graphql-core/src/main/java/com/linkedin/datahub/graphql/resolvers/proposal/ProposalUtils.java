@@ -3,7 +3,6 @@ package com.linkedin.datahub.graphql.resolvers.proposal;
 import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
 import static com.linkedin.metadata.Constants.*;
 
-import com.datahub.authentication.Authentication;
 import com.datahub.authorization.AuthorizedActors;
 import com.datahub.authorization.ConjunctivePrivilegeGroup;
 import com.datahub.authorization.DisjunctivePrivilegeGroup;
@@ -55,6 +54,7 @@ import com.linkedin.schema.EditableSchemaMetadata;
 import com.linkedin.schema.SchemaProposal;
 import com.linkedin.schema.SchemaProposalArray;
 import com.linkedin.schema.SchemaProposals;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -867,11 +867,11 @@ public class ProposalUtils {
 
   @SneakyThrows
   public static Boolean isTagAlreadyProposedToTarget(
+      @Nonnull OperationContext opContext,
       Urn labelUrn,
       Urn targetUrn,
       String subResource,
-      EntityClient entityClient,
-      Authentication authentication) {
+      EntityClient entityClient) {
     Filter filter =
         createActionRequestFilter(
             ActionRequestType.TAG_ASSOCIATION,
@@ -879,7 +879,7 @@ public class ProposalUtils {
             targetUrn.toString(),
             subResource);
 
-    return getActionRequestInfosFromFilter(filter, authentication, entityClient)
+    return getActionRequestInfosFromFilter(opContext, filter, entityClient)
             .filter(
                 actionRequestInfo ->
                     (subResource != null
@@ -894,11 +894,11 @@ public class ProposalUtils {
 
   @SneakyThrows
   public static Boolean isTermAlreadyProposedToTarget(
+      @Nonnull OperationContext opContext,
       Urn labelUrn,
       Urn targetUrn,
       String subResource,
-      EntityClient entityClient,
-      Authentication authentication) {
+      EntityClient entityClient) {
     Filter filter =
         createActionRequestFilter(
             ActionRequestType.TERM_ASSOCIATION,
@@ -906,7 +906,7 @@ public class ProposalUtils {
             targetUrn.toString(),
             subResource);
 
-    return getActionRequestInfosFromFilter(filter, authentication, entityClient)
+    return getActionRequestInfosFromFilter(opContext, filter, entityClient)
             .filter(
                 actionRequestInfo ->
                     (subResource != null
@@ -924,17 +924,17 @@ public class ProposalUtils {
   }
 
   public static Stream<ActionRequestInfo> getActionRequestInfosFromFilter(
-      Filter filter, Authentication authentication, EntityClient entityClient)
+      @Nonnull OperationContext opContext, Filter filter, EntityClient entityClient)
       throws RemoteInvocationException {
     final SearchResult searchResult =
-        entityClient.filter(ACTION_REQUEST_ENTITY_NAME, filter, null, 0, 20, authentication);
+        entityClient.filter(opContext, ACTION_REQUEST_ENTITY_NAME, filter, null, 0, 20);
     final Map<Urn, Entity> entities =
         entityClient.batchGet(
             new HashSet<>(
                 searchResult.getEntities().stream()
                     .map(result -> result.getEntity())
                     .collect(Collectors.toList())),
-            authentication);
+            opContext.getAuthentication());
 
     return entities.values().stream()
         .map(

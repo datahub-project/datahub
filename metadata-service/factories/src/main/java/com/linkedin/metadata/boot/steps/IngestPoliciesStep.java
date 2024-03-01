@@ -27,6 +27,7 @@ import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.policy.DataHubPolicyInfo;
+import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.util.Collections;
@@ -45,6 +46,7 @@ public class IngestPoliciesStep implements BootstrapStep {
   private static final String POLICY_ENTITY_NAME = "dataHubPolicy";
   private static final String POLICY_INFO_ASPECT_NAME = "dataHubPolicyInfo";
 
+  private final OperationContext systemOpContext;
   private final EntityRegistry _entityRegistry;
   private final EntityService<?> _entityService;
   private final EntitySearchService _entitySearchService;
@@ -113,7 +115,7 @@ public class IngestPoliciesStep implements BootstrapStep {
     // If search index for policies is empty, update the policy index with the ingested policies
     // from previous step.
     // Directly update the ES index, does not produce MCLs
-    if (_entitySearchService.docCount(Constants.POLICY_ENTITY_NAME) == 0) {
+    if (_entitySearchService.docCount(systemOpContext, Constants.POLICY_ENTITY_NAME) == 0) {
       updatePolicyIndex();
     }
     log.info("Successfully ingested default access policies.");

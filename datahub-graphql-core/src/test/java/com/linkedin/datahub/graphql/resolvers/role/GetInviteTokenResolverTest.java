@@ -9,6 +9,7 @@ import com.datahub.authentication.invite.InviteTokenService;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.GetInviteTokenInput;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -19,13 +20,15 @@ public class GetInviteTokenResolverTest {
   private GetInviteTokenResolver _resolver;
   private DataFetchingEnvironment _dataFetchingEnvironment;
   private Authentication _authentication;
+  private OperationContext opContext;
 
   @BeforeMethod
   public void setupTest() throws Exception {
     _inviteTokenService = mock(InviteTokenService.class);
     _dataFetchingEnvironment = mock(DataFetchingEnvironment.class);
     _authentication = mock(Authentication.class);
-
+    opContext = mock(OperationContext.class);
+    when(opContext.getAuthentication()).thenReturn(_authentication);
     _resolver = new GetInviteTokenResolver(_inviteTokenService);
   }
 
@@ -42,7 +45,7 @@ public class GetInviteTokenResolverTest {
     QueryContext mockContext = getMockAllowContext();
     when(_dataFetchingEnvironment.getContext()).thenReturn(mockContext);
     when(mockContext.getAuthentication()).thenReturn(_authentication);
-    when(_inviteTokenService.getInviteToken(any(), eq(false), eq(_authentication)))
+    when(_inviteTokenService.getInviteToken(any(OperationContext.class), any(), eq(false)))
         .thenReturn(INVITE_TOKEN_STRING);
 
     GetInviteTokenInput input = new GetInviteTokenInput();

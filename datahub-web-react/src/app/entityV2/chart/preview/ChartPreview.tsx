@@ -20,6 +20,7 @@ import { IconStyleType } from '../../Entity';
 import { PopularityTier } from '../../shared/containers/profile/sidebar/shared/utils';
 import { summaryHasStats } from '../../shared/utils';
 import { ChartStatsSummary as ChartStatsSummaryView } from '../shared/ChartStatsSummary';
+import { EntityMenuItems } from '../../shared/EntityDropdown/EntityMenuActions';
 
 export const ChartPreview = ({
     urn,
@@ -50,6 +51,7 @@ export const ChartPreview = ({
     tier,
     upstreamTotal,
     downstreamTotal,
+    headerDropdownItems,
 }: {
     urn: string;
     platform?: string;
@@ -79,6 +81,7 @@ export const ChartPreview = ({
     tier?: PopularityTier;
     upstreamTotal?: number;
     downstreamTotal?: number;
+    headerDropdownItems?: Set<EntityMenuItems>;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     const hasStats = summaryHasStats(statsSummary);
@@ -127,6 +130,7 @@ export const ChartPreview = ({
             tier={tier}
             upstreamTotal={upstreamTotal}
             downstreamTotal={downstreamTotal}
+            headerDropdownItems={headerDropdownItems}
         />
     );
 };

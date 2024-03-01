@@ -63,12 +63,12 @@ public class DataJobRunsResolver
             final SortCriterion sortCriterion = buildTaskRunsSortCriterion();
             final SearchResult gmsResult =
                 _entityClient.filter(
+                    context.getOperationContext(),
                     Constants.DATA_PROCESS_INSTANCE_ENTITY_NAME,
                     filter,
                     sortCriterion,
                     start,
-                    count,
-                    context.getAuthentication());
+                    count);
             final List<Urn> dataProcessInstanceUrns =
                 gmsResult.getEntities().stream()
                     .map(SearchEntity::getEntity)

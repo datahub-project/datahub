@@ -1,6 +1,8 @@
 package com.linkedin.datahub.graphql.types.glossary;
 
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.Constants.FORMS_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTIES_ASPECT_NAME;
 
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
@@ -29,7 +31,10 @@ public class GlossaryNodeType
           GLOSSARY_NODE_KEY_ASPECT_NAME,
           GLOSSARY_NODE_INFO_ASPECT_NAME,
           OWNERSHIP_ASPECT_NAME,
-          DISPLAY_PROPERTIES_ASPECT_NAME);
+          STRUCTURED_PROPERTIES_ASPECT_NAME,
+          FORMS_ASPECT_NAME,
+          DISPLAY_PROPERTIES_ASPECT_NAME,
+          SHARE_ASPECT_NAME);
 
   private final EntityClient _entityClient;
 

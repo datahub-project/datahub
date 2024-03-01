@@ -18,7 +18,7 @@ import com.linkedin.datahub.graphql.resolvers.mutate.AddTagsResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
-import com.linkedin.metadata.entity.ebean.batch.MCPUpsertBatchItem;
+import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletionException;
@@ -221,7 +221,7 @@ public class AddTagsResolverTest {
 
   @Test
   public void testGetEntityClientException() throws Exception {
-    EntityService<MCPUpsertBatchItem> mockService = getMockEntityService();
+    EntityService<ChangeItemImpl> mockService = getMockEntityService();
 
     Mockito.doThrow(RuntimeException.class)
         .when(mockService)

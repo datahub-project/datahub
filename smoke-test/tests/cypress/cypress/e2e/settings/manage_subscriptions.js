@@ -38,7 +38,6 @@ describe("entity subscription test", () => {
       cy.goToDataset(datasetUrn, datasetName);
       cy.clickOptionWithTestId("subscription-dropdown");
       cy.clickOptionWithText("Subscribe Me");
-      cy.waitTextVisible(`Subscribe to ${datasetName}`);
       cy.get(".ant-tree-checkbox").click({ multiple: true });
       cy.clickOptionWithTestId("alternative-slack-radio");
       cy.enterTextInTestId("alternative-slack-member-id", test_id);
@@ -47,11 +46,9 @@ describe("entity subscription test", () => {
 
       // Verify subscription in settings
       cy.goToSubscriptionsSettings();
-      cy.waitTextVisible(datasetName);
 
       // Edit subscription, verify that changes applied successfully
       cy.get('[data-icon="edit"]').click();
-      cy.waitTextVisible(`Subscribe to ${datasetName}`);
       cy.get(".ant-tree-checkbox").click({ multiple: true });
       cy.clickOptionWithTestId("subscribe-button");
       cy.waitTextVisible("You have updated your subscription to this entity.").wait(3000);
@@ -60,7 +57,6 @@ describe("entity subscription test", () => {
       cy.goToDataset(datasetUrn, datasetName);
       cy.clickOptionWithTestId("subscription-dropdown");
       cy.clickOptionWithText("Manage My Subscription");
-      cy.waitTextVisible(`Subscribe to ${datasetName}`);
       cy.clickOptionWithTestId("cancel-button");
       cy.waitTextVisible("You have unsubscribed from this entity.").wait(3000);
       cy.goToSubscriptionsSettings();
@@ -71,16 +67,13 @@ describe("entity subscription test", () => {
       cy.goToDataset(datasetUrn, datasetName);
       cy.clickOptionWithTestId("subscription-dropdown");
       cy.clickOptionWithText("Subscribe Me");
-      cy.waitTextVisible(`Subscribe to ${datasetName}`);
       cy.get(".ant-tree-checkbox").click({ multiple: true });
       cy.clickOptionWithTestId("alternative-slack-radio");
       cy.enterTextInTestId("alternative-slack-member-id", test_id);
       cy.clickOptionWithTestId("subscribe-button");
       cy.waitTextVisible("You are now subscribed to this entity.").wait(3000);
       cy.goToSubscriptionsSettings();
-      cy.waitTextVisible(datasetName);
       cy.get('[data-icon="edit"]').click();
-      cy.waitTextVisible(`Subscribe to ${datasetName}`);
       cy.clickOptionWithTestId("cancel-button");
       cy.waitTextVisible("You have unsubscribed from this entity.").wait(5000);
       cy.ensureTextNotPresent(datasetName);

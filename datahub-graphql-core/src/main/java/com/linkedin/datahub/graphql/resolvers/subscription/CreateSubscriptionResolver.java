@@ -5,13 +5,13 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import static com.linkedin.datahub.graphql.resolvers.subscription.SubscriptionResolverUtils.*;
 
 import com.datahub.authentication.Authentication;
-import com.datahub.subscription.SubscriptionService;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.CreateSubscriptionInput;
 import com.linkedin.datahub.graphql.generated.DataHubSubscription;
 import com.linkedin.datahub.graphql.types.subscription.mappers.DataHubSubscriptionMapper;
+import com.linkedin.metadata.service.SubscriptionService;
 import com.linkedin.subscription.EntityChangeDetailsArray;
 import com.linkedin.subscription.SubscriptionInfo;
 import com.linkedin.subscription.SubscriptionNotificationConfig;

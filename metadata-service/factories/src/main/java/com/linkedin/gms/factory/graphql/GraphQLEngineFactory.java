@@ -7,7 +7,6 @@ import com.datahub.authentication.proposal.ProposalService;
 import com.datahub.authentication.token.StatefulTokenService;
 import com.datahub.authentication.user.NativeUserService;
 import com.datahub.authorization.role.RoleService;
-import com.datahub.subscription.SubscriptionService;
 import com.linkedin.datahub.graphql.GmsGraphQLEngine;
 import com.linkedin.datahub.graphql.GmsGraphQLEngineArgs;
 import com.linkedin.datahub.graphql.GraphQLEngine;
@@ -43,7 +42,10 @@ import com.linkedin.metadata.service.LineageService;
 import com.linkedin.metadata.service.MonitorService;
 import com.linkedin.metadata.service.OwnershipTypeService;
 import com.linkedin.metadata.service.QueryService;
+import com.linkedin.metadata.service.RestrictedService;
 import com.linkedin.metadata.service.SettingsService;
+import com.linkedin.metadata.service.ShareService;
+import com.linkedin.metadata.service.SubscriptionService;
 import com.linkedin.metadata.service.ViewService;
 import com.linkedin.metadata.test.TestEngine;
 import com.linkedin.metadata.timeline.TimelineService;
@@ -85,15 +87,15 @@ public class GraphQLEngineFactory {
 
   @Autowired
   @Qualifier("graphClient")
-  private GraphClient _graphClient;
+  private GraphClient graphClient;
 
   @Autowired
   @Qualifier("usageClient")
-  private UsageClient _usageClient;
+  private UsageClient usageClient;
 
   @Autowired
   @Qualifier("entityService")
-  private EntityService<?> _entityService;
+  private EntityService<?> entityService;
 
   @Autowired
   @Qualifier("entitySearchService")
@@ -101,27 +103,27 @@ public class GraphQLEngineFactory {
 
   @Autowired
   @Qualifier("graphService")
-  private GraphService _graphService;
+  private GraphService graphService;
 
   @Autowired
   @Qualifier("siblingGraphService")
-  private SiblingGraphService _siblingGraphService;
+  private SiblingGraphService siblingGraphService;
 
   @Autowired
   @Qualifier("timeseriesAspectService")
-  private TimeseriesAspectService _timeseriesAspectService;
+  private TimeseriesAspectService timeseriesAspectService;
 
   @Autowired
   @Qualifier("recommendationsService")
-  private RecommendationsService _recommendationsService;
+  private RecommendationsService recommendationsService;
 
   @Autowired
   @Qualifier("dataHubTokenService")
-  private StatefulTokenService _statefulTokenService;
+  private StatefulTokenService statefulTokenService;
 
   @Autowired
   @Qualifier("dataHubSecretService")
-  private SecretService _secretService;
+  private SecretService secretService;
 
   @Autowired
   @Qualifier("testEngine")
@@ -129,27 +131,27 @@ public class GraphQLEngineFactory {
 
   @Autowired
   @Qualifier("entityRegistry")
-  private EntityRegistry _entityRegistry;
+  private EntityRegistry entityRegistry;
 
   @Autowired
   @Qualifier("configurationProvider")
-  private ConfigurationProvider _configProvider;
+  private ConfigurationProvider configProvider;
 
   @Autowired
   @Qualifier("gitVersion")
-  private GitVersion _gitVersion;
+  private GitVersion gitVersion;
 
   @Autowired
   @Qualifier("timelineService")
-  private TimelineService _timelineService;
+  private TimelineService timelineService;
 
   @Autowired
   @Qualifier("nativeUserService")
-  private NativeUserService _nativeUserService;
+  private NativeUserService nativeUserService;
 
   @Autowired
   @Qualifier("groupService")
-  private GroupService _groupService;
+  private GroupService groupService;
 
   // SaaS only
   @Autowired
@@ -158,43 +160,47 @@ public class GraphQLEngineFactory {
 
   @Autowired
   @Qualifier("roleService")
-  private RoleService _roleService;
+  private RoleService roleService;
 
   @Autowired
   @Qualifier("inviteTokenService")
-  private InviteTokenService _inviteTokenService;
+  private InviteTokenService inviteTokenService;
 
   @Autowired
   @Qualifier("postService")
-  private PostService _postService;
+  private PostService postService;
 
   @Autowired
   @Qualifier("viewService")
-  private ViewService _viewService;
+  private ViewService viewService;
 
   @Autowired
   @Qualifier("ownerShipTypeService")
-  private OwnershipTypeService _ownershipTypeService;
+  private OwnershipTypeService ownershipTypeService;
 
   @Autowired
   @Qualifier("settingsService")
-  private SettingsService _settingsService;
+  private SettingsService settingsService;
 
   @Autowired
   @Qualifier("lineageService")
-  private LineageService _lineageService;
+  private LineageService lineageService;
 
   @Autowired
   @Qualifier("queryService")
-  private QueryService _queryService;
+  private QueryService queryService;
 
   @Autowired
   @Qualifier("dataProductService")
-  private DataProductService _dataProductService;
+  private DataProductService dataProductService;
 
   @Autowired
   @Qualifier("formService")
-  private FormService _formService;
+  private FormService formService;
+
+  @Autowired
+  @Qualifier("restrictedService")
+  private RestrictedService restrictedService;
 
   // SaaS only
   @Autowired
@@ -217,54 +223,62 @@ public class GraphQLEngineFactory {
   @Qualifier("subscriptionService")
   private SubscriptionService _subscriptionService;
 
+  @Autowired
+  @Qualifier("shareService")
+  private ShareService _shareService;
+
   @Value("${platformAnalytics.enabled}") // TODO: Migrate to DATAHUB_ANALYTICS_ENABLED
   private Boolean isAnalyticsEnabled;
 
   @Bean(name = "graphQLEngine")
   @Nonnull
-  protected GraphQLEngine getInstance(
+  protected GraphQLEngine graphQLEngine(
       @Qualifier("entityClient") final EntityClient entityClient,
       @Qualifier("systemEntityClient") final SystemEntityClient systemEntityClient) {
     GmsGraphQLEngineArgs args = new GmsGraphQLEngineArgs();
     args.setEntityClient(entityClient);
     args.setSystemEntityClient(systemEntityClient);
-    args.setGraphClient(_graphClient);
-    args.setUsageClient(_usageClient);
+    args.setGraphClient(graphClient);
+    args.setUsageClient(usageClient);
     if (isAnalyticsEnabled) {
       args.setAnalyticsService(new AnalyticsService(elasticClient, indexConvention));
     }
-    args.setEntityService(_entityService);
-    args.setRecommendationsService(_recommendationsService);
-    args.setStatefulTokenService(_statefulTokenService);
-    args.setTimeseriesAspectService(_timeseriesAspectService);
-    args.setEntityRegistry(_entityRegistry);
-    args.setSecretService(_secretService);
-    args.setNativeUserService(_nativeUserService);
-    args.setIngestionConfiguration(_configProvider.getIngestion());
-    args.setAuthenticationConfiguration(_configProvider.getAuthentication());
-    args.setAuthorizationConfiguration(_configProvider.getAuthorization());
-    args.setGitVersion(_gitVersion);
-    args.setTimelineService(_timelineService);
-    args.setSupportsImpactAnalysis(_graphService.supportsMultiHop());
-    args.setVisualConfiguration(_configProvider.getVisualConfig());
-    args.setTelemetryConfiguration(_configProvider.getTelemetry());
-    args.setTestsConfiguration(_configProvider.getMetadataTests());
-    args.setDatahubConfiguration(_configProvider.getDatahub());
-    args.setViewsConfiguration(_configProvider.getViews());
-    args.setSiblingGraphService(_siblingGraphService);
-    args.setGroupService(_groupService);
-    args.setRoleService(_roleService);
-    args.setInviteTokenService(_inviteTokenService);
-    args.setPostService(_postService);
-    args.setViewService(_viewService);
-    args.setOwnershipTypeService(_ownershipTypeService);
-    args.setSettingsService(_settingsService);
-    args.setLineageService(_lineageService);
-    args.setQueryService(_queryService);
-    args.setFeatureFlags(_configProvider.getFeatureFlags());
-    args.setFormService(_formService);
-    args.setDataProductService(_dataProductService);
-    args.setChromeExtensionConfiguration(_configProvider.getChromeExtension());
+    args.setEntityService(entityService);
+    args.setRecommendationsService(recommendationsService);
+    args.setStatefulTokenService(statefulTokenService);
+    args.setTimeseriesAspectService(timeseriesAspectService);
+    args.setEntityRegistry(entityRegistry);
+    args.setSecretService(secretService);
+    args.setNativeUserService(nativeUserService);
+    args.setIngestionConfiguration(configProvider.getIngestion());
+    args.setAuthenticationConfiguration(configProvider.getAuthentication());
+    args.setAuthorizationConfiguration(configProvider.getAuthorization());
+    args.setGitVersion(gitVersion);
+    args.setTimelineService(timelineService);
+    args.setSupportsImpactAnalysis(graphService.supportsMultiHop());
+    args.setVisualConfiguration(configProvider.getVisualConfig());
+    args.setTelemetryConfiguration(configProvider.getTelemetry());
+    args.setTestsConfiguration(configProvider.getMetadataTests());
+    args.setDatahubConfiguration(configProvider.getDatahub());
+    args.setViewsConfiguration(configProvider.getViews());
+    args.setSiblingGraphService(siblingGraphService);
+    args.setGroupService(groupService);
+    args.setRoleService(roleService);
+    args.setInviteTokenService(inviteTokenService);
+    args.setPostService(postService);
+    args.setViewService(viewService);
+    args.setOwnershipTypeService(ownershipTypeService);
+    args.setSettingsService(settingsService);
+    args.setLineageService(lineageService);
+    args.setQueryService(queryService);
+    args.setFeatureFlags(configProvider.getFeatureFlags());
+    args.setFormService(formService);
+    args.setRestrictedService(restrictedService);
+    args.setDataProductService(dataProductService);
+    args.setGraphQLQueryComplexityLimit(
+        configProvider.getGraphQL().getQuery().getComplexityLimit());
+    args.setGraphQLQueryDepthLimit(configProvider.getGraphQL().getQuery().getDepthLimit());
+    args.setChromeExtensionConfiguration(configProvider.getChromeExtension());
 
     // Saas Only
     args.setEntitySearchService(_entitySearchService);
@@ -275,7 +289,8 @@ public class GraphQLEngineFactory {
     args.setIntegrationsService(_integrationsService);
     args.setConnectionService(_connectionService);
     args.setSubscriptionService(_subscriptionService);
-
+    args.setShareService(_shareService);
+    args.setExecutorConfiguration(configProvider.getExecutors());
     return new GmsGraphQLEngine(args).builder().build();
   }
 }

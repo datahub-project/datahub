@@ -10,7 +10,7 @@ public class IndexConventionImplTest {
 
   @Test
   public void testIndexConventionNoPrefix() {
-    IndexConvention indexConventionNoPrefix = new IndexConventionImpl(null);
+    IndexConvention indexConventionNoPrefix = IndexConventionImpl.NO_PREFIX;
     String entityName = "dataset";
     String expectedIndexName = "datasetindex_v2";
     assertEquals(indexConventionNoPrefix.getEntityIndexName(entityName), expectedIndexName);
@@ -42,7 +42,7 @@ public class IndexConventionImplTest {
 
   @Test
   public void testTimeseriesIndexConventionNoPrefix() {
-    IndexConvention indexConventionNoPrefix = new IndexConventionImpl(null);
+    IndexConvention indexConventionNoPrefix = IndexConventionImpl.NO_PREFIX;
     String entityName = "dataset";
     String aspectName = "datasetusagestatistics";
     String expectedIndexName = "dataset_datasetusagestatisticsaspect_v1";

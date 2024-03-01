@@ -26,7 +26,6 @@ x-datahub-frontend-service-dev: &datahub-frontend-service-dev
 services:
   frontend-quickstart:
     <<: *datahub-frontend-service
-    container_name: frontend
     profiles:
       - quickstart
       - quickstart-frontend
@@ -35,7 +34,6 @@ services:
         condition: service_completed_successfully
   frontend-quickstart-cassandra:
     <<: *datahub-frontend-service
-    container_name: frontend
     profiles:
       - quickstart-cassandra
     depends_on:
@@ -43,7 +41,6 @@ services:
         condition: service_completed_successfully
   frontend-quickstart-postgres:
     <<: *datahub-frontend-service
-    container_name: frontend
     profiles:
       - quickstart-postgres
     depends_on:
@@ -51,7 +48,6 @@ services:
         condition: service_completed_successfully
   frontend-quickstart-consumers:
     <<: *datahub-frontend-service
-    container_name: frontend
     profiles:
       - quickstart-consumers
     depends_on:
@@ -59,7 +55,6 @@ services:
         condition: service_completed_successfully
   frontend-debug:
     <<: *datahub-frontend-service-dev
-    container_name: datahub-frontend-dev
     profiles:
       - debug
     depends_on:
@@ -67,7 +62,6 @@ services:
         condition: service_completed_successfully
   frontend-debug-frontend:
     <<: *datahub-frontend-service-dev
-    container_name: datahub-frontend-dev
     profiles:
       - debug-frontend
     depends_on:
@@ -79,7 +73,6 @@ services:
         condition: service_completed_successfully
   frontend-debug-postgres:
     <<: *datahub-frontend-service-dev
-    container_name: datahub-frontend-dev
     profiles:
       - debug-postgres
     depends_on:
@@ -87,7 +80,6 @@ services:
         condition: service_completed_successfully
   frontend-debug-cassandra:
     <<: *datahub-frontend-service-dev
-    container_name: datahub-frontend-dev
     profiles:
       - debug-cassandra
     depends_on:
@@ -95,7 +87,6 @@ services:
         condition: service_completed_successfully
   frontend-debug-consumers:
     <<: *datahub-frontend-service-dev
-    container_name: datahub-frontend-dev
     profiles:
       - debug-consumers
     depends_on:
@@ -103,7 +94,6 @@ services:
         condition: service_completed_successfully
   frontend-debug-neo4j:
     <<: *datahub-frontend-service-dev
-    container_name: datahub-frontend-dev
     profiles:
       - debug-neo4j
     depends_on:
@@ -111,7 +101,6 @@ services:
         condition: service_completed_successfully
   frontend-debug-elasticsearch:
     <<: *datahub-frontend-service-dev
-    container_name: datahub-frontend-dev
     profiles:
       - debug-elasticsearch
     depends_on:

@@ -9,6 +9,7 @@ import com.linkedin.data.schema.annotation.SchemaVisitorTraversalResult;
 import com.linkedin.data.schema.annotation.TraverserContext;
 import com.linkedin.metadata.models.annotation.RelationshipAnnotation;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -46,7 +47,7 @@ public class RelationshipFieldSpecExtractor implements SchemaVisitor {
 
       // Next, check resolved properties for annotations on primitives.
       final Map<String, Object> resolvedProperties =
-          FieldSpecUtils.getResolvedProperties(currentSchema);
+          FieldSpecUtils.getResolvedProperties(currentSchema, Collections.emptyMap());
       final Object resolvedAnnotationObj =
           resolvedProperties.get(RelationshipAnnotation.ANNOTATION_NAME);
 

@@ -34,10 +34,7 @@ import com.linkedin.monitor.MonitorInfo;
 import com.linkedin.monitor.MonitorMode;
 import com.linkedin.monitor.MonitorType;
 import com.linkedin.mxe.MetadataChangeLog;
-import java.util.Collections;
-import java.util.List;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
 import javax.annotation.Nonnull;
 import javax.inject.Singleton;
 import lombok.extern.slf4j.Slf4j;
@@ -231,7 +228,12 @@ public class AssertionsSummaryHook implements MetadataChangeLogHook {
     AssertionResult result = event.getResult();
     AssertionSummaryDetails details = buildAssertionSummaryDetails(assertionUrn, info, event);
 
-    // 2. Add the assertion to passing or failing assertions
+    // 2. Make sure we're not overwriting more recent run events on the summary
+    if (checkShouldIgnoreAddingRunEventToSummary(assertionUrn, summary, event)) {
+      return;
+    }
+
+    // 3. Add the assertion to passing or failing assertions
     if (AssertionResultType.SUCCESS.equals(result.getType())) {
       // First, ensure this isn't in failing anymore.
       removeAssertionFromFailingSummary(assertionUrn, summary);
@@ -245,8 +247,33 @@ public class AssertionsSummaryHook implements MetadataChangeLogHook {
       addAssertionToFailingSummary(details, summary);
     }
 
-    // 3. Emit the change back!
+    // 4. Emit the change back!
     updateAssertionSummary(entityUrn, summary);
+  }
+
+  private boolean checkShouldIgnoreAddingRunEventToSummary(
+      Urn assertionUrn, AssertionsSummary summary, AssertionRunEvent event) {
+    // 1. Make sure we're not overwriting more recent run events on the summary
+    // 1.1 check if assertion is recorded under 'failing assertions' of the summary
+    Optional<AssertionSummaryDetails> maybeExistingDetails =
+        summary.getFailingAssertionDetails().stream()
+            .filter(el -> el.getUrn().toString().equals(assertionUrn.toString()))
+            .findFirst();
+    // 1.2 check if assertion is recorded under 'passing assertions' of the summary
+    if (maybeExistingDetails.isEmpty()) {
+      maybeExistingDetails =
+          summary.getPassingAssertionDetails().stream()
+              .filter(el -> el.getUrn().toString().equals(assertionUrn.toString()))
+              .findFirst();
+    }
+    // 1.3 if this assertion is recorded on the summary (in either passing or failing lists), ensure
+    // the current run event's TS is AFTER the TS of the run event that's recorded in the summary
+    if (maybeExistingDetails.isPresent()) {
+      Long latestRecordedMillis = maybeExistingDetails.get().getLastResultAt();
+      Long thisEventMillis = event.getTimestampMillis();
+      return latestRecordedMillis > thisEventMillis;
+    }
+    return false;
   }
 
   @Nonnull

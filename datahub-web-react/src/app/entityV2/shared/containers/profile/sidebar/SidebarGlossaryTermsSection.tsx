@@ -83,6 +83,7 @@ export const SidebarGlossaryTermsSection = ({ readOnly }: Props) => {
                 showAddModal={showAddModal}
                 setShowAddModal={setShowAddModal}
                 addModalType={addModalType}
+                refetch={refetch}
             />
         </div>
     );

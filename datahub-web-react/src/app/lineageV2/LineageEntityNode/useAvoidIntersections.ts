@@ -4,11 +4,11 @@ import { Node, useReactFlow } from 'reactflow';
 import { TRANSFORMATION_TYPES } from '../common';
 import { LINEAGE_NODE_HEIGHT, LINEAGE_NODE_WIDTH } from './useDisplayedColumns';
 
-export default function useAvoidIntersections(urn: string, expandHeight: number) {
+export default function useAvoidIntersections(id: string, expandHeight: number) {
     const { getNode, getNodes, setNodes } = useReactFlow();
 
     useEffect(() => {
-        const self = getNode(urn);
+        const self = getNode(id);
         if (!self) {
             return () => {};
         }
@@ -38,7 +38,7 @@ export default function useAvoidIntersections(urn: string, expandHeight: number)
             };
         }
         return () => {};
-    }, [urn, expandHeight, getNode, getNodes, setNodes]);
+    }, [id, expandHeight, getNode, getNodes, setNodes]);
 }
 
 function overlapsX(a: Node, b: Node): boolean {

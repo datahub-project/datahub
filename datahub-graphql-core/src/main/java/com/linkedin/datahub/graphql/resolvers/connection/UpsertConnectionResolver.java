@@ -62,6 +62,7 @@ public class UpsertConnectionResolver implements DataFetcher<CompletableFuture<D
                         ? new DataHubJsonConnection()
                             .setEncryptedBlob(_secretService.encrypt(input.getJson().getBlob()))
                         : null,
+                    input.getName(),
                     authentication);
 
             final EntityResponse connectionResponse =

@@ -13,8 +13,8 @@ from datahub.ingestion.source.bigquery_v2.bigquery_config import (
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
 from datahub.ingestion.source.bigquery_v2.usage import BigQueryUsageExtractor
+from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.utilities.perf_timer import PerfTimer
-from datahub.utilities.sqlglot_lineage import SchemaResolver
 from tests.performance.bigquery.bigquery_events import generate_events, ref_from_table
 from tests.performance.data_generation import (
     NormalDistribution,

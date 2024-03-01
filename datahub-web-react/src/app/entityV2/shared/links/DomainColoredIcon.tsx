@@ -45,7 +45,6 @@ function getIcon(search: string): React.ElementType | undefined {
 export const DomainColoredIcon = ({ iconColor, domain, size = 40, onClick }: Props): JSX.Element => {
     const iconName = domain?.displayProperties?.icon?.name || '';
     const MaterialIcon = getIcon(iconName);
-    console.log('material icon', MaterialIcon);
 
     const domainColor = domain?.displayProperties?.colorHex || generateColor.hex(domain?.urn || '');
     const domainBackgroundColor = hexToRgba(iconColor || domainColor, 0.75);

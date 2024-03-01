@@ -51,7 +51,8 @@ public class ConnectionServiceTest {
         EntityKeyUtils.convertEntityKeyToUrn(key, Constants.DATAHUB_CONNECTION_ENTITY_NAME);
 
     // Execute and assert
-    Urn result = connectionService.upsertConnection(id, platformUrn, type, json, authentication);
+    Urn result =
+        connectionService.upsertConnection(id, platformUrn, type, json, null, authentication);
 
     DataHubConnectionDetails expectedDetails = mockConnectionDetails(id);
     DataPlatformInstance expectedDataPlatformInstance = mockPlatformInstance(platformUrn);

@@ -4,8 +4,6 @@ import {
     CloseOutlined,
     ExclamationCircleOutlined,
     ExclamationCircleTwoTone,
-    ExceptionOutlined,
-    FileDoneOutlined,
     WarningFilled,
     WarningOutlined,
 } from '@ant-design/icons';
@@ -37,11 +35,8 @@ export enum HealthSummaryIconType {
 export const isUnhealthy = (healths: Health[]) => {
     const assertionHealth = healths.find((health) => health.type === HealthStatusType.Assertions);
     const isFailingAssertions = assertionHealth?.status === HealthStatus.Fail;
-
-    // Acryl-main Only!
     const incidentHealth = healths.find((health) => health.type === HealthStatusType.Incidents);
     const hasActiveIncidents = incidentHealth?.status === HealthStatus.Fail;
-    // Currently, being unhealthy is defined as having failing assertions OR incidents (acryl-main).
     return isFailingAssertions || hasActiveIncidents;
 };
 
@@ -117,24 +112,6 @@ export const getAssertionsHealthIcon = (status: HealthStatus, fontSize: number) 
     }
 };
 
-// acryl-main only
-export const getTestsHealthIcon = (status: HealthStatus, fontSize: number) => {
-    switch (status) {
-        case HealthStatus.Pass: {
-            return <FileDoneOutlined style={{ color: getHealthColor(status), fontSize }} />;
-        }
-        case HealthStatus.Fail: {
-            return <ExceptionOutlined style={{ color: getHealthColor(status), fontSize }} />;
-        }
-        case HealthStatus.Warn: {
-            return <ExceptionOutlined style={{ color: getHealthColor(status), fontSize }} />;
-        }
-        default:
-            throw new Error(`Unrecognized Health Status ${status} provided`);
-    }
-};
-
-// acryl-main only
 export const getIncidentsHealthIcon = (status: HealthStatus, fontSize: number) => {
     switch (status) {
         case HealthStatus.Pass: {
@@ -162,7 +139,6 @@ export const getHealthIcon = (type: HealthStatusType, status: HealthStatus, font
             return getTestsHealthIcon(status, fontSize);
         }
         case HealthStatusType.Incidents: {
-            // acryl-main only
             return getIncidentsHealthIcon(status, fontSize);
         }
         default:

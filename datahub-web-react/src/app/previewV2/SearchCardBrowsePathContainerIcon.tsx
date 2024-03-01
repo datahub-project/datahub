@@ -4,20 +4,16 @@ import React from 'react';
 import styled from 'styled-components';
 import { Container } from '../../types.generated';
 import { getSubTypeIcon } from '../entityV2/shared/components/subtypes';
-import { SEARCH_COLORS } from '../entityV2/shared/constants';
 
 const IconWrapper = styled.span`
     img,
     svg {
         height: 12px;
     }
-    color: ${SEARCH_COLORS.PLATFORM_TEXT};
     margin-right: 6px;
 `;
 
 const DefaultIcon = styled(FolderOpenOutlined)`
-    color: ${SEARCH_COLORS.PLATFORM_TEXT};
-
     &&& {
         font-size: 14px;
     }

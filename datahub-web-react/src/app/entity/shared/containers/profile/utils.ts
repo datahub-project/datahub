@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { useLocation } from 'react-router';
 import queryString from 'query-string';
 import { isEqual } from 'lodash';
-import { AppConfig, EntityType } from '../../../../../types.generated';
+import { AppConfig, EntityType, ShareResult } from '../../../../../types.generated';
 import useIsLineageMode from '../../../../lineage/utils/useIsLineageMode';
 import { useEntityRegistry } from '../../../../useEntityRegistry';
 import EntityRegistry from '../../../EntityRegistry';
@@ -240,4 +240,9 @@ export function sortEntityProfileTabs(appConfig: AppConfig, entityType: EntityTy
     }
 
     return sortedTabs;
+}
+
+export function sortSharedList(sharedItems: ShareResult[]) {
+    // sort by lastSuccess time / descending
+    return sharedItems.slice().sort((a, b) => b!.lastSuccess!.time - a!.lastSuccess!.time);
 }

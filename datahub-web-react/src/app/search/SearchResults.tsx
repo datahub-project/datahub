@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { ReactNode } from 'react';
 import { Pagination, Typography } from 'antd';
 import styled from 'styled-components/macro';
 import { Entity, FacetFilterInput, FacetMetadata, MatchedField, SearchSuggestion } from '../../types.generated';
@@ -29,6 +29,7 @@ import SearchQuerySuggester from './suggestions/SearchQuerySugggester';
 import { ANTD_GRAY_V2 } from '../entity/shared/constants';
 import { formatNumberWithoutAbbreviation } from '../shared/formatNumber';
 import SearchResultsLoadingSection from './SearchResultsLoadingSection';
+import { PreviewType } from '../entity/Entity';
 
 const SearchResultsWrapper = styled.div<{ v2Styles: boolean }>`
     display: flex;
@@ -139,6 +140,13 @@ interface Props {
     setIsSelectMode: (showSelectMode: boolean) => any;
     onChangeSelectAll: (selected: boolean) => void;
     refetch: () => void;
+    shouldHideSuggestions?: boolean;
+    customSection?: ReactNode;
+    showCustomSection?: boolean;
+    previewType?: PreviewType;
+    onCardClick?: (any: any) => any;
+    onClickExploreAll?: () => any;
+    onClickClearFilters?: () => any;
 }
 
 export const SearchResults = ({
@@ -164,6 +172,13 @@ export const SearchResults = ({
     setSelectedEntities,
     onChangeSelectAll,
     refetch,
+    shouldHideSuggestions,
+    customSection,
+    showCustomSection = false,
+    previewType,
+    onCardClick,
+    onClickExploreAll,
+    onClickClearFilters
 }: Props) => {
     const showSearchFiltersV2 = useIsSearchV2();
     const showBrowseV2 = useIsBrowseV2();
@@ -246,6 +261,7 @@ export const SearchResults = ({
                             </StyledTabToolbar>
                         )}
                         {(error && <ErrorSection />) ||
+                            showCustomSection && customSection ||
                             (loading && !combinedSiblingSearchResults.length && <SearchResultsLoadingSection />) ||
                             (combinedSiblingSearchResults && (
                                 <SearchResultListContainer v2Styles={showSearchFiltersV2}>
@@ -259,6 +275,10 @@ export const SearchResults = ({
                                         selectedEntities={selectedEntities}
                                         setSelectedEntities={setSelectedEntities}
                                         suggestions={suggestions}
+                                        previewType={previewType}
+                                        onCardClick={onCardClick}
+                                        onClickExploreAll={onClickExploreAll}
+                                        onClickClearFilters={onClickClearFilters}
                                     />
                                     {totalResults > 0 && (
                                         <PaginationControlContainer id="search-pagination">
@@ -274,7 +294,7 @@ export const SearchResults = ({
                                             />
                                         </PaginationControlContainer>
                                     )}
-                                    {authenticatedUserUrn && (
+                                    {authenticatedUserUrn && !shouldHideSuggestions && (
                                         <SearchResultsRecommendationsContainer>
                                             <SearchResultsRecommendations
                                                 userUrn={authenticatedUserUrn}

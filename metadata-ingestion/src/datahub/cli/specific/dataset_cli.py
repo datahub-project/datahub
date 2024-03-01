@@ -93,13 +93,21 @@ def add_sibling(urn: str, sibling_urns: Tuple[str]) -> None:
 def _emit_sibling(
     graph: DataHubGraph, primary_urn: str, urn: str, all_urns: Set[str]
 ) -> None:
-    siblings = []
+    siblings = _get_existing_siblings(graph, urn)
     for sibling_urn in all_urns:
         if sibling_urn != urn:
-            siblings.append(sibling_urn)
+            siblings.add(sibling_urn)
     graph.emit(
         MetadataChangeProposalWrapper(
             entityUrn=urn,
             aspect=Siblings(primary=primary_urn == urn, siblings=sorted(siblings)),
         )
     )
+
+
+def _get_existing_siblings(graph: DataHubGraph, urn: str) -> Set[str]:
+    existing = graph.get_aspect(urn, Siblings)
+    if existing:
+        return set(existing.siblings)
+    else:
+        return set()

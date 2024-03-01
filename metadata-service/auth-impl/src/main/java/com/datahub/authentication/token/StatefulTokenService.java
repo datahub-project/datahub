@@ -16,12 +16,7 @@ import com.linkedin.metadata.key.DataHubAccessTokenKey;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
-import java.util.Base64;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import javax.annotation.Nonnull;
@@ -58,8 +53,7 @@ public class StatefulTokenService extends StatelessTokenService {
                 new CacheLoader<String, Boolean>() {
                   @Override
                   public Boolean load(final String key) {
-                    final Urn accessUrn =
-                        Urn.createFromTuple(Constants.ACCESS_TOKEN_ENTITY_NAME, key);
+                    final Urn accessUrn = tokenUrnFromKey(key);
                     return !_entityService.exists(accessUrn, true);
                   }
                 });
@@ -173,10 +167,14 @@ public class StatefulTokenService extends StatelessTokenService {
     }
   }
 
+  public Urn tokenUrnFromKey(String tokenHash) {
+    return Urn.createFromTuple(Constants.ACCESS_TOKEN_ENTITY_NAME, tokenHash);
+  }
+
   public void revokeAccessToken(@Nonnull String hashedToken) throws TokenException {
     try {
       if (!_revokedTokenCache.get(hashedToken)) {
-        final Urn tokenUrn = Urn.createFromTuple(Constants.ACCESS_TOKEN_ENTITY_NAME, hashedToken);
+        final Urn tokenUrn = tokenUrnFromKey(hashedToken);
         _entityService.deleteUrn(tokenUrn);
         _revokedTokenCache.put(hashedToken, true);
         return;

@@ -4,10 +4,12 @@ import static com.linkedin.metadata.Constants.*;
 
 import com.linkedin.common.DataPlatformInstance;
 import com.linkedin.common.Deprecation;
+import com.linkedin.common.Forms;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.GlossaryTerms;
 import com.linkedin.common.InstitutionalMemory;
 import com.linkedin.common.Ownership;
+import com.linkedin.common.Share;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
@@ -16,16 +18,14 @@ import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.MLFeatureDataType;
 import com.linkedin.datahub.graphql.generated.MLPrimaryKey;
 import com.linkedin.datahub.graphql.generated.MLPrimaryKeyEditableProperties;
-import com.linkedin.datahub.graphql.types.common.mappers.DataPlatformInstanceAspectMapper;
-import com.linkedin.datahub.graphql.types.common.mappers.DeprecationMapper;
-import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
-import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
-import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.*;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.SystemMetadataUtils;
 import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
+import com.linkedin.datahub.graphql.types.form.FormsMapper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
+import com.linkedin.datahub.graphql.types.structuredproperty.StructuredPropertiesMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
 import com.linkedin.domain.Domains;
 import com.linkedin.entity.EntityResponse;
@@ -33,6 +33,7 @@ import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.key.MLPrimaryKeyKey;
 import com.linkedin.ml.metadata.EditableMLPrimaryKeyProperties;
 import com.linkedin.ml.metadata.MLPrimaryKeyProperties;
+import com.linkedin.structured.StructuredProperties;
 import javax.annotation.Nonnull;
 
 /** Maps Pegasus {@link RecordTemplate} objects to objects conforming to the GQL schema. */
@@ -92,6 +93,18 @@ public class MLPrimaryKeyMapper implements ModelMapper<EntityResponse, MLPrimary
         (dataset, dataMap) ->
             dataset.setDataPlatformInstance(
                 DataPlatformInstanceAspectMapper.map(new DataPlatformInstance(dataMap))));
+    mappingHelper.mapToResult(
+        STRUCTURED_PROPERTIES_ASPECT_NAME,
+        ((entity, dataMap) ->
+            entity.setStructuredProperties(
+                StructuredPropertiesMapper.map(new StructuredProperties(dataMap)))));
+    mappingHelper.mapToResult(
+        FORMS_ASPECT_NAME,
+        ((entity, dataMap) ->
+            entity.setForms(FormsMapper.map(new Forms(dataMap), entityUrn.toString()))));
+    mappingHelper.mapToResult(
+        SHARE_ASPECT_NAME,
+        (entity, dataMap) -> entity.setShare(ShareMapper.map(new Share(dataMap))));
     return mappingHelper.getResult();
   }
 

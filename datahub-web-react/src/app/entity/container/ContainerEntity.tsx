@@ -17,6 +17,7 @@ import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
 import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
 import { getDataProduct } from '../shared/utils';
 import EmbeddedProfile from '../shared/embed/EmbeddedProfile';
+import { SidebarMetadataSection } from '../shared/containers/profile/sidebar/SidebarMetadataSection';
 
 /**
  * Definition of the DataHub Container entity.
@@ -65,11 +66,13 @@ export class ContainerEntity implements Entity<Container> {
 
     getCollectionName = () => 'Containers';
 
+    useEntityQuery = useGetContainerQuery;
+
     renderProfile = (urn: string) => (
         <EntityProfile
             urn={urn}
             entityType={EntityType.Container}
-            useEntityQuery={useGetContainerQuery}
+            useEntityQuery={this.useEntityQuery}
             useUpdateQuery={undefined}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
             tabs={[
@@ -86,33 +89,38 @@ export class ContainerEntity implements Entity<Container> {
                     component: PropertiesTab,
                 },
             ]}
-            sidebarSections={[
-                {
-                    component: SidebarAboutSection,
-                },
-                {
-                    component: SidebarOwnerSection,
-                },
-                {
-                    component: SidebarTagsSection,
-                    properties: {
-                        hasTags: true,
-                        hasTerms: true,
-                    },
-                },
-                {
-                    component: SidebarDomainSection,
-                },
-                {
-                    component: DataProductSection,
-                },
-                // TODO: Add back once entity-level recommendations are complete.
-                // {
-                //    component: SidebarRecommendationsSection,
-                // },
-            ]}
+            sidebarSections={this.getSidebarSections()}
         />
     );
+
+    getSidebarSections = () => [
+        {
+            component: SidebarAboutSection,
+        },
+        {
+            component: SidebarMetadataSection,
+        },
+        {
+            component: SidebarOwnerSection,
+        },
+        {
+            component: SidebarTagsSection,
+            properties: {
+                hasTags: true,
+                hasTerms: true,
+            },
+        },
+        {
+            component: SidebarDomainSection,
+        },
+        {
+            component: DataProductSection,
+        },
+        // TODO: Add back once entity-level recommendations are complete.
+        // {
+        //    component: SidebarRecommendationsSection,
+        // },
+    ];
 
     renderPreview = (_: PreviewType, data: Container) => {
         const genericProperties = this.getGenericEntityProperties(data);
@@ -198,7 +206,7 @@ export class ContainerEntity implements Entity<Container> {
         <EmbeddedProfile
             urn={urn}
             entityType={EntityType.Container}
-            useEntityQuery={useGetContainerQuery}
+            useEntityQuery={this.useEntityQuery}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
         />
     );

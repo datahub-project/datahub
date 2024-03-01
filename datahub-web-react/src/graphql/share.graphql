@@ -1,0 +1,12 @@
+mutation shareEntity($input: ShareEntityInput!) {
+    shareEntity(input: $input) {
+		succeeded
+        share {
+            lastShareResults {
+                created {
+                    time
+                }
+            }
+        }
+    }
+}

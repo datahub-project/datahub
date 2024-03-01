@@ -23,9 +23,9 @@ import { getDataForEntityType } from '../shared/containers/profile/utils';
 import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
 import { AcrylValidationsTab } from '../shared/tabs/Dataset/Validations/AcrylValidationsTab';
 import { OperationsTab } from './profile/OperationsTab';
-import { IncidentTab } from '../shared/tabs/Incident/IncidentTab';
 import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
 import { SidebarSiblingsSection } from '../shared/containers/profile/sidebar/SidebarSiblingsSection';
+import { SidebarMetadataSection } from '../shared/containers/profile/sidebar/SidebarMetadataSection';
 import { DatasetStatsSummarySubHeader } from './profile/stats/stats/DatasetStatsSummarySubHeader';
 import { MatchedFieldList } from '../../search/matches/MatchedFieldList';
 import { EmbedTab } from '../shared/tabs/Embed/EmbedTab';
@@ -35,6 +35,7 @@ import { getDataProduct } from '../shared/utils';
 import AccessManagement from '../shared/tabs/Dataset/AccessManagement/AccessManagement';
 import { matchedFieldPathsRenderer } from '../../search/matches/matchedFieldPathsRenderer';
 import { getLastUpdatedMs } from './shared/utils';
+import { IncidentTab } from '../shared/tabs/Incident/IncidentTab';
 
 const SUBTYPES = {
     VIEW: 'view',
@@ -89,11 +90,13 @@ export class DatasetEntity implements Entity<Dataset> {
 
     getCollectionName = () => 'Datasets';
 
+    useEntityQuery = useGetDatasetQuery;
+
     renderProfile = (urn: string) => (
         <EntityProfile
             urn={urn}
             entityType={EntityType.Dataset}
-            useEntityQuery={useGetDatasetQuery}
+            useEntityQuery={this.useEntityQuery}
             useUpdateQuery={useUpdateDatasetMutation}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
             headerDropdownItems={new Set([EntityMenuItems.UPDATE_DEPRECATION, EntityMenuItems.RAISE_INCIDENT])}
@@ -188,7 +191,8 @@ export class DatasetEntity implements Entity<Dataset> {
                     name: 'Incidents',
                     component: IncidentTab,
                     getDynamicName: (_, dataset) => {
-                        return `Incidents (${dataset?.dataset?.activeIncidents.total})`;
+                        const activeIncidentCount = dataset?.dataset?.activeIncidents.total;
+                        return `Incidents${(activeIncidentCount && ` (${activeIncidentCount})`) || ''}`;
                     },
                 },
             ]}
@@ -199,6 +203,9 @@ export class DatasetEntity implements Entity<Dataset> {
     getSidebarSections = () => [
         {
             component: SidebarAboutSection,
+        },
+        {
+            component: SidebarMetadataSection,
         },
         {
             component: SidebarOwnerSection,
@@ -278,7 +285,7 @@ export class DatasetEntity implements Entity<Dataset> {
         );
     };
 
-    renderSearch = (result: SearchResult) => {
+    renderSearch = (result: SearchResult, previewType?: PreviewType, onCardClick?: React.MouseEventHandler) => {
         const data = result.entity as Dataset;
         const genericProperties = this.getGenericEntityProperties(data);
 
@@ -317,6 +324,8 @@ export class DatasetEntity implements Entity<Dataset> {
                 health={data.health}
                 degree={(result as any).degree}
                 paths={(result as any).paths}
+                previewType={previewType}
+                onClick={onCardClick}
             />
         );
     };
@@ -367,7 +376,7 @@ export class DatasetEntity implements Entity<Dataset> {
         <EmbeddedProfile
             urn={urn}
             entityType={EntityType.Dataset}
-            useEntityQuery={useGetDatasetQuery}
+            useEntityQuery={this.useEntityQuery}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
         />
     );

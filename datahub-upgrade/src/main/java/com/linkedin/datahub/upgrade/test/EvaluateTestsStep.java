@@ -1,6 +1,5 @@
 package com.linkedin.datahub.upgrade.test;
 
-import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStep;
@@ -17,6 +16,7 @@ import com.linkedin.test.BatchTestRunEvent;
 import com.linkedin.test.BatchTestRunResult;
 import com.linkedin.test.BatchTestRunStatus;
 import com.linkedin.test.TestResults;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -40,21 +40,21 @@ public class EvaluateTestsStep implements UpgradeStep {
   private static final String ELASTIC_TIMEOUT =
       System.getenv().getOrDefault(EvaluateTests.ELASTIC_TIMEOUT_ENV_NAME, "5m");
 
+  private final OperationContext systemOpContext;
   private final EntityClient _entityClient;
   private final EntitySearchService _entitySearchService;
   private final TestEngine _testEngine;
   private final ExecutorService _executorService;
-  private final Authentication _systemAuthentication;
 
   public EvaluateTestsStep(
+      @Nonnull OperationContext systemOpContext,
       @Nonnull EntityClient entityClient,
       @Nonnull EntitySearchService entitySearchService,
-      @Nonnull TestEngine testEngine,
-      @Nonnull Authentication systemAuthentication) {
+      @Nonnull TestEngine testEngine) {
+    this.systemOpContext = systemOpContext;
     _entityClient = entityClient;
     _entitySearchService = entitySearchService;
     _testEngine = testEngine;
-    _systemAuthentication = systemAuthentication;
 
     int numThreads =
         Integer.parseInt(
@@ -108,6 +108,7 @@ public class EvaluateTestsStep implements UpgradeStep {
                 .addLine(String.format("Fetching batch %d of %s entities", batch, entityType));
             ScrollResult scrollResult =
                 _entitySearchService.scroll(
+                    systemOpContext,
                     Collections.singletonList(entityType),
                     null,
                     null,
@@ -246,7 +247,7 @@ public class EvaluateTestsStep implements UpgradeStep {
       _entityClient.ingestProposal(
           AspectUtils.buildMetadataChangeProposal(
               testUrn, AcrylConstants.BATCH_TEST_RUN_EVENT_ASPECT_NAME, event),
-          _systemAuthentication);
+          systemOpContext.getAuthentication());
     } catch (Exception e) {
       log.error(
           "Failed to produce Metadata Test Run Result aspect! This may mean that the results shown in the UI are stale!",

@@ -8,9 +8,11 @@ import client.AuthServiceClient;
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
+import com.datahub.plugins.auth.authorization.Authorizer;
 import com.google.inject.AbstractModule;
 import com.google.inject.Provides;
 import com.google.inject.Singleton;
+import com.google.inject.name.Named;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.entity.client.SystemRestliEntityClient;
 import com.linkedin.metadata.restli.DefaultRestliClientFactory;
@@ -20,6 +22,13 @@ import config.ConfigurationProvider;
 import controllers.SsoCallbackController;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
+
+import io.datahubproject.metadata.context.ActorContext;
+import io.datahubproject.metadata.context.AuthorizerContext;
+import io.datahubproject.metadata.context.EntityRegistryContext;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.OperationContextConfig;
+import io.datahubproject.metadata.context.SearchContext;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.http.impl.client.CloseableHttpClient;
@@ -154,6 +163,31 @@ public class AuthModule extends AbstractModule {
 
   @Provides
   @Singleton
+  @Named("systemOperationContext")
+  protected OperationContext provideOperationContext(final Authentication systemAuthentication,
+                                                     final ConfigurationProvider configurationProvider) {
+    ActorContext systemActorContext =
+            ActorContext.builder()
+                    .systemAuth(true)
+                    .authentication(systemAuthentication)
+                    .build();
+    OperationContextConfig systemConfig = OperationContextConfig.builder()
+            .searchAuthorizationConfiguration(configurationProvider.getAuthorization().getSearch())
+            .allowSystemAuthentication(true)
+            .build();
+
+    return OperationContext.builder()
+            .operationContextConfig(systemConfig)
+            .systemActorContext(systemActorContext)
+            .searchContext(SearchContext.EMPTY)
+            .entityRegistryContext(EntityRegistryContext.EMPTY)
+            // Authorizer.EMPTY doesn't actually apply to system auth
+            .authorizerContext(AuthorizerContext.builder().authorizer(Authorizer.EMPTY).build())
+            .build(systemAuthentication);
+  }
+
+  @Provides
+  @Singleton
   protected ConfigurationProvider provideConfigurationProvider() {
     AnnotationConfigApplicationContext context =
         new AnnotationConfigApplicationContext(ConfigurationProvider.class);
@@ -163,13 +197,13 @@ public class AuthModule extends AbstractModule {
   @Provides
   @Singleton
   protected SystemEntityClient provideEntityClient(
-      final Authentication systemAuthentication,
+      @Named("systemOperationContext") final OperationContext systemOperationContext,
       final ConfigurationProvider configurationProvider) {
     return new SystemRestliEntityClient(
+            systemOperationContext,
         buildRestliClient(),
         new ExponentialBackoff(_configs.getInt(ENTITY_CLIENT_RETRY_INTERVAL)),
         _configs.getInt(ENTITY_CLIENT_NUM_RETRIES),
-        systemAuthentication,
         configurationProvider.getCache().getClient().getEntityClient());
   }
 

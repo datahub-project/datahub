@@ -5,7 +5,6 @@ import { useIsThemeV2Enabled } from './useIsThemeV2Enabled';
 
 export default function useBuildEntityRegistry() {
     const isThemeV2Enabled = useIsThemeV2Enabled();
-    console.log(`found is theme v2 enabled: ${isThemeV2Enabled}`);
     return useMemo(() => {
         return isThemeV2Enabled ? buildEntityRegistryV2() : buildEntityRegistry();
     }, [isThemeV2Enabled]);

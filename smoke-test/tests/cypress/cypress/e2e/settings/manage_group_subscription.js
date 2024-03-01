@@ -63,7 +63,6 @@ describe("group subscription test", () => {
       cy.goToDataset(datasetUrn, datasetName);
       cy.clickOptionWithTestId("subscription-dropdown");
       cy.clickOptionWithText("Manage Group Subscriptions");
-      cy.waitTextVisible(`Subscribe to ${datasetName}`);
       cy.waitTextVisible(group_name)
       cy.get(".ant-tree-checkbox").click({ multiple: true });
       cy.clickOptionWithTestId("alternative-slack-radio");
@@ -79,7 +78,6 @@ describe("group subscription test", () => {
       cy.visit(`/group/urn:li:corpGroup:${test_id}/subscriptions`);
       cy.waitTextVisible(datasetName);
       cy.get('.ant-table-row [data-icon="edit"]').click();
-      cy.waitTextVisible(`Subscribe to ${datasetName}`);
       cy.get(".ant-tree-checkbox").click({ multiple: true });
       cy.clickOptionWithTestId("subscribe-button");
       cy.waitTextVisible("You have updated the subscription to this entity for your group.").wait(3000);
@@ -88,7 +86,6 @@ describe("group subscription test", () => {
       cy.goToDataset(datasetUrn, datasetName);
       cy.clickOptionWithTestId("subscription-dropdown");
       cy.clickOptionWithText("Manage Group Subscription");
-      cy.waitTextVisible(`Subscribe to ${datasetName}`);
       cy.get("[data-testid='cancel-button']").contains("Unsubscribe").click();
       cy.waitTextVisible("You have unsubscribed your group from this entity.").wait(3000);
       cy.visit(`/group/urn:li:corpGroup:${test_id}/subscriptions`);

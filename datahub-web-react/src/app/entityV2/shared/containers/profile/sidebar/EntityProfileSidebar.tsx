@@ -1,13 +1,9 @@
 /* eslint-disable prefer-template */
-import { Divider } from 'antd';
 import React, { useContext, useEffect, useState } from 'react';
 import styled from 'styled-components';
 import EntitySidebarContext from '../../../../../shared/EntitySidebarContext';
-import { EntityMenuItems } from '../../../EntityDropdown/EntityMenuActions';
 import { SEARCH_COLORS } from '../../../constants';
-import { EntityActionItem } from '../../../entity/EntityActions';
-import { EntitySidebarTab, EntitySubHeaderSection, TabContextType, TabRenderType } from '../../../types';
-import { EntityHeader } from '../header/EntityHeader';
+import { EntitySidebarTab, TabContextType, TabRenderType } from '../../../types';
 import { EntitySidebarTabs } from './EntitySidebarTabs';
 import SidebarCollapsibleHeader from './SidebarCollapsibleHeader';
 
@@ -27,7 +23,7 @@ export const StyledEntitySidebarContainer = styled.div<{
         display: none;
     }
     margin: ${(props) => (props.isCard ? '12px 12px 12px 0px' : '0px 0px 0px 0px')};
-    transition: max-width 0.2s ease-in-out, min-width 0.2s ease-in-out;
+    transition: max-width 0.3s ease-in-out, min-width 0.3s ease-in-out;
 `;
 
 export const StyledSidebar = styled.div<{ isCard: boolean; isFocused?: boolean; isInSearch?: boolean }>`
@@ -41,8 +37,6 @@ export const StyledSidebar = styled.div<{ isCard: boolean; isFocused?: boolean; 
     border-top: ${(props) => (props.isFocused ? `1px solid ${SEARCH_COLORS.TITLE_PURPLE}` : 'inherit')};
     border-top-width: ${(props) => (props.isFocused ? 'medium' : 'inherit')};
 `;
-
-const Header = styled.div``;
 
 const Body = styled.div`
     display: flex;
@@ -71,21 +65,12 @@ const TabsContainer = styled.div``;
 
 const Tabs = styled.div``;
 
-const HeaderDivider = styled(Divider)`
-    margin-bottom: 0px;
-    margin-top: 8px;
-`;
-
 interface Props {
     type?: 'card' | 'default';
     focused?: boolean;
     tabs: EntitySidebarTab[];
-    headerDropdownItems?: Set<EntityMenuItems>;
-    headerActionItems?: Set<EntityActionItem>;
-    subHeader?: EntitySubHeaderSection;
     backgroundColor?: string;
     contextType?: TabContextType;
-    hideHeader?: boolean;
     hideCollapse?: boolean;
     width?: number;
 }
@@ -94,12 +79,8 @@ export default function EntityProfileSidebar({
     type = 'default',
     focused = false,
     tabs,
-    headerDropdownItems,
-    headerActionItems,
-    subHeader,
     backgroundColor,
     contextType = TabContextType.PROFILE_SIDEBAR,
-    hideHeader = false,
     hideCollapse = false,
     width,
 }: Props) {
@@ -125,10 +106,10 @@ export default function EntityProfileSidebar({
             isCard={isCardLayout}
         >
             <StyledSidebar isCard={isCardLayout} isFocused={focused}>
-                {!isClosed && (
-                    <ContentContainer isVisible={!isClosed}>
-                        {!hideCollapse && <SidebarCollapsibleHeader currentTab={selectedTab} />}
-                        {!hideHeader && (
+                <ContentContainer isVisible={!isClosed}>
+                    {!hideCollapse && <SidebarCollapsibleHeader currentTab={selectedTab} />}
+
+                    {/* {!hideHeader && (
                             <Header>
                                 <EntityHeader
                                     headerDropdownItems={headerDropdownItems}
@@ -138,20 +119,19 @@ export default function EntityProfileSidebar({
                                 />
                                 <HeaderDivider />
                             </Header>
+                        )} */}
+                    <Body>
+                        {selectedTab && (
+                            <Content>
+                                <selectedTab.component
+                                    properties={selectedTab.properties}
+                                    renderType={TabRenderType.COMPACT}
+                                    contextType={contextType}
+                                />
+                            </Content>
                         )}
-                        <Body>
-                            {selectedTab && (
-                                <Content>
-                                    <selectedTab.component
-                                        properties={selectedTab.properties}
-                                        renderType={TabRenderType.COMPACT}
-                                        contextType={contextType}
-                                    />
-                                </Content>
-                            )}
-                        </Body>
-                    </ContentContainer>
-                )}
+                    </Body>
+                </ContentContainer>
                 <TabsContainer>
                     <Tabs>
                         <EntitySidebarTabs

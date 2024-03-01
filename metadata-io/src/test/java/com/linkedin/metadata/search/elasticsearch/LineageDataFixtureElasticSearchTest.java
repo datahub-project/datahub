@@ -1,5 +1,6 @@
 package com.linkedin.metadata.search.elasticsearch;
 
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.LineageSearchService;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.fixtures.LineageDataFixtureTestBase;
@@ -27,6 +28,8 @@ public class LineageDataFixtureElasticSearchTest extends LineageDataFixtureTestB
   @Qualifier("searchLineageLineageSearchService")
   protected LineageSearchService lineageService;
 
+  @Autowired protected EntityRegistry entityRegistry;
+
   @NotNull
   @Override
   protected LineageSearchService getLineageService() {
@@ -42,5 +45,10 @@ public class LineageDataFixtureElasticSearchTest extends LineageDataFixtureTestB
   @Test
   public void initTest() {
     AssertJUnit.assertNotNull(lineageService);
+  }
+
+  @Override
+  protected EntityRegistry getEntityRegistry() {
+    return entityRegistry;
   }
 }

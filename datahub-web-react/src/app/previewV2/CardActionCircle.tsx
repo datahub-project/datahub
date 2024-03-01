@@ -9,9 +9,9 @@ type Props = {
 };
 
 const IconContainer = styled.div<{ enabled?: boolean }>`
-    width: 22px;
-    height: 22px;
-    background-color: none;
+    width: 28px;
+    height: 28px;
+    background-color: #f7f7f7;
     cursor: pointer;
     border-radius: 50%;
     text-align: center;
@@ -21,10 +21,9 @@ const IconContainer = styled.div<{ enabled?: boolean }>`
     align-items: center;
     & svg {
         font-size: 14px;
-        // color: #b0a2c2;
-        color: ${({ enabled }) => (enabled ? '#3F54D1' : '#b0a2c2')};
+        color: #5d668b;
     }
-    border: 1px solid ${ANTD_GRAY['4']};
+    border: 1px solid #eee;
     :hover {
         border: 1px solid ${({ enabled }) => (enabled ? '#3F54D1' : ANTD_GRAY['4'])};
     }

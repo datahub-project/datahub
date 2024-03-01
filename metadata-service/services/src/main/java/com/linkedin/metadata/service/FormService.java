@@ -8,6 +8,7 @@ import static com.linkedin.metadata.entity.AspectUtils.buildMetadataChangePropos
 
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.FieldFormPromptAssociation;
@@ -23,16 +24,23 @@ import com.linkedin.common.Forms;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.form.DynamicFormAssignment;
 import com.linkedin.form.FormActorAssignment;
 import com.linkedin.form.FormInfo;
 import com.linkedin.form.FormPrompt;
+import com.linkedin.form.FormPromptType;
 import com.linkedin.form.FormType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.authorization.OwnershipUtils;
 import com.linkedin.metadata.entity.AspectUtils;
+import com.linkedin.metadata.query.SearchFlags;
+import com.linkedin.metadata.query.filter.*;
+import com.linkedin.metadata.search.SearchEntity;
+import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.service.util.FormTestBuilder;
 import com.linkedin.metadata.service.util.SearchBasedFormAssignmentRunner;
 import com.linkedin.metadata.utils.FormUtils;
 import com.linkedin.metadata.utils.SchemaFieldUtils;
@@ -44,12 +52,10 @@ import com.linkedin.structured.PrimitivePropertyValueArray;
 import com.linkedin.structured.StructuredProperties;
 import com.linkedin.structured.StructuredPropertyValueAssignment;
 import com.linkedin.structured.StructuredPropertyValueAssignmentArray;
+import com.linkedin.test.TestInfo;
+import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
@@ -65,12 +71,17 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 public class FormService extends BaseService {
+
+  private static final int TEST_SEARCH_BATCH_SIZE = 10000;
+  private static final int FORMS_BATCH_SIZE = 1000;
   private static final int BATCH_FORM_ENTITY_COUNT = 500;
 
+  private final OperationContext systemOpContext;
+
   public FormService(
-      @Nonnull final EntityClient entityClient,
-      @Nonnull final Authentication systemAuthentication) {
-    super(entityClient, systemAuthentication);
+      @Nonnull OperationContext systemOpContext, @Nonnull final EntityClient entityClient) {
+    super(entityClient, systemOpContext.getAuthentication());
+    this.systemOpContext = systemOpContext;
   }
 
   /** Batch associated a form to a given set of entities by urn. */
@@ -157,15 +168,93 @@ public class FormService extends BaseService {
     }
   }
 
-  /** Assigns the form to an entity for completion. */
-  public void upsertFormAssignmentRunner(
-      @Nonnull final Urn formUrn, @Nonnull final DynamicFormAssignment formFilters) {
+  /**
+   * Creates a form prompt automation, which verifies that the prompt is completed, and unsets it
+   * when it's not.
+   */
+  public void upsertFormPromptCompletionAutomation(
+      @Nonnull final Urn formUrn, @Nonnull final FormPrompt prompt) {
+    if (prompt.getType().equals(FormPromptType.FIELDS_STRUCTURED_PROPERTY)) {
+      log.info(
+          "Encountered FIELDS_STRUCTURED_PROPERTY prompt type. Skipping form prompt completion automation");
+      return;
+    }
+    final Urn metadataTestUrn = FormTestBuilder.createTestUrnForFormPrompt(formUrn, prompt);
+    final TestInfo testDefinition = FormTestBuilder.buildFormPromptCompletionTest(formUrn, prompt);
     try {
+      ingestChangeProposals(
+          ImmutableList.of(
+              AspectUtils.buildMetadataChangeProposal(
+                  metadataTestUrn, TEST_INFO_ASPECT_NAME, testDefinition)),
+          systemAuthentication);
+    } catch (Exception e) {
+      throw new RuntimeException("Failed to create form", e);
+    }
+  }
+
+  /** Creates a form assignment automation, which assigns the form to an entity for completion. */
+  public void upsertFormAssignmentAutomation(
+      @Nonnull final Urn formUrn, @Nonnull final DynamicFormAssignment formFilters) {
+    final Urn metadataTestUrn = FormTestBuilder.createTestUrnForFormAssignment(formUrn);
+    final TestInfo testDefinition = FormTestBuilder.buildFormAssignmentTest(formUrn, formFilters);
+    try {
+      ingestChangeProposals(
+          ImmutableList.of(
+              AspectUtils.buildMetadataChangeProposal(
+                  metadataTestUrn, TEST_INFO_ASPECT_NAME, testDefinition)),
+          systemAuthentication);
       SearchBasedFormAssignmentRunner.assign(
-          formFilters, formUrn, BATCH_FORM_ENTITY_COUNT, entityClient, systemAuthentication);
+          systemOpContext, formFilters, formUrn, BATCH_FORM_ENTITY_COUNT, entityClient);
     } catch (Exception e) {
       throw new RuntimeException(
           String.format("Failed to dynamically assign form with urn: %s", formUrn), e);
+    }
+  }
+
+  /** Remove all form automations (metadata tests) for a particular form urn. */
+  public void removeAllFormAutomations(@Nonnull final Urn formUrn) {
+    // Lookup all metadata tests associated with this form urn.
+    try {
+      final SearchResult result =
+          this.entityClient.search(
+              systemOpContext.withSearchFlags(flags -> flags.setSkipCache(true)),
+              TEST_ENTITY_NAME,
+              "*",
+              ImmutableMap.of("sourceUrn", formUrn.toString()),
+              0,
+              TEST_SEARCH_BATCH_SIZE);
+
+      if (result.hasEntities()) {
+        result
+            .getEntities()
+            .forEach(
+                entity -> {
+                  try {
+                    this.entityClient.deleteEntity(entity.getEntity(), this.systemAuthentication);
+                  } catch (Exception e) {
+                    throw new RuntimeException("Failed to remove form tests!", e);
+                  }
+                });
+      }
+    } catch (Exception e) {
+      log.error(
+          "Failed to remove metadata tests associated with form urn {}. This may mean that there is stale data remaining!",
+          formUrn);
+    }
+  }
+
+  /** Remove all form automations (metadata tests) for a particular form urn. */
+  public void removeFormPromptCompletionAutomation(
+      @Nonnull final Urn formUrn, @Nonnull final FormPrompt prompt) {
+    final Urn metadataTestUrn = FormTestBuilder.createTestUrnForFormPrompt(formUrn, prompt);
+    try {
+      this.entityClient.deleteEntity(metadataTestUrn, this.systemAuthentication);
+    } catch (Exception e) {
+      throw new RuntimeException(
+          String.format(
+              "Failed to remove form prompt test for form %s and prompt id %s!",
+              formUrn, prompt.getId()),
+          e);
     }
   }
 
@@ -282,6 +371,8 @@ public class FormService extends BaseService {
     // update the prompt association to have this fieldFormPromptAssociation marked as complete
     updateFieldPromptToComplete(
         formPromptAssociation, fieldPath, UrnUtils.getUrn(authentication.getActor().toUrnStr()));
+
+    formAssociation.setLastModified(createAuditStamp(authentication));
 
     // field prompt is complete if all fields in entity's schema metadata are marked complete
     if (isFieldPromptComplete(entityUrn, formPromptAssociation, authentication)) {
@@ -532,6 +623,8 @@ public class FormService extends BaseService {
               }
             });
     formAssociation.setIncompletePrompts(incompletePrompts);
+
+    formAssociation.setLastModified(createAuditStamp(authentication));
   }
 
   /** Performs the operation of changing the status of a form prompt from complete to incomplete. */
@@ -539,7 +632,8 @@ public class FormService extends BaseService {
       @Nonnull final FormAssociation form,
       @Nonnull final Urn entityUrn,
       @Nonnull final Urn formUrn,
-      @Nonnull final String formPromptId) {
+      @Nonnull final String formPromptId,
+      @Nonnull final Authentication authentication) {
     // Remove the prompt from completed.
     final List<FormPromptAssociation> newCompletedPrompts =
         form.getCompletedPrompts().stream()
@@ -561,6 +655,8 @@ public class FormService extends BaseService {
     newIncompletePrompts.add(
         new FormPromptAssociation().setId(formPromptId).setLastModified(createSystemAuditStamp()));
     form.setIncompletePrompts(new FormPromptAssociationArray(newIncompletePrompts));
+
+    form.setLastModified(createAuditStamp(authentication));
   }
 
   private List<MetadataChangeProposal> buildAssignFormChanges(
@@ -638,6 +734,8 @@ public class FormService extends BaseService {
             });
     newAssociation.setIncompletePrompts(formPromptAssociations);
     newAssociation.setCompletedPrompts(new FormPromptAssociationArray());
+    newAssociation.setCreated(createAuditStamp(authentication));
+    newAssociation.setLastModified(createAuditStamp(authentication));
     incompleteForms.add(newAssociation);
     formsAspect.setIncompleteForms(incompleteForms);
     return buildMetadataChangeProposal(entityUrn, FORMS_ASPECT_NAME, formsAspect);
@@ -755,7 +853,7 @@ public class FormService extends BaseService {
 
     if (formAssociation != null) {
       // 1. Find and mark the provided form prompt as incomplete.
-      updatePromptToIncomplete(formAssociation, entityUrn, formUrn, formPromptId);
+      updatePromptToIncomplete(formAssociation, entityUrn, formUrn, formPromptId, authentication);
 
       // 2. Update the form's completion status given the incomplete prompt.
       updateFormCompletion(forms, formAssociation, formDefinition);
@@ -1091,6 +1189,129 @@ public class FormService extends BaseService {
       throw new RuntimeException(
           String.format("Entity %s does not exist. Skipping batch form assignment", entityUrn));
     }
+  }
+
+  /*
+   * Get forms that are explicitly assigned to a given actor through either being assigned to
+   * the user or one of the groups provided.
+   */
+  public List<Urn> getFormsAssignedToActor(
+      @Nonnull final Urn userUrn,
+      @Nonnull final List<Urn> groupUrns,
+      @Nullable final SearchFlags searchFlags,
+      @Nonnull final Authentication authentication)
+      throws RemoteInvocationException {
+    // first, create a filter for the userUrn or the groupUrns matching the form actor assignment
+    final CriterionArray assignedUserArray = new CriterionArray();
+    assignedUserArray.add(
+        new Criterion()
+            .setField("assignedUsers")
+            .setValue(userUrn.toString())
+            .setCondition(Condition.EQUAL));
+    final CriterionArray assignedGroupsArray = new CriterionArray();
+    assignedGroupsArray.add(
+        new Criterion()
+            .setField("assignedGroups")
+            .setValue("")
+            .setValues(
+                new StringArray(groupUrns.stream().map(Urn::toString).collect(Collectors.toList())))
+            .setCondition(Condition.EQUAL));
+
+    Filter filter =
+        new Filter()
+            .setOr(
+                new ConjunctiveCriterionArray(
+                    new ConjunctiveCriterion().setAnd(assignedUserArray),
+                    new ConjunctiveCriterion().setAnd(assignedGroupsArray)));
+
+    SearchResult result =
+        this.entityClient.search(
+            systemOpContext.withSearchFlags(flags -> searchFlags),
+            FORM_ENTITY_NAME,
+            "*",
+            filter,
+            null,
+            0,
+            FORMS_BATCH_SIZE);
+
+    return result.getEntities().stream().map(SearchEntity::getEntity).collect(Collectors.toList());
+  }
+
+  /*
+   * Get forms that are assigned to owners of entities that this form is assigned to.
+   */
+  public List<Urn> getOwnershipForms(
+      @Nullable final SearchFlags searchFlags, @Nonnull final Authentication authentication)
+      throws RemoteInvocationException {
+    final SearchResult result =
+        this.entityClient.search(
+            systemOpContext.withSearchFlags(flags -> searchFlags),
+            FORM_ENTITY_NAME,
+            "*",
+            ImmutableMap.of("isOwnershipForm", "true"),
+            0,
+            FORMS_BATCH_SIZE);
+
+    return result.getEntities().stream().map(SearchEntity::getEntity).collect(Collectors.toList());
+  }
+
+  /*
+   * Get forms that are implicitly assigned to this user because the user owns an entity that has an
+   * ownership form on it.
+   * So, of the ownership forms, return the ones that are on entities that this user owns.
+   */
+  public List<Urn> getFormsAssignedByOwnership(
+      @Nonnull List<String> entities,
+      @Nonnull final Urn userUrn,
+      @Nonnull final List<Urn> ownershipFormUrns,
+      @Nullable final SearchFlags searchFlags,
+      @Nonnull final Authentication authentication)
+      throws RemoteInvocationException {
+    // create filter for entities owned by this user
+    Filter filter =
+        new Filter()
+            .setOr(
+                new ConjunctiveCriterionArray(
+                    new ConjunctiveCriterion()
+                        .setAnd(
+                            new CriterionArray(
+                                new Criterion()
+                                    .setField("owners")
+                                    .setValue(userUrn.toString())
+                                    .setCondition(Condition.EQUAL)))));
+
+    // do an aggregations query to get all the form urns in completedForms and incompleteForms for
+    // entities that this user owns
+    List<String> formFacets = ImmutableList.of("completedForms", "incompleteForms");
+    SearchResult result =
+        this.entityClient.searchAcrossEntities(
+            systemOpContext.withSearchFlags(flags -> searchFlags),
+            entities,
+            "*",
+            filter,
+            0,
+            0, // doing an aggregate request here, count = 0
+            null,
+            formFacets);
+
+    // get the form urns from the aggregations query we make above
+    final Set<Urn> formsOnOwnedEntities = new HashSet<>();
+    result
+        .getMetadata()
+        .getAggregations()
+        .forEach(
+            agg -> {
+              if (formFacets.contains(agg.getName())) {
+                formsOnOwnedEntities.addAll(
+                    agg.getFilterValues().stream()
+                        .map(f -> UrnUtils.getUrn(f.getValue()))
+                        .collect(Collectors.toList()));
+              }
+            });
+
+    return ownershipFormUrns.stream()
+        .filter(formsOnOwnedEntities::contains)
+        .collect(Collectors.toList());
   }
 
   private AuditStamp createSystemAuditStamp() {

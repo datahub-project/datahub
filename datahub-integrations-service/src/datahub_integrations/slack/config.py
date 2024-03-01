@@ -5,13 +5,18 @@ from typing import Optional
 
 import pydantic
 from datahub.configuration.common import ConnectionModel
+from datahub.metadata.urns import DataPlatformUrn
 from loguru import logger
 
 from datahub_integrations.app import graph
-from datahub_integrations.graphql.connection import get_connection, save_connection
+from datahub_integrations.graphql.connection import (
+    get_connection_json,
+    save_connection_json,
+)
 
 _SLACK_CONFIG_ID = "__system_slack-0"
 _SLACK_CONFIG_URN = f"urn:li:dataHubConnection:{_SLACK_CONFIG_ID}"
+_SLACK_PLATFORM_URN: str = DataPlatformUrn("slack").urn()
 SLACK_PROXY = os.environ.get("DATAHUB_SLACK_PROXY")
 
 
@@ -62,7 +67,7 @@ def _get_current_slack_config() -> SlackConnection:
     #     json.loads(pathlib.Path("slack_details.json").read_text())
     # )
 
-    obj = get_connection(graph=graph, urn=_SLACK_CONFIG_URN)
+    obj = get_connection_json(graph=graph, urn=_SLACK_CONFIG_URN)
 
     if not obj:
         logger.debug("No slack config found, returning an empty config")
@@ -76,9 +81,12 @@ def _get_current_slack_config() -> SlackConnection:
 def _set_current_slack_config(config: SlackConnection) -> None:
     """Sets the current slack config in DataHub."""
 
-    blob = config.json()
-
-    save_connection(graph=graph, urn=_SLACK_CONFIG_URN, blob=blob)
+    save_connection_json(
+        graph=graph,
+        urn=_SLACK_CONFIG_URN,
+        platform_urn=_SLACK_PLATFORM_URN,
+        config=config,
+    )
 
 
 @dataclass

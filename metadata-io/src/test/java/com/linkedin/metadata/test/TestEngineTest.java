@@ -21,6 +21,7 @@ import com.linkedin.test.TestInfo;
 import com.linkedin.test.TestMode;
 import com.linkedin.test.TestResults;
 import com.linkedin.test.TestStatus;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.List;
 import java.util.Set;
 import org.mockito.Mockito;
@@ -98,7 +99,7 @@ public class TestEngineTest {
         mockActionApplier,
         spyPredicateEvaluator);
 
-    when(mockTestFetcher.fetch(anyInt(), anyInt()))
+    when(mockTestFetcher.fetch(any(), anyInt(), anyInt()))
         .thenReturn(new TestFetcher.TestFetchResult(withTests, withTests.size()));
 
     final EntityRegistry entityRegistry =
@@ -107,6 +108,7 @@ public class TestEngineTest {
     when(mockEntityService.getEntityRegistry()).thenReturn(entityRegistry);
 
     return new TestEngine(
+        TestOperationContexts.systemContextNoSearchAuthorization(entityRegistry),
         mockEntityService,
         mockTestFetcher,
         new TestDefinitionParser(spyPredicateEvaluator),

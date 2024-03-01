@@ -10,14 +10,18 @@ import {
     MoreOutlined,
     PlusOutlined,
     WarningOutlined,
+    ShareAltOutlined,
+    BellOutlined,
+    BellFilled,
 } from '@ant-design/icons';
+import MoreVertOutlinedIcon from '@mui/icons-material/MoreVertOutlined';
 import { Redirect, useHistory } from 'react-router';
 import { EntityType } from '../../../../types.generated';
 import CreateGlossaryEntityModal from './CreateGlossaryEntityModal';
 import { UpdateDeprecationModal } from './UpdateDeprecationModal';
 import { useUpdateDeprecationMutation } from '../../../../graphql/mutations.generated';
 import MoveGlossaryEntityModal from './MoveGlossaryEntityModal';
-import { ANTD_GRAY } from '../constants';
+import { ANTD_GRAY, REDESIGN_COLORS } from '../constants';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { AddIncidentModal } from '../tabs/Incident/components/AddIncidentModal';
 import { getEntityPath } from '../containers/profile/utils';
@@ -28,17 +32,10 @@ import { shouldDisplayChildDeletionWarning, isDeleteDisabled, isMoveDisabled } f
 import { useUserContext } from '../../../context/useUserContext';
 import MoveDomainModal from './MoveDomainModal';
 import { useIsNestedDomainsEnabled } from '../../../useAppConfig';
-
-export enum EntityMenuItems {
-    COPY_URL,
-    UPDATE_DEPRECATION,
-    ADD_TERM,
-    ADD_TERM_GROUP,
-    DELETE,
-    MOVE,
-    // acryl-main only
-    RAISE_INCIDENT,
-}
+import { EntityMenuItems } from './EntityMenuActions';
+import ShareButtonMenu from '../../../shared/share/v2/ShareButtonMenu';
+import SubscribeButtonMenu from '../../../shared/subscribe/v2/SubscribeButtonMenu';
+import useSubscriptionSummary from '../../../shared/subscribe/useSubscriptionSummary';
 
 export const MenuIcon = styled(MoreOutlined)<{ fontSize?: number }>`
     display: flex;
@@ -50,9 +47,33 @@ export const MenuIcon = styled(MoreOutlined)<{ fontSize?: number }>`
 `;
 
 const MenuItem = styled.div`
-    font-size: 12px;
+    font-size: 13px;
+    font-weight: 400;
     padding: 0 4px;
-    color: #262626;
+    color: #46507b;
+    line-height: 24px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+`;
+
+const StyledSubMenu = styled(Menu.SubMenu)`
+    .ant-dropdown-menu-submenu-title {
+        padding-right: 0px;
+        display: flex;
+        align-items: end;
+    }
+`;
+
+const StyledMoreIcon = styled(MoreVertOutlinedIcon)`
+    &&& {
+        display: flex;
+        font-size: 20px;
+        padding: 2px;
+        :hover {
+            color: ${REDESIGN_COLORS.TITLE_PURPLE};
+        }
+    }
 `;
 
 const StyledMenuItem = styled(Menu.Item)<{ disabled?: boolean }>`
@@ -76,7 +97,6 @@ interface Props {
     entityType: EntityType;
     entityData?: any;
     menuItems: Set<EntityMenuItems>;
-    size?: number;
     options?: Options;
     refetchForEntity?: () => void;
     refetchForTerms?: () => void;
@@ -84,7 +104,7 @@ interface Props {
     onDeleteEntity?: () => void;
 }
 
-function EntityDropdown(props: Props) {
+const EntityDropdown = (props: Props) => {
     const history = useHistory();
 
     const {
@@ -96,7 +116,6 @@ function EntityDropdown(props: Props) {
         refetchForTerms,
         refetchForNodes,
         onDeleteEntity: onDelete,
-        size,
         options,
     } = props;
 
@@ -113,6 +132,10 @@ function EntityDropdown(props: Props) {
         options?.hideDeleteMessage,
         options?.skipDeleteWait,
     );
+
+    const { isUserSubscribed, setIsUserSubscribed, refetchSubscriptionSummary } = useSubscriptionSummary({
+        entityUrn: urn,
+    });
 
     const [isCreateTermModalVisible, setIsCreateTermModalVisible] = useState(false);
     const [isCreateNodeModalVisible, setIsCreateNodeModalVisible] = useState(false);
@@ -169,7 +192,8 @@ function EntityDropdown(props: Props) {
                                         message.info('Copied URL!', 1.2);
                                     }}
                                 >
-                                    <LinkOutlined /> &nbsp; Copy Url
+                                    <LinkOutlined />
+                                    &nbsp; Copy Url
                                 </MenuItem>
                             </Menu.Item>
                         )}
@@ -177,11 +201,13 @@ function EntityDropdown(props: Props) {
                             <Menu.Item key="1">
                                 {!entityData?.deprecation?.deprecated ? (
                                     <MenuItem onClick={() => setIsDeprecationModalVisible(true)}>
-                                        <ExclamationCircleOutlined /> &nbsp; Mark as deprecated
+                                        <ExclamationCircleOutlined />
+                                        &nbsp; Mark as deprecated
                                     </MenuItem>
                                 ) : (
                                     <MenuItem onClick={() => handleUpdateDeprecation(false)}>
-                                        <ExclamationCircleOutlined /> &nbsp; Mark as un-deprecated
+                                        <ExclamationCircleOutlined />
+                                        &nbsp; Mark as un-deprecated
                                     </MenuItem>
                                 )}
                             </Menu.Item>
@@ -193,7 +219,8 @@ function EntityDropdown(props: Props) {
                                 onClick={() => setIsCreateTermModalVisible(true)}
                             >
                                 <MenuItem>
-                                    <PlusOutlined /> &nbsp;Add Term
+                                    <PlusOutlined />
+                                    &nbsp;Add Term
                                 </MenuItem>
                             </StyledMenuItem>
                         )}
@@ -204,7 +231,8 @@ function EntityDropdown(props: Props) {
                                 onClick={() => setIsCreateNodeModalVisible(true)}
                             >
                                 <MenuItem>
-                                    <FolderAddOutlined /> &nbsp;Add Term Group
+                                    <FolderAddOutlined />
+                                    &nbsp;Add Term Group
                                 </MenuItem>
                             </StyledMenuItem>
                         )}
@@ -241,7 +269,6 @@ function EntityDropdown(props: Props) {
                                 </Tooltip>
                             </StyledMenuItem>
                         )}
-                        {/** acryl-main only */}
                         {menuItems.has(EntityMenuItems.RAISE_INCIDENT) && (
                             <StyledMenuItem key="6" disabled={false}>
                                 <MenuItem onClick={() => setIsRaiseIncidentModalVisible(true)}>
@@ -249,11 +276,51 @@ function EntityDropdown(props: Props) {
                                 </MenuItem>
                             </StyledMenuItem>
                         )}
+                        {menuItems.has(EntityMenuItems.SUBSCRIBE) && (
+                            <StyledSubMenu
+                                key="7"
+                                disabled={false}
+                                title={
+                                    <MenuItem>
+                                        {isUserSubscribed ? <BellFilled /> : <BellOutlined />} &nbsp;Subscribe
+                                    </MenuItem>
+                                }
+                            >
+                                <SubscribeButtonMenu
+                                    isUserSubscribed={isUserSubscribed}
+                                    setIsUserSubscribed={setIsUserSubscribed}
+                                    refetchSubscriptionSummary={refetchSubscriptionSummary}
+                                    entityUrn={urn}
+                                />
+                            </StyledSubMenu>
+                        )}
+                        {menuItems.has(EntityMenuItems.SHARE) && (
+                            <StyledSubMenu
+                                key="8"
+                                disabled={false}
+                                title={
+                                    <MenuItem>
+                                        <ShareAltOutlined /> &nbsp;Share
+                                    </MenuItem>
+                                }
+                            >
+                                <ShareButtonMenu
+                                    urn={urn}
+                                    entityType={entityType}
+                                    subType={
+                                        (entityData?.subTypes?.typeNames?.length &&
+                                            entityData?.subTypes?.typeNames?.[0]) ||
+                                        undefined
+                                    }
+                                    name={entityData?.name}
+                                />
+                            </StyledSubMenu>
+                        )}
                     </Menu>
                 }
                 trigger={['click']}
             >
-                <MenuIcon data-testid="entity-header-dropdown" fontSize={size} />
+                <StyledMoreIcon />
             </Dropdown>
             {isCreateTermModalVisible && (
                 <CreateGlossaryEntityModal
@@ -307,6 +374,6 @@ function EntityDropdown(props: Props) {
             )}
         </>
     );
-}
+};
 
 export default EntityDropdown;

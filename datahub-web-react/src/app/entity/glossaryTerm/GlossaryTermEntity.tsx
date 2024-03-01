@@ -18,6 +18,7 @@ import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
 import { EntityActionItem } from '../shared/entity/EntityActions';
 import { FetchedEntity } from '../../lineage/types';
 import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
+import { SidebarMetadataSection } from '../shared/containers/profile/sidebar/SidebarMetadataSection';
 
 /**
  * Definition of the DataHub Dataset entity.
@@ -59,6 +60,8 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
     getCollectionName = () => 'Glossary Terms';
 
     getEntityName = () => 'Glossary Term';
+
+    useEntityQuery = useGetGlossaryTermQuery;
 
     renderProfile = (urn) => {
         return (
@@ -108,24 +111,29 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
                         component: PropertiesTab,
                     },
                 ]}
-                sidebarSections={[
-                    {
-                        component: SidebarAboutSection,
-                    },
-                    {
-                        component: SidebarOwnerSection,
-                    },
-                    {
-                        component: SidebarDomainSection,
-                        properties: {
-                            hideOwnerType: true,
-                        },
-                    },
-                ]}
+                sidebarSections={this.getSidebarSections()}
                 getOverrideProperties={this.getOverridePropertiesFromEntity}
             />
         );
     };
+
+    getSidebarSections = () => [
+        {
+            component: SidebarAboutSection,
+        },
+        {
+            component: SidebarMetadataSection,
+        },
+        {
+            component: SidebarOwnerSection,
+        },
+        {
+            component: SidebarDomainSection,
+            properties: {
+                hideOwnerType: true,
+            },
+        },
+    ];
 
     getOverridePropertiesFromEntity = (glossaryTerm?: GlossaryTerm | null): GenericEntityProperties => {
         // if dataset has subTypes filled out, pick the most specific subtype and return it

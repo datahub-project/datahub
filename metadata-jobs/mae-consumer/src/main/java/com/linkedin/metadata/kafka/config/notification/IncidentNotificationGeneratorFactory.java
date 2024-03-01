@@ -13,6 +13,7 @@ import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.kafka.hook.notification.incident.IncidentNotificationGenerator;
 import com.linkedin.metadata.spring.YamlPropertySourceFactory;
+import io.datahubproject.metadata.context.OperationContext;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -56,13 +57,15 @@ public class IncidentNotificationGeneratorFactory {
   @Bean(name = "incidentNotificationGenerator")
   @Scope("singleton")
   @Nonnull
-  protected IncidentNotificationGenerator getInstance(final SystemEntityClient systemEntityClient) {
+  protected IncidentNotificationGenerator getInstance(
+      @Qualifier("systemOperationContext") OperationContext systemOpContext,
+      final SystemEntityClient systemEntityClient) {
     return new IncidentNotificationGenerator(
+        systemOpContext,
         _eventProducer,
         systemEntityClient,
         _graphClient,
         _settingsProvider,
-        systemEntityClient.getSystemAuthentication(),
         _slackNotificationRecipientBuilder,
         _configProvider.getFeatureFlags());
   }
