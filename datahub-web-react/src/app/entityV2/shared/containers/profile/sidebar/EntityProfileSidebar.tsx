@@ -26,7 +26,7 @@ export const StyledEntitySidebarContainer = styled.div<{
     &::-webkit-scrollbar {
         display: none;
     }
-    margin: ${(props) => (props.isCard ? '0 12px 0 0px' : '0px 0px 0px 0px')};
+    margin: ${(props) => (props.isCard ? '12px 12px 12px 0px' : '0px 0px 0px 0px')};
     transition: max-width 0.3s ease-in-out, min-width 0.3s ease-in-out;
 `;
 

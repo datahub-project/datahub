@@ -42,9 +42,9 @@ outputs:
   integrations-service-change:
     description: "Integrations Service code has changed"
     value: ${{ steps.filter.outputs.integrations-service == 'true' }}
-  monitors-service-change:
-    description: "Monitors Service code has changed"
-    value: ${{ steps.filter.outputs.monitors-service == 'true' }}
+  datahub-executor-change:
+    description: "Datahub executor code has changed"
+    value: ${{ steps.filter.outputs.datahub-executor == 'true' }}
 runs:
   using: "composite"
   steps:
@@ -96,9 +96,9 @@ runs:
             - "metadata-models/**"
             - "docker/datahub-ingestion-**"
             - "docker/datahub-integrations-service/**"
-          monitors-service:
-            - "datahub-monitors-service/**"
+          datahub-executor:
+            - "datahub-executor/**"
             - "metadata-ingestion/**"
             - "metadata-models/**"
             - "docker/datahub-ingestion-**"
-            - "docker/datahub-monitors-service/**"
+            - "docker/datahub-executor/**"

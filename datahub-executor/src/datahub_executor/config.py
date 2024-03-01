@@ -1,0 +1,70 @@
+import os
+
+
+def string_to_bool(string: str) -> bool:
+    return string.lower() == "true"
+
+
+def env_to_int(varname: str, default_val: int) -> int:
+    val = os.environ.get(varname)
+    if val is None:
+        return default_val
+    if val.isdigit():
+        return int(val)
+    return default_val
+
+
+def datahub_url() -> str:
+    url = os.environ.get("DATAHUB_GMS_URL")
+    if url is not None:
+        return url
+    return (
+        f"{os.environ.get('DATAHUB_GMS_PROTOCOL', 'http')}://"
+        f"{os.environ.get('DATAHUB_GMS_HOST', 'localhost')}:{os.environ.get('DATAHUB_GMS_PORT', 8080)}"
+    )
+
+
+DATAHUB_GMS_TOKEN = os.environ.get("DATAHUB_GMS_TOKEN", None)
+DATAHUB_GMS_URL = datahub_url()
+
+DATAHUB_EXECUTOR_MODE = os.getenv("DATAHUB_EXECUTOR_MODE", "coordinator")
+DATAHUB_EXECUTOR_WORKER_ID = os.environ.get("DATAHUB_EXECUTOR_WORKER_ID", "default")
+
+DATAHUB_EXECUTOR_MONITORS_ENABLED = string_to_bool(
+    os.getenv("DATAHUB_EXECUTOR_MONITORS_ENABLED", "True")
+)
+DATAHUB_EXECUTOR_INGESTION_ENABLED = string_to_bool(
+    os.getenv("DATAHUB_EXECUTOR_INGESTION_ENABLED", "True")
+)
+DATAHUB_EXECUTOR_EMBEDDED_WORKER_ENABLED = string_to_bool(
+    os.getenv("DATAHUB_EXECUTOR_EMBEDDED_WORKER_ENABLED", "True")
+)
+
+DATAHUB_EXECUTOR_INGESTION_PIPELINE_CONFIG_PATH = os.environ.get(
+    "DATAHUB_EXECUTOR_INGESTION_CONFIG_PATH",
+    "/etc/datahub-executor/ingestion-pipeline-config.yaml",
+)
+DATAHUB_EXECUTOR_INGESTION_PIPELINE_MAX_WORKERS = env_to_int(
+    "DATAHUB_EXECUTOR_INGESTION_MAX_WORKERS", 4
+)
+DATAHUB_EXECUTOR_INGESTION_PIPELINE_SIGNAL_POLL_INTERVAL = env_to_int(
+    "DATAHUB_EXECUTOR_INGESTION_SIGNAL_POLL_INTERVAL", 2
+)
+
+DATAHUB_EXECUTOR_MONITORS_MAX_WORKERS = env_to_int(
+    "DATAHUB_EXECUTOR_MONITORS_MAX_WORKERS", 10
+)
+
+DATAHUB_EXECUTOR_WORKER_IMPLEMENTATION = os.getenv(
+    "DATAHUB_EXECUTOR_WORKER_IMPLEMENTATION", "default"
+)
+
+DATAHUB_EXECUTOR_READINESS_HEARTBEAT_FILE = "/tmp/worker_readiness_heartbeat"
+DATAHUB_EXECUTOR_LIVENESS_HEARTBEAT_FILE = "/tmp/worker_liveness_heartbeat"
+
+DATAHUB_EXECUTOR_MONITORS_FETCHER_REFRESH_INTERVAL = env_to_int(
+    "DATAHUB_EXECUTOR_MONITORS_FETCHER_REFRESH_INTERVAL", 1
+)
+DATAHUB_EXECUTOR_INGESTION_FETCHER_REFRESH_INTERVAL = env_to_int(
+    "DATAHUB_EXECUTOR_INGESTION_FETCHER_REFRESH_INTERVAL", 1
+)

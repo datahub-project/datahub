@@ -29,7 +29,7 @@ env:
   DATAHUB_INGESTION_BASE_IMAGE: '795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-ingestion-base'
   DATAHUB_INGESTION_IMAGE: '795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-ingestion'
   DATAHUB_INTEGRATIONS_IMAGE: '795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-integrations-service'
-  DATAHUB_MONITORS_IMAGE: '795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-executor'
+  DATAHUB_EXECUTOR_IMAGE: '795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-executor'
 
 jobs:
   setup:
@@ -57,7 +57,7 @@ jobs:
       postgres_setup_change: ${{ steps.ci-optimize.outputs.postgres-setup-change == 'true' }}
       elasticsearch_setup_change: ${{ steps.ci-optimize.outputs.elasticsearch-setup-change == 'true' }}
       integrations_service_change: ${{ steps.ci-optimize.outputs.integrations-service-change == 'true' }}
-      monitors_service_change: ${{ steps.ci-optimize.outputs.monitors-service-change == 'true' }}
+      datahub_executor_change: ${{ steps.ci-optimize.outputs.datahub-executor-change == 'true' }}
     steps:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@v3
@@ -1142,11 +1142,11 @@ jobs:
         if: ${{ false }}
         with:
           sarif_file: "trivy-results.sarif"
-  datahub_monitors_service_build:
-    name: Build and Push DataHub Monitors Service Docker Images
+  datahub_executor_build:
+    name: Build and Push DataHub Executor Docker Images
     runs-on: ubuntu-latest
     needs: [setup, datahub_ingestion_slim_build]
-    if: ${{ needs.setup.outputs.monitors_service_change == 'true' || needs.setup.outputs.publish == 'true' }}
+    if: ${{ needs.setup.outputs.datahub_executor_change == 'true' || needs.setup.outputs.publish == 'true' }}
     steps:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@v3
@@ -1160,7 +1160,7 @@ jobs:
         with:
           target: final
           images: |
-            ${{ env.DATAHUB_MONITORS_IMAGE }}
+            ${{ env.DATAHUB_EXECUTOR_IMAGE }}
           build-args: |
             BASE_IMAGE=${{ env.DATAHUB_INGESTION_IMAGE }}
             DOCKER_VERSION=${{ needs.datahub_ingestion_slim_build.outputs.tag || 'head-slim' }}
@@ -1170,17 +1170,17 @@ jobs:
           password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
           publish: ${{ needs.setup.outputs.publish }}
           context: .
-          file: ./docker/datahub-monitors-service/Dockerfile
+          file: ./docker/datahub-executor/Dockerfile
           platforms: linux/amd64,linux/arm64/v8
-  datahub_monitors_service_scan:
+  datahub_executor_scan:
     permissions:
       contents: read # for actions/checkout to fetch code
       security-events: write # for github/codeql-action/upload-sarif to upload SARIF results
       actions: read # only required for a private repository by github/codeql-action/upload-sarif to get the Action run status
     name: "[Monitoring] Scan Datahub Monitors Service images for vulnerabilities"
     runs-on: ubuntu-latest
-    needs: [setup, datahub_monitors_service_build]
-    if: ${{ needs.setup.outputs.monitors_service_change == 'true' || needs.setup.outputs.publish == 'true' }}
+    needs: [setup, datahub_executor_build]
+    if: ${{ needs.setup.outputs.datahub_executor_change == 'true' || needs.setup.outputs.publish == 'true' }}
     steps:
       - name: Checkout # adding checkout step just to make trivy upload happy
         uses: actions/checkout@v3
@@ -1188,7 +1188,7 @@ jobs:
         uses: ishworkh/docker-image-artifact-download@v1
         if: ${{ needs.setup.outputs.publish != 'true' }}
         with:
-          image: ${{ env.DATAHUB_MONITORS_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
+          image: ${{ env.DATAHUB_EXECUTOR_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
       - name: Run Trivy vulnerability scanner Slim Image
         uses: aquasecurity/trivy-action@0.8.0
         env:
@@ -1197,7 +1197,7 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: us-west-2
         with:
-          image-ref: ${{ env.DATAHUB_MONITORS_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
+          image-ref: ${{ env.DATAHUB_EXECUTOR_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
           format: "template"
           template: "@/contrib/sarif.tpl"
           output: "trivy-results.sarif"

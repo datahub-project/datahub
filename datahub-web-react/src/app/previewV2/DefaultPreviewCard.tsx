@@ -36,18 +36,17 @@ import { useEntityRegistryV2 } from '../useEntityRegistry';
 import CardActionCircle from './CardActionCircle';
 import ColoredBackgroundPlatformIconGroup from './ColoredBackgroundPlatformIconGroup';
 import SearchCardBrowsePath from './SearchCardBrowsePath';
-import Pills from './Pills';
 import StatusBadges from './StatusBadges';
 import EntityHeader from './EntityHeader';
 import EntityExternalLink from '../entityV2/shared/links/EntityExternalLink';
-import { PopularityBars } from '../entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/PopularityBars';
+import DefaultPreviewCardFooter from './DefaultPreviewCardFooter';
 
 const PreviewContainer = styled.div`
     display: flex;
     flex-direction: column;
     width: 100%;
     justify-content: space-between;
-    align-items: left;
+    align-items: start;
 
     .entityCount {
         margin-bottom: 2px;
@@ -64,6 +63,7 @@ const RowContainer = styled.div<RowContainerProps>`
     display: ${(props) => (props.hidden ? 'none' : 'flex')};
     flex-direction: row;
     justify-content: space-between;
+    width: 100%;
 `;
 
 const RowContainerJustifyStart = styled(RowContainer)`
@@ -191,30 +191,6 @@ const ActionsAndStatusSection = styled.div`
     display: flex;
     flex-direction: row;
     gap: 5px;
-`;
-
-const EntityLink = styled.div`
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-
-    .ant-btn-link {
-        display: flex;
-        align-items: center;
-        color: #56668e;
-        height: 100%;
-
-        :hover {
-            color: #533fd1;
-        }
-
-        > span:first-child {
-            display: flex;
-            align-items: center;
-            height: 100%;
-            line-height: normal;
-        }
-    }
 `;
 
 export default function DefaultPreviewCard({
@@ -400,26 +376,16 @@ export default function DefaultPreviewCard({
                     </RowContainerJustifyStart>
                 </>
             )}
-            <RowContainer
-                style={{
-                    borderTop: `1px solid ${ANTD_GRAY[4]}`,
-                    paddingTop: 12,
-                    marginBottom: -6,
-                }}
-            >
-                <Pills
-                    glossaryTerms={glossaryTerms}
-                    tags={tags}
-                    owners={owners}
-                    entityCapabilities={supportedCapabilities}
-                />
-                <EntityLink>{entityTitleSuffix}</EntityLink>
-                {tier !== undefined && (
-                    <div>
-                        <PopularityBars status={status} />
-                    </div>
-                )}
-            </RowContainer>
+            <DefaultPreviewCardFooter
+                glossaryTerms={glossaryTerms}
+                tags={tags}
+                owners={owners}
+                entityCapabilities={supportedCapabilities}
+                tier={tier}
+                status={status}
+                previewType={previewType}
+                entityTitleSuffix={entityTitleSuffix}
+            />
             {/* {!!(insights?.length || groupedMatches.length) && isMatchExpanded && (
                     <>
                         <HorizontalDivider />
@@ -434,7 +400,7 @@ export default function DefaultPreviewCard({
                         </InsightsContainer>
                     </>
                 )} */}
-            {degree !== undefined && degree !== null && (
+            {degree !== undefined && (
                 <Tooltip
                     title={`This entity is a ${getNumberWithOrdinal(degree)} degree connection to ${
                         entityData?.name || 'the source entity'

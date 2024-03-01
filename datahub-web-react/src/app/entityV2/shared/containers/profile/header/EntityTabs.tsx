@@ -29,7 +29,7 @@ const UnborderedTabs = styled(Tabs)`
         padding: 10px 16px;
         margin: 0;
         border-radius: 4px;
-        font-size: 10px;
+        font-size: 14px;
         font-weight: 400;
 
         &:hover {
