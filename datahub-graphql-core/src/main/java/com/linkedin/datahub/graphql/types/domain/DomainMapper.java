@@ -1,14 +1,18 @@
 package com.linkedin.datahub.graphql.types.domain;
 
+import static com.linkedin.metadata.Constants.SHARE_ASPECT_NAME;
+
 import com.linkedin.common.DisplayProperties;
 import com.linkedin.common.InstitutionalMemory;
 import com.linkedin.common.Ownership;
+import com.linkedin.common.Share;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.generated.Domain;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.types.common.mappers.DisplayPropertiesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.ShareMapper;
 import com.linkedin.domain.DomainProperties;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
@@ -61,6 +65,11 @@ public class DomainMapper {
       result.setDisplayProperties(
           DisplayPropertiesMapper.map(
               new DisplayProperties(envelopedDisplayProperties.getValue().data())));
+    }
+
+    final EnvelopedAspect envelopedShare = aspects.get(SHARE_ASPECT_NAME);
+    if (envelopedShare != null) {
+      result.setShare(ShareMapper.map(new Share(envelopedShare.getValue().data())));
     }
 
     return result;

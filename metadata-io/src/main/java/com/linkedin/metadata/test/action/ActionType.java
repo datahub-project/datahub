@@ -30,7 +30,13 @@ public enum ActionType {
   /** Deprecate item */
   DEPRECATE,
   /** Un Deprecate item */
-  UN_DEPRECATE;
+  UN_DEPRECATE,
+  /** Assign a requirements form */
+  ASSIGN_FORM,
+  /** Unassign a requirements form */
+  UNASSIGN_FORM,
+  /** Unset a particular prompt inside a requirements form when a requirement is no longer met. */
+  SET_FORM_PROMPT_INCOMPLETE;
 
   private static final Map<String, ActionType> NAME_TO_ACTION_TYPE =
       Arrays.stream(ActionType.values())

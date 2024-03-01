@@ -61,6 +61,8 @@ export const DEFAULT_APP_CONFIG = {
         documentationAiEnabled: false,
         themeV2: false,
         lineageGraphV2: false,
+        taskCenterEnabled: false,
+        metadataShareEnabled: false,
     },
     chromeExtensionConfig: {
         enabled: false,

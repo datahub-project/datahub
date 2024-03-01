@@ -1463,4 +1463,20 @@ fragment entityPrivileges on EntityPrivileges {
     canEditEmbed
     canManageEntity
     canManageChildren
+    canShareEntity
+}
+
+fragment shareFields on Share {
+    lastShareResults {
+        lastSuccess {
+            time
+        }
+        destination {
+            urn
+            details {
+                name
+            }
+        }
+        status
+    }
 }

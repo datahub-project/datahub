@@ -24,6 +24,12 @@ query getGroup($urn: String!, $membersCount: Int!) {
             email
             slack
         }
+        share {
+            ...shareFields
+        }
+        privileges {
+            ...entityPrivileges
+        }
         autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
             ...autoRenderAspectFields
         }

@@ -23,3 +23,5 @@ cat ../../datahub-graphql-core/src/main/resources/incident.graphql >> combined.g
 cat ../../datahub-graphql-core/src/main/resources/anomaly.graphql >> combined.graphql
 cat ../../datahub-graphql-core/src/main/resources/monitor.graphql >> combined.graphql
 cat ../../datahub-graphql-core/src/main/resources/contract.graphql >> combined.graphql
+cat ../../datahub-graphql-core/src/main/resources/connection.graphql >> combined.graphql
+cat ../../datahub-graphql-core/src/main/resources/share.graphql >> combined.graphql

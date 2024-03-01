@@ -74,6 +74,7 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
 
   private EntityPrivileges getGlossaryTermPrivileges(Urn termUrn, QueryContext context) {
     final EntityPrivileges result = new EntityPrivileges();
+    addCommonPrivileges(result, termUrn, context);
     result.setCanManageEntity(false);
     if (GlossaryUtils.canManageGlossaries(context)) {
       result.setCanManageEntity(true);
@@ -85,12 +86,12 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
           GlossaryUtils.canManageChildrenEntities(context, parentNodeUrn, _entityClient);
       result.setCanManageEntity(canManage);
     }
-    addCommonPrivileges(result, termUrn, context);
     return result;
   }
 
   private EntityPrivileges getGlossaryNodePrivileges(Urn nodeUrn, QueryContext context) {
     final EntityPrivileges result = new EntityPrivileges();
+    addCommonPrivileges(result, nodeUrn, context);
     result.setCanManageEntity(false);
     if (GlossaryUtils.canManageGlossaries(context)) {
       result.setCanManageEntity(true);
@@ -107,7 +108,6 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
           GlossaryUtils.canManageChildrenEntities(context, parentNodeUrn, _entityClient);
       result.setCanManageEntity(canManage);
     }
-    addCommonPrivileges(result, nodeUrn, context);
     return result;
   }
 
@@ -187,5 +187,6 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
     result.setCanEditOwners(OwnerUtils.isAuthorizedToUpdateOwners(context, urn));
     result.setCanEditDescription(DescriptionUtils.isAuthorizedToUpdateDescription(context, urn));
     result.setCanEditLinks(LinkUtils.isAuthorizedToUpdateLinks(context, urn));
+    result.setCanShareEntity(AuthorizationUtils.canShareEntity(urn, context));
   }
 }

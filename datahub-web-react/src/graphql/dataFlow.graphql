@@ -19,6 +19,12 @@ fragment dataFlowFields on DataFlow {
             value
         }
     }
+    share {
+        ...shareFields
+    }
+    privileges {
+        ...entityPrivileges
+    }
     editableProperties {
         description
     }

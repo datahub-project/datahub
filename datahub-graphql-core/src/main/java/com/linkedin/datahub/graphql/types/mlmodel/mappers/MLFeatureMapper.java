@@ -2,14 +2,7 @@ package com.linkedin.datahub.graphql.types.mlmodel.mappers;
 
 import static com.linkedin.metadata.Constants.*;
 
-import com.linkedin.common.BrowsePathsV2;
-import com.linkedin.common.DataPlatformInstance;
-import com.linkedin.common.Deprecation;
-import com.linkedin.common.GlobalTags;
-import com.linkedin.common.GlossaryTerms;
-import com.linkedin.common.InstitutionalMemory;
-import com.linkedin.common.Ownership;
-import com.linkedin.common.Status;
+import com.linkedin.common.*;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
@@ -17,12 +10,7 @@ import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.MLFeature;
 import com.linkedin.datahub.graphql.generated.MLFeatureDataType;
 import com.linkedin.datahub.graphql.generated.MLFeatureEditableProperties;
-import com.linkedin.datahub.graphql.types.common.mappers.BrowsePathsV2Mapper;
-import com.linkedin.datahub.graphql.types.common.mappers.DataPlatformInstanceAspectMapper;
-import com.linkedin.datahub.graphql.types.common.mappers.DeprecationMapper;
-import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
-import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
-import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.*;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.SystemMetadataUtils;
 import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
@@ -97,6 +85,9 @@ public class MLFeatureMapper implements ModelMapper<EntityResponse, MLFeature> {
         BROWSE_PATHS_V2_ASPECT_NAME,
         (entity, dataMap) ->
             entity.setBrowsePathV2(BrowsePathsV2Mapper.map(new BrowsePathsV2(dataMap))));
+    mappingHelper.mapToResult(
+        SHARE_ASPECT_NAME,
+        (entity, dataMap) -> entity.setShare(ShareMapper.map(new Share(dataMap))));
 
     return mappingHelper.getResult();
   }

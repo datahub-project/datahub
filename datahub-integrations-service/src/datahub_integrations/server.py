@@ -13,6 +13,7 @@ from datahub_integrations.app import (
     internal_router,
 )
 from datahub_integrations.gen_ai.router import router as gen_ai_router
+from datahub_integrations.share.share_router import router as share_router
 from datahub_integrations.slack.slack import SlackLinkPreview, get_slack_link_preview
 from datahub_integrations.slack.slack import private_router as slack_private_router
 from datahub_integrations.slack.slack import public_router as slack_public_router
@@ -50,6 +51,7 @@ external_router.include_router(slack_public_router, tags=["Slack"])
 
 internal_router.include_router(actions_router, prefix=ACTIONS_ROUTE, tags=["Actions"])
 internal_router.include_router(gen_ai_router, prefix="/ai", tags=["AI"])
+internal_router.include_router(share_router, prefix="/share", tags=["Share"])
 
 app.include_router(internal_router, prefix="/private")
 

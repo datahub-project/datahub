@@ -18,6 +18,12 @@ query getMLModel($urn: String!) {
                 }
             }
         }
+        share {
+            ...shareFields
+        }
+        privileges {
+            ...entityPrivileges
+        }
         autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
             ...autoRenderAspectFields
         }

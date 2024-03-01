@@ -112,6 +112,7 @@ export enum EventType {
     InboxPageViewEvent,
     IntroduceYourselfViewEvent,
     IntroduceYourselfSubmitEvent,
+    SharedEntityEvent,
 }
 
 /**
@@ -147,6 +148,13 @@ export interface IntroduceYourselfSubmitEvent extends BaseEvent {
     type: EventType.IntroduceYourselfSubmitEvent;
     role: string;
     platformUrns: Array<string>;
+}
+
+export interface SharedEntityEvent extends BaseEvent {
+    type: EventType.SharedEntityEvent;
+    entityType?: EntityType;
+    entityUrn: string;
+    connectionUrn: string;
 }
 
 /**
@@ -927,4 +935,5 @@ export type Event =
     | SubscriptionDeleteErrorEvent
     | NotificationSettingsSuccessEvent
     | NotificationSettingsErrorEvent
-    | InboxPageViewEvent;
+    | InboxPageViewEvent
+    | SharedEntityEvent;

@@ -838,6 +838,11 @@ fragment searchResultFields on Entity {
     ... on DataProduct {
         ...dataProductSearchFields
     }
+    ... on DataHubConnection {
+        details {
+            name
+        }
+    }
 }
 
 fragment facetFields on FacetMetadata {

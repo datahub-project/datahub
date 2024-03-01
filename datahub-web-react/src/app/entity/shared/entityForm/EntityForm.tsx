@@ -1,15 +1,42 @@
 import React from 'react';
+
+import EntityContext, { useEntityContext } from '../EntityContext';
+
 import FormByEntity from './FormByEntity';
 import { FormView, useEntityFormContext } from './EntityFormContext';
+import FormByQuestion from './FormByQuestion';
+import BulkVerify from './BulkVerify/BulkVerify';
 
 interface Props {
     formUrn: string;
+    closeModal: () => void;
 }
 
-export default function EntityForm({ formUrn }: Props) {
-    const { formView } = useEntityFormContext();
+export default function EntityForm({ formUrn, closeModal }: Props) {
+    const {
+        loading,
+        refetch,
+        form: { formView },
+        entity: { selectedEntity, entityData: selectedEntityData }
+    } = useEntityFormContext();
+    const { entityType } = useEntityContext();
 
-    if (formView === FormView.BY_ENTITY) return <FormByEntity formUrn={formUrn} />;
-
-    return null;
+    return (
+        <EntityContext.Provider
+            value={{
+                urn: selectedEntity?.urn || '',
+                entityType: selectedEntity?.type || entityType,
+                entityData: selectedEntityData || null,
+                loading,
+                baseEntity: selectedEntityData,
+                dataNotCombinedWithSiblings: selectedEntityData,
+                routeToTab: () => { },
+                refetch,
+            }}
+        >
+            {formView === FormView.BY_ENTITY && <FormByEntity formUrn={formUrn} />}
+            {formView === FormView.BY_QUESTION && <FormByQuestion closeModal={closeModal} />}
+            {formView === FormView.BULK_VERIFY && <BulkVerify closeFormModal={closeModal} />}
+        </EntityContext.Provider>
+    );
 }

@@ -11,6 +11,7 @@ import { EntityAndType } from '../entity/shared/types';
 import { useIsSearchV2 } from './useSearchAndBrowseVersion';
 import { CombinedSearchResult } from './utils/combineSiblingsInSearchResults';
 import EmptySearchResults from './EmptySearchResults';
+import { PreviewType } from '../entity/Entity';
 
 const ResultList = styled(List)`
     &&& {
@@ -62,6 +63,10 @@ type Props = {
     selectedEntities: EntityAndType[];
     setSelectedEntities: (entities: EntityAndType[]) => any;
     suggestions: SearchSuggestion[];
+    previewType?: PreviewType;
+    onCardClick?: (any: any) => any;
+    onClickExploreAll?: () => any;
+    onClickClearFilters?: () => any;
 };
 
 export const SearchResultList = ({
@@ -73,6 +78,10 @@ export const SearchResultList = ({
     selectedEntities,
     setSelectedEntities,
     suggestions,
+    previewType,
+    onCardClick,
+    onClickExploreAll,
+    onClickClearFilters
 }: Props) => {
     const entityRegistry = useEntityRegistry();
     const selectedEntityUrns = selectedEntities.map((entity) => entity.urn);
@@ -106,7 +115,11 @@ export const SearchResultList = ({
                 id="search-result-list"
                 dataSource={searchResults}
                 split={false}
-                locale={{ emptyText: (!loading && <EmptySearchResults suggestions={suggestions} />) || <></> }}
+                locale={{
+                    emptyText: (
+                        !loading && <EmptySearchResults suggestions={suggestions} onClickExploreAll={onClickExploreAll} onClickClearFilters={onClickClearFilters} />
+                    ) || <></>
+                }}
                 renderItem={(item, index) => (
                     <ResultWrapper showUpdatedStyles={showSearchFiltersV2} className={`entityUrn-${item.entity.urn}`}>
                         <ListItem
@@ -126,7 +139,7 @@ export const SearchResultList = ({
                                     }
                                 />
                             )}
-                            {entityRegistry.renderSearchResult(item.entity.type, item)}
+                            {entityRegistry.renderSearchResult(item.entity.type, item, previewType, onCardClick)}
                         </ListItem>
                         {/* an entity is always going to be inserted in the sibling group, so if the sibling group is just one do not 
                         render. */}

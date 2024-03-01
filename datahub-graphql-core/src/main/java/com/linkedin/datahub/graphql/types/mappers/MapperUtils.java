@@ -3,10 +3,13 @@ package com.linkedin.datahub.graphql.types.mappers;
 import static com.linkedin.datahub.graphql.util.SearchInsightsUtil.*;
 import static com.linkedin.metadata.utils.SearchUtil.*;
 
+import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.generated.AggregationMetadata;
+import com.linkedin.datahub.graphql.generated.CorpUser;
 import com.linkedin.datahub.graphql.generated.FacetMetadata;
 import com.linkedin.datahub.graphql.generated.MatchedField;
+import com.linkedin.datahub.graphql.generated.ResolvedAuditStamp;
 import com.linkedin.datahub.graphql.generated.SearchResult;
 import com.linkedin.datahub.graphql.generated.SearchSuggestion;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
@@ -96,5 +99,14 @@ public class MapperUtils {
       com.linkedin.metadata.search.SearchSuggestion suggestion) {
     return new SearchSuggestion(
         suggestion.getText(), suggestion.getScore(), Math.toIntExact(suggestion.getFrequency()));
+  }
+
+  public static ResolvedAuditStamp mapResolvedAuditStamp(AuditStamp auditStamp) {
+    final ResolvedAuditStamp resolvedAuditStamp = new ResolvedAuditStamp();
+    final CorpUser emptyCreatedUser = new CorpUser();
+    emptyCreatedUser.setUrn(auditStamp.getActor().toString());
+    resolvedAuditStamp.setActor(emptyCreatedUser);
+    resolvedAuditStamp.setTime(auditStamp.getTime());
+    return resolvedAuditStamp;
   }
 }

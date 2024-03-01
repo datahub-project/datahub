@@ -17,6 +17,7 @@ import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
 import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
 import { getDataProduct } from '../shared/utils';
 import EmbeddedProfile from '../shared/embed/EmbeddedProfile';
+import { SidebarMetadataSection } from '../shared/containers/profile/sidebar/SidebarMetadataSection';
 
 /**
  * Definition of the DataHub Container entity.
@@ -91,6 +92,9 @@ export class ContainerEntity implements Entity<Container> {
                     component: SidebarAboutSection,
                 },
                 {
+                    component: SidebarMetadataSection,
+                },
+                        {
                     component: SidebarOwnerSection,
                 },
                 {

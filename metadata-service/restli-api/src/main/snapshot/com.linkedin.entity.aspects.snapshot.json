@@ -1132,7 +1132,7 @@
         "addToFilters" : true,
         "fieldName" : "owners",
         "fieldType" : "URN",
-        "filterNameOverride" : "Owner",
+        "filterNameOverride" : "Owned By",
         "hasValuesFieldName" : "hasOwners",
         "queryByDefault" : false
       }

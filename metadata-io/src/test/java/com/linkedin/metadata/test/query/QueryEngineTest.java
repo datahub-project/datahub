@@ -31,6 +31,11 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.mxe.SystemMetadata;
+import com.linkedin.structured.PrimitivePropertyValue;
+import com.linkedin.structured.PrimitivePropertyValueArray;
+import com.linkedin.structured.StructuredProperties;
+import com.linkedin.structured.StructuredPropertyValueAssignment;
+import com.linkedin.structured.StructuredPropertyValueAssignmentArray;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -48,10 +53,15 @@ public class QueryEngineTest {
       new QueryVersionedAspectEvaluator(SnapshotEntityRegistry.getInstance(), _entityService);
   final EntityUrnTypeEvaluator _urnTypeEvaluator = new EntityUrnTypeEvaluator();
   final SystemAspectEvaluator _systemAspectEvaluator = new SystemAspectEvaluator(_entityService);
+  final StructuredPropertyEvaluator _structuredPropertyEvaluator =
+      new StructuredPropertyEvaluator(_entityService);
   final QueryEngine _queryEngine =
       new QueryEngine(
           ImmutableList.of(
-              _urnTypeEvaluator, _queryVersionedAspectEvaluator, _systemAspectEvaluator));
+              _urnTypeEvaluator,
+              _queryVersionedAspectEvaluator,
+              _systemAspectEvaluator,
+              _structuredPropertyEvaluator));
 
   static final DatasetUrn DATASET_URN =
       new DatasetUrn(new DataPlatformUrn("bigquery"), "test_dataset", FabricType.DEV);
@@ -334,6 +344,102 @@ public class QueryEngineTest {
         ImmutableMap.of(
             DATASET_URN,
             ImmutableMap.of(testQuery, new TestQueryResponse(ImmutableList.of("11")))));
+  }
+
+  @SneakyThrows
+  @Test
+  public void testStructuredPropertiesEvaluator() {
+
+    Mockito.when(
+            _entityService.getEntitiesV2(
+                eq(Constants.DATASET_ENTITY_NAME),
+                eq(ImmutableSet.of(DATASET_URN)),
+                Mockito.eq(
+                    com.google.common.collect.ImmutableSet.of(STRUCTURED_PROPERTIES_ASPECT_NAME))))
+        .thenReturn(ImmutableMap.of());
+
+    final EntityResponse entityResponse = new EntityResponse();
+
+    final StructuredProperties structuredProperties =
+        new StructuredProperties()
+            .setProperties(
+                new StructuredPropertyValueAssignmentArray(
+                    ImmutableList.of(
+                        new StructuredPropertyValueAssignment()
+                            .setPropertyUrn(
+                                Urn.createFromString("urn:li:structuredProperty:string_test"))
+                            .setValues(
+                                new PrimitivePropertyValueArray(
+                                    ImmutableList.of(PrimitivePropertyValue.create("TEST 1")))),
+                        new StructuredPropertyValueAssignment()
+                            .setPropertyUrn(
+                                Urn.createFromString("urn:li:structuredProperty:string_test"))
+                            .setValues(
+                                new PrimitivePropertyValueArray(
+                                    ImmutableList.of(PrimitivePropertyValue.create("TEST 2")))),
+                        new StructuredPropertyValueAssignment()
+                            .setPropertyUrn(
+                                Urn.createFromString("urn:li:structuredProperty:double_test_1"))
+                            .setValues(
+                                new PrimitivePropertyValueArray(
+                                    ImmutableList.of(PrimitivePropertyValue.create(1.22)))),
+                        new StructuredPropertyValueAssignment()
+                            .setPropertyUrn(
+                                Urn.createFromString("urn:li:structuredProperty:double_test_2"))
+                            .setValues(
+                                new PrimitivePropertyValueArray(
+                                    ImmutableList.of(
+                                        PrimitivePropertyValue.create((double) 1)))))));
+
+    final EnvelopedAspect structuredPropertiesAspect =
+        new EnvelopedAspect()
+            .setName(STRUCTURED_PROPERTIES_ASPECT_NAME)
+            .setValue(new Aspect(structuredProperties.data()))
+            .setSystemMetadata(new SystemMetadata())
+            .setCreated(new AuditStamp().setActor(UrnUtils.getUrn(SYSTEM_ACTOR)).setTime(10));
+
+    entityResponse.setAspects(
+        new EnvelopedAspectMap(
+            ImmutableMap.of(STRUCTURED_PROPERTIES_ASPECT_NAME, structuredPropertiesAspect)));
+
+    Mockito.when(
+            _entityService.getEntitiesV2(
+                eq(Constants.DATASET_ENTITY_NAME),
+                eq(ImmutableSet.of(DATASET_URN)),
+                Mockito.eq(
+                    com.google.common.collect.ImmutableSet.of(STRUCTURED_PROPERTIES_ASPECT_NAME))))
+        .thenReturn(ImmutableMap.of(DATASET_URN, entityResponse));
+
+    // String property query
+    TestQuery testQuery =
+        new TestQuery("structuredProperties.urn:li:structuredProperty:string_test");
+    assertEquals(
+        _queryEngine.batchEvaluateQueries(ImmutableSet.of(DATASET_URN), ImmutableSet.of(testQuery)),
+        ImmutableMap.of(
+            DATASET_URN,
+            ImmutableMap.of(
+                testQuery, new TestQueryResponse(ImmutableList.of("TEST 1", "TEST 2")))));
+
+    // Double property query
+    testQuery = new TestQuery("structuredProperties.urn:li:structuredProperty:double_test_1");
+    assertEquals(
+        _queryEngine.batchEvaluateQueries(ImmutableSet.of(DATASET_URN), ImmutableSet.of(testQuery)),
+        ImmutableMap.of(
+            DATASET_URN,
+            ImmutableMap.of(testQuery, new TestQueryResponse(ImmutableList.of("1.22")))));
+
+    testQuery = new TestQuery("structuredProperties.urn:li:structuredProperty:double_test_2");
+    assertEquals(
+        _queryEngine.batchEvaluateQueries(ImmutableSet.of(DATASET_URN), ImmutableSet.of(testQuery)),
+        ImmutableMap.of(
+            DATASET_URN,
+            ImmutableMap.of(testQuery, new TestQueryResponse(ImmutableList.of("1.0")))));
+
+    // No match
+    testQuery = new TestQuery("structuredProperties.urn:li:structuredProperty:non_existant");
+    assertEquals(
+        _queryEngine.batchEvaluateQueries(ImmutableSet.of(DATASET_URN), ImmutableSet.of(testQuery)),
+        ImmutableMap.of(DATASET_URN, ImmutableMap.of(testQuery, TestQueryResponse.empty())));
   }
 
   private EntityResponse emptyEntityResponse() {

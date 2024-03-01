@@ -1572,6 +1572,11 @@ type Dataset implements EntityWithRelationships & Entity & BrowsableEntity {
     Structured properties about this Dataset
     """
     structuredProperties: StructuredProperties
+
+    """
+    Info about the results from sharing metadata for this entity
+    """
+    share: Share
 }
 
 type RoleAssociation {
@@ -2133,6 +2138,11 @@ type GlossaryTerm implements Entity {
     For fetching extra entities that do not have custom UI code yet
     """
     aspects(input: AspectParams): [RawAspect!]
+
+    """
+    Info about the results from sharing metadata for this entity
+    """
+    share: Share
 }
 
 """
@@ -2281,6 +2291,11 @@ type GlossaryNode implements Entity {
     Display properties for the domain
     """
     displayProperties: DisplayProperties
+
+    """
+    Info about the results from sharing metadata for this entity
+    """
+    share: Share
 }
 
 """
@@ -2709,6 +2724,16 @@ type Container implements Entity {
     For fetching extra entities that do not have custom UI code yet
     """
     aspects(input: AspectParams): [RawAspect!]
+
+    """
+    Privileges given to a user relevant to this entity
+    """
+    privileges: EntityPrivileges
+
+    """
+    Info about the results from sharing metadata for this entity
+    """
+    share: Share
 }
 
 """
@@ -3732,6 +3757,16 @@ type CorpUser implements Entity {
     For fetching extra aspects that do not have custom UI code yet
     """
     aspects(input: AspectParams): [RawAspect!]
+
+    """
+    Privileges given to a user relevant to this entity
+    """
+    privileges: EntityPrivileges
+
+    """
+    Info about the results from sharing metadata for this entity
+    """
+    share: Share
 }
 
 """
@@ -4123,6 +4158,16 @@ type CorpGroup implements Entity {
     For fetching extra entities that do not have custom UI code yet
     """
     aspects(input: AspectParams): [RawAspect!]
+
+    """
+    Privileges given to a user relevant to this entity
+    """
+    privileges: EntityPrivileges
+
+    """
+    Info about the results from sharing metadata for this entity
+    """
+    share: Share
 }
 
 """
@@ -4345,6 +4390,16 @@ type Tag implements Entity {
     For fetching extra entities that do not have custom UI code yet
     """
     aspects(input: AspectParams): [RawAspect!]
+
+    """
+    Privileges given to a user relevant to this entity
+    """
+    privileges: EntityPrivileges
+
+    """
+    Info about the results from sharing metadata for this entity
+    """
+    share: Share
 }
 
 """
@@ -4986,6 +5041,16 @@ type Notebook implements Entity & BrowsableEntity {
     For fetching extra entities that do not have custom UI code yet
     """
     aspects(input: AspectParams): [RawAspect!]
+
+    """
+    Privileges given to a user relevant to this entity
+    """
+    privileges: EntityPrivileges
+
+    """
+    Info about the results from sharing metadata for this entity
+    """
+    share: Share
 }
 
 """
@@ -5312,6 +5377,11 @@ type Dashboard implements EntityWithRelationships & Entity & BrowsableEntity {
     For fetching extra entities that do not have custom UI code yet
     """
     aspects(input: AspectParams): [RawAspect!]
+
+    """
+    Info about the results from sharing metadata for this entity
+    """
+    share: Share
 }
 
 """
@@ -5628,6 +5698,11 @@ type Chart implements EntityWithRelationships & Entity & BrowsableEntity {
     For fetching extra entities that do not have custom UI code yet
     """
     aspects(input: AspectParams): [RawAspect!]
+
+    """
+    Info about the results from sharing metadata for this entity
+    """
+    share: Share
 }
 
 """
@@ -6008,6 +6083,16 @@ type DataFlow implements EntityWithRelationships & Entity & BrowsableEntity {
     For fetching extra entities that do not have custom UI code yet
     """
     aspects(input: AspectParams): [RawAspect!]
+
+    """
+    Privileges given to a user relevant to this entity
+    """
+    privileges: EntityPrivileges
+
+    """
+    Info about the results from sharing metadata for this entity
+    """
+    share: Share
 }
 
 """
@@ -6236,6 +6321,11 @@ type DataJob implements EntityWithRelationships & Entity & BrowsableEntity {
     For fetching extra entities that do not have custom UI code yet
     """
     aspects(input: AspectParams): [RawAspect!]
+
+    """
+    Info about the results from sharing metadata for this entity
+    """
+    share: Share
 }
 
 """
@@ -9392,6 +9482,16 @@ type MLModel implements EntityWithRelationships & Entity & BrowsableEntity {
     For fetching extra entities that do not have custom UI code yet
     """
     aspects(input: AspectParams): [RawAspect!]
+
+    """
+    Privileges given to a user relevant to this entity
+    """
+    privileges: EntityPrivileges
+
+    """
+    Info about the results from sharing metadata for this entity
+    """
+    share: Share
 }
 
 """
@@ -9509,6 +9609,16 @@ type MLModelGroup implements EntityWithRelationships & Entity & BrowsableEntity 
     For fetching extra entities that do not have custom UI code yet
     """
     aspects(input: AspectParams): [RawAspect!]
+
+    """
+    Privileges given to a user relevant to this entity
+    """
+    privileges: EntityPrivileges
+
+    """
+    Info about the results from sharing metadata for this entity
+    """
+    share: Share
 }
 
 type MLModelGroupProperties {
@@ -9639,6 +9749,16 @@ type MLFeature implements EntityWithRelationships & Entity {
     For fetching extra entities that do not have custom UI code yet
     """
     aspects(input: AspectParams): [RawAspect!]
+
+    """
+    Privileges given to a user relevant to this entity
+    """
+    privileges: EntityPrivileges
+
+    """
+    Info about the results from sharing metadata for this entity
+    """
+    share: Share
 }
 
 type MLHyperParam {
@@ -9810,10 +9930,20 @@ type MLPrimaryKey implements EntityWithRelationships & Entity {
     exists: Boolean
 
     """
+    Privileges given to a user relevant to this entity
+    """
+    privileges: EntityPrivileges
+
+    """
     Experimental API.
     For fetching extra entities that do not have custom UI code yet
     """
     aspects(input: AspectParams): [RawAspect!]
+
+    """
+    Info about the results from sharing metadata for this entity
+    """
+    share: Share
 }
 
 type MLPrimaryKeyProperties {
@@ -9947,6 +10077,16 @@ type MLFeatureTable implements EntityWithRelationships & Entity & BrowsableEntit
     For fetching extra entities that do not have custom UI code yet
     """
     aspects(input: AspectParams): [RawAspect!]
+
+    """
+    Privileges given to a user relevant to this entity
+    """
+    privileges: EntityPrivileges
+
+    """
+    Info about the results from sharing metadata for this entity
+    """
+    share: Share
 }
 
 type MLFeatureTableEditableProperties {
@@ -10349,6 +10489,16 @@ type Domain implements Entity {
     Display properties for the domain
     """
     displayProperties: DisplayProperties
+
+    """
+    Privileges given to a user relevant to this entity
+    """
+    privileges: EntityPrivileges
+
+    """
+    Info about the results from sharing metadata for this entity
+    """
+    share: Share
 }
 
 """
@@ -11815,6 +11965,16 @@ type DataProduct implements Entity {
     For fetching extra entities that do not have custom UI code yet
     """
     aspects(input: AspectParams): [RawAspect!]
+
+    """
+    Privileges given to a user relevant to this entity
+    """
+    privileges: EntityPrivileges
+
+    """
+    Info about the results from sharing metadata for this entity
+    """
+    share: Share
 }
 
 """

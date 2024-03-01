@@ -61,6 +61,11 @@ type DataHubConnectionDetails {
   A JSON-encoded connection. Present when type is JSON.
   """
   json: DataHubJsonConnection
+
+  """
+  The name for this DataHub connection
+  """
+  name: String
 }
 
 """
@@ -107,6 +112,11 @@ input UpsertDataHubConnectionInput {
   A JSON-encoded connection. This must be present when type is JSON.
   """
   json: DataHubJsonConnectionInput
+
+  """
+  An optional name for this connection entity
+  """
+  name: String
 }
 
 """

@@ -12,6 +12,7 @@ import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
 import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
 import ChildrenTab from './ChildrenTab';
 import { Preview } from './preview/Preview';
+import { SidebarMetadataSection } from '../shared/containers/profile/sidebar/SidebarMetadataSection';
 
 class GlossaryNodeEntity implements Entity<GlossaryNode> {
     getLineageVizConfig?: ((entity: GlossaryNode) => FetchedEntity) | undefined;
@@ -79,6 +80,9 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
                         properties: {
                             hideLinksButton: true,
                         },
+                    },
+                    {
+                        component: SidebarMetadataSection,
                     },
                     {
                         component: SidebarOwnerSection,

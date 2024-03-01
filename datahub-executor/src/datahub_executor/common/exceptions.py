@@ -1,0 +1,78 @@
+from typing import Optional, Union
+
+from datahub_executor.common.types import DatasetFreshnessSourceType, EntityEventType
+
+
+class AssertionResultException(Exception):
+    """Base class for assertion result exceptions"""
+
+    def __init__(self, message: str):
+        super().__init__(message)
+        self.message = message
+
+
+class InsufficientDataException(AssertionResultException):
+    """Raised when there is insufficient data to evaluate an assertion"""
+
+    def __init__(self, message: str):
+        super().__init__(message)
+
+
+class InvalidParametersException(AssertionResultException):
+    """Raised when assertion parameters are invalid"""
+
+    def __init__(self, message: str, parameters: dict):
+        super().__init__(message)
+        self.parameters = str(parameters)
+
+
+class InvalidSourceTypeException(AssertionResultException):
+    """Raised when a source type is invalid"""
+
+    def __init__(
+        self,
+        message: str,
+        source_type: Union[DatasetFreshnessSourceType, EntityEventType],
+    ):
+        super().__init__(message)
+        self.source_type = str(source_type)
+
+
+class SourceConnectionErrorException(AssertionResultException):
+    """Raised when a source connection is unreachable"""
+
+    def __init__(self, message: str, connection_urn: str):
+        super().__init__(message)
+        self.connection_urn = connection_urn
+
+
+class SourceQueryFailedException(AssertionResultException):
+    """Raised when a source query fails"""
+
+    def __init__(self, message: str, query: str, filter: Optional[str] = None):
+        super().__init__(message)
+        self.query = query
+        self.filter = filter
+
+
+class UnsupportedPlatformException(AssertionResultException):
+    """Raised when specified platform is unsupported"""
+
+    def __init__(self, message: str, platform_urn: str):
+        super().__init__(message)
+        self.platform_urn = platform_urn
+
+
+class CustomSQLErrorException(AssertionResultException):
+    """Raised when a custom SQL assertion is run and results are unsupported"""
+
+    def __init__(self, message: str):
+        super().__init__(message)
+
+
+class FieldAssertionErrorException(AssertionResultException):
+    """Raised when a field metrics assertion is run and results are unsupported"""
+
+    def __init__(self, message: str, query: Optional[str] = None):
+        super().__init__(message)
+        self.query = query

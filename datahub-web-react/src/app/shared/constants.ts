@@ -1,5 +1,7 @@
 export const ENTER_KEY_CODE = 13;
 
+export const PLATFORM_CONNECTION_URN = 'urn:li:dataPlatform:acryl';
+
 export enum ErrorCodes {
     BadRequest = 400,
     Unauthorized = 401,

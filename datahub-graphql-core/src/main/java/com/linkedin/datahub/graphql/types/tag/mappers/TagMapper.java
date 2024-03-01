@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.types.tag.mappers;
 import static com.linkedin.metadata.Constants.*;
 
 import com.linkedin.common.Ownership;
+import com.linkedin.common.Share;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.GetMode;
@@ -10,6 +11,7 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.Tag;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.ShareMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.entity.EntityResponse;
@@ -48,6 +50,9 @@ public class TagMapper implements ModelMapper<EntityResponse, Tag> {
     mappingHelper.mapToResult(
         OWNERSHIP_ASPECT_NAME,
         (tag, dataMap) -> tag.setOwnership(OwnershipMapper.map(new Ownership(dataMap), entityUrn)));
+    mappingHelper.mapToResult(
+        SHARE_ASPECT_NAME,
+        (entity, dataMap) -> entity.setShare(ShareMapper.map(new Share(dataMap))));
 
     if (result.getProperties() != null && result.getProperties().getName() == null) {
       result.getProperties().setName(legacyName);

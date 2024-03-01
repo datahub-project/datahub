@@ -6,6 +6,9 @@ query getChart($urn: String!) {
         lastIngested
         tool
         chartId
+        share {
+            ...shareFields
+        }
         platform {
             ...platformFields
         }

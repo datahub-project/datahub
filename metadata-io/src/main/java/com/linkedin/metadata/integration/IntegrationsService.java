@@ -12,11 +12,13 @@ import com.linkedin.parseq.retry.backoff.BackoffPolicy;
 import com.linkedin.parseq.retry.backoff.ExponentialBackoff;
 import io.datahubproject.integrations.api.ActionsApi;
 import io.datahubproject.integrations.api.AiApi;
+import io.datahubproject.integrations.api.ShareApi;
 import io.datahubproject.integrations.invoker.ApiClient;
 import io.datahubproject.integrations.invoker.ApiException;
 import io.datahubproject.integrations.invoker.ApiResponse;
 import io.datahubproject.integrations.invoker.ServerConfiguration;
 import io.datahubproject.integrations.model.BodyRegisterActionPrivateActionsRegisterPost;
+import io.datahubproject.integrations.model.ExecuteShareResult;
 import io.datahubproject.integrations.model.SuggestedDescription;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
@@ -56,6 +58,7 @@ public class IntegrationsService {
 
   private final ActionsApi actionsApi;
   private final AiApi aiApi;
+  private final ShareApi shareApi;
 
   public IntegrationsService(
       @Nonnull final String integrationsServiceHost,
@@ -98,6 +101,7 @@ public class IntegrationsService {
                 Collections.EMPTY_MAP)));
     this.actionsApi = new ActionsApi(okHttpClient);
     this.aiApi = new AiApi(okHttpClient);
+    this.shareApi = new ShareApi(okHttpClient);
   }
 
   /** Calls the integration service to refresh their connection settings on demand. */
@@ -329,6 +333,27 @@ public class IntegrationsService {
       return response.getData();
     } catch (ApiException e) {
       log.error("Failed to suggest description for entity: " + entity.toString(), e);
+      return null;
+    }
+  }
+
+  public ExecuteShareResult shareEntity(
+      @Nonnull final Urn connectionUrn, @Nonnull final Urn entityUrn) {
+    try {
+      ApiResponse<ExecuteShareResult> response =
+          this.shareApi.executeShareWithHttpInfo(connectionUrn.toString(), entityUrn.toString());
+      if (response.getStatusCode() != HttpStatus.SC_OK) {
+        log.error(
+            String.format(
+                "Failed to share entity with urn %s. Integrations service returned non-200 error code.",
+                entityUrn));
+        log.error(String.valueOf(response.getData().toString()));
+        return null;
+      }
+
+      return response.getData();
+    } catch (ApiException e) {
+      log.error("Failed to share entity with urn: " + entityUrn, e);
       return null;
     }
   }

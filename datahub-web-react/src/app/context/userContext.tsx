@@ -15,6 +15,9 @@ export type LocalState = {
  * State is transient, it is refreshed on browser refesh.
  */
 export type State = {
+    unfinishedTaskCount: number;
+    notificationsCount: number;
+    proposalCount: number;
     views: {
         globalDefaultViewUrn?: string | null;
         personalDefaultViewUrn?: string | null;
@@ -36,6 +39,7 @@ export type UserContextType = {
     updateLocalState: (newState: LocalState) => void;
     updateState: (newState: State) => void;
     refetchUser: () => any;
+    refetchUnfinishedTaskCount: () => any;
 };
 
 export const DEFAULT_LOCAL_STATE: LocalState = {
@@ -43,6 +47,9 @@ export const DEFAULT_LOCAL_STATE: LocalState = {
 };
 
 export const DEFAULT_STATE: State = {
+    unfinishedTaskCount: 0,
+    notificationsCount: 0,
+    proposalCount: 0,
     views: {
         globalDefaultViewUrn: undefined,
         personalDefaultViewUrn: undefined,
@@ -60,6 +67,7 @@ export const DEFAULT_CONTEXT = {
     updateLocalState: (_: LocalState) => null,
     updateState: (_: State) => null,
     refetchUser: () => null,
+    refetchUnfinishedTaskCount: () => null,
 };
 
 export const UserContext = React.createContext<UserContextType>(DEFAULT_CONTEXT);

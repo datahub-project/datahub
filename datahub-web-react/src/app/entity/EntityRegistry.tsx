@@ -128,10 +128,17 @@ export default class EntityRegistry {
         return entity.renderPreview(type, data);
     }
 
-    renderSearchResult(type: EntityType, searchResult: SearchResult): JSX.Element {
+    renderSearchResult(
+        type: EntityType,
+        searchResult: SearchResult,
+        previewType?: PreviewType,
+        onCardClick?: (any: any) => any,
+    ): JSX.Element {
         const entity = validatedGet(type, this.entityTypeToEntity);
         return (
-            <SearchResultProvider searchResult={searchResult}>{entity.renderSearch(searchResult)}</SearchResultProvider>
+            <SearchResultProvider searchResult={searchResult}>
+                {entity.renderSearch(searchResult, previewType, onCardClick)}
+            </SearchResultProvider>
         );
     }
 

@@ -26,6 +26,7 @@ import { OperationsTab } from './profile/OperationsTab';
 import { IncidentTab } from '../shared/tabs/Incident/IncidentTab';
 import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
 import { SidebarSiblingsSection } from '../shared/containers/profile/sidebar/SidebarSiblingsSection';
+import { SidebarMetadataSection } from '../shared/containers/profile/sidebar/SidebarMetadataSection';
 import { DatasetStatsSummarySubHeader } from './profile/stats/stats/DatasetStatsSummarySubHeader';
 import { MatchedFieldList } from '../../search/matches/MatchedFieldList';
 import { EmbedTab } from '../shared/tabs/Embed/EmbedTab';
@@ -201,6 +202,9 @@ export class DatasetEntity implements Entity<Dataset> {
             component: SidebarAboutSection,
         },
         {
+            component: SidebarMetadataSection,
+        },
+        {
             component: SidebarOwnerSection,
             properties: {
                 defaultOwnerType: OwnershipType.TechnicalOwner,
@@ -278,7 +282,7 @@ export class DatasetEntity implements Entity<Dataset> {
         );
     };
 
-    renderSearch = (result: SearchResult) => {
+    renderSearch = (result: SearchResult, previewType?: PreviewType, onCardClick?: React.MouseEventHandler) => {
         const data = result.entity as Dataset;
         const genericProperties = this.getGenericEntityProperties(data);
 
@@ -317,6 +321,8 @@ export class DatasetEntity implements Entity<Dataset> {
                 health={data.health}
                 degree={(result as any).degree}
                 paths={(result as any).paths}
+                previewType={previewType}
+                onClick={onCardClick}
             />
         );
     };

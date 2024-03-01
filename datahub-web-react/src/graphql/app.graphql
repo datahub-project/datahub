@@ -79,6 +79,8 @@ query appConfig {
             documentationAiEnabled
             themeV2
             lineageGraphV2
+            taskCenterEnabled
+            metadataShareEnabled
         }
         chromeExtensionConfig {
             enabled

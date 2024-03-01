@@ -191,6 +191,9 @@ fragment nonSiblingDatasetFields on Dataset {
     privileges {
         ...entityPrivileges
     }
+    share {
+        ...shareFields
+    }
     forms {
         completedForms {
             ...formAssociationFields

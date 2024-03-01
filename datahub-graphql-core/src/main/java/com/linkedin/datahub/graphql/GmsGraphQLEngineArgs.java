@@ -31,16 +31,7 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.recommendation.RecommendationsService;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.secret.SecretService;
-import com.linkedin.metadata.service.AssertionService;
-import com.linkedin.metadata.service.DataProductService;
-import com.linkedin.metadata.service.FormService;
-import com.linkedin.metadata.service.LineageService;
-import com.linkedin.metadata.service.MonitorService;
-import com.linkedin.metadata.service.OwnershipTypeService;
-import com.linkedin.metadata.service.QueryService;
-import com.linkedin.metadata.service.SettingsService;
-import com.linkedin.metadata.service.SubscriptionService;
-import com.linkedin.metadata.service.ViewService;
+import com.linkedin.metadata.service.*;
 import com.linkedin.metadata.test.TestEngine;
 import com.linkedin.metadata.timeline.TimelineService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
@@ -98,5 +89,6 @@ public class GmsGraphQLEngineArgs {
   ConnectionService connectionService;
   ActionPipelineConfiguration actionPipelineConfiguration;
   SubscriptionService subscriptionService;
+  ShareService shareService;
   ExecutorConfiguration executorConfiguration;
 }

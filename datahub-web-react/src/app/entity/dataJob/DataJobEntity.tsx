@@ -22,6 +22,7 @@ import { DataFlowEntity } from '../dataFlow/DataFlowEntity';
 import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
 import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
 import { getDataProduct } from '../shared/utils';
+import { SidebarMetadataSection } from '../shared/containers/profile/sidebar/SidebarMetadataSection';
 
 const getDataJobPlatformName = (data?: DataJob): string => {
     return (
@@ -109,6 +110,9 @@ export class DataJobEntity implements Entity<DataJob> {
             sidebarSections={[
                 {
                     component: SidebarAboutSection,
+                },
+                {
+                    component: SidebarMetadataSection,
                 },
                 {
                     component: SidebarOwnerSection,

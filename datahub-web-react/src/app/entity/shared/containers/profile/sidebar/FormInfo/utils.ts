@@ -1,6 +1,7 @@
 import { Maybe } from 'graphql/jsutils/Maybe';
 import {
     FieldFormPromptAssociation,
+    Form,
     FormAssociation,
     FormPrompt,
     FormPromptAssociation,
@@ -314,9 +315,6 @@ export function getVerificationAuditStamp(entityData: GenericEntityProperties | 
     return getMostRecentVerificationAuditStamp(entityData);
 }
 
-export function getBulkByQuestionPrompts(formUrn: string, entityData: GenericEntityProperties | null) {
-    const formAssociation = getFormAssociation(formUrn, entityData);
-    return (
-        formAssociation?.form.info.prompts.filter((prompt) => !SCHEMA_FIELD_PROMPT_TYPES.includes(prompt.type)) || []
-    );
+export function getBulkByQuestionPrompts(form: Form) {
+    return form.info.prompts.filter((prompt) => !SCHEMA_FIELD_PROMPT_TYPES.includes(prompt.type)) || [];
 }

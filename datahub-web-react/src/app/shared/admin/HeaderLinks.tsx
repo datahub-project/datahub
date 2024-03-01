@@ -14,7 +14,7 @@ import {
 } from '@ant-design/icons';
 import { Link } from 'react-router-dom';
 import { Button, Dropdown, Menu, Tooltip } from 'antd';
-import { useAppConfig } from '../../useAppConfig';
+import { useAppConfig, useIsTaskCenterEnabled } from '../../useAppConfig';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import { HOME_PAGE_INGESTION_ID } from '../../onboarding/config/HomePageOnboardingConfig';
 import { useToggleEducationStepIdsAllowList } from '../../onboarding/useToggleEducationStepIdsAllowList';
@@ -22,12 +22,15 @@ import { useUserContext } from '../../context/useUserContext';
 import { PageRoutes } from '../../../conf/Global';
 import DomainIcon from '../../domain/DomainIcon';
 import HelpDropdown from './HelpDropdown';
+import { TaskCenterLink } from './TaskCenterLink';
 
 const LinkWrapper = styled.span`
     margin-right: 0px;
 `;
 
 const LinksWrapper = styled.div<{ areLinksHidden?: boolean }>`
+    display: flex;
+    align-items: center;
     opacity: 1;
     white-space: nowrap;
     transition: opacity 0.5s;
@@ -78,6 +81,7 @@ export function HeaderLinks(props: Props) {
     const { areLinksHidden } = props;
     const me = useUserContext();
     const { config } = useAppConfig();
+    const isTaskCenterEnabled = useIsTaskCenterEnabled();
 
     const isAnalyticsEnabled = config?.analyticsConfig.enabled;
     const isIngestionEnabled = config?.managedIngestionConfig.enabled;
@@ -93,7 +97,8 @@ export function HeaderLinks(props: Props) {
         isIngestionEnabled && me && me.platformPrivileges?.manageIngestion && me.platformPrivileges?.manageSecrets;
 
     // SaaS only
-    const showActionRequests = (isActionRequestsEnabled && me?.platformPrivileges?.viewMetadataProposals) || false;
+    const showActionRequests =
+        (!isTaskCenterEnabled && isActionRequestsEnabled && me?.platformPrivileges?.viewMetadataProposals) || false;
     const showTests = (isTestsEnabled && me?.platformPrivileges?.manageTests) || false;
     const showDatasetHealth = config?.featureFlags?.datasetHealthDashboardEnabled;
     const showObserve = showDatasetHealth;
@@ -125,6 +130,7 @@ export function HeaderLinks(props: Props) {
                     </Link>
                 </LinkWrapper>
             )}
+            {isTaskCenterEnabled && <TaskCenterLink />}
             <Dropdown
                 trigger={['click']}
                 overlay={
