@@ -62,12 +62,12 @@ public class EntityIncidentsResolver
             final SortCriterion sortCriterion = buildIncidentsSortCriterion();
             final SearchResult searchResult =
                 _entityClient.filter(
+                    context.getOperationContext(),
                     Constants.INCIDENT_ENTITY_NAME,
                     filter,
                     sortCriterion,
                     start,
-                    count,
-                    context.getAuthentication());
+                    count);
 
             final List<Urn> incidentUrns =
                 searchResult.getEntities().stream()

@@ -25,5 +25,9 @@
                 }
             ]
         }
-    ]
+    ],
+    "debug_info": {
+        "confidence": 0.2,
+        "generalized_statement": "SELECT GREATEST(col1, COL2) AS max_col FROM mytable"
+    }
 }

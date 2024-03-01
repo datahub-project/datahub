@@ -1259,6 +1259,24 @@
       },
       "doc" : "List of owners of the entity."
     }, {
+      "name" : "ownerTypes",
+      "type" : {
+        "type" : "map",
+        "values" : {
+          "type" : "array",
+          "items" : "Urn"
+        }
+      },
+      "doc" : "Owners to ownership type map, populated with mutation hook.",
+      "default" : { },
+      "optional" : true,
+      "Searchable" : {
+        "/*" : {
+          "fieldType" : "OBJECT",
+          "queryByDefault" : false
+        }
+      }
+    }, {
       "name" : "lastModified",
       "type" : "AuditStamp",
       "doc" : "Audit stamp containing who last modified the record and when. A value of 0 in the time field indicates missing data.",

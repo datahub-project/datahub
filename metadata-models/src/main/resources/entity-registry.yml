@@ -94,6 +94,7 @@ entities:
       - structuredProperties
       - incidentsSummary
       - forms
+      - subTypes
   - name: dataProcess
     keyAspect: dataProcessKey
     aspects:
@@ -555,9 +556,12 @@ plugins:
       enabled: true
       supportedOperations:
         - UPSERT
+        - DELETE
       supportedEntityAspectNames:
         - entityName: structuredProperty
           aspectName: propertyDefinition
+        - entityName: structuredProperty
+          aspectName: structuredPropertyKey
     - className: 'com.linkedin.metadata.aspect.validation.StructuredPropertiesValidator'
       enabled: true
       supportedOperations:
@@ -565,3 +569,18 @@ plugins:
       supportedEntityAspectNames:
         - entityName: '*'
           aspectName: structuredProperties
+  mutationHooks:
+    - className: 'com.linkedin.metadata.aspect.hooks.StructuredPropertiesSoftDelete'
+      enabled: true
+      supportedEntityAspectNames:
+        - entityName: '*'
+          aspectName: structuredProperties
+    - className: 'com.linkedin.metadata.aspect.hooks.OwnerTypeMap'
+      enabled: true
+      supportedOperations:
+        - UPSERT
+        - CREATE
+        - RESTATE
+      supportedEntityAspectNames:
+        - entityName: '*'
+          aspectName: ownership

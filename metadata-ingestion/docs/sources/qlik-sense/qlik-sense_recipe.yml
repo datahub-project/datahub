@@ -1,0 +1,25 @@
+source:
+  type: qlik-sense
+  config:
+    # Coordinates
+    tenant_hostname: "xyz12xz.us.qlikcloud.com"
+    # Credentials
+    api_key: "QLIK_API_KEY"
+    
+    # Optional - filter for certain space names instead of ingesting everything.
+    # Mention 'personal_space' if entities of personal space need to ingest
+    # space_pattern:
+    #   allow:
+    #     - space_name
+
+    ingest_owner: true
+    
+    # Optional -- This mapping is optional and only required to configure platform-instance for Qlik app dataset upstream source tables
+    # A mapping of the Qlik app dataset upstream tables from data connection to platform instance. Use 'data_connection_name' as key.
+    # data_connection_to_platform_instance:
+    #   data_connection_name:
+    #     platform_instance: cloud_instance
+    #     env: DEV
+
+sink:
+  # sink configs
