@@ -1,0 +1,7 @@
+entities:
+  - name: dataset
+    keyAspect: datasetKey
+    aspects:
+      - editableSchemaMetadata
+events:
+  - name: entityChangeEvent
