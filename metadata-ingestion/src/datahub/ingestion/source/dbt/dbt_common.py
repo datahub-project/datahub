@@ -20,6 +20,7 @@ from datahub.configuration.common import (
 )
 from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
+from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.emitter import mce_builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -297,10 +298,6 @@ class DBTCommonConfig(
         description="When enabled, converts column URNs to lowercase to ensure cross-platform compatibility. "
         "If `target_platform` is Snowflake, the default is True.",
     )
-    use_compiled_code: bool = Field(
-        default=False,
-        description="When enabled, uses the compiled dbt code instead of the raw dbt node definition.",
-    )
     test_warnings_are_errors: bool = Field(
         default=False,
         description="When enabled, dbt test warnings will be treated as failures.",
@@ -319,6 +316,8 @@ class DBTCommonConfig(
         default=True,
         description="When enabled, emits incremental/patch lineage for non-dbt entities. When disabled, re-states lineage on each run.",
     )
+
+    _remove_use_compiled_code = pydantic_removed_field("use_compiled_code")
 
     @validator("target_platform")
     def validate_target_platform_value(cls, target_platform: str) -> str:
@@ -1269,18 +1268,15 @@ class DBTSourceBase(StatefulIngestionSourceBase):
     def _create_view_properties_aspect(
         self, node: DBTNode
     ) -> Optional[ViewPropertiesClass]:
-        view_logic = (
-            node.compiled_code if self.config.use_compiled_code else node.raw_code
-        )
-
-        if node.language != "sql" or not view_logic:
+        if node.language != "sql" or not node.raw_code:
             return None
 
         materialized = node.materialization in {"table", "incremental", "snapshot"}
         view_properties = ViewPropertiesClass(
             materialized=materialized,
             viewLanguage="SQL",
-            viewLogic=view_logic,
+            viewLogic=node.raw_code,
+            formattedViewLogic=node.compiled_code,  # TODO format this?
         )
         return view_properties
 
