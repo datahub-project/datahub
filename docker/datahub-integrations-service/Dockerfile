@@ -27,6 +27,7 @@ FROM base as build
 ARG PIP_MIRROR_URL
 RUN if [ "${PIP_MIRROR_URL}" != "null" ] ; then pip config set global.index-url ${PIP_MIRROR_URL} ; fi
 
+# `uv pip` doesn't support urls like `-e file:../metadata-ingestion#egg=acryl-datahub` yet
 RUN pip install --no-cache -r requirements.txt && \
     uv pip install --no-cache -e "."
 

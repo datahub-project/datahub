@@ -15,6 +15,7 @@ COPY ./datahub-executor /datahub-executor
 COPY ./metadata-ingestion /metadata-ingestion
 COPY ./docker/datahub-executor/start.sh /start_datahub_executor.sh
 COPY ./docker/datahub-executor/health_status.py /health_status.py
+COPY ./docker/datahub-executor/ingestion-pipeline-config.yaml /etc/datahub-executor/ingestion-pipeline-config.yaml
 RUN chmod a+x /start_datahub_executor.sh
 RUN chmod a+x /health_status.py
 
@@ -42,6 +43,7 @@ COPY --from=build /datahub-executor /datahub-executor
 COPY --from=build $VIRTUAL_ENV $VIRTUAL_ENV
 COPY --from=build /start_datahub_executor.sh /start_datahub_executor.sh
 COPY --from=build /health_status.py /health_status
+COPY --from=build /etc/datahub-executor/ingestion-pipeline-config.yaml /etc/datahub-executor/ingestion-pipeline-config.yaml
 
 USER datahub
 

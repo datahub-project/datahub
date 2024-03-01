@@ -37,14 +37,15 @@ task environmentSetup(type: Exec, dependsOn: checkPythonVersion) {
     outputs.dir("${venv_name}")
     commandLine 'bash', '-c',
         "${python_executable} -m venv ${venv_name} && " +
-        "${venv_name}/bin/python -m pip install --upgrade pip wheel setuptools"
+        "${venv_name}/bin/python -m pip install --upgrade pip uv wheel setuptools"
 }
 
 task installPackage(type: Exec, dependsOn: [environmentSetup, ':metadata-ingestion:codegen']) {
     inputs.file file('pyproject.toml')
     outputs.file("${venv_name}/.build_install_sentinel")
     commandLine 'bash', '-x', '-c',
-        "${venv_name}/bin/python -m pip install . && " +
+        "source ${venv_name}/bin/activate && set -x && " +
+        "uv pip install -e . &&" +
         "touch ${venv_name}/.build_install_sentinel"
 }
 
@@ -54,8 +55,9 @@ task installDev(type: Exec, dependsOn: [install]) {
     inputs.file file('pyproject.toml')
     outputs.file("${venv_name}/.build_install_dev_sentinel")
     commandLine 'bash', '-x', '-c',
-        "${venv_name}/bin/python -m pip install . && " +
-        "${venv_name}/bin/python -m pip install -r requirements-dev.txt && " +
+        "source ${venv_name}/bin/activate && set -x && " +
+        "uv pip install -e . &&" +
+        "uv pip install -r requirements-dev.txt &&" +
         "touch ${venv_name}/.build_install_dev_sentinel"
 }
 
@@ -108,6 +110,7 @@ docker {
         include "datahub-executor/src/**"
         include "datahub-executor/pyproject.toml"
         include "metadata-ingestion/**"
+        include "datahub-executor/requirements*"
     }.exclude {
         i -> (!i.file.name.endsWith(".dockerignore") && i.file.isHidden())
     }

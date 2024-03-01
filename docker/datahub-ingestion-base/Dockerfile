@@ -103,5 +103,3 @@ FROM ${BASE_IMAGE} as slim-install
 # Do nothing else on top of base
 
 FROM ${APP_ENV}-install
-
-ENV PATH="/datahub-ingestion/.local/bin:$PATH"
