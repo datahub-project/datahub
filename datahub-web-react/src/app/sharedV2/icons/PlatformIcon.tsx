@@ -4,6 +4,7 @@ import ColorThief from 'colorthief';
 import { DataPlatform, EntityType } from '../../../types.generated';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { IconStyleType } from '../../entityV2/Entity';
+import { getLighterRGBColor } from './colorUtils';
 
 type PlatformIconProps = {
     platform: DataPlatform | null | undefined;
@@ -61,7 +62,8 @@ const PlatformIcon: React.FC<PlatformIconProps> = ({
                             img.crossOrigin = 'anonymous';
                         }
                         const result = colorThief.getColor(img, 25);
-                        setBackground(`rgb(${result[0]}, ${result[1]}, ${result[2]}, .1)`);
+                        const lighterColor = getLighterRGBColor(result[0], result[1], result[2]);
+                        setBackground(`rgb(${lighterColor[0]}, ${lighterColor[1]}, ${lighterColor[2]})`);
                     }}
                     src={logoUrl}
                     alt={alt}

@@ -27,6 +27,8 @@ export const REDESIGN_COLORS = {
     BORDER_1: '#4b4b54',
     SECONDARY_LIGHT_GREY: '#9DA7C0',
     ACTION_ICON_GREY: '#676b75',
+    LINK_GREY: '#586287',
+    TEXT_GREY: '#8D95B1',
     WARNING_RED: '#d07b7b',
 };
 

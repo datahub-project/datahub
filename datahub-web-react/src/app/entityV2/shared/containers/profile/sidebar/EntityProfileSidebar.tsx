@@ -1,13 +1,9 @@
 /* eslint-disable prefer-template */
-import { Divider } from 'antd';
 import React, { useContext, useEffect, useState } from 'react';
 import styled from 'styled-components';
 import EntitySidebarContext from '../../../../../shared/EntitySidebarContext';
-import { EntityMenuItems } from '../../../EntityDropdown/EntityMenuActions';
 import { SEARCH_COLORS } from '../../../constants';
-import { EntityActionItem } from '../../../entity/EntityActions';
-import { EntitySidebarTab, EntitySubHeaderSection, TabContextType, TabRenderType } from '../../../types';
-import { EntityHeader } from '../header/EntityHeader';
+import { EntitySidebarTab, TabContextType, TabRenderType } from '../../../types';
 import { EntitySidebarTabs } from './EntitySidebarTabs';
 import SidebarCollapsibleHeader from './SidebarCollapsibleHeader';
 
@@ -42,8 +38,6 @@ export const StyledSidebar = styled.div<{ isCard: boolean; isFocused?: boolean; 
     border-top-width: ${(props) => (props.isFocused ? 'medium' : 'inherit')};
 `;
 
-const Header = styled.div``;
-
 const Body = styled.div`
     display: flex;
     align-items: space-between;
@@ -71,21 +65,12 @@ const TabsContainer = styled.div``;
 
 const Tabs = styled.div``;
 
-const HeaderDivider = styled(Divider)`
-    margin-bottom: 0px;
-    margin-top: 8px;
-`;
-
 interface Props {
     type?: 'card' | 'default';
     focused?: boolean;
     tabs: EntitySidebarTab[];
-    headerDropdownItems?: Set<EntityMenuItems>;
-    headerActionItems?: Set<EntityActionItem>;
-    subHeader?: EntitySubHeaderSection;
     backgroundColor?: string;
     contextType?: TabContextType;
-    hideHeader?: boolean;
     hideCollapse?: boolean;
     width?: number;
 }
@@ -94,12 +79,8 @@ export default function EntityProfileSidebar({
     type = 'default',
     focused = false,
     tabs,
-    headerDropdownItems,
-    headerActionItems,
-    subHeader,
     backgroundColor,
     contextType = TabContextType.PROFILE_SIDEBAR,
-    hideHeader = false,
     hideCollapse = false,
     width,
 }: Props) {
@@ -127,17 +108,18 @@ export default function EntityProfileSidebar({
             <StyledSidebar isCard={isCardLayout} isFocused={focused}>
                 <ContentContainer isVisible={!isClosed}>
                     {!hideCollapse && <SidebarCollapsibleHeader currentTab={selectedTab} />}
-                    {!hideHeader && (
-                        <Header>
-                            <EntityHeader
-                                headerDropdownItems={headerDropdownItems}
-                                headerActionItems={headerActionItems}
-                                subHeader={subHeader}
-                                isCompact
-                            />
-                            <HeaderDivider />
-                        </Header>
-                    )}
+
+                    {/* {!hideHeader && (
+                            <Header>
+                                <EntityHeader
+                                    headerDropdownItems={headerDropdownItems}
+                                    headerActionItems={headerActionItems}
+                                    subHeader={subHeader}
+                                    isCompact
+                                />
+                                <HeaderDivider />
+                            </Header>
+                        )} */}
                     <Body>
                         {selectedTab && (
                             <Content>

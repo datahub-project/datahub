@@ -8,7 +8,7 @@ import { ANTD_GRAY } from '../entityV2/shared/constants';
 
 const LogoIcon = styled.span`
     display: flex;
-    gap: 4px;
+    gap: 5px;
     margin-right: 8px;
 `;
 
@@ -51,8 +51,8 @@ export default function ColoredBackgroundPlatformIconGroup(props: Props) {
                                 src={platformLogoUrl}
                                 alt={platformName || ''}
                                 borderRadius={10}
-                                backgroundSize={30}
-                                imgSize={20}
+                                backgroundSize={32}
+                                imgSize={18}
                             />
                         )}
                         {!!platformLogoUrls &&
@@ -62,16 +62,16 @@ export default function ColoredBackgroundPlatformIconGroup(props: Props) {
                                     <ImageWithColoredBackground
                                         key={url}
                                         borderRadius={10}
-                                        backgroundSize={30}
-                                        imgSize={20}
+                                        backgroundSize={32}
+                                        imgSize={18}
                                         src={url || ''}
                                         alt={platformNames?.[idx] || ''}
                                     />
                                 ))}
                         {isOutputPort && (
                             <Tooltip title="This asset is an output port for this Data Product" placement="topLeft">
-                                <Icon size={30} background={ANTD_GRAY[4]} borderRadius={10}>
-                                    <OutputIcon style={{ fontSize: 20 }} htmlColor={ANTD_GRAY[8]} />
+                                <Icon size={32} background={ANTD_GRAY[4]} borderRadius={10}>
+                                    <OutputIcon style={{ fontSize: 18 }} htmlColor={ANTD_GRAY[8]} />
                                 </Icon>
                             </Tooltip>
                         )}

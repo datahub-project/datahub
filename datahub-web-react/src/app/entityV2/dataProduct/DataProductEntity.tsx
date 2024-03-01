@@ -28,6 +28,8 @@ import { DataProductSummaryTab } from './DataProductSummaryTab';
 import { Preview } from './preview/Preview';
 import { TYPE_ICON_CLASS_NAME } from '../shared/components/subtypes';
 
+const headerDropdownItems = new Set([EntityMenuItems.SUBSCRIBE, EntityMenuItems.SHARE, EntityMenuItems.DELETE]);
+
 /**
  * Definition of the DataHub Data Product entity.
  */
@@ -84,7 +86,7 @@ export class DataProductEntity implements Entity<DataProduct> {
             useUpdateQuery={undefined}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
             headerActionItems={new Set([EntityActionItem.BATCH_ADD_DATA_PRODUCT])}
-            headerDropdownItems={new Set([EntityMenuItems.SUBSCRIBE, EntityMenuItems.SHARE, EntityMenuItems.DELETE])}
+            headerDropdownItems={headerDropdownItems}
             isNameEditable
             tabs={[
                 {
@@ -155,6 +157,7 @@ export class DataProductEntity implements Entity<DataProduct> {
                 domain={data.domain?.domain}
                 entityCount={data?.entities?.total || undefined}
                 externalUrl={data.properties?.externalUrl}
+                headerDropdownItems={headerDropdownItems}
             />
         );
     };
@@ -174,6 +177,7 @@ export class DataProductEntity implements Entity<DataProduct> {
                 externalUrl={data.properties?.externalUrl}
                 degree={(result as any).degree}
                 paths={(result as any).paths}
+                headerDropdownItems={headerDropdownItems}
             />
         );
     };

@@ -8,11 +8,11 @@ import {
     LayoutOutlined,
     PartitionOutlined,
     SyncOutlined,
-    TableOutlined,
     UnlockOutlined,
     UnorderedListOutlined,
     WarningOutlined,
 } from '@ant-design/icons';
+import ViewComfyOutlinedIcon from '@mui/icons-material/ViewComfyOutlined';
 import * as React from 'react';
 import { GetDatasetQuery, useGetDatasetQuery, useUpdateDatasetMutation } from '../../../graphql/dataset.generated';
 import { useGetEntityLineageQuery } from '../../../graphql/lineage.generated';
@@ -60,6 +60,14 @@ const SUBTYPES = {
     VIEW: 'view',
 };
 
+const headerDropdownItems = new Set([
+    EntityMenuItems.EXTERNAL_URL,
+    EntityMenuItems.SHARE,
+    EntityMenuItems.SUBSCRIBE,
+    EntityMenuItems.UPDATE_DEPRECATION,
+    EntityMenuItems.RAISE_INCIDENT,
+]);
+
 /**
  * Definition of the DataHub Dataset entity.
  */
@@ -68,21 +76,24 @@ export class DatasetEntity implements Entity<Dataset> {
 
     icon = (fontSize?: number, styleType?: IconStyleType, color?: string) => {
         if (styleType === IconStyleType.TAB_VIEW) {
-            return <TableOutlined className={TYPE_ICON_CLASS_NAME} style={{ fontSize, color }} />;
+            return <ViewComfyOutlinedIcon className={TYPE_ICON_CLASS_NAME} style={{ fontSize, color }} />;
         }
 
         if (styleType === IconStyleType.HIGHLIGHT) {
-            return <TableOutlined className={TYPE_ICON_CLASS_NAME} style={{ fontSize, color: color || '#B37FEB' }} />;
-        }
-
-        if (styleType === IconStyleType.SVG) {
             return (
-                <path d="M832 64H192c-17.7 0-32 14.3-32 32v832c0 17.7 14.3 32 32 32h640c17.7 0 32-14.3 32-32V96c0-17.7-14.3-32-32-32zm-600 72h560v208H232V136zm560 480H232V408h560v208zm0 272H232V680h560v208zM304 240a40 40 0 1080 0 40 40 0 10-80 0zm0 272a40 40 0 1080 0 40 40 0 10-80 0zm0 272a40 40 0 1080 0 40 40 0 10-80 0z" />
+                <ViewComfyOutlinedIcon
+                    className={TYPE_ICON_CLASS_NAME}
+                    style={{ fontSize, color: color || '#B37FEB' }}
+                />
             );
         }
 
+        if (styleType === IconStyleType.SVG) {
+            return <path d="M2 4v16h20V4zm2 2h16v5H4zm0 12v-5h4v5zm6 0v-5h10v5z" />;
+        }
+
         return (
-            <TableOutlined
+            <ViewComfyOutlinedIcon
                 className={TYPE_ICON_CLASS_NAME}
                 style={{
                     fontSize,
@@ -117,15 +128,7 @@ export class DatasetEntity implements Entity<Dataset> {
             useEntityQuery={useGetDatasetQuery}
             useUpdateQuery={useUpdateDatasetMutation}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
-            headerDropdownItems={
-                new Set([
-                    EntityMenuItems.EXTERNAL_URL,
-                    EntityMenuItems.SHARE,
-                    EntityMenuItems.SUBSCRIBE,
-                    EntityMenuItems.UPDATE_DEPRECATION,
-                    EntityMenuItems.RAISE_INCIDENT,
-                ])
-            }
+            headerDropdownItems={headerDropdownItems}
             subHeader={{
                 component: DatasetStatsSummarySubHeader,
             }}
@@ -353,6 +356,7 @@ export class DatasetEntity implements Entity<Dataset> {
                 }
                 upstreamTotal={(data as any)?.upstream?.total}
                 downstreamTotal={(data as any)?.downstream?.total}
+                headerDropdownItems={headerDropdownItems}
             />
         );
     };
@@ -409,6 +413,7 @@ export class DatasetEntity implements Entity<Dataset> {
                 }
                 upstreamTotal={(data as any)?.upstream?.total}
                 downstreamTotal={(data as any)?.downstream?.total}
+                headerDropdownItems={headerDropdownItems}
             />
         );
     };

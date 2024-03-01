@@ -19,6 +19,13 @@ import SidebarEntitiesSection from '../shared/containers/profile/sidebar/Domain/
 import { DomainSummaryTab } from './summary/DomainSummaryTab';
 import { SUMMARY_TAB_ICON } from '../shared/summary/HeaderComponents';
 
+const headerDropdownItems = new Set([
+    EntityMenuItems.MOVE,
+    EntityMenuItems.SUBSCRIBE,
+    EntityMenuItems.SHARE,
+    EntityMenuItems.DELETE,
+]);
+
 /**
  * Definition of the DataHub Domain entity.
  */
@@ -78,14 +85,7 @@ export class DomainEntity implements Entity<Domain> {
             useEntityQuery={useGetDomainQuery}
             useUpdateQuery={undefined}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
-            headerDropdownItems={
-                new Set([
-                    EntityMenuItems.MOVE,
-                    EntityMenuItems.SUBSCRIBE,
-                    EntityMenuItems.SHARE,
-                    EntityMenuItems.DELETE,
-                ])
-            }
+            headerDropdownItems={headerDropdownItems}
             headerActionItems={new Set([EntityActionItem.BATCH_ADD_DOMAIN])}
             isNameEditable
             isIconEditable
@@ -140,6 +140,7 @@ export class DomainEntity implements Entity<Domain> {
                 owners={data.ownership?.owners}
                 logoComponent={this.icon(12, IconStyleType.ACCENT)}
                 entityCount={data.entities?.total}
+                headerDropdownItems={headerDropdownItems}
             />
         );
     };
@@ -155,6 +156,7 @@ export class DomainEntity implements Entity<Domain> {
                 owners={data.ownership?.owners}
                 logoComponent={this.icon(12, IconStyleType.ACCENT)}
                 entityCount={data.entities?.total}
+                headerDropdownItems={headerDropdownItems}
             />
         );
     };

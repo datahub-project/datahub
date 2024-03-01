@@ -8,8 +8,8 @@ import { useEntityData, useRefetch } from '../../../EntityContext';
 import { useGlossaryEntityData } from '../../../GlossaryEntityContext';
 
 const EntityTitle = styled(Typography.Text)`
-    font-size: 14px;
-    font-weight: 400;
+    font-size: 16px;
+    font-weight: 600;
     color: #533fd1;
     line-height: normal;
     margin-right: 10px;
