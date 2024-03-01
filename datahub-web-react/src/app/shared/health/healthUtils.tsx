@@ -4,8 +4,6 @@ import {
     CloseOutlined,
     ExclamationCircleOutlined,
     ExclamationCircleTwoTone,
-    ExceptionOutlined,
-    FileDoneOutlined,
     WarningFilled,
     WarningOutlined,
 } from '@ant-design/icons';

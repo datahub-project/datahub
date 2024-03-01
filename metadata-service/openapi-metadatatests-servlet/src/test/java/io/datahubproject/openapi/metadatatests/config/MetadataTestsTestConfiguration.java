@@ -28,6 +28,7 @@ import com.linkedin.metadata.test.action.ActionApplier;
 import com.linkedin.metadata.test.query.QueryEngine;
 import com.linkedin.metadata.timeline.TimelineService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.openapi.generated.ScrollTestEntityResponseV2;
 import io.datahubproject.openapi.generated.TestEntityRequestV2;
 import io.datahubproject.openapi.generated.TestEntityResponseV2;
@@ -57,6 +58,9 @@ public class MetadataTestsTestConfiguration {
     when(entityService.getEntityRegistry()).thenReturn(mockRegistry);
     return entityService;
   }
+
+  @MockBean(name = "systemOperationContext")
+  public OperationContext opContext;
 
   @MockBean public SearchService searchService;
 

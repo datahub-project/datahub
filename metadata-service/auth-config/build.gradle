@@ -4,7 +4,7 @@ plugins {
 
 dependencies {
   implementation project(path: ':metadata-models')
-  api project(path: ':metadata-auth:auth-api')
+  implementation project(path: ':metadata-auth:auth-api')
   implementation externalDependency.guava
   implementation externalDependency.slf4jApi
   compileOnly externalDependency.lombok

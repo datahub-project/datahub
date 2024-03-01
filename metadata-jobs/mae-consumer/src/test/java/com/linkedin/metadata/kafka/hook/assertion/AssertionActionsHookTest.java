@@ -54,7 +54,6 @@ import com.linkedin.incident.IncidentState;
 import com.linkedin.incident.IncidentStatus;
 import com.linkedin.incident.IncidentType;
 import com.linkedin.metadata.entity.AspectUtils;
-import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.SearchEntity;
@@ -228,9 +227,7 @@ public class AssertionActionsHookTest {
             Mockito.any(Filter.class),
             Mockito.any(SortCriterion.class),
             Mockito.anyInt(),
-            Mockito.anyInt(),
-            Mockito.any(Authentication.class),
-            Mockito.any(SearchFlags.class));
+            Mockito.anyInt());
 
     // No ingestion to perform
     Mockito.verify(entityClient, Mockito.times(0))

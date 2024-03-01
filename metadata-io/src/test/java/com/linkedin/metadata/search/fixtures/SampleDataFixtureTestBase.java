@@ -4,9 +4,7 @@ import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATA_JOB_ENTITY_NAME;
 import static com.linkedin.metadata.search.elasticsearch.query.request.SearchQueryBuilder.STRUCTURED_QUERY_PREFIX;
 import static com.linkedin.metadata.utils.SearchUtil.AGGREGATION_SEPARATOR_CHAR;
-import static io.datahubproject.test.search.SearchTestUtils.SEARCHABLE_ENTITIES;
-import static io.datahubproject.test.search.SearchTestUtils.scroll;
-import static io.datahubproject.test.search.SearchTestUtils.searchAcrossEntities;
+import static io.datahubproject.test.search.SearchTestUtils.*;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
@@ -40,6 +38,7 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.AggregationMetadata;
+import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
@@ -83,6 +82,10 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
 
   @Nonnull
   protected abstract SearchService getSearchService();
+
+  // Saas only scroll()
+  @Nonnull
+  protected abstract EntitySearchService getEntitySearchService();
 
   @Nonnull
   protected abstract EntityClient getEntityClient();
@@ -1359,7 +1362,7 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
     String scrollId = null;
     do {
       ScrollResult result =
-          scroll(getOperationContext(), _entitySearchService, batchSize, scrollId);
+          scroll(getOperationContext(), getEntitySearchService(), batchSize, scrollId);
       int numResults = result.hasEntities() ? result.getEntities().size() : 0;
       assertTrue(numResults <= batchSize);
       totalResults += numResults;

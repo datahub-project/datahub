@@ -3,8 +3,8 @@ plugins {
 }
 
 dependencies {
-  api project(':metadata-utils')
-  api project(':metadata-auth:auth-api')
+  implementation project(':metadata-utils')
+  implementation project(':metadata-auth:auth-api')
 
   implementation externalDependency.slf4jApi
   compileOnly externalDependency.lombok
