@@ -5,10 +5,10 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
+import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.RetentionService;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
-import com.linkedin.metadata.entity.ebean.batch.MCPUpsertBatchItem;
 import com.linkedin.metadata.entity.retention.BulkApplyRetentionArgs;
 import com.linkedin.metadata.entity.retention.BulkApplyRetentionResult;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -40,28 +40,22 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @RequiredArgsConstructor
-public class EbeanRetentionService extends RetentionService<MCPUpsertBatchItem> {
-  private final EntityService<MCPUpsertBatchItem> _entityService;
+public class EbeanRetentionService<U extends ChangeMCP> extends RetentionService<U> {
+  private final EntityService<U> _entityService;
   private final Database _server;
   private final int _batchSize;
 
   private final Clock _clock = Clock.systemUTC();
 
   @Override
-  public EntityService<MCPUpsertBatchItem> getEntityService() {
+  public EntityService<U> getEntityService() {
     return _entityService;
   }
 
   @Override
   protected AspectsBatch buildAspectsBatch(
       List<MetadataChangeProposal> mcps, @Nonnull AuditStamp auditStamp) {
-    return AspectsBatchImpl.builder()
-        .mcps(
-            mcps,
-            auditStamp,
-            _entityService.getEntityRegistry(),
-            _entityService.getSystemEntityClient())
-        .build();
+    return AspectsBatchImpl.builder().mcps(mcps, auditStamp, _entityService).build();
   }
 
   @Override

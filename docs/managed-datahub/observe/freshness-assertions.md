@@ -43,6 +43,7 @@ Freshness Assertions are currently supported for:
 1. Snowflake
 2. Redshift
 3. BigQuery
+4. Databricks
 
 Note that an Ingestion Source _must_ be configured with the data platform of your choice in Acryl DataHub's **Ingestion** 
 tab.
@@ -106,12 +107,14 @@ Change Source types vary by the platform, but generally fall into these categori
 
   - **Audit Log** (Default): A metadata API or Table that is exposed by the Data Warehouse which contains captures information about the
    operations that have been performed to each Table. It is usually efficient to check, but some useful operations are not 
-   fully supported across all major Warehouse platforms.
+   fully supported across all major Warehouse platforms. Note that for Databricks, [this option](https://docs.databricks.com/en/delta/history.html) 
+   is only available for tables stored in Delta format.
 
   - **Information Schema**: A system Table that is exposed by the Data Warehouse which contains live information about the Databases 
     and Tables stored inside the Data Warehouse. It is usually efficient to check, but lacks detailed information about the _type_
-    of change that was last made to a specific table (e.g. the operation itself - INSERT, UPDATE, DELETE, number of impacted rows, etc)
-      
+    of change that was last made to a specific table (e.g. the operation itself - INSERT, UPDATE, DELETE, number of impacted rows, etc).
+    Note that for Databricks, [this option](https://docs.databricks.com/en/delta/table-details.html) is only available for tables stored in Delta format.
+
   - **Last Modified Column**: A Date or Timestamp column that represents the last time that a specific _row_ was touched or updated. 
     Adding a Last Modified Column to each warehouse Table is a pattern is often used for existing use cases around change management. 
     If this change source is used, a query will be issued to the Table to search for rows that have been modified within a specific 
@@ -127,8 +130,11 @@ Change Source types vary by the platform, but generally fall into these categori
     This relies on Operations being reported to DataHub, either via ingestion or via use of the DataHub APIs (see [Report Operation via API](#reporting-operations-via-api)).
     Note if you have not configured an ingestion source through DataHub, then this may be the only option available. By default, any operation type found will be considered a valid change. Use the **Operation Types** dropdown when selecting this option to specify which operation types should be considered valid changes. You may choose from one of DataHub's standard Operation Types, or specify a "Custom" Operation Type by typing in the name of the Operation Type.
 
-  Using either of the column value approaches (**Last Modified Column** or **High Watermark Column**) to determine whether a Table has changed can be useful because it can be customized to determine whether specific types of important changes have been made to a given Table.
-  Because it does not involve system warehouse tables, it is also easily portable across Data Warehouse and Data Lake providers. 
+  - **File Metadata** (Databricks Only): A column that is exposed by Databricks for both Unity Catalog and Hive Metastore based tables
+    which includes information about the last time that a file for the table was changed. Read more about it [here](https://docs.databricks.com/en/ingestion/file-metadata-column.html). 
+
+    Using either of the column value approaches (**Last Modified Column** or **High Watermark Column**) to determine whether a Table has changed can be useful because it can be customized to determine whether specific types of changes have been made to a given Table.
+    And because this type of assertion does not involve system warehouse tables, they are easily portable across Data Warehouse and Data Lake providers. 
 
 Freshness Assertions also have an off switch: they can be started or stopped at any time with the click of button.
 
@@ -339,6 +345,59 @@ mutation createAssertionMonitor {
 This entity defines _when_ to run the check (Using CRON format - every 8th hour) and _how_ to run the check (using the Audit Log). 
 
 After creating the monitor, the new assertion will start to be evaluated every 8 hours in your selected timezone. 
+
+Alternatively you can use `upsertDatasetFreshnessAssertionMonitor` graphql endpoint for creating a Freshness Assertion and corresponding Monitor for a dataset. 
+
+```json
+mutation upsertDatasetFreshnessAssertionMonitor {
+  upsertDatasetFreshnessAssertionMonitor(
+    input: {
+      entityUrn: "<urn of entity being monitored>",
+      schedule: {
+        type: FIXED_INTERVAL,
+        fixedInterval: { unit: HOUR, multiple: 8 }
+      }
+      evaluationSchedule: {
+        timezone: "America/Los_Angeles",
+        cron: "0 */8 * * *"
+      }
+      evaluationParameters: {
+        sourceType: INFORMATION_SCHEMA
+      }
+      mode: ACTIVE      
+    }
+  ){
+    urn
+  }
+}
+```
+
+You can use same endpoint with assertion urn input to update an existing Freshness Assertion and corresponding Monitor.
+
+```json
+mutation upsertDatasetFreshnessAssertionMonitor {
+  upsertDatasetFreshnessAssertionMonitor(
+    assertionUrn: "<urn of assertion created in earlier query>"
+    input: {
+      entityUrn: "<urn of entity being monitored>",
+      schedule: {
+        type: FIXED_INTERVAL,
+        fixedInterval: { unit: HOUR, multiple: 6 }
+      }
+      evaluationSchedule: {
+        timezone: "America/Los_Angeles",
+        cron: "0 */6 * * *"
+      }
+      evaluationParameters: {
+        sourceType: INFORMATION_SCHEMA
+      }
+      mode: ACTIVE      
+    }
+  ){
+    urn
+  }
+}
+```
 
 You can delete assertions along with their monitors using GraphQL mutations: `deleteAssertion` and `deleteMonitor`.
 

@@ -2,8 +2,10 @@ package com.linkedin.datahub.upgrade.system.elasticsearch.util;
 
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.shared.ElasticSearchIndexed;
+import com.linkedin.structured.StructuredPropertyDefinition;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import lombok.extern.slf4j.Slf4j;
@@ -32,6 +34,23 @@ public class IndexUtils {
     if (reindexConfigs.isEmpty()) {
       for (ElasticSearchIndexed elasticSearchIndexed : elasticSearchIndexedList) {
         reindexConfigs.addAll(elasticSearchIndexed.buildReindexConfigs());
+      }
+      _reindexConfigs = new ArrayList<>(reindexConfigs);
+    }
+
+    return reindexConfigs;
+  }
+
+  public static List<ReindexConfig> getAllReindexConfigs(
+      List<ElasticSearchIndexed> elasticSearchIndexedList,
+      Collection<StructuredPropertyDefinition> structuredProperties)
+      throws IOException {
+    // Avoid locking & reprocessing
+    List<ReindexConfig> reindexConfigs = new ArrayList<>(_reindexConfigs);
+    if (reindexConfigs.isEmpty()) {
+      for (ElasticSearchIndexed elasticSearchIndexed : elasticSearchIndexedList) {
+        reindexConfigs.addAll(
+            elasticSearchIndexed.buildReindexConfigsWithAllStructProps(structuredProperties));
       }
       _reindexConfigs = new ArrayList<>(reindexConfigs);
     }

@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional, TypeVar, Union
+from typing import Dict, List, Optional, Union
 
 from datahub.emitter.mcp_patch_builder import MetadataPatchProposal
 from datahub.metadata.schema_classes import (
@@ -18,8 +18,6 @@ from datahub.specific.ownership import OwnershipPatchHelper
 from datahub.utilities.urns.tag_urn import TagUrn
 from datahub.utilities.urns.urn import Urn
 
-T = TypeVar("T", bound=MetadataPatchProposal)
-
 
 class DataProductPatchBuilder(MetadataPatchProposal):
     def __init__(
@@ -30,7 +28,6 @@ class DataProductPatchBuilder(MetadataPatchProposal):
     ) -> None:
         super().__init__(
             urn,
-            "dataProduct",
             system_metadata=system_metadata,
             audit_header=audit_header,
         )

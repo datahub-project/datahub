@@ -83,8 +83,8 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
     ViewPropertiesClass,
 )
+from datahub.sql_parsing.sqlglot_lineage import ColumnLineageInfo
 from datahub.utilities.dedup_list import deduplicate_list
-from datahub.utilities.sqlglot_lineage import ColumnLineageInfo
 
 # Logger instance
 logger = logging.getLogger(__name__)

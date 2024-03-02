@@ -31,7 +31,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out the repo
-        uses: hsheth2/sane-checkout-action@v1
+        uses: acryldata/sane-checkout-action@v3
       - uses: actions/setup-python@v4
         with:
           python-version: "3.10"

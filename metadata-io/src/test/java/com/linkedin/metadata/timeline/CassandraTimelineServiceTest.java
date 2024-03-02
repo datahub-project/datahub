@@ -56,12 +56,8 @@ public class CassandraTimelineServiceTest extends TimelineServiceTest<CassandraA
     preProcessHooks.setUiEnabled(true);
     _entityServiceImpl =
         new EntityServiceImpl(
-            _aspectDao,
-            _mockProducer,
-            _testEntityRegistry,
-            true,
-            _mockUpdateIndicesService,
-            preProcessHooks);
+            _aspectDao, _mockProducer, _testEntityRegistry, true, preProcessHooks, true);
+    _entityServiceImpl.setUpdateIndicesService(_mockUpdateIndicesService);
   }
 
   /**

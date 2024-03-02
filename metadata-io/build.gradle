@@ -1,5 +1,7 @@
-apply plugin: 'java-library'
-apply plugin: 'org.hidetake.swagger.generator'
+plugins {
+  id 'java-library'
+  id 'pegasus'
+}
 
 configurations {
   enhance
@@ -7,6 +9,7 @@ configurations {
 
 dependencies {
   implementation project(':entity-registry')
+  implementation project(':metadata-service:auth-config')
   api project(':metadata-utils')
   api project(':metadata-events:mxe-avro')
   api project(':metadata-events:mxe-registration')
@@ -15,6 +18,7 @@ dependencies {
   api project(':metadata-service:restli-client')
   api project(':metadata-service:configuration')
   api project(':metadata-service:services')
+  api project(':metadata-operation-context')
 
   implementation spec.product.pegasus.data
   implementation spec.product.pegasus.generator
@@ -46,8 +50,8 @@ dependencies {
   implementation externalDependency.ebeanDdl
   implementation externalDependency.opentelemetryAnnotations
   implementation externalDependency.resilience4j
-  api externalDependency.springContext
-  implementation externalDependency.swaggerAnnotations
+  // Newer Spring libraries require JDK17 classes, allow for JDK11
+  compileOnly externalDependency.springBootAutoconfigureJdk11
   implementation(externalDependency.mixpanel) {
     exclude group: 'org.json', module: 'json'
   }

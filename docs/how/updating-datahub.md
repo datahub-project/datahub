@@ -10,6 +10,32 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 - Neo4j 5.x, may require migration from 4.x
 - Build requires JDK17 (Runtime Java 11)
 - Build requires Docker Compose > 2.20
+- #9731 - The `acryl-datahub` CLI now requires Python 3.8+
+- #9601 - The Unity Catalog(UC) ingestion source config `include_metastore` is now disabled by default. This change will affect the urns of all entities in the workspace.<br/>
+  Entity Hierarchy with `include_metastore: true` (Old)
+
+  ```
+  - UC Metastore
+    - Catalog
+      - Schema
+        - Table
+  ```
+
+  Entity Hierarchy with `include_metastore: false` (New)
+
+  ```
+  - Catalog
+    - Schema
+      - Table
+  ```
+
+  We recommend using `platform_instance` for differentiating across metastores.
+
+  If stateful ingestion is enabled, running ingestion with latest cli version will perform all required cleanup. Otherwise, we recommend soft deleting all databricks data via the DataHub CLI:
+  `datahub delete --platform databricks --soft` and then reingesting with latest cli version.
+
+- #9601 - The Unity Catalog(UC) ingestion source config `include_hive_metastore` is now enabled by default. This requires config `warehouse_id` to be set. You can disable `include_hive_metastore` by setting it to `False` to avoid ingesting legacy hive metastore catalog in Databricks.
+- #9904 - The default Redshift `table_lineage_mode` is now MIXED, instead of `STL_SCAN_BASED`. Improved lineage generation is also available by enabling `use_lineaege_v2`. This v2 implementation will become the default in a future release.
 
 ### Potential Downtime
 

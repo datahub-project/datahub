@@ -20,7 +20,6 @@ Acryl DataHub offers a slew of additional features on top of the normal OSS proj
 ## Expanded API Features
 
 - [Entity Events API](docs/managed-datahub/datahub-api/entity-events-api.md)
-- [Incidents API](docs/managed-datahub/datahub-api/graphql-api/incidents-api-beta.md)
 
 ## More Ways to Act on Metadata
 

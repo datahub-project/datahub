@@ -13,11 +13,12 @@ import com.linkedin.identity.CorpUserInfo;
 import com.linkedin.metadata.AspectGenerationUtils;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.EbeanTestUtils;
+import com.linkedin.metadata.config.EbeanConfiguration;
 import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.entity.ebean.EbeanAspectDao;
 import com.linkedin.metadata.entity.ebean.EbeanRetentionService;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
-import com.linkedin.metadata.entity.ebean.batch.MCPUpsertBatchItem;
+import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.key.CorpUserKey;
 import com.linkedin.metadata.models.registry.EntityRegistryException;
@@ -63,19 +64,15 @@ public class EbeanEntityServiceTest
     Database server = EbeanTestUtils.createTestServer(EbeanEntityServiceTest.class.getSimpleName());
 
     _mockProducer = mock(EventProducer.class);
-    _aspectDao = new EbeanAspectDao(server);
+    _aspectDao = new EbeanAspectDao(server, EbeanConfiguration.testDefault);
 
     _mockUpdateIndicesService = mock(UpdateIndicesService.class);
     PreProcessHooks preProcessHooks = new PreProcessHooks();
     preProcessHooks.setUiEnabled(true);
     _entityServiceImpl =
         new EntityServiceImpl(
-            _aspectDao,
-            _mockProducer,
-            _testEntityRegistry,
-            false,
-            _mockUpdateIndicesService,
-            preProcessHooks);
+            _aspectDao, _mockProducer, _testEntityRegistry, false, preProcessHooks, true);
+    _entityServiceImpl.setUpdateIndicesService(_mockUpdateIndicesService);
     _retentionService = new EbeanRetentionService(_entityServiceImpl, server, 1000);
     _entityServiceImpl.setRetentionService(_retentionService);
   }
@@ -116,30 +113,33 @@ public class EbeanEntityServiceTest
     // Ingest CorpUserInfo Aspect #3
     CorpUserInfo writeAspect3 = AspectGenerationUtils.createCorpUserInfo("email3@test.com");
 
-    List<MCPUpsertBatchItem> items =
+    List<ChangeItemImpl> items =
         List.of(
-            MCPUpsertBatchItem.builder()
+            ChangeItemImpl.builder()
                 .urn(entityUrn1)
                 .aspectName(aspectName)
-                .aspect(writeAspect1)
+                .recordTemplate(writeAspect1)
                 .systemMetadata(metadata1)
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(_testEntityRegistry, _entityServiceImpl.getSystemEntityClient()),
-            MCPUpsertBatchItem.builder()
+                .build(_entityServiceImpl),
+            ChangeItemImpl.builder()
                 .urn(entityUrn2)
                 .aspectName(aspectName)
-                .aspect(writeAspect2)
+                .recordTemplate(writeAspect2)
                 .systemMetadata(metadata1)
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(_testEntityRegistry, _entityServiceImpl.getSystemEntityClient()),
-            MCPUpsertBatchItem.builder()
+                .build(_entityServiceImpl),
+            ChangeItemImpl.builder()
                 .urn(entityUrn3)
                 .aspectName(aspectName)
-                .aspect(writeAspect3)
+                .recordTemplate(writeAspect3)
                 .systemMetadata(metadata1)
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(_testEntityRegistry, _entityServiceImpl.getSystemEntityClient()));
-    _entityServiceImpl.ingestAspects(AspectsBatchImpl.builder().items(items).build(), true, true);
+                .build(_entityServiceImpl));
+    _entityServiceImpl.ingestAspects(
+        AspectsBatchImpl.builder().aspectRetriever(_entityServiceImpl).items(items).build(),
+        true,
+        true);
 
     // List aspects
     ListResult<RecordTemplate> batch1 =
@@ -185,30 +185,33 @@ public class EbeanEntityServiceTest
     // Ingest CorpUserInfo Aspect #3
     RecordTemplate writeAspect3 = AspectGenerationUtils.createCorpUserKey(entityUrn3);
 
-    List<MCPUpsertBatchItem> items =
+    List<ChangeItemImpl> items =
         List.of(
-            MCPUpsertBatchItem.builder()
+            ChangeItemImpl.builder()
                 .urn(entityUrn1)
                 .aspectName(aspectName)
-                .aspect(writeAspect1)
+                .recordTemplate(writeAspect1)
                 .systemMetadata(metadata1)
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(_testEntityRegistry, _entityServiceImpl.getSystemEntityClient()),
-            MCPUpsertBatchItem.builder()
+                .build(_entityServiceImpl),
+            ChangeItemImpl.builder()
                 .urn(entityUrn2)
                 .aspectName(aspectName)
-                .aspect(writeAspect2)
+                .recordTemplate(writeAspect2)
                 .systemMetadata(metadata1)
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(_testEntityRegistry, _entityServiceImpl.getSystemEntityClient()),
-            MCPUpsertBatchItem.builder()
+                .build(_entityServiceImpl),
+            ChangeItemImpl.builder()
                 .urn(entityUrn3)
                 .aspectName(aspectName)
-                .aspect(writeAspect3)
+                .recordTemplate(writeAspect3)
                 .systemMetadata(metadata1)
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(_testEntityRegistry, _entityServiceImpl.getSystemEntityClient()));
-    _entityServiceImpl.ingestAspects(AspectsBatchImpl.builder().items(items).build(), true, true);
+                .build(_entityServiceImpl));
+    _entityServiceImpl.ingestAspects(
+        AspectsBatchImpl.builder().aspectRetriever(_entityServiceImpl).items(items).build(),
+        true,
+        true);
 
     // List aspects urns
     ListUrnsResult batch1 = _entityServiceImpl.listUrns(entityUrn1.getEntityType(), 0, 2);
@@ -282,7 +285,7 @@ public class EbeanEntityServiceTest
   @Test // ensure same thread as h2
   public void multiThreadingTest() {
     DataGenerator dataGenerator = new DataGenerator(_entityServiceImpl);
-    Database server = ((EbeanAspectDao) _entityServiceImpl._aspectDao).getServer();
+    Database server = ((EbeanAspectDao) _entityServiceImpl.aspectDao).getServer();
 
     // Add data
     List<String> aspects = List.of("status", "globalTags", "glossaryTerms");
@@ -311,6 +314,12 @@ public class EbeanEntityServiceTest
     Set<Triple<String, String, Long>> additions =
         actualAspectIds.stream()
             .filter(id -> !generatedAspectIds.contains(id))
+            // Exclude default aspects
+            .filter(
+                id ->
+                    !Set.of("browsePaths", "browsePathsV2", "dataPlatformInstance")
+                        .contains(id.getMiddle()))
+            .filter(id -> !id.getMiddle().endsWith("Key"))
             .collect(Collectors.toSet());
     assertEquals(
         additions.size(), 0, String.format("Expected no additional aspects. Found: %s", additions));
@@ -332,7 +341,7 @@ public class EbeanEntityServiceTest
   @Test
   public void singleThreadingTest() {
     DataGenerator dataGenerator = new DataGenerator(_entityServiceImpl);
-    Database server = ((EbeanAspectDao) _entityServiceImpl._aspectDao).getServer();
+    Database server = ((EbeanAspectDao) _entityServiceImpl.aspectDao).getServer();
 
     // Add data
     List<String> aspects = List.of("status", "globalTags", "glossaryTerms");
@@ -361,6 +370,12 @@ public class EbeanEntityServiceTest
     Set<Triple<String, String, Long>> additions =
         actualAspectIds.stream()
             .filter(id -> !generatedAspectIds.contains(id))
+            // Exclude default aspects
+            .filter(
+                id ->
+                    !Set.of("browsePaths", "browsePathsV2", "dataPlatformInstance")
+                        .contains(id.getMiddle()))
+            .filter(id -> !id.getMiddle().endsWith("Key"))
             .collect(Collectors.toSet());
     assertEquals(
         additions.size(), 0, String.format("Expected no additional aspects. Found: %s", additions));
@@ -379,7 +394,7 @@ public class EbeanEntityServiceTest
       EntityServiceImpl entityService,
       List<List<MetadataChangeProposal>> testData,
       int threadCount) {
-    Database server = ((EbeanAspectDao) entityService._aspectDao).getServer();
+    Database server = ((EbeanAspectDao) entityService.aspectDao).getServer();
     server.sqlUpdate("truncate metadata_aspect_v2");
 
     int count =
@@ -451,13 +466,7 @@ public class EbeanEntityServiceTest
           auditStamp.setActor(Urn.createFromString(Constants.DATAHUB_ACTOR));
           auditStamp.setTime(System.currentTimeMillis());
           AspectsBatchImpl batch =
-              AspectsBatchImpl.builder()
-                  .mcps(
-                      mcps,
-                      auditStamp,
-                      entityService.getEntityRegistry(),
-                      entityService.getSystemEntityClient())
-                  .build();
+              AspectsBatchImpl.builder().mcps(mcps, auditStamp, entityService).build();
           entityService.ingestProposal(batch, false);
         }
       } catch (InterruptedException | URISyntaxException ie) {

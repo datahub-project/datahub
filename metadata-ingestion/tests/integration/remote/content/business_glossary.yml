@@ -10,6 +10,8 @@ nodes:
     knowledge_links:
       - label: Wiki link for classification
         url: "https://en.wikipedia.org/wiki/Classification"
+    custom_properties:
+      is_confidential: true
     terms:
       - name: Sensitive
         description: Sensitive Data

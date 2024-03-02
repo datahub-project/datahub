@@ -4,6 +4,7 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.ContentParams;
 import com.linkedin.datahub.graphql.generated.EntityProfileParams;
 import com.linkedin.datahub.graphql.generated.FacetFilter;
@@ -15,8 +16,8 @@ import com.linkedin.datahub.graphql.generated.RecommendationParams;
 import com.linkedin.datahub.graphql.generated.RecommendationRenderType;
 import com.linkedin.datahub.graphql.generated.RecommendationRequestContext;
 import com.linkedin.datahub.graphql.generated.SearchParams;
-import com.linkedin.datahub.graphql.resolvers.EntityTypeMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
+import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.recommendation.EntityRequestContext;
 import com.linkedin.metadata.recommendation.RecommendationsService;
@@ -46,6 +47,7 @@ public class ListRecommendationsResolver
   @WithSpan
   @Override
   public CompletableFuture<ListRecommendationsResult> get(DataFetchingEnvironment environment) {
+    final QueryContext context = environment.getContext();
     final ListRecommendationsInput input =
         bindArgument(environment.getArgument("input"), ListRecommendationsInput.class);
 
@@ -55,7 +57,7 @@ public class ListRecommendationsResolver
             log.debug("Listing recommendations for input {}", input);
             List<com.linkedin.metadata.recommendation.RecommendationModule> modules =
                 _recommendationsService.listRecommendations(
-                    Urn.createFromString(input.getUserUrn()),
+                    context.getOperationContext(),
                     mapRequestContext(input.getRequestContext()),
                     input.getLimit());
             return ListRecommendationsResult.builder()

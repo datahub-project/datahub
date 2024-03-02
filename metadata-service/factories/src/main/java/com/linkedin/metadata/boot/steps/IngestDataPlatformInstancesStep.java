@@ -11,7 +11,7 @@ import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.entity.AspectMigrationsDao;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
-import com.linkedin.metadata.entity.ebean.batch.MCPUpsertBatchItem;
+import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.utils.DataPlatformInstanceUtils;
 import com.linkedin.metadata.utils.EntityKeyUtils;
@@ -28,7 +28,7 @@ public class IngestDataPlatformInstancesStep implements BootstrapStep {
 
   private static final int BATCH_SIZE = 1000;
 
-  private final EntityService<MCPUpsertBatchItem> _entityService;
+  private final EntityService<?> _entityService;
   private final AspectMigrationsDao _migrationsDao;
 
   @Override
@@ -65,7 +65,7 @@ public class IngestDataPlatformInstancesStep implements BootstrapStep {
           start,
           start + BATCH_SIZE);
 
-      List<MCPUpsertBatchItem> items = new LinkedList<>();
+      List<ChangeItemImpl> items = new LinkedList<>();
       final AuditStamp aspectAuditStamp =
           new AuditStamp()
               .setActor(Urn.createFromString(Constants.SYSTEM_ACTOR))
@@ -76,17 +76,19 @@ public class IngestDataPlatformInstancesStep implements BootstrapStep {
         Optional<DataPlatformInstance> dataPlatformInstance = getDataPlatformInstance(urn);
         if (dataPlatformInstance.isPresent()) {
           items.add(
-              MCPUpsertBatchItem.builder()
+              ChangeItemImpl.builder()
                   .urn(urn)
                   .aspectName(DATA_PLATFORM_INSTANCE_ASPECT_NAME)
-                  .aspect(dataPlatformInstance.get())
+                  .recordTemplate(dataPlatformInstance.get())
                   .auditStamp(aspectAuditStamp)
-                  .build(
-                      _entityService.getEntityRegistry(), _entityService.getSystemEntityClient()));
+                  .build(_entityService));
         }
       }
 
-      _entityService.ingestAspects(AspectsBatchImpl.builder().items(items).build(), true, true);
+      _entityService.ingestAspects(
+          AspectsBatchImpl.builder().aspectRetriever(_entityService).items(items).build(),
+          true,
+          true);
 
       log.info(
           "Finished ingesting DataPlatformInstance for urn {} to {}", start, start + BATCH_SIZE);

@@ -2,11 +2,13 @@ package mock;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.timeseries.BatchWriteOperationsOptions;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.metadata.timeseries.TimeseriesScrollResult;
 import com.linkedin.timeseries.AggregationSpec;
 import com.linkedin.timeseries.DeleteAspectValuesResult;
 import com.linkedin.timeseries.GenericTable;
@@ -36,6 +38,11 @@ public class MockTimeseriesAspectService implements TimeseriesAspectService {
     this._count = count;
     this._filteredCount = filteredCount;
     this._taskId = taskId;
+  }
+
+  @Override
+  public TimeseriesAspectService postConstruct(AspectRetriever aspectRetriever) {
+    return this;
   }
 
   @Override
@@ -117,5 +124,19 @@ public class MockTimeseriesAspectService implements TimeseriesAspectService {
   @Override
   public List<TimeseriesIndexSizeResult> getIndexSizes() {
     return List.of();
+  }
+
+  @Nonnull
+  @Override
+  public TimeseriesScrollResult scrollAspects(
+      @Nonnull String entityName,
+      @Nonnull String aspectName,
+      @Nullable Filter filter,
+      @Nonnull List<SortCriterion> sortCriterion,
+      @Nullable String scrollId,
+      int count,
+      @Nullable Long startTimeMillis,
+      @Nullable Long endTimeMillis) {
+    return TimeseriesScrollResult.builder().build();
   }
 }

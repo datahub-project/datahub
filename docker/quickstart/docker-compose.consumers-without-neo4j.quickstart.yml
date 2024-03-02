@@ -4,9 +4,9 @@ services:
     - MAE_CONSUMER_ENABLED=false
     - MCE_CONSUMER_ENABLED=false
   datahub-mae-consumer:
-    container_name: datahub-mae-consumer
     environment:
     - KAFKA_CONSUMER_STOP_ON_DESERIALIZATION_ERROR=${KAFKA_CONSUMER_STOP_ON_DESERIALIZATION_ERROR:-true}
+    - KAFKA_CONSUMER_HEALTH_CHECK_ENABLED=${KAFKA_CONSUMER_HEALTH_CHECK_ENABLED:-true}
     - DATAHUB_UPGRADE_HISTORY_KAFKA_CONSUMER_GROUP_ID=generic-duhe-consumer-job-client-mcl
     - DATAHUB_GMS_HOST=datahub-gms
     - DATAHUB_GMS_PORT=8080
@@ -24,7 +24,6 @@ services:
     ports:
     - 9091:9091
   datahub-mce-consumer:
-    container_name: datahub-mce-consumer
     environment:
     - DATAHUB_SERVER_TYPE=${DATAHUB_SERVER_TYPE:-quickstart}
     - DATAHUB_SYSTEM_CLIENT_ID=__datahub_system
@@ -45,6 +44,7 @@ services:
     - GRAPH_SERVICE_IMPL=elasticsearch
     - JAVA_OPTS=-Xms1g -Xmx1g
     - KAFKA_BOOTSTRAP_SERVER=broker:29092
+    - KAFKA_CONSUMER_HEALTH_CHECK_ENABLED=${KAFKA_CONSUMER_HEALTH_CHECK_ENABLED:-true}
     - KAFKA_CONSUMER_STOP_ON_DESERIALIZATION_ERROR=${KAFKA_CONSUMER_STOP_ON_DESERIALIZATION_ERROR:-true}
     - KAFKA_SCHEMAREGISTRY_URL=http://schema-registry:8081
     - MAE_CONSUMER_ENABLED=false

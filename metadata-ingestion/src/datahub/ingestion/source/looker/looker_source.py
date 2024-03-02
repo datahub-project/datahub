@@ -608,8 +608,14 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                 else ""
             },
         )
-
         chart_snapshot.aspects.append(chart_info)
+
+        if dashboard and dashboard.folder_path is not None:
+            browse_path = BrowsePathsClass(
+                paths=[f"/looker/{dashboard.folder_path}/{dashboard.title}"]
+            )
+            chart_snapshot.aspects.append(browse_path)
+
         if dashboard is not None:
             ownership = self.get_ownership(dashboard)
             if ownership is not None:
@@ -1193,7 +1199,18 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                 logger.info(f"query_id is None for look {look.title}({look.id})")
                 continue
 
-            query: Query = self.looker_api.get_query(look.query_id, query_fields)
+            if look.id is not None:
+                query: Optional[Query] = self.looker_api.get_look(
+                    look.id, fields=["query"]
+                ).query
+                # Only include fields that are in the query_fields list
+                query = Query(
+                    **{
+                        key: getattr(query, key)
+                        for key in query_fields
+                        if hasattr(query, key)
+                    }
+                )
 
             dashboard_element: Optional[
                 LookerDashboardElement

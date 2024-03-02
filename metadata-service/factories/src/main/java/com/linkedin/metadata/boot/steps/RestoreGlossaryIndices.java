@@ -12,10 +12,10 @@ import com.linkedin.metadata.boot.UpgradeStep;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -34,26 +34,29 @@ public class RestoreGlossaryIndices extends UpgradeStep {
   private static final String UPGRADE_ID = "restore-glossary-indices-ui";
   private static final Integer BATCH_SIZE = 1000;
 
-  private final EntitySearchService _entitySearchService;
-  private final EntityRegistry _entityRegistry;
+  private final OperationContext opContext;
+  private final EntitySearchService entitySearchService;
+  private final EntityRegistry entityRegistry;
 
   public RestoreGlossaryIndices(
-      EntityService entityService,
+      OperationContext opContext,
+      EntityService<?> entityService,
       EntitySearchService entitySearchService,
       EntityRegistry entityRegistry) {
     super(entityService, VERSION, UPGRADE_ID);
-    _entitySearchService = entitySearchService;
-    _entityRegistry = entityRegistry;
+    this.opContext = opContext;
+    this.entitySearchService = entitySearchService;
+    this.entityRegistry = entityRegistry;
   }
 
   @Override
   public void upgrade() throws Exception {
     final AspectSpec termAspectSpec =
-        _entityRegistry
+        entityRegistry
             .getEntitySpec(Constants.GLOSSARY_TERM_ENTITY_NAME)
             .getAspectSpec(Constants.GLOSSARY_TERM_INFO_ASPECT_NAME);
     final AspectSpec nodeAspectSpec =
-        _entityRegistry
+        entityRegistry
             .getEntitySpec(Constants.GLOSSARY_NODE_ENTITY_NAME)
             .getAspectSpec(Constants.GLOSSARY_NODE_INFO_ASPECT_NAME);
     final AuditStamp auditStamp =
@@ -85,14 +88,16 @@ public class RestoreGlossaryIndices extends UpgradeStep {
   private int getAndRestoreTermAspectIndices(
       int start, AuditStamp auditStamp, AspectSpec termAspectSpec) throws Exception {
     SearchResult termsResult =
-        _entitySearchService.search(
+        entitySearchService.search(
+            opContext.withSearchFlags(
+                flags ->
+                    flags.setFulltext(false).setSkipAggregates(true).setSkipHighlighting(true)),
             List.of(Constants.GLOSSARY_TERM_ENTITY_NAME),
             "",
             null,
             null,
             start,
-            BATCH_SIZE,
-            new SearchFlags().setFulltext(false).setSkipAggregates(true).setSkipHighlighting(true));
+            BATCH_SIZE);
     List<Urn> termUrns =
         termsResult.getEntities().stream()
             .map(SearchEntity::getEntity)
@@ -153,14 +158,16 @@ public class RestoreGlossaryIndices extends UpgradeStep {
   private int getAndRestoreNodeAspectIndices(
       int start, AuditStamp auditStamp, AspectSpec nodeAspectSpec) throws Exception {
     SearchResult nodesResult =
-        _entitySearchService.search(
+        entitySearchService.search(
+            opContext.withSearchFlags(
+                flags ->
+                    flags.setFulltext(false).setSkipAggregates(true).setSkipHighlighting(true)),
             List.of(Constants.GLOSSARY_NODE_ENTITY_NAME),
             "",
             null,
             null,
             start,
-            BATCH_SIZE,
-            new SearchFlags().setFulltext(false).setSkipAggregates(true).setSkipHighlighting(true));
+            BATCH_SIZE);
     List<Urn> nodeUrns =
         nodesResult.getEntities().stream()
             .map(SearchEntity::getEntity)

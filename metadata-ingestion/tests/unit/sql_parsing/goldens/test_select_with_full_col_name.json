@@ -1,5 +1,7 @@
 {
     "query_type": "SELECT",
+    "query_type_props": {},
+    "query_fingerprint": "48a706402e955c2f64112c8c71a96dfd81a2b39101bf592670f14a5a9069c8c1",
     "in_tables": [
         "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-bq-ProjectName.data_reporting.abcde_transformed,PROD)"
     ],
@@ -37,5 +39,9 @@
                 }
             ]
         }
-    ]
+    ],
+    "debug_info": {
+        "confidence": 0.9,
+        "generalized_statement": "SELECT DISTINCT post_id, widget.asset.id FROM data_reporting.abcde_transformed WHERE post_id LIKE ?"
+    }
 }

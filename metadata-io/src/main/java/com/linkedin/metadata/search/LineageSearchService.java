@@ -19,6 +19,9 @@ import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.metadata.graph.LineageRelationship;
 import com.linkedin.metadata.graph.LineageRelationshipArray;
 import com.linkedin.metadata.query.FreshnessStats;
+import com.linkedin.metadata.query.GroupingCriterion;
+import com.linkedin.metadata.query.GroupingCriterionArray;
+import com.linkedin.metadata.query.GroupingSpec;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.Criterion;
@@ -29,6 +32,7 @@ import com.linkedin.metadata.search.cache.CachedEntityLineageResult;
 import com.linkedin.metadata.search.utils.FilterUtils;
 import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.search.utils.SearchUtils;
+import io.datahubproject.metadata.context.OperationContext;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.net.URISyntaxException;
 import java.time.temporal.ChronoUnit;
@@ -55,19 +59,28 @@ import org.springframework.cache.Cache;
 @RequiredArgsConstructor
 @Slf4j
 public class LineageSearchService {
+
   private static final SearchFlags DEFAULT_SERVICE_SEARCH_FLAGS =
       new SearchFlags()
           .setFulltext(false)
           .setMaxAggValues(20)
           .setSkipCache(false)
           .setSkipAggregates(false)
-          .setSkipHighlighting(true);
+          .setSkipHighlighting(true)
+          .setIncludeRestricted(false)
+          .setGroupingSpec(
+              new GroupingSpec()
+                  .setGroupingCriteria(
+                      new GroupingCriterionArray(
+                          new GroupingCriterion() // Convert schema fields to datasets by default to
+                              // maintain backwards compatibility
+                              .setBaseEntityType(SCHEMA_FIELD_ENTITY_NAME)
+                              .setGroupingEntityType(DATASET_ENTITY_NAME))));
   private final SearchService _searchService;
   private final GraphService _graphService;
   @Nullable private final Cache cache;
   private final boolean cacheEnabled;
   private final SearchLineageCacheConfiguration cacheConfiguration;
-
   private final ExecutorService cacheRefillExecutor = Executors.newFixedThreadPool(1);
 
   private static final String DEGREE_FILTER = "degree";
@@ -113,6 +126,7 @@ public class LineageSearchService {
   @Nonnull
   @WithSpan
   public LineageSearchResult searchAcrossLineage(
+      @Nonnull OperationContext opContext,
       @Nonnull Urn sourceUrn,
       @Nonnull LineageDirection direction,
       @Nonnull List<String> entities,
@@ -123,25 +137,30 @@ public class LineageSearchService {
       int from,
       int size,
       @Nullable Long startTimeMillis,
-      @Nullable Long endTimeMillis,
-      @Nullable SearchFlags searchFlags) {
-
-    final SearchFlags finalFlags =
-        applyDefaultSearchFlags(searchFlags, input, DEFAULT_SERVICE_SEARCH_FLAGS);
+      @Nullable Long endTimeMillis) {
 
     long startTime = System.nanoTime();
-    log.debug("Cache enabled {}, Input :{}:", cacheEnabled, input);
-    if ((input == null) || (input.isEmpty())) {
-      input = "*";
-    }
+    final String finalInput = input == null || input.isEmpty() ? "*" : input;
+
+    log.debug("Cache enabled {}, Input :{}:", cacheEnabled, finalInput);
     if (maxHops == null) {
       maxHops = 1000;
     }
 
+    final OperationContext finalOpContext =
+        opContext.withSearchFlags(
+            flags -> applyDefaultSearchFlags(flags, finalInput, DEFAULT_SERVICE_SEARCH_FLAGS));
+
     // Cache multihop result for faster performance
     final EntityLineageResultCacheKey cacheKey =
         new EntityLineageResultCacheKey(
-            sourceUrn, direction, startTimeMillis, endTimeMillis, maxHops, ChronoUnit.DAYS);
+            finalOpContext.getSearchContextId(),
+            sourceUrn,
+            direction,
+            startTimeMillis,
+            endTimeMillis,
+            maxHops,
+            ChronoUnit.DAYS);
     CachedEntityLineageResult cachedLineageResult = null;
 
     if (cacheEnabled) {
@@ -154,7 +173,8 @@ public class LineageSearchService {
 
     EntityLineageResult lineageResult;
     FreshnessStats freshnessStats = new FreshnessStats().setCached(Boolean.FALSE);
-    if (cachedLineageResult == null || finalFlags.isSkipCache()) {
+    if (cachedLineageResult == null
+        || finalOpContext.getSearchContext().getSearchFlags().isSkipCache()) {
       lineageResult =
           _graphService.getLineage(
               sourceUrn, direction, 0, MAX_RELATIONSHIPS, maxHops, startTimeMillis, endTimeMillis);
@@ -206,14 +226,19 @@ public class LineageSearchService {
       }
     }
 
-    // set schemaField relationship entity to be its reference urn
-    LineageRelationshipArray updatedRelationships = convertSchemaFieldRelationships(lineageResult);
-    lineageResult.setRelationships(updatedRelationships);
+    if (SearchUtils.convertSchemaFieldToDataset(
+        finalOpContext.getSearchContext().getSearchFlags())) {
+      // set schemaField relationship entity to be its reference urn
+      LineageRelationshipArray updatedRelationships =
+          convertSchemaFieldRelationships(lineageResult);
+      lineageResult.setRelationships(updatedRelationships);
+    }
 
     // Filter hopped result based on the set of entities to return and inputFilters before sending
     // to search
     List<LineageRelationship> lineageRelationships =
         filterRelationships(lineageResult, new HashSet<>(entities), inputFilters);
+    log.debug("Lineage relationships found: {}", lineageRelationships);
 
     String lineageGraphInfo =
         String.format(
@@ -227,7 +252,7 @@ public class LineageSearchService {
           SearchUtils.removeCriteria(
               inputFilters, criterion -> criterion.getField().equals(DEGREE_FILTER_INPUT));
 
-      if (canDoLightning(lineageRelationships, input, reducedFilters, sortCriterion)) {
+      if (canDoLightning(lineageRelationships, finalInput, reducedFilters, sortCriterion)) {
         codePath = "lightning";
         // use lightning approach to return lineage search results
         LineageSearchResult lineageSearchResult =
@@ -244,10 +269,18 @@ public class LineageSearchService {
         codePath = "tortoise";
         LineageSearchResult lineageSearchResult =
             getSearchResultInBatches(
-                lineageRelationships, input, reducedFilters, sortCriterion, from, size, finalFlags);
+                finalOpContext,
+                lineageRelationships,
+                finalInput,
+                reducedFilters,
+                sortCriterion,
+                from,
+                size);
         if (!lineageSearchResult.getEntities().isEmpty()) {
           log.debug(
-              "Lineage entity result: {}", lineageSearchResult.getEntities().get(0).toString());
+              "Lineage entity results number -> {}; first -> {}",
+              lineageSearchResult.getNumEntities(),
+              lineageSearchResult.getEntities().get(0).toString());
         }
         numEntities = lineageSearchResult.getNumEntities();
         return lineageSearchResult;
@@ -293,7 +326,7 @@ public class LineageSearchService {
       int size,
       Set<String> entityNames) {
 
-    // Contruct result objects
+    // Construct result objects
     LineageSearchResult finalResult =
         new LineageSearchResult().setMetadata(new SearchResultMetadata());
     LineageSearchEntityArray lineageSearchEntityArray = new LineageSearchEntityArray();
@@ -470,9 +503,17 @@ public class LineageSearchService {
       if (existingRelationship == null) {
         urnToRelationship.put(relationship.getEntity(), relationship);
       } else {
-        UrnArrayArray paths = existingRelationship.getPaths();
-        paths.addAll(relationship.getPaths());
-        existingRelationship.setPaths(paths);
+        UrnArrayArray newPaths =
+            new UrnArrayArray(
+                existingRelationship.getPaths().size() + relationship.getPaths().size());
+        log.debug(
+            "Found {} paths for {}, will add to existing paths: {}",
+            relationship.getPaths().size(),
+            relationship.getEntity(),
+            existingRelationship.getPaths().size());
+        newPaths.addAll(existingRelationship.getPaths());
+        newPaths.addAll(relationship.getPaths());
+        existingRelationship.setPaths(newPaths);
       }
     }
     return urnToRelationship;
@@ -480,16 +521,13 @@ public class LineageSearchService {
 
   // Search service can only take up to 50K term filter, so query search service in batches
   private LineageSearchResult getSearchResultInBatches(
+      @Nonnull OperationContext opContext,
       List<LineageRelationship> lineageRelationships,
       @Nonnull String input,
       @Nullable Filter inputFilters,
       @Nullable SortCriterion sortCriterion,
       int from,
-      int size,
-      @Nonnull SearchFlags searchFlags) {
-
-    final SearchFlags finalFlags =
-        applyDefaultSearchFlags(searchFlags, input, DEFAULT_SERVICE_SEARCH_FLAGS);
+      int size) {
 
     LineageSearchResult finalResult =
         new LineageSearchResult()
@@ -514,13 +552,14 @@ public class LineageSearchService {
       LineageSearchResult resultForBatch =
           buildLineageSearchResult(
               _searchService.searchAcrossEntities(
+                  opContext.withSearchFlags(
+                      flags -> applyDefaultSearchFlags(flags, input, DEFAULT_SERVICE_SEARCH_FLAGS)),
                   entitiesToQuery,
                   input,
                   finalFilter,
                   sortCriterion,
                   queryFrom,
-                  querySize,
-                  finalFlags),
+                  querySize),
               urnToRelationship);
       queryFrom = Math.max(0, from - resultForBatch.getNumEntities());
       querySize = Math.max(0, size - resultForBatch.getEntities().size());
@@ -665,6 +704,9 @@ public class LineageSearchService {
     if (lineageRelationship != null) {
       entity.setPaths(lineageRelationship.getPaths());
       entity.setDegree(lineageRelationship.getDegree());
+      if (lineageRelationship.hasDegrees()) {
+        entity.setDegrees(lineageRelationship.getDegrees());
+      }
     }
     return entity;
   }
@@ -688,6 +730,7 @@ public class LineageSearchService {
   @Nonnull
   @WithSpan
   public LineageScrollResult scrollAcrossLineage(
+      @Nonnull OperationContext opContext,
       @Nonnull Urn sourceUrn,
       @Nonnull LineageDirection direction,
       @Nonnull List<String> entities,
@@ -699,12 +742,17 @@ public class LineageSearchService {
       @Nonnull String keepAlive,
       int size,
       @Nullable Long startTimeMillis,
-      @Nullable Long endTimeMillis,
-      @Nonnull SearchFlags searchFlags) {
+      @Nullable Long endTimeMillis) {
     // Cache multihop result for faster performance
     final EntityLineageResultCacheKey cacheKey =
         new EntityLineageResultCacheKey(
-            sourceUrn, direction, startTimeMillis, endTimeMillis, maxHops, ChronoUnit.DAYS);
+            opContext.getSearchContextId(),
+            sourceUrn,
+            direction,
+            startTimeMillis,
+            endTimeMillis,
+            maxHops,
+            ChronoUnit.DAYS);
     CachedEntityLineageResult cachedLineageResult =
         cacheEnabled ? cache.get(cacheKey, CachedEntityLineageResult.class) : null;
     EntityLineageResult lineageResult;
@@ -738,28 +786,31 @@ public class LineageSearchService {
         SearchUtils.removeCriteria(
             inputFilters, criterion -> criterion.getField().equals(DEGREE_FILTER_INPUT));
     return getScrollResultInBatches(
+        opContext,
         lineageRelationships,
         input != null ? input : "*",
         reducedFilters,
         sortCriterion,
         scrollId,
         keepAlive,
-        size,
-        searchFlags);
+        size);
   }
 
   // Search service can only take up to 50K term filter, so query search service in batches
   private LineageScrollResult getScrollResultInBatches(
+      @Nonnull OperationContext opContext,
       List<LineageRelationship> lineageRelationships,
       @Nonnull String input,
       @Nullable Filter inputFilters,
       @Nullable SortCriterion sortCriterion,
       @Nullable String scrollId,
       @Nonnull String keepAlive,
-      int size,
-      @Nonnull SearchFlags searchFlags) {
-    final SearchFlags finalFlags =
-        applyDefaultSearchFlags(searchFlags, input, DEFAULT_SERVICE_SEARCH_FLAGS);
+      int size) {
+
+    OperationContext finalOpContext =
+        opContext.withSearchFlags(
+            flags -> applyDefaultSearchFlags(flags, input, DEFAULT_SERVICE_SEARCH_FLAGS));
+
     LineageScrollResult finalResult =
         new LineageScrollResult()
             .setEntities(new LineageSearchEntityArray(Collections.emptyList()))
@@ -781,14 +832,14 @@ public class LineageSearchService {
       LineageScrollResult resultForBatch =
           buildLineageScrollResult(
               _searchService.scrollAcrossEntities(
+                  finalOpContext,
                   entitiesToQuery,
                   input,
                   finalFilter,
                   sortCriterion,
                   scrollId,
                   keepAlive,
-                  querySize,
-                  finalFlags),
+                  querySize),
               urnToRelationship);
       querySize = Math.max(0, size - resultForBatch.getEntities().size());
       finalResult = mergeScrollResult(finalResult, resultForBatch);
