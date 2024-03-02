@@ -3,7 +3,7 @@ package com.linkedin.datahub.upgrade;
 import static org.testng.AssertJUnit.*;
 
 import com.linkedin.datahub.upgrade.restoreindices.RestoreIndices;
-import com.linkedin.datahub.upgrade.system.elasticsearch.BuildIndices;
+import com.linkedin.datahub.upgrade.system.BlockingSystemUpgrade;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import javax.inject.Named;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,6 +14,7 @@ import org.testng.annotations.Test;
 
 @ActiveProfiles("test")
 @SpringBootTest(
+    args = {"-u", "SystemUpdate"},
     classes = {UpgradeCliApplication.class, UpgradeCliApplicationTestConfiguration.class})
 public class UpgradeCliApplicationTest extends AbstractTestNGSpringContextTests {
 
@@ -23,7 +24,7 @@ public class UpgradeCliApplicationTest extends AbstractTestNGSpringContextTests 
 
   @Autowired
   @Named("buildIndices")
-  private BuildIndices buildIndices;
+  private BlockingSystemUpgrade buildIndices;
 
   @Autowired private ESIndexBuilder esIndexBuilder;
 

@@ -121,7 +121,11 @@ public class DataPlatformInstanceType
       throws Exception {
     final AutoCompleteResult result =
         _entityClient.autoComplete(
-            DATA_PLATFORM_INSTANCE_ENTITY_NAME, query, filters, limit, context.getAuthentication());
+            context.getOperationContext(),
+            DATA_PLATFORM_INSTANCE_ENTITY_NAME,
+            query,
+            filters,
+            limit);
     return AutoCompleteResultsMapper.map(result);
   }
 }

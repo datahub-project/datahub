@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.resolvers.search;
 
 import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
 import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.SEARCHABLE_ENTITY_TYPES;
+import static org.mockito.ArgumentMatchers.any;
 
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
@@ -318,14 +319,14 @@ public class AggregateAcrossEntitiesResolverTest {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     Mockito.when(
             mockClient.searchAcrossEntities(
+                any(),
                 Mockito.anyList(),
                 Mockito.anyString(),
                 Mockito.any(),
                 Mockito.anyInt(),
                 Mockito.anyInt(),
                 Mockito.eq(null),
-                Mockito.eq(null),
-                Mockito.any(Authentication.class)))
+                Mockito.eq(null)))
         .thenThrow(new RemoteInvocationException());
 
     final AggregateAcrossEntitiesResolver resolver =
@@ -392,14 +393,13 @@ public class AggregateAcrossEntitiesResolverTest {
     EntityClient client = Mockito.mock(EntityClient.class);
     Mockito.when(
             client.searchAcrossEntities(
+                any(),
                 Mockito.eq(entityTypes),
                 Mockito.eq(query),
                 Mockito.eq(filter),
                 Mockito.eq(start),
                 Mockito.eq(limit),
                 Mockito.eq(null),
-                Mockito.eq(null),
-                Mockito.any(Authentication.class),
                 Mockito.eq(facets)))
         .thenReturn(result);
     return client;
@@ -416,14 +416,13 @@ public class AggregateAcrossEntitiesResolverTest {
       throws Exception {
     Mockito.verify(mockClient, Mockito.times(1))
         .searchAcrossEntities(
+            any(),
             Mockito.eq(entityTypes),
             Mockito.eq(query),
             Mockito.eq(filter),
             Mockito.eq(start),
             Mockito.eq(limit),
             Mockito.eq(null),
-            Mockito.eq(null),
-            Mockito.any(Authentication.class),
             Mockito.eq(facets));
   }
 
