@@ -547,6 +547,9 @@ class RegularAPIResolver(DataResolverBase):
         )
         # Hit PowerBi
         logger.info(f"Request to query endpoint URL={dataset_query_endpoint}")
+
+        # Serializer is configured to include nulls so that the queried fields
+        # exist in the returned payloads. Only failed queries will result in KeyError
         payload = {
             "queries": [
                 {
@@ -603,7 +606,7 @@ class RegularAPIResolver(DataResolverBase):
         self, dataset: PowerBIDataset, table: Table, column: Union[Column, Measure]
     ) -> dict:
         try:
-            logger.info(f"Column data query for {dataset.name}, {column.name}")
+            logger.debug(f"Column data query for {dataset.name}, {column.name}")
             query = DaxQuery.column_data_query(table.name, column.name)
             data = self._execute_profiling_query(dataset, query)
             return process_column_result(data)
