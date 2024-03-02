@@ -18,7 +18,11 @@ def process_sample_result(result_data: dict) -> dict:
             if not value:
                 continue
             column_name = get_column_name(key)
-            if column_name not in sample_data_by_column:
+
+            if not column_name:
+                continue
+
+            if  column_name not in sample_data_by_column:
                 sample_data_by_column[column_name] = []
             sample_data_by_column[column_name].append(str(value))
     return sample_data_by_column
@@ -32,6 +36,10 @@ def process_column_result(result_data: dict) -> dict:
             if not value:
                 continue
             column_name = get_column_name(key)
+
+            if not column_name:
+                continue
+
             if column_name != "unique_count":
                 value = str(value)
             sample_data_by_column[column_name] = value
