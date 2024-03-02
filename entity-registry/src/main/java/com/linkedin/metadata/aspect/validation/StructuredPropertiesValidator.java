@@ -125,7 +125,7 @@ public class StructuredPropertiesValidator extends AspectPayloadValidator {
 
         StructuredPropertyDefinition structuredPropertyDefinition =
             new StructuredPropertyDefinition(structuredPropertyDefinitionAspect.data());
-        log.warn(
+        log.debug(
             "Retrieved property definition for {}. {}", propertyUrn, structuredPropertyDefinition);
         if (structuredPropertyDefinition != null) {
           PrimitivePropertyValueArray values = structuredPropertyValueAssignment.getValues();
@@ -162,7 +162,7 @@ public class StructuredPropertiesValidator extends AspectPayloadValidator {
     for (BatchItem i : exceptions.successful(mcpItems)) {
       StructuredProperties structuredProperties = i.getAspect(StructuredProperties.class);
 
-      log.warn("Validator called with {}", structuredProperties);
+      log.debug("Validator called with {}", structuredProperties);
       Map<Urn, List<StructuredPropertyValueAssignment>> structuredPropertiesMap =
           structuredProperties.getProperties().stream()
               .collect(
