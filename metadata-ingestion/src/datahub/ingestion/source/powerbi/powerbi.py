@@ -504,7 +504,7 @@ class Mapper:
                 f"Table {table.name} in {dataset.name}, not allowed for profiling"
             )
             return
-        logger.info(f"Profiling table: {table.name}")
+        logger.debug(f"Profiling table: {table.name}")
 
         profile = DatasetProfileClass(timestampMillis=builder.get_sys_time())
         profile.rowCount = table.row_count

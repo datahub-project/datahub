@@ -1,13 +1,13 @@
 import re
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 
-def get_column_name(table_and_col: str) -> str:
+def get_column_name(table_and_col: str) -> Optional[str]:
     regex = re.compile(".*\\[(.*)\\]$")
     m = regex.match(table_and_col)
     if m:
         return m.group(1)
-    return ""
+    return None
 
 
 def process_sample_result(result_data: dict) -> dict:
