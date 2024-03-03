@@ -24,7 +24,6 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import javax.annotation.Nonnull;
@@ -193,12 +192,14 @@ public class GraphQLController {
         // Extract top level resolver, parent is top level query. Assumes single query per call.
         List<Map<String, Object>> resolvers =
             (List<Map<String, Object>>) executionData.get("resolvers");
-        Optional<Map<String, Object>> parentResolver =
-            resolvers.stream()
-                .filter(resolver -> resolver.get("parentType").equals("Query"))
-                .findFirst();
         String fieldName =
-            parentResolver.isPresent() ? (String) parentResolver.get().get("fieldName") : "UNKNOWN";
+            resolvers.stream()
+                .filter(
+                    resolver -> List.of("Query", "Mutation").contains(resolver.get("parentType")))
+                .findFirst()
+                .map(parentResolver -> parentResolver.get("fieldName"))
+                .map(Object::toString)
+                .orElse("UNKNOWN");
         MetricUtils.get()
             .histogram(MetricRegistry.name(this.getClass(), fieldName))
             .update(totalDuration);
