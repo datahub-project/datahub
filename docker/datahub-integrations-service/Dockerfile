@@ -3,6 +3,7 @@ ARG APP_ENV=prod
 ARG BASE_IMAGE=acryldata/datahub-ingestion
 ARG DOCKER_VERSION=head-slim
 ARG PIP_MIRROR_URL=null
+ARG VIRTUAL_ENV=/datahub-ingestion/.venv
 
 # Base Image Common To All
 FROM $BASE_IMAGE:$DOCKER_VERSION as base
@@ -26,13 +27,13 @@ FROM base as build
 ARG PIP_MIRROR_URL
 RUN if [ "${PIP_MIRROR_URL}" != "null" ] ; then pip config set global.index-url ${PIP_MIRROR_URL} ; fi
 
-RUN pip install --no-cache --user -r requirements.txt && \
-    pip install --no-cache --user -e "."
+# `uv pip` doesn't support urls like `-e file:../metadata-ingestion#egg=acryl-datahub` yet
+RUN pip install --no-cache -r requirements.txt && \
+    uv pip install --no-cache -e "."
 
 # Production Image Built From Build Image
 FROM base as prod-install
-
-COPY --from=build /datahub-ingestion/.local /datahub-ingestion/.local
+COPY --from=build $VIRTUAL_ENV $VIRTUAL_ENV
 
 COPY ./docker/datahub-integrations-service/start.sh /start_datahub_integrations_service.sh
 USER 0

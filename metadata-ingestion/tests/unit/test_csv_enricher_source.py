@@ -145,6 +145,34 @@ def test_get_resource_owners_no_new_owners():
     assert maybe_owners_wu
 
 
+def test_maybe_extract_owners_ownership_type_urn():
+    source = create_mocked_csv_enricher_source()
+    row = {
+        "resource": "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)",
+        "owners": "urn:li:corpuser:datahub",
+        "ownership_type": "TECHNICAL_OWNER",
+    }
+    assert source.maybe_extract_owners(row=row, is_resource_row=True) == [
+        OwnerClass(
+            owner="urn:li:corpuser:datahub", type=OwnershipTypeClass.TECHNICAL_OWNER
+        )
+    ]
+
+    row2 = {
+        "resource": "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)",
+        "owners": "urn:li:corpuser:datahub",
+        "ownership_type": "TECHNICAL_OWNER",
+        "ownership_type_urn": "urn:li:ownershipType:technical_owner",
+    }
+    assert source.maybe_extract_owners(row=row2, is_resource_row=True) == [
+        OwnerClass(
+            owner="urn:li:corpuser:datahub",
+            type=OwnershipTypeClass.CUSTOM,
+            typeUrn="urn:li:ownershipType:technical_owner",
+        )
+    ]
+
+
 def test_get_resource_owners_work_unit_produced():
     source = create_mocked_csv_enricher_source()
     new_owners = ["urn:li:corpuser:owner1", "urn:li:corpuser:owner2"]

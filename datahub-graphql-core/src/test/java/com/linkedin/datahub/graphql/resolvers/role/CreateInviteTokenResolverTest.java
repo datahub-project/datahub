@@ -9,6 +9,7 @@ import com.datahub.authentication.invite.InviteTokenService;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.CreateInviteTokenInput;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -42,7 +43,7 @@ public class CreateInviteTokenResolverTest {
     QueryContext mockContext = getMockAllowContext();
     when(_dataFetchingEnvironment.getContext()).thenReturn(mockContext);
     when(mockContext.getAuthentication()).thenReturn(_authentication);
-    when(_inviteTokenService.getInviteToken(any(), eq(true), eq(_authentication)))
+    when(_inviteTokenService.getInviteToken(any(OperationContext.class), any(), eq(true)))
         .thenReturn(INVITE_TOKEN_STRING);
 
     CreateInviteTokenInput input = new CreateInviteTokenInput();

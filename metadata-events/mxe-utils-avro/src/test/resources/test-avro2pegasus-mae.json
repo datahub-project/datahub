@@ -16,6 +16,7 @@
                 "source": null
               }
             ],
+            "ownerTypes": null,
             "lastModified": {
               "time": 0,
               "actor": "urn:li:corpuser:foobar",

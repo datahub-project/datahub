@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.test;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
@@ -46,14 +47,13 @@ public class ListTestsResolverTest {
   public void testGetSuccess() throws Exception {
     Mockito.when(
             mockClient.search(
+                any(),
                 Mockito.eq(Constants.TEST_ENTITY_NAME),
                 Mockito.eq(""),
                 Mockito.any(Filter.class),
                 any(SortCriterion.class),
                 Mockito.eq(0),
-                Mockito.eq(20),
-                Mockito.any(Authentication.class),
-                Mockito.eq(ListTestsResolver.SEARCH_FLAGS)))
+                Mockito.eq(20)))
         .thenReturn(
             new SearchResult()
                 .setFrom(0)
@@ -87,12 +87,11 @@ public class ListTestsResolverTest {
     Mockito.verify(mockClient, Mockito.times(0))
         .search(
             Mockito.any(),
+            Mockito.any(),
             Mockito.eq(""),
             Mockito.anyMap(),
             Mockito.anyInt(),
-            Mockito.anyInt(),
-            Mockito.any(Authentication.class),
-            Mockito.eq(ListTestsResolver.SEARCH_FLAGS));
+            Mockito.anyInt());
   }
 
   @Test
@@ -101,12 +100,11 @@ public class ListTestsResolverTest {
         .when(mockClient)
         .search(
             Mockito.any(),
+            Mockito.any(),
             Mockito.eq(""),
             Mockito.anyMap(),
             Mockito.anyInt(),
-            Mockito.anyInt(),
-            Mockito.any(Authentication.class),
-            Mockito.eq(ListTestsResolver.SEARCH_FLAGS));
+            Mockito.anyInt());
     ListTestsResolver resolver = new ListTestsResolver(mockClient);
 
     // Execute resolver

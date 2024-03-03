@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.glossary;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
 import static org.testng.Assert.*;
 
 import com.datahub.authentication.Authentication;
@@ -21,6 +23,7 @@ import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
@@ -33,6 +36,7 @@ public class GetRootGlossaryTermsResolverTest {
   public void testGetSuccess() throws Exception {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     QueryContext mockContext = Mockito.mock(QueryContext.class);
+    Mockito.when(mockContext.getOperationContext()).thenReturn(mock(OperationContext.class));
 
     Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
@@ -41,12 +45,12 @@ public class GetRootGlossaryTermsResolverTest {
 
     Mockito.when(
             mockClient.filter(
+                any(),
                 Mockito.eq(Constants.GLOSSARY_TERM_ENTITY_NAME),
                 Mockito.eq(buildGlossaryEntitiesFilter()),
                 Mockito.eq(null),
                 Mockito.eq(0),
-                Mockito.eq(100),
-                Mockito.any(Authentication.class)))
+                Mockito.eq(100)))
         .thenReturn(
             new SearchResult()
                 .setEntities(

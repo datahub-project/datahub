@@ -10,7 +10,6 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Form;
 import com.linkedin.datahub.graphql.generated.FormFilter;
 import com.linkedin.datahub.graphql.generated.FormForActor;
-import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.FormUtils;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
@@ -67,14 +66,13 @@ public class NumEntitiesToCompleteResolver implements DataFetcher<CompletableFut
 
             SearchResult searchResult =
                 _entityClient.searchAcrossEntities(
+                    context.getOperationContext().withSearchFlags(flags -> searchFlags),
                     getEntityNames(null),
                     "*",
                     filter,
                     0,
                     0,
-                    searchFlags,
-                    null,
-                    ResolverUtils.getAuthentication(environment));
+                    null);
 
             // 3. return the number of entities that match this query
             return searchResult.getNumEntities();

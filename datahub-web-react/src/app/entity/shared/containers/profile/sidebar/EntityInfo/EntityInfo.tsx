@@ -56,7 +56,7 @@ export default function EntityInfo({ formUrn }: Props) {
             >
                 View Profile <LinkOut style={{ marginLeft: '4px' }} />
             </StyledLink>
-            <DatasetStatsSummarySubHeader properties={{ shouldWrap: true }} />
+            <DatasetStatsSummarySubHeader />
             <FormInfoWrapper>
                 <FormInfo shouldDisplayBackground formUrn={formUrn} />
             </FormInfoWrapper>

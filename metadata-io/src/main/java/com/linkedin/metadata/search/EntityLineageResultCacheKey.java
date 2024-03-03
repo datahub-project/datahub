@@ -4,10 +4,12 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.graph.LineageDirection;
 import java.time.Instant;
 import java.time.temporal.TemporalUnit;
+import javax.annotation.Nonnull;
 import lombok.Data;
 
 @Data
 public class EntityLineageResultCacheKey {
+  private final String contextId;
   private final Urn sourceUrn;
   private final LineageDirection direction;
   private final Long startTimeMillis;
@@ -15,13 +17,14 @@ public class EntityLineageResultCacheKey {
   private final Integer maxHops;
 
   public EntityLineageResultCacheKey(
+      @Nonnull String contextId,
       Urn sourceUrn,
       LineageDirection direction,
       Long startTimeMillis,
       Long endTimeMillis,
       Integer maxHops,
       TemporalUnit resolution) {
-
+    this.contextId = contextId;
     this.sourceUrn = sourceUrn;
     this.direction = direction;
     this.maxHops = maxHops;

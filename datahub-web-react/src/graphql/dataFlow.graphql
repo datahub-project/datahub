@@ -56,6 +56,12 @@ fragment dataFlowFields on DataFlow {
     browsePathV2 {
         ...browsePathV2Fields
     }
+    health {
+        ...entityHealth
+    }
+    activeIncidents: incidents(start: 0, count: 1, state: ACTIVE) {
+        total
+    }
 }
 
 query getDataFlow($urn: String!) {
@@ -110,6 +116,14 @@ query getDataFlow($urn: String!) {
         }
         autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
             ...autoRenderAspectFields
+        }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
+        forms {
+            ...formsFields
         }
         termProposals: proposals(type: TERM_ASSOCIATION) {
             ...proposalsFragment

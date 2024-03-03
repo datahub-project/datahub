@@ -2,7 +2,16 @@ package com.linkedin.datahub.graphql.types.container.mappers;
 
 import static com.linkedin.metadata.Constants.*;
 
-import com.linkedin.common.*;
+import com.linkedin.common.DataPlatformInstance;
+import com.linkedin.common.Deprecation;
+import com.linkedin.common.Forms;
+import com.linkedin.common.GlobalTags;
+import com.linkedin.common.GlossaryTerms;
+import com.linkedin.common.InstitutionalMemory;
+import com.linkedin.common.Ownership;
+import com.linkedin.common.Share;
+import com.linkedin.common.Status;
+import com.linkedin.common.SubTypes;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.container.ContainerProperties;
 import com.linkedin.container.EditableContainerProperties;
@@ -13,13 +22,16 @@ import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.types.common.mappers.*;
 import com.linkedin.datahub.graphql.types.common.mappers.util.SystemMetadataUtils;
 import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
+import com.linkedin.datahub.graphql.types.form.FormsMapper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
+import com.linkedin.datahub.graphql.types.structuredproperty.StructuredPropertiesMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
 import com.linkedin.domain.Domains;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.Constants;
+import com.linkedin.structured.StructuredProperties;
 import javax.annotation.Nullable;
 
 public class ContainerMapper {
@@ -124,6 +136,19 @@ public class ContainerMapper {
     if (envelopedDeprecation != null) {
       result.setDeprecation(
           DeprecationMapper.map(new Deprecation(envelopedDeprecation.getValue().data())));
+    }
+
+    final EnvelopedAspect envelopedStructuredProps = aspects.get(STRUCTURED_PROPERTIES_ASPECT_NAME);
+    if (envelopedStructuredProps != null) {
+      result.setStructuredProperties(
+          StructuredPropertiesMapper.map(
+              new StructuredProperties(envelopedStructuredProps.getValue().data())));
+    }
+
+    final EnvelopedAspect envelopedForms = aspects.get(FORMS_ASPECT_NAME);
+    if (envelopedForms != null) {
+      result.setForms(
+          FormsMapper.map(new Forms(envelopedForms.getValue().data()), entityUrn.toString()));
     }
 
     final EnvelopedAspect envelopedShare = aspects.get(SHARE_ASPECT_NAME);

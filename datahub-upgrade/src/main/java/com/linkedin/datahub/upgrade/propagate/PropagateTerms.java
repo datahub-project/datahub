@@ -6,6 +6,7 @@ import com.linkedin.datahub.upgrade.UpgradeCleanupStep;
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.search.EntitySearchService;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -20,9 +21,13 @@ public class PropagateTerms implements Upgrade {
       System.getenv().getOrDefault(ELASTIC_TIMEOUT_ENV_NAME, "5m");
 
   private final List<UpgradeStep> _steps;
+  private final OperationContext systemOpContext;
 
   public PropagateTerms(
-      final EntityService entityService, final EntitySearchService entitySearchService) {
+      final OperationContext systemOpContext,
+      final EntityService entityService,
+      final EntitySearchService entitySearchService) {
+    this.systemOpContext = systemOpContext;
     _steps = buildSteps(entityService, entitySearchService);
   }
 
@@ -39,7 +44,7 @@ public class PropagateTerms implements Upgrade {
   private List<UpgradeStep> buildSteps(
       final EntityService entityService, final EntitySearchService entitySearchService) {
     final List<UpgradeStep> steps = new ArrayList<>();
-    steps.add(new PropagateTermsStep(entityService, entitySearchService));
+    steps.add(new PropagateTermsStep(systemOpContext, entityService, entitySearchService));
     return steps;
   }
 

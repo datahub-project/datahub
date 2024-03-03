@@ -1,6 +1,7 @@
 import dataclasses
 import json
 import pathlib
+import random
 import sqlite3
 from dataclasses import dataclass
 from typing import Counter, Dict
@@ -53,6 +54,12 @@ def test_file_dict() -> None:
         cache["key-3"] = i
     assert cache["key-3"] == 99
     cache["key-3"] = 3
+
+    # Test in operator
+    assert "key-3" in cache
+    assert "key-99" in cache
+    assert "missing" not in cache
+    assert "missing" not in cache
 
     # Test deleting keys, in and out of cache
     del cache["key-0"]
@@ -155,16 +162,23 @@ def test_file_dict_stores_counter() -> None:
     )
 
     n = 5
+
+    # initialize
     in_memory_counters: Dict[int, Counter[str]] = {}
     for i in range(n):
         cache[str(i)] = Counter[str]()
         in_memory_counters[i] = Counter[str]()
-        for j in range(n):
-            if i == j:
-                cache[str(i)][str(j)] += 100
-                in_memory_counters[i][str(j)] += 100
-            cache[str(i)][str(j)] += j
+
+    # increment the counters
+    increments = [(i, j) for i in range(n) for j in range(n)]
+    random.shuffle(increments)
+    for i, j in increments:
+        if i == j:
+            cache[str(i)][str(j)] += 100 + j
             cache.mark_dirty(str(i))
+            in_memory_counters[i][str(j)] += 100 + j
+        else:
+            cache.for_mutation(str(i))[str(j)] += j
             in_memory_counters[i][str(j)] += j
 
     for i in range(n):

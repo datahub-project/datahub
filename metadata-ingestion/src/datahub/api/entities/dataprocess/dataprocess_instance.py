@@ -74,7 +74,7 @@ class DataProcessInstance:
     )
 
     def __post_init__(self):
-        self.urn = DataProcessInstanceUrn.create_from_id(
+        self.urn = DataProcessInstanceUrn(
             id=DataProcessInstanceKey(
                 cluster=self.cluster,
                 orchestrator=self.orchestrator,

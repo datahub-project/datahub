@@ -56,11 +56,11 @@ public class ProposeTermResolver implements DataFetcher<CompletableFuture<Boolea
           }
 
           if (ProposalUtils.isTermAlreadyProposedToTarget(
+              ((QueryContext) environment.getContext()).getOperationContext(),
               termUrn,
               targetUrn,
               input.getSubResource(),
-              _entityClient,
-              ((QueryContext) environment.getContext()).getAuthentication())) {
+              _entityClient)) {
             throw new DataHubGraphQLException(
                 "Term has already been proposed to target", DataHubGraphQLErrorCode.BAD_REQUEST);
           }

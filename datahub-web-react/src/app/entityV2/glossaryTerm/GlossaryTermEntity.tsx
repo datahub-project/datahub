@@ -22,6 +22,14 @@ import GlossaryRelatedEntity from './profile/GlossaryRelatedEntity';
 import GlossayRelatedTerms from './profile/GlossaryRelatedTerms';
 import GlossaryTermIcon from '../../../images/collections_bookmark.svg?react';
 
+const headerDropdownItems = new Set([
+    EntityMenuItems.MOVE,
+    EntityMenuItems.SUBSCRIBE,
+    EntityMenuItems.SHARE,
+    EntityMenuItems.UPDATE_DEPRECATION,
+    EntityMenuItems.DELETE,
+]);
+
 /**
  * Definition of the DataHub Dataset entity.
  */
@@ -75,15 +83,7 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
                 entityType={EntityType.GlossaryTerm}
                 useEntityQuery={useGetGlossaryTermQuery as any}
                 headerActionItems={new Set([EntityActionItem.BATCH_ADD_GLOSSARY_TERM])}
-                headerDropdownItems={
-                    new Set([
-                        EntityMenuItems.MOVE,
-                        EntityMenuItems.SUBSCRIBE,
-                        EntityMenuItems.SHARE,
-                        EntityMenuItems.UPDATE_DEPRECATION,
-                        EntityMenuItems.DELETE,
-                    ])
-                }
+                headerDropdownItems={headerDropdownItems}
                 isNameEditable
                 tabs={[
                     {
@@ -167,6 +167,7 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
                 owners={data?.ownership?.owners}
                 deprecation={data?.deprecation}
                 domain={data.domain?.domain}
+                headerDropdownItems={headerDropdownItems}
             />
         );
     };

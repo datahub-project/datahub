@@ -23,6 +23,7 @@ import { ANTD_GRAY } from '../../shared/constants';
 import { PopularityTier } from '../../shared/containers/profile/sidebar/shared/utils';
 import { summaryHasStats } from '../../shared/utils';
 import { DatasetStatsSummary as DatasetStatsSummaryView } from '../shared/DatasetStatsSummary';
+import { EntityMenuItems } from '../../shared/EntityDropdown/EntityMenuActions';
 
 export const Preview = ({
     urn,
@@ -57,6 +58,7 @@ export const Preview = ({
     tier,
     upstreamTotal,
     downstreamTotal,
+    headerDropdownItems,
 }: {
     urn: string;
     name: string;
@@ -90,6 +92,7 @@ export const Preview = ({
     tier?: PopularityTier;
     upstreamTotal?: number;
     downstreamTotal?: number;
+    headerDropdownItems?: Set<EntityMenuItems>;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     const hasStats = !!columnCount || summaryHasStats(statsSummary);
@@ -143,6 +146,7 @@ export const Preview = ({
             tier={tier}
             upstreamTotal={upstreamTotal}
             downstreamTotal={downstreamTotal}
+            headerDropdownItems={headerDropdownItems}
         />
     );
 };

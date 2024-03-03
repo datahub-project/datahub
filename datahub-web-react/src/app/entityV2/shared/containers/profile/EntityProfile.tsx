@@ -339,10 +339,6 @@ export const EntityProfile = <T, U>({
                             type={(isInSearch && 'card') || undefined}
                             focused={isInSearch}
                             tabs={finalTabs}
-                            headerDropdownItems={headerDropdownItems}
-                            headerActionItems={headerActionItems}
-                            subHeader={subHeader}
-                            hideHeader
                             // TODO: Hide collapse for chrome extension
                             contextType={isInSearch ? TabContextType.SEARCH_SIDEBAR : TabContextType.LINEAGE_SIDEBAR}
                             width={width}
@@ -428,7 +424,6 @@ export const EntityProfile = <T, U>({
                                         <EntityProfileSidebar
                                             tabs={finalTabs}
                                             type="card"
-                                            hideHeader
                                             width={
                                                 width ||
                                                 (finalTabs.length > 1
@@ -436,7 +431,6 @@ export const EntityProfile = <T, U>({
                                                     : window.innerWidth * 0.25)
                                             }
                                             contextType={TabContextType.PROFILE_SIDEBAR}
-                                            headerDropdownItems={headerDropdownItems}
                                         />
                                     </SidebarWrapper>
                                 )}

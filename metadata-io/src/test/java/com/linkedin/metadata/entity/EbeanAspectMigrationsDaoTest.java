@@ -39,14 +39,8 @@ public class EbeanAspectMigrationsDaoTest extends AspectMigrationsDaoTest<EbeanA
     PreProcessHooks preProcessHooks = new PreProcessHooks();
     preProcessHooks.setUiEnabled(true);
     _entityServiceImpl =
-        new EntityServiceImpl(
-            dao,
-            _mockProducer,
-            _testEntityRegistry,
-            true,
-            _mockUpdateIndicesService,
-            preProcessHooks,
-            true);
+        new EntityServiceImpl(dao, _mockProducer, _testEntityRegistry, true, preProcessHooks, true);
+    _entityServiceImpl.setUpdateIndicesService(_mockUpdateIndicesService);
     _retentionService = new EbeanRetentionService(_entityServiceImpl, server, 1000);
     _entityServiceImpl.setRetentionService(_retentionService);
 

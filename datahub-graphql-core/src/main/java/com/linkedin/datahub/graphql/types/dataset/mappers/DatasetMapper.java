@@ -134,8 +134,8 @@ public class DatasetMapper implements ModelMapper<EntityResponse, Dataset> {
             dataset.setAccess(AccessMapper.map(new Access(dataMap), entityUrn))));
     mappingHelper.mapToResult(
         STRUCTURED_PROPERTIES_ASPECT_NAME,
-        ((dataset, dataMap) ->
-            dataset.setStructuredProperties(
+        ((entity, dataMap) ->
+            entity.setStructuredProperties(
                 StructuredPropertiesMapper.map(new StructuredProperties(dataMap)))));
     mappingHelper.mapToResult(
         FORMS_ASPECT_NAME,

@@ -17,7 +17,7 @@ buildscript {
 
   ext.javaClassVersion = { p ->
     // If Spring 6 is present, hard dependency on jdk17
-    if (p.configurations.any { it.getDependencies().any{
+    if (p.configurations.any { it.getDependencies().any {
       (it.getGroup().equals("org.springframework") && it.getVersion().startsWith("6."))
               || (it.getGroup().equals("org.springframework.boot") && it.getVersion().startsWith("3.") && !it.getName().equals("spring-boot-starter-test"))
     }}) {
@@ -30,7 +30,7 @@ buildscript {
 
   ext.junitJupiterVersion = '5.6.1'
   // Releases: https://github.com/linkedin/rest.li/blob/master/CHANGELOG.md
-  ext.pegasusVersion = '29.48.4'
+  ext.pegasusVersion = '29.51.0'
   ext.mavenVersion = '3.6.3'
   ext.springVersion = '6.1.2'
   ext.springBootVersion = '3.2.1'
@@ -43,7 +43,7 @@ buildscript {
   ext.elasticsearchVersion = '2.9.0' // ES 7.10, Opensearch 1.x, 2.x
   ext.jacksonVersion = '2.15.3'
   ext.jettyVersion = '11.0.19'
-  ext.playVersion = '2.8.18'
+  ext.playVersion = '2.8.21'
   ext.log4jVersion = '2.19.0'
   ext.slf4jVersion = '1.7.36'
   ext.logbackClassic = '1.4.14'
@@ -77,7 +77,7 @@ plugins {
   id 'com.gorylenko.gradle-git-properties' version '2.4.1'
   id 'com.github.johnrengelman.shadow' version '8.1.1' apply false
   id 'com.palantir.docker' version '0.35.0' apply false
-  id 'com.avast.gradle.docker-compose' version '0.17.5'
+  id 'com.avast.gradle.docker-compose' version '0.17.6'
   id "com.diffplug.spotless" version "6.23.3"
   // https://blog.ltgt.net/javax-jakarta-mess-and-gradle-solution/
   // TODO id "org.gradlex.java-ecosystem-capabilities" version "1.0"
@@ -135,11 +135,11 @@ project.ext.externalDependency = [
     'elasticSearchRest': 'org.opensearch.client:opensearch-rest-high-level-client:' + elasticsearchVersion,
     'elasticSearchJava': 'org.opensearch.client:opensearch-java:2.6.0',
     'findbugsAnnotations': 'com.google.code.findbugs:annotations:3.0.1',
-    'graphqlJava': 'com.graphql-java:graphql-java:19.5',
-    'graphqlJavaScalars': 'com.graphql-java:graphql-java-extended-scalars:19.1',
+    'graphqlJava': 'com.graphql-java:graphql-java:21.3',
+    'graphqlJavaScalars': 'com.graphql-java:graphql-java-extended-scalars:21.0',
     'gson': 'com.google.code.gson:gson:2.8.9',
     'guice': 'com.google.inject:guice:7.0.0',
-    'guice4': 'com.google.inject:guice:4.2.3', // Used for frontend while still on old Play version
+    'guicePlay': 'com.google.inject:guice:5.0.1', // Used for frontend while still on old Play version
     'guava': 'com.google.guava:guava:32.1.2-jre',
     'h2': 'com.h2database:h2:2.2.224',
     'hadoopCommon':'org.apache.hadoop:hadoop-common:2.7.2',
@@ -234,7 +234,7 @@ project.ext.externalDependency = [
     'jakartaAnnotations': 'jakarta.annotation:jakarta.annotation-api:3.0.0-M1',
     'sentry': "io.sentry:sentry:$sentry",
     'sentryLogback': "io.sentry:sentry-logback:$sentry",
-    'shiroCore': 'org.apache.shiro:shiro-core:1.11.0',
+    'shiroCore': 'org.apache.shiro:shiro-core:1.13.0',
     'snakeYaml': 'org.yaml:snakeyaml:2.0',
     'sparkSql' : 'org.apache.spark:spark-sql_2.12:3.0.3',
     'sparkHive' : 'org.apache.spark:spark-hive_2.12:3.0.3',
@@ -283,13 +283,14 @@ allprojects {
   apply plugin: 'eclipse'
   // apply plugin: 'org.gradlex.java-ecosystem-capabilities'
 
-  tasks.withType(Test).configureEach {
-    // https://docs.gradle.org/current/userguide/performance.html
-    maxParallelForks = Runtime.runtime.availableProcessors().intdiv(2) ?: 1
+  tasks.withType(Test).configureEach { task -> if (task.project.name != "metadata-io") {
+      // https://docs.gradle.org/current/userguide/performance.html
+      maxParallelForks = Runtime.runtime.availableProcessors().intdiv(2) ?: 1
 
-    if (project.configurations.getByName("testImplementation").getDependencies()
-            .any{ it.getName().contains("testng") }) {
-      useTestNG()
+      if (project.configurations.getByName("testImplementation").getDependencies()
+              .any { it.getName().contains("testng") }) {
+        useTestNG()
+      }
     }
   }
 

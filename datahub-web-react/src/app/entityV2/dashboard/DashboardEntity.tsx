@@ -48,6 +48,14 @@ import { DashboardStatsSummarySubHeader } from './profile/DashboardStatsSummaryS
 /**
  * Definition of the DataHub Dashboard entity.
  */
+
+const headerDropdownItems = new Set([
+    EntityMenuItems.EXTERNAL_URL,
+    EntityMenuItems.SHARE,
+    EntityMenuItems.SUBSCRIBE,
+    EntityMenuItems.UPDATE_DEPRECATION,
+]);
+
 export class DashboardEntity implements Entity<Dashboard> {
     type: EntityType = EntityType.Dashboard;
 
@@ -102,14 +110,7 @@ export class DashboardEntity implements Entity<Dashboard> {
             useEntityQuery={useGetDashboardQuery}
             useUpdateQuery={useUpdateDashboardMutation}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
-            headerDropdownItems={
-                new Set([
-                    EntityMenuItems.EXTERNAL_URL,
-                    EntityMenuItems.SHARE,
-                    EntityMenuItems.SUBSCRIBE,
-                    EntityMenuItems.UPDATE_DEPRECATION,
-                ])
-            }
+            headerDropdownItems={headerDropdownItems}
             subHeader={{
                 component: DashboardStatsSummarySubHeader,
             }}
@@ -258,6 +259,7 @@ export class DashboardEntity implements Entity<Dashboard> {
                 }
                 upstreamTotal={(data as any)?.upstream?.total}
                 downstreamTotal={(data as any)?.downstream?.total}
+                headerDropdownItems={headerDropdownItems}
             />
         );
     };
@@ -309,6 +311,7 @@ export class DashboardEntity implements Entity<Dashboard> {
                 }
                 upstreamTotal={(data as any)?.upstream?.total}
                 downstreamTotal={(data as any)?.downstream?.total}
+                headerDropdownItems={headerDropdownItems}
             />
         );
     };

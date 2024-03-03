@@ -16,7 +16,7 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.glossary.GlossaryTermInfo;
 import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.aspect.batch.MCPBatchItem;
+import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.aspect.utils.DefaultAspectsUtil;
 import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.entity.AspectDao;
@@ -27,7 +27,6 @@ import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -75,7 +74,6 @@ public class DataGenerator {
             mock(EventProducer.class),
             entityRegistry,
             false,
-            mock(UpdateIndicesService.class),
             mock(PreProcessHooks.class),
             anyBoolean());
     return new DataGenerator(mockEntityServiceImpl);
@@ -172,7 +170,7 @@ public class DataGenerator {
                                 entityService,
                                 true)
                             .stream()
-                            .map(MCPBatchItem::getMetadataChangeProposal))
+                            .map(MCPItem::getMetadataChangeProposal))
                     .collect(Collectors.toList());
               } else {
                 return List.of(mcp);

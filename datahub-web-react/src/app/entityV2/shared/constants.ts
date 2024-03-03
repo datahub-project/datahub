@@ -28,6 +28,8 @@ export const REDESIGN_COLORS = {
     SECONDARY_LIGHT_GREY: '#9DA7C0',
     ACTION_ICON_GREY: '#676b75',
     DARK_PURPLE: '#6C6B88',
+    LINK_GREY: '#586287',
+    TEXT_GREY: '#8D95B1',
     WARNING_RED: '#d07b7b',
 };
 

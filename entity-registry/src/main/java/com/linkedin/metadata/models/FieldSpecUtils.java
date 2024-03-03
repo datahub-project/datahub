@@ -22,10 +22,15 @@ public class FieldSpecUtils {
     return lastComponent;
   }
 
-  public static Map<String, Object> getResolvedProperties(final DataSchema schema) {
-    return !schema.getResolvedProperties().isEmpty()
-        ? schema.getResolvedProperties()
-        : schema.getProperties();
+  public static Map<String, Object> getResolvedProperties(
+      final DataSchema schema, Map<String, Object> fallback) {
+    if (!schema.getResolvedProperties().isEmpty()) {
+      return schema.getResolvedProperties();
+    } else if (!schema.getProperties().isEmpty()) {
+      return schema.getProperties();
+    } else {
+      return fallback;
+    }
   }
 
   public static Optional<PathSpec> getPathSpecWithAspectName(TraverserContext context) {

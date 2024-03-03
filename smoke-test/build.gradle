@@ -49,10 +49,12 @@ task installDev(type: Exec) {
     inputs.file file('pyproject.toml')
     inputs.file file('requirements.txt')
     outputs.file("${venv_name}/.build_install_dev_sentinel")
-    commandLine 'bash', '-x', '-c',
+    commandLine 'bash', '-c',
+        "set -x && " +
         "${python_executable} -m venv ${venv_name} && " +
-        "${venv_name}/bin/pip install --upgrade pip wheel setuptools && " +
-        "${venv_name}/bin/pip install -r requirements.txt && " +
+        "${venv_name}/bin/python -m pip install --upgrade pip uv wheel setuptools && " +
+        "set +x && source ${venv_name}/bin/activate && set -x && " +
+        "uv pip install -r requirements.txt && " +
         "touch ${venv_name}/.build_install_dev_sentinel"
 }
 
@@ -71,4 +73,30 @@ task lintFix(type: Exec, dependsOn: installDev) {
         "isort tests/ && " +
         "ruff --fix tests/ && " +
         "mypy tests/"
+}
+
+/**
+ * The following tasks assume an already running quickstart.
+ * ./gradlew quickstart (or another variation)
+ */
+task quickstartNoCypressSuite0(type: Exec, dependsOn: [installDev, ':metadata-ingestion:installDev']) {
+    environment 'RUN_QUICKSTART', 'false'
+    environment 'DATAHUB_KAFKA_SCHEMA_REGISTRY_URL', 'http://localhost:8080/schema-registry/api/'
+    environment 'TEST_STRATEGY', 'no_cypress_suite0'
+
+    workingDir = project.projectDir
+    commandLine 'bash', '-c',
+            "source ${venv_name}/bin/activate && set -x && " +
+            "./smoke.sh"
+}
+
+task quickstartNoCypressSuite1(type: Exec, dependsOn: [installDev, ':metadata-ingestion:installDev']) {
+    environment 'RUN_QUICKSTART', 'false'
+    environment 'DATAHUB_KAFKA_SCHEMA_REGISTRY_URL', 'http://localhost:8080/schema-registry/api/'
+    environment 'TEST_STRATEGY', 'no_cypress_suite1'
+
+    workingDir = project.projectDir
+    commandLine 'bash', '-c',
+            "source ${venv_name}/bin/activate && set -x && " +
+                    "./smoke.sh"
 }

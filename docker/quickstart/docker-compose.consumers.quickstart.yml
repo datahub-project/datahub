@@ -4,7 +4,6 @@ services:
     - MAE_CONSUMER_ENABLED=false
     - MCE_CONSUMER_ENABLED=false
   datahub-mae-consumer:
-    container_name: datahub-mae-consumer
     depends_on:
       neo4j:
         condition: service_healthy
@@ -32,7 +31,6 @@ services:
     ports:
     - 9091:9091
   datahub-mce-consumer:
-    container_name: datahub-mce-consumer
     depends_on:
       neo4j:
         condition: service_healthy

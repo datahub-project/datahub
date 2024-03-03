@@ -346,6 +346,59 @@ This entity defines _when_ to run the check (Using CRON format - every 8th hour)
 
 After creating the monitor, the new assertion will start to be evaluated every 8 hours in your selected timezone. 
 
+Alternatively you can use `upsertDatasetFreshnessAssertionMonitor` graphql endpoint for creating a Freshness Assertion and corresponding Monitor for a dataset. 
+
+```json
+mutation upsertDatasetFreshnessAssertionMonitor {
+  upsertDatasetFreshnessAssertionMonitor(
+    input: {
+      entityUrn: "<urn of entity being monitored>",
+      schedule: {
+        type: FIXED_INTERVAL,
+        fixedInterval: { unit: HOUR, multiple: 8 }
+      }
+      evaluationSchedule: {
+        timezone: "America/Los_Angeles",
+        cron: "0 */8 * * *"
+      }
+      evaluationParameters: {
+        sourceType: INFORMATION_SCHEMA
+      }
+      mode: ACTIVE      
+    }
+  ){
+    urn
+  }
+}
+```
+
+You can use same endpoint with assertion urn input to update an existing Freshness Assertion and corresponding Monitor.
+
+```json
+mutation upsertDatasetFreshnessAssertionMonitor {
+  upsertDatasetFreshnessAssertionMonitor(
+    assertionUrn: "<urn of assertion created in earlier query>"
+    input: {
+      entityUrn: "<urn of entity being monitored>",
+      schedule: {
+        type: FIXED_INTERVAL,
+        fixedInterval: { unit: HOUR, multiple: 6 }
+      }
+      evaluationSchedule: {
+        timezone: "America/Los_Angeles",
+        cron: "0 */6 * * *"
+      }
+      evaluationParameters: {
+        sourceType: INFORMATION_SCHEMA
+      }
+      mode: ACTIVE      
+    }
+  ){
+    urn
+  }
+}
+```
+
 You can delete assertions along with their monitors using GraphQL mutations: `deleteAssertion` and `deleteMonitor`.
 
 ### Reporting Operations via API

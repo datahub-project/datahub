@@ -20,7 +20,7 @@ import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityServiceImpl;
 import com.linkedin.metadata.entity.UpdateAspectResult;
-import com.linkedin.metadata.entity.ebean.batch.MCPUpsertBatchItem;
+import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -35,28 +35,29 @@ import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
 public class AspectResourceTest {
-  private AspectResource _aspectResource;
-  private EntityService _entityService;
-  private AspectDao _aspectDao;
-  private EventProducer _producer;
-  private EntityRegistry _entityRegistry;
-  private UpdateIndicesService _updateIndicesService;
-  private PreProcessHooks _preProcessHooks;
-  private Authorizer _authorizer;
+  private AspectResource aspectResource;
+  private EntityService<?> entityService;
+  private AspectDao aspectDao;
+  private EventProducer producer;
+  private EntityRegistry entityRegistry;
+  private UpdateIndicesService updateIndicesService;
+  private PreProcessHooks preProcessHooks;
+  private Authorizer authorizer;
 
   @BeforeTest
   public void setup() {
-    _aspectResource = new AspectResource();
-    _aspectDao = mock(AspectDao.class);
-    _producer = mock(EventProducer.class);
-    _entityRegistry = new MockEntityRegistry();
-    _updateIndicesService = mock(UpdateIndicesService.class);
-    _preProcessHooks = mock(PreProcessHooks.class);
-    _entityService = new EntityServiceImpl(_aspectDao, _producer, _entityRegistry, false,
-            _updateIndicesService, _preProcessHooks, true);
-    _authorizer = mock(Authorizer.class);
-    _aspectResource.setAuthorizer(_authorizer);
-    _aspectResource.setEntityService(_entityService);
+    aspectResource = new AspectResource();
+    aspectDao = mock(AspectDao.class);
+    producer = mock(EventProducer.class);
+    entityRegistry = new MockEntityRegistry();
+    updateIndicesService = mock(UpdateIndicesService.class);
+    preProcessHooks = mock(PreProcessHooks.class);
+    entityService = new EntityServiceImpl(aspectDao, producer, entityRegistry, false,
+            preProcessHooks, true);
+    entityService.setUpdateIndicesService(updateIndicesService);
+    authorizer = mock(Authorizer.class);
+    aspectResource.setAuthorizer(authorizer);
+    aspectResource.setEntityService(entityService);
   }
 
   @Test
@@ -74,21 +75,21 @@ public class AspectResourceTest {
     AuthenticationContext.setAuthentication(mockAuthentication);
     Actor actor = new Actor(ActorType.USER, "user");
     when(mockAuthentication.getActor()).thenReturn(actor);
-    _aspectResource.ingestProposal(mcp, "true");
-    verify(_producer, times(1)).produceMetadataChangeProposal(urn, mcp);
-    verifyNoMoreInteractions(_producer);
-    verifyNoMoreInteractions(_aspectDao);
+    aspectResource.ingestProposal(mcp, "true");
+    verify(producer, times(1)).produceMetadataChangeProposal(urn, mcp);
+    verifyNoMoreInteractions(producer);
+    verifyNoMoreInteractions(aspectDao);
 
-    reset(_producer, _aspectDao);
+    reset(producer, aspectDao);
 
-    MCPUpsertBatchItem req = MCPUpsertBatchItem.builder()
+    ChangeItemImpl req = ChangeItemImpl.builder()
             .urn(urn)
             .aspectName(mcp.getAspectName())
             .recordTemplate(mcp.getAspect())
             .auditStamp(new AuditStamp())
             .metadataChangeProposal(mcp)
-            .build(_entityService);
-    when(_aspectDao.runInTransactionWithRetry(any(), any(), anyInt()))
+            .build(entityService);
+    when(aspectDao.runInTransactionWithRetry(any(), any(), anyInt()))
         .thenReturn(
             List.of(List.of(
                 UpdateAspectResult.builder()
@@ -121,9 +122,9 @@ public class AspectResourceTest {
                     .auditStamp(new AuditStamp())
                     .request(req)
                     .build())));
-    _aspectResource.ingestProposal(mcp, "false");
-    verify(_producer, times(10))
+    aspectResource.ingestProposal(mcp, "false");
+    verify(producer, times(10))
         .produceMetadataChangeLog(eq(urn), any(AspectSpec.class), any(MetadataChangeLog.class));
-    verifyNoMoreInteractions(_producer);
+    verifyNoMoreInteractions(producer);
   }
 }

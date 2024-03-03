@@ -24,6 +24,7 @@ import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.service.IncidentService;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collections;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
@@ -45,7 +46,8 @@ public class MigrateIncidentsSummaryStepTest {
     configureIncidentServiceMock(incidentService, IncidentState.ACTIVE);
 
     final MigrateIncidentsSummaryStep step =
-        new MigrateIncidentsSummaryStep(entityService, entitySearchService, incidentService);
+        new MigrateIncidentsSummaryStep(
+            mock(OperationContext.class), entityService, entitySearchService, incidentService);
 
     step.upgrade();
 
@@ -70,7 +72,8 @@ public class MigrateIncidentsSummaryStepTest {
     configureIncidentServiceMock(incidentService, IncidentState.RESOLVED);
 
     final MigrateIncidentsSummaryStep step =
-        new MigrateIncidentsSummaryStep(entityService, entitySearchService, incidentService);
+        new MigrateIncidentsSummaryStep(
+            mock(OperationContext.class), entityService, entitySearchService, incidentService);
 
     step.upgrade();
 
@@ -98,6 +101,7 @@ public class MigrateIncidentsSummaryStepTest {
 
     Mockito.when(
             mockSearchService.scroll(
+                Mockito.any(),
                 Mockito.eq(Collections.singletonList(Constants.INCIDENT_ENTITY_NAME)),
                 Mockito.eq(null),
                 Mockito.eq(null),
@@ -111,6 +115,7 @@ public class MigrateIncidentsSummaryStepTest {
 
     Mockito.when(
             mockSearchService.scroll(
+                Mockito.any(),
                 Mockito.eq(Collections.singletonList(Constants.INCIDENT_ENTITY_NAME)),
                 Mockito.eq(null),
                 Mockito.eq(null),

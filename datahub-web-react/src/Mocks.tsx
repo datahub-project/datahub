@@ -320,9 +320,6 @@ export const dataset1 = {
             ],
         },
     ],
-    activeIncidents: {
-        total: 0,
-    },
     domain: null,
     container: null,
     health: [],
@@ -338,6 +335,7 @@ export const dataset1 = {
     autoRenderAspects: [],
     structuredProperties: null,
     forms: null,
+    activeIncidents: null,
 };
 
 export const dataset2 = {
@@ -421,9 +419,6 @@ export const dataset2 = {
             ],
         },
     ],
-    activeIncidents: {
-        total: 0,
-    },
     domain: null,
     container: null,
     health: [],
@@ -440,6 +435,7 @@ export const dataset2 = {
     autoRenderAspects: [],
     structuredProperties: null,
     forms: null,
+    activeIncidents: null,
 };
 
 export const dataset3 = {
@@ -664,7 +660,6 @@ export const dataset3 = {
             },
         },
     ],
-    activeIncidents: null,
     domain: null,
     container: null,
     lineage: null,
@@ -687,6 +682,7 @@ export const dataset3 = {
     lastOperation: null,
     structuredProperties: null,
     forms: null,
+    activeIncidents: null,
     upstream: null,
     downstream: null,
     extraProperties: null,
@@ -1404,6 +1400,8 @@ export const dataFlow1 = {
     domain: null,
     deprecation: null,
     autoRenderAspects: [],
+    activeIncidents: null,
+    health: [],
 } as DataFlow;
 
 export const dataJob1 = {
@@ -1490,6 +1488,8 @@ export const dataJob1 = {
     status: null,
     deprecation: null,
     autoRenderAspects: [],
+    activeIncidents: null,
+    health: [],
 } as DataJob;
 
 export const dataJob2 = {
@@ -1559,6 +1559,8 @@ export const dataJob2 = {
     downstream: null,
     deprecation: null,
     autoRenderAspects: [],
+    activeIncidents: null,
+    health: [],
 } as DataJob;
 
 export const dataJob3 = {
@@ -1631,6 +1633,8 @@ export const dataJob3 = {
     status: null,
     deprecation: null,
     autoRenderAspects: [],
+    activeIncidents: null,
+    health: [],
 } as DataJob;
 
 export const mlModel = {

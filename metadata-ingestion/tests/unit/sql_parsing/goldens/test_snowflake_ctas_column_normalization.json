@@ -1,5 +1,9 @@
 {
-    "query_type": "CREATE",
+    "query_type": "CREATE_TABLE_AS_SELECT",
+    "query_type_props": {
+        "kind": "TABLE"
+    },
+    "query_fingerprint": "6aaac237788fd64545ccb5409ad7a175e82b6986a880cc73f3e42a0d00a69497",
     "in_tables": [
         "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_sample_data.tpch_sf1.orders,PROD)"
     ],
@@ -79,5 +83,9 @@
                 }
             ]
         }
-    ]
+    ],
+    "debug_info": {
+        "confidence": 0.9,
+        "generalized_statement": "CREATE TABLE snowflake_sample_data.tpch_sf1.orders_normalized AS SELECT SUM(o.\"totalprice\") AS Total_Agg, AVG(\"TotalPrice\") AS TOTAL_AVG, MIN(\"TOTALPRICE\") AS TOTAL_MIN, MAX(TotalPrice) AS Total_Max FROM snowflake_sample_data.tpch_sf1.orders AS o"
+    }
 }

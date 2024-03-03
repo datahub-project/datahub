@@ -53,6 +53,7 @@ import com.linkedin.structured.StructuredProperties;
 import com.linkedin.structured.StructuredPropertyValueAssignment;
 import com.linkedin.structured.StructuredPropertyValueAssignmentArray;
 import com.linkedin.test.TestInfo;
+import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -75,10 +76,12 @@ public class FormService extends BaseService {
   private static final int FORMS_BATCH_SIZE = 1000;
   private static final int BATCH_FORM_ENTITY_COUNT = 500;
 
+  private final OperationContext systemOpContext;
+
   public FormService(
-      @Nonnull final EntityClient entityClient,
-      @Nonnull final Authentication systemAuthentication) {
-    super(entityClient, systemAuthentication);
+      @Nonnull OperationContext systemOpContext, @Nonnull final EntityClient entityClient) {
+    super(entityClient, systemOpContext.getAuthentication());
+    this.systemOpContext = systemOpContext;
   }
 
   /** Batch associated a form to a given set of entities by urn. */
@@ -201,7 +204,7 @@ public class FormService extends BaseService {
                   metadataTestUrn, TEST_INFO_ASPECT_NAME, testDefinition)),
           systemAuthentication);
       SearchBasedFormAssignmentRunner.assign(
-          formFilters, formUrn, BATCH_FORM_ENTITY_COUNT, entityClient, systemAuthentication);
+          systemOpContext, formFilters, formUrn, BATCH_FORM_ENTITY_COUNT, entityClient);
     } catch (Exception e) {
       throw new RuntimeException(
           String.format("Failed to dynamically assign form with urn: %s", formUrn), e);
@@ -214,13 +217,12 @@ public class FormService extends BaseService {
     try {
       final SearchResult result =
           this.entityClient.search(
+              systemOpContext.withSearchFlags(flags -> flags.setSkipCache(true)),
               TEST_ENTITY_NAME,
               "*",
               ImmutableMap.of("sourceUrn", formUrn.toString()),
               0,
-              TEST_SEARCH_BATCH_SIZE,
-              this.systemAuthentication,
-              new SearchFlags().setSkipCache(true));
+              TEST_SEARCH_BATCH_SIZE);
 
       if (result.hasEntities()) {
         result
@@ -1224,7 +1226,13 @@ public class FormService extends BaseService {
 
     SearchResult result =
         this.entityClient.search(
-            FORM_ENTITY_NAME, "*", filter, null, 0, FORMS_BATCH_SIZE, authentication, searchFlags);
+            systemOpContext.withSearchFlags(flags -> searchFlags),
+            FORM_ENTITY_NAME,
+            "*",
+            filter,
+            null,
+            0,
+            FORMS_BATCH_SIZE);
 
     return result.getEntities().stream().map(SearchEntity::getEntity).collect(Collectors.toList());
   }
@@ -1237,13 +1245,12 @@ public class FormService extends BaseService {
       throws RemoteInvocationException {
     final SearchResult result =
         this.entityClient.search(
+            systemOpContext.withSearchFlags(flags -> searchFlags),
             FORM_ENTITY_NAME,
             "*",
             ImmutableMap.of("isOwnershipForm", "true"),
             0,
-            FORMS_BATCH_SIZE,
-            authentication,
-            searchFlags);
+            FORMS_BATCH_SIZE);
 
     return result.getEntities().stream().map(SearchEntity::getEntity).collect(Collectors.toList());
   }
@@ -1278,14 +1285,13 @@ public class FormService extends BaseService {
     List<String> formFacets = ImmutableList.of("completedForms", "incompleteForms");
     SearchResult result =
         this.entityClient.searchAcrossEntities(
+            systemOpContext.withSearchFlags(flags -> searchFlags),
             entities,
             "*",
             filter,
             0,
             0, // doing an aggregate request here, count = 0
-            searchFlags,
             null,
-            authentication,
             formFacets);
 
     // get the form urns from the aggregations query we make above

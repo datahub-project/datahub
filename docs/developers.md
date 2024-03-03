@@ -12,8 +12,6 @@ title: "Local Development"
 - [Docker Compose >=2.20](https://docs.docker.com/compose/)
 - Docker engine with at least 8GB of memory to run tests.
 
-:::
-
 On macOS, these can be installed using [Homebrew](https://brew.sh/).
 
 ```shell

@@ -3,33 +3,36 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 import { Container, EntityType } from '../../types.generated';
-import { ANTD_GRAY, SEARCH_COLORS } from '../entityV2/shared/constants';
+import { REDESIGN_COLORS } from '../entityV2/shared/constants';
 import { useEntityRegistry } from '../useEntityRegistry';
 import SearchCardBrowsePathContainerIcon from './SearchCardBrowsePathContainerIcon';
 
-const ContainerText = styled.span`
-    color: ${SEARCH_COLORS.PLATFORM_TEXT};
-    font-family: Mulish;
+const Path = styled.div`
+    white-space: nowrap;
     font-size: 13px;
     font-style: normal;
     font-weight: 500;
-    line-height: normal;
-    max-width: 100px;
-    display: inline-block;
-    overflow: hidden;
     text-overflow: ellipsis;
-    line-height: 0.8;
-    min-width: 50px
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+`;
+
+const ContainerText = styled.span`
+    display: inline-block;
+    min-width: 50px;
 `;
 
 const StyledLink = styled(Link)`
     white-space: nowrap;
-    :hover {
-        background-color: ${ANTD_GRAY[3]};
-    }
     border-radius: 4px;
     overflow: hidden;
     text-overflow: ellipsis;
+    display: flex;
+    color: ${REDESIGN_COLORS.LINK_GREY};
+    :hover {
+        color: ${REDESIGN_COLORS.TITLE_PURPLE};
+    }
 `;
 
 interface Props {
@@ -46,10 +49,12 @@ function ContainerLink(props: Props) {
     const containerName = entityRegistry.getDisplayName(EntityType.Container, container);
 
     return (
-        <StyledLink to={containerUrl} data-testid="container">
-            <SearchCardBrowsePathContainerIcon container={props.container} />
-            <ContainerText title={containerName}>{containerName}</ContainerText>
-        </StyledLink>
+        <Path>
+            <StyledLink to={containerUrl} data-testid="container">
+                <SearchCardBrowsePathContainerIcon container={props.container} />
+                <ContainerText title={containerName}>{containerName}</ContainerText>
+            </StyledLink>
+        </Path>
     );
 }
 

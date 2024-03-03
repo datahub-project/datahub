@@ -5,6 +5,7 @@ import static com.linkedin.metadata.AcrylConstants.*;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Test;
 import com.linkedin.datahub.graphql.generated.TestResultsSummary;
 import com.linkedin.metadata.query.filter.Condition;
@@ -17,6 +18,7 @@ import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.utils.ESUtils;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
@@ -42,12 +44,16 @@ public class TestResultsSummaryResolver
   @Override
   public CompletableFuture<TestResultsSummary> get(DataFetchingEnvironment environment)
       throws Exception {
+
+    final QueryContext context = environment.getContext();
     final Urn testUrn = Urn.createFromString(((Test) environment.getSource()).getUrn());
 
     return CompletableFuture.supplyAsync(
         () -> {
-          long passingCount = getResultsCount(testUrn, PASSING_TESTS_FIELD);
-          long failingCount = getResultsCount(testUrn, FAILING_TESTS_FIELD);
+          long passingCount =
+              getResultsCount(context.getOperationContext(), testUrn, PASSING_TESTS_FIELD);
+          long failingCount =
+              getResultsCount(context.getOperationContext(), testUrn, FAILING_TESTS_FIELD);
           final TestResultsSummary result = new TestResultsSummary();
           result.setPassingCount(passingCount);
           result.setFailingCount(failingCount);
@@ -55,11 +61,14 @@ public class TestResultsSummaryResolver
         });
   }
 
-  private long getResultsCount(@Nonnull final Urn testUrn, @Nonnull final String fieldName) {
+  private long getResultsCount(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn testUrn,
+      @Nonnull final String fieldName) {
     try {
       final Map<String, Long> aggregations =
           this.entitySearchService.aggregateByValue(
-              null, fieldName, buildFilter(testUrn, fieldName), MAX_AGGREGATION_LIMIT);
+              opContext, null, fieldName, buildFilter(testUrn, fieldName), MAX_AGGREGATION_LIMIT);
       return aggregations.getOrDefault(testUrn.toString(), 0L);
     } catch (Exception e) {
       log.error(

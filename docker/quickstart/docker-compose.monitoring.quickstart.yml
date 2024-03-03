@@ -36,7 +36,6 @@ services:
     - '14268'
     - '14250'
   prometheus:
-    container_name: prometheus
     image: prom/prometheus:latest
     ports:
     - 9089:9090

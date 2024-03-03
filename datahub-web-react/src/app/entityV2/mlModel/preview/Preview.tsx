@@ -5,17 +5,20 @@ import { capitalizeFirstLetterOnly } from '../../../shared/textUtil';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { IconStyleType } from '../../Entity';
 import { getDataProduct } from '../../shared/utils';
+import { EntityMenuItems } from '../../shared/EntityDropdown/EntityMenuActions';
 
 export const Preview = ({
     model,
     degree,
     paths,
     isOutputPort,
+    headerDropdownItems,
 }: {
     model: MlModel;
     degree?: number;
     paths?: EntityPath[];
     isOutputPort?: boolean;
+    headerDropdownItems?: Set<EntityMenuItems>;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     const genericProperties = entityRegistry.getGenericEntityProperties(EntityType.Mlmodel, model);
@@ -37,6 +40,7 @@ export const Preview = ({
             degree={degree}
             paths={paths}
             isOutputPort={isOutputPort}
+            headerDropdownItems={headerDropdownItems}
         />
     );
 };

@@ -3,6 +3,7 @@ ARG APP_ENV=prod
 ARG BASE_IMAGE=acryldata/datahub-ingestion
 ARG DOCKER_VERSION=head-slim
 ARG PIP_MIRROR_URL=null
+ARG VIRTUAL_ENV=/datahub-ingestion/.venv
 
 # Base Image Common To All
 FROM $BASE_IMAGE:$DOCKER_VERSION as base
@@ -14,6 +15,7 @@ COPY ./datahub-executor /datahub-executor
 COPY ./metadata-ingestion /metadata-ingestion
 COPY ./docker/datahub-executor/start.sh /start_datahub_executor.sh
 COPY ./docker/datahub-executor/health_status.py /health_status.py
+COPY ./docker/datahub-executor/ingestion-pipeline-config.yaml /etc/datahub-executor/ingestion-pipeline-config.yaml
 RUN chmod a+x /start_datahub_executor.sh
 RUN chmod a+x /health_status.py
 
@@ -29,18 +31,19 @@ ARG PIP_MIRROR_URL
 RUN if [ "${PIP_MIRROR_URL}" != "null" ] ; then pip config set global.index-url ${PIP_MIRROR_URL} ; fi
 
 USER datahub
-RUN pip install --no-cache --user -e .
+RUN uv pip install --no-cache -e .
 
 WORKDIR /datahub-ingestion
-RUN pip install --no-cache --user -e .
+RUN uv pip install --no-cache -e .
 
 ## Production Image Built From Build Image
 FROM base as prod-install
 
 COPY --from=build /datahub-executor /datahub-executor
-COPY --from=build /datahub-ingestion/.local /datahub-ingestion/.local
+COPY --from=build $VIRTUAL_ENV $VIRTUAL_ENV
 COPY --from=build /start_datahub_executor.sh /start_datahub_executor.sh
 COPY --from=build /health_status.py /health_status
+COPY --from=build /etc/datahub-executor/ingestion-pipeline-config.yaml /etc/datahub-executor/ingestion-pipeline-config.yaml
 
 USER datahub
 

@@ -4,6 +4,7 @@ import static org.testng.AssertJUnit.assertNotNull;
 
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.fixtures.SampleDataFixtureTestBase;
 import io.datahubproject.test.fixtures.search.SampleDataFixtureConfiguration;
@@ -28,6 +29,11 @@ public class SampleDataFixtureOpenSearchTest extends SampleDataFixtureTestBase {
   @Autowired
   @Qualifier("sampleDataSearchService")
   protected SearchService searchService;
+
+  // Saas only scroll()
+  @Autowired
+  @Qualifier("sampleDataEntitySearchService")
+  protected EntitySearchService entitySearchService;
 
   @Autowired
   @Qualifier("sampleDataEntityClient")

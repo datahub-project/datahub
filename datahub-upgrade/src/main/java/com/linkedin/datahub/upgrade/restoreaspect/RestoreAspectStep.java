@@ -2,7 +2,6 @@ package com.linkedin.datahub.upgrade.restoreaspect;
 
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
@@ -11,11 +10,13 @@ import com.linkedin.datahub.upgrade.restorebackup.backupreader.EbeanAspectBackup
 import com.linkedin.datahub.upgrade.restorebackup.backupreader.ParquetReaderWrapper;
 import com.linkedin.datahub.upgrade.restorebackup.backupreader.S3BackupReader;
 import com.linkedin.datahub.upgrade.restoreindices.RestoreIndices;
+import com.linkedin.metadata.aspect.SystemAspect;
+import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
-import com.linkedin.metadata.entity.ebean.batch.MCPUpsertBatchItem;
+import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -154,9 +155,8 @@ public class RestoreAspectStep implements UpgradeStep {
         }
 
         // 3. Create record from json aspect
-        final RecordTemplate aspectRecord =
-            EntityUtils.toAspectRecord(
-                entityName, aspectName, aspect.getMetadata(), _entityRegistry);
+        final SystemAspect systemAspectRecord =
+            EntityUtils.toSystemAspectFromEbeanAspects(List.of(aspect), _entityService).get(0);
 
         // 4. Verify that the aspect is a valid aspect associated with the entity
         AspectSpec aspectSpec;
@@ -182,12 +182,12 @@ public class RestoreAspectStep implements UpgradeStep {
 
         boolean emitMae = aspect.getKey().getVersion() == 0L;
 
-        List<MCPUpsertBatchItem> items =
+        List<ChangeMCP> items =
             List.of(
-                MCPUpsertBatchItem.builder()
+                ChangeItemImpl.builder()
                     .urn(urn)
                     .aspectName(aspectName)
-                    .recordTemplate(aspectRecord)
+                    .recordTemplate(systemAspectRecord.getRecordTemplate())
                     .auditStamp(toAuditStamp(aspect))
                     .build(_entityService));
 

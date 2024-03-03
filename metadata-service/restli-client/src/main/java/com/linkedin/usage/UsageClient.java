@@ -8,6 +8,7 @@ import com.linkedin.metadata.config.cache.client.UsageClientCacheConfig;
 import com.linkedin.parseq.retry.backoff.BackoffPolicy;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.restli.client.Client;
+import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import javax.annotation.Nonnull;
 
@@ -16,22 +17,27 @@ public class UsageClient extends BaseClient {
   private static final UsageStatsRequestBuilders USAGE_STATS_REQUEST_BUILDERS =
       new UsageStatsRequestBuilders();
 
+  private final OperationContext systemOperationContext;
   private final UsageClientCache usageClientCache;
 
   public UsageClient(
+      @Nonnull OperationContext systemOperationContext,
       @Nonnull final Client restliClient,
       @Nonnull final BackoffPolicy backoffPolicy,
       int retryCount,
-      Authentication systemAuthentication,
       UsageClientCacheConfig cacheConfig) {
     super(restliClient, backoffPolicy, retryCount);
+    this.systemOperationContext = systemOperationContext;
     this.usageClientCache =
         UsageClientCache.builder()
             .config(cacheConfig)
             .loadFunction(
-                (String resource, UsageTimeRange range) -> {
+                (UsageClientCache.Key cacheKey) -> {
                   try {
-                    return getUsageStats(resource, range, systemAuthentication);
+                    return getUsageStats(
+                        cacheKey.getResource(),
+                        cacheKey.getRange(),
+                        systemOperationContext.getAuthentication());
                   } catch (RemoteInvocationException | URISyntaxException e) {
                     throw new RuntimeException(e);
                   }
@@ -45,7 +51,7 @@ public class UsageClient extends BaseClient {
    */
   @Nonnull
   public UsageQueryResult getUsageStats(@Nonnull String resource, @Nonnull UsageTimeRange range) {
-    return usageClientCache.getUsageStats(resource, range);
+    return usageClientCache.getUsageStats(systemOperationContext, resource, range);
   }
 
   /** Gets a specific version of downstream {@link EntityRelationships} for the given dataset. */

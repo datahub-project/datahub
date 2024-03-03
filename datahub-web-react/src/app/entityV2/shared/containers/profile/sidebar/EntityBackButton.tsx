@@ -6,12 +6,12 @@ import KeyboardBackspaceIcon from '@mui/icons-material/KeyboardBackspace';
 import { REDESIGN_COLORS } from '../../../constants';
 
 const StyledButton = styled(Button)`
-    height: 19px;
-    width: 19px;
-    color: ${REDESIGN_COLORS.HEADING_COLOR};
+    height: 25px;
+    width: 25px;
+    color: ${REDESIGN_COLORS.TITLE_PURPLE};
     padding: 0px;
     border-radius: 20px;
-    border: 1px solid ${REDESIGN_COLORS.HEADING_COLOR};
+    border: 1px solid ${REDESIGN_COLORS.TITLE_PURPLE};
     display: flex;
     align-items: center;
     justify-content: center;
@@ -27,7 +27,7 @@ const StyledButton = styled(Button)`
 
 const StyledLeftOutlined = styled(KeyboardBackspaceIcon)`
     && {
-        font-size: 14px;
+        font-size: 20px;
         margin: 0px;
         padding 0px;
     }

@@ -44,7 +44,7 @@ describe("search", () => {
     cy.visit("/");
     cy.get("input[data-testid=search-input]").type("*{enter}");
 
-    // click tag filter dropfdown inside of "More Filters"
+    // click tag filter dropdown inside of "More Filters"
     cy.get("[data-testid=more-filters-dropdown").click({ force: true });
     cy.get("[data-testid=more-filter-Tag").click({ force: true });
 
