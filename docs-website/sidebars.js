@@ -295,6 +295,11 @@ module.exports = {
           id: "docs/lineage/airflow",
           label: "Airflow",
         },
+        {
+          type: "doc",
+          id: "docs/lineage/prefect",
+          label: "Prefect",
+        },
         //"docker/airflow/local_airflow",
         "metadata-integration/java/spark-lineage/README",
         "metadata-ingestion/integration_docs/great-expectations",
@@ -751,6 +756,9 @@ module.exports = {
     // "metadata-integration/java/spark-lineage-beta/README.md
     // "metadata-integration/java/openlineage-converter/README"
     //"metadata-ingestion-modules/airflow-plugin/README"
+    //"metadata-ingestion-modules/prefect-plugin/README"
+    //"metadata-ingestion-modules/prefect-plugin/docs/concept_mapping"
+    //"metadata-ingestion-modules/prefect-plugin/docs/datahub_emitter"
     // "metadata-ingestion/schedule_docs/datahub", // we can delete this
     // TODO: change the titles of these, removing the "What is..." portion from the sidebar"
     // "docs/what/entity",

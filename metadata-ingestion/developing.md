@@ -35,7 +35,16 @@ cd metadata-ingestion-modules/airflow-plugin
 source venv/bin/activate
 datahub version  # should print "DataHub CLI version: unavailable (installed in develop mode)"
 ```
+### (Optional) Set up your Python environment for developing on Prefect Plugin
 
+From the repository root:
+
+```shell
+cd metadata-ingestion-modules/prefect-plugin
+../../gradlew :metadata-ingestion-modules:prefect-plugin:installDev
+source venv/bin/activate
+datahub version  # should print "DataHub CLI version: unavailable (installed in develop mode)"
+```
 ### Common setup issues
 
 Common issues (click to expand):
