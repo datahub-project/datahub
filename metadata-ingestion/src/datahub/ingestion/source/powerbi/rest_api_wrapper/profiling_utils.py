@@ -22,7 +22,7 @@ def process_sample_result(result_data: dict) -> dict:
             if not column_name:
                 continue
 
-            if  column_name not in sample_data_by_column:
+            if column_name not in sample_data_by_column:
                 sample_data_by_column[column_name] = []
             sample_data_by_column[column_name].append(str(value))
     return sample_data_by_column
