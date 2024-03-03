@@ -422,7 +422,7 @@ class PowerBiDashboardSourceConfig(
     profile_pattern: AllowDenyPattern = pydantic.Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns to filter tables for profiling during ingestion. Note that only tables "
-        "allowed by the `table_pattern` will be considered. Matched format is 'datasetname.tablename'",
+        "allowed by the `table_pattern` will be considered. Matched format is 'workspacename.datasetname.tablename'",
     )
     profiling: PowerBiProfilingConfig = PowerBiProfilingConfig()
 
