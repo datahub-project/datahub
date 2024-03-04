@@ -7,6 +7,7 @@ import com.linkedin.common.UrnArrayArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.config.search.GraphQueryConfiguration;
 import com.linkedin.metadata.graph.GraphFilters;
 import com.linkedin.metadata.graph.elastic.ESGraphQueryDAO;
 import com.linkedin.metadata.models.registry.LineageRegistry;
@@ -99,19 +100,21 @@ public class ESGraphQueryDAOTest {
     Long startTime = 0L;
     Long endTime = 1L;
 
+    ESGraphQueryDAO graphQueryDAO = new ESGraphQueryDAO(null, null, null,
+        new GraphQueryConfiguration());
     QueryBuilder limitedBuilder =
-        ESGraphQueryDAO.getLineageQueryForEntityType(urns, edgeInfos, graphFilters);
+        graphQueryDAO.getLineageQueryForEntityType(urns, edgeInfos, graphFilters);
 
     QueryBuilder fullBuilder =
-        ESGraphQueryDAO.getLineageQuery(
+        graphQueryDAO.getLineageQuery(
             urnsPerEntityType, edgesPerEntityType, graphFilters, startTime, endTime);
 
     QueryBuilder fullBuilderEmptyFilters =
-        ESGraphQueryDAO.getLineageQuery(
+        graphQueryDAO.getLineageQuery(
             urnsPerEntityType, edgesPerEntityType, GraphFilters.emptyGraphFilters, null, null);
 
     QueryBuilder fullBuilderMultipleFilters =
-        ESGraphQueryDAO.getLineageQuery(
+        graphQueryDAO.getLineageQuery(
             urnsPerEntityTypeMultiple,
             edgesPerEntityTypeMultiple,
             graphFiltersMultiple,

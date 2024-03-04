@@ -235,7 +235,8 @@ elasticsearch:
       timeoutSeconds: ${ELASTICSEARCH_SEARCH_GRAPH_TIMEOUT_SECONDS:50} # graph dao timeout seconds
       batchSize: ${ELASTICSEARCH_SEARCH_GRAPH_BATCH_SIZE:1000} # graph dao batch size
       maxResult: ${ELASTICSEARCH_SEARCH_GRAPH_MAX_RESULT:10000} # graph dao max result size
-      enableMultiPathSearch: ${ELASTICSEARCH_SEARCH_GRAPH_MULTI_PATH_SEARCH:false}
+      enableMultiPathSearch: ${ELASTICSEARCH_SEARCH_GRAPH_MULTI_PATH_SEARCH:false} # allows a path to be retraversed to walk all paths to the node instead of just shortest, avoids cycles by not rewalking the visited edge
+      boostViaNodes: ${ELASTICSEARCH_SEARCH_GRAPH_BOOST_VIA_NODES:true} # adds a boosting query that ranks graph edges with via nodes higher, used to allow via paths to be prioritized when multi path search is disabled
 
 # TODO: Kafka topic convention
 kafka:
