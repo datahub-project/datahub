@@ -13,6 +13,7 @@ import { LinkWrapper } from '../../../../../../../../../../../shared/LinkWrapper
 import { ACCENT_COLOR_HEX, generateTimeScaleTickValues, getCustomTimeScaleTickValue, getFillColor } from './utils';
 import { AssertionResultChartData, TimeRange } from './types';
 import { AssertionResultPopoverContent } from '../../../../shared/result/AssertionResultPopoverContent';
+import { AssertionType } from '../../../../../../../../../../../../types.generated';
 
 type Props = {
     data: AssertionResultChartData;
@@ -21,6 +22,7 @@ type Props = {
         width: number;
         height: number;
     }
+    renderHeader?: (title?: string) => JSX.Element
 };
 
 
@@ -31,7 +33,7 @@ const CHART_AXIS_BOTTOM_HEIGHT = 40;
  * Assertion run result status displayed on a horizontal timeline.
  * TODO(jayacryl) refactor to a pretty timeline line-view
  */
-export const StatusOverTimeAssertionResultChart = ({ data, timeRange, chartDimensions }: Props) => {
+export const StatusOverTimeAssertionResultChart = ({ data, timeRange, chartDimensions, renderHeader }: Props) => {
 
     const chartInnerHeight = chartDimensions.height - CHART_AXIS_BOTTOM_HEIGHT
     const chartInnerWidth = chartDimensions.width - CHART_HORIZ_MARGIN
@@ -49,6 +51,7 @@ export const StatusOverTimeAssertionResultChart = ({ data, timeRange, chartDimen
     const timeScaleTicks = generateTimeScaleTickValues(timeRange.startMs, timeRange.endMs)
     return (
         <>
+            {renderHeader?.(data.context.assertion.info?.type == AssertionType.Freshness ? `Freshness checks over time` : undefined)}
             <svg width={chartDimensions.width} height={chartDimensions.height}>
                 <Group left={CHART_HORIZ_MARGIN / 2}>
                     {/* Axis */}

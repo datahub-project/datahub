@@ -70,20 +70,23 @@ export const AssertionResultsTimelineViz = ({ assertion, results, timeRange, par
         width: parentDimensions.width - 8, // margin on the sides (we have align-items=center)
     }
 
+    const renderChartTitle = (title?: string) => <VizHeader>
+        <VizHeaderTitle strong>{title || dateRange}</VizHeaderTitle>
+    </VizHeader>
+
     return <VisualizationContainer>
-        <VizHeader>
-            <VizHeaderTitle strong>{assertionResultChartData.yAxisLabel ? `${assertionResultChartData.yAxisLabel} over time` : dateRange}</VizHeaderTitle>
-        </VizHeader>
         {getBestChartTypeForAssertion(assertion.info) === AssertionChartType.ValuesOverTime
             ? <ValuesOverTimeAssertionResultChart
                 chartDimensions={chartDimensions}
                 data={assertionResultChartData}
                 timeRange={timeRange}
+                renderHeader={renderChartTitle}
             />
             : <StatusOverTimeAssertionResultChart
                 chartDimensions={chartDimensions}
                 data={assertionResultChartData}
                 timeRange={timeRange}
+                renderHeader={renderChartTitle}
             />}
     </VisualizationContainer>
 };
