@@ -104,6 +104,7 @@ logger = logging.getLogger(__name__)
 
 
 DEFAULT_PLATFORM = "glue"
+AWS_DATA_CATALOG = "awsdatacatalog"
 VALID_PLATFORMS = [DEFAULT_PLATFORM, "athena"]
 
 
@@ -160,6 +161,10 @@ class GlueSourceConfig(
     # Custom Stateful Ingestion settings
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
         default=None, description=""
+    )
+    catalog_alias: str = Field(
+        default=AWS_DATA_CATALOG,
+        description="The catalog alias to be used in the dataset URN.",
     )
 
     def is_profiling_enabled(self) -> bool:
@@ -424,7 +429,7 @@ class GlueSource(StatefulIngestionSourceBase):
                 # we know that the table will already be covered when ingesting Glue tables
                 node_urn = make_dataset_urn_with_platform_instance(
                     platform=self.platform,
-                    name=full_table_name,
+                    name=f"{self.source_config.catalog_alias}.{full_table_name}",
                     env=self.env,
                     platform_instance=self.source_config.platform_instance,
                 )
@@ -953,7 +958,7 @@ class GlueSource(StatefulIngestionSourceBase):
 
             dataset_urn = make_dataset_urn_with_platform_instance(
                 platform=self.platform,
-                name=full_table_name,
+                name=f"{self.source_config.catalog_alias}.{full_table_name}",
                 env=self.env,
                 platform_instance=self.source_config.platform_instance,
             )
