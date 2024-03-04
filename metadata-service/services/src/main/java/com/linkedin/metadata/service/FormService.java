@@ -44,6 +44,7 @@ import com.linkedin.structured.PrimitivePropertyValueArray;
 import com.linkedin.structured.StructuredProperties;
 import com.linkedin.structured.StructuredPropertyValueAssignment;
 import com.linkedin.structured.StructuredPropertyValueAssignmentArray;
+import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.List;
@@ -67,10 +68,12 @@ import lombok.extern.slf4j.Slf4j;
 public class FormService extends BaseService {
   private static final int BATCH_FORM_ENTITY_COUNT = 500;
 
+  private final OperationContext systemOpContext;
+
   public FormService(
-      @Nonnull final EntityClient entityClient,
-      @Nonnull final Authentication systemAuthentication) {
-    super(entityClient, systemAuthentication);
+      @Nonnull OperationContext systemOpContext, @Nonnull final EntityClient entityClient) {
+    super(entityClient, systemOpContext.getAuthentication());
+    this.systemOpContext = systemOpContext;
   }
 
   /** Batch associated a form to a given set of entities by urn. */
@@ -162,7 +165,7 @@ public class FormService extends BaseService {
       @Nonnull final Urn formUrn, @Nonnull final DynamicFormAssignment formFilters) {
     try {
       SearchBasedFormAssignmentRunner.assign(
-          formFilters, formUrn, BATCH_FORM_ENTITY_COUNT, entityClient, systemAuthentication);
+          systemOpContext, formFilters, formUrn, BATCH_FORM_ENTITY_COUNT, entityClient);
     } catch (Exception e) {
       throw new RuntimeException(
           String.format("Failed to dynamically assign form with urn: %s", formUrn), e);
