@@ -1,9 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
 import { REDESIGN_COLORS } from '../../../constants';
-import { useEntityRegistry } from '../../../../../useEntityRegistry';
-import { useEntityData } from '../../../EntityContext';
-import CompactContext from '../../../../../shared/CompactContext';
 
 const Container = styled.div`
     display: flex;
@@ -28,10 +25,6 @@ const ColumnsContainer = styled.div`
             border-color: rgba(0, 0, 0, 0.3);
         }
     }
-`;
-
-const EntityName = styled.div`
-    margin-left: 20px;
 `;
 
 const Column = styled.div`
@@ -59,13 +52,6 @@ const Title = styled.div`
     color: ${REDESIGN_COLORS.DARK_GREY};
 `;
 
-const EntityTitle = styled.div`
-    font-size: 16px;
-    font-weight: 700;
-    line-height: 20px;
-    color: ${REDESIGN_COLORS.TITLE_PURPLE};
-`;
-
 type SidebarStatsColumn = {
     title: React.ReactNode;
     content: React.ReactNode;
@@ -77,35 +63,22 @@ type Props = {
 };
 
 export const SidebarHeaderSectionColumns = ({ columns }: Props) => {
-    const entityRegistry = useEntityRegistry();
-    const { urn, entityType, entityData } = useEntityData();
-
-    const entityName = entityData ? entityRegistry.getDisplayName(entityType, entityData) : '';
-
-    const isCompact = React.useContext(CompactContext);
-    const showEntityName = isCompact;
-
     return (
-        <Container className="top-section">
-            {showEntityName && (
-                <EntityName>
-                    <a href={entityRegistry.getEntityUrl(entityType, urn)}>
-                        <EntityTitle> {entityName}</EntityTitle>
-                    </a>
-                </EntityName>
-            )}
+        <>
             {columns.length > 0 && (
-                <ColumnsContainer>
-                    {columns.map((column) => (
-                        <Column>
-                            <Heading>
-                                <Title>{column.title}</Title>
-                            </Heading>
-                            {column.content}
-                        </Column>
-                    ))}
-                </ColumnsContainer>
+                <Container className="top-section">
+                    <ColumnsContainer>
+                        {columns.map((column) => (
+                            <Column>
+                                <Heading>
+                                    <Title>{column.title}</Title>
+                                </Heading>
+                                {column.content}
+                            </Column>
+                        ))}
+                    </ColumnsContainer>
+                </Container>
             )}
-        </Container>
+        </>
     );
 };

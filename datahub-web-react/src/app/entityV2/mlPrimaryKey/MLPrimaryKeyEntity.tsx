@@ -18,6 +18,7 @@ import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
 import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
 import { SidebarTitleActionType, getDataProduct, isOutputPort } from '../shared/utils';
 import { TYPE_ICON_CLASS_NAME } from '../shared/components/subtypes';
+import SidebarEntityHeader from '../shared/containers/profile/sidebar/SidebarEntityHeader';
 
 /**
  * Definition of the DataHub MLPrimaryKey entity.
@@ -92,6 +93,9 @@ export class MLPrimaryKeyEntity implements Entity<MlPrimaryKey> {
                 },
             ]}
             sidebarSections={[
+                {
+                    component: SidebarEntityHeader,
+                },
                 {
                     component: SidebarDomainSection,
                 },

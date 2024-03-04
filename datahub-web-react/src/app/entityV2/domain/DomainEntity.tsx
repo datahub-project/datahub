@@ -18,6 +18,7 @@ import DomainIcon from '../../domain/DomainIcon';
 import SidebarEntitiesSection from '../shared/containers/profile/sidebar/Domain/SidebarEntitiesSection';
 import { DomainSummaryTab } from './summary/DomainSummaryTab';
 import { SUMMARY_TAB_ICON } from '../shared/summary/HeaderComponents';
+import SidebarEntityHeader from '../shared/containers/profile/sidebar/SidebarEntityHeader';
 
 const headerDropdownItems = new Set([
     EntityMenuItems.MOVE,
@@ -117,6 +118,9 @@ export class DomainEntity implements Entity<Domain> {
                 },
             ]}
             sidebarSections={[
+                {
+                    component: SidebarEntityHeader,
+                },
                 {
                     component: SidebarAboutSection,
                 },

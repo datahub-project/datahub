@@ -41,6 +41,7 @@ import { SidebarTitleActionType, getDataProduct, isOutputPort } from '../shared/
 import { ChartPreview } from './preview/ChartPreview';
 import { ChartStatsSummarySubHeader } from './profile/stats/ChartStatsSummarySubHeader';
 import ChartSummaryTab from './summary/ChartSummaryTab';
+import SidebarEntityHeader from '../shared/containers/profile/sidebar/SidebarEntityHeader';
 
 const headerDropdownItems = new Set([
     EntityMenuItems.EXTERNAL_URL,
@@ -168,6 +169,9 @@ export class ChartEntity implements Entity<Chart> {
                 },
             ]}
             sidebarSections={[
+                {
+                    component: SidebarEntityHeader,
+                },
                 {
                     component: SidebarChartHeaderSection,
                 },

@@ -55,6 +55,7 @@ import { SidebarTitleActionType, getDataProduct, isOutputPort } from '../shared/
 import { Preview } from './preview/Preview';
 import { OperationsTab } from './profile/OperationsTab';
 import { DatasetStatsSummarySubHeader } from './profile/stats/stats/DatasetStatsSummarySubHeader';
+import SidebarEntityHeader from '../shared/containers/profile/sidebar/SidebarEntityHeader';
 
 const SUBTYPES = {
     VIEW: 'view',
@@ -234,6 +235,9 @@ export class DatasetEntity implements Entity<Dataset> {
     );
 
     getSidebarSections = () => [
+        {
+            component: SidebarEntityHeader,
+        },
         {
             component: SidebarDatasetHeaderSection,
         },

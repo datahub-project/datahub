@@ -20,7 +20,10 @@ const Path = styled.div`
 
 const ContainerText = styled.span`
     display: inline-block;
-    min-width: 50px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 150px;
 `;
 
 const StyledLink = styled(Link)`
