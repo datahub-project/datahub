@@ -321,7 +321,6 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
     def build_groups_map(self) -> None:
         try:
             self.groups += self.unity_catalog_api_proxy.groups()
-            print(self.groups)
         except Exception as e:
             self.report.report_warning("groups", f"Unable to fetch groups: {e}")
 
