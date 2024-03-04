@@ -5,9 +5,6 @@ FROM alpine:3.18 AS base
 
 # Configurable repositories
 ARG ALPINE_REPO_URL=http://dl-cdn.alpinelinux.org/alpine
-ARG GITHUB_REPO_URL=https://github.com
-ARG MAVEN_CENTRAL_REPO_URL=https://repo1.maven.org/maven2
-
 RUN addgroup -S datahub && adduser -S datahub -G datahub
 
 # Optionally set corporate mirror for apk
@@ -29,6 +26,8 @@ RUN unzip datahub-frontend.zip && rm datahub-frontend.zip
 COPY ./docker/monitoring/client-prometheus-config.yaml /datahub-frontend/
 RUN chown -R datahub:datahub /datahub-frontend && chmod 755 /datahub-frontend
 
+ARG GITHUB_REPO_URL=https://github.com
+ARG MAVEN_CENTRAL_REPO_URL=https://repo1.maven.org/maven2
 ENV JMX_VERSION=0.18.0
 RUN wget ${GITHUB_REPO_URL}/open-telemetry/opentelemetry-java-instrumentation/releases/download/v1.24.0/opentelemetry-javaagent.jar -O opentelemetry-javaagent.jar \
     && wget ${MAVEN_CENTRAL_REPO_URL}/io/prometheus/jmx/jmx_prometheus_javaagent/${JMX_VERSION}/jmx_prometheus_javaagent-${JMX_VERSION}.jar -O jmx_prometheus_javaagent.jar
