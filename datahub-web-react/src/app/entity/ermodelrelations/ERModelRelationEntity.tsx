@@ -7,7 +7,7 @@ import { GenericEntityProperties } from '../shared/types';
 import { ERModelRelationPreviewCard } from './preview/ERModelRelationPreviewCard';
 import ermodelrelationIcon from '../../../images/ermodelrelationIcon.svg';
 import { ERModelRelationTab } from '../shared/tabs/ERModelRelation/ERModelRelationTab';
-import { useGetErModelRelationQuery, useUpdateErModelRelationMutation } from '../../../graphql/ermodelrelation.generated';
+import { useGetErModelRelationQuery, useUpdateErModelRelationshipMutation } from '../../../graphql/ermodelrelation.generated';
 import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
 import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
@@ -60,7 +60,7 @@ export class ERModelRelationEntity implements Entity<ErModelRelation> {
             urn={urn}
             entityType={EntityType.Ermodelrelation}
             useEntityQuery={useGetErModelRelationQuery}
-            useUpdateQuery={useUpdateErModelRelationMutation}
+            useUpdateQuery={useUpdateErModelRelationshipMutation}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
             tabs={[
                 {

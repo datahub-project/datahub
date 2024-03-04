@@ -5,7 +5,7 @@ import { PlusOutlined } from '@ant-design/icons';
 import arrow from '../../../../../../images/Arrow.svg';
 import './CreateERModelRelationModal.less';
 import { EntityType, ErModelRelation, OwnerEntityType } from '../../../../../../types.generated';
-import { useCreateErModelRelationMutation, useUpdateErModelRelationMutation } from '../../../../../../graphql/ermodelrelation.generated';
+import { useCreateErModelRelationshipMutation, useUpdateErModelRelationshipMutation } from '../../../../../../graphql/ermodelrelation.generated';
 import { useUserContext } from '../../../../../context/useUserContext';
 import { EditableRow } from './EditableRow';
 import { EditableCell } from './EditableCell';
@@ -67,8 +67,8 @@ export const CreateERModelRelationModal = ({
         ],
     );
     const [count, setCount] = useState(editERModelRelation?.properties?.ermodelrelationFieldMapping?.fieldMappings?.length || 2);
-    const [createMutation] = useCreateErModelRelationMutation();
-    const [updateMutation] = useUpdateErModelRelationMutation();
+    const [createMutation] = useCreateErModelRelationshipMutation();
+    const [updateMutation] = useUpdateErModelRelationshipMutation();
     const [addOwnerMutation] = useAddOwnerMutation();
     const { refetch: getSearchResultsERModelRelations } = useGetSearchResultsQuery({
         skip: true,
@@ -107,7 +107,7 @@ export const CreateERModelRelationModal = ({
             closable: true,
         });
     };
-    const createERModelRelation = () => {
+    const createERModelRelationship = () => {
         createMutation({
             variables: {
                 input: {
@@ -148,7 +148,7 @@ export const CreateERModelRelationModal = ({
                     variables: {
                         input: {
                             ownerUrn: user?.urn || '',
-                            resourceUrn: data?.createERModelRelation?.urn || '',
+                            resourceUrn: data?.createERModelRelationship?.urn || '',
                             ownershipTypeUrn: 'urn:li:ownershipType:__system__technical_owner',
                             ownerEntityType: ownerEntityType || EntityType,
                         },
@@ -161,7 +161,7 @@ export const CreateERModelRelationModal = ({
             });
     };
     const originalERModelRelationName = editERModelRelation?.properties?.name;
-    const updateERModelRelation = () => {
+    const updateERModelRelationship = () => {
         updateMutation({
             variables: {
                 urn: editERModelRelation?.urn || '',
@@ -214,9 +214,9 @@ export const CreateERModelRelationModal = ({
             return;
         }
         if (isEditing) {
-            updateERModelRelation();
+            updateERModelRelationship();
         } else {
-            createERModelRelation();
+            createERModelRelationship();
             setERModelRelationName('');
             setDetails('');
             setTableData([

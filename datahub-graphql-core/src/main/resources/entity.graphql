@@ -619,14 +619,14 @@ type Mutation {
     """
     Create a ERModelRelation
     """
-    createERModelRelation(
+    createERModelRelationship(
         "Input required to create a new ERModelRelation"
         input: ERModelRelationUpdateInput!): ERModelRelation
 
     """
     Update a ERModelRelation
     """
-    updateERModelRelation(
+    updateERModelRelationship(
         "The urn of the ERModelRelation to update"
         urn: String!,
         "Input required to updat an existing DataHub View"
@@ -635,7 +635,7 @@ type Mutation {
     """
     Delete a ERModelRelation
     """
-    deleteERModelRelation(
+    deleteERModelRelationship(
         "The urn of the ERModelRelation to delete"
         urn: String!): Boolean
 

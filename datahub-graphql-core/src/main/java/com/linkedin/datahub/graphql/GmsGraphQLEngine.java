@@ -1074,9 +1074,10 @@ public class GmsGraphQLEngine {
                 .dataFetcher("updateCorpUserProperties", new MutableTypeResolver<>(corpUserType))
                 .dataFetcher("updateCorpGroupProperties", new MutableTypeResolver<>(corpGroupType))
                 .dataFetcher(
-                    "updateERModelRelation", new UpdateERModelRelationResolver(this.entityClient))
+                    "updateERModelRelationship",
+                    new UpdateERModelRelationResolver(this.entityClient))
                 .dataFetcher(
-                    "createERModelRelation",
+                    "createERModelRelationship",
                     new CreateERModelRelationResolver(
                         this.entityClient, this.eRModelRelationService))
                 .dataFetcher("addTag", new AddTagResolver(entityService))
