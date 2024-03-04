@@ -261,14 +261,17 @@ class DatasetPatchBuilder(MetadataPatchProposal):
     def set_description(
         self, description: str, editable: bool = False
     ) -> "DatasetPatchBuilder":
-        self._add_patch(
-            DatasetProperties.ASPECT_NAME
-            if not editable
-            else EditableDatasetProperties.ASPECT_NAME,
-            "add",
-            path="/description",
-            value=description,
-        )
+        if description is not None:
+            self._add_patch(
+                (
+                    DatasetProperties.ASPECT_NAME
+                    if not editable
+                    else EditableDatasetProperties.ASPECT_NAME
+                ),
+                "add",
+                path="/description",
+                value=description,
+            )
         return self
 
     def set_custom_properties(
@@ -289,8 +292,9 @@ class DatasetPatchBuilder(MetadataPatchProposal):
     def add_custom_properties(
         self, custom_properties: Dict[str, str]
     ) -> "DatasetPatchBuilder":
-        for key, value in custom_properties.items():
-            self.custom_properties_patch_helper.add_property(key, value)
+        if custom_properties is not None:
+            for key, value in custom_properties.items():
+                self.custom_properties_patch_helper.add_property(key, value)
         return self
 
     def remove_custom_property(self, key: str) -> "DatasetPatchBuilder":
