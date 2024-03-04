@@ -20,6 +20,7 @@ import { DataPlatformEntity } from './entity/dataPlatform/DataPlatformEntity';
 import { DataProductEntity } from './entity/dataProduct/DataProductEntity';
 import { DataPlatformInstanceEntity } from './entity/dataPlatformInstance/DataPlatformInstanceEntity';
 import { RoleEntity } from './entity/Access/RoleEntity';
+import { RestrictedEntity } from './entity/restricted/RestrictedEntity';
 import {BusinessAttributeEntity} from "./entity/businessAttribute/BusinessAttributeEntity";
 
 export default function buildEntityRegistry() {
@@ -45,6 +46,7 @@ export default function buildEntityRegistry() {
     registry.register(new DataPlatformEntity());
     registry.register(new DataProductEntity());
     registry.register(new DataPlatformInstanceEntity());
+    registry.register(new RestrictedEntity());
     registry.register(new BusinessAttributeEntity());
     return registry;
 }

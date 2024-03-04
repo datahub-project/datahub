@@ -19,6 +19,7 @@ import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchService;
+import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.openapi.dto.UpsertAspectRequest;
 import io.datahubproject.openapi.dto.UrnResponseMap;
 import io.datahubproject.openapi.entities.EntitiesController;
@@ -73,6 +74,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
 public class EntityApiDelegateImpl<I, O, S> {
+  private final OperationContext systemOperationContext;
   private final EntityRegistry _entityRegistry;
   private final EntityService<?> _entityService;
   private final SearchService _searchService;
@@ -87,6 +89,7 @@ public class EntityApiDelegateImpl<I, O, S> {
   private final StackWalker walker = StackWalker.getInstance();
 
   public EntityApiDelegateImpl(
+      OperationContext systemOperationContext,
       EntityService<?> entityService,
       SearchService searchService,
       EntitiesController entitiesController,
@@ -95,6 +98,7 @@ public class EntityApiDelegateImpl<I, O, S> {
       Class<I> reqClazz,
       Class<O> respClazz,
       Class<S> scrollRespClazz) {
+    this.systemOperationContext = systemOperationContext;
     this._entityService = entityService;
     this._searchService = searchService;
     this._entityRegistry = entityService.getEntityRegistry();
@@ -460,7 +464,13 @@ public class EntityApiDelegateImpl<I, O, S> {
       @Valid SortOrder sortOrder,
       @Valid String query) {
 
+    SearchFlags searchFlags =
+        new SearchFlags().setFulltext(false).setSkipAggregates(true).setSkipHighlighting(true);
+
     Authentication authentication = AuthenticationContext.getAuthentication();
+    OperationContext opContext =
+        OperationContext.asSession(
+            systemOperationContext, _authorizationChain, authentication, true);
     com.linkedin.metadata.models.EntitySpec entitySpec =
         OpenApiEntitiesUtil.responseClassToEntitySpec(_entityRegistry, _respClazz);
     checkScrollAuthorized(authentication, entitySpec);
@@ -472,19 +482,16 @@ public class EntityApiDelegateImpl<I, O, S> {
         com.linkedin.metadata.query.filter.SortOrder.valueOf(
             Optional.ofNullable(sortOrder).map(Enum::name).orElse("ASCENDING")));
 
-    SearchFlags searchFlags =
-        new SearchFlags().setFulltext(false).setSkipAggregates(true).setSkipHighlighting(true);
-
     ScrollResult result =
         _searchService.scrollAcrossEntities(
+            opContext.withSearchFlags(flags -> searchFlags),
             List.of(entitySpec.getName()),
             query,
             null,
             sortCriterion,
             scrollId,
             null,
-            count,
-            searchFlags);
+            count);
 
     String[] urns =
         result.getEntities().stream()

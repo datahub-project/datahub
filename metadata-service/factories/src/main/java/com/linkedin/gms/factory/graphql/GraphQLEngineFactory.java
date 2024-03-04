@@ -33,6 +33,7 @@ import com.linkedin.metadata.service.FormService;
 import com.linkedin.metadata.service.LineageService;
 import com.linkedin.metadata.service.OwnershipTypeService;
 import com.linkedin.metadata.service.QueryService;
+import com.linkedin.metadata.service.RestrictedService;
 import com.linkedin.metadata.service.SettingsService;
 import com.linkedin.metadata.service.ViewService;
 import com.linkedin.metadata.timeline.TimelineService;
@@ -168,6 +169,10 @@ public class GraphQLEngineFactory {
   @Qualifier("formService")
   private FormService formService;
 
+  @Autowired
+  @Qualifier("restrictedService")
+  private RestrictedService restrictedService;
+
   @Value("${platformAnalytics.enabled}") // TODO: Migrate to DATAHUB_ANALYTICS_ENABLED
   private Boolean isAnalyticsEnabled;
 
@@ -218,6 +223,7 @@ public class GraphQLEngineFactory {
     args.setQueryService(queryService);
     args.setFeatureFlags(configProvider.getFeatureFlags());
     args.setFormService(formService);
+    args.setRestrictedService(restrictedService);
     args.setDataProductService(dataProductService);
     args.setGraphQLQueryComplexityLimit(
         configProvider.getGraphQL().getQuery().getComplexityLimit());

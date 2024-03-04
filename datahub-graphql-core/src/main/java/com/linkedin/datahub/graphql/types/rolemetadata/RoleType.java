@@ -18,7 +18,6 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.query.AutoCompleteResult;
-import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchResult;
 import graphql.execution.DataFetcherResult;
@@ -104,13 +103,12 @@ public class RoleType
       throws Exception {
     final SearchResult searchResult =
         _entityClient.search(
+            context.getOperationContext().withSearchFlags(flags -> flags.setFulltext(true)),
             Constants.ROLE_ENTITY_NAME,
             query,
             Collections.emptyMap(),
             start,
-            count,
-            context.getAuthentication(),
-            new SearchFlags().setFulltext(true));
+            count);
     return UrnSearchResultsMapper.map(searchResult);
   }
 
@@ -124,7 +122,7 @@ public class RoleType
       throws Exception {
     final AutoCompleteResult result =
         _entityClient.autoComplete(
-            Constants.ROLE_ENTITY_NAME, query, filters, limit, context.getAuthentication());
+            context.getOperationContext(), Constants.ROLE_ENTITY_NAME, query, filters, limit);
     return AutoCompleteResultsMapper.map(result);
   }
 }
