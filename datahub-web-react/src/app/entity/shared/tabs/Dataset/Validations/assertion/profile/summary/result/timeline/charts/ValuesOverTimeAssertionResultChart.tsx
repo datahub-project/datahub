@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 
+import _ from 'lodash';
 import { Popover } from 'antd';
 import { AreaClosed, LinePath } from '@visx/shape';
 import { Group } from '@visx/group';
@@ -38,6 +39,8 @@ const CHART_RIGHT_MARGIN = 2;
 const CHART_TOP_MARGIN = 8;
 
 export const ValuesOverTimeAssertionResultChart = ({ data, timeRange, chartDimensions }: Props) => {
+    const rawDataPoints = data.dataPoints
+
     const chartInnerWidth = chartDimensions.width - CHART_AXIS_LEFT_WIDTH - CHART_RIGHT_MARGIN
     const chartInnerHeight = chartDimensions.height - CHART_AXIS_BOTTOM_HEIGHT - CHART_TOP_MARGIN
 
@@ -50,28 +53,43 @@ export const ValuesOverTimeAssertionResultChart = ({ data, timeRange, chartDimen
         [timeRange, chartInnerWidth],
     );
 
-    const yScale = useMemo(
+    const { yScale, extent } = useMemo(
         () => {
-            const yValues = data.dataPoints.filter(point => typeof point.result.yValue === 'number').map(point => point.result.yValue ?? 0)
-            let min = (Math.min(...yValues) || 0)
-            let max = (Math.max(...yValues) || 0)
+            const yValues = rawDataPoints.filter(point => typeof point.result.yValue === 'number').map(point => point.result.yValue!)
+            const realMin = (Math.min(...yValues) || 0)
+            const realMax = (Math.max(...yValues) || 0)
+            const averageValue = (realMax + realMin) / 2
+            let min = realMin;
+            let max = realMax;
 
             // Add some extra range above and below if the min and the max are the same so things are nicely centered
-            if (min === max) {
-                const averageValue = min + max / 2
+            if (realMin === realMax) {
                 const averageValueBase = Math.floor(averageValue).toString().length
                 const differentiator = 10 ** (averageValueBase - 1)
                 min -= differentiator;
                 max += differentiator;
             }
 
-            return scaleLinear(
-                [min, max],
-                [chartInnerHeight, 0],
-            )
+            return {
+                yScale: scaleLinear(
+                    [min, max],
+                    [chartInnerHeight, 0],
+                ),
+                extent: {
+                    min: realMin,
+                    max: realMax,
+                    average: averageValue,
+                },
+            }
         },
-        [data.dataPoints, chartInnerHeight]
+        [rawDataPoints, chartInnerHeight]
     );
+    const defaultYValue = extent.average
+    const dataPoints = rawDataPoints.map(dataPoint => {
+        const point = _.cloneDeep(dataPoint)
+        point.result.yValue = point.result.yValue ?? defaultYValue;
+        return point
+    })
 
     /* NOTE: the nodes in an svg that are first will have a lower z-index at paint-time */
     return <svg width={chartDimensions.width} height={chartDimensions.height}>
@@ -83,11 +101,11 @@ export const ValuesOverTimeAssertionResultChart = ({ data, timeRange, chartDimen
                 tickStroke={ANTD_GRAY[5]}
                 numTicks={2}
                 tickFormat={v => truncateNumberForDisplay(v.valueOf())}
-                tickLabelProps={(_) => ({
+                tickLabelProps={{
                     fill: ANTD_GRAY[9],
                     fontSize: 11,
                     textAnchor: 'end',
-                })}
+                }}
             />
             <AxisBottom
                 top={chartInnerHeight}
@@ -101,7 +119,7 @@ export const ValuesOverTimeAssertionResultChart = ({ data, timeRange, chartDimen
             {/* ----- Line with gradient ----- */}
             <LinearGradient id="area-gradient" from={ACCENT_COLOR_HEX} to={ACCENT_COLOR_HEX} fromOpacity={0.25} toOpacity={0} />
             <AreaClosed
-                data={data.dataPoints}
+                data={dataPoints}
                 x={(d) => xScale(d.time) ?? 0}
                 y={(d) => yScale(d.result.yValue ?? 0) ?? 0}
                 yScale={yScale}
@@ -110,7 +128,7 @@ export const ValuesOverTimeAssertionResultChart = ({ data, timeRange, chartDimen
             />
 
             <LinePath
-                data={data.dataPoints}
+                data={dataPoints}
                 x={(d) => xScale(d.time) ?? 0}
                 y={(d) => yScale(d.result.yValue ?? 0) ?? 0}
                 stroke={ACCENT_COLOR_HEX}
@@ -118,9 +136,9 @@ export const ValuesOverTimeAssertionResultChart = ({ data, timeRange, chartDimen
             />
 
             {/* ----- Circular datapoints ----- */}
-            {data.dataPoints.map(dataPoint => {
+            {dataPoints.map(dataPoint => {
                 const xOffset = xScale(new Date(dataPoint.time));
-                const yOffset = yScale(dataPoint.result.yValue ?? 0);
+                const yOffset = yScale(dataPoint.result.yValue ?? defaultYValue);
                 const fillColor = getFillColor(dataPoint.result.type);
                 return (
                     <LinkWrapper key={dataPoint.time} to={dataPoint.result.resultUrl} target="_blank">
