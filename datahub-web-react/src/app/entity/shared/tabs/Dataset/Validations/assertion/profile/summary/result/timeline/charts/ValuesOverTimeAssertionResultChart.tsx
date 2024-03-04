@@ -86,7 +86,9 @@ export const ValuesOverTimeAssertionResultChart = ({ data, timeRange, chartDimen
     );
     const defaultYValue = extent.average
     const dataPoints = rawDataPoints.map(dataPoint => {
-        const point = _.cloneDeep(dataPoint)
+        // Doing a semi-shallow 2-level clone because the result data can have a lot of nesting
+        const point = _.clone(dataPoint)
+        point.result = _.clone(point.result)
         point.result.yValue = point.result.yValue ?? defaultYValue;
         return point
     })
