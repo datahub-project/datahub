@@ -3,19 +3,20 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime
 from typing import (
+    Any,
     Callable,
     Collection,
     Iterable,
     List,
-    MutableMapping,
     Optional,
     Sequence,
     Set,
     Tuple,
+    Type,
 )
 
+from pydantic import BaseModel, validator
 from snowflake.connector import SnowflakeConnection
-from typing_extensions import TypedDict
 
 from datahub.configuration.datetimes import parse_absolute_time
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -60,40 +61,53 @@ TABLE_LINEAGE = "table_lineage"
 VIEW_LINEAGE = "view_lineage"
 
 
-class UpstreamColumnNode(TypedDict):
+def pydantic_parse_json(field: str) -> classmethod:
+    def _parse_from_json(cls: Type, v: Any) -> dict:
+        if isinstance(v, str):
+            return json.loads(v)
+        return v
+
+    return validator(field, pre=True, allow_reuse=True)(_parse_from_json)
+
+
+class UpstreamColumnNode(BaseModel):
     object_name: str
     object_domain: str
     column_name: str
 
 
-class ColumnUpstreamJob(TypedDict):
+class ColumnUpstreamJob(BaseModel):
     column_upstreams: List[UpstreamColumnNode]
     query_id: str
 
 
-class ColumnUpstreamLineage(TypedDict):
+class ColumnUpstreamLineage(BaseModel):
     column_name: str
     upstreams: List[ColumnUpstreamJob]
 
 
-class UpstreamTableNode(TypedDict):
+class UpstreamTableNode(BaseModel):
     upstream_object_domain: str
     upstream_object_name: str
     query_id: str
 
 
-class Query(TypedDict):
+class Query(BaseModel):
     query_id: str
     query_text: str
     start_time: str
 
 
-class UpstreamLineageEdge(TypedDict):
+class UpstreamLineageEdge(BaseModel):
     DOWNSTREAM_TABLE_NAME: str
     DOWNSTREAM_TABLE_DOMAIN: str
-    UPSTREAM_TABLES: Optional[str]  # JSON serialized `List[UpstreamTableNode]`
-    UPSTREAM_COLUMNS: Optional[str]  # JSON serialized `List[ColumnUpstreamLineage]`
-    QUERIES: Optional[str]  # JSON serialized `List[Query]`
+    UPSTREAM_TABLES: Optional[List[UpstreamTableNode]]
+    UPSTREAM_COLUMNS: Optional[List[ColumnUpstreamLineage]]
+    QUERIES: Optional[List[Query]]
+
+    _json_upstream_tables = pydantic_parse_json("UPSTREAM_TABLES")
+    _json_upstream_columns = pydantic_parse_json("UPSTREAM_COLUMNS")
+    _json_queries = pydantic_parse_json("QUERIES")
 
 
 @dataclass(frozen=True)
@@ -163,7 +177,6 @@ class SnowflakeLineageExtractor(
         self,
         discovered_tables: List[str],
         discovered_views: List[str],
-        view_definitions: MutableMapping[str, str],
     ) -> Iterable[MetadataWorkUnit]:
         if not self._should_ingest_lineage():
             return
@@ -174,9 +187,6 @@ class SnowflakeLineageExtractor(
 
         # s3 dataset -> snowflake table
         self._populate_external_upstreams(discovered_tables)
-
-        # snowflake view/table -> snowflake view
-        self._populate_view_definitions(discovered_views, view_definitions)
 
         # snowflake view/table -> snowflake table
         self.populate_table_upstreams(discovered_tables)
@@ -194,20 +204,6 @@ class SnowflakeLineageExtractor(
                 ),
                 self.config.end_time,
             )
-
-    def _populate_view_definitions(self, discovered_views, view_definitions):
-        if self.config.include_view_lineage:
-            if len(discovered_views) > 0:
-                for view_identifier, view_definition in view_definitions.items():
-                    database, schema, _ = view_identifier.split(".")
-                    self.sql_aggregator.add_view_definition(
-                        view_urn=self.dataset_urn_builder(view_identifier),
-                        view_definition=view_definition,
-                        default_db=database,
-                        default_schema=schema,
-                    )
-            else:
-                logger.info("No views found. Skipping View Lineage Extraction.")
 
     def populate_table_upstreams(self, discovered_tables: List[str]) -> None:
         if self.report.edition == SnowflakeEdition.STANDARD:
@@ -236,13 +232,12 @@ class SnowflakeLineageExtractor(
     ) -> None:
         for db_row in results:
             dataset_name = self.get_dataset_identifier_from_qualified_name(
-                db_row["DOWNSTREAM_TABLE_NAME"]
+                db_row.DOWNSTREAM_TABLE_NAME
             )
-            if dataset_name not in discovered_assets or not db_row["QUERIES"]:
+            if dataset_name not in discovered_assets or not db_row.QUERIES:
                 continue
 
-            queries: List[Query] = json.loads(db_row["QUERIES"])
-            for query in queries:
+            for query in db_row.QUERIES:
                 known_lineage = self.get_known_query_lineage(
                     query, dataset_name, db_row
                 )
@@ -280,31 +275,27 @@ class SnowflakeLineageExtractor(
         self, query: Query, dataset_name: str, db_row: UpstreamLineageEdge
     ) -> Optional[KnownQueryLineageInfo]:
 
-        if "UPSTREAM_TABLES" not in db_row or not db_row["UPSTREAM_TABLES"]:
+        if not db_row.UPSTREAM_TABLES:
             return None
 
         downstream_table_urn = self.dataset_urn_builder(dataset_name)
 
         known_lineage = KnownQueryLineageInfo(
-            query_text=query["query_text"],
+            query_text=query.query_text,
             downstream=downstream_table_urn,
             upstreams=self.map_query_result_upstreams(
-                json.loads(db_row["UPSTREAM_TABLES"]), query["query_id"]
+                db_row.UPSTREAM_TABLES, query.query_id
             ),
             column_lineage=(
                 self.map_query_result_fine_upstreams(
                     downstream_table_urn,
-                    json.loads(db_row["UPSTREAM_COLUMNS"]),
-                    query["query_id"],
+                    db_row.UPSTREAM_COLUMNS,
+                    query.query_id,
                 )
-                if (
-                    self.config.include_column_lineage
-                    and "UPSTREAM_COLUMNS" in db_row
-                    and db_row["UPSTREAM_COLUMNS"] is not None
-                )
+                if (self.config.include_column_lineage and db_row.UPSTREAM_COLUMNS)
                 else None
             ),
-            timestamp=parse_absolute_time(query["start_time"]),
+            timestamp=parse_absolute_time(query.start_time),
         )
 
         return known_lineage
@@ -418,7 +409,7 @@ class SnowflakeLineageExtractor(
         )
         try:
             for db_row in self.query(query):
-                yield db_row
+                yield UpstreamLineageEdge.parse_obj(db_row)
         except Exception as e:
             if isinstance(e, SnowflakePermissionError):
                 error_msg = "Failed to get table/view to table lineage. Please grant imported privileges on SNOWFLAKE database. "
@@ -438,14 +429,14 @@ class SnowflakeLineageExtractor(
             return []
         upstreams: List[UrnStr] = []
         for upstream_table in upstream_tables:
-            if upstream_table and upstream_table["query_id"] == query_id:
+            if upstream_table and upstream_table.query_id == query_id:
                 try:
                     upstream_name = self.get_dataset_identifier_from_qualified_name(
-                        upstream_table["upstream_object_name"]
+                        upstream_table.upstream_object_name
                     )
                     if upstream_name and self._is_dataset_pattern_allowed(
                         upstream_name,
-                        upstream_table["upstream_object_domain"],
+                        upstream_table.upstream_object_domain,
                         is_upstream=True,
                     ):
                         upstreams.append(self.dataset_urn_builder(upstream_name))
@@ -479,48 +470,27 @@ class SnowflakeLineageExtractor(
         column_with_upstreams: ColumnUpstreamLineage,
         query_id: str,
     ) -> None:
-        column_name = column_with_upstreams["column_name"]
-        upstream_jobs = column_with_upstreams["upstreams"]
+        column_name = column_with_upstreams.column_name
+        upstream_jobs = column_with_upstreams.upstreams
         if column_name and upstream_jobs:
             for upstream_job in upstream_jobs:
-                if not upstream_job or upstream_job["query_id"] != query_id:
+                if not upstream_job or upstream_job.query_id != query_id:
                     continue
                 fine_upstream = self.build_finegrained_lineage(
                     dataset_urn=dataset_urn,
                     col=column_name,
                     upstream_columns={
                         SnowflakeColumnId(
-                            column_name=col["column_name"],
-                            object_name=col["object_name"],
-                            object_domain=col["object_domain"],
+                            column_name=col.column_name,
+                            object_name=col.object_name,
+                            object_domain=col.object_domain,
                         )
-                        for col in upstream_job["column_upstreams"]
+                        for col in upstream_job.column_upstreams
                     },
                 )
                 if not fine_upstream:
                     continue
                 fine_upstreams.append(fine_upstream)
-
-    def _fetch_upstream_lineages_for_views(self):
-        # NOTE: This query captures only the upstream lineage of a view (with no column lineage).
-        # For more details see: https://docs.snowflake.com/en/user-guide/object-dependencies.html#object-dependencies
-        # and also https://docs.snowflake.com/en/sql-reference/account-usage/access_history.html#usage-notes for current limitations on capturing the lineage for views.
-        view_upstream_lineage_query: str = SnowflakeQuery.view_dependencies_v2()
-
-        try:
-            for db_row in self.query(view_upstream_lineage_query):
-                yield db_row
-        except Exception as e:
-            if isinstance(e, SnowflakePermissionError):
-                error_msg = "Failed to get table to view lineage. Please grant imported privileges on SNOWFLAKE database."
-                self.warn_if_stateful_else_error(LINEAGE_PERMISSION_ERROR, error_msg)
-            else:
-                logger.debug(e, exc_info=e)
-                self.report_warning(
-                    "view-upstream-lineage",
-                    f"Extracting the upstream view lineage from Snowflake failed due to error {e}.",
-                )
-            self.report_status(VIEW_LINEAGE, False)
 
     def build_finegrained_lineage(
         self,

@@ -933,7 +933,7 @@ class SnowflakeQuery:
             ["upstream_table_name"],
         )
         return f"""
-        WITH column_lineage_history AS (
+        WITH table_lineage_history AS (
             SELECT
                 r.value : "objectName" :: varchar AS upstream_table_name,
                 r.value : "objectDomain" :: varchar AS upstream_table_domain,
@@ -964,7 +964,7 @@ class SnowflakeQuery:
                 ANY_VALUE(upstream_table_domain) as upstream_table_domain,
                 MAX_BY(query_id, query_start_time) as query_id
             FROM
-                column_lineage_history
+                table_lineage_history
             GROUP BY
                 downstream_table_name,
                 upstream_table_name
