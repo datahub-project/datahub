@@ -13,6 +13,7 @@ import com.linkedin.metadata.recommendation.ScenarioType;
 import com.linkedin.metadata.recommendation.SearchParams;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
@@ -60,7 +61,7 @@ public class RecentlySearchedSource implements RecommendationSource {
 
   @Override
   public boolean isEligible(
-      @Nonnull Urn userUrn, @Nonnull RecommendationRequestContext requestContext) {
+      @Nonnull OperationContext opContext, @Nonnull RecommendationRequestContext requestContext) {
     boolean analyticsEnabled = false;
     try {
       analyticsEnabled =
@@ -77,8 +78,8 @@ public class RecentlySearchedSource implements RecommendationSource {
 
   @Override
   public List<RecommendationContent> getRecommendations(
-      @Nonnull Urn userUrn, @Nonnull RecommendationRequestContext requestContext) {
-    SearchRequest searchRequest = buildSearchRequest(userUrn);
+      @Nonnull OperationContext opContext, @Nonnull RecommendationRequestContext requestContext) {
+    SearchRequest searchRequest = buildSearchRequest(opContext.getActorContext().getActorUrn());
     try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "getRecentlySearched").time()) {
       final SearchResponse searchResponse =
           _searchClient.search(searchRequest, RequestOptions.DEFAULT);

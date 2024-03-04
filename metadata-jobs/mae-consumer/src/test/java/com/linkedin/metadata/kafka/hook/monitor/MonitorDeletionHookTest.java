@@ -32,7 +32,6 @@ import com.linkedin.incident.IncidentInfo;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.key.AssertionKey;
 import com.linkedin.metadata.key.MonitorKey;
-import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.search.SearchEntity;
@@ -347,14 +346,13 @@ public class MonitorDeletionHookTest {
             : new SearchEntityArray(ImmutableList.of(new SearchEntity().setEntity(incidentUrn)));
 
     when(mockClient.search(
+            Mockito.any(),
             Mockito.eq(INCIDENT_ENTITY_NAME),
             Mockito.eq("*"),
             Mockito.any(Filter.class),
             Mockito.eq(null),
             Mockito.anyInt(),
-            Mockito.anyInt(),
-            Mockito.any(Authentication.class),
-            Mockito.any(SearchFlags.class)))
+            Mockito.anyInt()))
         .thenReturn(
             new SearchResult()
                 .setNumEntities(1)
@@ -419,14 +417,13 @@ public class MonitorDeletionHookTest {
             : new SearchEntityArray(ImmutableList.of(new SearchEntity().setEntity(anomalyUrn)));
 
     when(mockClient.search(
+            Mockito.any(),
             Mockito.eq(ANOMALY_ENTITY_NAME),
             Mockito.eq("*"),
             Mockito.any(Filter.class),
             Mockito.eq(null),
             Mockito.anyInt(),
-            Mockito.anyInt(),
-            Mockito.any(Authentication.class),
-            Mockito.any(SearchFlags.class)))
+            Mockito.anyInt()))
         .thenReturn(
             new SearchResult()
                 .setNumEntities(1)

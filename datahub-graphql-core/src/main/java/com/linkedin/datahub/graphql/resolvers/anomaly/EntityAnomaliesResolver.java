@@ -59,12 +59,12 @@ public class EntityAnomaliesResolver
             final SortCriterion sortCriterion = buildAnomaliesSortCriterion();
             final SearchResult searchResult =
                 _entityClient.filter(
+                    context.getOperationContext(),
                     Constants.ANOMALY_ENTITY_NAME,
                     filter,
                     sortCriterion,
                     start,
-                    count,
-                    context.getAuthentication());
+                    count);
             final List<Urn> anomalyUrns =
                 searchResult.getEntities().stream()
                     .map(SearchEntity::getEntity)

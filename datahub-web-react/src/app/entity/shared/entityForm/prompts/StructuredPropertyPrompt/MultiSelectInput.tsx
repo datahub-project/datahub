@@ -6,8 +6,9 @@ import { getStructuredPropertyValue } from '../../../utils';
 import ValueDescription from './ValueDescription';
 import { AllowedValue } from '../../../../../../types.generated';
 import DropdownLabel from './DropdownLabel';
+import { useEntityFormContext } from '../../EntityFormContext';
 
-const StyledCheckbox = styled(Checkbox)`
+const StyledCheckbox = styled(Checkbox) <{ $displayBulkStyles?: boolean }>`
     display: flex;
     margin: 0 0 4px 0;
     .ant-checkbox-inner {
@@ -16,6 +17,7 @@ const StyledCheckbox = styled(Checkbox)`
     &&& {
         margin-left: 0;
     }
+    ${(props) => props.$displayBulkStyles && 'color: white;'}
 `;
 
 const StyleTag = styled(Tag)`
@@ -38,9 +40,13 @@ export default function MultiSelectInput({
     toggleSelectedValue,
     updateSelectedValues,
     allowedValues,
-    selectedValues,
+    selectedValues
 }: Props) {
-    return allowedValues.length > 5 ? (
+    const { prompt: { displayBulkPromptStyles } } = useEntityFormContext();
+
+    const shouldShowSelectDropdown = allowedValues.length > 5 || displayBulkPromptStyles;
+
+    return shouldShowSelectDropdown ? (
         <Select
             style={DROPDOWN_STYLE as any}
             placeholder="Select"
@@ -65,18 +71,19 @@ export default function MultiSelectInput({
             onChange={(value) => updateSelectedValues(value)}
         />
     ) : (
-        <>
+        <div>
             {allowedValues.map((allowedValue) => (
                 <StyledCheckbox
                     key={getStructuredPropertyValue(allowedValue.value)}
                     value={getStructuredPropertyValue(allowedValue.value)}
                     onChange={(e) => toggleSelectedValue(e.target.value)}
                     checked={selectedValues.includes(getStructuredPropertyValue(allowedValue.value))}
+                    $displayBulkStyles={displayBulkPromptStyles}
                 >
                     {getStructuredPropertyValue(allowedValue.value)}
                     {allowedValue.description && <ValueDescription description={allowedValue.description} />}
                 </StyledCheckbox>
             ))}
-        </>
+        </div>
     );
 }

@@ -39,6 +39,8 @@ public class DomainType
           Constants.DOMAIN_PROPERTIES_ASPECT_NAME,
           Constants.OWNERSHIP_ASPECT_NAME,
           Constants.INSTITUTIONAL_MEMORY_ASPECT_NAME,
+          Constants.STRUCTURED_PROPERTIES_ASPECT_NAME,
+          Constants.FORMS_ASPECT_NAME,
           Constants.DISPLAY_PROPERTIES_ASPECT_NAME,
           Constants.SHARE_ASPECT_NAME);
   private final EntityClient _entityClient;
@@ -115,7 +117,7 @@ public class DomainType
       throws Exception {
     final AutoCompleteResult result =
         _entityClient.autoComplete(
-            Constants.DOMAIN_ENTITY_NAME, query, filters, limit, context.getAuthentication());
+            context.getOperationContext(), Constants.DOMAIN_ENTITY_NAME, query, filters, limit);
     return AutoCompleteResultsMapper.map(result);
   }
 

@@ -3,7 +3,19 @@ package com.linkedin.datahub.graphql.types.chart.mappers;
 import static com.linkedin.metadata.Constants.*;
 
 import com.linkedin.chart.EditableChartProperties;
-import com.linkedin.common.*;
+import com.linkedin.common.BrowsePathsV2;
+import com.linkedin.common.DataPlatformInstance;
+import com.linkedin.common.Deprecation;
+import com.linkedin.common.Embed;
+import com.linkedin.common.Forms;
+import com.linkedin.common.GlobalTags;
+import com.linkedin.common.GlossaryTerms;
+import com.linkedin.common.InputFields;
+import com.linkedin.common.InstitutionalMemory;
+import com.linkedin.common.Ownership;
+import com.linkedin.common.Share;
+import com.linkedin.common.Status;
+import com.linkedin.common.SubTypes;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.datahub.graphql.generated.AccessLevel;
@@ -22,8 +34,10 @@ import com.linkedin.datahub.graphql.types.common.mappers.*;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.SystemMetadataUtils;
 import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
+import com.linkedin.datahub.graphql.types.form.FormsMapper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
+import com.linkedin.datahub.graphql.types.structuredproperty.StructuredPropertiesMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
 import com.linkedin.domain.Domains;
 import com.linkedin.entity.EntityResponse;
@@ -31,6 +45,7 @@ import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.key.ChartKey;
 import com.linkedin.metadata.key.DataPlatformKey;
 import com.linkedin.metadata.utils.EntityKeyUtils;
+import com.linkedin.structured.StructuredProperties;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 
@@ -102,6 +117,15 @@ public class ChartMapper implements ModelMapper<EntityResponse, Chart> {
     mappingHelper.mapToResult(
         SUB_TYPES_ASPECT_NAME,
         (dashboard, dataMap) -> dashboard.setSubTypes(SubTypesMapper.map(new SubTypes(dataMap))));
+    mappingHelper.mapToResult(
+        STRUCTURED_PROPERTIES_ASPECT_NAME,
+        ((chart, dataMap) ->
+            chart.setStructuredProperties(
+                StructuredPropertiesMapper.map(new StructuredProperties(dataMap)))));
+    mappingHelper.mapToResult(
+        FORMS_ASPECT_NAME,
+        ((entity, dataMap) ->
+            entity.setForms(FormsMapper.map(new Forms(dataMap), entityUrn.toString()))));
     mappingHelper.mapToResult(
         SHARE_ASPECT_NAME,
         (entity, dataMap) -> entity.setShare(ShareMapper.map(new Share(dataMap))));

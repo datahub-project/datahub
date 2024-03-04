@@ -3,6 +3,7 @@ import { FolderOutlined } from '@ant-design/icons';
 import { EntityType, Owner, ParentNodesResult } from '../../../../types.generated';
 import DefaultPreviewCard from '../../../previewV2/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
+import { EntityMenuItems } from '../../shared/EntityDropdown/EntityMenuActions';
 
 export const Preview = ({
     urn,
@@ -10,12 +11,14 @@ export const Preview = ({
     description,
     owners,
     parentNodes,
+    headerDropdownItems,
 }: {
     urn: string;
     name: string;
     description?: string | null;
     owners?: Array<Owner> | null;
     parentNodes?: ParentNodesResult | null;
+    headerDropdownItems?: Set<EntityMenuItems>;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     return (
@@ -28,6 +31,7 @@ export const Preview = ({
             logoComponent={<FolderOutlined style={{ fontSize: '20px' }} />}
             entityType={EntityType.GlossaryNode}
             parentEntities={parentNodes?.nodes}
+            headerDropdownItems={headerDropdownItems}
         />
     );
 };

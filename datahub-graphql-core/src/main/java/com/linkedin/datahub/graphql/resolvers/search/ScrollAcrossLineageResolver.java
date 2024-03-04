@@ -93,7 +93,7 @@ public class ScrollAcrossLineageResolver
                 scrollId,
                 count);
 
-            SearchFlags searchFlags = null;
+            final SearchFlags searchFlags;
             final com.linkedin.datahub.graphql.generated.SearchFlags inputFlags =
                 input.getSearchFlags();
             if (inputFlags != null) {
@@ -102,9 +102,14 @@ public class ScrollAcrossLineageResolver
                       .setSkipCache(inputFlags.getSkipCache())
                       .setFulltext(inputFlags.getFulltext())
                       .setMaxAggValues(inputFlags.getMaxAggValues());
+            } else {
+              searchFlags = null;
             }
             return UrnScrollAcrossLineageResultsMapper.map(
                 _entityClient.scrollAcrossLineage(
+                    context
+                        .getOperationContext()
+                        .withSearchFlags(flags -> searchFlags != null ? searchFlags : flags),
                     urn,
                     resolvedDirection,
                     entityNames,
@@ -116,9 +121,7 @@ public class ScrollAcrossLineageResolver
                     keepAlive,
                     count,
                     startTimeMillis,
-                    endTimeMillis,
-                    searchFlags,
-                    ResolverUtils.getAuthentication(environment)));
+                    endTimeMillis));
           } catch (RemoteInvocationException e) {
             log.error(
                 "Failed to execute scroll across relationships: source urn {}, direction {}, entity types {}, query {}, filters: {}, start: {}, count: {}",

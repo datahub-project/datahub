@@ -2,7 +2,15 @@ package com.linkedin.datahub.graphql.types.mlmodel.mappers;
 
 import static com.linkedin.metadata.Constants.*;
 
-import com.linkedin.common.*;
+import com.linkedin.common.BrowsePathsV2;
+import com.linkedin.common.DataPlatformInstance;
+import com.linkedin.common.Deprecation;
+import com.linkedin.common.Forms;
+import com.linkedin.common.GlobalTags;
+import com.linkedin.common.GlossaryTerms;
+import com.linkedin.common.Ownership;
+import com.linkedin.common.Share;
+import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
@@ -15,8 +23,10 @@ import com.linkedin.datahub.graphql.types.common.mappers.*;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.SystemMetadataUtils;
 import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
+import com.linkedin.datahub.graphql.types.form.FormsMapper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
+import com.linkedin.datahub.graphql.types.structuredproperty.StructuredPropertiesMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
 import com.linkedin.domain.Domains;
 import com.linkedin.entity.EntityResponse;
@@ -24,6 +34,7 @@ import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.key.MLModelGroupKey;
 import com.linkedin.ml.metadata.EditableMLModelGroupProperties;
 import com.linkedin.ml.metadata.MLModelGroupProperties;
+import com.linkedin.structured.StructuredProperties;
 import javax.annotation.Nonnull;
 
 /** Maps Pegasus {@link RecordTemplate} objects to objects conforming to the GQL schema. */
@@ -82,6 +93,15 @@ public class MLModelGroupMapper implements ModelMapper<EntityResponse, MLModelGr
         BROWSE_PATHS_V2_ASPECT_NAME,
         (mlModelGroup, dataMap) ->
             mlModelGroup.setBrowsePathV2(BrowsePathsV2Mapper.map(new BrowsePathsV2(dataMap))));
+    mappingHelper.mapToResult(
+        STRUCTURED_PROPERTIES_ASPECT_NAME,
+        ((mlModelGroup, dataMap) ->
+            mlModelGroup.setStructuredProperties(
+                StructuredPropertiesMapper.map(new StructuredProperties(dataMap)))));
+    mappingHelper.mapToResult(
+        FORMS_ASPECT_NAME,
+        ((entity, dataMap) ->
+            entity.setForms(FormsMapper.map(new Forms(dataMap), entityUrn.toString()))));
     mappingHelper.mapToResult(
         SHARE_ASPECT_NAME,
         (entity, dataMap) -> entity.setShare(ShareMapper.map(new Share(dataMap))));

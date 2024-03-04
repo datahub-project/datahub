@@ -13,6 +13,7 @@ import com.linkedin.metadata.test.action.ActionApplier;
 import com.linkedin.metadata.test.definition.TestDefinitionParser;
 import com.linkedin.metadata.test.eval.PredicateEvaluator;
 import com.linkedin.metadata.test.query.QueryEngine;
+import io.datahubproject.metadata.context.OperationContext;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -51,9 +52,11 @@ public class TestEngineFactory {
 
   @Bean(name = "testEngine")
   @Nonnull
-  protected TestEngine getInstance() {
+  protected TestEngine getInstance(
+      @Qualifier("systemOperationContext") final OperationContext systemOpContext) {
     PredicateEvaluator predicateEvaluator = PredicateEvaluator.getInstance();
     return new TestEngine(
+        systemOpContext,
         entityService,
         new TestFetcher(entityService, entitySearchService),
         new TestDefinitionParser(predicateEvaluator),

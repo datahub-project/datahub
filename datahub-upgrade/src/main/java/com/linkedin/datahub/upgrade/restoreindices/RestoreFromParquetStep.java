@@ -6,7 +6,6 @@ import com.google.common.collect.ImmutableBiMap;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
-import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
@@ -18,13 +17,13 @@ import com.linkedin.datahub.upgrade.restorebackup.backupreader.LocalParquetReade
 import com.linkedin.datahub.upgrade.restorebackup.backupreader.ParquetReaderWrapper;
 import com.linkedin.datahub.upgrade.restorebackup.backupreader.S3BackupReader;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.mxe.SystemMetadata;
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -233,11 +232,10 @@ public class RestoreFromParquetStep implements UpgradeStep {
       }
 
       // 4. Create record from json aspect
-      final RecordTemplate aspectRecord;
+      final SystemAspect systemAspectRecord;
       try {
-        aspectRecord =
-            EntityUtils.toAspectRecord(
-                entityName, aspectName, aspect.getMetadata(), _entityRegistry);
+        systemAspectRecord =
+            EntityUtils.toSystemAspectFromEbeanAspects(List.of(aspect), _entityService).get(0);
       } catch (Exception e) {
         context
             .report()
@@ -248,9 +246,6 @@ public class RestoreFromParquetStep implements UpgradeStep {
         continue;
       }
 
-      SystemMetadata latestSystemMetadata =
-          EntityUtils.parseSystemMetadata(aspect.getSystemMetadata());
-
       // 5. Produce MAE events for the aspect record
       _entityService
           .alwaysProduceMCLAsync(
@@ -259,9 +254,9 @@ public class RestoreFromParquetStep implements UpgradeStep {
               aspectName,
               aspectSpec,
               null,
-              aspectRecord,
+              systemAspectRecord.getRecordTemplate(),
               null,
-              latestSystemMetadata,
+              systemAspectRecord.getSystemMetadata(),
               new AuditStamp()
                   .setActor(UrnUtils.getUrn(SYSTEM_ACTOR))
                   .setTime(System.currentTimeMillis()),

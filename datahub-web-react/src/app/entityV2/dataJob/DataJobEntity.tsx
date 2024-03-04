@@ -41,6 +41,13 @@ const getDataJobPlatformName = (data?: DataJob): string => {
     );
 };
 
+const headerDropdownItems = new Set([
+    EntityMenuItems.EXTERNAL_URL,
+    EntityMenuItems.SHARE,
+    EntityMenuItems.SUBSCRIBE,
+    EntityMenuItems.UPDATE_DEPRECATION,
+]);
+
 /**
  * Definition of the DataHub DataJob entity.
  */
@@ -92,14 +99,7 @@ export class DataJobEntity implements Entity<DataJob> {
             useEntityQuery={useGetDataJobQuery}
             useUpdateQuery={useUpdateDataJobMutation}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
-            headerDropdownItems={
-                new Set([
-                    EntityMenuItems.EXTERNAL_URL,
-                    EntityMenuItems.SHARE,
-                    EntityMenuItems.SUBSCRIBE,
-                    EntityMenuItems.UPDATE_DEPRECATION,
-                ])
-            }
+            headerDropdownItems={headerDropdownItems}
             tabs={[
                 {
                     name: 'Documentation',
@@ -200,6 +200,7 @@ export class DataJobEntity implements Entity<DataJob> {
                 domain={data.domain?.domain}
                 dataProduct={getDataProduct(genericProperties?.dataProduct)}
                 externalUrl={data.properties?.externalUrl}
+                headerDropdownItems={headerDropdownItems}
             />
         );
     };
@@ -229,6 +230,7 @@ export class DataJobEntity implements Entity<DataJob> {
                 degree={(result as any).degree}
                 paths={(result as any).paths}
                 isOutputPort={isOutputPort(result)}
+                headerDropdownItems={headerDropdownItems}
             />
         );
     };

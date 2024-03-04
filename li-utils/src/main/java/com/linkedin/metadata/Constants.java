@@ -18,6 +18,8 @@ public class Constants {
   public static final String ENTITY_TYPE_URN_PREFIX = "urn:li:entityType:";
   public static final String DATA_TYPE_URN_PREFIX = "urn:li:dataType:";
   public static final String STRUCTURED_PROPERTY_MAPPING_FIELD = "structuredProperties";
+  public static final String STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX =
+      STRUCTURED_PROPERTY_MAPPING_FIELD + ".";
 
   // !!!!!!! IMPORTANT !!!!!!!
   // This effectively sets the max aspect size to 16 MB. Used in deserialization of messages.
@@ -84,10 +86,13 @@ public class Constants {
   public static final String TELEMETRY_ENTITY_NAME = "telemetry";
   public static final String DATA_PRODUCT_ENTITY_NAME = "dataProduct";
   public static final String OWNERSHIP_TYPE_ENTITY_NAME = "ownershipType";
+  public static final Urn DEFAULT_OWNERSHIP_TYPE_URN =
+      UrnUtils.getUrn("urn:li:ownershipType:__system__none");
   public static final String STRUCTURED_PROPERTY_ENTITY_NAME = "structuredProperty";
   public static final String DATA_TYPE_ENTITY_NAME = "dataType";
   public static final String ENTITY_TYPE_ENTITY_NAME = "entityType";
   public static final String FORM_ENTITY_NAME = "form";
+  public static final String RESTRICTED_ENTITY_NAME = "restricted";
 
   /** Aspects */
   // Common

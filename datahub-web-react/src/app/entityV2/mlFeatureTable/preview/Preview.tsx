@@ -3,6 +3,7 @@ import { DataProduct, EntityPath, EntityType, Owner } from '../../../../types.ge
 import DefaultPreviewCard from '../../../previewV2/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { IconStyleType } from '../../Entity';
+import { EntityMenuItems } from '../../shared/EntityDropdown/EntityMenuActions';
 
 export const Preview = ({
     urn,
@@ -16,6 +17,7 @@ export const Preview = ({
     degree,
     paths,
     isOutputPort,
+    headerDropdownItems,
 }: {
     urn: string;
     name: string;
@@ -28,6 +30,7 @@ export const Preview = ({
     degree?: number;
     paths?: EntityPath[];
     isOutputPort?: boolean;
+    headerDropdownItems?: Set<EntityMenuItems>;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     return (
@@ -47,6 +50,7 @@ export const Preview = ({
             degree={degree}
             paths={paths}
             isOutputPort={isOutputPort}
+            headerDropdownItems={headerDropdownItems}
         />
     );
 };

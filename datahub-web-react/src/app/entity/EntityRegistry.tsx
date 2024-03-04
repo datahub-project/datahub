@@ -1,5 +1,6 @@
+import { QueryHookOptions, QueryResult } from '@apollo/client';
 import React from 'react';
-import { Entity as EntityInterface, EntityType, SearchResult } from '../../types.generated';
+import { Entity as EntityInterface, EntityType, Exact, SearchResult } from '../../types.generated';
 import { FetchedEntity } from '../lineage/types';
 import { SearchResultProvider } from '../search/context/SearchResultContext';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from './Entity';
@@ -118,6 +119,25 @@ export default class EntityRegistry {
         }
     }
 
+    getEntityQuery(type: EntityType):
+        | ((
+              baseOptions: QueryHookOptions<
+                  any,
+                  Exact<{
+                      urn: string;
+                  }>
+              >,
+          ) => QueryResult<
+              any,
+              Exact<{
+                  urn: string;
+              }>
+          >)
+        | undefined {
+        const entity = validatedGet(type, this.entityTypeToEntity);
+        return entity.useEntityQuery;
+    }
+
     renderProfile(type: EntityType, urn: string): JSX.Element {
         const entity = validatedGet(type, this.entityTypeToEntity);
         return entity.renderProfile(urn);
@@ -128,10 +148,17 @@ export default class EntityRegistry {
         return entity.renderPreview(type, data);
     }
 
-    renderSearchResult(type: EntityType, searchResult: SearchResult): JSX.Element {
+    renderSearchResult(
+        type: EntityType,
+        searchResult: SearchResult,
+        previewType?: PreviewType,
+        onCardClick?: (any: any) => any,
+    ): JSX.Element {
         const entity = validatedGet(type, this.entityTypeToEntity);
         return (
-            <SearchResultProvider searchResult={searchResult}>{entity.renderSearch(searchResult)}</SearchResultProvider>
+            <SearchResultProvider searchResult={searchResult}>
+                {entity.renderSearch(searchResult, previewType, onCardClick)}
+            </SearchResultProvider>
         );
     }
 

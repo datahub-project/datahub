@@ -32,11 +32,11 @@ public class ConstraintCache {
 
     ListResult currentConstraintList =
         entityClient.list(
+            context.getOperationContext(),
             CONSTRAINT_ENTITY_NAME,
             new HashMap<>(),
             0,
-            MAX_CONSTRAINTS,
-            context.getAuthentication());
+            MAX_CONSTRAINTS);
     CACHE.setCachedListResult(currentConstraintList);
     CACHE.setLastFetchedTs(System.currentTimeMillis());
 

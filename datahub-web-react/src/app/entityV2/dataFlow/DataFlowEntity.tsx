@@ -21,6 +21,13 @@ import DataProductSection from '../shared/containers/profile/sidebar/DataProduct
 import { getDataProduct, isOutputPort } from '../shared/utils';
 import { TYPE_ICON_CLASS_NAME } from '../shared/components/subtypes';
 
+const headerDropdownItems = new Set([
+    EntityMenuItems.EXTERNAL_URL,
+    EntityMenuItems.SHARE,
+    EntityMenuItems.SUBSCRIBE,
+    EntityMenuItems.UPDATE_DEPRECATION,
+]);
+
 /**
  * Definition of the DataHub DataFlow entity.
  */
@@ -72,14 +79,7 @@ export class DataFlowEntity implements Entity<DataFlow> {
             useEntityQuery={useGetDataFlowQuery}
             useUpdateQuery={useUpdateDataFlowMutation}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
-            headerDropdownItems={
-                new Set([
-                    EntityMenuItems.EXTERNAL_URL,
-                    EntityMenuItems.SHARE,
-                    EntityMenuItems.SUBSCRIBE,
-                    EntityMenuItems.UPDATE_DEPRECATION,
-                ])
-            }
+            headerDropdownItems={headerDropdownItems}
             tabs={[
                 {
                     name: 'Documentation',
@@ -154,6 +154,7 @@ export class DataFlowEntity implements Entity<DataFlow> {
                 domain={data.domain?.domain}
                 dataProduct={getDataProduct(genericProperties?.dataProduct)}
                 externalUrl={data.properties?.externalUrl}
+                headerDropdownItems={headerDropdownItems}
             />
         );
     };
@@ -182,6 +183,7 @@ export class DataFlowEntity implements Entity<DataFlow> {
                 degree={(result as any).degree}
                 paths={(result as any).paths}
                 isOutputPort={isOutputPort(result)}
+                headerDropdownItems={headerDropdownItems}
             />
         );
     };

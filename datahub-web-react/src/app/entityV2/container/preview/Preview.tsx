@@ -17,6 +17,7 @@ import DefaultPreviewCard from '../../../previewV2/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import ContainerIcon from '../../shared/containers/profile/header/PlatformContent/ContainerIcon';
 import EntityCount from '../../shared/containers/profile/header/EntityCount';
+import { EntityMenuItems } from '../../shared/EntityDropdown/EntityMenuActions';
 
 export const Preview = ({
     urn,
@@ -41,6 +42,7 @@ export const Preview = ({
     paths,
     entityCount,
     isOutputPort,
+    headerDropdownItems,
 }: {
     urn: string;
     name: string;
@@ -64,6 +66,7 @@ export const Preview = ({
     paths?: EntityPath[];
     entityCount?: number;
     isOutputPort?: boolean;
+    headerDropdownItems?: Set<EntityMenuItems>;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     return (
@@ -93,6 +96,7 @@ export const Preview = ({
             paths={paths}
             subHeader={<EntityCount displayAssetsText entityCount={entityCount} />}
             isOutputPort={isOutputPort}
+            headerDropdownItems={headerDropdownItems}
         />
     );
 };

@@ -65,8 +65,7 @@ public class ListSubscriptionsResolverTest {
                     ImmutableSet.of(
                         new SearchEntity().setEntity(SUBSCRIPTION_URN_1),
                         new SearchEntity().setEntity(SUBSCRIPTION_URN_2))));
-    when(_subscriptionService.getSubscriptionsSearchResult(
-            eq(USER_URN), anyInt(), anyInt(), eq(_authentication)))
+    when(_subscriptionService.getSubscriptionsSearchResult(eq(USER_URN), anyInt(), anyInt(), any()))
         .thenReturn(searchResult);
     when(_subscriptionService.listSubscriptions(any(SearchResult.class), eq(_authentication)))
         .thenReturn(

@@ -32,11 +32,11 @@ entities:
       - testResults
       - siblings
       - embed
+      - incidentsSummary
       - inferredNeighbors
       - inferredMetadata
       - schemaFieldsInferredMetadata
       - schemaFieldsInferredNeighbors
-      - incidentsSummary
       - assertionsSummary
       - datasetProperties
       - editableDatasetProperties
@@ -84,8 +84,10 @@ entities:
       - dataPlatformInstance
       - browsePathsV2
       - structuredProperties
+      - forms
       - anomaliesSummary
       - subTypes
+      - incidentsSummary
       - share
   - name: dataFlow
     category: core
@@ -107,6 +109,8 @@ entities:
       - dataPlatformInstance
       - browsePathsV2
       - structuredProperties
+      - incidentsSummary
+      - forms
       - subTypes
       - share
   - name: dataProcess
@@ -149,6 +153,9 @@ entities:
       - glossaryTerms
       - browsePathsV2
       - subTypes
+      - structuredProperties
+      - incidentsSummary
+      - forms
       - share
   - name: dashboard
     keyAspect: dashboardKey
@@ -173,6 +180,9 @@ entities:
       - institutionalMemory
       - dataPlatformInstance
       - browsePathsV2
+      - structuredProperties
+      - incidentsSummary
+      - forms
       - share
   - name: notebook
     doc: Notebook represents a combination of query, text, chart and etc. This is in BETA version
@@ -208,6 +218,8 @@ entities:
       - corpUserSettings
       - origin
       - roleMembership
+      - structuredProperties
+      - forms
       - share
   - name: corpGroup
     doc: CorpGroup represents an identity of a group of users in the enterprise.
@@ -221,6 +233,8 @@ entities:
       - origin
       - corpGroupSettings
       - roleMembership
+      - structuredProperties
+      - forms
       - share
   - name: domain
     doc: A data domain within an organization.
@@ -230,6 +244,8 @@ entities:
       - domainProperties
       - institutionalMemory
       - ownership
+      - structuredProperties
+      - forms
       - displayProperties
       - share
   - name: container
@@ -252,6 +268,8 @@ entities:
       - testResults
       - proposals
       - browsePathsV2
+      - structuredProperties
+      - forms
       - share
   - name: tag
     category: core
@@ -277,6 +295,8 @@ entities:
       - domains
       - status
       - browsePaths
+      - structuredProperties
+      - forms
       - share
   - name: glossaryNode
     category: core
@@ -286,6 +306,8 @@ entities:
       - institutionalMemory
       - ownership
       - status
+      - structuredProperties
+      - forms
       - testResults
       - displayProperties
       - share
@@ -360,6 +382,8 @@ entities:
       - globalTags
       - dataPlatformInstance
       - browsePathsV2
+      - structuredProperties
+      - forms
       - share
   - name: mlModelGroup
     category: core
@@ -378,6 +402,8 @@ entities:
       - globalTags
       - dataPlatformInstance
       - browsePathsV2
+      - structuredProperties
+      - forms
       - share
   - name: mlModelDeployment
     category: core
@@ -407,6 +433,8 @@ entities:
       - globalTags
       - dataPlatformInstance
       - browsePathsV2
+      - structuredProperties
+      - forms
       - share
   - name: mlFeature
     category: core
@@ -426,6 +454,8 @@ entities:
       - globalTags
       - dataPlatformInstance
       - browsePathsV2
+      - structuredProperties
+      - forms
       - share
   - name: mlPrimaryKey
     category: core
@@ -443,6 +473,8 @@ entities:
       - deprecation
       - globalTags
       - dataPlatformInstance
+      - structuredProperties
+      - forms
       - share
   - name: telemetry
     category: internal
@@ -478,6 +510,7 @@ entities:
     keyAspect: schemaFieldKey
     aspects:
       - structuredProperties
+      - forms
       - schemaFieldProfile
   ## Not in OSS
   - name: constraint
@@ -546,6 +579,8 @@ entities:
       - dataProductProperties
       - institutionalMemory
       - status
+      - structuredProperties
+      - forms
       - share
   - name: ownershipType
     doc: Ownership Type represents a user-created ownership category for a person or group who is responsible for an asset.
@@ -639,9 +674,12 @@ plugins:
       enabled: true
       supportedOperations:
         - UPSERT
+        - DELETE
       supportedEntityAspectNames:
         - entityName: structuredProperty
           aspectName: propertyDefinition
+        - entityName: structuredProperty
+          aspectName: structuredPropertyKey
     - className: 'com.linkedin.metadata.aspect.validation.StructuredPropertiesValidator'
       enabled: true
       supportedOperations:
@@ -649,4 +687,18 @@ plugins:
       supportedEntityAspectNames:
         - entityName: '*'
           aspectName: structuredProperties
-
+  mutationHooks:
+    - className: 'com.linkedin.metadata.aspect.hooks.StructuredPropertiesSoftDelete'
+      enabled: true
+      supportedEntityAspectNames:
+        - entityName: '*'
+          aspectName: structuredProperties
+    - className: 'com.linkedin.metadata.aspect.hooks.OwnerTypeMap'
+      enabled: true
+      supportedOperations:
+        - UPSERT
+        - CREATE
+        - RESTATE
+      supportedEntityAspectNames:
+        - entityName: '*'
+          aspectName: ownership

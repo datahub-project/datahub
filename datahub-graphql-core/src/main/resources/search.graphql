@@ -152,6 +152,16 @@ input  SearchFlags {
   Note: This is an experimental feature and is subject to change.
   """
   groupingSpec: GroupingSpec
+
+  """
+  Whether to include soft deleted entities
+  """
+  includeSoftDeleted: Boolean
+
+  """
+  Whether to include restricted entities
+  """
+  includeRestricted: Boolean
 }
 
 """

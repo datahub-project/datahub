@@ -85,10 +85,12 @@ def test_github_branch():
 def test_sanitize_repo_url():
     import datahub.ingestion.source.git.git_import
 
-    assert doctest.testmod(datahub.ingestion.source.git.git_import) == (
-        0,
-        3,
-    )  # 0 failures, 3 tests
+    assert (
+        doctest.testmod(
+            datahub.ingestion.source.git.git_import, raise_on_error=True
+        ).attempted
+        == 3
+    )
 
 
 def test_git_clone_public(tmp_path):

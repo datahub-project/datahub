@@ -8,7 +8,7 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
-import com.linkedin.metadata.aspect.batch.UpsertItem;
+import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.entity.retention.BulkApplyRetentionArgs;
 import com.linkedin.metadata.entity.retention.BulkApplyRetentionResult;
 import com.linkedin.metadata.key.DataHubRetentionKey;
@@ -37,7 +37,7 @@ import lombok.Value;
  * storage and retention concerns apart, let AspectDaos deal with storage, and merge all retention
  * concerns into a single class.
  */
-public abstract class RetentionService<U extends UpsertItem> {
+public abstract class RetentionService<U extends ChangeMCP> {
   protected static final String ALL = "*";
 
   protected abstract EntityService<U> getEntityService();

@@ -15,16 +15,15 @@ RUN sed -i.bak "s/__version__ = \"1\!0.0.0.dev0\"/__version__ = \"$(echo $RELEAS
     chown -R datahub /datahub-ingestion
 
 USER datahub
-ENV PATH="/datahub-ingestion/.local/bin:$PATH"
 
 FROM base as slim-install
 
 ARG PIP_MIRROR_URL
 
 RUN if [ "${PIP_MIRROR_URL}" != "null" ] ; then pip config set global.index-url ${PIP_MIRROR_URL} ; fi
-RUN pip install --no-cache --user ".[base,datahub-rest,datahub-kafka,snowflake,bigquery,redshift,mysql,postgres,hive,clickhouse,glue,dbt,looker,lookml,tableau,powerbi,superset,datahub-business-glossary]"
+RUN uv pip install --no-cache "acryl-datahub[base,datahub-rest,datahub-kafka,snowflake,bigquery,redshift,mysql,postgres,hive,clickhouse,glue,dbt,looker,lookml,tableau,powerbi,superset,datahub-business-glossary] @ ." && \
+    datahub --version
 
 FROM slim-install as final
 
 USER datahub
-ENV PATH="/datahub-ingestion/.local/bin:$PATH"

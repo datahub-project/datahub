@@ -5,8 +5,8 @@ import Icon, {
     DeploymentUnitOutlined,
     FilterOutlined,
     LineChartOutlined,
-    TableOutlined,
 } from '@ant-design/icons';
+import ViewComfyOutlinedIcon from '@mui/icons-material/ViewComfyOutlined';
 import TableauWorkbookLogo from '../../../../images/tableau-workbook.svg?react';
 import TableauEmbeddedDataSourceLogo from '../../../../images/tableau-embedded-data-source.svg?react';
 import TableauPublishedDataSourceLogo from '../../../../images/tableau-published-data-source.svg?react';
@@ -43,7 +43,7 @@ export function getSubTypeIcon(subType?: string): JSX.Element | undefined {
         return <DeploymentUnitOutlined className={TYPE_ICON_CLASS_NAME} />;
     }
     if (lowerSubType === SubType.Table.toLowerCase()) {
-        return <TableOutlined className={TYPE_ICON_CLASS_NAME} />;
+        return <ViewComfyOutlinedIcon className={TYPE_ICON_CLASS_NAME} />;
     }
     if (lowerSubType === SubType.View.toLowerCase()) {
         return <FilterOutlined className={TYPE_ICON_CLASS_NAME} />;

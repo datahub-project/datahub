@@ -26,6 +26,7 @@ import com.linkedin.subscription.EntityChangeDetailsArray;
 import com.linkedin.subscription.SubscriptionInfo;
 import com.linkedin.subscription.SubscriptionNotificationConfig;
 import com.linkedin.subscription.SubscriptionTypeArray;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -41,9 +42,12 @@ public class SubscriptionService extends BaseService {
   private static final Set<String> SUBSCRIPTION_ASPECTS =
       ImmutableSet.of(SUBSCRIPTION_INFO_ASPECT_NAME);
 
+  private final OperationContext systemOpContext;
+
   public SubscriptionService(
-      @Nonnull EntityClient entityClient, @Nonnull Authentication systemAuthentication) {
-    super(entityClient, systemAuthentication);
+      @Nonnull OperationContext systemOpContext, @Nonnull EntityClient entityClient) {
+    super(entityClient, systemOpContext.getSystemAuthentication().get());
+    this.systemOpContext = systemOpContext;
   }
 
   @Nonnull
@@ -129,8 +133,7 @@ public class SubscriptionService extends BaseService {
 
       final Filter filter = buildGetSubscriptionFilter(entityUrn, actorUrn);
       final SearchResult searchResult =
-          this.entityClient.filter(
-              SUBSCRIPTION_ENTITY_NAME, filter, null, 0, 1, this.systemAuthentication);
+          this.entityClient.filter(systemOpContext, SUBSCRIPTION_ENTITY_NAME, filter, null, 0, 1);
 
       return searchResult.hasEntities() && !searchResult.getEntities().isEmpty();
     } catch (Exception e) {
@@ -158,7 +161,7 @@ public class SubscriptionService extends BaseService {
 
       final Filter filter = buildIsAnyGroupSubscribedFilter(entityUrn, groupUrns);
       final SearchResult searchResult =
-          this.entityClient.filter(SUBSCRIPTION_ENTITY_NAME, filter, null, 0, 1, authentication);
+          this.entityClient.filter(systemOpContext, SUBSCRIPTION_ENTITY_NAME, filter, null, 0, 1);
 
       return searchResult.hasEntities() && !searchResult.getEntities().isEmpty();
     } catch (Exception e) {
@@ -185,7 +188,7 @@ public class SubscriptionService extends BaseService {
 
       final Filter filter = buildGetSubscriptionFilter(entityUrn, actorUrn);
       final SearchResult searchResult =
-          this.entityClient.filter(SUBSCRIPTION_ENTITY_NAME, filter, null, 0, 1, authentication);
+          this.entityClient.filter(systemOpContext, SUBSCRIPTION_ENTITY_NAME, filter, null, 0, 1);
 
       if (!searchResult.hasEntities() || searchResult.getEntities().isEmpty()) {
         return null;
@@ -286,7 +289,7 @@ public class SubscriptionService extends BaseService {
       }
       final Filter filter = buildListSubscriptionsFilter(actorUrn);
       return this.entityClient.filter(
-          SUBSCRIPTION_ENTITY_NAME, filter, null, start, count, authentication);
+          systemOpContext, SUBSCRIPTION_ENTITY_NAME, filter, null, start, count);
 
     } catch (Exception e) {
       throw new RuntimeException("Failed to search for subscriptions", e);
@@ -335,7 +338,7 @@ public class SubscriptionService extends BaseService {
           buildGetActorSubscriptionsForEntityFilter(entityUrn, CORP_USER_ENTITY_NAME);
       final SearchResult searchResult =
           this.entityClient.filter(
-              SUBSCRIPTION_ENTITY_NAME, filter, null, 0, numMaxSubscriptions, authentication);
+              systemOpContext, SUBSCRIPTION_ENTITY_NAME, filter, null, 0, numMaxSubscriptions);
 
       return searchResult.hasEntities() ? searchResult.getEntities().size() : 0;
     } catch (Exception e) {
@@ -357,7 +360,7 @@ public class SubscriptionService extends BaseService {
           buildGetActorSubscriptionsForEntityFilter(entityUrn, CORP_GROUP_ENTITY_NAME);
       final SearchResult searchResult =
           this.entityClient.filter(
-              SUBSCRIPTION_ENTITY_NAME, filter, null, 0, numMaxSubscriptions, authentication);
+              systemOpContext, SUBSCRIPTION_ENTITY_NAME, filter, null, 0, numMaxSubscriptions);
 
       return searchResult.hasEntities() ? searchResult.getEntities().size() : 0;
     } catch (Exception e) {
@@ -380,7 +383,7 @@ public class SubscriptionService extends BaseService {
           buildGetActorSubscriptionsForEntityFilter(entityUrn, CORP_GROUP_ENTITY_NAME);
       final SearchResult searchResult =
           this.entityClient.filter(
-              SUBSCRIPTION_ENTITY_NAME, filter, null, 0, numExampleGroups, authentication);
+              systemOpContext, SUBSCRIPTION_ENTITY_NAME, filter, null, 0, numExampleGroups);
 
       final Set<Urn> subscriptionUrns =
           searchResult.getEntities().stream()

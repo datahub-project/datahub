@@ -6,6 +6,7 @@ import DomainEntitiesSnippet from './DomainEntitiesSnippet';
 import DomainIcon from '../../../domain/DomainIcon';
 import EntityCount from '../../shared/containers/profile/header/EntityCount';
 import { DomainColoredIcon } from '../../shared/links/DomainColoredIcon';
+import { EntityMenuItems } from '../../shared/EntityDropdown/EntityMenuActions';
 
 export const Preview = ({
     domain,
@@ -16,6 +17,7 @@ export const Preview = ({
     insights,
     logoComponent,
     entityCount,
+    headerDropdownItems,
 }: {
     domain: Domain;
     urn: string;
@@ -25,6 +27,7 @@ export const Preview = ({
     insights?: Array<SearchInsight> | null;
     logoComponent?: JSX.Element;
     entityCount?: number;
+    headerDropdownItems?: Set<EntityMenuItems>;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     return (
@@ -49,6 +52,7 @@ export const Preview = ({
             snippet={<DomainEntitiesSnippet domain={domain} />}
             subHeader={<EntityCount displayAssetsText entityCount={entityCount} />}
             entityIcon={<DomainColoredIcon domain={domain as Domain} size={28} />}
+            headerDropdownItems={headerDropdownItems}
         />
     );
 };

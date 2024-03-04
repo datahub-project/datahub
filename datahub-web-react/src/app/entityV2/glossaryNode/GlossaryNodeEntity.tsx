@@ -17,6 +17,13 @@ import { EntityActionItem } from '../shared/entity/EntityActions';
 import { TYPE_ICON_CLASS_NAME } from '../shared/components/subtypes';
 import GlossaryNodeIcon from '../../../images/glossary_collections_bookmark.svg?react';
 
+const headerDropdownItems = new Set([
+    EntityMenuItems.MOVE,
+    EntityMenuItems.SUBSCRIBE,
+    EntityMenuItems.SHARE,
+    EntityMenuItems.DELETE,
+]);
+
 class GlossaryNodeEntity implements Entity<GlossaryNode> {
     getLineageVizConfig?: ((entity: GlossaryNode) => FetchedEntity) | undefined;
 
@@ -97,14 +104,7 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
                 headerActionItems={
                     new Set([EntityActionItem.ADD_CHILD_GLOSSARY_NODE, EntityActionItem.ADD_CHILD_GLOSSARY_TERM])
                 }
-                headerDropdownItems={
-                    new Set([
-                        EntityMenuItems.MOVE,
-                        EntityMenuItems.SUBSCRIBE,
-                        EntityMenuItems.SHARE,
-                        EntityMenuItems.DELETE,
-                    ])
-                }
+                headerDropdownItems={headerDropdownItems}
                 sidebarTabs={this.getSidebarTabs()}
             />
         );
@@ -141,6 +141,7 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
                 name={this.displayName(data)}
                 description={data?.properties?.description || ''}
                 owners={data?.ownership?.owners}
+                headerDropdownItems={headerDropdownItems}
             />
         );
     };

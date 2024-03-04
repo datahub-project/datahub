@@ -19,11 +19,12 @@ import { ActionRequestsPage } from './actionrequest/ActionRequestsPage';
 import { ManageTestsPage } from './tests/ManageTestsPage';
 import { DatasetHealthPage } from './observe/dataset/DatasetHealthPage';
 import DomainRoutes from './domain/DomainRoutes';
-import { useIsNestedDomainsEnabled } from './useAppConfig';
+import { useIsNestedDomainsEnabled, useIsTaskCenterEnabled } from './useAppConfig';
 import { ManageDomainsPage } from './domain/ManageDomainsPage';
 import { useIsThemeV2Enabled } from './useIsThemeV2Enabled';
 import DomainRoutesV2 from './domainV2/DomainRoutes';
 import { ManageDomainsPage as ManageDomainsPageV2 } from './domainV2/ManageDomainsPage';
+import { TaskCenter } from './taskCenter/TaskCenter';
 
 /**
  * Container for all searchable page routes
@@ -36,6 +37,8 @@ export const SearchRoutes = (): JSX.Element => {
         : entityRegistry.getNonGlossaryEntities();
     const isThemeV2 = useIsThemeV2Enabled();
     const FinalSearchablePage = isThemeV2 ? SearchablePageV2 : SearchablePage;
+    const isTaskCenterEnabled = useIsTaskCenterEnabled();
+
     return (
         <FinalSearchablePage>
             <Switch>
@@ -79,7 +82,10 @@ export const SearchRoutes = (): JSX.Element => {
                 )}
                 <Route path={PageRoutes.INGESTION} render={() => <ManageIngestionPage />} />
                 <Route path={PageRoutes.SETTINGS} render={() => <SettingsPage />} />
-                <Route path={PageRoutes.ACTION_REQUESTS} render={() => <ActionRequestsPage />} />
+                <Route
+                    path={PageRoutes.ACTION_REQUESTS}
+                    render={() => (isTaskCenterEnabled ? <TaskCenter /> : <ActionRequestsPage />)}
+                />
                 <Route path={PageRoutes.TESTS} render={() => <ManageTestsPage />} />
                 <Route path={PageRoutes.DATASET_HEALTH_DASHBOARD} render={() => <DatasetHealthPage />} />
                 <Route

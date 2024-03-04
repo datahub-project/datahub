@@ -27,7 +27,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     UpstreamLineage,
 )
 from datahub.metadata.schema_classes import MetadataChangeProposalClass, UpstreamClass
-from datahub.utilities.sqlglot_lineage import SqlParsingResult
+from datahub.sql_parsing.sqlglot_lineage import SqlParsingResult
 from tests.test_helpers import mce_helpers, test_connection_helpers
 from tests.test_helpers.state_helpers import (
     get_current_checkpoint_from_pipeline,

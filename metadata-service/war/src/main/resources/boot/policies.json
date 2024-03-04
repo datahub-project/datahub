@@ -40,7 +40,7 @@
         "MANAGE_MONITORS"
       ],
       "displayName":"Root User - All Platform Privileges",
-      "description":"Grants full platform privileges to root datahub super user.",
+      "description":"Grants all platform privileges to root user.",
       "state":"ACTIVE",
       "type":"PLATFORM",
       "editable":false
@@ -60,6 +60,7 @@
       "privileges":[
         "EDIT_ENTITY",
         "VIEW_ENTITY_PAGE",
+        "VIEW_ENTITY",
         "EDIT_LINEAGE",
         "MANAGE_ENTITY_TAGS",
         "MANAGE_ENTITY_GLOSSARY_TERMS",
@@ -76,10 +77,11 @@
         "MANAGE_DATA_PRODUCTS",
         "MANAGE_GLOBAL_OWNERSHIP_TYPES",
         "DELETE_ENTITY",
+        "ES_EXPLAIN_QUERY_PRIVILEGE",
         "SHARE_ENTITY"
       ],
       "displayName":"Root User - Edit and View All Resources",
-      "description":"Grants full edit and view privileges for all resources to root 'datahub' root user.",
+      "description":"Grants all edit and view privileges for all resources to root user.",
       "state":"ACTIVE",
       "type":"METADATA",
       "editable":false
@@ -152,11 +154,13 @@
       },
       "privileges":[
         "VIEW_ENTITY_PAGE",
+        "VIEW_ENTITY",
         "SEARCH_PRIVILEGE",
         "GET_COUNTS_PRIVILEGE",
         "GET_TIMESERIES_ASPECT_PRIVILEGE",
         "GET_ENTITY_PRIVILEGE",
-        "GET_TIMELINE_PRIVILEGE"
+        "GET_TIMELINE_PRIVILEGE",
+        "ES_EXPLAIN_QUERY_PRIVILEGE"
       ],
       "displayName":"All Users - View Entity Page",
       "description":"Grants entity view to all users",
@@ -251,6 +255,7 @@
       },
       "privileges":[
         "VIEW_ENTITY_PAGE",
+        "VIEW_ENTITY",
         "EDIT_ENTITY_TAGS",
         "EDIT_ENTITY_GLOSSARY_TERMS",
         "EDIT_ENTITY_OWNERS",
@@ -261,6 +266,7 @@
         "EDIT_ENTITY_DATA_PRODUCTS",
         "EDIT_DEPRECATION_PRIVILEGE",
         "EDIT_ENTITY_ASSERTIONS",
+        "EDIT_ENTITY_INCIDENTS",
         "EDIT_ENTITY",
         "EDIT_DATASET_COL_TAGS",
         "EDIT_DATASET_COL_GLOSSARY_TERMS",
@@ -285,10 +291,11 @@
         "GET_TIMELINE_PRIVILEGE",
         "PRODUCE_PLATFORM_EVENT_PRIVILEGE",
         "MANAGE_DATA_PRODUCTS",
+        "DELETE_ENTITY",
+        "ES_EXPLAIN_QUERY_PRIVILEGE",
         "EDIT_ENTITY_QUERIES",
         "MANAGE_GROUP_NOTIFICATION_SETTINGS",
         "MANAGE_GROUP_SUBSCRIPTIONS",
-        "DELETE_ENTITY",
         "MANAGE_ENTITY_DATA_CONTRACT_PROPOSALS",
         "SHARE_ENTITY"
       ],
@@ -344,6 +351,7 @@
       },
       "privileges":[
         "VIEW_ENTITY_PAGE",
+        "VIEW_ENTITY",
         "EDIT_ENTITY_TAGS",
         "EDIT_ENTITY_GLOSSARY_TERMS",
         "EDIT_ENTITY_DOCS",
@@ -353,6 +361,7 @@
         "EDIT_ENTITY_DATA_PRODUCTS",
         "EDIT_DEPRECATION_PRIVILEGE",
         "EDIT_ENTITY_ASSERTIONS",
+        "EDIT_ENTITY_INCIDENTS",
         "EDIT_DATASET_COL_TAGS",
         "EDIT_DATASET_COL_GLOSSARY_TERMS",
         "EDIT_DATASET_COL_DESCRIPTION",
@@ -373,6 +382,7 @@
         "GET_TIMELINE_PRIVILEGE",
         "PRODUCE_PLATFORM_EVENT_PRIVILEGE",
         "MANAGE_DATA_PRODUCTS",
+        "ES_EXPLAIN_QUERY_PRIVILEGE",
         "MANAGE_GROUP_NOTIFICATION_SETTINGS",
         "MANAGE_GROUP_SUBSCRIPTIONS",
         "MANAGE_ENTITY_DATA_CONTRACT_PROPOSALS",
@@ -469,6 +479,7 @@
       },
       "privileges":[
         "VIEW_ENTITY_PAGE",
+        "VIEW_ENTITY",
         "VIEW_DATASET_USAGE",
         "VIEW_DATASET_PROFILE",
         "PROPOSE_ENTITY_TAGS",
@@ -480,7 +491,8 @@
         "GET_COUNTS_PRIVILEGE",
         "GET_TIMESERIES_ASPECT_PRIVILEGE",
         "GET_ENTITY_PRIVILEGE",
-        "GET_TIMELINE_PRIVILEGE"
+        "GET_TIMELINE_PRIVILEGE",
+        "ES_EXPLAIN_QUERY_PRIVILEGE"
       ],
       "displayName":"Readers - Metadata Policy",
       "description":"Readers can view all assets.",
@@ -501,6 +513,7 @@
       },
       "privileges":[
         "VIEW_ENTITY_PAGE",
+        "VIEW_ENTITY",
         "EDIT_ENTITY_TAGS",
         "EDIT_ENTITY_GLOSSARY_TERMS",
         "EDIT_ENTITY_OWNERS",
@@ -511,6 +524,7 @@
         "EDIT_ENTITY_DATA_PRODUCTS",
         "EDIT_DEPRECATION_PRIVILEGE",
         "EDIT_ENTITY_ASSERTIONS",
+        "EDIT_ENTITY_INCIDENTS",
         "EDIT_ENTITY",
         "EDIT_DATASET_COL_TAGS",
         "EDIT_DATASET_COL_GLOSSARY_TERMS",
@@ -533,6 +547,7 @@
         "GET_TIMESERIES_ASPECT_PRIVILEGE",
         "GET_COUNTS_PRIVILEGE",
         "MANAGE_DATA_PRODUCTS",
+        "ES_EXPLAIN_QUERY_PRIVILEGE",
         "MANAGE_GROUP_NOTIFICATION_SETTINGS",
         "MANAGE_GROUP_SUBSCRIPTIONS",
         "MANAGE_ENTITY_DATA_CONTRACT_PROPOSALS"

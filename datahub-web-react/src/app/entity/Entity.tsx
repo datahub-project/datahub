@@ -1,4 +1,5 @@
-import { EntityType, SearchResult } from '../../types.generated';
+import { QueryHookOptions, QueryResult } from '@apollo/client';
+import { EntityType, Exact, SearchResult } from '../../types.generated';
 import { FetchedEntity } from '../lineage/types';
 import { EntitySidebarSection, GenericEntityProperties } from './shared/types';
 
@@ -23,6 +24,10 @@ export enum PreviewType {
      * Previews rendered when hovering over the entity in a compact list
      */
     HOVER_CARD,
+    /**
+     * Previews rendered during the bulk verify form flow
+     */
+    BULK_VERIFY,
 }
 
 export enum IconStyleType {
@@ -152,7 +157,7 @@ export interface Entity<T> {
      *
      * TODO: Explore using getGenericEntityProperties for rendering profiles.
      */
-    renderSearch: (result: SearchResult) => JSX.Element;
+    renderSearch: (result: SearchResult, previewType?: PreviewType, onCardClick?: (any: any) => any) => JSX.Element;
 
     /**
      * Constructs config to add entity to lineage viz
@@ -190,4 +195,21 @@ export interface Entity<T> {
      * Returns the entity profile sidebar sections for an entity type. Only implemented on Datasets for now.
      */
     getSidebarSections?: () => EntitySidebarSection[];
+
+    /**
+     * Get the query necessary for refetching data on an entity profile page
+     */
+    useEntityQuery?: (
+        baseOptions: QueryHookOptions<
+            any,
+            Exact<{
+                urn: string;
+            }>
+        >,
+    ) => QueryResult<
+        any,
+        Exact<{
+            urn: string;
+        }>
+    >;
 }

@@ -21,6 +21,8 @@ import DataProductSection from '../shared/containers/profile/sidebar/DataProduct
 import { TYPE_ICON_CLASS_NAME } from '../shared/components/subtypes';
 import { isOutputPort } from '../shared/utils';
 
+const headerDropdownItems = new Set([EntityMenuItems.UPDATE_DEPRECATION]);
+
 /**
  * Definition of the DataHub MlModel entity.
  */
@@ -78,7 +80,7 @@ export class MLModelEntity implements Entity<MlModel> {
             entityType={EntityType.Mlmodel}
             useEntityQuery={useGetMlModelQuery}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
-            headerDropdownItems={new Set([EntityMenuItems.UPDATE_DEPRECATION])}
+            headerDropdownItems={headerDropdownItems}
             tabs={[
                 {
                     name: 'Summary',
@@ -135,7 +137,7 @@ export class MLModelEntity implements Entity<MlModel> {
     ];
 
     renderPreview = (_: PreviewType, data: MlModel) => {
-        return <Preview model={data} />;
+        return <Preview model={data} headerDropdownItems={headerDropdownItems} />;
     };
 
     renderSearch = (result: SearchResult) => {
@@ -146,6 +148,7 @@ export class MLModelEntity implements Entity<MlModel> {
                 degree={(result as any).degree}
                 paths={(result as any).paths}
                 isOutputPort={isOutputPort(result)}
+                headerDropdownItems={headerDropdownItems}
             />
         );
     };

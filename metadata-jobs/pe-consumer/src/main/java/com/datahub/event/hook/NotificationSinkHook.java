@@ -32,14 +32,19 @@ public class NotificationSinkHook implements PlatformEventHook {
 
   @Override
   public void invoke(@Nonnull PlatformEvent event) {
-    log.info(String.format("Received platform event %s", event.toString()));
+    if (log.isDebugEnabled()) { // Avoid string formatting if not in debug mode
+      log.debug(String.format("Received platform event %s", event.toString()));
+    }
     if (Constants.NOTIFICATION_REQUEST_EVENT_NAME.equals(event.getName())) {
       final NotificationRequest notificationRequest =
           GenericRecordUtils.deserializePayload(
               event.getPayload().getValue(),
               event.getPayload().getContentType(),
               NotificationRequest.class);
-      log.info(String.format("Received notification request %s", notificationRequest.toString()));
+      if (log.isDebugEnabled()) { // Avoid string formatting if not in debug mode
+        log.debug(
+            String.format("Received notification request %s", notificationRequest.toString()));
+      }
 
       try {
         _sinkManager.handle(notificationRequest);

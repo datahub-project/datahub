@@ -1,9 +1,11 @@
 package com.linkedin.metadata.service;
 
 import static com.linkedin.metadata.Constants.*;
+import static org.mockito.Mockito.mock;
 
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.Authentication;
+import com.datahub.plugins.auth.authorization.Authorizer;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
@@ -37,7 +39,7 @@ import com.linkedin.form.FormPromptType;
 import com.linkedin.form.FormType;
 import com.linkedin.form.StructuredPropertyParams;
 import com.linkedin.metadata.entity.AspectUtils;
-import com.linkedin.metadata.query.SearchFlags;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
@@ -54,6 +56,8 @@ import com.linkedin.test.TestDefinitionType;
 import com.linkedin.test.TestInfo;
 import com.linkedin.test.TestSource;
 import com.linkedin.test.TestSourceType;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -91,7 +95,7 @@ public class FormServiceTest {
     Mockito.when(mockClient.exists(Mockito.eq(nonExistantForm), Mockito.any(Authentication.class)))
         .thenReturn(false);
 
-    FormService formService = new FormService(mockClient, mockSystemAuthentication());
+    FormService formService = new FormService(mockOperationContext(), mockClient);
 
     Assert.assertThrows(
         RuntimeException.class,
@@ -139,7 +143,7 @@ public class FormServiceTest {
 
     EntityClient mockClient = mockEntityClient(existingForms, formToAdd);
 
-    FormService formService = new FormService(mockClient, mockSystemAuthentication());
+    FormService formService = new FormService(mockOperationContext(), mockClient);
 
     formService.batchAssignFormToEntities(
         ImmutableList.of(TEST_ENTITY_URN), TEST_FORM_URN, mockSystemAuthentication());
@@ -192,7 +196,7 @@ public class FormServiceTest {
 
     EntityClient mockClient = mockEntityClient(null, formToAdd);
 
-    FormService formService = new FormService(mockClient, mockSystemAuthentication());
+    FormService formService = new FormService(mockOperationContext(), mockClient);
 
     formService.batchAssignFormToEntities(
         ImmutableList.of(TEST_ENTITY_URN), TEST_FORM_URN, mockSystemAuthentication());
@@ -265,7 +269,7 @@ public class FormServiceTest {
 
     EntityClient mockClient = mockEntityClient(existingForms, formToAdd);
 
-    FormService formService = new FormService(mockClient, mockSystemAuthentication());
+    FormService formService = new FormService(mockOperationContext(), mockClient);
 
     formService.batchAssignFormToEntities(
         ImmutableList.of(TEST_ENTITY_URN), TEST_FORM_URN, mockSystemAuthentication());
@@ -315,7 +319,7 @@ public class FormServiceTest {
 
     EntityClient mockClient = mockEntityClient(existingForms, formToAdd);
 
-    FormService formService = new FormService(mockClient, mockSystemAuthentication());
+    FormService formService = new FormService(mockOperationContext(), mockClient);
 
     formService.batchAssignFormToEntities(
         ImmutableList.of(TEST_ENTITY_URN), TEST_FORM_URN, mockSystemAuthentication());
@@ -335,7 +339,7 @@ public class FormServiceTest {
     Mockito.when(mockClient.exists(Mockito.eq(nonExistantForm), Mockito.any(Authentication.class)))
         .thenReturn(false);
 
-    FormService formService = new FormService(mockClient, mockSystemAuthentication());
+    FormService formService = new FormService(mockOperationContext(), mockClient);
 
     Assert.assertThrows(
         RuntimeException.class,
@@ -397,7 +401,7 @@ public class FormServiceTest {
 
     EntityClient mockClient = mockEntityClient(existingForms, formToRemove);
 
-    FormService formService = new FormService(mockClient, mockSystemAuthentication());
+    FormService formService = new FormService(mockOperationContext(), mockClient);
 
     formService.batchUnassignFormForEntities(
         ImmutableList.of(TEST_ENTITY_URN), TEST_FORM_URN, mockSystemAuthentication());
@@ -455,7 +459,7 @@ public class FormServiceTest {
 
     EntityClient mockClient = mockEntityClient(existingForms, formToRemove);
 
-    FormService formService = new FormService(mockClient, mockSystemAuthentication());
+    FormService formService = new FormService(mockOperationContext(), mockClient);
 
     formService.batchUnassignFormForEntities(
         ImmutableList.of(TEST_ENTITY_URN), TEST_FORM_URN, mockSystemAuthentication());
@@ -499,7 +503,7 @@ public class FormServiceTest {
 
     EntityClient mockClient = mockEntityClient(existingForms, formToRemove);
 
-    FormService formService = new FormService(mockClient, mockSystemAuthentication());
+    FormService formService = new FormService(mockOperationContext(), mockClient);
 
     formService.batchUnassignFormForEntities(
         ImmutableList.of(TEST_ENTITY_URN), TEST_FORM_URN, mockSystemAuthentication());
@@ -519,7 +523,7 @@ public class FormServiceTest {
     Mockito.when(mockClient.exists(Mockito.eq(nonExistantForm), Mockito.any(Authentication.class)))
         .thenReturn(false);
 
-    FormService formService = new FormService(mockClient, mockSystemAuthentication());
+    FormService formService = new FormService(mockOperationContext(), mockClient);
 
     Assert.assertThrows(
         RuntimeException.class,
@@ -589,7 +593,7 @@ public class FormServiceTest {
 
     EntityClient mockClient = mockEntityClient(existingForms, form);
 
-    FormService formService = new FormService(mockClient, mockSystemAuthentication());
+    FormService formService = new FormService(mockOperationContext(), mockClient);
 
     formService.batchSetFormPromptIncomplete(
         ImmutableList.of(TEST_ENTITY_URN), TEST_FORM_URN, promptId, mockSystemAuthentication());
@@ -643,7 +647,7 @@ public class FormServiceTest {
 
     EntityClient mockClient = mockEntityClient(existingForms, form);
 
-    FormService formService = new FormService(mockClient, mockSystemAuthentication());
+    FormService formService = new FormService(mockOperationContext(), mockClient);
 
     formService.batchSetFormPromptIncomplete(
         ImmutableList.of(TEST_ENTITY_URN), TEST_FORM_URN, promptId, mockSystemAuthentication());
@@ -701,7 +705,7 @@ public class FormServiceTest {
 
     EntityClient mockClient = mockEntityClient(existingForms, form);
 
-    FormService formService = new FormService(mockClient, mockSystemAuthentication());
+    FormService formService = new FormService(mockOperationContext(), mockClient);
 
     formService.batchSetFormPromptIncomplete(
         ImmutableList.of(TEST_ENTITY_URN), TEST_FORM_URN, promptId, mockSystemAuthentication());
@@ -754,7 +758,7 @@ public class FormServiceTest {
 
     EntityClient mockClient = mockEntityClient(existingForms, form);
 
-    FormService formService = new FormService(mockClient, mockSystemAuthentication());
+    FormService formService = new FormService(mockOperationContext(), mockClient);
 
     formService.batchSetFormPromptIncomplete(
         ImmutableList.of(TEST_ENTITY_URN), TEST_FORM_URN, promptId, mockSystemAuthentication());
@@ -832,7 +836,7 @@ public class FormServiceTest {
 
     EntityClient mockClient = mockEntityClient(existingForms, form);
 
-    FormService formService = new FormService(mockClient, mockSystemAuthentication());
+    FormService formService = new FormService(mockOperationContext(), mockClient);
 
     formService.batchSetFormPromptIncomplete(
         ImmutableList.of(TEST_ENTITY_URN), TEST_FORM_URN, promptId, mockSystemAuthentication());
@@ -883,7 +887,7 @@ public class FormServiceTest {
             .setStructuredPropertyParams(new StructuredPropertyParams().setUrn(testPropertyUrn));
 
     EntityClient mockClient = mockEntityClient(null, null);
-    FormService formService = new FormService(mockClient, mockSystemAuthentication());
+    FormService formService = new FormService(mockOperationContext(), mockClient);
     formService.upsertFormPromptCompletionAutomation(TEST_FORM_URN, prompt);
     JsonNode testDefinition =
         new ObjectMapper()
@@ -938,7 +942,7 @@ public class FormServiceTest {
                                                                 "urn:li:dataPlatform:hive")))
                                                     .setNegated(false))))))));
     EntityClient mockClient = mockEntityClient(null, null);
-    FormService formService = new FormService(mockClient, mockSystemAuthentication());
+    FormService formService = new FormService(mockOperationContext(), mockClient);
     formService.upsertFormAssignmentAutomation(TEST_FORM_URN, formAssignment);
     JsonNode testDefinition =
         new ObjectMapper()
@@ -1000,7 +1004,7 @@ public class FormServiceTest {
                                                 buildCriterion(
                                                     "domains", "urn:li:domain:test-2"))))))));
     EntityClient mockClient = mockEntityClient(null, null);
-    FormService formService = new FormService(mockClient, mockSystemAuthentication());
+    FormService formService = new FormService(mockOperationContext(), mockClient);
     formService.upsertFormAssignmentAutomation(TEST_FORM_URN, formAssignment);
     JsonNode testDefinition =
         new ObjectMapper()
@@ -1035,16 +1039,15 @@ public class FormServiceTest {
   private void testRemoveAllFormAutomations() throws Exception {
     Urn metadataTestUrn1 = UrnUtils.getUrn("urn:li:test:form-test-1");
     Urn metadataTestUrn2 = UrnUtils.getUrn("urn:li:test:form-test-2");
-    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    EntityClient mockClient = mock(EntityClient.class);
     Mockito.when(
             mockClient.search(
+                Mockito.any(),
                 Mockito.eq(TEST_ENTITY_NAME),
                 Mockito.eq("*"),
                 Mockito.eq(ImmutableMap.of("sourceUrn", TEST_FORM_URN.toString())),
                 Mockito.eq(0),
-                Mockito.anyInt(),
-                Mockito.any(Authentication.class),
-                Mockito.any(SearchFlags.class)))
+                Mockito.anyInt()))
         .thenReturn(
             new SearchResult()
                 .setNumEntities(2)
@@ -1054,7 +1057,7 @@ public class FormServiceTest {
                             new SearchEntity().setEntity(metadataTestUrn1),
                             new SearchEntity().setEntity(metadataTestUrn2)))));
 
-    FormService formService = new FormService(mockClient, mockSystemAuthentication());
+    FormService formService = new FormService(mockOperationContext(), mockClient);
 
     formService.removeAllFormAutomations(TEST_FORM_URN);
 
@@ -1068,7 +1071,7 @@ public class FormServiceTest {
 
   @Test
   private void testRemoveFormPromptCompletionAutomation() throws Exception {
-    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    EntityClient mockClient = mock(EntityClient.class);
 
     FormPrompt prompt =
         new FormPrompt()
@@ -1079,7 +1082,7 @@ public class FormServiceTest {
 
     Urn metadataTestUrn = FormTestBuilder.createTestUrnForFormPrompt(TEST_FORM_URN, prompt);
 
-    FormService formService = new FormService(mockClient, mockSystemAuthentication());
+    FormService formService = new FormService(mockOperationContext(), mockClient);
 
     formService.removeFormPromptCompletionAutomation(TEST_FORM_URN, prompt);
 
@@ -1091,7 +1094,7 @@ public class FormServiceTest {
   @Test
   private void testIsFormAssignedToUsersWithOwners() throws Exception {
     EntityClient mockClient = mockEntityClient(null, null);
-    FormService formService = new FormService(mockClient, mockSystemAuthentication());
+    FormService formService = new FormService(mockOperationContext(), mockClient);
 
     FormActorAssignment formActors = new FormActorAssignment();
     formActors.setOwners(true);
@@ -1127,7 +1130,7 @@ public class FormServiceTest {
   @Test
   private void testIsFormAssignedToUserExplicitly() throws Exception {
     EntityClient mockClient = mockEntityClient(null, null);
-    FormService formService = new FormService(mockClient, mockSystemAuthentication());
+    FormService formService = new FormService(mockOperationContext(), mockClient);
 
     FormActorAssignment formActors = new FormActorAssignment();
     formActors.setOwners(false);
@@ -1165,7 +1168,7 @@ public class FormServiceTest {
   @Test
   private void testIsFormAssignedToUserGroupExplicitly() throws Exception {
     EntityClient mockClient = mockEntityClient(null, null);
-    FormService formService = new FormService(mockClient, mockSystemAuthentication());
+    FormService formService = new FormService(mockOperationContext(), mockClient);
 
     FormActorAssignment formActors = new FormActorAssignment();
     formActors.setOwners(false);
@@ -1203,7 +1206,7 @@ public class FormServiceTest {
   @Test
   private void testIsFormIsNotAssignedToUser() throws Exception {
     EntityClient mockClient = mockEntityClient(null, null);
-    FormService formService = new FormService(mockClient, mockSystemAuthentication());
+    FormService formService = new FormService(mockOperationContext(), mockClient);
 
     FormActorAssignment formActors = new FormActorAssignment();
     // owners is set to false, no actors or groups assigned means this test will return false
@@ -1239,7 +1242,7 @@ public class FormServiceTest {
   @Test
   private void testIsFormAssignedToGroupOwner() throws Exception {
     EntityClient mockClient = mockEntityClient(null, null);
-    FormService formService = new FormService(mockClient, mockSystemAuthentication());
+    FormService formService = new FormService(mockOperationContext(), mockClient);
 
     FormActorAssignment formActors = new FormActorAssignment();
     formActors.setOwners(true);
@@ -1275,7 +1278,7 @@ public class FormServiceTest {
   @Test
   private void testVerifyFormForEntity() throws Exception {
     EntityClient mockClient = mockEntityClient(null, null);
-    FormService formService = new FormService(mockClient, mockSystemAuthentication());
+    FormService formService = new FormService(mockOperationContext(), mockClient);
 
     // form type VERIFICATION
     Map<String, EnvelopedAspect> formInfoAspectMap =
@@ -1318,7 +1321,7 @@ public class FormServiceTest {
   @Test
   private void testVerifyFormForEntityNonVerificationForm() throws Exception {
     EntityClient mockClient = mockEntityClient(null, null);
-    FormService formService = new FormService(mockClient, mockSystemAuthentication());
+    FormService formService = new FormService(mockOperationContext(), mockClient);
 
     // form type COMPLETION
     Map<String, EnvelopedAspect> formInfoAspectMap =
@@ -1346,7 +1349,7 @@ public class FormServiceTest {
   @Test
   private void testVerifyFormForEntityIncompleteForm() throws Exception {
     EntityClient mockClient = mockEntityClient(null, null);
-    FormService formService = new FormService(mockClient, mockSystemAuthentication());
+    FormService formService = new FormService(mockOperationContext(), mockClient);
 
     // form type VERIFICATION
     Map<String, EnvelopedAspect> formInfoAspectMap =
@@ -1382,7 +1385,7 @@ public class FormServiceTest {
   }
 
   private EntityClient mockEntityClient(Forms existingForms, FormInfo form) throws Exception {
-    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    EntityClient mockClient = mock(EntityClient.class);
 
     Mockito.when(mockClient.exists(Mockito.eq(TEST_ENTITY_URN), Mockito.any(Authentication.class)))
         .thenReturn(true);
@@ -1447,13 +1450,18 @@ public class FormServiceTest {
         .setNegated(false);
   }
 
+  private OperationContext mockOperationContext() {
+    return TestOperationContexts.userContextNoSearchAuthorization(
+        mock(EntityRegistry.class), Authorizer.EMPTY, mockSystemAuthentication());
+  }
+
   private Authentication mockSystemAuthentication() {
     return mockSystemAuthentication(SYSTEM_ACTOR);
   }
 
   private Authentication mockSystemAuthentication(String actorUrnStr) {
-    Authentication auth = Mockito.mock(Authentication.class);
-    Actor actor = Mockito.mock(Actor.class);
+    Authentication auth = mock(Authentication.class);
+    Actor actor = mock(Actor.class);
     Mockito.when(actor.toUrnStr()).thenReturn(actorUrnStr);
     Mockito.when(auth.getActor()).thenReturn(actor);
     return auth;

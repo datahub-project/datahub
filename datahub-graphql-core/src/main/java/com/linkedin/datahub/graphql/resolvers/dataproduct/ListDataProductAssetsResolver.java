@@ -153,10 +153,12 @@ public class ListDataProductAssetsResolver
           final Filter baseFilter = ResolverUtils.buildFilter(filters, input.getOrFilters());
           final Filter finalFilter = buildFilterWithUrns(new HashSet<>(urnsToFilterOn), baseFilter);
 
-          SearchFlags searchFlags = null;
+          final SearchFlags searchFlags;
           com.linkedin.datahub.graphql.generated.SearchFlags inputFlags = input.getSearchFlags();
           if (inputFlags != null) {
             searchFlags = SearchFlagsInputMapper.INSTANCE.apply(inputFlags);
+          } else {
+            searchFlags = null;
           }
 
           try {
@@ -171,14 +173,15 @@ public class ListDataProductAssetsResolver
             SearchResults results =
                 UrnSearchResultsMapper.map(
                     _entityClient.searchAcrossEntities(
+                        context
+                            .getOperationContext()
+                            .withSearchFlags(flags -> searchFlags != null ? searchFlags : flags),
                         finalEntityNames,
                         sanitizedQuery,
                         finalFilter,
                         start,
                         count,
-                        searchFlags,
-                        null,
-                        ResolverUtils.getAuthentication(environment)));
+                        null));
             results
                 .getSearchResults()
                 .forEach(

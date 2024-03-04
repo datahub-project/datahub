@@ -28,7 +28,11 @@ const LogoContainer = styled.div`
     align-items: center;
 `;
 
-const PlatformLogo = styled(Image)`
+const EmptyContainer = styled.div`
+    padding-left: 25px;
+`;
+
+const PlatformLogo = styled(Image)`S
     width: auto;
     object-fit: contain;
     background-color: transparent;
@@ -80,13 +84,15 @@ export const PostLinkCard = ({ linkPost }: Props) => {
 
     return (
         <CardContainer type="link" href={link} target="_blank" rel="noopener noreferrer">
-            {hasMedia && (
+            {hasMedia ? (
                 <LogoContainer>
                     <PlatformLogo width={50} height={50} preview={false} src={linkPost?.content?.media?.location} />
                 </LogoContainer>
+            ) : (
+                <EmptyContainer />
             )}
             <TextContainer>
-                <FlexWrapper alignCenter={!hasMedia}>
+                <FlexWrapper>
                     <TextWrapper>
                         <HeaderText type="secondary">Link</HeaderText>
                         <Title style={{ margin: 0 }} ellipsis={{ rows: 2 }} level={5}>

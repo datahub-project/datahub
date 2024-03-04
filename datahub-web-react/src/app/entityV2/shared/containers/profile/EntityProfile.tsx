@@ -122,7 +122,7 @@ const HeaderAndTabsFlex = styled.div`
 `;
 
 const Header = styled.div`
-    padding: 0 16px 0px 16px;
+    padding: 12px 16px 0px 16px;
     display: flex;
     align-items: center;
 `;
@@ -133,7 +133,7 @@ const HeaderContent = styled.div`
     box-shadow: 0px 0px 5px rgba(0, 0, 0, 0.08);
     flex: 1;
     flex-shrink: 0;
-    padding: 0;
+    padding: 8px 0px 8px 0px;
 `;
 
 const Body = styled.div`
@@ -339,10 +339,6 @@ export const EntityProfile = <T, U>({
                             type={(isInSearch && 'card') || undefined}
                             focused={isInSearch}
                             tabs={finalTabs}
-                            headerDropdownItems={headerDropdownItems}
-                            headerActionItems={headerActionItems}
-                            subHeader={subHeader}
-                            hideHeader
                             // TODO: Hide collapse for chrome extension
                             contextType={isInSearch ? TabContextType.SEARCH_SIDEBAR : TabContextType.LINEAGE_SIDEBAR}
                             width={width}
@@ -428,7 +424,6 @@ export const EntityProfile = <T, U>({
                                         <EntityProfileSidebar
                                             tabs={finalTabs}
                                             type="card"
-                                            hideHeader
                                             width={
                                                 width ||
                                                 (finalTabs.length > 1
@@ -436,7 +431,6 @@ export const EntityProfile = <T, U>({
                                                     : window.innerWidth * 0.25)
                                             }
                                             contextType={TabContextType.PROFILE_SIDEBAR}
-                                            headerDropdownItems={headerDropdownItems}
                                         />
                                     </SidebarWrapper>
                                 )}

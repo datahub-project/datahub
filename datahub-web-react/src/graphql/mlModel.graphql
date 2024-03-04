@@ -27,6 +27,14 @@ query getMLModel($urn: String!) {
         autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
             ...autoRenderAspectFields
         }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
+        forms {
+            ...formsFields
+        }
         termProposals: proposals(type: TERM_ASSOCIATION) {
             ...proposalsFragment
         }

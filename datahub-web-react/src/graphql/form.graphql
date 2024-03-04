@@ -1,7 +1,97 @@
+query getForm($urn: String!) {
+    form(urn: $urn) {
+        ...formFields
+    }
+}
 mutation submitFormPrompt($urn: String!, $input: SubmitFormPromptInput!) {
     submitFormPrompt(urn: $urn, input: $input)
 }
 
+mutation batchSubmitFormPrompt($input: BatchSubmitFormPromptInput!) {
+    batchSubmitFormPrompt(input: $input)
+}
+
 mutation verifyForm($input: VerifyFormInput!) {
     verifyForm(input: $input)
+}
+
+mutation batchVerifyForm($input: BatchVerifyFormInput!) {
+    batchVerifyForm(input: $input) 
+}
+
+query searchForEntityUrnsByForm($input: SearchAcrossEntitiesInput!) {
+    searchAcrossEntities(input: $input) {
+        start
+        count
+        total
+        searchResults {
+            entity {
+                urn
+                type
+            }
+        }
+    }
+}
+
+query searchForEntitiesByForm($input: SearchAcrossEntitiesInput!) {
+    searchAcrossEntities(input: $input) {
+        ...searchResults
+    }
+}
+
+query searchForEntitiesByFormCount($input: SearchAcrossEntitiesInput!) {
+    searchAcrossEntities(input: $input) {
+        start
+        count
+        total
+    }
+}
+
+query getFormsForActor($input: GetFormsForActorInput) {
+    getFormsForActor(input: $input) {
+        formsForActor {
+            form {
+                urn
+                info {
+                    name
+                    description
+                    type
+                }
+                ownership {
+                    ...ownershipFields
+                }
+            }
+            numEntitiesToComplete
+        }
+    }
+}
+
+fragment formFields on Form {
+    urn
+    type
+    info {
+        name
+        description
+        type
+        prompts {
+            id
+            formUrn
+            title
+            description
+            type
+            required
+            structuredPropertyParams {
+                structuredProperty {
+                    ...structuredPropertyFields
+                }
+            }
+        }
+        actors {
+            owners
+            isAssignedToMe
+        }
+    }
+    ownership {
+        ...ownershipFields
+    }
 }

@@ -3,8 +3,10 @@ package com.linkedin.datahub.upgrade.config;
 import com.linkedin.datahub.upgrade.propagate.PropagateTerms;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.search.EntitySearchService;
+import io.datahubproject.metadata.context.OperationContext;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -17,10 +19,11 @@ public class PropagateTermsConfig {
   @Bean(name = "propagateTerms")
   @DependsOn({"entityService", "entitySearchService"})
   @Nonnull
-  public PropagateTerms createInstance() {
+  public PropagateTerms createInstance(
+      @Qualifier("systemOperationContext") OperationContext systemOpContext) {
     final EntityService entityService = applicationContext.getBean(EntityService.class);
     final EntitySearchService entitySearchService =
         applicationContext.getBean(EntitySearchService.class);
-    return new PropagateTerms(entityService, entitySearchService);
+    return new PropagateTerms(systemOpContext, entityService, entitySearchService);
   }
 }

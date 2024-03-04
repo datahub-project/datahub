@@ -96,5 +96,10 @@ public class MCLSpringTest extends AbstractTestNGSpringContextTests {
         metadataChangeLogProcessor.getHooks().stream()
             .filter(hook -> hook instanceof FormAssignmentHook)
             .count());
+    assertEquals(
+        1,
+        metadataChangeLogProcessor.getHooks().stream()
+            .filter(hook -> hook instanceof IncidentsSummaryHook)
+            .count());
   }
 }

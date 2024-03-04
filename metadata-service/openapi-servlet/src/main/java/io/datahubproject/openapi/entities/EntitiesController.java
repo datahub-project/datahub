@@ -17,7 +17,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.entity.ebean.batch.MCPUpsertBatchItem;
+import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.util.Pair;
 import io.datahubproject.openapi.dto.RollbackRunResultDto;
@@ -65,7 +65,7 @@ import org.springframework.web.bind.annotation.RestController;
     description = "APIs for ingesting and accessing entities and their constituent aspects")
 public class EntitiesController {
 
-  private final EntityService<MCPUpsertBatchItem> _entityService;
+  private final EntityService<ChangeItemImpl> _entityService;
   private final ObjectMapper _objectMapper;
   private final AuthorizerChain _authorizerChain;
 

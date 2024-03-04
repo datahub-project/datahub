@@ -20,6 +20,7 @@ import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.secret.SecretService;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
+import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.util.Collections;
 import javax.annotation.Nonnull;
@@ -58,34 +59,31 @@ public class InviteTokenService {
 
   @Nonnull
   public String getInviteToken(
-      @Nullable final String roleUrnStr,
-      boolean regenerate,
-      @Nonnull final Authentication authentication)
+      @Nonnull OperationContext opContext, @Nullable final String roleUrnStr, boolean regenerate)
       throws Exception {
     final Filter inviteTokenFilter =
         roleUrnStr == null ? createInviteTokenFilter() : createInviteTokenFilter(roleUrnStr);
 
     final SearchResult searchResult =
-        _entityClient.filter(
-            INVITE_TOKEN_ENTITY_NAME, inviteTokenFilter, null, 0, 10, authentication);
+        _entityClient.filter(opContext, INVITE_TOKEN_ENTITY_NAME, inviteTokenFilter, null, 0, 10);
 
     final int numEntities = searchResult.getEntities().size();
     // If there is more than one invite token, wipe all of them and generate a fresh one
     if (numEntities > 1) {
-      deleteExistingInviteTokens(searchResult, authentication);
-      return createInviteToken(roleUrnStr, authentication);
+      deleteExistingInviteTokens(searchResult, opContext.getAuthentication());
+      return createInviteToken(roleUrnStr, opContext.getAuthentication());
     }
 
     // If we want to regenerate, or there are no entities in the result, create a new invite token.
     if (regenerate || numEntities == 0) {
-      return createInviteToken(roleUrnStr, authentication);
+      return createInviteToken(roleUrnStr, opContext.getAuthentication());
     }
 
     final SearchEntity searchEntity = searchResult.getEntities().get(0);
     final Urn inviteTokenUrn = searchEntity.getEntity();
 
     com.linkedin.identity.InviteToken inviteToken =
-        getInviteTokenEntity(inviteTokenUrn, authentication);
+        getInviteTokenEntity(inviteTokenUrn, opContext.getAuthentication());
     return _secretService.decrypt(inviteToken.getToken());
   }
 

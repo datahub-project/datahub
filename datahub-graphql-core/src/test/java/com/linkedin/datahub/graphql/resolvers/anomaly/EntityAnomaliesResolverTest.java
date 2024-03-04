@@ -77,12 +77,12 @@ public class EntityAnomaliesResolverTest {
 
     Mockito.when(
             mockClient.filter(
+                Mockito.any(),
                 Mockito.eq(Constants.ANOMALY_ENTITY_NAME),
                 Mockito.eq(expectedFilter),
                 Mockito.eq(expectedSort),
                 Mockito.eq(0),
-                Mockito.eq(10),
-                Mockito.any(Authentication.class)))
+                Mockito.eq(10)))
         .thenReturn(
             new SearchResult()
                 .setFrom(0)

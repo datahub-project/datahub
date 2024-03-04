@@ -29,6 +29,7 @@ import org.springframework.context.annotation.FilterType;
       "com.linkedin.gms.factory.form",
       "com.linkedin.gms.factory.timeline.eventgenerator",
       "io.datahubproject.metadata.jobs.common.health.kafka",
+      "com.linkedin.gms.factory.context",
       "com.linkedin.gms.factory.subscription",
       "com.linkedin.gms.factory.settings",
     },

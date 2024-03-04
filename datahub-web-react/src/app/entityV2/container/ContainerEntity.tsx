@@ -24,6 +24,8 @@ import ContainerSummaryTab from './ContainerSummaryTab';
 import { SUMMARY_TAB_ICON } from '../shared/summary/HeaderComponents';
 import { SubType, TYPE_ICON_CLASS_NAME } from '../shared/components/subtypes';
 
+const headerDropdownItems = new Set([EntityMenuItems.EXTERNAL_URL, EntityMenuItems.SHARE, EntityMenuItems.SUBSCRIBE]);
+
 /**
  * Definition of the DataHub Container entity.
  */
@@ -79,9 +81,7 @@ export class ContainerEntity implements Entity<Container> {
             useEntityQuery={useGetContainerQuery}
             useUpdateQuery={undefined}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
-            headerDropdownItems={
-                new Set([EntityMenuItems.EXTERNAL_URL, EntityMenuItems.SHARE, EntityMenuItems.SUBSCRIBE])
-            }
+            headerDropdownItems={headerDropdownItems}
             tabs={[
                 {
                     name: 'Summary',
@@ -161,6 +161,7 @@ export class ContainerEntity implements Entity<Container> {
                 tags={data.tags}
                 externalUrl={data.properties?.externalUrl}
                 entityCount={data.entities?.total}
+                headerDropdownItems={headerDropdownItems}
             />
         );
     };
@@ -189,6 +190,7 @@ export class ContainerEntity implements Entity<Container> {
                 paths={(result as any).paths}
                 entityCount={data.entities?.total}
                 isOutputPort={isOutputPort(result)}
+                headerDropdownItems={headerDropdownItems}
             />
         );
     };

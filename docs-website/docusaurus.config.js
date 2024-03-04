@@ -66,7 +66,7 @@ module.exports = {
               label: "Join Slack",
             },
             {
-              href: "https://calendar.datahubproject.io/",
+              to: "/events",
               label: "Events",
             },
             {

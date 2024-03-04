@@ -29,7 +29,7 @@ jobs:
   spark-smoke-test:
     runs-on: ubuntu-latest
     steps:
-      - uses: hsheth2/sane-checkout-action@v1
+      - uses: acryldata/sane-checkout-action@v3
       - name: Set up JDK 17
         uses: actions/setup-java@v3
         with:

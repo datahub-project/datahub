@@ -22,6 +22,8 @@ import DataProductSection from '../shared/containers/profile/sidebar/DataProduct
 import { getDataProduct, isOutputPort } from '../shared/utils';
 import { TYPE_ICON_CLASS_NAME } from '../shared/components/subtypes';
 
+const headerDropdownItems = new Set([EntityMenuItems.UPDATE_DEPRECATION]);
+
 /**
  * Definition of the DataHub MLFeatureTable entity.
  */
@@ -77,7 +79,7 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
             entityType={EntityType.MlfeatureTable}
             useEntityQuery={useGetMlFeatureTableQuery}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
-            headerDropdownItems={new Set([EntityMenuItems.UPDATE_DEPRECATION])}
+            headerDropdownItems={headerDropdownItems}
             tabs={[
                 {
                     name: 'Features',
@@ -139,6 +141,7 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
                 logoUrl={data.platform?.properties?.logoUrl}
                 platformName={data.platform?.properties?.displayName || capitalizeFirstLetterOnly(data.platform?.name)}
                 dataProduct={getDataProduct(genericProperties?.dataProduct)}
+                headerDropdownItems={headerDropdownItems}
             />
         );
     };
@@ -159,6 +162,7 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
                 degree={(result as any).degree}
                 paths={(result as any).paths}
                 isOutputPort={isOutputPort(result)}
+                headerDropdownItems={headerDropdownItems}
             />
         );
     };
