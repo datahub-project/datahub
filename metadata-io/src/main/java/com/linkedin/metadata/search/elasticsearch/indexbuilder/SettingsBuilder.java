@@ -49,6 +49,7 @@ public class SettingsBuilder {
   public static final String TYPE_TABLE = "type_table";
   public static final String DELIMITER = "delimiter";
   public static final String UNIT_SEPARATOR_DELIMITER = "␟";
+  public static final String IGNORE_ABOVE = "ignore_above";
 
   // Analyzers
   public static final String BROWSE_PATH_HIERARCHY_ANALYZER = "browse_path_hierarchy";

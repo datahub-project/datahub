@@ -59,6 +59,11 @@ public class ESUtils {
   public static final String HEADER_VALUE_DELIMITER = "|";
   private static final String REMOVED = "removed";
 
+  // Lucene's term byte-length limit is 32766
+  // UTF-8 uses up to 4 bytes to represent a character
+  // 32766 / 4 = 8191 UTF-8 characters
+  public static final int MAX_TERM_LENGTH = 8191;
+
   // Field types
   public static final String KEYWORD_FIELD_TYPE = "keyword";
   public static final String BOOLEAN_FIELD_TYPE = "boolean";

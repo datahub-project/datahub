@@ -253,6 +253,8 @@ public class MappingsBuilder {
     Map<String, Object> mappingForField = new HashMap<>();
     mappingForField.put(TYPE, ESUtils.KEYWORD_FIELD_TYPE);
     mappingForField.put(NORMALIZER, KEYWORD_NORMALIZER);
+    // Do not index any string longer than this value
+    mappingForField.put(IGNORE_ABOVE, ESUtils.MAX_TERM_LENGTH);
     // Add keyword subfield without lowercase filter
     mappingForField.put(FIELDS, ImmutableMap.of(KEYWORD, KEYWORD_TYPE_MAP));
     return mappingForField;
@@ -262,6 +264,8 @@ public class MappingsBuilder {
     Map<String, Object> mappingForField = new HashMap<>();
     mappingForField.put(TYPE, ESUtils.KEYWORD_FIELD_TYPE);
     mappingForField.put(NORMALIZER, KEYWORD_NORMALIZER);
+    // Do not index any string longer than this value
+    mappingForField.put(IGNORE_ABOVE, ESUtils.MAX_TERM_LENGTH);
     Map<String, Object> subFields = new HashMap<>();
     if (fieldType == FieldType.TEXT_PARTIAL || fieldType == FieldType.WORD_GRAM) {
       subFields.put(

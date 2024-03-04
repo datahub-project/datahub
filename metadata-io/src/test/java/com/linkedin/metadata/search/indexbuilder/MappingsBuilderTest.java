@@ -8,6 +8,7 @@ import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.TestEntitySpecBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.MappingsBuilder;
+import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import java.net.URISyntaxException;
 import java.util.List;
@@ -216,6 +217,8 @@ public class MappingsBuilderTest {
             "keyword_normalizer",
             "type",
             "keyword",
+            "ignore_above",
+            ESUtils.MAX_TERM_LENGTH,
             "fields",
             Map.of("keyword", Map.of("type", "keyword"))));
 
@@ -251,6 +254,8 @@ public class MappingsBuilderTest {
             "keyword",
             "normalizer",
             "keyword_normalizer",
+            "ignore_above",
+            ESUtils.MAX_TERM_LENGTH,
             "fields",
             Map.of("keyword", Map.of("type", "keyword"))));
 
