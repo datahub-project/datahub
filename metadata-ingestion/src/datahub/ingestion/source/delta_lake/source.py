@@ -2,7 +2,7 @@ import json
 import logging
 import os
 import time
-from typing import Dict, Iterable, List
+from typing import Any, Dict, Iterable, List
 from urllib.parse import urlparse
 
 from deltalake import DeltaTable
@@ -139,9 +139,8 @@ class DeltaLakeSource(Source):
         config = DeltaLakeSourceConfig.parse_obj(config_dict)
         return cls(config, ctx)
 
-    inner_data_type = ""
-
-    def _inner_field_details(self, raw_field, parsed_struct=""):
+    def _inner_field_details(self, raw_field: Any, parsed_struct: str = "") -> str:
+        print(f"{type(raw_field)}")
         if raw_field.get("type") == "array":
             if isinstance(raw_field.get("elementType"), dict):
                 return (
@@ -158,15 +157,18 @@ class DeltaLakeSource(Source):
                     parsed_struct += (
                         "{0}:".format(field.get("name"))
                         if parsed_struct
-                        else "" + "{0}:".format(field.get("name"))
+                        else "{0}:".format(field.get("name"))
                     )
                     parsed_struct += field.get("type").get("type") + "<"
-                    return self._inner_field_details(field.get("type"), parsed_struct)
+                    parsed_struct = (
+                        self._inner_field_details(field.get("type"), parsed_struct)
+                        + ","
+                    )
                 else:
                     parsed_struct = (
-                            parsed_struct
-                            + "{0}:{1}".format(field.get("name"), field.get("type"))
-                            + ","
+                        parsed_struct
+                        + "{0}:{1}".format(field.get("name"), field.get("type"))
+                        + ","
                     )
 
             parsed_struct = parsed_struct.rstrip(",")
