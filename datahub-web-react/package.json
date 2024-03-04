@@ -32,6 +32,7 @@
         "@uiw/react-md-editor": "^3.3.4",
         "@visx/axis": "^3.1.0",
         "@visx/curve": "^3.0.0",
+        "@visx/gradient": "^3.3.0",
         "@visx/group": "^3.0.0",
         "@visx/hierarchy": "^3.0.0",
         "@visx/legend": "^3.2.0",

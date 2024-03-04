@@ -1,15 +1,19 @@
+import { Maybe } from 'graphql/jsutils/Maybe';
 import {
     Assertion,
+    AssertionResult,
     AssertionResultType,
     AssertionRunEvent,
     AssertionType,
     FieldAssertionType,
     SqlAssertionType,
+    StringMapEntry,
 } from '../../../../../../../../../../types.generated';
 import { formatNumberWithoutAbbreviation } from '../../../../../../../../../shared/formatNumber';
 import { toLocalDateString, toLocalTimeString } from '../../../../../../../../../shared/time/timeUtils';
 import { getResultErrorMessage } from '../../../../assertionUtils';
 import { getFieldMetricLabel } from '../../../builder/steps/field/utils';
+import { ASSERTION_NATIVE_RESULTS_KEYS_BY_ASSERTION_TYPE } from './constants';
 
 export const getFormattedResultText = (result?: AssertionResultType) => {
     if (result === undefined) {
@@ -34,28 +38,44 @@ const calculateMetricChangePercentage = (previous: number, actual: number) => {
     return previous ? ((actual - previous) / previous) * 100 : undefined;
 };
 
-const getActualColumnMetricFromAssertionRunEvent = (run: AssertionRunEvent): number | undefined => {
-    const stringMetric = run?.result?.nativeResults?.find((pair) => pair.key === 'Metric Value')?.value;
-    return stringMetric ? parseInt(stringMetric, 10) : undefined;
+/**
+ * Attempts to extract a numerical value from native results with a given key
+ * @param nativeResults 
+ * @param key 
+ * @returns {number | undefined}
+ */
+export function tryExtractNumericalValueFromNativeResults(nativeResults: Maybe<StringMapEntry[]> | undefined, key: string): number | undefined {
+    const maybeValue = nativeResults?.find(result => result.key === key)?.value
+    const parsedValue = typeof maybeValue === 'string' ? parseFloat(maybeValue) : maybeValue
+    return typeof parsedValue === 'number' && !Number.isNaN(parsedValue) ? parsedValue : undefined;
+}
+
+const tryGetFieldMetricAssertionNumericalResult = (result?: Maybe<AssertionResult>): number | undefined => {
+    return tryExtractNumericalValueFromNativeResults(result?.nativeResults, ASSERTION_NATIVE_RESULTS_KEYS_BY_ASSERTION_TYPE.FIELD_ASSERTIONS.METRIC_VALUES.Y_VALUE_KEY_NAME);
+};
+const tryGetFieldValueAssertionNumericalResult = (result?: Maybe<AssertionResult>) => {
+    if (result?.type === AssertionResultType.Init) return 0;
+    return tryExtractNumericalValueFromNativeResults(result?.nativeResults, ASSERTION_NATIVE_RESULTS_KEYS_BY_ASSERTION_TYPE.FIELD_ASSERTIONS.FIELD_VALUES.Y_VALUE_KEY_NAME);
 };
 
-const getActualSqlResultFromAssertionRunEvent = (run: AssertionRunEvent) => {
-    const stringResult = run?.result?.nativeResults?.find((pair) => pair.key === 'Value')?.value;
-    return stringResult ? parseInt(stringResult, 10) : undefined;
+const tryGetSqlAssertionNumericalResult = (result?: Maybe<AssertionResult>) => {
+    return tryExtractNumericalValueFromNativeResults(result?.nativeResults, ASSERTION_NATIVE_RESULTS_KEYS_BY_ASSERTION_TYPE.SQL_ASSERTIONS.Y_VALUE_KEY_NAME);
 };
 
-const getPreviousSqlResultFromAssertionRunEvent = (run: AssertionRunEvent) => {
-    const stringResult = run?.result?.nativeResults?.find((pair) => pair.key === 'Previous Value')?.value;
-    return stringResult ? parseInt(stringResult, 10) : undefined;
+const tryGetPreviousSqlAssertionNumericalResult = (result?: Maybe<AssertionResult>) => {
+    return tryExtractNumericalValueFromNativeResults(result?.nativeResults, ASSERTION_NATIVE_RESULTS_KEYS_BY_ASSERTION_TYPE.SQL_ASSERTIONS.PREVIOUS_Y_VALUE_KEY_NAME);
 };
 
-const getActualInvalidRowCountFromAssertionRunEvent = (run: AssertionRunEvent) => {
-    const stringRowCount = run?.result?.nativeResults?.find((pair) => pair.key === 'Invalid Rows')?.value;
-    return stringRowCount ? parseInt(stringRowCount, 10) : undefined;
+const tryGetAbsoluteVolumeAssertionNumericalResult = (result?: Maybe<AssertionResult>) => {
+    const rowCount = result?.rowCount;
+    return rowCount || undefined;
 };
 
-const getActualUpdatedTimestampFromAssertionRunEvent = (run: AssertionRunEvent) => {
-    const eventsArrString = run?.result?.nativeResults?.find((pair) => pair.key === 'events')?.value;
+const tryGetPreviousVolumeAssertionNumericalResult = (result?: Maybe<AssertionResult>) => {
+    return tryExtractNumericalValueFromNativeResults(result?.nativeResults, 'Previous Row Count');
+};
+const tryGetActualUpdatedTimestampFromAssertionResult = (result?: Maybe<AssertionResult>) => {
+    const eventsArrString = result?.nativeResults?.find((pair) => pair.key === 'events')?.value;
     const eventsArr = eventsArrString ? JSON.parse(eventsArrString) : [];
     const timestamps = eventsArr.map((event) => event.time);
     const sortedTimestampsDescending = timestamps.sort((a, b) => b - a);
@@ -63,22 +83,12 @@ const getActualUpdatedTimestampFromAssertionRunEvent = (run: AssertionRunEvent) 
     return maxTimestamp;
 };
 
-const getActualRowCountFromAssertionRunEvent = (run: AssertionRunEvent) => {
-    const rowCount = run?.result?.rowCount;
-    return rowCount || undefined;
-};
-
-const getPreviousRowCountFromAssertionRunEvent = (run: AssertionRunEvent) => {
-    const previousRowCountStr = run?.result?.nativeResults?.find((pair) => pair.key === 'Previous Row Count')?.value;
-    return previousRowCountStr ? parseInt(previousRowCountStr, 10) : undefined;
-};
-
 // TODO: Consider supporting relative field metric assertions.
 const getFormattedReasonTextForFieldMetricAssertion = (assertion: Assertion, run: AssertionRunEvent) => {
     const field = assertion.info?.fieldAssertion?.fieldMetricAssertion?.field?.path || 'column';
     const metricType = assertion.info?.fieldAssertion?.fieldMetricAssertion?.metric;
     const metricText = (metricType && getFieldMetricLabel(metricType)) || 'Aggregation';
-    const actual = getActualColumnMetricFromAssertionRunEvent(run);
+    const actual = tryGetFieldMetricAssertionNumericalResult(run.result);
     const result = run.result?.type;
     if (result === AssertionResultType.Success) {
         if (actual !== undefined) {
@@ -94,7 +104,7 @@ const getFormattedReasonTextForFieldMetricAssertion = (assertion: Assertion, run
 
 const getFormattedReasonTextForFieldValuesAssertion = (assertion: Assertion, run: AssertionRunEvent) => {
     const field = assertion.info?.fieldAssertion?.fieldValuesAssertion?.field?.path || 'column';
-    const invalidRowsCount = getActualInvalidRowCountFromAssertionRunEvent(run);
+    const invalidRowsCount = tryGetFieldValueAssertionNumericalResult(run.result);
     const result = run.result?.type;
     if (result === AssertionResultType.Success) {
         return `All rows values met the expected conditions for column ${field}.`;
@@ -124,15 +134,14 @@ const getFormattedReasonTextForAbsoluteSqlAssertion = (_: Assertion, run: Assert
 
 const getFormattedReasonTextForRelativeSqlAssertion = (_: Assertion, run: AssertionRunEvent) => {
     const result = run.result?.type;
-    const actualRowCount = getActualSqlResultFromAssertionRunEvent(run);
-    const previousRowCount = getPreviousSqlResultFromAssertionRunEvent(run);
+    const actualRowCount = tryGetSqlAssertionNumericalResult(run.result);
+    const previousRowCount = tryGetPreviousSqlAssertionNumericalResult(run.result);
     const rowCountChangePercentage =
         actualRowCount && previousRowCount && calculateMetricChangePercentage(previousRowCount, actualRowCount);
     const rowCountChangeTotal = actualRowCount && previousRowCount ? actualRowCount - previousRowCount : 0;
     const positiveChange = (rowCountChangeTotal || 0) >= 0;
-    const rowCountChangeText = `${formatNumberWithoutAbbreviation(rowCountChangeTotal)} (${
-        positiveChange ? '+' : '-'
-    }${rowCountChangePercentage}%)`;
+    const rowCountChangeText = `${formatNumberWithoutAbbreviation(rowCountChangeTotal)} (${positiveChange ? '+' : '-'
+        }${rowCountChangePercentage}%)`;
 
     if (result === AssertionResultType.Success) {
         if (actualRowCount !== undefined && previousRowCount !== undefined) {
@@ -156,7 +165,7 @@ const getFormattedReasonTextForSqlAssertion = (assertion: Assertion, run: Assert
 const getFormattedReasonTextForFreshnessAssertion = (_: Assertion, run: AssertionRunEvent) => {
     // Be careful about showing the actual result that was returned, since it may contain sensitive information.
     const result = run.result?.type;
-    const actualTimestamp = getActualUpdatedTimestampFromAssertionRunEvent(run);
+    const actualTimestamp = tryGetActualUpdatedTimestampFromAssertionResult(run.result);
     const formattedTime = (actualTimestamp && toLocalTimeString(actualTimestamp)) || undefined;
     const formattedDate = (actualTimestamp && toLocalDateString(actualTimestamp)) || undefined;
     if (result === AssertionResultType.Success) {
@@ -170,7 +179,7 @@ const getFormattedReasonTextForFreshnessAssertion = (_: Assertion, run: Assertio
 
 const getFormattedReasonTextForAbsoluteVolumeAssertion = (_: Assertion, run: AssertionRunEvent) => {
     const result = run.result?.type;
-    const actualRowCount = getActualRowCountFromAssertionRunEvent(run);
+    const actualRowCount = tryGetAbsoluteVolumeAssertionNumericalResult(run.result);
     if (result === AssertionResultType.Success) {
         if (actualRowCount !== undefined) {
             return `The actual row count (${formatNumberWithoutAbbreviation(
@@ -189,15 +198,14 @@ const getFormattedReasonTextForAbsoluteVolumeAssertion = (_: Assertion, run: Ass
 
 const getFormattedReasonTextForRelativeVolumeAssertion = (_: Assertion, run: AssertionRunEvent) => {
     const result = run.result?.type;
-    const actualRowCount = getActualRowCountFromAssertionRunEvent(run);
-    const previousRowCount = getPreviousRowCountFromAssertionRunEvent(run);
+    const actualRowCount = tryGetAbsoluteVolumeAssertionNumericalResult(run.result);
+    const previousRowCount = tryGetPreviousVolumeAssertionNumericalResult(run.result);
     const rowCountChangePercentage =
         actualRowCount && previousRowCount && calculateMetricChangePercentage(previousRowCount, actualRowCount);
     const rowCountChangeTotal = actualRowCount && previousRowCount ? actualRowCount - previousRowCount : 0;
     const positiveChange = (rowCountChangeTotal || 0) >= 0;
-    const rowCountChangeText = `${formatNumberWithoutAbbreviation(rowCountChangeTotal)} (${
-        positiveChange ? '+' : '-'
-    }${rowCountChangePercentage}%)`;
+    const rowCountChangeText = `${formatNumberWithoutAbbreviation(rowCountChangeTotal)} (${positiveChange ? '+' : '-'
+        }${rowCountChangePercentage}%)`;
 
     if (result === AssertionResultType.Success) {
         if (actualRowCount !== undefined && previousRowCount !== undefined) {
@@ -292,3 +300,43 @@ export const getResultStatusText = (result: AssertionResultType, type: ResultSta
             throw new Error(`Unsupported Assertion Result Type ${result} provided.`);
     }
 };
+
+
+
+/**
+ * Gets the main metric on an assertion's results that are being monitored over time
+ * @param runEvent 
+ * @returns {number | undefined}
+ */
+export const tryGetPrimaryMetricValueFromAssertionRunEvent = (runEvent: AssertionRunEvent): number | undefined => {
+    switch (runEvent.result?.assertion?.type) {
+        case AssertionType.Sql:
+            return tryGetSqlAssertionNumericalResult(runEvent.result);
+        case AssertionType.Volume:
+            // Row count
+            return (runEvent.result.rowCount?.valueOf());
+        case AssertionType.Field:
+            return tryGetPrimaryMetricValueFromFieldAssertionRunEvent(runEvent.result)
+        case AssertionType.Dataset:
+            return undefined;
+        case AssertionType.DataSchema:
+            return undefined;
+        case AssertionType.Freshness:
+            return undefined;
+        default:
+            return undefined;
+    }
+}
+
+function tryGetPrimaryMetricValueFromFieldAssertionRunEvent(runEventResult?: Maybe<AssertionResult>): number | undefined {
+    switch (runEventResult?.assertion?.fieldAssertion?.type) {
+        case FieldAssertionType.FieldValues: {
+            return tryGetFieldValueAssertionNumericalResult(runEventResult)
+        }
+        case FieldAssertionType.FieldMetric: {
+            return tryGetFieldMetricAssertionNumericalResult(runEventResult)
+        }
+        default:
+            return undefined;
+    }
+}

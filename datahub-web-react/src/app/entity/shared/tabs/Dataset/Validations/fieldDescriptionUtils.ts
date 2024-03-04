@@ -44,7 +44,7 @@ const getAssertionStdOperator = (operator: AssertionStdOperator) => {
     }
 };
 
-const getMetricType = (metric: FieldMetricType) => {
+export const getFieldMetricTypeReadableLabel = (metric: FieldMetricType) => {
     switch (metric) {
         case FieldMetricType.NullCount:
             return 'Null count';
@@ -138,7 +138,7 @@ export const getFieldTransformDescription = (assertionInfo: FieldAssertionInfo) 
             return getFieldTransformType(fieldValuesAssertion.transform.type);
         case FieldAssertionType.FieldMetric:
             if (!fieldMetricAssertion?.metric) return '';
-            return getMetricType(fieldMetricAssertion.metric);
+            return getFieldMetricTypeReadableLabel(fieldMetricAssertion.metric);
         default:
             throw new Error(`Unknown field assertion type ${type}`);
     }

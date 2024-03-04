@@ -34,3 +34,23 @@ export const statusOrdinalScale = scaleOrdinal({
 	domain: ['Completed', 'In Progress', 'Not Started'],
 	range: [COMPLETED_COLOR, IN_PROGRESS_COLOR, NOT_STARTED_COLOR]
 });
+
+
+// private utils to help with rounding y axis numbers
+const NUMERICAL_ABBREVIATIONS = ['k', 'm', 'b', 't']
+function roundToPrecision(n: number, precision: number) {
+	const prec = 10 ** precision;
+	return Math.round(n * prec) / prec;
+}
+
+/**
+ * ie. 24044 -> 24k
+ * @param n
+ */
+export const truncateNumberForDisplay = (n: number): string => {
+	let base = Math.floor(Math.log(Math.abs(n)) / Math.log(1000));
+	const suffix = NUMERICAL_ABBREVIATIONS[Math.min(NUMERICAL_ABBREVIATIONS.length - 1, base - 1)];
+	base = NUMERICAL_ABBREVIATIONS.indexOf(suffix) + 1;
+	return suffix ? roundToPrecision(n / 1000 ** base, 0) + suffix : `${Math.round(n)}`;
+
+}
