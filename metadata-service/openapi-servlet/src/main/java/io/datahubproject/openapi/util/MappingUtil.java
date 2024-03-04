@@ -25,12 +25,12 @@ import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.Aspect;
 import com.linkedin.events.metadata.ChangeType;
-import com.linkedin.metadata.entity.AspectUtils;
+import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.entity.RollbackRunResult;
-import com.linkedin.metadata.entity.ebean.transactions.AspectsBatchImpl;
-import com.linkedin.metadata.entity.transactions.AspectsBatch;
+import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
+import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
@@ -441,7 +441,9 @@ public class MappingUtil {
   public static Pair<String, Boolean> ingestProposal(
       com.linkedin.mxe.MetadataChangeProposal serviceProposal,
       String actorUrn,
-      EntityService entityService) {
+      EntityService<ChangeItemImpl> entityService,
+      boolean async) {
+
     // TODO: Use the actor present in the IC.
     Timer.Context context = MetricUtils.timer("postEntity").time();
     final com.linkedin.common.AuditStamp auditStamp =
@@ -449,23 +451,15 @@ public class MappingUtil {
             .setTime(System.currentTimeMillis())
             .setActor(UrnUtils.getUrn(actorUrn));
 
-    final List<com.linkedin.mxe.MetadataChangeProposal> additionalChanges =
-        AspectUtils.getAdditionalChanges(serviceProposal, entityService);
-
     log.info("Proposal: {}", serviceProposal);
     Throwable exceptionally = null;
     try {
-      Stream<com.linkedin.mxe.MetadataChangeProposal> proposalStream =
-          Stream.concat(
-              Stream.of(serviceProposal),
-              AspectUtils.getAdditionalChanges(serviceProposal, entityService).stream());
-
       AspectsBatch batch =
           AspectsBatchImpl.builder()
-              .mcps(proposalStream.collect(Collectors.toList()), entityService.getEntityRegistry())
+              .mcps(List.of(serviceProposal), auditStamp, entityService)
               .build();
 
-      Set<IngestResult> proposalResult = entityService.ingestProposal(batch, auditStamp, false);
+      Set<IngestResult> proposalResult = entityService.ingestProposal(batch, async);
 
       Urn urn = proposalResult.stream().findFirst().get().getUrn();
       return new Pair<>(

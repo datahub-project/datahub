@@ -1,8 +1,10 @@
 package com.linkedin.metadata.search.query.request;
 
+import static com.linkedin.metadata.Constants.*;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 
+import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 import com.linkedin.metadata.config.search.CustomConfiguration;
@@ -30,6 +32,14 @@ public class CustomizedQueryHandlerTest {
 
   static {
     try {
+      int maxSize =
+          Integer.parseInt(
+              System.getenv()
+                  .getOrDefault(INGESTION_MAX_SERIALIZED_STRING_LENGTH, MAX_JACKSON_STRING_SIZE));
+      TEST_MAPPER
+          .getFactory()
+          .setStreamReadConstraints(
+              StreamReadConstraints.builder().maxStringLength(maxSize).build());
       CustomConfiguration customConfiguration = new CustomConfiguration();
       customConfiguration.setEnabled(true);
       customConfiguration.setFile("search_config_test.yml");

@@ -7,6 +7,7 @@ import static org.testng.Assert.*;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.AspectIngestionUtils;
 import com.linkedin.metadata.EbeanTestUtils;
+import com.linkedin.metadata.config.EbeanConfiguration;
 import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.entity.ebean.EbeanAspectDao;
 import com.linkedin.metadata.entity.ebean.EbeanRetentionService;
@@ -32,19 +33,14 @@ public class EbeanAspectMigrationsDaoTest extends AspectMigrationsDaoTest<EbeanA
     Database server =
         EbeanTestUtils.createTestServer(EbeanAspectMigrationsDaoTest.class.getSimpleName());
     _mockProducer = mock(EventProducer.class);
-    EbeanAspectDao dao = new EbeanAspectDao(server);
+    EbeanAspectDao dao = new EbeanAspectDao(server, EbeanConfiguration.testDefault);
     dao.setConnectionValidated(true);
     _mockUpdateIndicesService = mock(UpdateIndicesService.class);
     PreProcessHooks preProcessHooks = new PreProcessHooks();
     preProcessHooks.setUiEnabled(true);
     _entityServiceImpl =
-        new EntityServiceImpl(
-            dao,
-            _mockProducer,
-            _testEntityRegistry,
-            true,
-            _mockUpdateIndicesService,
-            preProcessHooks);
+        new EntityServiceImpl(dao, _mockProducer, _testEntityRegistry, true, preProcessHooks, true);
+    _entityServiceImpl.setUpdateIndicesService(_mockUpdateIndicesService);
     _retentionService = new EbeanRetentionService(_entityServiceImpl, server, 1000);
     _entityServiceImpl.setRetentionService(_retentionService);
 

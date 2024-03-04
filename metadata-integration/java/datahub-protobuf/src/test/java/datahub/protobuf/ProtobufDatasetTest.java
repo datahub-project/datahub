@@ -1,8 +1,8 @@
 package datahub.protobuf;
 
 import static datahub.protobuf.TestFixtures.*;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotNull;
 
 import com.linkedin.common.FabricType;
 import com.linkedin.common.GlobalTags;
@@ -34,7 +34,7 @@ import java.io.IOException;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import org.junit.jupiter.api.Test;
+import org.testng.annotations.Test;
 
 public class ProtobufDatasetTest {
 

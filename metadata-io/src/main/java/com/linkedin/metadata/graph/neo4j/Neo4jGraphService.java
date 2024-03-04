@@ -17,6 +17,7 @@ import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.metadata.graph.LineageRelationship;
 import com.linkedin.metadata.graph.LineageRelationshipArray;
 import com.linkedin.metadata.graph.RelatedEntitiesResult;
+import com.linkedin.metadata.graph.RelatedEntitiesScrollResult;
 import com.linkedin.metadata.graph.RelatedEntity;
 import com.linkedin.metadata.models.registry.LineageRegistry;
 import com.linkedin.metadata.query.filter.Condition;
@@ -25,6 +26,7 @@ import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.query.filter.RelationshipFilter;
+import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.util.Pair;
 import io.opentelemetry.extension.annotations.WithSpan;
@@ -432,8 +434,8 @@ public class Neo4jGraphService implements GraphService {
               + "(b)) "
               + "WHERE a <> b "
               + "  AND ALL(rt IN relationships(path) WHERE "
-              + "    (EXISTS(rt.source) AND rt.source = 'UI') OR "
-              + "    (NOT EXISTS(rt.createdOn) AND NOT EXISTS(rt.updatedOn)) OR "
+              + "    (rt.source IS NOT NULL AND rt.source = 'UI') OR "
+              + "    (rt.createdOn IS NULL AND rt.updatedOn IS NULL) OR "
               + "    ($startTimeMillis <= rt.createdOn <= $endTimeMillis OR "
               + "     $startTimeMillis <= rt.updatedOn <= $endTimeMillis) "
               + "  ) "
@@ -532,7 +534,8 @@ public class Neo4jGraphService implements GraphService {
                             .get(0)
                             .asNode()
                             .get("urn")
-                            .asString())); // Urn TODO: Validate this works against Neo4j.
+                            .asString(), // Urn TODO: Validate this works against Neo4j.
+                        null));
     final int totalCount = runQuery(countStatement).single().get(0).asInt();
     return new RelatedEntitiesResult(offset, relatedEntities.size(), totalCount, relatedEntities);
   }
@@ -881,5 +884,22 @@ public class Neo4jGraphService implements GraphService {
     } catch (URISyntaxException e) {
       return null;
     }
+  }
+
+  @Nonnull
+  @Override
+  public RelatedEntitiesScrollResult scrollRelatedEntities(
+      @Nullable List<String> sourceTypes,
+      @Nonnull Filter sourceEntityFilter,
+      @Nullable List<String> destinationTypes,
+      @Nonnull Filter destinationEntityFilter,
+      @Nonnull List<String> relationshipTypes,
+      @Nonnull RelationshipFilter relationshipFilter,
+      @Nonnull List<SortCriterion> sortCriterion,
+      @Nullable String scrollId,
+      int count,
+      @Nullable Long startTimeMillis,
+      @Nullable Long endTimeMillis) {
+    throw new IllegalArgumentException("Not implemented");
   }
 }

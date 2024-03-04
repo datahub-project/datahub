@@ -10,7 +10,6 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesResult;
-import com.linkedin.metadata.models.registry.EntityRegistry;
 import io.ebean.Database;
 import io.ebean.ExpressionList;
 import java.util.ArrayList;
@@ -23,7 +22,9 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.function.Function;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 public class SendMAEStep implements UpgradeStep {
 
   private static final int DEFAULT_BATCH_SIZE = 1000;
@@ -31,9 +32,10 @@ public class SendMAEStep implements UpgradeStep {
 
   private static final int DEFAULT_STARTING_OFFSET = 0;
   private static final int DEFAULT_THREADS = 1;
+  private static final boolean DEFAULT_URN_BASED_PAGINATION = false;
 
   private final Database _server;
-  private final EntityService _entityService;
+  private final EntityService<?> _entityService;
 
   public class KafkaJob implements Callable<RestoreIndicesResult> {
     UpgradeContext context;
@@ -50,10 +52,7 @@ public class SendMAEStep implements UpgradeStep {
     }
   }
 
-  public SendMAEStep(
-      final Database server,
-      final EntityService entityService,
-      final EntityRegistry entityRegistry) {
+  public SendMAEStep(final Database server, final EntityService<?> entityService) {
     _server = server;
     _entityService = entityService;
   }
@@ -76,7 +75,7 @@ public class SendMAEStep implements UpgradeStep {
           result.add(future.get());
           futures.remove(future);
         } catch (InterruptedException | ExecutionException e) {
-          e.printStackTrace();
+          log.error("Error iterating futures", e);
         }
       }
     }
@@ -86,17 +85,34 @@ public class SendMAEStep implements UpgradeStep {
   private RestoreIndicesArgs getArgs(UpgradeContext context) {
     RestoreIndicesArgs result = new RestoreIndicesArgs();
     result.batchSize = getBatchSize(context.parsedArgs());
+    context.report().addLine(String.format("batchSize is %d", result.batchSize));
     result.numThreads = getThreadCount(context.parsedArgs());
+    context.report().addLine(String.format("numThreads is %d", result.numThreads));
     result.batchDelayMs = getBatchDelayMs(context.parsedArgs());
     result.start = getStartingOffset(context.parsedArgs());
+    result.urnBasedPagination = getUrnBasedPagination(context.parsedArgs());
     if (containsKey(context.parsedArgs(), RestoreIndices.ASPECT_NAME_ARG_NAME)) {
       result.aspectName = context.parsedArgs().get(RestoreIndices.ASPECT_NAME_ARG_NAME).get();
+      context.report().addLine(String.format("aspect is %s", result.aspectName));
+      context.report().addLine(String.format("Found aspectName arg as %s", result.aspectName));
+    } else {
+      context.report().addLine("No aspectName arg present");
     }
+
     if (containsKey(context.parsedArgs(), RestoreIndices.URN_ARG_NAME)) {
       result.urn = context.parsedArgs().get(RestoreIndices.URN_ARG_NAME).get();
+      context.report().addLine(String.format("urn is %s", result.urn));
+      context.report().addLine(String.format("Found urn arg as %s", result.urn));
+    } else {
+      context.report().addLine("No urn arg present");
     }
+
     if (containsKey(context.parsedArgs(), RestoreIndices.URN_LIKE_ARG_NAME)) {
       result.urnLike = context.parsedArgs().get(RestoreIndices.URN_LIKE_ARG_NAME).get();
+      context.report().addLine(String.format("urnLike is %s", result.urnLike));
+      context.report().addLine(String.format("Found urn like arg as %s", result.urnLike));
+    } else {
+      context.report().addLine("No urnLike arg present");
     }
     return result;
   }
@@ -140,18 +156,49 @@ public class SendMAEStep implements UpgradeStep {
 
       List<Future<RestoreIndicesResult>> futures = new ArrayList<>();
       startTime = System.currentTimeMillis();
-      while (start < rowCount) {
-        args = args.clone();
-        args.start = start;
-        futures.add(executor.submit(new KafkaJob(context, args)));
-        start = start + args.batchSize;
-      }
-      while (futures.size() > 0) {
-        List<RestoreIndicesResult> tmpResults = iterateFutures(futures);
-        for (RestoreIndicesResult tmpResult : tmpResults) {
-          reportStats(context, finalJobResult, tmpResult, rowCount, startTime);
+      if (args.urnBasedPagination) {
+        RestoreIndicesResult previousResult = null;
+        int rowsProcessed = 1;
+        while (rowsProcessed > 0) {
+          args = args.clone();
+          if (previousResult != null) {
+            args.lastUrn = previousResult.lastUrn;
+            args.lastAspect = previousResult.lastAspect;
+          }
+          args.start = start;
+          context
+              .report()
+              .addLine(
+                  String.format(
+                      "Getting next batch of urns + aspects, starting with %s - %s",
+                      args.lastUrn, args.lastAspect));
+          Future<RestoreIndicesResult> future = executor.submit(new KafkaJob(context, args));
+          try {
+            RestoreIndicesResult result = future.get();
+            reportStats(context, finalJobResult, result, rowCount, startTime);
+            previousResult = result;
+            rowsProcessed = result.rowsMigrated + result.ignored;
+            context.report().addLine(String.format("Rows processed this loop %d", rowsProcessed));
+            start += args.batchSize;
+          } catch (InterruptedException | ExecutionException e) {
+            return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
+          }
+        }
+      } else {
+        while (start < rowCount) {
+          args = args.clone();
+          args.start = start;
+          futures.add(executor.submit(new KafkaJob(context, args)));
+          start = start + args.batchSize;
+        }
+        while (futures.size() > 0) {
+          List<RestoreIndicesResult> tmpResults = iterateFutures(futures);
+          for (RestoreIndicesResult tmpResult : tmpResults) {
+            reportStats(context, finalJobResult, tmpResult, rowCount, startTime);
+          }
         }
       }
+
       executor.shutdown();
       if (finalJobResult.rowsMigrated != rowCount) {
         float percentFailed = 0.0f;
@@ -231,6 +278,15 @@ public class SendMAEStep implements UpgradeStep {
 
   private int getThreadCount(final Map<String, Optional<String>> parsedArgs) {
     return getInt(parsedArgs, DEFAULT_THREADS, RestoreIndices.NUM_THREADS_ARG_NAME);
+  }
+
+  private boolean getUrnBasedPagination(final Map<String, Optional<String>> parsedArgs) {
+    boolean urnBasedPagination = DEFAULT_URN_BASED_PAGINATION;
+    if (containsKey(parsedArgs, RestoreIndices.URN_BASED_PAGINATION_ARG_NAME)) {
+      urnBasedPagination =
+          Boolean.parseBoolean(parsedArgs.get(RestoreIndices.URN_BASED_PAGINATION_ARG_NAME).get());
+    }
+    return urnBasedPagination;
   }
 
   private int getInt(

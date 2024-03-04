@@ -1,0 +1,101 @@
+namespace com.linkedin.settings.global
+
+/**
+ * Settings for OIDC SSO integration.
+ */
+record OidcSettings {
+  /**
+   * Whether OIDC SSO is enabled.
+   */
+  enabled: boolean
+
+  /**
+   * Unique client id issued by the identity provider.
+   */
+  clientId: string
+
+  /**
+   * Unique client secret issued by the identity provider.
+   */
+  clientSecret: string
+
+  /**
+   * The IdP OIDC discovery url.
+   */
+  discoveryUri: string
+
+  /**
+   * ADVANCED. The attribute / claim used to derive the DataHub username. Defaults to "preferred_username".
+   */
+  userNameClaim: optional string
+
+   /**
+   * ADVANCED. TThe regex used to parse the DataHub username from the user name claim. Defaults to (.*) (all).
+   */
+  userNameClaimRegex: optional string
+
+  /**
+   * ADVANCED. String representing the requested scope from the IdP. Defaults to "oidc email profile".
+   */
+  scope: optional string
+
+  /**
+   * ADVANCED. Which authentication method to use to pass credentials (clientId and clientSecret) to the token endpoint: Defaults to "client_secret_basic".
+   */
+  clientAuthenticationMethod: optional string
+
+  /**
+   * ADVANCED. Whether DataHub users should be provisioned on login if they do not exist. Defaults to true.
+   */
+  jitProvisioningEnabled: optional boolean
+
+  /**
+   * ADVANCED. Whether the user should already exist in DataHub on login, failing login if they are not. Defaults to false.
+   */
+  preProvisioningRequired: optional boolean
+
+  /**
+   * ADVANCED. Whether groups should be extracted from a claim in the OIDC profile. Only applies if JIT provisioning is enabled. Groups will be created if they do not exist. Defaults to true.
+   */
+  extractGroupsEnabled: optional boolean
+
+  /**
+   * ADVANCED. The OIDC claim to extract groups information from. Defaults to 'groups'.
+   */
+  groupsClaim: optional string
+
+  /**
+   * ADVANCED. Response type.
+   */
+  responseType: optional string
+
+  /**
+   * ADVANCED. Response mode.
+   */
+  responseMode: optional string
+
+  /**
+   * ADVANCED. Use Nonce.
+   */
+  useNonce: optional boolean
+
+  /**
+   * ADVANCED. Read timeout.
+   */
+  readTimeout: optional long
+
+  /**
+   * ADVANCED. Whether to extract claims from JWT access token.  Defaults to false.
+   */
+  extractJwtAccessTokenClaims: optional boolean
+
+   /**
+   *  ADVANCED. Which jws algorithm to use. Unused.
+   */
+  preferredJwsAlgorithm: optional string
+
+   /**
+   *  ADVANCED. Which jws algorithm to use.
+   */
+  preferredJwsAlgorithm2: optional string
+}

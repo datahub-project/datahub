@@ -9,6 +9,8 @@ import com.linkedin.metadata.kafka.config.MetadataChangeLogProcessorCondition;
 import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
 import com.linkedin.metadata.kafka.hook.UpdateIndicesHook;
 import com.linkedin.metadata.kafka.hook.event.EntityChangeEventGeneratorHook;
+import com.linkedin.metadata.kafka.hook.form.FormAssignmentHook;
+import com.linkedin.metadata.kafka.hook.incident.IncidentsSummaryHook;
 import com.linkedin.metadata.kafka.hook.ingestion.IngestionSchedulerHook;
 import com.linkedin.metadata.kafka.hook.siblings.SiblingAssociationHook;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
@@ -36,7 +38,9 @@ import org.springframework.stereotype.Component;
   IngestionSchedulerHook.class,
   EntityChangeEventGeneratorHook.class,
   KafkaEventConsumerFactory.class,
-  SiblingAssociationHook.class
+  SiblingAssociationHook.class,
+  FormAssignmentHook.class,
+  IncidentsSummaryHook.class,
 })
 @EnableKafka
 public class MetadataChangeLogProcessor {
@@ -52,6 +56,11 @@ public class MetadataChangeLogProcessor {
             .filter(MetadataChangeLogHook::isEnabled)
             .sorted(Comparator.comparing(MetadataChangeLogHook::executionOrder))
             .collect(Collectors.toList());
+    log.info(
+        "Enabled hooks: {}",
+        this.hooks.stream()
+            .map(hook -> hook.getClass().getSimpleName())
+            .collect(Collectors.toList()));
     this.hooks.forEach(MetadataChangeLogHook::init);
   }
 
@@ -63,53 +72,59 @@ public class MetadataChangeLogProcessor {
       },
       containerFactory = "kafkaEventConsumer")
   public void consume(final ConsumerRecord<String, GenericRecord> consumerRecord) {
-    kafkaLagStats.update(System.currentTimeMillis() - consumerRecord.timestamp());
-    final GenericRecord record = consumerRecord.value();
-    log.debug(
-        "Got Generic MCL on topic: {}, partition: {}, offset: {}",
-        consumerRecord.topic(),
-        consumerRecord.partition(),
-        consumerRecord.offset());
-    MetricUtils.counter(this.getClass(), "received_mcl_count").inc();
-
-    MetadataChangeLog event;
-    try {
-      event = EventUtils.avroToPegasusMCL(record);
+    try (Timer.Context i = MetricUtils.timer(this.getClass(), "consume").time()) {
+      kafkaLagStats.update(System.currentTimeMillis() - consumerRecord.timestamp());
+      final GenericRecord record = consumerRecord.value();
       log.debug(
-          "Successfully converted Avro MCL to Pegasus MCL. urn: {}, key: {}",
+          "Got Generic MCL on topic: {}, partition: {}, offset: {}",
+          consumerRecord.topic(),
+          consumerRecord.partition(),
+          consumerRecord.offset());
+      MetricUtils.counter(this.getClass(), "received_mcl_count").inc();
+
+      MetadataChangeLog event;
+      try {
+        event = EventUtils.avroToPegasusMCL(record);
+        log.debug(
+            "Successfully converted Avro MCL to Pegasus MCL. urn: {}, key: {}",
+            event.getEntityUrn(),
+            event.getEntityKeyAspect());
+      } catch (Exception e) {
+        MetricUtils.counter(this.getClass(), "avro_to_pegasus_conversion_failure").inc();
+        log.error("Error deserializing message due to: ", e);
+        log.error("Message: {}", record.toString());
+        return;
+      }
+
+      log.debug(
+          "Invoking MCL hooks for urn: {}, key: {}",
           event.getEntityUrn(),
           event.getEntityKeyAspect());
-    } catch (Exception e) {
-      MetricUtils.counter(this.getClass(), "avro_to_pegasus_conversion_failure").inc();
-      log.error("Error deserializing message due to: ", e);
-      log.error("Message: {}", record.toString());
-      return;
-    }
 
-    log.debug(
-        "Invoking MCL hooks for urn: {}, key: {}",
-        event.getEntityUrn(),
-        event.getEntityKeyAspect());
-
-    // Here - plug in additional "custom processor hooks"
-    for (MetadataChangeLogHook hook : this.hooks) {
-      if (!hook.isEnabled()) {
-        continue;
+      // Here - plug in additional "custom processor hooks"
+      for (MetadataChangeLogHook hook : this.hooks) {
+        if (!hook.isEnabled()) {
+          log.debug(String.format("Skipping disabled hook %s", hook.getClass()));
+          continue;
+        }
+        try (Timer.Context ignored =
+            MetricUtils.timer(this.getClass(), hook.getClass().getSimpleName() + "_latency")
+                .time()) {
+          hook.invoke(event);
+        } catch (Exception e) {
+          // Just skip this hook and continue. - Note that this represents "at most once"//
+          // processing.
+          MetricUtils.counter(this.getClass(), hook.getClass().getSimpleName() + "_failure").inc();
+          log.error(
+              "Failed to execute MCL hook with name {}", hook.getClass().getCanonicalName(), e);
+        }
       }
-      try (Timer.Context ignored =
-          MetricUtils.timer(this.getClass(), hook.getClass().getSimpleName() + "_latency").time()) {
-        hook.invoke(event);
-      } catch (Exception e) {
-        // Just skip this hook and continue. - Note that this represents "at most once" processing.
-        MetricUtils.counter(this.getClass(), hook.getClass().getSimpleName() + "_failure").inc();
-        log.error("Failed to execute MCL hook with name {}", hook.getClass().getCanonicalName(), e);
-      }
+      // TODO: Manually commit kafka offsets after full processing.
+      MetricUtils.counter(this.getClass(), "consumed_mcl_count").inc();
+      log.debug(
+          "Successfully completed MCL hooks for urn: {}, key: {}",
+          event.getEntityUrn(),
+          event.getEntityKeyAspect());
     }
-    // TODO: Manually commit kafka offsets after full processing.
-    MetricUtils.counter(this.getClass(), "consumed_mcl_count").inc();
-    log.debug(
-        "Successfully completed MCL hooks for urn: {}, key: {}",
-        event.getEntityUrn(),
-        event.getEntityKeyAspect());
   }
 }

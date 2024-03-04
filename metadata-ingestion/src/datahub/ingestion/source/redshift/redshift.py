@@ -1,3 +1,4 @@
+import itertools
 import logging
 from collections import defaultdict
 from functools import partial
@@ -39,6 +40,7 @@ from datahub.ingestion.source.common.subtypes import (
 )
 from datahub.ingestion.source.redshift.config import RedshiftConfig
 from datahub.ingestion.source.redshift.lineage import RedshiftLineageExtractor
+from datahub.ingestion.source.redshift.lineage_v2 import RedshiftSqlLineageV2
 from datahub.ingestion.source.redshift.profile import RedshiftProfiler
 from datahub.ingestion.source.redshift.redshift_schema import (
     RedshiftColumn,
@@ -98,6 +100,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 )
 from datahub.metadata.schema_classes import GlobalTagsClass, TagAssociationClass
 from datahub.utilities import memory_footprint
+from datahub.utilities.dedup_list import deduplicate_list
 from datahub.utilities.mapping import Constants
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.registries.domain_registry import DomainRegistry
@@ -165,7 +168,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
 
     #### sql_based
     The sql_based based collector uses Redshift's [stl_insert](https://docs.aws.amazon.com/redshift/latest/dg/r_STL_INSERT.html) to discover all the insert queries
-    and uses sql parsing to discover the dependecies.
+    and uses sql parsing to discover the dependencies.
 
     Pros:
     - Works with Spectrum tables
@@ -189,7 +192,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
 
     :::note
 
-    The redshift stl redshift tables which are used for getting data lineage only retain approximately two to five days of log history. This means you cannot extract lineage from queries issued outside that window.
+    The redshift stl redshift tables which are used for getting data lineage retain at most seven days of log history, and sometimes closer to 2-5 days. This means you cannot extract lineage from queries issued outside that window.
 
     :::
 
@@ -305,7 +308,6 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
 
     def __init__(self, config: RedshiftConfig, ctx: PipelineContext):
         super().__init__(config, ctx)
-        self.lineage_extractor: Optional[RedshiftLineageExtractor] = None
         self.catalog_metadata: Dict = {}
         self.config: RedshiftConfig = config
         self.report: RedshiftReport = RedshiftReport()
@@ -413,20 +415,45 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             memory_footprint.total_size(self.db_views)
         )
 
-        yield from self.process_schemas(connection, database)
+        if self.config.use_lineage_v2:
+            lineage_extractor = RedshiftSqlLineageV2(
+                config=self.config,
+                report=self.report,
+                context=self.ctx,
+                database=database,
+                redundant_run_skip_handler=self.redundant_lineage_run_skip_handler,
+            )
 
-        all_tables = self.get_all_tables()
+            yield from lineage_extractor.aggregator.register_schemas_from_stream(
+                self.process_schemas(connection, database)
+            )
 
-        if self.config.include_table_lineage or self.config.include_copy_lineage:
             self.report.report_ingestion_stage_start(LINEAGE_EXTRACTION)
-            yield from self.extract_lineage(
-                connection=connection, all_tables=all_tables, database=database
+            yield from self.extract_lineage_usage_v2(
+                connection=connection,
+                database=database,
+                lineage_extractor=lineage_extractor,
             )
 
-        if self.config.include_usage_statistics:
-            yield from self.extract_usage(
-                connection=connection, all_tables=all_tables, database=database
-            )
+        else:
+            yield from self.process_schemas(connection, database)
+
+            all_tables = self.get_all_tables()
+
+            if (
+                self.config.include_table_lineage
+                or self.config.include_view_lineage
+                or self.config.include_copy_lineage
+            ):
+                self.report.report_ingestion_stage_start(LINEAGE_EXTRACTION)
+                yield from self.extract_lineage(
+                    connection=connection, all_tables=all_tables, database=database
+                )
+
+            if self.config.include_usage_statistics:
+                yield from self.extract_usage(
+                    connection=connection, all_tables=all_tables, database=database
+                )
 
         if self.config.is_profiling_enabled():
             self.report.report_ingestion_stage_start(PROFILING)
@@ -591,6 +618,9 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         dataset_name: str,
     ) -> Iterable[MetadataWorkUnit]:
         custom_properties = {}
+
+        if table.type:
+            custom_properties["table_type"] = table.type
 
         if table.location:
             custom_properties["location"] = table.location
@@ -896,7 +926,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         if not self._should_ingest_lineage():
             return
 
-        self.lineage_extractor = RedshiftLineageExtractor(
+        lineage_extractor = RedshiftLineageExtractor(
             config=self.config,
             report=self.report,
             context=self.ctx,
@@ -904,20 +934,50 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         )
 
         with PerfTimer() as timer:
-            self.lineage_extractor.populate_lineage(
+            lineage_extractor.populate_lineage(
                 database=database, connection=connection, all_tables=all_tables
             )
 
             self.report.lineage_extraction_sec[f"{database}"] = round(
                 timer.elapsed_seconds(), 2
             )
-            yield from self.generate_lineage(database)
+            yield from self.generate_lineage(
+                database, lineage_extractor=lineage_extractor
+            )
 
             if self.redundant_lineage_run_skip_handler:
                 # Update the checkpoint state for this run.
                 self.redundant_lineage_run_skip_handler.update_state(
                     self.config.start_time, self.config.end_time
                 )
+
+    def extract_lineage_usage_v2(
+        self,
+        connection: redshift_connector.Connection,
+        database: str,
+        lineage_extractor: RedshiftSqlLineageV2,
+    ) -> Iterable[MetadataWorkUnit]:
+        if not self._should_ingest_lineage():
+            return
+
+        with PerfTimer() as timer:
+            all_tables = self.get_all_tables()
+
+            lineage_extractor.build(
+                connection=connection, all_tables=all_tables, db_schemas=self.db_schemas
+            )
+
+            yield from lineage_extractor.generate()
+
+            self.report.lineage_extraction_sec[f"{database}"] = round(
+                timer.elapsed_seconds(), 2
+            )
+
+        if self.redundant_lineage_run_skip_handler:
+            # Update the checkpoint state for this run.
+            self.redundant_lineage_run_skip_handler.update_state(
+                lineage_extractor.start_time, lineage_extractor.end_time
+            )
 
     def _should_ingest_lineage(self) -> bool:
         if (
@@ -936,48 +996,40 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
 
         return True
 
-    def generate_lineage(self, database: str) -> Iterable[MetadataWorkUnit]:
-        assert self.lineage_extractor
-
+    def generate_lineage(
+        self, database: str, lineage_extractor: RedshiftLineageExtractor
+    ) -> Iterable[MetadataWorkUnit]:
         logger.info(f"Generate lineage for {database}")
-        for schema in self.db_tables[database]:
-            for table in self.db_tables[database][schema]:
-                if (
-                    database not in self.db_schemas
-                    or schema not in self.db_schemas[database]
-                ):
-                    logger.warning(
-                        f"Either database {database} or {schema} exists in the lineage but was not discovered earlier. Something went wrong."
-                    )
-                    continue
-                datahub_dataset_name = f"{database}.{schema}.{table.name}"
+        for schema in deduplicate_list(
+            itertools.chain(self.db_tables[database], self.db_views[database])
+        ):
+            if (
+                database not in self.db_schemas
+                or schema not in self.db_schemas[database]
+            ):
+                logger.warning(
+                    f"Either database {database} or {schema} exists in the lineage but was not discovered earlier. Something went wrong."
+                )
+                continue
+
+            table_or_view: Union[RedshiftTable, RedshiftView]
+            for table_or_view in (
+                []
+                + self.db_tables[database].get(schema, [])
+                + self.db_views[database].get(schema, [])
+            ):
+                datahub_dataset_name = f"{database}.{schema}.{table_or_view.name}"
                 dataset_urn = self.gen_dataset_urn(datahub_dataset_name)
 
-                lineage_info = self.lineage_extractor.get_lineage(
-                    table,
+                lineage_info = lineage_extractor.get_lineage(
+                    table_or_view,
                     dataset_urn,
                     self.db_schemas[database][schema],
                 )
                 if lineage_info:
                     yield from gen_lineage(
                         dataset_urn,
-                        lineage_info,
-                        incremental_lineage=False,  # incremental lineage generation is taken care by auto_incremental_lineage
-                    )
-
-        for schema in self.db_views[database]:
-            for view in self.db_views[database][schema]:
-                datahub_dataset_name = f"{database}.{schema}.{view.name}"
-                dataset_urn = self.gen_dataset_urn(datahub_dataset_name)
-                lineage_info = self.lineage_extractor.get_lineage(
-                    view,
-                    dataset_urn,
-                    self.db_schemas[database][schema],
-                )
-                if lineage_info:
-                    yield from gen_lineage(
-                        dataset_urn,
-                        lineage_info,
+                        (lineage_info, {}),
                         incremental_lineage=False,  # incremental lineage generation is taken care by auto_incremental_lineage
                     )
 

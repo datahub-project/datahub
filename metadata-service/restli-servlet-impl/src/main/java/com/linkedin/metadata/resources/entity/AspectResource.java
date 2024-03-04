@@ -18,11 +18,10 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.aspect.EnvelopedAspectArray;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.authorization.PoliciesConfig;
-import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.IngestResult;
-import com.linkedin.metadata.entity.ebean.transactions.AspectsBatchImpl;
-import com.linkedin.metadata.entity.transactions.AspectsBatch;
+import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
+import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
@@ -49,8 +48,6 @@ import java.net.URISyntaxException;
 import java.time.Clock;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.inject.Inject;
@@ -80,10 +77,10 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
 
   @Inject
   @Named("entityService")
-  private EntityService _entityService;
+  private EntityService<?> _entityService;
 
   @VisibleForTesting
-  void setEntityService(EntityService entityService) {
+  void setEntityService(EntityService<?> entityService) {
     _entityService = entityService;
   }
 
@@ -242,33 +239,15 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
     final AuditStamp auditStamp =
         new AuditStamp().setTime(_clock.millis()).setActor(Urn.createFromString(actorUrnStr));
 
-    return RestliUtil.toTask(
-        () -> {
-          log.debug("Proposal: {}", metadataChangeProposal);
-          try {
-            final AspectsBatch batch;
-            if (asyncBool) {
-              // if async we'll expand the getAdditionalChanges later, no need to do this early
-              batch =
-                  AspectsBatchImpl.builder()
-                      .mcps(List.of(metadataChangeProposal), _entityService.getEntityRegistry())
-                      .build();
-            } else {
-              Stream<MetadataChangeProposal> proposalStream =
-                  Stream.concat(
-                      Stream.of(metadataChangeProposal),
-                      AspectUtils.getAdditionalChanges(metadataChangeProposal, _entityService)
-                          .stream());
+    return RestliUtil.toTask(() -> {
+      log.debug("Proposal: {}", metadataChangeProposal);
+      try {
+        final AspectsBatch batch = AspectsBatchImpl.builder()
+                .mcps(List.of(metadataChangeProposal), auditStamp, _entityService)
+                .build();
 
-              batch =
-                  AspectsBatchImpl.builder()
-                      .mcps(
-                          proposalStream.collect(Collectors.toList()),
-                          _entityService.getEntityRegistry())
-                      .build();
-            }
-
-            Set<IngestResult> results = _entityService.ingestProposal(batch, auditStamp, asyncBool);
+        Set<IngestResult> results =
+                _entityService.ingestProposal(batch, asyncBool);
 
             IngestResult one = results.stream().findFirst().get();
 

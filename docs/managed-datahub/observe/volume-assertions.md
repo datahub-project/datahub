@@ -44,6 +44,7 @@ Volume Assertions are currently supported for:
 1. Snowflake
 2. Redshift
 3. BigQuery
+4. Databricks
 
 Note that an Ingestion Source _must_ be configured with the data platform of your choice in Acryl DataHub's **Ingestion**
 tab.
@@ -335,6 +336,79 @@ mutation createAssertionMonitor {
 This entity defines _when_ to run the check (Using CRON format - every 8th hour) and _how_ to run the check (using the Information Schema).
 
 After creating the monitor, the new assertion will start to be evaluated every 8 hours in your selected timezone.
+
+Alternatively you can use `upsertDatasetVolumeAssertionMonitor` graphql endpoint for creating a Volume Assertion and corresponding Monitor. 
+
+```json
+mutation upsertDatasetVolumeAssertionMonitor {
+  upsertDatasetVolumeAssertionMonitor(
+    input: {
+      entityUrn: "<urn of entity being monitored>"
+      type: ROW_COUNT_TOTAL
+      rowCountTotal: {
+        operator: BETWEEN
+        parameters: {
+          minValue: {
+            value: "10"
+            type: NUMBER
+          }
+          maxValue: {
+            value: "20"
+            type: NUMBER
+          }
+        }
+      }
+      evaluationSchedule: {
+        timezone: "America/Los_Angeles"
+        cron: "0 */8 * * *"
+      }
+      evaluationParameters: {
+        sourceType: INFORMATION_SCHEMA
+      }
+      mode: ACTIVE
+    }
+  ) {
+    urn
+  }
+}
+```
+
+You can use same endpoint with assertion urn input to update an existing Volume Assertion and corresponding Monitor.
+
+```json
+mutation upsertDatasetVolumeAssertionMonitor {
+  upsertDatasetVolumeAssertionMonitor(
+    assertionUrn: "<urn of assertion created in earlier query>"
+    input: {
+      entityUrn: "<urn of entity being monitored>"
+      type: ROW_COUNT_TOTAL
+      rowCountTotal: {
+        operator: BETWEEN
+        parameters: {
+          minValue: {
+            value: "10"
+            type: NUMBER
+          }
+          maxValue: {
+            value: "20"
+            type: NUMBER
+          }
+        }
+      }
+      evaluationSchedule: {
+        timezone: "America/Los_Angeles"
+        cron: "0 */6 * * *"
+      }
+      evaluationParameters: {
+        sourceType: INFORMATION_SCHEMA
+      }
+      mode: ACTIVE
+    }
+  ) {
+    urn
+  }
+}
+```
 
 You can delete assertions along with their monitors using GraphQL mutations: `deleteAssertion` and `deleteMonitor`.
 

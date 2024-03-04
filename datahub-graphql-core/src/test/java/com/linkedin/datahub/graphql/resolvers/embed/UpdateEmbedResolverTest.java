@@ -2,12 +2,12 @@ package com.linkedin.datahub.graphql.resolvers.embed;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
 import static com.linkedin.metadata.Constants.*;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.testng.Assert.*;
 
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.linkedin.common.AuditStamp;
 import com.linkedin.common.Embed;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
@@ -19,7 +19,7 @@ import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.entity.ebean.transactions.AspectsBatchImpl;
+import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetchingEnvironment;
@@ -48,7 +48,8 @@ public class UpdateEmbedResolverTest {
                 Mockito.eq(0L)))
         .thenReturn(null);
 
-    Mockito.when(mockService.exists(Urn.createFromString(TEST_ENTITY_URN))).thenReturn(true);
+    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
+        .thenReturn(true);
 
     UpdateEmbedResolver resolver = new UpdateEmbedResolver(mockService);
 
@@ -69,7 +70,7 @@ public class UpdateEmbedResolverTest {
     ;
 
     Mockito.verify(mockService, Mockito.times(1))
-        .exists(Mockito.eq(Urn.createFromString(TEST_ENTITY_URN)));
+        .exists(Mockito.eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true));
   }
 
   @Test
@@ -86,7 +87,8 @@ public class UpdateEmbedResolverTest {
                 Mockito.eq(0L)))
         .thenReturn(originalEmbed);
 
-    Mockito.when(mockService.exists(Urn.createFromString(TEST_ENTITY_URN))).thenReturn(true);
+    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
+        .thenReturn(true);
 
     UpdateEmbedResolver resolver = new UpdateEmbedResolver(mockService);
 
@@ -106,7 +108,7 @@ public class UpdateEmbedResolverTest {
     verifySingleIngestProposal(mockService, 1, proposal);
 
     Mockito.verify(mockService, Mockito.times(1))
-        .exists(Mockito.eq(Urn.createFromString(TEST_ENTITY_URN)));
+        .exists(Mockito.eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true));
   }
 
   @Test
@@ -129,7 +131,8 @@ public class UpdateEmbedResolverTest {
                     .setAspects(new EnvelopedAspectMap(Collections.emptyMap()))));
 
     EntityService mockService = getMockEntityService();
-    Mockito.when(mockService.exists(Urn.createFromString(TEST_ENTITY_URN))).thenReturn(false);
+    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
+        .thenReturn(false);
 
     UpdateEmbedResolver resolver = new UpdateEmbedResolver(mockService);
 
@@ -142,8 +145,7 @@ public class UpdateEmbedResolverTest {
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
     Mockito.verify(mockService, Mockito.times(0))
-        .ingestProposal(
-            Mockito.any(AspectsBatchImpl.class), Mockito.any(AuditStamp.class), Mockito.eq(false));
+        .ingestProposal(Mockito.any(AspectsBatchImpl.class), Mockito.eq(false));
     ;
   }
 
@@ -161,8 +163,7 @@ public class UpdateEmbedResolverTest {
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
     Mockito.verify(mockService, Mockito.times(0))
-        .ingestProposal(
-            Mockito.any(AspectsBatchImpl.class), Mockito.any(AuditStamp.class), Mockito.eq(false));
+        .ingestProposal(Mockito.any(AspectsBatchImpl.class), Mockito.eq(false));
   }
 
   @Test

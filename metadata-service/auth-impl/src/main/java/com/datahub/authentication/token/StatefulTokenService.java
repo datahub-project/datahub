@@ -10,22 +10,15 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.entity.ebean.transactions.AspectsBatchImpl;
+import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.key.DataHubAccessTokenKey;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
-import java.util.Base64;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
@@ -40,7 +33,7 @@ import org.apache.commons.lang.ArrayUtils;
 @Slf4j
 public class StatefulTokenService extends StatelessTokenService {
 
-  private final EntityService _entityService;
+  private final EntityService<?> _entityService;
   private final LoadingCache<String, Boolean> _revokedTokenCache;
   private final String salt;
 
@@ -48,7 +41,7 @@ public class StatefulTokenService extends StatelessTokenService {
       @Nonnull final String signingKey,
       @Nonnull final String signingAlgorithm,
       @Nullable final String iss,
-      @Nonnull final EntityService entityService,
+      @Nonnull final EntityService<?> entityService,
       @Nonnull final String salt) {
     super(signingKey, signingAlgorithm, iss);
     this._entityService = entityService;
@@ -60,9 +53,8 @@ public class StatefulTokenService extends StatelessTokenService {
                 new CacheLoader<String, Boolean>() {
                   @Override
                   public Boolean load(final String key) {
-                    final Urn accessUrn =
-                        Urn.createFromTuple(Constants.ACCESS_TOKEN_ENTITY_NAME, key);
-                    return !_entityService.exists(accessUrn);
+                    final Urn accessUrn = tokenUrnFromKey(key);
+                    return !_entityService.exists(accessUrn, true);
                   }
                 });
     this.salt = salt;
@@ -146,16 +138,8 @@ public class StatefulTokenService extends StatelessTokenService {
     final AuditStamp auditStamp =
         AuditStampUtils.createDefaultAuditStamp().setActor(UrnUtils.getUrn(actorUrn));
 
-    Stream<MetadataChangeProposal> proposalStream =
-        Stream.concat(
-            Stream.of(proposal),
-            AspectUtils.getAdditionalChanges(proposal, _entityService).stream());
-
     _entityService.ingestProposal(
-        AspectsBatchImpl.builder()
-            .mcps(proposalStream.collect(Collectors.toList()), _entityService.getEntityRegistry())
-            .build(),
-        auditStamp,
+        AspectsBatchImpl.builder().mcps(List.of(proposal), auditStamp, _entityService).build(),
         false);
 
     return accessToken;
@@ -183,10 +167,14 @@ public class StatefulTokenService extends StatelessTokenService {
     }
   }
 
+  public Urn tokenUrnFromKey(String tokenHash) {
+    return Urn.createFromTuple(Constants.ACCESS_TOKEN_ENTITY_NAME, tokenHash);
+  }
+
   public void revokeAccessToken(@Nonnull String hashedToken) throws TokenException {
     try {
       if (!_revokedTokenCache.get(hashedToken)) {
-        final Urn tokenUrn = Urn.createFromTuple(Constants.ACCESS_TOKEN_ENTITY_NAME, hashedToken);
+        final Urn tokenUrn = tokenUrnFromKey(hashedToken);
         _entityService.deleteUrn(tokenUrn);
         _revokedTokenCache.put(hashedToken, true);
         return;

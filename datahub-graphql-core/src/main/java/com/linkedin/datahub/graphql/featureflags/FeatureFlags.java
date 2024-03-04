@@ -12,8 +12,10 @@ public class FeatureFlags {
   private boolean readOnlyModeEnabled = false;
   private boolean showSearchFiltersV2 = false;
   private boolean showBrowseV2 = false;
+  private boolean platformBrowseV2 = false;
   private PreProcessHooks preProcessHooks;
   private boolean showAcrylInfo = false;
   private boolean showAccessManagement = false;
   private boolean nestedDomainsEnabled = false;
+  private boolean schemaFieldEntityFetchEnabled = false;
 }

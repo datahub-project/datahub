@@ -1,5 +1,7 @@
 {
     "query_type": "SELECT",
+    "query_type_props": {},
+    "query_fingerprint": "eb98657e75b827086b921f27b2b468629b88a972e208ded05ce7478b494c6eb0",
     "in_tables": [
         "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-bq-proj.data_reporting.abcde_transformed,PROD)"
     ],
@@ -55,5 +57,9 @@
                 }
             ]
         }
-    ]
+    ],
+    "debug_info": {
+        "confidence": 0.9,
+        "generalized_statement": "SELECT DISTINCT post_id, widget.asset.id, LEAST(widget.metric.metricA, widget.metric.metric_b) AS min_metric FROM data_reporting.abcde_transformed WHERE post_id LIKE ?"
+    }
 }

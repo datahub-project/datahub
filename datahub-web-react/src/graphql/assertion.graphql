@@ -46,6 +46,7 @@ fragment assertionDetails on Assertion {
             }
             logic
         }
+        description
     }
 }
 

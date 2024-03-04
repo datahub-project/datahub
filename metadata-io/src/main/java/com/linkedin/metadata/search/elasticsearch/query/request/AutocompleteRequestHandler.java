@@ -1,10 +1,12 @@
 package com.linkedin.metadata.search.elasticsearch.query.request;
 
 import static com.linkedin.metadata.models.SearchableFieldSpecExtractor.PRIMARY_URN_SEARCH_PROPERTIES;
+import static com.linkedin.metadata.search.utils.ESUtils.applyDefaultSearchFilters;
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
+import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
@@ -13,7 +15,9 @@ import com.linkedin.metadata.query.AutoCompleteEntityArray;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.utils.ESUtils;
+import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -30,7 +34,6 @@ import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.MultiMatchQueryBuilder;
-import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.builder.SearchSourceBuilder;
@@ -40,43 +43,73 @@ import org.opensearch.search.fetch.subphase.highlight.HighlightBuilder;
 public class AutocompleteRequestHandler {
 
   private final List<String> _defaultAutocompleteFields;
+  private final Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes;
 
   private static final Map<EntitySpec, AutocompleteRequestHandler>
       AUTOCOMPLETE_QUERY_BUILDER_BY_ENTITY_NAME = new ConcurrentHashMap<>();
 
-  public AutocompleteRequestHandler(@Nonnull EntitySpec entitySpec) {
+  private final AspectRetriever aspectRetriever;
+
+  public AutocompleteRequestHandler(
+      @Nonnull EntitySpec entitySpec, @Nonnull AspectRetriever aspectRetriever) {
+    List<SearchableFieldSpec> fieldSpecs = entitySpec.getSearchableFieldSpecs();
     _defaultAutocompleteFields =
         Stream.concat(
-                entitySpec.getSearchableFieldSpecs().stream()
+                fieldSpecs.stream()
                     .map(SearchableFieldSpec::getSearchableAnnotation)
                     .filter(SearchableAnnotation::isEnableAutocomplete)
                     .map(SearchableAnnotation::getFieldName),
                 Stream.of("urn"))
             .collect(Collectors.toList());
+    searchableFieldTypes =
+        fieldSpecs.stream()
+            .collect(
+                Collectors.toMap(
+                    searchableFieldSpec ->
+                        searchableFieldSpec.getSearchableAnnotation().getFieldName(),
+                    searchableFieldSpec ->
+                        new HashSet<>(
+                            Collections.singleton(
+                                searchableFieldSpec.getSearchableAnnotation().getFieldType())),
+                    (set1, set2) -> {
+                      set1.addAll(set2);
+                      return set1;
+                    }));
+    this.aspectRetriever = aspectRetriever;
   }
 
-  public static AutocompleteRequestHandler getBuilder(@Nonnull EntitySpec entitySpec) {
+  public static AutocompleteRequestHandler getBuilder(
+      @Nonnull EntitySpec entitySpec, @Nonnull AspectRetriever aspectRetriever) {
     return AUTOCOMPLETE_QUERY_BUILDER_BY_ENTITY_NAME.computeIfAbsent(
-        entitySpec, k -> new AutocompleteRequestHandler(entitySpec));
+        entitySpec, k -> new AutocompleteRequestHandler(entitySpec, aspectRetriever));
   }
 
   public SearchRequest getSearchRequest(
-      @Nonnull String input, @Nullable String field, @Nullable Filter filter, int limit) {
+      @Nonnull OperationContext opContext,
+      @Nonnull String input,
+      @Nullable String field,
+      @Nullable Filter filter,
+      int limit) {
     SearchRequest searchRequest = new SearchRequest();
     SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
     searchSourceBuilder.size(limit);
-    searchSourceBuilder.query(getQuery(input, field));
-    searchSourceBuilder.postFilter(ESUtils.buildFilterQuery(filter, false));
+    // apply default filters
+    BoolQueryBuilder boolQueryBuilder =
+        applyDefaultSearchFilters(opContext, filter, getQuery(input, field));
+
+    searchSourceBuilder.query(boolQueryBuilder);
+    searchSourceBuilder.postFilter(
+        ESUtils.buildFilterQuery(filter, false, searchableFieldTypes, aspectRetriever));
     searchSourceBuilder.highlighter(getHighlights(field));
     searchRequest.source(searchSourceBuilder);
     return searchRequest;
   }
 
-  private QueryBuilder getQuery(@Nonnull String query, @Nullable String field) {
+  private BoolQueryBuilder getQuery(@Nonnull String query, @Nullable String field) {
     return getQuery(getAutocompleteFields(field), query);
   }
 
-  public static QueryBuilder getQuery(List<String> autocompleteFields, @Nonnull String query) {
+  public static BoolQueryBuilder getQuery(List<String> autocompleteFields, @Nonnull String query) {
     BoolQueryBuilder finalQuery = QueryBuilders.boolQuery();
     // Search for exact matches with higher boost and ngram matches
     MultiMatchQueryBuilder autocompleteQueryBuilder =
@@ -102,8 +135,6 @@ public class AutocompleteRequestHandler {
         });
 
     finalQuery.should(autocompleteQueryBuilder);
-
-    finalQuery.mustNot(QueryBuilders.matchQuery("removed", true));
     return finalQuery;
   }
 

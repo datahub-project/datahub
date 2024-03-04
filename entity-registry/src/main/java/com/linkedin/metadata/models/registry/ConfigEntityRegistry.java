@@ -7,6 +7,8 @@ import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.linkedin.data.schema.DataSchema;
+import com.linkedin.metadata.aspect.patch.template.AspectTemplateEngine;
+import com.linkedin.metadata.aspect.plugins.PluginFactory;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.DataSchemaFactory;
 import com.linkedin.metadata.models.DefaultEntitySpec;
@@ -17,7 +19,6 @@ import com.linkedin.metadata.models.EventSpecBuilder;
 import com.linkedin.metadata.models.registry.config.Entities;
 import com.linkedin.metadata.models.registry.config.Entity;
 import com.linkedin.metadata.models.registry.config.Event;
-import com.linkedin.metadata.models.registry.template.AspectTemplateEngine;
 import com.linkedin.util.Pair;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -27,12 +28,15 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.annotation.Nonnull;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -43,6 +47,7 @@ import lombok.extern.slf4j.Slf4j;
 public class ConfigEntityRegistry implements EntityRegistry {
 
   private final DataSchemaFactory dataSchemaFactory;
+  @Getter private final PluginFactory pluginFactory;
   private final Map<String, EntitySpec> entityNameToSpec;
   private final Map<String, EventSpec> eventNameToSpec;
   private final List<EntitySpec> entitySpecs;
@@ -64,6 +69,10 @@ public class ConfigEntityRegistry implements EntityRegistry {
   public ConfigEntityRegistry(Pair<Path, Path> configFileClassPathPair) throws IOException {
     this(
         DataSchemaFactory.withCustomClasspath(configFileClassPathPair.getSecond()),
+        DataSchemaFactory.getClassLoader(configFileClassPathPair.getSecond())
+            .map(Stream::of)
+            .orElse(Stream.empty())
+            .collect(Collectors.toList()),
         configFileClassPathPair.getFirst());
   }
 
@@ -82,7 +91,7 @@ public class ConfigEntityRegistry implements EntityRegistry {
               .filter(Files::isRegularFile)
               .filter(f -> f.endsWith("entity-registry.yml") || f.endsWith("entity-registry.yaml"))
               .collect(Collectors.toList());
-      if (yamlFiles.size() == 0) {
+      if (yamlFiles.isEmpty()) {
         throw new EntityRegistryException(
             String.format(
                 "Did not find an entity registry (entity_registry.yaml/yml) under %s",
@@ -108,24 +117,29 @@ public class ConfigEntityRegistry implements EntityRegistry {
   }
 
   public ConfigEntityRegistry(InputStream configFileInputStream) {
-    this(DataSchemaFactory.getInstance(), configFileInputStream);
+    this(DataSchemaFactory.getInstance(), Collections.emptyList(), configFileInputStream);
   }
 
-  public ConfigEntityRegistry(DataSchemaFactory dataSchemaFactory, Path configFilePath)
+  public ConfigEntityRegistry(
+      DataSchemaFactory dataSchemaFactory, List<ClassLoader> classLoaders, Path configFilePath)
       throws FileNotFoundException {
-    this(dataSchemaFactory, new FileInputStream(configFilePath.toString()));
+    this(dataSchemaFactory, classLoaders, new FileInputStream(configFilePath.toString()));
   }
 
-  public ConfigEntityRegistry(DataSchemaFactory dataSchemaFactory, InputStream configFileStream) {
+  public ConfigEntityRegistry(
+      DataSchemaFactory dataSchemaFactory,
+      List<ClassLoader> classLoaders,
+      InputStream configFileStream) {
     this.dataSchemaFactory = dataSchemaFactory;
     Entities entities;
     try {
       entities = OBJECT_MAPPER.readValue(configFileStream, Entities.class);
+      this.pluginFactory = PluginFactory.withCustomClasspath(entities.getPlugins(), classLoaders);
     } catch (IOException e) {
-      e.printStackTrace();
       throw new IllegalArgumentException(
           String.format(
-              "Error while reading config file in path %s: %s", configFileStream, e.getMessage()));
+              "Error while reading config file in path %s: %s", configFileStream, e.getMessage()),
+          e);
     }
     if (entities.getId() != null) {
       identifier = entities.getId();

@@ -17,9 +17,15 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.secret.SecretService;
+import com.linkedin.settings.global.GlobalSettingsInfo;
+import com.linkedin.settings.global.OidcSettings;
+import com.linkedin.settings.global.SsoSettings;
+import jakarta.inject.Inject;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nullable;
-import javax.inject.Inject;
 import lombok.extern.slf4j.Slf4j;
 import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -48,6 +54,27 @@ public class AuthServiceController {
   private static final String ARE_NATIVE_USER_CREDENTIALS_RESET_FIELD_NAME =
       "areNativeUserCredentialsReset";
   private static final String DOES_PASSWORD_MATCH_FIELD_NAME = "doesPasswordMatch";
+  private static final String BASE_URL = "baseUrl";
+  private static final String OIDC_ENABLED = "oidcEnabled";
+  private static final String CLIENT_ID = "clientId";
+  private static final String CLIENT_SECRET = "clientSecret";
+  private static final String DISCOVERY_URI = "discoveryUri";
+  private static final String USER_NAME_CLAIM = "userNameClaim";
+  private static final String USER_NAME_CLAIM_REGEX = "userNameClaimRegex";
+  private static final String SCOPE = "scope";
+  private static final String CLIENT_AUTHENTICATION_METHOD = "clientAuthenticationMethod";
+  private static final String JIT_PROVISIONING_ENABLED = "jitProvisioningEnabled";
+  private static final String PRE_PROVISIONING_REQUIRED = "preProvisioningRequired";
+  private static final String EXTRACT_GROUPS_ENABLED = "extractGroupsEnabled";
+  private static final String GROUPS_CLAIM = "groupsClaim";
+  private static final String RESPONSE_TYPE = "responseType";
+  private static final String RESPONSE_MODE = "responseMode";
+  private static final String USE_NONCE = "useNonce";
+  private static final String READ_TIMEOUT = "readTimeout";
+  private static final String EXTRACT_JWT_ACCESS_TOKEN_CLAIMS = "extractJwtAccessTokenClaims";
+  // Retained for backwards compatibility
+  private static final String PREFERRED_JWS_ALGORITHM = "preferredJwsAlgorithm";
+  private static final String PREFERRED_JWS_ALGORITHM_2 = "preferredJwsAlgorithm2";
 
   @Inject StatelessTokenService _statelessTokenService;
 
@@ -58,6 +85,10 @@ public class AuthServiceController {
   ConfigurationProvider _configProvider;
 
   @Inject NativeUserService _nativeUserService;
+
+  @Inject EntityService _entityService;
+
+  @Inject SecretService _secretService;
 
   @Inject InviteTokenService _inviteTokenService;
 
@@ -361,6 +392,41 @@ public class AuthServiceController {
         });
   }
 
+  /**
+   * Gets possible SSO settings.
+   *
+   * <p>Example Request:
+   *
+   * <p>POST /getSsoSettings -H "Authorization: Basic <system-client-id>:<system-client-secret>" {
+   * "userUrn": "urn:li:corpuser:test" "password": "password123" }
+   *
+   * <p>Example Response:
+   *
+   * <p>{ "clientId": "clientId", "clientSecret": "secret", "discoveryUri = "discoveryUri" }
+   */
+  @PostMapping(value = "/getSsoSettings", produces = "application/json;charset=utf-8")
+  CompletableFuture<ResponseEntity<String>> getSsoSettings(final HttpEntity<String> httpEntity) {
+    return CompletableFuture.supplyAsync(
+        () -> {
+          try {
+            GlobalSettingsInfo globalSettingsInfo =
+                (GlobalSettingsInfo)
+                    _entityService.getLatestAspect(
+                        GLOBAL_SETTINGS_URN, GLOBAL_SETTINGS_INFO_ASPECT_NAME);
+            if (globalSettingsInfo == null || !globalSettingsInfo.hasSso()) {
+              log.debug("There are no SSO settings available");
+              return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+            }
+            SsoSettings ssoSettings =
+                Objects.requireNonNull(globalSettingsInfo.getSso(), "ssoSettings cannot be null");
+            String response = buildSsoSettingsResponse(ssoSettings);
+            return new ResponseEntity<>(response, HttpStatus.OK);
+          } catch (Exception e) {
+            return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
+          }
+        });
+  }
+
   // Currently, only internal system is authorized to generate a token on behalf of a user!
   private boolean isAuthorizedToGenerateSessionToken(final String actorId) {
     // Verify that the actor is an internal system caller.
@@ -390,5 +456,68 @@ public class AuthServiceController {
     JSONObject json = new JSONObject();
     json.put(DOES_PASSWORD_MATCH_FIELD_NAME, doesPasswordMatch);
     return json.toString();
+  }
+
+  private String buildSsoSettingsResponse(final SsoSettings ssoSettings) {
+    String baseUrl = Objects.requireNonNull(ssoSettings.getBaseUrl());
+    JSONObject json = new JSONObject();
+    json.put(BASE_URL, baseUrl);
+
+    if (ssoSettings.hasOidcSettings()) {
+      OidcSettings oidcSettings =
+          Objects.requireNonNull(ssoSettings.getOidcSettings(), "oidcSettings cannot be null");
+      buildOidcSettingsResponse(json, oidcSettings);
+    }
+
+    return json.toString();
+  }
+
+  private void buildOidcSettingsResponse(JSONObject json, final OidcSettings oidcSettings) {
+    json.put(OIDC_ENABLED, oidcSettings.isEnabled());
+    json.put(CLIENT_ID, oidcSettings.getClientId());
+    json.put(CLIENT_SECRET, _secretService.decrypt(oidcSettings.getClientSecret()));
+    json.put(DISCOVERY_URI, oidcSettings.getDiscoveryUri());
+    if (oidcSettings.hasUserNameClaim()) {
+      json.put(USER_NAME_CLAIM, oidcSettings.getUserNameClaim());
+    }
+    if (oidcSettings.hasUserNameClaimRegex()) {
+      json.put(USER_NAME_CLAIM_REGEX, oidcSettings.getUserNameClaimRegex());
+    }
+    if (oidcSettings.hasScope()) {
+      json.put(SCOPE, oidcSettings.getScope());
+    }
+    if (oidcSettings.hasClientAuthenticationMethod()) {
+      json.put(CLIENT_AUTHENTICATION_METHOD, oidcSettings.getClientAuthenticationMethod());
+    }
+    if (oidcSettings.hasJitProvisioningEnabled()) {
+      json.put(JIT_PROVISIONING_ENABLED, oidcSettings.isJitProvisioningEnabled());
+    }
+    if (oidcSettings.hasPreProvisioningRequired()) {
+      json.put(PRE_PROVISIONING_REQUIRED, oidcSettings.isPreProvisioningRequired());
+    }
+    if (oidcSettings.hasExtractGroupsEnabled()) {
+      json.put(EXTRACT_GROUPS_ENABLED, oidcSettings.isExtractGroupsEnabled());
+    }
+    if (oidcSettings.hasGroupsClaim()) {
+      json.put(GROUPS_CLAIM, oidcSettings.getGroupsClaim());
+    }
+    if (oidcSettings.hasResponseType()) {
+      json.put(RESPONSE_TYPE, oidcSettings.getResponseType());
+    }
+    if (oidcSettings.hasResponseMode()) {
+      json.put(RESPONSE_MODE, oidcSettings.getResponseMode());
+    }
+    if (oidcSettings.hasUseNonce()) {
+      json.put(USE_NONCE, oidcSettings.isUseNonce());
+    }
+    if (oidcSettings.hasReadTimeout()) {
+      json.put(READ_TIMEOUT, oidcSettings.getReadTimeout());
+    }
+    if (oidcSettings.hasExtractJwtAccessTokenClaims()) {
+      json.put(EXTRACT_JWT_ACCESS_TOKEN_CLAIMS, oidcSettings.isExtractJwtAccessTokenClaims());
+    }
+    if (oidcSettings.hasPreferredJwsAlgorithm2()) {
+      json.put(PREFERRED_JWS_ALGORITHM, oidcSettings.getPreferredJwsAlgorithm2());
+    }
   }
 }

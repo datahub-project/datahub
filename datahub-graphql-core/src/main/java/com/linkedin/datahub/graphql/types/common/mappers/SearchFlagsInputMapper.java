@@ -2,6 +2,9 @@ package com.linkedin.datahub.graphql.types.common.mappers;
 
 import com.linkedin.datahub.graphql.generated.SearchFlags;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
+import com.linkedin.metadata.query.GroupingCriterionArray;
+import com.linkedin.metadata.query.GroupingSpec;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 
 /**
@@ -41,6 +44,22 @@ public class SearchFlagsInputMapper
     }
     if (searchFlags.getGetSuggestions() != null) {
       result.setGetSuggestions(searchFlags.getGetSuggestions());
+    }
+    if (searchFlags.getIncludeSoftDeleted() != null) {
+      result.setIncludeSoftDeleted(searchFlags.getIncludeSoftDeleted());
+    }
+    if (searchFlags.getIncludeRestricted() != null) {
+      result.setIncludeRestricted(searchFlags.getIncludeRestricted());
+    }
+    if (searchFlags.getGroupingSpec() != null
+        && searchFlags.getGroupingSpec().getGroupingCriteria() != null) {
+      result.setGroupingSpec(
+          new GroupingSpec()
+              .setGroupingCriteria(
+                  new GroupingCriterionArray(
+                      searchFlags.getGroupingSpec().getGroupingCriteria().stream()
+                          .map(GroupingCriterionInputMapper::map)
+                          .collect(Collectors.toList()))));
     }
     return result;
   }

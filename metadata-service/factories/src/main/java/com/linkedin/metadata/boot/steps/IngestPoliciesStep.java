@@ -15,7 +15,7 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.entity.ebean.transactions.AspectsBatchImpl;
+import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.ListUrnsResult;
@@ -27,6 +27,7 @@ import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.policy.DataHubPolicyInfo;
+import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.util.Collections;
@@ -45,8 +46,9 @@ public class IngestPoliciesStep implements BootstrapStep {
   private static final String POLICY_ENTITY_NAME = "dataHubPolicy";
   private static final String POLICY_INFO_ASPECT_NAME = "dataHubPolicyInfo";
 
+  private final OperationContext systemOpContext;
   private final EntityRegistry _entityRegistry;
-  private final EntityService _entityService;
+  private final EntityService<?> _entityService;
   private final EntitySearchService _entitySearchService;
   private final SearchDocumentTransformer _searchDocumentTransformer;
 
@@ -113,7 +115,7 @@ public class IngestPoliciesStep implements BootstrapStep {
     // If search index for policies is empty, update the policy index with the ingested policies
     // from previous step.
     // Directly update the ES index, does not produce MCLs
-    if (_entitySearchService.docCount(Constants.POLICY_ENTITY_NAME) == 0) {
+    if (_entitySearchService.docCount(systemOpContext, Constants.POLICY_ENTITY_NAME) == 0) {
       updatePolicyIndex();
     }
     log.info("Successfully ingested default access policies.");
@@ -205,11 +207,13 @@ public class IngestPoliciesStep implements BootstrapStep {
 
     _entityService.ingestProposal(
         AspectsBatchImpl.builder()
-            .mcps(List.of(keyAspectProposal, proposal), _entityRegistry)
+            .mcps(
+                List.of(keyAspectProposal, proposal),
+                new AuditStamp()
+                    .setActor(Urn.createFromString(Constants.SYSTEM_ACTOR))
+                    .setTime(System.currentTimeMillis()),
+                _entityService)
             .build(),
-        new AuditStamp()
-            .setActor(Urn.createFromString(Constants.SYSTEM_ACTOR))
-            .setTime(System.currentTimeMillis()),
         false);
   }
 

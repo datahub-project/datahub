@@ -33,4 +33,19 @@ record SearchFlags {
    * Whether to request for search suggestions on the _entityName virtualized field
    */
   getSuggestions:optional boolean = false
+
+  /**
+  * Instructions for grouping results before returning
+  */
+  groupingSpec: optional GroupingSpec
+
+  /**
+   * include soft deleted entities in results
+   */
+   includeSoftDeleted:optional boolean = false
+
+  /**
+   * include restricted entities in results (default is to filter)
+   */
+   includeRestricted:optional boolean = false
 }

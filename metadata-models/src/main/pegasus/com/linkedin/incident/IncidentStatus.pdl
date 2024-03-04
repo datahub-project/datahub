@@ -1,0 +1,42 @@
+namespace com.linkedin.incident
+
+import com.linkedin.common.AuditStamp
+
+/**
+ * Information about an incident raised on an asset
+ */
+record IncidentStatus {
+  /**
+  * The state of the incident
+  */
+  @Searchable = {
+    "addToFilters": true,
+    "filterNameOverride": "Status"
+  }
+  state: enum IncidentState {
+    /**
+     * The incident is ongoing, or active.
+     */
+    ACTIVE
+    /**
+     * The incident is resolved.
+     */
+    RESOLVED
+  }
+
+  /**
+  * Optional message associated with the incident
+  */
+  message: optional string
+
+  /**
+   * The time at which the request was initially created
+   */
+  @Searchable = {
+    "/time": {
+        "fieldName": "lastUpdated",
+        "fieldType": "COUNT"
+      }
+  }
+  lastUpdated: AuditStamp
+}

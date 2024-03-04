@@ -17,4 +17,31 @@ public class Edge {
   @EqualsAndHashCode.Exclude private Long updatedOn;
   @EqualsAndHashCode.Exclude private Urn updatedActor;
   @EqualsAndHashCode.Exclude private Map<String, Object> properties;
+  // The entity who owns the lifecycle of this edge
+  @EqualsAndHashCode.Exclude private Urn lifecycleOwner;
+  // An entity through which the edge between source and destination is created
+  @EqualsAndHashCode.Include private Urn via;
+
+  // For backwards compatibility
+  public Edge(
+      Urn source,
+      Urn destination,
+      String relationshipType,
+      Long createdOn,
+      Urn createdActor,
+      Long updatedOn,
+      Urn updatedActor,
+      Map<String, Object> properties) {
+    this(
+        source,
+        destination,
+        relationshipType,
+        createdOn,
+        createdActor,
+        updatedOn,
+        updatedActor,
+        properties,
+        null,
+        null);
+  }
 }

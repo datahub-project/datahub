@@ -34,7 +34,7 @@ class AwsAssumeRoleConfig(PermissiveConfigModel):
 
 def assume_role(
     role: AwsAssumeRoleConfig,
-    aws_region: str,
+    aws_region: Optional[str],
     credentials: Optional[dict] = None,
 ) -> dict:
     credentials = credentials or {}
@@ -93,7 +93,7 @@ class AwsConnectionConfig(ConfigModel):
         default=None,
         description="Named AWS profile to use. Only used if access key / secret are unset. If not set the default will be used",
     )
-    aws_region: str = Field(description="AWS region code.")
+    aws_region: Optional[str] = Field(None, description="AWS region code.")
 
     aws_endpoint_url: Optional[str] = Field(
         default=None,
@@ -167,7 +167,7 @@ class AwsConnectionConfig(ConfigModel):
 
         return session
 
-    def get_credentials(self) -> Dict[str, str]:
+    def get_credentials(self) -> Dict[str, Optional[str]]:
         credentials = self.get_session().get_credentials()
         if credentials is not None:
             return {
