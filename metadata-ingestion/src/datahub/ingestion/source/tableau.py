@@ -1510,7 +1510,7 @@ class TableauSource(StatefulIngestionSourceBase):
     ) -> Optional["SqlParsingResult"]:
         database_info = datasource.get(c.DATABASE) or {}
 
-        if datasource.get(c.IS_UNSUPPORTED_CUSTOM_SQL) in (None, False):
+        if datasource.get(c.IS_UNSUPPORTED_CUSTOM_SQL) in (None, True):
             logger.debug(f"datasource {datasource_urn} is not created from custom sql")
             return None
 
