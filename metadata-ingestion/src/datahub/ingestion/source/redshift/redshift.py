@@ -775,7 +775,6 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             qualifiedName=str(datahub_dataset_name),
             customProperties=custom_properties,
         )
-        logger.error(f"Dataset properties: {dataset_properties}")
         if self.config.patch_custom_properties:
             patch_builder = create_dataset_props_patch_builder(
                 dataset_urn, dataset_properties
