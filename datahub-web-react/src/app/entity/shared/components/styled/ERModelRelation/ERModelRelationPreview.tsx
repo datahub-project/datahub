@@ -10,8 +10,8 @@ import { CreateERModelRelationModal } from './CreateERModelRelationModal';
 import { getDatasetName } from './ERModelRelationUtils';
 
 type ERModelRelationRecord = {
-    afield: string;
-    bfield: string;
+    sourceField: string;
+    destinationField: string;
 };
 type Props = {
     ermodelrelationData: ErModelRelation;
@@ -57,15 +57,15 @@ export const ERModelRelationPreview = ({ ermodelrelationData, baseEntityUrn, pre
         if (shuffleFlag && prePageType !== 'ERModelRelation') {
             ermodelrelationData?.properties?.ermodelrelationFieldMapping?.fieldMappings?.map((item) => {
                 return newData.push({
-                    afield: item.bfield,
-                    bfield: item.afield,
+                    sourceField: item.destinationField,
+                    destinationField: item.sourceField,
                 });
             });
         } else {
             ermodelrelationData?.properties?.ermodelrelationFieldMapping?.fieldMappings?.map((item) => {
                 return newData.push({
-                    afield: item.afield,
-                    bfield: item.bfield,
+                    sourceField: item.sourceField,
+                    destinationField: item.destinationField,
                 });
             });
         }
@@ -93,9 +93,9 @@ export const ERModelRelationPreview = ({ ermodelrelationData, baseEntityUrn, pre
                     <div className="editableNameDisplay">{table1Name !== table1EditableName && table1Name}</div>
                 </p>
             ),
-            dataIndex: 'afield',
+            dataIndex: 'sourceField',
             width: '48%',
-            sorter: ({ afield: a }, { afield: b }) => a.localeCompare(b),
+            sorter: ({ sourceField: a }, { sourceField: b }) => a.localeCompare(b),
         },
         {
             title: '',
@@ -122,8 +122,8 @@ export const ERModelRelationPreview = ({ ermodelrelationData, baseEntityUrn, pre
                 </p>
             ),
             width: '48%',
-            dataIndex: 'bfield',
-            sorter: ({ bfield: a }, { bfield: b }) => a.localeCompare(b),
+            dataIndex: 'destinationField',
+            sorter: ({ destinationField: a }, { destinationField: b }) => a.localeCompare(b),
         },
     ];
 

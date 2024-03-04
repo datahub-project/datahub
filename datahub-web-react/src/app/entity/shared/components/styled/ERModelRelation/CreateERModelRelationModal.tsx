@@ -58,8 +58,8 @@ export const CreateERModelRelationModal = ({
         editERModelRelation?.properties?.ermodelrelationFieldMapping?.fieldMappings?.map((item, index) => {
             return {
                 key: index,
-                field1Name: item.afield,
-                field2Name: item.bfield,
+                field1Name: item.sourceField,
+                field2Name: item.destinationField,
             };
         }) || [
             { key: '0', field1Name: '', field2Name: '' },
@@ -90,8 +90,8 @@ export const CreateERModelRelationModal = ({
                     editERModelRelation?.properties?.ermodelrelationFieldMapping?.fieldMappings?.map((item, index) => {
                         return {
                             key: index,
-                            field1Name: item.afield,
-                            field2Name: item.bfield,
+                            field1Name: item.sourceField,
+                            field2Name: item.destinationField,
                         };
                     }) || [
                         { key: '0', field1Name: '', field2Name: '' },
@@ -118,8 +118,8 @@ export const CreateERModelRelationModal = ({
                         ermodelrelationFieldmapping: {
                             fieldMappings: tableData.map((r) => {
                                 return {
-                                    afield: r.field1Name,
-                                    bfield: r.field2Name,
+                                    sourceField: r.field1Name,
+                                    destinationField: r.field2Name,
                                 };
                             }),
                         },
@@ -175,8 +175,8 @@ export const CreateERModelRelationModal = ({
                         ermodelrelationFieldmapping: {
                             fieldMappings: tableData.map((r) => {
                                 return {
-                                    afield: r.field1Name,
-                                    bfield: r.field2Name,
+                                    sourceField: r.field1Name,
+                                    destinationField: r.field2Name,
                                 };
                             }),
                         },

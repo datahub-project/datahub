@@ -373,13 +373,13 @@ ERModelRelation FieldMap
 """
 type FieldMap {
     """
-    afield
+    left field
     """
-    afield: String!
+    sourceField: String!
     """
     bfield
     """
-    bfield: String!
+    destinationField: String!
 }
 
 """
@@ -4898,11 +4898,11 @@ input FieldMappingInput {
     """
     Details about the ERModelRelation
     """
-    afield: String
+    sourceField: String
     """
     Details about the ERModelRelation
     """
-    bfield: String
+    destinationField: String
 }
 
 """

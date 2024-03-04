@@ -1205,8 +1205,8 @@ fragment ermodelrelationPropertiesFields on ERModelRelationProperties {
 
 fragment ermodelrelationFieldMappingFields on ERModelRelationFieldMapping {
     fieldMappings {
-        afield
-        bfield
+        sourceField
+        destinationField
     }
 }
 

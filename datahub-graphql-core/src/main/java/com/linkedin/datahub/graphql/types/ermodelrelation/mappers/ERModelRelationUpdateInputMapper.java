@@ -121,11 +121,11 @@ public class ERModelRelationUpdateInputMapper
           .forEach(
               fieldMappingInput -> {
                 FieldMap fieldMap = new FieldMap();
-                if (fieldMappingInput.getAfield() != null) {
-                  fieldMap.setAfield(fieldMappingInput.getAfield());
+                if (fieldMappingInput.getSourceField() != null) {
+                  fieldMap.setSourceField(fieldMappingInput.getSourceField());
                 }
-                if (fieldMappingInput.getBfield() != null) {
-                  fieldMap.setBfield(fieldMappingInput.getBfield());
+                if (fieldMappingInput.getDestinationField() != null) {
+                  fieldMap.setDestinationField(fieldMappingInput.getDestinationField());
                 }
                 fieldMapArray.add(fieldMap);
               });
