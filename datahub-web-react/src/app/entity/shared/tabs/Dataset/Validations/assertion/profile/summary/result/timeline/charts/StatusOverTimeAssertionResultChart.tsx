@@ -1,14 +1,16 @@
 import React, { useMemo } from 'react';
 
 import { Popover } from 'antd';
-import { Bar } from '@visx/shape';
 import { Group } from '@visx/group';
 import { AxisBottom } from '@visx/axis';
 import { scaleUtc } from '@visx/scale';
+import { GlyphCircle } from '@visx/glyph'
+import { LinePath } from '@visx/shape';
+import { GridColumns } from '@visx/grid'
 
 import { ANTD_GRAY } from '../../../../../../../../../constants';
 import { LinkWrapper } from '../../../../../../../../../../../shared/LinkWrapper';
-import { generateTimeScaleTickValues, getCustomTimeScaleTickValue, getFillColor } from './utils';
+import { ACCENT_COLOR_HEX, generateTimeScaleTickValues, getCustomTimeScaleTickValue, getFillColor } from './utils';
 import { AssertionResultChartData, TimeRange } from './types';
 import { AssertionResultPopoverContent } from '../../../../shared/result/AssertionResultPopoverContent';
 
@@ -44,14 +46,53 @@ export const StatusOverTimeAssertionResultChart = ({ data, timeRange, chartDimen
     );
 
 
+    const timeScaleTicks = generateTimeScaleTickValues(timeRange.startMs, timeRange.endMs)
     return (
         <>
             <svg width={chartDimensions.width} height={chartDimensions.height}>
                 <Group left={CHART_HORIZ_MARGIN / 2}>
+                    {/* Axis */}
+                    <AxisBottom
+                        top={chartInnerHeight}
+                        scale={xScale}
+                        stroke={ANTD_GRAY[4]}
+                        tickValues={timeScaleTicks}
+                        tickFormat={(v) => getCustomTimeScaleTickValue(v, timeRange)}
+                        tickStroke={ANTD_GRAY[9]}
+                        tickLength={4}
+                        tickLabelProps={{
+                            fontSize: 11,
+                            angle: 0,
+                            textAnchor: 'middle',
+                        }}
+                    />
+
+                    {/* Grid */}
+                    <GridColumns
+                        scale={xScale}
+                        tickValues={timeScaleTicks}
+                        height={chartInnerHeight}
+                        lineStyle={{
+                            stroke: ANTD_GRAY[5],
+                            strokeLinecap: "round",
+                            strokeWidth: 1,
+                            strokeDasharray: '1 4'
+                        }}
+                    />
+
+                    {/* Line */}
+                    <LinePath
+                        data={data.dataPoints}
+                        x={(d) => xScale(d.time) ?? 0}
+                        y={chartDimensions.height / 3}
+                        stroke={ACCENT_COLOR_HEX}
+                        strokeWidth={8}
+                    />
+
+                    {/* Circular data points */}
                     {data.dataPoints.map(dataPoint => {
-                        const barWidth = 8;
-                        const barX = xScale(new Date(dataPoint.time));
-                        const barHeight = chartDimensions.height / 3;
+                        const xOffset = xScale(new Date(dataPoint.time));
+                        const yOffset = chartDimensions.height / 3;
                         const fillColor = getFillColor(dataPoint.result.type);
                         return (
                             <LinkWrapper key={dataPoint.time} to={dataPoint.result.resultUrl} target="_blank">
@@ -68,33 +109,20 @@ export const StatusOverTimeAssertionResultChart = ({ data, timeRange, chartDimen
                                     />}
                                     showArrow={false}
                                 >
-                                    <Bar
-                                        key={`bar-${dataPoint.time}`}
-                                        x={barX}
-                                        y={chartInnerHeight - barHeight}
-                                        stroke="white"
-                                        width={barWidth}
-                                        height={barHeight}
+                                    <GlyphCircle
+                                        left={xOffset}
+                                        top={yOffset}
                                         fill={fillColor}
+                                        stroke='white'
+                                        strokeWidth={4}
+                                        size={140}
+                                        filter='drop-shadow(0px 1px 2.5px rgb(0 0 0 / 0.1))'
                                     />
                                 </Popover>
                             </LinkWrapper>
                         );
                     })}
 
-                    <AxisBottom
-                        top={chartInnerHeight}
-                        scale={xScale}
-                        stroke={ANTD_GRAY[5]}
-                        tickValues={generateTimeScaleTickValues(timeRange.startMs, timeRange.endMs)}
-                        tickFormat={(v) => getCustomTimeScaleTickValue(v, timeRange)}
-                        tickStroke={ANTD_GRAY[5]}
-                        tickLabelProps={(_) => ({
-                            fontSize: 11,
-                            angle: 0,
-                            textAnchor: 'middle',
-                        })}
-                    />
                 </Group>
             </svg>
         </>

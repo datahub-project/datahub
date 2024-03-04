@@ -101,8 +101,9 @@ export const ValuesOverTimeAssertionResultChart = ({ data, timeRange, chartDimen
             {/* ----- Axis ----- */}
             <AxisLeft
                 scale={yScale}
-                stroke={ANTD_GRAY[5]}
-                tickStroke={ANTD_GRAY[5]}
+                stroke={ANTD_GRAY[4]}
+                tickStroke={ANTD_GRAY[9]}
+                tickLength={4}
                 numTicks={2}
                 tickFormat={v => truncateNumberForDisplay(v.valueOf())}
                 tickLabelProps={{
@@ -114,8 +115,9 @@ export const ValuesOverTimeAssertionResultChart = ({ data, timeRange, chartDimen
             <AxisBottom
                 top={chartInnerHeight}
                 scale={xScale}
-                stroke={ANTD_GRAY[5]}
-                tickStroke={ANTD_GRAY[5]}
+                stroke={ANTD_GRAY[4]}
+                tickStroke={ANTD_GRAY[9]}
+                tickLength={4}
                 tickValues={generateTimeScaleTickValues(timeRange.startMs, timeRange.endMs)}
                 tickFormat={(v) => getCustomTimeScaleTickValue(v, timeRange)}
             />
