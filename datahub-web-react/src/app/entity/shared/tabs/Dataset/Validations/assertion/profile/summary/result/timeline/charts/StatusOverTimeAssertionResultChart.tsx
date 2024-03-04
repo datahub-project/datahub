@@ -51,7 +51,7 @@ export const StatusOverTimeAssertionResultChart = ({ data, timeRange, chartDimen
     const timeScaleTicks = generateTimeScaleTickValues(timeRange.startMs, timeRange.endMs)
     return (
         <>
-            {renderHeader?.(data.context.assertion.info?.type == AssertionType.Freshness ? `Freshness checks over time` : undefined)}
+            {renderHeader?.(data.context.assertion.info?.type === AssertionType.Freshness ? `Freshness checks over time` : undefined)}
             <svg width={chartDimensions.width} height={chartDimensions.height}>
                 <Group left={CHART_HORIZ_MARGIN / 2}>
                     {/* Axis */}
