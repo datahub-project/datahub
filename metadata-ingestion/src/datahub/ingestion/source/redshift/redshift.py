@@ -99,11 +99,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     StringType,
     TimeType,
 )
-from datahub.metadata.schema_classes import (
-    DatasetPropertiesClass,
-    GlobalTagsClass,
-    TagAssociationClass,
-)
+from datahub.metadata.schema_classes import GlobalTagsClass, TagAssociationClass
 from datahub.utilities import memory_footprint
 from datahub.utilities.dedup_list import deduplicate_list
 from datahub.utilities.mapping import Constants
@@ -779,10 +775,15 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             qualifiedName=str(datahub_dataset_name),
             customProperties=custom_properties,
         )
+        logger.error(f"Dataset properties: {dataset_properties}")
         if self.config.patch_custom_properties:
-            yield from create_dataset_props_patch_builder(
+            patch_builder = create_dataset_props_patch_builder(
                 dataset_urn, dataset_properties
-            ).build()
+            )
+            for patch_mcp in patch_builder.build():
+                yield MetadataWorkUnit(
+                    id=f"{dataset_urn}-{patch_mcp.aspectName}", mcp_raw=patch_mcp
+                )
         else:
             if custom_properties:
                 dataset_properties.customProperties = custom_properties
