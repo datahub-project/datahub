@@ -32,6 +32,7 @@ import DataProductSection from '../shared/containers/profile/sidebar/DataProduct
 import { SidebarTitleActionType, getDataProduct, isOutputPort } from '../shared/utils';
 import SidebarLineageSection from '../shared/containers/profile/sidebar/Lineage/SidebarLineageSection';
 import { TYPE_ICON_CLASS_NAME } from '../shared/components/subtypes';
+import SidebarEntityHeader from '../shared/containers/profile/sidebar/SidebarEntityHeader';
 
 const getDataJobPlatformName = (data?: DataJob): string => {
     return (
@@ -127,6 +128,9 @@ export class DataJobEntity implements Entity<DataJob> {
                 },
             ]}
             sidebarSections={[
+                {
+                    component: SidebarEntityHeader,
+                },
                 {
                     component: SidebarDomainSection,
                 },

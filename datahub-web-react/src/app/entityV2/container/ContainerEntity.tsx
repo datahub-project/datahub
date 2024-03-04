@@ -23,6 +23,7 @@ import SidebarContentsSection from '../shared/containers/profile/sidebar/Contain
 import ContainerSummaryTab from './ContainerSummaryTab';
 import { SUMMARY_TAB_ICON } from '../shared/summary/HeaderComponents';
 import { SubType, TYPE_ICON_CLASS_NAME } from '../shared/components/subtypes';
+import SidebarEntityHeader from '../shared/containers/profile/sidebar/SidebarEntityHeader';
 
 const headerDropdownItems = new Set([EntityMenuItems.EXTERNAL_URL, EntityMenuItems.SHARE, EntityMenuItems.SUBSCRIBE]);
 
@@ -105,6 +106,9 @@ export class ContainerEntity implements Entity<Container> {
                 },
             ]}
             sidebarSections={[
+                {
+                    component: SidebarEntityHeader,
+                },
                 {
                     component: SidebarDomainSection,
                 },

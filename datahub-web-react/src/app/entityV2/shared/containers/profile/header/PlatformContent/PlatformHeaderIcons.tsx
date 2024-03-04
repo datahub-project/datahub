@@ -28,17 +28,18 @@ interface Props {
     platform?: DataPlatform;
     entityLogoComponent?: JSX.Element;
     platforms?: DataPlatform[];
+    size?: number;
 }
 
 function PlatformHeaderIcons(props: Props) {
-    const { platform, entityLogoComponent, platforms } = props;
+    const { platform, entityLogoComponent, platforms, size = 28 } = props;
 
     return (
         <PlatformContentWrapper>
-            {platform && (
+            {(platform || entityLogoComponent) && (
                 <LogoIcon>
                     {!platform && !platforms && entityLogoComponent}
-                    {!!platform && !platforms && <PlatformIcon platform={platform} size={28} styles={iconStyles} />}
+                    {!!platform && !platforms && <PlatformIcon platform={platform} size={size} styles={iconStyles} />}
                     {!!platforms && <StackPlatformImages platforms={platforms} />}
                 </LogoIcon>
             )}

@@ -19,6 +19,7 @@ import { EntityMenuItems } from '../shared/EntityDropdown/EntityMenuActions';
 import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
 import { SidebarTitleActionType, getDataProduct, isOutputPort } from '../shared/utils';
 import { TYPE_ICON_CLASS_NAME } from '../shared/components/subtypes';
+import SidebarEntityHeader from '../shared/containers/profile/sidebar/SidebarEntityHeader';
 
 const headerDropdownItems = new Set([EntityMenuItems.UPDATE_DEPRECATION]);
 
@@ -96,6 +97,9 @@ export class MLFeatureEntity implements Entity<MlFeature> {
                 },
             ]}
             sidebarSections={[
+                {
+                    component: SidebarEntityHeader,
+                },
                 {
                     component: SidebarDomainSection,
                 },

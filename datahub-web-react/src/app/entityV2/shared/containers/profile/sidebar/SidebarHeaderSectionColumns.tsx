@@ -64,19 +64,21 @@ type Props = {
 
 export const SidebarHeaderSectionColumns = ({ columns }: Props) => {
     return (
-        <Container className="top-section">
+        <>
             {columns.length > 0 && (
-                <ColumnsContainer>
-                    {columns.map((column) => (
-                        <Column>
-                            <Heading>
-                                <Title>{column.title}</Title>
-                            </Heading>
-                            {column.content}
-                        </Column>
-                    ))}
-                </ColumnsContainer>
+                <Container className="top-section">
+                    <ColumnsContainer>
+                        {columns.map((column) => (
+                            <Column>
+                                <Heading>
+                                    <Title>{column.title}</Title>
+                                </Heading>
+                                {column.content}
+                            </Column>
+                        ))}
+                    </ColumnsContainer>
+                </Container>
             )}
-        </Container>
+        </>
     );
 };

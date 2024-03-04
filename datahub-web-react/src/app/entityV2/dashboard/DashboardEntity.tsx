@@ -44,6 +44,7 @@ import { GenericEntityProperties } from '../shared/types';
 import { SidebarTitleActionType, getDataProduct, isOutputPort } from '../shared/utils';
 import { DashboardPreview } from './preview/DashboardPreview';
 import { DashboardStatsSummarySubHeader } from './profile/DashboardStatsSummarySubHeader';
+import SidebarEntityHeader from '../shared/containers/profile/sidebar/SidebarEntityHeader';
 
 /**
  * Definition of the DataHub Dashboard entity.
@@ -163,6 +164,9 @@ export class DashboardEntity implements Entity<Dashboard> {
                 },
             ]}
             sidebarSections={[
+                {
+                    component: SidebarEntityHeader,
+                },
                 {
                     component: SidebarDashboardHeaderSection,
                 },
