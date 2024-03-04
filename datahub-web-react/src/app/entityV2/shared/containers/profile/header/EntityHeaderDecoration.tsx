@@ -6,6 +6,7 @@ import { DisplayProperties, EntityType } from "../../../../../../types.generated
 type Props = {
     urn: string;
     entityType: EntityType;
+    entityData: any;
     displayProperties?: DisplayProperties;
 };
 
@@ -27,9 +28,12 @@ const GlossaryItemRibbon = styled.span<GlossaryItemRibbonProps>`
 export const EntityHeaderDecoration = ({
     urn,
     entityType,
+    entityData,
     displayProperties
 }: Props) => {
-    const glossaryColor = displayProperties?.colorHex || generateColor.hex(urn);
+    const parentNodeCount = entityData?.parentNodes?.count || 0;
+    const urnText = parentNodeCount===0?urn : entityData.parentNodes.nodes[parentNodeCount-1].urn;
+    const glossaryColor = displayProperties?.colorHex || generateColor.hex(urnText);
 
     if(entityType === EntityType.GlossaryNode || entityType === EntityType.GlossaryTerm)
     return <GlossaryItemRibbon color={glossaryColor}/>;

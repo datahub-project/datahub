@@ -216,19 +216,19 @@ function EntityActions(props: Props) {
         <>
             <ButtonWrapper>
                 {actionItems.has(EntityActionItem.BATCH_ADD_GLOSSARY_TERM) && (
-                    <Button onClick={() => setIsBatchAddGlossaryTermModalVisible(true)}>
+                    <TransparentButton size="large" onClick={() => setIsBatchAddGlossaryTermModalVisible(true)}>
                         <LinkOutlined /> Add to assets
-                    </Button>
+                    </TransparentButton>
                 )}
                 {actionItems.has(EntityActionItem.BATCH_ADD_DOMAIN) && (
-                    <Button onClick={() => setIsBatchSetDomainModalVisible(true)}>
+                    <TransparentButton size="large" onClick={() => setIsBatchSetDomainModalVisible(true)}>
                         <LinkOutlined /> Add assets
-                    </Button>
+                    </TransparentButton>
                 )}
                 {actionItems.has(EntityActionItem.BATCH_ADD_DATA_PRODUCT) && (
-                    <Button onClick={() => setIsBatchSetDataProductModalVisible(true)}>
+                    <TransparentButton size="large" onClick={() => setIsBatchSetDataProductModalVisible(true)}>
                         <LinkOutlined /> Add assets
-                    </Button>
+                    </TransparentButton>
                 )}
                 {actionItems.has(EntityActionItem.ADD_CHILD_GLOSSARY_TERM) && (
                     <TransparentButton size="large" onClick={() => setIsCreateNodeModalVisible(true)}>

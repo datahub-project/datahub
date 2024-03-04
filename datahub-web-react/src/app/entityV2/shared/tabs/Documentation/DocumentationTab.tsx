@@ -4,7 +4,7 @@ import { useLocation } from 'react-router-dom';
 
 import styled from 'styled-components';
 import { Button, Divider, Typography } from 'antd';
-import { EditOutlined, ExpandAltOutlined } from '@ant-design/icons';
+import { EditOutlined, PlusOutlined } from '@ant-design/icons';
 
 import TabToolbar from '../../components/styled/TabToolbar';
 import { AddLinkModal } from '../../components/styled/AddLinkModal';
@@ -16,11 +16,43 @@ import { useEntityData, useRefetch, useRouteToTab } from '../../EntityContext';
 import { EDITED_DESCRIPTIONS_CACHE_NAME } from '../../utils';
 import { Editor } from './components/editor/Editor';
 import { DescriptionPreviewModal } from './components/DescriptionPreviewModal';
+import { REDESIGN_COLORS,ANTD_GRAY } from '../../constants';
 
 const DocumentationContainer = styled.div`
     margin: 0 32px;
     padding: 40px 0;
     max-width: calc(100% - 10px);
+`;
+
+const StyledTabToolbar = styled(TabToolbar)`
+    background-color: ${REDESIGN_COLORS.LIGHT_GREY};
+    border-top-left-radius: 4px;
+    border-bottom-left-radius: 4px;
+    border-left: 2px solid #5c3fd1;
+    padding: 8px 20px;
+    margin: 2px 14px 2px 12px;
+`;
+
+const PrimaryButton = styled(Button)`
+    color: ${ANTD_GRAY[1]};
+    font-size: 12px;
+    box-shadow: none;
+    border-color: ${REDESIGN_COLORS.TITLE_PURPLE};
+    background-color: ${REDESIGN_COLORS.TITLE_PURPLE};
+    margin-left: 9px;
+    &:hover {
+        transition: 0.15s;
+        opacity: 0.9;
+        border-color: ${REDESIGN_COLORS.TITLE_PURPLE};
+        background-color: ${REDESIGN_COLORS.TITLE_PURPLE};
+    }
+`;
+
+const EmptyTabWrapper = styled.div`
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    height: 100%;
 `;
 
 interface Props {
@@ -57,7 +89,7 @@ export const DocumentationTab = ({ properties }: { properties?: Props }) => {
         <>
             {description || links.length ? (
                 <>
-                    <TabToolbar>
+                    <StyledTabToolbar>
                         <div>
                             <Button
                                 data-testid="edit-documentation-button"
@@ -68,20 +100,7 @@ export const DocumentationTab = ({ properties }: { properties?: Props }) => {
                             </Button>
                             {!hideLinksButton && <AddLinkModal buttonProps={{ type: 'text' }} refetch={refetch} />}
                         </div>
-                        <div>
-                            <Button
-                                type="text"
-                                onClick={() =>
-                                    routeToTab({
-                                        tabName: 'Documentation',
-                                        tabParams: { modal: true },
-                                    })
-                                }
-                            >
-                                <ExpandAltOutlined />
-                            </Button>
-                        </div>
-                    </TabToolbar>
+                    </StyledTabToolbar>
                     <div>
                         {description ? (
                             <Editor content={description} readOnly />
@@ -97,15 +116,19 @@ export const DocumentationTab = ({ properties }: { properties?: Props }) => {
                     </div>
                 </>
             ) : (
-                <EmptyTab tab="documentation">
-                    <Button
-                        data-testid="add-documentation"
-                        onClick={() => routeToTab({ tabName: 'Documentation', tabParams: { editing: true } })}
-                    >
-                        <EditOutlined /> Add Documentation
-                    </Button>
-                    {!hideLinksButton && <AddLinkModal refetch={refetch} />}
-                </EmptyTab>
+                <EmptyTabWrapper>
+                    <EmptyTab tab="documentation" hideImage={false}>
+                        {!hideLinksButton && <AddLinkModal buttonType="transparent" refetch={refetch} />}
+                        <PrimaryButton
+                            type="primary"
+                            size="large"
+                            data-testid="add-documentation"
+                            onClick={() => routeToTab({ tabName: 'Documentation', tabParams: { editing: true } })}
+                        >
+                            <PlusOutlined /> Add Documentation
+                        </PrimaryButton>
+                    </EmptyTab>
+                </EmptyTabWrapper>
             )}
             {showModal && (
                 <DescriptionPreviewModal

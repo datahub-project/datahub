@@ -146,7 +146,12 @@ export const DefaultEntityHeader = ({
     return (
         <>
             <Row>
-                <EntityHeaderDecoration urn={urn} entityType={entityType} displayProperties={displayProperties} />
+                <EntityHeaderDecoration 
+                urn={urn}
+                entityData={entityData}
+                entityType={entityType}
+                displayProperties={displayProperties}
+                />
                 <EntityBackButton />
                 <LeftColumn>
                     {(loading && <EntityTitleLoadingSection />) || (

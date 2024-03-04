@@ -11,20 +11,26 @@ import {
 } from '@ant-design/icons';
 import { useActive, useCommands } from '@remirror/react';
 import styled from 'styled-components';
-import { ANTD_GRAY } from '../../../../../constants';
 import { CommandButton } from './CommandButton';
 import { HeadingMenu } from './HeadingMenu';
 import { AddImageButton } from './AddImageButton';
 import { AddLinkButton } from './AddLinkButton';
 import { CodeBlockIcon, CodeIcon } from './Icons';
+import { REDESIGN_COLORS } from '../../../../../constants';
 
 const Container = styled.div`
     position: sticky;
     top: 0;
     z-index: 99;
-    background-color: #fff;
-    border-bottom: 1px solid ${ANTD_GRAY[4.5]};
-    padding: 4px 20px;
+    background-color: ${REDESIGN_COLORS.LIGHT_GREY};
+    border-top-left-radius: 4px;
+    border-bottom-left-radius: 4px;
+    border-left: 2px solid ${REDESIGN_COLORS.TITLE_PURPLE};
+    padding: 8px 20px;
+    margin: 2px 14px 2px 12px;
+    & button {
+        line-height: 0;
+    }
 `;
 
 export const Toolbar = () => {

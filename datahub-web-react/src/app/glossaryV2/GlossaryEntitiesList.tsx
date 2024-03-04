@@ -6,6 +6,8 @@ import { ChildGlossaryTermFragment } from '../../graphql/glossaryNode.generated'
 import { EntityType, GlossaryNode, GlossaryTerm } from '../../types.generated';
 import { useEntityRegistry } from '../useEntityRegistry';
 import GlossaryEntityItem from './GlossaryEntityItem';
+import { useEntityData } from '../entityV2/shared/EntityContext';
+import { GenericEntityProperties } from '../entityV2/shared/types';
 
 interface GlossaryEntityWrapperProps {
     termsTotal?: number | undefined;
@@ -18,14 +20,20 @@ const GlossaryEntityWrapper = styled.div<GlossaryEntityWrapperProps>`
 
 interface EntitiesWrapperProps {
     type: EntityType;
+    entityData: {
+        urn: string;
+        entityType: EntityType;
+        entityData: GenericEntityProperties | null;
+        loading: boolean;
+    };
 }
 
 const EntitiesWrapper = styled.div<EntitiesWrapperProps>`
     display: flex;
     overflow: auto;
     flex-wrap: wrap;
-    padding: ${(props) => (props.type === EntityType.GlossaryNode ? '25px 29px' : 0)};
-    gap: ${(props) => (props.type === EntityType.GlossaryNode ? '14px' : 'unset')};
+    padding: ${(props) => (props.type === EntityType.GlossaryNode && !props.entityData.urn ? '25px 29px' : 0)};
+    gap: ${(props) => (props.type === EntityType.GlossaryNode && !props.entityData.urn ? '14px' : 'unset')};
 `;
 
 const EntityTitle = styled(Typography)`
@@ -44,11 +52,12 @@ interface Props {
 function GlossaryEntitiesList(props: Props) {
     const { nodes, terms, termsTotal } = props;
     const entityRegistry = useEntityRegistry();
+    const entityData = useEntityData();
 
     return (
         <GlossaryEntityWrapper termsTotal={termsTotal}>
-            <EntitiesWrapper type={nodes[0]?.type}>
-                {nodes[0]?.type !== EntityType.GlossaryNode && <EntityTitle>Glossary Terms</EntityTitle>}
+            <EntitiesWrapper type={nodes[0]?.type} entityData={entityData}>
+                {nodes.length > 0&& entityData.urn !== '' && <EntityTitle>Terms Group</EntityTitle>}
                 {nodes.map((node) => (
                     <GlossaryEntityItem
                         key={node.urn}
@@ -60,6 +69,7 @@ function GlossaryEntitiesList(props: Props) {
                         displayProperties={node.displayProperties}
                     />
                 ))}
+                { entityData.urn !== '' &&<EntityTitle>Glossary Terms</EntityTitle>}
                 {terms.map((term) => (
                     <GlossaryEntityItem
                         key={term.urn}
