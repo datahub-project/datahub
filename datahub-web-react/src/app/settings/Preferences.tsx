@@ -54,8 +54,8 @@ const SettingText = styled(Typography.Text)`
 export const Preferences = () => {
     // Current User Urn
     const { user, refetchUser } = useUserContext();
-    const isThemeV2EnabledGlobally = useIsThemeV2EnabledGlobally();
-    const isThemeV2EnabledForUser = useIsThemeV2EnabledForUser();
+    const [isThemeV2EnabledGlobally] = useIsThemeV2EnabledGlobally();
+    const [isThemeV2EnabledForUser] = useIsThemeV2EnabledForUser();
     const showSimplifiedHomepage = !!user?.settings?.appearance?.showSimplifiedHomepage;
 
     const [updateUserSettingMutation] = useUpdateUserSettingMutation();
@@ -113,7 +113,9 @@ export const Preferences = () => {
                                     <SettingText>Try Acryl 2.0 (beta)</SettingText>
                                     <div>
                                         <DescriptionText>
-                                            Enable an early preview of Acryl 2.0 - a complete makeover for your app with a sleek new design and advanced features. Flip the switch and refresh your browser to try it out!
+                                            Enable an early preview of Acryl 2.0 - a complete makeover for your app with
+                                            a sleek new design and advanced features. Flip the switch and refresh your
+                                            browser to try it out!
                                         </DescriptionText>
                                     </div>
                                 </span>
