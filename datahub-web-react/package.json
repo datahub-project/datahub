@@ -59,6 +59,7 @@
         "history": "^5.0.0",
         "html-to-image": "^1.11.11",
         "js-cookie": "^2.2.1",
+        "json-2-csv": "^5.4.0",
         "moment": "^2.29.4",
         "moment-timezone": "^0.5.35",
         "monaco-editor": "^0.28.1",

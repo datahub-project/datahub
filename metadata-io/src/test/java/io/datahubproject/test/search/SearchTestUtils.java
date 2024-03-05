@@ -150,7 +150,7 @@ public class SearchTestUtils {
       int batchSize,
       @Nullable String scrollId) {
     return entitySearchService.scroll(
-        opContext, SEARCHABLE_ENTITIES, null, null, batchSize, scrollId, "3m");
+        opContext, SEARCHABLE_ENTITIES, null, null, batchSize, scrollId, "3m", null);
   }
 
   public static SearchResult searchStructured(

@@ -128,7 +128,8 @@ public class EvaluateTestsStepTest {
                 Mockito.eq(null),
                 Mockito.eq(1),
                 Mockito.eq(null),
-                Mockito.eq(ELASTIC_TIMEOUT)))
+                Mockito.eq(ELASTIC_TIMEOUT),
+                Mockito.eq(null)))
         .thenReturn(scrollResult);
 
     SearchEntity chartOneSearchEntry = new SearchEntity();
@@ -147,7 +148,8 @@ public class EvaluateTestsStepTest {
                 Mockito.eq(null),
                 Mockito.eq(1),
                 Mockito.eq(null),
-                Mockito.eq(ELASTIC_TIMEOUT)))
+                Mockito.eq(ELASTIC_TIMEOUT),
+                Mockito.eq(null)))
         .thenReturn(chartOneScrollResult);
 
     SearchEntity chartTwoSearchEntry = new SearchEntity();
@@ -166,7 +168,8 @@ public class EvaluateTestsStepTest {
                 Mockito.eq(null),
                 Mockito.eq(1),
                 Mockito.eq(SCROLL_ID),
-                Mockito.eq(ELASTIC_TIMEOUT)))
+                Mockito.eq(ELASTIC_TIMEOUT),
+                Mockito.eq(null)))
         .thenReturn(chartTwoScrollResult);
   }
 }

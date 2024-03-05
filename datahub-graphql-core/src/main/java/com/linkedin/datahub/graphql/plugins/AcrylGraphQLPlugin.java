@@ -9,6 +9,7 @@ import com.linkedin.datahub.graphql.GmsGraphQLEngine;
 import com.linkedin.datahub.graphql.GmsGraphQLEngineArgs;
 import com.linkedin.datahub.graphql.GmsGraphQLPlugin;
 import com.linkedin.datahub.graphql.WeaklyTypedAspectsResolver;
+import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.generated.*;
 import com.linkedin.datahub.graphql.resolvers.actionrequest.ListActionRequestsResolver;
 import com.linkedin.datahub.graphql.resolvers.actionrequest.ListRejectedActionRequestsResolver;
@@ -35,17 +36,14 @@ import com.linkedin.datahub.graphql.resolvers.datacontract.UpsertDataContractRes
 import com.linkedin.datahub.graphql.resolvers.dataset.DatasetStatsSummaryResolver;
 import com.linkedin.datahub.graphql.resolvers.form.BatchSubmitFormPromptResolver;
 import com.linkedin.datahub.graphql.resolvers.form.BatchVerifyFormResolver;
+import com.linkedin.datahub.graphql.resolvers.form.FormAnalyticsConfigResolver;
+import com.linkedin.datahub.graphql.resolvers.form.FormAnalyticsResolver;
 import com.linkedin.datahub.graphql.resolvers.form.GetFormsForActorResolver;
 import com.linkedin.datahub.graphql.resolvers.form.NumEntitiesToCompleteResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.credentials.ListExecutorConfigsResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.execution.ListSignalRequestsResolver;
 import com.linkedin.datahub.graphql.resolvers.integration.GetLinkPreviewResolver;
-import com.linkedin.datahub.graphql.resolvers.load.EntityRelationshipsResultResolver;
-import com.linkedin.datahub.graphql.resolvers.load.EntityTypeBatchResolver;
-import com.linkedin.datahub.graphql.resolvers.load.EntityTypeResolver;
-import com.linkedin.datahub.graphql.resolvers.load.LoadableTypeBatchResolver;
-import com.linkedin.datahub.graphql.resolvers.load.LoadableTypeResolver;
-import com.linkedin.datahub.graphql.resolvers.load.ProposalsResolver;
+import com.linkedin.datahub.graphql.resolvers.load.*;
 import com.linkedin.datahub.graphql.resolvers.monitor.CreateAssertionMonitorResolver;
 import com.linkedin.datahub.graphql.resolvers.monitor.DeleteMonitorResolver;
 import com.linkedin.datahub.graphql.resolvers.monitor.SystemMonitorsResolver;
@@ -159,6 +157,7 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
 
   private TestEngine testEngine;
   private boolean initialized;
+  private FeatureFlags featureFlags;
 
   public AcrylGraphQLPlugin() {
     this.initialized = false;
@@ -166,6 +165,7 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
 
   @Override
   public void init(GmsGraphQLEngineArgs args) {
+    this.featureFlags = args.getFeatureFlags();
     this.graphClient = args.getGraphClient();
     this.entityClient = args.getEntityClient();
     this.systemEntityClient = args.getSystemEntityClient();
@@ -260,6 +260,7 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
     configureShareResolvers(builder, baseEngine);
     configureFormsForActorResolver(builder);
     configureExecutorResolvers(builder, baseEngine);
+    configureFormAnalyticsResolver(builder, baseEngine);
   }
 
   private void configureMutationResolvers(
@@ -379,7 +380,14 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
                 .dataFetcher(
                     "getEntitySubscriptionSummary",
                     new GetEntitySubscriptionSummaryResolver(
-                        this.subscriptionService, this.groupService)));
+                        this.subscriptionService, this.groupService))
+                .dataFetcher(
+                    "formAnalyticsConfig",
+                    new FormAnalyticsConfigResolver(this.integrationsService, this.featureFlags))
+                .dataFetcher(
+                    "formAnalytics",
+                    new FormAnalyticsResolver(
+                        this.entityClient, this.integrationsService, this.featureFlags)));
   }
 
   private void configureContainerResolvers(final RuntimeWiring.Builder builder) {
@@ -826,5 +834,16 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
                     "listExecutorConfigs",
                     new ListExecutorConfigsResolver(
                         this.entityClient, this.executorConfiguration)));
+  }
+
+  private void configureFormAnalyticsResolver(
+      final RuntimeWiring.Builder builder, final GmsGraphQLEngine baseEngine) {
+    builder.type(
+        "RowResult",
+        typeWiring ->
+            typeWiring.dataFetcher(
+                "entity",
+                new EntityTypeResolver(
+                    baseEngine.entityTypes, (env) -> ((RowResult) env.getSource()).getEntity())));
   }
 }

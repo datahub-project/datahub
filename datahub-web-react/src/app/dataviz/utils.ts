@@ -34,3 +34,15 @@ export const statusOrdinalScale = scaleOrdinal({
 	domain: ['Completed', 'In Progress', 'Not Started'],
 	range: [COMPLETED_COLOR, IN_PROGRESS_COLOR, NOT_STARTED_COLOR]
 });
+
+// Number Abbreviations
+export const abbreviateNumber = (str) => {
+	const number = parseFloat(str);
+	if (Number.isNaN(number)) return str;
+	if (number < 1000) return number;
+	const abbreviations = ['K', 'M', 'B', 'T'];
+	const index = Math.floor(Math.log10(number) / 3);
+	const suffix = abbreviations[index];
+	const shortNumber = number / 10 ** (index * 3);
+	return `${shortNumber}${suffix}`;
+}

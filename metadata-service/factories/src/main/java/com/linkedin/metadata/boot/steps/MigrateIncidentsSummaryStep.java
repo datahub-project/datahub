@@ -70,7 +70,8 @@ public class MigrateIncidentsSummaryStep extends UpgradeStep {
               null,
               BATCH_SIZE,
               nextScrollId,
-              "5m");
+              "5m",
+              null);
       nextScrollId = scrollResult.getScrollId();
 
       List<Urn> incidentsInBatch =

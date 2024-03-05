@@ -8,7 +8,11 @@ ARG VIRTUAL_ENV=/datahub-ingestion/.venv
 # Base Image Common To All
 FROM $BASE_IMAGE:$DOCKER_VERSION as base
 USER 0
-
+# Create a symbolic link for CA certificates. This is a workaround
+# to make duckdb work with the CA certificates in the image.
+RUN mkdir -p /etc/pki/tls/certs && ln -s /etc/ssl/certs/ca-certificates.crt /etc/pki/tls/certs/ca-bundle.crt
+RUN wget https://github.com/duckdb/duckdb/releases/download/v0.10.0/duckdb_cli-linux-amd64.zip && \
+    unzip duckdb_cli-linux-amd64.zip
 COPY ./datahub-integrations-service /datahub-integrations-service
 COPY ./metadata-ingestion /metadata-ingestion
 
@@ -29,7 +33,7 @@ RUN if [ "${PIP_MIRROR_URL}" != "null" ] ; then pip config set global.index-url 
 
 # `uv pip` doesn't support urls like `-e file:../metadata-ingestion#egg=acryl-datahub` yet
 RUN pip install --no-cache -r requirements.txt && \
-    uv pip install --no-cache -e "."
+    pip install --no-cache -e "."
 
 # Production Image Built From Build Image
 FROM base as prod-install

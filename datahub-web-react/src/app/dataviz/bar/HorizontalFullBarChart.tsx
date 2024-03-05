@@ -6,6 +6,8 @@ import { ParentSize } from '@visx/responsive';
 import { Legend } from '../Legend';
 import { ChartWrapper } from '../components';
 
+import { abbreviateNumber } from '../utils';
+
 export const HorizontalFullBarChart = <Data extends object, DataKeys>({
 	data,
 	dataKeys,
@@ -21,8 +23,9 @@ export const HorizontalFullBarChart = <Data extends object, DataKeys>({
 }) => {
 	if (!Array.isArray(dataKeys)) throw new Error('Datakeys must be an array');
 
-	const multipleData = data.length > 2;
-	const margin = { top: 20, right: 0, bottom: 0, left: 250 };
+	const multipleData = dataKeys.length > 1;
+	const margin = { top: 20, right: 20, bottom: 40, left: 250 };
+	const tickCount = Math.max(1, Math.min(data.length, 10));
 
 	return (
 		<ChartWrapper>
@@ -44,7 +47,11 @@ export const HorizontalFullBarChart = <Data extends object, DataKeys>({
 								yScale={{ type: "band", paddingInner: 0.3 }}
 								margin={margin}
 							>
-								<Grid numTicks={4} lineStyle={{ stroke: "#EAEAEA" }} rows={false} />
+								<Grid
+									numTicks={tickCount}
+									lineStyle={{ stroke: "#EAEAEA" }}
+									rows={false}
+								/>
 								{multipleData ? (
 									<BarStack>
 										{dataKeys.map((dK) => (
@@ -78,6 +85,19 @@ export const HorizontalFullBarChart = <Data extends object, DataKeys>({
 										dy: '0.33em',
 										width: 200,
 									}}
+									hideAxisLine
+								/>
+								{/* Bottom Axis is for COUNT/NUMBER values only */}
+								<Axis
+									orientation="bottom"
+									numTicks={tickCount}
+									tickLineProps={{ strokeWidth: 1 }}
+									tickFormat={(value) => String(value)}
+									tickComponent={({ x, y, formattedValue }) => (
+										<text x={x} y={y} dx={4} dy={4} fontSize="10" textAnchor="end">
+											<tspan>{abbreviateNumber(formattedValue)}</tspan>
+										</text>
+									)}
 									hideAxisLine
 								/>
 							</XYChart>

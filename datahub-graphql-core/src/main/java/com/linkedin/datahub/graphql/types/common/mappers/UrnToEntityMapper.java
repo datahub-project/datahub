@@ -3,45 +3,7 @@ package com.linkedin.datahub.graphql.types.common.mappers;
 import static com.linkedin.metadata.Constants.*;
 
 import com.linkedin.common.urn.Urn;
-import com.linkedin.datahub.graphql.generated.Anomaly;
-import com.linkedin.datahub.graphql.generated.Assertion;
-import com.linkedin.datahub.graphql.generated.Chart;
-import com.linkedin.datahub.graphql.generated.Container;
-import com.linkedin.datahub.graphql.generated.CorpGroup;
-import com.linkedin.datahub.graphql.generated.CorpUser;
-import com.linkedin.datahub.graphql.generated.Dashboard;
-import com.linkedin.datahub.graphql.generated.DataContract;
-import com.linkedin.datahub.graphql.generated.DataFlow;
-import com.linkedin.datahub.graphql.generated.DataHubConnection;
-import com.linkedin.datahub.graphql.generated.DataHubPolicy;
-import com.linkedin.datahub.graphql.generated.DataHubRole;
-import com.linkedin.datahub.graphql.generated.DataHubView;
-import com.linkedin.datahub.graphql.generated.DataJob;
-import com.linkedin.datahub.graphql.generated.DataPlatform;
-import com.linkedin.datahub.graphql.generated.DataPlatformInstance;
-import com.linkedin.datahub.graphql.generated.DataProduct;
-import com.linkedin.datahub.graphql.generated.Dataset;
-import com.linkedin.datahub.graphql.generated.Domain;
-import com.linkedin.datahub.graphql.generated.Entity;
-import com.linkedin.datahub.graphql.generated.EntityType;
-import com.linkedin.datahub.graphql.generated.GlossaryNode;
-import com.linkedin.datahub.graphql.generated.GlossaryTerm;
-import com.linkedin.datahub.graphql.generated.Incident;
-import com.linkedin.datahub.graphql.generated.MLFeature;
-import com.linkedin.datahub.graphql.generated.MLFeatureTable;
-import com.linkedin.datahub.graphql.generated.MLModel;
-import com.linkedin.datahub.graphql.generated.MLModelGroup;
-import com.linkedin.datahub.graphql.generated.MLPrimaryKey;
-import com.linkedin.datahub.graphql.generated.Monitor;
-import com.linkedin.datahub.graphql.generated.Notebook;
-import com.linkedin.datahub.graphql.generated.OwnershipTypeEntity;
-import com.linkedin.datahub.graphql.generated.QueryEntity;
-import com.linkedin.datahub.graphql.generated.Restricted;
-import com.linkedin.datahub.graphql.generated.Role;
-import com.linkedin.datahub.graphql.generated.SchemaFieldEntity;
-import com.linkedin.datahub.graphql.generated.StructuredPropertyEntity;
-import com.linkedin.datahub.graphql.generated.Tag;
-import com.linkedin.datahub.graphql.generated.Test;
+import com.linkedin.datahub.graphql.generated.*;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import javax.annotation.Nonnull;
 
@@ -244,6 +206,11 @@ public class UrnToEntityMapper implements ModelMapper<com.linkedin.common.urn.Ur
       partialEntity = new Restricted();
       ((Restricted) partialEntity).setUrn(input.toString());
       ((Restricted) partialEntity).setType(EntityType.RESTRICTED);
+    }
+    if (input.getEntityType().equals(FORM_ENTITY_NAME)) {
+      partialEntity = new Form();
+      ((Form) partialEntity).setUrn(input.toString());
+      ((Form) partialEntity).setType(EntityType.FORM);
     }
     return partialEntity;
   }

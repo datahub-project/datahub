@@ -24,6 +24,7 @@ from datahub.cli.exists_cli import exists
 from datahub.cli.get_cli import get
 from datahub.cli.ingest_cli import ingest
 from datahub.cli.migrate import migrate
+from datahub.cli.open_cli import open as open_command
 from datahub.cli.put_cli import put
 from datahub.cli.specific.datacontract_cli import datacontract
 from datahub.cli.specific.dataproduct_cli import dataproduct
@@ -160,6 +161,7 @@ datahub.add_command(dataset)
 datahub.add_command(properties)
 datahub.add_command(forms)
 datahub.add_command(datacontract)
+datahub.add_command(open_command)
 
 try:
     from datahub.cli.lite_cli import lite

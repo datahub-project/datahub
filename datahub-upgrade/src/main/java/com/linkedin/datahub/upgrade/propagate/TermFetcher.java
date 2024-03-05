@@ -44,7 +44,8 @@ class TermFetcher {
               null,
               1000,
               nextScrollId,
-              PropagateTerms.ELASTIC_TIMEOUT);
+              PropagateTerms.ELASTIC_TIMEOUT,
+              null);
       nextScrollId = scrollResult.getScrollId();
       log.info("Processing term batch {}", batch);
       Set<Urn> allowedTermsInBatch =

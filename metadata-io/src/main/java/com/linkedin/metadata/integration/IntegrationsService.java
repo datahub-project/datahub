@@ -12,6 +12,7 @@ import com.linkedin.parseq.retry.backoff.BackoffPolicy;
 import com.linkedin.parseq.retry.backoff.ExponentialBackoff;
 import io.datahubproject.integrations.api.ActionsApi;
 import io.datahubproject.integrations.api.AiApi;
+import io.datahubproject.integrations.api.AnalyticsApi;
 import io.datahubproject.integrations.api.ShareApi;
 import io.datahubproject.integrations.invoker.ApiClient;
 import io.datahubproject.integrations.invoker.ApiException;
@@ -20,12 +21,18 @@ import io.datahubproject.integrations.invoker.ServerConfiguration;
 import io.datahubproject.integrations.model.BodyRegisterActionPrivateActionsRegisterPost;
 import io.datahubproject.integrations.model.ExecuteShareResult;
 import io.datahubproject.integrations.model.SuggestedDescription;
+import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.CompletionException;
+import java.util.function.Consumer;
 import java.util.regex.Pattern;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpStatus;
@@ -48,6 +55,8 @@ public class IntegrationsService {
 
   private static final String REGISTER_ACTION_ENDPOINT = "private/actions/register";
 
+  private static final String ANALYTICS_QUERY_ENDPOINT = "private/analytics/query";
+
   private final String integrationsServiceHost;
   private final Integer integrationsServicePort;
   private final Authentication systemAuthentication;
@@ -58,6 +67,7 @@ public class IntegrationsService {
 
   private final ActionsApi actionsApi;
   private final AiApi aiApi;
+  @Getter private final AnalyticsApi analyticsApi;
   private final ShareApi shareApi;
 
   public IntegrationsService(
@@ -101,6 +111,7 @@ public class IntegrationsService {
                 Collections.EMPTY_MAP)));
     this.actionsApi = new ActionsApi(okHttpClient);
     this.aiApi = new AiApi(okHttpClient);
+    this.analyticsApi = new AnalyticsApi(okHttpClient);
     this.shareApi = new ShareApi(okHttpClient);
   }
 
@@ -334,6 +345,57 @@ public class IntegrationsService {
     } catch (ApiException e) {
       log.error("Failed to suggest description for entity: " + entity.toString(), e);
       return null;
+    }
+  }
+
+  public boolean query(
+      String entityUrn,
+      String query_string,
+      Consumer<List<String>> headerProcessor,
+      Consumer<List<String>> rowProcessor,
+      Consumer<List<String>> errorProcessor) {
+    try {
+      // Encode the query parameters to handle special characters
+      String encodedEntityUrn = URLEncoder.encode(entityUrn, StandardCharsets.UTF_8);
+      String encodedQueryFragment = URLEncoder.encode(query_string, StandardCharsets.UTF_8);
+
+      String requestURI =
+          String.format(
+              "%s://%s:%s/%s?entity_urn=%s&format=tuple&sql_query_fragment=%s",
+              protocol,
+              this.integrationsServiceHost,
+              this.integrationsServicePort,
+              ANALYTICS_QUERY_ENDPOINT,
+              encodedEntityUrn,
+              encodedQueryFragment);
+      StreamingHttpClient streamingHttpClient = new StreamingHttpClient();
+      streamingHttpClient.queryAndProcessStream(
+          requestURI,
+          Map.of(
+              "Content-Type",
+              "application/json",
+              "Authorization",
+              this.systemAuthentication.getCredentials()),
+          headerProcessor,
+          rowProcessor,
+          errorProcessor);
+      return true;
+    } catch (CompletionException e) {
+      Throwable cause = e.getCause();
+      if (cause instanceof java.net.ConnectException) {
+        // Handle connection failures specifically
+        // Log the error or return a user-friendly message
+        log.error("Connection failed: " + cause.getMessage());
+        throw new RuntimeException("Connection failed: " + cause.getMessage(), cause);
+      } else {
+        // Handle other unexpected exceptions
+        log.error("Unexpected error: " + cause.getMessage());
+        throw new RuntimeException("Unexpected error: " + cause.getMessage(), cause);
+      }
+    } catch (Exception e) {
+      // Handle other non-CompletionException errors
+      log.error("An error occurred: " + e.getMessage());
+      throw new RuntimeException("An error occurred: " + e.getMessage(), e);
     }
   }
 

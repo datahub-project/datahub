@@ -23,6 +23,16 @@ class RemovedStatusFilter(enum.Enum):
     """Search only soft-deleted entities."""
 
 
+def _validate_or_filter_structure(
+    or_filters: List[Dict[str, List[SearchFilterRule]]]
+) -> None:
+    for filter_list in or_filters:
+        if "and" not in filter_list:
+            raise ValueError(f"Invalid or filter: {filter_list}")
+        if not isinstance(filter_list["and"], list):
+            raise ValueError(f"Invalid or filter: {filter_list}")
+
+
 def generate_filter(
     platform: Optional[str],
     platform_instance: Optional[str],
@@ -30,7 +40,19 @@ def generate_filter(
     container: Optional[str],
     status: RemovedStatusFilter,
     extra_filters: Optional[List[SearchFilterRule]],
+    extra_or_filters: Optional[List[SearchFilterRule]] = None,
 ) -> List[Dict[str, List[SearchFilterRule]]]:
+    """
+    Generate a search filter based on the provided parameters.
+    :param platform: The platform to filter by.
+    :param platform_instance: The platform instance to filter by.
+    :param env: The environment to filter by.
+    :param container: The container to filter by.
+    :param status: The status to filter by.
+    :param extra_filters: Extra AND filters to apply.
+    :param extra_or_filters: Extra OR filters to apply. These are combined with
+    the AND filters using an OR at the top level.
+    """
     and_filters: List[SearchFilterRule] = []
 
     # Platform filter.
@@ -54,7 +76,7 @@ def generate_filter(
     if extra_filters:
         and_filters += extra_filters
 
-    or_filters: List[Dict[str, List[SearchFilterRule]]] = [{"and": and_filters}]
+    or_filters = [{"and": and_filters}]
 
     # Env filter
     if env:
@@ -63,6 +85,14 @@ def generate_filter(
         or_filters = [
             {"and": and_filter["and"] + [extraCondition]}
             for extraCondition in env_filters
+            for and_filter in or_filters
+        ]
+
+    # Extra OR filters are distributed across the top level and lists.
+    if extra_or_filters:
+        or_filters = [
+            {"and": and_filter["and"] + [extra_or_filter]}
+            for extra_or_filter in extra_or_filters
             for and_filter in or_filters
         ]
 

@@ -21,10 +21,12 @@ import { DatasetHealthPage } from './observe/dataset/DatasetHealthPage';
 import DomainRoutes from './domain/DomainRoutes';
 import { useIsNestedDomainsEnabled, useIsTaskCenterEnabled } from './useAppConfig';
 import { ManageDomainsPage } from './domain/ManageDomainsPage';
+
 import { useIsThemeV2Enabled } from './useIsThemeV2Enabled';
 import DomainRoutesV2 from './domainV2/DomainRoutes';
 import { ManageDomainsPage as ManageDomainsPageV2 } from './domainV2/ManageDomainsPage';
 import { TaskCenter } from './taskCenter/TaskCenter';
+import { GovernDashboard } from './govern/Dashboard/Dashboard';
 
 /**
  * Container for all searchable page routes
@@ -68,18 +70,23 @@ export const SearchRoutes = (): JSX.Element => {
                 />
                 <Route path={PageRoutes.PERMISSIONS} render={() => <Redirect to="/settings/permissions" />} />
                 <Route path={PageRoutes.IDENTITIES} render={() => <Redirect to="/settings/identities" />} />
-                {isNestedDomainsEnabled && (
-                    <Route
-                        path={`${PageRoutes.DOMAIN}*`}
-                        render={() => (isThemeV2 ? <DomainRoutesV2 /> : <DomainRoutes />)}
-                    />
-                )}
-                {!isNestedDomainsEnabled && (
-                    <Route
-                        path={PageRoutes.DOMAINS}
-                        render={() => (isThemeV2 ? <ManageDomainsPageV2 /> : <ManageDomainsPage />)}
-                    />
-                )}
+                {
+                    isNestedDomainsEnabled && (
+                        <Route
+                            path={`${PageRoutes.DOMAIN}*`}
+                            render={() => (isThemeV2 ? <DomainRoutesV2 /> : <DomainRoutes />)}
+                        />
+                    )
+                }
+                {
+                    !isNestedDomainsEnabled && (
+                        <Route
+                            path={PageRoutes.DOMAINS}
+                            render={() => (isThemeV2 ? <ManageDomainsPageV2 /> : <ManageDomainsPage />)}
+                        />
+                    )
+                }
+                <Route path={PageRoutes.GOVERN_DASHBOARD} render={() => <GovernDashboard />} />
                 <Route path={PageRoutes.INGESTION} render={() => <ManageIngestionPage />} />
                 <Route path={PageRoutes.SETTINGS} render={() => <SettingsPage />} />
                 <Route
@@ -94,7 +101,7 @@ export const SearchRoutes = (): JSX.Element => {
                 />
 
                 <Route component={NoPageFound} />
-            </Switch>
-        </FinalSearchablePage>
+            </Switch >
+        </FinalSearchablePage >
     );
 };

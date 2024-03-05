@@ -11,6 +11,7 @@ import {
     DownOutlined,
     EyeOutlined,
     DatabaseOutlined,
+    FormOutlined,
 } from '@ant-design/icons';
 import { Link } from 'react-router-dom';
 import { Button, Dropdown, Menu, Tooltip } from 'antd';
@@ -102,6 +103,8 @@ export function HeaderLinks(props: Props) {
     const showTests = (isTestsEnabled && me?.platformPrivileges?.manageTests) || false;
     const showDatasetHealth = config?.featureFlags?.datasetHealthDashboardEnabled;
     const showObserve = showDatasetHealth;
+    const showDocumentationCenter = (config?.featureFlags?.taskCenterEnabled) || false; // TODO: Add platformPrivileges check
+
 
     useToggleEducationStepIdsAllowList(!!showIngestion, HOME_PAGE_INGESTION_ID);
 
@@ -167,6 +170,19 @@ export function HeaderLinks(props: Props) {
                                     </NavTitleContainer>
                                     <NavTitleDescription>
                                         Monitor policies & automate actions across data assets
+                                    </NavTitleDescription>
+                                </Link>
+                            </MenuItem>
+                        )}
+                        {showDocumentationCenter && (
+                            <MenuItem key="3">
+                                <Link to="/govern/dashboard">
+                                    <NavTitleContainer>
+                                        <FormOutlined style={{ fontSize: '14px', fontWeight: 'bold' }} />
+                                        <NavTitleText>Documentation</NavTitleText>
+                                    </NavTitleContainer>
+                                    <NavTitleDescription>
+                                        Manage your documentation standards
                                     </NavTitleDescription>
                                 </Link>
                             </MenuItem>

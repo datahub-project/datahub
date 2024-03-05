@@ -6,6 +6,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from datahub_integrations.actions.router import ACTIONS_ROUTE, actions_router
+from datahub_integrations.analytics.router import router as analytics_router
 from datahub_integrations.app import (
     STATIC_ASSETS_DIR,
     app,
@@ -51,6 +52,9 @@ external_router.include_router(slack_public_router, tags=["Slack"])
 
 internal_router.include_router(actions_router, prefix=ACTIONS_ROUTE, tags=["Actions"])
 internal_router.include_router(gen_ai_router, prefix="/ai", tags=["AI"])
+internal_router.include_router(
+    analytics_router, prefix="/analytics", tags=["Analytics"]
+)
 internal_router.include_router(share_router, prefix="/share", tags=["Share"])
 
 app.include_router(internal_router, prefix="/private")

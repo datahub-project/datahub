@@ -7,6 +7,7 @@ import com.linkedin.metadata.browse.BrowseResultV2;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
+import com.linkedin.metadata.search.api.SearchDocFieldFetchConfig;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
 import java.util.Map;
@@ -165,7 +166,8 @@ public interface EntitySearchService {
       @Nullable SortCriterion sortCriterion,
       int size,
       @Nullable String scrollId,
-      @Nonnull String keepAliveDuration);
+      @Nonnull String keepAliveDuration,
+      @Nullable SearchDocFieldFetchConfig fieldFetchConfig);
 
   /**
    * Returns a list of suggestions given type ahead query.

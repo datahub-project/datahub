@@ -49,7 +49,7 @@ export const PieChart = ({ data }: any) => {
 		let total = 0;
 		data.forEach((d) => { total += d.value });
 		const percent = Math.round((count / total) * 100);
-		return `${percent}% (${count})`;
+		return `${percent}% (${count.toLocaleString()})`;
 	}
 
 	return (
