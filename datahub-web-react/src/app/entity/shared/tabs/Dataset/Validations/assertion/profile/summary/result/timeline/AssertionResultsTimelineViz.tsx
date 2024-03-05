@@ -61,29 +61,29 @@ export const AssertionResultsTimelineViz = ({ assertion, results, timeRange, par
         completedRuns,
     )
 
-    // Date range
-    const dateRange = getTimeRangeDisplay(timeRange);
-
     // render
     const chartDimensions = {
         height: VIZ_CONTAINER_HEIGHT - VIZ_CONTAINER_TITLE_HEIGHT - 8, // margin below (flex-start)
         width: parentDimensions.width - 8, // margin on the sides (we have align-items=center)
     }
 
+    const renderChartTitle = (title?: string) => <VizHeader>
+        <VizHeaderTitle strong>{title || getTimeRangeDisplay(timeRange)}</VizHeaderTitle>
+    </VizHeader>
+
     return <VisualizationContainer>
-        <VizHeader>
-            <VizHeaderTitle strong>{assertionResultChartData.yAxisLabel ? `${assertionResultChartData.yAxisLabel} over time` : dateRange}</VizHeaderTitle>
-        </VizHeader>
         {getBestChartTypeForAssertion(assertion.info) === AssertionChartType.ValuesOverTime
             ? <ValuesOverTimeAssertionResultChart
                 chartDimensions={chartDimensions}
                 data={assertionResultChartData}
                 timeRange={timeRange}
+                renderHeader={renderChartTitle}
             />
             : <StatusOverTimeAssertionResultChart
                 chartDimensions={chartDimensions}
                 data={assertionResultChartData}
                 timeRange={timeRange}
+                renderHeader={renderChartTitle}
             />}
     </VisualizationContainer>
 };
