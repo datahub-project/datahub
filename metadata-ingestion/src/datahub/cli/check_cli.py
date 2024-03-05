@@ -14,7 +14,6 @@ from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.graph.client import get_default_graph
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.sink.sink_registry import sink_registry
-from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
 from datahub.ingestion.source.source_registry import source_registry
 from datahub.ingestion.transformer.transform_registry import transform_registry
 from datahub.telemetry import telemetry
@@ -298,6 +297,8 @@ def test_path_spec(config: str, input: str, path_spec_key: str) -> None:
 
     This command validates an input path string against an PathSpec patterns in a DataHub recipe.
     """
+
+    from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
 
     pattern_dicts: Optional[Union[List[Dict], Dict]] = None
     recipe_config_dict = config_loader.load_config_file(config)
