@@ -377,7 +377,7 @@ class S3Source(StatefulIngestionSourceBase):
                 ignoreLeadingWhiteSpace=True,
                 ignoreTrailingWhiteSpace=True,
             )
-        elif ext.endswith(".json"):
+        elif ext.endswith(".json") or ext.endswith(".jsonl"):
             df = self.spark.read.json(file)
         elif ext.endswith(".avro"):
             try:
@@ -440,6 +440,10 @@ class S3Source(StatefulIngestionSourceBase):
             elif extension == ".tsv":
                 fields = csv_tsv.TsvInferrer(
                     max_rows=self.source_config.max_rows
+                ).infer_schema(file)
+            elif extension == ".jsonl":
+                fields = json.JsonInferrer(
+                    max_rows=self.source_config.max_rows, format="jsonl"
                 ).infer_schema(file)
             elif extension == ".json":
                 fields = json.JsonInferrer().infer_schema(file)

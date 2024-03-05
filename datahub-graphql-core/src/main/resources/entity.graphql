@@ -961,6 +961,11 @@ enum EntityType {
     """
     ENTITY_TYPE
 
+    """"
+    A type of entity that is restricted to the user
+    """
+    RESTRICTED
+
     """
     Another entity type - refer to a provided entity type urn.
     """
@@ -8682,6 +8687,11 @@ input ListPoliciesInput {
   Optional search query
   """
   query: String
+
+  """
+  A list of disjunctive criterion for the filter. (or operation to combine filters)
+  """
+  orFilters: [AndFilterInput!]
 }
 
 """
@@ -11828,4 +11838,30 @@ type EntityTypeInfo {
     The description of this type
     """
     description: String
+}
+
+"""
+A restricted entity that the user does not have full permissions to view.
+This entity type does not relate to an entity type in the database.
+"""
+type Restricted implements Entity & EntityWithRelationships {
+    """
+    The primary key of the restricted entity
+    """
+    urn: String!
+
+    """
+    The standard Entity Type
+    """
+    type: EntityType!
+
+    """
+    Edges extending from this entity
+    """
+    relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+    """
+    Edges extending from this entity grouped by direction in the lineage graph
+    """
+    lineage(input: LineageInput!): EntityLineageResult
 }

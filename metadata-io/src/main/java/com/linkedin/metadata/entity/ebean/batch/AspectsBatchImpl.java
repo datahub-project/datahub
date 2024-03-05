@@ -63,6 +63,9 @@ public class AspectsBatchImpl implements AspectsBatch {
                     upsertItem = patchBatchItem.applyPatch(currentValue, aspectRetriever);
                   }
 
+                  // Populate old aspect for write hooks
+                  upsertItem.setPreviousSystemAspect(latest);
+
                   return upsertItem;
                 })
             .collect(Collectors.toCollection(LinkedList::new));

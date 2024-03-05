@@ -94,6 +94,7 @@ entities:
       - structuredProperties
       - incidentsSummary
       - forms
+      - subTypes
   - name: dataProcess
     keyAspect: dataProcessKey
     aspects:
@@ -574,3 +575,12 @@ plugins:
       supportedEntityAspectNames:
         - entityName: '*'
           aspectName: structuredProperties
+    - className: 'com.linkedin.metadata.aspect.hooks.OwnerTypeMap'
+      enabled: true
+      supportedOperations:
+        - UPSERT
+        - CREATE
+        - RESTATE
+      supportedEntityAspectNames:
+        - entityName: '*'
+          aspectName: ownership

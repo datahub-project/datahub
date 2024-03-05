@@ -6,6 +6,10 @@ package_metadata: dict = {}
 with open("./src/datahub/__init__.py") as fp:
     exec(fp.read(), package_metadata)
 
+_version: str = package_metadata["__version__"]
+_self_pin = (
+    f"=={_version}" if not (_version.endswith("dev0") or "docker" in _version) else ""
+)
 
 base_requirements = {
     # Typing extension should be >=3.10.0.2 ideally but we can't restrict due to a Airflow 2.1 dependency conflict.
@@ -17,6 +21,7 @@ base_requirements = {
     # pydantic 1.10.3 is incompatible with typing-extensions 4.1.1 - https://github.com/pydantic/pydantic/issues/4885
     "pydantic>=1.10.0,!=1.10.3",
     "mixpanel>=4.9.0",
+    # Airflow depends on fairly old versions of sentry-sdk, so we want to be loose with our constraints.
     "sentry-sdk",
 }
 
@@ -29,7 +34,7 @@ framework_common = {
     "importlib_metadata>=4.0.0; python_version < '3.10'",
     "docker",
     "expandvars>=0.6.5",
-    "avro-gen3==0.7.11",
+    "avro-gen3==0.7.12",
     # "avro-gen3 @ git+https://github.com/acryldata/avro_gen@master#egg=avro-gen3",
     "avro>=1.11.3,<1.12",
     "python-dateutil>=2.8.0",
@@ -94,7 +99,7 @@ usage_common = {
 sqlglot_lib = {
     # Using an Acryl fork of sqlglot.
     # https://github.com/tobymao/sqlglot/compare/main...hsheth2:sqlglot:hsheth?expand=1
-    "acryl-sqlglot==21.1.2.dev9",
+    "acryl-sqlglot==21.1.2.dev10",
 }
 
 sql_common = (
@@ -272,7 +277,7 @@ plugins: Dict[str, Set[str]] = {
     },
     # Integrations.
     "airflow": {
-        f"acryl-datahub-airflow-plugin == {package_metadata['__version__']}",
+        f"acryl-datahub-airflow-plugin{_self_pin}",
     },
     "circuit-breaker": {
         "gql>=3.3.0",
@@ -393,16 +398,23 @@ plugins: Dict[str, Set[str]] = {
     # databricks is alias for unity-catalog and needs to be kept in sync
     "databricks": databricks | sql_common | sqllineage_lib,
     "fivetran": snowflake_common | bigquery_common,
+    "qlik-sense": sqlglot_lib | {"requests", "websocket-client"},
 }
 
 # This is mainly used to exclude plugins from the Docker image.
 all_exclude_plugins: Set[str] = {
+    # The Airflow extra is only retained for compatibility, but new users should
+    # be using the datahub-airflow-plugin package instead.
+    "airflow",
     # SQL Server ODBC requires additional drivers, and so we don't want to keep
     # it included in the default "all" installation.
     "mssql-odbc",
     # duckdb doesn't have a prebuilt wheel for Linux arm7l or aarch64, so we
     # simply exclude it.
     "datahub-lite",
+    # Feast tends to have overly restrictive dependencies and hence doesn't
+    # play nice with the "all" installation.
+    "feast",
 }
 
 mypy_stubs = {
@@ -419,7 +431,6 @@ mypy_stubs = {
     "types-toml",
     "types-PyMySQL",
     "types-PyYAML",
-    "types-freezegun",
     "types-cachetools",
     # versions 0.1.13 and 0.1.14 seem to have issues
     "types-click==0.1.12",
@@ -522,6 +533,7 @@ base_dev_requirements = {
             "mode",
             "fivetran",
             "kafka-connect",
+            "qlik-sense",
         ]
         if plugin
         for dependency in plugins[plugin]
@@ -626,6 +638,7 @@ entry_points = {
         "gcs = datahub.ingestion.source.gcs.gcs_source:GCSSource",
         "sql-queries = datahub.ingestion.source.sql_queries:SqlQueriesSource",
         "fivetran = datahub.ingestion.source.fivetran.fivetran:FivetranSource",
+        "qlik-sense = datahub.ingestion.source.qlik_sense.qlik_sense:QlikSenseSource",
     ],
     "datahub.ingestion.transformer.plugins": [
         "simple_remove_dataset_ownership = datahub.ingestion.transformer.remove_dataset_ownership:SimpleRemoveDatasetOwnership",
@@ -676,7 +689,7 @@ entry_points = {
 setuptools.setup(
     # Package metadata.
     name=package_metadata["__package_name__"],
-    version=package_metadata["__version__"],
+    version=_version,
     url="https://datahubproject.io/",
     project_urls={
         "Documentation": "https://datahubproject.io/docs/",
