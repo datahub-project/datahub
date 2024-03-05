@@ -535,5 +535,5 @@ SELECT  schemaname as schema_name,
             AND        SYS.database_name = '{db_name}'
             AND        SYS.start_time >= '{start_time_str}'
             AND        SYS.end_time < '{end_time_str}'
-            AND        SYS.query_text ILIKE 'alter table % rename to %'
+            AND        SYS.query_text ILIKE '%alter table % rename to %'
         """
