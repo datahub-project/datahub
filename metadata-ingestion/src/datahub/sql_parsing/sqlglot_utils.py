@@ -10,7 +10,6 @@ DialectOrStr = Union[sqlglot.Dialect, str]
 
 
 def _get_dialect_str(platform: str) -> str:
-    # TODO: convert datahub platform names to sqlglot dialect
     if platform == "presto-on-hive":
         return "hive"
     elif platform == "mssql":
