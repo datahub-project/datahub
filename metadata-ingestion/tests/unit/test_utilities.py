@@ -1,3 +1,5 @@
+import doctest
+
 from datahub.utilities.delayed_iter import delayed_iter
 from datahub.utilities.sql_parser import SqlLineageSQLParser
 
@@ -282,3 +284,14 @@ JOIN `admin-table` a on d.`column-date` = a.`column-admin`
     ]
     assert sorted(SqlLineageSQLParser(sql_query).get_tables()) == expected_tables
     assert sorted(SqlLineageSQLParser(sql_query).get_columns()) == expected_columns
+
+
+def test_logging_name_extraction():
+    import datahub.utilities.logging_manager
+
+    assert (
+        doctest.testmod(
+            datahub.utilities.logging_manager, raise_on_error=True
+        ).attempted
+        > 0
+    )

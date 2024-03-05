@@ -1,8 +1,11 @@
 import hashlib
-from typing import Dict, Iterable, Optional, Union
+import logging
+from typing import Dict, Iterable, Optional, Tuple, Union
 
 import sqlglot
+import sqlglot.errors
 
+logger = logging.getLogger(__name__)
 DialectOrStr = Union[sqlglot.Dialect, str]
 
 
@@ -13,12 +16,13 @@ def _get_dialect_str(platform: str) -> str:
         return "tsql"
     elif platform == "athena":
         return "trino"
-    elif platform == "mysql":
+    elif platform in {"mysql", "mariadb"}:
         # In sqlglot v20+, MySQL is now case-sensitive by default, which is the
         # default behavior on Linux. However, MySQL's default case sensitivity
         # actually depends on the underlying OS.
         # For us, it's simpler to just assume that it's case-insensitive, and
         # let the fuzzy resolution logic handle it.
+        # MariaDB is a fork of MySQL, so we reuse the same dialect.
         return "mysql, normalization_strategy = lowercase"
     else:
         return platform
@@ -116,6 +120,23 @@ def generate_hash(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
+def get_query_fingerprint_debug(
+    expression: sqlglot.exp.ExpOrStr, dialect: DialectOrStr
+) -> Tuple[str, str]:
+    try:
+        dialect = get_dialect(dialect)
+        expression_sql = generalize_query(expression, dialect=dialect)
+    except (ValueError, sqlglot.errors.SqlglotError) as e:
+        if not isinstance(expression, str):
+            raise
+
+        logger.debug("Failed to generalize query for fingerprinting: %s", e)
+        expression_sql = expression
+
+    fingerprint = generate_hash(expression_sql)
+    return fingerprint, expression_sql
+
+
 def get_query_fingerprint(
     expression: sqlglot.exp.ExpOrStr, dialect: DialectOrStr
 ) -> str:
@@ -139,11 +160,7 @@ def get_query_fingerprint(
         The fingerprint for the SQL query.
     """
 
-    dialect = get_dialect(dialect)
-    expression_sql = generalize_query(expression, dialect=dialect)
-    fingerprint = generate_hash(expression_sql)
-
-    return fingerprint
+    return get_query_fingerprint_debug(expression, dialect)[0]
 
 
 def detach_ctes(

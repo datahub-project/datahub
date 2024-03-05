@@ -10,6 +10,8 @@ from tests.utils import (
     wait_for_writes_to_sync,
 )
 
+pytestmark = pytest.mark.no_cypress_suite1
+
 # Disable telemetry
 os.environ["DATAHUB_TELEMETRY_ENABLED"] = "false"
 

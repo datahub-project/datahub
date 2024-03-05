@@ -333,14 +333,14 @@ type ERModelRelationProperties {
     """
     name: String!
     """
-    The urn of datasetA
+    The urn of source
     """
-    datasetA: Dataset!
+    source: Dataset!
 
     """
-    The urn of datasetB
+    The urn of destination
     """
-    datasetB: Dataset!
+    destination: Dataset!
 
     """
     The ermodelrelationFieldMappings
@@ -373,13 +373,13 @@ ERModelRelation FieldMap
 """
 type FieldMap {
     """
-    afield
+    left field
     """
-    afield: String!
+    sourceField: String!
     """
     bfield
     """
-    bfield: String!
+    destinationField: String!
 }
 
 """
@@ -619,14 +619,14 @@ type Mutation {
     """
     Create a ERModelRelation
     """
-    createERModelRelation(
+    createERModelRelationship(
         "Input required to create a new ERModelRelation"
         input: ERModelRelationUpdateInput!): ERModelRelation
 
     """
     Update a ERModelRelation
     """
-    updateERModelRelation(
+    updateERModelRelationship(
         "The urn of the ERModelRelation to update"
         urn: String!,
         "Input required to updat an existing DataHub View"
@@ -635,7 +635,7 @@ type Mutation {
     """
     Delete a ERModelRelation
     """
-    deleteERModelRelation(
+    deleteERModelRelationship(
         "The urn of the ERModelRelation to delete"
         urn: String!): Boolean
 
@@ -1139,6 +1139,11 @@ enum EntityType {
     A type of entity registered to DataHub
     """
     ENTITY_TYPE
+
+    """"
+    A type of entity that is restricted to the user
+    """
+    RESTRICTED
 
     """
     Another entity type - refer to a provided entity type urn.
@@ -4251,6 +4256,11 @@ type CorpGroupEditableProperties {
   Email address for the group
   """
   email: String
+
+  """ 
+  A URL which points to a picture which user wants to set as a profile photo
+  """
+  pictureLink: String
 }
 
 """
@@ -4271,6 +4281,11 @@ input CorpGroupUpdateInput {
   Email address for the group
   """
   email: String
+
+  """
+  A URL which points to a picture which user wants to set as a profile photo
+  """
+  pictureLink: String
 }
 
 """
@@ -4859,11 +4874,11 @@ input ERModelRelationPropertiesInput {
     """
     Details about the ERModelRelation
     """
-    dataSetA: String!
+    source: String!
     """
     Details about the ERModelRelation
     """
-    datasetB: String!
+    destination: String!
     """
     Details about the ERModelRelation
     """
@@ -4898,11 +4913,11 @@ input FieldMappingInput {
     """
     Details about the ERModelRelation
     """
-    afield: String
+    sourceField: String
     """
     Details about the ERModelRelation
     """
-    bfield: String
+    destinationField: String
 }
 
 """
@@ -8947,6 +8962,11 @@ input ListPoliciesInput {
   Optional search query
   """
   query: String
+
+  """
+  A list of disjunctive criterion for the filter. (or operation to combine filters)
+  """
+  orFilters: [AndFilterInput!]
 }
 
 """
@@ -12093,4 +12113,30 @@ type EntityTypeInfo {
     The description of this type
     """
     description: String
+}
+
+"""
+A restricted entity that the user does not have full permissions to view.
+This entity type does not relate to an entity type in the database.
+"""
+type Restricted implements Entity & EntityWithRelationships {
+    """
+    The primary key of the restricted entity
+    """
+    urn: String!
+
+    """
+    The standard Entity Type
+    """
+    type: EntityType!
+
+    """
+    Edges extending from this entity
+    """
+    relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+    """
+    Edges extending from this entity grouped by direction in the lineage graph
+    """
+    lineage(input: LineageInput!): EntityLineageResult
 }

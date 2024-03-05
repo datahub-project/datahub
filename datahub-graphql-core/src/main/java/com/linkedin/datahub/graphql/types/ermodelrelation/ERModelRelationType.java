@@ -36,7 +36,6 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
-import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchResult;
 import graphql.execution.DataFetcherResult;
@@ -140,7 +139,12 @@ public class ERModelRelationType
         path.size() > 0 ? BROWSE_PATH_DELIMITER + String.join(BROWSE_PATH_DELIMITER, path) : "";
     final BrowseResult result =
         _entityClient.browse(
-            "ermodelrelation", pathStr, facetFilters, start, count, context.getAuthentication());
+            context.getOperationContext().withSearchFlags(flags -> flags.setFulltext(false)),
+            "ermodelrelation",
+            pathStr,
+            facetFilters,
+            start,
+            count);
     return BrowseResultMapper.map(result);
   }
 
@@ -164,13 +168,12 @@ public class ERModelRelationType
     final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
     final SearchResult searchResult =
         _entityClient.search(
+            context.getOperationContext().withSearchFlags(flags -> flags.setFulltext(true)),
             ENTITY_NAME,
             query,
             facetFilters,
             start,
-            count,
-            context.getAuthentication(),
-            new SearchFlags().setFulltext(true));
+            count);
     return UrnSearchResultsMapper.map(searchResult);
   }
 
@@ -183,7 +186,8 @@ public class ERModelRelationType
       @Nonnull QueryContext context)
       throws Exception {
     final AutoCompleteResult result =
-        _entityClient.autoComplete(ENTITY_NAME, query, filters, limit, context.getAuthentication());
+        _entityClient.autoComplete(
+            context.getOperationContext(), ENTITY_NAME, query, filters, limit);
     return AutoCompleteResultsMapper.map(result);
   }
 
@@ -215,7 +219,7 @@ public class ERModelRelationType
   }
 
   public static boolean canCreateERModelRelation(
-      @Nonnull QueryContext context, Urn datasetAUrn, Urn datasetBUrn) {
+      @Nonnull QueryContext context, Urn sourceUrn, Urn destinationUrn) {
     final ConjunctivePrivilegeGroup editPrivilegesGroup =
         new ConjunctivePrivilegeGroup(
             ImmutableList.of(PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType()));
@@ -226,20 +230,20 @@ public class ERModelRelationType
     // authorized.
     DisjunctivePrivilegeGroup orPrivilegeGroups =
         new DisjunctivePrivilegeGroup(ImmutableList.of(editPrivilegesGroup, createPrivilegesGroup));
-    boolean datasetAPrivilege =
+    boolean sourcePrivilege =
         AuthorizationUtils.isAuthorized(
             context.getAuthorizer(),
             context.getActorUrn(),
-            datasetAUrn.getEntityType(),
-            datasetAUrn.toString(),
+            sourceUrn.getEntityType(),
+            sourceUrn.toString(),
             orPrivilegeGroups);
-    boolean datasetBPrivilege =
+    boolean destinationPrivilege =
         AuthorizationUtils.isAuthorized(
             context.getAuthorizer(),
             context.getActorUrn(),
-            datasetBUrn.getEntityType(),
-            datasetBUrn.toString(),
+            destinationUrn.getEntityType(),
+            destinationUrn.toString(),
             orPrivilegeGroups);
-    return datasetAPrivilege && datasetBPrivilege;
+    return sourcePrivilege && destinationPrivilege;
   }
 }

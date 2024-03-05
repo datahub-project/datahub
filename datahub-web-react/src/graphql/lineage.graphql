@@ -289,6 +289,10 @@ fragment lineageNodeProperties on EntityWithRelationships {
             ...glossaryTerms
         }
     }
+    ... on Restricted {
+        urn
+        type
+    }
 }
 
 fragment lineageFields on EntityWithRelationships {

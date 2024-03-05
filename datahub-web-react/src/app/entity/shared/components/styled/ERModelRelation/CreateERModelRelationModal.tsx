@@ -5,7 +5,7 @@ import { PlusOutlined } from '@ant-design/icons';
 import arrow from '../../../../../../images/Arrow.svg';
 import './CreateERModelRelationModal.less';
 import { EntityType, ErModelRelation, OwnerEntityType } from '../../../../../../types.generated';
-import { useCreateErModelRelationMutation, useUpdateErModelRelationMutation } from '../../../../../../graphql/ermodelrelation.generated';
+import { useCreateErModelRelationshipMutation, useUpdateErModelRelationshipMutation } from '../../../../../../graphql/ermodelrelation.generated';
 import { useUserContext } from '../../../../../context/useUserContext';
 import { EditableRow } from './EditableRow';
 import { EditableCell } from './EditableCell';
@@ -45,10 +45,10 @@ export const CreateERModelRelationModal = ({
     const { user } = useUserContext();
     const ownerEntityType =
         user && user.type === EntityType.CorpGroup ? OwnerEntityType.CorpGroup : OwnerEntityType.CorpUser;
-    const table1Dataset = editERModelRelation?.properties?.datasetA || table1?.dataset;
-    const table1DatasetSchema = editERModelRelation?.properties?.datasetA || table1Schema;
-    const table2Dataset = editERModelRelation?.properties?.datasetB || table2?.dataset;
-    const table2DatasetSchema = editERModelRelation?.properties?.datasetB || table2Schema?.dataset;
+    const table1Dataset = editERModelRelation?.properties?.source || table1?.dataset;
+    const table1DatasetSchema = editERModelRelation?.properties?.source || table1Schema;
+    const table2Dataset = editERModelRelation?.properties?.destination || table2?.dataset;
+    const table2DatasetSchema = editERModelRelation?.properties?.destination || table2Schema?.dataset;
 
     const [details, setDetails] = useState<string>(editERModelRelation?.editableProperties?.description || '');
     const [ermodelrelationName, setERModelRelationName] = useState<string>(
@@ -58,8 +58,8 @@ export const CreateERModelRelationModal = ({
         editERModelRelation?.properties?.ermodelrelationFieldMapping?.fieldMappings?.map((item, index) => {
             return {
                 key: index,
-                field1Name: item.afield,
-                field2Name: item.bfield,
+                field1Name: item.sourceField,
+                field2Name: item.destinationField,
             };
         }) || [
             { key: '0', field1Name: '', field2Name: '' },
@@ -67,8 +67,8 @@ export const CreateERModelRelationModal = ({
         ],
     );
     const [count, setCount] = useState(editERModelRelation?.properties?.ermodelrelationFieldMapping?.fieldMappings?.length || 2);
-    const [createMutation] = useCreateErModelRelationMutation();
-    const [updateMutation] = useUpdateErModelRelationMutation();
+    const [createMutation] = useCreateErModelRelationshipMutation();
+    const [updateMutation] = useUpdateErModelRelationshipMutation();
     const [addOwnerMutation] = useAddOwnerMutation();
     const { refetch: getSearchResultsERModelRelations } = useGetSearchResultsQuery({
         skip: true,
@@ -90,8 +90,8 @@ export const CreateERModelRelationModal = ({
                     editERModelRelation?.properties?.ermodelrelationFieldMapping?.fieldMappings?.map((item, index) => {
                         return {
                             key: index,
-                            field1Name: item.afield,
-                            field2Name: item.bfield,
+                            field1Name: item.sourceField,
+                            field2Name: item.destinationField,
                         };
                     }) || [
                         { key: '0', field1Name: '', field2Name: '' },
@@ -107,19 +107,19 @@ export const CreateERModelRelationModal = ({
             closable: true,
         });
     };
-    const createERModelRelation = () => {
+    const createERModelRelationship = () => {
         createMutation({
             variables: {
                 input: {
                     properties: {
-                        dataSetA: table1Dataset?.urn || '',
-                        datasetB: table2Dataset?.urn || '',
+                        source: table1Dataset?.urn || '',
+                        destination: table2Dataset?.urn || '',
                         name: ermodelrelationName,
                         ermodelrelationFieldmapping: {
                             fieldMappings: tableData.map((r) => {
                                 return {
-                                    afield: r.field1Name,
-                                    bfield: r.field2Name,
+                                    sourceField: r.field1Name,
+                                    destinationField: r.field2Name,
                                 };
                             }),
                         },
@@ -148,7 +148,7 @@ export const CreateERModelRelationModal = ({
                     variables: {
                         input: {
                             ownerUrn: user?.urn || '',
-                            resourceUrn: data?.createERModelRelation?.urn || '',
+                            resourceUrn: data?.createERModelRelationship?.urn || '',
                             ownershipTypeUrn: 'urn:li:ownershipType:__system__technical_owner',
                             ownerEntityType: ownerEntityType || EntityType,
                         },
@@ -161,22 +161,22 @@ export const CreateERModelRelationModal = ({
             });
     };
     const originalERModelRelationName = editERModelRelation?.properties?.name;
-    const updateERModelRelation = () => {
+    const updateERModelRelationship = () => {
         updateMutation({
             variables: {
                 urn: editERModelRelation?.urn || '',
                 input: {
                     properties: {
-                        dataSetA: table1Dataset?.urn || '',
-                        datasetB: table2Dataset?.urn || '',
+                        source: table1Dataset?.urn || '',
+                        destination: table2Dataset?.urn || '',
                         name: originalERModelRelationName || '',
                         createdBy: editERModelRelation?.properties?.createdActor?.urn || user?.urn,
                         createdAt: editERModelRelation?.properties?.createdTime || 0,
                         ermodelrelationFieldmapping: {
                             fieldMappings: tableData.map((r) => {
                                 return {
-                                    afield: r.field1Name,
-                                    bfield: r.field2Name,
+                                    sourceField: r.field1Name,
+                                    destinationField: r.field2Name,
                                 };
                             }),
                         },
@@ -214,9 +214,9 @@ export const CreateERModelRelationModal = ({
             return;
         }
         if (isEditing) {
-            updateERModelRelation();
+            updateERModelRelationship();
         } else {
-            createERModelRelation();
+            createERModelRelationship();
             setERModelRelationName('');
             setDetails('');
             setTableData([

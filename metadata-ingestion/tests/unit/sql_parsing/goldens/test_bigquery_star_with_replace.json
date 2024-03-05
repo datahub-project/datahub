@@ -65,5 +65,9 @@
                 }
             ]
         }
-    ]
+    ],
+    "debug_info": {
+        "confidence": 0.35,
+        "generalized_statement": "CREATE VIEW `my-project`.`my-dataset`.test_table AS SELECT * REPLACE (LOWER(something) AS something) FROM `my-project2`.`my-dataset2`.test_physical_table"
+    }
 }

@@ -79,5 +79,9 @@
                 }
             ]
         }
-    ]
+    ],
+    "debug_info": {
+        "confidence": 0.9,
+        "generalized_statement": "SELECT SUM(o.\"totalprice\") AS total_agg, AVG(\"TotalPrice\") AS total_avg, MIN(\"TOTALPRICE\") AS total_min, MAX(TotalPrice) AS total_max FROM snowflake_sample_data.tpch_sf1.orders AS o"
+    }
 }

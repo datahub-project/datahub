@@ -115,8 +115,8 @@ public class ERModelRelationMapper implements ModelMapper<EntityResponse, ERMode
     ermodelrelation.setProperties(
         com.linkedin.datahub.graphql.generated.ERModelRelationProperties.builder()
             .setName(ermodelrelationProperties.getName())
-            .setDatasetA(createPartialDataset(ermodelrelationProperties.getDatasetA()))
-            .setDatasetB(createPartialDataset(ermodelrelationProperties.getDatasetB()))
+            .setSource(createPartialDataset(ermodelrelationProperties.getSource()))
+            .setDestination(createPartialDataset(ermodelrelationProperties.getDestination()))
             .setErmodelrelationFieldMapping(
                 mapERModelRelationFieldMappings(ermodelrelationProperties))
             .setCreatedTime(
@@ -156,8 +156,8 @@ public class ERModelRelationMapper implements ModelMapper<EntityResponse, ERMode
   private com.linkedin.datahub.graphql.generated.FieldMap mapFieldMap(
       com.linkedin.ermodelrelation.FieldMap fieldMap) {
     return com.linkedin.datahub.graphql.generated.FieldMap.builder()
-        .setAfield(fieldMap.getAfield())
-        .setBfield(fieldMap.getBfield())
+        .setSourceField(fieldMap.getSourceField())
+        .setDestinationField(fieldMap.getDestinationField())
         .build();
   }
 

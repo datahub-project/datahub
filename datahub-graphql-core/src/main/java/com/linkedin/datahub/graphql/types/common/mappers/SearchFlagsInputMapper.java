@@ -45,6 +45,12 @@ public class SearchFlagsInputMapper
     if (searchFlags.getGetSuggestions() != null) {
       result.setGetSuggestions(searchFlags.getGetSuggestions());
     }
+    if (searchFlags.getIncludeSoftDeleted() != null) {
+      result.setIncludeSoftDeleted(searchFlags.getIncludeSoftDeleted());
+    }
+    if (searchFlags.getIncludeRestricted() != null) {
+      result.setIncludeRestricted(searchFlags.getIncludeRestricted());
+    }
     if (searchFlags.getGroupingSpec() != null
         && searchFlags.getGroupingSpec().getGroupingCriteria() != null) {
       result.setGroupingSpec(

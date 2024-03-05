@@ -12,7 +12,7 @@ record FieldMap {
   @Searchable = {
     "fieldType": "TEXT"
   }
-  afield: SchemaFieldPath
+  sourceField: SchemaFieldPath
 
   /**
    * All fields from dataset B that are required for the ermodelrelation, maps to aFields 1:1
@@ -20,6 +20,6 @@ record FieldMap {
   @Searchable = {
     "fieldType": "TEXT"
   }
-  bfield: SchemaFieldPath
+  destinationField: SchemaFieldPath
 
 }

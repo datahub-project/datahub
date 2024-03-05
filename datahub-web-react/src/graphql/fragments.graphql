@@ -1188,10 +1188,10 @@ fragment entityDisplayNameFields on Entity {
 
 fragment ermodelrelationPropertiesFields on ERModelRelationProperties {
     name
-    datasetA {
+    source {
         ...datasetERModelRelationFields
     }
-    datasetB {
+    destination {
         ...datasetERModelRelationFields
     }
     ermodelrelationFieldMapping {
@@ -1205,8 +1205,8 @@ fragment ermodelrelationPropertiesFields on ERModelRelationProperties {
 
 fragment ermodelrelationFieldMappingFields on ERModelRelationFieldMapping {
     fieldMappings {
-        afield
-        bfield
+        sourceField
+        destinationField
     }
 }
 

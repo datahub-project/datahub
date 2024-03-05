@@ -42,21 +42,21 @@ public class CreateERModelRelationResolver
 
     final ERModelRelationPropertiesInput ermodelrelationPropertiesInput = input.getProperties();
     String ermodelrelationName = ermodelrelationPropertiesInput.getName();
-    String datasetA = ermodelrelationPropertiesInput.getDataSetA();
-    String datasetB = ermodelrelationPropertiesInput.getDatasetB();
+    String source = ermodelrelationPropertiesInput.getSource();
+    String destination = ermodelrelationPropertiesInput.getDestination();
 
-    String lowDataset = datasetA;
-    String highDataset = datasetB;
-    if (datasetA.compareTo(datasetB) > 0) {
-      lowDataset = datasetB;
-      highDataset = datasetA;
+    String lowDataset = source;
+    String highDataset = destination;
+    if (source.compareTo(destination) > 0) {
+      lowDataset = destination;
+      highDataset = source;
     }
     // The following sequence mimics datahub.emitter.mce_builder.datahub_guid
 
     String ermodelrelationKey =
-        "{\"DatasetA\":\""
+        "{\"Source\":\""
             + lowDataset
-            + "\",\"DatasetB\":\""
+            + "\",\"Destination\":\""
             + highDataset
             + "\",\"ERModelRelationName\":\""
             + ermodelrelationName
@@ -77,8 +77,8 @@ public class CreateERModelRelationResolver
     final CorpuserUrn actor = CorpuserUrn.createFromString(context.getActorUrn());
     if (!ERModelRelationType.canCreateERModelRelation(
         context,
-        Urn.createFromString(input.getProperties().getDataSetA()),
-        Urn.createFromString(input.getProperties().getDatasetB()))) {
+        Urn.createFromString(input.getProperties().getSource()),
+        Urn.createFromString(input.getProperties().getDestination()))) {
       throw new AuthorizationException(
           "Unauthorized to create ermodelrelation. Please contact your DataHub administrator.");
     }

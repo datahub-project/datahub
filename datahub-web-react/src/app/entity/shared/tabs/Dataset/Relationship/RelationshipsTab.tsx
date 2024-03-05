@@ -69,7 +69,7 @@ export const RelationshipsTab = () => {
                     {
                         and: [
                             {
-                                field: 'datasetA',
+                                field: 'source',
                                 values: [baseEntity?.dataset?.urn || ''],
                             },
                         ],
@@ -77,7 +77,7 @@ export const RelationshipsTab = () => {
                     {
                         and: [
                             {
-                                field: 'datasetB',
+                                field: 'destination',
                                 values: [baseEntity?.dataset?.urn || ''],
                             },
                         ],

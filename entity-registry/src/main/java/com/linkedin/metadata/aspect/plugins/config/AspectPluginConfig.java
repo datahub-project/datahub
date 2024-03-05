@@ -1,7 +1,10 @@
 package com.linkedin.metadata.aspect.plugins.config;
 
+import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -15,7 +18,7 @@ public class AspectPluginConfig {
   @Nonnull private String className;
   private boolean enabled;
 
-  @Nonnull private List<String> supportedOperations;
+  @Nullable private List<String> supportedOperations;
   @Nonnull private List<EntityAspectName> supportedEntityAspectNames;
 
   @Data
@@ -25,6 +28,11 @@ public class AspectPluginConfig {
   public static class EntityAspectName {
     @Nonnull private String entityName;
     @Nonnull private String aspectName;
+  }
+
+  @Nonnull
+  public List<String> getSupportedOperations() {
+    return supportedOperations != null ? supportedOperations : Collections.emptyList();
   }
 
   /**
@@ -44,7 +52,7 @@ public class AspectPluginConfig {
     AspectPluginConfig that = (AspectPluginConfig) o;
 
     if (!className.equals(that.className)) return false;
-    if (!supportedOperations.equals(that.supportedOperations)) return false;
+    if (!Objects.equals(supportedOperations, that.supportedOperations)) return false;
     return supportedEntityAspectNames.equals(that.supportedEntityAspectNames);
   }
 }
