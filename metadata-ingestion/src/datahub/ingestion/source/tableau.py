@@ -1182,7 +1182,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                         #
                         # It should not be done if snowflake tables are not pre ingested but
                         # parsed from SQL queries or ingested from Tableau metadata (in this case
-                        # it just breacks case sensitive table level linage)
+                        # it just breaks case sensitive table level linage)
                         name = name.lower()
                     input_columns.append(
                         builder.make_schema_field_urn(
