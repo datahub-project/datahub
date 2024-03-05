@@ -390,9 +390,7 @@ def load_run_results(
                 continue
 
             assert test_node.test_info is not None
-            if test_node.test_result:
-                logger.debug(f"Overwriting old test result for {id}")
-            test_node.test_result = test_result
+            test_node.test_results.append(test_result)
 
         else:
             model_performance = _parse_model_run(run_result)
@@ -404,9 +402,7 @@ def load_run_results(
                 logger.debug(f"Failed to find model node {id} in the catalog")
                 continue
 
-            if model_node.model_performance:
-                logger.debug(f"Overwriting old model performance for {id}")
-            model_node.model_performance = model_performance
+            model_node.model_performances.append(model_performance)
 
     return all_nodes
 

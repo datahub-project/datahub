@@ -462,9 +462,9 @@ class DBTNode:
     compiled_code: Optional[str] = None
 
     test_info: Optional["DBTTest"] = None  # only populated if node_type == 'test'
-    test_result: Optional["DBTTestResult"] = None
+    test_results: List["DBTTestResult"] = field(default_factory=list)
 
-    model_performance: Optional["DBTModelPerformance"] = None
+    model_performances: List["DBTModelPerformance"] = field(default_factory=list)
 
     @staticmethod
     def _join_parts(parts: List[Optional[str]]) -> str:
@@ -817,17 +817,18 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                         upstream_urn,
                     )
 
-                if node.test_result:
+                for test_result in node.test_results:
                     if self.config.entities_enabled.can_emit_test_results:
                         yield make_assertion_result_from_test(
                             node,
+                            test_result,
                             assertion_urn,
                             upstream_urn,
                             test_warnings_are_errors=self.config.test_warnings_are_errors,
                         )
                     else:
                         logger.debug(
-                            f"Skipping test result {node.name} emission since it is turned off."
+                            f"Skipping test result {node.name} ({test_result.invocation_id}) emission since it is turned off."
                         )
 
     @abstractmethod
