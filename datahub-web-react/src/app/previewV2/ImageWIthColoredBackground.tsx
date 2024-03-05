@@ -1,6 +1,7 @@
 import ColorThief from 'colorthief';
 import React from 'react';
 import styled from 'styled-components';
+import { getLighterRGBColor } from '../sharedV2/icons/colorUtils';
 
 type Props = {
     src: string;
@@ -38,20 +39,19 @@ const ImageWithColoredBackground = ({ src, alt, imgSize, backgroundSize, borderR
 
     const logo = (
         <PreviewImage
+            crossOrigin="anonymous"
             size={imgSize || DEFAULT_SIZE}
             src={src}
             alt={alt}
             ref={imgRef}
             onLoad={() => {
-                const colorThief = new ColorThief();
                 const img = imgRef.current;
-                if (img) {
+                if (img && img.width > 0 && img.height > 0) {
+                    const colorThief = new ColorThief();
                     img.crossOrigin = 'anonymous';
+                    const [r, g, b] = colorThief.getColor(img, 25);
+                    setPlatformBackground(`rgb(${getLighterRGBColor(r, g, b).join(', ')})`);
                 }
-                const result = colorThief.getColor(img, 25);
-                if (platformBackground) return;
-
-                setPlatformBackground(`rgb(${result[0]}, ${result[1]}, ${result[2]}, .1)`);
             }}
         />
     );
