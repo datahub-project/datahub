@@ -36,7 +36,7 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
   public UpdateIndicesHook(
       UpdateIndicesService updateIndicesService,
       @Nonnull @Value("${updateIndices.enabled:true}") Boolean isEnabled,
-      @Nonnull @Value("${featureFlags.preProcessHooks.reprocessEnabled")
+      @Nonnull @Value("${featureFlags.preProcessHooks.reprocessEnabled:false}")
           Boolean reprocessUIEvents) {
     this.updateIndicesService = updateIndicesService;
     this.isEnabled = isEnabled;
