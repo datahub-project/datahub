@@ -772,7 +772,7 @@ def make_fine_grained_lineage_class(
     #
     # we need a map between 2 and 3 that will be used during building column level linage links (see below)
     out_columns_map = {
-        col.get(c.NAME, "").casefold(): col.get(c.NAME, "") for col in out_columns
+        col.get(c.NAME, "").lower(): col.get(c.NAME, "") for col in out_columns
     }
 
     fine_grained_lineages: List[FineGrainedLineage] = []
@@ -790,7 +790,7 @@ def make_fine_grained_lineage_class(
                 builder.make_schema_field_urn(
                     dataset_urn,
                     out_columns_map.get(
-                        cll_info.downstream.column.casefold(),
+                        cll_info.downstream.column.lower(),
                         cll_info.downstream.column,
                     ),
                 )
