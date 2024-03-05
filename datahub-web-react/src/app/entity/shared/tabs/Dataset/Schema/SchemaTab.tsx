@@ -78,7 +78,7 @@ export const SchemaTab = ({ properties }: { properties?: any }) => {
 
     const hasProperties = useMemo(
         () =>
-            entityWithSchema?.schemaMetadata?.fields.some(
+            entityWithSchema?.schemaMetadata?.fields?.some(
                 (schemaField) => !!schemaField.schemaFieldEntity?.structuredProperties?.properties?.length,
             ),
         [entityWithSchema],

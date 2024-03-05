@@ -16,12 +16,13 @@ def _get_dialect_str(platform: str) -> str:
         return "tsql"
     elif platform == "athena":
         return "trino"
-    elif platform == "mysql":
+    elif platform in {"mysql", "mariadb"}:
         # In sqlglot v20+, MySQL is now case-sensitive by default, which is the
         # default behavior on Linux. However, MySQL's default case sensitivity
         # actually depends on the underlying OS.
         # For us, it's simpler to just assume that it's case-insensitive, and
         # let the fuzzy resolution logic handle it.
+        # MariaDB is a fork of MySQL, so we reuse the same dialect.
         return "mysql, normalization_strategy = lowercase"
     else:
         return platform

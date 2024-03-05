@@ -33,6 +33,7 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.List;
 import javax.annotation.Nonnull;
@@ -103,10 +104,12 @@ public class BootstrapManagerFactory {
   @Bean(name = "bootstrapManager")
   @Scope("singleton")
   @Nonnull
-  protected BootstrapManager createInstance() {
+  protected BootstrapManager createInstance(
+      @Qualifier("systemOperationContext") final OperationContext systemOpContext) {
     final IngestRootUserStep ingestRootUserStep = new IngestRootUserStep(_entityService);
     final IngestPoliciesStep ingestPoliciesStep =
         new IngestPoliciesStep(
+            systemOpContext,
             _entityRegistry,
             _entityService,
             _entitySearchService,
@@ -118,7 +121,8 @@ public class BootstrapManagerFactory {
     final IngestDataPlatformInstancesStep ingestDataPlatformInstancesStep =
         new IngestDataPlatformInstancesStep(_entityService, _migrationsDao);
     final RestoreGlossaryIndices restoreGlossaryIndicesStep =
-        new RestoreGlossaryIndices(_entityService, _entitySearchService, _entityRegistry);
+        new RestoreGlossaryIndices(
+            systemOpContext, _entityService, _entitySearchService, _entityRegistry);
     final IndexDataPlatformsStep indexDataPlatformsStep =
         new IndexDataPlatformsStep(_entityService, _entitySearchService, _entityRegistry);
     final RestoreDbtSiblingsIndices restoreDbtSiblingsIndices =
@@ -161,7 +165,8 @@ public class BootstrapManagerFactory {
     }
 
     if (_backfillBrowsePathsV2Enabled) {
-      finalSteps.add(new BackfillBrowsePathsV2Step(_entityService, _searchService));
+      finalSteps.add(
+          new BackfillBrowsePathsV2Step(systemOpContext, _entityService, _searchService));
     }
 
     return new BootstrapManager(finalSteps);
