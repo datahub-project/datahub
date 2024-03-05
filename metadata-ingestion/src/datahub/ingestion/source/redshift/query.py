@@ -228,7 +228,7 @@ SELECT  schemaname as schema_name,
                 username,
                 source_schema,
                 source_table,
-                query_text AS query, -- TODO: this querytxt is truncated to 4000 characters
+                query_text AS ddl, -- TODO: this querytxt is truncated to 4000 characters
                 start_time AS timestamp
             FROM
             (
