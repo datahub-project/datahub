@@ -16,6 +16,7 @@ import { ACCENT_COLOR_HEX, generateTimeScaleTickValues, getCustomTimeScaleTickVa
 import { AssertionResultChartData, TimeRange } from './types';
 import { AssertionResultPopoverContent } from '../../../../shared/result/AssertionResultPopoverContent';
 import { truncateNumberForDisplay } from '../../../../../../../../../../../dataviz/utils';
+import { getTimeRangeDisplay } from '../utils';
 
 type Props = {
     data: AssertionResultChartData;
@@ -92,7 +93,7 @@ export const ValuesOverTimeAssertionResultChart = ({ data, timeRange, chartDimen
 
     /* NOTE: the nodes in an svg that are first will have a lower z-index at paint-time */
     return <>
-        {renderHeader?.(data.yAxisLabel && `${data.yAxisLabel} over time`)}
+        {renderHeader?.(data.yAxisLabel ? `${data.yAxisLabel} over time` : getTimeRangeDisplay(timeRange))}
         <svg width={chartDimensions.width} height={chartDimensions.height}>
             <Group left={CHART_AXIS_LEFT_WIDTH} top={CHART_TOP_MARGIN}>
                 {/* ----- Axis ----- */}

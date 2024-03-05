@@ -61,9 +61,6 @@ export const AssertionResultsTimelineViz = ({ assertion, results, timeRange, par
         completedRuns,
     )
 
-    // Date range
-    const dateRange = getTimeRangeDisplay(timeRange);
-
     // render
     const chartDimensions = {
         height: VIZ_CONTAINER_HEIGHT - VIZ_CONTAINER_TITLE_HEIGHT - 8, // margin below (flex-start)
@@ -71,7 +68,7 @@ export const AssertionResultsTimelineViz = ({ assertion, results, timeRange, par
     }
 
     const renderChartTitle = (title?: string) => <VizHeader>
-        <VizHeaderTitle strong>{title || dateRange}</VizHeaderTitle>
+        <VizHeaderTitle strong>{title || getTimeRangeDisplay(timeRange)}</VizHeaderTitle>
     </VizHeader>
 
     return <VisualizationContainer>

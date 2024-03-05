@@ -14,6 +14,7 @@ import { ACCENT_COLOR_HEX, generateTimeScaleTickValues, getCustomTimeScaleTickVa
 import { AssertionResultChartData, TimeRange } from './types';
 import { AssertionResultPopoverContent } from '../../../../shared/result/AssertionResultPopoverContent';
 import { AssertionType } from '../../../../../../../../../../../../types.generated';
+import { getTimeRangeDisplay } from '../utils';
 
 type Props = {
     data: AssertionResultChartData;
@@ -51,7 +52,7 @@ export const StatusOverTimeAssertionResultChart = ({ data, timeRange, chartDimen
     const timeScaleTicks = generateTimeScaleTickValues(timeRange.startMs, timeRange.endMs)
     return (
         <>
-            {renderHeader?.(data.context.assertion.info?.type === AssertionType.Freshness ? `Freshness checks over time` : undefined)}
+            {renderHeader?.(data.context.assertion.info?.type === AssertionType.Freshness ? `Freshness checks over time` : getTimeRangeDisplay(timeRange))}
             <svg width={chartDimensions.width} height={chartDimensions.height}>
                 <Group left={CHART_HORIZ_MARGIN / 2}>
                     {/* Axis */}
