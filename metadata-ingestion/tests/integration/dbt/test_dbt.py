@@ -1,7 +1,7 @@
 import dataclasses
 from dataclasses import dataclass
 from os import PathLike
-from typing import Any, Dict, Union
+from typing import Any, Dict, List, Union
 
 import pytest
 from freezegun import freeze_time
@@ -45,6 +45,7 @@ class DbtTestConfig:
     manifest_file: str = "dbt_manifest.json"
     catalog_file: str = "dbt_catalog.json"
     sources_file: str = "dbt_sources.json"
+    run_results_files: List[str] = dataclasses.field(default_factory=list)
     source_config_modifiers: Dict[str, Any] = dataclasses.field(default_factory=dict)
     sink_config_modifiers: Dict[str, Any] = dataclasses.field(default_factory=dict)
 
@@ -54,20 +55,24 @@ class DbtTestConfig:
         test_resources_dir: PathLike,
         tmp_path: PathLike,
     ) -> None:
-        self.manifest_path = f"{dbt_metadata_uri_prefix}/{self.manifest_file}"
-        self.catalog_path = f"{dbt_metadata_uri_prefix}/{self.catalog_file}"
-        self.sources_path = f"{dbt_metadata_uri_prefix}/{self.sources_file}"
-        self.target_platform = "postgres"
+        manifest_path = f"{dbt_metadata_uri_prefix}/{self.manifest_file}"
+        catalog_path = f"{dbt_metadata_uri_prefix}/{self.catalog_file}"
+        sources_path = f"{dbt_metadata_uri_prefix}/{self.sources_file}"
+        run_results_paths = [
+            f"{dbt_metadata_uri_prefix}/{file}" for file in self.run_results_files
+        ]
+        target_platform = "postgres"
 
         self.output_path = f"{tmp_path}/{self.output_file}"
 
         self.golden_path = f"{test_resources_dir}/{self.golden_file}"
         self.source_config = dict(
             {
-                "manifest_path": self.manifest_path,
-                "catalog_path": self.catalog_path,
-                "sources_path": self.sources_path,
-                "target_platform": self.target_platform,
+                "manifest_path": manifest_path,
+                "catalog_path": catalog_path,
+                "sources_path": sources_path,
+                "run_results_paths": run_results_paths,
+                "target_platform": target_platform,
                 "enable_meta_mapping": False,
                 **_default_dbt_source_args,
                 "meta_mapping": {
@@ -201,6 +206,18 @@ class DbtTestConfig:
                     "test_definitions": "NO",
                     "test_results": "NO",
                 },
+            },
+        ),
+        DbtTestConfig(
+            "dbt-model-performance",
+            "dbt_test_model_performance.json",
+            "dbt_test_test_model_performance_golden.json",
+            catalog_file="sample_dbt_catalog_2.json",
+            manifest_file="sample_dbt_manifest_2.json",
+            sources_file="sample_dbt_sources_2.json",
+            run_results_files=["sample_dbt_run_results_2.json"],
+            source_config_modifiers={
+                # TODO
             },
         ),
     ],
