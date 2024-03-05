@@ -161,10 +161,13 @@ class _TableName(_FrozenModel):
     def qualified(
         self,
         dialect: str,
+        platform: str,
         default_db: Optional[str] = None,
         default_schema: Optional[str] = None,
     ) -> "_TableName":
         database = self.database or default_db
+        if platform == "athena":
+            database = "awsdatacatalog"
         db_schema = self.db_schema or default_schema
 
         return _TableName(
@@ -1028,7 +1031,7 @@ def _sqlglot_lineage_inner(
         # For select statements, qualification will be a no-op. For other statements, this
         # is where the qualification actually happens.
         qualified_table = table.qualified(
-            dialect=dialect, default_db=default_db, default_schema=default_schema
+            dialect=dialect, default_db=default_db, default_schema=default_schema, platform=schema_resolver.platform
         )
 
         urn, schema_info = schema_resolver.resolve_table(qualified_table)
