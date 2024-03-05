@@ -1,7 +1,7 @@
 const tryToSignUp = () => {
-  let number = Math.floor(Math.random() * 100000);
-  let name = `Example Name ${number}`;
-  let email = `example${number}@example.com`;
+  const number = Math.floor(Math.random() * 100000);
+  const name = `Example Name ${number}`;
+  const email = `example${number}@example.com`;
   cy.enterTextInTestId("email", email);
   cy.enterTextInTestId("name", name);
   cy.enterTextInTestId("password", "Example password");
@@ -15,7 +15,7 @@ const tryToSignUp = () => {
 };
 
 describe("add_user", () => {
-  let registeredEmail = ""; 
+  let registeredEmail = "";
   it("go to user link and invite a user", () => {
     cy.login();
 
@@ -53,7 +53,7 @@ describe("add_user", () => {
     cy.get('[data-testid="reset-menu-item"]').should(
       "have.attr",
       "aria-disabled",
-      "true"
+      "true",
     );
   });
 

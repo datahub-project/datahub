@@ -9,7 +9,10 @@ describe("mutations", () => {
   it("can create and add a tag to dataset and visit new tag page", () => {
     cy.deleteUrn("urn:li:tag:CypressTestAddTag");
     cy.login();
-    cy.goToDataset("urn:li:dataset:(urn:li:dataPlatform:hive,cypress_logging_events,PROD)", "cypress_logging_events");
+    cy.goToDataset(
+      "urn:li:dataset:(urn:li:dataPlatform:hive,cypress_logging_events,PROD)",
+      "cypress_logging_events",
+    );
 
     cy.contains("Add Tag").click({ force: true });
 
@@ -48,7 +51,7 @@ describe("mutations", () => {
     cy.contains("of 1 result").click({ force: true });
     cy.contains("cypress_logging_events").click({ force: true });
     cy.get('[data-testid="tag-CypressTestAddTag"]').within(() =>
-      cy.get("span[aria-label=close]").click()
+      cy.get("span[aria-label=close]").click(),
     );
     cy.contains("Yes").click();
 
@@ -62,11 +65,11 @@ describe("mutations", () => {
     cy.addTermToDataset(
       "urn:li:dataset:(urn:li:dataPlatform:hive,cypress_logging_events,PROD)",
       "cypress_logging_events",
-      "CypressTerm"
-    )
+      "CypressTerm",
+    );
 
     cy.get(
-      'a[href="/glossaryTerm/urn:li:glossaryTerm:CypressNode.CypressTerm"]'
+      'a[href="/glossaryTerm/urn:li:glossaryTerm:CypressNode.CypressTerm"]',
     ).within(() => cy.get("span[aria-label=close]").click());
     cy.contains("Yes").click();
 
@@ -76,10 +79,13 @@ describe("mutations", () => {
   it("can add and remove tags from a dataset field", () => {
     cy.login();
     cy.viewport(2000, 800);
-    cy.goToDataset("urn:li:dataset:(urn:li:dataPlatform:hive,cypress_logging_events,PROD)", "cypress_logging_events");
+    cy.goToDataset(
+      "urn:li:dataset:(urn:li:dataPlatform:hive,cypress_logging_events,PROD)",
+      "cypress_logging_events",
+    );
     cy.clickOptionWithText("event_name");
     cy.get('[data-testid="schema-field-event_name-tags"]').within(() =>
-      cy.contains("Add Tag").click()
+      cy.contains("Add Tag").click(),
     );
 
     cy.enterTextInTestId("tag-term-modal-input", "CypressTestAddTag2");
@@ -121,7 +127,7 @@ describe("mutations", () => {
       cy
         .get("span[aria-label=close]")
         .trigger("mouseover", { force: true })
-        .click({ force: true })
+        .click({ force: true }),
     );
     cy.contains("Yes").click({ force: true });
 
@@ -134,10 +140,13 @@ describe("mutations", () => {
     cy.login();
     // make space for the glossary term column
     cy.viewport(2000, 800);
-    cy.goToDataset("urn:li:dataset:(urn:li:dataPlatform:hive,cypress_logging_events,PROD)", "cypress_logging_events");
+    cy.goToDataset(
+      "urn:li:dataset:(urn:li:dataPlatform:hive,cypress_logging_events,PROD)",
+      "cypress_logging_events",
+    );
     cy.clickOptionWithText("event_name");
     cy.get('[data-testid="schema-field-event_name-terms"]').within(() =>
-      cy.contains("Add Term").click({ force: true })
+      cy.contains("Add Term").click({ force: true }),
     );
 
     cy.selectOptionInTagTermModal("CypressTerm");
@@ -148,7 +157,7 @@ describe("mutations", () => {
       cy
         .get("span[aria-label=close]")
         .trigger("mouseover", { force: true })
-        .click({ force: true })
+        .click({ force: true }),
     );
     cy.contains("Yes").click({ force: true });
 

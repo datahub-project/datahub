@@ -8,17 +8,16 @@ function openViewEditDropDownAndClickId(data_id) {
 describe("view select", () => {
   it("click view select, create view, clear view, make defaults, clear view", () => {
     cy.login();
-    let randomNumber = Math.floor(Math.random() * 100000);
+    const randomNumber = Math.floor(Math.random() * 100000);
     const viewName = `Test View ${randomNumber}`;
     const newViewName = `New View Name ${randomNumber}`;
 
     // Resize Observer Loop warning can be safely ignored - ref. https://github.com/cypress-io/cypress/issues/22113
     const resizeObserverLoopErrRe = "ResizeObserver loop limit exceeded";
-    cy.on("uncaught:exception", (err) => {
-      if (err.message.includes(resizeObserverLoopErrRe)) {
-        return false;
-      }
-    });
+    cy.on(
+      "uncaught:exception",
+      (err) => !err.message.includes(resizeObserverLoopErrRe),
+    );
 
     cy.goToStarSearchList();
 
