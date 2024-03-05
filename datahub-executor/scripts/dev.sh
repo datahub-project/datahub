@@ -2,4 +2,4 @@
 
 source .env
 
-uvicorn datahub_executor.coordinator:app --reload --port 9004
+uvicorn datahub_executor.coordinator.server:app --reload --port 9004

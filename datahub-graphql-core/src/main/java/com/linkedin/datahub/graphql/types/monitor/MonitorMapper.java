@@ -1,7 +1,11 @@
 package com.linkedin.datahub.graphql.types.monitor;
 
+import static com.linkedin.datahub.graphql.types.assertion.AssertionMapper.*;
+
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.codec.JacksonDataCodec;
 import com.linkedin.datahub.graphql.generated.Assertion;
+import com.linkedin.datahub.graphql.generated.AssertionEvaluationContext;
 import com.linkedin.datahub.graphql.generated.AssertionEvaluationParameters;
 import com.linkedin.datahub.graphql.generated.AssertionEvaluationParametersType;
 import com.linkedin.datahub.graphql.generated.AssertionEvaluationSpec;
@@ -15,7 +19,9 @@ import com.linkedin.datahub.graphql.generated.DatasetFreshnessAssertionParameter
 import com.linkedin.datahub.graphql.generated.DatasetFreshnessSourceType;
 import com.linkedin.datahub.graphql.generated.DatasetVolumeAssertionParameters;
 import com.linkedin.datahub.graphql.generated.DatasetVolumeSourceType;
+import com.linkedin.datahub.graphql.generated.EmbeddedAssertion;
 import com.linkedin.datahub.graphql.generated.EntityType;
+import com.linkedin.datahub.graphql.generated.EvaluationTimeWindow;
 import com.linkedin.datahub.graphql.generated.FreshnessFieldKind;
 import com.linkedin.datahub.graphql.generated.FreshnessFieldSpec;
 import com.linkedin.datahub.graphql.generated.Monitor;
@@ -29,12 +35,21 @@ import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.key.MonitorKey;
+import com.linkedin.monitor.EmbeddedAssertionArray;
+import com.linkedin.timeseries.TimeWindow;
+import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.List;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import lombok.SneakyThrows;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 public class MonitorMapper {
+
+  private static final JacksonDataCodec CODEC = new JacksonDataCodec();
 
   public static Monitor map(@Nonnull final EntityResponse entityResponse) {
     final Monitor result = new Monitor();
@@ -98,8 +113,121 @@ public class MonitorMapper {
     if (backendAssertionEvaluationSpec.hasParameters()) {
       assertionEvaluationSpec.setParameters(
           mapAssertionEvaluationParameters(backendAssertionEvaluationSpec.getParameters()));
+      setRawParameters(backendAssertionEvaluationSpec, assertionEvaluationSpec);
+    }
+    if (backendAssertionEvaluationSpec.hasContext()) {
+      assertionEvaluationSpec.setContext(
+          mapAssertionEvaluationContext(backendAssertionEvaluationSpec.getContext()));
     }
     return assertionEvaluationSpec;
+  }
+
+  private static void setRawParameters(
+      com.linkedin.monitor.AssertionEvaluationSpec backendAssertionEvaluationSpec,
+      AssertionEvaluationSpec assertionEvaluationSpec) {
+    try {
+      assertionEvaluationSpec.setRawParameters(
+          CODEC.mapToString(backendAssertionEvaluationSpec.getParameters().data()));
+    } catch (IOException e) {
+      log.warn("Failed to serialize parameters in AssertionEvaluationSpec", e);
+    }
+  }
+
+  private static AssertionEvaluationContext mapAssertionEvaluationContext(
+      com.linkedin.monitor.AssertionEvaluationContext context) {
+    AssertionEvaluationContext assertionEvaluationContext = new AssertionEvaluationContext();
+    if (context.hasEmbeddedAssertions()) {
+      assertionEvaluationContext.setEmbeddedAssertions(
+          mapEmbeddedAssertions(context.getEmbeddedAssertions()));
+    }
+    return assertionEvaluationContext;
+  }
+
+  private static List<EmbeddedAssertion> mapEmbeddedAssertions(
+      EmbeddedAssertionArray gmsEmbeddedAssertions) {
+    List<EmbeddedAssertion> embeddedAssertions = new ArrayList<>();
+    gmsEmbeddedAssertions.forEach(
+        embeddedAssertion -> {
+          embeddedAssertions.add(mapEmbeddedAssertion(embeddedAssertion));
+        });
+
+    return embeddedAssertions;
+  }
+
+  @SneakyThrows
+  private static EmbeddedAssertion mapEmbeddedAssertion(
+      com.linkedin.monitor.EmbeddedAssertion gmsEmbeddedAssertion) {
+    EmbeddedAssertion embeddedAssertion = new EmbeddedAssertion();
+    if (gmsEmbeddedAssertion.hasAssertion()) {
+      embeddedAssertion.setAssertion(mapAssertionInfo(gmsEmbeddedAssertion.getAssertion()));
+      embeddedAssertion.setRawAssertion(
+          CODEC.mapToString(gmsEmbeddedAssertion.getAssertion().data()));
+    }
+    if (gmsEmbeddedAssertion.hasEvaluationTimeWindow()) {
+      embeddedAssertion.setEvaluationTimeWindow(
+          mapTimeWindow(gmsEmbeddedAssertion.getEvaluationTimeWindow()));
+    }
+    return embeddedAssertion;
+  }
+
+  private static EvaluationTimeWindow mapTimeWindow(TimeWindow evaluationTimeWindow) {
+    EvaluationTimeWindow timeWindow = new EvaluationTimeWindow();
+    timeWindow.setStartTimeMillis(evaluationTimeWindow.getStartTimeMillis());
+
+    Calendar endTime = Calendar.getInstance();
+    endTime.setTimeInMillis(evaluationTimeWindow.getStartTimeMillis());
+    int multiplier = evaluationTimeWindow.getLength().getMultiple();
+
+    switch (evaluationTimeWindow.getLength().getUnit()) {
+      case SECOND:
+        {
+          endTime.add(Calendar.SECOND, multiplier);
+          break;
+        }
+      case MINUTE:
+        {
+          endTime.add(Calendar.MINUTE, multiplier);
+          break;
+        }
+      case HOUR:
+        {
+          endTime.add(Calendar.HOUR, multiplier);
+          break;
+        }
+      case DAY:
+        {
+          endTime.add(Calendar.DAY_OF_YEAR, multiplier);
+          break;
+        }
+      case WEEK:
+        {
+          endTime.add(Calendar.WEEK_OF_YEAR, multiplier);
+          break;
+        }
+      case MONTH:
+        {
+          endTime.add(Calendar.MONTH, multiplier);
+          break;
+        }
+      case QUARTER:
+        {
+          endTime.add(Calendar.MONTH, 3 * multiplier);
+          break;
+        }
+      case YEAR:
+        {
+          endTime.add(Calendar.YEAR, multiplier);
+          break;
+        }
+      case $UNKNOWN:
+        {
+        }
+      default:
+        throw new IllegalStateException(
+            "Unexpected value: " + evaluationTimeWindow.getLength().getUnit());
+    }
+    timeWindow.setEndTimeMillis(endTime.getTimeInMillis());
+    return timeWindow;
   }
 
   private static CronSchedule mapCronSchedule(com.linkedin.common.CronSchedule backendSchedule) {

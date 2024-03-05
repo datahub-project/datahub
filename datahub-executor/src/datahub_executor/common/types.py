@@ -794,23 +794,11 @@ class PartitionSpec(PermissiveBaseModel):
         self.partition_key = partition_key
 
 
-class Assertion(PermissiveBaseModel):
+class AssertionInfo(PermissiveBaseModel):
     """A unique identifier for the assertion"""
-
-    # A unique identifier for the assertion
-    urn: str
 
     # The type of the assertion
     type: AssertionType
-
-    # The subType of the assertion
-    # sub_type: AssertionSubType = Field(alias="subType")
-
-    # The entity being asserted on
-    entity: AssertionEntity
-
-    # The urn of the connection required to evaluate the assertion. If there is no connection urn we are limited in terms of what we can do
-    connection_urn: Optional[str] = Field(alias="connectionUrn")
 
     # An FRESHNESS Assertion Object
     freshness_assertion: Optional[FreshnessAssertion] = Field(
@@ -830,62 +818,10 @@ class Assertion(PermissiveBaseModel):
     source_type: Optional[AssertionSourceType] = Field(alias="sourceType")
 
     # list with raw assertionInfo aspect
-    raw_info_aspect: Optional[List[RawAspect]] = Field(alias="rawInfoAspect")
+    raw_info_aspect: Optional[RawAspect]
 
     @root_validator(pre=True)
-    def extract(cls, values: Dict[str, Any]) -> Dict[str, Any]:
-        # Attempt to extract the entity field from the "relationships"
-        # response object provided by the GraphQL API.
-        graphql_entity = None
-
-        if (
-            "relationships" in values
-            and "relationships" in values["relationships"]
-            and len(values["relationships"]["relationships"]) > 0
-        ):
-            graphql_entity = values["relationships"]["relationships"][0]["entity"]
-
-        if "entity" not in values and graphql_entity:
-            platform_urn = graphql_entity["platform"]["urn"]
-            entity_urn = graphql_entity["urn"]
-
-            table_name = (
-                graphql_entity["properties"]["name"]
-                if "properties" in graphql_entity
-                and graphql_entity["properties"] is not None
-                and "name" in graphql_entity["properties"]
-                else None
-            )
-            qualified_name = (
-                graphql_entity["properties"]["qualifiedName"]
-                if "properties" in graphql_entity
-                and graphql_entity["properties"] is not None
-                and "qualifiedName" in graphql_entity["properties"]
-                else None
-            )
-
-            graphql_entity["urn"]
-            sub_types = (
-                graphql_entity["subTypes"]["typeNames"]
-                if "subTypes" in graphql_entity
-                and graphql_entity["subTypes"] is not None
-                and "typeNames" in graphql_entity["subTypes"]
-                else []
-            )
-
-            values["entity"] = {
-                "urn": entity_urn,
-                "platformUrn": platform_urn,
-                "platformInstance": None,
-                "subTypes": sub_types,
-                "table_name": table_name,
-                "qualified_name": qualified_name,
-            }
-
-        if "connectionUrn" not in values and graphql_entity:
-            platform_urn = graphql_entity["platform"]["urn"]
-            values["connectionUrn"] = platform_urn
-
+    def extract_assertion_info(cls, values: Dict[str, Any]) -> Dict[str, Any]:
         if "info" in values and "type" in values["info"]:
             values["type"] = values["info"]["type"]
 
@@ -924,6 +860,79 @@ class Assertion(PermissiveBaseModel):
         ):
             values["fieldAssertion"] = values["info"]["fieldAssertion"]
 
+        if (
+            "rawInfoAspect" in values
+            and values["rawInfoAspect"]
+            and values["rawInfoAspect"][0]["aspectName"] == "assertionInfo"
+        ):
+            values["raw_info_aspect"] = values["rawInfoAspect"][0]
+
+        return values
+
+
+class Assertion(AssertionInfo):
+    # A unique identifier for the assertion
+    urn: str
+
+    # The entity being asserted on
+    entity: AssertionEntity
+
+    # The urn of the connection required to evaluate the assertion. If there is no connection urn we are limited in terms of what we can do
+    connection_urn: Optional[str] = Field(alias="connectionUrn")
+
+    @root_validator(pre=True)
+    def extract_assertion(cls, values: Dict[str, Any]) -> Dict[str, Any]:
+        # Attempt to extract the entity field from the "relationships"
+        # response object provided by the GraphQL API.
+        graphql_entity = None
+
+        if (
+            "relationships" in values
+            and "relationships" in values["relationships"]
+            and len(values["relationships"]["relationships"]) > 0
+        ):
+            graphql_entity = values["relationships"]["relationships"][0]["entity"]
+
+        if "entity" not in values and graphql_entity:
+            platform_urn = graphql_entity["platform"]["urn"]
+            entity_urn = graphql_entity["urn"]
+
+            table_name = (
+                graphql_entity["properties"]["name"]
+                if "properties" in graphql_entity
+                and graphql_entity["properties"] is not None
+                and "name" in graphql_entity["properties"]
+                else None
+            )
+            qualified_name = (
+                graphql_entity["properties"]["qualifiedName"]
+                if "properties" in graphql_entity
+                and graphql_entity["properties"] is not None
+                and "qualifiedName" in graphql_entity["properties"]
+                else None
+            )
+
+            sub_types = (
+                graphql_entity["subTypes"]["typeNames"]
+                if "subTypes" in graphql_entity
+                and graphql_entity["subTypes"] is not None
+                and "typeNames" in graphql_entity["subTypes"]
+                else []
+            )
+
+            values["entity"] = {
+                "urn": entity_urn,
+                "platformUrn": platform_urn,
+                "platformInstance": None,
+                "subTypes": sub_types,
+                "table_name": table_name,
+                "qualified_name": qualified_name,
+            }
+
+        if "connectionUrn" not in values and graphql_entity:
+            platform_urn = graphql_entity["platform"]["urn"]
+            values["connectionUrn"] = platform_urn
+
         return values
 
 
@@ -947,6 +956,42 @@ class AssertionEvaluationParameters(PermissiveBaseModel):
     )
 
 
+class EvaluationTimeWindow(PermissiveBaseModel):
+    # The starting time of the assertion validity window.
+    start_time_millis: int = Field(alias="startTimeMillis")
+
+    # The ending time of the assertion validity window.
+    end_time_millis: int = Field(alias="endTimeMillis")
+
+
+class EmbeddedAssertion(PermissiveBaseModel):
+    # Spec for assertion to evaluate
+    assertion: AssertionInfo
+
+    # Validity period of the assertion, ie the window of time where it should be used in evaluation
+    evaluation_time_window: Optional[EvaluationTimeWindow] = Field(
+        alias="evaluationTimeWindow"
+    )
+
+    # JSON string containing AssertionInfo GMS aspect's payload
+    raw_assertion: str = Field(alias="rawAssertion")
+
+
+class AssertionEvaluationSpecContext(PermissiveBaseModel):
+    # Currently used for Smart Assertions
+    # An embedded copy of the assertion used to evaluate which will overwrite the referenced assertion
+    # if present and if the EmbeddedAssertion's evaluationTimeWindow period is valid
+    embedded_assertions: Optional[List[EmbeddedAssertion]] = Field(
+        alias="embeddedAssertions"
+    )
+
+    @property
+    def has_embedded_assertions(self) -> bool:
+        return (
+            self.embedded_assertions is not None and len(self.embedded_assertions) > 0
+        )
+
+
 class AssertionEvaluationSpec(PermissiveBaseModel):
     # The assertion to be evaluated
     assertion: Assertion
@@ -956,6 +1001,12 @@ class AssertionEvaluationSpec(PermissiveBaseModel):
 
     # The parameters required to evaluate an assertion
     parameters: AssertionEvaluationParameters
+
+    # Additional context about assertion being evaluated.
+    context: Optional[AssertionEvaluationSpecContext]
+
+    # JSON string containing payload of AssertionEvaluationParameters GMS model
+    raw_parameters: Optional[str] = Field(alias="rawParameters")
 
 
 class AssertionMonitor(PermissiveBaseModel):
@@ -974,8 +1025,6 @@ class Monitor(PermissiveBaseModel):
     assertion_monitor: Optional[AssertionMonitor]
 
     mode: MonitorMode
-
-    raw_info_aspect: Optional[List[RawAspect]] = Field(alias="rawInfoAspect")
 
     executor_id: Optional[str] = Field(alias="executorId")
 
@@ -1000,17 +1049,17 @@ class AssertionEvaluationContext:
 
     monitor_urn: Optional[str] = Field(alias="monitorUrn")
 
-    monitor_info: Optional[RawAspect] = None
+    evaluation_spec: Optional[AssertionEvaluationSpec] = None
 
     def __init__(
         self,
         dry_run: bool = False,
         monitor_urn: Optional[str] = None,
-        monitor_info: Optional[RawAspect] = None,
+        assertion_evaluation_spec: Optional[AssertionEvaluationSpec] = None,
     ):
         self.dry_run = dry_run
         self.monitor_urn = monitor_urn
-        self.monitor_info = monitor_info
+        self.evaluation_spec = assertion_evaluation_spec
 
 
 class AssertionEvaluationResultError:

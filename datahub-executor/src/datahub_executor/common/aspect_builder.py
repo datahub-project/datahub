@@ -13,7 +13,6 @@ from datahub.metadata.schema_classes import (
     AssertionResultTypeClass,
     AssertionRunEventClass,
     AssertionRunStatusClass,
-    MonitorInfoClass,
 )
 
 from datahub_executor.common.types import (
@@ -100,11 +99,8 @@ def build_assertion_result(
 
 
 def get_assertion_info(assertion: Assertion) -> Optional[AssertionInfoClass]:
-    if (
-        assertion.raw_info_aspect
-        and assertion.raw_info_aspect[0].aspectName == "assertionInfo"
-    ):
-        aspect_str = assertion.raw_info_aspect[0].payload
+    if assertion.raw_info_aspect:
+        aspect_str = assertion.raw_info_aspect.payload
         try:
             info = AssertionInfoClass.from_obj(json.loads(aspect_str))
             return info
@@ -116,18 +112,16 @@ def get_assertion_info(assertion: Assertion) -> Optional[AssertionInfoClass]:
 def get_parameters_from_context(
     context: Optional[AssertionEvaluationContext],
 ) -> Optional[AssertionEvaluationParametersClass]:
-    if context and context.monitor_info:
-        aspect_str = context.monitor_info.payload
+    if context and context.evaluation_spec and context.evaluation_spec.raw_parameters:
         try:
-            monitor_info_aspect = MonitorInfoClass.from_obj(json.loads(aspect_str))
-            if (
-                monitor_info_aspect.assertionMonitor
-                and monitor_info_aspect.assertionMonitor.assertions
-            ):
-                info = monitor_info_aspect.assertionMonitor.assertions[0].parameters
-                return info
+            return AssertionEvaluationParametersClass.from_obj(
+                json.loads(context.evaluation_spec.raw_parameters)
+            )
         except Exception as e:
-            logger.error(f"Unable to save assertion parameters due to error {e}")
+            logger.error(
+                f"Unable to save assertion parameters from context due to error {e}"
+            )
+
     return None
 
 

@@ -228,6 +228,17 @@ type AssertionEvaluationSpec {
     Parameters required to evaluate the assertion
     """
     parameters: AssertionEvaluationParameters
+
+    """
+    Additional context about assertion being evaluated.
+    """
+    context: AssertionEvaluationContext
+
+    """
+    JSON string containing payload of AssertionEvaluationParameters which can be readily used with Python Client.
+    Currently used to populate parameters in AssertionRunEvent aspect in monitors service.
+    """
+    rawParameters: String
 }
 
 """
@@ -253,6 +264,55 @@ enum AssertionEvaluationParametersType {
   Parameters required to evaluate a Dataset Field (Column) Assertion
   """
   DATASET_FIELD
+}
+
+"""
+Additional context about assertion being evaluated.
+"""
+type AssertionEvaluationContext {
+  """
+  Currently used for Smart Assertions
+  An embedded copy of the assertion used to evaluate which will overwrite the referenced assertion
+  if present and if the EmbeddedAssertion's evaluationTimeWindow period is valid
+  """
+  embeddedAssertions:  [EmbeddedAssertion!]
+}
+
+"""
+  Embedded assertion to be evaluated
+"""
+type EmbeddedAssertion {
+  """
+  Specs for each assertion to evaluate
+  """
+  assertion: AssertionInfo!
+
+  """
+  Validity period of the assertion, ie the window of time where it should be used in evaluation
+  """
+  evaluationTimeWindow: EvaluationTimeWindow
+
+  """
+  JSON string containing AssertionInfo aspect's payload which can be readily used with Python Client.
+  Currently used to update AssertionInfo aspect for Smart Assertions in monitors service.
+  """
+  rawAssertion: String!
+}
+
+
+"""
+Represents the time window in which an assertion is valid.
+"""
+type EvaluationTimeWindow {
+    """
+    The starting time of the assertion validity window.
+    """
+    startTimeMillis: Long!
+
+    """
+    The ending time of the assertion validity window.
+    """
+    endTimeMillis: Long!
 }
 
 """

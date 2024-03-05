@@ -14,8 +14,10 @@ from datahub_executor.common.types import (
     AssertionEvaluationParameters,
     AssertionEvaluationParametersType,
     AssertionEvaluationResult,
+    AssertionEvaluationSpec,
     AssertionResultType,
     AssertionType,
+    CronSchedule,
     DatasetFreshnessAssertionParameters,
     DatasetFreshnessSourceType,
     RawAspect,
@@ -34,12 +36,10 @@ assertion = Assertion(
     entity=entity,
     connectionUrn="urn:li:dataPlatform:hive",
     freshnessAssertion=None,
-    raw_info_aspect=[
-        RawAspect(
-            aspectName="assertionInfo",
-            payload='{"type":"FRESHNESS","freshnessAssertion":{"type":"DATASET_CHANGE","schedule":{"type":"CRON","cron":{"cron":"0 */6 * * *","timezone":"Asia/Calcutta"}},"entity":"urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)"},"source":{"type":"NATIVE"}}',
-        )
-    ],
+    raw_info_aspect=RawAspect(
+        aspectName="assertionInfo",
+        payload='{"type":"FRESHNESS","freshnessAssertion":{"type":"DATASET_CHANGE","schedule":{"type":"CRON","cron":{"cron":"0 */6 * * *","timezone":"Asia/Calcutta"}},"entity":"urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)"},"source":{"type":"NATIVE"}}',
+    ),
 )
 assertion_nonparseable = Assertion(
     urn="urn:li:assertion:e3663fd5-8477-4d18-adea-62b48c0de1f9",
@@ -47,12 +47,10 @@ assertion_nonparseable = Assertion(
     entity=entity,
     connectionUrn="urn:li:dataPlatform:hive",
     freshnessAssertion=None,
-    raw_info_aspect=[
-        RawAspect(
-            aspectName="assertionInfo",
-            payload='{"freshnessAssertion":{"type":"DATASET_CHANGE","schedule":{"type":"CRON","cron":{"cron":"0 */6 * * *","timezone":"Asia/Calcutta"}},"entity":"urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)"},"source":{"type":"NATIVE"}}',
-        )
-    ],
+    raw_info_aspect=RawAspect(
+        aspectName="assertionInfo",
+        payload='{"freshnessAssertion":{"type":"DATASET_CHANGE","schedule":{"type":"CRON","cron":{"cron":"0 */6 * * *","timezone":"Asia/Calcutta"}},"entity":"urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)"},"source":{"type":"NATIVE"}}',
+    ),
 )
 parameters = AssertionEvaluationParameters(
     type=AssertionEvaluationParametersType.DATASET_FRESHNESS,
@@ -64,16 +62,20 @@ parameters = AssertionEvaluationParameters(
 )
 context = AssertionEvaluationContext(
     monitor_urn="urn:li:monitor:(urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD),9b7074de-46a4-4715-9383-32b90bed4632)",
-    monitor_info=RawAspect(
-        aspectName="monitorInfo",
-        payload='{"type":"ASSERTION","assertionMonitor":{"assertions":[{"schedule":{"cron":"0 */6 * * *","timezone":"Asia/Calcutta"},"parameters":{"datasetFreshnessParameters":{"sourceType":"DATAHUB_OPERATION"},"type":"DATASET_FRESHNESS"},"assertion":"urn:li:assertion:e3663fd5-8477-4d18-adea-62b48c0de1f9"}]},"status":{"mode":"ACTIVE"}}',
+    assertion_evaluation_spec=AssertionEvaluationSpec(
+        assertion=assertion,
+        schedule=CronSchedule(cron="0 * * * *", timezone="America/Los_Angeles"),
+        parameters=parameters,
+        rawParameters='{"datasetFreshnessParameters":{"sourceType":"DATAHUB_OPERATION"},"type":"DATASET_FRESHNESS"}',
     ),
 )
 context_nonparseable = AssertionEvaluationContext(
     monitor_urn="urn:li:monitor:(urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD),9b7074de-46a4-4715-9383-32b90bed4632)",
-    monitor_info=RawAspect(
-        aspectName="monitorInfo",
-        payload='{"assertionMonitor":{"assertions":[{"schedule":{"cron":"0 */6 * * *","timezone":"Asia/Calcutta"},"parameters":{"datasetFreshnessParameters":{"sourceType":"DATAHUB_OPERATION"},"type":"DATASET_FRESHNESS"},"assertion":"urn:li:assertion:e3663fd5-8477-4d18-adea-62b48c0de1f9"}]},"status":{"mode":"ACTIVE"}}',
+    assertion_evaluation_spec=AssertionEvaluationSpec(
+        assertion=assertion,
+        schedule=CronSchedule(cron="0 * * * *", timezone="America/Los_Angeles"),
+        parameters=parameters,
+        rawParameters='{"datasetFreshnessParameters":{"sourceType":"OPERATION"},"type":null}',
     ),
 )
 result = AssertionEvaluationResult(type=AssertionResultType.SUCCESS, parameters=None)

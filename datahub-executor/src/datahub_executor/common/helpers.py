@@ -14,6 +14,9 @@ from datahub_executor.common.assertion.engine.evaluator.sql_evaluator import (
 from datahub_executor.common.assertion.engine.evaluator.volume_evaluator import (
     VolumeAssertionEvaluator,
 )
+from datahub_executor.common.assertion.engine.transformer.embedded_assertions_transformer import (
+    EmbeddedAssertionsTransformer,
+)
 from datahub_executor.common.assertion.result.assertion_dry_run_event_handler import (
     AssertionDryRunEventResultHandler,
 )
@@ -74,6 +77,8 @@ def create_assertion_engine(graph: DataHubAssertionGraph) -> AssertionEngine:
         ),
     ]
 
+    assertion_transformers = [EmbeddedAssertionsTransformer(graph)]
+
     # Create result handlers
     result_handlers = [
         AssertionRunEventResultHandler(graph),
@@ -81,4 +86,6 @@ def create_assertion_engine(graph: DataHubAssertionGraph) -> AssertionEngine:
     ]
 
     # Create assertion engine
-    return AssertionEngine(evaluators, result_handlers=result_handlers)
+    return AssertionEngine(
+        evaluators, result_handlers=result_handlers, transformers=assertion_transformers
+    )

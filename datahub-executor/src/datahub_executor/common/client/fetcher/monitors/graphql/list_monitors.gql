@@ -30,22 +30,8 @@ fragment AssertionStdParameterDetails on AssertionStdParameters {
   }
 }
 
-fragment AssertionDetails on Assertion {
-  urn
-  type
-  platform {
-    urn
-    properties {
-      displayName
-      logoUrl
-    }
-    info {
-      displayName
-      logoUrl
-    }
-  }
-  info {
-    type
+fragment assertionInfoDetails on AssertionInfo {
+      type
     datasetAssertion {
       scope
       aggregation
@@ -188,6 +174,24 @@ fragment AssertionDetails on Assertion {
     source {
       type
     }
+}
+
+fragment AssertionDetails on Assertion {
+  urn
+  type
+  platform {
+    urn
+    properties {
+      displayName
+      logoUrl
+    }
+    info {
+      displayName
+      logoUrl
+    }
+  }
+  info {
+    ...assertionInfoDetails
   }
   rawInfoAspect: aspects(
       input: { aspectNames : [ "assertionInfo" ] }
@@ -262,14 +266,21 @@ fragment MonitorSearchResults on SearchResults {
                   }
                 }
               }
+              rawParameters
+              context {
+                embeddedAssertions {
+                  assertion {
+                    ...assertionInfoDetails
+                  }
+                  rawAssertion
+                  evaluationTimeWindow {
+                    startTimeMillis
+                    endTimeMillis
+                  }
+                }
+              }
             }
           }
-        }
-        rawInfoAspect: aspects(
-            input: { aspectNames : [ "monitorInfo" ] }
-        ){
-          aspectName
-          payload
         }
       }
     }
