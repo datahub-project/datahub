@@ -545,8 +545,6 @@ def get_fully_qualified_table_name(
     schema: str,
     table_name: str,
 ) -> str:
-    if platform == "athena":
-        upstream_db = ""
     database_name = f"{upstream_db}." if upstream_db else ""
     final_name = table_name.replace("[", "").replace("]", "")
 
@@ -565,8 +563,8 @@ def get_fully_qualified_table_name(
         .replace("`", "")
     )
 
-    if platform in ("athena", "hive", "mysql"):
-        # it two tier database system (athena, hive, mysql), just take final 2
+    if platform in ("hive", "mysql"):
+        # it two tier database system (hive, mysql), just take final 2
         fully_qualified_table_name = ".".join(
             fully_qualified_table_name.split(".")[-2:]
         )
@@ -635,7 +633,6 @@ class TableauUpstreamReference:
             and t_table
             and t_full_name
             and t_table == t_full_name
-            and schema in t_table
         ):
             logger.debug(
                 f"Omitting schema for upstream table {t_id}, schema included in table name"
@@ -721,7 +718,7 @@ def get_overridden_info(
         platform_instance_map.get(original_platform) if platform_instance_map else None
     )
 
-    if original_platform in ("athena", "hive", "mysql"):  # Two tier databases
+    if original_platform in ("hive", "mysql"):  # Two tier databases
         upstream_db = None
 
     return upstream_db, platform_instance, platform, original_platform
