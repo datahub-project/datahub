@@ -1,10 +1,13 @@
 package com.linkedin.datahub.graphql.resolvers.policy;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
+import static com.linkedin.metadata.authorization.PoliciesConfig.VIEW_ENTITY_PAGE_PRIVILEGE;
 
 import com.datahub.authorization.AuthorizerChain;
 import com.datahub.authorization.DataHubAuthorizer;
 import com.datahub.authorization.EntitySpec;
+import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.GetGrantedPrivilegesInput;
@@ -12,9 +15,12 @@ import com.linkedin.datahub.graphql.generated.Privileges;
 import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * Resolver to support the getGrantedPrivileges end point Fetches all privileges that are granted
@@ -43,7 +49,13 @@ public class GetGrantedPrivilegesResolver implements DataFetcher<CompletableFutu
     if (context.getAuthorizer() instanceof AuthorizerChain) {
       DataHubAuthorizer dataHubAuthorizer =
           ((AuthorizerChain) context.getAuthorizer()).getDefaultAuthorizer();
-      List<String> privileges = dataHubAuthorizer.getGrantedPrivileges(actor, resourceSpec);
+      List<String> privileges =
+          Stream.concat(
+                  dataHubAuthorizer.getGrantedPrivileges(actor, resourceSpec).stream(),
+                  viewSelfPrivilege(UrnUtils.getUrn(context.getActorUrn()), resourceSpec).stream())
+              .distinct()
+              .collect(Collectors.toList());
+
       return CompletableFuture.supplyAsync(
           () -> Privileges.builder().setPrivileges(privileges).build());
     }
@@ -55,5 +67,18 @@ public class GetGrantedPrivilegesResolver implements DataFetcher<CompletableFutu
 
   private boolean isAuthorized(final QueryContext context, final String actor) {
     return actor.equals(context.getActorUrn());
+  }
+
+  private List<String> viewSelfPrivilege(Urn actorUrn, Optional<EntitySpec> optEntitySpec) {
+    return optEntitySpec
+        .map(
+            entitySpec -> {
+              if (entitySpec.getType().equals(actorUrn.getEntityType())
+                  && entitySpec.getEntity().equals(actorUrn.toString())) {
+                return List.of(VIEW_ENTITY_PAGE_PRIVILEGE.getType());
+              }
+              return null;
+            })
+        .orElse(Collections.emptyList());
   }
 }
