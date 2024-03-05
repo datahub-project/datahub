@@ -1022,14 +1022,14 @@ type FeatureFlagsConfig {
   themeV2: Boolean!
 
   """
-  Enables the new Task Center which replaces the old inbox and includes displaying documentation requests
-  """
-  taskCenterEnabled: Boolean!
-
-  """
   Whether the metadata sharing feature between instances is enabled
   """
   metadataShareEnabled: Boolean!
+
+  """
+  Enables the documentation forms feature for filling out metadata and tracking analytics
+  """
+  documentationFormsEnabled: Boolean!
 }
 
 """

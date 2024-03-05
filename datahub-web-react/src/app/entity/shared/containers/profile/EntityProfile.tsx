@@ -42,7 +42,7 @@ import {
     LINEAGE_GRAPH_INTRO_ID,
     LINEAGE_GRAPH_TIME_FILTER_ID,
 } from '../../../../onboarding/config/LineageGraphOnboardingConfig';
-import { useAppConfig } from '../../../../useAppConfig';
+import { useAppConfig, useIsDocumentationFormsEnabled } from '../../../../useAppConfig';
 import { useSubscriptionsEnabled } from '../../../../settings/personal/notifications/utils';
 import { ENTITY_PROFILE_SUBSCRIPTION_ID } from '../../../../onboarding/config/EntityProfileOnboardingConfig';
 import { useUpdateDomainEntityDataOnChange } from '../../../../domain/utils';
@@ -163,6 +163,7 @@ export const EntityProfile = <T, U>({
     const isHideSiblingMode = useIsSeparateSiblingsMode();
     const entityRegistry = useEntityRegistry();
     const subscriptionsEnabled = useSubscriptionsEnabled();
+    const documentationFormsEnabled = useIsDocumentationFormsEnabled();
     const history = useHistory();
     const appConfig = useAppConfig();
     const isCompact = React.useContext(CompactContext);
@@ -346,7 +347,9 @@ export const EntityProfile = <T, U>({
                                 </HeaderAndTabs>
                                 <ProfileSidebar
                                     sidebarSections={sidebarSections}
-                                    topSection={{ component: SidebarFormInfoWrapper }}
+                                    topSection={
+                                        documentationFormsEnabled ? { component: SidebarFormInfoWrapper } : undefined
+                                    }
                                 />
                             </>
                         )}

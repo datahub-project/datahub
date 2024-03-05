@@ -55,7 +55,7 @@ public class FormAnalyticsResolver
         () -> {
           try {
             FormAnalyticsResponse response = new FormAnalyticsResponse();
-            if (!_featureFlags.isTaskCenterEnabled()) {
+            if (!_featureFlags.isDocumentationFormsEnabled()) {
               response.setErrors(
                   List.of(
                       FormAnalyticsError.builder()

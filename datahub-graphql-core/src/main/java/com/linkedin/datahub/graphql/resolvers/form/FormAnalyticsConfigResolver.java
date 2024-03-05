@@ -33,7 +33,7 @@ public class FormAnalyticsConfigResolver
           try {
             FormAnalyticsConfig response = new FormAnalyticsConfig();
             // Sharing the same feature flag as task center
-            response.setEnabled(_featureFlags.isTaskCenterEnabled());
+            response.setEnabled(_featureFlags.isDocumentationFormsEnabled());
             if (!response.getEnabled()) {
               // If the feature flag is not enabled, we should not proceed with the request
               return response;
