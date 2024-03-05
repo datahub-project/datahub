@@ -205,8 +205,7 @@
                     "type": "TRANSFORMED",
                     "query": "urn:li:query:3e85e6f353c7fa33d6514cb090482852064d23df6491c9a8ae28be0d990a3c71"
                 }
-            ],
-            "fineGrainedLineages": []
+            ]
         }
     }
 },

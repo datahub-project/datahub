@@ -1259,6 +1259,24 @@
       },
       "doc" : "List of owners of the entity."
     }, {
+      "name" : "ownerTypes",
+      "type" : {
+        "type" : "map",
+        "values" : {
+          "type" : "array",
+          "items" : "Urn"
+        }
+      },
+      "doc" : "Owners to ownership type map, populated with mutation hook.",
+      "default" : { },
+      "optional" : true,
+      "Searchable" : {
+        "/*" : {
+          "fieldType" : "OBJECT",
+          "queryByDefault" : false
+        }
+      }
+    }, {
       "name" : "lastModified",
       "type" : "AuditStamp",
       "doc" : "Audit stamp containing who last modified the record and when. A value of 0 in the time field indicates missing data.",
@@ -5785,6 +5803,18 @@
       "type" : "GroupingSpec",
       "doc" : "Instructions for grouping results before returning",
       "optional" : true
+    }, {
+      "name" : "includeSoftDeleted",
+      "type" : "boolean",
+      "doc" : "include soft deleted entities in results",
+      "default" : false,
+      "optional" : true
+    }, {
+      "name" : "includeRestricted",
+      "type" : "boolean",
+      "doc" : "include restricted entities in results (default is to filter)",
+      "default" : false,
+      "optional" : true
     } ]
   }, {
     "type" : "enum",
@@ -6111,6 +6141,14 @@
               "name" : "score",
               "type" : "double",
               "optional" : true
+            }, {
+              "name" : "restrictedAspects",
+              "type" : {
+                "type" : "array",
+                "items" : "string"
+              },
+              "doc" : "A list of the the restricted aspects on the entity.\nIf the key aspect is present, assume ALL aspects should be restricted including the entity's Urn.",
+              "optional" : true
             } ]
           } ],
           "fields" : [ {
@@ -6420,6 +6458,10 @@
         }, {
           "name" : "limit",
           "type" : "int"
+        }, {
+          "name" : "searchFlags",
+          "type" : "com.linkedin.metadata.query.SearchFlags",
+          "optional" : true
         } ],
         "returns" : "com.linkedin.metadata.query.AutoCompleteResult"
       }, {
@@ -6460,6 +6502,10 @@
         }, {
           "name" : "limit",
           "type" : "int"
+        }, {
+          "name" : "searchFlags",
+          "type" : "com.linkedin.metadata.query.SearchFlags",
+          "optional" : true
         } ],
         "returns" : "com.linkedin.metadata.browse.BrowseResult"
       }, {

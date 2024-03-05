@@ -74,6 +74,10 @@
       }, {
         "name" : "limit",
         "type" : "int"
+      }, {
+        "name" : "searchFlags",
+        "type" : "com.linkedin.metadata.query.SearchFlags",
+        "optional" : true
       } ],
       "returns" : "com.linkedin.metadata.query.AutoCompleteResult"
     }, {
@@ -114,6 +118,10 @@
       }, {
         "name" : "limit",
         "type" : "int"
+      }, {
+        "name" : "searchFlags",
+        "type" : "com.linkedin.metadata.query.SearchFlags",
+        "optional" : true
       } ],
       "returns" : "com.linkedin.metadata.browse.BrowseResult"
     }, {

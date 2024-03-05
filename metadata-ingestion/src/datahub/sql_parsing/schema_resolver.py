@@ -80,7 +80,7 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
     def schema_count(self) -> int:
         return int(
             self._schema_cache.sql_query(
-                f"SELECT COUNT(*) FROM {self._schema_cache.tablename} WHERE is_missing"
+                f"SELECT COUNT(*) FROM {self._schema_cache.tablename} WHERE NOT is_missing"
             )[0][0]
         )
 

@@ -5,7 +5,7 @@ ARG BASE_IMAGE=base
 ARG ALPINE_REPO_URL=http://dl-cdn.alpinelinux.org/alpine
 ARG GITHUB_REPO_URL=https://github.com
 ARG DEBIAN_REPO_URL=https://deb.debian.org/debian
-ARG PIP_MIRROR_URL=null
+ARG PIP_MIRROR_URL=https://pypi.python.org/simple
 
 FROM golang:1-alpine3.18 AS dockerize-binary
 
@@ -26,15 +26,18 @@ RUN go install github.com/jwilder/dockerize@$DOCKERIZE_VERSION
 
 FROM python:3.10 as base
 
-ARG DEBIAN_REPO_URL
-ARG PIP_MIRROR_URL
 ARG GITHUB_REPO_URL
 
 ENV DEBIAN_FRONTEND noninteractive
 
-# Optionally set corporate mirror for apk and pip
+# Optionally set corporate mirror for deb
+ARG DEBIAN_REPO_URL
 RUN if [ "${DEBIAN_REPO_URL}" != "http://deb.debian.org/debian" ] ; then sed -i "s#http.*://deb.debian.org/debian#${DEBIAN_REPO_URL}#g" /etc/apt/sources.list.d/debian.sources ; fi
-RUN if [ "${PIP_MIRROR_URL}" != "null" ] ; then pip config set global.index-url ${PIP_MIRROR_URL} ; fi
+
+# Optionally set corporate mirror for pip
+ARG PIP_MIRROR_URL
+RUN if [ "${PIP_MIRROR_URL}" != "https://pypi.python.org/simple" ] ; then pip config set global.index-url ${PIP_MIRROR_URL} ; fi
+ENV UV_INDEX_URL=${PIP_MIRROR_URL}
 
 RUN apt-get update && apt-get install -y -qq \
     python3-ldap \
@@ -67,8 +70,7 @@ USER datahub
 ENV VIRTUAL_ENV=/datahub-ingestion/.venv
 ENV PATH="${VIRTUAL_ENV}/bin:$PATH"
 RUN python3 -m venv $VIRTUAL_ENV && \
-    uv pip install --no-cache -r requirements.txt && \
-    pip uninstall -y acryl-datahub
+    uv pip install --no-cache -r requirements.txt
 
 ENTRYPOINT [ "/entrypoint.sh" ]
 
