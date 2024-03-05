@@ -108,7 +108,7 @@ public class MigrateIncidentsSummaryStepTest {
                 Mockito.eq(1000),
                 Mockito.eq(null),
                 Mockito.eq("5m"),
-                null))
+                Mockito.eq(null)))
         .thenReturn(scrollResult);
 
     ScrollResult newScrollResult = new ScrollResult();
@@ -123,7 +123,7 @@ public class MigrateIncidentsSummaryStepTest {
                 Mockito.eq(1000),
                 Mockito.eq(SCROLL_ID),
                 Mockito.eq("5m"),
-                null))
+                Mockito.eq(null)))
         .thenReturn(newScrollResult);
   }
 

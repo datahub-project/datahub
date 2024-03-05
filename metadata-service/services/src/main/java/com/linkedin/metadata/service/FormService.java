@@ -10,18 +10,7 @@ import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.linkedin.common.AuditStamp;
-import com.linkedin.common.FieldFormPromptAssociation;
-import com.linkedin.common.FieldFormPromptAssociationArray;
-import com.linkedin.common.FormAssociation;
-import com.linkedin.common.FormAssociationArray;
-import com.linkedin.common.FormPromptAssociation;
-import com.linkedin.common.FormPromptAssociationArray;
-import com.linkedin.common.FormPromptFieldAssociations;
-import com.linkedin.common.FormVerificationAssociation;
-import com.linkedin.common.FormVerificationAssociationArray;
-import com.linkedin.common.Forms;
-import com.linkedin.common.Ownership;
+import com.linkedin.common.*;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.StringArray;
@@ -33,6 +22,8 @@ import com.linkedin.form.FormInfo;
 import com.linkedin.form.FormPrompt;
 import com.linkedin.form.FormPromptType;
 import com.linkedin.form.FormType;
+import com.linkedin.identity.GroupMembership;
+import com.linkedin.identity.NativeGroupMembership;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.authorization.OwnershipUtils;
 import com.linkedin.metadata.entity.AspectUtils;
@@ -1148,6 +1139,72 @@ public class FormService extends BaseService {
       throw new RuntimeException(
           String.format("Schema metadata does not exist on entity %s.", entityUrn));
     }
+  }
+
+  public List<Urn> getGroupsForUser(
+      @Nonnull final Urn userUrn, @Nonnull final Authentication authentication) throws Exception {
+    final NativeGroupMembership nativeGroupMembership =
+        getExistingNativeGroupMembership(userUrn, authentication);
+    final GroupMembership groupMembership = getExistingGroupMembership(userUrn, authentication);
+    final List<Urn> allGroups = new ArrayList<>();
+    allGroups.addAll(nativeGroupMembership.getNativeGroups());
+    allGroups.addAll(groupMembership.getGroups());
+    return allGroups;
+  }
+
+  NativeGroupMembership getExistingNativeGroupMembership(
+      @Nonnull final Urn userUrn, final Authentication authentication) throws Exception {
+    final EntityResponse entityResponse =
+        entityClient
+            .batchGetV2(
+                CORP_USER_ENTITY_NAME,
+                Collections.singleton(userUrn),
+                Collections.singleton(NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME),
+                authentication)
+            .get(userUrn);
+
+    final NativeGroupMembership nativeGroupMembership;
+    if (entityResponse == null
+        || !entityResponse.getAspects().containsKey(NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME)) {
+      // If the user doesn't have the NativeGroupMembership aspect, create one.
+      nativeGroupMembership = new NativeGroupMembership();
+      nativeGroupMembership.setNativeGroups(new UrnArray());
+    } else {
+      nativeGroupMembership =
+          new NativeGroupMembership(
+              entityResponse
+                  .getAspects()
+                  .get(NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME)
+                  .getValue()
+                  .data());
+    }
+    return nativeGroupMembership;
+  }
+
+  GroupMembership getExistingGroupMembership(
+      @Nonnull final Urn userUrn, @Nonnull final Authentication authentication)
+      throws RemoteInvocationException, URISyntaxException {
+    final EntityResponse entityResponse =
+        entityClient
+            .batchGetV2(
+                CORP_USER_ENTITY_NAME,
+                Collections.singleton(userUrn),
+                Collections.singleton(GROUP_MEMBERSHIP_ASPECT_NAME),
+                authentication)
+            .get(userUrn);
+
+    final GroupMembership groupMembership;
+    if (entityResponse == null
+        || !entityResponse.getAspects().containsKey(GROUP_MEMBERSHIP_ASPECT_NAME)) {
+      // If the user doesn't have the GroupMembership aspect, create one.
+      groupMembership = new GroupMembership();
+      groupMembership.setGroups(new UrnArray());
+    } else {
+      groupMembership =
+          new GroupMembership(
+              entityResponse.getAspects().get(GROUP_MEMBERSHIP_ASPECT_NAME).getValue().data());
+    }
+    return groupMembership;
   }
 
   private Ownership getEntityOwnership(
