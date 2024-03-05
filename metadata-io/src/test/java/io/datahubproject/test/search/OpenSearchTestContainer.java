@@ -7,7 +7,7 @@ import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.utility.DockerImageName;
 
 public class OpenSearchTestContainer implements SearchTestContainer {
-  private static final String OPENSEARCH_VERSION = "2.9.0";
+  private static final String OPENSEARCH_VERSION = "2.11.0";
   private static final String OPENSEARCH_IMAGE_NAME = "opensearchproject/opensearch";
   private static final String ENV_OPENSEARCH_IMAGE_FULL_NAME =
       System.getenv("OPENSEARCH_IMAGE_FULL_NAME");
