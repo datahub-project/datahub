@@ -3,7 +3,9 @@ package com.linkedin.gms.factory.auth;
 import com.datahub.authorization.DataHubAuthorizer;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.spring.YamlPropertySourceFactory;
+import io.datahubproject.metadata.context.OperationContext;
 import javax.annotation.Nonnull;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -26,7 +28,9 @@ public class DataHubAuthorizerFactory {
   @Bean(name = "dataHubAuthorizer")
   @Scope("singleton")
   @Nonnull
-  protected DataHubAuthorizer dataHubAuthorizer(final SystemEntityClient systemEntityClient) {
+  protected DataHubAuthorizer dataHubAuthorizer(
+      @Qualifier("systemOperationContext") final OperationContext systemOpContext,
+      final SystemEntityClient systemEntityClient) {
 
     final DataHubAuthorizer.AuthorizationMode mode =
         policiesEnabled
@@ -34,7 +38,7 @@ public class DataHubAuthorizerFactory {
             : DataHubAuthorizer.AuthorizationMode.ALLOW_ALL;
 
     return new DataHubAuthorizer(
-        systemEntityClient.getSystemAuthentication(),
+        systemOpContext,
         systemEntityClient,
         10,
         policyCacheRefreshIntervalSeconds,

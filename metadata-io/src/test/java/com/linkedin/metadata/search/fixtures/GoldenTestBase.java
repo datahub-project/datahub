@@ -1,11 +1,11 @@
 package com.linkedin.metadata.search.fixtures;
 
 import static com.linkedin.metadata.Constants.*;
-import static io.datahubproject.test.search.SearchTestUtils.searchAcrossCustomEntities;
 import static io.datahubproject.test.search.SearchTestUtils.searchAcrossEntities;
 import static org.testng.Assert.*;
 import static org.testng.AssertJUnit.assertNotNull;
 
+import com.datahub.plugins.auth.authorization.Authorizer;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
@@ -21,6 +21,9 @@ import com.linkedin.metadata.search.MatchedFieldArray;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchService;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
+import io.datahubproject.test.search.SearchTestUtils;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -48,6 +51,12 @@ public abstract class GoldenTestBase extends AbstractTestNGSpringContextTests {
   @Nonnull
   protected abstract SearchService getSearchService();
 
+  @Nonnull
+  protected OperationContext getOperationContext() {
+    return TestOperationContexts.userContextNoSearchAuthorization(
+        getEntityRegistry(), Authorizer.EMPTY, TestOperationContexts.TEST_USER_AUTH);
+  }
+
   @Test
   public void testNameMatchPetProfiles() {
     /*
@@ -56,8 +65,11 @@ public abstract class GoldenTestBase extends AbstractTestNGSpringContextTests {
     assertNotNull(getSearchService());
     assertNotNull(getEntityRegistry());
     SearchResult searchResult =
-        searchAcrossCustomEntities(
-            getSearchService(), "pet profiles", SEARCHABLE_LONGTAIL_ENTITIES);
+        searchAcrossEntities(
+            getOperationContext(),
+            getSearchService(),
+            SEARCHABLE_LONGTAIL_ENTITIES,
+            "pet profiles");
     assertTrue(searchResult.getEntities().size() >= 2);
     Urn firstResultUrn = searchResult.getEntities().get(0).getEntity();
     Urn secondResultUrn = searchResult.getEntities().get(1).getEntity();
@@ -73,7 +85,8 @@ public abstract class GoldenTestBase extends AbstractTestNGSpringContextTests {
     */
     assertNotNull(getSearchService());
     SearchResult searchResult =
-        searchAcrossEntities(getSearchService(), "pet profile", SEARCHABLE_LONGTAIL_ENTITIES);
+        searchAcrossEntities(
+            getOperationContext(), getSearchService(), SEARCHABLE_LONGTAIL_ENTITIES, "pet profile");
     assertTrue(searchResult.getEntities().size() >= 2);
     Urn firstResultUrn = searchResult.getEntities().get(0).getEntity();
     Urn secondResultUrn = searchResult.getEntities().get(1).getEntity();
@@ -90,7 +103,8 @@ public abstract class GoldenTestBase extends AbstractTestNGSpringContextTests {
     */
     assertNotNull(getSearchService());
     SearchResult searchResult =
-        searchAcrossEntities(getSearchService(), "ReturnRate", SEARCHABLE_LONGTAIL_ENTITIES);
+        searchAcrossEntities(
+            getOperationContext(), getSearchService(), SEARCHABLE_LONGTAIL_ENTITIES, "ReturnRate");
     SearchEntityArray entities = searchResult.getEntities();
     assertTrue(searchResult.getEntities().size() >= 4);
     MatchedFieldArray firstResultMatchedFields = entities.get(0).getMatchedFields();
@@ -113,7 +127,10 @@ public abstract class GoldenTestBase extends AbstractTestNGSpringContextTests {
     assertNotNull(getSearchService());
     SearchResult searchResult =
         searchAcrossEntities(
-            getSearchService(), "analytics.pet_details", SEARCHABLE_LONGTAIL_ENTITIES);
+            getOperationContext(),
+            getSearchService(),
+            SEARCHABLE_LONGTAIL_ENTITIES,
+            "analytics.pet_details");
     assertTrue(searchResult.getEntities().size() >= 2);
     Urn firstResultUrn = searchResult.getEntities().get(0).getEntity();
     Urn secondResultUrn = searchResult.getEntities().get(1).getEntity();
@@ -133,7 +150,10 @@ public abstract class GoldenTestBase extends AbstractTestNGSpringContextTests {
     assertNotNull(getSearchService());
     SearchResult searchResult =
         searchAcrossEntities(
-            getSearchService(), "collaborative actionitems", SEARCHABLE_LONGTAIL_ENTITIES);
+            getOperationContext(),
+            getSearchService(),
+            SEARCHABLE_LONGTAIL_ENTITIES,
+            "collaborative actionitems");
     assertTrue(searchResult.getEntities().size() >= 2);
     Urn firstResultUrn = searchResult.getEntities().get(0).getEntity();
     Urn secondResultUrn = searchResult.getEntities().get(1).getEntity();
@@ -158,7 +178,11 @@ public abstract class GoldenTestBase extends AbstractTestNGSpringContextTests {
     */
     assertNotNull(getSearchService());
     SearchResult searchResult =
-        searchAcrossEntities(getSearchService(), "customer orders", SEARCHABLE_LONGTAIL_ENTITIES);
+        searchAcrossEntities(
+            getOperationContext(),
+            getSearchService(),
+            SEARCHABLE_LONGTAIL_ENTITIES,
+            "customer orders");
     assertTrue(searchResult.getEntities().size() >= 2);
     Urn firstResultUrn = searchResult.getEntities().get(0).getEntity();
 
@@ -194,12 +218,13 @@ public abstract class GoldenTestBase extends AbstractTestNGSpringContextTests {
                                         .setValue("")
                                         .setValues(new StringArray(ImmutableList.of("68"))))))));
     SearchResult searchResult =
-        searchAcrossEntities(
+        SearchTestUtils.facetAcrossEntities(
+            getOperationContext(),
             getSearchService(),
-            "*",
             SEARCHABLE_LONGTAIL_ENTITIES,
-            filter,
-            Collections.singletonList(DATASET_ENTITY_NAME));
+            "*",
+            Collections.singletonList(DATASET_ENTITY_NAME),
+            filter);
     assertFalse(searchResult.getEntities().isEmpty());
     Urn firstResultUrn = searchResult.getEntities().get(0).getEntity();
     assertEquals(

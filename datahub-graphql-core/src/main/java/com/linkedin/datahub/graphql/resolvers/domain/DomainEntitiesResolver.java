@@ -86,6 +86,7 @@ public class DomainEntitiesResolver implements DataFetcher<CompletableFuture<Sea
 
             return UrnSearchResultsMapper.map(
                 _entityClient.searchAcrossEntities(
+                    context.getOperationContext(),
                     SEARCHABLE_ENTITY_TYPES.stream()
                         .map(EntityTypeMapper::getName)
                         .collect(Collectors.toList()),
@@ -97,8 +98,7 @@ public class DomainEntitiesResolver implements DataFetcher<CompletableFuture<Sea
                     start,
                     count,
                     null,
-                    null,
-                    context.getAuthentication()));
+                    null));
 
           } catch (Exception e) {
             throw new RuntimeException(

@@ -1,5 +1,5 @@
 import time
-from typing import Dict, List, Optional, TypeVar, Union
+from typing import Dict, List, Optional, Union
 
 from datahub.emitter.mcp_patch_builder import MetadataPatchProposal
 from datahub.metadata.schema_classes import (
@@ -19,8 +19,6 @@ from datahub.specific.custom_properties import CustomPropertiesPatchHelper
 from datahub.specific.ownership import OwnershipPatchHelper
 from datahub.utilities.urns.tag_urn import TagUrn
 from datahub.utilities.urns.urn import Urn
-
-T = TypeVar("T", bound=MetadataPatchProposal)
 
 
 class ChartPatchBuilder(MetadataPatchProposal):

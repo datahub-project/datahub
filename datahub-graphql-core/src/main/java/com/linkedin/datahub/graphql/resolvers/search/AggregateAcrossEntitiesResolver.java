@@ -70,6 +70,7 @@ public class AggregateAcrossEntitiesResolver
           try {
             return mapAggregateResults(
                 _entityClient.searchAcrossEntities(
+                    context.getOperationContext().withSearchFlags(flags -> searchFlags),
                     maybeResolvedView != null
                         ? SearchUtils.intersectEntityTypes(
                             entityNames, maybeResolvedView.getDefinition().getEntityTypes())
@@ -81,9 +82,7 @@ public class AggregateAcrossEntitiesResolver
                         : inputFilter,
                     0,
                     0, // 0 entity count because we don't want resolved entities
-                    searchFlags,
                     null,
-                    ResolverUtils.getAuthentication(environment),
                     facets));
           } catch (Exception e) {
             log.error(

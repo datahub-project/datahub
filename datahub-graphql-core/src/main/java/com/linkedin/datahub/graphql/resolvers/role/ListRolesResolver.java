@@ -11,7 +11,6 @@ import com.linkedin.datahub.graphql.generated.ListRolesResult;
 import com.linkedin.datahub.graphql.types.role.mappers.DataHubRoleMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
-import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
 import graphql.schema.DataFetcher;
@@ -53,13 +52,12 @@ public class ListRolesResolver implements DataFetcher<CompletableFuture<ListRole
             // First, get all role Urns.
             final SearchResult gmsResult =
                 _entityClient.search(
+                    context.getOperationContext().withSearchFlags(flags -> flags.setFulltext(true)),
                     DATAHUB_ROLE_ENTITY_NAME,
                     query,
                     Collections.emptyMap(),
                     start,
-                    count,
-                    context.getAuthentication(),
-                    new SearchFlags().setFulltext(true));
+                    count);
 
             // Then, get and hydrate all users.
             final Map<Urn, EntityResponse> entities =
