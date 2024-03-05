@@ -114,6 +114,16 @@ module.exports = {
           type: "docsVersionDropdown",
           position: "left",
           dropdownActiveClassDisabled: true,
+            dropdownItemsAfter: [
+                {
+                href: "https://docs-website-irpoe2osc-acryldata.vercel.app/docs/",
+                label: "0.11.0",
+                },
+                {
+                href: "https://docs-website-1gv2yzn9d-acryldata.vercel.app/docs/",
+                label: "0.10.5",
+                },
+            ],
         },
       ],
     },
@@ -210,6 +220,17 @@ module.exports = {
       "@docusaurus/preset-classic",
       {
         docs: {
+          lastVersion: "current",
+          versions: {
+            current: {
+              label: "Next",
+              banner: 'none',
+            },
+            "0.12.0": {
+               label: "0.12.0",
+               banner: 'none',
+            },
+          },
           path: "genDocs",
           sidebarPath: require.resolve("./sidebars.js"),
           ...(!isSaas && {
