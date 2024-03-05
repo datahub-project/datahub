@@ -1642,7 +1642,8 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                 aspect=upstream_lineage,
             )
 
-    def _substitude_tableau_parameters(self, query: str) -> str:
+    @staticmethod
+    def _clean_tableau_query_parameters(query: str) -> str:
         if not query:
             return query
 
@@ -1654,10 +1655,15 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
         #   <[Parameters].[SomeParameterName]>
         #   <Parameters.[SomeParameterName]>
         #   <[Parameters].SomeParameterName>
+        #   <[Parameters].SomeParameter Name>
         #   <Parameters.SomeParameterName>
         #
+        # After, it unescapes (Tableau escapes it)
+        #   >> to >
+        #   << to <
+        #
         return (
-            re.sub(r"\<\[[Pp]arameters\]\.\[?[^\]]+\]?\>", "1", query)
+            re.sub(r"\<\[?[Pp]arameters\]?\.(\[[^\]]+\]|[^\>]+)\>", "1", query)
             .replace("<<", "<")
             .replace(">>", ">")
             .replace("\n\n", "\n")
@@ -1706,7 +1712,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                 f"raw sql query is not available for datasource {datasource_urn}"
             )
             return None
-        query = self._substitude_tableau_parameters(query)
+        query = self._clean_tableau_query_parameters(query)
 
         logger.debug(f"Parsing sql={query}")
 
