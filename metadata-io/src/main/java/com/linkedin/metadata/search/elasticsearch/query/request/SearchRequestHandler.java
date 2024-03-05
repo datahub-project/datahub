@@ -3,10 +3,12 @@ package com.linkedin.metadata.search.elasticsearch.query.request;
 import static com.linkedin.metadata.search.utils.ESUtils.NAME_SUGGESTION;
 import static com.linkedin.metadata.search.utils.ESUtils.applyDefaultSearchFilters;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.DoubleMap;
+import com.linkedin.data.template.StringMap;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
@@ -27,12 +29,14 @@ import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchResultMetadata;
 import com.linkedin.metadata.search.SearchSuggestion;
 import com.linkedin.metadata.search.SearchSuggestionArray;
+import com.linkedin.metadata.search.api.SearchDocFieldFetchConfig;
 import com.linkedin.metadata.search.features.Features;
 import com.linkedin.metadata.search.utils.ESAccessControlUtil;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import io.opentelemetry.extension.annotations.WithSpan;
+import java.io.IOException;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -68,8 +72,9 @@ public class SearchRequestHandler {
   private static final Map<List<EntitySpec>, SearchRequestHandler> REQUEST_HANDLER_BY_ENTITY_NAME =
       new ConcurrentHashMap<>();
   private static final String URN_FILTER = "urn";
-  private static final String[] FIELDS_TO_FETCH = new String[] {"urn", "usageCountLast30Days"};
   private static final String[] URN_FIELD = new String[] {"urn"};
+  private static final ObjectMapper _mapper = new ObjectMapper();
+
   private final List<EntitySpec> entitySpecs;
   private final Set<String> defaultQueryFieldNames;
   private final HighlightBuilder highlights;
@@ -212,7 +217,10 @@ public class SearchRequestHandler {
 
     searchSourceBuilder.from(from);
     searchSourceBuilder.size(size);
-    searchSourceBuilder.fetchSource(FIELDS_TO_FETCH, null);
+    String[] fieldsToFetch =
+        new String[SearchDocFieldFetchConfig.DEFAULT_FIELDS_TO_FETCH_ON_SEARCH.size()];
+    searchSourceBuilder.fetchSource(
+        SearchDocFieldFetchConfig.DEFAULT_FIELDS_TO_FETCH_ON_SEARCH.toArray(fieldsToFetch), null);
 
     BoolQueryBuilder filterQuery = getFilterQuery(opContext, filter);
     searchSourceBuilder.query(
@@ -260,7 +268,8 @@ public class SearchRequestHandler {
       @Nullable String pitId,
       @Nullable String keepAlive,
       int size,
-      @Nullable List<String> facets) {
+      @Nullable List<String> facets,
+      @Nullable SearchDocFieldFetchConfig fieldFetchConfig) {
     SearchFlags searchFlags = opContext.getSearchContext().getSearchFlags();
     SearchRequest searchRequest = new PITAwareSearchRequest();
 
@@ -269,7 +278,10 @@ public class SearchRequestHandler {
     ESUtils.setSearchAfter(searchSourceBuilder, sort, pitId, keepAlive);
 
     searchSourceBuilder.size(size);
-    searchSourceBuilder.fetchSource("urn", null);
+    if (fieldFetchConfig == null) {
+      fieldFetchConfig = new SearchDocFieldFetchConfig();
+    }
+    searchSourceBuilder.fetchSource(fieldFetchConfig.fieldsToFetch().toArray(new String[0]), null);
 
     BoolQueryBuilder filterQuery = getFilterQuery(opContext, filter);
     searchSourceBuilder.query(
@@ -335,14 +347,18 @@ public class SearchRequestHandler {
       @Nullable Filter filters,
       @Nullable SortCriterion sortCriterion,
       int size,
-      String keepAliveDuration) {
+      String keepAliveDuration,
+      @Nullable SearchDocFieldFetchConfig fieldFetchConfig) {
     SearchRequest searchRequest = new SearchRequest();
 
     BoolQueryBuilder filterQuery = getFilterQuery(opContext, filters);
     final SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
     searchSourceBuilder.query(filterQuery);
     searchSourceBuilder.size(size);
-    searchSourceBuilder.fetchSource(URN_FIELD, null);
+    if (fieldFetchConfig == null) {
+      fieldFetchConfig = new SearchDocFieldFetchConfig();
+    }
+    searchSourceBuilder.fetchSource(fieldFetchConfig.fieldsToFetch().toArray(new String[0]), null);
     ESUtils.buildSortOrder(searchSourceBuilder, sortCriterion, entitySpecs);
     searchRequest.source(searchSourceBuilder);
     searchRequest.scroll(keepAliveDuration);
@@ -369,14 +385,18 @@ public class SearchRequestHandler {
       int size,
       String keepAliveDuration,
       @Nullable String pitId,
-      @Nullable Object[] sort) {
+      @Nullable Object[] sort,
+      @Nullable SearchDocFieldFetchConfig fieldFetchConfig) {
     SearchRequest searchRequest = new SearchRequest();
 
     BoolQueryBuilder filterQuery = getFilterQuery(opContext, filters);
     final SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
     searchSourceBuilder.query(filterQuery);
     searchSourceBuilder.size(size);
-    searchSourceBuilder.fetchSource(URN_FIELD, null);
+    if (fieldFetchConfig == null) {
+      fieldFetchConfig = new SearchDocFieldFetchConfig();
+    }
+    searchSourceBuilder.fetchSource(fieldFetchConfig.fieldsToFetch().toArray(new String[0]), null);
     ESUtils.buildSortOrder(searchSourceBuilder, sortCriterion, entitySpecs);
     searchRequest.source(searchSourceBuilder);
     ESUtils.setSearchAfter(searchSourceBuilder, sort, pitId, keepAliveDuration);
@@ -486,7 +506,7 @@ public class SearchRequestHandler {
         new ScrollResult()
             .setEntities(new SearchEntityArray(resultList))
             .setMetadata(searchResultMetadata)
-            .setPageSize(size)
+            .setPageSize(Math.min(size, totalCount))
             .setNumEntities(totalCount);
 
     if (nextScrollId != null) {
@@ -550,12 +570,26 @@ public class SearchRequestHandler {
     return features;
   }
 
+  private StringMap getStringMap(Map<String, Object> sourceAsMap) {
+    StringMap stringMap = new StringMap();
+    sourceAsMap.forEach(
+        (key, value) -> {
+          try {
+            stringMap.put(key, _mapper.writeValueAsString(value));
+          } catch (IOException e) {
+            log.warn("Failed to serialize extra field: " + key, e);
+          }
+        });
+    return stringMap;
+  }
+
   private SearchEntity getResult(@Nonnull SearchHit hit) {
     return new SearchEntity()
         .setEntity(getUrnFromSearchHit(hit))
         .setMatchedFields(new MatchedFieldArray(extractMatchedFields(hit)))
         .setScore(hit.getScore())
-        .setFeatures(new DoubleMap(extractFeatures(hit)));
+        .setFeatures(new DoubleMap(extractFeatures(hit)))
+        .setExtraFields(getStringMap(hit.getSourceAsMap()));
   }
 
   /**

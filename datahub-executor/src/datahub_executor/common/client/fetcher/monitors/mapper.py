@@ -43,13 +43,15 @@ def monitors_to_execution_requests(
         if assertion_specs:
             for assertion_spec in assertion_specs:
                 context = AssertionEvaluationContext(
-                    dry_run=dry_run, monitor_urn=monitor.urn
+                    dry_run=dry_run,
+                    monitor_urn=monitor.urn,
+                    assertion_evaluation_spec=assertion_spec,
                 )
 
                 execution_request = ExecutionRequest(
-                    executor_id=monitor.executor_id
-                    if monitor.executor_id
-                    else "default",
+                    executor_id=(
+                        monitor.executor_id if monitor.executor_id else "default"
+                    ),
                     exec_id=monitor.urn,
                     name=RUN_ASSERTION_TASK_NAME,
                     args={

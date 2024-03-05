@@ -7,6 +7,8 @@ import { ParentSize } from "@visx/responsive";
 
 import { Legend } from '../Legend';
 
+import { abbreviateNumber } from '../utils';
+
 export const BarChart = <Data extends object, DataKeys>({
 	data,
 	dataKeys,
@@ -14,7 +16,7 @@ export const BarChart = <Data extends object, DataKeys>({
 	yAccessor,
 	colorAccessor
 }: {
-	data: Data[];
+	data: any;
 	dataKeys: DataKeys;
 	xAccessor: (d: Data) => string;
 	yAccessor: (d: any, key: string) => string;
@@ -22,8 +24,9 @@ export const BarChart = <Data extends object, DataKeys>({
 }) => {
 	if (!Array.isArray(dataKeys)) throw new Error('Datakeys must be an array');
 
-	const multipleData = data.length > 2;
+	const multipleData = dataKeys.length > 1;
 	const margin = { top: 20, right: 20, bottom: 30, left: 40 };
+	const tickCount = Math.max(1, Math.min(data.length, 10));
 
 	return (
 		<ParentSize>
@@ -39,7 +42,11 @@ export const BarChart = <Data extends object, DataKeys>({
 							yScale={{ type: "linear" }}
 							margin={margin}
 						>
-							<Grid columns={false} numTicks={4} lineStyle={{ stroke: "#EAEAEA" }} />
+							<Grid
+								columns={false}
+								numTicks={tickCount}
+								lineStyle={{ stroke: "#EAEAEA" }}
+							/>
 							{multipleData ? (
 								<BarStack>
 									{dataKeys.map((dK) => (
@@ -69,7 +76,19 @@ export const BarChart = <Data extends object, DataKeys>({
 								tickFormat={(d) => dayjs(d).format('MMM D')}
 								hideAxisLine
 							/>
-							<Axis orientation="left" numTicks={5} hideAxisLine />
+							{/* Left Axis is for COUNT/NUMBER values only */}
+							<Axis
+								orientation="left"
+								numTicks={tickCount}
+								tickLineProps={{ strokeWidth: 1 }}
+								tickFormat={(value) => String(value)}
+								tickComponent={({ x, y, formattedValue }) => (
+									<text x={x} y={y} dy={3} dx={-3} fontSize="10" textAnchor="end">
+										<tspan>{abbreviateNumber(formattedValue)}</tspan>
+									</text>
+								)}
+								hideAxisLine
+							/>
 						</XYChart>
 						<Legend scale={colorAccessor} />
 					</>

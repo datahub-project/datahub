@@ -24,6 +24,8 @@ export const HeaderWrapper = styled(TabToolbar)`
     padding: 17px 15px 19px 24px;
     height: auto;
     box-shadow: none;
+    margin: 0 !important;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
 `;
 
 const TitleContainer = styled.div`

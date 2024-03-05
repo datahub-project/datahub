@@ -48,4 +48,11 @@ record SearchFlags {
    * include restricted entities in results (default is to filter)
    */
    includeRestricted:optional boolean = false
+
+  /**
+    * Extra fields to fetch from the search documents
+    * Note: This will be added on top of the default fields that is controlled
+      by the server
+    */
+  fetchExtraFields: optional array[string] = []
 }

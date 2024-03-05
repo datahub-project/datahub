@@ -36,6 +36,7 @@ export const statusOrdinalScale = scaleOrdinal({
 });
 
 
+
 // private utils to help with rounding y axis numbers
 const NUMERICAL_ABBREVIATIONS = ['k', 'm', 'b', 't']
 function roundToPrecision(n: number, precision: number) {
@@ -54,3 +55,16 @@ export const truncateNumberForDisplay = (n: number): string => {
 	return suffix ? roundToPrecision(n / 1000 ** base, 0) + suffix : `${Math.round(n)}`;
 
 }
+
+// Number Abbreviations
+export const abbreviateNumber = (str) => {
+	const number = parseFloat(str);
+	if (Number.isNaN(number)) return str;
+	if (number < 1000) return number;
+	const abbreviations = ['K', 'M', 'B', 'T'];
+	const index = Math.floor(Math.log10(number) / 3);
+	const suffix = abbreviations[index];
+	const shortNumber = number / 10 ** (index * 3);
+	return `${shortNumber}${suffix}`;
+}
+

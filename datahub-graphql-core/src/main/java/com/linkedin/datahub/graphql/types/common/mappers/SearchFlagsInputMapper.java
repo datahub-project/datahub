@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.types.common.mappers;
 
+import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.generated.SearchFlags;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.metadata.query.GroupingCriterionArray;
@@ -60,6 +61,9 @@ public class SearchFlagsInputMapper
                       searchFlags.getGroupingSpec().getGroupingCriteria().stream()
                           .map(GroupingCriterionInputMapper::map)
                           .collect(Collectors.toList()))));
+    }
+    if (searchFlags.getFetchExtraFields() != null) {
+      result.setFetchExtraFields(new StringArray(searchFlags.getFetchExtraFields()));
     }
     return result;
   }

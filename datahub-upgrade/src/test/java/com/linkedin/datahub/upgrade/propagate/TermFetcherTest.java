@@ -120,7 +120,8 @@ public class TermFetcherTest {
                 Mockito.eq(null),
                 Mockito.eq(1000),
                 Mockito.eq(null),
-                Mockito.eq(ELASTIC_TIMEOUT)))
+                Mockito.eq(ELASTIC_TIMEOUT),
+                Mockito.eq(null)))
         .thenReturn(scrollResult);
 
     SearchEntity datasetSearchEntry3 = new SearchEntity();
@@ -142,7 +143,8 @@ public class TermFetcherTest {
                 Mockito.eq(null),
                 Mockito.eq(1000),
                 Mockito.eq(SCROLL_ID),
-                Mockito.eq(ELASTIC_TIMEOUT)))
+                Mockito.eq(ELASTIC_TIMEOUT),
+                Mockito.eq(null)))
         .thenReturn(scrollResult2);
   }
 }

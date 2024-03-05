@@ -1584,12 +1584,12 @@
           "items" : "Urn"
         }
       },
-      "doc" : "Owners to ownership type map, populated with mutation hook.",
+      "doc" : "Ownership type to Owners map, populated via mutation hook.",
       "default" : { },
       "optional" : true,
       "Searchable" : {
         "/*" : {
-          "fieldType" : "OBJECT",
+          "fieldType" : "MAP_ARRAY",
           "queryByDefault" : false
         }
       }
@@ -5601,11 +5601,17 @@
                   }, {
                     "name" : "type",
                     "type" : "string",
-                    "doc" : "The type of policy"
+                    "doc" : "The type of policy",
+                    "Searchable" : {
+                      "fieldType" : "KEYWORD"
+                    }
                   }, {
                     "name" : "state",
                     "type" : "string",
-                    "doc" : "The state of policy, ACTIVE or INACTIVE"
+                    "doc" : "The state of policy, ACTIVE or INACTIVE",
+                    "Searchable" : {
+                      "fieldType" : "KEYWORD"
+                    }
                   }, {
                     "name" : "resources",
                     "type" : {
@@ -5689,7 +5695,13 @@
                       "type" : "array",
                       "items" : "string"
                     },
-                    "doc" : "The privileges that the policy grants."
+                    "doc" : "The privileges that the policy grants.",
+                    "Searchable" : {
+                      "/*" : {
+                        "addToFilters" : true,
+                        "fieldType" : "KEYWORD"
+                      }
+                    }
                   }, {
                     "name" : "actors",
                     "type" : {
@@ -5756,7 +5768,10 @@
                     "name" : "editable",
                     "type" : "boolean",
                     "doc" : "Whether the policy should be editable via the UI",
-                    "default" : true
+                    "default" : true,
+                    "Searchable" : {
+                      "fieldType" : "BOOLEAN"
+                    }
                   }, {
                     "name" : "lastUpdatedTimestamp",
                     "type" : "long",
@@ -6192,6 +6207,15 @@
       "doc" : "include restricted entities in results (default is to filter)",
       "default" : false,
       "optional" : true
+    }, {
+      "name" : "fetchExtraFields",
+      "type" : {
+        "type" : "array",
+        "items" : "string"
+      },
+      "doc" : "Extra fields to fetch from the search documents\nNote: This will be added on top of the default fields that is controlled\n      by the server",
+      "default" : [ ],
+      "optional" : true
     } ]
   }, {
     "type" : "enum",
@@ -6525,6 +6549,14 @@
                 "items" : "string"
               },
               "doc" : "A list of the the restricted aspects on the entity.\nIf the key aspect is present, assume ALL aspects should be restricted including the entity's Urn.",
+              "optional" : true
+            }, {
+              "name" : "extraFields",
+              "type" : {
+                "type" : "map",
+                "values" : "string"
+              },
+              "doc" : "Extra fields from the search document based on what is requested in the search request",
               "optional" : true
             } ]
           } ],

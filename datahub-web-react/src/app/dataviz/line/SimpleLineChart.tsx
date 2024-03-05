@@ -39,7 +39,7 @@ export const SimpleLineChart = ({ data }: Props) => {
           });
 
           const yScale = scaleLinear<number>({
-            range: [height - 2, 5],
+            range: [height / 2, 5],
             domain: [0, (max(data, getValue) || 0) as number],
             nice: true,
           });
@@ -58,7 +58,7 @@ export const SimpleLineChart = ({ data }: Props) => {
                 x={(d: Data) => xScale(getDate(d)) ?? 0}
                 y={(d: Data) => yScale(getValue(d)) ?? 0}
                 curve={curveCatmullRom}
-                markerStart={markerEnd}
+                markerEnd={markerEnd}
                 stroke="url(#gradient)"
               />
             </svg>

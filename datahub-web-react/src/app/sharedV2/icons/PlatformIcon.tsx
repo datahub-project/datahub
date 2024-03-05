@@ -53,21 +53,21 @@ const PlatformIcon: React.FC<PlatformIconProps> = ({
         <IconContainer background={background} styles={styles} title={title}>
             {logoUrl ? (
                 <PreviewImage
-                    size={size}
+                    crossOrigin="anonymous"
                     ref={imgRef}
-                    onLoad={() => {
-                        const colorThief = new ColorThief();
-                        const img = imgRef.current;
-                        if (img) {
-                            img.crossOrigin = 'anonymous';
-                        }
-                        const result = colorThief.getColor(img, 25);
-                        const lighterColor = getLighterRGBColor(result[0], result[1], result[2]);
-                        setBackground(`rgb(${lighterColor[0]}, ${lighterColor[1]}, ${lighterColor[2]})`);
-                    }}
                     src={logoUrl}
                     alt={alt}
+                    size={size}
                     imageStyles={imageStyles}
+                    onLoad={() => {
+                        const img = imgRef.current;
+                        if (img && img.width > 0 && img.height > 0) {
+                            const colorThief = new ColorThief();
+                            img.crossOrigin = 'anonymous';
+                            const [r, g, b] = colorThief.getColor(img, 25);
+                            setBackground(`rgb(${getLighterRGBColor(r, g, b).join(', ')})`);
+                        }
+                    }}
                 />
             ) : (
                 entityRegistry.getIcon(entityType, size, IconStyleType.ACCENT)

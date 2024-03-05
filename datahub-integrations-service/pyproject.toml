@@ -20,6 +20,11 @@ dependencies = [
 	"acryl-datahub-actions==0.0.14",
 	"openai",
 	"openai_function_call",
+	"duckdb",
+	"pandas",
+	"boto3",
+	"pyarrow",
+	"jinja2"
 ]
 
 [project.optional-dependencies]
@@ -31,6 +36,7 @@ dev = [
 	"pytest-cov",
 	"types-setuptools",
 	"isort",
+	"faker",
 ]
 
 [tool.black]

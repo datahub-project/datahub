@@ -4,6 +4,17 @@ extend type Query {
     Right now this query gets forms for the requesting user.
     """
     getFormsForActor(input: GetFormsForActorInput): GetFormsForActorResult!
+
+    """
+    Get analytics for all forms
+    """
+    formAnalytics(input: FormAnalyticsInput!): FormAnalyticsResponse
+
+    """
+    Get configuration information for the form analytics
+    """
+    formAnalyticsConfig: FormAnalyticsConfig
+
 }
 
 extend type Mutation {
@@ -121,4 +132,113 @@ input FormFilter {
     If left empty, get entities regardless of whether a specific prompt is complete.
     """
     isPromptComplete: Boolean
+}
+
+
+input Param {
+    """
+    The name of the parameter
+    """
+    name: String!
+
+    """
+    The value of the parameter
+    """
+    value: String!
+
+}
+
+input FormAnalyticsInput {
+
+    """
+    A SQL query string for executing a form analytics query.
+    Optional: because in the future we want to allow you to also
+    just provide a named query directly
+    """
+    queryString: String
+
+    """
+    The parameters for the form analytics query
+    """
+    params: [Param!]
+
+}
+
+type FormAnalyticsRow {
+
+    """
+    The row of data for the form analytics. This is a list of nullable strings
+    """
+    row: [String]!
+
+    """
+    The row of data for the form analytics
+    """
+    richRow: [RowResult!]!
+
+}
+
+type RowResult {
+    """
+    The value of this row entry.
+    Null values indicate that the value of the column is null
+    """
+    value: String
+
+    """
+    The entity corresponding to the value of this row entry - will only be populated if the value is an entity urn
+    """
+    entity: Entity
+}
+
+type FormAnalyticsError {
+    """
+    The error message. Meant for human consumption
+    """
+    message: String!
+
+    """
+    The error code. Meant for programmatic use
+    """
+    code: String
+
+    """
+    A list of parameters for the error
+    """
+    parameters: [String]
+}
+
+
+type FormAnalyticsResponse {
+
+    header: [String!]
+    table: [FormAnalyticsRow!]
+    errors: [FormAnalyticsError!]
+
+}
+
+type FormAnalyticsConfig {
+
+    """
+    Whether form analytics is enabled
+    """
+    enabled: Boolean
+
+    """
+    The urn of the dataset being used for form analytics
+    """
+    datasetUrn: String
+
+    """
+    The physical uri of the dataset where it should be stored.
+    This is the location where the dataset will be stored in the data lake.
+    This can be a pre-signed url or a direct path to the dataset.
+    """
+    datasetUri: String
+
+    """
+    Any errors that occurred while trying to fetch the form analytics config
+    """
+    errors: [FormAnalyticsError!]
+
 }

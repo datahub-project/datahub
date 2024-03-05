@@ -36,6 +36,10 @@ export enum PageRoutes {
     SETTINGS_POSTS = '/settings/posts',
 }
 
+export enum AcrylPageRoutes {
+    INTRODUCE = '/introduce',
+}
+
 /**
  * Name of the auth cookie checked on client side (contains the currently authenticated user urn).
  */

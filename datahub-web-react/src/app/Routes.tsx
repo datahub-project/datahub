@@ -1,6 +1,7 @@
 import React from 'react';
 import { Switch, Route, RouteProps } from 'react-router-dom';
 import { useReactiveVar } from '@apollo/client';
+import AcrylApp from './AcrylApp';
 import { LogIn } from './auth/LogIn';
 import { SignUp } from './auth/SignUp';
 import { ResetCredentials } from './auth/ResetCredentials';
@@ -41,7 +42,9 @@ export const Routes = (): JSX.Element => {
                 isLoggedIn={isLoggedIn}
                 render={() => (
                     <AppProviders>
-                        <ProtectedRoutes />
+                        <AcrylApp>
+                            <ProtectedRoutes />
+                        </AcrylApp>
                     </AppProviders>
                 )}
             />

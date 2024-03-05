@@ -114,7 +114,8 @@ public class EvaluateTestsStep implements UpgradeStep {
                     null,
                     batchSize,
                     nextScrollId,
-                    ELASTIC_TIMEOUT);
+                    ELASTIC_TIMEOUT,
+                    null);
             nextScrollId = scrollResult.getScrollId();
             context
                 .report()

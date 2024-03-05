@@ -34,7 +34,7 @@ const Navigation = styled.div`
 const Content = styled.div`
     z-index: 12;
     border-radius: 8px;
-    margin-top: 60px;
+    margin-top: 72px;
     flex: 1;
     display: flex;
     flex-direction: column;

@@ -12,31 +12,62 @@ import { useUserContext } from './context/useUserContext';
  * If theme v2 is enabled globally, it will take precedence over the user's settings.
  */
 export function useIsThemeV2Enabled() {
-    const isThemeV2EnabledGlobally = useIsThemeV2EnabledGlobally();
-    const isThemeV2EnabledForUser = useIsThemeV2EnabledForUser();
-    const isThemeV2Enabled = isThemeV2EnabledGlobally || isThemeV2EnabledForUser;
-    // Update the global theme to v2 if the feature flag is enabled.
-    const { updateTheme } = useCustomTheme();
-    useEffect(() => {
-        if (isThemeV2Enabled) {
-            import('../conf/theme/theme_acryl_v2.config.json').then((theme) => updateTheme(theme));
-        }
-    }, [isThemeV2Enabled, updateTheme]);
-    return isThemeV2Enabled;
+    const [isThemeV2EnabledGlobally, isGlobalLoaded] = useIsThemeV2EnabledGlobally();
+    const [isThemeV2EnabledForUser, isUserLoaded] = useIsThemeV2EnabledForUser();
+
+    if (isGlobalLoaded && isThemeV2EnabledGlobally) {
+        return true;
+    }
+    if (isUserLoaded) {
+        return isThemeV2EnabledForUser;
+    }
+
+    // Default before flags loaded is stored in local storage
+    return loadFromLocalStorage();
 }
 
 /**
- * Returns true if Theme V2 is enabled for the current user.
+ * Returns [isThemeV2EnabledForUser, isUserLoaded]
  */
-export function useIsThemeV2EnabledForUser() {
+export function useIsThemeV2EnabledForUser(): [boolean, boolean] {
     const { user } = useUserContext();
-    return !!user?.settings?.appearance?.showThemeV2;
+    return [!!user?.settings?.appearance?.showThemeV2, !!user];
 }
 
 /**
- * Returns true if Theme V2 is globally enabled, which means that it is fully production.
+ * Returns [isThemeV2EnabledGlobally, isAppConfigLoaded]
  */
-export function useIsThemeV2EnabledGlobally() {
+export function useIsThemeV2EnabledGlobally(): [boolean, boolean] {
     const appConfig = useAppConfig();
-    return appConfig.config.featureFlags.themeV2;
+    return [appConfig.config.featureFlags.themeV2, appConfig.loaded];
+}
+
+export function useSetThemeIsV2() {
+    const isThemeV2 = useIsThemeV2Enabled();
+    const { updateTheme } = useCustomTheme();
+
+    useEffect(() => {
+        if (isThemeV2) {
+            import('../conf/theme/theme_acryl_v2.config.json').then((theme) => updateTheme(theme));
+        } else {
+            import('../conf/theme/theme_acryl.config.json').then((theme) => updateTheme(theme));
+        }
+        setThemeV2LocalStorage(isThemeV2);
+    }, [isThemeV2, updateTheme]);
+}
+
+function setThemeV2LocalStorage(isThemeV2: boolean) {
+    if (loadFromLocalStorage()) {
+        saveToLocalStorage(isThemeV2);
+    }
+}
+
+const THEME_V2_STATUS_KEY = 'isThemeV2Enabled';
+
+function loadFromLocalStorage(): boolean {
+    return localStorage.getItem(THEME_V2_STATUS_KEY) === 'true';
+}
+
+function saveToLocalStorage(isThemeV2: boolean) {
+    localStorage.setItem(THEME_V2_STATUS_KEY, String(isThemeV2));
 }

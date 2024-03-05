@@ -44,7 +44,7 @@ parameters = AssertionEvaluationParameters(
 )
 schedule = CronSchedule(cron="* * * * *", timezone="America/Los_Angeles")
 assertion_spec = AssertionEvaluationSpec(
-    assertion=assertion, schedule=schedule, parameters=parameters
+    assertion=assertion, schedule=schedule, parameters=parameters, context=None
 )
 
 

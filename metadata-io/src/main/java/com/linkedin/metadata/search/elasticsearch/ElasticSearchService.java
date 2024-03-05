@@ -13,6 +13,7 @@ import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.search.api.SearchDocFieldFetchConfig;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.EntityIndexBuilders;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
@@ -213,7 +214,8 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
       @Nullable SortCriterion sortCriterion,
       int size,
       @Nullable String scrollId,
-      @Nonnull String keepAliveDuration) {
+      @Nonnull String keepAliveDuration,
+      @Nullable SearchDocFieldFetchConfig fetchConfig) {
     log.debug(
         "Filtering Search documents entityName: {}, filters: {}, sortCriterion: {}, size: {}, scrollId: {}",
         entities,
@@ -222,7 +224,14 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
         size,
         scrollId);
     return esSearchDAO.scroll(
-        opContext, entities, filters, sortCriterion, size, scrollId, keepAliveDuration);
+        opContext,
+        entities,
+        filters,
+        sortCriterion,
+        size,
+        scrollId,
+        keepAliveDuration,
+        fetchConfig);
   }
 
   @Nonnull
@@ -361,7 +370,7 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
       int size) {
     log.debug(
         String.format(
-            "Scrolling Structured Search documents entities: %s, input: %s, postFilters: %s, sortCriterion: %s, scrollId: %s, size: %s",
+            "Scrolling Full Text Search documents entities: %s, input: %s, postFilters: %s, sortCriterion: %s, scrollId: %s, size: %s",
             entities, input, postFilters, sortCriterion, scrollId, size));
 
     return esSearchDAO.scroll(
@@ -391,7 +400,7 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
       int size) {
     log.debug(
         String.format(
-            "Scrolling FullText Search documents entities: %s, input: %s, postFilters: %s, sortCriterion: %s, scrollId: %s, size: %s",
+            "Scrolling Structured Search documents entities: %s, input: %s, postFilters: %s, sortCriterion: %s, scrollId: %s, size: %s",
             entities, input, postFilters, sortCriterion, scrollId, size));
 
     return esSearchDAO.scroll(

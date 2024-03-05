@@ -57,6 +57,7 @@ public class UpsertConnectionResolverTest {
     input.setId(connectionUrn.getId());
     input.setPlatformUrn(platformUrn.toString());
     input.setType(DataHubConnectionDetailsType.JSON);
+    input.setName("test-name");
     input.setJson(new DataHubJsonConnectionInput("{}"));
 
     QueryContext mockContext = getMockAllowContext();
@@ -77,7 +78,7 @@ public class UpsertConnectionResolverTest {
             Mockito.eq(platformUrn),
             Mockito.eq(details.getType()),
             Mockito.eq(details.getJson()),
-            Mockito.eq(null),
+            Mockito.any(String.class),
             Mockito.any(Authentication.class)))
         .thenReturn(connectionUrn);
     when(connectionService.getConnectionEntityResponse(

@@ -22,6 +22,37 @@ query getMetadataAnalyticsCharts($input: MetadataAnalyticsInput!) {
     }
 }
 
+query FormAnalytics($input: FormAnalyticsInput!){
+  formAnalytics(input:$input) {
+    header
+    table {
+      row
+      richRow {
+        value
+        entity {
+            urn
+            type
+            ... on Form {
+                info {
+                    name
+                }
+            }
+            ... on Domain {
+                properties {
+                    name
+                }
+            }
+            ... on CorpUser {
+                properties {
+                    displayName
+                }
+            }
+        }
+      }
+    }
+  }
+}
+
 fragment analyticsChart on AnalyticsChart {
     ... on TimeSeriesChart {
         title

@@ -82,7 +82,8 @@ public class MigrateAssertionsSummaryStep extends UpgradeStep {
               null,
               BATCH_SIZE,
               nextScrollId,
-              _configurationProvider.getElasticSearch().getScroll().getTimeout());
+              _configurationProvider.getElasticSearch().getScroll().getTimeout(),
+              null);
       nextScrollId = scrollResult.getScrollId();
 
       List<Urn> assertionsInBatch =

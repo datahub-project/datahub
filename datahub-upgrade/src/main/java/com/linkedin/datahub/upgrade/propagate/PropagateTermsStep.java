@@ -170,7 +170,8 @@ public class PropagateTermsStep implements UpgradeStep {
                 null,
                 1000,
                 nextScrollId,
-                PropagateTerms.ELASTIC_TIMEOUT);
+                PropagateTerms.ELASTIC_TIMEOUT,
+                null);
         nextScrollId = scrollResult.getScrollId();
         context.report().addLine(String.format("Processing batch %d", batch));
         int numAspectsProducedInBatch =

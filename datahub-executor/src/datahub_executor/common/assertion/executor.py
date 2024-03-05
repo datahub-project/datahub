@@ -48,9 +48,11 @@ class AssertionExecutor:
         assertion_spec = AssertionEvaluationSpec.parse_obj(
             execution_request.args["assertion_spec"]
         )
+
         context = AssertionEvaluationContext(
             dry_run=execution_request.args["context"]["dry_run"],
             monitor_urn=execution_request.args["context"]["monitor_urn"],
+            assertion_evaluation_spec=assertion_spec,
         )
 
         self.engine.evaluate(

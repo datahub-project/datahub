@@ -326,6 +326,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
                       null,
                       "5m",
                       10,
+                      null,
                       null)
                   .source()
                   .query();
@@ -401,6 +402,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
                       null,
                       "5m",
                       10,
+                      null,
                       null)
                   .source()
                   .query();

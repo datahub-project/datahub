@@ -71,6 +71,10 @@ services:
     <<: *datahub-integrations-service-dev-head
     profiles:
       - debug-pyservices
+  datahub-integrations-quickstart-head:
+    <<: *datahub-integrations-service
+    profiles:
+      - head-pyservices
   #################################
   # Executor Service
   #################################

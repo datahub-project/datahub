@@ -145,6 +145,10 @@ export const DescriptionEditor = ({ onComplete }: DescriptionEditorProps) => {
             });
     }
 
+    function handleCancel() {
+        if (onComplete) onComplete();
+    };
+
     // Function to handle all changes in Editor
     const handleEditorChange = (editedDescription: string) => {
         setUpdatedDescription(editedDescription);
@@ -153,13 +157,6 @@ export const DescriptionEditor = ({ onComplete }: DescriptionEditorProps) => {
         } else {
             setIsDescriptionUpdated(true);
         }
-    };
-
-    // Handling the Discard Modal
-    const handleConfirmClose = (showConfirm: boolean | undefined = true) => {
-        if (showConfirm && isDescriptionUpdated) {
-            setConfirmCloseModalVisible(true);
-        } else if (onComplete) onComplete();
     };
 
     const handleCloseWithoutSaving = () => {
@@ -176,19 +173,19 @@ export const DescriptionEditor = ({ onComplete }: DescriptionEditorProps) => {
 
     return entityData ? (
         <>
-            <DescriptionEditorToolbar
-                onSave={handleSave}
-                onPropose={proposeUpdate}
-                onClose={handleConfirmClose}
-                disableSave={!isDescriptionUpdated}
-                showPropose={shouldShowProposeButton}
-            />
             <EditorSourceWrapper>
                 <EditorContainer>
                     <Editor content={updatedDescription} onChange={handleEditorChange} />
                 </EditorContainer>
                 <SourceDescription />
             </EditorSourceWrapper>
+            <DescriptionEditorToolbar
+                onSave={handleSave}
+                onPropose={proposeUpdate}
+                onCancel={handleCancel}
+                disableSave={!isDescriptionUpdated}
+                showPropose={shouldShowProposeButton}
+            />
             {confirmCloseModalVisible && (
                 <DiscardDescriptionModal
                     cancelModalVisible={confirmCloseModalVisible}

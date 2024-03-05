@@ -14,6 +14,7 @@ import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.query.AutoCompleteResult;
+import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.AggregationMetadata;
@@ -21,6 +22,7 @@ import com.linkedin.metadata.search.AggregationMetadataArray;
 import com.linkedin.metadata.search.FilterValueArray;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.search.api.SearchDocFieldFetchConfig;
 import com.linkedin.metadata.search.elasticsearch.query.request.AggregationQueryBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.request.AutocompleteRequestHandler;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchAfterWrapper;
@@ -33,9 +35,11 @@ import io.opentelemetry.extension.annotations.WithSpan;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
@@ -385,7 +389,8 @@ public class ESSearchDAO {
       @Nullable SortCriterion sortCriterion,
       int size,
       @Nullable String scrollId,
-      @Nonnull String keepAliveDuration) {
+      @Nonnull String keepAliveDuration,
+      @Nullable SearchDocFieldFetchConfig searchDocFieldFetchConfig) {
     List<EntitySpec> entitySpecs =
         entities.stream()
             .map(specName -> aspectRetriever.getEntityRegistry().getEntitySpec(specName))
@@ -415,7 +420,14 @@ public class ESSearchDAO {
         SearchRequestHandler.getBuilder(
                 entitySpecs, searchConfiguration, customSearchConfiguration, aspectRetriever)
             .getSearchAfterRequest(
-                opContext, filters, sortCriterion, size, keepAliveDuration, pitId, sort);
+                opContext,
+                filters,
+                sortCriterion,
+                size,
+                keepAliveDuration,
+                pitId,
+                sort,
+                searchDocFieldFetchConfig);
 
     // PIT specifies indices in creation so it doesn't support specifying indices on the request, so
     // we only specify if not using PIT
@@ -608,7 +620,14 @@ public class ESSearchDAO {
     } else if (supportsPointInTime() && keepAlive != null) {
       pitId = createPointInTime(indexArray, keepAlive);
     }
-
+    SearchDocFieldFetchConfig searchDocFieldFetchConfig = null;
+    SearchFlags searchFlags = opContext.getSearchContext().getSearchFlags();
+    if (searchFlags != null && searchFlags.getFetchExtraFields() != null) {
+      Set<String> allFieldsToFetch =
+          new HashSet<>(SearchDocFieldFetchConfig.DEFAULT_FIELDS_TO_FETCH_ON_SCROLL);
+      allFieldsToFetch.addAll(searchFlags.getFetchExtraFields());
+      searchDocFieldFetchConfig = new SearchDocFieldFetchConfig().fieldsToFetch(allFieldsToFetch);
+    }
     return SearchRequestHandler.getBuilder(
             entitySpecs, searchConfiguration, customSearchConfiguration, aspectRetriever)
         .getSearchRequest(
@@ -620,7 +639,8 @@ public class ESSearchDAO {
             pitId,
             keepAlive,
             size,
-            facets);
+            facets,
+            searchDocFieldFetchConfig);
   }
 
   public Optional<SearchResponse> raw(@Nonnull String indexName, @Nullable String jsonQuery) {
