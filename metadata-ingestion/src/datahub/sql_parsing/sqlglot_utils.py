@@ -96,7 +96,7 @@ def generalize_query(expression: sqlglot.exp.ExpOrStr, dialect: DialectOrStr) ->
         # Replace all literals in the expressions with a single placeholder.
         is_last_literal = True
         for i, expression in reversed(list(enumerate(node.expressions))):
-            if isinstance(expression, (sqlglot.exp.Literal)):
+            if isinstance(expression, sqlglot.exp.Literal):
                 if is_last_literal:
                     node.expressions[i] = sqlglot.exp.Placeholder()
                     is_last_literal = False
