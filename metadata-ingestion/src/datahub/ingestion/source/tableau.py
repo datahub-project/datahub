@@ -383,7 +383,7 @@ class TableauConfig(
         description="[Experimental] Force extraction of lineage from custom sql queries using SQL parsing, ignoring Tableau metadata",
     )
 
-    disable_schema_awarenes_during_parsing_of_sql_queries: bool = Field(
+    sql_parsing_disable_schema_awareness: bool = Field(
         default=False,
         description="[Experimental] Ignore pre ingested tables schemas during parsing of SQL queries "
         "(allows to workaround ingestion errors when pre ingested schema and queries are out of sync)",
@@ -1738,7 +1738,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
             platform_instance=platform_instance,
             env=env,
             graph=self.ctx.graph,
-            schema_aware=not self.config.disable_schema_awarenes_during_parsing_of_sql_queries,
+            schema_aware=not self.config.sql_parsing_disable_schema_awareness,
         )
 
     def _enrich_database_tables_with_parsed_schemas(

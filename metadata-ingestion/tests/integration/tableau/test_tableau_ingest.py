@@ -320,7 +320,7 @@ def test_tableau_cll_ingest(pytestconfig, tmp_path, mock_datahub_graph):
         **config_source_default,
         "extract_lineage_from_unsupported_custom_sql_queries": True,
         "force_extraction_of_lineage_from_custom_sql_queries": False,
-        "disable_schema_awarenes_during_parsing_of_sql_queries": False,
+        "sql_parsing_disable_schema_awareness": False,
         "extract_column_level_lineage": True,
     }
 
