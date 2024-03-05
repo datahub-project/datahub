@@ -5,7 +5,7 @@ import * as QueryString from 'query-string';
 import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import { useLocation } from 'react-router';
 import PolicyBuilderModal from './PolicyBuilderModal';
-import { AndFilterInput, Policy, PolicyState } from '../../../types.generated';
+import { AndFilterInput, Policy, PolicyState,FilterOperator } from '../../../types.generated';
 import { useAppConfig } from '../../useAppConfig';
 import PolicyDetailsModal from './PolicyDetailsModal';
 import { useListPoliciesQuery } from '../../../graphql/policy.generated';
@@ -22,7 +22,6 @@ import analytics, { EventType } from '../../analytics';
 import { POLICIES_CREATE_POLICY_ID, POLICIES_INTRO_ID } from '../../onboarding/config/PoliciesOnboardingConfig';
 import { OnboardingTour } from '../../onboarding/OnboardingTour';
 import { usePolicy } from './usePolicy';
-import { FilterOperator } from '../../../types.generated';
 
 const SourceContainer = styled.div`
     overflow: auto;
