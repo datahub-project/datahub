@@ -143,7 +143,7 @@ class RedshiftConfig(
     )
 
     patch_custom_properties: bool = Field(
-        default=False,
+        default=True,
         description="Whether to patch custom properties on existing datasets rather than replace.",
     )
 
