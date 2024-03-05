@@ -588,12 +588,15 @@ class SnowflakeQuery:
                         query_id,
                         query_start_time,
                         user_name,
-                        NVL(USERS.email, CONCAT(user_name, '{email_domain}')) AS user_email,
+                        -- Construct the email in the query, should match the Python behavior.
+                        -- The user_email is only used by the email_filter_query.
+                        NVL(USERS.email, CONCAT(LOWER(user_name), '{email_domain}')) AS user_email,
                         {objects_column}
                     from
                         snowflake.account_usage.access_history
                     LEFT JOIN
                         snowflake.account_usage.users USERS
+                        ON user_name = users.name
                     WHERE
                         query_start_time >= to_timestamp_ltz({start_time_millis}, 3)
                         AND query_start_time < to_timestamp_ltz({end_time_millis}, 3)

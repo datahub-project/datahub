@@ -38,7 +38,7 @@ const deploymentGuideContent = [
   {
     title: "Managed DataHub",
     platformIcon: "acryl",
-    to: "docs/saas",
+    to: "docs/managed-datahub/managed-datahub-overview",
   },
   {
     title: "Docker",

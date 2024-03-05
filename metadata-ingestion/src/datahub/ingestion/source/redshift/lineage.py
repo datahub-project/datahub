@@ -766,7 +766,7 @@ class RedshiftLineageExtractor:
         table: Union[RedshiftTable, RedshiftView],
         dataset_urn: str,
         schema: RedshiftSchema,
-    ) -> Optional[Tuple[UpstreamLineageClass, Dict[str, str]]]:
+    ) -> Optional[UpstreamLineageClass]:
         upstream_lineage: List[UpstreamClass] = []
 
         cll_lineage: List[FineGrainedLineage] = []
@@ -811,11 +811,9 @@ class RedshiftLineageExtractor:
         else:
             return None
 
-        return (
-            UpstreamLineage(
-                upstreams=upstream_lineage, fineGrainedLineages=cll_lineage or None
-            ),
-            {},
+        return UpstreamLineage(
+            upstreams=upstream_lineage,
+            fineGrainedLineages=cll_lineage or None,
         )
 
     def report_status(self, step: str, status: bool) -> None:

@@ -256,11 +256,10 @@ public class PolicyEngine {
   }
 
   /**
-   * Returns true if the actor portion of a DataHub policy matches a the actor being evaluated,
-   * false otherwise. Returns true if the actor portion of a DataHub policy matches a the actor
-   * being evaluated, false otherwise.
+   * Returns true if the actor portion of a DataHub policy matches the actor being evaluated, false
+   * otherwise.
    */
-  private boolean isActorMatch(
+  boolean isActorMatch(
       final ResolvedEntitySpec resolvedActorSpec,
       final DataHubActorFilter actorFilter,
       final Optional<ResolvedEntitySpec> resourceSpec,

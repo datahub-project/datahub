@@ -30,6 +30,7 @@ import com.linkedin.metadata.service.FormService;
 import com.linkedin.metadata.service.LineageService;
 import com.linkedin.metadata.service.OwnershipTypeService;
 import com.linkedin.metadata.service.QueryService;
+import com.linkedin.metadata.service.RestrictedService;
 import com.linkedin.metadata.service.SettingsService;
 import com.linkedin.metadata.service.ViewService;
 import com.linkedin.metadata.timeline.TimelineService;
@@ -77,6 +78,7 @@ public class GmsGraphQLEngineArgs {
   DataProductService dataProductService;
   ERModelRelationService eRModelRelationService;
   FormService formService;
+  RestrictedService restrictedService;
   int graphQLQueryComplexityLimit;
   int graphQLQueryDepthLimit;
 

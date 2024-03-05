@@ -503,8 +503,8 @@ class EntityAspectName:
 class AspectPluginConfig:
     className: str
     enabled: bool
-    supportedOperations: List[str]
     supportedEntityAspectNames: List[EntityAspectName]
+    supportedOperations: Optional[List[str]] = None
 
 
 @dataclass
