@@ -175,9 +175,9 @@ class DbtTestConfig:
             "dbt-column-meta-mapping",  # this also tests snapshot support
             "dbt_test_column_meta_mapping.json",
             "dbt_test_column_meta_mapping_golden.json",
-            catalog_file="sample_dbt_catalog.json",
-            manifest_file="sample_dbt_manifest.json",
-            sources_file="sample_dbt_sources.json",
+            catalog_file="sample_dbt_catalog_1.json",
+            manifest_file="sample_dbt_manifest_1.json",
+            sources_file="sample_dbt_sources_1.json",
             source_config_modifiers={
                 "enable_meta_mapping": True,
                 "column_meta_mapping": {
