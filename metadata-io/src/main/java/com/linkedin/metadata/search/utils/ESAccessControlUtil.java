@@ -177,7 +177,7 @@ public class ESAccessControlUtil {
     DataHubActorFilter actorFilter = policy.getActors();
 
     if (!policy.hasActors()
-        || !(actorFilter.isResourceOwners() || actorFilter.hasResourceOwnersTypes())) {
+        || !(actorFilter.isResourceOwners() || hasResourceOwnersType(actorFilter))) {
       // no owner restriction
       return MATCH_ALL;
     }
@@ -189,11 +189,10 @@ public class ESAccessControlUtil {
         Stream.concat(
                 Stream.of(actorContext.getAuthentication().getActor().toUrnStr()),
                 actorContext.getGroupMembership().stream().map(Urn::toString))
-            .map(String::toLowerCase)
             .distinct()
             .collect(Collectors.toList());
 
-    if (!actorFilter.hasResourceOwnersTypes()) {
+    if (!hasResourceOwnersType(actorFilter)) {
       // owners without owner type restrictions
       return QueryBuilders.termsQuery(
           ESUtils.toKeywordField(MappingsBuilder.OWNERS_FIELD, false), actorAndGroupUrns);
@@ -218,6 +217,12 @@ public class ESAccessControlUtil {
 
       return orQuery;
     }
+  }
+
+  private static boolean hasResourceOwnersType(DataHubActorFilter actorFilter) {
+    return actorFilter.hasResourceOwnersTypes()
+        || (actorFilter.getResourceOwnersTypes() != null
+            && !actorFilter.getResourceOwnersTypes().isEmpty());
   }
 
   private static Stream<TermsQueryBuilder> buildResourceQuery(

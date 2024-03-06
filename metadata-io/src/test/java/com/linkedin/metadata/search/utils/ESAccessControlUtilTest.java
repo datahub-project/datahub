@@ -39,8 +39,8 @@ public class ESAccessControlUtilTest {
   private static final Urn TEST_GROUP_A = UrnUtils.getUrn("urn:li:corpGroup:a");
   private static final Urn TEST_GROUP_B = UrnUtils.getUrn("urn:li:corpGroup:b");
   private static final Urn TEST_GROUP_C = UrnUtils.getUrn("urn:li:corpGroup:c");
-  private static final Urn TEST_USER_A = UrnUtils.getUrn("urn:li:corpUser:a");
-  private static final Urn TEST_USER_B = UrnUtils.getUrn("urn:li:corpUser:b");
+  private static final Urn TEST_USER_A = UrnUtils.getUrn("urn:li:corpuser:a");
+  private static final Urn TEST_USER_B = UrnUtils.getUrn("urn:li:corpuser:b");
   private static final Urn TECH_OWNER =
       UrnUtils.getUrn("urn:li:ownershipType:__system__technical_owner");
   private static final Urn BUS_OWNER =
@@ -452,9 +452,9 @@ public class ESAccessControlUtilTest {
                     QueryBuilders.termsQuery(
                         "owners.keyword",
                         List.of(
-                            TEST_USER_A.toString().toLowerCase(),
-                            TEST_GROUP_A.toString().toLowerCase(),
-                            TEST_GROUP_C.toString().toLowerCase())))
+                            TEST_USER_A.toString(),
+                            TEST_GROUP_A.toString(),
+                            TEST_GROUP_C.toString())))
                 .minimumShouldMatch(1)),
         "Expected user filter for owners without group filter");
 
@@ -478,9 +478,9 @@ public class ESAccessControlUtilTest {
                     QueryBuilders.termsQuery(
                         "owners.keyword",
                         List.of(
-                            TEST_USER_A.toString().toLowerCase(),
-                            TEST_GROUP_A.toString().toLowerCase(),
-                            TEST_GROUP_C.toString().toLowerCase())))
+                            TEST_USER_A.toString(),
+                            TEST_GROUP_A.toString(),
+                            TEST_GROUP_C.toString())))
                 .minimumShouldMatch(1)),
         "Expected user AND group filter for owners");
   }
@@ -509,9 +509,9 @@ public class ESAccessControlUtilTest {
                                     + OwnerTypeMap.encodeFieldName(BUS_OWNER.toString())
                                     + ".keyword",
                                 List.of(
-                                    TEST_USER_A.toString().toLowerCase(),
-                                    TEST_GROUP_A.toString().toLowerCase(),
-                                    TEST_GROUP_C.toString().toLowerCase())))
+                                    TEST_USER_A.toString(),
+                                    TEST_GROUP_A.toString(),
+                                    TEST_GROUP_C.toString())))
                         .minimumShouldMatch(1))
                 .minimumShouldMatch(1)),
         "Expected user filter for business owner via user or group urn");
@@ -540,9 +540,9 @@ public class ESAccessControlUtilTest {
                                     + OwnerTypeMap.encodeFieldName(BUS_OWNER.toString())
                                     + ".keyword",
                                 List.of(
-                                    TEST_USER_A.toString().toLowerCase(),
-                                    TEST_GROUP_A.toString().toLowerCase(),
-                                    TEST_GROUP_C.toString().toLowerCase())))
+                                    TEST_USER_A.toString(),
+                                    TEST_GROUP_A.toString(),
+                                    TEST_GROUP_C.toString())))
                         .minimumShouldMatch(1))
                 .minimumShouldMatch(1)),
         "Expected user filter for `business owner` by owner user/group A urn (excluding other user/group B)");
@@ -571,18 +571,18 @@ public class ESAccessControlUtilTest {
                                     + OwnerTypeMap.encodeFieldName(BUS_OWNER.toString())
                                     + ".keyword",
                                 List.of(
-                                    TEST_USER_A.toString().toLowerCase(),
-                                    TEST_GROUP_A.toString().toLowerCase(),
-                                    TEST_GROUP_C.toString().toLowerCase())))
+                                    TEST_USER_A.toString(),
+                                    TEST_GROUP_A.toString(),
+                                    TEST_GROUP_C.toString())))
                         .should(
                             QueryBuilders.termsQuery(
                                 "ownerTypes."
                                     + OwnerTypeMap.encodeFieldName(TECH_OWNER.toString())
                                     + ".keyword",
                                 List.of(
-                                    TEST_USER_A.toString().toLowerCase(),
-                                    TEST_GROUP_A.toString().toLowerCase(),
-                                    TEST_GROUP_C.toString().toLowerCase())))
+                                    TEST_USER_A.toString(),
+                                    TEST_GROUP_A.toString(),
+                                    TEST_GROUP_C.toString())))
                         .minimumShouldMatch(1))
                 .minimumShouldMatch(1)),
         "Expected filter for business owner or technical owner by group A (excluding other group B and owner privilege)");
@@ -612,18 +612,18 @@ public class ESAccessControlUtilTest {
                                     + OwnerTypeMap.encodeFieldName(BUS_OWNER.toString())
                                     + ".keyword",
                                 List.of(
-                                    TEST_USER_A.toString().toLowerCase(),
-                                    TEST_GROUP_A.toString().toLowerCase(),
-                                    TEST_GROUP_C.toString().toLowerCase())))
+                                    TEST_USER_A.toString(),
+                                    TEST_GROUP_A.toString(),
+                                    TEST_GROUP_C.toString())))
                         .should(
                             QueryBuilders.termsQuery(
                                 "ownerTypes."
                                     + OwnerTypeMap.encodeFieldName(TECH_OWNER.toString())
                                     + ".keyword",
                                 List.of(
-                                    TEST_USER_A.toString().toLowerCase(),
-                                    TEST_GROUP_A.toString().toLowerCase(),
-                                    TEST_GROUP_C.toString().toLowerCase())))
+                                    TEST_USER_A.toString(),
+                                    TEST_GROUP_A.toString(),
+                                    TEST_GROUP_C.toString())))
                         .minimumShouldMatch(1))
                 .minimumShouldMatch(1)),
         "Expected filter for business owner or technical owner by user A and group A (excluding other group B and owner privilege)");
