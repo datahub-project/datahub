@@ -220,17 +220,6 @@ module.exports = {
       "@docusaurus/preset-classic",
       {
         docs: {
-          lastVersion: "current",
-          versions: {
-            current: {
-              label: "Next",
-              banner: 'none',
-            },
-            "0.12.0": {
-               label: "0.12.0",
-               banner: 'none',
-            },
-          },
           path: "genDocs",
           sidebarPath: require.resolve("./sidebars.js"),
           ...(!isSaas && {
@@ -238,8 +227,8 @@ module.exports = {
           }),
           numberPrefixParser: false,
           // TODO: make these work correctly with the doc generation
-          showLastUpdateAuthor: true,
-          showLastUpdateTime: true,
+          showLastUpdateAuthor: false,
+          showLastUpdateTime: false,
         },
         blog: false,
         theme: {

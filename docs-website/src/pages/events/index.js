@@ -13,7 +13,7 @@ function Events() {
                 <div className="container">
                     <div className="hero__content">
                         <h1>DataHub Community Event Calendar</h1>
-                        <div style={{ fontSize: "18px" }}>Subscribe to join our monthly events to network and learn more about our community!</div>
+                        <div style={{ fontSize: "18px" }}>Join our monthly events to network and learn more about our community!</div>
                         <div className="lumaCalendar" style={{ maxWidth: "60rem", margin: "3rem auto" }}>
                             <iframe
                                 src="https://lu.ma/embed/calendar/cal-lom9HnTVnZkKsNh/events"
