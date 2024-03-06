@@ -240,7 +240,7 @@ module.exports = {
       link: {
         type: "doc",
         id: "docs/managed-datahub/managed-datahub-overview",
-        },
+      },
       items: [
         {
           type: "doc",
