@@ -25,44 +25,14 @@ export default function useTagsAndTermsRenderer(
             (candidateEditableFieldInfo) => pathMatchesNewPath(candidateEditableFieldInfo.fieldPath, record.fieldPath),
         );
 
-        const newRecord = { ...record };
+        const businessAttributeTags = relevantEditableFieldInfo?.businessAttributes?.businessAttribute?.businessAttribute?.properties?.tags?.tags || [];
+        const businessAttributeTerms = relevantEditableFieldInfo?.businessAttributes?.businessAttribute?.businessAttribute?.properties?.glossaryTerms?.terms || [];
 
-        if (!newRecord.glossaryTerms) {
-            newRecord.glossaryTerms = { terms: [] };
-        }
-
-        if (!newRecord.glossaryTerms.terms) {
-            newRecord.glossaryTerms.terms = [];
-        }
-
-        if (
-            relevantEditableFieldInfo?.businessAttributes?.businessAttribute?.businessAttribute?.properties
-                ?.glossaryTerms?.terms
-        ) {
-            newRecord.glossaryTerms.terms = [
-                ...newRecord.glossaryTerms.terms,
-                ...relevantEditableFieldInfo.businessAttributes.businessAttribute.businessAttribute.properties
-                    .glossaryTerms.terms,
-            ];
-        }
-        let newTags = {};
-        if (
-            relevantEditableFieldInfo?.businessAttributes?.businessAttribute?.businessAttribute?.properties?.tags?.tags
-        ) {
-            newTags = {
-                ...tags,
-                tags: [
-                    ...(tags?.tags || []),
-                    ...relevantEditableFieldInfo?.businessAttributes?.businessAttribute?.businessAttribute?.properties
-                        ?.tags?.tags,
-                ],
-            };
-        }
         return (
             <TagTermGroup
-                uneditableTags={options.showTags ? newTags : null}
+                uneditableTags={options.showTags ? { tags: [...(tags?.tags || []), ...businessAttributeTags] } : null}
                 editableTags={options.showTags ? relevantEditableFieldInfo?.globalTags : null}
-                uneditableGlossaryTerms={options.showTerms ? newRecord.glossaryTerms : null}
+                uneditableGlossaryTerms={options.showTerms ? { terms: [...(record?.glossaryTerms?.terms || []), ...businessAttributeTerms] } : null}
                 editableGlossaryTerms={options.showTerms ? relevantEditableFieldInfo?.glossaryTerms : null}
                 canRemove={canEdit}
                 buttonProps={{ size: 'small' }}
