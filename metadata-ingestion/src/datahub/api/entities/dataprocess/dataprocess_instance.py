@@ -29,7 +29,7 @@ from datahub.utilities.urns.dataset_urn import DatasetUrn
 
 
 class DataProcessInstanceKey(DatahubKey):
-    cluster: str
+    cluster: Optional[str]
     orchestrator: str
     id: str
 
@@ -60,7 +60,7 @@ class DataProcessInstance:
     id: str
     urn: DataProcessInstanceUrn = field(init=False)
     orchestrator: str
-    cluster: str
+    cluster: Optional[str]
     type: str = DataProcessTypeClass.BATCH_SCHEDULED
     template_urn: Optional[Union[DataJobUrn, DataFlowUrn]] = None
     parent_instance: Optional[DataProcessInstanceUrn] = None

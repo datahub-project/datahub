@@ -67,12 +67,12 @@
       "thread_id": "Thread-1 (worker)",
       "timing": [
         {
-          "completed_at": "2022-09-16T19:06:38.239639Z",
+          "completed_at": "2022-09-16T19:06:38.241639Z",
           "name": "compile",
           "started_at": "2022-09-16T19:06:38.239635Z"
         },
         {
-          "completed_at": "2022-09-16T19:06:38.239639Z",
+          "completed_at": "2022-09-16T19:06:38.241639Z",
           "name": "execute",
           "started_at": "2022-09-16T19:06:38.239635Z"
         }
@@ -81,26 +81,26 @@
     },
     {
       "adapter_response": {
-        "_message": "INSERT 0 0",
-        "code": "INSERT",
-        "rows_affected": 0
+        "_message": "SELECT 599",
+        "code": "SELECT",
+        "rows_affected": 599
       },
       "compiled": true,
       "compiled_code": "\n\n\n\nselect * from \"pagila\".\"public\".\"customer\"\n",
       "execution_time": 0.023441791534423828,
       "failures": null,
-      "message": "INSERT 0 0",
+      "message": "SELECT 599",
       "relation_name": "\"pagila\".\"public\".\"customer_snapshot\"",
       "status": "success",
       "thread_id": "Thread-1 (worker)",
       "timing": [
         {
-          "completed_at": "2022-09-16T19:06:38.239639Z",
+          "completed_at": "2022-09-16T19:06:38.241639Z",
           "name": "compile",
           "started_at": "2022-09-16T19:06:38.239635Z"
         },
         {
-          "completed_at": "2022-09-16T19:06:38.239639Z",
+          "completed_at": "2022-09-16T19:06:38.241639Z",
           "name": "execute",
           "started_at": "2022-09-16T19:06:38.239635Z"
         }
@@ -123,12 +123,12 @@
       "thread_id": "Thread-1 (worker)",
       "timing": [
         {
-          "completed_at": "2022-09-16T19:06:38.239639Z",
+          "completed_at": "2022-09-16T19:06:38.241639Z",
           "name": "compile",
           "started_at": "2022-09-16T19:06:38.239635Z"
         },
         {
-          "completed_at": "2022-09-16T19:06:38.239639Z",
+          "completed_at": "2022-09-16T19:06:38.241639Z",
           "name": "execute",
           "started_at": "2022-09-16T19:06:38.239635Z"
         }
@@ -151,12 +151,12 @@
       "thread_id": "Thread-1 (worker)",
       "timing": [
         {
-          "completed_at": "2022-09-16T19:06:38.239639Z",
+          "completed_at": "2022-09-16T19:06:38.241639Z",
           "name": "compile",
           "started_at": "2022-09-16T19:06:38.239635Z"
         },
         {
-          "completed_at": "2022-09-16T19:06:38.239639Z",
+          "completed_at": "2022-09-16T19:06:38.241639Z",
           "name": "execute",
           "started_at": "2022-09-16T19:06:38.239635Z"
         }
@@ -179,12 +179,12 @@
       "thread_id": "Thread-1 (worker)",
       "timing": [
         {
-          "completed_at": "2022-09-16T19:06:38.239639Z",
+          "completed_at": "2022-09-16T19:06:38.241639Z",
           "name": "compile",
           "started_at": "2022-09-16T19:06:38.239635Z"
         },
         {
-          "completed_at": "2022-09-16T19:06:38.239639Z",
+          "completed_at": "2022-09-16T19:06:38.241639Z",
           "name": "execute",
           "started_at": "2022-09-16T19:06:38.239635Z"
         }
@@ -207,12 +207,12 @@
       "thread_id": "Thread-1 (worker)",
       "timing": [
         {
-          "completed_at": "2022-09-16T19:06:38.239639Z",
+          "completed_at": "2022-09-16T19:06:38.241639Z",
           "name": "compile",
           "started_at": "2022-09-16T19:06:38.239635Z"
         },
         {
-          "completed_at": "2022-09-16T19:06:38.239639Z",
+          "completed_at": "2022-09-16T19:06:38.241639Z",
           "name": "execute",
           "started_at": "2022-09-16T19:06:38.239635Z"
         }
@@ -235,12 +235,12 @@
       "thread_id": "Thread-1 (worker)",
       "timing": [
         {
-          "completed_at": "2022-09-16T19:06:38.239639Z",
+          "completed_at": "2022-09-16T19:06:38.241639Z",
           "name": "compile",
           "started_at": "2022-09-16T19:06:38.239635Z"
         },
         {
-          "completed_at": "2022-09-16T19:06:38.239639Z",
+          "completed_at": "2022-09-16T19:06:38.241639Z",
           "name": "execute",
           "started_at": "2022-09-16T19:06:38.239635Z"
         }
@@ -263,12 +263,12 @@
       "thread_id": "Thread-1 (worker)",
       "timing": [
         {
-          "completed_at": "2022-09-16T19:06:38.239639Z",
+          "completed_at": "2022-09-16T19:06:38.241639Z",
           "name": "compile",
           "started_at": "2022-09-16T19:06:38.239635Z"
         },
         {
-          "completed_at": "2022-09-16T19:06:38.239639Z",
+          "completed_at": "2022-09-16T19:06:38.241639Z",
           "name": "execute",
           "started_at": "2022-09-16T19:06:38.239635Z"
         }
@@ -291,12 +291,12 @@
       "thread_id": "Thread-1 (worker)",
       "timing": [
         {
-          "completed_at": "2022-09-16T19:06:38.239639Z",
+          "completed_at": "2022-09-16T19:06:38.241639Z",
           "name": "compile",
           "started_at": "2022-09-16T19:06:38.239635Z"
         },
         {
-          "completed_at": "2022-09-16T19:06:38.239639Z",
+          "completed_at": "2022-09-16T19:06:38.241639Z",
           "name": "execute",
           "started_at": "2022-09-16T19:06:38.239635Z"
         }
@@ -319,12 +319,12 @@
       "thread_id": "Thread-1 (worker)",
       "timing": [
         {
-          "completed_at": "2022-09-16T19:06:38.239639Z",
+          "completed_at": "2022-09-16T19:06:38.241639Z",
           "name": "compile",
           "started_at": "2022-09-16T19:06:38.239635Z"
         },
         {
-          "completed_at": "2022-09-16T19:06:38.239639Z",
+          "completed_at": "2022-09-16T19:06:38.241639Z",
           "name": "execute",
           "started_at": "2022-09-16T19:06:38.239635Z"
         }
@@ -347,12 +347,12 @@
       "thread_id": "Thread-1 (worker)",
       "timing": [
         {
-          "completed_at": "2022-09-16T19:06:38.239639Z",
+          "completed_at": "2022-09-16T19:06:38.241639Z",
           "name": "compile",
           "started_at": "2022-09-16T19:06:38.239635Z"
         },
         {
-          "completed_at": "2022-09-16T19:06:38.239639Z",
+          "completed_at": "2022-09-16T19:06:38.241639Z",
           "name": "execute",
           "started_at": "2022-09-16T19:06:38.239635Z"
         }

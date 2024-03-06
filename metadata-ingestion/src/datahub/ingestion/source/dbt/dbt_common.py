@@ -11,6 +11,7 @@ import pydantic
 from pydantic import root_validator, validator
 from pydantic.fields import Field
 
+from datahub.api.entities.dataprocess.dataprocess_instance import DataProcessInstance
 from datahub.configuration.common import (
     AllowDenyPattern,
     ConfigEnum,
@@ -36,6 +37,7 @@ from datahub.ingestion.api.incremental_lineage_helper import (
     convert_upstream_lineage_to_patch,
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor
+from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.dbt.dbt_tests import (
@@ -101,6 +103,7 @@ from datahub.metadata.schema_classes import (
     OwnershipClass,
     OwnershipSourceTypeClass,
     OwnershipTypeClass,
+    RunResultTypeClass,
     StatusClass,
     SubTypesClass,
     TagAssociationClass,
@@ -417,8 +420,12 @@ class DBTColumnLineageInfo:
 @dataclass
 class DBTModelPerformance:
     # This is specifically for model builds.
+    status: str
     start_time: datetime
     end_time: datetime
+
+    def is_success(self) -> bool:
+        return self.status == "success"
 
 
 @dataclass
@@ -867,22 +874,14 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         test_nodes = [test_node for test_node in nodes if test_node.node_type == "test"]
 
         logger.info(f"Creating dbt metadata for {len(nodes)} nodes")
-        yield from self.create_platform_mces(
+        yield from self.create_dbt_platform_mces(
             non_test_nodes,
             additional_custom_props_filtered,
             all_nodes_map,
-            DBT_PLATFORM,
-            self.config.platform_instance,
         )
 
         logger.info(f"Updating {self.config.target_platform} metadata")
-        yield from self.create_platform_mces(
-            non_test_nodes,
-            additional_custom_props_filtered,
-            all_nodes_map,
-            self.config.target_platform,
-            self.config.target_platform_instance,
-        )
+        yield from self.create_target_platform_mces(non_test_nodes)
 
         yield from self.create_test_entity_mcps(
             test_nodes,
@@ -1094,20 +1093,17 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             if inferred_schema_fields:
                 node.columns_setdefault(inferred_schema_fields)
 
-    def create_platform_mces(
+    def create_dbt_platform_mces(
         self,
         dbt_nodes: List[DBTNode],
         additional_custom_props_filtered: Dict[str, str],
         all_nodes_map: Dict[str, DBTNode],
-        mce_platform: str,
-        mce_platform_instance: Optional[str],
     ) -> Iterable[MetadataWorkUnit]:
-        """
-        This function creates mce based out of dbt nodes. Since dbt ingestion creates "dbt" nodes
-        and nodes for underlying platform the function gets called twice based on the mce_platform
-        parameter. Further, this function takes specific actions based on the mce_platform passed in.
-        It creates platform entities with all metadata information.
-        """
+        """Create MCEs and MCPs for the dbt platform."""
+
+        mce_platform = DBT_PLATFORM
+        mce_platform_instance = self.config.platform_instance
+
         action_processor = OperationProcessor(
             self.config.meta_mapping,
             self.config.tag_prefix,
@@ -1142,70 +1138,142 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     action_processor_tag, meta_aspects, node
                 )  # mutates meta_aspects
 
-            if mce_platform == DBT_PLATFORM:
-                aspects = self._generate_base_dbt_aspects(
-                    node, additional_custom_props_filtered, mce_platform, meta_aspects
+            aspects = self._generate_base_dbt_aspects(
+                node, additional_custom_props_filtered, mce_platform, meta_aspects
+            )
+
+            # Upstream lineage.
+            upstream_lineage_class = self._create_lineage_aspect_for_dbt_node(
+                node, all_nodes_map
+            )
+            if upstream_lineage_class:
+                aspects.append(upstream_lineage_class)
+
+            # View properties.
+            view_prop_aspect = self._create_view_properties_aspect(node)
+            if view_prop_aspect:
+                aspects.append(view_prop_aspect)
+
+            # Subtype.
+            sub_type_wu = self._create_subType_wu(node, node_datahub_urn)
+            if sub_type_wu:
+                yield sub_type_wu
+
+            if len(aspects) == 0:
+                continue
+            dataset_snapshot = DatasetSnapshot(urn=node_datahub_urn, aspects=aspects)
+            mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
+            if self.config.write_semantics == "PATCH":
+                mce = self.get_patched_mce(mce)
+            yield MetadataWorkUnit(id=dataset_snapshot.urn, mce=mce)
+
+            # Model performance.
+            yield from auto_workunit(
+                self._create_dataprocess_instance_mcps(node, upstream_lineage_class)
+            )
+
+    def _create_dataprocess_instance_mcps(
+        self,
+        node: DBTNode,
+        upstream_lineage_class: Optional[UpstreamLineageClass],
+    ) -> Iterable[MetadataChangeProposalWrapper]:
+        node_datahub_urn = node.get_urn(
+            DBT_PLATFORM,
+            self.config.env,
+            self.config.platform_instance,
+        )
+
+        data_process_instance = DataProcessInstance(
+            # Part of the urn.
+            id=node_datahub_urn,
+            orchestrator=DBT_PLATFORM,
+            cluster=self.config.platform_instance,
+            # Part of relationships.
+            template_urn=node_datahub_urn,
+            inlets=[
+                upstream.dataset
+                for upstream in (
+                    upstream_lineage_class.upstreams if upstream_lineage_class else []
                 )
+            ],
+            outlets=[node_datahub_urn],
+            # Part of properties.
+            properties={
+                "dbt_name": node.dbt_name,
+                "dbt_urn": node_datahub_urn,
+            },
+            url=self.get_external_url(node),
+        )
+        if node.model_performances:
+            yield from data_process_instance.generate_mcp(materialize_iolets=False)
 
-                # add upstream lineage
-                upstream_lineage_class = self._create_lineage_aspect_for_dbt_node(
-                    node, all_nodes_map
+        for model_performance in node.model_performances:
+            yield from data_process_instance.start_event_mcp(
+                datetime_to_ts_millis(model_performance.start_time),
+            )
+            yield from data_process_instance.end_event_mcp(
+                datetime_to_ts_millis(model_performance.end_time),
+                result=(
+                    RunResultTypeClass.SUCCESS
+                    if model_performance.is_success()
+                    else RunResultTypeClass.FAILURE
+                ),
+                result_type=model_performance.status,
+            )
+
+    def create_target_platform_mces(
+        self,
+        dbt_nodes: List[DBTNode],
+    ) -> Iterable[MetadataWorkUnit]:
+        """Create MCEs and MCPs for the target (e.g. Snowflake, BigQuery) platform."""
+
+        mce_platform = self.config.target_platform
+        mce_platform_instance = self.config.target_platform_instance
+
+        for node in sorted(dbt_nodes, key=lambda n: n.dbt_name):
+            node_datahub_urn = node.get_urn(
+                mce_platform,
+                self.config.env,
+                mce_platform_instance,
+            )
+            if not self.config.entities_enabled.can_emit_node_type(node.node_type):
+                logger.debug(
+                    f"Skipping emission of node {node_datahub_urn} because node_type {node.node_type} is disabled"
                 )
-                if upstream_lineage_class:
-                    aspects.append(upstream_lineage_class)
+                continue
 
-                # add view properties aspect
-                view_prop_aspect = self._create_view_properties_aspect(node)
-                if view_prop_aspect:
-                    aspects.append(view_prop_aspect)
+            # We are creating empty node for platform and only add lineage/keyaspect.
+            if not node.exists_in_target_platform:
+                continue
 
-                # emit subtype mcp
-                sub_type_wu = self._create_subType_wu(node, node_datahub_urn)
-                if sub_type_wu:
-                    yield sub_type_wu
-
-                if len(aspects) == 0:
-                    continue
-                dataset_snapshot = DatasetSnapshot(
-                    urn=node_datahub_urn, aspects=aspects
+            # This code block is run when we are generating entities of platform type.
+            # We will not link the platform not to the dbt node for type "source" because
+            # in this case the platform table existed first.
+            if node.node_type != "source":
+                upstream_dbt_urn = node.get_urn(
+                    DBT_PLATFORM,
+                    self.config.env,
+                    self.config.platform_instance,
                 )
-                mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
-                if self.config.write_semantics == "PATCH":
-                    mce = self.get_patched_mce(mce)
-                yield MetadataWorkUnit(id=dataset_snapshot.urn, mce=mce)
-            else:  # mce_platform != DBT_PLATFORM:
-                # We are creating empty node for platform and only add lineage/keyaspect.
-                if not node.exists_in_target_platform:
-                    continue
-
-                # This code block is run when we are generating entities of platform type.
-                # We will not link the platform not to the dbt node for type "source" because
-                # in this case the platform table existed first.
-                if node.node_type != "source":
-                    upstream_dbt_urn = node.get_urn(
-                        DBT_PLATFORM,
-                        self.config.env,
-                        self.config.platform_instance,
+                upstreams_lineage_class = make_mapping_upstream_lineage(
+                    upstream_urn=upstream_dbt_urn,
+                    downstream_urn=node_datahub_urn,
+                    node=node,
+                )
+                if self.config.incremental_lineage:
+                    # We only generate incremental lineage for non-dbt nodes.
+                    wu = convert_upstream_lineage_to_patch(
+                        urn=node_datahub_urn,
+                        aspect=upstreams_lineage_class,
+                        system_metadata=None,
                     )
-                    upstreams_lineage_class = make_mapping_upstream_lineage(
-                        upstream_urn=upstream_dbt_urn,
-                        downstream_urn=node_datahub_urn,
-                        node=node,
-                    )
-                    if self.config.incremental_lineage:
-                        # We only generate incremental lineage for non-dbt nodes.
-                        wu = convert_upstream_lineage_to_patch(
-                            urn=node_datahub_urn,
-                            aspect=upstreams_lineage_class,
-                            system_metadata=None,
-                        )
-                        wu.is_primary_source = False
-                        yield wu
-                    else:
-                        yield MetadataChangeProposalWrapper(
-                            entityUrn=node_datahub_urn,
-                            aspect=upstreams_lineage_class,
-                        ).as_workunit()
+                    wu.is_primary_source = False
+                    yield wu
+                else:
+                    yield MetadataChangeProposalWrapper(
+                        entityUrn=node_datahub_urn,
+                        aspect=upstreams_lineage_class,
+                    ).as_workunit()
 
     def extract_query_tag_aspects(
         self,

@@ -353,6 +353,10 @@ def _parse_test_result(
 def _parse_model_run(
     run_result: DBTRunResult,
 ) -> Optional[DBTModelPerformance]:
+    status = run_result.status
+    if status not in {"success", "error"}:
+        return None
+
     execution_timestamp = run_result.timing_map.get("execute")
     if not execution_timestamp:
         return None
@@ -360,6 +364,7 @@ def _parse_model_run(
         return None
 
     return DBTModelPerformance(
+        status=status,
         start_time=_parse_dbt_timestamp(execution_timestamp.started_at),
         end_time=_parse_dbt_timestamp(execution_timestamp.completed_at),
     )
@@ -370,6 +375,13 @@ def load_run_results(
     test_results_json: Dict[str, Any],
     all_nodes: List[DBTNode],
 ) -> List[DBTNode]:
+    if test_results_json.get("args", {}).get("which") == "generate":
+        logger.warning(
+            "The run results file is from a `dbt docs generate` command, "
+            "instead of a build/run/test command. Skipping this file."
+        )
+        return all_nodes
+
     dbt_metadata = DBTRunMetadata.parse_obj(test_results_json.get("metadata", {}))
 
     all_nodes_map: Dict[str, DBTNode] = {x.dbt_name: x for x in all_nodes}

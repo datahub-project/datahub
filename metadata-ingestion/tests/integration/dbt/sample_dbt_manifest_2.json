@@ -9700,9 +9700,9 @@
       "depends_on": {
         "macros": [],
         "nodes": [
-          "source.sample_dbt.pagila.city",
           "source.sample_dbt.pagila.address",
           "source.sample_dbt.pagila.customer",
+          "source.sample_dbt.pagila.city",
           "snapshot.sample_dbt.customer_snapshot"
         ]
       },
@@ -9743,15 +9743,15 @@
       "sources": [
         [
           "pagila",
-          "city"
-        ],
-        [
-          "pagila",
           "address"
         ],
         [
           "pagila",
           "customer"
+        ],
+        [
+          "pagila",
+          "city"
         ]
       ],
       "tags": [],
@@ -9958,8 +9958,8 @@
         "nodes": [
           "source.sample_dbt.pagila.payment_p2020_05",
           "source.sample_dbt.pagila.payment_p2020_02",
-          "source.sample_dbt.pagila.payment_p2020_04",
           "source.sample_dbt.pagila.payment_p2020_01",
+          "source.sample_dbt.pagila.payment_p2020_04",
           "source.sample_dbt.pagila.payment_p2020_03",
           "source.sample_dbt.pagila.payment_p2020_06"
         ]
@@ -10003,11 +10003,11 @@
         ],
         [
           "pagila",
-          "payment_p2020_04"
+          "payment_p2020_01"
         ],
         [
           "pagila",
-          "payment_p2020_01"
+          "payment_p2020_04"
         ],
         [
           "pagila",
