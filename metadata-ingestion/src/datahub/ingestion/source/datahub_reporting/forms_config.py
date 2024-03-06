@@ -14,17 +14,23 @@ class PartitioningStrategy(str, Enum):
     SNAPSHOT = "snapshot"
 
 
-class DataHubAnalyticsFormSourceConfig(ConfigModel):
-    server: DatahubClientConfig
+class DataHubReportingFormSourceConfig(ConfigModel):
+    server: Optional[DatahubClientConfig] = None
     reporting_dataset_name: str = "reporting.forms"
-    reporting_bucket_prefix: str = "s3://reporting-experiments/"
+    reporting_dataset_register_soft_deleted: bool = (
+        True  # True by default because we want to keep the dataset hidden in the UI
+    )
+    reporting_bucket_prefix: Optional[str] = None
     reporting_store_platform: str = "s3"
     reporting_file_name: str = "forms"
     reporting_file_extension: str = "parquet"
     reporting_file_compression: str = "snappy"
-    reporting_file_overwrite_existing: bool = False
+    reporting_file_overwrite_existing: bool = True  # True by default because we want users to re-run reporting and get fresh data
     reporting_snapshot_partitioning_strategy: str = PartitioningStrategy.DATE
-    allowed_forms: Optional[List[str]] = None
+    forms_include: Optional[List[str]] = None  # If None, include all forms
+    forms_exclude: Optional[List[str]] = None  # If None, exclude no forms
+    generate_presigned_url: bool = True
+    presigned_url_expiry_days: int = 7
 
     @validator("reporting_snapshot_partitioning_strategy")
     def validate_partitioning_strategy(cls, v):
@@ -34,7 +40,7 @@ class DataHubAnalyticsFormSourceConfig(ConfigModel):
 
 
 @dataclass
-class DataHubAnalyticsFormSourceReport(SourceReport):
+class DataHubReportingFormSourceReport(SourceReport):
     feature_enabled: bool = True
     assets_scanned: int = 0
     forms_scanned: int = 0

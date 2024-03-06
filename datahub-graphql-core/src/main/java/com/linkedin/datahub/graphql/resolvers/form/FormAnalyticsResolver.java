@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.form;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
+import static com.linkedin.datahub.graphql.resolvers.form.FormAnalyticsConfigResolver.*;
 
 import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.Urn;
@@ -14,7 +15,6 @@ import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
@@ -27,10 +27,6 @@ public class FormAnalyticsResolver
   private final IntegrationsService _integrationsService;
   private final FeatureFlags _featureFlags;
 
-  private static final String REPORTING_FORM_DATASET_NAME =
-      Optional.ofNullable(System.getenv("FORMS_REPORTING_DATASET_NAME"))
-          .orElse("reporting.forms.snapshot");
-
   public FormAnalyticsResolver(
       EntityClient entityClient,
       IntegrationsService integrationsService,
@@ -38,10 +34,6 @@ public class FormAnalyticsResolver
     _entityClient = entityClient;
     _integrationsService = integrationsService;
     _featureFlags = featureFlags;
-  }
-
-  public static String getReportingDatasetUrn() {
-    return "urn:li:dataset:(urn:li:dataPlatform:datahub," + REPORTING_FORM_DATASET_NAME + ",PROD)";
   }
 
   @Override

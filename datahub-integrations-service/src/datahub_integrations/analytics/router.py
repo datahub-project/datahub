@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 from typing import Any, Iterator, List, Optional
 
 import fastapi
+from cachetools import TTLCache, cached
 from fastapi import HTTPException, status
 from fastapi.responses import StreamingResponse
 from loguru import logger
@@ -66,9 +67,10 @@ def cached_with_ttl(maxsize: int, ttl_seconds: int) -> Any:
     return decorator
 
 
-@cached_with_ttl(  # type: ignore
-    maxsize=100, ttl_seconds=DATASET_S3_URI_RESOLUTION_TTL_SECONDS_VALUE
-)  # Max cache size: 100, TTL: 60 seconds
+# @cached_with_ttl(  # type: ignore
+#     maxsize=100, ttl_seconds=DATASET_S3_URI_RESOLUTION_TTL_SECONDS_VALUE
+# )  # Max cache size: 100, TTL: 60 seconds
+@cached(cache=TTLCache(maxsize=100, ttl=DATASET_S3_URI_RESOLUTION_TTL_SECONDS_VALUE))  # type: ignore
 def extract_physical_location_or_throw(entity_urn: str) -> AnalyticsEngineLocator:  # type: ignore
     """Extract the physical location from the entity URN."""
     # if the entity urn looks like a URI then we assume this is a physical
@@ -94,7 +96,10 @@ def extract_physical_location_or_throw(entity_urn: str) -> AnalyticsEngineLocato
         )
     # get the physical location of the dataset
     # by extracting it from the dataset properties map
-    physical_location = dataset_properties.uri or dataset_properties.externalUrl
+    physical_location = (
+        dataset_properties.customProperties.get("physical_uri")
+        or dataset_properties.externalUrl
+    )
     # if physical location is not found, return 404
     if physical_location is None:
         raise HTTPException(
@@ -111,7 +116,6 @@ def extract_physical_location_or_throw(entity_urn: str) -> AnalyticsEngineLocato
         if dataset_properties.lastModified
         else None
     )
-    logger.info(f"Last modified time: {last_modified}")
     return AnalyticsEngineLocator(
         physical_location=physical_location,
         connection_urn=connection_urn,

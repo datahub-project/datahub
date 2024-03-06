@@ -198,13 +198,6 @@ class DataHubFormReportingData(FormData):
     ) -> Dict[str, date]:
 
         form_assigned_dates: Dict[str, date] = {}
-        # Since the search row does not contain the form assigned date, we
-        # need to calculate it from the raw aspect
-        # for form in search_row.incompleteForms:
-        #     form_assigned_dates[form] = datetime.now().date() - timedelta(days=365)
-        # for form in search_row.completedForms:
-        #     form_assigned_dates[form] = datetime.now().date() - timedelta(days=365)
-        # return form_assigned_dates
         forms = self.graph.get_aspect(search_row.urn, FormsClass)
         if not forms:
             return form_assigned_dates
@@ -286,7 +279,12 @@ class DataHubFormReportingData(FormData):
                     domain = search_row.domains[0]
                     subdomain = None
             for owner in owners:
-                for form_id in search_row.incompleteForms:
+                incomplete_forms = (
+                    [x for x in search_row.incompleteForms if x in self.allowed_forms]
+                    if self.allowed_forms
+                    else search_row.incompleteForms
+                )
+                for form_id in incomplete_forms:
                     if form_id not in forms_scanned:
                         if on_form_scanned:
                             on_form_scanned(form_id)
@@ -357,7 +355,12 @@ class DataHubFormReportingData(FormData):
                             question_completed_date=prompt_reponse_time,
                             snapshot_date=self.snapshot_date,
                         )
-                for form_id in search_row.completedForms:
+                complete_forms = (
+                    [x for x in search_row.completedForms if x in self.allowed_forms]
+                    if self.allowed_forms
+                    else search_row.completedForms
+                )
+                for form_id in complete_forms:
                     if form_id not in forms_scanned:
                         if on_form_scanned:
                             on_form_scanned(form_id)

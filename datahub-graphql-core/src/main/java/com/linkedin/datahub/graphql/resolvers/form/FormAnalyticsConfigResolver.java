@@ -8,12 +8,37 @@ import com.linkedin.metadata.integration.IntegrationsService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class FormAnalyticsConfigResolver
     implements DataFetcher<CompletableFuture<FormAnalyticsConfig>> {
+  private static final String FEATURE_FLAG_PREFIX = "FEATURE_DOCUMENTATION_FORMS_";
+
+  private static final Optional<String> REPORTING_DATASET_BUCKET_PREFIX =
+      Optional.ofNullable(System.getenv(FEATURE_FLAG_PREFIX + "REPORTING_DATASET_BUCKET_PREFIX"));
+  private static final String REPORTING_FORM_DATASET_NAME =
+      Optional.ofNullable(System.getenv(FEATURE_FLAG_PREFIX + "REPORTING_DATASET_NAME"))
+          .orElse("reporting.forms.snapshot");
+
+  private static final String REPORTING_PLATFORM_NAME =
+      Optional.ofNullable(System.getenv(FEATURE_FLAG_PREFIX + "REPORTING_PLATFORM_NAME"))
+          .orElse("acryl");
+
+  public static String getReportingDatasetUrn() {
+    return "urn:li:dataset:(urn:li:dataPlatform:"
+        + REPORTING_PLATFORM_NAME
+        + ","
+        + REPORTING_FORM_DATASET_NAME
+        + ",PROD)";
+  }
+
+  public static Optional<String> getReportingBucketPrefix() {
+    return REPORTING_DATASET_BUCKET_PREFIX;
+  }
+
   private final IntegrationsService _integrationsService;
   private final FeatureFlags _featureFlags;
 
@@ -38,10 +63,11 @@ public class FormAnalyticsConfigResolver
               // If the feature flag is not enabled, we should not proceed with the request
               return response;
             }
-            String datasetUrn = FormAnalyticsResolver.getReportingDatasetUrn();
+            String datasetUrn = getReportingDatasetUrn();
             response.setDatasetUrn(datasetUrn);
 
-            // TODO: get dataset uri
+            Optional<String> bucketPrefix = getReportingBucketPrefix();
+            bucketPrefix.ifPresent(response::setPhysicalUriPrefix);
             return response;
           } catch (Exception e) {
             FormAnalyticsConfig response = new FormAnalyticsConfig();

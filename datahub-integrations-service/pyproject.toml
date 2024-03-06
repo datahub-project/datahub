@@ -24,7 +24,8 @@ dependencies = [
 	"pandas",
 	"boto3",
 	"pyarrow",
-	"jinja2"
+	"jinja2",
+	"cachetools"
 ]
 
 [project.optional-dependencies]
@@ -35,6 +36,7 @@ dev = [
 	"mypy",
 	"pytest-cov",
 	"types-setuptools",
+	"types-cachetools",
 	"isort",
 	"faker",
 ]

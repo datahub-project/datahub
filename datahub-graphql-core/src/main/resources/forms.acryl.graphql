@@ -230,11 +230,14 @@ type FormAnalyticsConfig {
     datasetUrn: String
 
     """
-    The physical uri of the dataset where it should be stored.
-    This is the location where the dataset will be stored in the data lake.
-    This can be a pre-signed url or a direct path to the dataset.
+    The physical uri prefix of the dataset where it should be stored.
+    e.g. s3://acryl-datalake/reporting/forms/... or
+    gcs://acryl-datalake/reporting/forms/...
+    When this is populated, the caller is expected to deposit the results of the
+    form analytics query in a dataset located under here
     """
-    datasetUri: String
+    physicalUriPrefix: String
+   
 
     """
     Any errors that occurred while trying to fetch the form analytics config
