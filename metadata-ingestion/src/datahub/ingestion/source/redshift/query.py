@@ -272,7 +272,9 @@ SELECT  schemaname as schema_name,
             AND        SYS.query_text ILIKE '%alter table % rename to %'
         """
 
-    additional_table_metadata: str = ""
+    @staticmethod
+    def additional_table_metadata_query() -> str:
+        raise NotImplementedError
 
     @staticmethod
     def usage_query(start_time: str, end_time: str, database: str) -> str:
@@ -312,37 +314,39 @@ SELECT  schemaname as schema_name,
 
 
 class RedshiftProvisionedQuery(RedshiftCommonQuery):
-    additional_table_metadata: str = """
-        select
-            ti.database,
-            ti.schema,
-            "table",
-            size,
-            tbl_rows,
-            estimated_visible_rows,
-            skew_rows,
-            last_accessed,
-            case
-                when smi.name is not null then 1
-                else 0
-            end as is_materialized
-        from
-            pg_catalog.svv_table_info as ti
-        left join (
+    @staticmethod
+    def additional_table_metadata_query() -> str:
+        return """
             select
-                tbl,
-                max(endtime) as last_accessed
+                ti.database,
+                ti.schema,
+                "table",
+                size,
+                tbl_rows,
+                estimated_visible_rows,
+                skew_rows,
+                last_accessed,
+                case
+                    when smi.name is not null then 1
+                    else 0
+                end as is_materialized
             from
-                pg_catalog.stl_insert
-            group by
-                tbl) as la on
-            (la.tbl = ti.table_id)
-        left join stv_mv_info smi on
-            smi.db_name = ti.database
-            and smi.schema = ti.schema
-            and smi.name = ti.table
-            ;
-"""
+                pg_catalog.svv_table_info as ti
+            left join (
+                select
+                    tbl,
+                    max(endtime) as last_accessed
+                from
+                    pg_catalog.stl_insert
+                group by
+                    tbl) as la on
+                (la.tbl = ti.table_id)
+            left join stv_mv_info smi on
+                smi.db_name = ti.database
+                and smi.schema = ti.schema
+                and smi.name = ti.table
+                ;
+        """
 
     @staticmethod
     def stl_scan_based_lineage_query(
@@ -710,37 +714,39 @@ class RedshiftProvisionedQuery(RedshiftCommonQuery):
 class RedshiftServerlessQuery(RedshiftCommonQuery):
     # stl_insert -> SYS_QUERY_DETAIL - showing less accesses
     # stv_mv_info -> SVV_MV_INFO - not tested, seems to be fine
-    additional_table_metadata: str = """
-        select
-            ti.database,
-            ti.schema,
-            "table",
-            size,
-            tbl_rows,
-            estimated_visible_rows,
-            skew_rows,
-            last_accessed,
-            case
-                when smi.name is not null then 1
-                else 0
-            end as is_materialized
-        from
-            pg_catalog.svv_table_info as ti
-        left join (
-            SELECT
-                table_id as tbl,
-                max(end_time) as last_accessed
-            FROM
-                SYS_QUERY_DETAIL
-            GROUP BY
-                table_id) as la on
-            (la.tbl = ti.table_id)
-        left join SVV_MV_INFO smi on
-            smi.database_name = ti.database
-            and smi.schema_name = ti.schema
-            and smi.name = ti.table
-            ;
-"""
+    @staticmethod
+    def additional_table_metadata_query() -> str:
+        return """
+            select
+                ti.database,
+                ti.schema,
+                "table",
+                size,
+                tbl_rows,
+                estimated_visible_rows,
+                skew_rows,
+                last_accessed,
+                case
+                    when smi.name is not null then 1
+                    else 0
+                end as is_materialized
+            from
+                pg_catalog.svv_table_info as ti
+            left join (
+                SELECT
+                    table_id as tbl,
+                    max(end_time) as last_accessed
+                FROM
+                    SYS_QUERY_DETAIL
+                GROUP BY
+                    table_id) as la on
+                (la.tbl = ti.table_id)
+            left join SVV_MV_INFO smi on
+                smi.database_name = ti.database
+                and smi.schema_name = ti.schema
+                and smi.name = ti.table
+                ;
+        """
 
     @staticmethod
     def stl_scan_based_lineage_query(

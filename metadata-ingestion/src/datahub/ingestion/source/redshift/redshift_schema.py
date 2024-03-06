@@ -164,7 +164,7 @@ class RedshiftDataDictionary:
         conn: redshift_connector.Connection,
     ) -> Dict[str, Dict[str, RedshiftExtraTableMeta]]:
         cur = RedshiftDataDictionary.get_query_result(
-            conn, self.queries.additional_table_metadata
+            conn, self.queries.additional_table_metadata_query()
         )
         field_names = [i[0] for i in cur.description]
         db_table_metadata = cur.fetchall()
