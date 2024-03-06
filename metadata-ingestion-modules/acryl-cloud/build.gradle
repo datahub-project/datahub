@@ -30,7 +30,9 @@ task installPackage(type: Exec, dependsOn: [codegen]) {
 
 task install(dependsOn: [installPackage])
 
-task lint(type: Exec, dependsOn: install) {
+task installDev(dependsOn: [install, ':metadata-ingestion:installDev'])
+
+task lint(type: Exec, dependsOn: installDev) {
   commandLine 'bash', '-c',
     "source ${venv_name}/bin/activate && set -x && " +
     "black --check --diff src/ tests/ && " +
@@ -38,7 +40,7 @@ task lint(type: Exec, dependsOn: install) {
     "flake8 --count --statistics src/ tests/ && " +
     "mypy --show-traceback --show-error-codes src/ tests/"
 }
-task lintFix(type: Exec, dependsOn: install) {
+task lintFix(type: Exec, dependsOn: installDev) {
   commandLine 'bash', '-c',
     "source ${venv_name}/bin/activate && set -x && " +
     "black src/ tests/ && " +
@@ -47,7 +49,7 @@ task lintFix(type: Exec, dependsOn: install) {
     "mypy --show-traceback --show-error-codes src/ tests/"
 }
 
-task test(type: Exec, dependsOn: install) {
+task test(type: Exec, dependsOn: installDev) {
   inputs.files(project.fileTree(dir: "src/", include: "**/*.py"))
   inputs.files(project.fileTree(dir: "tests/"))
   commandLine 'bash', '-c',
