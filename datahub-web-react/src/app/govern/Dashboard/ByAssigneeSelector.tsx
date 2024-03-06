@@ -30,7 +30,7 @@ export const ByAssigneeSelector = () => {
 		const { username, properties } = getEntityInfo(assignees, d.assignee_urn) || {};
 		return ({
 			value: d.assignee_urn,
-			label: properties.displayName || username || d.assignee_urn,
+			label: properties?.displayName || username || d.assignee_urn,
 		});
 	});
 

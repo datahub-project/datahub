@@ -203,7 +203,7 @@ export const FormAnalyticsProvider = ({ children }: Props) => {
 
 	// Fetch max snapshot date
 	const { data: snapshot, loading: snapshotLoading } = useFormAnalyticsQuery({
-		variables: { input: { 'queryString': `select max(snapshot_date) from '{{ table }}'` } }
+		variables: { input: { 'queryString': `select max(snapshot_date) from '{{ table }}'` } },
 	});
 
 	// Is the integration service available/online?

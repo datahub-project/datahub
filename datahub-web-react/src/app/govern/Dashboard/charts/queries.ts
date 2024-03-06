@@ -444,16 +444,32 @@ export const sqlQueries = (
 
 		downloadCSVJSON:
 			`select
+				CURRENT_DATE() as export_date,
+				form_id,
 				form_assigned_date,
-				count(form_status)
+				form_completed_date,
+				form_type,
+				form_status,
+				domain,
+				asset_urn,
+				assignee_urn,
+				count(distinct(case when question_status = 'complete' then question_id end)) as questions_complete,
+				count(distinct(case when question_status = 'not_started' then question_id end)) as questions_not_started
 			from
 				'{{ table }}'
 			where
 				snapshot_date = '${snapshotDate}'
 				and form_assigned_date >= '${daysSinceDate}'
 			group by
+				export_date,
+				form_id,
+				form_assigned_date,
+				form_completed_date,
+				form_type,
 				form_status,
-				form_assigned_date;
+				domain,
+				asset_urn,
+				assignee_urn;
 			`,
 
 		/* 

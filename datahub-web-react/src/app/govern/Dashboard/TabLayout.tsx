@@ -163,7 +163,7 @@ export const TabLayout = () => {
 				<Tabs defaultActiveKey={selectedTab} items={tabs} onChange={handleSetTab} />
 				<DataFreshness>
 					<span>
-						<HistoryOutlinedIcon style={{ height: '1.25rem' }} /> as of {dayjs(snapshot).format('MMM d, YYYY')}
+						<HistoryOutlinedIcon style={{ height: '1.25rem' }} /> as of {dayjs(snapshot).format('MMM D, YYYY')}
 					</span>
 				</DataFreshness>
 			</TabsContainer>
