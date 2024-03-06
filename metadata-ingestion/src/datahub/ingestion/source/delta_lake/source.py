@@ -74,19 +74,6 @@ OPERATION_STATEMENT_TYPES = {
 }
 
 
-def _get_parent_field_details(raw_field_json):
-    field_name = raw_field_json.get("name")
-
-    raw_field = raw_field_json.get("type")
-    field_type = (
-        raw_field.get("type")
-        if isinstance(raw_field, dict)
-        else raw_field_json.get("type")
-    )
-
-    return field_name, field_type
-
-
 @platform_name("Delta Lake", id="delta-lake")
 @config_class(DeltaLakeSourceConfig)
 @support_status(SupportStatus.INCUBATING)
@@ -139,75 +126,55 @@ class DeltaLakeSource(Source):
         config = DeltaLakeSourceConfig.parse_obj(config_dict)
         return cls(config, ctx)
 
-    def _inner_field_details(self, raw_field: Any, parsed_struct: str = "") -> str:
-        print(f"{type(raw_field)}")
-        if raw_field.get("type") == "array":
-            if isinstance(raw_field.get("elementType"), dict):
+    def delta_type_to_hive_type(self, field_type: Any) -> str:
+        if isinstance(field_type, str):
+            """
+            return the field type
+            """
+            return field_type
+        else:
+            if field_type.get("type") == "array":
+                """
+                if array is of complex type, recursively parse the
+                fields and create the native datatype
+                """
                 return (
-                    str(raw_field.get("elementType").get("type"))
-                    + "<"
-                    + self._inner_field_details(raw_field.get("elementType"))
+                    "array<"
+                    + self.delta_type_to_hive_type(field_type.get("elementType"))
                     + ">"
                 )
-            else:
-                return str(raw_field.get("elementType"))
-        elif raw_field.get("type") == "struct":
-            for field in raw_field.get("fields"):
-                if isinstance(field.get("type"), dict):
+            elif field_type.get("type") == "struct":
+                parsed_struct = ""
+                for field in field_type.get("fields"):
+                    """
+                    if field is of complex type, recursively parse
+                    and create the native datatype
+                    """
                     parsed_struct += (
-                        "{0}:".format(field.get("name"))
-                        if parsed_struct
-                        else "{0}:".format(field.get("name"))
-                    )
-                    parsed_struct += field.get("type").get("type") + "<"
-                    parsed_struct = (
-                        self._inner_field_details(field.get("type"), parsed_struct)
+                        "{0}:{1}".format(
+                            field.get("name"),
+                            self.delta_type_to_hive_type(field.get("type")),
+                        )
                         + ","
                     )
-                else:
-                    parsed_struct = (
-                        parsed_struct
-                        + "{0}:{1}".format(field.get("name"), field.get("type"))
-                        + ","
-                    )
-
-            parsed_struct = parsed_struct.rstrip(",")
-            parsed_struct = (
-                parsed_struct + ">"
-                if parsed_struct.count(">") < parsed_struct.count("<")
-                else parsed_struct
-            )
-            return parsed_struct
-        else:
-            return str(raw_field.get("elementType"))
+                return "struct<" + parsed_struct.rstrip(",") + ">"
+            return ""
 
     def _parse_datatype(self, raw_field_json_str: str) -> List[SchemaFieldClass]:
         raw_field_json = json.loads(raw_field_json_str)
 
         # get the parent field name and type
-        field_name, field_type = _get_parent_field_details(raw_field_json)
+        field_name = raw_field_json.get("name")
+        field_type = self.delta_type_to_hive_type(raw_field_json.get("type"))
 
-        inner_field = raw_field_json.get("type")
-
-        if isinstance(inner_field, str):
-            return get_schema_fields_for_hive_column(field_name, field_type)
-        else:
-            # recursively parse the fields to get the native data type
-            inner_data_type = self._inner_field_details(inner_field)
-
-            native_data_type = field_type + "<" + inner_data_type + ">"
-
-            avro_schema_data = get_schema_fields_for_hive_column(
-                field_name, native_data_type
-            )
-            return avro_schema_data
+        return get_schema_fields_for_hive_column(field_name, field_type)
 
     def get_fields(self, delta_table: DeltaTable) -> List[SchemaField]:
         fields: List[SchemaField] = []
 
         for raw_field in delta_table.schema().fields:
-            field = self._parse_datatype(raw_field.to_json())
-            fields = fields + field
+            parsed_data_list = self._parse_datatype(raw_field.to_json())
+            fields = fields + parsed_data_list
 
         fields = sorted(fields, key=lambda f: f.fieldPath)
         return fields
