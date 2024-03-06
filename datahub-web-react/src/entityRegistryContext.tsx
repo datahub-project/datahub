@@ -4,4 +4,4 @@ import EntityRegistryV2 from './app/entityV2/EntityRegistry';
 
 export type EntityRegistry = EntityRegistryV1 | EntityRegistryV2;
 
-export const EntityRegistryContext = React.createContext<EntityRegistryV1>(new EntityRegistryV2());
+export const EntityRegistryContext = React.createContext<EntityRegistryV1>(new EntityRegistryV1());

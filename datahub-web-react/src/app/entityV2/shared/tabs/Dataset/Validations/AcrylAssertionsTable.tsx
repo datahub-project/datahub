@@ -66,7 +66,7 @@ type Props = {
     canEditMonitors: boolean;
     canEditSqlAssertions: boolean;
     onSelect?: (assertionUrn: string) => void;
-    refetch: () => void;
+    refetch?: () => void;
 };
 
 /**
@@ -148,7 +148,6 @@ export const AcrylAssertionsTable = ({
                             contract={contract}
                             lastEvaluation={record.lastEvaluation}
                             onViewAssertionDetails={() => setFocusAssertionUrn(record.urn)}
-                            refetch={refetch}
                         />
                     </DetailsColumnWrapper>
                 );
@@ -216,9 +215,7 @@ export const AcrylAssertionsTable = ({
                     canEditAssertion={canEditFocusAssertion}
                     canEditMonitor={canEditFocusMonitor}
                     closeDrawer={() => setFocusAssertionUrn(null)}
-                    refetch={() => {
-                        refetch();
-                    }}
+                    refetch={refetch}
                 />
             )}
         </>

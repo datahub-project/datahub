@@ -46,7 +46,7 @@ const EntityTitle = styled(Typography)`
 interface Props {
     nodes: (GlossaryNode | GlossaryNodeFragment)[];
     terms: (GlossaryTerm | ChildGlossaryTermFragment)[];
-    termsTotal: number | undefined;
+    termsTotal?: number;
 }
 
 function GlossaryEntitiesList(props: Props) {

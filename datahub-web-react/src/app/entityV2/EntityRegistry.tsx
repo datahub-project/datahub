@@ -1,5 +1,7 @@
+import { QueryHookOptions, QueryResult } from '@apollo/client';
 import React from 'react';
-import { Entity as EntityInterface, EntityType, SearchResult } from '../../types.generated';
+import { Entity as EntityInterface, EntityType, Exact, SearchResult } from '../../types.generated';
+import { EntitySidebarSection } from '../entity/shared/types';
 import { SearchResultProvider } from '../search/context/SearchResultContext';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from './Entity';
 import { GLOSSARY_ENTITY_TYPES } from './shared/constants';
@@ -232,6 +234,11 @@ export default class EntityRegistry {
         return entity.displayName(data);
     }
 
+    getSidebarSections(type: EntityType): EntitySidebarSection[] {
+        const entity = validatedGet(type, this.entityTypeToEntity);
+        return entity.getSidebarSections ? entity.getSidebarSections() : [];
+    }
+
     getGenericEntityProperties<T>(type: EntityType, data: T): GenericEntityProperties | null {
         const entity = validatedGet(type, this.entityTypeToEntity);
         return entity.getGenericEntityProperties(data);
@@ -258,8 +265,21 @@ export default class EntityRegistry {
         return validatedGet(type, this.entityTypeToEntity).getGraphName();
     }
 
-    renderSummaryRows<T>(type: EntityType, data: T): JSX.Element | undefined {
-        const entity = validatedGet(type, this.entityTypeToEntity);
-        return entity?.renderSummaryRows?.(data);
+    getEntityQuery(_type: EntityType):
+        | ((
+              baseOptions: QueryHookOptions<
+                  any,
+                  Exact<{
+                      urn: string;
+                  }>
+              >,
+          ) => QueryResult<
+              any,
+              Exact<{
+                  urn: string;
+              }>
+          >)
+        | undefined {
+        return undefined;
     }
 }

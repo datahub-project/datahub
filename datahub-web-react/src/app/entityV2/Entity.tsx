@@ -1,4 +1,5 @@
 import { EntityType, SearchResult } from '../../types.generated';
+import { EntitySidebarSection } from '../entity/shared/types';
 import { FetchedEntity } from '../lineage/types';
 import { GenericEntityProperties } from './shared/types';
 
@@ -23,6 +24,10 @@ export enum PreviewType {
      * Previews rendered when hovering over the entity in a compact list
      */
     HOVER_CARD,
+    /**
+     * Previews rendered during the bulk verify form flow
+     */
+    BULK_VERIFY,
 }
 
 export enum IconStyleType {
@@ -199,6 +204,8 @@ export interface Entity<T> {
      */
     renderEmbeddedProfile?: (urn: string) => JSX.Element;
 
-    // TODO: Consider removing... currently unused
-    renderSummaryRows?: (data: T) => JSX.Element | undefined;
+    /**
+     * Returns the entity profile sidebar sections for an entity type. Only implemented on Datasets for now.
+     */
+    getSidebarSections?: () => EntitySidebarSection[];
 }

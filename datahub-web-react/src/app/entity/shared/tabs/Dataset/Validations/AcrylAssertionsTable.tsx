@@ -59,14 +59,16 @@ const AssertionSelectCheckbox = styled(Checkbox)`
 type Props = {
     assertions: Array<Assertion>;
     contract?: DataContract;
+    // required for enabling menu/quick actions
     showMenu?: boolean;
-    showSelect?: boolean;
-    selectedUrns?: string[];
     canEditAssertions: boolean;
     canEditMonitors: boolean;
     canEditSqlAssertions: boolean;
+    refetch?: () => void;
+    // required for enabling selection
+    showSelect?: boolean;
+    selectedUrns?: string[];
     onSelect?: (assertionUrn: string) => void;
-    refetch: () => void;
 };
 
 /**
@@ -136,20 +138,19 @@ export const AcrylAssertionsTable = ({
                 const selected = selectedUrns?.some((selectedUrn) => selectedUrn === record.urn);
                 return (
                     <DetailsColumnWrapper>
-                        {showSelect && (
+                        {showSelect ?
                             <AssertionSelectCheckbox
                                 checked={selected}
                                 onClick={e => e.stopPropagation()}
                                 onChange={() => onSelect?.(record.urn as string)}
                             />
-                        )}
+                            : undefined}
                         <DetailsColumn
                             assertion={record.assertion}
                             monitor={record.monitor}
                             contract={contract}
                             lastEvaluation={record.lastEvaluation}
                             onViewAssertionDetails={() => setFocusAssertionUrn(record.urn)}
-                            refetch={refetch}
                         />
                     </DetailsColumnWrapper>
                 );
@@ -164,7 +165,7 @@ export const AcrylAssertionsTable = ({
                 const isSqlAssertion = record.type === AssertionType.Sql;
                 return (
                     <>
-                        {(showMenu && (
+                        {showMenu ?
                             <ActionsColumn
                                 assertion={record.assertion}
                                 platform={record.platform}
@@ -176,8 +177,7 @@ export const AcrylAssertionsTable = ({
                                 lastEvaluationUrl={record.lastEvaluationUrl}
                                 refetch={refetch}
                             />
-                        )) ||
-                            undefined}
+                            : undefined}
                     </>
                 );
             },
@@ -217,9 +217,7 @@ export const AcrylAssertionsTable = ({
                     canEditAssertion={canEditFocusAssertion}
                     canEditMonitor={canEditFocusMonitor}
                     closeDrawer={() => setFocusAssertionUrn(null)}
-                    refetch={() => {
-                        refetch();
-                    }}
+                    refetch={refetch}
                 />
             )}
         </>

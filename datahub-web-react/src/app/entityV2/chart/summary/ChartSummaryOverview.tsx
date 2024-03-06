@@ -3,7 +3,7 @@ import styled from 'styled-components';
 import { HeaderTitle } from '../../shared/summary/HeaderComponents';
 import { GetChartQuery } from '../../../../graphql/chart.generated';
 import { Entity, EntityType } from '../../../../types.generated';
-import { useEntityRegistry } from '../../../useEntityRegistry';
+import { useEntityRegistryV2 } from '../../../useEntityRegistry';
 import { useBaseEntity } from '../../shared/EntityContext';
 import { getSubTypeIcon, SubType } from '../../shared/components/subtypes';
 import { HorizontalList, SummaryColumns } from '../../shared/summary/ListComponents';
@@ -15,7 +15,7 @@ const StyledTitle = styled(HeaderTitle)`
 
 export default function ChartSummaryOverview() {
     const chart = useBaseEntity<GetChartQuery>()?.chart;
-    const entityRegistry = useEntityRegistry();
+    const entityRegistry = useEntityRegistryV2();
 
     // TODO: Fix casting
     // TODO: Check workbook + data source platform actually matches this entity's platform

@@ -1,6 +1,5 @@
 import { SelectTypeStep } from './steps/SelectTypeStep';
 import { ConfigureDatasetFreshnessAssertionStep } from './steps/ConfigureDatasetFreshnessAssertionStep';
-import { ConfigureActionsStep } from './steps/ConfigureActionsStep';
 import { ConfigureDatasetVolumeAssertionStep } from './steps/ConfigureDatasetVolumeAssertionStep';
 import { ConfigureDatasetSqlAssertionStep } from './steps/ConfigureDatasetSqlAssertionStep';
 import { AssertionType } from '../../../../../../../../types.generated';
@@ -28,8 +27,9 @@ export const getAssertionsBuilderStepComponent = (currentStep: AssertionBuilderS
                 default:
                     throw new Error(`Unsupported assertion type ${type}`);
             }
-        case AssertionBuilderStep.CONFIGURE_ACTIONS:
-            return ConfigureActionsStep;
+        // REMOVED (I commented out because it was also commented out on the enum, to move fast I've assume there was a reason for not deleting this code)
+        // case AssertionBuilderStep.CONFIGURE_ACTIONS:
+        //     return ConfigureActionsStep;
         case AssertionBuilderStep.FINISH_UP:
             return FinishUpStep;
         default:

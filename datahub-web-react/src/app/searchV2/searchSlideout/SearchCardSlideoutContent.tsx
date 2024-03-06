@@ -4,7 +4,7 @@ import styled from 'styled-components';
 import { ExpandedOwner } from '../../entity/shared/components/styled/ExpandedOwner/ExpandedOwner';
 import { PreviewSection } from '../../shared/MatchesContext';
 import TagTermGroup from '../../sharedV2/tags/TagTermGroup';
-import { useEntityRegistry } from '../../useEntityRegistry';
+import { useEntityRegistryV2 } from '../../useEntityRegistry';
 import { CombinedSearchResult } from '../utils/combineSiblingsInSearchResults';
 
 type Props = {
@@ -25,7 +25,7 @@ export const SearchCardSlideoutContent = ({ item, expandedSection }: Props) => {
         setCachedExpandedSection(expandedSection);
     }, [expandedSection]);
 
-    const entityRegistry = useEntityRegistry();
+    const entityRegistry = useEntityRegistryV2();
 
     if (!item || !item.entity || !cachedExpandedSection) return <></>;
 

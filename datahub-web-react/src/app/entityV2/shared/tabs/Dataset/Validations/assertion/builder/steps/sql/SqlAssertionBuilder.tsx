@@ -37,7 +37,7 @@ export const SqlAssertionBuilder = ({ state, updateState, editing = true }: Prop
     return (
         <div>
             <EvaluationScheduleBuilder
-                value={state.schedule as CronSchedule}
+                value={state.schedule}
                 onChange={updateAssertionSchedule}
                 assertionType={AssertionType.Sql}
                 showAdvanced={false}

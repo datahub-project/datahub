@@ -34,7 +34,7 @@ type Props = {
     monitor?: Monitor;
     contract?: DataContract;
     canEdit: boolean;
-    refetch: () => void;
+    refetch?: () => void;
 };
 
 export const ContractAction = ({ assertion, monitor, contract, canEdit, refetch }: Props) => {
@@ -56,7 +56,7 @@ export const ContractAction = ({ assertion, monitor, contract, canEdit, refetch 
             .then(({ errors }) => {
                 if (!errors) {
                     message.success({ content: 'Added assertion to contract!', duration: 2 });
-                    refetch();
+                    refetch?.();
                 }
             })
             .catch(() => {
@@ -72,7 +72,7 @@ export const ContractAction = ({ assertion, monitor, contract, canEdit, refetch 
             .then(({ errors }) => {
                 if (!errors) {
                     message.success({ content: 'Removed assertion from contract.', duration: 2 });
-                    refetch();
+                    refetch?.();
                 }
             })
             .catch(() => {

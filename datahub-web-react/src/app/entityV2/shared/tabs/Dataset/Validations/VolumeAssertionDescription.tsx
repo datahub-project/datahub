@@ -69,8 +69,8 @@ export const VolumeAssertionDescription = ({ assertionInfo }: Props) => {
     const volumeType = assertionInfo.type;
     const volumeTypeInfo = getVolumeTypeInfo(assertionInfo);
     const volumeTypeDescription = getVolumeTypeDescription(volumeType);
-    const operatorDescription = getOperatorDescription(volumeTypeInfo.operator);
-    const parameterDescription = getParameterDescription(volumeTypeInfo.parameters);
+    const operatorDescription = volumeTypeInfo ? getOperatorDescription(volumeTypeInfo.operator) : '';
+    const parameterDescription = volumeTypeInfo ? getParameterDescription(volumeTypeInfo.parameters) : '';
     const valueChangeTypeDescription = getIsRowCountChange(volumeType)
         ? getValueChangeTypeDescription((volumeTypeInfo as RowCountChange | IncrementingSegmentRowCountChange).type)
         : 'rows';
