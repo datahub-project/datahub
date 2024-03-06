@@ -13,7 +13,10 @@ from datahub.ingestion.source.redshift.lineage import (
     LineageCollectorType,
     RedshiftLineageExtractor,
 )
-from datahub.ingestion.source.redshift.query import RedshiftProvisionedQuery, RedshiftServerlessQuery
+from datahub.ingestion.source.redshift.query import (
+    RedshiftProvisionedQuery,
+    RedshiftServerlessQuery,
+)
 from datahub.ingestion.source.redshift.redshift_schema import (
     LineageRow,
     RedshiftDataDictionary,

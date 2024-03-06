@@ -5,8 +5,11 @@ from typing import Dict, Iterable, List, Optional, Tuple
 
 import redshift_connector
 
-from datahub.ingestion.source.redshift.query import RedshiftCommonQuery, RedshiftServerlessQuery, \
-    RedshiftProvisionedQuery
+from datahub.ingestion.source.redshift.query import (
+    RedshiftCommonQuery,
+    RedshiftServerlessQuery,
+    RedshiftProvisionedQuery,
+)
 from datahub.ingestion.source.sql.sql_generic import BaseColumn, BaseTable
 from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
 from datahub.sql_parsing.sqlglot_lineage import SqlParsingResult
@@ -157,7 +160,8 @@ class RedshiftDataDictionary:
         ]
 
     def enrich_tables(
-        self, conn: redshift_connector.Connection,
+        self,
+        conn: redshift_connector.Connection,
     ) -> Dict[str, Dict[str, RedshiftExtraTableMeta]]:
         cur = RedshiftDataDictionary.get_query_result(
             conn, self.queries.additional_table_metadata
@@ -198,7 +202,9 @@ class RedshiftDataDictionary:
         # driver only functions.
         enriched_table = self.enrich_tables(conn)
 
-        cur = RedshiftDataDictionary.get_query_result(conn, RedshiftCommonQuery.list_tables)
+        cur = RedshiftDataDictionary.get_query_result(
+            conn, RedshiftCommonQuery.list_tables
+        )
         field_names = [i[0] for i in cur.description]
         db_tables = cur.fetchall()
         logger.info(f"Fetched {len(db_tables)} tables/views from Redshift")

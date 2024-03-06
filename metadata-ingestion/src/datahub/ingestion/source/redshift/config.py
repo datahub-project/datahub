@@ -96,7 +96,7 @@ class RedshiftConfig(
 
     is_serverless: bool = Field(
         default=False,
-        description="Whether target Redshift instance is serverless (alternative is provisioned cluster)"
+        description="Whether target Redshift instance is serverless (alternative is provisioned cluster)",
     )
 
     use_lineage_v2: bool = Field(

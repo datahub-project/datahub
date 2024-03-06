@@ -253,7 +253,7 @@ SELECT  schemaname as schema_name,
 
     @staticmethod
     def alter_table_rename_query(
-            db_name: str, start_time: datetime, end_time: datetime
+        db_name: str, start_time: datetime, end_time: datetime
     ) -> str:
         start_time_str: str = start_time.strftime(redshift_datetime_format)
         end_time_str: str = end_time.strftime(redshift_datetime_format)
@@ -308,7 +308,7 @@ class RedshiftProvisionedQuery(RedshiftCommonQuery):
 
     @staticmethod
     def stl_scan_based_lineage_query(
-            db_name: str, start_time: datetime, end_time: datetime
+        db_name: str, start_time: datetime, end_time: datetime
     ) -> str:
         return """
                         select
@@ -376,10 +376,9 @@ class RedshiftProvisionedQuery(RedshiftCommonQuery):
             end_time=end_time.strftime(redshift_datetime_format),
         )
 
-
     @staticmethod
     def list_unload_commands_sql(
-            db_name: str, start_time: datetime, end_time: datetime
+        db_name: str, start_time: datetime, end_time: datetime
     ) -> str:
         return """
             select
@@ -411,7 +410,7 @@ class RedshiftProvisionedQuery(RedshiftCommonQuery):
 
     @staticmethod
     def list_insert_create_queries_sql(
-            db_name: str, start_time: datetime, end_time: datetime
+        db_name: str, start_time: datetime, end_time: datetime
     ) -> str:
         return """
                 select
@@ -465,7 +464,7 @@ class RedshiftProvisionedQuery(RedshiftCommonQuery):
 
     @staticmethod
     def list_copy_commands_sql(
-            db_name: str, start_time: datetime, end_time: datetime
+        db_name: str, start_time: datetime, end_time: datetime
     ) -> str:
         return """
                 select

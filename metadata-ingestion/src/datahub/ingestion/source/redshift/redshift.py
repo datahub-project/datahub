@@ -338,7 +338,9 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                 run_id=self.ctx.run_id,
             )
 
-        self.data_dictionary = RedshiftDataDictionary(is_serverless=self.config.is_serverless)
+        self.data_dictionary = RedshiftDataDictionary(
+            is_serverless=self.config.is_serverless
+        )
 
         self.db_tables: Dict[str, Dict[str, List[RedshiftTable]]] = {}
         self.db_views: Dict[str, Dict[str, List[RedshiftView]]] = {}
