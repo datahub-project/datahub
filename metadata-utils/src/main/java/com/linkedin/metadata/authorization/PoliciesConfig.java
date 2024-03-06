@@ -182,15 +182,6 @@ public class PoliciesConfig {
       Privilege.of(
           "VIEW_ENTITY", "View Entity", "The ability to view the entity in search results.");
 
-  /*
-    These two privileges are logically the same for search for now.
-    In the future, we might allow search but not the entity page view.
-  */
-  public static final Set<String> VIEW_ENTITY_PRIVILEGES =
-      Set.of(
-          PoliciesConfig.VIEW_ENTITY_PRIVILEGE.getType(),
-          PoliciesConfig.VIEW_ENTITY_PAGE_PRIVILEGE.getType());
-
   public static final Privilege EDIT_ENTITY_TAGS_PRIVILEGE =
       Privilege.of(
           "EDIT_ENTITY_TAGS", "Edit Tags", "The ability to add and remove tags to an asset.");
@@ -346,6 +337,18 @@ public class PoliciesConfig {
           PROPOSE_ENTITY_DOCS_PRIVILEGE,
           MANAGE_ENTITY_DOCS_PROPOSALS_PRIVILEGE,
           SHARE_ENTITY_PRIVILEGE);
+
+  /*
+    These two privileges are logically the same for search for now.
+    In the future, we might allow search but not the entity page view.
+  */
+  public static final Set<String> VIEW_ENTITY_PRIVILEGES =
+      Set.of(
+          PoliciesConfig.VIEW_ENTITY_PRIVILEGE.getType(),
+          PoliciesConfig.VIEW_ENTITY_PAGE_PRIVILEGE.getType(),
+          PoliciesConfig.DELETE_ENTITY_PRIVILEGE.getType(),
+          PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType(),
+          PoliciesConfig.SHARE_ENTITY_PRIVILEGE.getType());
 
   // Dataset Privileges
   public static final Privilege EDIT_DATASET_COL_TAGS_PRIVILEGE =

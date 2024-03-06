@@ -216,7 +216,7 @@ public class OperationContext {
         ImmutableSet.<ContextInterface>builder()
             .add(getOperationContextConfig())
             .add(getAuthorizerContext())
-            .add(getActorContext())
+            .add(getSessionActorContext())
             .add(getSearchContext())
             .add(getEntityRegistryContext())
             .build()
@@ -232,7 +232,7 @@ public class OperationContext {
     return String.valueOf(
         ImmutableSet.<ContextInterface>builder()
             .add(getOperationContextConfig())
-            .add(getActorContext())
+            .add(getSessionActorContext())
             .add(getSearchContext())
             .add(getEntityRegistryContext())
             .build()
@@ -248,7 +248,7 @@ public class OperationContext {
     return String.valueOf(
         ImmutableSet.<ContextInterface>builder()
             .add(getOperationContextConfig())
-            .add(getActorContext())
+            .add(getSessionActorContext())
             .add(getEntityRegistryContext())
             .build()
             .stream()
