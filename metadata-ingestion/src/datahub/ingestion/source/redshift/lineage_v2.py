@@ -271,7 +271,11 @@ class RedshiftSqlLineageV2:
             platform_instance=self.config.platform_instance,
         )
 
-        assert lineage_row.ddl, "stl scan entry is missing query text"
+        if lineage_row.ddl is None:
+            logger.warning(
+                f"stl scan entry is missing query text for {lineage_row.source_schema}.{lineage_row.source_table}"
+            )
+            return
         self.aggregator.add_known_query_lineage(
             KnownQueryLineageInfo(
                 query_text=lineage_row.ddl,
