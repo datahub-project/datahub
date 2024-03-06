@@ -228,7 +228,7 @@ SELECT  schemaname as schema_name,
                 username,
                 source_schema,
                 source_table,
-                query_text AS ddl, -- TODO: this querytxt is truncated to 4000 characters
+                query_text AS ddl,
                 start_time AS timestamp
             FROM
             (
@@ -257,7 +257,7 @@ SELECT  schemaname as schema_name,
                     qs.table_id AS source_table_id,
                     qs.query_id AS query_id,
                     sui.user_name AS username,
-                    qt."text" AS query_text
+                    LISTAGG(qt."text") WITHIN GROUP (ORDER BY sequence) AS query_text
                 FROM
                     SYS_QUERY_DETAIL qs
                     JOIN
@@ -269,8 +269,10 @@ SELECT  schemaname as schema_name,
                 WHERE
                     qs.step_name = 'scan' AND
                     qs.source = 'Redshift(local)' AND
+                    qt.sequence < 320 AND -- See https://stackoverflow.com/questions/72770890/redshift-result-size-exceeds-listagg-limit-on-svl-statementtext
                     sti.database = '{db_name}' AND -- this was required to not retrieve some internal redshift tables, try removing to see what happens
                     sui.user_name <> 'rdsdb' -- not entirely sure about this filter
+                GROUP BY sti.schema, sti.table, qs.table_id, qs.query_id, sui.user_name
             ) AS source_tables ON target_tables.query_id = source_tables.query_id
             WHERE source_tables.source_table_id <> target_tables.target_table_id
             ORDER BY cluster, target_schema, target_table, start_time ASC
@@ -479,41 +481,52 @@ SELECT  schemaname as schema_name,
 
         return rf"""-- DataHub Redshift Source temp table DDL query
                     SELECT
-                        *
+                            *
                     FROM
                     (
-                        SELECT
-                            session_id,
-                            transaction_id,
-                            start_time,
-                            query_type AS "type",
-                            user_id AS userid,
-                            query_text, -- truncated to 4k characters, join with SYS_QUERY_TEXT to build full query using "sequence" number field, probably no reason to do so, since we are interested in the begining of the statement anyway
-                            REGEXP_REPLACE(REGEXP_SUBSTR(REGEXP_REPLACE(query_text,'\\\\n','\\n'), '(CREATE(?:[\\n\\s\\t]+(?:temp|temporary))?(?:[\\n\\s\\t]+)table(?:[\\n\\s\\t]+)[^\\n\\s\\t()-]+)', 0, 1, 'ipe'),'[\\n\\s\\t]+',' ',1,'p') as create_command,
-                            ROW_NUMBER() OVER (
-                                PARTITION BY TRIM(query_text)
-                                ORDER BY start_time DESC
-                            ) rn
-                        FROM
-                            SYS_QUERY_HISTORY
-                        WHERE
-                            query_type IN ('DDL', 'CTAS', 'OTHER', 'COMMAND')
-                            AND start_time >= '{start_time_str}'
-                            AND start_time < '{end_time_str}'
-                        GROUP BY start_time, session_id, transaction_id, type, userid, query_text
-                        ORDER BY start_time, session_id, transaction_id, type, userid ASC
+                            SELECT
+                                    session_id,
+                                    transaction_id,
+                                    start_time,
+                                    userid,
+                                    query_text,
+                                    REGEXP_REPLACE(REGEXP_SUBSTR(REGEXP_REPLACE(query_text,'\\\\n','\\n'), '(CREATE(?:[\\n\\s\\t]+(?:temp|temporary))?(?:[\\n\\s\\t]+)table(?:[\\n\\s\\t]+)[^\\n\\s\\t()-]+)', 0, 1, 'ipe'),'[\\n\\s\\t]+',' ',1,'p') AS create_command,
+                                    ROW_NUMBER() OVER (
+                                    PARTITION BY query_text
+                                    ORDER BY start_time DESC
+                                    ) rn
+                            FROM
+                            (
+                                    SELECT
+                                            qh.session_id AS session_id,
+                                            qh.transaction_id AS transaction_id,
+                                            qh.start_time AS start_time,
+                                            qh.user_id AS userid,
+                                            LISTAGG(qt."text") WITHIN GROUP (ORDER BY sequence) AS query_text
+                                    FROM
+                                            SYS_QUERY_HISTORY qh
+                                            LEFT JOIN SYS_QUERY_TEXT qt on qt.query_id = qh.query_id
+                                    WHERE
+                                            query_type IN ('DDL', 'CTAS', 'OTHER', 'COMMAND')
+                                            AND qh.start_time >= '{start_time_str}'
+                                            AND qh.start_time < '{end_time_str}'
+                                            AND qt.sequence < 320
+                                    GROUP BY qh.start_time, qh.session_id, qh.transaction_id, qh.user_id
+                                    ORDER BY qh.start_time, qh.session_id, qh.transaction_id, qh.user_id ASC
+                            )
+                            WHERE
+                                    (
+                                            create_command ILIKE '%create temp table %'
+                                            OR create_command ILIKE '%create temporary table %'
+                                            -- we want to get all the create table statements and not just temp tables if non temp table is created and dropped in the same transaction
+                                            OR create_command ILIKE '%create table %'
+                                    )
+                                    -- Redshift creates temp tables with the following names: volt_tt_%. We need to filter them out.
+                                    AND query_text NOT ILIKE '%CREATE TEMP TABLE volt_tt_%'
+                                    AND create_command NOT ILIKE '%CREATE TEMP TABLE volt_tt_%'
                     )
                     WHERE
-                        (
-                            create_command ILIKE '%create temp table %'
-                            OR create_command ILIKE '%create temporary table %'
-                            -- we want to get all the create table statements and not just temp tables if non temp table is created and dropped in the same transaction
-                            OR create_command ILIKE '%create table %'
-                        )
-                        -- Redshift creates temp tables with the following names: volt_tt_%. We need to filter them out.
-                        AND query_text NOT ILIKE '%CREATE TEMP TABLE volt_tt_%'
-                        AND create_command NOT ILIKE '%CREATE TEMP TABLE volt_tt_%'
-                        AND rn = 1
+                            rn = 1
                     ;
             """
 
