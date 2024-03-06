@@ -338,6 +338,8 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                 run_id=self.ctx.run_id,
             )
 
+        self.data_dictionary = RedshiftDataDictionary(is_serverless=self.config.is_serverless)
+
         self.db_tables: Dict[str, Dict[str, List[RedshiftTable]]] = {}
         self.db_views: Dict[str, Dict[str, List[RedshiftView]]] = {}
         self.db_schemas: Dict[str, Dict[str, RedshiftSchema]] = {}
@@ -465,7 +467,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             yield from profiler.get_workunits(self.db_tables)
 
     def process_schemas(self, connection, database):
-        for schema in RedshiftDataDictionary.get_schemas(
+        for schema in self.data_dictionary.get_schemas(
             conn=connection, database=database
         ):
             if not is_schema_allowed(
@@ -516,7 +518,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             )
 
             schema_columns: Dict[str, Dict[str, List[RedshiftColumn]]] = {}
-            schema_columns[schema.name] = RedshiftDataDictionary.get_columns_for_schema(
+            schema_columns[schema.name] = self.data_dictionary.get_columns_for_schema(
                 conn=connection, schema=schema
             )
 
@@ -696,7 +698,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                 data_type = resolve_postgres_modified_type(col.data_type.lower())
 
             if any(type in col.data_type.lower() for type in ["struct", "array"]):
-                fields = RedshiftDataDictionary.get_schema_fields_for_column(col)
+                fields = self.data_dictionary.get_schema_fields_for_column(col)
                 schema_fields.extend(fields)
             else:
                 field = SchemaField(
@@ -813,7 +815,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             )
 
     def cache_tables_and_views(self, connection, database):
-        tables, views = RedshiftDataDictionary.get_tables_and_views(conn=connection)
+        tables, views = self.data_dictionary.get_tables_and_views(conn=connection)
         for schema in tables:
             if not is_schema_allowed(
                 self.config.schema_pattern,
