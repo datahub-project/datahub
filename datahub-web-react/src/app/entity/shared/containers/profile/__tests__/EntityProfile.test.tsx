@@ -314,12 +314,6 @@ describe('EntityProfile', () => {
                             {
                                 name: 'Lineage',
                                 component: LineageTab,
-                                display: {
-                                    visible: (_, _1) => true,
-                                    enabled: (_, dataset: GetDatasetQuery) =>
-                                        ((dataset?.dataset as any).upstreamLineage?.entities?.length || 0) > 0 ||
-                                        ((dataset?.dataset as any).downstreamLineage?.entities?.length || 0) > 0,
-                                },
                             },
                             {
                                 name: 'Queries',
