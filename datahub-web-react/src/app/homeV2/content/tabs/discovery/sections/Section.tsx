@@ -18,6 +18,12 @@ const Title = styled.div`
 
 const Content = styled.div`
     margin-bottom: 12px;
+    position: relative;
+    &:hover {
+        .hover-btn {
+            display: flex;
+        }
+    }
 `;
 
 const Action = styled.div`

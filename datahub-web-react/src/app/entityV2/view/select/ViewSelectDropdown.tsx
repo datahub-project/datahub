@@ -21,6 +21,12 @@ const Container = styled.div`
     color: ${ANTD_GRAY[1]};
     gap: 0.5rem;
     flex-direction: column;
+    position: relative;
+    &:hover {
+        .hover-btn {
+            display: flex;
+        }
+    }
 `;
 
 export const ViewSelectDropdown = ({

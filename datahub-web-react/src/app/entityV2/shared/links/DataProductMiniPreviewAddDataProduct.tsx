@@ -51,7 +51,7 @@ const Card = styled.div`
     min-width: 160px;
     padding: 16px;
     :hover {
-        border: 2px solid ${REDESIGN_COLORS.BLUE};
+        border: 1.5px solid ${REDESIGN_COLORS.BLUE};
         cursor: pointer;
     }
 `;

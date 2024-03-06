@@ -44,7 +44,6 @@ type Props = {
 };
 
 export const CenterTab = ({ name, description, icon: Icon, selected, count, disabled = false, onClick }: Props) => {
-    console.log(count);
     return (
         <Tooltip title={description} placement="bottom" showArrow={false}>
             <Tab
