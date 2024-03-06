@@ -238,9 +238,8 @@ module.exports = {
       type: "category",
       label: "Features",
       link: {
-        type: "generated-index",
-        title: "Managed DataHub Features",
-        description: "Acryl DataHub offers a slew of additional features on top of the normal OSS project.",
+        type: "doc",
+        id: "docs/managed-datahub/managed-datahub-overview",
         },
       items: [
         {
@@ -393,6 +392,45 @@ module.exports = {
         "docs/deploy/confluent-cloud",
         "docs/deploy/environment-vars",
         "docs/how/extract-container-logs",
+        {
+          "Rest.li API": [
+            {
+              type: "doc",
+              label: "Rest.li API Guide",
+              id: "docs/api/restli/restli-overview",
+            },
+            {
+              type: "doc",
+              label: "Restore Indices",
+              id: "docs/api/restli/restore-indices",
+            },
+            {
+              type: "doc",
+              label: "Get Index Sizes",
+              id: "docs/api/restli/get-index-sizes",
+            },
+            {
+              type: "doc",
+              label: "Truncate Timeseries Aspect",
+              id: "docs/api/restli/truncate-time-series-aspect",
+            },
+            {
+              type: "doc",
+              label: "Get ElasticSearch Task Status Endpoint",
+              id: "docs/api/restli/get-elastic-task-status",
+            },
+            {
+              type: "doc",
+              label: "Evaluate Tests",
+              id: "docs/api/restli/evaluate-tests",
+            },
+            {
+              type: "doc",
+              label: "Aspect Versioning and Rest.li Modeling",
+              id: "docs/advanced/aspect-versioning",
+            },
+          ],
+        },
       ],
     },
     {
@@ -567,45 +605,6 @@ module.exports = {
           ],
         },
         "docs/dev-guides/timeline",
-        {
-          "Rest.li API": [
-            {
-              type: "doc",
-              label: "Rest.li API Guide",
-              id: "docs/api/restli/restli-overview",
-            },
-            {
-              type: "doc",
-              label: "Restore Indices",
-              id: "docs/api/restli/restore-indices",
-            },
-            {
-              type: "doc",
-              label: "Get Index Sizes",
-              id: "docs/api/restli/get-index-sizes",
-            },
-            {
-              type: "doc",
-              label: "Truncate Timeseries Aspect",
-              id: "docs/api/restli/truncate-time-series-aspect",
-            },
-            {
-              type: "doc",
-              label: "Get ElasticSearch Task Status Endpoint",
-              id: "docs/api/restli/get-elastic-task-status",
-            },
-            {
-              type: "doc",
-              label: "Evaluate Tests",
-              id: "docs/api/restli/evaluate-tests",
-            },
-            {
-              type: "doc",
-              label: "Aspect Versioning and Rest.li Modeling",
-              id: "docs/advanced/aspect-versioning",
-            },
-          ],
-        },
       ],
     },
     {
