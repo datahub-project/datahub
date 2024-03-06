@@ -7,8 +7,8 @@ import redshift_connector
 
 from datahub.ingestion.source.redshift.query import (
     RedshiftCommonQuery,
-    RedshiftServerlessQuery,
     RedshiftProvisionedQuery,
+    RedshiftServerlessQuery,
 )
 from datahub.ingestion.source.sql.sql_generic import BaseColumn, BaseTable
 from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField

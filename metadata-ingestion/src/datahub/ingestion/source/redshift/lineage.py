@@ -19,8 +19,8 @@ from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.aws.s3_util import strip_s3_prefix
 from datahub.ingestion.source.redshift.config import LineageMode, RedshiftConfig
 from datahub.ingestion.source.redshift.query import (
-    RedshiftServerlessQuery,
     RedshiftProvisionedQuery,
+    RedshiftServerlessQuery,
 )
 from datahub.ingestion.source.redshift.redshift_schema import (
     LineageRow,
