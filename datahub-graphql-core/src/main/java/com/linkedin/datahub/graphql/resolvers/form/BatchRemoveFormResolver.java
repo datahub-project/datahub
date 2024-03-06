@@ -6,6 +6,8 @@ import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.BatchAssignFormInput;
 import com.linkedin.metadata.service.FormService;
 import graphql.schema.DataFetcher;
@@ -35,10 +37,13 @@ public class BatchRemoveFormResolver implements DataFetcher<CompletableFuture<Bo
     final List<String> entityUrns = input.getEntityUrns();
     final Authentication authentication = context.getAuthentication();
 
-    // TODO: (PRD-1062) Add permission check once permission exists
-
     return CompletableFuture.supplyAsync(
         () -> {
+          if (!AuthorizationUtils.canManageForms(context)) {
+            throw new AuthorizationException(
+                "Unauthorized to perform this action. Please contact your DataHub administrator.");
+          }
+
           try {
             _formService.batchUnassignFormForEntities(
                 entityUrns.stream().map(UrnUtils::getUrn).collect(Collectors.toList()),

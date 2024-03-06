@@ -265,6 +265,11 @@ public class AuthorizationUtils {
         orPrivilegesGroup);
   }
 
+  public static boolean canManageForms(@Nonnull QueryContext context) {
+    return isAuthorized(
+        context, Optional.empty(), PoliciesConfig.MANAGE_DOCUMENTATION_FORMS_PRIVILEGE);
+  }
+
   public static boolean isAuthorized(
       @Nonnull QueryContext context,
       @Nonnull Optional<EntitySpec> resourceSpec,

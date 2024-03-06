@@ -37,6 +37,7 @@
         "GET_ANALYTICS_PRIVILEGE",
         "CREATE_CONSTRAINTS",
         "MANAGE_CONNECTIONS",
+        "MANAGE_DOCUMENTATION_FORMS",
         "MANAGE_MONITORS"
       ],
       "displayName":"Root User - All Platform Privileges",
@@ -231,6 +232,7 @@
         "GET_ANALYTICS_PRIVILEGE",
         "APPLY_RETENTION_PRIVILEGE",
         "MANAGE_CONNECTIONS",
+        "MANAGE_DOCUMENTATION_FORMS",
         "MANAGE_MONITORS"
       ],
       "displayName":"Admins - Platform Policy",
@@ -327,6 +329,7 @@
         "MANAGE_TAGS",
         "MANAGE_TESTS",
         "CREATE_CONSTRAINTS",
+        "MANAGE_DOCUMENTATION_FORMS",
         "VIEW_METADATA_PROPOSALS"
       ],
       "displayName":"Editors - Platform Policy",

@@ -2,9 +2,11 @@ package com.linkedin.datahub.graphql.resolvers.form;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 
+import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.FormPromptType;
 import com.linkedin.datahub.graphql.generated.SubmitFormPromptInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.FormUtils;
@@ -12,6 +14,7 @@ import com.linkedin.metadata.service.FormService;
 import com.linkedin.structured.PrimitivePropertyValueArray;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nonnull;
@@ -39,6 +42,9 @@ public class SubmitFormPromptResolver implements DataFetcher<CompletableFuture<B
     return CompletableFuture.supplyAsync(
         () -> {
           try {
+            // ensure the user is assigned to this form/entity before letting them submit a prompt
+            checkUserIsAssigned(context, formUrn, entityUrn);
+
             if (input.getType().equals(FormPromptType.STRUCTURED_PROPERTY)) {
               if (input.getStructuredPropertyParams() == null) {
                 throw new IllegalArgumentException(
@@ -85,5 +91,21 @@ public class SubmitFormPromptResolver implements DataFetcher<CompletableFuture<B
                 String.format("Failed to perform update against input %s", input), e);
           }
         });
+  }
+
+  private void checkUserIsAssigned(
+      @Nonnull final QueryContext context, @Nonnull final Urn formUrn, @Nonnull final Urn entityUrn)
+      throws Exception {
+    final Authentication authentication = context.getAuthentication();
+    final Urn actorUrn = UrnUtils.getUrn(context.getActorUrn());
+
+    final List<Urn> groupsForUser = _formService.getGroupsForUser(actorUrn, authentication);
+    if (!_formService.isFormAssignedToUser(
+        formUrn, entityUrn, actorUrn, groupsForUser, authentication)) {
+      throw new AuthorizationException(
+          String.format(
+              "Failed to authorize form on entity as form with urn %s is not assigned to user",
+              formUrn));
+    }
   }
 }

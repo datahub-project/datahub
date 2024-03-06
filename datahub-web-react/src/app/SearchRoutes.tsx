@@ -27,12 +27,14 @@ import DomainRoutesV2 from './domainV2/DomainRoutes';
 import { ManageDomainsPage as ManageDomainsPageV2 } from './domainV2/ManageDomainsPage';
 import { TaskCenter } from './taskCenter/TaskCenter';
 import { GovernDashboard } from './govern/Dashboard/Dashboard';
+import { useUserContext } from './context/useUserContext';
 
 /**
  * Container for all searchable page routes
  */
 export const SearchRoutes = (): JSX.Element => {
     const entityRegistry = useEntityRegistry();
+    const me = useUserContext();
     const isNestedDomainsEnabled = useIsNestedDomainsEnabled();
     const entities = isNestedDomainsEnabled
         ? entityRegistry.getEntitiesForSearchRoutes()
@@ -40,6 +42,7 @@ export const SearchRoutes = (): JSX.Element => {
     const isThemeV2 = useIsThemeV2Enabled();
     const FinalSearchablePage = isThemeV2 ? SearchablePageV2 : SearchablePage;
     const isDocumentationFormsEnabled = useIsDocumentationFormsEnabled();
+    const includeGovernDashboard = isDocumentationFormsEnabled && me.platformPrivileges?.manageDocumentationForms;
 
     return (
         <FinalSearchablePage>
@@ -86,7 +89,7 @@ export const SearchRoutes = (): JSX.Element => {
                         />
                     )
                 }
-                {isDocumentationFormsEnabled && (
+                {includeGovernDashboard && (
                     <Route path={PageRoutes.GOVERN_DASHBOARD} render={() => <GovernDashboard />} />
                 )}
                 <Route path={PageRoutes.INGESTION} render={() => <ManageIngestionPage />} />

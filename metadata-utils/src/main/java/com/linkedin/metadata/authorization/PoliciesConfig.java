@@ -132,6 +132,12 @@ public class PoliciesConfig {
       Privilege.of(
           "MANAGE_CONNECTIONS", "Manage Connections", "Manage connections to external platforms.");
 
+  public static final Privilege MANAGE_DOCUMENTATION_FORMS_PRIVILEGE =
+      Privilege.of(
+          "MANAGE_DOCUMENTATION_FORMS",
+          "Manage Documentation Forms",
+          "Manage forms assigned to assets to assist in documentation efforts.");
+
   // Acryl-Main only.
   public static final Privilege MANAGE_MONITORS =
       Privilege.of(
@@ -164,6 +170,7 @@ public class PoliciesConfig {
           MANAGE_GLOBAL_OWNERSHIP_TYPES,
           MANAGE_GLOBAL_SETTINGS,
           MANAGE_CONNECTIONS_PRIVILEGE,
+          MANAGE_DOCUMENTATION_FORMS_PRIVILEGE,
           MANAGE_MONITORS);
 
   // Resource Privileges //

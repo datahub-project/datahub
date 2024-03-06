@@ -159,6 +159,11 @@ type PlatformPrivileges {
   Whether the user can create and delete posts pinned to the home page.
   """
   manageGlobalAnnouncements: Boolean!
+
+  """
+  Whether the user can create, edit, and assign documentation forms.
+  """
+  manageDocumentationForms: Boolean!
 }
 
 """

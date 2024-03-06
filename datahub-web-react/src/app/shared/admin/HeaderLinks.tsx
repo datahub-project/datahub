@@ -104,7 +104,8 @@ export function HeaderLinks(props: Props) {
     const showTests = (isTestsEnabled && me?.platformPrivileges?.manageTests) || false;
     const showDatasetHealth = config?.featureFlags?.datasetHealthDashboardEnabled;
     const showObserve = showDatasetHealth;
-    const showDocumentationCenter = config?.featureFlags?.documentationFormsEnabled || false; // TODO: Add platformPrivileges check
+    const showDocumentationCenter =
+        config?.featureFlags?.documentationFormsEnabled && me.platformPrivileges?.manageDocumentationForms;
 
     useToggleEducationStepIdsAllowList(!!showIngestion, HOME_PAGE_INGESTION_ID);
 
