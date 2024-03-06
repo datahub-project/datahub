@@ -19,6 +19,7 @@ from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.aws.s3_util import strip_s3_prefix
 from datahub.ingestion.source.redshift.config import LineageMode, RedshiftConfig
 from datahub.ingestion.source.redshift.query import (
+    RedshiftCommonQuery,
     RedshiftProvisionedQuery,
     RedshiftServerlessQuery,
 )
@@ -161,7 +162,7 @@ class RedshiftLineageExtractor:
         self.context = context
         self._lineage_map: Dict[str, LineageItem] = defaultdict()
 
-        self.queries = RedshiftProvisionedQuery()
+        self.queries: RedshiftCommonQuery = RedshiftProvisionedQuery()
         if self.config.is_serverless:
             self.queries = RedshiftServerlessQuery()
 

@@ -14,6 +14,7 @@ from datahub.ingestion.source.redshift.lineage import (
     RedshiftLineageExtractor,
 )
 from datahub.ingestion.source.redshift.query import (
+    RedshiftCommonQuery,
     RedshiftProvisionedQuery,
     RedshiftServerlessQuery,
 )
@@ -67,7 +68,7 @@ class RedshiftSqlLineageV2:
         )
         self.report.sql_aggregator = self.aggregator.report
 
-        self.queries = RedshiftProvisionedQuery()
+        self.queries: RedshiftCommonQuery = RedshiftProvisionedQuery()
         if self.config.is_serverless:
             self.queries = RedshiftServerlessQuery()
 

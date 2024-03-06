@@ -110,7 +110,7 @@ class AlterTableRow:
 # this is a class to be a proxy to query Redshift
 class RedshiftDataDictionary:
     def __init__(self, is_serverless):
-        self.queries = RedshiftProvisionedQuery()
+        self.queries: RedshiftCommonQuery = RedshiftProvisionedQuery()
         if is_serverless:
             self.queries = RedshiftServerlessQuery()
 

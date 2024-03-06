@@ -272,6 +272,36 @@ SELECT  schemaname as schema_name,
             AND        SYS.query_text ILIKE '%alter table % rename to %'
         """
 
+    additional_table_metadata: str = ""
+
+    @staticmethod
+    def stl_scan_based_lineage_query(
+        db_name: str, start_time: datetime, end_time: datetime
+    ) -> str:
+        raise NotImplementedError
+
+    @staticmethod
+    def list_unload_commands_sql(
+        db_name: str, start_time: datetime, end_time: datetime
+    ) -> str:
+        raise NotImplementedError
+
+    @staticmethod
+    def temp_table_ddl_query(start_time: datetime, end_time: datetime) -> str:
+        raise NotImplementedError
+
+    @staticmethod
+    def list_insert_create_queries_sql(
+        db_name: str, start_time: datetime, end_time: datetime
+    ) -> str:
+        raise NotImplementedError
+
+    @staticmethod
+    def list_copy_commands_sql(
+        db_name: str, start_time: datetime, end_time: datetime
+    ) -> str:
+        raise NotImplementedError
+
 
 class RedshiftProvisionedQuery(RedshiftCommonQuery):
     additional_table_metadata: str = """
