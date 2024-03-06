@@ -19,6 +19,11 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.source_helpers import auto_empty_dataset_usage_statistics
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.redshift.config import RedshiftConfig
+from datahub.ingestion.source.redshift.query import (
+    RedshiftCommonQuery,
+    RedshiftProvisionedQuery,
+    RedshiftServerlessQuery,
+)
 from datahub.ingestion.source.redshift.redshift_schema import (
     RedshiftTable,
     RedshiftView,
@@ -39,84 +44,6 @@ logger = logging.getLogger(__name__)
 
 REDSHIFT_DATETIME_FORMAT = "%Y-%m-%d %H:%M:%S"
 
-
-# Add this join to the sql query for more metrics on completed queries
-# LEFT JOIN svl_query_metrics_summary sqms ON ss.query = sqms.query
-# Reference: https://docs.aws.amazon.com/redshift/latest/dg/r_SVL_QUERY_METRICS_SUMMARY.html
-
-# this sql query joins stl_scan over table info,
-# querytext, and user info to get usage stats
-# using non-LEFT joins here to limit the results to
-# queries run by the user on user-defined tables.
-
-# new approach does not include "COPY" commands
-REDSHIFT_USAGE_QUERY_TEMPLATE: str = """
-SELECT
-    DISTINCT
-    qh.user_id as userid,
-    qh.query_id as query,
-    sui.user_name as username,
-    qd.table_id as tbl,
-    qh.query_text as querytxt, -- truncated to 4k characters, join with SYS_QUERY_TEXT to build full query using "sequence" number field
-    sti.database as database,
-    sti.schema as schema,
-    sti.table as table,
-    qh.start_time as starttime,
-    qh.end_time as endtime
-FROM
-    SYS_QUERY_DETAIL qd
-    JOIN SVV_TABLE_INFO sti ON qd.table_id = sti.table_id
-    JOIN SVV_USER_INFO sui ON sui.user_id = qd.user_id
-    JOIN SYS_QUERY_HISTORY qh ON qh.query_id = qd.query_id
-WHERE
-    qd.step_name = 'scan'
-    AND qh.start_time >= '{start_time}'
-    AND qh.start_time < '{end_time}'
-    AND sti.database = '{database}'
-    AND qh.status = 'success'
-ORDER BY qh.end_time DESC
-;
-""".strip()
-
-REDSHIFT_OPERATION_ASPECT_QUERY_TEMPLATE: str = """
-SELECT
-    DISTINCT
-    qd.user_id AS userid,
-    qd.query_id AS query,
-    qd.rows AS rows,
-    sui.user_name AS username,
-    qd.table_id AS tbl,
-    qh.query_text AS querytxt, -- truncated to 4k characters, join with SYS_QUERY_TEXT to build full query using "sequence" number field
-    sti.database AS database,
-    sti.schema AS schema,
-    sti.table AS table,
-    qh.start_time AS starttime,
-    qh.end_time AS endtime,
-    qd.step_name as operation_type
-FROM
-    (
-        SELECT
-            qd.user_id,
-            qd.query_id,
-            sum(qd.output_rows) as rows,
-            qd.table_id,
-            qd.step_name
-        FROM
-            SYS_QUERY_DETAIL qd
-        WHERE
-            qd.step_name in ('insert', 'delete')
-            AND qd.start_time >= '{start_time}'
-            AND qd.start_time < '{end_time}'
-        GROUP BY qd.user_id, qd.query_id, qd.table_id, qd.step_name
-    ) qd
-    JOIN SVV_TABLE_INFO sti ON qd.table_id = sti.table_id
-    JOIN SVV_USER_INFO sui ON sui.user_id = qd.user_id
-    JOIN SYS_QUERY_HISTORY qh ON qh.query_id = qd.query_id
-WHERE
-    qh.status = 'success'
-ORDER BY
-  endtime DESC
-""".strip()
 
 RedshiftTableRef = str
 AggregatedDataset = GenericAggregatedDataset[RedshiftTableRef]
@@ -189,6 +116,10 @@ class RedshiftUsageExtractor:
             self.report.usage_start_time,
             self.report.usage_end_time,
         ) = self.get_time_window()
+
+        self.queries: RedshiftCommonQuery = RedshiftProvisionedQuery()
+        if self.config.is_serverless:
+            self.queries = RedshiftServerlessQuery()
 
     def get_time_window(self) -> Tuple[datetime, datetime]:
         if self.redundant_run_skip_handler:
@@ -263,7 +194,7 @@ class RedshiftUsageExtractor:
 
         # Generate aggregate events
         self.report.report_ingestion_stage_start(USAGE_EXTRACTION_USAGE_AGGREGATION)
-        query: str = REDSHIFT_USAGE_QUERY_TEMPLATE.format(
+        query: str = self.queries.usage_query(
             start_time=self.start_time.strftime(REDSHIFT_DATETIME_FORMAT),
             end_time=self.end_time.strftime(REDSHIFT_DATETIME_FORMAT),
             database=self.config.database,
@@ -290,7 +221,7 @@ class RedshiftUsageExtractor:
         all_tables: Dict[str, Dict[str, List[Union[RedshiftView, RedshiftTable]]]],
     ) -> Iterable[MetadataWorkUnit]:
         # Generate access events
-        query: str = REDSHIFT_OPERATION_ASPECT_QUERY_TEMPLATE.format(
+        query: str = self.queries.operation_aspect_query(
             start_time=self.start_time.strftime(REDSHIFT_DATETIME_FORMAT),
             end_time=self.end_time.strftime(REDSHIFT_DATETIME_FORMAT),
         )
