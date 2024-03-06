@@ -54,7 +54,7 @@ const DocProgressByAssignee = () => {
 		.map((row) => {
 			const { username, properties } = getEntityInfo(data, row.assignee_urn) || {};
 			return ({
-				Name: properties.displayName || username || row.assignee_urn,
+				Name: properties?.displayName || username || row.assignee_urn,
 				Completed: Number(row.Completed),
 				'In Progress': Number(row['In Progress']),
 				'Not Started': Number(row['Not Started']),
@@ -129,7 +129,7 @@ const DocProgressByAssigneeTopPerforming = () => {
 				const { username, properties } = getEntityInfo(data, d.assignee_urn) || {};
 				return (
 					<ChartPerformanceItem key={d.assignee_urn}>
-						<div><UserOutlined /> {properties.displayName || username || d.assignee_urn}</div>
+						<div><UserOutlined /> {properties?.displayName || username || d.assignee_urn}</div>
 						{formatPercentage(d.completed_asset_percent)} completed
 					</ChartPerformanceItem>
 				)
@@ -188,7 +188,7 @@ const DocProgressByAssigneeLeastPerforming = () => {
 				const { username, properties } = getEntityInfo(data, d.assignee_urn) || {};
 				return (
 					<ChartPerformanceItem key={d.assignee_urn}>
-						<div><UserOutlined /> {properties.displayName || username || d.assignee_urn}</div>
+						<div><UserOutlined /> {properties?.displayName || username || d.assignee_urn}</div>
 						{formatPercentage(d.completed_asset_percent)} completed
 					</ChartPerformanceItem>
 				)

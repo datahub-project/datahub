@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.resolvers.form;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
+import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
@@ -82,7 +83,8 @@ public class FormAnalyticsResolver
                 input.getQueryString(),
                 response::setHeader,
                 row -> {
-                  lines.add(new FormAnalyticsRow(row, mapRowResults(row)));
+                  lines.add(
+                      new FormAnalyticsRow(row, mapRowResults(row, context.getAuthentication())));
                 },
                 error_messages -> {
                   for (String error : error_messages) {
@@ -114,7 +116,8 @@ public class FormAnalyticsResolver
         });
   }
 
-  private List<RowResult> mapRowResults(final List<String> row) {
+  private List<RowResult> mapRowResults(
+      final List<String> row, final Authentication authentication) {
     return row.stream()
         .map(
             rowEntry -> {
@@ -122,7 +125,9 @@ public class FormAnalyticsResolver
               result.setValue(rowEntry);
               try {
                 final Urn urnValue = Urn.createFromString(rowEntry);
-                result.setEntity(UrnToEntityMapper.map(urnValue));
+                if (_entityClient.exists(urnValue, authentication)) {
+                  result.setEntity(UrnToEntityMapper.map(urnValue));
+                }
               } catch (Exception e) {
                 log.debug(String.format("Row entry is not an urn: %s", rowEntry));
               }

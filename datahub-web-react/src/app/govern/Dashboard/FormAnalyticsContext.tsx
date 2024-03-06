@@ -201,7 +201,7 @@ export const FormAnalyticsProvider = ({ children }: Props) => {
 	});
 
 	// Define sql queries
-	const snapshotDate = snapshot?.formAnalytics?.table![0].row[0] as string;
+	const snapshotDate = snapshot?.formAnalytics?.table![0]?.row[0] as string;
 	const sql = sqlQueries(daysSinceDate, selectedForm, selectedAssignee, selectedDomain, snapshotDate);
 
 	// Fetch all the forms available 
