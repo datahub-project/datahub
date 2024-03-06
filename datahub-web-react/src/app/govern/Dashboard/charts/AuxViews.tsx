@@ -40,8 +40,7 @@ export const ChartNoDataTimeframe = () => (
 // Not enough data to display helpful information
 export const ChartNotEnoughData = () => (
 	<ChartStateCard>
-		<FcMediumPriority size={18} />
-		Not enough data.
+		Not enough data to calculate a trend.
 	</ChartStateCard>
 );
 

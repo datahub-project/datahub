@@ -3,7 +3,8 @@ import React, { useState, useEffect } from 'react';
 import { Tabs, Tooltip } from 'antd';
 import { json2csv } from 'json-2-csv';
 import dayjs from 'dayjs';
-import { DownloadOutlined } from '@ant-design/icons';
+import DownloadForOfflineOutlinedIcon from '@mui/icons-material/DownloadForOfflineOutlined';
+import HistoryOutlinedIcon from '@mui/icons-material/HistoryOutlined';
 
 import { SeriesSelect } from './SeriesSelect';
 import { Assignees, Domains, Forms, Stats, OverallProgress, Questions } from './charts';
@@ -23,7 +24,9 @@ import {
 	TabsContainer,
 	Body,
 	PrimaryHeading,
-	BodyHeader
+	BodyHeader,
+	Filters,
+	DataFreshness
 } from './components';
 
 interface Tab {
@@ -36,6 +39,7 @@ interface Tab {
 export const TabLayout = () => {
 	const {
 		sql,
+		integrationServiceOffline,
 		contextLoading,
 		snapshot,
 		tabs: { selectedTab, setSelectedTab },
@@ -52,6 +56,7 @@ export const TabLayout = () => {
 			key: 'overall',
 			label: 'Overall',
 			charts: [
+				<Stats />,
 				<OverallProgress />,
 				<Forms />,
 				<Assignees />,
@@ -71,6 +76,17 @@ export const TabLayout = () => {
 			],
 		},
 		{
+			key: 'byDomain',
+			label: 'By Domain',
+			disabled: !hasDomains,
+			charts: [
+				<Stats />,
+				<OverallProgress />,
+				<Forms />,
+				<Assignees />,
+			],
+		},
+		{
 			key: 'byAssignee',
 			label: 'By Assignee',
 			disabled: !hasAssignees,
@@ -81,17 +97,6 @@ export const TabLayout = () => {
 				<Domains />,
 			],
 		},
-		{
-			key: 'byDomain',
-			label: 'By Domain',
-			disabled: !hasDomains,
-			charts: [
-				<Stats />,
-				<OverallProgress />,
-				<Forms />,
-				<Assignees />,
-			],
-		}
 	];
 
 	// Handle changing the tab
@@ -134,30 +139,51 @@ export const TabLayout = () => {
 		setIsDownloadingCSV(false);
 	}, [csvData, isDownloadingCSV, setIsDownloadingCSV]);
 
+	// Don't crash the app if Integration Service is not available
+	if (integrationServiceOffline) {
+		return (
+			<Layout>
+				<Header>
+					<PrimaryHeading>Documentation Metrics</PrimaryHeading>
+				</Header>
+				<Body>
+					<div>Metrics are not available at this time. Please try again later.</div>
+				</Body>
+			</Layout>
+		);
+	}
+
+	// Render the dashboard
 	return (
 		<Layout>
 			<Header>
 				<PrimaryHeading>Your Documentation Initiatives</PrimaryHeading>
-				{/* <Button type="primary" onClick={handleDownloadCSV}>Download CSV</Button> */}
 			</Header>
 			<TabsContainer>
 				<Tabs defaultActiveKey={selectedTab} items={tabs} onChange={handleSetTab} />
-				<SeriesSelect />
+				<DataFreshness>
+					<span>
+						<HistoryOutlinedIcon style={{ height: '1.25rem' }} /> as of {dayjs(snapshot).format('MMM d, YYYY')}
+					</span>
+				</DataFreshness>
 			</TabsContainer>
-			<BodyHeader>
-				<Tooltip title="Download Results" placement="left">
-					<DownloadOutlined style={{ marginRight: '0px', fontSize: '20px' }} onClick={handleDownloadCSV} />
-				</Tooltip>
-			</BodyHeader>
 			<Body>
-				{/* <Button type="primary" onClick={handleDownloadCSV}>Download CSV</Button> */}
-				{/* </div> */}
 				{showLoadingState && 'Loading...'}
 				{!showLoadingState &&
 					<>
-						{thisTab?.key === 'byForm' && !thisTab?.disabled && <ByFormSelector />}
-						{thisTab?.key === 'byAssignee' && !thisTab?.disabled && <ByAssigneeSelector />}
-						{thisTab?.key === 'byDomain' && !thisTab?.disabled && <ByDomainSelector />}
+						<BodyHeader>
+							<div>
+								{thisTab?.key === 'byForm' && !thisTab?.disabled && <ByFormSelector />}
+								{thisTab?.key === 'byAssignee' && !thisTab?.disabled && <ByAssigneeSelector />}
+								{thisTab?.key === 'byDomain' && !thisTab?.disabled && <ByDomainSelector />}
+							</div>
+							<Filters>
+								<SeriesSelect />
+								<Tooltip title="Download Results" placement="left">
+									<DownloadForOfflineOutlinedIcon style={{ cursor: 'pointer' }} onClick={handleDownloadCSV} />
+								</Tooltip>
+							</Filters>
+						</BodyHeader>
 						{!thisTab?.disabled ? charts.map((chart) => chart) : 'No data for this tab during this timeframe.'}
 					</>
 				}

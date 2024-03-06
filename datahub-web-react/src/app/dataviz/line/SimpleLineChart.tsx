@@ -47,19 +47,19 @@ export const SimpleLineChart = ({ data }: Props) => {
           return (
             <svg width={width} height={height}>
               <defs>
-                <linearGradient id="gradient">
-                  <stop offset="5%" stopColor="#20D3BD" />
-                  <stop offset="95%" stopColor="#9F33CC" />
+                <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#20D3BD" />
+                  <stop offset="100%" stopColor="#9F33CC" />
                 </linearGradient>
               </defs>
               <MarkerCircle id="marker-circle" fill="#9F33CC" stroke="#fff" strokeWidth={2} size={3} />
               <LinePath
                 data={data}
-                x={(d: Data) => xScale(getDate(d)) ?? 0}
-                y={(d: Data) => yScale(getValue(d)) ?? 0}
+                x={(d: Data) => xScale(getDate(d))}
+                y={(d: Data) => yScale(getValue(d))}
                 curve={curveCatmullRom}
                 markerEnd={markerEnd}
-                stroke="url(#gradient)"
+                stroke="#9F33CC"
               />
             </svg>
           );

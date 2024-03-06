@@ -50,6 +50,9 @@ query FormAnalytics($input: FormAnalyticsInput!){
         }
       }
     }
+    errors {
+        message
+    }
   }
 }
 

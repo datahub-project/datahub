@@ -7,10 +7,20 @@ import { mergeRowAndHeaderData, getEntityInfo } from './utils';
 import { useFormAnalyticsContext } from './FormAnalyticsContext';
 
 export const ByAssigneeSelector = () => {
-	const { byAssignee: { assignees, hasAssignees, setSelectedAssignee } } = useFormAnalyticsContext();
+	const {
+		byAssignee: { assignees, hasAssignees, setSelectedAssignee },
+		sectionLoadStates: { resetLoadStates }
+	} = useFormAnalyticsContext();
 
 	// If theres no forms, return null
-	if (!hasAssignees) return null;
+	if (!hasAssignees) return (
+		<Select
+			options={[{ value: 'loading', label: 'Loading...' }]}
+			size="large"
+			style={{ width: 300 }}
+			loading
+		/>
+	);
 
 	// format the data 
 	const data = mergeRowAndHeaderData(assignees?.header, assignees?.table || []);
@@ -24,17 +34,23 @@ export const ByAssigneeSelector = () => {
 		});
 	});
 
+	// Reset load states when form is changed
+	const handleSetAssignee = (value: string) => {
+		setSelectedAssignee(value)
+		resetLoadStates();
+	};
+
 	return (
 		<Select
 			showSearch
 			filterOption
 			placeholder="Select an assignee"
 			optionFilterProp="label"
-			onChange={(value: string) => setSelectedAssignee(value)}
+			onChange={handleSetAssignee}
 			options={options}
 			defaultValue={options[0].value}
 			size="large"
-			style={{ width: 300, marginBottom: '2rem' }}
+			style={{ width: 300 }}
 		/>
 	);
 }	

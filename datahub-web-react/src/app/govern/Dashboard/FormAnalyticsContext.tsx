@@ -9,22 +9,22 @@ import { sqlQueries } from './charts/queries';
 const timeSeries = [
 	{
 		key: 7, // days count
-		label: 'Last Week',
+		label: 'Last 7 days',
 		tooltip: 'Forms assigned in the last week'
 	},
 	{
 		key: 30,
-		label: 'Last Month',
+		label: 'Last 30 days',
 		tooltip: 'Forms assigned in the last month'
 	},
 	{
 		key: 90,
-		label: 'Last Quarter',
+		label: 'Last 90 days',
 		tooltip: 'Forms assigned in the last quarter'
 	},
 	{
 		key: 365,
-		label: 'Last Year',
+		label: 'Last 365 days',
 		tooltip: 'Forms assigned in the last year'
 	}
 ];
@@ -32,6 +32,7 @@ const timeSeries = [
 // Define the context type
 export interface FormAnalyticsContextType {
 	sql: any;
+	integrationServiceOffline: boolean;
 	contextLoading: boolean;
 	snapshot?: string;
 	tabs: {
@@ -42,6 +43,7 @@ export interface FormAnalyticsContextType {
 		options: Array<{ key: number, label: string, tooltip: string }>;
 		selectedSeries: number;
 		setSeries: (series: number) => void;
+		getSeriesInfo: () => any;
 	},
 	byForm: {
 		forms: any;
@@ -76,6 +78,7 @@ export interface FormAnalyticsContextType {
 // Default values
 export const FormAnalyticsContext = React.createContext<FormAnalyticsContextType>({
 	sql: {},
+	integrationServiceOffline: false,
 	contextLoading: true,
 	snapshot: undefined,
 	tabs: {
@@ -85,7 +88,8 @@ export const FormAnalyticsContext = React.createContext<FormAnalyticsContextType
 	timeSeries: {
 		options: timeSeries,
 		selectedSeries: 7,
-		setSeries: () => null
+		setSeries: () => null,
+		getSeriesInfo: () => { }
 	},
 	byForm: {
 		forms: {},
@@ -137,44 +141,46 @@ export const FormAnalyticsProvider = ({ children }: Props) => {
 	const defaultLoadStates = {
 		stats: {
 			completedTrend: false,
+			inProgressTrend: false,
 			notStartedTrend: false
 		},
 		overallProgress: {
-			assignedStatus: false,
 			docProgress: false
 		},
 		forms: {
 			progressByForm: false,
 			formTopPerforming: false,
-			formLeastPerforming: false
+			// formLeastPerforming: false
 		},
 		questions: {
 			questions: false,
 		},
 		assignees: {
 			progressByAssignee: false,
-			assigneeTopPerforming: false,
-			assigneeLeastPerforming: false
+			// assigneeTopPerforming: false,
+			// assigneeLeastPerforming: false
 		},
 		domains: {
 			progressByDomain: false,
 			domainTopPerforming: false,
-			domainLeastPerforming: false
+			// domainLeastPerforming: false
 		}
 	}
 
 	// Waterfall render
 	const [loadStates, setLoadStates] = useState<any>(defaultLoadStates);
 
-	// Set the load states (to make updating DRY in components)
+	// Set the load states
 	const handleSetLoadStates = (group: any, key: any, value: boolean) => {
-		setLoadStates(prevState => ({
-			...prevState,
-			[group]: {
-				...prevState[group],
-				[key]: value
-			}
-		}));
+		if (loadStates[group][key] !== value) {
+			setLoadStates({
+				...loadStates,
+				[group]: {
+					...loadStates[group],
+					[key]: value
+				}
+			});
+		}
 	};
 
 	// Reset load states
@@ -200,73 +206,80 @@ export const FormAnalyticsProvider = ({ children }: Props) => {
 		variables: { input: { 'queryString': `select max(snapshot_date) from '{{ table }}'` } }
 	});
 
+	// Is the integration service available/online?
+	const integrationServiceOffline = !snapshotLoading && snapshot?.formAnalytics?.errors !== null;
+
 	// Define sql queries
-	const snapshotDate = snapshot?.formAnalytics?.table![0]?.row[0] as string;
-	const sql = sqlQueries(daysSinceDate, selectedForm, selectedAssignee, selectedDomain, snapshotDate);
+	const snapshotDate = !integrationServiceOffline && snapshot?.formAnalytics?.table![0]?.row[0] as string || undefined;
+	const sql = sqlQueries(daysSinceDate, selectedForm, selectedAssignee, selectedDomain, snapshotDate, tab, series);
 
 	// Fetch all the forms available 
 	const { data: formsWithAnalytics, loading: formsWithAnalyticsLoading } = useFormAnalyticsQuery({
 		variables: { input: { 'queryString': sql.getFormsWithAnalytics } },
-		skip: snapshotLoading || !snapshotDate
+		skip: integrationServiceOffline || snapshotLoading || !snapshotDate
 	});
 
 	// Fetch all the assigness available
 	const { data: assignessWithFormAnalytics, loading: assignessWithFormAnalyticsLoading } = useFormAnalyticsQuery({
 		variables: { input: { 'queryString': sql.getAssignessWithFormAnalytics } },
-		skip: snapshotLoading || !snapshotDate
+		skip: integrationServiceOffline || snapshotLoading || !snapshotDate
 	});
 
 	// Fetch all the domains available
 	const { data: domainsWithFormAnalytics, loading: domainsWithFormAnalyticsLoading } = useFormAnalyticsQuery({
 		variables: { input: { 'queryString': sql.getDomainsWithFormAnalytics } },
-		skip: snapshotLoading || !snapshotDate
+		skip: integrationServiceOffline || snapshotLoading || !snapshotDate
 	});
+
+	// Data items
+	const forms = formsWithAnalytics?.formAnalytics?.table;
+	const assignees = assignessWithFormAnalytics?.formAnalytics?.table;
+	const domains = domainsWithFormAnalytics?.formAnalytics?.table;
 
 	// Set the first form as selected if none is selected
 	useEffect(() => {
-		if (formsWithAnalytics?.formAnalytics?.table && formsWithAnalytics?.formAnalytics?.table?.length > 0 && !selectedForm) {
-			const row = formsWithAnalytics?.formAnalytics?.table[0].row as any;
+		if (forms && forms.length > 0 && !selectedForm) {
+			const row = forms[0].row as any;
 			if (row) setSelectedForm(row[0]); // form_id
 		}
-	}, [formsWithAnalytics?.formAnalytics?.table, selectedForm]);
+	}, [forms, selectedForm]);
 
 	// Set the first assignee as selected if none is selected
 	useEffect(() => {
-		if (assignessWithFormAnalytics?.formAnalytics?.table && assignessWithFormAnalytics?.formAnalytics?.table?.length > 0 && !selectedAssignee) {
-			const row = assignessWithFormAnalytics?.formAnalytics?.table[0].row as any;
+		if (assignees && assignees.length > 0 && !selectedAssignee) {
+			const row = assignees[0].row as any;
 			if (row) setSelectedAssignee(row[0]); // assignee_urn
 		}
-	}, [assignessWithFormAnalytics?.formAnalytics?.table, selectedAssignee]);
+	}, [assignees, selectedAssignee]);
 
 	// Set the first domain as selected if none is selected
 	useEffect(() => {
-		if (domainsWithFormAnalytics?.formAnalytics?.table && domainsWithFormAnalytics?.formAnalytics?.table?.length > 0 && !selectedDomain) {
-			const row = domainsWithFormAnalytics?.formAnalytics?.table[0].row as any;
+		if (domains && domains.length > 0 && !selectedDomain) {
+			const row = domains[0].row as any;
 			if (row) setSelectedDomain(row[0]); // domain
 		}
-	}, [domainsWithFormAnalytics?.formAnalytics?.table, selectedDomain]);
+	}, [domains, selectedDomain]);
 
 	// Section load states (waterfall render)
 	const sectionLoadStates = {
 		stats:
 			loadStates.stats.completedTrend
+			&& loadStates.stats.inProgressTrend
 			&& loadStates.stats.notStartedTrend,
-		overallProgress:
-			loadStates.overallProgress.assignedStatus
-			&& loadStates.overallProgress.docProgress,
+		overallProgress: loadStates.overallProgress.docProgress,
 		forms:
 			loadStates.forms.progressByForm
-			&& loadStates.forms.formTopPerforming
-			&& loadStates.forms.formLeastPerforming,
+			&& loadStates.forms.formTopPerforming,
+		// && loadStates.forms.formLeastPerforming,
 		questions: loadStates.questions.questions,
 		assignees:
-			loadStates.assignees.progressByAssignee
-			&& loadStates.assignees.assigneeTopPerforming
-			&& loadStates.assignees.assigneeLeastPerforming,
+			loadStates.assignees.progressByAssignee,
+		// && loadStates.assignees.assigneeTopPerforming,
+		// && loadStates.assignees.assigneeLeastPerforming,
 		domains:
 			loadStates.domains.progressByDomain
-			&& loadStates.domains.domainTopPerforming
-			&& loadStates.domains.domainLeastPerforming,
+			&& loadStates.domains.domainTopPerforming,
+		// && loadStates.domains.domainLeastPerforming,
 		setLoadStates: handleSetLoadStates,
 		resetLoadStates,
 	};
@@ -275,8 +288,10 @@ export const FormAnalyticsProvider = ({ children }: Props) => {
 	return (
 		<FormAnalyticsContext.Provider value={{
 			sql,
+			integrationServiceOffline,
 			contextLoading:
 				snapshotLoading
+				&& loadStates
 				&& formsWithAnalyticsLoading
 				&& assignessWithFormAnalyticsLoading
 				&& domainsWithFormAnalyticsLoading,
@@ -288,23 +303,24 @@ export const FormAnalyticsProvider = ({ children }: Props) => {
 			timeSeries: {
 				options: timeSeries,
 				selectedSeries: series,
-				setSeries: handleSwitchSeries
+				setSeries: handleSwitchSeries,
+				getSeriesInfo: () => timeSeries.find((s) => s.key === series) || {},
 			},
 			byForm: {
 				forms: formsWithAnalytics?.formAnalytics,
-				hasForms: !formsWithAnalyticsLoading && formsWithAnalytics?.formAnalytics?.table ? formsWithAnalytics?.formAnalytics?.table?.length > 0 : false,
+				hasForms: !formsWithAnalyticsLoading && forms ? forms.length > 0 : false,
 				selectedForm,
 				setSelectedForm
 			},
 			byAssignee: {
 				assignees: assignessWithFormAnalytics?.formAnalytics,
-				hasAssignees: !assignessWithFormAnalyticsLoading && assignessWithFormAnalytics?.formAnalytics?.table ? assignessWithFormAnalytics?.formAnalytics?.table?.length > 0 : false,
+				hasAssignees: !assignessWithFormAnalyticsLoading && assignees ? assignees.length > 0 : false,
 				selectedAssignee,
 				setSelectedAssignee
 			},
 			byDomain: {
 				domains: domainsWithFormAnalytics?.formAnalytics,
-				hasDomains: !domainsWithFormAnalyticsLoading && domainsWithFormAnalytics?.formAnalytics?.table ? domainsWithFormAnalytics?.formAnalytics?.table?.length > 0 : false,
+				hasDomains: !domainsWithFormAnalyticsLoading && domains ? domains.length > 0 : false,
 				selectedDomain,
 				setSelectedDomain
 			},
