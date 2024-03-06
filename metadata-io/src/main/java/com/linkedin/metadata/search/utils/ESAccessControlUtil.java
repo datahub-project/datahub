@@ -8,7 +8,6 @@ import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.ConjunctivePrivilegeGroup;
 import com.datahub.authorization.DisjunctivePrivilegeGroup;
 import com.datahub.authorization.EntitySpec;
-import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.aspect.hooks.OwnerTypeMap;
@@ -101,7 +100,9 @@ public class ESAccessControlUtil {
           opContext.getSessionActorContext().getAuthentication().getActor().toUrnStr();
       final DisjunctivePrivilegeGroup orGroup =
           new DisjunctivePrivilegeGroup(
-              ImmutableList.of(new ConjunctivePrivilegeGroup(VIEW_ENTITY_PRIVILEGES)));
+              VIEW_ENTITY_PRIVILEGES.stream()
+                  .map(priv -> new ConjunctivePrivilegeGroup(List.of(priv)))
+                  .collect(Collectors.toList()));
 
       for (SearchEntity searchEntity : searchEntities) {
         final String entityType = searchEntity.getEntity().getEntityType();
