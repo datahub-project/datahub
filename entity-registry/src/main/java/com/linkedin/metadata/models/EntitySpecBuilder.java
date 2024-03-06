@@ -249,13 +249,13 @@ public class EntitySpecBuilder {
               aspectRecordSchema,
               new SchemaAnnotationProcessor.AnnotationProcessOption());
 
-      // Extract SearchableRef Field Specs
       final SchemaAnnotationProcessor.SchemaAnnotationProcessResult processedSearchRefResult =
           SchemaAnnotationProcessor.process(
               Collections.singletonList(_searchRefScoreHandler),
               aspectRecordSchema,
               new SchemaAnnotationProcessor.AnnotationProcessOption());
 
+      // Extract SearchableRef Field Specs
       final SearchableRefFieldSpecExtractor searchableRefFieldSpecExtractor =
           new SearchableRefFieldSpecExtractor();
       final DataSchemaRichContextTraverser searchableRefFieldSpecTraverser =

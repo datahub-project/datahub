@@ -18,12 +18,12 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityUtils;
-import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.schema.BooleanType;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.concurrent.ExecutionException;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
@@ -70,15 +70,13 @@ public class UpdateNameResolverTest {
         .thenReturn(businessAttributeInfo());
 
     Mockito.when(
-            mockClient.search(
-                Mockito.any(String.class),
+            mockClient.filter(
+                Mockito.any(OperationContext.class),
                 Mockito.any(String.class),
                 Mockito.any(Filter.class),
                 Mockito.isNull(),
                 Mockito.eq(0),
-                Mockito.eq(1000),
-                Mockito.eq(mockAuthentication),
-                Mockito.any(SearchFlags.class)))
+                Mockito.eq(1000)))
         .thenReturn(searchResult);
     Mockito.when(searchResult.getNumEntities()).thenReturn(0);
 
@@ -120,15 +118,13 @@ public class UpdateNameResolverTest {
         .thenReturn(businessAttributeInfo());
 
     Mockito.when(
-            mockClient.search(
-                Mockito.any(String.class),
+            mockClient.filter(
+                Mockito.any(OperationContext.class),
                 Mockito.any(String.class),
                 Mockito.any(Filter.class),
                 Mockito.isNull(),
                 Mockito.eq(0),
-                Mockito.eq(1000),
-                Mockito.eq(mockAuthentication),
-                Mockito.any(SearchFlags.class)))
+                Mockito.eq(1000)))
         .thenReturn(searchResult);
     Mockito.when(searchResult.getNumEntities()).thenReturn(1);
 

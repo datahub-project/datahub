@@ -3,7 +3,6 @@ package com.linkedin.datahub.graphql.resolvers.mutate.util;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
@@ -31,7 +30,6 @@ import lombok.extern.slf4j.Slf4j;
 public class BusinessAttributeUtils {
   private static final Integer DEFAULT_START = 0;
   private static final Integer DEFAULT_COUNT = 1000;
-  private static final String DEFAULT_QUERY = "";
   private static final String NAME_INDEX_FIELD_NAME = "name";
 
   private BusinessAttributeUtils() {}
@@ -41,15 +39,13 @@ public class BusinessAttributeUtils {
     Filter filter = buildNameFilter(name);
     try {
       final SearchResult gmsResult =
-          entityClient.search(
+          entityClient.filter(
+              context.getOperationContext(),
               Constants.BUSINESS_ATTRIBUTE_ENTITY_NAME,
-              DEFAULT_QUERY,
               filter,
               null,
               DEFAULT_START,
-              DEFAULT_COUNT,
-              context.getAuthentication(),
-              new SearchFlags().setFulltext(true));
+              DEFAULT_COUNT);
       return gmsResult.getNumEntities() > 0;
     } catch (RemoteInvocationException e) {
       throw new RuntimeException("Failed to fetch Business Attributes", e);

@@ -1,6 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.businessattribute;
 
-import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
+import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -10,7 +10,6 @@ import com.linkedin.datahub.graphql.generated.ListBusinessAttributesInput;
 import com.linkedin.datahub.graphql.generated.ListBusinessAttributesResult;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
 import graphql.schema.DataFetcher;
@@ -57,13 +56,12 @@ public class ListBusinessAttributesResolver
 
             final SearchResult gmsResult =
                 _entityClient.search(
+                    context.getOperationContext().withSearchFlags(flags -> flags.setFulltext(true)),
                     Constants.BUSINESS_ATTRIBUTE_ENTITY_NAME,
                     query,
                     Collections.emptyMap(),
                     start,
-                    count,
-                    context.getAuthentication(),
-                    new SearchFlags().setFulltext(true));
+                    count);
 
             final ListBusinessAttributesResult result = new ListBusinessAttributesResult();
             result.setStart(gmsResult.getFrom());

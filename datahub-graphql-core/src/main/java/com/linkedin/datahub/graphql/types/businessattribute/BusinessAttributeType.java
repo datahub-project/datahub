@@ -25,7 +25,6 @@ import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.query.AutoCompleteResult;
-import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchResult;
 import graphql.execution.DataFetcherResult;
@@ -111,13 +110,12 @@ public class BusinessAttributeType implements SearchableEntityType<BusinessAttri
     final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
     final SearchResult searchResult =
         _entityClient.search(
+            context.getOperationContext().withSearchFlags(flags -> flags.setFulltext(true)),
             "businessAttribute",
             query,
             facetFilters,
             start,
-            count,
-            context.getAuthentication(),
-            new SearchFlags().setFulltext(true));
+            count);
     return UrnSearchResultsMapper.map(searchResult);
   }
 
@@ -131,7 +129,7 @@ public class BusinessAttributeType implements SearchableEntityType<BusinessAttri
       throws Exception {
     final AutoCompleteResult result =
         _entityClient.autoComplete(
-            "businessAttribute", query, filters, limit, context.getAuthentication());
+            context.getOperationContext(), "businessAttribute", query, filters, limit);
     return AutoCompleteResultsMapper.map(result);
   }
 }

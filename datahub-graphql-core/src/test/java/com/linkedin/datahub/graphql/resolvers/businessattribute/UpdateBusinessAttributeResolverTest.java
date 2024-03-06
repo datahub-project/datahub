@@ -22,13 +22,13 @@ import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.entity.AspectUtils;
-import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.service.BusinessAttributeService;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.schema.BooleanType;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
@@ -79,15 +79,13 @@ public class UpdateBusinessAttributeResolverTest {
                 TEST_BUSINESS_ATTRIBUTE_URN_OBJ, mockAuthentication))
         .thenReturn(getBusinessAttributeEntityResponse());
     Mockito.when(
-            mockClient.search(
-                Mockito.any(String.class),
+            mockClient.filter(
+                Mockito.any(OperationContext.class),
                 Mockito.any(String.class),
                 Mockito.any(Filter.class),
                 Mockito.isNull(),
                 Mockito.eq(0),
-                Mockito.eq(1000),
-                Mockito.eq(mockAuthentication),
-                Mockito.any(SearchFlags.class)))
+                Mockito.eq(1000)))
         .thenReturn(searchResult);
     Mockito.when(searchResult.getNumEntities()).thenReturn(0);
     Mockito.when(
@@ -153,15 +151,13 @@ public class UpdateBusinessAttributeResolverTest {
                 TEST_BUSINESS_ATTRIBUTE_URN_OBJ, mockAuthentication))
         .thenReturn(getBusinessAttributeEntityResponse());
     Mockito.when(
-            mockClient.search(
-                Mockito.any(String.class),
+            mockClient.filter(
+                Mockito.any(OperationContext.class),
                 Mockito.any(String.class),
                 Mockito.any(Filter.class),
                 Mockito.isNull(),
                 Mockito.eq(0),
-                Mockito.eq(1000),
-                Mockito.eq(mockAuthentication),
-                Mockito.any(SearchFlags.class)))
+                Mockito.eq(1000)))
         .thenReturn(searchResult);
     Mockito.when(searchResult.getNumEntities()).thenReturn(1);
 
