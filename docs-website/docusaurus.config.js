@@ -227,8 +227,8 @@ module.exports = {
           }),
           numberPrefixParser: false,
           // TODO: make these work correctly with the doc generation
-          showLastUpdateAuthor: true,
-          showLastUpdateTime: true,
+          showLastUpdateAuthor: false,
+          showLastUpdateTime: false,
         },
         blog: false,
         theme: {
