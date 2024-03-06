@@ -141,7 +141,7 @@ export const DEFAULT_CONTEXT = {
     entity: {
         entitiesForForm: undefined,
         entityData: undefined,
-        refetch: () => null,
+        refetch: () => Promise.resolve({}),
         selectedEntities: [],
         setSelectedEntities: (_: EntityAndType[]) => null,
         selectedEntity: undefined,
