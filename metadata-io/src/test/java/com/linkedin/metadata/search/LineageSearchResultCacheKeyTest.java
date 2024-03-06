@@ -13,8 +13,8 @@ public class LineageSearchResultCacheKeyTest extends AbstractTestNGSpringContext
   public void testNulls() {
     // ensure no NPE
     assertEquals(
-        new EntityLineageResultCacheKey(null, null, null, null, null, ChronoUnit.DAYS),
-        new EntityLineageResultCacheKey(null, null, null, null, null, ChronoUnit.DAYS));
+        new EntityLineageResultCacheKey("", null, null, null, null, null, ChronoUnit.DAYS),
+        new EntityLineageResultCacheKey("", null, null, null, null, null, ChronoUnit.DAYS));
   }
 
   @Test
@@ -22,13 +22,13 @@ public class LineageSearchResultCacheKeyTest extends AbstractTestNGSpringContext
     // expect start of day milli
     assertEquals(
         new EntityLineageResultCacheKey(
-            null, null, 1679529600000L, 1679615999999L, null, ChronoUnit.DAYS),
+            "", null, null, 1679529600000L, 1679615999999L, null, ChronoUnit.DAYS),
         new EntityLineageResultCacheKey(
-            null, null, 1679530293000L, 1679530293001L, null, ChronoUnit.DAYS));
+            "", null, null, 1679530293000L, 1679530293001L, null, ChronoUnit.DAYS));
     assertNotSame(
         new EntityLineageResultCacheKey(
-            null, null, 1679529600000L, 1679616000000L, null, ChronoUnit.DAYS),
+            "", null, null, 1679529600000L, 1679616000000L, null, ChronoUnit.DAYS),
         new EntityLineageResultCacheKey(
-            null, null, 1679530293000L, 1679530293001L, null, ChronoUnit.DAYS));
+            "", null, null, 1679530293000L, 1679530293001L, null, ChronoUnit.DAYS));
   }
 }

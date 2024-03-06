@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.resolvers.glossary;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
 import static com.linkedin.metadata.Constants.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
@@ -125,13 +126,13 @@ public class UpdateNameResolverTest {
 
     Mockito.when(
             mockClient.filter(
+                any(),
                 Mockito.eq(Constants.DOMAIN_ENTITY_NAME),
                 Mockito.eq(
                     DomainUtils.buildNameAndParentDomainFilter(INPUT_FOR_DOMAIN.getName(), null)),
                 Mockito.eq(null),
                 Mockito.any(Integer.class),
-                Mockito.any(Integer.class),
-                Mockito.any(Authentication.class)))
+                Mockito.any(Integer.class)))
         .thenReturn(new SearchResult().setEntities(new SearchEntityArray()));
 
     DomainProperties properties = new DomainProperties();

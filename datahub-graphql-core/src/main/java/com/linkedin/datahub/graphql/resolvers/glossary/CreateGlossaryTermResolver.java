@@ -140,7 +140,7 @@ public class CreateGlossaryTermResolver implements DataFetcher<CompletableFuture
       final Filter filter = buildParentNodeFilter(parentNode);
       final SearchResult searchResult =
           _entityClient.filter(
-              GLOSSARY_TERM_ENTITY_NAME, filter, null, 0, 1000, context.getAuthentication());
+              context.getOperationContext(), GLOSSARY_TERM_ENTITY_NAME, filter, null, 0, 1000);
 
       final List<Urn> termUrns =
           searchResult.getEntities().stream()

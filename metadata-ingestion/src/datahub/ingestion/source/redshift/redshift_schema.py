@@ -79,6 +79,8 @@ class LineageRow:
     target_table: Optional[str]
     ddl: Optional[str]
     filename: Optional[str]
+    timestamp: Optional[datetime]
+    session_id: Optional[str]
 
 
 @dataclass
@@ -398,6 +400,17 @@ class RedshiftDataDictionary:
                     filename=(
                         row[field_names.index("filename")]
                         if "filename" in field_names
+                        else None
+                    ),
+                    timestamp=(
+                        row[field_names.index("timestamp")]
+                        if "timestamp" in field_names
+                        else None
+                    ),
+                    session_id=(
+                        str(row[field_names.index("session_id")])
+                        if "session_id" in field_names
+                        and row[field_names.index("session_id")]
                         else None
                     ),
                 )

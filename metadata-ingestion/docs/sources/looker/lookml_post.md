@@ -84,7 +84,7 @@ If you see messages like `my_file.view.lkml': "failed to load view file: Unable 
 The first thing to check is that the Looker IDE can validate the file without issues. You can check this by clicking this "Validate LookML" button in the IDE when in development mode.
 
 If that's not the issue, it might be because DataHub's parser, which is based on the [joshtemple/lkml](https://github.com/joshtemple/lkml) library, is slightly more strict than the official Looker parser.
-Note that there's currently only one known discrepancy between the two parsers, and it's related to using [multiple colon characters](https://github.com/joshtemple/lkml/issues/82) when defining parameters.
+Note that there's currently only one known discrepancy between the two parsers, and it's related to using [leading colons in blocks](https://github.com/joshtemple/lkml/issues/90).
 
 To check if DataHub can parse your LookML file syntax, you can use the `lkml` CLI tool. If this raises an exception, DataHub will fail to parse the file.
 
