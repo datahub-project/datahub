@@ -162,6 +162,7 @@ def test_snowflake_basic(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
         pipeline.run()
         pipeline.pretty_print_summary()
         pipeline.raise_from_status()
+        assert not pipeline.source.get_report().warnings
 
         # Verify the output.
 
