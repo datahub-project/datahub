@@ -48,3 +48,6 @@ class BIContainerSubTypes(str, Enum):
 class BIAssetSubTypes(str, Enum):
     # Generic SubTypes
     REPORT = "Report"
+
+    # Looker
+    LOOKER_LOOK = "Look"

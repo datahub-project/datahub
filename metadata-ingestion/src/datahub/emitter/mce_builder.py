@@ -94,6 +94,7 @@ def make_ts_millis(ts: datetime) -> int:
 
 
 def make_ts_millis(ts: Optional[datetime]) -> Optional[int]:
+    # TODO: This duplicates the functionality of datetime_to_ts_millis
     if ts is None:
         return None
     return int(ts.timestamp() * 1000)
