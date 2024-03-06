@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
 import styled from 'styled-components';
 
@@ -19,6 +19,8 @@ import {
 } from '../../../onboarding/config/FormOnboardingConfig';
 
 import { EmptyStates } from './EmptyStates';
+import usePrevious from '../../../shared/usePrevious';
+import BulkVerifyPromptModal from './BulkVerifyPromptModal';
 
 const FormByQuestionWrapper = styled.div`
     display: flex;
@@ -32,21 +34,11 @@ interface Props {
 
 export default function FormByQuestion({ closeModal }: Props) {
     const {
-        refetch,
-        search: {
-            results,
-            resultItems,
-            resultItemCount,
-            error,
-            loading,
-        },
-        filter: {
-            setFormResponsesFilters,
-        },
-        entity: {
-            selectedEntities,
-            setSelectedEntities,
-            setNumSubmittedEntities,
+        search: { results, resultItems, resultItemCount, error, loading, refetch },
+        filter: { setFormResponsesFilters },
+        entity: { selectedEntities, setSelectedEntities, setNumSubmittedEntities },
+        states: {
+            byQuestion: { showVerifyCTA },
         },
     } = useEntityFormContext();
 
@@ -54,6 +46,7 @@ export default function FormByQuestion({ closeModal }: Props) {
     const { query, unionType, filters, viewUrn, page } = useGetSearchQueryInputs();
     const { filterMode, setFilterMode } = useFilterMode(filters, unionType);
     const [numResultsPerPage, setNumResultsPerPage] = useState(SearchCfg.RESULTS_PER_PAGE);
+    const [isVerifyModalVisible, setIsVerifyModalVisible] = useState(false);
 
     const {
         isSelectMode,
@@ -83,6 +76,13 @@ export default function FormByQuestion({ closeModal }: Props) {
         setSelectedEntities([]);
         setNumSubmittedEntities(0);
     };
+
+    const previousShowVerifyCTA = usePrevious(showVerifyCTA);
+    useEffect(() => {
+        if (showVerifyCTA && previousShowVerifyCTA === false) {
+            setIsVerifyModalVisible(true);
+        }
+    }, [showVerifyCTA, previousShowVerifyCTA]);
 
     return (
         <FormByQuestionWrapper>
@@ -132,17 +132,13 @@ export default function FormByQuestion({ closeModal }: Props) {
                 setIsSelectMode={setIsSelectMode}
                 onChangeSelectAll={onChangeSelectAll}
                 refetch={refetch}
-                customSection={
-                    <EmptyStates
-                        closeModal={closeModal}
-                        handleViewRemaining={handleViewRemaining}
-                    />
-                }
+                customSection={<EmptyStates closeModal={closeModal} handleViewRemaining={handleViewRemaining} />}
                 showCustomSection={resultItemCount === 0}
                 onClickExploreAll={clearAllFilters}
                 onClickClearFilters={clearAllFilters}
                 shouldHideSuggestions
             />
+            <BulkVerifyPromptModal isVisible={isVerifyModalVisible} closeModal={() => setIsVerifyModalVisible(false)} />
         </FormByQuestionWrapper>
     );
 }

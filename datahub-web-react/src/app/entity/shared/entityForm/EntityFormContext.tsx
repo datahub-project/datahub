@@ -20,15 +20,23 @@ export enum FormResponsesFilter {
 export type EntityFormContextType = {
     isInFormContext: boolean;
     loading: boolean;
-    refetch: (bool?: boolean) => Promise<any>;
+    refetch: () => Promise<any>;
     shouldRefetch: boolean;
     setShouldRefetch: (bool: boolean) => void;
+    submission: {
+        nonOptimisticLoading: boolean;
+        verificationDataLoading: boolean;
+        handlePromptSubmission: (promptId: string, entityUrns: string[]) => void;
+        handleUndoPromptSubmission: (promptId: string, entityUrns: string[]) => void;
+        handleBulkVerifySubmission: (entityUrns: string[]) => void;
+    },
     search: {
         results: SearchForEntitiesByFormQuery;
         resultItems: SearchResult[];
         resultItemCount: number;
         error?: any;
         loading: boolean;
+        refetch: () => void;
     },
     form: {
         formUrn: string;
@@ -47,6 +55,7 @@ export type EntityFormContextType = {
     entity: {
         entitiesForForm?: EntityAndType[];
         entityData?: GenericEntityProperties;
+        refetch: () => Promise<any>;
         selectedEntities: EntityAndType[];
         setSelectedEntities: (entities: EntityAndType[]) => void;
         selectedEntity?: Entity;
@@ -97,15 +106,23 @@ export type EntityFormContextType = {
 export const DEFAULT_CONTEXT = {
     isInFormContext: false,
     loading: true,
-    refetch: (_: boolean | undefined) => Promise.resolve({}),
+    refetch: () => Promise.resolve({}),
     shouldRefetch: false,
     setShouldRefetch: (_: boolean) => null,
+    submission: {
+        nonOptimisticLoading: false,
+        verificationDataLoading: false,
+        handlePromptSubmission: (_: string, __: string[]) => null,
+        handleUndoPromptSubmission: (_: string, __: string[]) => null,
+        handleBulkVerifySubmission: (_: string[]) => null,
+    },
     search: {
         results: {},
         resultItems: [],
         resultItemCount: 0,
         error: undefined,
         loading: false,
+        refetch: () => Promise.resolve({}),
     },
     form: {
         formUrn: '',
@@ -124,6 +141,7 @@ export const DEFAULT_CONTEXT = {
     entity: {
         entitiesForForm: undefined,
         entityData: undefined,
+        refetch: () => null,
         selectedEntities: [],
         setSelectedEntities: (_: EntityAndType[]) => null,
         selectedEntity: undefined,

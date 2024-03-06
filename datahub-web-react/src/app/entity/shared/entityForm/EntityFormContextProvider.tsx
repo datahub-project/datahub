@@ -33,6 +33,9 @@ export default function EntityFormContextProvider({ children, formUrn }: Props) 
     const [numSubmittedEntities, setNumSubmittedEntities] = useState<number>(0);
     const [shouldClearFilters, setShouldClearFilters] = useState<boolean>(false);
     const [shouldRefetch, setShouldRefetch] = useState<boolean>(false);
+    const [nonOptimisticLoading, setNonOptimisticLoading] = useState<boolean>(false);
+	const [submittedEntitiesMap, setSubmittedEntitiesMap] = useState<{[promptId: string]: string[]}>({}); // map from promptId: list of submitted entity urns
+	const [verifiedEntities, setVerifiedEntities] = useState<string[]>([]);
 
     /* 
     * Data setup
@@ -40,15 +43,24 @@ export default function EntityFormContextProvider({ children, formUrn }: Props) 
 
     const {
         loading,
-        refetch,
-        data: { form, entityUrnsByForm, searchResults, searchError, searchLoading },
+        data: {
+            form,
+            entityUrnsByForm,
+            searchResults,
+            searchError,
+            searchLoading,
+            refetchNonOptimisticData,
+            refetchSearch,
+            verificationDataLoading,
+        },
         filter,
         counts,
     } = useEntityFormDataFactory(
         formUrn,
         selectedPromptId,
         formView,
-        submittedEntities
+        submittedEntitiesMap,
+        verifiedEntities
     );
 
     // Determine the previous form's urn
@@ -101,8 +113,39 @@ export default function EntityFormContextProvider({ children, formUrn }: Props) 
     const handleRefetch = (): any => {
         if (isOnEntityProfilePage) refetchEntityProfile();
         else datasetRefetch();
-        refetch();
     }
+
+    /* 
+    * Handling submissions
+    */
+
+    const handlePromptSubmission = (promptId: string, entityUrns: string[]) => {
+        setSubmittedEntitiesMap({
+            ...submittedEntitiesMap,
+            [promptId]: [...(submittedEntitiesMap[promptId] || []), ...entityUrns],
+        });
+        setNonOptimisticLoading(true);
+        setTimeout(() => {
+            setShouldRefetch(true);
+            refetchNonOptimisticData();
+            setNonOptimisticLoading(false);
+        }, 5000);
+    };
+
+    const handleUndoPromptSubmission = (promptId: string, entityUrns: string[]) => {
+        const submittedUrnsForPrompt = (submittedEntitiesMap[promptId] || []);
+        setSubmittedEntitiesMap({
+            ...submittedEntitiesMap,
+            [promptId]: [...submittedUrnsForPrompt.filter(urn => entityUrns.includes(urn))],
+        });
+    };
+
+    const handleBulkVerifySubmission = (entityUrns: string[]) => {
+        setVerifiedEntities([...verifiedEntities, ...entityUrns]);
+        setTimeout(() => {
+            setShouldRefetch(true);
+        }, 5000);
+    };
 
     /* 
     * Pragmatic updates to state
@@ -130,6 +173,15 @@ export default function EntityFormContextProvider({ children, formUrn }: Props) 
     * Consolidate context output 
     */
 
+    // Submission
+    const submission = {
+        nonOptimisticLoading,
+        handlePromptSubmission,
+        handleUndoPromptSubmission,
+        handleBulkVerifySubmission,
+        verificationDataLoading,
+    }
+
     // Search
     const search = {
         results: searchResults,
@@ -137,6 +189,7 @@ export default function EntityFormContextProvider({ children, formUrn }: Props) 
         resultItemCount: searchResults?.searchAcrossEntities?.total || 0,
         error: searchError,
         loading: searchLoading,
+        refetch: refetchSearch,
     };
 
     // Form 
@@ -155,6 +208,7 @@ export default function EntityFormContextProvider({ children, formUrn }: Props) 
 
         // Entity Data 
         entityData: selectedEntityData as GenericEntityProperties,
+        refetch: handleRefetch,
 
         // Selected Entities
         selectedEntities,
@@ -257,6 +311,7 @@ export default function EntityFormContextProvider({ children, formUrn }: Props) 
                 refetch: handleRefetch,
                 shouldRefetch,
                 setShouldRefetch,
+                submission,
                 search,
                 form: formInfo,
                 filter: {
