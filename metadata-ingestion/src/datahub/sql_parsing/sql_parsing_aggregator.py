@@ -425,7 +425,7 @@ class SqlParsingAggregator:
 
     def add_view_definition(
         self,
-        view_urn: DatasetUrn,
+        view_urn: Union[DatasetUrn, UrnStr],
         view_definition: str,
         default_db: Optional[str] = None,
         default_schema: Optional[str] = None,
