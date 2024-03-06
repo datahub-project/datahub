@@ -1,6 +1,7 @@
 package mock;
 
 import static entities.EntitiesControllerTest.*;
+import static org.mockito.Mockito.mock;
 
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.GlobalTags;
@@ -57,9 +58,9 @@ public class MockEntityService extends EntityServiceImpl {
       @Nonnull AspectDao aspectDao,
       @Nonnull EventProducer producer,
       @Nonnull EntityRegistry entityRegistry,
-      @Nonnull UpdateIndicesService updateIndicesService,
       PreProcessHooks preProcessHooks) {
-    super(aspectDao, producer, entityRegistry, true, updateIndicesService, preProcessHooks, true);
+    super(aspectDao, producer, entityRegistry, true, preProcessHooks, true);
+    setUpdateIndicesService(mock(UpdateIndicesService.class));
   }
 
   @Override
@@ -69,7 +70,7 @@ public class MockEntityService extends EntityServiceImpl {
   }
 
   @Override
-  public Map<String, RecordTemplate> getLatestAspectsForUrn(
+  public @NotNull Map<String, RecordTemplate> getLatestAspectsForUrn(
       @Nonnull Urn urn, @Nonnull Set<String> aspectNames) {
     return Collections.emptyMap();
   }

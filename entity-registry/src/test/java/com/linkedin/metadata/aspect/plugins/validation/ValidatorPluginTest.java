@@ -3,16 +3,18 @@ package com.linkedin.metadata.aspect.plugins.validation;
 import static org.testng.Assert.assertEquals;
 
 import com.datahub.test.TestEntityProfile;
-import com.linkedin.common.urn.Urn;
 import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
-import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.aspect.batch.BatchItem;
+import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
-import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
+import java.util.Collection;
 import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
@@ -33,7 +35,10 @@ public class ValidatorPluginTest {
             TestEntityProfile.class.getClassLoader().getResourceAsStream(REGISTRY_FILE));
 
     List<AspectPayloadValidator> validators =
-        configEntityRegistry.getAspectPayloadValidators(ChangeType.UPSERT, "chart", "status");
+        configEntityRegistry.getAllAspectPayloadValidators().stream()
+            .filter(validator -> validator.shouldApply(ChangeType.UPSERT, "chart", "status"))
+            .collect(Collectors.toList());
+
     assertEquals(
         validators,
         List.of(
@@ -72,26 +77,16 @@ public class ValidatorPluginTest {
     }
 
     @Override
-    protected void validateProposedAspect(
-        @Nonnull ChangeType changeType,
-        @Nonnull Urn entityUrn,
-        @Nonnull AspectSpec aspectSpec,
-        @Nonnull RecordTemplate aspectPayload,
-        AspectRetriever aspectRetriever)
-        throws AspectValidationException {
-      if (entityUrn.toString().contains("dataset")) {
-        throw new AspectValidationException("test error");
-      }
+    protected Stream<AspectValidationException> validateProposedAspects(
+        @Nonnull Collection<? extends BatchItem> mcpItems,
+        @Nonnull AspectRetriever aspectRetriever) {
+      return mcpItems.stream().map(i -> AspectValidationException.forItem(i, "test error"));
     }
 
     @Override
-    protected void validatePreCommitAspect(
-        @Nonnull ChangeType changeType,
-        @Nonnull Urn entityUrn,
-        @Nonnull AspectSpec aspectSpec,
-        @Nullable RecordTemplate previousAspect,
-        @Nonnull RecordTemplate proposedAspect,
-        AspectRetriever aspectRetriever)
-        throws AspectValidationException {}
+    protected Stream<AspectValidationException> validatePreCommitAspects(
+        @Nonnull Collection<ChangeMCP> changeMCPs, AspectRetriever aspectRetriever) {
+      return Stream.empty();
+    }
   }
 }

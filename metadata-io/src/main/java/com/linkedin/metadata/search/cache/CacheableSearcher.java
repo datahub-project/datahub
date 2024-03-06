@@ -3,17 +3,16 @@ package com.linkedin.metadata.search.cache;
 import static com.datahub.util.RecordUtils.*;
 
 import com.codahale.metrics.Timer;
-import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+import io.datahubproject.metadata.context.OperationContext;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Function;
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.Value;
 import org.springframework.cache.Cache;
@@ -28,7 +27,6 @@ public class CacheableSearcher<K> {
   private final Function<QueryPagination, SearchResult> searcher;
   // Function that generates the cache key given the query batch (from, size)
   private final Function<QueryPagination, K> cacheKeyGenerator;
-  @Nullable private final SearchFlags searchFlags;
   private final boolean enableCache;
 
   @Value
@@ -43,7 +41,7 @@ public class CacheableSearcher<K> {
    * that return a variable number of results (we have no idea which batch the "from" "size" page
    * corresponds to)
    */
-  public SearchResult getSearchResults(int from, int size) {
+  public SearchResult getSearchResults(@Nonnull OperationContext opContext, int from, int size) {
     try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "getSearchResults").time()) {
       int resultsSoFar = 0;
       int batchId = 0;
@@ -52,7 +50,7 @@ public class CacheableSearcher<K> {
       SearchResult batchedResult;
       // Use do-while to make sure we run at least one batch to fetch metadata
       do {
-        batchedResult = getBatch(batchId);
+        batchedResult = getBatch(opContext, batchId);
         int currentBatchSize = batchedResult.getEntities().size();
         // If the number of results in this batch is 0, no need to continue
         if (currentBatchSize == 0) {
@@ -85,13 +83,14 @@ public class CacheableSearcher<K> {
     return new QueryPagination(batchId * batchSize, batchSize);
   }
 
-  private SearchResult getBatch(int batchId) {
+  private SearchResult getBatch(@Nonnull OperationContext opContext, int batchId) {
     try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "getBatch").time()) {
       QueryPagination batch = getBatchQuerySize(batchId);
       SearchResult result;
       if (enableCache) {
         K cacheKey = cacheKeyGenerator.apply(batch);
-        if ((searchFlags == null || !searchFlags.isSkipCache())) {
+        if ((opContext.getSearchContext().getSearchFlags().isSkipCache() == null
+            || !opContext.getSearchContext().getSearchFlags().isSkipCache())) {
           try (Timer.Context ignored2 =
               MetricUtils.timer(this.getClass(), "getBatch_cache").time()) {
             Timer.Context cacheAccess =

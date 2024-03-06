@@ -28,7 +28,6 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
-import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchResult;
 import graphql.execution.DataFetcherResult;
@@ -111,13 +110,12 @@ public class MLModelGroupType
     final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
     final SearchResult searchResult =
         _entityClient.search(
+            context.getOperationContext().withSearchFlags(flags -> flags.setFulltext(true)),
             "mlModelGroup",
             query,
             facetFilters,
             start,
-            count,
-            context.getAuthentication(),
-            new SearchFlags().setFulltext(true));
+            count);
     return UrnSearchResultsMapper.map(searchResult);
   }
 
@@ -131,7 +129,7 @@ public class MLModelGroupType
       throws Exception {
     final AutoCompleteResult result =
         _entityClient.autoComplete(
-            "mlModelGroup", query, filters, limit, context.getAuthentication());
+            context.getOperationContext(), "mlModelGroup", query, filters, limit);
     return AutoCompleteResultsMapper.map(result);
   }
 
@@ -148,7 +146,12 @@ public class MLModelGroupType
         path.size() > 0 ? BROWSE_PATH_DELIMITER + String.join(BROWSE_PATH_DELIMITER, path) : "";
     final BrowseResult result =
         _entityClient.browse(
-            "mlModelGroup", pathStr, facetFilters, start, count, context.getAuthentication());
+            context.getOperationContext().withSearchFlags(flags -> flags.setFulltext(false)),
+            "mlModelGroup",
+            pathStr,
+            facetFilters,
+            start,
+            count);
     return BrowseResultMapper.map(result);
   }
 

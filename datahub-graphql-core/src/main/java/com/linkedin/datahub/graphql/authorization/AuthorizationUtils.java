@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.authorization;
 
 import static com.linkedin.datahub.graphql.resolvers.AuthUtils.*;
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.authorization.PoliciesConfig.VIEW_ENTITY_PRIVILEGES;
 
 import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.ConjunctivePrivilegeGroup;
@@ -190,6 +191,20 @@ public class AuthorizationUtils {
     return canEditEntityQueries(subjectUrns, context);
   }
 
+  public static boolean canViewEntity(@Nonnull Urn entityUrn, @Nonnull QueryContext context) {
+    final DisjunctivePrivilegeGroup orGroup =
+        new DisjunctivePrivilegeGroup(
+            ImmutableList.of(new ConjunctivePrivilegeGroup(VIEW_ENTITY_PRIVILEGES)));
+
+    final Authorizer authorizer = context.getAuthorizer();
+    final String actor = context.getActorUrn();
+    final String entityType = entityUrn.getEntityType();
+    final Optional<EntitySpec> resourceSpec =
+        Optional.of(new EntitySpec(entityType, entityUrn.toString()));
+
+    return AuthUtil.isAuthorized(authorizer, actor, resourceSpec, orGroup);
+  }
+
   public static boolean isAuthorized(
       @Nonnull QueryContext context,
       @Nonnull Optional<EntitySpec> resourceSpec,
@@ -217,6 +232,14 @@ public class AuthorizationUtils {
       @Nonnull DisjunctivePrivilegeGroup privilegeGroup) {
     final EntitySpec resourceSpec = new EntitySpec(resourceType, resource);
     return AuthUtil.isAuthorized(authorizer, actor, Optional.of(resourceSpec), privilegeGroup);
+  }
+
+  public static boolean isViewDatasetUsageAuthorized(
+      final Urn resourceUrn, final QueryContext context) {
+    return isAuthorized(
+        context,
+        Optional.of(new EntitySpec(resourceUrn.getEntityType(), resourceUrn.toString())),
+        PoliciesConfig.VIEW_DATASET_USAGE_PRIVILEGE);
   }
 
   private AuthorizationUtils() {}

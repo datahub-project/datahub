@@ -417,15 +417,35 @@ class JsonSchemaTranslator:
                     inner_field_path,
                 )
         elif datahub_field_type == ArrayTypeClass:
-            field_path = field_path.expand_type("array", schema)
-            # default items schema is string
+            field_path = field_path.expand_type(discriminated_type, schema)
+            yield SchemaField(
+                fieldPath=field_path.as_string(),
+                type=type_override or SchemaFieldDataTypeClass(type=ArrayTypeClass()),
+                nativeDataType=native_type_override
+                or JsonSchemaTranslator._get_discriminated_type_from_schema(schema),
+                description=JsonSchemaTranslator._get_description_from_any_schema(
+                    schema
+                ),
+                nullable=nullable,
+                jsonProps=JsonSchemaTranslator._get_jsonprops_for_any_schema(
+                    schema, required=required
+                ),
+                isPartOfKey=field_path.is_key_schema,
+            )
+
             items_schema = schema.get("items", {"type": "string"})
             items_type = JsonSchemaTranslator._get_type_from_schema(items_schema)
-            field_path._set_parent_type_if_not_exists(
-                DataHubType(type=ArrayTypeClass, nested_type=items_type)
+            field_name = items_schema.get("title", None)
+            if not field_name:
+                field_name = items_type
+            inner_field_path = field_path.clone_plus(
+                FieldElement(type=[], name=field_name, schema_types=[])
             )
             yield from JsonSchemaTranslator.get_fields(
-                items_type, items_schema, required=False, base_field_path=field_path
+                items_type,
+                items_schema,
+                required=False,
+                base_field_path=inner_field_path,
             )
 
         elif datahub_field_type == MapTypeClass:
