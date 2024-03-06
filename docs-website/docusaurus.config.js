@@ -45,7 +45,7 @@ module.exports = {
       },
       items: [
         {
-          to: "docs/",
+          to: "docs/features",
           activeBasePath: "docs",
           label: "Docs",
           position: "right",
@@ -116,11 +116,19 @@ module.exports = {
           dropdownActiveClassDisabled: true,
             dropdownItemsAfter: [
                 {
-                href: "https://docs-website-irpoe2osc-acryldata.vercel.app/docs/",
+                type: 'html',
+                value: '<hr class="dropdown-separator" style="margin: 0.4rem;">',
+                },
+                {
+                type: 'html',
+                value: '<div style="font-size:0.875rem; padding: 0.25rem 0.5rem;"><b>Archived versions</b></div>',
+                },
+                {
+                href: "https://docs-website-irpoe2osc-acryldata.vercel.app/docs/features",
                 label: "0.11.0",
                 },
                 {
-                href: "https://docs-website-1gv2yzn9d-acryldata.vercel.app/docs/",
+                href: "https://docs-website-1gv2yzn9d-acryldata.vercel.app/docs/features",
                 label: "0.10.5",
                 },
             ],
