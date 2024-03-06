@@ -78,6 +78,7 @@ from datahub.ingestion.source_report.ingestion_stage import (
     LINEAGE_EXTRACTION,
     METADATA_EXTRACTION,
     PROFILING,
+    USAGE_EXTRACTION_INGESTION,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import SubTypes, TimeStamp
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
@@ -435,6 +436,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                 lineage_extractor=lineage_extractor,
             )
 
+            all_tables = self.get_all_tables()
         else:
             yield from self.process_schemas(connection, database)
 
@@ -450,10 +452,11 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                     connection=connection, all_tables=all_tables, database=database
                 )
 
-            if self.config.include_usage_statistics:
-                yield from self.extract_usage(
-                    connection=connection, all_tables=all_tables, database=database
-                )
+        self.report.report_ingestion_stage_start(USAGE_EXTRACTION_INGESTION)
+        if self.config.include_usage_statistics:
+            yield from self.extract_usage(
+                connection=connection, all_tables=all_tables, database=database
+            )
 
         if self.config.is_profiling_enabled():
             self.report.report_ingestion_stage_start(PROFILING)
