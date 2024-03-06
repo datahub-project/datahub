@@ -430,7 +430,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             )
 
             self.report.report_ingestion_stage_start(LINEAGE_EXTRACTION)
-            yield from self.extract_lineage_usage_v2(
+            yield from self.extract_lineage_v2(
                 connection=connection,
                 database=database,
                 lineage_extractor=lineage_extractor,
@@ -954,7 +954,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                     self.config.start_time, self.config.end_time
                 )
 
-    def extract_lineage_usage_v2(
+    def extract_lineage_v2(
         self,
         connection: redshift_connector.Connection,
         database: str,
