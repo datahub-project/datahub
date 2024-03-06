@@ -1,5 +1,5 @@
-import React, { useCallback, useState } from 'react';
-import { useHistory, useLocation } from 'react-router';
+import React, { useState } from 'react';
+import { useLocation } from 'react-router';
 import styled from 'styled-components/macro';
 import * as QueryString from 'query-string';
 import {
@@ -7,7 +7,6 @@ import {
     ArrowUpOutlined,
     CaretDownFilled,
     CaretDownOutlined,
-    PartitionOutlined,
     ReloadOutlined,
     SubnodeOutlined,
 } from '@ant-design/icons';
@@ -19,7 +18,6 @@ import { useEntityRegistry } from '../../../../useEntityRegistry';
 import { downgradeV2FieldPath } from '../../../dataset/profile/schema/utils/utils';
 import TabToolbar from '../../components/styled/TabToolbar';
 import { ANTD_GRAY } from '../../constants';
-import { getEntityPath } from '../../containers/profile/utils';
 import { useEntityData } from '../../EntityContext';
 import ColumnsLineageSelect from './ColumnLineageSelect';
 import { ImpactAnalysis } from './ImpactAnalysis';
@@ -71,7 +69,6 @@ interface Props {
 
 export function LineageColumnView({ defaultDirection }: Props) {
     const { urn, entityType, entityData } = useEntityData();
-    const history = useHistory();
     const location = useLocation();
     const entityRegistry = useEntityRegistry();
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
@@ -86,15 +83,6 @@ export function LineageColumnView({ defaultDirection }: Props) {
     function resetShouldRefetch() {
         setShouldRefetch(false);
     }
-
-    const routeToLineage = useCallback(() => {
-        history.replace(
-            getEntityPath(entityType, urn, entityRegistry, true, false, 'Lineage', {
-                start_time_millis: startTimeMillis,
-                end_time_millis: endTimeMillis,
-            }),
-        );
-    }, [history, entityType, urn, entityRegistry, startTimeMillis, endTimeMillis]);
 
     const selectedV1FieldPath = downgradeV2FieldPath(selectedColumn) || '';
     const selectedColumnUrn = generateSchemaFieldUrn(selectedV1FieldPath, urn);
@@ -138,17 +126,6 @@ export function LineageColumnView({ defaultDirection }: Props) {
                         suffixIcon={<CaretDownOutlined style={{ color: 'black' }} />}
                         data-testid="lineage-tab-direction-select"
                     />
-                    <Button type="text" onClick={routeToLineage}>
-                        <PartitionOutlined />
-                        <Tooltip
-                            placement="right"
-                            title={`Explore the upstreams and downstreams of ${entityName} using an interactive graph`}
-                        >
-                            <Typography.Text>
-                                <b>Explore Lineage</b>
-                            </Typography.Text>
-                        </Tooltip>
-                    </Button>
                 </LeftButtonsWrapper>
                 <RightButtonsWrapper>
                     <ManageLineageMenu
