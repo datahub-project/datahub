@@ -220,17 +220,6 @@ module.exports = {
       "@docusaurus/preset-classic",
       {
         docs: {
-          lastVersion: "current",
-          versions: {
-            current: {
-              label: "Next",
-              banner: 'none',
-            },
-            "0.12.0": {
-               label: "0.12.0",
-               banner: 'none',
-            },
-          },
           path: "genDocs",
           sidebarPath: require.resolve("./sidebars.js"),
           ...(!isSaas && {
