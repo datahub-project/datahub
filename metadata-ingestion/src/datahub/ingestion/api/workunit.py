@@ -100,11 +100,14 @@ class MetadataWorkUnit(WorkUnit):
 
     @classmethod
     def generate_workunit_id(
-        cls, item: Union[MetadataChangeEvent, MetadataChangeProposalWrapper]
+        cls,
+        item: Union[
+            MetadataChangeEvent, MetadataChangeProposal, MetadataChangeProposalWrapper
+        ],
     ) -> str:
         if isinstance(item, MetadataChangeEvent):
             return f"{item.proposedSnapshot.urn}/mce"
-        elif isinstance(item, MetadataChangeProposalWrapper):
+        elif isinstance(item, (MetadataChangeProposalWrapper, MetadataChangeProposal)):
             if item.aspect and item.aspectName in TIMESERIES_ASPECT_MAP:
                 # TODO: Make this a cleaner interface.
                 ts = getattr(item.aspect, "timestampMillis", None)
