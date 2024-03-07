@@ -1,6 +1,7 @@
-import { AssertionInfo, AssertionResultType, AssertionType, Maybe } from "../../../../../../../../../../../../types.generated";
+import { AssertionInfo, AssertionResultType, AssertionRunEvent, AssertionStdOperator, AssertionType, Maybe, VolumeAssertionType } from "../../../../../../../../../../../../types.generated";
 import { VALUES_OVER_TIME_ASSERTION_TYPES } from "../../../shared/constants";
-import { AssertionChartType } from "./types";
+import { tryGetExpectedRangeFromAssertionRunEvent } from "../../../shared/resultUtils";
+import { AssertionChartType, AssertionDataPoint } from "./types";
 
 export const ACCENT_COLOR_HEX = '#4050E7'
 export const SUCCESS_COLOR_HEX = ACCENT_COLOR_HEX;// '#52C41A';
@@ -33,7 +34,7 @@ export function generateYScaleTickValues(minY: number, maxY: number): number[] {
     return [minY, maxY]
 }
 
-export function generateTimeScaleTickValues(startMs, endMs): Date[] {
+export function generateTimeScaleTickValues(startMs: number, endMs: number): Date[] {
     const ticks: Date[] = [];
     const minDate = new Date(startMs);
     const maxDate = new Date(endMs);
@@ -117,4 +118,10 @@ export const getBestChartTypeForAssertion = (assertionInfo?: AssertionInfo | May
         }
     }
     return AssertionChartType.StatusOverTime; // safest catch-all fallback
-} 
+}
+
+
+export const tryGetUpperAndLowerYRangeFromAssertionRunEvent = (runEvent: AssertionRunEvent) => {
+    return tryGetExpectedRangeFromAssertionRunEvent(runEvent)
+}
+

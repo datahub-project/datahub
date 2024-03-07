@@ -4,10 +4,19 @@ import {
     AssertionResult,
     AssertionResultType,
     AssertionRunEvent,
+    AssertionStdOperator,
+    AssertionStdParameter,
+    AssertionStdParameterType,
     AssertionType,
+    AssertionValueChangeType,
     FieldAssertionType,
+    IncrementingSegmentRowCountTotal,
+    RowCountTotal,
+    SqlAssertionInfo,
     SqlAssertionType,
     StringMapEntry,
+    VolumeAssertionInfo,
+    VolumeAssertionType,
 } from '../../../../../../../../../../types.generated';
 import { formatNumberWithoutAbbreviation } from '../../../../../../../../../shared/formatNumber';
 import { toLocalDateString, toLocalTimeString } from '../../../../../../../../../shared/time/timeUtils';
@@ -48,6 +57,13 @@ export function tryExtractNumericalValueFromNativeResults(nativeResults: Maybe<S
     const maybeValue = nativeResults?.find(result => result.key === key)?.value
     const parsedValue = typeof maybeValue === 'string' ? parseFloat(maybeValue) : maybeValue
     return typeof parsedValue === 'number' && !Number.isNaN(parsedValue) ? parsedValue : undefined;
+}
+
+export function tryExtractNumericalValueFromAssertionStdParameter(param?: Maybe<AssertionStdParameter>): number | undefined {
+    if (param?.type == AssertionStdParameterType.Number) {
+        const maybeNumber = parseFloat(param.value)
+        return !isNaN(maybeNumber) ? maybeNumber : undefined;
+    }
 }
 
 const tryGetFieldMetricAssertionNumericalResult = (result?: Maybe<AssertionResult>): number | undefined => {
@@ -313,7 +329,6 @@ export const tryGetPrimaryMetricValueFromAssertionRunEvent = (runEvent: Assertio
         case AssertionType.Sql:
             return tryGetSqlAssertionNumericalResult(runEvent.result);
         case AssertionType.Volume:
-            // Row count
             return (runEvent.result.rowCount?.valueOf());
         case AssertionType.Field:
             return tryGetPrimaryMetricValueFromFieldAssertionRunEvent(runEvent.result)
@@ -339,4 +354,102 @@ function tryGetPrimaryMetricValueFromFieldAssertionRunEvent(runEventResult?: May
         default:
             return undefined;
     }
+}
+
+
+
+export type AssertionExpectedRange = {
+    high?: number
+    low?: number
+}
+
+
+/**
+ * Tries to get the 'high' and 'low' end of the range for an assertion
+ * If both are defined we have a BETWEEN range
+ * If either or are defined we only have a lt/lte/gt/gte range
+ * If neither are defined, we cannot extract an expected range for this assertion run event
+ * @param runEvent 
+ * @returns {AssertionExpectedRange}
+ */
+export const tryGetExpectedRangeFromAssertionRunEvent = (runEvent: AssertionRunEvent): AssertionExpectedRange => {
+    let result: AssertionExpectedRange = {}
+
+    const info = runEvent.result?.assertion;
+    // TODO(@jayacryl): support more types
+    switch (info?.type) {
+        case AssertionType.Volume:
+            result = info.volumeAssertion ? tryGetExpectedRangeFromVolumeAssertion(info.volumeAssertion) : result;
+            break;
+        case AssertionType.Sql:
+            result = info.sqlAssertion ? tryGetExpectedRangeFromSQLAssertion(info.sqlAssertion) : result;
+            break;
+        default:
+            break;
+    }
+    return result;
+}
+
+function tryGetExpectedRangeFromSQLAssertion(sqlAssertionInfo: SqlAssertionInfo): AssertionExpectedRange {
+    if (!sqlAssertionInfo.changeType) {
+        return tryGetExpectedRangeFromAssertionAgainstTotals(sqlAssertionInfo)
+    }
+
+    let result: AssertionExpectedRange = {}
+    // TODO(@jayacryl): handle change types
+    switch (sqlAssertionInfo.changeType) {
+        case AssertionValueChangeType.Absolute:
+            break;
+        case AssertionValueChangeType.Percentage:
+            // TODO
+            break;
+        default:
+            break;
+    }
+
+    return result;
+}
+
+function tryGetExpectedRangeFromVolumeAssertion(volumeAssertionInfo: VolumeAssertionInfo): AssertionExpectedRange {
+    let result: AssertionExpectedRange = {}
+
+    // TODO(@jayacryl): support incrementing types
+    switch (volumeAssertionInfo?.type) {
+        case VolumeAssertionType.RowCountTotal: {
+            result = tryGetExpectedRangeFromAssertionAgainstTotals(volumeAssertionInfo.rowCountTotal)
+            break;
+        }
+        case VolumeAssertionType.IncrementingSegmentRowCountTotal: {
+            result = tryGetExpectedRangeFromAssertionAgainstTotals(volumeAssertionInfo.incrementingSegmentRowCountTotal)
+            break;
+        }
+        default:
+            break;
+    }
+    return result
+}
+function tryGetExpectedRangeFromAssertionAgainstTotals(totals?: Maybe<IncrementingSegmentRowCountTotal> | Maybe<RowCountTotal> | Maybe<SqlAssertionInfo>): AssertionExpectedRange {
+    let high: undefined | number;
+    let low: undefined | number;
+    switch (totals?.operator) {
+        case AssertionStdOperator.Between:
+            high = tryExtractNumericalValueFromAssertionStdParameter(totals.parameters.maxValue)
+            low = tryExtractNumericalValueFromAssertionStdParameter(totals.parameters.minValue)
+            break;
+        case AssertionStdOperator.GreaterThan:
+            low = tryExtractNumericalValueFromAssertionStdParameter(totals.parameters.value)
+            break;
+        case AssertionStdOperator.GreaterThanOrEqualTo:
+            low = tryExtractNumericalValueFromAssertionStdParameter(totals.parameters.value)
+            break;
+        case AssertionStdOperator.LessThan:
+            high = tryExtractNumericalValueFromAssertionStdParameter(totals.parameters.value)
+            break;
+        case AssertionStdOperator.LessThanOrEqualTo:
+            high = tryExtractNumericalValueFromAssertionStdParameter(totals.parameters.value)
+            break;
+        default:
+            break;
+    }
+    return { high, low }
 }
