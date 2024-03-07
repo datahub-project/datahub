@@ -65,7 +65,7 @@ const BrowseSidebar = ({ visible }: Props) => {
                     {entityAggregations
                         ?.filter((entityAggregation) => entityAggregation?.value !== 'DATA_PRODUCT')
                         ?.map((entityAggregation) => (
-                            <BrowseProvider key={entityAggregation.value} entityAggregation={entityAggregation}>
+                            <BrowseProvider key={entityAggregation?.value} entityAggregation={entityAggregation}>
                                 <EntityNode />
                             </BrowseProvider>
                         ))}
