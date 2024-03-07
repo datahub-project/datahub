@@ -378,15 +378,10 @@ SELECT  schemaname as schema_name,
         )
 
     @staticmethod
-    def list_insert_create_queries_sql(
-        db_name: str, start_time: datetime, end_time: datetime
-    ) -> str:
+    def list_insert_create_queries_sql(start_time: datetime, end_time: datetime) -> str:
         return """
-                select
-                    distinct cluster,
-                    target_schema,
-                    target_table,
-                    username,
+                  select
+                    distinct username,
                     query as query_id,
                     LISTAGG(CASE WHEN LEN(RTRIM(querytxt)) = 0 THEN querytxt ELSE RTRIM(querytxt) END) WITHIN GROUP (ORDER BY sequence) as ddl,
                     ANY_VALUE(pid) as session_id,
@@ -394,20 +389,14 @@ SELECT  schemaname as schema_name,
                 from
                         (
                     select
-                        distinct tbl as target_table_id,
-                        sti.schema as target_schema,
-                        sti.table as target_table,
-                        sti.database as cluster,
-                        usename as username,
+                        distinct usename as username,
                         text as querytxt,
                         sq.query,
                         sequence,
                         si.starttime as starttime,
-                        pid
+                        si.pid
                     from
-                        stl_insert as si
-                    join SVV_TABLE_INFO sti on
-                        sti.table_id = tbl
+                        stl_query as si
                     left join svl_user_info sui on
                         si.userid = sui.usesysid
                     left join STL_QUERYTEXT sq on
@@ -417,16 +406,14 @@ SELECT  schemaname as schema_name,
                     where
                         sui.usename <> 'rdsdb'
                         and slc.query IS NULL
-                        and cluster = '{db_name}'
                         and si.starttime >= '{start_time}'
                         and si.starttime < '{end_time}'
                         and sequence < 320
                     ) as target_tables
-                    group by cluster, query_id, target_schema, target_table, username, starttime
-                    order by cluster, query_id, target_schema, target_table, starttime asc
-                """.format(
+                    group by query_id, username, starttime
+                    order by query_id, starttime asc
+            """.format(
             # We need the original database name for filtering
-            db_name=db_name,
             start_time=start_time.strftime(redshift_datetime_format),
             end_time=end_time.strftime(redshift_datetime_format),
         )
@@ -550,7 +537,7 @@ SELECT  schemaname as schema_name,
 
             )
             where
-                rn = 1;
+                rn = 1
             """
 
     @staticmethod
