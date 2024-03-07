@@ -4312,6 +4312,11 @@ type CorpGroupEditableProperties {
   Email address for the group
   """
   email: String
+
+  """ 
+  A URL which points to a picture which user wants to set as a profile photo
+  """
+  pictureLink: String
 }
 
 """
@@ -4347,6 +4352,11 @@ input CorpGroupUpdateInput {
   Email address for the group
   """
   email: String
+
+  """
+  A URL which points to a picture which user wants to set as a profile photo
+  """
+  pictureLink: String
 }
 
 """

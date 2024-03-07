@@ -35,7 +35,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import javax.annotation.Nonnull;
-import javax.inject.Singleton;
 import javax.validation.constraints.NotNull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -57,7 +56,6 @@ import org.springframework.stereotype.Component;
  */
 @Slf4j
 @Component
-@Singleton
 @PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
 @Import({
   MetadataTestClientFactory.class,

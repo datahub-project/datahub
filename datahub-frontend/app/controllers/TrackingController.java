@@ -9,7 +9,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.typesafe.config.Config;
 import javax.annotation.Nonnull;
 import javax.inject.Inject;
-import javax.inject.Singleton;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,7 +18,6 @@ import play.mvc.Result;
 import play.mvc.Security;
 
 // TODO: Migrate this to metadata-service.
-@Singleton
 public class TrackingController extends Controller {
 
   private final Logger _logger = LoggerFactory.getLogger(TrackingController.class.getName());

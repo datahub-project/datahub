@@ -11,7 +11,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nonnull;
-import javax.inject.Singleton;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
@@ -26,7 +25,6 @@ public class EntityChangeEventSinkManagerFactory {
   @Autowired private ConfigurationProvider configurationProvider;
 
   @Bean(name = "changeEventSinkManager")
-  @Singleton
   @Nonnull
   protected EntityChangeEventSinkManager getInstance() {
 

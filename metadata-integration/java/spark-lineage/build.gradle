@@ -109,6 +109,8 @@ shadowJar {
   relocate 'org.apache.http','io.acryl.spark2.shaded.http'
   relocate 'org.apache.commons.codec', 'io.acryl.spark2.shaded.o.a.c.codec'
   relocate 'org.apache.commons.compress', 'io.acryl.spark2.shaded.o.a.c.compress'
+  relocate 'org.apache.commons.io', 'io.acryl.spark2.shaded.o.a.c.io'
+  relocate 'org.apache.commons.lang3', 'io.acryl.spark2.shaded.o.a.c.lang3'
   relocate 'mozilla', 'io.acryl.spark2.shaded.mozilla'
   relocate 'com.typesafe','io.acryl.spark2.shaded.typesafe'
   relocate 'io.opentracing','io.acryl.spark2.shaded.io.opentracing'

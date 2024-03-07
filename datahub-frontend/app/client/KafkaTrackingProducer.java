@@ -11,7 +11,6 @@ import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nonnull;
 import javax.inject.Inject;
-import javax.inject.Singleton;
 import org.apache.kafka.clients.CommonClientConfigs;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
@@ -24,7 +23,6 @@ import org.slf4j.LoggerFactory;
 import play.api.inject.ApplicationLifecycle;
 import utils.ConfigUtil;
 
-@Singleton
 public class KafkaTrackingProducer {
   private final Logger _logger = LoggerFactory.getLogger(KafkaTrackingProducer.class.getName());
   private static final List<String> KAFKA_SSL_PROTOCOLS =
