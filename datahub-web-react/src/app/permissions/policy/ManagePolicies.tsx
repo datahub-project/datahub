@@ -1,19 +1,14 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Button, Empty, message, Pagination, Tag } from 'antd';
+import { Button, Empty, message, Pagination, Select, Tag } from 'antd';
 import styled from 'styled-components/macro';
 import * as QueryString from 'query-string';
 import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import { useLocation } from 'react-router';
 import PolicyBuilderModal from './PolicyBuilderModal';
-import {
-    Policy,
-    PolicyState,
-} from '../../../types.generated';
+import { AndFilterInput, Policy, PolicyState,FilterOperator } from '../../../types.generated';
 import { useAppConfig } from '../../useAppConfig';
 import PolicyDetailsModal from './PolicyDetailsModal';
-import {
-    useListPoliciesQuery,
-} from '../../../graphql/policy.generated';
+import { useListPoliciesQuery } from '../../../graphql/policy.generated';
 import { Message } from '../../shared/Message';
 import { DEFAULT_PAGE_SIZE, EMPTY_POLICY } from './policyUtils';
 import TabToolbar from '../../entity/shared/components/styled/TabToolbar';
@@ -73,7 +68,22 @@ const PageContainer = styled.span`
     flex-direction: column;
     overflow: auto;
 `;
+const StyledSelect = styled(Select)`
+    margin-right: 15px;
+    min-width: 90px;
+    margin-left: 20px;
+`;
 
+const SelectContainer = styled.div`
+    display: flex;
+    align-items: flex-start;
+`;
+
+export enum StatusType {
+    ALL,
+    ACTIVE,
+    INACTIVE,
+}
 
 // TODO: Cleanup the styling.
 export const ManagePolicies = () => {
@@ -82,6 +92,11 @@ export const ManagePolicies = () => {
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
     const paramsQuery = (params?.query as string) || undefined;
     const [query, setQuery] = useState<undefined | string>(undefined);
+    const [orFilters, setOrFilters] = useState<AndFilterInput[]>([
+        { and: [{ field: 'state', values: ['ACTIVE'], condition: FilterOperator.Equal }] },
+    ]);
+    const [statusFilter, setStatusFilter] = useState(StatusType.ACTIVE);
+
     useEffect(() => setQuery(paramsQuery), [paramsQuery]);
 
     const {
@@ -101,8 +116,6 @@ export const ManagePolicies = () => {
     const [focusPolicyUrn, setFocusPolicyUrn] = useState<undefined | string>(undefined);
     const [focusPolicy, setFocusPolicy] = useState<Omit<Policy, 'urn'>>(EMPTY_POLICY);
 
-
-
     const {
         loading: policiesLoading,
         error: policiesError,
@@ -114,6 +127,7 @@ export const ManagePolicies = () => {
                 start,
                 count: pageSize,
                 query,
+                orFilters,
             },
         },
         fetchPolicy: (query?.length || 0) > 0 ? 'no-cache' : 'cache-first',
@@ -152,10 +166,32 @@ export const ManagePolicies = () => {
     };
 
     const onEditPolicy = (policy: Policy) => {
-    setShowPolicyBuilderModal(true);
-    setFocusPolicyUrn(policy?.urn);
-    setFocusPolicy({ ...policy });
+        setShowPolicyBuilderModal(true);
+        setFocusPolicyUrn(policy?.urn);
+        setFocusPolicy({ ...policy });
     };
+
+    const onStatusChange = (newStatusFilter: StatusType) => {
+        setStatusFilter(newStatusFilter);
+        // Reset page to 1 when filter changes
+        setPage(1);
+        const filtersInput: any = [];
+        let statusValue = '';
+        if (newStatusFilter === StatusType.ACTIVE) {
+            statusValue = 'ACTIVE';
+        } else if (newStatusFilter === StatusType.INACTIVE) {
+            statusValue = 'INACTIVE';
+        }
+        if (statusValue) {
+            const filter = { field: 'state', values: [statusValue], condition: FilterOperator.Equal };
+            filtersInput.push({ and: [filter] });
+        }
+        setOrFilters(filtersInput);
+    };
+
+    useEffect(() => {
+        policiesRefetch();
+    }, [orFilters, policiesRefetch]);
 
     const {
         createPolicyError,
@@ -175,7 +211,7 @@ export const ManagePolicies = () => {
     );
 
     const updateError = createPolicyError || updatePolicyError || deletePolicyError;
-    
+
     const tableColumns = [
         {
             title: 'Name',
@@ -326,26 +362,43 @@ export const ManagePolicies = () => {
                             <PlusOutlined /> Create new policy
                         </Button>
                     </div>
-                    <SearchBar
-                        initialQuery={query || ''}
-                        placeholderText="Search policies..."
-                        suggestions={[]}
-                        style={{
-                            maxWidth: 220,
-                            padding: 0,
-                        }}
-                        inputStyle={{
-                            height: 32,
-                            fontSize: 12,
-                        }}
-                        onSearch={() => null}
-                        onQueryChange={(q) => {
-                            setPage(1);
-                            setQuery(q);
-                        }}
-                        entityRegistry={entityRegistry}
-                        hideRecommendations
-                    />
+                    <SelectContainer>
+                        <SearchBar
+                            initialQuery={query || ''}
+                            placeholderText="Search policies..."
+                            suggestions={[]}
+                            style={{
+                                maxWidth: 220,
+                                padding: 0,
+                            }}
+                            inputStyle={{
+                                height: 32,
+                                fontSize: 12,
+                            }}
+                            onSearch={() => null}
+                            onQueryChange={(q) => {
+                                setPage(1);
+                                setQuery(q);
+                            }}
+                            entityRegistry={entityRegistry}
+                            hideRecommendations
+                        />
+                        <StyledSelect
+                            value={statusFilter}
+                            onChange={(selection) => onStatusChange(selection as StatusType)}
+                            style={{ width: 100 }}
+                        >
+                            <Select.Option value={StatusType.ALL} key="ALL">
+                                All
+                            </Select.Option>
+                            <Select.Option value={StatusType.ACTIVE} key="ACTIVE">
+                                Active
+                            </Select.Option>
+                            <Select.Option value={StatusType.INACTIVE} key="INACTIVE">
+                                Inactive
+                            </Select.Option>
+                        </StyledSelect>
+                    </SelectContainer>
                 </TabToolbar>
                 <StyledTable
                     columns={tableColumns}

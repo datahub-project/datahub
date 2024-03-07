@@ -11,10 +11,12 @@ import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.inject.name.Named;
 import com.linkedin.datahub.graphql.GraphQLEngine;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLError;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import graphql.ExecutionResult;
+import io.datahubproject.metadata.context.OperationContext;
 import io.opentelemetry.api.trace.Span;
 import jakarta.inject.Inject;
 import jakarta.servlet.http.HttpServletRequest;
@@ -25,6 +27,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpStatus;
@@ -46,6 +49,11 @@ public class GraphQLController {
   @Inject GraphQLEngine _engine;
 
   @Inject AuthorizerChain _authorizerChain;
+
+  @Nonnull
+  @Inject
+  @Named("systemOperationContext")
+  private OperationContext systemOperationContext;
 
   @PostMapping(value = "/graphql", produces = "application/json;charset=utf-8")
   CompletableFuture<ResponseEntity<String>> postGraphQL(HttpEntity<String> httpEntity) {
@@ -95,7 +103,8 @@ public class GraphQLController {
      * Init QueryContext
      */
     Authentication authentication = AuthenticationContext.getAuthentication();
-    SpringQueryContext context = new SpringQueryContext(true, authentication, _authorizerChain);
+    SpringQueryContext context =
+        new SpringQueryContext(true, authentication, _authorizerChain, systemOperationContext);
     Span.current().setAttribute("actor.urn", context.getActorUrn());
 
     return CompletableFuture.supplyAsync(

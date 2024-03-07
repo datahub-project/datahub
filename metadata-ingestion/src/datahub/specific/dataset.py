@@ -25,17 +25,17 @@ from datahub.specific.structured_properties import StructuredPropertiesPatchHelp
 from datahub.utilities.urns.tag_urn import TagUrn
 from datahub.utilities.urns.urn import Urn
 
-T = TypeVar("T", bound=MetadataPatchProposal)
+_Parent = TypeVar("_Parent", bound=MetadataPatchProposal)
 
 
-class FieldPatchHelper(Generic[T]):
+class FieldPatchHelper(Generic[_Parent]):
     def __init__(
         self,
-        parent: T,
+        parent: _Parent,
         field_path: str,
         editable: bool = True,
     ) -> None:
-        self._parent: T = parent
+        self._parent: _Parent = parent
         self.field_path = field_path
         self.aspect_name = (
             EditableSchemaMetadata.ASPECT_NAME
@@ -84,7 +84,7 @@ class FieldPatchHelper(Generic[T]):
         )
         return self
 
-    def parent(self) -> T:
+    def parent(self) -> _Parent:
         return self._parent
 
 

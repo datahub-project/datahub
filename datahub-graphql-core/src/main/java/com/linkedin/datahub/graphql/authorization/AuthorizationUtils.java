@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.authorization;
 
 import static com.linkedin.datahub.graphql.resolvers.AuthUtils.*;
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.authorization.PoliciesConfig.VIEW_ENTITY_PRIVILEGES;
 
 import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.ConjunctivePrivilegeGroup;
@@ -188,6 +189,20 @@ public class AuthorizationUtils {
       @Nonnull Urn entityUrn, @Nonnull List<Urn> subjectUrns, @Nonnull QueryContext context) {
     // Currently - you only need permission to edit an entity's queries to remove any query.
     return canEditEntityQueries(subjectUrns, context);
+  }
+
+  public static boolean canViewEntity(@Nonnull Urn entityUrn, @Nonnull QueryContext context) {
+    final DisjunctivePrivilegeGroup orGroup =
+        new DisjunctivePrivilegeGroup(
+            ImmutableList.of(new ConjunctivePrivilegeGroup(VIEW_ENTITY_PRIVILEGES)));
+
+    final Authorizer authorizer = context.getAuthorizer();
+    final String actor = context.getActorUrn();
+    final String entityType = entityUrn.getEntityType();
+    final Optional<EntitySpec> resourceSpec =
+        Optional.of(new EntitySpec(entityType, entityUrn.toString()));
+
+    return AuthUtil.isAuthorized(authorizer, actor, resourceSpec, orGroup);
   }
 
   public static boolean isAuthorized(
