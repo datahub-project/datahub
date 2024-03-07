@@ -378,8 +378,7 @@ public class Constants {
   public static final String BUSINESS_ATTRIBUTE_KEY_ASPECT_NAME = "businessAttributeKey";
   public static final String BUSINESS_ATTRIBUTE_INFO_ASPECT_NAME = "businessAttributeInfo";
   public static final String BUSINESS_ATTRIBUTE_ASSOCIATION = "businessAttributeAssociation";
-  public static final List<String> SKIP_REFERENCE_ASPECT =
-      Arrays.asList("ownership", "status", "institutionalMemory");
+  public static final List<String> SKIP_REFERENCE_ASPECT = List.of("ownership", "status", "institutionalMemory");
 
   // Posts
   public static final String POST_INFO_ASPECT_NAME = "postInfo";

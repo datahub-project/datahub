@@ -1,0 +1,8 @@
+namespace com.datahub.test
+
+import com.linkedin.common.Urn
+import com.linkedin.common.Edge
+
+record RefEntityAssociation includes Edge{
+
+}
