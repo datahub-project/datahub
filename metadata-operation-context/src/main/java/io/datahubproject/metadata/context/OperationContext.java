@@ -268,7 +268,10 @@ public class OperationContext {
               .authentication(sessionAuthentication)
               .systemAuth(
                   this.systemActorContext != null
-                      && this.systemActorContext.getAuthentication().equals(sessionAuthentication))
+                      && this.systemActorContext
+                          .getAuthentication()
+                          .getActor()
+                          .equals(sessionAuthentication.getActor()))
               .policyInfoSet(this.authorizerContext.getAuthorizer().getActorPolicies(actorUrn))
               .groupMembership(this.authorizerContext.getAuthorizer().getActorGroups(actorUrn))
               .build(),
