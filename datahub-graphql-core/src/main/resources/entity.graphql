@@ -3598,6 +3598,11 @@ type CorpUser implements Entity {
     globalTags: GlobalTags @deprecated
 
     """
+    Whether or not this entity exists on DataHub
+    """
+    exists: Boolean
+
+    """
     Settings that a user can customize through the datahub ui
     """
     settings: CorpUserSettings
