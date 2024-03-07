@@ -380,39 +380,58 @@ SELECT  schemaname as schema_name,
     @staticmethod
     def list_insert_create_queries_sql(start_time: datetime, end_time: datetime) -> str:
         return """
-                  select
-                    distinct username,
-                    query as query_id,
-                    LISTAGG(CASE WHEN LEN(RTRIM(querytxt)) = 0 THEN querytxt ELSE RTRIM(querytxt) END) WITHIN GROUP (ORDER BY sequence) as ddl,
-                    ANY_VALUE(pid) as session_id,
-                    starttime as timestamp
+            with query_txt as
+                (
+                select
+                    query,
+                    pid,
+                    LISTAGG(case
+                        when LEN(RTRIM(text)) = 0 then text
+                        else RTRIM(text)
+                    end) within group (
+                    order by sequence) as ddl
                 from
-                        (
-                    select
-                        distinct usename as username,
-                        text as querytxt,
-                        sq.query,
-                        sequence,
-                        si.starttime as starttime,
-                        si.pid
-                    from
-                        stl_query as si
-                    left join svl_user_info sui on
-                        si.userid = sui.usesysid
-                    left join STL_QUERYTEXT sq on
-                        si.query = sq.query
-                    left join stl_load_commits slc on
-                        slc.query = si.query
-                    where
+                    STL_QUERYTEXT
+                where
+                    sequence < 320
+                group by
+                    query,
+                    pid
+                )
+                        select
+                    distinct tbl as target_table_id,
+                    sti.schema as target_schema,
+                    sti.table as target_table,
+                    sti.database as cluster,
+                    usename as username,
+                    ddl,
+                    sq.query as query,
+                    min(si.starttime) as starttime,
+                    ANY_VALUE(pid) as session_id
+                from
+                    stl_insert as si
+                left join SVV_TABLE_INFO sti on
+                    sti.table_id = tbl
+                left join svl_user_info sui on
+                    si.userid = sui.usesysid
+                left join query_txt sq on
+                    si.query = sq.query
+                left join stl_load_commits slc on
+                    slc.query = si.query
+                where
                         sui.usename <> 'rdsdb'
                         and slc.query IS NULL
                         and si.starttime >= '{start_time}'
                         and si.starttime < '{end_time}'
-                        and sequence < 320
-                    ) as target_tables
-                    group by query_id, username, starttime
-                    order by query_id, starttime asc
-            """.format(
+                group by
+                    target_table_id,
+                    target_schema,
+                    target_table,
+                    cluster,
+                    username,
+                    ddl,
+                    sq.query
+        """.format(
             # We need the original database name for filtering
             start_time=start_time.strftime(redshift_datetime_format),
             end_time=end_time.strftime(redshift_datetime_format),
