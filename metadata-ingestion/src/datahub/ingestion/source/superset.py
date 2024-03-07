@@ -1,6 +1,7 @@
 import json
 import logging
 from functools import lru_cache
+import re
 from typing import Dict, Iterable, List, Optional
 
 import dateutil.parser as dp
@@ -226,11 +227,15 @@ class SupersetSource(StatefulIngestionSourceBase):
         ).json()
         sqlalchemy_uri = database_response.get("result", {}).get("sqlalchemy_uri")
         if sqlalchemy_uri is None:
+            # Changing awsathena to athena when calling the database backend
             platform_name = database_response.get("result", {}).get("backend", "external")
             if platform_name == "awsathena":
                 return "athena"
             return platform_name
-        return get_platform_from_sqlalchemy_uri(sqlalchemy_uri)
+        # Changing awsathena to athena directly in the sqlachemy uri
+        pattern = re.compile(r"^(awsathena)\+")
+        changed_sqlalchemy_uri = re.sub(pattern, "athena+", sqlalchemy_uri)
+        return get_platform_from_sqlalchemy_uri(changed_sqlalchemy_uri)
 
     @lru_cache(maxsize=None)
     def get_datasource_urn_from_id(self, datasource_id):
