@@ -1,7 +1,5 @@
 from typing import Iterable
 
-import pytest
-
 from datahub.emitter.mcp import (
     MetadataChangeProposalClass,
     MetadataChangeProposalWrapper,
@@ -13,9 +11,7 @@ from datahub.ingestion.source.redshift.redshift import RedshiftSource
 from datahub.ingestion.source.redshift.redshift_schema import RedshiftTable
 
 
-@pytest.fixture
-def redshift_source_setup(request: pytest.FixtureRequest) -> Iterable[MetadataWorkUnit]:
-    custom_props_flag = request.param
+def redshift_source_setup(custom_props_flag: bool) -> Iterable[MetadataWorkUnit]:
     config = RedshiftConfig(
         host_port="localhost:5439",
         database="test",
@@ -37,9 +33,8 @@ def redshift_source_setup(request: pytest.FixtureRequest) -> Iterable[MetadataWo
     return gen
 
 
-@pytest.mark.parametrize("redshift_source_setup", [True], indirect=True)
-def test_gen_dataset_workunits_patch_custom_properties_patch(redshift_source_setup):
-    gen = redshift_source_setup
+def test_gen_dataset_workunits_patch_custom_properties_patch():
+    gen = redshift_source_setup(True)
     custom_props_exist = False
     for item in gen:
         mcp = item.metadata
@@ -53,9 +48,8 @@ def test_gen_dataset_workunits_patch_custom_properties_patch(redshift_source_set
     assert custom_props_exist
 
 
-@pytest.mark.parametrize("redshift_source_setup", [False], indirect=True)
-def test_gen_dataset_workunits_patch_custom_properties_upsert(redshift_source_setup):
-    gen = redshift_source_setup
+def test_gen_dataset_workunits_patch_custom_properties_upsert():
+    gen = redshift_source_setup(False)
     custom_props_exist = False
     for item in gen:
         assert isinstance(item.metadata, MetadataChangeProposalWrapper)
