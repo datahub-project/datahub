@@ -129,6 +129,7 @@ class RedshiftSqlLineageV2:
         }:
             # Populate lineage by parsing table creating sqls
             query = RedshiftQuery.list_insert_create_queries_sql(
+                db_name=self.database,
                 start_time=self.start_time,
                 end_time=self.end_time,
             )

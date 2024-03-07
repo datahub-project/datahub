@@ -378,7 +378,9 @@ SELECT  schemaname as schema_name,
         )
 
     @staticmethod
-    def list_insert_create_queries_sql(start_time: datetime, end_time: datetime) -> str:
+    def list_insert_create_queries_sql(
+        db_name: str, start_time: datetime, end_time: datetime
+    ) -> str:
         return """
             with query_txt as
                 (
@@ -405,7 +407,7 @@ SELECT  schemaname as schema_name,
                     sti.database as cluster,
                     usename as username,
                     ddl,
-                    sq.query as query,
+                    sq.query as query_id,
                     min(si.starttime) as starttime,
                     ANY_VALUE(pid) as session_id
                 from
@@ -420,6 +422,7 @@ SELECT  schemaname as schema_name,
                     slc.query = si.query
                 where
                         sui.usename <> 'rdsdb'
+                        and cluster = '{db_name}'
                         and slc.query IS NULL
                         and si.starttime >= '{start_time}'
                         and si.starttime < '{end_time}'
@@ -433,6 +436,7 @@ SELECT  schemaname as schema_name,
                     sq.query
         """.format(
             # We need the original database name for filtering
+            db_name=db_name,
             start_time=start_time.strftime(redshift_datetime_format),
             end_time=end_time.strftime(redshift_datetime_format),
         )
