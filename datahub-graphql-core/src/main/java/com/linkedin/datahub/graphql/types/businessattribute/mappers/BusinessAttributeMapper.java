@@ -1,9 +1,11 @@
 package com.linkedin.datahub.graphql.types.businessattribute.mappers;
 
 import static com.linkedin.metadata.Constants.BUSINESS_ATTRIBUTE_INFO_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.INSTITUTIONAL_MEMORY_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.OWNERSHIP_ASPECT_NAME;
 
 import com.linkedin.businessattribute.BusinessAttributeInfo;
+import com.linkedin.common.InstitutionalMemory;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
@@ -12,6 +14,7 @@ import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.SchemaFieldDataType;
 import com.linkedin.datahub.graphql.types.common.mappers.AuditStampMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.CustomPropertiesMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
@@ -46,6 +49,12 @@ public class BusinessAttributeMapper implements ModelMapper<EntityResponse, Busi
         (businessAttribute, dataMap) ->
             businessAttribute.setOwnership(
                 OwnershipMapper.map(new Ownership(dataMap), entityResponse.getUrn())));
+    mappingHelper.mapToResult(
+        INSTITUTIONAL_MEMORY_ASPECT_NAME,
+        (dataset, dataMap) ->
+            dataset.setInstitutionalMemory(
+                InstitutionalMemoryMapper.map(
+                    new InstitutionalMemory(dataMap), entityResponse.getUrn())));
     return mappingHelper.getResult();
   }
 

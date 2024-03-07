@@ -62,6 +62,9 @@ fragment businessAttributeFields on BusinessAttribute {
             }
         }
     }
+    institutionalMemory {
+        ...institutionalMemoryFields
+    }
 }
 
 mutation createBusinessAttribute($input: CreateBusinessAttributeInput!) {
