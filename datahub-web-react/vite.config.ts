@@ -64,6 +64,7 @@ export default defineConfig(({ mode }) => {
         // optimizeDeps: {
         //     include: ['@ant-design/colors', '@ant-design/icons', 'lodash-es', '@ant-design/icons/es/icons'],
         // },
+        base : '',
         envPrefix: 'REACT_APP_',
         build: {
             outDir: 'dist',
