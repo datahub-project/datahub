@@ -1,7 +1,7 @@
-import { AssertionInfo, AssertionResultType, AssertionRunEvent, AssertionStdOperator, AssertionType, Maybe, VolumeAssertionType } from "../../../../../../../../../../../../types.generated";
+import { AssertionInfo, AssertionResultType, AssertionRunEvent, AssertionType, Maybe } from "../../../../../../../../../../../../types.generated";
 import { VALUES_OVER_TIME_ASSERTION_TYPES } from "../../../shared/constants";
 import { tryGetExpectedRangeFromAssertionRunEvent } from "../../../shared/resultUtils";
-import { AssertionChartType, AssertionDataPoint } from "./types";
+import { AssertionChartType } from "./types";
 
 export const ACCENT_COLOR_HEX = '#4050E7'
 export const SUCCESS_COLOR_HEX = ACCENT_COLOR_HEX;// '#52C41A';

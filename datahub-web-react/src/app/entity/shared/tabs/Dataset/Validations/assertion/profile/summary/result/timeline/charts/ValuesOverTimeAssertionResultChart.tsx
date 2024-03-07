@@ -63,8 +63,8 @@ export const ValuesOverTimeAssertionResultChart = ({ data, timeRange, chartDimen
             const expectedYValues: number[] = rawDataPoints.flatMap(point => [
                 getExpectedYs(point).high,
                 getExpectedYs(point).low,
-            ].filter(maybeNumber => typeof maybeNumber == 'number') as number[])
-            console.log(rawDataPoints)
+            ].filter(maybeNumber => typeof maybeNumber === 'number') as number[])
+
             const actualMin = (Math.min(...actualYValues) || 0)
             const actualMax = (Math.max(...actualYValues) || 0)
             const actualAverageValue = (actualMax + actualMin) / 2
@@ -76,7 +76,7 @@ export const ValuesOverTimeAssertionResultChart = ({ data, timeRange, chartDimen
             let min = (Math.min(...allYValues) || 0)
             let max = (Math.max(...allYValues) || 0)
             // Add some extra range above and below if the min and the max are the same so things are nicely centered
-            if (min === max || max == actualMax || max == expectedMax || min == actualMin || min == expectedMin) {
+            if (min === max || max === actualMax || max === expectedMax || min === actualMin || min === expectedMin) {
                 const averageValue = (min + max) / 2
                 const averageValueBase = Math.floor(averageValue).toString().length
                 const differentiator = 10 ** (averageValueBase - 1)
@@ -150,8 +150,12 @@ export const ValuesOverTimeAssertionResultChart = ({ data, timeRange, chartDimen
                 <LinePath
                     data={dataPoints}
                     x={(d) => xScale(getX(d)) ?? 0}
-                    y={(d) => yScale(getExpectedYs(d).low ?? 0) ?? 0}
-                    defined={d => !!getExpectedYs(d).low}
+                    y={(d) => {
+                        const r = yScale(getExpectedYs(d).low ?? 0) ?? 0
+                        console.log(r, 'hit')
+                        return r
+                    }}
+                    defined={d => typeof getExpectedYs(d).low === 'number'}
                     stroke={ACCENT_COLOR_HEX}
                     strokeDasharray='2 4'
                     strokeWidth={1}
@@ -161,7 +165,7 @@ export const ValuesOverTimeAssertionResultChart = ({ data, timeRange, chartDimen
                     data={dataPoints}
                     x={(d) => xScale(getX(d)) ?? 0}
                     y={(d) => yScale(getExpectedYs(d).high ?? 0) ?? 0}
-                    defined={d => !!getExpectedYs(d).high}
+                    defined={d => typeof getExpectedYs(d).high === 'number'}
                     stroke={ACCENT_COLOR_HEX}
                     strokeDasharray='2 4'
                     strokeWidth={1}

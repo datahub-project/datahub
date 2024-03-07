@@ -9,7 +9,9 @@ import {
     AssertionStdParameterType,
     AssertionType,
     AssertionValueChangeType,
+    FieldAssertionInfo,
     FieldAssertionType,
+    FieldValuesAssertion,
     IncrementingSegmentRowCountTotal,
     RowCountTotal,
     SqlAssertionInfo,
@@ -60,10 +62,12 @@ export function tryExtractNumericalValueFromNativeResults(nativeResults: Maybe<S
 }
 
 export function tryExtractNumericalValueFromAssertionStdParameter(param?: Maybe<AssertionStdParameter>): number | undefined {
-    if (param?.type == AssertionStdParameterType.Number) {
-        const maybeNumber = parseFloat(param.value)
-        return !isNaN(maybeNumber) ? maybeNumber : undefined;
+    let maybeNumber: undefined | number
+    if (param?.type === AssertionStdParameterType.Number) {
+        maybeNumber = parseFloat(param.value)
+        maybeNumber = !Number.isNaN(maybeNumber) ? maybeNumber : undefined;
     }
+    return maybeNumber;
 }
 
 const tryGetFieldMetricAssertionNumericalResult = (result?: Maybe<AssertionResult>): number | undefined => {
@@ -384,6 +388,23 @@ export const tryGetExpectedRangeFromAssertionRunEvent = (runEvent: AssertionRunE
         case AssertionType.Sql:
             result = info.sqlAssertion ? tryGetExpectedRangeFromSQLAssertion(info.sqlAssertion) : result;
             break;
+        case AssertionType.Field:
+            result = info.fieldAssertion ? tryGetExpectedRangeFromFieldAssertion(info.fieldAssertion) : result;
+            break;
+        default:
+            break;
+    }
+    return result;
+}
+
+function tryGetExpectedRangeFromFieldAssertion(fieldAssertionInfo: FieldAssertionInfo): AssertionExpectedRange {
+    let result: AssertionExpectedRange = {}
+    switch (fieldAssertionInfo.type) {
+        case FieldAssertionType.FieldValues:
+            result = tryGetExpectedRangeFromAssertionAgainstTotals(fieldAssertionInfo.fieldValuesAssertion)
+            break;
+        case FieldAssertionType.FieldMetric:
+            break;
         default:
             break;
     }
@@ -395,8 +416,8 @@ function tryGetExpectedRangeFromSQLAssertion(sqlAssertionInfo: SqlAssertionInfo)
         return tryGetExpectedRangeFromAssertionAgainstTotals(sqlAssertionInfo)
     }
 
-    let result: AssertionExpectedRange = {}
-    // TODO(@jayacryl): handle change types
+    // TODO(@jayacryl): handle change types, turn this into a 'let'
+    const result: AssertionExpectedRange = {}
     switch (sqlAssertionInfo.changeType) {
         case AssertionValueChangeType.Absolute:
             break;
@@ -428,9 +449,12 @@ function tryGetExpectedRangeFromVolumeAssertion(volumeAssertionInfo: VolumeAsser
     }
     return result
 }
-function tryGetExpectedRangeFromAssertionAgainstTotals(totals?: Maybe<IncrementingSegmentRowCountTotal> | Maybe<RowCountTotal> | Maybe<SqlAssertionInfo>): AssertionExpectedRange {
+function tryGetExpectedRangeFromAssertionAgainstTotals(totals?: Maybe<IncrementingSegmentRowCountTotal> | Maybe<RowCountTotal> | Maybe<SqlAssertionInfo> | Maybe<FieldValuesAssertion>): AssertionExpectedRange {
     let high: undefined | number;
     let low: undefined | number;
+    if (!totals?.parameters) {
+        return { high, low };
+    }
     switch (totals?.operator) {
         case AssertionStdOperator.Between:
             high = tryExtractNumericalValueFromAssertionStdParameter(totals.parameters.maxValue)
