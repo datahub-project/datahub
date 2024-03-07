@@ -784,8 +784,6 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                     id=f"{dataset_urn}-{patch_mcp.aspectName}", mcp_raw=patch_mcp
                 )
         else:
-            dataset_properties.customProperties = custom_properties
-
             yield MetadataChangeProposalWrapper(
                 entityUrn=dataset_urn, aspect=dataset_properties
             ).as_workunit()

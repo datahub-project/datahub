@@ -9,6 +9,7 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.redshift.config import RedshiftConfig
 from datahub.ingestion.source.redshift.redshift import RedshiftSource
 from datahub.ingestion.source.redshift.redshift_schema import RedshiftTable
+from datahub.metadata.schema_classes import MetadataChangeEventClass
 
 
 def redshift_source_setup(custom_props_flag: bool) -> Iterable[MetadataWorkUnit]:
@@ -38,12 +39,13 @@ def test_gen_dataset_workunits_patch_custom_properties_patch():
     custom_props_exist = False
     for item in gen:
         mcp = item.metadata
+        assert not isinstance(mcp, MetadataChangeEventClass)
         if mcp.aspectName == "datasetProperties":
-            assert isinstance(item.metadata, MetadataChangeProposalClass)
+            assert isinstance(mcp, MetadataChangeProposalClass)
             assert mcp.changeType == "PATCH"
             custom_props_exist = True
         else:
-            assert isinstance(item.metadata, MetadataChangeProposalWrapper)
+            assert isinstance(mcp, MetadataChangeProposalWrapper)
 
     assert custom_props_exist
 
