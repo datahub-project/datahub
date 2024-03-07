@@ -91,12 +91,11 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
             disable_ssl_verification=self.config.disable_ssl_verification,
         )
         try:
-            gms_config = self.emitter.test_connection()
+            gms_config = self.emitter.get_server_config()
         except Exception as exc:
             raise ConfigurationError(
-                f"💥 Failed to connect to DataHub@{self.config.server} (token:{'XXX-redacted' if self.config.token else 'empty'}) over REST",
-                exc,
-            )
+                f"💥 Failed to connect to DataHub with {repr(self.emitter)}"
+            ) from exc
 
         self.report.gms_version = (
             gms_config.get("versions", {})

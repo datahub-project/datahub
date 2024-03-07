@@ -7,7 +7,17 @@ import time
 from dataclasses import dataclass
 from datetime import datetime
 from json.decoder import JSONDecodeError
-from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Tuple, Type
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Tuple,
+    Type,
+    Union,
+)
 
 from avro.schema import RecordSchema
 from deprecated import deprecated
@@ -26,6 +36,10 @@ from datahub.ingestion.graph.filters import (
     generate_filter,
 )
 from datahub.ingestion.source.state.checkpoint import Checkpoint
+from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
+    MetadataChangeEvent,
+    MetadataChangeProposal,
+)
 from datahub.metadata.schema_classes import (
     ASPECT_NAME_MAP,
     KEY_ASPECTS,
@@ -58,6 +72,7 @@ if TYPE_CHECKING:
 
 
 logger = logging.getLogger(__name__)
+_GRAPH_DUMMY_RUN_ID = "__datahub-graph-client"
 
 
 class DatahubClientConfig(ConfigModel):
@@ -122,7 +137,11 @@ class DataHubGraph(DatahubRestEmitter):
             client_certificate_path=self.config.client_certificate_path,
             disable_ssl_verification=self.config.disable_ssl_verification,
         )
-        self.test_connection()
+
+        self.server_id = "missing"
+
+    def test_connection(self) -> None:
+        super().test_connection()
 
         # Cache the server id for telemetry.
         from datahub.telemetry.telemetry import telemetry_instance
@@ -178,6 +197,54 @@ class DataHubGraph(DatahubRestEmitter):
 
     def _post_generic(self, url: str, payload_dict: Dict) -> Dict:
         return self._send_restli_request("POST", url, json=payload_dict)
+
+    def emit_all(
+        self,
+        items: Iterable[
+            Union[
+                MetadataChangeEvent,
+                MetadataChangeProposal,
+                MetadataChangeProposalWrapper,
+            ]
+        ],
+        run_id: str = _GRAPH_DUMMY_RUN_ID,
+    ) -> None:
+        """Emit all items in the iterable using multiple threads."""
+
+        from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
+        from datahub.ingestion.api.workunit import MetadataWorkUnit
+        from datahub.ingestion.run.pipeline import LoggingCallback
+        from datahub.ingestion.sink.datahub_rest import (
+            DatahubRestSink,
+            DatahubRestSinkConfig,
+            SyncOrAsync,
+        )
+
+        # This is a bit convoluted - this DataHubGraph class is a subclass of DatahubRestEmitter,
+        # but initializing the rest sink creates another rest emitter.
+        # TODO: We should refactor out the multithreading functionality of the sink
+        # into a separate class that can be used by both the sink and the graph client.
+        sink_config = DatahubRestSinkConfig(
+            **self.config.dict(), mode=SyncOrAsync.ASYNC
+        )
+
+        write_callback = LoggingCallback(f"{self.__class__.__name__}.emit_all")
+        with DatahubRestSink(PipelineContext(run_id=run_id), sink_config) as sink:
+            for item in items:
+                sink.write_record_async(
+                    RecordEnvelope(
+                        item,
+                        metadata={
+                            "workunit_id": MetadataWorkUnit.generate_workunit_id(item)
+                        },
+                    ),
+                    write_callback,
+                )
+        if sink.report.failures:
+            raise OperationalError(
+                f"Failed to emit {len(sink.report.failures)} records",
+                info=sink.report.as_obj(),
+            )
 
     def get_aspect(
         self,
@@ -861,7 +928,7 @@ class DataHubGraph(DatahubRestEmitter):
     def soft_delete_entity(
         self,
         urn: str,
-        run_id: str = "__datahub-graph-client",
+        run_id: str = _GRAPH_DUMMY_RUN_ID,
         deletion_timestamp: Optional[int] = None,
     ) -> None:
         """Soft-delete an entity by urn.
@@ -873,7 +940,7 @@ class DataHubGraph(DatahubRestEmitter):
         assert urn
 
         deletion_timestamp = deletion_timestamp or int(time.time() * 1000)
-        self.emit_mcp(
+        self.emit(
             MetadataChangeProposalWrapper(
                 entityUrn=urn,
                 aspect=StatusClass(removed=True),
@@ -1098,4 +1165,6 @@ class DataHubGraph(DatahubRestEmitter):
 
 def get_default_graph() -> DataHubGraph:
     (url, token) = get_url_and_token()
-    return DataHubGraph(DatahubClientConfig(server=url, token=token))
+    graph = DataHubGraph(DatahubClientConfig(server=url, token=token))
+    graph.test_connection()
+    return graph
