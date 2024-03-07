@@ -192,9 +192,9 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         fetch the list of the groups belongs to the workspace, using the workspace client
         create the list of group's display name, iterating through the list of groups fetched by the workspace client
         """
-        group_list: List[str] = []
+        group_list: List[Optional[str]] = []
         for group in self._workspace_client.groups.list():
-            group_list.append(str(group.display_name))
+            group_list.append(group.display_name)
         return group_list
 
     def workspace_notebooks(self) -> Iterable[Notebook]:
