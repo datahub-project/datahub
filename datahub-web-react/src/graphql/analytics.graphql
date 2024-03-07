@@ -32,11 +32,6 @@ query FormAnalytics($input: FormAnalyticsInput!){
         entity {
             urn
             type
-            ... on Form {
-                info {
-                    name
-                }
-            }
             ... on Domain {
                 properties {
                     name
@@ -45,6 +40,16 @@ query FormAnalytics($input: FormAnalyticsInput!){
             ... on CorpUser {
                 properties {
                     displayName
+                }
+            }
+            ... on CorpGroup {
+                groupInfo: info {
+                    displayName
+                }
+            }
+            ... on Form {
+                info {
+                    name
                 }
             }
         }

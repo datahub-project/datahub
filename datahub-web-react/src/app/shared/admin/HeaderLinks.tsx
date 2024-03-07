@@ -27,6 +27,10 @@ import { TaskCenterLink } from './TaskCenterLink';
 
 const LinkWrapper = styled.span`
     margin-right: 0px;
+
+    span {
+        padding: 0;
+    }
 `;
 
 const LinksWrapper = styled.div<{ areLinksHidden?: boolean }>`

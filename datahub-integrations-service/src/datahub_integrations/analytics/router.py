@@ -67,9 +67,6 @@ def cached_with_ttl(maxsize: int, ttl_seconds: int) -> Any:
     return decorator
 
 
-# @cached_with_ttl(  # type: ignore
-#     maxsize=100, ttl_seconds=DATASET_S3_URI_RESOLUTION_TTL_SECONDS_VALUE
-# )  # Max cache size: 100, TTL: 60 seconds
 @cached(cache=TTLCache(maxsize=100, ttl=DATASET_S3_URI_RESOLUTION_TTL_SECONDS_VALUE))  # type: ignore
 def extract_physical_location_or_throw(entity_urn: str) -> AnalyticsEngineLocator:  # type: ignore
     """Extract the physical location from the entity URN."""

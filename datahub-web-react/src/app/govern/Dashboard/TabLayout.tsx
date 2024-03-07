@@ -8,12 +8,13 @@ import HistoryOutlinedIcon from '@mui/icons-material/HistoryOutlined';
 
 import { SeriesSelect } from './SeriesSelect';
 import { Assignees, Domains, Forms, Stats, OverallProgress, Questions } from './charts';
+import { IntegrationServiceOffline } from './charts/AuxViews';
 
 import { ByFormSelector } from './ByFormSelector';
 import { ByAssigneeSelector } from './ByAssigneeSelector';
 import { ByDomainSelector } from './ByDomainSelector';
 
-import { mergeRowAndHeaderData } from './utils';
+import { mergeRowAndHeaderData, freshnessColor } from './utils';
 
 import { useFormAnalyticsContext } from './FormAnalyticsContext';
 import { useFormAnalyticsQuery } from '../../../graphql/analytics.generated';
@@ -35,6 +36,7 @@ interface Tab {
 	disabled?: boolean;
 	charts: Array<React.ReactElement>,
 }
+
 
 export const TabLayout = () => {
 	const {
@@ -112,7 +114,7 @@ export const TabLayout = () => {
 	// Fetch CSV JSON when we user triggers state change
 	const { data: csvData } = useFormAnalyticsQuery({
 		variables: { input: { 'queryString': sql.downloadCSVJSON } },
-		skip: !snapshot
+		skip: !snapshot || !isDownloadingCSV
 	});
 
 	// Handle download CSV
@@ -140,18 +142,7 @@ export const TabLayout = () => {
 	}, [csvData, isDownloadingCSV, setIsDownloadingCSV]);
 
 	// Don't crash the app if Integration Service is not available
-	if (integrationServiceOffline) {
-		return (
-			<Layout>
-				<Header>
-					<PrimaryHeading>Documentation Metrics</PrimaryHeading>
-				</Header>
-				<Body>
-					<div>Metrics are not available at this time. Please try again later.</div>
-				</Body>
-			</Layout>
-		);
-	}
+	if (integrationServiceOffline) return <IntegrationServiceOffline />;
 
 	// Render the dashboard
 	return (
@@ -163,7 +154,7 @@ export const TabLayout = () => {
 				<Tabs defaultActiveKey={selectedTab} items={tabs} onChange={handleSetTab} />
 				<DataFreshness>
 					<span>
-						<HistoryOutlinedIcon style={{ height: '1.25rem' }} /> as of {dayjs(snapshot).format('MMM D, YYYY')}
+						<HistoryOutlinedIcon style={{ height: '1.25rem', color: freshnessColor(snapshot) }} /> as of {dayjs(snapshot).format('MMM D, YYYY')}
 					</span>
 				</DataFreshness>
 			</TabsContainer>
@@ -179,7 +170,7 @@ export const TabLayout = () => {
 							</div>
 							<Filters>
 								<SeriesSelect />
-								<Tooltip title="Download Results" placement="left">
+								<Tooltip title="Download Results" placement="bottom" showArrow={false}>
 									<DownloadForOfflineOutlinedIcon style={{ cursor: 'pointer' }} onClick={handleDownloadCSV} />
 								</Tooltip>
 							</Filters>

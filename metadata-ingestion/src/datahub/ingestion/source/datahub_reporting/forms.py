@@ -180,11 +180,7 @@ class DataHubReportingFormsSource(Source):
             aspects=[
                 dataset_properties,
                 StatusClass(
-                    removed=(
-                        False
-                        if self.config.reporting_dataset_register_soft_deleted
-                        else True
-                    )  # Registering this is as a visible asset as we have search access policies to ensure only admins can see it
+                    removed=self.config.reporting_dataset_register_soft_deleted,  # Registering this is as a visible asset as we have search access policies to ensure only admins can see it
                 ),
                 OperationClass(
                     timestampMillis=current_time_millis,

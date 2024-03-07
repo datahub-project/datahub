@@ -6,6 +6,8 @@ import { mergeRowAndHeaderData, getEntityInfo } from './utils';
 
 import { useFormAnalyticsContext } from './FormAnalyticsContext';
 
+import { NO_DOMAIN } from '../../../conf/Global';
+
 export const ByDomainSelector = () => {
 	const {
 		byDomain: { domains, hasDomains, setSelectedDomain },
@@ -26,12 +28,19 @@ export const ByDomainSelector = () => {
 	const data = mergeRowAndHeaderData(domains?.header, domains?.table || []);
 
 	// format options
-	const options = data.map((d) => {
-		const { properties } = getEntityInfo(domains, d.domain);
-		return ({
-			value: d.domain,
-			label: properties?.name || d.domain
-		})
+	const options = [{
+		value: 'null',
+		label: NO_DOMAIN
+	}];
+
+	data.forEach((d) => {
+		const name = getEntityInfo(domains, d.domain_urn)?.properties?.name || d.domain_urn || NO_DOMAIN;
+		if (name !== NO_DOMAIN) {
+			options.push({
+				value: d.domain_urn,
+				label: name
+			});
+		}
 	});
 
 	// Reset load states when form is changed

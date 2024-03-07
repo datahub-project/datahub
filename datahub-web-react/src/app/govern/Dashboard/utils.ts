@@ -1,6 +1,9 @@
 import { scaleOrdinal } from "@visx/scale";
 
+import dayjs from 'dayjs';
 import { COMPLETED_COLOR, NOT_STARTED_COLOR, IN_PROGRESS_COLOR } from '../../dataviz/constants';
+
+
 
 // Status Ordinal Scale 
 export const statusOrdinalScale = scaleOrdinal({
@@ -19,9 +22,10 @@ export const mergeRowAndHeaderData = (header, table) => {
 
 // Get Entity Info
 export const getEntityInfo = (data, urn) => {
-	const rows = data?.formAnalytics?.table || data?.table || data || [];
-	const row = rows.find((r) => r.row.includes(urn));
+	const rows = data?.formAnalytics?.table || data?.table || data;
+	if (typeof rows !== 'object') return null;
 
+	const row = rows.find((r) => r.row.includes(urn));
 	if (!row) return null;
 
 	const richRow = row.richRow.find((rich) => rich.value === urn);
@@ -41,8 +45,8 @@ export const formatPercentage = (percentage) => `${(percentage * 100).toFixed(0)
 export const dateFormat = (series) => {
 	let format = 'MMM D'; // last 7 days
 	if (series === 30) format = 'MMM D'; // last 30 days
-	if (series === 90) format = 'MMMM'; // last 90 days
-	if (series === 365) format = 'MM/YYYY'; // last 365 days
+	if (series === 90) format = 'MMM D, YYYY'; // last 90 days
+	if (series === 365) format = 'MMM YYYY'; // last 365 days
 	return format;
 }
 
@@ -52,4 +56,20 @@ export const truncateString = (str) => {
 	const length = 20;
 	if (str.length > length) return `${str.substring(0, length - 1)}…`;
 	return str;
+}
+
+export const freshnessColor = (snapshot) => {
+	const now = dayjs();
+	const snapshotDate = dayjs(snapshot);
+
+	const oneMonthAgo = now.subtract(1, 'month');
+	const threeDaysAgo = now.subtract(3, 'day');
+
+	if (snapshotDate.isBefore(oneMonthAgo)) {
+		return 'red';
+	} if (snapshotDate.isBefore(threeDaysAgo)) {
+		return 'orange';
+	}
+	return 'green';
+
 }

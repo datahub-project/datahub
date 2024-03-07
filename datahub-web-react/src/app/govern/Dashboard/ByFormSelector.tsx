@@ -27,10 +27,10 @@ export const ByFormSelector = () => {
 
 	// format options
 	const options = data.map((d) => {
-		const entity = getEntityInfo(forms, d.form_id);
+		const entity = getEntityInfo(forms, d.form_urn);
 		return ({
-			value: d.form_id,
-			label: entity?.info?.name || d.form_id,
+			value: d.form_urn,
+			label: entity?.info?.name || d.form_urn,
 		})
 	});
 

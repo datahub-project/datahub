@@ -43,9 +43,10 @@ const DocProgressByAssignee = () => {
 
 	const mergedData = mergeRowAndHeaderData(data?.formAnalytics?.header, data?.formAnalytics?.table || [])
 		.map((row) => {
-			const { username, properties } = getEntityInfo(data, row.assignee_urn) || {};
+			const { properties, groupInfo } = getEntityInfo(data, row.assignee_urn) || {};
+			const displayName = properties ? properties.displayName : groupInfo?.displayName || row.assignee_urn;
 			return ({
-				Name: properties?.displayName || username || row.assignee_urn,
+				Name: displayName,
 				Total: Number(row.Completed) + Number(row['In Progress']) + Number(row['Not Started']),
 				'% Completed': formatPercentage(row.completed_asset_percent),
 				Completed: Number(row.Completed),
@@ -60,9 +61,8 @@ const DocProgressByAssignee = () => {
 		key,
 		dataIndex: key,
 		title: key,
-		sorter: (a, b) => a[key] - b[key],
+		sorter: key === '% Completed' ? (a, b) => parseFloat(a[key]) - parseFloat(b[key]) : (a, b) => a[key] - b[key],
 	}));
-
 	return (
 		<div style={{ width: '100%', marginTop: '1rem' }}>
 			{mergedData.length} total assignees
@@ -112,10 +112,11 @@ const DocProgressByAssigneeTopPerforming = () => {
 	return (
 		<ChartPerformanceItems>
 			{mergedData.map((d) => {
-				const { username, properties } = getEntityInfo(data, d.assignee_urn) || {};
+				const { properties, groupInfo } = getEntityInfo(data, d.assignee_urn) || {};
+				const displayName = properties ? properties.displayName : groupInfo?.displayName || d.assignee_urn;
 				return (
 					<ChartPerformanceItem key={d.assignee_urn}>
-						<div><UserOutlined /> {properties?.displayName || username || d.assignee_urn}</div>
+						<div><UserOutlined /> {displayName}</div>
 						{formatPercentage(d.completed_asset_percent)} completed
 					</ChartPerformanceItem>
 				)
@@ -176,6 +177,7 @@ export const Assignees = () => {
 		tabs: { selectedTab },
 		sectionLoadStates: { forms, questions },
 	} = useFormAnalyticsContext();
+
 
 	// on the forms tab, this section comes after queestions but 
 	// it's after the forms section otherwise (waterfall render)

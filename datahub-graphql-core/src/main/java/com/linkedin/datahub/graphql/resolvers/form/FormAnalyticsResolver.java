@@ -11,6 +11,7 @@ import com.linkedin.datahub.graphql.generated.*;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.integration.IntegrationsService;
+import com.linkedin.metadata.integration.ResourceNotFoundException;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.ArrayList;
@@ -96,11 +97,12 @@ public class FormAnalyticsResolver
             FormAnalyticsResponse response = new FormAnalyticsResponse();
             response.setHeader(null);
             response.setTable(null);
+            String code = (e instanceof ResourceNotFoundException) ? "404" : "500";
             response.setErrors(
                 List.of(
                     FormAnalyticsError.builder()
-                        .setMessage("Failed to query analytics service due to :" + e)
-                        .setCode("500") // because we have failed to process the request
+                        .setMessage("Failed to query analytics service due to: " + e)
+                        .setCode(code) // because we have failed to process the request
                         .build()));
             log.error(String.format("Failed to perform update against input %s", input), e);
             return response;

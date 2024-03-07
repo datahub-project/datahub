@@ -154,8 +154,8 @@ const DocumentationProgressTopPerforming = () => {
 	return (
 		<ChartPerformanceItems>
 			{mergedData.map((d) => (
-				<ChartPerformanceItem key={d.form}>
-					<div><FormOutlined /> {getEntityInfo(data, d.form)?.info?.name || d.form}</div>
+				<ChartPerformanceItem key={d.form_urn}>
+					<div><FormOutlined /> {getEntityInfo(data, d.form_urn)?.info?.name || d.form}</div>
 					{formatPercentage(d.completed_asset_percent)} completed
 				</ChartPerformanceItem>
 			))}

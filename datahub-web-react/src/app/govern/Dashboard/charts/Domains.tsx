@@ -44,18 +44,18 @@ const DocumentationProgressPerDomain = () => {
 	const mergedData = mergeRowAndHeaderData(data?.formAnalytics?.header, data?.formAnalytics?.table || []).map((d) => {
 		return ({
 			...d,
-			domain: truncateString(getEntityInfo(data, d.domain)?.properties?.name) || d.domain
+			domain_urn: truncateString(getEntityInfo(data, d.domain_urn)?.properties?.name) || d.domain_urn || "No Domain"
 		});
 	});
 	if (mergedData.length === 0) return <ChartNoData />;
 
-	const datakeys = Object.keys(mergedData[0]).filter((k) => k !== 'domain');
+	const datakeys = Object.keys(mergedData[0]).filter((k) => k !== 'domain_urn');
 
 	return (
 		<HorizontalBarChart
 			data={mergedData}
 			dataKeys={datakeys}
-			yAccessor={(d: { domain: string }) => d.domain}
+			yAccessor={(d: { domain_urn: string }) => d.domain_urn}
 			colorAccessor={statusOrdinalScale}
 		/>
 	);
@@ -89,9 +89,10 @@ const CompletionPerformanceByDomain = () => {
 
 	const mergedData = mergeRowAndHeaderData(data?.formAnalytics?.header, data?.formAnalytics?.table || [])
 		.map((row) => {
-			const { properties: { name } } = getEntityInfo(data, row.domain) || {};
+			// const { properties: { name } } = getEntityInfo(data, row.domain) || {};
+			const name = getEntityInfo(data, row.domain_urn)?.properties?.name || row.domain || "No Domain";
 			return ({
-				Form: name || row.domain,
+				Domain: name,
 				Total: Number(row.Completed) + Number(row['In Progress']) + Number(row['Not Started']),
 				'% Completed': formatPercentage(row.completed_asset_percent),
 			})
@@ -154,8 +155,8 @@ const DocProgressByDomainTopPerforming = () => {
 	return (
 		<ChartPerformanceItems>
 			{mergedData.map((d) => (
-				<ChartPerformanceItem key={d.domain}>
-					<div><DomainIcon /> {getEntityInfo(data, d.domain)?.properties?.name || d.domain}</div>
+				<ChartPerformanceItem key={d.domain_urn}>
+					<div><DomainIcon /> {getEntityInfo(data, d.domain_urn)?.properties?.name || d.domain_urn}</div>
 					{formatPercentage(d.completed_asset_percent)} completed
 				</ChartPerformanceItem>
 			))}
@@ -198,8 +199,8 @@ const DocProgressByDomainLeastPerforming = () => {
 	return (
 		<ChartPerformanceItems>
 			{mergedData.map((d) => (
-				<ChartPerformanceItem key={d.domain}>
-					<div><DomainIcon /> {getEntityInfo(data, d.domain)?.properties?.name || d.domain}</div>
+				<ChartPerformanceItem key={d.domain_urn}>
+					<div><DomainIcon /> {getEntityInfo(data, d.domain_urn)?.properties?.name || d.domain_urn}</div>
 					{formatPercentage(d.completed_asset_percent)} completed
 				</ChartPerformanceItem>
 			))}

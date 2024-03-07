@@ -23,9 +23,16 @@ export const sqlQueries = (
 		const injectWhere = (whereItem: string) =>
 			`${updatedQuery.slice(0, whereIndex)} ${whereItem} and ${query.slice(whereIndex)}`;
 
-		if (entity === 'form') updatedQuery = injectWhere(`form_id = '${formId}'`);
+		if (entity === 'form') updatedQuery = injectWhere(`form_urn = '${formId}'`);
 		if (entity === 'assignee') updatedQuery = injectWhere(`assignee_urn = '${assigneeId}'`);
-		if (entity === 'domain') updatedQuery = injectWhere(`domain = '${domainId}'`);
+		if (entity === 'domain') {
+			if (domainId === null || domainId === 'null' || domainId === '') {
+				updatedQuery = injectWhere('domain_urn is null');
+			} else {
+				updatedQuery = injectWhere(`domain_urn = '${domainId}'`);
+			}
+		}
+		// if (entity === 'domain') updatedQuery = injectWhere(`domain_urn = '${domainId}'`);
 
 		return updatedQuery;
 	};
@@ -35,7 +42,7 @@ export const sqlQueries = (
 		let trunc = 'day'; // last 7 days
 		if (series === 30) trunc = 'day'; // last 30 days
 		if (series === 90) trunc = 'week'; // last 90 days
-		if (series === 365) trunc = 'year'; // last 365 days
+		if (series === 365) trunc = 'month'; // last 365 days
 		return trunc;
 	}
 
@@ -48,7 +55,7 @@ export const sqlQueries = (
 
 	// Reusable select for trend stats
 	const trend = `
-		snapshot_date as date,
+		form_assigned_date as date,
 		count(distinct(asset_urn)) as value
 	`;
 
@@ -111,7 +118,7 @@ export const sqlQueries = (
 				and snapshot_date >= '${daysSinceDate}'
 				and form_status = 'complete'
 			group by
-				snapshot_date;
+				asset_urn, form_assigned_date;
 			`),
 
 		// In Progress Trend Stat Details
@@ -136,7 +143,7 @@ export const sqlQueries = (
 				and form_assigned_date >= '${daysSinceDate}'
 				and form_status = 'in_progress'
 			group by
-				form_assigned_date;
+				asset_urn, form_assigned_date;
 			`),
 
 		// Not Started Trend Stat Details
@@ -161,7 +168,7 @@ export const sqlQueries = (
 				and snapshot_date >= '${daysSinceDate}'
 				and form_status = 'not_started'
 			group by
-				form_assigned_date;
+				asset_urn, form_assigned_date;
 			`),
 
 		// Status of Assets Bar Chart
@@ -177,14 +184,14 @@ export const sqlQueries = (
 				and form_assigned_date >= '${daysSinceDate}'
 				and assignee_urn is not null
 			group by
-				DATE_TRUNC('${dateTrunc()}', form_assigned_date),
-				form_assigned_date;
+				DATE_TRUNC('${dateTrunc()}', form_assigned_date)
 			`),
+		//			form_assigned_date;
 
 		// Forms Bar Chart
 		docProgressByForm: queryBuilder(
 			`select
-				form_id as 'form',
+				form_urn as 'form',
 				${statusAsCategories}
 			from
 				'{{ table }}'
@@ -193,7 +200,7 @@ export const sqlQueries = (
 				and form_assigned_date >= '${daysSinceDate}'
 				and assignee_urn is not null
 			group by
-				form_id
+				form_urn
 			order by
 				count(distinct(asset_urn)) asc;
 			`),
@@ -201,7 +208,7 @@ export const sqlQueries = (
 		// Table view of form performance
 		completionPerformanceByForm: queryBuilder(
 			`select
-				form_id as 'form',
+				form_urn as 'form',
 				${statusAsCategories},
 				count(distinct(case when form_status = 'complete' then asset_urn end)) / count(distinct(asset_urn)) as completed_asset_percent,
 			from
@@ -211,13 +218,13 @@ export const sqlQueries = (
 				and form_assigned_date >= '${daysSinceDate}'
 				and assignee_urn is not null
 			group by
-				form_id;
+				form_urn;
 			`),
 
 		// List of Top Performing Forms
 		formTopPerforming: queryBuilder(
 			`select
-				form_id as 'form',
+				form_urn as 'form',
 				${percentCompleted}
 			from
 				'{{ table }}'
@@ -226,7 +233,7 @@ export const sqlQueries = (
 				and form_assigned_date >= '${daysSinceDate}'
 				and assignee_urn is not null
 			group by
-				form_id
+				form_urn
 			order by
 				${orderByTopPerforming}
 			limit
@@ -236,7 +243,7 @@ export const sqlQueries = (
 		// List of Least Performing Forms
 		formLeastPerforming: queryBuilder(
 			`select
-				form_id as 'form',
+				form_urn as 'form',
 				${percentCompleted}
 			from
 				'{{ table }}'
@@ -245,7 +252,7 @@ export const sqlQueries = (
 				and form_assigned_date >= '${daysSinceDate}'
 				and assignee_urn is not null
 			group by
-				form_id
+				form_urn
 			order by
 				${orderByLeastPerforming}
 			limit
@@ -261,7 +268,7 @@ export const sqlQueries = (
 			from
 				'{{ table }}'
 			where
-				form_id = '${formId}'
+				form_urn = '${formId}'
 				and snapshot_date = '${snapshotDate}'
 				and form_assigned_date >= '${daysSinceDate}'
 				and assignee_urn is not null
@@ -330,7 +337,7 @@ export const sqlQueries = (
 		// Domain Bar Chart
 		docProgressByDomain: queryBuilder(
 			`select
-				domain,
+				domain_urn,
 				${statusAsCategories}
 			from
 				'{{ table }}'
@@ -339,7 +346,7 @@ export const sqlQueries = (
 				and form_assigned_date >= '${daysSinceDate}'
 				and assignee_urn is not null
 			group by
-				domain
+				domain_urn
 			order by
 				count(distinct(asset_urn)) asc;
 			`),
@@ -347,7 +354,7 @@ export const sqlQueries = (
 		// Table view of form performance
 		completionPerformanceByDomain: queryBuilder(
 			`select
-				domain,
+				domain_urn,
 				${statusAsCategories},
 				count(distinct(case when form_status = 'complete' then asset_urn end)) / count(distinct(asset_urn)) as completed_asset_percent,
 			from
@@ -357,13 +364,13 @@ export const sqlQueries = (
 				and form_assigned_date >= '${daysSinceDate}'
 				and assignee_urn is not null
 			group by
-				domain;
+				domain_urn;
 			`),
 
 		// List of Top Performing Domains
 		domainTopPerforming: queryBuilder(
 			`select
-				domain,
+				domain_urn,
 				${percentCompleted}
 			from
 				'{{ table }}'
@@ -372,7 +379,7 @@ export const sqlQueries = (
 				and form_assigned_date >= '${daysSinceDate}'
 				and assignee_urn is not null
 			group by
-				domain
+				domain_urn
 			order by
 				${orderByTopPerforming}
 			limit
@@ -382,7 +389,7 @@ export const sqlQueries = (
 		// List of Least Performing Domains
 		domainLeastPerforming: queryBuilder(
 			`select
-				domain,
+				domain_urn,
 				${percentCompleted}
 			from
 				'{{ table }}'
@@ -391,7 +398,7 @@ export const sqlQueries = (
 				and form_assigned_date >= '${daysSinceDate}'
 				and assignee_urn is not null
 			group by
-				domain
+				domain_urn
 			order by
 				${orderByLeastPerforming}
 			limit
@@ -404,14 +411,14 @@ export const sqlQueries = (
 
 		getFormsWithAnalytics:
 			`select
-				form_id
+				form_urn
 			from
 				'{{ table }}'
 			where
 				snapshot_date = '${snapshotDate}'
 				and form_assigned_date >= '${daysSinceDate}'
 			group by
-				form_id,
+				form_urn,
 			`,
 
 		getAssignessWithFormAnalytics:
@@ -428,14 +435,14 @@ export const sqlQueries = (
 
 		getDomainsWithFormAnalytics:
 			`select
-				domain
+				domain_urn
 			from
 				'{{ table }}'
 			where
 				snapshot_date = '${snapshotDate}'
 				and form_assigned_date >= '${daysSinceDate}'
 			group by
-				domain;
+				domain_urn;
 			`,
 
 		/*
@@ -444,13 +451,12 @@ export const sqlQueries = (
 
 		downloadCSVJSON:
 			`select
-				CURRENT_DATE() as export_date,
-				form_id,
+				form_urn,
 				form_assigned_date,
 				form_completed_date,
 				form_type,
 				form_status,
-				domain,
+				domain_urn,
 				asset_urn,
 				assignee_urn,
 				count(distinct(case when question_status = 'complete' then question_id end)) as questions_complete,
@@ -461,13 +467,12 @@ export const sqlQueries = (
 				snapshot_date = '${snapshotDate}'
 				and form_assigned_date >= '${daysSinceDate}'
 			group by
-				export_date,
-				form_id,
+				form_urn,
 				form_assigned_date,
 				form_completed_date,
 				form_type,
 				form_status,
-				domain,
+				domain_urn,
 				asset_urn,
 				assignee_urn;
 			`,

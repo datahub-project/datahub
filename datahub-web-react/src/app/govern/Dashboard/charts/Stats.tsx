@@ -20,14 +20,15 @@ import {
 import { ChartNoData, ChartNotEnoughData, ChartState } from './AuxViews';
 
 const getTabType = (selectedTab) => {
-	let dataType = 'form';
-	if (selectedTab === 'byAssignee') dataType = 'user';
-	if (selectedTab === 'byDomain') dataType = 'domain';
+	let dataType = '';
+	if (selectedTab === 'byForm') dataType = 'assigned by this form';
+	if (selectedTab === 'byAssignee') dataType = 'assigned to this user or group';
+	if (selectedTab === 'byDomain') dataType = 'in this domain assigned';
 	return dataType;
 }
 
 const getDescription = (assetCount, totalAssetCount, selectedTab, series) =>
-	`${assetCount} of ${totalAssetCount.toLocaleString()} assests assigned to ${getTabType(selectedTab)} in the ${series.label.toLowerCase()}`;
+	`${assetCount} of ${totalAssetCount.toLocaleString()} assets ${getTabType(selectedTab)} in the ${series.label.toLowerCase()}`;
 
 // March/2024 launch decision: hide trendline but keep code
 const hideTrendLine = true;

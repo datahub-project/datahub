@@ -27,10 +27,11 @@ export const ByAssigneeSelector = () => {
 
 	// format options
 	const options = data.map((d) => {
-		const { username, properties } = getEntityInfo(assignees, d.assignee_urn) || {};
+		const { properties, groupInfo } = getEntityInfo(assignees, d.assignee_urn) || {};
+		const displayName = properties?.displayName || groupInfo?.displayName || d.assignee_urn;
 		return ({
 			value: d.assignee_urn,
-			label: properties?.displayName || username || d.assignee_urn,
+			label: displayName,
 		});
 	});
 
