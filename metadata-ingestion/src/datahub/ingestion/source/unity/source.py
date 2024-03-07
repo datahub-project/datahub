@@ -204,6 +204,16 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         # Global map of tables, for profiling
         self.tables: FileBackedDict[Table] = FileBackedDict()
 
+        self.emit_siblings = (
+            self.config.emit_siblings if self.config.emit_siblings else False
+        )
+
+        if self.config.delta_lake_options:
+            self.delta_lake_platform_instance_name = (
+                self.config.delta_lake_options.platform_instance_name
+            )
+            self.delta_lake_env = self.config.delta_lake_options.env
+
     def init_hive_metastore_proxy(self):
         self.hive_metastore_proxy: Optional[HiveMetastoreProxy] = None
         if self.config.include_hive_metastore:
@@ -498,20 +508,25 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             if table.view_definition:
                 self.view_definitions[dataset_urn] = (table.ref, table.view_definition)
 
+        print(f"TABLE TYPE = {table_props.customProperties.get('table_type')}")
+        print(f"FORMAT = {table_props.customProperties.get('data_source_format')}")
+        print(f"EMIT SIBLINGS = {self.emit_siblings}")
         # generate sibling and lineage aspects in case of EXTERNAL DELTA TABLE
         if (
             table_props.customProperties.get("table_type") == "EXTERNAL"
             and table_props.customProperties.get("data_source_format") == "DELTA"
+            and self.emit_siblings
         ):
             storage_location = str(table_props.customProperties.get("storage_location"))
             if storage_location.startswith("s3://"):
                 browse_path = strip_s3_prefix(storage_location)
                 source_dataset_urn = make_dataset_urn_with_platform_instance(
-                    self.platform,
+                    "delta-lake",
                     browse_path,
                     self.platform_instance_name,
                     self.config.env,
                 )
+
                 yield from self.gen_siblings_workunit(dataset_urn, source_dataset_urn)
                 yield from self.gen_lineage_workunit(dataset_urn, source_dataset_urn)
 
@@ -982,12 +997,12 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         """
         yield MetadataChangeProposalWrapper(
             entityUrn=dataset_urn,
-            aspect=Siblings(primary=False, siblings=[source_dataset_urn]),
+            aspect=Siblings(primary=True, siblings=[source_dataset_urn]),
         ).as_workunit()
 
         yield MetadataChangeProposalWrapper(
             entityUrn=source_dataset_urn,
-            aspect=Siblings(primary=True, siblings=[dataset_urn]),
+            aspect=Siblings(primary=False, siblings=[dataset_urn]),
         ).as_workunit()
 
     def gen_lineage_workunit(

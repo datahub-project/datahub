@@ -860,6 +860,7 @@
                     "type": "DATAOWNER"
                 }
             ],
+            "ownerTypes": {},
             "lastModified": {
                 "time": 0,
                 "actor": "urn:li:corpuser:unknown"
@@ -1082,6 +1083,7 @@
                     "type": "DATAOWNER"
                 }
             ],
+            "ownerTypes": {},
             "lastModified": {
                 "time": 0,
                 "actor": "urn:li:corpuser:unknown"
@@ -1770,9 +1772,9 @@
     "aspect": {
         "json": {
             "siblings": [
-                "urn:li:dataset:(urn:li:dataPlatform:databricks,db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:delta-lake,db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896,PROD)"
             ],
-            "primary": false
+            "primary": true
         }
     },
     "systemMetadata": {
@@ -1794,6 +1796,7 @@
                     "type": "DATAOWNER"
                 }
             ],
+            "ownerTypes": {},
             "lastModified": {
                 "time": 0,
                 "actor": "urn:li:corpuser:unknown"
@@ -1808,7 +1811,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896,PROD)",
     "changeType": "UPSERT",
     "aspectName": "siblings",
     "aspect": {
@@ -1816,7 +1819,7 @@
             "siblings": [
                 "urn:li:dataset:(urn:li:dataPlatform:databricks,main.default.quickstart_table_external,PROD)"
             ],
-            "primary": true
+            "primary": false
         }
     },
     "systemMetadata": {
@@ -2014,7 +2017,7 @@
                         "time": 0,
                         "actor": "urn:li:corpuser:unknown"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:databricks,db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896,PROD)",
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896,PROD)",
                     "type": "VIEW"
                 }
             ]
@@ -2136,6 +2139,7 @@
                     "type": "DATAOWNER"
                 }
             ],
+            "ownerTypes": {},
             "lastModified": {
                 "time": 0,
                 "actor": "urn:li:corpuser:unknown"
@@ -2341,6 +2345,7 @@
                     "type": "DATAOWNER"
                 }
             ],
+            "ownerTypes": {},
             "lastModified": {
                 "time": 0,
                 "actor": "urn:li:corpuser:unknown"
@@ -2377,9 +2382,9 @@
     "aspect": {
         "json": {
             "siblings": [
-                "urn:li:dataset:(urn:li:dataPlatform:databricks,db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:delta-lake,db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896,PROD)"
             ],
-            "primary": false
+            "primary": true
         }
     },
     "systemMetadata": {
@@ -2403,6 +2408,25 @@
             "externalUrl": "https://dummy.cloud.databricks.com/explore/data/quickstart_catalog",
             "name": "quickstart_catalog",
             "description": ""
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "siblings",
+    "aspect": {
+        "json": {
+            "siblings": [
+                "urn:li:dataset:(urn:li:dataPlatform:databricks,main.quickstart_schema.quickstart_table_external,PROD)"
+            ],
+            "primary": false
         }
     },
     "systemMetadata": {
@@ -2469,25 +2493,6 @@
     "aspect": {
         "json": {
             "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "siblings",
-    "aspect": {
-        "json": {
-            "siblings": [
-                "urn:li:dataset:(urn:li:dataPlatform:databricks,main.quickstart_schema.quickstart_table_external,PROD)"
-            ],
-            "primary": true
         }
     },
     "systemMetadata": {
@@ -2612,7 +2617,7 @@
                         "time": 0,
                         "actor": "urn:li:corpuser:unknown"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:databricks,db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896,PROD)",
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896,PROD)",
                     "type": "VIEW"
                 }
             ]
@@ -2671,6 +2676,7 @@
                     "type": "DATAOWNER"
                 }
             ],
+            "ownerTypes": {},
             "lastModified": {
                 "time": 0,
                 "actor": "urn:li:corpuser:unknown"
@@ -2696,6 +2702,7 @@
                     "type": "DATAOWNER"
                 }
             ],
+            "ownerTypes": {},
             "lastModified": {
                 "time": 0,
                 "actor": "urn:li:corpuser:unknown"
@@ -2787,6 +2794,7 @@
                     "type": "DATAOWNER"
                 }
             ],
+            "ownerTypes": {},
             "lastModified": {
                 "time": 0,
                 "actor": "urn:li:corpuser:unknown"
@@ -2812,6 +2820,7 @@
                     "type": "DATAOWNER"
                 }
             ],
+            "ownerTypes": {},
             "lastModified": {
                 "time": 0,
                 "actor": "urn:li:corpuser:unknown"
@@ -2932,6 +2941,7 @@
                     "type": "DATAOWNER"
                 }
             ],
+            "ownerTypes": {},
             "lastModified": {
                 "time": 0,
                 "actor": "urn:li:corpuser:unknown"
@@ -3026,6 +3036,25 @@
     "aspect": {
         "json": {
             "platform": "urn:li:dataPlatform:databricks"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "siblings",
+    "aspect": {
+        "json": {
+            "siblings": [
+                "urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.default.quickstart_table_external,PROD)"
+            ],
+            "primary": false
         }
     },
     "systemMetadata": {
@@ -3186,34 +3215,15 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "siblings",
-    "aspect": {
-        "json": {
-            "siblings": [
-                "urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.default.quickstart_table_external,PROD)"
-            ],
-            "primary": true
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.default.quickstart_table_external,PROD)",
     "changeType": "UPSERT",
     "aspectName": "siblings",
     "aspect": {
         "json": {
             "siblings": [
-                "urn:li:dataset:(urn:li:dataPlatform:databricks,db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:delta-lake,db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896,PROD)"
             ],
-            "primary": false
+            "primary": true
         }
     },
     "systemMetadata": {
@@ -3276,6 +3286,7 @@
                     "type": "DATAOWNER"
                 }
             ],
+            "ownerTypes": {},
             "lastModified": {
                 "time": 0,
                 "actor": "urn:li:corpuser:unknown"
@@ -3443,7 +3454,7 @@
                         "time": 0,
                         "actor": "urn:li:corpuser:unknown"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:databricks,db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896,PROD)",
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896,PROD)",
                     "type": "VIEW"
                 }
             ]
@@ -3497,9 +3508,9 @@
     "aspect": {
         "json": {
             "siblings": [
-                "urn:li:dataset:(urn:li:dataPlatform:databricks,db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:delta-lake,db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896,PROD)"
             ],
-            "primary": false
+            "primary": true
         }
     },
     "systemMetadata": {
@@ -3516,6 +3527,25 @@
     "aspect": {
         "json": {
             "container": "urn:li:container:94af9873ac56d46a4bcc995836dc15d4"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "siblings",
+    "aspect": {
+        "json": {
+            "siblings": [
+                "urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.quickstart_table_external,PROD)"
+            ],
+            "primary": false
         }
     },
     "systemMetadata": {
@@ -3562,6 +3592,7 @@
                     "type": "DATAOWNER"
                 }
             ],
+            "ownerTypes": {},
             "lastModified": {
                 "time": 0,
                 "actor": "urn:li:corpuser:unknown"
@@ -3587,6 +3618,7 @@
                     "type": "DATAOWNER"
                 }
             ],
+            "ownerTypes": {},
             "lastModified": {
                 "time": 0,
                 "actor": "urn:li:corpuser:unknown"
@@ -3731,7 +3763,7 @@
                         "time": 0,
                         "actor": "urn:li:corpuser:unknown"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:databricks,db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896,PROD)",
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896,PROD)",
                     "type": "VIEW"
                 }
             ]
@@ -3790,6 +3822,7 @@
                     "type": "DATAOWNER"
                 }
             ],
+            "ownerTypes": {},
             "lastModified": {
                 "time": 0,
                 "actor": "urn:li:corpuser:unknown"
@@ -3815,6 +3848,7 @@
                     "type": "DATAOWNER"
                 }
             ],
+            "ownerTypes": {},
             "lastModified": {
                 "time": 0,
                 "actor": "urn:li:corpuser:unknown"
@@ -3923,25 +3957,6 @@
     }
 },
 {
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "siblings",
-    "aspect": {
-        "json": {
-            "siblings": [
-                "urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.quickstart_table_external,PROD)"
-            ],
-            "primary": true
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
     "entityType": "container",
     "entityUrn": "urn:li:container:39e66cf95f60943f217d96142ffd9ddc",
     "changeType": "UPSERT",
@@ -3970,6 +3985,7 @@
                     "type": "DATAOWNER"
                 }
             ],
+            "ownerTypes": {},
             "lastModified": {
                 "time": 0,
                 "actor": "urn:li:corpuser:unknown"
@@ -4175,6 +4191,7 @@
                     "type": "DATAOWNER"
                 }
             ],
+            "ownerTypes": {},
             "lastModified": {
                 "time": 0,
                 "actor": "urn:li:corpuser:unknown"
@@ -4211,6 +4228,25 @@
     "aspect": {
         "json": {
             "platform": "urn:li:dataPlatform:databricks"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "siblings",
+    "aspect": {
+        "json": {
+            "siblings": [
+                "urn:li:dataset:(urn:li:dataPlatform:databricks,system.default.quickstart_table_external,PROD)"
+            ],
+            "primary": false
         }
     },
     "systemMetadata": {
@@ -4435,6 +4471,7 @@
                     "type": "DATAOWNER"
                 }
             ],
+            "ownerTypes": {},
             "lastModified": {
                 "time": 0,
                 "actor": "urn:li:corpuser:unknown"
@@ -4693,25 +4730,6 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "siblings",
-    "aspect": {
-        "json": {
-            "siblings": [
-                "urn:li:dataset:(urn:li:dataPlatform:databricks,system.default.quickstart_table_external,PROD)"
-            ],
-            "primary": true
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,system.default.quickstart_table,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
@@ -4752,9 +4770,9 @@
     "aspect": {
         "json": {
             "siblings": [
-                "urn:li:dataset:(urn:li:dataPlatform:databricks,db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:delta-lake,db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896,PROD)"
             ],
-            "primary": false
+            "primary": true
         }
     },
     "systemMetadata": {
@@ -4776,6 +4794,7 @@
                     "type": "DATAOWNER"
                 }
             ],
+            "ownerTypes": {},
             "lastModified": {
                 "time": 0,
                 "actor": "urn:li:corpuser:unknown"
@@ -4805,6 +4824,25 @@
                     "urn": "urn:li:container:b84ba0cc36e3b2636942fc34ec5724d6"
                 }
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "siblings",
+    "aspect": {
+        "json": {
+            "siblings": [
+                "urn:li:dataset:(urn:li:dataPlatform:databricks,system.quickstart_schema.quickstart_table_external,PROD)"
+            ],
+            "primary": false
         }
     },
     "systemMetadata": {
@@ -5028,7 +5066,7 @@
                         "time": 0,
                         "actor": "urn:li:corpuser:unknown"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:databricks,db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896,PROD)",
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896,PROD)",
                     "type": "VIEW"
                 }
             ]
@@ -5111,6 +5149,7 @@
                     "type": "DATAOWNER"
                 }
             ],
+            "ownerTypes": {},
             "lastModified": {
                 "time": 0,
                 "actor": "urn:li:corpuser:unknown"
@@ -5192,7 +5231,7 @@
                         "time": 0,
                         "actor": "urn:li:corpuser:unknown"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:databricks,db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896,PROD)",
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896,PROD)",
                     "type": "VIEW"
                 }
             ]
@@ -5233,29 +5272,11 @@
                     "type": "DATAOWNER"
                 }
             ],
+            "ownerTypes": {},
             "lastModified": {
                 "time": 0,
                 "actor": "urn:li:corpuser:unknown"
             }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1638860400000,
-        "runId": "unity-catalog-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "siblings",
-    "aspect": {
-        "json": {
-            "siblings": [
-                "urn:li:dataset:(urn:li:dataPlatform:databricks,system.quickstart_schema.quickstart_table_external,PROD)"
-            ],
-            "primary": true
         }
     },
     "systemMetadata": {
@@ -5384,9 +5405,9 @@
     "aspect": {
         "json": {
             "siblings": [
-                "urn:li:dataset:(urn:li:dataPlatform:databricks,db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:delta-lake,db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896,PROD)"
             ],
-            "primary": false
+            "primary": true
         }
     },
     "systemMetadata": {
@@ -5655,7 +5676,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,main.quickstart_schema.quickstart_table_external,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -5671,7 +5692,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,main.quickstart_schema.quickstart_table_external,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {

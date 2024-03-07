@@ -459,6 +459,11 @@ def test_ingestion(pytestconfig, tmp_path, requests_mock):
                     "include_ownership": True,
                     "include_hive_metastore": True,
                     "warehouse_id": "test",
+                    "emit_siblings": True,
+                    "delta_lake_options": {
+                        "platform_instance_name": "None",
+                        "env": "Prod",
+                    },
                     "profiling": {
                         "enabled": True,
                         "method": "analyze",
