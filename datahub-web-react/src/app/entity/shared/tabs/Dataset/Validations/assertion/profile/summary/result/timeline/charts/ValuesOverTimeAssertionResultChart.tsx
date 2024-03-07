@@ -103,7 +103,7 @@ export const ValuesOverTimeAssertionResultChart = ({ data, timeRange, chartDimen
         [rawDataPoints, chartInnerHeight]
     );
 
-    // Coalesce the nullish yValues in the data points with defaults
+    // Coalesce the nullish yValues in the data points with defaults (ie. when the event maps to an 'initializing' state)
     const defaultYValue = actualResultsExtent.average
     const dataPoints = rawDataPoints.map(dataPoint => {
         // Doing a semi-shallow 2-level clone because the result data can have a lot of nesting
@@ -149,12 +149,9 @@ export const ValuesOverTimeAssertionResultChart = ({ data, timeRange, chartDimen
                 {/* Min */}
                 <LinePath
                     data={dataPoints}
-                    x={(d) => xScale(getX(d)) ?? 0}
-                    y={(d) => {
-                        const r = yScale(getExpectedYs(d).low ?? 0) ?? 0
-                        console.log(r, 'hit')
-                        return r
-                    }}
+                    x={(d) => xScale(getX(d))}
+                    // NOTE nullish 'low's should never show because the `defined` prop below removes them
+                    y={(d) => yScale(getExpectedYs(d).low ?? 0)}
                     defined={d => typeof getExpectedYs(d).low === 'number'}
                     stroke={ACCENT_COLOR_HEX}
                     strokeDasharray='2 4'
@@ -164,7 +161,8 @@ export const ValuesOverTimeAssertionResultChart = ({ data, timeRange, chartDimen
                 <LinePath
                     data={dataPoints}
                     x={(d) => xScale(getX(d)) ?? 0}
-                    y={(d) => yScale(getExpectedYs(d).high ?? 0) ?? 0}
+                    // NOTE nullish 'high's should never show because the `defined` prop below removes them
+                    y={(d) => yScale(getExpectedYs(d).high ?? 0)}
                     defined={d => typeof getExpectedYs(d).high === 'number'}
                     stroke={ACCENT_COLOR_HEX}
                     strokeDasharray='2 4'
@@ -176,16 +174,16 @@ export const ValuesOverTimeAssertionResultChart = ({ data, timeRange, chartDimen
                 <LinearGradient id="area-gradient" from={ACCENT_COLOR_HEX} to={ACCENT_COLOR_HEX} fromOpacity={0.25} toOpacity={0} />
                 <AreaClosed
                     data={dataPoints}
-                    x={(d) => xScale(getX(d)) ?? 0}
-                    y={(d) => yScale(getY(d)) ?? 0}
+                    x={(d) => xScale(getX(d))}
+                    y={(d) => yScale(getY(d))}
                     yScale={yScale}
                     strokeWidth={1}
                     fill="url(#area-gradient)"
                 />
                 <LinePath
                     data={dataPoints}
-                    x={(d) => xScale(getX(d)) ?? 0}
-                    y={(d) => yScale(getY(d)) ?? 0}
+                    x={(d) => xScale(getX(d))}
+                    y={(d) => yScale(getY(d))}
                     stroke={ACCENT_COLOR_HEX}
                     strokeWidth={4}
                 />
