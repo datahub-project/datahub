@@ -42,7 +42,6 @@ import java.net.URISyntaxException;
 import java.util.List;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
-import javax.inject.Singleton;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -53,7 +52,6 @@ import org.springframework.stereotype.Component;
 /** This hook associates dbt datasets with their sibling entities */
 @Slf4j
 @Component
-@Singleton
 @Import({
   EntityRegistryFactory.class,
   RestliEntityClientFactory.class,
