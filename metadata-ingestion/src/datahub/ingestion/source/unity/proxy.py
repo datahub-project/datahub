@@ -188,6 +188,10 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                 yield optional_sp
 
     def groups(self):
+        """
+        fetch the list of the groups belongs to the workspace, using the workspace client
+        create the list of group's display name, iterating through the list of groups fetched by the workspace client
+        """
         group_list: List[str] = []
         for group in self._workspace_client.groups.list():
             group_list.append(str(group.display_name))
