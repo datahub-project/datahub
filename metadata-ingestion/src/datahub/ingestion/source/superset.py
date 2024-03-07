@@ -226,7 +226,10 @@ class SupersetSource(StatefulIngestionSourceBase):
         ).json()
         sqlalchemy_uri = database_response.get("result", {}).get("sqlalchemy_uri")
         if sqlalchemy_uri is None:
-            return database_response.get("result", {}).get("backend", "external")
+            platform_name = database_response.get("result", {}).get("backend", "external")
+            if platform_name == "awsathena":
+                return "athena"
+            return platform_name
         return get_platform_from_sqlalchemy_uri(sqlalchemy_uri)
 
     @lru_cache(maxsize=None)
