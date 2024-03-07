@@ -36,7 +36,6 @@ import com.linkedin.monitor.MonitorType;
 import com.linkedin.mxe.MetadataChangeLog;
 import java.util.*;
 import javax.annotation.Nonnull;
-import javax.inject.Singleton;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -53,7 +52,6 @@ import org.springframework.stereotype.Component;
  */
 @Slf4j
 @Component
-@Singleton
 @Import({
   EntityRegistryFactory.class,
   AssertionServiceFactory.class,

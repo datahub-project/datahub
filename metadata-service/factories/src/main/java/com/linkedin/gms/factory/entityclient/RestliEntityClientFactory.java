@@ -11,7 +11,6 @@ import com.linkedin.parseq.retry.backoff.ExponentialBackoff;
 import com.linkedin.restli.client.Client;
 import io.datahubproject.metadata.context.OperationContext;
 import java.net.URI;
-import javax.inject.Singleton;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -26,7 +25,6 @@ import org.springframework.context.annotation.PropertySource;
 public class RestliEntityClientFactory {
 
   @Bean("entityClient")
-  @Singleton
   public EntityClient entityClient(
       @Value("${datahub.gms.host}") String gmsHost,
       @Value("${datahub.gms.port}") int gmsPort,
@@ -46,7 +44,6 @@ public class RestliEntityClientFactory {
   }
 
   @Bean("systemEntityClient")
-  @Singleton
   public SystemEntityClient systemEntityClient(
       @Qualifier("systemOperationContext") final OperationContext systemOperationContext,
       @Value("${datahub.gms.host}") String gmsHost,

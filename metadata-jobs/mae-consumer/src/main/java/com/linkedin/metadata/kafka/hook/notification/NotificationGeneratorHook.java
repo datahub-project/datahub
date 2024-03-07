@@ -7,13 +7,11 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
-import javax.inject.Singleton;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 
 @Slf4j
-@Singleton
 public class NotificationGeneratorHook implements MetadataChangeLogHook {
 
   private final List<MclNotificationGenerator> _notificationGenerators;
