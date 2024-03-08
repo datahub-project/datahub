@@ -133,23 +133,21 @@ public class ESAccessControlUtil {
         .map(
             policy -> {
               // Build actor query
-              QueryBuilder actorQuery = buildActorQuery(opContext, policy);
+              QueryBuilder actorQuery = buildActorResourceQuery(opContext, policy);
 
-              if (!policy.hasResources()) {
+              if (!policy.hasResources()
+                  || !policy.getResources().hasFilter()
+                  || !policy.getResources().getFilter().hasCriteria()
+                  || policy.getResources().getFilter().getCriteria().isEmpty()) {
                 // no resource restrictions
                 return actorQuery;
               } else {
-
-                // No filters or criteria
-                if (!policy.getResources().hasFilter()
-                    || !policy.getResources().getFilter().hasCriteria()) {
-                  return null;
-                }
 
                 PolicyMatchCriterionArray criteriaArray =
                     policy.getResources().getFilter().getCriteria();
                 // Cannot apply policy if we can't map every field
                 if (!criteriaArray.stream().allMatch(criteria -> toESField(criteria).isPresent())) {
+                  log.error("Returning deny all due to unknown policy filter field.");
                   return null;
                 }
 
@@ -173,18 +171,17 @@ public class ESAccessControlUtil {
    * @param policy policy
    * @return filter query
    */
-  private static QueryBuilder buildActorQuery(
+  private static QueryBuilder buildActorResourceQuery(
       OperationContext opContext, DataHubPolicyInfo policy) {
+
     DataHubActorFilter actorFilter = policy.getActors();
 
-    if (!policy.hasActors()
-        || !(actorFilter.isResourceOwners() || hasResourceOwnersType(actorFilter))) {
+    if (!policy.hasActors() || !actorFilter.isResourceOwners()) {
       // no owner restriction
       return MATCH_ALL;
     }
 
     ActorContext actorContext = opContext.getSessionActorContext();
-
     // policy might apply to the actor via user or group
     List<String> actorAndGroupUrns =
         Stream.concat(
