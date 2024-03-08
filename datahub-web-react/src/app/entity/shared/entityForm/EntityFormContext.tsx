@@ -29,7 +29,7 @@ export type EntityFormContextType = {
         handlePromptSubmission: (promptId: string, entityUrns: string[]) => void;
         handleUndoPromptSubmission: (promptId: string, entityUrns: string[]) => void;
         handleBulkVerifySubmission: (entityUrns: string[]) => void;
-    },
+    };
     search: {
         results: SearchForEntitiesByFormQuery;
         resultItems: SearchResult[];
@@ -37,21 +37,21 @@ export type EntityFormContextType = {
         error?: any;
         loading: boolean;
         refetch: () => void;
-    },
+    };
     form: {
         formUrn: string;
         form?: Form;
         isVerificationType: boolean;
         formView: FormView;
         setFormView: (formView: FormView) => void;
-    }
+    };
     filter: {
         formFilter?: FormFilter;
-        formResponsesFilters?: FormResponsesFilter[],
-        setFormResponsesFilters: (value: FormResponsesFilter[]) => void,
+        formResponsesFilters?: FormResponsesFilter[];
+        setFormResponsesFilters: (value: FormResponsesFilter[]) => void;
         shouldClearFilters: boolean;
         setShouldClearFilters: (bool: boolean) => void;
-    }
+    };
     entity: {
         entitiesForForm?: EntityAndType[];
         entityData?: GenericEntityProperties;
@@ -65,7 +65,7 @@ export type EntityFormContextType = {
         numSubmittedEntities: number;
         setNumSubmittedEntities: (count: number) => void;
         isOnEntityProfilePage?: boolean;
-    }
+    };
     prompt: {
         prompts?: FormPrompt[];
         selectedPromptId?: string;
@@ -73,20 +73,20 @@ export type EntityFormContextType = {
         prompt?: FormPrompt;
         promptIndex: number;
         displayBulkPromptStyles: boolean;
-    }
+    };
     counts: {
         verificationType: {
-            verifyReady: number,
-            notVerifyReady: number,
-        },
+            verifyReady: number;
+            notVerifyReady: number;
+        };
         completionType: {
-            notComplete: number,
-        },
+            notComplete: number;
+        };
         promptCounts: {
-            numNotComplete: number,
-            numComplete: number
-        },
-    }
+            numNotComplete: number;
+            numComplete: number;
+        };
+    };
     states: {
         byQuestion: {
             showFinishRemainingAssets: boolean; // some assets for prompt have response
@@ -94,14 +94,14 @@ export type EntityFormContextType = {
             showCompleted: boolean; // all assets have response for all prompts, NOT verify form type
             showVerifyCTAHeader: boolean; // at least 1 asset has a response is ready for verification
             showVerifyCTA: boolean; // all assets have response to all prompts & ready for verification
-        }
+        };
         bulkVerify: {
             showReturnToQuestions: boolean; // all eligible assets verified, need to finish other assets not eligible
             showFinishRemainingAssets: boolean; // some assets are verified
             showCompleted: boolean; // all assets are verified
-        }
-    }
-}
+        };
+    };
+};
 
 export const DEFAULT_CONTEXT = {
     isInFormContext: false,
@@ -170,7 +170,7 @@ export const DEFAULT_CONTEXT = {
         },
         promptCounts: {
             numNotComplete: 0,
-            numComplete: 0
+            numComplete: 0,
         },
     },
     states: {
@@ -186,8 +186,8 @@ export const DEFAULT_CONTEXT = {
             showFinishRemainingAssets: false,
             showCompleted: false,
         },
-    }
-}
+    },
+};
 
 export const EntityFormContext = React.createContext<EntityFormContextType>(DEFAULT_CONTEXT);
 

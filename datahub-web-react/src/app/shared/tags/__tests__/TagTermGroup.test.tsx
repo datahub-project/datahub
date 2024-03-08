@@ -3,7 +3,7 @@ import { fireEvent, render, waitFor } from '@testing-library/react';
 import React from 'react';
 
 import { mocks } from '../../../../Mocks';
-import { EntityType, GlossaryTerms } from '../../../../types.generated';
+import { EntityType, GlobalTags, GlossaryTerms } from '../../../../types.generated';
 import TestPageContainer from '../../../../utils/test-utils/TestPageContainer';
 import TagTermGroup from '../TagTermGroup';
 
@@ -50,7 +50,7 @@ describe('TagTermGroup', () => {
         const { getByText, getByLabelText, queryByText, queryAllByLabelText } = render(
             <MockedProvider mocks={mocks} addTypename={false}>
                 <TestPageContainer>
-                    <TagTermGroup editableTags={globalTags1} canRemove />
+                    <TagTermGroup editableTags={globalTags1 as GlobalTags} canRemove />
                 </TestPageContainer>
             </MockedProvider>,
         );
@@ -72,7 +72,7 @@ describe('TagTermGroup', () => {
         const { getByText, queryByLabelText, queryByText } = render(
             <MockedProvider mocks={mocks} addTypename={false}>
                 <TestPageContainer>
-                    <TagTermGroup uneditableTags={globalTags2} />
+                    <TagTermGroup uneditableTags={globalTags2 as GlobalTags} />
                 </TestPageContainer>
             </MockedProvider>,
         );
@@ -85,7 +85,11 @@ describe('TagTermGroup', () => {
         const { getByText, queryByText, queryAllByLabelText } = render(
             <MockedProvider mocks={mocks} addTypename={false}>
                 <TestPageContainer>
-                    <TagTermGroup uneditableTags={globalTags1} editableTags={globalTags2} canRemove />
+                    <TagTermGroup
+                        uneditableTags={globalTags1 as GlobalTags}
+                        editableTags={globalTags2 as GlobalTags}
+                        canRemove
+                    />
                 </TestPageContainer>
             </MockedProvider>,
         );
@@ -102,8 +106,8 @@ describe('TagTermGroup', () => {
                     <TagTermGroup
                         entityUrn="urn:li:chart:123"
                         entityType={EntityType.Chart}
-                        uneditableTags={globalTags1}
-                        editableTags={globalTags2}
+                        uneditableTags={globalTags1 as GlobalTags}
+                        editableTags={globalTags2 as GlobalTags}
                         canRemove
                         canAddTag
                     />
@@ -124,8 +128,8 @@ describe('TagTermGroup', () => {
                     <TagTermGroup
                         entityUrn="urn:li:chart:123"
                         entityType={EntityType.Chart}
-                        uneditableTags={globalTags1}
-                        editableTags={globalTags2}
+                        uneditableTags={globalTags1 as GlobalTags}
+                        editableTags={globalTags2 as GlobalTags}
                         canRemove
                         canAddTerm
                     />
