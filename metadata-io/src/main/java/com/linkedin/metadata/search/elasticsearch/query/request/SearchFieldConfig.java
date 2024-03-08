@@ -89,27 +89,6 @@ public class SearchFieldConfig {
     return detectSubFieldType(fieldName, boost, fieldType, searchableAnnotation.isQueryByDefault());
   }
 
-  public static SearchFieldConfig detectSubFieldType(
-      String fieldName, SearchableAnnotation.FieldType fieldType, boolean isQueryByDefault) {
-    return detectSubFieldType(fieldName, DEFAULT_BOOST, fieldType, isQueryByDefault);
-  }
-
-  public static SearchFieldConfig detectSubFieldType(
-      String fieldName,
-      float boost,
-      SearchableAnnotation.FieldType fieldType,
-      boolean isQueryByDefault) {
-    return SearchFieldConfig.builder()
-        .fieldName(fieldName)
-        .boost(boost)
-        .analyzer(getAnalyzer(fieldName, fieldType))
-        .hasKeywordSubfield(hasKeywordSubfield(fieldName, fieldType))
-        .hasDelimitedSubfield(hasDelimitedSubfield(fieldName, fieldType))
-        .hasWordGramSubfields(hasWordGramSubfields(fieldName, fieldType))
-        .isQueryByDefault(isQueryByDefault)
-        .build();
-  }
-
   public static Set<SearchFieldConfig> detectSubFieldType(
       @Nonnull SearchableRefFieldSpec fieldSpec, int depth, EntityRegistry entityRegistry) {
     Set<SearchFieldConfig> fieldConfigs = new HashSet<>();
@@ -145,8 +124,8 @@ public class SearchFieldConfig {
     String urnFieldName = fieldName + ".urn";
     fieldConfigs.add(
         detectSubFieldType(urnFieldName, boostScore, SearchableAnnotation.FieldType.URN, true));
-
     List<AspectSpec> aspectSpecs = refEntitySpec.getAspectSpecs();
+
     for (AspectSpec aspectSpec : aspectSpecs) {
       if (!SKIP_REFERENCE_ASPECT.contains(aspectSpec.getName())) {
         for (SearchableFieldSpec searchableFieldSpec : aspectSpec.getSearchableFieldSpecs()) {
@@ -158,7 +137,7 @@ public class SearchFieldConfig {
           final float refBoost = (float) searchableAnnotation.getBoostScore() * boostScore;
           final SearchableAnnotation.FieldType refFieldType = searchableAnnotation.getFieldType();
           fieldConfigs.add(
-              detectSubFieldType(
+              detectSubFieldTypeForRef(
                   refFieldName, refBoost, refFieldType, searchableAnnotation.isQueryByDefault()));
         }
 
@@ -177,6 +156,43 @@ public class SearchFieldConfig {
     }
 
     return fieldConfigs;
+  }
+
+  public static SearchFieldConfig detectSubFieldType(
+      String fieldName, SearchableAnnotation.FieldType fieldType, boolean isQueryByDefault) {
+    return detectSubFieldType(fieldName, DEFAULT_BOOST, fieldType, isQueryByDefault);
+  }
+
+  public static SearchFieldConfig detectSubFieldType(
+      String fieldName,
+      float boost,
+      SearchableAnnotation.FieldType fieldType,
+      boolean isQueryByDefault) {
+    return SearchFieldConfig.builder()
+        .fieldName(fieldName)
+        .boost(boost)
+        .analyzer(getAnalyzer(fieldName, fieldType))
+        .hasKeywordSubfield(hasKeywordSubfield(fieldName, fieldType))
+        .hasDelimitedSubfield(hasDelimitedSubfield(fieldName, fieldType))
+        .hasWordGramSubfields(hasWordGramSubfields(fieldName, fieldType))
+        .isQueryByDefault(isQueryByDefault)
+        .build();
+  }
+
+  public static SearchFieldConfig detectSubFieldTypeForRef(
+      String fieldName,
+      float boost,
+      SearchableAnnotation.FieldType fieldType,
+      boolean isQueryByDefault) {
+    return SearchFieldConfig.builder()
+        .fieldName(fieldName)
+        .boost(boost)
+        .analyzer(getAnalyzer(fieldName, fieldType))
+        .hasKeywordSubfield(hasKeywordSubfieldForRefField(fieldName, fieldType))
+        .hasDelimitedSubfield(hasDelimitedSubfieldForRefField(fieldName, fieldType))
+        .hasWordGramSubfields(hasWordGramSubfieldsForRefField(fieldType))
+        .isQueryByDefault(isQueryByDefault)
+        .build();
   }
 
   public boolean isKeyword() {
@@ -204,6 +220,25 @@ public class SearchFieldConfig {
 
   private static boolean isKeyword(String fieldName) {
     return fieldName.endsWith(".keyword") || KEYWORD_FIELDS.contains(fieldName);
+  }
+
+  private static boolean hasKeywordSubfieldForRefField(
+      String fieldName, SearchableAnnotation.FieldType fieldType) {
+    return !"urn".equals(fieldName)
+        && !fieldName.endsWith(".urn")
+        && (TYPES_WITH_DELIMITED_SUBFIELD.contains(fieldType) // if delimited then also has keyword
+            || TYPES_WITH_KEYWORD_SUBFIELD.contains(fieldType));
+  }
+
+  private static boolean hasWordGramSubfieldsForRefField(SearchableAnnotation.FieldType fieldType) {
+    return TYPES_WITH_WORD_GRAM.contains(fieldType);
+  }
+
+  private static boolean hasDelimitedSubfieldForRefField(
+      String fieldName, SearchableAnnotation.FieldType fieldType) {
+    return (fieldName.endsWith(".urn")
+        || "urn".equals(fieldName)
+        || TYPES_WITH_DELIMITED_SUBFIELD.contains(fieldType));
   }
 
   private static String getAnalyzer(String fieldName, SearchableAnnotation.FieldType fieldType) {
