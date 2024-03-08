@@ -50,10 +50,22 @@ export const StatusOverTimeAssertionResultChart = ({ data, timeRange, chartDimen
 
 
     const timeScaleTicks = generateTimeScaleTickValues(timeRange.startMs, timeRange.endMs)
+    const lineThickness = 3
     return (
         <>
             {renderHeader?.(data.context.assertion.info?.type === AssertionType.Freshness ? `Freshness checks over time` : getTimeRangeDisplay(timeRange))}
             <svg width={chartDimensions.width} height={chartDimensions.height}>
+                <defs>
+                    <marker
+                        id="marker-arrow"
+                        refX={-1} refY={3}
+                        orient='auto-start-reverse'
+                        markerWidth='6'
+                        markerHeight='6'
+                    >
+                        <path d="M0,0 L0,6 L6,3 z" fill={ACCENT_COLOR_HEX} />
+                    </marker>
+                </defs>
                 <Group left={CHART_HORIZ_MARGIN / 2}>
                     {/* Axis */}
                     <AxisBottom
@@ -90,7 +102,8 @@ export const StatusOverTimeAssertionResultChart = ({ data, timeRange, chartDimen
                         x={(d) => xScale(d.time) ?? 0}
                         y={chartDimensions.height / 3}
                         stroke={ACCENT_COLOR_HEX}
-                        strokeWidth={8}
+                        strokeWidth={lineThickness}
+                        markerStart='url(#marker-arrow)'
                     />
 
                     {/* Circular data points */}
@@ -119,7 +132,7 @@ export const StatusOverTimeAssertionResultChart = ({ data, timeRange, chartDimen
                                         fill={fillColor}
                                         stroke='white'
                                         strokeWidth={4}
-                                        size={140}
+                                        size={80}
                                         filter='drop-shadow(0px 1px 2.5px rgb(0 0 0 / 0.1))'
                                     />
                                 </Popover>
