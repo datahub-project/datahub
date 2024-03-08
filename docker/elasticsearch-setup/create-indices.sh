@@ -154,7 +154,7 @@ function create_datahub_usage_event_aws_elasticsearch() {
     fi
   else
     echo -e "Usage event status: $USAGE_EVENT_STATUS"
-    echo request_response.txt
+    cat request_response.txt
     rm request_response.txt
   fi
 
