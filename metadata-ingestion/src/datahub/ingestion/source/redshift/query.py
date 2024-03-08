@@ -384,21 +384,32 @@ SELECT  schemaname as schema_name,
         return """
             with query_txt as
                 (
-                select
-                    query,
-                    pid,
-                    LISTAGG(case
-                        when LEN(RTRIM(text)) = 0 then text
-                        else RTRIM(text)
-                    end) within group (
-                    order by sequence) as ddl
-                from
-                    STL_QUERYTEXT
-                where
-                    sequence < 320
-                group by
-                    query,
-                    pid
+                    select
+                        query,
+                        pid,
+                        LISTAGG(case
+                            when LEN(RTRIM(text)) = 0 then text
+                            else RTRIM(text)
+                        end) within group (
+                    order by
+                        sequence) as ddl
+                    from
+                        (
+                        select
+                            query,
+                            pid,
+                            text,
+                            sequence
+                        from
+                            STL_QUERYTEXT
+                        where
+                            sequence < 320
+                        order by
+                            sequence
+                    )
+                    group by
+                        query,
+                        pid
                 )
                         select
                     distinct tbl as target_table_id,
