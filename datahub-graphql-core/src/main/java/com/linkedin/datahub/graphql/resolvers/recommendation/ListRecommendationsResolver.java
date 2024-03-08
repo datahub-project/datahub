@@ -1,9 +1,12 @@
 package com.linkedin.datahub.graphql.resolvers.recommendation;
 
-import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
+import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
+import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.criterionFromFilter;
+import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.resolveView;
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.ContentParams;
 import com.linkedin.datahub.graphql.generated.EntityProfileParams;
@@ -22,12 +25,15 @@ import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.recommendation.EntityRequestContext;
 import com.linkedin.metadata.recommendation.RecommendationsService;
 import com.linkedin.metadata.recommendation.SearchRequestContext;
+import com.linkedin.metadata.service.ViewService;
+import com.linkedin.view.DataHubViewInfo;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.net.URISyntaxException;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
@@ -44,6 +50,8 @@ public class ListRecommendationsResolver
 
   private final RecommendationsService _recommendationsService;
 
+  private final ViewService _viewService;
+
   @WithSpan
   @Override
   public CompletableFuture<ListRecommendationsResult> get(DataFetchingEnvironment environment) {
@@ -53,6 +61,13 @@ public class ListRecommendationsResolver
 
     return CompletableFuture.supplyAsync(
         () -> {
+          final DataHubViewInfo maybeViewInfo =
+              Objects.nonNull(input.getViewUrn())
+                  ? resolveView(
+                      _viewService,
+                      UrnUtils.getUrn(input.getViewUrn()),
+                      context.getAuthentication())
+                  : null;
           try {
             log.debug("Listing recommendations for input {}", input);
             List<com.linkedin.metadata.recommendation.RecommendationModule> modules =

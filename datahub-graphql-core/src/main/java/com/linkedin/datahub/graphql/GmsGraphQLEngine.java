@@ -1,8 +1,25 @@
 package com.linkedin.datahub.graphql;
 
-import static com.linkedin.datahub.graphql.Constants.*;
-import static com.linkedin.metadata.Constants.*;
-import static graphql.scalars.ExtendedScalars.*;
+import static com.linkedin.datahub.graphql.Constants.ANALYTICS_SCHEMA_FILE;
+import static com.linkedin.datahub.graphql.Constants.APP_SCHEMA_FILE;
+import static com.linkedin.datahub.graphql.Constants.AUTH_SCHEMA_FILE;
+import static com.linkedin.datahub.graphql.Constants.FORMS_SCHEMA_FILE;
+import static com.linkedin.datahub.graphql.Constants.GMS_SCHEMA_FILE;
+import static com.linkedin.datahub.graphql.Constants.INCIDENTS_SCHEMA_FILE;
+import static com.linkedin.datahub.graphql.Constants.INGESTION_SCHEMA_FILE;
+import static com.linkedin.datahub.graphql.Constants.LINEAGE_SCHEMA_FILE;
+import static com.linkedin.datahub.graphql.Constants.PROPERTIES_SCHEMA_FILE;
+import static com.linkedin.datahub.graphql.Constants.RECOMMENDATIONS_SCHEMA_FILE;
+import static com.linkedin.datahub.graphql.Constants.SEARCH_SCHEMA_FILE;
+import static com.linkedin.datahub.graphql.Constants.STEPS_SCHEMA_FILE;
+import static com.linkedin.datahub.graphql.Constants.TESTS_SCHEMA_FILE;
+import static com.linkedin.datahub.graphql.Constants.TIMELINE_SCHEMA_FILE;
+import static com.linkedin.datahub.graphql.Constants.URNS_FIELD_NAME;
+import static com.linkedin.datahub.graphql.Constants.URN_FIELD_NAME;
+import static com.linkedin.datahub.graphql.Constants.VERSION_STAMP_FIELD_NAME;
+import static com.linkedin.metadata.Constants.DATA_PROCESS_INSTANCE_RUN_EVENT_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.OPERATION_EVENT_TIME_FIELD_NAME;
+import static graphql.scalars.ExtendedScalars.GraphQLLong;
 
 import com.datahub.authentication.AuthenticationConfiguration;
 import com.datahub.authentication.group.GroupService;
@@ -111,7 +128,11 @@ import com.linkedin.datahub.graphql.resolvers.MeResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.AssertionRunEventResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.DeleteAssertionResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.EntityAssertionsResolver;
-import com.linkedin.datahub.graphql.resolvers.auth.*;
+import com.linkedin.datahub.graphql.resolvers.auth.CreateAccessTokenResolver;
+import com.linkedin.datahub.graphql.resolvers.auth.GetAccessTokenMetadataResolver;
+import com.linkedin.datahub.graphql.resolvers.auth.GetAccessTokenResolver;
+import com.linkedin.datahub.graphql.resolvers.auth.ListAccessTokensResolver;
+import com.linkedin.datahub.graphql.resolvers.auth.RevokeAccessTokenResolver;
 import com.linkedin.datahub.graphql.resolvers.browse.BrowsePathsResolver;
 import com.linkedin.datahub.graphql.resolvers.browse.BrowseResolver;
 import com.linkedin.datahub.graphql.resolvers.browse.EntityBrowsePathsResolver;
@@ -390,12 +411,26 @@ import org.dataloader.DataLoaderOptions;
 @Getter
 public class GmsGraphQLEngine {
 
+  /** Configures the graph objects that can be fetched primary key. */
+  public final List<EntityType<?, ?>> entityTypes;
+
+  /** Configures all graph objects */
+  public final List<LoadableType<?, ?>> loadableTypes;
+
+  /** Configures the graph objects for owner */
+  public final List<LoadableType<?, ?>> ownerTypes;
+
+  /** Configures the graph objects that can be searched. */
+  public final List<SearchableEntityType<?, ?>> searchableTypes;
+
+  /** Configures the graph objects that can be browsed. */
+  public final List<BrowsableEntityType<?, ?>> browsableTypes;
+
   private final EntityClient entityClient;
   private final SystemEntityClient systemEntityClient;
   private final GraphClient graphClient;
   private final UsageClient usageClient;
   private final SiblingGraphService siblingGraphService;
-
   private final EntityService entityService;
   private final AnalyticsService analyticsService;
   private final RecommendationsService recommendationsService;
@@ -419,9 +454,7 @@ public class GmsGraphQLEngine {
   private final DataProductService dataProductService;
   private final FormService formService;
   private final RestrictedService restrictedService;
-
   private final FeatureFlags featureFlags;
-
   private final IngestionConfiguration ingestionConfiguration;
   private final AuthenticationConfiguration authenticationConfiguration;
   private final AuthorizationConfiguration authorizationConfiguration;
@@ -430,11 +463,8 @@ public class GmsGraphQLEngine {
   private final TestsConfiguration testsConfiguration;
   private final DataHubConfiguration datahubConfiguration;
   private final ViewsConfiguration viewsConfiguration;
-
   private final DatasetType datasetType;
-
   private final RoleType roleType;
-
   private final CorpUserType corpUserType;
   private final CorpGroupType corpGroupType;
   private final ChartType chartType;
@@ -472,27 +502,11 @@ public class GmsGraphQLEngine {
   private final FormType formType;
   private final IncidentType incidentType;
   private final RestrictedType restrictedType;
-
   private final int graphQLQueryComplexityLimit;
   private final int graphQLQueryDepthLimit;
 
   /** A list of GraphQL Plugins that extend the core engine */
   private final List<GmsGraphQLPlugin> graphQLPlugins;
-
-  /** Configures the graph objects that can be fetched primary key. */
-  public final List<EntityType<?, ?>> entityTypes;
-
-  /** Configures all graph objects */
-  public final List<LoadableType<?, ?>> loadableTypes;
-
-  /** Configures the graph objects for owner */
-  public final List<LoadableType<?, ?>> ownerTypes;
-
-  /** Configures the graph objects that can be searched. */
-  public final List<SearchableEntityType<?, ?>> searchableTypes;
-
-  /** Configures the graph objects that can be browsed. */
-  public final List<BrowsableEntityType<?, ?>> browsableTypes;
 
   public GmsGraphQLEngine(final GmsGraphQLEngineArgs args) {
 
@@ -650,6 +664,18 @@ public class GmsGraphQLEngine {
             .collect(Collectors.toList());
   }
 
+  public static String fileBasedSchema(String fileName) {
+    String schema;
+    try {
+      InputStream is = Thread.currentThread().getContextClassLoader().getResourceAsStream(fileName);
+      schema = IOUtils.toString(is, StandardCharsets.UTF_8);
+      is.close();
+    } catch (IOException e) {
+      throw new RuntimeException("Failed to find GraphQL Schema with name " + fileName, e);
+    }
+    return schema;
+  }
+
   /**
    * Returns a {@link Supplier} responsible for creating a new {@link DataLoader} from a {@link
    * LoadableType}.
@@ -787,18 +813,6 @@ public class GmsGraphQLEngine {
         .setGraphQLQueryComplexityLimit(graphQLQueryComplexityLimit)
         .setGraphQLQueryDepthLimit(graphQLQueryDepthLimit);
     return builder;
-  }
-
-  public static String fileBasedSchema(String fileName) {
-    String schema;
-    try {
-      InputStream is = Thread.currentThread().getContextClassLoader().getResourceAsStream(fileName);
-      schema = IOUtils.toString(is, StandardCharsets.UTF_8);
-      is.close();
-    } catch (IOException e) {
-      throw new RuntimeException("Failed to find GraphQL Schema with name " + fileName, e);
-    }
-    return schema;
   }
 
   private void configureAnalyticsResolvers(final RuntimeWiring.Builder builder) {
@@ -952,8 +966,11 @@ public class GmsGraphQLEngine {
                 .dataFetcher("listUsers", new ListUsersResolver(this.entityClient))
                 .dataFetcher("listGroups", new ListGroupsResolver(this.entityClient))
                 .dataFetcher(
-                    "listRecommendations", new ListRecommendationsResolver(recommendationsService))
-                .dataFetcher("getEntityCounts", new EntityCountsResolver(this.entityClient))
+                    "listRecommendations",
+                    new ListRecommendationsResolver(recommendationsService, this.viewService))
+                .dataFetcher(
+                    "getEntityCounts",
+                    new EntityCountsResolver(this.entityClient, this.viewService))
                 .dataFetcher("getAccessToken", new GetAccessTokenResolver(statefulTokenService))
                 .dataFetcher("listAccessTokens", new ListAccessTokensResolver(this.entityClient))
                 .dataFetcher(
@@ -1588,7 +1605,7 @@ public class GmsGraphQLEngine {
                     new LoadableTypeBatchResolver<>(
                         corpUserType,
                         (env) -> {
-                          DatasetStatsSummary summary = ((DatasetStatsSummary) env.getSource());
+                          DatasetStatsSummary summary = env.getSource();
                           return summary.getTopUsersLast30Days() != null
                               ? summary.getTopUsersLast30Days().stream()
                                   .map(CorpUser::getUrn)
@@ -1908,7 +1925,7 @@ public class GmsGraphQLEngine {
                 new LoadableTypeBatchResolver<>(
                     corpUserType,
                     (env) -> {
-                      DashboardStatsSummary summary = ((DashboardStatsSummary) env.getSource());
+                      DashboardStatsSummary summary = env.getSource();
                       return summary.getTopUsersLast30Days() != null
                           ? summary.getTopUsersLast30Days().stream()
                               .map(CorpUser::getUrn)

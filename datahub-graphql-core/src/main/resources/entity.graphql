@@ -207,8 +207,8 @@ type Query {
     List Dataset Queries
     """
     listQueries(
-      "Input required for listing queries"
-      input: ListQueriesInput!): ListQueriesResult
+        "Input required for listing queries"
+        input: ListQueriesInput!): ListQueriesResult
 
     """
     Get quick filters to display in auto-complete
@@ -278,8 +278,8 @@ type Mutation {
     it will be overwritten.
     """
     createTag(
-      "Inputs required to create a new Tag."
-      input: CreateTagInput!): String
+        "Inputs required to create a new Tag."
+        input: CreateTagInput!): String
 
     """
     Update the information about a particular Entity Tag
@@ -290,8 +290,8 @@ type Mutation {
     Delete a Tag
     """
     deleteTag(
-      "The urn of the Tag to delete"
-      urn: String!): Boolean
+        "The urn of the Tag to delete"
+        urn: String!): Boolean
 
     """
     Set the hex color associated with an existing Tag
@@ -314,12 +314,12 @@ type Mutation {
     deletePolicy(urn: String!): String
 
     """
-		Add a tag to a particular Entity or subresource
+    Add a tag to a particular Entity or subresource
     """
     addTag(input: TagAssociationInput!): Boolean
 
     """
-		Add multiple tags to a particular Entity or subresource
+    Add multiple tags to a particular Entity or subresource
     """
     addTags(input: AddTagsInput!): Boolean
 
@@ -329,37 +329,37 @@ type Mutation {
     batchAddTags(input: BatchAddTagsInput!): Boolean
 
     """
-		Remove a tag from a particular Entity or subresource
+    Remove a tag from a particular Entity or subresource
     """
     removeTag(input: TagAssociationInput!): Boolean
 
     """
-		Remove tags from multiple Entities or subresource
+    Remove tags from multiple Entities or subresource
     """
     batchRemoveTags(input: BatchRemoveTagsInput!): Boolean
 
     """
-		Add a glossary term to a particular Entity or subresource
+    Add a glossary term to a particular Entity or subresource
     """
     addTerm(input: TermAssociationInput!): Boolean
 
     """
-		Add glossary terms to multiple Entities or subresource
+    Add glossary terms to multiple Entities or subresource
     """
     batchAddTerms(input: BatchAddTermsInput!): Boolean
 
     """
-		Add multiple glossary terms to a particular Entity or subresource
+    Add multiple glossary terms to a particular Entity or subresource
     """
     addTerms(input: AddTermsInput!): Boolean
 
     """
-		Remove a glossary term from a particular Entity or subresource
+    Remove a glossary term from a particular Entity or subresource
     """
     removeTerm(input: TermAssociationInput!): Boolean
 
     """
-		Remove glossary terms from multiple Entities or subresource
+    Remove glossary terms from multiple Entities or subresource
     """
     batchRemoveTerms(input: BatchRemoveTermsInput!): Boolean
 
@@ -448,8 +448,8 @@ type Mutation {
     Delete a Domain
     """
     deleteDomain(
-      "The urn of the Domain to delete"
-      urn: String!): Boolean
+        "The urn of the Domain to delete"
+        urn: String!): Boolean
 
 
     """
@@ -471,8 +471,8 @@ type Mutation {
     Sets the Deprecation status for a Metadata Entity. Requires the Edit Deprecation status privilege for an entity.
     """
     updateDeprecation(
-      "Input required to set deprecation for an Entity."
-      input: UpdateDeprecationInput!): Boolean
+        "Input required to set deprecation for an Entity."
+        input: UpdateDeprecationInput!): Boolean
 
     """
     Updates the deprecation status for a batch of assets.
@@ -493,19 +493,19 @@ type Mutation {
     Remove an assertion associated with an entity. Requires the 'Edit Assertions' privilege on the entity.
     """
     deleteAssertion(
-      """
-      The assertion to remove
-      """
-      urn: String!): Boolean
+        """
+        The assertion to remove
+        """
+        urn: String!): Boolean
 
     """
     Report a new operation for an asset
     """
     reportOperation(
-      """
-      Input required to report an operation
-      """
-      input: ReportOperationInput!): String
+        """
+        Input required to report an operation
+        """
+        input: ReportOperationInput!): String
 
     """
     Create a new GlossaryTerm. Returns the urn of the newly created GlossaryTerm. If a term with the provided ID already exists, it will be overwritten.
@@ -596,24 +596,24 @@ type Mutation {
     Create a new DataHub View (Saved Filter)
     """
     createView(
-      "Input required to create a new DataHub View"
-      input: CreateViewInput!): DataHubView
+        "Input required to create a new DataHub View"
+        input: CreateViewInput!): DataHubView
 
     """
     Delete a DataHub View (Saved Filter)
     """
     updateView(
-      "The urn of the View to update"
-      urn: String!,
-      "Input required to updat an existing DataHub View"
-      input: UpdateViewInput!): DataHubView
+        "The urn of the View to update"
+        urn: String!,
+        "Input required to updat an existing DataHub View"
+        input: UpdateViewInput!): DataHubView
 
     """
     Delete a DataHub View (Saved Filter)
     """
     deleteView(
-      "The urn of the View to delete"
-      urn: String!): Boolean
+        "The urn of the View to delete"
+        urn: String!): Boolean
 
     """
     Update lineage for an entity
@@ -629,40 +629,40 @@ type Mutation {
     Create a new Query
     """
     createQuery(
-      "Inputs required to create a new Query."
-      input: CreateQueryInput!): QueryEntity
+        "Inputs required to create a new Query."
+        input: CreateQueryInput!): QueryEntity
 
     """
     Update an existing Query
     """
     updateQuery(
-      "The urn identifier for the query to update."
-      urn: String!,
-      "Inputs required to update a Query."
-      input: UpdateQueryInput!): QueryEntity
+        "The urn identifier for the query to update."
+        urn: String!,
+        "Inputs required to update a Query."
+        input: UpdateQueryInput!): QueryEntity
 
     """
     Delete a Query by urn. This requires the 'Edit Queries' Metadata Privilege.
     """
     deleteQuery(
-      "Urn of the query to remove."
-      urn: String!): Boolean
+        "Urn of the query to remove."
+        urn: String!): Boolean
 
     """
     Create a new Data Product
     """
     createDataProduct(
-      "Inputs required to create a new DataProduct."
-      input: CreateDataProductInput!): DataProduct
+        "Inputs required to create a new DataProduct."
+        input: CreateDataProductInput!): DataProduct
 
     """
     Update a Data Product
     """
     updateDataProduct(
-      "The urn identifier for the Data Product to update."
-      urn: String!,
-      "Inputs required to create a new DataProduct."
-      input: UpdateDataProductInput!): DataProduct
+        "The urn identifier for the Data Product to update."
+        urn: String!,
+        "Inputs required to create a new DataProduct."
+        input: UpdateDataProductInput!): DataProduct
 
     """
     Delete a DataProduct by urn.
@@ -751,10 +751,10 @@ interface Entity {
 A Metadata Entity which is browsable, or has browse paths.
 """
 interface BrowsableEntity {
-  """
-  The browse paths corresponding to an entity. If no Browse Paths have been generated before, this will be null.
-  """
-  browsePaths: [BrowsePath!]
+    """
+    The browse paths corresponding to an entity. If no Browse Paths have been generated before, this will be null.
+    """
+    browsePaths: [BrowsePath!]
 }
 
 """
@@ -976,7 +976,13 @@ enum EntityType {
 Input for the get entity counts endpoint
 """
 input EntityCountInput {
+
     types: [EntityType!]
+
+    """
+    Optional - A View to apply when generating results
+    """
+    viewUrn: String
 }
 
 """
@@ -1016,25 +1022,25 @@ input LineageInput {
 Input for the list relationships field of an Entity
 """
 input RelationshipsInput {
-  """
-  The types of relationships to query, representing an OR
-  """
-  types: [String!]!
+    """
+    The types of relationships to query, representing an OR
+    """
+    types: [String!]!
 
-  """
-  The direction of the relationship, either incoming or outgoing from the source entity
-  """
-  direction: RelationshipDirection!
+    """
+    The direction of the relationship, either incoming or outgoing from the source entity
+    """
+    direction: RelationshipDirection!
 
-  """
-  The starting offset of the result set
-  """
-  start: Int
+    """
+    The starting offset of the result set
+    """
+    start: Int
 
-  """
-  The number of results to be returned
-  """
-  count: Int
+    """
+    The number of results to be returned
+    """
+    count: Int
 }
 
 """
@@ -1042,25 +1048,25 @@ A list of relationship information associated with a source Entity
 """
 type EntityRelationshipsResult {
 
-  """
-  Start offset of the result set
-  """
-  start: Int
+    """
+    Start offset of the result set
+    """
+    start: Int
 
-  """
-  Number of results in the returned result set
-  """
-  count: Int
+    """
+    Number of results in the returned result set
+    """
+    count: Int
 
-  """
-  Total number of results in the result set
-  """
-  total: Int
+    """
+    Total number of results in the result set
+    """
+    total: Int
 
-  """
-  Relationships in the result set
-  """
-  relationships: [EntityRelationship!]!
+    """
+    Relationships in the result set
+    """
+    relationships: [EntityRelationship!]!
 }
 
 """
@@ -1183,15 +1189,15 @@ enum LineageDirection {
 Direction between a source and destination node
 """
 enum RelationshipDirection {
-  """
-  A directed edge pointing at the source Entity
-  """
-  INCOMING,
+    """
+    A directed edge pointing at the source Entity
+    """
+    INCOMING,
 
-  """
-  A directed edge pointing at the destination Entity
-  """
-  OUTGOING
+    """
+    A directed edge pointing at the destination Entity
+    """
+    OUTGOING
 }
 
 """
@@ -2585,65 +2591,65 @@ type Container implements Entity {
 Read-only properties that originate in the source data platform
 """
 type ContainerProperties {
-  """
-  Display name of the Container
-  """
-  name: String!
+    """
+    Display name of the Container
+    """
+    name: String!
 
-  """
-  System description of the Container
-  """
-  description: String
+    """
+    System description of the Container
+    """
+    description: String
 
-  """
-  Custom properties of the Container
-  """
-  customProperties: [CustomPropertiesEntry!]
+    """
+    Custom properties of the Container
+    """
+    customProperties: [CustomPropertiesEntry!]
 
-  """
-  Native platform URL of the Container
-  """
-  externalUrl: String
+    """
+    Native platform URL of the Container
+    """
+    externalUrl: String
 
-  """
-  Fully-qualified name of the Container
-  """
-  qualifiedName: String
+    """
+    Fully-qualified name of the Container
+    """
+    qualifiedName: String
 }
 
 """
 Read-write properties that originate in DataHub
 """
 type ContainerEditableProperties {
-  """
-  DataHub description of the Container
-  """
-  description: String
+    """
+    DataHub description of the Container
+    """
+    description: String
 }
 
 """
 Input required to fetch the entities inside of a container.
 """
 input ContainerEntitiesInput {
-  """
-  Optional query filter for particular entities inside the container
-  """
-  query: String
+    """
+    Optional query filter for particular entities inside the container
+    """
+    query: String
 
-  """
-  The offset of the result set
-  """
-  start: Int
+    """
+    The offset of the result set
+    """
+    start: Int
 
-  """
-  The number of entities to include in result set
-  """
-  count: Int
+    """
+    The number of entities to include in result set
+    """
+    count: Int
 
-  """
-  Optional Facet filters to apply to the result set
-  """
-  filters: [FacetFilterInput!]
+    """
+    Optional Facet filters to apply to the result set
+    """
+    filters: [FacetFilterInput!]
 }
 
 """
@@ -3176,20 +3182,20 @@ enum SchemaFieldDataType {
 Properties about a Dataset of type view
 """
 type ViewProperties {
-  """
-  Whether the view is materialized or not
-  """
-  materialized: Boolean!
+    """
+    Whether the view is materialized or not
+    """
+    materialized: Boolean!
 
-  """
-  The logic associated with the view, most commonly a SQL statement
-  """
-  logic: String!
+    """
+    The logic associated with the view, most commonly a SQL statement
+    """
+    logic: String!
 
-  """
-  The language in which the view logic is written, for example SQL
-  """
-  language: String!
+    """
+    The language in which the view logic is written, for example SQL
+    """
+    language: String!
 }
 
 
@@ -3523,10 +3529,10 @@ enum OwnershipType {
 The state of a CorpUser
 """
 enum CorpUserStatus {
-  """
-  A User that has been provisioned and logged in
-  """
-  ACTIVE
+    """
+    A User that has been provisioned and logged in
+    """
+    ACTIVE
 }
 
 """
@@ -4063,50 +4069,50 @@ type CorpGroupProperties {
 Additional read write properties about a group
 """
 type CorpGroupEditableProperties {
-  """
-  DataHub description of the group
-  """
-  description: String
+    """
+    DataHub description of the group
+    """
+    description: String
 
-  """
-  Slack handle for the group
-  """
-  slack: String
+    """
+    Slack handle for the group
+    """
+    slack: String
 
-  """
-  Email address for the group
-  """
-  email: String
+    """
+    Email address for the group
+    """
+    email: String
 
-  """ 
-  A URL which points to a picture which user wants to set as a profile photo
-  """
-  pictureLink: String
+    """
+    A URL which points to a picture which user wants to set as a profile photo
+    """
+    pictureLink: String
 }
 
 """
 Arguments provided to update a CorpGroup Entity
 """
 input CorpGroupUpdateInput {
-  """
-  DataHub description of the group
-  """
-  description: String
+    """
+    DataHub description of the group
+    """
+    description: String
 
-  """
-  Slack handle for the group
-  """
-  slack: String
+    """
+    Slack handle for the group
+    """
+    slack: String
 
-  """
-  Email address for the group
-  """
-  email: String
+    """
+    Email address for the group
+    """
+    email: String
 
-  """
-  A URL which points to a picture which user wants to set as a profile photo
-  """
-  pictureLink: String
+    """
+    A URL which points to a picture which user wants to set as a profile photo
+    """
+    pictureLink: String
 }
 
 """
@@ -4217,35 +4223,35 @@ Additional read write Tag properties
 Deprecated! Replaced by TagProperties.
 """
 type EditableTagProperties {
-  """
-  A display name for the Tag
-  """
-  name: String
+    """
+    A display name for the Tag
+    """
+    name: String
 
-  """
-  A description of the Tag
-  """
-  description: String
+    """
+    A description of the Tag
+    """
+    description: String
 }
 
 """
 Properties for a DataHub Tag
 """
 type TagProperties {
-  """
-  A display name for the Tag
-  """
-  name: String!
+    """
+    A display name for the Tag
+    """
+    name: String!
 
-  """
-  A description of the Tag
-  """
-  description: String
+    """
+    A description of the Tag
+    """
+    description: String
 
-  """
-  An optional RGB hex code for a Tag color, e.g. #FFFFFF
-  """
-  colorHex: String
+    """
+    An optional RGB hex code for a Tag color, e.g. #FFFFFF
+    """
+    colorHex: String
 }
 
 
@@ -4287,9 +4293,9 @@ type VersionTag {
 Glossary Terms attached to a particular Metadata Entity
 """
 type GlossaryTerms {
-     """
-     The set of glossary terms attached to the Metadata Entity
-     """
+    """
+    The set of glossary terms attached to the Metadata Entity
+    """
     terms: [GlossaryTermAssociation!]
 }
 
@@ -4639,20 +4645,20 @@ input TagUpdateInput {
 Input required to create a new Tag
 """
 input CreateTagInput {
-  """
-  Optional! A custom id to use as the primary key identifier for the Tag. If not provided, a random UUID will be generated as the id.
-  """
-  id: String
+    """
+    Optional! A custom id to use as the primary key identifier for the Tag. If not provided, a random UUID will be generated as the id.
+    """
+    id: String
 
-  """
-  Display name for the Tag
-  """
-  name: String!
+    """
+    Display name for the Tag
+    """
+    name: String!
 
-  """
-  Optional description for the Tag
-  """
-  description: String
+    """
+    Optional description for the Tag
+    """
+    description: String
 }
 
 """
@@ -4662,7 +4668,7 @@ input OwnershipUpdate {
     """
     The updated list of owners
     """
-   owners: [OwnerUpdate!]!
+    owners: [OwnerUpdate!]!
 }
 
 """
@@ -6754,95 +6760,95 @@ enum TimeRange {
 A Dataset Profile associated with a Dataset, containing profiling statistics about the Dataset
 """
 type DatasetProfile implements TimeSeriesAspect {
-  """
-  The time at which the profile was reported
-  """
-  timestampMillis: Long!
+    """
+    The time at which the profile was reported
+    """
+    timestampMillis: Long!
 
-  """
-  An optional row count of the Dataset
-  """
-  rowCount: Long
+    """
+    An optional row count of the Dataset
+    """
+    rowCount: Long
 
-  """
-  An optional column count of the Dataset
-  """
-  columnCount: Long
+    """
+    An optional column count of the Dataset
+    """
+    columnCount: Long
 
-  """
-  The storage size in bytes
-  """
-  sizeInBytes: Long
+    """
+    The storage size in bytes
+    """
+    sizeInBytes: Long
 
-  """
-  An optional set of per field statistics obtained in the profile
-  """
-  fieldProfiles: [DatasetFieldProfile!]
+    """
+    An optional set of per field statistics obtained in the profile
+    """
+    fieldProfiles: [DatasetFieldProfile!]
 
-  """
-  Information about the partition that was profiled
-  """
-  partitionSpec: PartitionSpec
+    """
+    Information about the partition that was profiled
+    """
+    partitionSpec: PartitionSpec
 }
 
 """
 An individual Dataset Field Profile
 """
 type DatasetFieldProfile {
-  """
-  The standardized path of the field
-  """
-	fieldPath: String!
+    """
+    The standardized path of the field
+    """
+    fieldPath: String!
 
-  """
-  The unique value count for the field across the Dataset
-  """
-	uniqueCount: Long
+    """
+    The unique value count for the field across the Dataset
+    """
+    uniqueCount: Long
 
-  """
-  The proportion of rows with unique values across the Dataset
-  """
-	uniqueProportion: Float
+    """
+    The proportion of rows with unique values across the Dataset
+    """
+    uniqueProportion: Float
 
-  """
-  The number of NULL row values across the Dataset
-  """
-	nullCount: Long
+    """
+    The number of NULL row values across the Dataset
+    """
+    nullCount: Long
 
-  """
-  The proportion of rows with NULL values across the Dataset
-  """
-	nullProportion: Float
+    """
+    The proportion of rows with NULL values across the Dataset
+    """
+    nullProportion: Float
 
-  """
-  The min value for the field
-  """
-	min: String
+    """
+    The min value for the field
+    """
+    min: String
 
-  """
-  The max value for the field
-  """
-	max: String
+    """
+    The max value for the field
+    """
+    max: String
 
-  """
-  The mean value for the field
-  """
-	mean: String
+    """
+    The mean value for the field
+    """
+    mean: String
 
-  """
-  The median value for the field
-  """
-	median: String
+    """
+    The median value for the field
+    """
+    median: String
 
-  """
-  The standard deviation for the field
-  """
-	stdev: String
+    """
+    The standard deviation for the field
+    """
+    stdev: String
 
-  """
-  A set of sample values for the field
-  """
-	sampleValues: [String!]
+    """
+    A set of sample values for the field
+    """
+    sampleValues: [String!]
 }
 
 """
@@ -6850,20 +6856,20 @@ Information about the partition being profiled
 """
 type PartitionSpec {
 
-  """
-  The partition type
-  """
-  type: PartitionType!
+    """
+    The partition type
+    """
+    type: PartitionType!
 
-  """
-  The partition identifier
-  """
-  partition: String
+    """
+    The partition identifier
+    """
+    partition: String
 
-  """
-  The optional time window partition information - required if type is TIMESTAMP_FIELD.
-  """
-  timePartition: TimeWindow
+    """
+    The optional time window partition information - required if type is TIMESTAMP_FIELD.
+    """
+    timePartition: TimeWindow
 }
 
 enum PartitionType {
@@ -6876,15 +6882,15 @@ enum PartitionType {
 A time window with a finite start and end time
 """
 type TimeWindow {
-  """
-  The start time of the time window
-  """
-  startTimeMillis: Long!
+    """
+    The start time of the time window
+    """
+    startTimeMillis: Long!
 
-  """
-  The end time of the time window
-  """
-  durationMillis: Long!
+    """
+    The end time of the time window
+    """
+    durationMillis: Long!
 }
 
 """
@@ -7013,65 +7019,65 @@ type DatasetAssertionInfo {
 A Dataset schema field (i.e. column)
 """
 type SchemaFieldRef {
-  """
-  A schema field urn
-  """
-  urn: String!
+    """
+    A schema field urn
+    """
+    urn: String!
 
-  """
-  A schema field path
-  """
-  path: String!
+    """
+    A schema field path
+    """
+    path: String!
 }
 
 """
 An event representing an event in the assertion evaluation lifecycle.
 """
 type AssertionRunEvent implements TimeSeriesAspect {
-  """
-  The time at which the assertion was evaluated
-  """
-  timestampMillis: Long!
+    """
+    The time at which the assertion was evaluated
+    """
+    timestampMillis: Long!
 
-  """
-  Urn of assertion which is evaluated
-  """
-  assertionUrn: String!
+    """
+    Urn of assertion which is evaluated
+    """
+    assertionUrn: String!
 
-  """
-  Urn of entity on which the assertion is applicable
-  """
-  asserteeUrn: String!
+    """
+    Urn of entity on which the assertion is applicable
+    """
+    asserteeUrn: String!
 
-  """
-  Native (platform-specific) identifier for this run
-  """
-  runId: String!
+    """
+    Native (platform-specific) identifier for this run
+    """
+    runId: String!
 
-  """
-  The status of the assertion run as per this timeseries event.
-  """
-  status: AssertionRunStatus!
+    """
+    The status of the assertion run as per this timeseries event.
+    """
+    status: AssertionRunStatus!
 
-  """
-  Specification of the batch which this run is evaluating
-  """
-  batchSpec: BatchSpec
+    """
+    Specification of the batch which this run is evaluating
+    """
+    batchSpec: BatchSpec
 
-  """
-  Information about the partition that was evaluated
-  """
-  partitionSpec: PartitionSpec
+    """
+    Information about the partition that was evaluated
+    """
+    partitionSpec: PartitionSpec
 
-  """
-  Runtime parameters of evaluation
-  """
-  runtimeContext: [StringMapEntry!]
+    """
+    Runtime parameters of evaluation
+    """
+    runtimeContext: [StringMapEntry!]
 
-  """
-  Results of assertion, present if the status is COMPLETE
-  """
-  result: AssertionResult
+    """
+    Results of assertion, present if the status is COMPLETE
+    """
+    result: AssertionResult
 
 }
 
@@ -7323,65 +7329,65 @@ enum AssertionStdOperator {
 Parameters for AssertionStdOperators
 """
 type AssertionStdParameters {
-  """
-  The value parameter of an assertion
-  """
-  value: AssertionStdParameter
+    """
+    The value parameter of an assertion
+    """
+    value: AssertionStdParameter
 
-  """
-  The maxValue parameter of an assertion
-  """
-  maxValue: AssertionStdParameter
+    """
+    The maxValue parameter of an assertion
+    """
+    maxValue: AssertionStdParameter
 
-  """
-  The minValue parameter of an assertion
-  """
-  minValue: AssertionStdParameter
+    """
+    The minValue parameter of an assertion
+    """
+    minValue: AssertionStdParameter
 }
 
 """
 Parameter for AssertionStdOperator.
 """
 type AssertionStdParameter {
-  """
-  The parameter value
-  """
-  value: String!
+    """
+    The parameter value
+    """
+    value: String!
 
-  """
-  The type of the parameter
-  """
-  type: AssertionStdParameterType!
+    """
+    The type of the parameter
+    """
+    type: AssertionStdParameterType!
 }
 
 """
 The type of an AssertionStdParameter
 """
 enum AssertionStdParameterType {
-  """
-  A string value
-  """
-  STRING
+    """
+    A string value
+    """
+    STRING
 
-  """
-  A numeric value
-  """
-  NUMBER
+    """
+    A numeric value
+    """
+    NUMBER
 
-  """
-  A list of values. When used, the value should be formatted as a serialized JSON array.
-  """
-  LIST
+    """
+    A list of values. When used, the value should be formatted as a serialized JSON array.
+    """
+    LIST
 
-  """
-  A set of values. When used, the value should be formatted as a serialized JSON array.
-  """
-  SET
+    """
+    A set of values. When used, the value should be formatted as a serialized JSON array.
+    """
+    SET
 
-  """
-  A value of unknown type
-  """
-  UNKNOWN
+    """
+    A value of unknown type
+    """
+    UNKNOWN
 }
 
 """
@@ -7420,50 +7426,50 @@ enum AssertionType {
 Result returned when fetching run events for an assertion.
 """
 type AssertionRunEventsResult {
-  """
-  The total number of run events returned
-  """
-  total: Int!
+    """
+    The total number of run events returned
+    """
+    total: Int!
 
-  """
-  The number of failed run events
-  """
-  failed: Int!
+    """
+    The number of failed run events
+    """
+    failed: Int!
 
-  """
-  The number of succeeded run events
-  """
-  succeeded: Int!
+    """
+    The number of succeeded run events
+    """
+    succeeded: Int!
 
-  """
-  The run events themselves
-  """
-  runEvents: [AssertionRunEvent!]!
+    """
+    The run events themselves
+    """
+    runEvents: [AssertionRunEvent!]!
 }
 
 """
 A list of Assertions Associated with an Entity
 """
 type EntityAssertionsResult {
-  """
-  The starting offset of the result set returned
-  """
-  start: Int!
+    """
+    The starting offset of the result set returned
+    """
+    start: Int!
 
-  """
-  The number of assertions in the returned result set
-  """
-  count: Int!
+    """
+    The number of assertions in the returned result set
+    """
+    count: Int!
 
-  """
-  The total number of assertions in the result set
-  """
-  total: Int!
+    """
+    The total number of assertions in the result set
+    """
+    total: Int!
 
-  """
-  The assertions themselves
-  """
-  assertions: [Assertion!]!
+    """
+    The assertions themselves
+    """
+    assertions: [Assertion!]!
 }
 
 """
@@ -7882,15 +7888,15 @@ input ResourceRefInput {
 Entities that are able to own other entities
 """
 enum OwnerEntityType {
-  """
-  A corp user owner
-  """
-  CORP_USER,
+    """
+    A corp user owner
+    """
+    CORP_USER,
 
-  """
-  A corp group owner
-  """
-  CORP_GROUP
+    """
+    A corp group owner
+    """
+    CORP_GROUP
 }
 
 """
@@ -8200,55 +8206,55 @@ input BatchSetDomainInput {
 Input provided when creating or updating an Access Policy
 """
 input PolicyUpdateInput {
-  """
-  The Policy Type
-  """
-  type: PolicyType!
+    """
+    The Policy Type
+    """
+    type: PolicyType!
 
-  """
-  The Policy name
-  """
-  name: String!
+    """
+    The Policy name
+    """
+    name: String!
 
-  """
-  The Policy state
-  """
-  state: PolicyState!
+    """
+    The Policy state
+    """
+    state: PolicyState!
 
-  """
-  A Policy description
-  """
-  description: String
+    """
+    A Policy description
+    """
+    description: String
 
-  """
-  The set of resources that the Policy privileges apply to
-  """
-  resources: ResourceFilterInput
+    """
+    The set of resources that the Policy privileges apply to
+    """
+    resources: ResourceFilterInput
 
-  """
-  The set of privileges that the Policy grants
-  """
-  privileges: [String!]!
+    """
+    The set of privileges that the Policy grants
+    """
+    privileges: [String!]!
 
-  """
-  The set of actors that the Policy privileges are granted to
-  """
-  actors: ActorFilterInput!
+    """
+    The set of actors that the Policy privileges are granted to
+    """
+    actors: ActorFilterInput!
 }
 
 """
 Input required to add members to a native DataHub group
 """
 input AddNativeGroupMembersInput {
-  """
-  The group to add members to
-  """
-  groupUrn: String!
+    """
+    The group to add members to
+    """
+    groupUrn: String!
 
-  """
-  The members to add to the group
-  """
-  userUrns: [String!]!
+    """
+    The members to add to the group
+    """
+    userUrns: [String!]!
 }
 
 """
@@ -8300,36 +8306,36 @@ input RemoveGroupMembersInput {
 The type of the Access Policy
 """
 enum PolicyType {
-  """
-  An access policy that grants privileges pertaining to Metadata Entities
-  """
-  METADATA
+    """
+    An access policy that grants privileges pertaining to Metadata Entities
+    """
+    METADATA
 
-  """
-  An access policy that grants top level administrative privileges pertaining to the DataHub Platform itself
-  """
-  PLATFORM
+    """
+    An access policy that grants top level administrative privileges pertaining to the DataHub Platform itself
+    """
+    PLATFORM
 }
 
 """
 The state of an Access Policy
 """
 enum PolicyState {
-  """
-  A Policy that has not been officially created, but in progress
-  Currently unused
-  """
-  DRAFT
+    """
+    A Policy that has not been officially created, but in progress
+    Currently unused
+    """
+    DRAFT
 
-  """
-  A Policy that is active and being enforced
-  """
-  ACTIVE
+    """
+    A Policy that is active and being enforced
+    """
+    ACTIVE
 
-  """
-  A Policy that is not active or being enforced
-  """
-  INACTIVE
+    """
+    A Policy that is not active or being enforced
+    """
+    INACTIVE
 }
 
 """
@@ -8388,450 +8394,450 @@ type Policy {
 An DataHub Platform Access Policy -  Policies determine who can perform what actions against which resources on the platform
 """
 type DataHubPolicy implements Entity {
-  """
-  The primary key of the Policy
-  """
-  urn: String!
+    """
+    The primary key of the Policy
+    """
+    urn: String!
 
-  """
-  The standard Entity Type
-  """
-  type: EntityType!
+    """
+    The standard Entity Type
+    """
+    type: EntityType!
 
-  """
-  Granular API for querying edges extending from the Role
-  """
-  relationships(input: RelationshipsInput!): EntityRelationshipsResult
+    """
+    Granular API for querying edges extending from the Role
+    """
+    relationships(input: RelationshipsInput!): EntityRelationshipsResult
 
-  """
-  The type of the Policy
-  """
-  policyType: PolicyType!
+    """
+    The type of the Policy
+    """
+    policyType: PolicyType!
 
-  """
-  The name of the Policy
-  """
-  name: String!
+    """
+    The name of the Policy
+    """
+    name: String!
 
-  """
-  The present state of the Policy
-  """
-  state: PolicyState!
+    """
+    The present state of the Policy
+    """
+    state: PolicyState!
 
-  """
-  The description of the Policy
-  """
-  description: String
+    """
+    The description of the Policy
+    """
+    description: String
 
-  """
-  The resources that the Policy privileges apply to
-  """
-  resources: ResourceFilter
+    """
+    The resources that the Policy privileges apply to
+    """
+    resources: ResourceFilter
 
-  """
-  The privileges that the Policy grants
-  """
-  privileges: [String!]!
+    """
+    The privileges that the Policy grants
+    """
+    privileges: [String!]!
 
-  """
-  The actors that the Policy grants privileges to
-  """
-  actors: ActorFilter!
+    """
+    The actors that the Policy grants privileges to
+    """
+    actors: ActorFilter!
 
-  """
-  Whether the Policy is editable, ie system policies, or not
-  """
-  editable: Boolean!
+    """
+    Whether the Policy is editable, ie system policies, or not
+    """
+    editable: Boolean!
 }
 
 """
 The resources that a DataHub Access Policy applies to
 """
 type ResourceFilter {
-  """
-  The type of the resource the policy should apply to Not required because in the future we want to support filtering by type OR by domain
-  """
-  type: String
+    """
+    The type of the resource the policy should apply to Not required because in the future we want to support filtering by type OR by domain
+    """
+    type: String
 
-  """
-  A list of specific resource urns to apply the filter to
-  """
-  resources: [String!]
+    """
+    A list of specific resource urns to apply the filter to
+    """
+    resources: [String!]
 
-  """
-  Whether of not to apply the filter to all resources of the type
-  """
-  allResources: Boolean
+    """
+    Whether of not to apply the filter to all resources of the type
+    """
+    allResources: Boolean
 
-  """
-  Whether of not to apply the filter to all resources of the type
-  """
-  filter: PolicyMatchFilter
+    """
+    Whether of not to apply the filter to all resources of the type
+    """
+    filter: PolicyMatchFilter
 }
 
 """
 The actors that a DataHub Access Policy applies to
 """
 type ActorFilter {
-  """
-  A disjunctive set of users to apply the policy to
-  """
-  users: [String!]
+    """
+    A disjunctive set of users to apply the policy to
+    """
+    users: [String!]
 
-  """
-  A disjunctive set of groups to apply the policy to
-  """
-  groups: [String!]
+    """
+    A disjunctive set of groups to apply the policy to
+    """
+    groups: [String!]
 
-  """
-  A disjunctive set of roles to apply the policy to
-  """
-  roles: [String!]
+    """
+    A disjunctive set of roles to apply the policy to
+    """
+    roles: [String!]
 
-  """
-  Whether the filter should return TRUE for owners of a particular resource
-  Only applies to policies of type METADATA, which have a resource associated with them
-  """
-  resourceOwners: Boolean!
+    """
+    Whether the filter should return TRUE for owners of a particular resource
+    Only applies to policies of type METADATA, which have a resource associated with them
+    """
+    resourceOwners: Boolean!
 
-  """
-  Set of OwnershipTypes to apply the policy to (if resourceOwners field is set to True)
-  """
-  resourceOwnersTypes: [String!]
+    """
+    Set of OwnershipTypes to apply the policy to (if resourceOwners field is set to True)
+    """
+    resourceOwnersTypes: [String!]
 
-  """
-  Set of OwnershipTypes to apply the policy to (if resourceOwners field is set to True), resolved.
-  """
-  resolvedOwnershipTypes: [OwnershipTypeEntity!]
+    """
+    Set of OwnershipTypes to apply the policy to (if resourceOwners field is set to True), resolved.
+    """
+    resolvedOwnershipTypes: [OwnershipTypeEntity!]
 
-  """
-  Whether the filter should apply to all users
-  """
-  allUsers: Boolean!
+    """
+    Whether the filter should apply to all users
+    """
+    allUsers: Boolean!
 
-  """
-  Whether the filter should apply to all groups
-  """
-  allGroups: Boolean!
+    """
+    Whether the filter should apply to all groups
+    """
+    allGroups: Boolean!
 
-  """
-  The list of users on the Policy, resolved.
-  """
-  resolvedUsers: [CorpUser!]
+    """
+    The list of users on the Policy, resolved.
+    """
+    resolvedUsers: [CorpUser!]
 
-  """
-  The list of groups on the Policy, resolved.
-  """
-  resolvedGroups: [CorpGroup!]
+    """
+    The list of groups on the Policy, resolved.
+    """
+    resolvedGroups: [CorpGroup!]
 
-  """
-  The list of roles on the Policy, resolved.
-  """
-  resolvedRoles: [DataHubRole!]
+    """
+    The list of roles on the Policy, resolved.
+    """
+    resolvedRoles: [DataHubRole!]
 }
 
 """
 Filter object that encodes a complex filter logic with OR + AND
 """
 type PolicyMatchFilter {
-  """
-  List of criteria to apply
-  """
-  criteria: [PolicyMatchCriterion!]
+    """
+    List of criteria to apply
+    """
+    criteria: [PolicyMatchCriterion!]
 }
 
 """
 Criterion to define relationship between field and values
 """
 type PolicyMatchCriterion {
-  """
-  The name of the field that the criterion refers to
-  e.g. entity_type, entity_urn, domain
-  """
-  field: String!
+    """
+    The name of the field that the criterion refers to
+    e.g. entity_type, entity_urn, domain
+    """
+    field: String!
 
-  """
-  Values. Matches criterion if any one of the values matches condition (OR-relationship)
-  """
-  values: [PolicyMatchCriterionValue!]!
+    """
+    Values. Matches criterion if any one of the values matches condition (OR-relationship)
+    """
+    values: [PolicyMatchCriterionValue!]!
 
-  """
-  The name of the field that the criterion refers to
-  """
-  condition: PolicyMatchCondition!
+    """
+    The name of the field that the criterion refers to
+    """
+    condition: PolicyMatchCondition!
 }
 
 """
 Value in PolicyMatchCriterion with hydrated entity if value is urn
 """
 type PolicyMatchCriterionValue {
-  """
-  The value of the field to match
-  """
-  value: String!
+    """
+    The value of the field to match
+    """
+    value: String!
 
-  """
-  Hydrated entities of the above values. Only set if the value is an urn
-  """
-  entity: Entity
+    """
+    Hydrated entities of the above values. Only set if the value is an urn
+    """
+    entity: Entity
 }
 
 """
 Match condition
 """
 enum PolicyMatchCondition {
-  """
-  Whether the field matches the value
-  """
-  EQUALS
+    """
+    Whether the field matches the value
+    """
+    EQUALS
 }
 
 """
 Input required when creating or updating an Access Policies Determines which resources the Policy applies to
 """
 input ResourceFilterInput {
-  """
-  The type of the resource the policy should apply to
-  Not required because in the future we want to support filtering by type OR by domain
-  """
-  type: String
+    """
+    The type of the resource the policy should apply to
+    Not required because in the future we want to support filtering by type OR by domain
+    """
+    type: String
 
-  """
-  A list of specific resource urns to apply the filter to
-  """
-  resources: [String!]
+    """
+    A list of specific resource urns to apply the filter to
+    """
+    resources: [String!]
 
-  """
-  Whether of not to apply the filter to all resources of the type
-  """
-  allResources: Boolean
+    """
+    Whether of not to apply the filter to all resources of the type
+    """
+    allResources: Boolean
 
-  """
-  Whether of not to apply the filter to all resources of the type
-  """
-  filter: PolicyMatchFilterInput
+    """
+    Whether of not to apply the filter to all resources of the type
+    """
+    filter: PolicyMatchFilterInput
 }
 
 """
 Input required when creating or updating an Access Policies Determines which actors the Policy applies to
 """
 input ActorFilterInput {
-  """
-  A disjunctive set of users to apply the policy to
-  """
-  users: [String!]
+    """
+    A disjunctive set of users to apply the policy to
+    """
+    users: [String!]
 
-  """
-  A disjunctive set of groups to apply the policy to
-  """
-  groups: [String!]
+    """
+    A disjunctive set of groups to apply the policy to
+    """
+    groups: [String!]
 
-  """
-  Whether the filter should return TRUE for owners of a particular resource
-  Only applies to policies of type METADATA, which have a resource associated with them
-  """
-  resourceOwners: Boolean!
+    """
+    Whether the filter should return TRUE for owners of a particular resource
+    Only applies to policies of type METADATA, which have a resource associated with them
+    """
+    resourceOwners: Boolean!
 
-  """
-  Set of OwnershipTypes to apply the policy to (if resourceOwners field is set to True)
-  """
-  resourceOwnersTypes: [String!]
+    """
+    Set of OwnershipTypes to apply the policy to (if resourceOwners field is set to True)
+    """
+    resourceOwnersTypes: [String!]
 
-  """
-  Whether the filter should apply to all users
-  """
-  allUsers: Boolean!
+    """
+    Whether the filter should apply to all users
+    """
+    allUsers: Boolean!
 
-  """
-  Whether the filter should apply to all groups
-  """
-  allGroups: Boolean!
+    """
+    Whether the filter should apply to all groups
+    """
+    allGroups: Boolean!
 }
 
 """
 Filter object that encodes a complex filter logic with OR + AND
 """
 input PolicyMatchFilterInput {
-  """
-  List of criteria to apply
-  """
-  criteria: [PolicyMatchCriterionInput!]
+    """
+    List of criteria to apply
+    """
+    criteria: [PolicyMatchCriterionInput!]
 }
 
 """
 Criterion to define relationship between field and values
 """
 input PolicyMatchCriterionInput {
-  """
-  The name of the field that the criterion refers to
-  e.g. entity_type, entity_urn, domain
-  """
-  field: String!
+    """
+    The name of the field that the criterion refers to
+    e.g. entity_type, entity_urn, domain
+    """
+    field: String!
 
-  """
-  Values. Matches criterion if any one of the values matches condition (OR-relationship)
-  """
-  values: [String!]!
+    """
+    Values. Matches criterion if any one of the values matches condition (OR-relationship)
+    """
+    values: [String!]!
 
-  """
-  The name of the field that the criterion refers to
-  """
-  condition: PolicyMatchCondition!
+    """
+    The name of the field that the criterion refers to
+    """
+    condition: PolicyMatchCondition!
 }
 
 """
 Input required when listing DataHub Access Policies
 """
 input ListPoliciesInput {
-  """
-  The starting offset of the result set returned
-  """
-  start: Int
+    """
+    The starting offset of the result set returned
+    """
+    start: Int
 
-  """
-  The maximum number of Policies to be returned in the result set
-  """
-  count: Int
+    """
+    The maximum number of Policies to be returned in the result set
+    """
+    count: Int
 
-  """
-  Optional search query
-  """
-  query: String
+    """
+    Optional search query
+    """
+    query: String
 
-  """
-  A list of disjunctive criterion for the filter. (or operation to combine filters)
-  """
-  orFilters: [AndFilterInput!]
+    """
+    A list of disjunctive criterion for the filter. (or operation to combine filters)
+    """
+    orFilters: [AndFilterInput!]
 }
 
 """
 The result obtained when listing DataHub Access Policies
 """
 type ListPoliciesResult {
-  """
-  The starting offset of the result set returned
-  """
-  start: Int!
+    """
+    The starting offset of the result set returned
+    """
+    start: Int!
 
-  """
-  The number of Policies in the returned result set
-  """
-  count: Int!
+    """
+    The number of Policies in the returned result set
+    """
+    count: Int!
 
-  """
-  The total number of Policies in the result set
-  """
-  total: Int!
+    """
+    The total number of Policies in the result set
+    """
+    total: Int!
 
-  """
-  The Policies themselves
-  """
-  policies: [Policy!]!
+    """
+    The Policies themselves
+    """
+    policies: [Policy!]!
 }
 
 """
 Input for getting granted privileges
 """
 input GetGrantedPrivilegesInput {
-  """
-  Urn of the actor
-  """
-  actorUrn: String!
+    """
+    Urn of the actor
+    """
+    actorUrn: String!
 
-  """
-  Spec to identify resource. If empty, gets privileges granted to the actor
-  """
-  resourceSpec: ResourceSpec
+    """
+    Spec to identify resource. If empty, gets privileges granted to the actor
+    """
+    resourceSpec: ResourceSpec
 }
 
 """
 Spec to identify resource
 """
 input ResourceSpec {
-  """
-  Resource type
-  """
-  resourceType: EntityType!
+    """
+    Resource type
+    """
+    resourceType: EntityType!
 
-  """
-  Resource urn
-  """
-  resourceUrn: String!
+    """
+    Resource urn
+    """
+    resourceUrn: String!
 }
 
 """
 Object that encodes the privileges the actor has for a given resource
 """
 type Privileges {
-  """
-  Granted Privileges
-  """
-  privileges: [String!]!
+    """
+    Granted Privileges
+    """
+    privileges: [String!]!
 }
 
 """
 Input required when listing DataHub Users
 """
 input ListUsersInput {
-  """
-  The starting offset of the result set returned
-  """
-  start: Int
+    """
+    The starting offset of the result set returned
+    """
+    start: Int
 
-  """
-  The maximum number of Policies to be returned in the result set
-  """
-  count: Int
+    """
+    The maximum number of Policies to be returned in the result set
+    """
+    count: Int
 
-  """
-  Optional search query
-  """
-  query: String
+    """
+    Optional search query
+    """
+    query: String
 }
 
 """
 The result obtained when listing DataHub Users
 """
 type ListUsersResult {
-  """
-  The starting offset of the result set returned
-  """
-  start: Int!
+    """
+    The starting offset of the result set returned
+    """
+    start: Int!
 
-  """
-  The number of Policies in the returned result set
-  """
-  count: Int!
+    """
+    The number of Policies in the returned result set
+    """
+    count: Int!
 
-  """
-  The total number of Policies in the result set
-  """
-  total: Int!
+    """
+    The total number of Policies in the result set
+    """
+    total: Int!
 
-  """
-  The users themselves
-  """
-  users: [CorpUser!]!
+    """
+    The users themselves
+    """
+    users: [CorpUser!]!
 }
 
 """
 Input required when listing DataHub Groups
 """
 input ListGroupsInput {
-  """
-  The starting offset of the result set returned
-  """
-  start: Int
+    """
+    The starting offset of the result set returned
+    """
+    start: Int
 
-  """
-  The maximum number of Policies to be returned in the result set
-  """
-  count: Int
+    """
+    The maximum number of Policies to be returned in the result set
+    """
+    count: Int
 
-  """
-  Optional search query
-  """
-  query: String
+    """
+    Optional search query
+    """
+    query: String
 }
 
 type EntityCountResults {
@@ -8847,25 +8853,25 @@ type EntityCountResult {
 The result obtained when listing DataHub Groups
 """
 type ListGroupsResult {
-  """
-  The starting offset of the result set returned
-  """
-  start: Int!
+    """
+    The starting offset of the result set returned
+    """
+    start: Int!
 
-  """
-  The number of Policies in the returned result set
-  """
-  count: Int!
+    """
+    The number of Policies in the returned result set
+    """
+    count: Int!
 
-  """
-  The total number of Policies in the result set
-  """
-  total: Int!
+    """
+    The total number of Policies in the result set
+    """
+    total: Int!
 
-  """
-  The groups themselves
-  """
-  groups: [CorpGroup!]!
+    """
+    The groups themselves
+    """
+    groups: [CorpGroup!]!
 }
 
 """
@@ -8887,20 +8893,20 @@ type AuditStamp {
 Input for creating a new group
 """
 input CreateGroupInput {
-  """
-  Optional! A custom id to use as the primary key identifier for the group. If not provided, a random UUID will be generated as the id.
-  """
-  id: String
+    """
+    Optional! A custom id to use as the primary key identifier for the group. If not provided, a random UUID will be generated as the id.
+    """
+    id: String
 
-  """
-  The display name of the group
-  """
-  name: String!
+    """
+    The display name of the group
+    """
+    name: String!
 
-  """
-  The description of the group
-  """
-  description: String
+    """
+    The description of the group
+    """
+    description: String
 }
 
 """
@@ -9219,7 +9225,7 @@ type MLModelGroup implements EntityWithRelationships & Entity & BrowsableEntity 
 
 type MLModelGroupProperties {
 
-description: String
+    description: String
 
     createdAt: Long
 
@@ -9358,9 +9364,9 @@ type MLFeature implements EntityWithRelationships & Entity {
 }
 
 type MLHyperParam {
-name: String
+    name: String
 
-description: String
+    description: String
 
     value: String
 
@@ -9544,7 +9550,7 @@ type MLPrimaryKey implements EntityWithRelationships & Entity {
 
 type MLPrimaryKeyProperties {
 
-description: String
+    description: String
 
     dataType: MLFeatureDataType
 
@@ -9722,7 +9728,7 @@ type MLModelGroupEditableProperties {
 
 type MLFeatureTableProperties {
 
-description: String
+    description: String
 
     mlFeatures: [MLFeature]
 
@@ -10008,10 +10014,10 @@ type ResolvedAuditStamp {
 }
 
 type SubTypes {
-   """
+    """
     The sub-types that this entity implements. e.g. Datasets that are views will implement the "view" subtype
-   """
-   typeNames: [String!]
+    """
+    typeNames: [String!]
 }
 
 type DomainAssociation {
@@ -10111,115 +10117,115 @@ type ParentDomainsResult {
 Properties about a domain
 """
 type DomainProperties {
-  """
-  Display name of the domain
-  """
-  name: String!
+    """
+    Display name of the domain
+    """
+    name: String!
 
-  """
-  Description of the Domain
-  """
-  description: String
+    """
+    Description of the Domain
+    """
+    description: String
 }
 
 """
 Input required to fetch the entities inside of a Domain.
 """
 input DomainEntitiesInput {
-  """
-  Optional query filter for particular entities inside the domain
-  """
-  query: String
+    """
+    Optional query filter for particular entities inside the domain
+    """
+    query: String
 
-  """
-  The offset of the result set
-  """
-  start: Int
+    """
+    The offset of the result set
+    """
+    start: Int
 
-  """
-  The number of entities to include in result set
-  """
-  count: Int
+    """
+    The number of entities to include in result set
+    """
+    count: Int
 
-  """
-  Optional Facet filters to apply to the result set
-  """
-  filters: [FacetFilterInput!]
+    """
+    Optional Facet filters to apply to the result set
+    """
+    filters: [FacetFilterInput!]
 }
 
 """
 Input required to create a new Domain.
 """
 input CreateDomainInput {
-  """
-  Optional! A custom id to use as the primary key identifier for the domain. If not provided, a random UUID will be generated as the id.
-  """
-  id: String
+    """
+    Optional! A custom id to use as the primary key identifier for the domain. If not provided, a random UUID will be generated as the id.
+    """
+    id: String
 
-  """
-  Display name for the Domain
-  """
-  name: String!
+    """
+    Display name for the Domain
+    """
+    name: String!
 
-  """
-  Optional description for the Domain
-  """
-  description: String
+    """
+    Optional description for the Domain
+    """
+    description: String
 
-  """
-  Optional parent domain urn for the domain
-  """
-  parentDomain: String
+    """
+    Optional parent domain urn for the domain
+    """
+    parentDomain: String
 }
 
 """
 Input required when listing DataHub Domains
 """
 input ListDomainsInput {
-  """
-  The starting offset of the result set returned
-  """
-  start: Int
+    """
+    The starting offset of the result set returned
+    """
+    start: Int
 
-  """
-  The maximum number of Domains to be returned in the result set
-  """
-  count: Int
+    """
+    The maximum number of Domains to be returned in the result set
+    """
+    count: Int
 
-  """
-  Optional search query
-  """
-  query: String
+    """
+    Optional search query
+    """
+    query: String
 
-  """
-  Optional parent domain
-  """
-  parentDomain: String
+    """
+    Optional parent domain
+    """
+    parentDomain: String
 }
 
 """
 The result obtained when listing DataHub Domains
 """
 type ListDomainsResult {
-  """
-  The starting offset of the result set returned
-  """
-  start: Int!
+    """
+    The starting offset of the result set returned
+    """
+    start: Int!
 
-  """
-  The number of Domains in the returned result set
-  """
-  count: Int!
+    """
+    The number of Domains in the returned result set
+    """
+    count: Int!
 
-  """
-  The total number of Domains in the result set
-  """
-  total: Int!
+    """
+    The total number of Domains in the result set
+    """
+    total: Int!
 
-  """
-  The Domains themselves
-  """
-  domains: [Domain!]!
+    """
+    The Domains themselves
+    """
+    domains: [Domain!]!
 }
 
 """
@@ -10313,75 +10319,75 @@ input CreateGlossaryEntityInput {
 }
 
 enum HealthStatus {
-  """
-  The Asset is in a healthy state
-  """
-  PASS
+    """
+    The Asset is in a healthy state
+    """
+    PASS
 
-  """
-  The Asset is in a warning state
-  """
-  WARN
+    """
+    The Asset is in a warning state
+    """
+    WARN
 
-  """
-  The Asset is in a failing (unhealthy) state
-  """
-  FAIL
+    """
+    The Asset is in a failing (unhealthy) state
+    """
+    FAIL
 }
 
 """
 The type of the health status
 """
 enum HealthStatusType {
-  """
-  Assertions status
-  """
-  ASSERTIONS
+    """
+    Assertions status
+    """
+    ASSERTIONS
 
-  """
-  Incidents status
-  """
-  INCIDENTS
+    """
+    Incidents status
+    """
+    INCIDENTS
 }
 
 """
 The resolved Health of an Asset
 """
 type Health {
-  """
-  An enum representing the type of health indicator
-  """
-  type: HealthStatusType!
+    """
+    An enum representing the type of health indicator
+    """
+    type: HealthStatusType!
 
-  """
-  An enum representing the resolved Health status of an Asset
-  """
-  status: HealthStatus!
+    """
+    An enum representing the resolved Health status of an Asset
+    """
+    status: HealthStatus!
 
-  """
-  An optional message describing the resolved health status
-  """
-  message: String
+    """
+    An optional message describing the resolved health status
+    """
+    message: String
 
-  """
-  The causes responsible for the health status
-  """
-  causes: [String!]
+    """
+    The causes responsible for the health status
+    """
+    causes: [String!]
 }
 
 """
 String map entry input
 """
 input StringMapEntryInput {
-  """
-  The key of the map entry
-  """
-  key: String!
+    """
+    The key of the map entry
+    """
+    key: String!
 
-  """
-  The value fo the map entry
-  """
-  value: String
+    """
+    The value fo the map entry
+    """
+    value: String
 }
 
 """
@@ -10872,100 +10878,100 @@ type Media {
 The type of a DataHub View
 """
 enum DataHubViewType {
-  """
-  A personal view - e.g. saved filters
-  """
-  PERSONAL
+    """
+    A personal view - e.g. saved filters
+    """
+    PERSONAL
 
-  """
-  A global view, e.g. role view
-  """
-  GLOBAL
+    """
+    A global view, e.g. role view
+    """
+    GLOBAL
 }
 
 """
 An DataHub View - Filters that are applied across the application automatically.
 """
 type DataHubView implements Entity {
-  """
-  The primary key of the View
-  """
-  urn: String!
+    """
+    The primary key of the View
+    """
+    urn: String!
 
-  """
-  The standard Entity Type
-  """
-  type: EntityType!
+    """
+    The standard Entity Type
+    """
+    type: EntityType!
 
-  """
-  The type of the View
-  """
-  viewType: DataHubViewType!
+    """
+    The type of the View
+    """
+    viewType: DataHubViewType!
 
-  """
-  The name of the View
-  """
-  name: String!
+    """
+    The name of the View
+    """
+    name: String!
 
-  """
-  The description of the View
-  """
-  description: String
+    """
+    The description of the View
+    """
+    description: String
 
-  """
-  The definition of the View
-  """
-  definition: DataHubViewDefinition!
+    """
+    The definition of the View
+    """
+    definition: DataHubViewDefinition!
 
-  """
-  Granular API for querying edges extending from the View
-  """
-  relationships(input: RelationshipsInput!): EntityRelationshipsResult
+    """
+    Granular API for querying edges extending from the View
+    """
+    relationships(input: RelationshipsInput!): EntityRelationshipsResult
 }
 
 """
 An DataHub View Definition
 """
 type DataHubViewDefinition {
-  """
-  A set of filters to apply. If left empty, then ALL entity types are in scope.
-  """
-  entityTypes: [EntityType!]!
+    """
+    A set of filters to apply. If left empty, then ALL entity types are in scope.
+    """
+    entityTypes: [EntityType!]!
 
-  """
-  A set of filters to apply. If left empty, then no filters will be applied.
-  """
-  filter: DataHubViewFilter!
+    """
+    A set of filters to apply. If left empty, then no filters will be applied.
+    """
+    filter: DataHubViewFilter!
 }
 
 """
 A Logical Operator, AND or OR.
 """
 enum LogicalOperator {
-  """
-  An AND operator.
-  """
-  AND
+    """
+    An AND operator.
+    """
+    AND
 
-  """
-  An OR operator.
-  """
-  OR
+    """
+    An OR operator.
+    """
+    OR
 }
 
 """
 A DataHub View Filter. Note that
 """
 type DataHubViewFilter {
-  """
-  The operator used to combine the filters.
-  """
-  operator: LogicalOperator!
+    """
+    The operator used to combine the filters.
+    """
+    operator: LogicalOperator!
 
-  """
-  A set of filters combined using the operator. If left empty, then no filters will be applied.
-  """
-  filters: [FacetFilter!]!
+    """
+    A set of filters combined using the operator. If left empty, then no filters will be applied.
+    """
+    filters: [FacetFilter!]!
 }
 
 """
@@ -11067,30 +11073,30 @@ input CreateViewInput {
 Input required for creating a DataHub View Definition
 """
 input DataHubViewDefinitionInput {
-  """
-  A set of entity types that the view applies for. If left empty, then ALL entities will be in scope.
-  """
-  entityTypes: [EntityType!]!
+    """
+    A set of entity types that the view applies for. If left empty, then ALL entities will be in scope.
+    """
+    entityTypes: [EntityType!]!
 
-  """
-  A set of filters to apply.
-  """
-  filter: DataHubViewFilterInput!
+    """
+    A set of filters to apply.
+    """
+    filter: DataHubViewFilterInput!
 }
 
 """
 Input required for creating a DataHub View Definition
 """
 input DataHubViewFilterInput {
-  """
-  The operator used to combine the filters.
-  """
-  operator: LogicalOperator!
+    """
+    The operator used to combine the filters.
+    """
+    operator: LogicalOperator!
 
-  """
-  A set of filters combined via an operator. If left empty, then no filters will be applied.
-  """
-  filters: [FacetFilterInput!]!
+    """
+    A set of filters combined via an operator. If left empty, then no filters will be applied.
+    """
+    filters: [FacetFilterInput!]!
 }
 
 """
@@ -11117,11 +11123,11 @@ input UpdateViewInput {
 Input required to update a users settings.
 """
 input UpdateCorpUserViewsSettingsInput {
-  """
-  The URN of the View that serves as this user's personal default.
-  If not provided, any existing default view will be removed.
-  """
-  defaultView: String
+    """
+    The URN of the View that serves as this user's personal default.
+    If not provided, any existing default view will be removed.
+    """
+    defaultView: String
 }
 
 """
@@ -11138,300 +11144,300 @@ type Embed {
 Input required to set or clear information related to rendering a Data Asset inside of DataHub.
 """
 input UpdateEmbedInput {
-  """
-  The URN associated with the Data Asset to update. Only dataset, dashboard, and chart urns are currently supported.
-  """
-  urn: String!
+    """
+    The URN associated with the Data Asset to update. Only dataset, dashboard, and chart urns are currently supported.
+    """
+    urn: String!
 
-  """
-  Set or clear a URL used to render an embedded asset.
-  """
-  renderUrl: String
+    """
+    Set or clear a URL used to render an embedded asset.
+    """
+    renderUrl: String
 }
 
 """
 A query language / dialect.
 """
 enum QueryLanguage {
-  """
-  Standard ANSI SQL
-  """
-  SQL
+    """
+    Standard ANSI SQL
+    """
+    SQL
 }
 
 """
 The source of the query
 """
 enum QuerySource {
-  """
-  The query was provided manually, e.g. from the UI.
-  """
-  MANUAL
+    """
+    The query was provided manually, e.g. from the UI.
+    """
+    MANUAL
 
-  """
-  The query was extracted by the system, e.g. from a dashboard.
-  """
-  SYSTEM
+    """
+    The query was extracted by the system, e.g. from a dashboard.
+    """
+    SYSTEM
 }
 
 """
 An individual Query Statement
 """
 type QueryStatement {
-  """
-  The query statement value
-  """
-  value: String!
+    """
+    The query statement value
+    """
+    value: String!
 
-  """
-  The language for the Query Statement
-  """
-  language: QueryLanguage!
+    """
+    The language for the Query Statement
+    """
+    language: QueryLanguage!
 }
 
 """
 Properties about an individual Query
 """
 type QueryProperties {
-  """
-  The Query statement itself
-  """
-  statement: QueryStatement!
+    """
+    The Query statement itself
+    """
+    statement: QueryStatement!
 
-  """
-  The source of the Query
-  """
-  source: QuerySource!
+    """
+    The source of the Query
+    """
+    source: QuerySource!
 
-  """
-  The name of the Query
-  """
-  name: String
+    """
+    The name of the Query
+    """
+    name: String
 
-  """
-  The description of the Query
-  """
-  description: String
+    """
+    The description of the Query
+    """
+    description: String
 
-  """
-  An Audit Stamp corresponding to the creation of this resource
-  """
-  created: AuditStamp!
+    """
+    An Audit Stamp corresponding to the creation of this resource
+    """
+    created: AuditStamp!
 
-  """
-  An Audit Stamp corresponding to the update of this resource
-  """
-  lastModified: AuditStamp!
+    """
+    An Audit Stamp corresponding to the update of this resource
+    """
+    lastModified: AuditStamp!
 
-  """
-  The asset that this query originated from, e.g. a View, a dbt Model, etc.
-  """
-  origin: Entity
+    """
+    The asset that this query originated from, e.g. a View, a dbt Model, etc.
+    """
+    origin: Entity
 }
 
 """
 The subject for a Query
 """
 type QuerySubject {
-  """
-  The dataset which is the subject of the Query
-  """
-  dataset: Dataset!
+    """
+    The dataset which is the subject of the Query
+    """
+    dataset: Dataset!
 }
 
 """
 An individual Query
 """
 type QueryEntity implements Entity {
-  """
-  A primary key associated with the Query
-  """
-  urn: String!
+    """
+    A primary key associated with the Query
+    """
+    urn: String!
 
-  """
-  A standard Entity Type
-  """
-  type: EntityType!
+    """
+    A standard Entity Type
+    """
+    type: EntityType!
 
-  """
-  Properties about the Query
-  """
-  properties: QueryProperties
+    """
+    Properties about the Query
+    """
+    properties: QueryProperties
 
-  """
-  Subjects for the query
-  """
-  subjects: [QuerySubject!]
+    """
+    Subjects for the query
+    """
+    subjects: [QuerySubject!]
 
-  """
-  Granular API for querying edges extending from this entity
-  """
-  relationships(input: RelationshipsInput!): EntityRelationshipsResult
+    """
+    Granular API for querying edges extending from this entity
+    """
+    relationships(input: RelationshipsInput!): EntityRelationshipsResult
 
-  """
-  Platform from which the Query was detected
-  """
-  platform: DataPlatform
+    """
+    Platform from which the Query was detected
+    """
+    platform: DataPlatform
 }
 
 """
 Input required for creating a Query Statement
 """
 input QueryStatementInput {
-  """
-  The query text
-  """
-  value: String!
+    """
+    The query text
+    """
+    value: String!
 
-  """
-  The query language
-  """
-  language: QueryLanguage!
+    """
+    The query language
+    """
+    language: QueryLanguage!
 }
 
 """
 Input properties required for creating a Query
 """
 input CreateQueryPropertiesInput {
-  """
-  An optional display name for the Query
-  """
-  name: String
+    """
+    An optional display name for the Query
+    """
+    name: String
 
-  """
-  An optional description for the Query
-  """
-  description: String
+    """
+    An optional description for the Query
+    """
+    description: String
 
-  """
-  The Query contents
-  """
-  statement: QueryStatementInput!
+    """
+    The Query contents
+    """
+    statement: QueryStatementInput!
 }
 
 """
 Input required for creating a Query. For now, only datasets are supported.
 """
 input CreateQuerySubjectInput {
-  """
-  The urn of the dataset that is the subject of the query
-  """
-  datasetUrn: String!
+    """
+    The urn of the dataset that is the subject of the query
+    """
+    datasetUrn: String!
 }
 
 """
 Input required for creating a Query. Requires the 'Edit Queries' privilege for all query subjects.
 """
 input CreateQueryInput {
-  """
-  Properties about the Query
-  """
-  properties: CreateQueryPropertiesInput!
+    """
+    Properties about the Query
+    """
+    properties: CreateQueryPropertiesInput!
 
-  """
-  Subjects for the query
-  """
-  subjects: [CreateQuerySubjectInput!]!
+    """
+    Subjects for the query
+    """
+    subjects: [CreateQuerySubjectInput!]!
 }
 
 """
 Input properties required for creating a Query. Any non-null fields will be updated if provided.
 """
 input UpdateQueryPropertiesInput {
-  """
-  An optional display name for the Query
-  """
-  name: String
+    """
+    An optional display name for the Query
+    """
+    name: String
 
-  """
-  An optional description for the Query
-  """
-  description: String
+    """
+    An optional description for the Query
+    """
+    description: String
 
-  """
-  The Query contents
-  """
-  statement: QueryStatementInput
+    """
+    The Query contents
+    """
+    statement: QueryStatementInput
 }
 
 """
 Input required for creating a Query. For now, only datasets are supported.
 """
 input UpdateQuerySubjectInput {
-  """
-  The urn of the dataset that is the subject of the query
-  """
-  datasetUrn: String!
+    """
+    The urn of the dataset that is the subject of the query
+    """
+    datasetUrn: String!
 }
 
 """
 Input required for updating an existing Query. Requires the 'Edit Queries' privilege for all query subjects.
 """
 input UpdateQueryInput {
-  """
-  Properties about the Query
-  """
-  properties: UpdateQueryPropertiesInput
+    """
+    Properties about the Query
+    """
+    properties: UpdateQueryPropertiesInput
 
-  """
-  Subjects for the query
-  """
-  subjects: [UpdateQuerySubjectInput!]
+    """
+    Subjects for the query
+    """
+    subjects: [UpdateQuerySubjectInput!]
 }
 
 """
 Input required for listing query entities
 """
 input ListQueriesInput {
-  """
-  The starting offset of the result set returned
-  """
-  start: Int
+    """
+    The starting offset of the result set returned
+    """
+    start: Int
 
-  """
-  The maximum number of Queries to be returned in the result set
-  """
-  count: Int
+    """
+    The maximum number of Queries to be returned in the result set
+    """
+    count: Int
 
-  """
-  A raw search query
-  """
-  query: String
+    """
+    A raw search query
+    """
+    query: String
 
-  """
-  An optional source for the query
-  """
-  source: QuerySource
+    """
+    An optional source for the query
+    """
+    source: QuerySource
 
-  """
-  An optional Urn for the parent dataset that the query is associated with.
-  """
-  datasetUrn: String
+    """
+    An optional Urn for the parent dataset that the query is associated with.
+    """
+    datasetUrn: String
 }
 
 """
 Results when listing entity queries
 """
 type ListQueriesResult {
-  """
-  The starting offset of the result set
-  """
-  start: Int!
+    """
+    The starting offset of the result set
+    """
+    start: Int!
 
-  """
-  The number of results to be returned
-  """
-  count: Int!
+    """
+    The number of results to be returned
+    """
+    count: Int!
 
-  """
-  The total number of results in the result set
-  """
-  total: Int!
+    """
+    The total number of results in the result set
+    """
+    total: Int!
 
-  """
-  The Queries themselves
-  """
-  queries: [QueryEntity!]!
+    """
+    The Queries themselves
+    """
+    queries: [QueryEntity!]!
 }
 
 """
@@ -11778,10 +11784,10 @@ type DatasetFilter {
 Type of partition
 """
 enum DatasetFilterType {
-  """
-  Use a SQL string to apply the filter
-  """
-  SQL
+    """
+    Use a SQL string to apply the filter
+    """
+    SQL
 }
 
 
