@@ -226,7 +226,9 @@ class SupersetSource(StatefulIngestionSourceBase):
         ).json()
         sqlalchemy_uri = database_response.get("result", {}).get("sqlalchemy_uri")
         if sqlalchemy_uri is None:
-            platform_name = database_response.get("result", {}).get("backend", "external")
+            platform_name = database_response.get("result", {}).get(
+                "backend", "external"
+            )
         else:
             platform_name = get_platform_from_sqlalchemy_uri(sqlalchemy_uri)
         if platform_name == "awsathena":
