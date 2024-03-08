@@ -58,7 +58,22 @@ public class StreamingHttpClient {
 
     client
         .sendAsync(requestBuilder.build(), HttpResponse.BodyHandlers.ofInputStream())
-        .thenApply(HttpResponse::body)
+        .thenApply(
+            response -> {
+              if (response.statusCode() != 200) {
+                errorChunkProcessor.accept(
+                    List.of(
+                        "Failed to query server: "
+                            + response.statusCode()
+                            + " "
+                            + response.body()));
+                if (response.statusCode() == 404) {
+                  throw new ResourceNotFoundException("Server couldn't locate the resource");
+                }
+                throw new RuntimeException("Failed to query server: " + response.statusCode());
+              }
+              return response.body();
+            })
         .thenAccept(
             inputStream -> {
               try {
@@ -70,7 +85,7 @@ public class StreamingHttpClient {
                 throw new RuntimeException(e);
               }
             })
-        .join(); // Wait for completion in a real application, you might not want to block like this
+        .join();
   }
 
   private void processStream(

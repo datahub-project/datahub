@@ -1,6 +1,7 @@
 import React from 'react';
 
-import { message } from 'antd';
+import { CheckCircleFilled } from '@ant-design/icons';
+import { message, notification } from 'antd';
 import styled from 'styled-components';
 import { useEntityFormContext } from '../EntityFormContext';
 import { ArrowLeft, ArrowRight, BulkNavigationWrapper, NavigationWrapper } from './components';
@@ -9,6 +10,7 @@ import StructuredPropertyPrompt from '../prompts/StructuredPropertyPrompt/Struct
 import { useBatchSubmitFormPromptMutation } from '../../../../../graphql/form.generated';
 import VerificationCTA from './VerificationCTA';
 import { FORM_ANSWER_IN_BULK_ID } from '../../../../onboarding/config/FormOnboardingConfig';
+import { pluralize } from '../../../../shared/textUtil';
 
 const FormPromptsWrapper = styled(BulkNavigationWrapper)`
     justify-content: space-between;
@@ -23,8 +25,7 @@ const RightColumn = styled.div`
 
 export default function PromptNavigation() {
     const {
-        refetch,
-        setShouldRefetch,
+        submission: { handlePromptSubmission, handleUndoPromptSubmission },
         prompt: {
             prompts,
             prompt,
@@ -34,7 +35,6 @@ export default function PromptNavigation() {
         entity: {
             selectedEntities,
             setSelectedEntities,
-            setSubmittedEntities,
             setNumSubmittedEntities,
         }
     } = useEntityFormContext();
@@ -64,22 +64,27 @@ export default function PromptNavigation() {
     }
 
     function submitResponse(promptInput: SubmitFormPromptInput, onSuccess: () => void) {
-        message.loading('Submitting response...', 5000);
+        message.loading('Submitting response...');
+        const selectedEntityUrns = selectedEntities.map((e) => e.urn);
         batchSubmitFormPromptResponse({
-            variables: { input: { assetUrns: selectedEntities.map((e) => e.urn), input: promptInput } },
+            variables: { input: { assetUrns: selectedEntityUrns, input: promptInput } },
         })
             .then(() => {
-                refetch(); // 3 second wait already happens in refetch
-                setTimeout(() => {
-                    onSuccess();
-                    setSubmittedEntities(selectedEntities);
-                    setNumSubmittedEntities(selectedEntities.length);
-                    setSelectedEntities([]);
-                    setShouldRefetch(true);
-                    message.destroy();
-                }, 3000);
+                handlePromptSubmission(promptInput.promptId, selectedEntityUrns);
+                message.destroy();
+                notification.success({
+                    message: 'Success',
+                    description: `You have successfully submitted a response for ${selectedEntities.length} ${pluralize(selectedEntities.length, 'asset')}.`,
+                    placement: 'bottomLeft',
+                    duration: 3,
+                    icon: <CheckCircleFilled style={{ color: '#078781' }} />,
+                });
+                setSelectedEntities([]);
+                onSuccess();
             })
             .catch(() => {
+                handleUndoPromptSubmission(promptInput.promptId, selectedEntityUrns);
+                message.destroy();
                 message.error('Unknown error while batch submitting form response');
             });
     }

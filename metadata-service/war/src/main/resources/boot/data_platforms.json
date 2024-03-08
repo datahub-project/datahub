@@ -634,5 +634,15 @@
       "datasetNameDelimiter": "/",
       "logoUrl": "/assets/platforms/excel-logo.svg"
     }
+  },
+  {
+    "urn": "urn:li:dataPlatform:acryl",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "acryl",
+      "displayName": "Acryl",
+      "type": "OTHERS",
+      "logoUrl": "/assets/platforms/acryl-dark-mark.svg"
+    }
   }
 ]

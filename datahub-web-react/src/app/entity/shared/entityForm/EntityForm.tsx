@@ -15,9 +15,8 @@ interface Props {
 export default function EntityForm({ formUrn, closeModal }: Props) {
     const {
         loading,
-        refetch,
         form: { formView },
-        entity: { selectedEntity, entityData: selectedEntityData }
+        entity: { refetch, selectedEntity, entityData: selectedEntityData }
     } = useEntityFormContext();
     const { entityType } = useEntityContext();
 

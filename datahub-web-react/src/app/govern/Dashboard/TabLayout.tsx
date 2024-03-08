@@ -3,16 +3,18 @@ import React, { useState, useEffect } from 'react';
 import { Tabs, Tooltip } from 'antd';
 import { json2csv } from 'json-2-csv';
 import dayjs from 'dayjs';
-import { DownloadOutlined } from '@ant-design/icons';
+import DownloadForOfflineOutlinedIcon from '@mui/icons-material/DownloadForOfflineOutlined';
+import HistoryOutlinedIcon from '@mui/icons-material/HistoryOutlined';
 
 import { SeriesSelect } from './SeriesSelect';
 import { Assignees, Domains, Forms, Stats, OverallProgress, Questions } from './charts';
+import { IntegrationServiceOffline } from './charts/AuxViews';
 
 import { ByFormSelector } from './ByFormSelector';
 import { ByAssigneeSelector } from './ByAssigneeSelector';
 import { ByDomainSelector } from './ByDomainSelector';
 
-import { mergeRowAndHeaderData } from './utils';
+import { mergeRowAndHeaderData, freshnessColor } from './utils';
 
 import { useFormAnalyticsContext } from './FormAnalyticsContext';
 import { useFormAnalyticsQuery } from '../../../graphql/analytics.generated';
@@ -23,7 +25,9 @@ import {
 	TabsContainer,
 	Body,
 	PrimaryHeading,
-	BodyHeader
+	BodyHeader,
+	Filters,
+	DataFreshness
 } from './components';
 
 interface Tab {
@@ -33,9 +37,11 @@ interface Tab {
 	charts: Array<React.ReactElement>,
 }
 
+
 export const TabLayout = () => {
 	const {
 		sql,
+		integrationServiceOffline,
 		contextLoading,
 		snapshot,
 		tabs: { selectedTab, setSelectedTab },
@@ -52,6 +58,7 @@ export const TabLayout = () => {
 			key: 'overall',
 			label: 'Overall',
 			charts: [
+				<Stats />,
 				<OverallProgress />,
 				<Forms />,
 				<Assignees />,
@@ -71,6 +78,17 @@ export const TabLayout = () => {
 			],
 		},
 		{
+			key: 'byDomain',
+			label: 'By Domain',
+			disabled: !hasDomains,
+			charts: [
+				<Stats />,
+				<OverallProgress />,
+				<Forms />,
+				<Assignees />,
+			],
+		},
+		{
 			key: 'byAssignee',
 			label: 'By Assignee',
 			disabled: !hasAssignees,
@@ -81,17 +99,6 @@ export const TabLayout = () => {
 				<Domains />,
 			],
 		},
-		{
-			key: 'byDomain',
-			label: 'By Domain',
-			disabled: !hasDomains,
-			charts: [
-				<Stats />,
-				<OverallProgress />,
-				<Forms />,
-				<Assignees />,
-			],
-		}
 	];
 
 	// Handle changing the tab
@@ -105,9 +112,9 @@ export const TabLayout = () => {
 	const showLoadingState = contextLoading;
 
 	// Fetch CSV JSON when we user triggers state change
-	const { data: csvData } = useFormAnalyticsQuery({
-		variables: { input: { 'queryString': sql.downloadCSVJSON } },
-		skip: !snapshot
+	const { data: csvData, error } = useFormAnalyticsQuery({
+		variables: { input: { 'queryString': sql.downloadCSVJSON, formAnalyticsFlags: { skipAssetHydration: true } } },
+		skip: !snapshot || !isDownloadingCSV
 	});
 
 	// Handle download CSV
@@ -130,34 +137,50 @@ export const TabLayout = () => {
 			a.download = `documentation-metrics-${timestamp}.csv`;
 			a.click();
 			window.URL.revokeObjectURL(url);
+			setIsDownloadingCSV(false);
 		}
-		setIsDownloadingCSV(false);
 	}, [csvData, isDownloadingCSV, setIsDownloadingCSV]);
 
+	useEffect(() => {
+		if (error && isDownloadingCSV) {
+			setIsDownloadingCSV(false);
+		}
+	}, [error, isDownloadingCSV])
+
+	// Don't crash the app if Integration Service is not available
+	if (integrationServiceOffline) return <IntegrationServiceOffline />;
+
+	// Render the dashboard
 	return (
 		<Layout>
 			<Header>
 				<PrimaryHeading>Your Documentation Initiatives</PrimaryHeading>
-				{/* <Button type="primary" onClick={handleDownloadCSV}>Download CSV</Button> */}
 			</Header>
 			<TabsContainer>
 				<Tabs defaultActiveKey={selectedTab} items={tabs} onChange={handleSetTab} />
-				<SeriesSelect />
+				<DataFreshness>
+					<span>
+						<HistoryOutlinedIcon style={{ height: '1.25rem', color: freshnessColor(snapshot) }} /> as of {dayjs(snapshot).format('MMM D, YYYY')}
+					</span>
+				</DataFreshness>
 			</TabsContainer>
-			<BodyHeader>
-				<Tooltip title="Download Results" placement="left">
-					<DownloadOutlined style={{ marginRight: '0px', fontSize: '20px' }} onClick={handleDownloadCSV} />
-				</Tooltip>
-			</BodyHeader>
 			<Body>
-				{/* <Button type="primary" onClick={handleDownloadCSV}>Download CSV</Button> */}
-				{/* </div> */}
 				{showLoadingState && 'Loading...'}
 				{!showLoadingState &&
 					<>
-						{thisTab?.key === 'byForm' && !thisTab?.disabled && <ByFormSelector />}
-						{thisTab?.key === 'byAssignee' && !thisTab?.disabled && <ByAssigneeSelector />}
-						{thisTab?.key === 'byDomain' && !thisTab?.disabled && <ByDomainSelector />}
+						<BodyHeader>
+							<div>
+								{thisTab?.key === 'byForm' && !thisTab?.disabled && <ByFormSelector />}
+								{thisTab?.key === 'byAssignee' && !thisTab?.disabled && <ByAssigneeSelector />}
+								{thisTab?.key === 'byDomain' && !thisTab?.disabled && <ByDomainSelector />}
+							</div>
+							<Filters>
+								<SeriesSelect />
+								<Tooltip title="Download Results" placement="bottom" showArrow={false}>
+									<DownloadForOfflineOutlinedIcon style={{ cursor: 'pointer' }} onClick={handleDownloadCSV} />
+								</Tooltip>
+							</Filters>
+						</BodyHeader>
 						{!thisTab?.disabled ? charts.map((chart) => chart) : 'No data for this tab during this timeframe.'}
 					</>
 				}

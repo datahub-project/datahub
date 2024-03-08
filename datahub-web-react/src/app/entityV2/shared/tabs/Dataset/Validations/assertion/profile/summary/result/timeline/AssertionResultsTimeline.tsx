@@ -87,12 +87,9 @@ export const AssertionResultsTimeline = ({ assertion }: Props) => {
                     assertion={assertion}
                     timeRange={selectedWindowTimeRange}
                     results={results as any}
-                    platform={data?.assertion?.platform as any}
                 />
             </VisualizationContainer>
             <TimeSelect
-                timeRange={selectedWindowTimeRange}
-                results={results as any}
                 lookbackWindow={lookbackWindow}
                 setLookbackWindow={setLookbackWindow}
             />

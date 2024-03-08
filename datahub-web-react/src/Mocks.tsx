@@ -3594,6 +3594,7 @@ export const mocks = [
                         manageGlobalViews: true,
                         manageOwnershipTypes: true,
                         manageGlobalAnnouncements: true,
+                        manageDocumentationForms: true,
                     },
                 },
             },
@@ -3873,4 +3874,5 @@ export const platformPrivileges: PlatformPrivileges = {
     manageGlobalViews: true,
     manageOwnershipTypes: true,
     manageGlobalAnnouncements: true,
+    manageDocumentationForms: true,
 };

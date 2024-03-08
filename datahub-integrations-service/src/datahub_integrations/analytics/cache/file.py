@@ -76,9 +76,13 @@ class CacheManager:
         if s3_path in self.cache:
             local_fs_path = self.cache[s3_path]
             if fresher_than_millis:
+                logger.debug(f"Remote file freshess: {fresher_than_millis}")
                 # Check if the file is older than the specified time
-                file_age = time.time() - os.path.getmtime(local_fs_path)
-                if file_age * 1000 > fresher_than_millis:
+                local_file_time_millis = int(os.path.getmtime(local_fs_path) * 1000)
+                if fresher_than_millis > local_file_time_millis:
+                    logger.info(
+                        f"Local file is stale: {local_fs_path}. Re-downloading."
+                    )
                     # Re-download the file
                     self._enqueue_download(s3_path, local_fs_path)
                     # Return the remote path to the caller

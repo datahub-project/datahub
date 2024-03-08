@@ -8,12 +8,14 @@ export const HorizontalList = styled.div<{ gap?: number }>`
     padding-right: min(10%, 40px);
     overflow-x: auto;
     overflow-y: hidden;
+    scroll-behavior: smooth;
     white-space: nowrap;
     width: 100%;
 
     &::-webkit-scrollbar {
         display: none;
     }
+
     mask-image: linear-gradient(
         to left,
         rgba(255, 255, 255, 0),

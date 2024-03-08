@@ -1,13 +1,14 @@
 package com.linkedin.datahub.graphql.resolvers.form;
 
 import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
+import static com.linkedin.datahub.graphql.TestUtils.getMockDenyContext;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
 import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.datahub.graphql.generated.BatchAssignFormInput;
+import com.linkedin.datahub.graphql.generated.BatchRemoveFormInput;
 import com.linkedin.metadata.service.FormService;
 import graphql.com.google.common.collect.ImmutableList;
 import graphql.schema.DataFetchingEnvironment;
@@ -21,8 +22,8 @@ public class BatchRemoveFormResolverTest {
       "urn:li:dataset:(urn:li:dataPlatform:hive,name,PROD)";
   private static final String TEST_FORM_URN = "urn:li:form:1";
 
-  private static final BatchAssignFormInput TEST_INPUT =
-      new BatchAssignFormInput(TEST_FORM_URN, ImmutableList.of(TEST_DATASET_URN));
+  private static final BatchRemoveFormInput TEST_INPUT =
+      new BatchRemoveFormInput(TEST_FORM_URN, ImmutableList.of(TEST_DATASET_URN));
 
   @Test
   public void testGetSuccess() throws Exception {
@@ -41,6 +42,27 @@ public class BatchRemoveFormResolverTest {
 
     // Validate that we called unassign on the service
     Mockito.verify(mockFormService, Mockito.times(1))
+        .batchUnassignFormForEntities(
+            Mockito.eq(ImmutableList.of(UrnUtils.getUrn(TEST_DATASET_URN))),
+            Mockito.eq(UrnUtils.getUrn(TEST_FORM_URN)),
+            Mockito.any(Authentication.class));
+  }
+
+  @Test
+  public void testGetNotAuthorized() throws Exception {
+    FormService mockFormService = initMockFormService(true);
+    BatchRemoveFormResolver resolver = new BatchRemoveFormResolver(mockFormService);
+
+    // Execute resolver
+    QueryContext mockContext = getMockDenyContext();
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_INPUT);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
+
+    // Validate that we never called unassign on the service
+    Mockito.verify(mockFormService, Mockito.times(0))
         .batchUnassignFormForEntities(
             Mockito.eq(ImmutableList.of(UrnUtils.getUrn(TEST_DATASET_URN))),
             Mockito.eq(UrnUtils.getUrn(TEST_FORM_URN)),

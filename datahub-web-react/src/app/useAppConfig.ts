@@ -18,7 +18,7 @@ export function useIsNestedDomainsEnabled() {
     return appConfig.config.featureFlags.nestedDomainsEnabled;
 }
 
-export function useIsTaskCenterEnabled() {
+export function useIsDocumentationFormsEnabled() {
     const appConfig = useAppConfig();
-    return appConfig.config.featureFlags.taskCenterEnabled;
+    return appConfig.config.featureFlags.documentationFormsEnabled;
 }

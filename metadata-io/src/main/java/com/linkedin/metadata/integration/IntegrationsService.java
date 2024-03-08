@@ -380,6 +380,9 @@ public class IntegrationsService {
           rowProcessor,
           errorProcessor);
       return true;
+    } catch (ResourceNotFoundException e) {
+      log.error("Failed to query analytics service due to resource not found", e);
+      throw e;
     } catch (CompletionException e) {
       Throwable cause = e.getCause();
       if (cause instanceof java.net.ConnectException) {

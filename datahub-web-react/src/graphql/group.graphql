@@ -17,6 +17,7 @@ query getGroup($urn: String!, $membersCount: Int!) {
             description
             slack
             email
+            pictureLink
         }
         properties {
             displayName
@@ -206,6 +207,9 @@ query listGroups($input: ListGroupsInput!) {
                 displayName
                 description
                 email
+            }
+            editableProperties {
+                pictureLink
             }
             memberCount: relationships(
                 input: { types: ["IsMemberOfGroup", "IsMemberOfNativeGroup"], direction: INCOMING, start: 0, count: 1 }

@@ -17,6 +17,7 @@ import com.linkedin.assertion.AssertionResultType;
 import com.linkedin.assertion.AssertionRunEvent;
 import com.linkedin.assertion.AssertionRunStatus;
 import com.linkedin.assertion.AssertionSourceType;
+import com.linkedin.assertion.AssertionType;
 import com.linkedin.assertion.DatasetAssertionScope;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
@@ -51,7 +52,6 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
-import javax.inject.Singleton;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -116,7 +116,6 @@ import org.springframework.stereotype.Component;
  */
 @Slf4j
 @Component
-@Singleton
 @Import({EntityRegistryFactory.class, IncidentServiceFactory.class, AssertionServiceFactory.class})
 public class AssertionActionsHook implements MetadataChangeLogHook {
 
@@ -399,7 +398,7 @@ public class AssertionActionsHook implements MetadataChangeLogHook {
     try {
       _incidentService.raiseIncident(
           getIncidentTypeFromAssertionInfo(info),
-          null,
+          AssertionType.SQL.equals(info.getType()) ? "Custom SQL" : null,
           0,
           String.format(
               "A %s Assertion is failing for this asset.",
@@ -758,6 +757,8 @@ public class AssertionActionsHook implements MetadataChangeLogHook {
         return info.getFreshnessAssertion().getEntity();
       case VOLUME:
         return info.getVolumeAssertion().getEntity();
+      case SQL:
+        return info.getSqlAssertion().getEntity();
       default:
         throw new IllegalArgumentException(
             "Failed to extract assertee urn from assertionInfo aspect! Unrecognized assertion type provided.");
@@ -775,6 +776,8 @@ public class AssertionActionsHook implements MetadataChangeLogHook {
         return IncidentType.FRESHNESS;
       case VOLUME:
         return IncidentType.VOLUME;
+      case SQL:
+        return IncidentType.CUSTOM;
       default:
         throw new IllegalArgumentException(
             "Failed to map to an incident type! Unsupported Assertion type provided.");

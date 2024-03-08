@@ -25,7 +25,7 @@ from datahub.ingestion.api.common import PipelineContext
 from datahub_integrations.analytics.s3.connection import S3Connection, S3StaticCreds
 from datahub_integrations.graphql.connection import save_connection_json
 from fake_form_data import FakeFormData
-from datahub.ingestion.source.datahub_analytics.datahub_form_reporting import (
+from datahub.ingestion.source.datahub_reporting.datahub_form_reporting import (
     DataHubFormReportingData,
 )
 from datahub.configuration.common import ConnectionModel
@@ -50,7 +50,7 @@ def get_reporting_dataset_urn() -> str:
             query {
                 formAnalyticsConfig {
                     datasetUrn
-                    datasetUri
+                    physicalUriPrefix
                  }
             }
             """

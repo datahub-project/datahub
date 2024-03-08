@@ -15,16 +15,14 @@ import {
 import ViewComfyOutlinedIcon from '@mui/icons-material/ViewComfyOutlined';
 import * as React from 'react';
 import { GetDatasetQuery, useGetDatasetQuery, useUpdateDatasetMutation } from '../../../graphql/dataset.generated';
-import { useGetEntityLineageQuery } from '../../../graphql/lineage.generated';
 import { Dataset, DatasetProperties, EntityType, OwnershipType, SearchResult } from '../../../types.generated';
 import { MatchedFieldList } from '../../searchV2/matches/MatchedFieldList';
 import { matchedFieldPathsRenderer } from '../../searchV2/matches/matchedFieldPathsRenderer';
 import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
 import { useAppConfig } from '../../useAppConfig';
-import { useEntityRegistry } from '../../useEntityRegistry';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
 import { EntityMenuItems } from '../shared/EntityDropdown/EntityMenuActions';
-import { SubType, TYPE_ICON_CLASS_NAME } from '../shared/components/subtypes';
+import { TYPE_ICON_CLASS_NAME } from '../shared/components/subtypes';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
 import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
 import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
@@ -274,7 +272,7 @@ export class DatasetEntity implements Entity<Dataset> {
         {
             component: SidebarCompactSchemaSection,
             display: {
-                visible: (_, __, contextType) =>
+                visible: (_, contextType) =>
                     contextType === TabContextType.SEARCH_SIDEBAR || contextType === TabContextType.LINEAGE_SIDEBAR,
             },
         },
@@ -482,45 +480,4 @@ export class DatasetEntity implements Entity<Dataset> {
             getOverrideProperties={this.getOverridePropertiesFromEntity}
         />
     );
-
-    renderSummaryRows = (dataset?: Dataset | null): JSX.Element | undefined => {
-        const entityRegistry = useEntityRegistry();
-        const isTableauDataSource =
-            dataset?.subTypes?.typeNames?.includes(SubType.TableauPublishedDataSource) ||
-            dataset?.subTypes?.typeNames?.includes(SubType.TableauEmbeddedDataSource);
-
-        const { data } = useGetEntityLineageQuery({
-            skip: !dataset?.urn || !isTableauDataSource,
-            variables: {
-                urn: dataset?.urn || '',
-                showColumns: false,
-                excludeDownstream: true,
-            },
-            fetchPolicy: 'cache-first',
-        });
-
-        if (isTableauDataSource && data?.entity) {
-            const parents = entityRegistry.getLineageVizConfig(data.entity.type, data.entity)?.upstreamChildren;
-            const parent = parents?.[0];
-            if (parent) {
-                const parentProperties = entityRegistry.getGenericEntityProperties(parent?.type, parent?.entity);
-                const platformIcon = parentProperties?.platform?.properties?.logoUrl;
-                const platformName = entityRegistry.getDisplayName(EntityType.DataPlatform, parentProperties?.platform);
-                const name = entityRegistry.getDisplayName(parent?.type, parent?.entity);
-                return (
-                    <>
-                        Connects to: <br />
-                        {platformIcon && <img src={platformIcon} alt={platformName} />}
-                        {name}
-                        {parents?.length > 1 && (
-                            <>
-                                <br /> and {parents.length - 1} more
-                            </>
-                        )}
-                    </>
-                );
-            }
-        }
-        return undefined;
-    };
 }

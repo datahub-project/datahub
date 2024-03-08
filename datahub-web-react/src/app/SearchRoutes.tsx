@@ -19,7 +19,7 @@ import { ActionRequestsPage } from './actionrequest/ActionRequestsPage';
 import { ManageTestsPage } from './tests/ManageTestsPage';
 import { DatasetHealthPage } from './observe/dataset/DatasetHealthPage';
 import DomainRoutes from './domain/DomainRoutes';
-import { useIsNestedDomainsEnabled, useIsTaskCenterEnabled } from './useAppConfig';
+import { useIsNestedDomainsEnabled, useIsDocumentationFormsEnabled } from './useAppConfig';
 import { ManageDomainsPage } from './domain/ManageDomainsPage';
 
 import { useIsThemeV2Enabled } from './useIsThemeV2Enabled';
@@ -27,19 +27,22 @@ import DomainRoutesV2 from './domainV2/DomainRoutes';
 import { ManageDomainsPage as ManageDomainsPageV2 } from './domainV2/ManageDomainsPage';
 import { TaskCenter } from './taskCenter/TaskCenter';
 import { GovernDashboard } from './govern/Dashboard/Dashboard';
+import { useUserContext } from './context/useUserContext';
 
 /**
  * Container for all searchable page routes
  */
 export const SearchRoutes = (): JSX.Element => {
     const entityRegistry = useEntityRegistry();
+    const me = useUserContext();
     const isNestedDomainsEnabled = useIsNestedDomainsEnabled();
     const entities = isNestedDomainsEnabled
         ? entityRegistry.getEntitiesForSearchRoutes()
         : entityRegistry.getNonGlossaryEntities();
     const isThemeV2 = useIsThemeV2Enabled();
     const FinalSearchablePage = isThemeV2 ? SearchablePageV2 : SearchablePage;
-    const isTaskCenterEnabled = useIsTaskCenterEnabled();
+    const isDocumentationFormsEnabled = useIsDocumentationFormsEnabled();
+    const includeGovernDashboard = isDocumentationFormsEnabled && me.platformPrivileges?.manageDocumentationForms;
 
     return (
         <FinalSearchablePage>
@@ -86,12 +89,14 @@ export const SearchRoutes = (): JSX.Element => {
                         />
                     )
                 }
-                <Route path={PageRoutes.GOVERN_DASHBOARD} render={() => <GovernDashboard />} />
+                {includeGovernDashboard && (
+                    <Route path={PageRoutes.GOVERN_DASHBOARD} render={() => <GovernDashboard />} />
+                )}
                 <Route path={PageRoutes.INGESTION} render={() => <ManageIngestionPage />} />
                 <Route path={PageRoutes.SETTINGS} render={() => <SettingsPage />} />
                 <Route
                     path={PageRoutes.ACTION_REQUESTS}
-                    render={() => (isTaskCenterEnabled ? <TaskCenter /> : <ActionRequestsPage />)}
+                    render={() => (isDocumentationFormsEnabled ? <TaskCenter /> : <ActionRequestsPage />)}
                 />
                 <Route path={PageRoutes.TESTS} render={() => <ManageTestsPage />} />
                 <Route path={PageRoutes.DATASET_HEALTH_DASHBOARD} render={() => <DatasetHealthPage />} />

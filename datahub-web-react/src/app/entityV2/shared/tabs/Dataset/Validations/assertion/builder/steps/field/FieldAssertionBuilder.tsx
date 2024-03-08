@@ -71,7 +71,7 @@ export const FieldAssertionBuilder = ({ state, updateState, editing }: Props) =>
     return (
         <div>
             <EvaluationScheduleBuilder
-                value={state.schedule as CronSchedule}
+                value={state.schedule}
                 onChange={updateAssertionSchedule}
                 assertionType={AssertionType.Field}
                 showAdvanced={false}

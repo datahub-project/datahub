@@ -14,7 +14,7 @@ const PathWrapper = styled.div`
     border-bottom: 1px solid ${ANTD_GRAY[4.5]};
     display: flex;
     padding: 10px 24px;
-    background-color: #fff;
+    background-color: ${ANTD_GRAY[1]};
 `;
 
 const BreadcrumbsWrapper = styled(Breadcrumb)`

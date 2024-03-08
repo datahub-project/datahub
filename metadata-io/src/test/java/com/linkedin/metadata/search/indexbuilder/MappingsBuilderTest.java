@@ -21,7 +21,7 @@ public class MappingsBuilderTest {
     Map<String, Object> result = MappingsBuilder.getMappings(TestEntitySpecBuilder.getSpec());
     assertEquals(result.size(), 1);
     Map<String, Object> properties = (Map<String, Object>) result.get("properties");
-    assertEquals(properties.size(), 21);
+    assertEquals(properties.size(), 22);
     assertEquals(
         properties.get("urn"),
         ImmutableMap.of(

@@ -132,6 +132,12 @@ public class PoliciesConfig {
       Privilege.of(
           "MANAGE_CONNECTIONS", "Manage Connections", "Manage connections to external platforms.");
 
+  public static final Privilege MANAGE_DOCUMENTATION_FORMS_PRIVILEGE =
+      Privilege.of(
+          "MANAGE_DOCUMENTATION_FORMS",
+          "Manage Documentation Forms",
+          "Manage forms assigned to assets to assist in documentation efforts.");
+
   // Acryl-Main only.
   public static final Privilege MANAGE_MONITORS =
       Privilege.of(
@@ -164,6 +170,7 @@ public class PoliciesConfig {
           MANAGE_GLOBAL_OWNERSHIP_TYPES,
           MANAGE_GLOBAL_SETTINGS,
           MANAGE_CONNECTIONS_PRIVILEGE,
+          MANAGE_DOCUMENTATION_FORMS_PRIVILEGE,
           MANAGE_MONITORS);
 
   // Resource Privileges //
@@ -174,15 +181,6 @@ public class PoliciesConfig {
   public static final Privilege VIEW_ENTITY_PRIVILEGE =
       Privilege.of(
           "VIEW_ENTITY", "View Entity", "The ability to view the entity in search results.");
-
-  /*
-    These two privileges are logically the same for search for now.
-    In the future, we might allow search but not the entity page view.
-  */
-  public static final Set<String> VIEW_ENTITY_PRIVILEGES =
-      Set.of(
-          PoliciesConfig.VIEW_ENTITY_PRIVILEGE.getType(),
-          PoliciesConfig.VIEW_ENTITY_PAGE_PRIVILEGE.getType());
 
   public static final Privilege EDIT_ENTITY_TAGS_PRIVILEGE =
       Privilege.of(
@@ -339,6 +337,18 @@ public class PoliciesConfig {
           PROPOSE_ENTITY_DOCS_PRIVILEGE,
           MANAGE_ENTITY_DOCS_PROPOSALS_PRIVILEGE,
           SHARE_ENTITY_PRIVILEGE);
+
+  /*
+    These two privileges are logically the same for search for now.
+    In the future, we might allow search but not the entity page view.
+  */
+  public static final Set<String> VIEW_ENTITY_PRIVILEGES =
+      Set.of(
+          PoliciesConfig.VIEW_ENTITY_PRIVILEGE.getType(),
+          PoliciesConfig.VIEW_ENTITY_PAGE_PRIVILEGE.getType(),
+          PoliciesConfig.DELETE_ENTITY_PRIVILEGE.getType(),
+          PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType(),
+          PoliciesConfig.SHARE_ENTITY_PRIVILEGE.getType());
 
   // Dataset Privileges
   public static final Privilege EDIT_DATASET_COL_TAGS_PRIVILEGE =

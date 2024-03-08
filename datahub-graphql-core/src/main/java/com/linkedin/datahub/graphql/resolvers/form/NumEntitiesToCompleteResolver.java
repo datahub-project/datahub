@@ -3,14 +3,13 @@ package com.linkedin.datahub.graphql.resolvers.form;
 import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.getEntityNames;
 
 import com.datahub.authentication.Authentication;
-import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Form;
 import com.linkedin.datahub.graphql.generated.FormFilter;
 import com.linkedin.datahub.graphql.generated.FormForActor;
-import com.linkedin.datahub.graphql.resolvers.mutate.util.FormUtils;
+import com.linkedin.datahub.graphql.resolvers.search.SearchUtils;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.form.FormInfo;
@@ -19,6 +18,7 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.service.FormService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.Objects;
@@ -31,9 +31,12 @@ import lombok.extern.slf4j.Slf4j;
 public class NumEntitiesToCompleteResolver implements DataFetcher<CompletableFuture<Integer>> {
 
   private final EntityClient _entityClient;
+  private final FormService _formService;
 
-  public NumEntitiesToCompleteResolver(@Nonnull final EntityClient entityClient) {
+  public NumEntitiesToCompleteResolver(
+      @Nonnull final EntityClient entityClient, @Nonnull final FormService formService) {
     _entityClient = Objects.requireNonNull(entityClient, "entityClient must not be null");
+    _formService = Objects.requireNonNull(formService, "formService must not be null");
   }
 
   @Override
@@ -52,17 +55,12 @@ public class NumEntitiesToCompleteResolver implements DataFetcher<CompletableFut
         () -> {
           try {
             // 1. fetch the formInfo aspect from database
-            EntityResponse formInfoResponse =
-                _entityClient.getV2(
-                    Constants.FORM_ENTITY_NAME,
-                    formUrn,
-                    ImmutableSet.of(Constants.FORM_INFO_ASPECT_NAME),
-                    authentication);
-            FormInfo formInfo = getFormInfoFromResponse(formInfoResponse, formUrn);
+            FormInfo formInfo = _formService.getFormInfo(formUrn, authentication);
 
             // 2. generate the form filter to filter entities based on form criteria for completion
             final FormFilter formFilter = createFormFilter(formInfo, formUrn, userUrn);
-            final Filter filter = FormUtils.buildFormFilter(formFilter, formInfo);
+            final Filter filter =
+                SearchUtils.getFormFilter(formFilter, _formService, authentication);
 
             SearchResult searchResult =
                 _entityClient.searchAcrossEntities(

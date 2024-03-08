@@ -41,13 +41,13 @@ export default function BulkVerify({ closeFormModal }: Props) {
     const { urn: paramUrn }: any = useParams();
 
     const {
-        refetch,
         search: {
             results,
             resultItems,
             resultItemCount,
             error,
             loading,
+            refetch,
         },
         entity: {
             selectedEntities,

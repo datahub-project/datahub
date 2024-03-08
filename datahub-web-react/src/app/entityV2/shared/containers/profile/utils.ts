@@ -1,13 +1,10 @@
+import { isEqual } from 'lodash';
+import queryString from 'query-string';
 import { useEffect } from 'react';
 import { useLocation } from 'react-router';
-import queryString from 'query-string';
-import { isEqual } from 'lodash';
-import { AppConfig, EntityType } from '../../../../../types.generated';
-import useIsLineageMode from '../../../../lineage/utils/useIsLineageMode';
-import { useEntityRegistry } from '../../../../useEntityRegistry';
 import { EntityRegistry } from '../../../../../entityRegistryContext';
-import { EntityTab, GenericEntityProperties } from '../../types';
-import { SEPARATE_SIBLINGS_URL_PARAM, useIsSeparateSiblingsMode } from '../../siblingUtils';
+import { EntityType } from '../../../../../types.generated';
+import useIsLineageMode from '../../../../lineage/utils/useIsLineageMode';
 import {
     ENTITY_PROFILE_DOCUMENTATION_ID,
     ENTITY_PROFILE_DOMAINS_ID,
@@ -20,9 +17,12 @@ import {
     ENTITY_PROFILE_SUBSCRIPTION_ID,
     ENTITY_PROFILE_TAGS_ID,
 } from '../../../../onboarding/config/EntityProfileOnboardingConfig';
-import { useGlossaryEntityData } from '../../GlossaryEntityContext';
 import usePrevious from '../../../../shared/usePrevious';
+import { useEntityRegistry } from '../../../../useEntityRegistry';
 import { GLOSSARY_ENTITY_TYPES } from '../../constants';
+import { useGlossaryEntityData } from '../../GlossaryEntityContext';
+import { SEPARATE_SIBLINGS_URL_PARAM, useIsSeparateSiblingsMode } from '../../siblingUtils';
+import { EntityTab, GenericEntityProperties } from '../../types';
 
 /**
  * The structure of our path will be
@@ -221,23 +221,4 @@ export function getOnboardingStepIdsForEntityType(entityType: EntityType): strin
         default:
             return [];
     }
-}
-
-function sortTabsWithDefaultTabId(tabs: EntityTab[], defaultTabId: string) {
-    return tabs.sort((tabA, tabB) => {
-        if (tabA.id === defaultTabId) return -1;
-        if (tabB.id === defaultTabId) return 1;
-        return 0;
-    });
-}
-
-export function sortEntityProfileTabs(appConfig: AppConfig, entityType: EntityType, tabs: EntityTab[]) {
-    const sortedTabs = [...tabs];
-
-    if (entityType === EntityType.Domain && appConfig.visualConfig.entityProfiles?.domain?.defaultTab) {
-        const defaultTabId = appConfig.visualConfig.entityProfiles?.domain.defaultTab;
-        sortTabsWithDefaultTabId(sortedTabs, defaultTabId);
-    }
-
-    return sortedTabs;
 }

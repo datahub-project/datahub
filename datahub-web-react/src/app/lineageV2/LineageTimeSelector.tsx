@@ -1,0 +1,124 @@
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import styled from 'styled-components';
+import moment from 'moment';
+import { DatePicker, Space, Button, Typography, Tooltip } from 'antd';
+import { CalendarOutlined, CaretDownOutlined } from '@ant-design/icons';
+import { REDESIGN_COLORS } from '../entityV2/shared/constants';
+import { getTimeRangeDescription } from '../shared/time/timeUtils';
+
+const { RangePicker } = DatePicker;
+
+export type Datetime = moment.Moment | null;
+
+const ConfirmButtonWrapper = styled.div`
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    width: 100%;
+`;
+
+const ConfirmButton = styled(Button)`
+    border-radius: 15px;
+    border: 1px solid ${REDESIGN_COLORS.BLACK};
+
+    position: absolute;
+    right: 10px;
+    bottom: 13px;
+    text-align: right;
+
+    :hover {
+        border-color: ${REDESIGN_COLORS.BLUE};
+        color: ${REDESIGN_COLORS.BLUE};
+    }
+`;
+
+export type Props = {
+    onChange: (start: Datetime, end: Datetime) => void;
+    startTimeMillis?: number;
+    endTimeMillis?: number;
+};
+
+export default function LineageTimeSelector({ onChange, startTimeMillis, endTimeMillis }: Props) {
+    const [startDate, setStartDate] = useState<Datetime>(startTimeMillis ? moment(startTimeMillis) : null);
+    const [endDate, setEndDate] = useState<Datetime>(endTimeMillis ? moment(endTimeMillis) : null);
+    const [isOpen, setIsOpen] = useState<boolean>(false);
+    const ref = useRef<any>(null);
+
+    useEffect(() => {
+        setStartDate(startTimeMillis ? moment(startTimeMillis) : null);
+    }, [startTimeMillis]);
+
+    useEffect(() => {
+        setEndDate(endTimeMillis ? moment(endTimeMillis) : null);
+    }, [endTimeMillis]);
+
+    const handleOpenChange = useCallback(
+        (open: boolean) => {
+            setIsOpen(open);
+            if (!open) {
+                ref.current?.blur();
+                onChange(startDate, endDate);
+            }
+        },
+        [onChange, startDate, endDate],
+    );
+
+    const handleRangeChange = useCallback((dates: [Datetime, Datetime] | null) => {
+        const [start, end] = dates || [null, null];
+
+        start?.set({ hour: 0, minute: 0, second: 0, millisecond: 0 });
+        end?.set({ hour: 23, minute: 59, second: 59, millisecond: 999 });
+
+        setStartDate(start);
+        setEndDate(end);
+    }, []);
+
+    const showText = !isOpen && (startDate === null || endDate === null);
+
+    return (
+        <>
+            {showText ? ( // Conditionally render All Time selection
+                <Tooltip title="Filter lineage edges by observed date" placement="topLeft">
+                    <Button type="text" onClick={() => handleOpenChange(true)}>
+                        <CalendarOutlined style={{ marginRight: '4px' }} />
+                        <Typography.Text>
+                            <b>{getTimeRangeDescription(startDate, endDate)}</b>
+                        </Typography.Text>
+                        <CaretDownOutlined style={{ fontSize: '10px' }} />
+                    </Button>
+                </Tooltip>
+            ) : (
+                <Space direction="vertical" size={12}>
+                    <RangePicker
+                        ref={ref}
+                        open={isOpen}
+                        allowClear
+                        allowEmpty={[true, true]}
+                        bordered={false}
+                        value={[startDate, endDate]}
+                        disabledDate={(current: any) => {
+                            return current && current > moment().endOf('day');
+                        }}
+                        renderExtraFooter={() => (
+                            <ConfirmButtonWrapper>
+                                <ConfirmButton type="text" onClick={() => handleOpenChange(false)}>
+                                    <b>Confirm</b>
+                                </ConfirmButton>
+                            </ConfirmButtonWrapper>
+                        )}
+                        format="ll"
+                        ranges={{
+                            'Last 7 days': [moment().subtract(7, 'days'), null],
+                            'Last 14 days': [moment().subtract(14, 'days'), null],
+                            'Last 28 days': [moment().subtract(28, 'days'), null],
+                            'All Time': [null, null],
+                        }}
+                        onChange={handleRangeChange}
+                        onOpenChange={handleOpenChange}
+                        onCalendarChange={() => handleOpenChange(true)}
+                    />
+                </Space>
+            )}
+        </>
+    );
+}

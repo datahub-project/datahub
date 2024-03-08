@@ -17,6 +17,7 @@ import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.structured.PrimitivePropertyValue;
 import com.linkedin.structured.PrimitivePropertyValueArray;
+import java.util.List;
 import java.util.Objects;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -72,11 +73,15 @@ public class FormUtils {
    * by Form related fields.
    */
   public static Filter buildFormFilter(
-      @Nonnull final FormFilter formFilter, @Nonnull final FormInfo formInfo) throws Exception {
+      @Nonnull final FormFilter formFilter,
+      @Nonnull final FormInfo formInfo,
+      @Nonnull final List<Urn> groupsForUser)
+      throws Exception {
     final CriterionArray andArray = new CriterionArray();
     final String formUrn = formFilter.getFormUrn();
 
-    Criterion assignedActorCriterion = getAssignedActorCriterion(formFilter, formInfo);
+    Criterion assignedActorCriterion =
+        getAssignedActorCriterion(formFilter, formInfo, groupsForUser);
     if (assignedActorCriterion != null) {
       andArray.add(assignedActorCriterion);
     }
@@ -193,14 +198,16 @@ public class FormUtils {
    */
   @Nullable
   private static Criterion getAssignedActorCriterion(
-      @Nonnull final FormFilter formFilter, @Nonnull final FormInfo formInfo) {
+      @Nonnull final FormFilter formFilter,
+      @Nonnull final FormInfo formInfo,
+      @Nonnull final List<Urn> groupsForUser) {
     final String assignedActor = formFilter.getAssignedActor();
     if (assignedActor == null) {
       return null;
     }
 
     final Urn actorUrn = UrnUtils.getUrn(assignedActor);
-    if (isActorExplicitlyAssigned(actorUrn, formInfo)) {
+    if (isActorExplicitlyAssigned(actorUrn, formInfo, groupsForUser)) {
       return null;
     }
     if (formInfo.getActors().isOwners()) {
@@ -210,10 +217,15 @@ public class FormUtils {
   }
 
   private static boolean isActorExplicitlyAssigned(
-      @Nonnull final Urn actorUrn, @Nonnull final FormInfo formInfo) {
+      @Nonnull final Urn actorUrn,
+      @Nonnull final FormInfo formInfo,
+      @Nonnull final List<Urn> groupsForUser) {
     return (formInfo.getActors().getUsers() != null
             && formInfo.getActors().getUsers().stream().anyMatch(user -> user.equals(actorUrn)))
         || (formInfo.getActors().getGroups() != null
-            && formInfo.getActors().getGroups().stream().anyMatch(group -> group.equals(actorUrn)));
+            && formInfo.getActors().getGroups().stream()
+                .anyMatch(
+                    group ->
+                        groupsForUser.stream().anyMatch(userGroup -> userGroup.equals(group))));
   }
 }

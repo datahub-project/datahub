@@ -36,8 +36,16 @@ avro==1.11.3
     #   avro-gen3
 avro-gen3==0.7.11
     # via acryl-datahub
+boto3==1.34.56
+    # via acryl-datahub-integrations (pyproject.toml)
+botocore==1.34.56
+    # via
+    #   boto3
+    #   s3transfer
 cached-property==1.5.2
     # via acryl-datahub
+cachetools==5.3.3
+    # via acryl-datahub-integrations (pyproject.toml)
 certifi==2023.7.22
     # via
     #   requests
@@ -59,9 +67,7 @@ click-default-group==1.2.4
 click-spinner==0.1.10
     # via acryl-datahub
 confluent-kafka==2.3.0
-    # via
-    #   acryl-datahub
-    #   acryl-datahub-integrations (pyproject.toml)
+    # via acryl-datahub
 deprecated==1.2.14
     # via acryl-datahub
 dictdiffer==0.9.0
@@ -70,6 +76,8 @@ docker==6.1.3
     # via
     #   acryl-datahub
     #   acryl-datahub-actions
+duckdb==0.10.0
+    # via acryl-datahub-integrations (pyproject.toml)
 entrypoints==0.4
     # via acryl-datahub-actions
 exceptiongroup==1.1.3
@@ -105,12 +113,20 @@ idna==3.4
     #   yarl
 ijson==3.2.3
     # via acryl-datahub
+jinja2==3.1.3
+    # via acryl-datahub-integrations (pyproject.toml)
+jmespath==1.0.1
+    # via
+    #   boto3
+    #   botocore
 jsonref==1.1.0
     # via acryl-datahub
 jsonschema==4.17.3
     # via acryl-datahub
 loguru==0.7.1
     # via acryl-datahub-integrations (pyproject.toml)
+markupsafe==2.1.5
+    # via jinja2
 mixpanel==4.10.0
     # via acryl-datahub
 multidict==6.0.4
@@ -119,11 +135,14 @@ multidict==6.0.4
     #   yarl
 mypy-extensions==1.0.0
     # via
-    #   acryl-datahub
     #   acryl-datahub-actions
     #   typing-inspect
 networkx==3.2.1
     # via acryl-datahub
+numpy==1.26.4
+    # via
+    #   pandas
+    #   pyarrow
 openai==0.27.10
     # via
     #   acryl-datahub-integrations (pyproject.toml)
@@ -134,6 +153,8 @@ packaging==23.1
     # via
     #   acryl-datahub
     #   docker
+pandas==2.2.1
+    # via acryl-datahub-integrations (pyproject.toml)
 progressbar2==4.2.0
     # via
     #   acryl-datahub
@@ -144,6 +165,8 @@ protobuf==4.24.4
     # via grpcio-tools
 psutil==5.9.5
     # via acryl-datahub
+pyarrow==15.0.0
+    # via acryl-datahub-integrations (pyproject.toml)
 pydantic==1.10.12
     # via
     #   acryl-datahub
@@ -156,10 +179,14 @@ python-dateutil==2.8.2
     # via
     #   acryl-datahub
     #   acryl-datahub-actions
+    #   botocore
+    #   pandas
 python-dotenv==1.0.0
     # via uvicorn
 python-utils==3.7.0
     # via progressbar2
+pytz==2024.1
+    # via pandas
 pyudorandom==1.0.0
     # via tdigest
 pyyaml==6.0.1
@@ -181,6 +208,8 @@ ruamel-yaml==0.17.32
     # via acryl-datahub
 ruamel-yaml-clib==0.2.7
     # via ruamel-yaml
+s3transfer==0.10.0
+    # via boto3
 sentry-sdk==1.30.0
     # via acryl-datahub
 six==1.16.0
@@ -225,8 +254,11 @@ typing-inspect==0.9.0
     # via
     #   acryl-datahub
     #   acryl-datahub-actions
+tzdata==2024.1
+    # via pandas
 urllib3==2.0.4
     # via
+    #   botocore
     #   docker
     #   mixpanel
     #   requests

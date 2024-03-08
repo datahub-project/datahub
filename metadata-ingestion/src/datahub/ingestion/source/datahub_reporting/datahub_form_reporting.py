@@ -36,36 +36,18 @@ class FormType(str, Enum):
     VERIFICATION = "verification"
 
 
-class FormSnapshotColumns(str, Enum):
-    form_id = "form_id"
-    form_assigned_date = "form_assigned_date"
-    form_completed_date = "form_completed_date"
-    form_status = "form_status"
-    form_type = "form_type"
-    question_id = "question_id"
-    question_status = "question_status"
-    question_completed_date = "question_completed_date"
-    assignee_urn = "assignee_urn"
-    asset_urn = "asset_urn"
-    platform = "platform"
-    platform_instance = "platform_instance"
-    domain = "domain"
-    subdomain = "subdomain"
-    snapshot_date = "snapshot_date"
-
-
 class FormReportingRow(BaseModel):
-    form_id: str
+    form_urn: str
     form_assigned_date: date
     form_completed_date: Optional[date]
     form_status: FormStatus
     form_type: FormType
     assignee_urn: Optional[str]
     asset_urn: str
-    platform: str
-    platform_instance: str
-    domain: Optional[str]
-    subdomain: Optional[str]
+    platform_urn: str
+    platform_instance_urn: str
+    domain_urn: Optional[str]
+    parent_domain_urn: Optional[str]
     asset_verified: Optional[bool]
     question_id: str
     question_status: QuestionStatus
@@ -198,13 +180,6 @@ class DataHubFormReportingData(FormData):
     ) -> Dict[str, date]:
 
         form_assigned_dates: Dict[str, date] = {}
-        # Since the search row does not contain the form assigned date, we
-        # need to calculate it from the raw aspect
-        # for form in search_row.incompleteForms:
-        #     form_assigned_dates[form] = datetime.now().date() - timedelta(days=365)
-        # for form in search_row.completedForms:
-        #     form_assigned_dates[form] = datetime.now().date() - timedelta(days=365)
-        # return form_assigned_dates
         forms = self.graph.get_aspect(search_row.urn, FormsClass)
         if not forms:
             return form_assigned_dates
@@ -238,9 +213,15 @@ class DataHubFormReportingData(FormData):
                 )
                 if prompt_id in form_prompts
             }
-            form_completion_dates[form] = datetime.fromtimestamp(
-                int(sorted(completed_prompts_map.values())[-1]) / 1000
-            ).date()
+            sorted_dates = sorted(completed_prompts_map.values())
+            if sorted_dates:
+                form_completion_dates[form] = datetime.fromtimestamp(
+                    int(sorted(completed_prompts_map.values())[-1]) / 1000
+                ).date()
+            else:
+                logger.warning(
+                    f"Form {form} on asset {search_row.urn} has no completed prompts but is marked as completed"
+                )
         return form_completion_dates
 
     def get_data(
@@ -253,16 +234,14 @@ class DataHubFormReportingData(FormData):
             entity_types=["dataset"],
             extra_or_filters=self.get_form_existence_or_filters(),
             extra_source_fields=extra_fields,
+            skip_cache=True,
         )
         forms_scanned = set()
         row_index = 0
         for row in result:
-            # breakpoint()
             row_index += 1
-            if row_index % 10 == 0:
+            if row_index % 100 == 0:
                 logger.info(f"Scanned {row_index} assets")
-            # if row_index % 1000 == 0:
-            #     breakpoint()
             extra_properties = row["extraProperties"]
 
             extra_properties_map = {
@@ -275,18 +254,24 @@ class DataHubFormReportingData(FormData):
             form_assigned_dates = self.form_assigned_date(search_row)
             form_completed_dates = self.form_completed_date(search_row)
             domain = None
-            subdomain = None
+            parent_domain = None
             if search_row.domains:
-                domain_props = self.domain_registry.get_domain(search_row.domains[0])
-                assert domain_props, f"Domain {search_row.domains[0]} not found"
-                if domain_props.parentDomain:
-                    domain = domain_props.parentDomain
-                    subdomain = search_row.domains[0]
+                domain = search_row.domains[0]
+                domain_props = self.domain_registry.get_domain(domain)
+                if not domain_props:
+                    logger.warning(
+                        f"Domain {search_row.domains[0]} not found. Will record the domain urn regardless"
+                    )
                 else:
-                    domain = search_row.domains[0]
-                    subdomain = None
+                    if domain_props.parentDomain:
+                        parent_domain = domain_props.parentDomain
             for owner in owners:
-                for form_id in search_row.incompleteForms:
+                incomplete_forms = (
+                    [x for x in search_row.incompleteForms if x in self.allowed_forms]
+                    if self.allowed_forms
+                    else search_row.incompleteForms
+                )
+                for form_id in incomplete_forms:
                     if form_id not in forms_scanned:
                         if on_form_scanned:
                             on_form_scanned(form_id)
@@ -312,17 +297,17 @@ class DataHubFormReportingData(FormData):
                         ]
                     ):
                         yield FormReportingRow(
-                            form_id=form_id,
+                            form_urn=form_id,
                             form_assigned_date=form_assigned_dates[form_id],
                             form_completed_date=None,
                             form_status=form_status,
                             form_type=FormType.DOCUMENTATION,
                             assignee_urn=owner,
                             asset_urn=search_row.urn,
-                            platform=search_row.platform,
-                            platform_instance=search_row.platformInstance,
-                            domain=domain,
-                            subdomain=subdomain,
+                            platform_urn=search_row.platform,
+                            platform_instance_urn=search_row.platformInstance,
+                            domain_urn=domain,
+                            parent_domain_urn=parent_domain,
                             asset_verified=None,
                             question_id=str(prompt_id),
                             question_status=QuestionStatus.In_Progress,
@@ -340,24 +325,29 @@ class DataHubFormReportingData(FormData):
                         ]
                     ):
                         yield FormReportingRow(
-                            form_id=form_id,
+                            form_urn=form_id,
                             form_assigned_date=form_assigned_dates[form_id],
                             form_completed_date=None,
                             form_status=form_status,
                             form_type=FormType.DOCUMENTATION,
                             assignee_urn=owner,
                             asset_urn=search_row.urn,
-                            platform=search_row.platform,
-                            platform_instance=search_row.platformInstance,
-                            domain=domain,
-                            subdomain=subdomain,
+                            platform_urn=search_row.platform,
+                            platform_instance_urn=search_row.platformInstance,
+                            domain_urn=domain,
+                            parent_domain_urn=parent_domain,
                             asset_verified=None,
                             question_id=str(prompt_id),
                             question_status=QuestionStatus.Completed,
                             question_completed_date=prompt_reponse_time,
                             snapshot_date=self.snapshot_date,
                         )
-                for form_id in search_row.completedForms:
+                complete_forms = (
+                    [x for x in search_row.completedForms if x in self.allowed_forms]
+                    if self.allowed_forms
+                    else search_row.completedForms
+                )
+                for form_id in complete_forms:
                     if form_id not in forms_scanned:
                         if on_form_scanned:
                             on_form_scanned(form_id)
@@ -374,17 +364,17 @@ class DataHubFormReportingData(FormData):
                     ):
                         logger.warning("Unexpected incomplete prompt in completed form")
                         yield FormReportingRow(
-                            form_id=form_id,
+                            form_urn=form_id,
                             form_assigned_date=form_assigned_dates[form_id],
                             form_completed_date=form_completed_dates[form_id],
                             form_status=FormStatus.COMPLETED,
                             form_type=FormType.DOCUMENTATION,
                             assignee_urn=owner,
                             asset_urn=search_row.urn,
-                            platform=search_row.platform,
-                            platform_instance=search_row.platformInstance,
-                            domain=domain,
-                            subdomain=subdomain,
+                            platform_urn=search_row.platform,
+                            platform_instance_urn=search_row.platformInstance,
+                            domain_urn=domain,
+                            parent_domain_urn=parent_domain,
                             asset_verified=None,
                             question_id=str(prompt_id),
                             question_status=QuestionStatus.In_Progress,
@@ -402,17 +392,17 @@ class DataHubFormReportingData(FormData):
                         ]
                     ):
                         yield FormReportingRow(
-                            form_id=form_id,
+                            form_urn=form_id,
                             form_assigned_date=form_assigned_dates[form_id],
                             form_completed_date=form_completed_dates[form_id],
                             form_status=FormStatus.COMPLETED,
                             form_type=FormType.DOCUMENTATION,
                             assignee_urn=owner,
                             asset_urn=search_row.urn,
-                            platform=search_row.platform,
-                            platform_instance=search_row.platformInstance,
-                            domain=domain,
-                            subdomain=subdomain,
+                            platform_urn=search_row.platform,
+                            platform_instance_urn=search_row.platformInstance,
+                            domain_urn=domain,
+                            parent_domain_urn=parent_domain,
                             asset_verified=None,
                             question_id=str(prompt_id),
                             question_status=QuestionStatus.Completed,

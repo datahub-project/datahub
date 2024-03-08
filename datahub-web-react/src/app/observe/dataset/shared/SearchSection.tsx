@@ -70,6 +70,7 @@ export const SearchSection = ({
                 searchBarStyle={searchBarStyle}
                 searchBarInputStyle={searchBarInputStyle}
                 skipCache
+                applyView
             />
         </SearchContainer>
     );

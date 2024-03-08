@@ -45,10 +45,12 @@ export const DataContractAssertionGroupSelect = ({
             <AcrylDatasetAssertionsList
                 assertions={assertions}
                 showMenu={false}
-                showDetails={false}
                 showSelect
                 selectedUrns={selectedUrns}
                 onSelect={onSelect}
+                canEditAssertions={false}
+                canEditMonitors={false}
+                canEditSqlAssertions={false}
             />
         </>
     );

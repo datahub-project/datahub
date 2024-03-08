@@ -72,7 +72,6 @@ export const FormOnboardingConfig: OnboardingStep[] = [
     {
         id: FORM_ASSET_COMPLETION,
         selector: `#${FORM_ASSET_COMPLETION}`,
-        isActionStep: true,
         title: (
             <AssetCompletionHeader>
                 <StyledSmile /> Congratulations, You’ve Completed 1 Asset!

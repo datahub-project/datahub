@@ -7,7 +7,7 @@ import { Editor } from '../tabs/Documentation/components/editor/Editor';
 import { EmptyTab } from '../components/styled/EmptyTab';
 import { AddLinkModal } from '../components/styled/AddLinkModal';
 import { LinkList } from '../tabs/Documentation/components/LinkList';
-import { HeaderTitle } from './HeaderComponents';
+import { Container, HeaderTitle } from './HeaderComponents';
 import { ANTD_GRAY } from '../constants';
 
 const UNEXPANDED_HEIGHT = 230;
@@ -66,7 +66,7 @@ export default function SummaryAboutSection() {
     const canExpand = !!description && !expanded && height >= UNEXPANDED_HEIGHT;
 
     return (
-        <>
+        <Container>
             <HeaderTitle>
                 <FileOutlined style={{ fontSize: 16, color: ANTD_GRAY[8] }} />
                 About
@@ -93,6 +93,6 @@ export default function SummaryAboutSection() {
                 )}
                 <LinkList refetch={refetch} />
             </DocumentationWrapper>
-        </>
+        </Container>
     );
 }

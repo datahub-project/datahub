@@ -51,6 +51,7 @@ export enum IconStyleType {
 
 /**
  * A standard set of Entity Capabilities that span across entity types.
+ * Note: Must be kept in sync with V2 EntityCapabilityType.
  */
 export enum EntityCapabilityType {
     /**
@@ -89,6 +90,14 @@ export enum EntityCapabilityType {
      * Assigning the entity to a data product
      */
     DATA_PRODUCTS,
+    /**
+     * Health status of an entity
+     */
+    HEALTH,
+    /**
+     * Lineage information of an entity
+     */
+    LINEAGE,
 }
 
 /**
@@ -106,7 +115,7 @@ export interface Entity<T> {
      * Ant-design icon associated with the Entity. For a list of all candidate icons, see
      * https://ant.design/components/icon/
      */
-    icon: (fontSize?: number, styleType?: IconStyleType, color?: string) => JSX.Element;
+    icon: (fontSize: number, styleType: IconStyleType, color?: string) => JSX.Element;
 
     /**
      * Returns whether the entity search is enabled

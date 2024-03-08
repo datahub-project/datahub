@@ -6,16 +6,17 @@ import { GlossaryNode } from '../../../types.generated';
 import { sortGlossaryNodes } from '../../entityV2/glossaryNode/utils';
 import { sortGlossaryTerms } from '../../entityV2/glossaryTerm/utils';
 import { useGlossaryEntityData } from '../../entityV2/shared/GlossaryEntityContext';
+import { ANTD_GRAY } from '../../entityV2/shared/constants';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { ROOT_NODES, ROOT_TERMS } from '../utils';
 import NodeItem from './NodeItem';
 import TermItem from './TermItem';
 
 const BrowserWrapper = styled.div`
-    color: #262626;
+    color: ${ANTD_GRAY[11]};
     font-size: 12px;
     max-height: calc(100% - 47px);
-    padding: 10px 20px 20px 20px;
+    padding: 0;
     overflow: auto;
 `;
 

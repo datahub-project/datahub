@@ -104,7 +104,7 @@ export function NavLinksMenu(props: Props) {
     const showTests = (isTestsEnabled && me?.platformPrivileges?.manageTests) || false;
     const showDatasetHealth = config?.featureFlags?.datasetHealthDashboardEnabled;
     const showObserve = showDatasetHealth;
-    const showDocumentationCenter = (config?.featureFlags?.taskCenterEnabled) || false; // TODO: Add platformPrivileges check
+    const showDocumentationCenter = config?.featureFlags?.documentationFormsEnabled || false; // TODO: Add platformPrivileges check
 
     useUpdateEducationStepsAllowList(!!showIngestion, HOME_PAGE_INGESTION_ID);
 
@@ -181,9 +181,7 @@ export function NavLinksMenu(props: Props) {
                                         <FormOutlined style={{ fontSize: '14px', fontWeight: 'bold' }} />
                                         <NavTitleText>Documentation</NavTitleText>
                                     </NavTitleContainer>
-                                    <NavTitleDescription>
-                                        Manage your documentation standards
-                                    </NavTitleDescription>
+                                    <NavTitleDescription>Manage your documentation standards</NavTitleDescription>
                                 </Link>
                             </MenuItem>
                         )}

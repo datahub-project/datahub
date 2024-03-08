@@ -11,7 +11,7 @@ import {
 } from '../entityV2/shared/containers/profile/header/PlatformContent/ParentNodesView';
 import ParentEntities from '../searchV2/filters/ParentEntities';
 import { capitalizeFirstLetter } from '../shared/textUtil';
-import { useEntityRegistry } from '../useEntityRegistry';
+import { useEntityRegistryV2 } from '../useEntityRegistry';
 import ContainerLink from './SearchCardBrowsePathContainerLink';
 import { IconStyleType, PreviewType } from '../entityV2/Entity';
 
@@ -100,7 +100,7 @@ function SearchCardBrowsePath(props: Props) {
         entityTitleWidth = 200,
         previewType,
     } = props;
-    const entityRegistry = useEntityRegistry();
+    const entityRegistry = useEntityRegistryV2();
 
     const directParentContainer = parentContainers && parentContainers[0];
     const remainingParentContainers = parentContainers && parentContainers.slice(1, parentContainers.length);

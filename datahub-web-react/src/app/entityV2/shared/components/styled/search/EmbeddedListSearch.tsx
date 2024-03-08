@@ -313,6 +313,7 @@ export const EmbeddedListSearch = ({
                     refetch={() => refetch({ input: searchInput })}
                     searchBarStyle={searchBarStyle}
                     searchBarInputStyle={searchBarInputStyle}
+                    numResults={data?.total}
                 />
             )}
             <EmbeddedListSearchResults

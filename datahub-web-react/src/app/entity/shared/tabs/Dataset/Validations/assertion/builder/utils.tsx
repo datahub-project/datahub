@@ -23,6 +23,7 @@ import {
     Assertion,
     Monitor,
     Entity,
+    DataPlatform,
 } from '../../../../../../../../types.generated';
 import {
     BIGQUERY_URN,
@@ -743,7 +744,7 @@ export const isStructField = (field: SchemaField) => {
     return field.fieldPath.includes('type=struct') || field.fieldPath.includes('.');
 };
 
-const convertAssertionToBuilderState = (assertion: Assertion) => {
+const convertAssertionToBuilderState = (assertion: Assertion): AssertionMonitorBuilderState['assertion'] => {
     return {
         urn: assertion?.urn,
         type: assertion?.info?.type,
@@ -778,20 +779,30 @@ const convertAssertionToBuilderState = (assertion: Assertion) => {
         },
         fieldAssertion: {
             type: assertion.info?.fieldAssertion?.type,
+            // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+            // @ts-ignore  NOTE: this is type `FieldValuesAssertion` but `AssertionMonitorBuilderState` has hardcoded every individual field so we'll have to manually map it
             fieldValuesAssertion: assertion.info?.fieldAssertion?.fieldValuesAssertion,
+            // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+            // @ts-ignore TODO(@jjoyce0510): can we convert these fields on `AssertionMonitorBuilderState` to just use the generated types instead of manually defining every prop?
             fieldMetricAssertion: assertion.info?.fieldAssertion?.fieldMetricAssertion,
             filter: assertion.info?.fieldAssertion?.filter,
         },
     };
 };
 
-export const createAssertionMonitorBuilderState = (assertion: Assertion, monitor: Monitor, entity: Entity) => {
+export const createAssertionMonitorBuilderState = (
+    assertion: Assertion,
+    entity: Entity & { platform?: DataPlatform },
+    monitor?: Monitor,
+): AssertionMonitorBuilderState => {
     return {
         entityUrn: entity.urn,
         platformUrn: entity.platform?.urn,
         assertion: convertAssertionToBuilderState(assertion),
         schedule: monitor?.info?.assertionMonitor?.assertions?.[0]?.schedule,
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        // @ts-ignore TODO(@jjoyce0510): same as l784
         parameters: monitor?.info?.assertionMonitor?.assertions?.[0]?.parameters,
-        executorId: monitor?.info?.assertionMonitor?.executor?.urn,
+        executorId: monitor?.info?.executorId,
     };
 };

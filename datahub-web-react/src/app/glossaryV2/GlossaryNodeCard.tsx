@@ -7,6 +7,7 @@ import FolderIcon from '../../images/folder-open.svg?react';
 import { DisplayProperties, EntityType } from '../../types.generated';
 import { generateColor } from '../entityV2/shared/components/styled/StyledTag';
 import { hexToRgba } from '../entityV2/shared/links/colorUtils';
+import { REDESIGN_COLORS, ANTD_GRAY } from '../entityV2/shared/constants';
 
 interface GlossaryItemCardHeaderProps {
     color: string;
@@ -19,8 +20,7 @@ const GlossaryItemCardHeader = styled.div<GlossaryItemCardHeaderProps>`
     border-radius: 12px;
     position: relative;
     overflow: hidden;
-    opacity: 0.7;
-    background-color: ${(props) => hexToRgba(props.color, 0.75)}};
+    background-color: ${(props) => hexToRgba(props.color, 0.7)};
 `;
 
 const GlossaryItemCountDiv = styled.div`
@@ -30,9 +30,9 @@ const GlossaryItemCountDiv = styled.div`
     border-radius: 7px;
     width: 12px;
     height: 11px;
-    background: #3cb47a;
+    background: ${REDESIGN_COLORS.TERTIARY_GREEN};
     font-size: 8px;
-    color: #fff;
+    color: ${ANTD_GRAY[1]};
     text-align: center;
     display: none;
 `;
@@ -42,7 +42,7 @@ const GlossaryItemCount = styled.span`
     right: 1px;
     bottom: 1px;
     border-radius: 12px 0px 11px 1px;
-    background: #fff;
+    background: ${ANTD_GRAY[1]};
     padding: 10px;
 `;
 
@@ -58,15 +58,15 @@ const GlossaryItemCard = styled.div`
     display: flex;
     flex-direction: column;
     border-radius: 13px;
-    border: 1px solid #ededed;
-    background: #fff;
+    border: 1px solid ${REDESIGN_COLORS.LIGHT_GREY_BORDER};
+    background: ${ANTD_GRAY[1]};
     transition: 0.15s;
     height: 100%;
     width: 100%;
 
     &:hover {
         transition: 0.15s;
-        border-color: #5c3fd1;
+        border-color: ${REDESIGN_COLORS.TITLE_PURPLE};
     }
 
     &:hover > ${GlossaryItemCardHeader} {
@@ -102,18 +102,18 @@ const GlossaryItemCardDetails = styled.div`
 `;
 
 const GlossaryCardHeader = styled(Typography)`
-    color: #fff;
+    color: ${ANTD_GRAY[1]};
     font-size: 44px;
 `;
 
 const GlossaryItemCardTitle = styled(Typography)`
-    color: #434863;
+    color: ${REDESIGN_COLORS.SUBTITLE};
     font-size: 14px;
     font-weight: 400;
 `;
 
 const GlossaryItemCardDescription = styled(Typography)`
-    color: #434863;
+    color: ${REDESIGN_COLORS.SUBTITLE};
     font-size: 10px;
     line-height: 13px;
     font-weight: 400;
@@ -136,7 +136,7 @@ interface Props {
 }
 
 const GlossaryNodeCard = (props: Props) => {
-    const { name, type, description, count, displayProperties , urn} = props;
+    const { name, type, description, count, displayProperties, urn } = props;
     const glossaryColor = displayProperties?.colorHex || generateColor.hex(urn);
 
     return (

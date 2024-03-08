@@ -14,6 +14,7 @@ import { SchemaTab } from '../../../shared/tabs/Dataset/Schema/SchemaTab';
 import EntityContext from '../../../shared/EntityContext';
 import { EntityType, SchemaMetadata } from '../../../../../types.generated';
 import { SchemaRow } from '../../../shared/tabs/Dataset/Schema/components/SchemaRow';
+import { TabRenderType } from '../../../shared/types';
 
 vi.mock('virtualizedtableforantd4', async () => {
     return {
@@ -38,9 +39,12 @@ describe('Schema', () => {
                             updateEntity: vi.fn(),
                             routeToTab: vi.fn(),
                             refetch: vi.fn(),
+                            loading: true,
+                            lineage: undefined,
+                            dataNotCombinedWithSiblings: null,
                         }}
                     >
-                        <SchemaTab />
+                        <SchemaTab renderType={TabRenderType.DEFAULT}/>
                     </EntityContext.Provider>
                 </TestPageContainer>
             </MockedProvider>,
@@ -60,16 +64,21 @@ describe('Schema', () => {
                             urn: 'urn:li:dataset:123',
                             entityType: EntityType.Dataset,
                             entityData: {
-                                description: 'This is a description',
+                                properties: {
+                                    description: 'This is a description',
+                                },
                                 schemaMetadata: sampleSchema as SchemaMetadata,
                             },
                             baseEntity: {},
                             updateEntity: vi.fn(),
                             routeToTab: vi.fn(),
                             refetch: vi.fn(),
+                            loading: true,
+                            lineage: undefined,
+                            dataNotCombinedWithSiblings: null,
                         }}
                     >
-                        <SchemaTab />
+                        <SchemaTab renderType={TabRenderType.DEFAULT} />
                     </EntityContext.Provider>
                 </TestPageContainer>
             </MockedProvider>,
@@ -97,16 +106,21 @@ describe('Schema', () => {
                             urn: 'urn:li:dataset:123',
                             entityType: EntityType.Dataset,
                             entityData: {
-                                description: 'This is a description',
+                                properties: {
+                                    description: 'This is a description',
+                                },
                                 schemaMetadata: sampleSchemaWithTags as SchemaMetadata,
                             },
                             baseEntity: {},
                             updateEntity: vi.fn(),
                             routeToTab: vi.fn(),
                             refetch: vi.fn(),
+                            loading: true,
+                            lineage: undefined,
+                            dataNotCombinedWithSiblings: null,
                         }}
                     >
-                        <SchemaTab />
+                        <SchemaTab renderType={TabRenderType.DEFAULT} />
                     </EntityContext.Provider>
                 </TestPageContainer>
             </MockedProvider>,
@@ -124,16 +138,21 @@ describe('Schema', () => {
                             urn: 'urn:li:dataset:123',
                             entityType: EntityType.Dataset,
                             entityData: {
-                                description: 'This is a description',
+                                properties: {
+                                    description: 'This is a description',
+                                },
                                 schemaMetadata: sampleSchemaWithTags as SchemaMetadata,
                             },
                             baseEntity: {},
                             updateEntity: vi.fn(),
                             routeToTab: vi.fn(),
                             refetch: vi.fn(),
+                            loading: true,
+                            lineage: undefined,
+                            dataNotCombinedWithSiblings: null,
                         }}
                     >
-                        <SchemaTab />
+                        <SchemaTab renderType={TabRenderType.DEFAULT} />
                     </EntityContext.Provider>
                 </TestPageContainer>
             </MockedProvider>,
@@ -150,16 +169,21 @@ describe('Schema', () => {
                             urn: 'urn:li:dataset:123',
                             entityType: EntityType.Dataset,
                             entityData: {
-                                description: 'This is a description',
+                                properties: {
+                                    description: 'This is a description',
+                                },
                                 schemaMetadata: sampleSchemaWithTags as SchemaMetadata,
                             },
                             baseEntity: {},
                             updateEntity: vi.fn(),
                             routeToTab: vi.fn(),
                             refetch: vi.fn(),
+                            loading: true,
+                            lineage: undefined,
+                            dataNotCombinedWithSiblings: null,
                         }}
                     >
-                        <SchemaTab />
+                        <SchemaTab renderType={TabRenderType.DEFAULT} />
                     </EntityContext.Provider>
                 </TestPageContainer>
             </MockedProvider>,
@@ -176,16 +200,21 @@ describe('Schema', () => {
                             urn: 'urn:li:dataset:123',
                             entityType: EntityType.Dataset,
                             entityData: {
-                                description: 'This is a description',
+                                properties: {
+                                    description: 'This is a description',
+                                },
                                 schemaMetadata: sampleSchemaWithPkFk as SchemaMetadata,
                             },
                             baseEntity: {},
                             updateEntity: vi.fn(),
                             routeToTab: vi.fn(),
                             refetch: vi.fn(),
+                            loading: true,
+                            lineage: undefined,
+                            dataNotCombinedWithSiblings: null,
                         }}
                     >
-                        <SchemaTab />
+                        <SchemaTab renderType={TabRenderType.DEFAULT} />
                     </EntityContext.Provider>
                 </TestPageContainer>
             </MockedProvider>,
@@ -202,16 +231,21 @@ describe('Schema', () => {
                             urn: 'urn:li:dataset:123',
                             entityType: EntityType.Dataset,
                             entityData: {
-                                description: 'This is a description',
+                                properties: {
+                                    description: 'This is a description',
+                                },
                                 schemaMetadata: sampleSchemaWithPkFk as SchemaMetadata,
                             },
                             baseEntity: {},
                             updateEntity: vi.fn(),
                             routeToTab: vi.fn(),
                             refetch: vi.fn(),
+                            loading: true,
+                            lineage: undefined,
+                            dataNotCombinedWithSiblings: null,
                         }}
                     >
-                        <SchemaTab />
+                        <SchemaTab renderType={TabRenderType.DEFAULT} />
                     </EntityContext.Provider>
                 </TestPageContainer>
             </MockedProvider>,
@@ -234,16 +268,21 @@ describe('Schema', () => {
                             urn: 'urn:li:dataset:123',
                             entityType: EntityType.Dataset,
                             entityData: {
-                                description: 'This is a description',
+                                properties: {
+                                    description: 'This is a description',
+                                },
                                 schemaMetadata: sampleSchemaWithKeyValueFields as SchemaMetadata,
                             },
                             baseEntity: {},
                             updateEntity: vi.fn(),
                             routeToTab: vi.fn(),
                             refetch: vi.fn(),
+                            loading: true,
+                            lineage: undefined,
+                            dataNotCombinedWithSiblings: null,
                         }}
                     >
-                        <SchemaTab />
+                        <SchemaTab renderType={TabRenderType.DEFAULT} />
                     </EntityContext.Provider>
                 </TestPageContainer>
             </MockedProvider>,
@@ -273,16 +312,21 @@ describe('Schema', () => {
                             urn: 'urn:li:dataset:123',
                             entityType: EntityType.Dataset,
                             entityData: {
-                                description: 'This is a description',
+                                properties: {
+                                    description: 'This is a description',
+                                },
                                 schemaMetadata: sampleSchemaWithoutFields as SchemaMetadata,
                             },
                             baseEntity: {},
                             updateEntity: vi.fn(),
                             routeToTab: vi.fn(),
                             refetch: vi.fn(),
+                            loading: true,
+                            lineage: undefined,
+                            dataNotCombinedWithSiblings: null,
                         }}
                     >
-                        <SchemaTab />
+                        <SchemaTab renderType={TabRenderType.DEFAULT} />
                     </EntityContext.Provider>
                 </TestPageContainer>
             </MockedProvider>,
@@ -325,7 +369,9 @@ describe('Schema', () => {
                             urn: 'urn:li:dataset:123',
                             entityType: EntityType.Dataset,
                             entityData: {
-                                description: 'This is a description',
+                                properties: {
+                                    description: 'This is a description',
+                                },
                                 schemaMetadata: sampleSchema as SchemaMetadata,
                             },
                             baseEntity: {
@@ -337,9 +383,12 @@ describe('Schema', () => {
                             updateEntity: vi.fn(),
                             routeToTab: vi.fn(),
                             refetch: vi.fn(),
+                            loading: true,
+                            lineage: undefined,
+                            dataNotCombinedWithSiblings: null,
                         }}
                     >
-                        <SchemaTab />
+                        <SchemaTab renderType={TabRenderType.DEFAULT} />
                     </EntityContext.Provider>
                 </TestPageContainer>
             </MockedProvider>,

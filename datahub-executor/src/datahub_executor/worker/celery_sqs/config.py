@@ -7,6 +7,7 @@ from kombu.utils.url import safequote
 
 from datahub_executor.common.client.config.resolver import ExecutorConfigResolver
 from datahub_executor.common.types import ExecutorConfig
+from datahub_executor.config import DATAHUB_EXECUTOR_SQS_VISIBILITY_TIMEOUT
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +52,7 @@ def update_celery_config(
         config.broker_transport_options = {
             "region": executor_configs[0].region,
             "predefined_queues": queues,
+            "visibility_timeout": DATAHUB_EXECUTOR_SQS_VISIBILITY_TIMEOUT,
         }
     return config
 

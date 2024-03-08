@@ -82,6 +82,10 @@ class FakeDataModel(BaseModel):
 class FakeAssetData(FakeDataModel):
 
     def _name_to_urn(self, name: str) -> str:
+        # 10% of the time, we have a group instead of a user
+        # Commenting this out as this leads to problems downstream
+        # if random.randint(0, 100) < 10:
+        #     return "urn:li:corpGroup:" + name.replace(" ", "_").lower()
         return "urn:li:corpuser:" + name.replace(" ", "_").lower()
 
     num_assets: int = 1000000  # 1 million!!!
@@ -185,12 +189,39 @@ class FakeAssetData(FakeDataModel):
         logger.info(f"Generating data for {self.num_assets} assets")
         all_relevant_owners = self.all_owners
         for asset_id in range(self.num_assets):
-            domain = random.choice(list(self.domains_with_subdomains.keys()))
-            subdomain = random.choice(self.domains_with_subdomains[domain])
+            # 5% of assets will not have a domain
+            if random.randint(0, 100) < 5:
+                parent_domain = None
+                domain = None
+            else:
+                # 5% of remaining assets will not have a parent domain
+                if random.randint(0, 100) < 5:
+                    parent_domain = None
+                    domain = random.choice(list(self.domains_with_subdomains.keys()))
+                else:
+                    parent_domain = random.choice(
+                        list(self.domains_with_subdomains.keys())
+                    )
+                    leaf_domain = random.choice(
+                        self.domains_with_subdomains[parent_domain]
+                    )
+                    domain = f"{parent_domain}.{leaf_domain}"
+
             platform = random.choice(self.data_platforms)
-            instance = random.choice(self.data_platform_instances)
-            dataset_urn = make_dataset_urn_with_platform_instance(
-                platform=platform, platform_instance=instance, name=f"asset_{asset_id}"
+
+            # 5% of assets will not have a platform instance
+            if random.randint(0, 100) < 5:
+                instance = None
+            else:
+                instance = random.choice(self.data_platform_instances)
+            dataset_urn = (
+                make_dataset_urn_with_platform_instance(
+                    platform=platform,
+                    platform_instance=instance,
+                    name=f"asset_{asset_id}",
+                )
+                if instance
+                else make_dataset_urn(platform, f"asset_{asset_id}")
             )
             row = {
                 "asset_id": asset_id,
@@ -198,7 +229,7 @@ class FakeAssetData(FakeDataModel):
                 "platform": platform,
                 "platform_instance": instance,
                 "domain": domain,
-                "subdomain": subdomain,
+                "parent_domain": parent_domain,
                 "owners": random.choices(all_relevant_owners, k=random.randint(1, 3)),
             }
             yield row
@@ -228,28 +259,56 @@ class FakeAssetData(FakeDataModel):
             dataset_urn = row["dataset"]
             dataset_name = row["asset_id"]
             dataset_description = self.steady_fake.text()
+            custom_props = {
+                "platform": row["platform"],
+            }
+            if row["platform_instance"]:
+                custom_props["platform_instance"] = row["platform_instance"]
+            if row["domain"]:
+                custom_props["domain"] = row["domain"]
+            if row["parent_domain"]:
+                custom_props["parent_domain"] = row["parent_domain"]
+
+            aspects = []
+
             dataset_properties = DatasetPropertiesClass(
                 name=str(dataset_name),
                 description=dataset_description,
-                customProperties={
-                    "domain": row["domain"],
-                    "subdomain": row["subdomain"],
-                    "platform": row["platform"],
-                    "platform_instance": row["platform_instance"],
-                },
+                customProperties=custom_props,
             )
+            aspects.append(dataset_properties)
+
             ownership = OwnershipClass(
                 owners=[
                     OwnerClass(owner=owner_urn, type=OwnershipTypeClass.TECHNICAL_OWNER)
                     for owner_urn in row["owners"]
                 ]
             )
-            domains = DomainsClass(
-                domains=[f"urn:li:domain:{row['domain']}.{row['subdomain']}"]
-            )
+            aspects.append(ownership)
+
+            if row["domain"]:
+                domains = DomainsClass(domains=[f"urn:li:domain:{row['domain']}"])
+                aspects.append(domains)
+            else:
+                domains = DomainsClass(domains=[])
+                aspects.append(domains)
+
+            if row["platform_instance"]:
+                from datahub.metadata.schema_classes import DataPlatformInstanceClass
+                from datahub.emitter.mce_builder import make_dataplatform_instance_urn
+
+                aspects.append(
+                    DataPlatformInstanceClass(
+                        platform=make_platform_urn(row["platform"]),
+                        instance=make_dataplatform_instance_urn(
+                            row["platform"], row["platform_instance"]
+                        ),
+                    )
+                )
 
             for mcp in MetadataChangeProposalWrapper.construct_many(
-                entityUrn=dataset_urn, aspects=[dataset_properties, ownership, domains]
+                entityUrn=dataset_urn,
+                aspects=aspects,
             ):
                 yield mcp
 
@@ -269,24 +328,6 @@ class QuestionStatus(str, Enum):
 class FormType(str, Enum):
     DOCUMENTATION = "documentation"
     VERIFICATION = "verification"
-
-
-class FormSnapshotColumns(str, Enum):
-    form_id = "form_id"
-    form_assigned_date = "form_assigned_date"
-    form_completed_date = "form_completed_date"
-    form_status = "form_status"
-    form_type = "form_type"
-    question_id = "question_id"
-    question_status = "question_status"
-    question_completed_date = "question_completed_date"
-    assignee_urn = "assignee_urn"
-    asset_urn = "asset_urn"
-    platform = "platform"
-    platform_instance = "platform_instance"
-    domain = "domain"
-    subdomain = "subdomain"
-    snapshot_date = "snapshot_date"
 
 
 class FormReportingRow(BaseModel):
@@ -369,24 +410,48 @@ class FakeFormData(FakeDataModel, FormData):
         # For now, just generate new data
         yield from self._generate_new_data()
 
+    def get_random_start_date(self) -> datetime:
+        now = datetime.now()
+
+        # Define date ranges
+        one_year_ago = now - timedelta(days=365)
+        one_week_ago = now - timedelta(days=7)
+        thirty_days_ago = now - timedelta(days=30)
+        ninety_days_ago = now - timedelta(days=90)
+
+        # Define probabilities
+        probabilities = [
+            (one_week_ago, 0.1),
+            (thirty_days_ago, 0.3),
+            (ninety_days_ago, 0.5),
+        ]
+
+        # Select a random date range based on probabilities
+        selected_range = random.choices(
+            [one_year_ago] + [x[0] for x in probabilities],
+            [0.1] + [x[1] for x in probabilities],
+        )[0]
+
+        # Generate random date within the selected range
+        random_date = selected_range + timedelta(
+            days=random.randint(0, (now - selected_range).days)
+        )
+
+        return random_date.date()
+
     def _generate_new_data(self) -> Iterable[Dict[str, Any]]:
-        months_between = (
-            self.today_date - self.earliest_assignment_start_date
-        ).days // 30
         fake_asset_data = self.fake_asset_data
 
         for asset in fake_asset_data.get_data():
             domain = asset["domain"]
-            subdomain = asset["subdomain"]
+            parent_domain = asset["parent_domain"]
             platform = asset["platform"]
             instance = asset["platform_instance"]
             dataset_urn = asset["dataset"]
             for form_id in range(self.num_forms):
                 # based on number of months, we can calculate the number of
                 # questions that have been filled
-                assignment_start_date = self.earliest_assignment_start_date + timedelta(
-                    days=30 * random.randint(0, months_between - 1)
-                )
+                assignment_start_date = self.get_random_start_date()
                 form_days_between = (
                     assignment_start_date - self.earliest_assignment_start_date
                 ).days
@@ -424,10 +489,14 @@ class FakeFormData(FakeDataModel, FormData):
                     and random.randint(0, 100) < self.dataset_verified_percentage
                 )
                 for question_id in range(self.num_questions):
+                    from datahub.emitter.mce_builder import (
+                        make_dataplatform_instance_urn,
+                    )
+
                     # assignment start date is 1st of the month, but a
                     # random month before today
                     row = {
-                        "form_id": make_form_urn(form_id),
+                        "form_urn": make_form_urn(form_id),
                         "form_type": form_type,
                         "form_created_date": form_creation_date,
                         "form_assigned_date": assignment_start_date,
@@ -453,10 +522,18 @@ class FakeFormData(FakeDataModel, FormData):
                         ),
                         "assignee_urn": None,
                         "asset_urn": dataset_urn,
-                        "platform": make_platform_urn(platform),
-                        "platform_instance": instance,
-                        "domain": make_domain_urn(domain),
-                        "subdomain": make_domain_urn(subdomain),
+                        "platform_urn": make_platform_urn(platform),
+                        "platform_instance_urn": (
+                            make_dataplatform_instance_urn(
+                                platform=platform, instance=instance
+                            )
+                            if instance
+                            else None
+                        ),
+                        "domain_urn": make_domain_urn(domain) if domain else None,
+                        "parent_domain_urn": (
+                            make_domain_urn(parent_domain) if parent_domain else None
+                        ),
                         "snapshot_date": self.today_date,
                         "asset_verified": asset_verified,
                     }
@@ -491,7 +568,7 @@ class FakeFormData(FakeDataModel, FormData):
         self, current_asset: Tuple[str, Dict[str, _Aspect]], row: Dict[str, Any]
     ):
         # update current asset information with the latest row
-        (form_id, form_status) = (row["form_id"], row["form_status"])
+        (form_id, form_status) = (row["form_urn"], row["form_status"])
         form_urn = make_form_urn(form_id)
         midnight = time(0, 0)
         form_created_auditstamp = AuditStampClass(
@@ -542,47 +619,42 @@ class FakeFormData(FakeDataModel, FormData):
             if question_completion_date
             else int(datetime.now().timestamp() * 1000)
         )
-        lastModified = AuditStampClass(
-            actor=row["assignee_urn"], time=question_completion_date_in_millis
-        )
-        if completion_status == QuestionStatus.Completed:
-            if str(question_id) not in form_association.completedPrompts:
-                form_association.completedPrompts.append(
-                    FormPromptAssociationClass(
-                        id=str(question_id), lastModified=lastModified
+        assignee_urn = row["assignee_urn"]
+        # if the assignee is a group, we don't want to record any activity from them
+        if not assignee_urn.startswith("urn:li:corpGroup:"):
+            lastModified = AuditStampClass(
+                actor=row["assignee_urn"], time=question_completion_date_in_millis
+            )
+            if completion_status == QuestionStatus.Completed:
+                if str(question_id) not in form_association.completedPrompts:
+                    form_association.completedPrompts.append(
+                        FormPromptAssociationClass(
+                            id=str(question_id), lastModified=lastModified
+                        )
                     )
-                )
-            # generate the structured property association
-            property_urn = "urn:li:structuredProperty:" + str(question_id)
-            existing_property = [
-                x
-                for x in structured_properties_aspect.properties
-                if x.propertyUrn == property_urn
-            ]
-            if not existing_property:
-                structured_properties_aspect.properties.append(
-                    StructuredPropertyValueAssignmentClass(
-                        propertyUrn="urn:li:structuredProperty:" + str(question_id),
-                        values=[self.steady_fake.text()],
-                        created=lastModified,
-                        lastModified=lastModified,
+                # generate the structured property association
+                property_urn = "urn:li:structuredProperty:" + str(question_id)
+                existing_property = [
+                    x
+                    for x in structured_properties_aspect.properties
+                    if x.propertyUrn == property_urn
+                ]
+                if not existing_property:
+                    structured_properties_aspect.properties.append(
+                        StructuredPropertyValueAssignmentClass(
+                            propertyUrn="urn:li:structuredProperty:" + str(question_id),
+                            values=[self.steady_fake.text()],
+                            created=lastModified,
+                            lastModified=lastModified,
+                        )
                     )
-                )
-            # structured_property_urn = "urn:li:structuredProperty:" + str(question_id)
-            # from datahub.specific.dataset import DatasetPatchBuilder
-
-            # patch_builder = DatasetPatchBuilder(urn=row["asset_urn"])
-            # patch_builder.add_structured_property(
-            #     structured_property_urn, self.steady_fake.text()
-            # )
-            # yield from patch_builder.build()
-        else:
-            if str(question_id) not in form_association.incompletePrompts:
-                form_association.incompletePrompts.append(
-                    FormPromptAssociationClass(
-                        id=str(question_id), lastModified=lastModified
+            else:
+                if str(question_id) not in form_association.incompletePrompts:
+                    form_association.incompletePrompts.append(
+                        FormPromptAssociationClass(
+                            id=str(question_id), lastModified=lastModified
+                        )
                     )
-                )
 
     def to_mcps(self) -> Iterable[MetadataChangeProposalWrapper]:
         import time
@@ -597,13 +669,28 @@ class FakeFormData(FakeDataModel, FormData):
             display_name = " ".join(
                 [p.capitalize() for p in owner.split(":")[-1].split("_")]
             )
-            yield MetadataChangeProposalWrapper(
-                entityUrn=owner,
-                aspect=CorpUserInfoClass(
-                    active=True,
-                    displayName=display_name,
-                ),
-            )
+            urn = Urn.create_from_string(owner)
+            if urn.entity_type == "corpGroup":
+                from datahub.metadata.schema_classes import CorpGroupInfoClass
+
+                display_name = "Group " + display_name
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=owner,
+                    aspect=CorpGroupInfoClass(
+                        admins=["urn:li:corpuser:admin"],
+                        members=[],
+                        groups=[],
+                        displayName=display_name,
+                    ),
+                )
+            else:
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=owner,
+                    aspect=CorpUserInfoClass(
+                        active=True,
+                        displayName=display_name,
+                    ),
+                )
 
         logger.info("Generating Dataset MCPS")
         # Then generate the fake assets

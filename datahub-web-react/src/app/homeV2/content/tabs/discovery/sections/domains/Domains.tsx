@@ -5,9 +5,9 @@ import { DomainCard } from './DomainCard';
 import { useGetDomains } from './useGetDomains';
 import { useUserContext } from '../../../../../../context/useUserContext';
 import { PageRoutes } from '../../../../../../../conf/Global';
-import { HorizontalList } from '../../../../../layout/shared/styledComponents';
 import { HOME_PAGE_DOMAINS_ID } from '../../../../../../onboarding/config/HomePageOnboardingConfig';
 import { useUpdateEducationStepsAllowList } from '../../../../../../onboarding/useUpdateEducationStepsAllowList';
+import { Carousel } from '../../../../../../shared/carousel/Carousel';
 
 export const Domains = () => {
     const history = useHistory();
@@ -24,11 +24,11 @@ export const Domains = () => {
         <div id={HOME_PAGE_DOMAINS_ID}>
             {(domains.length && (
                 <Section title="Domains" actionText="view all" onClickAction={navigateToDomains}>
-                    <HorizontalList>
+                    <Carousel>
                         {domains.map((domain) => (
                             <DomainCard key={domain.urn} domain={domain} />
                         ))}
-                    </HorizontalList>
+                    </Carousel>
                 </Section>
             )) ||
                 null}

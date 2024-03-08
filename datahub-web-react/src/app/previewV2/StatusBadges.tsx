@@ -77,9 +77,7 @@ const StatusBadges: React.FC<StatusBadgeProps> = ({
                             urn={urn}
                         />
                     )}
-                    {showHealthBadge && (
-                        <HealthBadge health={health} url={url} entityCapabilities={entityCapabilities} />
-                    )}
+                    {showHealthBadge && <HealthBadge health={health} url={url} />}
                     {!!lastUpdatedMs && (
                         <LastUpdated
                             noLabel
