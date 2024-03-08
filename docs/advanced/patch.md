@@ -65,7 +65,7 @@ Here are a few illustrative examples using the Python Patch builders:
 
 ## How Patch works
 
-To understand how patching works, it's important to understand a bit about our [models](aspect.md). Entities are comprised of Aspects
+To understand how patching works, it's important to understand a bit about our [models](../what/aspect.md). Entities are comprised of Aspects
 which can be reasoned about as JSON representations of the object models. To be able to patch these we utilize [JsonPatch](https://jsonpatch.com/). The components of a JSON Patch are the path, operation, and value.
 
 ### Path
