@@ -115,6 +115,7 @@ class SqlAggregatorReport(Report):
     _aggregator: "SqlParsingAggregator"
     query_log_path: Optional[str] = None
 
+    # Observed queries.
     num_observed_queries: int = 0
     num_observed_queries_failed: int = 0
     num_observed_queries_column_timeout: int = 0
@@ -123,6 +124,7 @@ class SqlAggregatorReport(Report):
         default_factory=LossyList
     )
 
+    # Views.
     num_view_definitions: int = 0
     num_views_failed: int = 0
     num_views_column_timeout: int = 0
@@ -131,28 +133,30 @@ class SqlAggregatorReport(Report):
         default_factory=LossyDict
     )
 
+    # Other lineage loading metrics.
     num_known_query_lineage: int = 0
     num_known_mapping_lineage: int = 0
     num_table_renames: int = 0
 
-    num_queries_with_temp_tables_in_session: int = 0
-
-    num_unique_query_fingerprints: Optional[int] = None
-
-    # Lineage-related.
-    num_urns_with_lineage: Optional[int] = None
+    # Temp tables.
     num_temp_sessions: Optional[int] = None
     num_inferred_temp_schemas: Optional[int] = None
+    num_queries_with_temp_tables_in_session: int = 0
     queries_with_temp_upstreams: LossyDict[QueryId, LossyList] = dataclasses.field(
         default_factory=LossyDict
     )
 
+    # Lineage-related.
+    schema_resolver_count: Optional[int] = None
+    num_unique_query_fingerprints: Optional[int] = None
+    num_urns_with_lineage: Optional[int] = None
     num_queries_entities_generated: int = 0
 
     # Usage-related.
     usage_skipped_missing_timestamp: int = 0
 
     def compute_stats(self) -> None:
+        self.schema_resolver_count = self._aggregator._schema_resolver.schema_count()
         self.num_unique_query_fingerprints = len(self._aggregator._query_map)
 
         self.num_urns_with_lineage = len(self._aggregator._lineage_map)
@@ -421,7 +425,7 @@ class SqlParsingAggregator:
 
     def add_view_definition(
         self,
-        view_urn: DatasetUrn,
+        view_urn: Union[DatasetUrn, UrnStr],
         view_definition: str,
         default_db: Optional[str] = None,
         default_schema: Optional[str] = None,
@@ -865,6 +869,9 @@ class SqlParsingAggregator:
                         confidenceScore=queries_map[query_id].confidence_score,
                     )
                 )
+        upstream_aspect.fineGrainedLineages = (
+            upstream_aspect.fineGrainedLineages or None
+        )
 
         yield MetadataChangeProposalWrapper(
             entityUrn=downstream_urn,

@@ -23,6 +23,8 @@ def convert_upstream_lineage_to_patch(
     patch_builder = DatasetPatchBuilder(urn, system_metadata)
     for upstream in aspect.upstreams:
         patch_builder.add_upstream_lineage(upstream)
+    for fine_upstream in aspect.fineGrainedLineages or []:
+        patch_builder.add_fine_grained_upstream_lineage(fine_upstream)
     mcp = next(iter(patch_builder.build()))
     return MetadataWorkUnit(id=f"{urn}-upstreamLineage", mcp_raw=mcp)
 
@@ -125,6 +127,7 @@ def auto_incremental_lineage(
                 if len(wu.metadata.proposedSnapshot.aspects) > 0:
                     yield wu
 
+            # TODO: Replace with CLL patch now that we have support for it.
             if lineage_aspect.fineGrainedLineages:
                 if graph is None:
                     raise ValueError(

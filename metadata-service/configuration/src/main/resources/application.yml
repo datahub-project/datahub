@@ -45,6 +45,11 @@ authorization:
     cachePolicyFetchSize: ${POLICY_CACHE_FETCH_SIZE:1000}
   # Enables authorization of reads, writes, and deletes on REST APIs. Defaults to false for backwards compatibility, but should become true down the road
   restApiAuthorization: ${REST_API_AUTHORIZATION_ENABLED:false}
+  search:
+    enabled: ${SEARCH_AUTHORIZATION_ENABLED:false}
+    recommendations:
+      # Currently limited to the actor only, see TODO: DataHubAuthorizer
+      peerGroupEnabled: ${SEARCH_AUTHORIZATION_RECOMMENDATIONS_PEER_GROUP_ENABLED:true}
 
 ingestion:
   # The value of cliMajorVersion is substituted in by the processResources Gradle task.
@@ -79,6 +84,7 @@ datahub:
     pluginSecurityMode: ${PLUGIN_SECURITY_MODE:RESTRICTED} # Possible value RESTRICTED or LENIENT, default to RESTRICTED
     entityRegistry:
       path: ${ENTITY_REGISTRY_PLUGIN_PATH:/etc/datahub/plugins/models}
+      loadDelaySeconds: ${ENTITY_REGISTRY_PLUGIN_LOAD_DELAY_SECONDS:60} # Rate at which plugin runnable executes, will run every N seconds.
     retention:
       path: ${RETENTION_PLUGIN_PATH:/etc/datahub/plugins/retention}
     auth:
@@ -327,6 +333,11 @@ systemUpdate:
     batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_POLICY_FIELDS_BATCH_SIZE:5000}
     reprocess:
       enabled: ${REPROCESS_DEFAULT_POLICY_FIELDS:false}
+  ownershipTypes:
+    enabled: ${BOOTSTRAP_SYSTEM_UPDATE_OWNERSHIP_TYPES_ENABLED:true}
+    batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_OWNERSHIP_TYPES_BATCH_SIZE:1000}
+    reprocess:
+      enabled: ${BOOTSTRAP_SYSTEM_UPDATE_OWNERSHIP_TYPES_REPROCESS:false}
 
 structuredProperties:
   enabled: ${ENABLE_STRUCTURED_PROPERTIES_HOOK:true} # applies structured properties mappings
@@ -350,6 +361,7 @@ featureFlags:
   platformBrowseV2: ${PLATFORM_BROWSE_V2:false} # Enables the platform browse experience, instead of the entity-oriented browse default.
   preProcessHooks:
     uiEnabled: ${PRE_PROCESS_HOOKS_UI_ENABLED:true} # Circumvents Kafka for processing index updates for UI changes sourced from GraphQL to avoid processing delays
+    reprocessEnabled: ${PRE_PROCESS_HOOKS_UI_ENABLED:false} # If enabled, will reprocess UI sourced events asynchronously when reading from Kafka after pre-processing them synchronously
   showAcrylInfo: ${SHOW_ACRYL_INFO:false} # Show different CTAs within DataHub around moving to Managed DataHub. Set to true for the demo site.
   nestedDomainsEnabled: ${NESTED_DOMAINS_ENABLED:true} # Enables the nested Domains feature that allows users to have sub-Domains. If this is off, Domains appear "flat" again
   schemaFieldEntityFetchEnabled: ${SCHEMA_FIELD_ENTITY_FETCH_ENABLED:true} # Enables fetching for schema field entities from the database when we hydrate them on schema fields

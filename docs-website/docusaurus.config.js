@@ -114,6 +114,16 @@ module.exports = {
           type: "docsVersionDropdown",
           position: "left",
           dropdownActiveClassDisabled: true,
+            dropdownItemsAfter: [
+                {
+                href: "https://docs-website-irpoe2osc-acryldata.vercel.app/docs/",
+                label: "0.11.0",
+                },
+                {
+                href: "https://docs-website-1gv2yzn9d-acryldata.vercel.app/docs/",
+                label: "0.10.5",
+                },
+            ],
         },
       ],
     },
@@ -217,8 +227,8 @@ module.exports = {
           }),
           numberPrefixParser: false,
           // TODO: make these work correctly with the doc generation
-          showLastUpdateAuthor: true,
-          showLastUpdateTime: true,
+          showLastUpdateAuthor: false,
+          showLastUpdateTime: false,
         },
         blog: false,
         theme: {
