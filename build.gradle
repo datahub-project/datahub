@@ -265,6 +265,7 @@ project.ext.externalDependency = [
     'jetbrains':' org.jetbrains.kotlin:kotlin-stdlib:1.6.0',
     'annotationApi': 'javax.annotation:javax.annotation-api:1.3.2',
     'classGraph': 'io.github.classgraph:classgraph:4.8.165',
+    'javaMail': 'com.sun.mail:javax.mail:1.6.2'
 ]
 
 allprojects {
@@ -350,6 +351,7 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
     exclude group: "org.slf4j", module: "slf4j-log4j12"
     exclude group: "org.slf4j", module: "slf4j-nop"
     exclude group: "org.slf4j", module: "slf4j-ext"
+    exclude group: "javax.mail", module: "mail"
   }
 }
 
