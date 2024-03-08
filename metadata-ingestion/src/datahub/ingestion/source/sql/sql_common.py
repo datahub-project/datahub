@@ -43,9 +43,17 @@ from datahub.ingestion.api.source import (
     TestConnectionReport,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.glossary.classification_mixin import (
+    ClassificationHandler,
+    ClassificationReportMixin,
+)
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
+)
+from datahub.ingestion.source.sql.data_reader import (
+    DataReader,
+    GenericSqlTableDataReader,
 )
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.ingestion.source.sql.sql_utils import (
@@ -120,7 +128,7 @@ MISSING_COLUMN_INFO = "missing column information"
 
 
 @dataclass
-class SQLSourceReport(StaleEntityRemovalSourceReport):
+class SQLSourceReport(StaleEntityRemovalSourceReport, ClassificationReportMixin):
     tables_scanned: int = 0
     views_scanned: int = 0
     entities_profiled: int = 0
@@ -314,6 +322,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         self.report: SQLSourceReport = SQLSourceReport()
         self.profile_metadata_info: ProfileMetadata = ProfileMetadata()
 
+        self.classification_handler = ClassificationHandler(self.config, self.report)
         config_report = {
             config_option: config.dict().get(config_option)
             for config_option in config_options_to_report
@@ -643,6 +652,20 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
             fk_dict["name"], foreign_fields, source_fields, foreign_dataset
         )
 
+    def init_data_reader(self, inspector: Inspector) -> Optional[DataReader]:
+        """
+        Subclasses can override this with source-specific data reader
+        if source provides clause to pick random sample instead of current
+        limit-based sample
+        """
+        if (
+            self.classification_handler
+            and self.classification_handler.is_classification_enabled()
+        ):
+            return GenericSqlTableDataReader.create(inspector)
+
+        return None
+
     def loop_tables(  # noqa: C901
         self,
         inspector: Inspector,
@@ -650,6 +673,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         sql_config: SQLCommonConfig,
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
         tables_seen: Set[str] = set()
+        data_reader = self.init_data_reader(inspector)
         try:
             for table in inspector.get_table_names(schema):
                 dataset_name = self.get_identifier(
@@ -669,12 +693,14 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
 
                 try:
                     yield from self._process_table(
-                        dataset_name, inspector, schema, table, sql_config
+                        dataset_name, inspector, schema, table, sql_config, data_reader
                     )
                 except Exception as e:
                     self.warn(logger, f"{schema}.{table}", f"Ingestion error: {e}")
         except Exception as e:
             self.error(logger, f"{schema}", f"Tables error: {e}")
+        if data_reader:
+            data_reader.close()
 
     def add_information_for_schema(self, inspector: Inspector, schema: str) -> None:
         pass
@@ -691,6 +717,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         schema: str,
         table: str,
         sql_config: SQLCommonConfig,
+        data_reader: Optional[DataReader],
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
         columns = self._get_columns(dataset_name, inspector, schema, table)
         dataset_urn = make_dataset_urn_with_platform_instance(
@@ -740,6 +767,8 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
             foreign_keys,
             schema_fields,
         )
+        self._classify(dataset_name, schema, table, data_reader, schema_metadata)
+
         dataset_snapshot.aspects.append(schema_metadata)
         if self.config.include_view_lineage:
             self.schema_resolver.add_schema_metadata(dataset_urn, schema_metadata)
@@ -768,6 +797,35 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                 entity_urn=dataset_urn,
                 domain_config=sql_config.domain,
                 domain_registry=self.domain_registry,
+            )
+
+    def _classify(self, dataset_name, schema, table, data_reader, schema_metadata):
+        try:
+            if (
+                self.classification_handler.is_classification_enabled_for_table(
+                    dataset_name
+                )
+                and data_reader
+            ):
+                self.classification_handler.classify_schema_fields(
+                    dataset_name,
+                    schema_metadata,
+                    data_reader.get_data_for_table(
+                        table_id=[schema, table],
+                        sample_size=self.config.classification.sample_size,
+                    ),
+                )
+        except Exception as e:
+            import pdb
+
+            pdb.set_trace()
+            logger.debug(
+                f"Failed to classify table columns for {dataset_name} due to error -> {e}",
+                exc_info=e,
+            )
+            self.report.report_warning(
+                "Failed to classify table columns",
+                dataset_name,
             )
 
     def get_database_properties(
