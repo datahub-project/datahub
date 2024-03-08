@@ -122,7 +122,7 @@ def generate_hash(text: str) -> str:
 
 def get_query_fingerprint_debug(
     expression: sqlglot.exp.ExpOrStr, dialect: DialectOrStr
-) -> Tuple[str, str]:
+) -> Tuple[str, Optional[str]]:
     try:
         dialect = get_dialect(dialect)
         expression_sql = generalize_query(expression, dialect=dialect)
@@ -131,9 +131,11 @@ def get_query_fingerprint_debug(
             raise
 
         logger.debug("Failed to generalize query for fingerprinting: %s", e)
-        expression_sql = expression
+        expression_sql = None
 
-    fingerprint = generate_hash(expression_sql)
+    fingerprint = generate_hash(
+        expression_sql if expression_sql is not None else expression
+    )
     return fingerprint, expression_sql
 
 
@@ -161,6 +163,28 @@ def get_query_fingerprint(
     """
 
     return get_query_fingerprint_debug(expression, dialect)[0]
+
+
+def try_format_query(expression: sqlglot.exp.ExpOrStr, dialect: DialectOrStr) -> str:
+    """Format a SQL query.
+
+    If the query cannot be formatted, the original query is returned unchanged.
+
+    Args:
+        expression: The SQL query to format.
+        dialect: The SQL dialect to use.
+
+    Returns:
+        The formatted SQL query.
+    """
+
+    try:
+        dialect = get_dialect(dialect)
+        expression = parse_statement(expression, dialect=dialect)
+        return expression.sql(dialect=dialect, pretty=True)
+    except Exception as e:
+        logger.debug("Failed to format query: %s", e)
+        return expression
 
 
 def detach_ctes(
