@@ -53,6 +53,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.search.SearchHit;
@@ -124,21 +125,26 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
   }
 
   private String toDocId(@Nonnull final Edge edge) {
-    String rawDocId =
-        edge.getSource().toString()
-            + DOC_DELIMETER
-            + edge.getRelationshipType()
-            + DOC_DELIMETER
-            + edge.getDestination().toString();
+
+    StringBuilder rawDocId = new StringBuilder();
+    rawDocId.append(edge.getSource().toString())
+        .append(DOC_DELIMETER)
+        .append(edge.getRelationshipType())
+        .append(DOC_DELIMETER)
+        .append(edge.getDestination().toString());
+    if (edge.getLifecycleOwner() != null && StringUtils.isNotBlank(edge.getLifecycleOwner().toString())) {
+      rawDocId.append(DOC_DELIMETER)
+          .append(edge.getLifecycleOwner().toString());
+    }
 
     try {
-      byte[] bytesOfRawDocID = rawDocId.getBytes(StandardCharsets.UTF_8);
+      byte[] bytesOfRawDocID = rawDocId.toString().getBytes(StandardCharsets.UTF_8);
       MessageDigest md = MessageDigest.getInstance("MD5");
       byte[] thedigest = md.digest(bytesOfRawDocID);
       return Base64.getEncoder().encodeToString(thedigest);
     } catch (NoSuchAlgorithmException e) {
-      e.printStackTrace();
-      return rawDocId;
+      log.error("Unable to hash document ID, returning unhashed id: " + rawDocId);
+      return rawDocId.toString();
     }
   }
 

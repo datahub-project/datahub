@@ -18,7 +18,7 @@ public class Edge {
   @EqualsAndHashCode.Exclude private Urn updatedActor;
   @EqualsAndHashCode.Exclude private Map<String, Object> properties;
   // The entity who owns the lifecycle of this edge
-  @EqualsAndHashCode.Exclude private Urn lifecycleOwner;
+  @EqualsAndHashCode.Include private Urn lifecycleOwner;
   // An entity through which the edge between source and destination is created
   @EqualsAndHashCode.Include private Urn via;
 
