@@ -3,9 +3,9 @@ import { Section } from '../Section';
 import { PlatformCard } from './PlatformCard';
 import { useGetPlatforms } from './useGetPlatforms';
 import { useUserContext } from '../../../../../../context/useUserContext';
-import { HorizontalList } from '../../../../../layout/shared/styledComponents';
 import { HOME_PAGE_PLATFORMS_ID } from '../../../../../../onboarding/config/HomePageOnboardingConfig';
 import { useUpdateEducationStepsAllowList } from '../../../../../../onboarding/useUpdateEducationStepsAllowList';
+import { Carousel } from '../../../../../../shared/carousel/Carousel';
 
 export const Platforms = () => {
     const { user } = useUserContext();
@@ -17,7 +17,7 @@ export const Platforms = () => {
         <div id={HOME_PAGE_PLATFORMS_ID}>
             {(platforms.length && (
                 <Section title="Platforms">
-                    <HorizontalList>
+                    <Carousel>
                         {platforms.map((platform) => (
                             <PlatformCard
                                 key={platform.platform.urn}
@@ -25,7 +25,7 @@ export const Platforms = () => {
                                 count={platform.count}
                             />
                         ))}
-                    </HorizontalList>
+                    </Carousel>
                 </Section>
             )) ||
                 null}

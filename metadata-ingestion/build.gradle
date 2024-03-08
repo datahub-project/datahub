@@ -76,7 +76,7 @@ task customPackageGenerate(type: Exec, dependsOn: [environmentSetup, installPack
     "./scripts/custom_package_codegen.sh '${package_name}' '${package_version}'"
 }
 
-task install(dependsOn: [installPackage, codegen])
+task install(dependsOn: [installPackage, codegen, ':metadata-ingestion-modules:acryl-cloud:install'])
 
 task installDev(type: Exec, dependsOn: [install]) {
   def sentinel_file = "${venv_name}/.build_install_dev_sentinel"

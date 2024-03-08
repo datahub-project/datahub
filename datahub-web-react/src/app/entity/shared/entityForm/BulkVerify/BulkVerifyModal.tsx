@@ -39,37 +39,34 @@ interface Props {
 
 export default function BulkVerifyModal({ isVerifyModalVisible, closeModal }: Props) {
     const {
-        refetch,
-        setShouldRefetch,
+        submission: { handleBulkVerifySubmission },
         form: { formUrn },
         entity: { selectedEntities, setSelectedEntities }
     } = useEntityFormContext();
 
-    const [isWaitingToRefetch, setIsWaitingToRefetch] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const [batchVerifyForm, { loading }] = useBatchVerifyFormMutation();
 
-    const shouldShowLoading = loading || isWaitingToRefetch;
+    const shouldShowLoading = loading || isSubmitting;
     const numSelectedEntities = selectedEntities.length;
 
     function batchVerify() {
-        batchVerifyForm({ variables: { input: { formUrn, assetUrns: selectedEntities.map((e) => e.urn) } } }).then(
+        setIsSubmitting(true);
+        const selectedEntityUrns = selectedEntities.map((e) => e.urn);
+        batchVerifyForm({ variables: { input: { formUrn, assetUrns: selectedEntityUrns } } }).then(
             () => {
-                setIsWaitingToRefetch(true);
-                refetch(); // 3 second wait already happens in refetch
-                setTimeout(() => {
-                    notification.success({
-                        message: 'Success',
-                        description: `You have successfully verified ${numSelectedEntities} ${numSelectedEntities === 1 ? 'entity' : 'entities'
-                            }`,
-                        placement: 'bottomLeft',
-                        duration: 3,
-                        icon: <CheckCircleFilled style={{ color: '#078781' }} />,
-                    });
-                    setShouldRefetch(true);
-                    setSelectedEntities([]);
-                    setIsWaitingToRefetch(false);
-                    closeModal();
-                }, 3000);
+                handleBulkVerifySubmission(selectedEntityUrns);
+                setIsSubmitting(false);
+                notification.success({
+                    message: 'Success',
+                    description: `You have successfully verified ${numSelectedEntities} ${numSelectedEntities === 1 ? 'entity' : 'entities'
+                        }`,
+                    placement: 'bottomLeft',
+                    duration: 3,
+                    icon: <CheckCircleFilled style={{ color: '#078781' }} />,
+                });
+                setSelectedEntities([]);
+                closeModal();
             },
         );
     }

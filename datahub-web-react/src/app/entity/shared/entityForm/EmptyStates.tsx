@@ -16,15 +16,13 @@ interface Props {
 // ALL FORM TYPES: Some assets for prompt have response (clears query filters for current prompt)
 const ByQuestionFinishRemainingAssets = ({ handleViewRemaining }: Omit<Props, "closeModal">) => {
 	const {
-		entity: { numSubmittedEntities },
-		prompt: { prompt },
 		counts: { promptCounts: { numNotComplete } }
 	} = useEntityFormContext();
 
 	return (
 		<Flex>
 			<h4>
-				{`Nice! You set a set a response for "${prompt?.title}" for ${numSubmittedEntities} ${pluralize(numSubmittedEntities, 'asset')}.`}
+				{`Nice! You've set a response for all of the assets in this view.`}
 			</h4>
 			<p>
 				{`Let's keep going! There are ${numNotComplete} ${pluralize(numNotComplete, 'asset')} still missing a response.`}
@@ -82,24 +80,6 @@ const ByQuestionCompleted = ({ closeModal }: Omit<Props, "handleViewRemaining">)
 	</Flex>
 );
 
-// VERIFICATION FORM: All assets have response to all prompts & ready for verification
-const ByQuestionVerifyCTA = ({ goToBulkVerify }: { goToBulkVerify: (e: any) => void }) => {
-	const {
-		counts: { verificationType: { verifyReady } }
-	} = useEntityFormContext();
-
-	return (
-		<Flex>
-			<h4>Congratulations on completing all responses for every asset!</h4>
-			<p>{`Now, for the final step, let's do a quick review of your hard work and verify your responses.`}</p>
-			<Button type="primary" onClick={goToBulkVerify}>
-				<ArrowRightOutlined />{' '}
-				Verify Responses for {verifyReady} {pluralize(verifyReady, 'Asset')}
-			</Button>
-		</Flex>
-	);
-}
-
 // VERIFICATION FORM: All eligible assets are verified, but some assets need to be completed
 const BulkVerifyFinishRemainingAssets = ({ handleViewRemaining }: { handleViewRemaining?: (e: any) => void }) => {
 	const {
@@ -153,19 +133,14 @@ const BulkVerifyCompleted = ({ closeModal }: Omit<Props, "handleViewRemaining">)
 
 export const EmptyStates = ({ handleViewRemaining, closeModal }: Props) => {
 	const {
-		loading,
 		setShouldRefetch,
+		search: { loading },
 		states: { byQuestion, bulkVerify },
 		form: { setFormView },
 		entity: { setSelectedEntities }
 	} = useEntityFormContext();
 
 	if (loading) return null;
-
-	const goToBulkVerify = () => {
-		setFormView(FormView.BULK_VERIFY);
-		setSelectedEntities([]);
-	}
 
 	const returnToQuestions = () => {
 		setFormView(FormView.BY_QUESTION);
@@ -177,8 +152,6 @@ export const EmptyStates = ({ handleViewRemaining, closeModal }: Props) => {
 	* By Question Flow 
 	*/
 
-	if (byQuestion.showVerifyCTA) // verification type
-		return <ByQuestionVerifyCTA goToBulkVerify={goToBulkVerify} />
 	if (byQuestion.showCompleted) // not verification form type
 		return <ByQuestionCompleted closeModal={closeModal} />
 	if (byQuestion.showFinishRemainingAssets)

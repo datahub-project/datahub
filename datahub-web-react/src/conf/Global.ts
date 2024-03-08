@@ -49,3 +49,8 @@ export const CLIENT_AUTH_COOKIE = 'actor';
  * Name of the unique browser id cookie generated on client side
  */
 export const BROWSER_ID_COOKIE = 'bid';
+
+/**
+ * String for No Domain in the domain selector
+ */
+export const NO_DOMAIN = '-- No Domain --';

@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useGetMeLazyQuery } from '../../graphql/me.generated';
 import { useGetGlobalViewsSettingsLazyQuery } from '../../graphql/app.generated';
-import { CorpUser, PlatformPrivileges } from '../../types.generated';
+import { ActionRequestStatus, CorpUser, PlatformPrivileges } from '../../types.generated';
 import { UserContext, LocalState, DEFAULT_STATE, State } from './userContext';
 
 import { useListActionRequestsQuery } from '../../graphql/actionRequest.generated';
@@ -56,7 +56,7 @@ const UserContextProvider = ({ children }: { children: React.ReactNode }) => {
     * Retrieve user unfinished task count (propsals & forms)
     */
     const { data: unfinishedProposals, refetch: unfinishedProposalRefetch } = useListActionRequestsQuery({
-        variables: { input: { count: 0 } },
+        variables: { input: { count: 0, status: ActionRequestStatus.Pending } },
         fetchPolicy: 'no-cache',
     });
     const { data: unfinishedForms, refetch: unfinishedFormsRefetch } = useGetFormsForActorQuery({

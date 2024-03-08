@@ -42,6 +42,7 @@ type Props = {
     setIsSelectMode: (showSelectMode: boolean) => any;
     onChangeSelectAll: (selected: boolean) => void;
     refetch?: () => void;
+    numResults?: number;
     searchBarStyle?: any;
     searchBarInputStyle?: any;
 };
@@ -59,6 +60,7 @@ export default function EmbeddedListSearchHeader({
     setIsSelectMode,
     onChangeSelectAll,
     refetch,
+    numResults,
     searchBarStyle,
     searchBarInputStyle,
 }: Props) {
@@ -101,6 +103,7 @@ export default function EmbeddedListSearchHeader({
                                 filters={filters}
                                 query={query}
                                 setShowSelectMode={setIsSelectMode}
+                                totalResults={numResults}
                             />
                         </SearchMenuContainer>
                     </SearchAndDownloadContainer>

@@ -1,4 +1,5 @@
 import { Button } from 'antd';
+import { LoadingOutlined } from '@ant-design/icons';
 import Icon from '@ant-design/icons/lib/components/Icon';
 import React from 'react';
 import styled from 'styled-components';
@@ -44,12 +45,8 @@ export default function VerificationCTA() {
         counts: {
             verificationType: { verifyReady },
         },
-        states: {
-            byQuestion: { showVerifyCTAHeader },
-        },
+        submission: { nonOptimisticLoading, verificationDataLoading },
     } = useEntityFormContext();
-
-    if (!showVerifyCTAHeader) return null;
 
     function goToBulkVerify() {
         setFormView(FormView.BULK_VERIFY);
@@ -59,7 +56,8 @@ export default function VerificationCTA() {
     return (
         <StyledButton onClick={goToBulkVerify}>
             <StyledIcon component={PurpleVerificationLogo} />
-            {verifyReady} {pluralize(verifyReady, 'asset')}
+            {nonOptimisticLoading || verificationDataLoading ? <LoadingOutlined /> : verifyReady}{' '}
+            {pluralize(verifyReady, 'asset')}
             <br />
             eligible for verification {'->'}
         </StyledButton>

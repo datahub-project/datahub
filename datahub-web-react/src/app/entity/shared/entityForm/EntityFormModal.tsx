@@ -26,6 +26,7 @@ const StyledModal = styled(Modal)`
         overflow: hidden;
         padding: 0;
         display: flex;
+        flex-direction: column;
     }
 `;
 
@@ -35,6 +36,12 @@ const StyledClose = styled(CloseOutlined)`
         font-size: 24px;
         margin: 18px 12px 0 0;
     }
+`;
+
+const EntityFormWrapper = styled.div`
+    flex: 1;
+    overflow: auto;
+    display: flex;
 `;
 
 interface Props {
@@ -53,18 +60,21 @@ export default function EntityFormModal({ selectedFormUrn, isFormVisible, hideFo
     };
 
     return (
-        <EntityFormContextProvider formUrn={selectedFormUrn || ''}>
-            <StyledModal
-                open={isFormVisible}
-                onCancel={handleClose}
-                footer={null}
-                title={<FormPageHeader />}
-                closeIcon={<StyledClose />}
-                style={{ top: 0, height: '100vh', minWidth: '100vw' }}
-                destroyOnClose
-            >
-                <EntityForm formUrn={selectedFormUrn || ''} closeModal={handleClose} />
-            </StyledModal>
-        </EntityFormContextProvider>
+        <StyledModal
+            open={isFormVisible}
+            onCancel={handleClose}
+            footer={null}
+            title={null}
+            closeIcon={<StyledClose />}
+            style={{ top: 0, height: '100vh', minWidth: '100vw' }}
+            destroyOnClose
+        >
+            <EntityFormContextProvider formUrn={selectedFormUrn || ''}>
+                <FormPageHeader />
+                <EntityFormWrapper>
+                    <EntityForm formUrn={selectedFormUrn || ''} closeModal={handleClose} />
+                </EntityFormWrapper>
+            </EntityFormContextProvider>
+        </StyledModal>
     );
 }

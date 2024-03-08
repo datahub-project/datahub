@@ -26,7 +26,7 @@ type Props = {
     entityType: EntityType;
     platformUrn: string;
     initialState?: AssertionMonitorBuilderState;
-    onSubmit?: (assertion: Assertion, monitor: Monitor) => void;
+    onSubmit?: (assertion: Assertion, monitor?: Monitor) => void;
     onCancel?: () => void;
 };
 
@@ -54,7 +54,7 @@ export const AssertionMonitorBuilderModal = ({
             onOk() {
                 onCancel?.();
             },
-            onCancel() {},
+            onCancel() { },
             okText: 'Yes',
             maskClosable: true,
             closable: true,

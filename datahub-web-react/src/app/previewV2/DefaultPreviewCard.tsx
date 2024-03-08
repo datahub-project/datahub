@@ -253,11 +253,6 @@ export default function DefaultPreviewCard({
     }
     const { contentRef } = useContentTruncation(container);
 
-    const onPreventMouseDown = (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-    };
-
     // TODO: Replace with something less hacky
     const finalType = type || entityRegistry.getEntityName(entityType);
     const hasPlatformIcons =
@@ -267,7 +262,7 @@ export default function DefaultPreviewCard({
     const status = tier !== undefined ? getBarsStatusFromPopularityTier(tier) : 0;
 
     return (
-        <PreviewContainer data-testid={dataTestID} onMouseDown={onPreventMouseDown}>
+        <PreviewContainer data-testid={dataTestID}>
             <RowContainer alignment="self-start">
                 {isIconPresent ? (
                     <ColoredBackgroundPlatformIconGroup

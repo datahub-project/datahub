@@ -6,25 +6,36 @@ import { ChartCard, HorizontalFullBarChart } from '../../../dataviz';
 import { COMPLETED_COLOR, NOT_STARTED_COLOR, IN_PROGRESS_COLOR } from '../../../dataviz/constants';
 
 import { ChartGroup, Row, SecondaryHeading } from '../components';
-import { mergeRowAndHeaderData } from '../utils';
+import { mergeRowAndHeaderData, truncateString } from '../utils';
 
 import { useFormAnalyticsQuery } from '../../../../graphql/analytics.generated';
 import { useFormAnalyticsContext } from '../FormAnalyticsContext';
 
+import { useGetFormQuery } from '../../../../graphql/form.generated';
+
 import { SectionWaiting, ChartState, ChartNoData } from './AuxViews';
 
+/* THIS CHART CAN ONLY WORK ON THE FORMS TAB WHEN A FORM ID IS SELECTED */
 const DocumentationProgressByQuestion = () => {
 	const {
 		sql,
-		snapshot,
 		sectionLoadStates: { questions, setLoadStates },
 		byForm: { selectedForm }
 	} = useFormAnalyticsContext();
 
 	const { data, loading, error } = useFormAnalyticsQuery({
-		variables: { input: { 'queryString': sql.byFormByQuestionProgress } },
-		skip: !snapshot || !selectedForm
+		variables: { input: { 'queryString': sql.formQuestionProgress } },
+		skip: sql.skip,
 	});
+
+	// Get the form data
+	const { data: formData } = useGetFormQuery({
+		variables: { urn: selectedForm || '' },
+		skip: !selectedForm
+	});
+
+	// Get the prompts from the form data
+	const prompts = formData?.form?.info?.prompts || [];
 
 	useEffect(() => {
 		if (!loading && !questions) setLoadStates('questions', 'questions', true);
@@ -35,7 +46,7 @@ const DocumentationProgressByQuestion = () => {
 		loading,
 		error: !!error,
 		noDataTimeframe: !!data && data?.formAnalytics?.table?.length === 0,
-		noData: !data
+		noData: data?.formAnalytics?.table?.length === 0
 	};
 
 	// Render component to display the chart state
@@ -57,12 +68,20 @@ const DocumentationProgressByQuestion = () => {
 		range: [NOT_STARTED_COLOR, IN_PROGRESS_COLOR, COMPLETED_COLOR]
 	});
 
+	// Add prompts to chart data (FE data hydration)
+	const updatedData = mergedData.map((d) => {
+		const prompt = prompts.find((p) => p.id === d.question);
+		return {
+			...d,
+			question: truncateString(prompt?.title) || d.question
+		};
+	});
+
 	return (
 		<HorizontalFullBarChart
-			data={mergedData}
+			data={updatedData}
 			dataKeys={docProgressByFormDataKeys}
 			yAccessor={(d: { question: string }) => d.question}
-			xAccessor={(d, k) => d[k]}
 			colorAccessor={ordinalColorScale}
 		/>
 	);

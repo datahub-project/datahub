@@ -14,7 +14,7 @@ import { getResultColor, getResultErrorMessage, getResultIcon, getResultText } f
 import { DatasetAssertionResultDetails } from './DatasetAssertionResultDetails';
 import { LinkWrapper } from '../../../../../shared/LinkWrapper';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
-import { BooleanTimeline } from './BooleanTimeline';
+import { BooleanDataPoint, BooleanTimeline } from './BooleanTimeline';
 
 const RESULT_CHART_WIDTH_PX = 800;
 
@@ -159,7 +159,7 @@ export const DatasetAssertionDetails = ({ urn, lastEvaluatedAtMillis }: Props) =
     /**
      * Data for the chart of assertion results.
      */
-    const assertionResultsChartData =
+    const assertionResultsChartData: BooleanDataPoint[] =
         completeAssertionRunEvents.map((runEvent) => {
             const { result } = runEvent;
 
@@ -168,7 +168,7 @@ export const DatasetAssertionDetails = ({ urn, lastEvaluatedAtMillis }: Props) =
             const resultTime = new Date(runEvent.timestampMillis);
             const localTime = resultTime.toLocaleString();
             const gmtTime = resultTime.toUTCString();
-            const resultUrl = result.externalUrl;
+            const resultUrl: string | undefined = result.externalUrl?.valueOf();
             const isInitializing = result.type === AssertionResultType.Init;
             const errorMessage = getResultErrorMessage(result);
             const platformName = data?.assertion?.platform
@@ -182,6 +182,7 @@ export const DatasetAssertionDetails = ({ urn, lastEvaluatedAtMillis }: Props) =
                 time: runEvent.timestampMillis,
                 result: {
                     type: result.type,
+                    isSuccess: result.type === AssertionResultType.Success,
                     resultUrl,
                     title: (
                         <>

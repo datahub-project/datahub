@@ -5,7 +5,7 @@ import com.linkedin.monitor.AssertionEvaluationParameters
 /**
  * The result of running an assertion
  */
-record AssertionResult {
+record AssertionResult includes AssertionWithoutAnnotations {
   /**
   *  The final result, e.g. either SUCCESS, FAILURE, or ERROR.
   */
@@ -47,11 +47,6 @@ record AssertionResult {
    *  The error object if AssertionResultType is an Error
    */
   error: optional AssertionResultError
-
-  /**
-   * Acryl Only! The definition of the assertion that was used for this run. Optional
-   */
-  assertion: optional AssertionInfo
 
   /**
    * Acryl Only! The parameters that were used for running the assertion.

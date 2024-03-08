@@ -16,7 +16,6 @@ import com.linkedin.metadata.service.RollbackService;
 import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import io.datahubproject.metadata.context.OperationContext;
-import javax.inject.Singleton;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
@@ -30,7 +29,6 @@ import org.springframework.context.annotation.PropertySource;
 public class JavaEntityClientFactory {
 
   @Bean("entityClient")
-  @Singleton
   public EntityClient entityClient(
       final OperationContext opContext,
       final @Qualifier("entityService") EntityService<?> _entityService,
@@ -57,7 +55,6 @@ public class JavaEntityClientFactory {
   }
 
   @Bean("systemEntityClient")
-  @Singleton
   public SystemEntityClient systemEntityClient(
       final @Qualifier("systemOperationContext") OperationContext systemOperationContext,
       final @Qualifier("entityService") EntityService<?> _entityService,

@@ -1,7 +1,7 @@
+import React from 'react';
+import styled from 'styled-components';
 import KeyboardArrowLeftIcon from '@mui/icons-material/KeyboardArrowLeft';
 import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight';
-import React, { useEffect } from 'react';
-import styled from 'styled-components';
 import { SchemaField } from '../../../../../../../../types.generated';
 import { pluralize } from '../../../../../../../shared/textUtil';
 import { REDESIGN_COLORS } from '../../../../../constants';
@@ -32,6 +32,7 @@ const StyledIcon = styled.div`
     justify-content: center;
     background: transparent;
     border: none;
+
     &&:hover {
         cursor: pointer;
         stroke: ${REDESIGN_COLORS.DARK_GREY};
@@ -60,59 +61,26 @@ const ButtonsWrapper = styled.div`
 interface Props {
     schemaFields?: SchemaField[];
     expandedFieldIndex?: number;
-    setExpandedDrawerFieldPath: (fieldPath: string | null) => void;
+    selectPreviousField: () => void;
+    selectNextField: () => void;
 }
 
-export default function DrawerFooter({ schemaFields = [], expandedFieldIndex = 0, setExpandedDrawerFieldPath }: Props) {
-    function showNextField() {
-        if (expandedFieldIndex !== undefined && expandedFieldIndex !== -1) {
-            if (expandedFieldIndex === schemaFields.length - 1) {
-                const newField = schemaFields[0];
-                setExpandedDrawerFieldPath(newField.fieldPath);
-            } else {
-                const newField = schemaFields[expandedFieldIndex + 1];
-                const { fieldPath } = newField;
-                setExpandedDrawerFieldPath(fieldPath);
-            }
-        }
-    }
-
-    function showPreviousField() {
-        if (expandedFieldIndex !== undefined && expandedFieldIndex !== -1) {
-            if (expandedFieldIndex === 0) {
-                const newField = schemaFields[schemaFields.length - 1];
-                setExpandedDrawerFieldPath(newField.fieldPath);
-            } else {
-                const newField = schemaFields[expandedFieldIndex - 1];
-                setExpandedDrawerFieldPath(newField.fieldPath);
-            }
-        }
-    }
-
-    function handleArrowKeys(event: KeyboardEvent) {
-        if (event.code === 'ArrowUp' || event.code === 'ArrowLeft') {
-            showPreviousField();
-        } else if (event.code === 'ArrowDown' || event.code === 'ArrowRight') {
-            showNextField();
-        }
-    }
-
-    useEffect(() => {
-        document.addEventListener('keydown', handleArrowKeys);
-
-        return () => document.removeEventListener('keydown', handleArrowKeys);
-    });
-
+export default function DrawerFooter({
+    schemaFields = [],
+    expandedFieldIndex = 0,
+    selectPreviousField,
+    selectNextField,
+}: Props) {
     return (
         <HeaderWrapper>
             <ButtonsWrapper>
-                <StyledIcon onClick={showPreviousField}>
+                <StyledIcon onClick={selectPreviousField}>
                     <KeyboardArrowLeftIcon />
                 </StyledIcon>
                 <FieldIndexText>
                     {expandedFieldIndex + 1} of {schemaFields.length} {pluralize(schemaFields.length, 'field')}
                 </FieldIndexText>
-                <StyledIcon onClick={showNextField}>
+                <StyledIcon onClick={selectNextField}>
                     <KeyboardArrowRightIcon />
                 </StyledIcon>
             </ButtonsWrapper>

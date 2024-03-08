@@ -3,17 +3,17 @@ import styled from 'styled-components';
 import { useHistory } from 'react-router';
 import { useEntityData } from '../../shared/EntityContext';
 import ContentSectionLoading from './ContentSectionLoading';
-import { HorizontalList } from '../../shared/summary/ListComponents';
 import { useGetSearchResultsForMultipleQuery } from '../../../../graphql/search.generated';
 import { DataProduct, EntityType } from '../../../../types.generated';
 import { DOMAINS_FILTER_NAME } from '../../../searchV2/utils/constants';
 import { DataProductMiniPreview } from '../../shared/links/DataProductMiniPreview';
-import { SummaryTabHeaderTitle, SummaryTabHeaderWrapper } from '../../shared/summary/HeaderComponents';
+import { Container, SummaryTabHeaderTitle, SummaryTabHeaderWrapper } from '../../shared/summary/HeaderComponents';
 import { navigateToDomainDataProducts } from '../../shared/containers/profile/sidebar/Domain/utils';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { DataProductMiniPreviewAddDataProduct } from '../../shared/links/DataProductMiniPreviewAddDataProduct';
 import { IconStyleType } from '../../../entity/Entity';
 import { ANTD_GRAY } from '../../shared/constants';
+import { Carousel } from '../../../shared/carousel/Carousel';
 
 const ViewAllButton = styled.div`
     color: ${ANTD_GRAY[7]};
@@ -49,7 +49,7 @@ export const DataProductsRow = () => {
     const showAddDataProductLink = dataProducts.length <= 2;
 
     return (
-        <>
+        <Container>
             <SummaryTabHeaderWrapper>
                 <SummaryTabHeaderTitle
                     icon={entityRegistry.getIcon(EntityType.DataProduct, 16, IconStyleType.ACCENT, ANTD_GRAY[8])}
@@ -60,7 +60,7 @@ export const DataProductsRow = () => {
                 </ViewAllButton>
             </SummaryTabHeaderWrapper>
             {loading && <ContentSectionLoading />}
-            <HorizontalList>
+            <Carousel>
                 {!loading &&
                     dataProducts.map((product) => (
                         <DataProductMiniPreview dataProduct={product as DataProduct} key={product.urn} />
@@ -70,7 +70,7 @@ export const DataProductsRow = () => {
                         onAdd={() => navigateToDomainDataProducts(urn, entityType, history, entityRegistry, true)}
                     />
                 )}
-            </HorizontalList>
-        </>
+            </Carousel>
+        </Container>
     );
 };

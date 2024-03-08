@@ -94,7 +94,7 @@ export function DetailsColumn({
                 resultStatusType={ResultStatusType.LATEST}
             >
                 <Result>
-                    <AssertionResultDot assertion={assertion} run={lastEvaluation} disabled={disabled} size={18} />
+                    <AssertionResultDot run={lastEvaluation} disabled={disabled} size={18} />
                 </Result>
             </AssertionResultPopover>
             <AssertionDescription assertion={assertion} />
@@ -144,7 +144,7 @@ interface ActionsColumnProps {
     canEditMonitor: boolean;
     canEditContract: boolean;
     lastEvaluationUrl?: string;
-    refetch: () => void;
+    refetch?: () => void;
 }
 
 export function ActionsColumn({

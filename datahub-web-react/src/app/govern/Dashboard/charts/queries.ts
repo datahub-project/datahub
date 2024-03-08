@@ -1,48 +1,182 @@
-// Resuable Aggregates
-const aggregate = {
-	countFormStatus: {
-		statusAsCategories: `
-			count(distinct(case when form_status = 'complete' then asset_urn end)) as "Completed",
-			count(distinct(case when form_status = 'in_progress' then asset_urn end)) as "In Progress",
-			count(distinct(case when form_status = 'not_started' then asset_urn end)) as "Not Started"
-		`,
-	},
-	percentages: {
-		percentCompleted:
-			`count(distinct(case when form_status = 'complete' then asset_urn end)) / count(distinct(asset_urn)) as completed_asset_percent`,
-		orderByTopPerforming:
-			`count(distinct(case when form_status = 'complete' then asset_urn end)) / count(distinct(asset_urn)) desc`,
-		orderByLeastPerforming:
-			`count(distinct(case when form_status = 'complete' then asset_urn end)) / count(distinct(asset_urn)) asc`
-	},
-}
-
 // Query strings for the charts in the Governance Dashboard
 export const sqlQueries = (
 	daysSinceDate: string,
 	formId?: string,
 	assigneeId?: string,
 	domainId?: string,
-	snapshotDate?: string
-) => ({
-	/* 
-	* Overall Tab
-	*/
-	overallAssignedStatus:
-		`select
-				${aggregate.countFormStatus.statusAsCategories}
+	snapshotDate?: string,
+	tab?: string,
+	series?: number,
+) => {
+	// Define our entity type based on tab selection
+	let entity;
+	if (tab === 'byForm') entity = 'form';
+	if (tab === 'byAssignee') entity = 'assignee';
+	if (tab === 'byDomain') entity = 'domain';
+
+	// Builds the query based on the entity
+	// Reduces code duplication
+	const queryBuilder = (query: string) => {
+		let updatedQuery = query;
+		const whereIndex = updatedQuery.indexOf('where') + 5;
+
+		const injectWhere = (whereItem: string) =>
+			`${updatedQuery.slice(0, whereIndex)} ${whereItem} and ${query.slice(whereIndex)}`;
+
+		if (entity === 'form') updatedQuery = injectWhere(`form_urn = '${formId}'`);
+		if (entity === 'assignee') updatedQuery = injectWhere(`assignee_urn = '${assigneeId}'`);
+		if (entity === 'domain') {
+			if (domainId === null || domainId === 'null' || domainId === '') {
+				updatedQuery = injectWhere('domain_urn is null');
+			} else {
+				updatedQuery = injectWhere(`domain_urn = '${domainId}'`);
+			}
+		}
+		// if (entity === 'domain') updatedQuery = injectWhere(`domain_urn = '${domainId}'`);
+
+		return updatedQuery;
+	};
+
+	// Date truncation
+	const dateTrunc = () => {
+		let trunc = 'day'; // last 7 days
+		if (series === 30) trunc = 'day'; // last 30 days
+		if (series === 90) trunc = 'week'; // last 90 days
+		if (series === 365) trunc = 'month'; // last 365 days
+		return trunc;
+	}
+
+	// Reusable select for percentage and count stats
+	const percentAndCount = (status: string) => (`
+		count(distinct(case when form_status = '${status}' then asset_urn end)) / count(distinct(asset_urn)) as completed_asset_percent,
+		count(distinct(case when form_status = '${status}' then asset_urn end)) as completed_asset_count,
+		count(distinct(asset_urn)) as assigned_asset_count
+	`);
+
+	// Reusable select for trend stats
+	const trend = `
+		form_assigned_date as date,
+		count(distinct(asset_urn)) as value
+	`;
+
+	// Reusable select aggregate for status categories
+	const statusAsCategories = `
+		count(distinct(case when form_status = 'complete' then asset_urn end)) as "Completed",
+		count(distinct(case when form_status = 'in_progress' then asset_urn end)) as "In Progress",
+		count(distinct(case when form_status = 'not_started' then asset_urn end)) as "Not Started"
+	`;
+
+	// Reusable select for percentage completed
+	const percentCompleted = `
+		count(distinct(case when form_status = 'complete' then asset_urn end)) / count(distinct(asset_urn)) as completed_asset_percent
+	`;
+
+	// Reusable orderBy for top performing
+	const orderByTopPerforming = `
+		count(distinct(case when form_status = 'complete' then asset_urn end)) / count(distinct(asset_urn)) desc
+	`;
+
+	// Reusable orderBy for least performing
+	const orderByLeastPerforming = `
+		count(distinct(case when form_status = 'complete' then asset_urn end)) / count(distinct(asset_urn)) asc
+	`;
+
+	// Query skip logic
+	const skip = () => {
+		const base = !snapshotDate || !daysSinceDate;
+		if (entity === 'form') return base || !formId;
+		if (entity === 'assignee') return base || !assigneeId;
+		if (entity === 'domain') return base || !domainId;
+		return base;
+	}
+
+	return ({
+		/* 
+		* Chart Queries
+		*/
+
+		// Completed Trend Stat Details
+		// TODO: Validate use of `snapshot_date` vs `form_assigned_date`
+		completedTrendPercentAndCount: queryBuilder(
+			`select
+				${percentAndCount('complete')}
+			from
+				'{{ table }}'
+			where
+				snapshot_date >= '${daysSinceDate}'
+				and form_assigned_date >= '${daysSinceDate}';
+			`),
+
+		// Completed Trend Line Chart
+		completedTrend: queryBuilder(
+			`select
+				${trend}
+			from
+				'{{ table }}'
+			where
+				form_assigned_date >= '${daysSinceDate}'
+				and snapshot_date >= '${daysSinceDate}'
+				and form_status = 'complete'
+			group by
+				asset_urn, form_assigned_date;
+			`),
+
+		// In Progress Trend Stat Details
+		inProgressTrendPercentAndCount: queryBuilder(
+			`select
+				${percentAndCount('in_progress')}
+			from
+				'{{ table }}'
+			where
+				snapshot_date >= '${daysSinceDate}'
+				and form_assigned_date >= '${daysSinceDate}';
+			`),
+
+		// In Progress Trend Line Chart
+		inProgressTrend: queryBuilder(
+			`select
+				${trend}
 			from
 				'{{ table }}'
 			where
 				snapshot_date = '${snapshotDate}'
 				and form_assigned_date >= '${daysSinceDate}'
-				and assignee_urn is not null;
-			`,
+				and form_status = 'in_progress'
+			group by
+				asset_urn, form_assigned_date;
+			`),
 
-	overallDocProgressByDate:
-		`select
-				form_assigned_date as 'date',
-				${aggregate.countFormStatus.statusAsCategories}
+		// Not Started Trend Stat Details
+		notStartedTrendPercentAndCount: queryBuilder(
+			`select
+				${percentAndCount('not_started')}
+			from
+				'{{ table }}'
+			where
+				snapshot_date >= '${daysSinceDate}'
+				and form_assigned_date >= '${daysSinceDate}';
+			`),
+
+		// Not Started Trend Line Chart
+		notStartedTrend: queryBuilder(
+			`select
+				${trend}
+			from
+				'{{ table }}'
+			where
+				form_assigned_date >= '${daysSinceDate}'
+				and snapshot_date >= '${daysSinceDate}'
+				and form_status = 'not_started'
+			group by
+				asset_urn, form_assigned_date;
+			`),
+
+		// Status of Assets Bar Chart
+		// TODO: Explore date (by month) aggregation for > 90 days
+		docStatusByDate: queryBuilder(
+			`select
+				DATE_TRUNC('${dateTrunc()}', form_assigned_date) as 'date',
+				${statusAsCategories}
 			from
 				'{{ table }}'
 			where
@@ -50,13 +184,15 @@ export const sqlQueries = (
 				and form_assigned_date >= '${daysSinceDate}'
 				and assignee_urn is not null
 			group by
-				form_assigned_date;
-			`,
+				DATE_TRUNC('${dateTrunc()}', form_assigned_date)
+			`),
+		//			form_assigned_date;
 
-	overallDocProgressByForm:
-		`select
-				form_id as 'form',
-				${aggregate.countFormStatus.statusAsCategories}
+		// Forms Bar Chart
+		docProgressByForm: queryBuilder(
+			`select
+				form_urn as 'form',
+				${statusAsCategories}
 			from
 				'{{ table }}'
 			where
@@ -64,31 +200,51 @@ export const sqlQueries = (
 				and form_assigned_date >= '${daysSinceDate}'
 				and assignee_urn is not null
 			group by
-				form_id;
-			`,
-
-	overallDocProgressByFormTopPerforming:
-		`select
-				form_id as 'form',
-				${aggregate.percentages.percentCompleted}
-			from
-				'{{ table }}'
-			where
-				snapshot_date = '${snapshotDate}'
-				and form_assigned_date >= '${daysSinceDate}'
-				and assignee_urn is not null
-			group by
-				form_id
+				form_urn
 			order by
-				${aggregate.percentages.orderByTopPerforming}
+				count(distinct(asset_urn)) asc;
+			`),
+
+		// Table view of form performance
+		completionPerformanceByForm: queryBuilder(
+			`select
+				form_urn as 'form',
+				${statusAsCategories},
+				count(distinct(case when form_status = 'complete' then asset_urn end)) / count(distinct(asset_urn)) as completed_asset_percent,
+			from
+				'{{ table }}'
+			where
+				snapshot_date = '${snapshotDate}'
+				and form_assigned_date >= '${daysSinceDate}'
+				and assignee_urn is not null
+			group by
+				form_urn;
+			`),
+
+		// List of Top Performing Forms
+		formTopPerforming: queryBuilder(
+			`select
+				form_urn as 'form',
+				${percentCompleted}
+			from
+				'{{ table }}'
+			where
+				snapshot_date = '${snapshotDate}'
+				and form_assigned_date >= '${daysSinceDate}'
+				and assignee_urn is not null
+			group by
+				form_urn
+			order by
+				${orderByTopPerforming}
 			limit
 				3;
-			`,
+			`),
 
-	overallDocProgressByFormLeastPerforming:
-		`select
-				form_id as 'form',
-				${aggregate.percentages.percentCompleted}
+		// List of Least Performing Forms
+		formLeastPerforming: queryBuilder(
+			`select
+				form_urn as 'form',
+				${percentCompleted}
 			from
 				'{{ table }}'
 			where
@@ -96,773 +252,234 @@ export const sqlQueries = (
 				and form_assigned_date >= '${daysSinceDate}'
 				and assignee_urn is not null
 			group by
-				form_id
+				form_urn
 			order by
-				${aggregate.percentages.orderByLeastPerforming}
+				${orderByLeastPerforming}
 			limit
 				3;
-			`,
+			`),
 
-	overallDocProgressByAssignee:
-		`select
-				assignee_urn,
-				${aggregate.countFormStatus.statusAsCategories}
-			from
-				'{{ table }}'
-			where
-				snapshot_date = '${snapshotDate}'
-				and form_assigned_date >= '${daysSinceDate}'
-				and assignee_urn is not null
-			group by
-				assignee_urn;
-			`,
-
-	overallDocProgressByAssigneeTopPerforming:
-		`select
-				assignee_urn,
-				${aggregate.percentages.percentCompleted}
-			from
-				'{{ table }}'
-			where
-				snapshot_date = '${snapshotDate}'
-				and form_assigned_date >= '${daysSinceDate}'
-				and assignee_urn is not null
-			group by
-				assignee_urn
-			order by
-				${aggregate.percentages.orderByTopPerforming}
-			limit
-				5;
-			`,
-
-	overallDocProgressByAssigneeLeastPerforming:
-		`select
-				assignee_urn,
-				${aggregate.percentages.percentCompleted}
-			from
-				'{{ table }}'
-			where
-				snapshot_date = '${snapshotDate}'
-				and form_assigned_date >= '${daysSinceDate}'
-				and assignee_urn is not null
-			group by
-				assignee_urn
-			order by
-				${aggregate.percentages.orderByLeastPerforming}
-			limit
-				5;
-			`,
-
-	overallDocProgressByDomain:
-		`select
-				domain,
-				${aggregate.countFormStatus.statusAsCategories}
-			from
-				'{{ table }}'
-			where
-				snapshot_date = '${snapshotDate}'
-				and form_assigned_date >= '${daysSinceDate}'
-				and assignee_urn is not null
-			group by
-				domain;
-			`,
-
-	overallDocProgressByDomainTopPerforming:
-		`select
-			domain,
-			${aggregate.percentages.percentCompleted}
-		from
-			'{{ table }}'
-		where
-			snapshot_date = '${snapshotDate}'
-			and form_assigned_date >= '${daysSinceDate}'
-			and assignee_urn is not null
-		group by
-			domain
-		order by
-			${aggregate.percentages.orderByTopPerforming}
-		limit
-			3;
-		`,
-
-	overallDocProgressByDomainLeastPerforming:
-		`select
-				domain,
-				${aggregate.percentages.percentCompleted}
-			from
-				'{{ table }}'
-			where
-				snapshot_date = '${snapshotDate}'
-				and form_assigned_date >= '${daysSinceDate}'
-				and assignee_urn is not null
-			group by
-				domain
-			order by
-				${aggregate.percentages.orderByLeastPerforming}
-			limit
-				3;
-			`,
-
-	/* 
-	* By Form Tab
-	*/
-	getFormsWithAnalytics:
-		`select
-				form_id
-			from
-				'{{ table }}'
-			where
-				snapshot_date = '${snapshotDate}'
-				and form_assigned_date >= '${daysSinceDate}'
-			group by
-				form_id,
-			`,
-
-	byFormOverallProgress:
-		`select
-				form_id as 'form',
-				${aggregate.countFormStatus.statusAsCategories}
-			from
-				'{{ table }}'
-			where
-				form_id = '${formId}'
-				and snapshot_date = '${snapshotDate}'
-				and form_assigned_date >= '${daysSinceDate}'
-				and assignee_urn is not null
-			group by
-				form_id;
-			`,
-
-	byFormOverallProgressByDate:
-		`select
-				form_assigned_date as 'date',
-				${aggregate.countFormStatus.statusAsCategories}
-			from
-				'{{ table }}'
-			where
-				form_id = '${formId}'
-				and snapshot_date = '${snapshotDate}'
-				and form_assigned_date >= '${daysSinceDate}'
-				and assignee_urn is not null
-			group by
-				form_assigned_date;
-			`,
-
-	byFormByQuestionProgress:
-		`select
+		// Question Bar Chart
+		// Does not use the queryBuilder as it only appears on the `form` tab
+		formQuestionProgress:
+			`select
 				question_id as 'question',
-				${aggregate.countFormStatus.statusAsCategories}
+				${statusAsCategories}
 			from
 				'{{ table }}'
 			where
-				form_id = '${formId}'
+				form_urn = '${formId}'
 				and snapshot_date = '${snapshotDate}'
 				and form_assigned_date >= '${daysSinceDate}'
 				and assignee_urn is not null
 			group by
-				question_id;
+				question_id
+			order by
+				count(distinct(case when form_status = 'complete' then asset_urn end)) desc;
 			`,
 
-	byFormOverallDocProgressByAssignee:
-		`select
+		// Assignee Table View
+		docProgressByAssignee: queryBuilder(
+			`select
 				assignee_urn,
-				${aggregate.countFormStatus.statusAsCategories}
+				${statusAsCategories},
+				count(distinct(case when form_status = 'complete' then asset_urn end)) / count(distinct(asset_urn)) as completed_asset_percent,
 			from
 				'{{ table }}'
 			where
-				form_id = '${formId}'
-				and snapshot_date = '${snapshotDate}'
+				snapshot_date = '${snapshotDate}'
 				and form_assigned_date >= '${daysSinceDate}'
 				and assignee_urn is not null
 			group by
 				assignee_urn;
-			`,
+			`),
 
-	byFormDocProgressByAssigneeTopPerforming:
-		`select
+		// List of Top Performing Assignees
+		// TODO: Determine how useful/relevant/accurate is this to display?
+		assigneeTopPerforming: queryBuilder(
+			`select
 				assignee_urn,
-				${aggregate.percentages.percentCompleted}
+				${percentCompleted}
 			from
 				'{{ table }}'
 			where
-				form_id = '${formId}'
-				and snapshot_date = '${snapshotDate}'
+				snapshot_date = '${snapshotDate}'
 				and form_assigned_date >= '${daysSinceDate}'
 				and assignee_urn is not null
 			group by
 				assignee_urn
 			order by
-				${aggregate.percentages.orderByTopPerforming}
+				${orderByTopPerforming}
 			limit
-				3;
-			`,
+				5;
+			`),
 
-	byFormDocProgressByAssigneeLeastPerforming:
-		`select
+		// List of Least Performing Assignees
+		// TODO: Determine how useful/relevant/accurate is this to display?
+		assigneeLeastPerforming: queryBuilder(
+			`select
 				assignee_urn,
-				${aggregate.percentages.percentCompleted}
+				${percentCompleted}
 			from
 				'{{ table }}'
 			where
-				form_id = '${formId}'
-				and snapshot_date = '${snapshotDate}'
+				snapshot_date = '${snapshotDate}'
 				and form_assigned_date >= '${daysSinceDate}'
 				and assignee_urn is not null
 			group by
 				assignee_urn
 			order by
-				${aggregate.percentages.orderByLeastPerforming}
+				${orderByLeastPerforming}
 			limit
-				3;
-			`,
+				5;
+			`),
 
-	byFormOverallDocProgressByDomain:
-		`select
-				domain,
-				${aggregate.countFormStatus.statusAsCategories}
+		// Domain Bar Chart
+		docProgressByDomain: queryBuilder(
+			`select
+				domain_urn,
+				${statusAsCategories}
 			from
 				'{{ table }}'
 			where
-				form_id = '${formId}'
-				and snapshot_date = '${snapshotDate}'
+				snapshot_date = '${snapshotDate}'
 				and form_assigned_date >= '${daysSinceDate}'
 				and assignee_urn is not null
 			group by
-				domain;
-			`,
-
-	byFormDocProgressByDomainTopPerforming:
-		`select
-			domain,
-				${aggregate.percentages.percentCompleted}
-			from
-				'{{ table }}'
-			where
-				form_id = '${formId}'
-				and snapshot_date = '${snapshotDate}'
-				and form_assigned_date >= '${daysSinceDate}'
-				and assignee_urn is not null
-			group by
-				domain
+				domain_urn
 			order by
-				${aggregate.percentages.orderByTopPerforming}
-			limit
-				3;
-			`,
+				count(distinct(asset_urn)) asc;
+			`),
 
-	byFormDocProgressByDomainLeastPerforming:
-		`select
-				domain,
-				${aggregate.percentages.percentCompleted}
+		// Table view of form performance
+		completionPerformanceByDomain: queryBuilder(
+			`select
+				domain_urn,
+				${statusAsCategories},
+				count(distinct(case when form_status = 'complete' then asset_urn end)) / count(distinct(asset_urn)) as completed_asset_percent,
 			from
 				'{{ table }}'
 			where
-				form_id = '${formId}'
-				and snapshot_date = '${snapshotDate}'
+				snapshot_date = '${snapshotDate}'
 				and form_assigned_date >= '${daysSinceDate}'
 				and assignee_urn is not null
 			group by
-				domain
+				domain_urn;
+			`),
+
+		// List of Top Performing Domains
+		domainTopPerforming: queryBuilder(
+			`select
+				domain_urn,
+				${percentCompleted}
+			from
+				'{{ table }}'
+			where
+				snapshot_date = '${snapshotDate}'
+				and form_assigned_date >= '${daysSinceDate}'
+				and assignee_urn is not null
+			group by
+				domain_urn
 			order by
-				${aggregate.percentages.orderByLeastPerforming}
+				${orderByTopPerforming}
 			limit
 				3;
-			`,
+			`),
 
-	/* 
-	* By Assignee Tab
-	*/
-	getAssignessWithFormAnalytics:
-		`select
-				assignee_urn
+		// List of Least Performing Domains
+		domainLeastPerforming: queryBuilder(
+			`select
+				domain_urn,
+				${percentCompleted}
+			from
+				'{{ table }}'
+			where
+				snapshot_date = '${snapshotDate}'
+				and form_assigned_date >= '${daysSinceDate}'
+				and assignee_urn is not null
+			group by
+				domain_urn
+			order by
+				${orderByLeastPerforming}
+			limit
+				3;
+			`),
+
+		/* 
+		* Lists of Entities Queries
+		*/
+
+		getFormsWithAnalytics:
+			`select
+				form_urn
 			from
 				'{{ table }}'
 			where
 				snapshot_date = '${snapshotDate}'
 				and form_assigned_date >= '${daysSinceDate}'
 			group by
-				assignee_urn;
+				form_urn,
 			`,
 
-	byAssigneeOverallProgress:
-		`select
-				form_id as 'form',
-				${aggregate.countFormStatus.statusAsCategories}
-			from
-				'{{ table }}'
-			where
-				assignee_urn = '${assigneeId}'
-				and snapshot_date = '${snapshotDate}'
-				and form_assigned_date >= '${daysSinceDate}'
-				and assignee_urn is not null
-			group by
-				form_id;
-			`,
+		getAssignessWithFormAnalytics:
+			`select
+					assignee_urn
+				from
+					'{{ table }}'
+				where
+					snapshot_date = '${snapshotDate}'
+					and form_assigned_date >= '${daysSinceDate}'
+				group by
+					assignee_urn;
+				`,
 
-	byAssigneeOverallProgressByDate:
-		`select
-				form_assigned_date as 'date',
-				${aggregate.countFormStatus.statusAsCategories}
-			from
-				'{{ table }}'
-			where
-				assignee_urn = '${assigneeId}'
-				and snapshot_date = '${snapshotDate}'
-				and form_assigned_date >= '${daysSinceDate}'
-				and assignee_urn is not null
-			group by
-				form_assigned_date;
-			`,
-
-	byAssigneeOverallDocProgressByForm:
-		`select
-				form_id as 'form',
-				${aggregate.countFormStatus.statusAsCategories}
-			from
-				'{{ table }}'
-			where
-				assignee_urn = '${assigneeId}'
-				and snapshot_date = '${snapshotDate}'
-				and form_assigned_date >= '${daysSinceDate}'
-				and assignee_urn is not null
-			group by
-				form_id;
-			`,
-
-	byAssigneeOverallDocProgressByFormTopPerforming:
-		`select
-				form_id as 'form',
-				${aggregate.percentages.percentCompleted}
-			from
-				'{{ table }}'
-			where
-				assignee_urn = '${assigneeId}'
-				and snapshot_date = '${snapshotDate}'
-				and form_assigned_date >= '${daysSinceDate}'
-				and assignee_urn is not null
-			group by
-				form_id
-			order by
-				${aggregate.percentages.orderByTopPerforming}
-			limit
-				3;
-			`,
-
-	byAssigneeOverallDocProgressByFormLeastPerforming:
-		`select
-			form_id as 'form',
-			${aggregate.percentages.percentCompleted}
-		from
-			'{{ table }}'
-		where
-			assignee_urn = '${assigneeId}'
-			and snapshot_date = '${snapshotDate}'
-			and form_assigned_date >= '${daysSinceDate}'
-			and assignee_urn is not null
-		group by
-			form_id
-		order by
-			${aggregate.percentages.orderByLeastPerforming}
-		limit
-			3;
-		`,
-
-	byAssigneeOverallDocProgressByDomain:
-		`select
-				domain,
-				${aggregate.countFormStatus.statusAsCategories}
-			from
-				'{{ table }}'
-			where
-				assignee_urn = '${assigneeId}'
-				and snapshot_date = '${snapshotDate}'
-				and form_assigned_date >= '${daysSinceDate}'
-				and assignee_urn is not null
-			group by
-				domain;
-			`,
-
-	byAssigneeDocProgressByDomainTopPerforming:
-		`select
-				domain,
-				${aggregate.percentages.percentCompleted}
-			from
-				'{{ table }}'
-			where
-				assignee_urn = '${assigneeId}'
-				and snapshot_date = '${snapshotDate}'
-				and form_assigned_date >= '${daysSinceDate}'
-				and assignee_urn is not null
-			group by
-				domain
-			order by
-				${aggregate.percentages.orderByTopPerforming}
-			limit
-				3;
-			`,
-
-	byAssigneeDocProgressByDomainLeastPerforming:
-		`select
-				domain,
-				${aggregate.percentages.percentCompleted}
-			from
-				'{{ table }}'
-			where
-				assignee_urn = '${assigneeId}'
-				and snapshot_date = '${snapshotDate}'
-				and form_assigned_date >= '${daysSinceDate}'
-				and assignee_urn is not null
-			group by
-				domain
-			order by
-				${aggregate.percentages.orderByLeastPerforming}
-			limit
-				3;
-			`,
-
-	/* 
-	* By Domain Tab
-	*/
-	getDomainsWithFormAnalytics:
-		`select
-			domain
+		getDomainsWithFormAnalytics:
+			`select
+				domain_urn
 			from
 				'{{ table }}'
 			where
 				snapshot_date = '${snapshotDate}'
 				and form_assigned_date >= '${daysSinceDate}'
 			group by
-				domain;
+				domain_urn;
 			`,
 
-	byDomainOverallProgress:
-		`select
-				form_id as 'form',
-				${aggregate.countFormStatus.statusAsCategories}
-			from
-				'{{ table }}'
-			where
-				domain = '${domainId}'
-				and snapshot_date = '${snapshotDate}'
-				and form_assigned_date >= '${daysSinceDate}'
-			group by
-				form_id;
-			`,
+		/*
+		* CSV Query
+		*/
 
-	byDomainOverallProgressByDate:
-		`select
-				form_assigned_date as 'date',
-				${aggregate.countFormStatus.statusAsCategories}
-			from
-				'{{ table }}'
-			where
-				domain = '${domainId}'
-				and snapshot_date = '${snapshotDate}'
-				and form_assigned_date >= '${daysSinceDate}'
-			group by
-				form_assigned_date;
-			`,
-
-	byDomainOverallDocProgressByForm:
-		`select
-				form_id as 'form',
-				${aggregate.countFormStatus.statusAsCategories}
-			from
-				'{{ table }}'
-			where
-				domain = '${domainId}'
-				and snapshot_date = '${snapshotDate}'
-				and form_assigned_date >= '${daysSinceDate}'
-			group by
-				form_id;
-			`,
-
-	byDomainOverallDocProgressByFormTopPerforming:
-		`select
-				form_id as 'form',
-				${aggregate.percentages.percentCompleted}
-			from
-				'{{ table }}'
-			where
-				domain = '${domainId}'
-				and snapshot_date = '${snapshotDate}'
-				and form_assigned_date >= '${daysSinceDate}'
-			group by
-				form_id
-			order by
-				${aggregate.percentages.orderByTopPerforming}
-			limit
-				3;
-			`,
-
-	byDomainOverallDocProgressByFormLeastPerforming:
-		`select
-				form_id as 'form',
-				${aggregate.percentages.percentCompleted}
-			from
-				'{{ table }}'
-			where
-				domain = '${domainId}'
-				and snapshot_date = '${snapshotDate}'
-				and form_assigned_date >= '${daysSinceDate}'
-			group by
-				form_id
-			order by
-				${aggregate.percentages.orderByLeastPerforming}
-			limit
-				3;
-			`,
-
-	byDomainOverallDocProgressByAssignee:
-		`select
+		downloadCSVJSON:
+			`select
+				form_urn,
+				form_assigned_date,
+				form_completed_date,
+				form_type,
+				form_status,
+				domain_urn,
+				asset_urn,
 				assignee_urn,
-				${aggregate.countFormStatus.statusAsCategories}
+				count(distinct(case when question_status = 'complete' then question_id end)) as questions_complete,
+				count(distinct(case when question_status = 'not_started' then question_id end)) as questions_not_started
 			from
 				'{{ table }}'
 			where
-				domain = '${domainId}'
-				and snapshot_date = '${snapshotDate}'
+				snapshot_date = '${snapshotDate}'
 				and form_assigned_date >= '${daysSinceDate}'
 			group by
+				form_urn,
+				form_assigned_date,
+				form_completed_date,
+				form_type,
+				form_status,
+				domain_urn,
+				asset_urn,
 				assignee_urn;
 			`,
 
-	byDomainDocProgressByAssigneeTopPerforming:
-		`select
-				assignee_urn,
-				${aggregate.percentages.percentCompleted}
-			from
-				'{{ table }}'
-			where
-				domain = '${domainId}'
-				and snapshot_date = '${snapshotDate}'
-				and form_assigned_date >= '${daysSinceDate}'
-			group by
-				assignee_urn
-			order by
-				${aggregate.percentages.orderByTopPerforming}
-			limit
-				3;
-			`,
-
-	byDomainDocProgressByAssigneeLeastPerforming:
-		`select
-			assignee_urn,
-			${aggregate.percentages.percentCompleted}
-		from
-			'{{ table }}'
-		where
-			domain = '${domainId}'
-			and snapshot_date = '${snapshotDate}'
-			and form_assigned_date >= '${daysSinceDate}'
-		group by
-			assignee_urn
-		order by
-			${aggregate.percentages.orderByLeastPerforming}
-		limit
-			3;
-		`,
-
-	byDomainOverallDocProgressByDomain:
-		`select
-				domain,
-				${aggregate.countFormStatus.statusAsCategories}
-			from
-				'{{ table }}'
-			where
-				domain = '${domainId}'
-				and snapshot_date = '${snapshotDate}'
-				and form_assigned_date >= '${daysSinceDate}'
-			group by
-				domain;
-			`,
-
-	/* 
-	* Stats Analytics by Form
-	*/
-	completedTrendPercentAndCount:
-		`select
-			count(distinct(case when form_status = 'complete' then asset_urn end)) / count(distinct(asset_urn)) as completed_asset_percent,
-			count(distinct(asset_urn)) as assigned_asset_count
-		from
-			'{{ table }}'
-		where
-			form_id = '${formId}'
-			and snapshot_date = '${snapshotDate}'
-			and form_assigned_date >= '${daysSinceDate}';
-		`,
-
-	completedTrend:
-		`select
-			form_completed_date as 'date',
-			count(distinct(asset_urn)) as 'value'
-		from
-			'{{ table }}'
-		where
-			form_id = '${formId}'
-			and snapshot_date = '${snapshotDate}'
-			and form_assigned_date >= '${daysSinceDate}'
-			and form_status = 'complete'
-		group by
-			form_completed_date;
-		`,
-
-	notStartedTrendPercentAndCount:
-		`select
-			count(distinct(case when form_status = 'not_started' then asset_urn end)) / count(distinct(asset_urn)) as completed_asset_percent,
-			count(distinct(asset_urn)) as assigned_asset_count
-		from
-			'{{ table }}'
-		where
-			form_id = '${formId}'
-			and snapshot_date = '${snapshotDate}'
-			and form_assigned_date >= '${daysSinceDate}';
-		`,
-
-	notStartedTrend:
-		`select
-			form_completed_date as 'date',
-			count(distinct(asset_urn)) as 'value'
-		from
-			'{{ table }}'
-		where
-			form_id = '${formId}'
-			and snapshot_date = '${snapshotDate}'
-			and form_assigned_date >= '${daysSinceDate}'
-			and form_status = 'not_started'
-		group by
-			form_completed_date;
-		`,
-
-	/* 
-	* Stats Analytics by Asignee
-	*/
-	completedTrendPercentAndCountByAssignee:
-		`select
-			count(distinct(case when form_status = 'complete' then asset_urn end)) / count(distinct(asset_urn)) as completed_asset_percent,
-			count(distinct(asset_urn)) as assigned_asset_count
-		from
-			'{{ table }}'
-		where
-			assignee_urn = '${assigneeId}'
-			and snapshot_date = '${snapshotDate}'
-			and form_assigned_date >= '${daysSinceDate}';
-		`,
-
-	completedTrendByAssignee:
-		`select
-			form_completed_date as 'date',
-			count(distinct(asset_urn)) as 'value'
-		from
-			'{{ table }}'
-		where
-			assignee_urn = '${assigneeId}'
-			and snapshot_date = '${snapshotDate}'
-			and form_assigned_date >= '${daysSinceDate}'
-			and form_status = 'complete';
-		group by
-			form_completed_date;
-		`,
-
-	notStartedTrendPercentAndCountByAssignee:
-		`select
-			count(distinct(case when form_status = 'not_started' then asset_urn end)) / count(distinct(asset_urn)) as completed_asset_percent,
-			count(distinct(asset_urn)) as assigned_asset_count
-		from
-			'{{ table }}'
-		where
-			assignee_urn = '${assigneeId}'
-			and snapshot_date = '${snapshotDate}'
-			and form_assigned_date >= '${daysSinceDate}';
-		`,
-
-	notStartedTrendByAssignee:
-		`select
-			form_completed_date as 'date',
-			count(distinct(asset_urn)) as 'value'
-		from
-			'{{ table }}'
-		where
-			assignee_urn = '${assigneeId}'
-			and snapshot_date = '${snapshotDate}'
-			and form_assigned_date >= '${daysSinceDate}'
-			and form_status = 'not_started';
-		group by
-			form_completed_date;
-		`,
-
-	/* 
-	* Stats Analytics by Domain
-	*/
-	completedTrendPercentAndCountByDomain:
-		`select
-			count(distinct(case when form_status = 'complete' then asset_urn end)) / count(distinct(asset_urn)) as completed_asset_percent,
-			count(distinct(asset_urn)) as assigned_asset_count
-		from
-			'{{ table }}'
-		where
-			domain = '${domainId}'
-			and snapshot_date = '${snapshotDate}'
-			and form_assigned_date >= '${daysSinceDate}';
-		`,
-
-	completedTrendByDomain:
-		`select
-			form_completed_date as 'date',
-			count(distinct(asset_urn)) as 'value'
-		from
-			'{{ table }}'
-		where
-			domain = '${domainId}'
-			and snapshot_date = '${snapshotDate}'
-			and form_assigned_date >= '${daysSinceDate}'
-			and form_status = 'complete';
-		group by
-			form_completed_date;
-		`,
-
-	notStartedTrendPercentAndCountByDomain:
-		`select
-			count(distinct(case when form_status = 'not_started' then asset_urn end)) / count(distinct(asset_urn)) as completed_asset_percent,
-			count(distinct(asset_urn)) as assigned_asset_count
-		from
-			'{{ table }}'
-		where
-			domain = '${domainId}'
-			and snapshot_date = '${snapshotDate}'
-			and form_assigned_date >= '${daysSinceDate}';
-		`,
-
-	notStartedTrendByDomain:
-		`select
-			form_completed_date as 'date',
-			count(distinct(asset_urn)) as 'value'
-		from
-			'{{ table }}'
-		where
-			domain = '${domainId}'
-			and snapshot_date = '${snapshotDate}'
-			and form_assigned_date >= '${daysSinceDate}'
-			and form_status = 'not_started'
-		group by
-			form_completed_date;
-		`,
-
-	/*
-	*	CSV Export
-	*/
-
-	downloadCSVJSON:
-		`select
-			form_assigned_date,
-			count(form_status)
-		from
-			'{{ table }}'
-		where
-			snapshot_date = '${snapshotDate}'
-			and form_assigned_date >= '${daysSinceDate}'
-		group by
-			form_status,
-			form_assigned_date;
-		`,
-});
+		/* 
+		* Query Utils 
+		*/
+		skip: skip(),
+	});
+}

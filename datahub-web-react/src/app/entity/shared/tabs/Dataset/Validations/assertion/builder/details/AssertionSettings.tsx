@@ -24,7 +24,7 @@ type Props = {
 };
 
 export const AssertionSettings = (props: Props) => {
-    const initialState = createAssertionMonitorBuilderState(props.assertion, props.monitor, props.entity);
+    const initialState = createAssertionMonitorBuilderState(props.assertion, props.entity, props.monitor);
     const [builderState, setBuilderState] = useState<AssertionMonitorBuilderState>(initialState);
     const [editing, setEditing] = useState<boolean>(false);
     const [form] = Form.useForm();

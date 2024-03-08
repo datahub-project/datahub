@@ -6,6 +6,8 @@ import { useGetTotalDatasetsQuery } from '../../../graphql/dataset_health.genera
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import { AssertionsSummary } from './assertion/AssertionsSummary';
 import { IncidentsSummary } from './incident/IncidentsSummary';
+import { EntityType } from '../../../types.generated';
+import { useUserContext } from '../../context/useUserContext';
 
 const Container = styled.div`
     height: 100%;
@@ -83,7 +85,21 @@ const PAGE_SUB_TITLE = "Monitor the health of your organization's datasets";
  */
 export const DatasetHealthPage = () => {
     // The total number of datasets in the instance (the denominator for metrics).
-    const { data } = useGetTotalDatasetsQuery();
+    const userContext = useUserContext();
+    const viewUrn = userContext.localState?.selectedViewUrn;
+
+    const { data } = useGetTotalDatasetsQuery({
+        variables: {
+            input: {
+                query: '*',
+                types: [EntityType.Dataset],
+                start: 0,
+                count: 0,
+                viewUrn,
+            },
+        },
+    });
+    
     const total = data?.searchAcrossEntities?.total || 0;
 
     return (

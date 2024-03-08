@@ -819,7 +819,8 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
                     new LoadableTypeResolver<>(
                         formType, (env) -> ((FormForActor) env.getSource()).getForm().getUrn()))
                 .dataFetcher(
-                    "numEntitiesToComplete", new NumEntitiesToCompleteResolver(this.entityClient)));
+                    "numEntitiesToComplete",
+                    new NumEntitiesToCompleteResolver(this.entityClient, this.formService)));
   }
 
   private void configureExecutorResolvers(

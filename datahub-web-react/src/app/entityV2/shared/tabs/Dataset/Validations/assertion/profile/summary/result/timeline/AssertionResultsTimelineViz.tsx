@@ -4,7 +4,6 @@ import {
     Assertion,
     AssertionRunEventsResult,
     AssertionRunStatus,
-    DataPlatform,
 } from '../../../../../../../../../../../types.generated';
 import { AssertionResultTimelineChart, TimeRange } from './AssertionResultTimelineChart';
 import { AssertionResultPopoverContent } from '../../../shared/result/AssertionResultPopoverContent';
@@ -15,10 +14,9 @@ type Props = {
     assertion: Assertion;
     timeRange: TimeRange;
     results?: AssertionRunEventsResult | null;
-    platform?: DataPlatform | null;
 };
 
-export const AssertionResultsTimelineViz = ({ assertion, results, platform, timeRange }: Props) => {
+export const AssertionResultsTimelineViz = ({ assertion, results, timeRange }: Props) => {
     const completedRuns =
         results?.runEvents.filter((runEvent) => runEvent.status === AssertionRunStatus.Complete) || [];
 
@@ -41,13 +39,7 @@ export const AssertionResultsTimelineViz = ({ assertion, results, platform, time
                         type: result.type,
                         resultUrl,
                         title: undefined,
-                        content: (
-                            <AssertionResultPopoverContent
-                                assertion={assertion}
-                                run={runEvent}
-                                platform={platform || undefined}
-                            />
-                        ),
+                        content: <AssertionResultPopoverContent assertion={assertion} run={runEvent} />,
                     },
                 };
             }) || [];

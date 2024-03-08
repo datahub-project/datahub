@@ -17,7 +17,6 @@ import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.r2.RemoteInvocationException;
 import java.util.Objects;
 import javax.annotation.Nonnull;
-import javax.inject.Singleton;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -29,7 +28,6 @@ This hook is responsible for clean delete of natively evaluated assertion monito
  */
 @Slf4j
 @Component
-@Singleton
 @Import({EntityRegistryFactory.class})
 public class MonitorDeletionHook implements MetadataChangeLogHook {
 

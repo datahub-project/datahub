@@ -16,7 +16,7 @@ const Card = styled(Link)`
     min-width: 180px;
     padding: 16px;
     :hover {
-        border: 2px solid ${REDESIGN_COLORS.BLUE};
+        border: 1.5px solid ${REDESIGN_COLORS.BLUE};
         cursor: pointer;
     }
 `;

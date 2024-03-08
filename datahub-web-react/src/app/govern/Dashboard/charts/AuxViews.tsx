@@ -4,6 +4,8 @@ import { Skeleton } from 'antd';
 import styled from 'styled-components';
 import { FcLeave, FcHighPriority, FcMediumPriority } from 'react-icons/fc';
 
+import { Layout, Body, PrimaryHeading } from '../components';
+
 const ChartStateCard = styled.div`
 	display: flex;
 	align-items: center;
@@ -17,6 +19,18 @@ const ChartStateCard = styled.div`
 
 	svg {
 		margin-right: 0.25rem;
+	}
+`;
+
+const FlexWrapper = styled.div`
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex: 1;
+
+	p:not(:first-child) {
+		font-size: 16px;
+		margin-bottom: 0;
 	}
 `;
 
@@ -40,8 +54,7 @@ export const ChartNoDataTimeframe = () => (
 // Not enough data to display helpful information
 export const ChartNotEnoughData = () => (
 	<ChartStateCard>
-		<FcMediumPriority size={18} />
-		Not enough data.
+		Not enough data to calculate a trend.
 	</ChartStateCard>
 );
 
@@ -59,6 +72,21 @@ export const ChartError = () => (
 		<FcHighPriority size={18} />
 		An error occured.
 	</ChartStateCard>
+);
+
+export const IntegrationServiceOffline = () => (
+	<Layout>
+		<Body>
+			<FlexWrapper>
+				<div style={{ textAlign: 'center', fontSize: '18px' }}>
+					<PrimaryHeading>Your Documentation Initiatives</PrimaryHeading>
+					<p style={{ marginTop: '1rem' }}>Oops! It seems like documentation metrics are missing 🤔</p>
+					<p>Either you haven&apos;t set up your documentation forms and reporting, or our systems are down.</p>
+					<p>Please try again later!</p>
+				</div>
+			</FlexWrapper>
+		</Body>
+	</Layout>
 );
 
 export const ChartState = ({

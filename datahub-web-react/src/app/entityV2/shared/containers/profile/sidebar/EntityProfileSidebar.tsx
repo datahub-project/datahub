@@ -12,7 +12,7 @@ export const StyledEntitySidebarContainer = styled.div<{
     $width?: number;
     backgroundColor?: string;
     isCard: boolean;
-    isFocused: boolean;
+    isFocused?: boolean;
 }>`
     flex: 1;
     overflow: auto;

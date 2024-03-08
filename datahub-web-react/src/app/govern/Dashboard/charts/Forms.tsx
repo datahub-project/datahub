@@ -1,37 +1,29 @@
 import React, { useEffect } from 'react';
 
+import { Table } from 'antd';
 import { FormOutlined } from '@ant-design/icons';
 
 import { ChartCard, HorizontalBarChart } from '../../../dataviz';
 import { ChartGroup, Row, SecondaryHeading, ChartPerformanceItems, ChartPerformanceItem } from '../components';
 
-import { statusOrdinalScale, mergeRowAndHeaderData, formatPercentage, getEntityInfo } from '../utils';
+import { statusOrdinalScale, mergeRowAndHeaderData, formatPercentage, getEntityInfo, truncateString, columnSorterFunction } from '../utils';
 import { useFormAnalyticsQuery } from '../../../../graphql/analytics.generated';
 import { useFormAnalyticsContext } from '../FormAnalyticsContext';
 
 import { SectionWaiting, ChartState, ChartNoData, ChartNotEnoughData } from './AuxViews';
 
+// March/2024 launch decision: hide performance cards
+const hidePerformanceCards = true;
+
 const DocumentationProgressPerForm = () => {
 	const {
 		sql,
-		snapshot,
 		sectionLoadStates: { forms, setLoadStates },
-		tabs: { selectedTab },
-		byAssignee: { selectedAssignee },
-		byDomain: { selectedDomain }
 	} = useFormAnalyticsContext();
 
-	// Switch the query based on the selected tab
-	let query = sql.overallDocProgressByForm;
-	if (selectedTab === 'byAssignee') query = sql.byAssigneeOverallDocProgressByForm;
-	if (selectedTab === 'byDomain') query = sql.byDomainOverallDocProgressByForm;
-
 	const { data, loading, error } = useFormAnalyticsQuery({
-		variables: { input: { 'queryString': query } },
-		skip:
-			!snapshot
-			|| selectedTab === 'byAssignee' && !selectedAssignee
-			|| selectedTab === 'byDomain' && !selectedDomain
+		variables: { input: { 'queryString': sql.docProgressByForm } },
+		skip: sql.skip,
 	});
 
 	useEffect(() => {
@@ -43,7 +35,7 @@ const DocumentationProgressPerForm = () => {
 		loading,
 		error: !!error,
 		noDataTimeframe: data?.formAnalytics?.table?.length === 0,
-		noData: !data
+		noData: data?.formAnalytics?.table?.length === 0
 	};
 
 	// Render component to display the chart state
@@ -52,7 +44,7 @@ const DocumentationProgressPerForm = () => {
 	const mergedData = mergeRowAndHeaderData(data?.formAnalytics?.header, data?.formAnalytics?.table || []).map((d) => {
 		return ({
 			...d,
-			form: getEntityInfo(data, d.form)?.info?.name || d.form
+			form: truncateString(getEntityInfo(data, d.form)?.info?.name) || d.form
 		});
 	});
 	if (mergedData.length === 0) return <ChartNoData />;
@@ -64,33 +56,78 @@ const DocumentationProgressPerForm = () => {
 			data={mergedData}
 			dataKeys={datakeys}
 			yAccessor={(d: { form: string }) => d.form}
-			xAccessor={(d, k) => d[k]}
 			colorAccessor={statusOrdinalScale}
 		/>
 	);
 }
 
+const CompletionPerformanceByForm = () => {
+	const {
+		sql,
+		sectionLoadStates: { assignees, setLoadStates },
+	} = useFormAnalyticsContext();
+
+	const { data, loading, error } = useFormAnalyticsQuery({
+		variables: { input: { 'queryString': sql.completionPerformanceByForm } },
+		skip: sql.skip,
+	});
+
+	useEffect(() => {
+		if (!loading && !assignees) setLoadStates('forms', 'formTopPerforming', true);
+	}, [loading, setLoadStates, assignees]);
+
+	// Update the chart states
+	const chartState = {
+		loading,
+		error: !!error,
+		noDataTimeframe: !loading && !!data && data?.formAnalytics?.table?.length === 0,
+		noData: data?.formAnalytics?.table?.length === 0
+	};
+
+	// Render component to display the chart state
+	if (Object.values(chartState).some((v) => v === true)) return <ChartState {...chartState} />;
+
+	const mergedData = mergeRowAndHeaderData(data?.formAnalytics?.header, data?.formAnalytics?.table || [])
+		.map((row) => {
+			const name = getEntityInfo(data, row.form)?.info?.name || row.form;
+			return ({
+				Form: name,
+				Total: Number(row.Completed) + Number(row['In Progress']) + Number(row['Not Started']),
+				'% Completed': formatPercentage(row.completed_asset_percent),
+			})
+		});
+
+	if (mergedData.length === 0) return <ChartNoData />;
+
+	const columns = Object.keys(mergedData[0]).map((key) => ({
+		key,
+		dataIndex: key,
+		title: key,
+		sorter: (a, b) => columnSorterFunction(a, b, key),
+	}));
+
+	return (
+		<div style={{ width: '100%', marginTop: '1rem' }}>
+			<Table
+				dataSource={mergedData}
+				columns={columns}
+				size="small"
+				style={{ width: '100%' }}
+				pagination={{ pageSize: 5, hideOnSinglePage: true }}
+			/>
+		</div>
+	)
+};
+
 const DocumentationProgressTopPerforming = () => {
 	const {
 		sql,
-		snapshot,
 		sectionLoadStates: { forms, setLoadStates },
-		tabs: { selectedTab },
-		byAssignee: { selectedAssignee },
-		byDomain: { selectedDomain }
 	} = useFormAnalyticsContext();
 
-	// Switch the query based on the selected tab
-	let query = sql.overallDocProgressByFormTopPerforming;
-	if (selectedTab === 'byAssignee') query = sql.byAssigneeOverallDocProgressByFormTopPerforming;
-	if (selectedTab === 'byDomain') query = sql.byDomainOverallDocProgressByFormTopPerforming;
-
 	const { data, loading, error } = useFormAnalyticsQuery({
-		variables: { input: { 'queryString': query } },
-		skip:
-			!snapshot
-			|| selectedTab === 'byAssignee' && !selectedAssignee
-			|| selectedTab === 'byDomain' && !selectedDomain
+		variables: { input: { 'queryString': sql.formTopPerforming } },
+		skip: sql.skip,
 	});
 
 	useEffect(() => {
@@ -102,7 +139,7 @@ const DocumentationProgressTopPerforming = () => {
 		loading,
 		error: !!error,
 		noDataTimeframe: !!data && data?.formAnalytics?.table?.length === 0,
-		noData: !data
+		noData: data?.formAnalytics?.table?.length === 0
 	};
 
 	// Render component to display the chart state
@@ -117,8 +154,8 @@ const DocumentationProgressTopPerforming = () => {
 	return (
 		<ChartPerformanceItems>
 			{mergedData.map((d) => (
-				<ChartPerformanceItem key={d.form}>
-					<div><FormOutlined /> {getEntityInfo(data, d.form)?.info?.name || d.form}</div>
+				<ChartPerformanceItem key={d.form_urn}>
+					<div><FormOutlined /> {getEntityInfo(data, d.form_urn)?.info?.name || d.form}</div>
 					{formatPercentage(d.completed_asset_percent)} completed
 				</ChartPerformanceItem>
 			))}
@@ -129,24 +166,12 @@ const DocumentationProgressTopPerforming = () => {
 const DocumentationProgressLeastPerforming = () => {
 	const {
 		sql,
-		snapshot,
 		sectionLoadStates: { forms, setLoadStates },
-		tabs: { selectedTab },
-		byAssignee: { selectedAssignee },
-		byDomain: { selectedDomain }
 	} = useFormAnalyticsContext();
 
-	// Switch the query based on the selected tab
-	let query = sql.overallDocProgressByFormLeastPerforming;
-	if (selectedTab === 'byAssignee') query = sql.byAssigneeOverallDocProgressByFormLeastPerforming;
-	if (selectedTab === 'byDomain') query = sql.byDomainOverallDocProgressByFormLeastPerforming;
-
 	const { data, loading, error } = useFormAnalyticsQuery({
-		variables: { input: { 'queryString': query } },
-		skip:
-			!snapshot
-			|| selectedTab === 'byAssignee' && !selectedAssignee
-			|| selectedTab === 'byDomain' && !selectedDomain
+		variables: { input: { 'queryString': sql.formLeastPerforming } },
+		skip: sql.skip,
 	});
 
 	useEffect(() => {
@@ -158,7 +183,7 @@ const DocumentationProgressLeastPerforming = () => {
 		loading,
 		error: !!error,
 		noDataTimeframe: !!data && data?.formAnalytics?.table?.length === 0,
-		noData: !data
+		noData: data?.formAnalytics?.table?.length === 0
 	};
 
 	// Render component to display the chart state
@@ -193,13 +218,18 @@ export const Forms = () => {
 			<SecondaryHeading>Forms</SecondaryHeading>
 			<Row>
 				<ChartCard
-					title="Documentation progress by form"
+					title="Documentation Progress by Form"
 					chart={<DocumentationProgressPerForm />}
 					flex={2}
 				/>
+				{!hidePerformanceCards && (
+					<Row style={{ flexDirection: 'column', width: 'auto' }}>
+						<ChartCard title="Top Performing Forms" chart={<DocumentationProgressTopPerforming />} />
+						<ChartCard title="Under Performing Forms" chart={<DocumentationProgressLeastPerforming />} />
+					</Row>
+				)}
 				<Row style={{ flexDirection: 'column', width: 'auto' }}>
-					<ChartCard title="Top Performing Forms" chart={<DocumentationProgressTopPerforming />} />
-					<ChartCard title="Under Performing Forms" chart={<DocumentationProgressLeastPerforming />} />
+					<ChartCard title="Completion Performance by Form" chart={<CompletionPerformanceByForm />} />
 				</Row>
 			</Row>
 		</ChartGroup>

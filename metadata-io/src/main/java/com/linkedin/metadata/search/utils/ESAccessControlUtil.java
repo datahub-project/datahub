@@ -8,7 +8,6 @@ import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.ConjunctivePrivilegeGroup;
 import com.datahub.authorization.DisjunctivePrivilegeGroup;
 import com.datahub.authorization.EntitySpec;
-import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.aspect.hooks.OwnerTypeMap;
@@ -101,7 +100,9 @@ public class ESAccessControlUtil {
           opContext.getSessionActorContext().getAuthentication().getActor().toUrnStr();
       final DisjunctivePrivilegeGroup orGroup =
           new DisjunctivePrivilegeGroup(
-              ImmutableList.of(new ConjunctivePrivilegeGroup(VIEW_ENTITY_PRIVILEGES)));
+              VIEW_ENTITY_PRIVILEGES.stream()
+                  .map(priv -> new ConjunctivePrivilegeGroup(List.of(priv)))
+                  .collect(Collectors.toList()));
 
       for (SearchEntity searchEntity : searchEntities) {
         final String entityType = searchEntity.getEntity().getEntityType();
@@ -177,7 +178,7 @@ public class ESAccessControlUtil {
     DataHubActorFilter actorFilter = policy.getActors();
 
     if (!policy.hasActors()
-        || !(actorFilter.isResourceOwners() || actorFilter.hasResourceOwnersTypes())) {
+        || !(actorFilter.isResourceOwners() || hasResourceOwnersType(actorFilter))) {
       // no owner restriction
       return MATCH_ALL;
     }
@@ -189,11 +190,10 @@ public class ESAccessControlUtil {
         Stream.concat(
                 Stream.of(actorContext.getAuthentication().getActor().toUrnStr()),
                 actorContext.getGroupMembership().stream().map(Urn::toString))
-            .map(String::toLowerCase)
             .distinct()
             .collect(Collectors.toList());
 
-    if (!actorFilter.hasResourceOwnersTypes()) {
+    if (!hasResourceOwnersType(actorFilter)) {
       // owners without owner type restrictions
       return QueryBuilders.termsQuery(
           ESUtils.toKeywordField(MappingsBuilder.OWNERS_FIELD, false), actorAndGroupUrns);
@@ -218,6 +218,12 @@ public class ESAccessControlUtil {
 
       return orQuery;
     }
+  }
+
+  private static boolean hasResourceOwnersType(DataHubActorFilter actorFilter) {
+    return actorFilter.hasResourceOwnersTypes()
+        || (actorFilter.getResourceOwnersTypes() != null
+            && !actorFilter.getResourceOwnersTypes().isEmpty());
   }
 
   private static Stream<TermsQueryBuilder> buildResourceQuery(

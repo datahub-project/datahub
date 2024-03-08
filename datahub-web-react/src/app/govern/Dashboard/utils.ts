@@ -1,38 +1,14 @@
-import dayjs from "dayjs";
 import { scaleOrdinal } from "@visx/scale";
 
+import dayjs from 'dayjs';
 import { COMPLETED_COLOR, NOT_STARTED_COLOR, IN_PROGRESS_COLOR } from '../../dataviz/constants';
 
-// Mock Data Util
-export const generateCount = (totalAssets) => {
-	let total = totalAssets;
 
-	const completed = Math.floor(Math.random() * (total - 0 + 1) + 0);
-	total -= completed;
-
-	const inProgress = Math.floor(Math.random() * (total - 0 + 1) + 0);
-	total -= inProgress;
-
-	const notStarted = total;
-
-	return ({
-		'Not Started': notStarted,
-		'In Progress': inProgress,
-		Completed: completed,
-	});
-}
-
-// Mock Data Util
-export const generateDateSeries = (numOfDays) =>
-	Array(numOfDays).fill(0).map((d, i) => ({
-		date: dayjs(new Date(Date.now() - ((24 * 60 * 60 * 1000) * i))).format(),
-		value: Math.round(Math.max(10, Math.random() * 100 || 0)),
-	}));
 
 // Status Ordinal Scale 
 export const statusOrdinalScale = scaleOrdinal({
-	domain: ['Completed', 'In Progress', 'Not Started'],
-	range: [COMPLETED_COLOR, IN_PROGRESS_COLOR, NOT_STARTED_COLOR]
+	domain: ['Not Started', 'In Progress', 'Completed'],
+	range: [NOT_STARTED_COLOR, IN_PROGRESS_COLOR, COMPLETED_COLOR]
 });
 
 // Merge Row and Header Data
@@ -46,9 +22,10 @@ export const mergeRowAndHeaderData = (header, table) => {
 
 // Get Entity Info
 export const getEntityInfo = (data, urn) => {
-	const rows = data?.formAnalytics?.table || data?.table || data || [];
-	const row = rows.find((r) => r.row.includes(urn));
+	const rows = data?.formAnalytics?.table || data?.table || data;
+	if (typeof rows !== 'object') return null;
 
+	const row = rows.find((r) => r.row.includes(urn));
 	if (!row) return null;
 
 	const richRow = row.richRow.find((rich) => rich.value === urn);
@@ -63,3 +40,51 @@ export const getPercentage = (data, part) => {
 
 // Get percentage format
 export const formatPercentage = (percentage) => `${(percentage * 100).toFixed(0).replace(/[.,]00$/, "")}%`;
+
+// Get date format for date with date trunc aggregation
+export const dateFormat = (series) => {
+	let format = 'MMM D'; // last 7 days
+	if (series === 30) format = 'MMM D'; // last 30 days
+	if (series === 90) format = 'MMM D, YYYY'; // last 90 days
+	if (series === 365) format = 'MMM YYYY'; // last 365 days
+	return format;
+}
+
+// Truncate string
+export const truncateString = (str) => {
+	if (!str) return '';
+	const length = 20;
+	if (str.length > length) return `${str.substring(0, length - 1)}…`;
+	return str;
+}
+
+export const freshnessColor = (snapshot) => {
+	const now = dayjs();
+	const snapshotDate = dayjs(snapshot);
+
+	const oneMonthAgo = now.subtract(1, 'month');
+	const threeDaysAgo = now.subtract(3, 'day');
+
+	if (snapshotDate.isBefore(oneMonthAgo)) {
+		return 'red';
+	} if (snapshotDate.isBefore(threeDaysAgo)) {
+		return 'orange';
+	}
+	return 'green';
+
+}
+
+// Define the sorting function
+export const columnSorterFunction = (a, b, key) => {
+	if (key.includes('%')) {
+		return parseFloat(a[key]) - parseFloat(b[key])
+	}
+	// Check if the values are strings
+	if (typeof a[key] === 'string' && typeof b[key] === 'string') {
+		// Case-insensitive string comparison
+		return a[key].localeCompare(b[key]);
+	} 
+		// Numeric comparison
+		return a[key] - b[key];
+	
+};

@@ -102,7 +102,7 @@ export const DatasetFreshnessAssertionBuilder = ({ state, updateState, editing }
     return (
         <div>
             <EvaluationScheduleBuilder
-                value={state.schedule as CronSchedule}
+                value={state.schedule}
                 onChange={updateAssertionSchedule}
                 assertionType={AssertionType.Freshness}
                 disabled={!editing}

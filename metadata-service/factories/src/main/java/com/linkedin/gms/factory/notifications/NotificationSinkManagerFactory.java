@@ -16,7 +16,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nonnull;
-import javax.inject.Singleton;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -54,7 +53,6 @@ public class NotificationSinkManagerFactory {
   @Autowired private ConfigurationProvider configurationProvider;
 
   @Bean(name = "notificationSinkManager")
-  @Singleton
   @Nonnull
   protected NotificationSinkManager getInstance() {
     boolean isNotificationsEnabled = this.configurationProvider.getNotifications().isEnabled();

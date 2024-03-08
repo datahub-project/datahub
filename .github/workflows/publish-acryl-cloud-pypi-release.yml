@@ -46,6 +46,5 @@ jobs:
           TWINE_USERNAME: ${{ secrets.TWINE_USERNAME }}
           TWINE_PASSWORD: ${{ secrets.TWINE_PASSWORD }}
         run: |
-          cd metadata-ingestion
-          ../gradlew customPackageGenerate -Ppackage_name=acryl-datahub-cloud -Ppackage_version="${{ needs.setup.outputs.tag }}"
-          twine upload custom-package/acryl-datahub-cloud/dist/*
+          cd metadata-ingestion-modules/acryl-cloud
+          RELEASE_VERSION="${{ needs.setup.outputs.tag }}" RELEASE_SKIP_TEST=1 ./scripts/release.sh

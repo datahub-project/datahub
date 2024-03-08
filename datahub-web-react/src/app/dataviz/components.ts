@@ -11,7 +11,14 @@ export const ChartWrapper = styled.div`
 		}
 	}
 
+	.horizontalBarChartInlineLabel {
+		fill: #fff;
+		font-weight: 600;
+		font-family: 'Manrope', sans-serif;
+	}
+
 	.visx-axis-label {
 		font-weight: 600 !important;
+		font-family: 'Manrope', sans-serif !important;
 	}
 `;

@@ -13,7 +13,7 @@ export const Legend = ({ scale }: Props) => {
 				<div style={{ display: "flex", flexDirection: "row" }}>
 					{labels.map((label) => (
 						<LegendItem
-							key={`legend-quantile-${label}`}
+							key={`legend-quantile-${label.text}-${label.value}-${Math.random() * 2024}`}
 							margin="0 20px 0 0"
 						>
 							<svg width={8} height={8}>

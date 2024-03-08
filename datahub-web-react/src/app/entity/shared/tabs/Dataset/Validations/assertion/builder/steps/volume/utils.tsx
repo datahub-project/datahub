@@ -309,7 +309,9 @@ export const getVolumeTypeInfo = (volumeAssertion: VolumeAssertionInfo) => {
     return result;
 };
 
-export const getSelectedVolumeTypeOption = (volumeAssertionInfo: VolumeAssertionInfo) => {
+export const getSelectedVolumeTypeOption = (volumeAssertionInfo?: VolumeAssertionInfo) => {
+    if (!volumeAssertionInfo) return undefined;
+
     const category = getSelectedVolumeTypeCategory(volumeAssertionInfo.type);
     const options = VOLUME_TYPE_OPTIONS_BY_CATEGORY[category];
     const typeInfo = getVolumeTypeInfo(volumeAssertionInfo);

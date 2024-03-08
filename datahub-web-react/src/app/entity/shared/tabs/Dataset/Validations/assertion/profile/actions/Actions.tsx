@@ -23,7 +23,7 @@ type Props = {
     canEditAssertion: boolean;
     canEditMonitor: boolean;
     canEditContract: boolean;
-    refetch: () => void;
+    refetch?: () => void;
 };
 
 export const Actions = ({

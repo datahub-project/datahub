@@ -216,7 +216,7 @@ public class OperationContext {
         ImmutableSet.<ContextInterface>builder()
             .add(getOperationContextConfig())
             .add(getAuthorizerContext())
-            .add(getActorContext())
+            .add(getSessionActorContext())
             .add(getSearchContext())
             .add(getEntityRegistryContext())
             .build()
@@ -232,7 +232,7 @@ public class OperationContext {
     return String.valueOf(
         ImmutableSet.<ContextInterface>builder()
             .add(getOperationContextConfig())
-            .add(getActorContext())
+            .add(getSessionActorContext())
             .add(getSearchContext())
             .add(getEntityRegistryContext())
             .build()
@@ -248,7 +248,7 @@ public class OperationContext {
     return String.valueOf(
         ImmutableSet.<ContextInterface>builder()
             .add(getOperationContextConfig())
-            .add(getActorContext())
+            .add(getSessionActorContext())
             .add(getEntityRegistryContext())
             .build()
             .stream()
@@ -268,7 +268,10 @@ public class OperationContext {
               .authentication(sessionAuthentication)
               .systemAuth(
                   this.systemActorContext != null
-                      && this.systemActorContext.getAuthentication().equals(sessionAuthentication))
+                      && this.systemActorContext
+                          .getAuthentication()
+                          .getActor()
+                          .equals(sessionAuthentication.getActor()))
               .policyInfoSet(this.authorizerContext.getAuthorizer().getActorPolicies(actorUrn))
               .groupMembership(this.authorizerContext.getAuthorizer().getActorGroups(actorUrn))
               .build(),

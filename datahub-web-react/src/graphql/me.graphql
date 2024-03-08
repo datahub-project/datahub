@@ -70,6 +70,7 @@ query getMe {
             manageGlobalViews
             manageOwnershipTypes
             manageGlobalAnnouncements
+            manageDocumentationForms
         }
     }
 }

@@ -3,18 +3,12 @@ import styled from 'styled-components';
 import AddOutlinedIcon from '@mui/icons-material/AddOutlined';
 import { ANTD_GRAY } from '../../shared/constants';
 import { ViewContainer, ViewContent, ViewDescription, ViewIcon, ViewLabel } from './styledComponents';
+import { Carousel } from '../../../shared/carousel/Carousel';
 
-const ViewSelectCardContainer = styled.div`
-    display: flex;
+const StyledCarousel = styled(Carousel)`
     gap: 10px;
-    align-items: center;
-    overflow-y: auto;
-    scrollbar-width: none; /* Hide scrollbar for Firefox */
-    -ms-overflow-style: none;
-    &::-webkit-scrollbar {
-        display: none; /* Hide scrollbar for Chrome, Safari, and Opera */
-    }
-    padding: 20px 0px;
+    padding: 20px 0;
+
     .rc-virtual-list-holder-inner {
         display: flex;
         flex-direction: row !important;
@@ -45,7 +39,7 @@ type Props = {
 
 export const ViewSelectContent = ({ children, onClickCreateView }: Props) => {
     return (
-        <ViewSelectCardContainer>
+        <StyledCarousel>
             <ViewContainer onClick={() => onClickCreateView()} role="none">
                 <ViewIcon className="static">
                     <AddOutlinedIconStyle />
@@ -56,6 +50,6 @@ export const ViewSelectContent = ({ children, onClickCreateView }: Props) => {
                 </ViewContent>
             </ViewContainer>
             {children}
-        </ViewSelectCardContainer>
+        </StyledCarousel>
     );
 };

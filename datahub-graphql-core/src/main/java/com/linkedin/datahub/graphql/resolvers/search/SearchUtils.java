@@ -326,7 +326,10 @@ public class SearchUtils {
     final String formUrn = formFilter.getFormUrn();
     try {
       FormInfo formInfo = formService.getFormInfo(UrnUtils.getUrn(formUrn), authentication);
-      return FormUtils.buildFormFilter(formFilter, formInfo);
+      List<Urn> groupsForUser =
+          formService.getGroupsForUser(
+              UrnUtils.getUrn(formFilter.getAssignedActor()), authentication);
+      return FormUtils.buildFormFilter(formFilter, formInfo, groupsForUser);
     } catch (Exception e) {
       throw new RuntimeException("Failed to build form filter", e);
     }

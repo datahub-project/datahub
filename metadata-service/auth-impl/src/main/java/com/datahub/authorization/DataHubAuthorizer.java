@@ -151,12 +151,11 @@ public class DataHubAuthorizer implements Authorizer {
         .filter(policy -> PoliciesConfig.ACTIVE_POLICY_STATE.equals(policy.getState()))
         .filter(
             policy ->
-                policy.getActors().isResourceOwners()
-                    || _policyEngine.isActorMatch(
-                        resolvedActorSpec,
-                        policy.getActors(),
-                        Optional.empty(),
-                        new PolicyEngine.PolicyEvaluationContext()))
+                _policyEngine.isActorMatch(
+                    resolvedActorSpec,
+                    policy.getActors(),
+                    Optional.empty(),
+                    new PolicyEngine.PolicyEvaluationContext()))
         .collect(Collectors.toSet());
   }
 

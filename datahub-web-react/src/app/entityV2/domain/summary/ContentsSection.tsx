@@ -11,12 +11,12 @@ import {
 } from '../../shared/containers/profile/sidebar/Domain/utils';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import ContentSectionLoading from './ContentSectionLoading';
-import { HorizontalList } from '../../shared/summary/ListComponents';
 import { EntityCountCard } from '../../../sharedV2/cards/EntityCountCard';
 import { pluralize } from '../../../shared/textUtil';
-import { SummaryTabHeaderTitle, SummaryTabHeaderWrapper } from '../../shared/summary/HeaderComponents';
+import { Container, SummaryTabHeaderTitle, SummaryTabHeaderWrapper } from '../../shared/summary/HeaderComponents';
 import { getContentTypeIcon } from '../../shared/summary/IconComponents';
 import { ANTD_GRAY } from '../../shared/constants';
+import { Carousel } from '../../../shared/carousel/Carousel';
 
 const ViewAllButton = styled.div`
     color: ${ANTD_GRAY[7]};
@@ -48,7 +48,7 @@ export const ContentsSection = () => {
     }
 
     return (
-        <>
+        <Container>
             <SummaryTabHeaderWrapper>
                 <SummaryTabHeaderTitle icon={<AppstoreOutlined />} title={`Assets (${contentsCount})`} />
                 <ViewAllButton onClick={() => navigateToDomainEntities(urn, entityType, history, entityRegistry)}>
@@ -56,8 +56,7 @@ export const ContentsSection = () => {
                 </ViewAllButton>
             </SummaryTabHeaderWrapper>
             {loading && <ContentSectionLoading />}
-
-            <HorizontalList>
+            <Carousel>
                 {!loading &&
                     contentsSummary?.types.map((summary) => {
                         const { type, count, entityType: summaryEntityType } = summary;
@@ -85,7 +84,7 @@ export const ContentsSection = () => {
                             />
                         );
                     })}
-            </HorizontalList>
-        </>
+            </Carousel>
+        </Container>
     );
 };

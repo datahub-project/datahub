@@ -1,6 +1,6 @@
-import { handleAccessRoles } from '../utils';
 import { GetExternalRolesQuery } from '../../../../../../../graphql/dataset.generated';
 import { GetMeQuery } from '../../../../../../../graphql/me.generated';
+import { handleAccessRoles } from '../utils';
 
 describe('handleAccessRoles', () => {
     it('should properly map the externalroles and loggedin user', () => {
@@ -67,10 +67,12 @@ describe('handleAccessRoles', () => {
                 platformPrivileges: {
                     viewAnalytics: true,
                     managePolicies: true,
+                    viewMetadataProposals: true,
                     manageIdentities: true,
                     generatePersonalAccessTokens: true,
                     manageIngestion: true,
                     manageSecrets: true,
+                    manageTokens: true,
                     manageDomains: true,
                     manageTests: true,
                     manageGlossaries: true,
@@ -78,8 +80,11 @@ describe('handleAccessRoles', () => {
                     manageTags: true,
                     createDomains: true,
                     createTags: true,
+                    manageGlobalSettings: true,
                     manageGlobalViews: true,
                     manageOwnershipTypes: true,
+                    manageGlobalAnnouncements: true,
+                    manageDocumentationForms: true,
                     __typename: 'PlatformPrivileges',
                 },
                 __typename: 'AuthenticatedUser',
@@ -142,10 +147,12 @@ describe('handleAccessRoles', () => {
                 platformPrivileges: {
                     viewAnalytics: true,
                     managePolicies: true,
+                    viewMetadataProposals: true,
                     manageIdentities: true,
                     generatePersonalAccessTokens: true,
                     manageIngestion: true,
                     manageSecrets: true,
+                    manageTokens: true,
                     manageDomains: true,
                     manageTests: true,
                     manageGlossaries: true,
@@ -153,8 +160,11 @@ describe('handleAccessRoles', () => {
                     manageTags: true,
                     createDomains: true,
                     createTags: true,
+                    manageGlobalSettings: true,
                     manageGlobalViews: true,
                     manageOwnershipTypes: true,
+                    manageGlobalAnnouncements: true,
+                    manageDocumentationForms: true,
                     __typename: 'PlatformPrivileges',
                 },
                 __typename: 'AuthenticatedUser',
@@ -233,10 +243,12 @@ describe('handleAccessRoles', () => {
                 platformPrivileges: {
                     viewAnalytics: true,
                     managePolicies: true,
+                    viewMetadataProposals: true,
                     manageIdentities: true,
                     generatePersonalAccessTokens: true,
                     manageIngestion: true,
                     manageSecrets: true,
+                    manageTokens: true,
                     manageDomains: true,
                     manageTests: true,
                     manageGlossaries: true,
@@ -244,8 +256,11 @@ describe('handleAccessRoles', () => {
                     manageTags: true,
                     createDomains: true,
                     createTags: true,
+                    manageGlobalSettings: true,
                     manageGlobalViews: true,
                     manageOwnershipTypes: true,
+                    manageGlobalAnnouncements: true,
+                    manageDocumentationForms: true,
                     __typename: 'PlatformPrivileges',
                 },
                 __typename: 'AuthenticatedUser',

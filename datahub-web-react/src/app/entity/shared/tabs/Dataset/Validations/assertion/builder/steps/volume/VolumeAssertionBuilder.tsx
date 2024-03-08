@@ -33,7 +33,7 @@ type Props = {
 
 export const VolumeAssertionBuilder = ({ state, updateState, editing }: Props) => {
     const assertion = state?.assertion;
-    const schedule = state?.schedule;
+    const schedule: CronSchedule | null | undefined = state?.schedule;
     const volumeAssertion = assertion?.volumeAssertion;
     const volumeParameters = volumeAssertion?.parameters;
     const filter = volumeAssertion?.filter;
@@ -127,7 +127,7 @@ export const VolumeAssertionBuilder = ({ state, updateState, editing }: Props) =
                 onChange={updateAssertionSchedule}
                 disabled={!editing}
             />
-            <VolumeTypeBuilder volumeInfo={volumeAssertion} onChange={updateVolumeType} disabled={!editing} />
+            <VolumeTypeBuilder volumeInfo={volumeAssertion as VolumeAssertionInfo} onChange={updateVolumeType} disabled={!editing} />
             <VolumeParametersBuilder
                 volumeInfo={volumeAssertion as VolumeAssertionInfo}
                 value={volumeParameters as AssertionStdParameters}

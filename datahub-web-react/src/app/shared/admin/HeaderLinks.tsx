@@ -15,7 +15,7 @@ import {
 } from '@ant-design/icons';
 import { Link } from 'react-router-dom';
 import { Button, Dropdown, Menu, Tooltip } from 'antd';
-import { useAppConfig, useIsTaskCenterEnabled } from '../../useAppConfig';
+import { useAppConfig, useIsDocumentationFormsEnabled } from '../../useAppConfig';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import { HOME_PAGE_INGESTION_ID } from '../../onboarding/config/HomePageOnboardingConfig';
 import { useToggleEducationStepIdsAllowList } from '../../onboarding/useToggleEducationStepIdsAllowList';
@@ -27,6 +27,10 @@ import { TaskCenterLink } from './TaskCenterLink';
 
 const LinkWrapper = styled.span`
     margin-right: 0px;
+
+    span {
+        padding: 0;
+    }
 `;
 
 const LinksWrapper = styled.div<{ areLinksHidden?: boolean }>`
@@ -82,7 +86,7 @@ export function HeaderLinks(props: Props) {
     const { areLinksHidden } = props;
     const me = useUserContext();
     const { config } = useAppConfig();
-    const isTaskCenterEnabled = useIsTaskCenterEnabled();
+    const isDocumentationFormsEnabled = useIsDocumentationFormsEnabled();
 
     const isAnalyticsEnabled = config?.analyticsConfig.enabled;
     const isIngestionEnabled = config?.managedIngestionConfig.enabled;
@@ -99,12 +103,13 @@ export function HeaderLinks(props: Props) {
 
     // SaaS only
     const showActionRequests =
-        (!isTaskCenterEnabled && isActionRequestsEnabled && me?.platformPrivileges?.viewMetadataProposals) || false;
+        (!isDocumentationFormsEnabled && isActionRequestsEnabled && me?.platformPrivileges?.viewMetadataProposals) ||
+        false;
     const showTests = (isTestsEnabled && me?.platformPrivileges?.manageTests) || false;
     const showDatasetHealth = config?.featureFlags?.datasetHealthDashboardEnabled;
     const showObserve = showDatasetHealth;
-    const showDocumentationCenter = (config?.featureFlags?.taskCenterEnabled) || false; // TODO: Add platformPrivileges check
-
+    const showDocumentationCenter =
+        config?.featureFlags?.documentationFormsEnabled && me.platformPrivileges?.manageDocumentationForms;
 
     useToggleEducationStepIdsAllowList(!!showIngestion, HOME_PAGE_INGESTION_ID);
 
@@ -133,7 +138,7 @@ export function HeaderLinks(props: Props) {
                     </Link>
                 </LinkWrapper>
             )}
-            {isTaskCenterEnabled && <TaskCenterLink />}
+            {isDocumentationFormsEnabled && <TaskCenterLink />}
             <Dropdown
                 trigger={['click']}
                 overlay={
@@ -181,9 +186,7 @@ export function HeaderLinks(props: Props) {
                                         <FormOutlined style={{ fontSize: '14px', fontWeight: 'bold' }} />
                                         <NavTitleText>Documentation</NavTitleText>
                                     </NavTitleContainer>
-                                    <NavTitleDescription>
-                                        Manage your documentation standards
-                                    </NavTitleDescription>
+                                    <NavTitleDescription>Manage your documentation standards</NavTitleDescription>
                                 </Link>
                             </MenuItem>
                         )}

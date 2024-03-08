@@ -19,6 +19,7 @@ import java.time.Clock;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 
 public class AuthorizationUtils {
@@ -235,7 +236,9 @@ public class AuthorizationUtils {
   public static boolean canViewEntity(@Nonnull Urn entityUrn, @Nonnull QueryContext context) {
     final DisjunctivePrivilegeGroup orGroup =
         new DisjunctivePrivilegeGroup(
-            ImmutableList.of(new ConjunctivePrivilegeGroup(VIEW_ENTITY_PRIVILEGES)));
+            VIEW_ENTITY_PRIVILEGES.stream()
+                .map(priv -> new ConjunctivePrivilegeGroup(List.of(priv)))
+                .collect(Collectors.toList()));
 
     final Authorizer authorizer = context.getAuthorizer();
     final String actor = context.getActorUrn();
@@ -263,6 +266,11 @@ public class AuthorizationUtils {
         urn.getEntityType(),
         urn.toString(),
         orPrivilegesGroup);
+  }
+
+  public static boolean canManageForms(@Nonnull QueryContext context) {
+    return isAuthorized(
+        context, Optional.empty(), PoliciesConfig.MANAGE_DOCUMENTATION_FORMS_PRIVILEGE);
   }
 
   public static boolean isAuthorized(

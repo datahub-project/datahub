@@ -232,6 +232,13 @@ public class EntitySpecBuilder {
               aspectRecordSchema,
               new SchemaAnnotationProcessor.AnnotationProcessOption());
 
+      if (processedSearchResult.hasError()) {
+        failValidation(
+            String.format(
+                "Could not build aspect spec for aspect with name %s. Failed to process @Searchable annotation with errors: %s",
+                aspectRecordSchema.getName(), processedSearchResult.getErrorMsgs()));
+      }
+
       // Extract Searchable Field Specs
       final SearchableFieldSpecExtractor searchableFieldSpecExtractor =
           new SearchableFieldSpecExtractor();
@@ -257,6 +264,13 @@ public class EntitySpecBuilder {
               Collections.singletonList(_relationshipHandler),
               aspectRecordSchema,
               new SchemaAnnotationProcessor.AnnotationProcessOption());
+
+      if (processedRelationshipResult.hasError()) {
+        failValidation(
+            String.format(
+                "Could not build aspect spec for aspect with name %s. Failed to process @Relationship annotation with errors: %s",
+                aspectRecordSchema.getName(), processedRelationshipResult.getErrorMsgs()));
+      }
 
       // Extract Relationship Field Specs
       final RelationshipFieldSpecExtractor relationshipFieldSpecExtractor =

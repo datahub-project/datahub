@@ -112,7 +112,7 @@ export default function GroupProfile() {
 
     // Side bar data
     const sideBarData = {
-        photoUrl: undefined,
+        photoUrl: data?.corpGroup?.editableProperties?.pictureLink || undefined,
         avatarName:
             data?.corpGroup?.properties?.displayName ||
             data?.corpGroup?.name ||

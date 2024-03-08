@@ -1,27 +1,27 @@
 import {
     AssertionAction,
-    AssertionType,
     AssertionEvaluationParametersType,
+    AssertionStdOperator,
+    AssertionStdParameterType,
+    AssertionType,
+    AssertionValueChangeType,
+    DatasetFieldAssertionSourceType,
+    DatasetFilterType,
     DatasetFreshnessSourceType,
+    DatasetVolumeSourceType,
     DateInterval,
     EntityType,
-    SchemaFieldDataType,
+    FieldAssertionType,
+    FieldMetricType,
+    FieldTransformType,
+    FieldValuesFailThresholdType,
     FreshnessAssertionScheduleType,
     FreshnessAssertionType,
     FreshnessFieldKind,
-    DatasetFilterType,
-    VolumeAssertionType,
     IncrementingSegmentFieldTransformerType,
-    AssertionStdOperator,
-    AssertionStdParameterType,
-    AssertionValueChangeType,
-    DatasetVolumeSourceType,
+    SchemaFieldDataType,
     SqlAssertionType,
-    FieldAssertionType,
-    FieldTransformType,
-    FieldValuesFailThresholdType,
-    FieldMetricType,
-    DatasetFieldAssertionSourceType,
+    VolumeAssertionType,
 } from '../../../../../../../../types.generated';
 
 /**
@@ -51,7 +51,7 @@ export interface AssertionMonitorBuilderState {
         /**
          * The urn of the assertion. Only available if the assertion has been created and is being updated.
          */
-        urn?: AssertionType | null;
+        urn?: string | null;
 
         /**
          * The type of the source itself, e.g. mysql, bigquery, bigquery-usage. Should match the recipe.
@@ -607,12 +607,12 @@ export interface AssertionMonitorBuilderState {
         /**
          * A raw cron string
          */
-        cron?: string | null;
+        cron: string;
 
         /**
          * The cron timezone.
          */
-        timezone?: string | null;
+        timezone: string;
     } | null;
 
     /**

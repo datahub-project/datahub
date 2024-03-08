@@ -56,7 +56,12 @@ function useDeleteEntity(
                     handleDeleteDomain();
                 }
 
-                if (client && entityData.type === EntityType.GlossaryTerm && entityData?.parentNodes?.nodes) {
+                if (
+                    client &&
+                    entityData.type === EntityType.GlossaryTerm &&
+                    entityData?.parentNodes?.nodes &&
+                    !!entityData.parentNodes.nodes.length
+                ) {
                     removeTermFromGlossaryNode(client, entityData.parentNodes.nodes[0].urn, urn);
                 }
 

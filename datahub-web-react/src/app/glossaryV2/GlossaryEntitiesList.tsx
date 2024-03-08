@@ -8,6 +8,7 @@ import { useEntityRegistry } from '../useEntityRegistry';
 import GlossaryEntityItem from './GlossaryEntityItem';
 import { useEntityData } from '../entityV2/shared/EntityContext';
 import { GenericEntityProperties } from '../entityV2/shared/types';
+import { REDESIGN_COLORS } from '../entityV2/shared/constants';
 
 interface GlossaryEntityWrapperProps {
     termsTotal?: number | undefined;
@@ -40,13 +41,13 @@ const EntityTitle = styled(Typography)`
     margin: 11px 0 12px 19px;
     font-size: 12px;
     font-weight: 400;
-    color: #434863;
+    color: ${REDESIGN_COLORS.SUBTITLE};
 `;
 
 interface Props {
     nodes: (GlossaryNode | GlossaryNodeFragment)[];
     terms: (GlossaryTerm | ChildGlossaryTermFragment)[];
-    termsTotal: number | undefined;
+    termsTotal?: number;
 }
 
 function GlossaryEntitiesList(props: Props) {

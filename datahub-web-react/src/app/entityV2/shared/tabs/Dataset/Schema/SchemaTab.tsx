@@ -67,8 +67,6 @@ export const SchemaTab = ({ renderType, properties }: { renderType: TabRenderTyp
         expandedDrawerFieldPathFromUrl,
     );
     const [openTimelineDrawer, setOpenTimelineDrawer] = useState<boolean>(false);
-    // only scroll to new row on arrow key, navigate from header click or initial load
-    const [shouldScrollToSelectedRow, setShouldScrollToSelectedRow] = useState(true);
     const [highlightedMatchIndex, setHighlightedMatchIndex] = useState<number | null>(null);
     const [wasSearchReset, setWasSearchReset] = useState(false);
 
@@ -224,8 +222,6 @@ export const SchemaTab = ({ renderType, properties }: { renderType: TabRenderTyp
                 matches={matches}
                 highlightedMatchIndex={highlightedMatchIndex}
                 setHighlightedMatchIndex={setHighlightedMatchIndex}
-                // openTimelineDrawer={openTimelineDrawer}
-                // setOpenTimelineDrawer={setOpenTimelineDrawer}
             />
             {(loading && !schemaMetadata && (
                 <LoadingWrapper>
@@ -248,16 +244,14 @@ export const SchemaTab = ({ renderType, properties }: { renderType: TabRenderTyp
                                     rows={rows}
                                     editableSchemaMetadata={editableSchemaMetadata}
                                     usageStats={usageStats}
-                                    expandedRowsFromFilter={expandedRowsFromFilter as any}
-                                    filterText={filterText as any}
+                                    expandedRowsFromFilter={expandedRowsFromFilter}
+                                    filterText={filterText}
                                     expandedDrawerFieldPath={expandedDrawerFieldPath}
                                     setExpandedDrawerFieldPath={setExpandedDrawerFieldPath}
-                                    setShouldScrollToSelectedRow={setShouldScrollToSelectedRow}
                                     openTimelineDrawer={openTimelineDrawer}
                                     setOpenTimelineDrawer={setOpenTimelineDrawer}
                                     showTypeAsIcons={showTypeAsIcons}
                                     matches={matches}
-                                    shouldScrollToSelectedRow={shouldScrollToSelectedRow}
                                 />
                             </SchemaEditableContext.Provider>
                         </>

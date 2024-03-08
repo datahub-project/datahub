@@ -15,6 +15,9 @@ export default function getTypeIcon(
     subtype?: string,
     includeTitle?: boolean,
 ) {
+    // TODO: Remove type ignore once EntityRegistry V1 icon method has optional arguments
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
     const icon = (subtype && getSubTypeIcon(subtype)) || entityRegistry.getIcon(type);
     if (includeTitle) {
         return (

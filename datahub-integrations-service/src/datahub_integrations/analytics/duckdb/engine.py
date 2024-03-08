@@ -198,6 +198,14 @@ class DuckDBAnalyticsEngine(AnalyticsEngine):
         sql_query_fragment: Optional[str],
     ) -> Iterator[Row]:
         """Return the data at the physical location"""
+
+        def remove_whitespace(query: str) -> str:
+            # Remove leading/trailing whitespace
+            query = query.strip()
+            # Remove extra whitespace within the string
+            query = re.sub(r"\s+", " ", query)
+            return query
+
         (
             location,
             credential_query_fragment,
@@ -222,6 +230,7 @@ class DuckDBAnalyticsEngine(AnalyticsEngine):
             query = template.render(table=table_name)
 
         query_with_creds = f"{credential_query_fragment} {query}"
+        query_with_creds = remove_whitespace(query_with_creds)
         logger.info(f"Executing query: {query_with_creds}")
         try:
             result = self.duckdb_client.execute(query_with_creds)

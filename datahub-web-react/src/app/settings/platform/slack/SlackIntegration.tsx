@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
+import { isEqual } from 'lodash';
 import { Button, Divider, Form, Input, message, Typography, Alert, Radio, Image } from 'antd';
 import { useConnectionQuery, useUpsertConnectionMutation } from '../../../../graphql/connection.generated';
 import {
@@ -82,8 +83,8 @@ export const SlackIntegration = () => {
     });
     const [upsertConnection] = useUpsertConnectionMutation();
 
-    const slackConnData =
-        connData?.connection?.details?.json && decodeSlackConnection(connData.connection?.details?.json.blob as string);
+    const existingConnJson = connData?.connection?.details?.json;
+    const slackConnData = existingConnJson && decodeSlackConnection(existingConnJson.blob as string);
 
     useEffect(() => {
         if (slackConnData && connection === DEFAULT_CONNECTION) {
@@ -141,7 +142,12 @@ export const SlackIntegration = () => {
                 },
             },
         })
-            .then(() => updateSlackConnection())
+            .then(() => {
+                if (!isEqual(connection, slackConnData)) {
+                    // If the connection has changed, update it.
+                    updateSlackConnection();
+                }
+            })
             .catch((e: unknown) => {
                 analytics.event({ type: EventType.SlackIntegrationErrorEvent, configType: selectTypeValue });
                 message.destroy();

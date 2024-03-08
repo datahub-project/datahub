@@ -18,6 +18,7 @@ import {
 	SearchForEntitiesByFormQuery
 } from '../../../../graphql/form.generated';
 import { generateFormCompletionFilter } from './utils';
+import { FormResponsesFilter, FormView } from './EntityFormContext';
 
 // Common query configs
 export const config = {
@@ -25,9 +26,9 @@ export const config = {
 	fetchPolicy: 'no-cache' as WatchQueryFetchPolicy
 }
 
-export const useEntityFormDataFactory = (formUrn, selectedPromptId, formView, submittedEntities) => {
+export const useEntityFormDataFactory = (formUrn, selectedPromptId, formView, submittedEntitiesMap, verifiedEntities) => {
 	const { user, refetchUnfinishedTaskCount } = useUserContext();
-	const { query, orFilters, page } = useGetSearchQueryInputs();
+	const { query, orFilters, page, sortInput } = useGetSearchQueryInputs();
 
 	const [searchResults, setSearchResults] = useState();
 	const [numResultsPerPage] = useState(SearchCfg.RESULTS_PER_PAGE);
@@ -55,6 +56,22 @@ export const useEntityFormDataFactory = (formUrn, selectedPromptId, formView, su
 		selectedPromptId // can be undefined
 	});
 
+	// only filter urns out for optimistic rendering on by question view if the user is filtering to see incomplete entities (default)
+    const shouldBeOptimisticForPrompt =
+        formResponsesFilters.length === 1 && formResponsesFilters[0] === FormResponsesFilter.INCOMPLETE;
+	const submittedEntitiesForPrompt = submittedEntitiesMap[selectedPromptId] || [];
+	const entitiesToFilterForPrompt = shouldBeOptimisticForPrompt ? submittedEntitiesForPrompt : [];
+	const entitiesToFilterOut = formView === FormView.BY_QUESTION ? entitiesToFilterForPrompt : verifiedEntities;
+	const urnsFilter = {
+		field: 'urn',
+		condition: FilterOperator.Equal,
+		values: entitiesToFilterOut,
+		negated: true,
+	};
+	const combinedFilters = orFilters.length
+		? orFilters.map((andFilterInput) => ({ and: [...(andFilterInput.and || []), urnsFilter] }))
+		: [{ and: [urnsFilter] }];
+
 	// Search Data 
 	const {
 		data: searchData,
@@ -68,9 +85,9 @@ export const useEntityFormDataFactory = (formUrn, selectedPromptId, formView, su
 				formFilter,
 				start: (page - 1) * numResultsPerPage,
 				count: numResultsPerPage,
-				orFilters,
+				orFilters: combinedFilters,
 				searchFlags: config.searchFlags,
-				// sortInput, TODO: support sorting on this endpoint
+				sortInput,
 			},
 		},
 		fetchPolicy: config.fetchPolicy,
@@ -137,11 +154,13 @@ export const useEntityFormDataFactory = (formUrn, selectedPromptId, formView, su
 					isFormVerified: false,
 					isFormComplete: true,
 				},
+				orFilters: formView === FormView.BULK_VERIFY ? [{ and: [urnsFilter] }] : undefined,
 				searchFlags: config.searchFlags
 			},
 		},
 		fetchPolicy: config.fetchPolicy,
 		skip: !isVerificationType || !user?.urn || !formUrn,
+		notifyOnNetworkStatusChange: true,
 	});
 
 	// Get count of entities assigned to form that are verified
@@ -159,11 +178,13 @@ export const useEntityFormDataFactory = (formUrn, selectedPromptId, formView, su
 					isFormVerified: false,
 					isFormComplete: false,
 				},
+				orFilters: formView === FormView.BULK_VERIFY ? [{ and: [urnsFilter] }] : undefined,
 				searchFlags: config.searchFlags
 			},
 		},
 		fetchPolicy: config.fetchPolicy,
 		skip: !isVerificationType || !user?.urn || !formUrn,
+		notifyOnNetworkStatusChange: true,
 	});
 
 	// Get count of assets with the given prompt complete
@@ -182,6 +203,7 @@ export const useEntityFormDataFactory = (formUrn, selectedPromptId, formView, su
 					isPromptComplete: true,
 					...generateFormCompletionFilter(formView, isVerificationType)
 				},
+				orFilters: [{ and: [urnsFilter] }],
 				searchFlags: config.searchFlags
 			},
 		},
@@ -205,6 +227,7 @@ export const useEntityFormDataFactory = (formUrn, selectedPromptId, formView, su
 					isPromptComplete: false,
 					...generateFormCompletionFilter(formView, isVerificationType)
 				},
+				orFilters: [{ and: [urnsFilter] }],
 				searchFlags: config.searchFlags
 			},
 		},
@@ -221,51 +244,6 @@ export const useEntityFormDataFactory = (formUrn, selectedPromptId, formView, su
 		if (!searchError && searchData) setSearchResults(searchData as any);
 	}, [searchData, searchError, setSearchResults]);
 
-	const optimisticSearchRefetch = () => {
-		const status = {
-			pending: true,
-			success: undefined as boolean | undefined,
-		}
-
-		const prevResults = searchResults;
-
-		refetchSearch({
-			input: {
-				query,
-				formFilter,
-				start: (page - 1) * numResultsPerPage,
-				count: numResultsPerPage,
-				orFilters: [...orFilters, {
-					and: [
-						{
-							field: 'urn',
-							condition: FilterOperator.Equal,
-							values: submittedEntities,
-							negated: true
-						}
-					]
-				}],
-				searchFlags: config.searchFlags,
-			},
-		})
-			.catch(() => {
-				// If fail, revert results
-				setSearchResults(prevResults);
-				status.pending = false;
-				status.success = false;
-			})
-			.then((res) => {
-				if (res) {
-					// If success, set new results
-					setSearchResults(res as any);
-					status.pending = false;
-					status.success = true;
-				}
-			});
-
-		return status;
-	};
-
 	// Grouped Loading
 	const loading = formDataLoading
 		|| entityUrnsByFormLoading
@@ -277,14 +255,9 @@ export const useEntityFormDataFactory = (formUrn, selectedPromptId, formView, su
 		|| searchLoading;
 
 	// Grouped Refetch
-	const refetch = (optimistic = false) => {
+	const refetch = () => {
 		if (!isLoading) {
 			setIsLoading(true);
-
-			// Conditional optimistic
-			if (optimistic) {
-				optimisticSearchRefetch();
-			}
 
 			// delay for elastic data lag
 			setTimeout(() => {
@@ -300,14 +273,19 @@ export const useEntityFormDataFactory = (formUrn, selectedPromptId, formView, su
 				}
 				refetchAssetsWithPromptComplete();
 				refetchAssestsWithPromptNotComplete();
-
-				// Conditional optimistic
-				if (!optimistic) {
-					refetchSearch();
-				}
+				refetchSearch();
 
 				if (!loading) setIsLoading(false);
 			}, 3000);
+		}
+	}
+
+	const refetchNonOptimisticData = () => {
+		if (isVerificationType) {
+			refetchAssetsReadyForVerification();
+			refetchAssetsNotReadyForVerification();
+		} else {
+			refetchAssetsWithFormNotComplete();
 		}
 	}
 
@@ -317,8 +295,10 @@ export const useEntityFormDataFactory = (formUrn, selectedPromptId, formView, su
 	const assignedToFormNotNotComplete = assetsWithFormNotComplete?.searchAcrossEntities?.total || 0;
 
 	// Utils for prompt asset counts 
-	const numCompleteForPrompt = assetsWithPromptComplete?.searchAcrossEntities?.total || 0;
-	const numNotCompleteForPrompt = assetsWithPromptNotComplete?.searchAcrossEntities?.total || 0;
+    const numCompleteForPrompt =
+        (assetsWithPromptComplete?.searchAcrossEntities?.total || 0) +
+        (shouldBeOptimisticForPrompt ? submittedEntitiesForPrompt.length : 0);
+	const numNotCompleteForPrompt = (assetsWithPromptNotComplete?.searchAcrossEntities?.total || 0);
 
 	// Init render, set loading to false after all items performed.
 	if (isLoading) setIsLoading(false);
@@ -337,6 +317,9 @@ export const useEntityFormDataFactory = (formUrn, selectedPromptId, formView, su
 			searchResults: searchResults ? searchResults as SearchForEntitiesByFormQuery : {},
 			searchError,
 			searchLoading,
+			refetchSearch,
+			refetchNonOptimisticData,
+			verificationDataLoading: assetsReadyForVerificationLoading || assetsNotReadyForVerificationLoading,
 		},
 		counts: {
 			verificationType: {

@@ -85,6 +85,8 @@ public class MeResolver implements DataFetcher<CompletableFuture<AuthenticatedUs
                 AuthorizationUtils.canManageOwnershipTypes(context));
             platformPrivileges.setManageGlobalAnnouncements(
                 AuthorizationUtils.canManageGlobalAnnouncements(context));
+            platformPrivileges.setManageDocumentationForms(
+                AuthorizationUtils.canManageForms(context));
 
             // Settings not in OSS (yet)
             platformPrivileges.setManageGlobalSettings(
