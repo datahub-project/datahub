@@ -372,7 +372,7 @@ export const getDefaultVolumeParameters = (operator: AssertionStdOperator) => {
 
 export const getVolumeSourceTypeOptions = (platformUrn: string, connectionForEntityExists: boolean): DatasetVolumeSourceType[] => {
     return connectionForEntityExists
-        ? PLATFORM_ASSERTION_CONFIGS[platformUrn]?.sourceTypes
+        ? (PLATFORM_ASSERTION_CONFIGS[platformUrn]?.sourceTypes ?? [DatasetVolumeSourceType.DatahubDatasetProfile])
         : [DatasetVolumeSourceType.DatahubDatasetProfile];
 };
 
@@ -389,12 +389,12 @@ export const getDefaultVolumeSourceType = (platformUrn: string, connectionForEnt
 
 export const getDefaultDatasetVolumeAssertionParametersState = (
     platformUrn: string,
-    connectionForEntityExists: boolean,
+    monitorsConnectionForEntityExists: boolean,
 ) => {
     return {
         type: AssertionEvaluationParametersType.DatasetVolume,
         datasetVolumeParameters: {
-            sourceType: getDefaultVolumeSourceType(platformUrn, connectionForEntityExists),
+            sourceType: getDefaultVolumeSourceType(platformUrn, monitorsConnectionForEntityExists),
         },
     };
 };
