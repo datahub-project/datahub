@@ -24,6 +24,7 @@ dependencies {
 
   implementation externalDependency.slf4jApi
   compileOnly externalDependency.lombok
+  runtimeOnly externalDependency.javaxMail
 
   annotationProcessor externalDependency.lombok
 
