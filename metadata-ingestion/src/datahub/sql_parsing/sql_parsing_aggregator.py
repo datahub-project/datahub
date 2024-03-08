@@ -1047,7 +1047,7 @@ class SqlParsingAggregator:
         # - Update the query text to combine the queries
 
         composite_query_id = self._composite_query_id(composed_of_queries)
-        composed_of_queries_truncated = LossyList()
+        composed_of_queries_truncated: LossyList[str] = LossyList()
         for query_id in composed_of_queries:
             composed_of_queries_truncated.append(query_id)
         self.report.queries_with_temp_upstreams[
