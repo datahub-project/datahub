@@ -28,20 +28,22 @@ const MatchTextPadding = styled.span`
     min-width: 24px;
 `;
 
-export const MatchText = styled(Typography.Text)<{ isClickable: boolean; forceHover?: boolean }>`
-    color: #328980;
+export const MatchText = styled(Typography.Text)<{ isClickable?: boolean; forceHover?: boolean }>`
     padding: 8px;
     padding-right: 8px;
     padding-left: 8px;
     max-width: 100px;
     white-space: nowrap;
     overflow: hidden;
+
     div {
         text-overflow: ellipsis;
     }
+
     text-overflow: ellipsis;
     color: ${SEARCH_COLORS.MATCH_TEXT_GREY};
     transition: max-width 0.3s ease;
+
     :hover {
         background-color: ${SEARCH_COLORS.MATCH_BACKGROUND_GREY};
         color: ${SEARCH_COLORS.TITLE_PURPLE};
@@ -49,6 +51,7 @@ export const MatchText = styled(Typography.Text)<{ isClickable: boolean; forceHo
         max-width: 400px;
         ${(props) => props.isClickable && `cursor: pointer;`};
     }
+
     ${(props) =>
         props.forceHover &&
         `

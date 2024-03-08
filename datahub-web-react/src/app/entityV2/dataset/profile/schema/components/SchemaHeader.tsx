@@ -13,7 +13,6 @@ import { SchemaFilterType } from '../../../../shared/tabs/Dataset/Schema/utils/f
 import { navigateToVersionedDatasetUrl } from '../../../../shared/tabs/Dataset/Schema/utils/navigateToVersionedDatasetUrl';
 import CustomPagination from './CustomPagination';
 import SchemaSearchInput from './SchemaSearchInput';
-// import { ReactComponent as VersionHistoryIcon } from '../../../../../../images/version-history-circular-filled.svg';
 
 const SchemaHeaderContainer = styled.div`
     display: flex;
@@ -22,7 +21,6 @@ const SchemaHeaderContainer = styled.div`
     padding-bottom: 3px;
 `;
 
-// TODO(Gabe): undo display: none when dbt/bigquery flickering has been resolved
 const ShowVersionButton = styled(Button)`
     display: inline-block;
     margin-right: 10px;
@@ -74,11 +72,11 @@ const KeyValueButtonGroup = styled.div`
 // Below styles are for buttons on the right side of the Schema Header
 const RightButtonsGroup = styled.div`
     padding-left: 5px;
+
     &&& {
         display: flex;
         justify-content: right;
         align-items: center;
-        width: 100%;
         row-gap: 12px;
     }
 `;
@@ -96,22 +94,6 @@ const SchemaBlameSelector = styled(Select)`
     }
 `;
 
-// const SortBy = styled(Input)`
-//     border-radius: 100px;
-//     max-width: 90px;
-//     background: ${ANTD_GRAY_V2[13]};
-//     margin-top: 5px;
-//     margin-left: 5px;
-//     && input {
-//         background: ${ANTD_GRAY_V2[13]};
-//         font-family: Manrope;
-//         font-size: 14px;
-//         font-weight: 500;
-//         line-height: 24px;
-//         color: ${ANTD_GRAY_V2[11]};
-//     }
-// `;
-
 const SchemaBlameSelectorOption = styled(Select.Option)`
     &&& {
         overflow: visible;
@@ -123,6 +105,7 @@ const SchemaAuditButton = styled(Button)`
     align-self: center;
     margin-top: -5px;
     background: ${REDESIGN_COLORS.WHITE};
+
     svg {
         background: ${REDESIGN_COLORS.PRIMARY_PURPLE};
         border-radius: 50%;
@@ -134,7 +117,6 @@ const SchemaAuditButton = styled(Button)`
 `;
 
 const MAX_ROWS_BEFORE_DEBOUNCE = 50;
-const HALF_SECOND_IN_MS = 500;
 
 type Props = {
     maxVersion?: number;
@@ -159,8 +141,6 @@ type Props = {
     setHighlightedMatchIndex: (val: number | null) => void;
     matches: { path: string; index: number }[];
     schemaFilter: string;
-    // openTimelineDrawer?: boolean;
-    // setOpenTimelineDrawer?: any;
 };
 
 export default function SchemaHeader({
@@ -186,9 +166,7 @@ export default function SchemaHeader({
     highlightedMatchIndex,
     setHighlightedMatchIndex,
     schemaFilter,
-}: // openTimelineDrawer,
-// setOpenTimelineDrawer,
-Props) {
+}: Props) {
     const history = useHistory();
     const location = useLocation();
     const [schemaFilterSelectOpen, setSchemaFilterSelectOpen] = useState(false);
@@ -227,7 +205,7 @@ Props) {
 
     const debouncedSetFilterText = debounce(
         (e: React.ChangeEvent<HTMLInputElement>) => setFilterText(e.target.value),
-        numRows > MAX_ROWS_BEFORE_DEBOUNCE ? HALF_SECOND_IN_MS : 0,
+        numRows > MAX_ROWS_BEFORE_DEBOUNCE ? 100 : 0,
     );
 
     return (
@@ -309,18 +287,8 @@ Props) {
                                     <HistoryIcon />
                                 </SchemaAuditButton>
                             </Tooltip>
-
-                            {/* <VersionHistoryIcon onClick={() => setOpenTimelineDrawer(!openTimelineDrawer)} /> */}
                         </>
                     )}
-
-                    {/* <SortBy
-                        defaultValue={schemaFilter}
-                        placeholder="Sort By"
-                        // onChange={debouncedSetFilterText}
-                        allowClear
-                        // suffix={<SearchOutlined />}
-                    /> */}
                 </RightButtonsGroup>
             </SchemaHeaderContainer>
         </TabToolbar>
