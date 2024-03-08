@@ -1,6 +1,6 @@
-import { handleAccessRoles } from '../utils';
 import { GetExternalRolesQuery } from '../../../../../../../graphql/dataset.generated';
 import { GetMeQuery } from '../../../../../../../graphql/me.generated';
+import { handleAccessRoles } from '../utils';
 
 describe('handleAccessRoles', () => {
     it('should properly map the externalroles and loggedin user', () => {
@@ -84,6 +84,7 @@ describe('handleAccessRoles', () => {
                     manageGlobalViews: true,
                     manageOwnershipTypes: true,
                     manageGlobalAnnouncements: true,
+                    manageDocumentationForms: true,
                     __typename: 'PlatformPrivileges',
                 },
                 __typename: 'AuthenticatedUser',
@@ -163,6 +164,7 @@ describe('handleAccessRoles', () => {
                     manageGlobalViews: true,
                     manageOwnershipTypes: true,
                     manageGlobalAnnouncements: true,
+                    manageDocumentationForms: true,
                     __typename: 'PlatformPrivileges',
                 },
                 __typename: 'AuthenticatedUser',
@@ -258,6 +260,7 @@ describe('handleAccessRoles', () => {
                     manageGlobalViews: true,
                     manageOwnershipTypes: true,
                     manageGlobalAnnouncements: true,
+                    manageDocumentationForms: true,
                     __typename: 'PlatformPrivileges',
                 },
                 __typename: 'AuthenticatedUser',
