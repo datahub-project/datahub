@@ -12,7 +12,6 @@ import { useLineageV2 } from '../../../../lineageV2/useLineageV2';
 import {
     getEntityPath,
     getOnboardingStepIdsForEntityType,
-    sortEntityProfileTabs,
     useRoutedTab,
     useUpdateGlossaryEntityDataOnChange,
 } from './utils';
@@ -47,7 +46,6 @@ import {
     LINEAGE_GRAPH_INTRO_ID,
     LINEAGE_GRAPH_TIME_FILTER_ID,
 } from '../../../../onboarding/config/LineageGraphOnboardingConfig';
-import { useAppConfig } from '../../../../useAppConfig';
 import { useSubscriptionsEnabled } from '../../../../settings/personal/notifications/utils';
 import { ENTITY_PROFILE_SUBSCRIPTION_ID } from '../../../../onboarding/config/EntityProfileOnboardingConfig';
 import EntityProfileSidebar from './sidebar/EntityProfileSidebar';
@@ -203,7 +201,6 @@ export const EntityProfile = <T, U>({
     const entityRegistry = useEntityRegistry();
     const subscriptionsEnabled = useSubscriptionsEnabled();
     const history = useHistory();
-    const appConfig = useAppConfig();
     const location = useLocation();
     const isInSearch = matchPath(location.pathname, PageRoutes.SEARCH_RESULTS) !== null;
 
@@ -216,7 +213,6 @@ export const EntityProfile = <T, U>({
         display: { ...defaultTabDisplayConfig, ...tab.display },
     }));
 
-    const sortedTabs = sortEntityProfileTabs(appConfig.config, entityType, tabsWithDefaults);
     const [shouldRefetchEmbeddedListSearch, setShouldRefetchEmbeddedListSearch] = useState(false);
     const entityStepIds: string[] = getOnboardingStepIdsForEntityType(entityType);
     const lineageGraphStepIds: string[] = [LINEAGE_GRAPH_INTRO_ID, LINEAGE_GRAPH_TIME_FILTER_ID];
@@ -281,7 +277,7 @@ export const EntityProfile = <T, U>({
             },
         })) || [];
 
-    const visibleTabs = [...sortedTabs, ...autoRenderTabs].filter((tab) =>
+    const visibleTabs = [...tabsWithDefaults, ...autoRenderTabs].filter((tab) =>
         tab.display?.visible(entityData, dataPossiblyCombinedWithSiblings),
     );
 
