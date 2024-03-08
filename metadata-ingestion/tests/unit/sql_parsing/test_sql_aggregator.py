@@ -164,6 +164,17 @@ def test_multistep_temp_table(pytestconfig: pytest.Config) -> None:
 
     mcps = list(aggregator.gen_metadata())
 
+    report = aggregator.report
+    assert len(report.queries_with_temp_upstreams) == 1
+    assert (
+        len(
+            report.queries_with_temp_upstreams[
+                "composite_c89ee7c127c64a5d3a42ee875305087991891c80f42a25012910524bd2c77c45"
+            ]
+        )
+        == 4
+    )
+
     mce_helpers.check_goldens_stream(
         pytestconfig,
         outputs=mcps,

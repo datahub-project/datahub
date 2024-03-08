@@ -1047,9 +1047,12 @@ class SqlParsingAggregator:
         # - Update the query text to combine the queries
 
         composite_query_id = self._composite_query_id(composed_of_queries)
-        self.report.queries_with_temp_upstreams.setdefault(
-            composite_query_id, LossyList()
-        ).extend(composed_of_queries)
+        composed_of_queries_truncated = LossyList()
+        for query_id in composed_of_queries:
+            composed_of_queries_truncated.append(query_id)
+        self.report.queries_with_temp_upstreams[
+            composite_query_id
+        ] = composed_of_queries_truncated
 
         merged_query_text = ";\n\n".join(
             [
