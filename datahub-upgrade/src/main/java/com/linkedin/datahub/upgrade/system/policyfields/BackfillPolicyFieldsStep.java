@@ -25,7 +25,6 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchService;
-import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.policy.DataHubPolicyInfo;
 import io.datahubproject.metadata.context.OperationContext;
@@ -220,7 +219,7 @@ public class BackfillPolicyFieldsStep implements UpgradeStep {
                       .getAspectSpecs()
                       .get(DATAHUB_POLICY_INFO_ASPECT_NAME),
                   null,
-                  GenericRecordUtils.serializeAspect(infoAspect),
+                  infoAspect,
                   null,
                   new SystemMetadata()
                       .setRunId(DEFAULT_RUN_ID)
