@@ -96,7 +96,11 @@ class RedshiftConfig(
 
     use_lineage_v2: bool = Field(
         default=False,
-        description="Whether to use the new SQL-based lineage and usage collector.",
+        description="Whether to use the new SQL-based lineage collector.",
+    )
+    lineage_v2_generate_queries: bool = Field(
+        default=True,
+        description="Whether to generate queries entities for the new SQL-based lineage collector.",
     )
 
     include_table_lineage: bool = Field(
