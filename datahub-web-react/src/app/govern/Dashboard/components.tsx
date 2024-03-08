@@ -1,4 +1,4 @@
-import { Typography } from 'antd';
+import { Select, Typography } from 'antd';
 import styled from 'styled-components';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 
@@ -173,4 +173,10 @@ export const ChartPerformanceItem = styled.div`
 	justify-content: space-between;
 	width: 100%;
 	margin-top: 1rem;
+`;
+
+export const StyledSelect = styled(Select)`
+    .ant-select-arrow {
+        color: black;
+    }
 `;

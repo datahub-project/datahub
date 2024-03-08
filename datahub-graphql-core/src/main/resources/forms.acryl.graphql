@@ -162,6 +162,21 @@ input FormAnalyticsInput {
     """
     params: [Param!]
 
+    """
+    Optional set of flags used in the form analytics endpoint
+    """
+    formAnalyticsFlags: FormAnalyticsFlags
+
+}
+
+"""
+Optional set of flags used in the form analytics endpoint
+"""
+input FormAnalyticsFlags {
+    """
+    Optional parameter that will skip hydrating assets and only return raw values.
+    """
+    skipAssetHydration: Boolean
 }
 
 type FormAnalyticsRow {

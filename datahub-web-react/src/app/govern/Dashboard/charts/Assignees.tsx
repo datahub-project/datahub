@@ -7,7 +7,7 @@ import { ChartGroup, Row, SecondaryHeading, ChartPerformanceItems, ChartPerforma
 import { ChartCard } from '../../../dataviz';
 
 import { useFormAnalyticsQuery } from '../../../../graphql/analytics.generated';
-import { mergeRowAndHeaderData, getEntityInfo, formatPercentage } from '../utils';
+import { mergeRowAndHeaderData, getEntityInfo, formatPercentage, columnSorterFunction } from '../utils';
 import { useFormAnalyticsContext } from '../FormAnalyticsContext';
 
 import { SectionWaiting, ChartState, ChartNoData, ChartNotEnoughData } from './AuxViews';
@@ -61,7 +61,7 @@ const DocProgressByAssignee = () => {
 		key,
 		dataIndex: key,
 		title: key,
-		sorter: key === '% Completed' ? (a, b) => parseFloat(a[key]) - parseFloat(b[key]) : (a, b) => a[key] - b[key],
+		sorter: (a, b) => columnSorterFunction(a, b, key),
 	}));
 	return (
 		<div style={{ width: '100%', marginTop: '1rem' }}>

@@ -48,7 +48,7 @@ const CompletedTrend = () => {
 
 	const { data: trend, loading: trendLoading, error: trendError } = useFormAnalyticsQuery({
 		variables: { input: { 'queryString': sql.completedTrend } },
-		skip: sql.skip,
+		skip: true, // TODO: not hardcode this once we start showing trend lines - this query is expensive (and we're not using it yet)
 	});
 
 	useEffect(() => {
@@ -108,7 +108,7 @@ const InProgressTrend = () => {
 
 	const { data: trend, loading: trendLoading, error: trendError } = useFormAnalyticsQuery({
 		variables: { input: { 'queryString': sql.inProgressTrend } },
-		skip: sql.skip,
+		skip: true, // TODO: not hardcode this once we start showing trend lines - this query is expensive (and we're not using it yet)
 	});
 
 	useEffect(() => {
@@ -169,7 +169,7 @@ const NotStartedTrend = () => {
 
 	const { data: trend, loading: trendLoading, error: trendError } = useFormAnalyticsQuery({
 		variables: { input: { 'queryString': sql.notStartedTrend } },
-		skip: sql.skip,
+		skip: true, // TODO: not hardcode this once we start showing trend lines - this query is expensive (and we're not using it yet)
 	});
 
 	useEffect(() => {

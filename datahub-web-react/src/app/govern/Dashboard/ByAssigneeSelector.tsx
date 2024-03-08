@@ -5,6 +5,7 @@ import { Select } from 'antd';
 import { mergeRowAndHeaderData, getEntityInfo } from './utils';
 
 import { useFormAnalyticsContext } from './FormAnalyticsContext';
+import { StyledSelect } from './components';
 
 export const ByAssigneeSelector = () => {
 	const {
@@ -36,13 +37,13 @@ export const ByAssigneeSelector = () => {
 	});
 
 	// Reset load states when form is changed
-	const handleSetAssignee = (value: string) => {
+	const handleSetAssignee = (value) => {
 		setSelectedAssignee(value)
 		resetLoadStates();
 	};
 
 	return (
-		<Select
+		<StyledSelect
 			showSearch
 			filterOption
 			placeholder="Select an assignee"

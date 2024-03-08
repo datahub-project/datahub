@@ -5,6 +5,7 @@ import { Select } from 'antd';
 import { mergeRowAndHeaderData, getEntityInfo } from './utils';
 
 import { useFormAnalyticsContext } from './FormAnalyticsContext';
+import { StyledSelect } from './components';
 
 export const ByFormSelector = () => {
 	const {
@@ -35,13 +36,13 @@ export const ByFormSelector = () => {
 	});
 
 	// Reset load states when form is changed
-	const handleSetForm = (value: string) => {
+	const handleSetForm = (value) => {
 		setSelectedForm(value);
 		resetLoadStates();
 	};
 
 	return (
-		<Select
+		<StyledSelect
 			showSearch
 			filterOption
 			placeholder="Select a form"

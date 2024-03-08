@@ -73,3 +73,18 @@ export const freshnessColor = (snapshot) => {
 	return 'green';
 
 }
+
+// Define the sorting function
+export const columnSorterFunction = (a, b, key) => {
+	if (key.includes('%')) {
+		return parseFloat(a[key]) - parseFloat(b[key])
+	}
+	// Check if the values are strings
+	if (typeof a[key] === 'string' && typeof b[key] === 'string') {
+		// Case-insensitive string comparison
+		return a[key].localeCompare(b[key]);
+	} 
+		// Numeric comparison
+		return a[key] - b[key];
+	
+};

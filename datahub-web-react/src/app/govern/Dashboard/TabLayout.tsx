@@ -112,8 +112,8 @@ export const TabLayout = () => {
 	const showLoadingState = contextLoading;
 
 	// Fetch CSV JSON when we user triggers state change
-	const { data: csvData } = useFormAnalyticsQuery({
-		variables: { input: { 'queryString': sql.downloadCSVJSON } },
+	const { data: csvData, error } = useFormAnalyticsQuery({
+		variables: { input: { 'queryString': sql.downloadCSVJSON, formAnalyticsFlags: { skipAssetHydration: true } } },
 		skip: !snapshot || !isDownloadingCSV
 	});
 
@@ -137,9 +137,15 @@ export const TabLayout = () => {
 			a.download = `documentation-metrics-${timestamp}.csv`;
 			a.click();
 			window.URL.revokeObjectURL(url);
+			setIsDownloadingCSV(false);
 		}
-		setIsDownloadingCSV(false);
 	}, [csvData, isDownloadingCSV, setIsDownloadingCSV]);
+
+	useEffect(() => {
+		if (error && isDownloadingCSV) {
+			setIsDownloadingCSV(false);
+		}
+	}, [error, isDownloadingCSV])
 
 	// Don't crash the app if Integration Service is not available
 	if (integrationServiceOffline) return <IntegrationServiceOffline />;

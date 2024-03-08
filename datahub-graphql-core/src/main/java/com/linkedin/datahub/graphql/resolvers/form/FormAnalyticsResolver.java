@@ -18,6 +18,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -44,6 +45,7 @@ public class FormAnalyticsResolver
 
     final FormAnalyticsInput input =
         bindArgument(environment.getArgument("input"), FormAnalyticsInput.class);
+    final FormAnalyticsFlags flags = input.getFormAnalyticsFlags();
 
     return CompletableFuture.supplyAsync(
         () -> {
@@ -77,7 +79,8 @@ public class FormAnalyticsResolver
                 response::setHeader,
                 row -> {
                   lines.add(
-                      new FormAnalyticsRow(row, mapRowResults(row, context.getAuthentication())));
+                      new FormAnalyticsRow(
+                          row, mapRowResults(row, context.getAuthentication(), flags)));
                 },
                 error_messages -> {
                   for (String error : error_messages) {
@@ -111,7 +114,9 @@ public class FormAnalyticsResolver
   }
 
   private List<RowResult> mapRowResults(
-      final List<String> row, final Authentication authentication) {
+      final List<String> row,
+      final Authentication authentication,
+      @Nullable final FormAnalyticsFlags flags) {
     return row.stream()
         .map(
             rowEntry -> {
@@ -119,7 +124,9 @@ public class FormAnalyticsResolver
               result.setValue(rowEntry);
               try {
                 final Urn urnValue = Urn.createFromString(rowEntry);
-                if (_entityClient.exists(urnValue, authentication)) {
+                final boolean skipHydration =
+                    flags != null && flags.getSkipAssetHydration().equals(true);
+                if (!skipHydration && _entityClient.exists(urnValue, authentication)) {
                   result.setEntity(UrnToEntityMapper.map(urnValue));
                 }
               } catch (Exception e) {

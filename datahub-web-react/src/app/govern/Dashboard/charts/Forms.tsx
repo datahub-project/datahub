@@ -6,7 +6,7 @@ import { FormOutlined } from '@ant-design/icons';
 import { ChartCard, HorizontalBarChart } from '../../../dataviz';
 import { ChartGroup, Row, SecondaryHeading, ChartPerformanceItems, ChartPerformanceItem } from '../components';
 
-import { statusOrdinalScale, mergeRowAndHeaderData, formatPercentage, getEntityInfo, truncateString } from '../utils';
+import { statusOrdinalScale, mergeRowAndHeaderData, formatPercentage, getEntityInfo, truncateString, columnSorterFunction } from '../utils';
 import { useFormAnalyticsQuery } from '../../../../graphql/analytics.generated';
 import { useFormAnalyticsContext } from '../FormAnalyticsContext';
 
@@ -89,9 +89,9 @@ const CompletionPerformanceByForm = () => {
 
 	const mergedData = mergeRowAndHeaderData(data?.formAnalytics?.header, data?.formAnalytics?.table || [])
 		.map((row) => {
-			const { info: { name } } = getEntityInfo(data, row.form) || {};
+			const name = getEntityInfo(data, row.form)?.info?.name || row.form;
 			return ({
-				Form: name || row.form,
+				Form: name,
 				Total: Number(row.Completed) + Number(row['In Progress']) + Number(row['Not Started']),
 				'% Completed': formatPercentage(row.completed_asset_percent),
 			})
@@ -103,7 +103,7 @@ const CompletionPerformanceByForm = () => {
 		key,
 		dataIndex: key,
 		title: key,
-		sorter: (a, b) => a[key] - b[key],
+		sorter: (a, b) => columnSorterFunction(a, b, key),
 	}));
 
 	return (

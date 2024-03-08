@@ -4,7 +4,7 @@ import { Table } from 'antd';
 import { ChartCard, HorizontalBarChart } from '../../../dataviz';
 import { ChartGroup, Row, SecondaryHeading, ChartPerformanceItems, ChartPerformanceItem } from '../components';
 
-import { statusOrdinalScale, mergeRowAndHeaderData, formatPercentage, getEntityInfo, truncateString } from '../utils';
+import { statusOrdinalScale, mergeRowAndHeaderData, formatPercentage, getEntityInfo, truncateString, columnSorterFunction } from '../utils';
 import { useFormAnalyticsQuery } from '../../../../graphql/analytics.generated';
 import { useFormAnalyticsContext } from '../FormAnalyticsContext';
 
@@ -104,7 +104,7 @@ const CompletionPerformanceByDomain = () => {
 		key,
 		dataIndex: key,
 		title: key,
-		sorter: (a, b) => a[key] - b[key],
+		sorter: (a, b) => columnSorterFunction(a, b, key),
 	}));
 
 	return (

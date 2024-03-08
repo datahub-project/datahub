@@ -7,6 +7,7 @@ import { mergeRowAndHeaderData, getEntityInfo } from './utils';
 import { useFormAnalyticsContext } from './FormAnalyticsContext';
 
 import { NO_DOMAIN } from '../../../conf/Global';
+import { StyledSelect } from './components';
 
 export const ByDomainSelector = () => {
 	const {
@@ -44,13 +45,13 @@ export const ByDomainSelector = () => {
 	});
 
 	// Reset load states when form is changed
-	const handleSetDomain = (value: string) => {
+	const handleSetDomain = (value) => {
 		setSelectedDomain(value);
 		resetLoadStates();
 	};
 
 	return (
-		<Select
+		<StyledSelect
 			showSearch
 			filterOption
 			placeholder="Select a domain"
