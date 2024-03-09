@@ -1,6 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Menu } from 'antd';
+import { Menu, MenuProps } from 'antd';
 import { EntityType } from '../../../types.generated';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import CopyLinkMenuItem from './items/CopyLinkMenuItem';
@@ -15,26 +15,25 @@ interface ShareButtonMenuProps {
     name?: string | null;
 }
 
-const StyledMenu = styled(Menu)`
-    border: 1px solid ${ANTD_GRAY[3]};
-    border-radius: 4px;
-    min-width: 140px;
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 10px;
-`;
-
-export default function ShareButtonMenu({ urn, entityType, subType, name }: ShareButtonMenuProps) {
+export default function shareButtonMenu({ urn, entityType, subType, name }: ShareButtonMenuProps): MenuProps {
     const entityRegistry = useEntityRegistry();
     const displayName = name || urn;
     const displayType = subType || entityRegistry.getEntityName(entityType) || entityType;
 
-    return (
-        <StyledMenu selectable={false}>
-            {navigator.clipboard && <CopyLinkMenuItem key="0" />}
-            {navigator.clipboard && <CopyUrnMenuItem key="1" urn={urn} type={displayType} />}
-            <EmailMenuItem key="2" urn={urn} name={displayName} type={displayType} />
-        </StyledMenu>
-    );
+    const items = [
+        navigator.clipboard && {
+            key: 0,
+            label: <CopyLinkMenuItem key="0" />,
+        },
+        navigator.clipboard && {
+            key: 1,
+            label: <CopyUrnMenuItem key="1" urn={urn} type={displayType} />,
+        },
+        {
+            key: 2,
+            label: <EmailMenuItem key="2" urn={urn} name={displayName} type={displayType} />,
+        },
+    ];
+
+    return { items };
 }
