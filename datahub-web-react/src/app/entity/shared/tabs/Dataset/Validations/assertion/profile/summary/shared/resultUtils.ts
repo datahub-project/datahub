@@ -472,6 +472,49 @@ function tryGetExpectedRangeFromVolumeAssertion(volumeAssertionInfo: VolumeAsser
     }
     return result
 }
+
+/**
+ * Tries to calculate expected result ranges for assertions that have fixed numerical expectations
+ * ie. handles 'RowCount should be between 10k and 50k'
+ * @param totals 
+ * @returns 
+ */
+function tryGetExpectedRangeFromAssertionAgainstTotals(totals?: Maybe<IncrementingSegmentRowCountTotal> | Maybe<RowCountTotal> | Maybe<SqlAssertionInfo> | Maybe<FieldValuesAssertion> | Maybe<FieldMetricAssertion>): AssertionExpectedRange {
+    let high: undefined | number;
+    let low: undefined | number;
+    if (!totals?.parameters) {
+        return { high, low };
+    }
+    switch (totals?.operator) {
+        case AssertionStdOperator.Between:
+            high = tryExtractNumericalValueFromAssertionStdParameter(totals.parameters.maxValue)
+            low = tryExtractNumericalValueFromAssertionStdParameter(totals.parameters.minValue)
+            break;
+        case AssertionStdOperator.GreaterThan:
+            low = tryExtractNumericalValueFromAssertionStdParameter(totals.parameters.value)
+            break;
+        case AssertionStdOperator.GreaterThanOrEqualTo:
+            low = tryExtractNumericalValueFromAssertionStdParameter(totals.parameters.value)
+            break;
+        case AssertionStdOperator.LessThan:
+            high = tryExtractNumericalValueFromAssertionStdParameter(totals.parameters.value)
+            break;
+        case AssertionStdOperator.LessThanOrEqualTo:
+            high = tryExtractNumericalValueFromAssertionStdParameter(totals.parameters.value)
+            break;
+        default:
+            break;
+    }
+    return { high, low };
+}
+/**
+ * Tries to calculate expected result ranges for assertions that have expectations defined relative to previous runs
+ * ie. handles 'RowCount should not grow by more than 50%'
+ * @param changingInfo 
+ * @param changeType 
+ * @param previousCount 
+ * @returns {AssertionExpectedRange}
+ */
 function tryGetExpectedRangeFromAssertionAgainstChanges(changingInfo?: Maybe<RowCountChange | IncrementingSegmentRowCountChange | SqlAssertionInfo>, changeType?: Maybe<AssertionValueChangeType>, previousCount?: Maybe<number>): AssertionExpectedRange {
     let high: undefined | number;
     let low: undefined | number;
@@ -533,34 +576,6 @@ function tryGetExpectedRangeFromAssertionAgainstChanges(changingInfo?: Maybe<Row
             ) : undefined;
             break;
         }
-        default:
-            break;
-    }
-    return { high, low };
-}
-function tryGetExpectedRangeFromAssertionAgainstTotals(totals?: Maybe<IncrementingSegmentRowCountTotal> | Maybe<RowCountTotal> | Maybe<SqlAssertionInfo> | Maybe<FieldValuesAssertion> | Maybe<FieldMetricAssertion>): AssertionExpectedRange {
-    let high: undefined | number;
-    let low: undefined | number;
-    if (!totals?.parameters) {
-        return { high, low };
-    }
-    switch (totals?.operator) {
-        case AssertionStdOperator.Between:
-            high = tryExtractNumericalValueFromAssertionStdParameter(totals.parameters.maxValue)
-            low = tryExtractNumericalValueFromAssertionStdParameter(totals.parameters.minValue)
-            break;
-        case AssertionStdOperator.GreaterThan:
-            low = tryExtractNumericalValueFromAssertionStdParameter(totals.parameters.value)
-            break;
-        case AssertionStdOperator.GreaterThanOrEqualTo:
-            low = tryExtractNumericalValueFromAssertionStdParameter(totals.parameters.value)
-            break;
-        case AssertionStdOperator.LessThan:
-            high = tryExtractNumericalValueFromAssertionStdParameter(totals.parameters.value)
-            break;
-        case AssertionStdOperator.LessThanOrEqualTo:
-            high = tryExtractNumericalValueFromAssertionStdParameter(totals.parameters.value)
-            break;
         default:
             break;
     }
