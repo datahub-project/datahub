@@ -195,8 +195,22 @@ function create_datahub_usage_event_aws_elasticsearch() {
     rm request_response.txt
   fi
 
-  #   ... now we are safe to create the index
-  create_if_not_exists "${PREFIX}datahub_usage_event-$INDEX_SUFFIX" aws_es_index.json
+  # Check if alias already exists and has a write index
+  IS_WRITE_INDEX=false
+  USAGE_EVENT_ALIAS_ADDRESS="_alias/${PREFIX}datahub_usage_event"
+  USAGE_EVENT_ALIAS_STATUS=$(curl "${CURL_ARGS[@]}" -o /tmp/usage_event_alias.json -w "%{http_code}\n" "$ELASTICSEARCH_URL/$USAGE_EVENT_ALIAS_ADDRESS")
+  echo -e "\n>>> GET $USAGE_EVENT_ALIAS_ADDRESS response code is $USAGE_EVENT_ALIAS_STATUS"
+  if [ "$USAGE_EVENT_ALIAS_STATUS" -eq 200 ]; then
+    IS_WRITE_INDEX=$(cat /tmp/usage_event_alias.json | jq -r '.[].aliases[].is_write_index | select( . == true)')
+  fi
+
+  if [ "$IS_WRITE_INDEX" != "true" ]; then
+    # now we are safe to create the index
+    create_if_not_exists "${PREFIX}datahub_usage_event-$INDEX_SUFFIX" aws_es_index.json
+    echo -e "\nIndex created"
+  else
+    echo -e ">>> "${PREFIX}datahub_usage_event" alias already exists ✓"
+  fi
 }
 
 function create_user_es_cloud {
