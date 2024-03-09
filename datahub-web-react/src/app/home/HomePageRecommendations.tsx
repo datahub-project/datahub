@@ -132,7 +132,7 @@ export const HomePageRecommendations = ({ user }: Props) => {
                 limit: 10,
             },
         },
-        fetchPolicy: 'no-cache',
+        fetchPolicy: 'cache-first',
     });
     const recommendationModules = data?.listRecommendations?.modules;
 
