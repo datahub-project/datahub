@@ -1,5 +1,4 @@
 import React from 'react';
-import { Menu } from 'antd';
 import { EyeOutlined } from '@ant-design/icons';
 import { IconItemTitle } from './IconItemTitle';
 
@@ -13,8 +12,8 @@ type Props = {
  */
 export const PreviewViewItem = ({ key, onClick }: Props) => {
     return (
-        <Menu.Item key={key} onClick={onClick}>
+        <div key={key} onClick={onClick}>
             <IconItemTitle tip="See the View definition." title="Preview" icon={<EyeOutlined />} />
-        </Menu.Item>
+        </div>
     );
 };

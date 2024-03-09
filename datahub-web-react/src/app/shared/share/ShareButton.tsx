@@ -3,7 +3,7 @@ import styled from 'styled-components';
 import { Button, Dropdown } from 'antd';
 import { ShareAltOutlined } from '@ant-design/icons';
 import { EntityType } from '../../../types.generated';
-import ShareButtonMenu from './ShareButtonMenu';
+import shareButtonMenu from './ShareButtonMenu';
 
 interface ShareButtonProps {
     urn: string;
@@ -23,14 +23,7 @@ const StyledShareIcon = styled(ShareAltOutlined)`
 
 export default function ShareButton({ urn, entityType, subType, name }: ShareButtonProps) {
     return (
-        <Dropdown
-            trigger={['click']}
-            overlay={
-                <>
-                    <ShareButtonMenu urn={urn} entityType={entityType} subType={subType} name={name} />
-                </>
-            }
-        >
+        <Dropdown trigger={['click']} menu={shareButtonMenu({ urn, entityType, subType, name })}>
             <StyledButton type="primary">
                 <StyledShareIcon />
                 Share
