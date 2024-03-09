@@ -1,6 +1,6 @@
-import { useHistory, useLocation } from 'react-router';
 import * as QueryString from 'query-string';
-import { useEffect } from 'react';
+import { useHistory, useLocation } from 'react-router';
+import { useDebounce } from 'react-use';
 import { SchemaFilterType } from './filterSchemaRows';
 
 export default function useUpdateSchemaFilterQueryString(
@@ -19,10 +19,14 @@ export default function useUpdateSchemaFilterQueryString(
     };
     const stringifiedParams = QueryString.stringify(newParams, { arrayFormat: 'comma' });
 
-    useEffect(() => {
-        history.replace({
-            pathname: location.pathname,
-            search: stringifiedParams,
-        });
-    }, [filterText, history, location.pathname, stringifiedParams, expandedDrawerFieldPath, schemaFilterTypes]);
+    useDebounce(
+        () => {
+            history.replace({
+                pathname: location.pathname,
+                search: stringifiedParams,
+            });
+        },
+        500,
+        [filterText, history, location.pathname, stringifiedParams, expandedDrawerFieldPath, schemaFilterTypes],
+    );
 }

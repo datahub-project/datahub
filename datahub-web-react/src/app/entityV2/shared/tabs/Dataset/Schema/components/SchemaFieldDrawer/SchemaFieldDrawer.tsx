@@ -73,6 +73,8 @@ interface Props {
     setExpandedDrawerFieldPath: (fieldPath: string | null) => void;
     openTimelineDrawer: boolean;
     setOpenTimelineDrawer: any;
+    selectPreviousField: () => void;
+    selectNextField: () => void;
     showTypeAsIcons?: boolean;
     usageStats?: UsageQueryResult | null;
 }
@@ -84,6 +86,8 @@ export default function SchemaFieldDrawer({
     setExpandedDrawerFieldPath,
     openTimelineDrawer,
     setOpenTimelineDrawer,
+    selectPreviousField,
+    selectNextField,
     showTypeAsIcons = true,
     usageStats,
 }: Props) {
@@ -158,7 +162,6 @@ export default function SchemaFieldDrawer({
                     maskClosable={false}
                     placement="right"
                     closable={false}
-                    autoFocus={false}
                 >
                     {expandedField && (
                         <DrawerContent>
@@ -183,9 +186,10 @@ export default function SchemaFieldDrawer({
                                 </Tabs>
                             </Body>
                             <DrawerFooter
-                                setExpandedDrawerFieldPath={setExpandedDrawerFieldPath}
                                 schemaFields={schemaFields}
                                 expandedFieldIndex={expandedFieldIndex}
+                                selectPreviousField={selectPreviousField}
+                                selectNextField={selectNextField}
                             />
                         </DrawerContent>
                     )}

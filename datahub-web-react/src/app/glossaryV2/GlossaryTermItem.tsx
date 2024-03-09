@@ -3,6 +3,7 @@ import { Typography } from 'antd';
 import styled from 'styled-components/macro';
 import BookmarkIcon from '../../images/collections_bookmark.svg?react';
 import ArrowRightIcon from '../../images/arrow_right_alt.svg?react';
+import { ANTD_GRAY , REDESIGN_COLORS} from '../entityV2/shared/constants';
 
 const SmallDescription = styled(Typography)`
     color: rgba(86, 102, 142, 0.5);
@@ -26,9 +27,9 @@ const EntityDetailsRightColumn = styled.div`
 `;
 
 const BookmarkIconWrapper = styled.div`
-    border: 1px solid #d9d9d9;
+    border: 1px solid ${ANTD_GRAY[5]};
     border-radius: 10px;
-    backround: #fff;
+    backround: ${ANTD_GRAY[1]};
     padding: 14px 11px 11px 13px;
 `;
 
@@ -42,7 +43,7 @@ const EntityDetails = styled.div`
     display: flex;
     justify-content: space-between;
     align-items: center;
-    border-bottom: 1px solid #f6f7fa;
+    border-bottom: 1px solid ${REDESIGN_COLORS.LIGHT_GREY};
     padding: 20px 0 20px 0;
     margin: 0 23px 0 19px;
 `;
@@ -63,7 +64,7 @@ const EntityDetailsWrapper = styled.div`
 
     &:hover {
         transition: 0.15s;
-        background-color: #f6f7fa;
+        background-color: ${REDESIGN_COLORS.LIGHT_GREY};
         border-radius: 4px;
     }
 `;

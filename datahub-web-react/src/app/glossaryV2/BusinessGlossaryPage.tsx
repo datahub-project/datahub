@@ -15,7 +15,7 @@ import {
 import { OnboardingTour } from '../onboarding/OnboardingTour';
 import { useGlossaryEntityData } from '../entityV2/shared/GlossaryEntityContext';
 import { useUserContext } from '../context/useUserContext';
-import GlossaryStatsProvider from './GlossaryStatsProvider';
+// import GlossaryStatsProvider from './GlossaryStatsProvider';
 import GlossaryContentProvider from './GlossaryContentProvider';
 
 const GlossaryWrapper = styled.div`
@@ -77,14 +77,14 @@ const BusinessGlossaryPage = () => {
             />
             <MainWrapper>
                 {/* TODO: Once the api for getting the stats data is available, we need to change this condition accordingly */}
-                {termsData?.getRootGlossaryTerms?.total !== 0 && (
+                {/* {termsData?.getRootGlossaryTerms?.total !== 0 && (
                     <GlossaryStatsProvider
                         totalGlossaryTerms={200}
                         activeGlossaryTerms={90}
                         owners={10}
                         approvedGlossaryTerms={2}
                     />
-                )}
+                )} */}
                 <GlossaryWrapper>
                     {(termsLoading || nodesLoading) && (
                         <Message type="loading" content="Loading Glossary..." style={{ marginTop: '10%' }} />

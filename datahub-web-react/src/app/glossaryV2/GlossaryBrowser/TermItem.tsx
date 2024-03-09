@@ -2,33 +2,53 @@ import React from 'react';
 import styled from 'styled-components/macro';
 import { Link } from 'react-router-dom';
 import { useEntityRegistry } from '../../useEntityRegistry';
-import { ANTD_GRAY } from '../../entityV2/shared/constants';
+import { ANTD_GRAY, REDESIGN_COLORS } from '../../entityV2/shared/constants';
 import { ChildGlossaryTermFragment } from '../../../graphql/glossaryNode.generated';
 import { useGlossaryEntityData } from '../../entityV2/shared/GlossaryEntityContext';
 import { useGlossaryActiveTabPath } from '../../entityV2/shared/containers/profile/utils';
 
 const TermWrapper = styled.div`
     font-weight: normal;
-    margin-bottom: 4px;
+    line-height: normal;
+    margin-left: 2px;
+
+    &:not(:first-child) {
+        padding-top: 11px;
+    }
 `;
 
 const nameStyles = `
-    color: #262626;
     display: inline-block;
     height: 100%;
-    padding: 3px 4px;
     width: 100%;
-`;
-
-export const TermLink = styled(Link)<{ isSelected }>`
-    ${nameStyles}
-
-    ${(props) => props.isSelected && `background-color: #F0FFFB;`}
+    font-size: 10px;
+    font-weight: 400;
+    line-height: normal;
+    color: ${REDESIGN_COLORS.SUBTITLE};
+    opacity: 0.5;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
 
     &:hover {
-        ${(props) => !props.isSelected && `background-color: ${ANTD_GRAY[3]};`}
-        color: #262626;
+        color: ${REDESIGN_COLORS.TITLE_PURPLE};
+        opacity: 1;
     }
+`;
+
+interface TermLinkProps {
+    isSelected: boolean;
+    areChildrenVisible?: boolean;
+    isChildNode?: boolean;
+    entityType?: string;
+}
+
+export const TermLink = styled(Link)<TermLinkProps>`
+    ${nameStyles}
+
+    ${(props) => props.isChildNode && `opacity: 1;`}
+    ${(props) => props.areChildrenVisible && `color: ${REDESIGN_COLORS.TITLE_PURPLE}; font-weight: 400; opacity: 1;`}
+    ${(props) => props.isSelected && `color: ${REDESIGN_COLORS.TITLE_PURPLE}; font-weight: 700; opacity: 1;`}
 `;
 
 export const NameWrapper = styled.span<{ showSelectStyles?: boolean }>`
@@ -49,10 +69,11 @@ interface Props {
     isSelecting?: boolean;
     selectTerm?: (urn: string, displayName: string) => void;
     includeActiveTabPath?: boolean;
+    areChildrenVisible?: boolean;
 }
 
 function TermItem(props: Props) {
-    const { term, isSelecting, selectTerm, includeActiveTabPath } = props;
+    const { term, isSelecting, selectTerm, includeActiveTabPath, areChildrenVisible } = props;
 
     const { entityData } = useGlossaryEntityData();
     const entityRegistry = useEntityRegistry();
@@ -75,6 +96,8 @@ function TermItem(props: Props) {
                         includeActiveTabPath ? `/${activeTabPath}` : ''
                     }`}
                     isSelected={entityData?.urn === term.urn}
+                    areChildrenVisible={areChildrenVisible}
+                    entityType={term.type}
                 >
                     {entityRegistry.getDisplayName(term.type, isOnEntityPage ? entityData : term)}
                 </TermLink>
