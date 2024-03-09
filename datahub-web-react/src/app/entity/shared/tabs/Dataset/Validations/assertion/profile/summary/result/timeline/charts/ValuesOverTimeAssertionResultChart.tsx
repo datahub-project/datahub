@@ -127,7 +127,7 @@ export const ValuesOverTimeAssertionResultChart = ({ data, timeRange, chartDimen
                     stroke={ANTD_GRAY[4]}
                     tickStroke={ANTD_GRAY[9]}
                     tickLength={4}
-                    numTicks={2}
+                    numTicks={3}
                     tickFormat={v => truncateNumberForDisplay(v.valueOf())}
                     tickLabelProps={{
                         fill: ANTD_GRAY[9],
@@ -215,7 +215,7 @@ export const ValuesOverTimeAssertionResultChart = ({ data, timeRange, chartDimen
                                     fill={fillColor}
                                     stroke='white'
                                     strokeWidth={2}
-                                    size={80}
+                                    size={60}
                                     filter='drop-shadow(0px 1px 2px rgb(0 0 0 / 0.1))'
                                 />
                             </Popover>
