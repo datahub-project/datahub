@@ -1,17 +1,12 @@
 import datetime
 import logging
 import os
-import pathlib
-import tempfile
-import time
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, List, Optional
 
 import boto3
-import pandas as pd
 from pydantic import BaseModel
 
 from datahub.emitter.mce_builder import make_dataset_urn
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -21,20 +16,18 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.graph.client import DataHubGraph
+from datahub.ingestion.source.datahub_reporting.datahub_dataset import (
+    DataHubBasedS3Dataset,
+    DatasetMetadata,
+    DatasetRegistrationSpec,
+    FileStoreBackedDatasetConfig,
+)
 from datahub.ingestion.source.datahub_reporting.datahub_form_reporting import (
     DataHubFormReportingData,
 )
 from datahub.ingestion.source.datahub_reporting.forms_config import (
     DataHubReportingFormSourceConfig,
     DataHubReportingFormSourceReport,
-    PartitioningStrategy,
-)
-from datahub.metadata.schema_classes import (
-    DatasetPropertiesClass,
-    OperationClass,
-    OperationTypeClass,
-    StatusClass,
-    TimeStampClass,
 )
 
 logger = logging.getLogger(__name__)
@@ -89,128 +82,6 @@ class DataHubReportingFormsSource(Source):
         else:
             return None
 
-    def create_s3_parquet_file(
-        self,
-        force_create: bool,
-        s3_uri: str,
-        df: pd.DataFrame,
-        report: DataHubReportingFormSourceReport,
-    ) -> str:
-        # first check if the file exists, if not skip
-        # use boto3 to check if the file exists
-        bucket, key = s3_uri.replace("s3://", "").split("/", 1)
-
-        if not force_create:
-            # check if the file exists and return early if it does
-            try:
-                # first split the s3_uri to get the bucket and key
-                self.s3_client.head_object(Bucket=bucket, Key=key)
-                print("File already exists")
-                report.files_created = 0
-                return s3_uri
-            except Exception as e:
-                logger.error(f"Failed to check if file exists due to {e}")
-                report.reporting_store_connection_status = (
-                    f"Failed to connect to S3. due to {e}"
-                )
-                pass
-
-        # create a temp dir and a file in the temp dir
-        temp_path = tempfile.mkdtemp()
-        file_path = f"{temp_path}/{bucket}/{key}"
-        pathlib.Path(file_path).parent.mkdir(parents=True, exist_ok=True)
-        # write to a local parquet file
-        df.to_parquet(file_path, compression=self.config.reporting_file_compression)
-        self.report.rows_created = df.shape[0]
-        self.opened_files.append(file_path)
-        print(f"Created file {file_path}")
-        self.s3_client.upload_file(file_path, bucket, key)
-        print(f"Created file {s3_uri}")
-        report.files_created = 1
-        report.reporting_store_connection_status = "OK"
-        return s3_uri
-
-    def generate_presigned_url(self, s3_uri):
-        """
-        Generate a pre-signed URL for downloading an object from S3.
-
-        Args:
-        - s3_uri (str): The S3 URI of the object to be downloaded (e.g., 's3://bucket-name/object-key').
-        - expiration (int): Expiration time for the pre-signed URL in seconds (default is 3600 seconds).
-
-        Returns:
-        - str: The pre-signed URL for downloading the object.
-        """
-        # Parse the S3 URI to get bucket name and object key
-        bucket_name, object_key = s3_uri.replace("s3://", "").split("/", 1)
-        expiration_seconds = self.config.presigned_url_expiry_days * 24 * 60 * 60
-        # Generate a pre-signed URL for downloading the object
-        presigned_url = self.s3_client.generate_presigned_url(
-            "get_object",
-            Params={"Bucket": bucket_name, "Key": object_key},
-            ExpiresIn=expiration_seconds,
-        )
-
-        return presigned_url
-
-    def _register_reporting_dataset(
-        self, dataset_urn: str, physical_uri: str, num_rows: int
-    ) -> Iterable[MetadataChangeProposalWrapper]:
-
-        if self.config.generate_presigned_url:
-            external_url = self.generate_presigned_url(physical_uri)
-        else:
-            external_url = physical_uri
-
-        current_time_millis = int(time.time()) * 1000
-        dataset_properties = DatasetPropertiesClass(
-            name="Forms Reporting Dataset",
-            description="A dataset for storing forms reporting data for analytics.",
-            externalUrl=external_url,
-            uri=None,  # Unfortunately, there is a bug in URI validation that requires this to be None
-            lastModified=TimeStampClass(
-                time=current_time_millis, actor="urn:li:corpuser:datahub"
-            ),
-            customProperties={
-                "physical_uri": physical_uri,
-            },
-        )
-        mcps = MetadataChangeProposalWrapper.construct_many(
-            entityUrn=dataset_urn,
-            aspects=[
-                dataset_properties,
-                StatusClass(
-                    removed=self.config.reporting_dataset_register_soft_deleted,  # Registering this is as a visible asset as we have search access policies to ensure only admins can see it
-                ),
-                OperationClass(
-                    timestampMillis=current_time_millis,
-                    operationType=OperationTypeClass.UPDATE,
-                    lastUpdatedTimestamp=current_time_millis,
-                    numAffectedRows=num_rows if num_rows else None,
-                ),
-            ],
-        )
-        yield from mcps
-
-    def get_reporting_file_uri(
-        self, reporting_dataset_uri_prefix: str, date: Optional[datetime.date] = None
-    ) -> str:
-        if (
-            self.config.reporting_snapshot_partitioning_strategy
-            == PartitioningStrategy.DATE
-        ):
-            assert date is not None
-            return f"{reporting_dataset_uri_prefix.rstrip('/')}/{date.strftime('%Y-%m-%d')}/{self.config.reporting_file_name}.{self.config.reporting_file_extension}"
-        elif (
-            self.config.reporting_snapshot_partitioning_strategy
-            == PartitioningStrategy.SNAPSHOT
-        ):
-            return f"{reporting_dataset_uri_prefix.rstrip('/')}/{self.config.reporting_file_name}.{self.config.reporting_file_extension}"
-        else:
-            raise ValueError(
-                f"Unsupported partitioning strategy: {self.config.reporting_snapshot_partitioning_strategy}"
-            )
-
     def get_workunits(self):
         self.graph = (
             self.ctx.require_graph("Loading default graph coordinates.")
@@ -236,36 +107,50 @@ class DataHubReportingFormsSource(Source):
                 "Reporting bucket prefix must be provided. Either configure it on the server side or in the source config."
             )
 
-        dataset_uri = self.get_reporting_file_uri(
-            dataset_uri_prefix, date=datetime.date.today()
-        )
-        assert dataset_uri.startswith("s3://"), "Reporting URI must be an S3 URI"
+        # dataset_uri = self.get_reporting_file_uri(
+        #     dataset_uri_prefix, date=datetime.date.today()
+        # )
+        # assert dataset_uri.startswith("s3://"), "Reporting URI must be an S3 URI"
 
-        reporting_df = form_data.get_dataframe(
-            lambda x: self.report.increment_assets_scanned(),
-            lambda x: self.report.increment_forms_scanned(),
+        registration_spec = DatasetRegistrationSpec()
+        dataset_metadata = DatasetMetadata(
+            displayName="Forms Reporting Data",
+            description="This data was generated by the forms reporting system.",
         )
-
-        s3_uri = self.create_s3_parquet_file(
-            self.config.reporting_file_overwrite_existing,
-            dataset_uri,
-            reporting_df,
-            self.report,
-        )
-
-        # If form analytics config is not present, use the default reporting dataset name
         dataset_urn = (
             form_analytics_config.dataset_urn
             if form_analytics_config and form_analytics_config.dataset_urn
-            else make_dataset_urn("datahub", self.config.reporting_dataset_name)
+            else make_dataset_urn(
+                self.config.reporting_store_platform, self.config.reporting_dataset_name
+            )
         )
-        for mcp in self._register_reporting_dataset(
-            dataset_urn, s3_uri, reporting_df.shape[0]
+        dataset_config = FileStoreBackedDatasetConfig(
+            dataset_name="Forms Reporting Dataset",
+            store_platform="s3",
+            dataset_registration_spec=registration_spec,
+            bucket_prefix=dataset_uri_prefix,
+            dataset_urn=dataset_urn,
+        )
+        dataset = DataHubBasedS3Dataset(
+            dataset_metadata=dataset_metadata,
+            config=dataset_config,
+        )
+        for row in form_data.get_data(
+            lambda x: self.report.increment_assets_scanned(),
+            lambda x: self.report.increment_forms_scanned(),
         ):
-            self.report.reporting_store_file_uri = s3_uri
-            logger.info(f"Reporting file created at {s3_uri}")
-            logger.info(f"Reporting dataset registered at {dataset_urn}")
+            dataset.append(row)
+
+        for mcp in dataset.commit():
+            assert mcp.entityUrn, "MCP must have a URN"
+            dataset_urn = mcp.entityUrn
             yield mcp.as_workunit()
+        logger.info(
+            f"Reporting file created at {dataset.get_remote_file_uri(dataset_uri_prefix=dataset_uri_prefix, date=datetime.date.today())}"
+        )
+        logger.info(f"Reporting dataset registered at {dataset_urn}")
+
+        print(f"Dataset {dataset_urn} created successfully")
 
     def get_report(self) -> SourceReport:
         return self.report

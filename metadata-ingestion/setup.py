@@ -265,7 +265,7 @@ databricks = {
 
 mysql = sql_common | {"pymysql>=1.0.2"}
 
-stats_common = {"pandas", "pyarrow"}
+stats_common = {"pandas", "pyarrow", "duckdb"}
 
 # Note: for all of these, framework_common will be added.
 plugins: Dict[str, Set[str]] = {
@@ -403,6 +403,9 @@ plugins: Dict[str, Set[str]] = {
     "fivetran": snowflake_common | bigquery_common,
     "qlik-sense": sqlglot_lib | {"requests", "websocket-client"},
     "datahub-reporting-forms": stats_common | aws_common,
+    "datahub-reporting-extract-graph": stats_common
+    | aws_common
+    | {"opensearch-py==2.4.2"},
 }
 
 # This is mainly used to exclude plugins from the Docker image.
@@ -539,6 +542,7 @@ base_dev_requirements = {
             "kafka-connect",
             "qlik-sense",
             "datahub-reporting-forms",
+            "datahub-reporting-extract-graph",
         ]
         if plugin
         for dependency in plugins[plugin]
@@ -645,6 +649,7 @@ entry_points = {
         "fivetran = datahub.ingestion.source.fivetran.fivetran:FivetranSource",
         "qlik-sense = datahub.ingestion.source.qlik_sense.qlik_sense:QlikSenseSource",
         "datahub-reporting-forms = datahub.ingestion.source.datahub_reporting.forms:DataHubReportingFormsSource",
+        "datahub-reporting-extract-graph = datahub.ingestion.source.datahub_reporting.extract_graph:DataHubReportingExtractGraphSource",
     ],
     "datahub.ingestion.transformer.plugins": [
         "simple_remove_dataset_ownership = datahub.ingestion.transformer.remove_dataset_ownership:SimpleRemoveDatasetOwnership",

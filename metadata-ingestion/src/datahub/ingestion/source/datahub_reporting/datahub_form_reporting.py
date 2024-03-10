@@ -10,10 +10,12 @@ from pydantic import BaseModel
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.graph.filters import SearchFilterRule
+from datahub.ingestion.source.datahub_reporting.datahub_dataset import BaseModelRow
 from datahub.metadata.schema_classes import (
     DomainPropertiesClass,
     FormInfoClass,
     FormsClass,
+    FormTypeClass,
 )
 
 logger = logging.getLogger(__name__)
@@ -26,9 +28,8 @@ class FormStatus(str, Enum):
 
 
 class QuestionStatus(str, Enum):
-    Assigned = "not_started"
-    Completed = "complete"
-    In_Progress = "in_progress"
+    NOT_STARTED = "not_started"
+    COMPLETED = "complete"
 
 
 class FormType(str, Enum):
@@ -36,12 +37,15 @@ class FormType(str, Enum):
     VERIFICATION = "verification"
 
 
-class FormReportingRow(BaseModel):
+class FormReportingRow(BaseModelRow):
     form_urn: str
+    form_type: FormType
     form_assigned_date: date
     form_completed_date: Optional[date]
     form_status: FormStatus
-    form_type: FormType
+    question_id: str
+    question_status: QuestionStatus
+    question_completed_date: Optional[date]
     assignee_urn: Optional[str]
     asset_urn: str
     platform_urn: str
@@ -49,9 +53,6 @@ class FormReportingRow(BaseModel):
     domain_urn: Optional[str]
     parent_domain_urn: Optional[str]
     asset_verified: Optional[bool]
-    question_id: str
-    question_status: QuestionStatus
-    question_completed_date: Optional[date]
     snapshot_date: date
 
 
@@ -224,7 +225,19 @@ class DataHubFormReportingData(FormData):
                 )
         return form_completion_dates
 
-    def get_data(
+    def get_assignees(self, form_info: FormInfoClass, owners: List[str]) -> List[str]:
+        assignees = []
+        actors = form_info.actors
+        if actors.owners:
+            # form applies to owners
+            assignees.extend(owners)
+        if actors.users:
+            assignees.extend(actors.users)
+        if actors.groups:
+            assignees.extend(actors.groups)
+        return list(set(assignees))
+
+    def get_data(  # noqa: C901
         self,
         on_asset_scanned: Optional[Callable[[str], Any]] = None,
         on_form_scanned: Optional[Callable[[str], Any]] = None,
@@ -250,7 +263,6 @@ class DataHubFormReportingData(FormData):
             search_row = self.DataHubDatasetSearchRow(**extra_properties_map)
             if on_asset_scanned:
                 on_asset_scanned(search_row.urn)
-            owners: List[Optional[str]] = search_row.owners or [None]  # type: ignore
             form_assigned_dates = self.form_assigned_date(search_row)
             form_completed_dates = self.form_completed_date(search_row)
             domain = None
@@ -265,147 +277,165 @@ class DataHubFormReportingData(FormData):
                 else:
                     if domain_props.parentDomain:
                         parent_domain = domain_props.parentDomain
-            for owner in owners:
-                incomplete_forms = (
-                    [x for x in search_row.incompleteForms if x in self.allowed_forms]
-                    if self.allowed_forms
-                    else search_row.incompleteForms
+            # for owner in owners:
+            incomplete_forms = (
+                [x for x in search_row.incompleteForms if x in self.allowed_forms]
+                if self.allowed_forms
+                else search_row.incompleteForms
+            )
+            for form_id in incomplete_forms:
+                if form_id not in forms_scanned:
+                    if on_form_scanned:
+                        on_form_scanned(form_id)
+                    forms_scanned.add(form_id)
+                form_info = self.form_registry.get_form(form_id)
+                assert form_info, f"Form {form_id} not found"
+                form_prompts = [x.id for x in form_info.prompts]
+                form_incomplete_prompts = [
+                    p
+                    for p in search_row.incompleteFormsIncompletePromptIds
+                    if p in form_prompts
+                ]
+                form_status = (
+                    FormStatus.IN_PROGRESS
+                    if len(form_incomplete_prompts) < len(form_prompts)
+                    else FormStatus.NOT_STARTED
                 )
-                for form_id in incomplete_forms:
-                    if form_id not in forms_scanned:
-                        if on_form_scanned:
-                            on_form_scanned(form_id)
-                        forms_scanned.add(form_id)
-                    form_info = self.form_registry.get_form(form_id)
-                    assert form_info, f"Form {form_id} not found"
-                    form_prompts = [x.id for x in form_info.prompts]
-                    form_incomplete_prompts = [
-                        p
-                        for p in search_row.incompleteFormsIncompletePromptIds
-                        if p in form_prompts
-                    ]
-                    form_status = (
-                        FormStatus.IN_PROGRESS
-                        if len(form_incomplete_prompts) < len(form_prompts)
-                        else FormStatus.NOT_STARTED
-                    )
-                    for i, prompt_id in enumerate(
-                        [
-                            p
-                            for p in search_row.incompleteFormsIncompletePromptIds
-                            if p in form_prompts
-                        ]
-                    ):
+                form_type = (
+                    FormType.DOCUMENTATION
+                    if form_info.type == FormTypeClass.COMPLETION
+                    else FormType.VERIFICATION
+                )
+                assignees = self.get_assignees(form_info, search_row.owners)
+                for prompt_id in [
+                    p
+                    for p in search_row.incompleteFormsIncompletePromptIds
+                    if p in form_prompts
+                ]:
+                    for owner in assignees:
                         yield FormReportingRow(
                             form_urn=form_id,
                             form_assigned_date=form_assigned_dates[form_id],
                             form_completed_date=None,
                             form_status=form_status,
-                            form_type=FormType.DOCUMENTATION,
+                            form_type=form_type,
                             assignee_urn=owner,
                             asset_urn=search_row.urn,
                             platform_urn=search_row.platform,
                             platform_instance_urn=search_row.platformInstance,
                             domain_urn=domain,
                             parent_domain_urn=parent_domain,
-                            asset_verified=None,
+                            asset_verified=(
+                                False if form_type == FormType.VERIFICATION else None
+                            ),
                             question_id=str(prompt_id),
-                            question_status=QuestionStatus.In_Progress,
+                            question_status=QuestionStatus.NOT_STARTED,
                             question_completed_date=None,
                             snapshot_date=self.snapshot_date,
                         )
-                    for i, (prompt_id, prompt_reponse_time) in enumerate(
-                        [
-                            (p, p_response_time)
-                            for (p, p_response_time) in zip(
-                                search_row.incompleteFormsCompletedPromptIds,
-                                search_row.incompleteFormsCompletedPromptResponseTimes,
-                            )
-                            if p in form_prompts
-                        ]
-                    ):
+                for prompt_id, prompt_reponse_time in [
+                    (p, p_response_time)
+                    for (p, p_response_time) in zip(
+                        search_row.incompleteFormsCompletedPromptIds,
+                        search_row.incompleteFormsCompletedPromptResponseTimes,
+                    )
+                    if p in form_prompts
+                ]:
+                    for owner in assignees:
                         yield FormReportingRow(
                             form_urn=form_id,
                             form_assigned_date=form_assigned_dates[form_id],
                             form_completed_date=None,
                             form_status=form_status,
-                            form_type=FormType.DOCUMENTATION,
+                            form_type=form_type,
                             assignee_urn=owner,
                             asset_urn=search_row.urn,
                             platform_urn=search_row.platform,
                             platform_instance_urn=search_row.platformInstance,
                             domain_urn=domain,
                             parent_domain_urn=parent_domain,
-                            asset_verified=None,
+                            asset_verified=(
+                                False if form_type == FormType.VERIFICATION else None
+                            ),
                             question_id=str(prompt_id),
-                            question_status=QuestionStatus.Completed,
+                            question_status=QuestionStatus.COMPLETED,
                             question_completed_date=prompt_reponse_time,
                             snapshot_date=self.snapshot_date,
                         )
-                complete_forms = (
-                    [x for x in search_row.completedForms if x in self.allowed_forms]
-                    if self.allowed_forms
-                    else search_row.completedForms
+            complete_forms = (
+                [x for x in search_row.completedForms if x in self.allowed_forms]
+                if self.allowed_forms
+                else search_row.completedForms
+            )
+            for form_id in complete_forms:
+                if form_id not in forms_scanned:
+                    if on_form_scanned:
+                        on_form_scanned(form_id)
+                    forms_scanned.add(form_id)
+                form_info = self.form_registry.get_form(form_id)
+                assert form_info, f"Form {form_id} not found"
+                form_type = (
+                    FormType.DOCUMENTATION
+                    if form_info.type == FormTypeClass.COMPLETION
+                    else FormType.VERIFICATION
                 )
-                for form_id in complete_forms:
-                    if form_id not in forms_scanned:
-                        if on_form_scanned:
-                            on_form_scanned(form_id)
-                        forms_scanned.add(form_id)
-                    form_info = self.form_registry.get_form(form_id)
-                    assert form_info, f"Form {form_id} not found"
-                    form_prompts = [x.id for x in form_info.prompts]
-                    for i, prompt_id in enumerate(
-                        [
-                            p
-                            for p in search_row.completedFormsIncompletePromptIds
-                            for p in form_prompts
-                        ]
-                    ):
-                        logger.warning("Unexpected incomplete prompt in completed form")
+                assignees = self.get_assignees(form_info, search_row.owners)
+                form_prompts = [x.id for x in form_info.prompts]
+                for i, prompt_id in enumerate(
+                    [
+                        p
+                        for p in search_row.completedFormsIncompletePromptIds
+                        for p in form_prompts
+                    ]
+                ):
+                    logger.warning("Unexpected incomplete prompt in completed form")
+                    for owner in assignees:
                         yield FormReportingRow(
                             form_urn=form_id,
                             form_assigned_date=form_assigned_dates[form_id],
                             form_completed_date=form_completed_dates[form_id],
                             form_status=FormStatus.COMPLETED,
-                            form_type=FormType.DOCUMENTATION,
+                            form_type=form_type,
                             assignee_urn=owner,
                             asset_urn=search_row.urn,
                             platform_urn=search_row.platform,
                             platform_instance_urn=search_row.platformInstance,
                             domain_urn=domain,
                             parent_domain_urn=parent_domain,
-                            asset_verified=None,
+                            asset_verified=(
+                                True if form_type == FormType.VERIFICATION else None
+                            ),
                             question_id=str(prompt_id),
-                            question_status=QuestionStatus.In_Progress,
+                            question_status=QuestionStatus.NOT_STARTED,
                             question_completed_date=None,
                             snapshot_date=self.snapshot_date,
                         )
-                    for i, (prompt_id, prompt_reponse_time) in enumerate(
-                        [
-                            (p, p_response_time)
-                            for (p, p_response_time) in zip(
-                                search_row.completedFormsCompletedPromptIds,
-                                search_row.completedFormsCompletedPromptResponseTimes,
-                            )
-                            if p in form_prompts
-                        ]
-                    ):
+                for prompt_id, prompt_reponse_time in [
+                    (p, p_response_time)
+                    for (p, p_response_time) in zip(
+                        search_row.completedFormsCompletedPromptIds,
+                        search_row.completedFormsCompletedPromptResponseTimes,
+                    )
+                    if p in form_prompts
+                ]:
+                    for owner in assignees:
                         yield FormReportingRow(
                             form_urn=form_id,
                             form_assigned_date=form_assigned_dates[form_id],
                             form_completed_date=form_completed_dates[form_id],
                             form_status=FormStatus.COMPLETED,
-                            form_type=FormType.DOCUMENTATION,
+                            form_type=form_type,
                             assignee_urn=owner,
                             asset_urn=search_row.urn,
                             platform_urn=search_row.platform,
                             platform_instance_urn=search_row.platformInstance,
                             domain_urn=domain,
                             parent_domain_urn=parent_domain,
-                            asset_verified=None,
+                            asset_verified=(
+                                True if form_type == FormType.VERIFICATION else None
+                            ),
                             question_id=str(prompt_id),
-                            question_status=QuestionStatus.Completed,
+                            question_status=QuestionStatus.COMPLETED,
                             question_completed_date=prompt_reponse_time,
                             snapshot_date=self.snapshot_date,
                         )
