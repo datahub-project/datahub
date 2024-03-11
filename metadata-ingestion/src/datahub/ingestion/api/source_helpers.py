@@ -55,7 +55,10 @@ def auto_workunit(
 
     for item in stream:
         if isinstance(item, MetadataChangeEventClass):
-            yield MetadataWorkUnit(id=f"{item.proposedSnapshot.urn}/mce", mce=item)
+            yield MetadataWorkUnit(
+                id=MetadataWorkUnit.generate_workunit_id(item),
+                mce=item,
+            )
         else:
             yield item.as_workunit()
 
