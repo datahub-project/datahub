@@ -248,6 +248,7 @@ export const deleteSubscriptionFunction = ({
         variables: {
             input: { subscriptionUrn: subscription.subscriptionUrn },
         },
+        fetchPolicy: 'no-cache',
     })
         .then(() => {
             onSuccess?.();
@@ -326,6 +327,7 @@ export const createSubscriptionFunction = ({
                 },
             },
         },
+        fetchPolicy: 'no-cache',
     })
         .then((result) => {
             onSuccess?.();
@@ -415,6 +417,7 @@ export const updateSubscriptionFunction = ({
                     },
                 },
             },
+            fetchPolicy: 'no-cache',
         })
             .then(() => {
                 analytics.event({

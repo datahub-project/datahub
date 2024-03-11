@@ -3,6 +3,7 @@ import { Button, Typography } from 'antd';
 import styled from 'styled-components/macro';
 import { PlusOutlined } from '@ant-design/icons';
 import TabToolbar from '../entityV2/shared/components/styled/TabToolbar';
+import { REDESIGN_COLORS , ANTD_GRAY} from '../entityV2/shared/constants';
 import {
     BUSINESS_GLOSSARY_CREATE_TERM_ID,
     BUSINESS_GLOSSARY_CREATE_TERM_GROUP_ID,
@@ -25,7 +26,7 @@ export const HeaderWrapper = styled(TabToolbar)`
     height: auto;
     box-shadow: none;
     margin: 0 !important;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+    border-bottom: 1px solid ${REDESIGN_COLORS.BORDER_2};
 `;
 
 const TitleContainer = styled.div`
@@ -42,7 +43,7 @@ const Subtitle = styled(Typography.Text)`
     font-size: 10px;
     font-weight: 400;
     line-height: 13px;
-    color: #434863;
+    color: ${REDESIGN_COLORS.SUBTITLE};
 `;
 
 const ButtonContainer = styled.div`
@@ -51,33 +52,33 @@ const ButtonContainer = styled.div`
 `;
 
 const TransparentButton = styled(Button)`
-    color: #533fd1;
+    color: ${REDESIGN_COLORS.TITLE_PURPLE};
     font-size: 12px;
     box-shadow: none;
-    border-color: #533fd1;
+    border-color: ${REDESIGN_COLORS.TITLE_PURPLE};
     transition: 0.15s;
 
     &:hover {
         transition: 0.15s;
         opacity: 0.9;
-        border-color: #533fd1;
-        color: #533fd1;
+        border-color: ${REDESIGN_COLORS.TITLE_PURPLE};
+        color: ${REDESIGN_COLORS.TITLE_PURPLE};
     }
 `;
 
 const PrimaryButton = styled(Button)`
-    color: #ffffff;
+    color: ${ANTD_GRAY[1]};
     font-size: 12px;
     box-shadow: none;
-    border-color: #533fd1;
-    background-color: #533fd1;
+    border-color: ${REDESIGN_COLORS.TITLE_PURPLE};
+    background-color: ${REDESIGN_COLORS.TITLE_PURPLE};
     transition: 0.15s;
 
     &:hover {
         transition: 0.15s;
         opacity: 0.9;
-        background-color: #533fd1;
-        border-color: #533fd1;
+        background-color: ${REDESIGN_COLORS.TITLE_PURPLE};
+        border-color: ${REDESIGN_COLORS.TITLE_PURPLE};
     }
 `;
 

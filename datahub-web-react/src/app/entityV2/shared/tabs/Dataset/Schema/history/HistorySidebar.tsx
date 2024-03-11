@@ -59,10 +59,12 @@ const HistorySidebar = ({ open, onClose }: Props) => {
     const timelineResult = useGetTimelineQuery({
         // also pass in the changeCategories
         variables: {
-            input: { urn, changeCategories: [ChangeCategoryType.TechnicalSchema, ChangeCategoryType.Documentation] },
+            input: {
+                urn,
+                changeCategories: [ChangeCategoryType.TechnicalSchema, ChangeCategoryType.Documentation],
+            },
         },
     });
-    console.log(timelineResult.data?.getTimeline?.changeTransactions);
 
     return (
         <StyledDrawer
@@ -81,7 +83,7 @@ const HistorySidebar = ({ open, onClose }: Props) => {
                 <TimelineTabSubheader>Search & Filter Placeholder</TimelineTabSubheader>
                 <ChangeTransactionList>
                     {timelineResult.data?.getTimeline?.changeTransactions.map((changeTransaction) => (
-                        <ChangeTransaction changeTransaction={changeTransaction} />
+                        <ChangeTransaction key={changeTransaction.versionStamp} changeTransaction={changeTransaction} />
                     ))}
                 </ChangeTransactionList>
             </DrawerContent>

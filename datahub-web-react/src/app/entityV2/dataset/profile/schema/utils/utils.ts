@@ -1,12 +1,12 @@
-import * as diff from 'diff';
 import { SorterResult } from 'antd/lib/table/interface';
+import * as diff from 'diff';
 
 import {
-    EditableSchemaMetadata,
     EditableSchemaFieldInfo,
+    EditableSchemaMetadata,
     EditableSchemaMetadataUpdate,
-    SchemaField,
     PlatformSchema,
+    SchemaField,
 } from '../../../../../../types.generated';
 import { convertTagsForUpdate } from '../../../../../shared/tags/utils/convertTagsForUpdate';
 import { SchemaDiffSummary } from '../components/SchemaVersionSummary';
@@ -72,7 +72,9 @@ export function pathMatchesNewPath(fieldPathA?: string | null, fieldPathB?: stri
 // group schema fields by fieldPath and grouping for hierarchy in schema table
 export function groupByFieldPath(
     schemaRows?: Array<SchemaField>,
-    options: { showKeySchema: boolean } = { showKeySchema: false },
+    options: {
+        showKeySchema: boolean;
+    } = { showKeySchema: false },
 ): Array<ExtendedSchemaFields> {
     const rows = [
         ...(schemaRows?.filter(filterKeyFieldPath.bind({}, options.showKeySchema)) || []),
@@ -192,7 +194,10 @@ export function getDiffSummary(
     currentVersionRows?: Array<SchemaField>,
     previousVersionRows?: Array<SchemaField>,
     options: { showKeySchema: boolean } = { showKeySchema: false },
-): { rows: Array<ExtendedSchemaFields>; diffSummary: SchemaDiffSummary } {
+): {
+    rows: Array<ExtendedSchemaFields>;
+    diffSummary: SchemaDiffSummary;
+} {
     let rows = [
         ...(currentVersionRows?.filter(filterKeyFieldPath.bind({}, options.showKeySchema)) || []),
     ] as Array<ExtendedSchemaFields>;

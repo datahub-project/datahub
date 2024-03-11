@@ -8,10 +8,11 @@ import GlossaryNodeCard from './GlossaryNodeCard';
 import GlossaryTermItem from './GlossaryTermItem';
 import { useEntityData } from '../entityV2/shared/EntityContext';
 import { GenericEntityProperties } from '../entityV2/shared/types';
+import { REDESIGN_COLORS } from '../entityV2/shared/constants';
 
 const GlossaryItem = styled.div`
     align-items: center;
-    color: #434863;
+    color: ${REDESIGN_COLORS.SUBTITLE};
     display: flex;
     font-size: 14px;
     font-weight: 400;

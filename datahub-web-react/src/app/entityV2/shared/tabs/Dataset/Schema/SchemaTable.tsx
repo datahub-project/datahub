@@ -2,9 +2,10 @@ import { ColumnsType } from 'antd/es/table';
 import type { FixedType } from 'rc-table/lib/interface';
 import { SorterResult } from 'antd/lib/table/interface';
 import ResizeObserver from 'rc-resize-observer';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import styled from 'styled-components';
 import { useVT } from 'virtualizedtableforantd4';
+import { useDebounce } from 'react-use';
 
 import {
     EditableSchemaMetadata,
@@ -17,7 +18,6 @@ import useSchemaTitleRenderer from '../../../../dataset/profile/schema/utils/sch
 import useSchemaTypeRenderer from '../../../../dataset/profile/schema/utils/schemaTypeRenderer';
 import translateFieldPath from '../../../../dataset/profile/schema/utils/translateFieldPath';
 import { ExtendedSchemaFields } from '../../../../dataset/profile/schema/utils/types';
-import { findIndexOfFieldPathExcludingCollapsedFields } from '../../../../dataset/profile/schema/utils/utils';
 import { StyledTable } from '../../../components/styled/StyledTable';
 import { REDESIGN_COLORS } from '../../../constants';
 import ExpandIcon from './components/ExpandIcon';
@@ -27,6 +27,7 @@ import { FkContext } from './utils/selectedFkContext';
 import useDescriptionRenderer from './utils/useDescriptionRenderer';
 import useTagsAndTermsRenderer from './utils/useTagsAndTermsRenderer';
 import useUsageStatsRenderer from './utils/useUsageStatsRenderer';
+import useKeyboardControls from './useKeyboardControls';
 
 const TableContainer = styled.div<{ isSearchActive: boolean; hasRowWithDepth: boolean }>`
     overflow: inherit;
@@ -38,15 +39,13 @@ const TableContainer = styled.div<{ isSearchActive: boolean; hasRowWithDepth: bo
     }
 
     &&& .ant-table-tbody > tr {
-        // max-height: 65px !important;
-        // min-height: 65px !important;
-        // height: 65px !important;
         background-color: #fff;
     }
 
     &&& .ant-table-tbody > tr.expanded-child {
         background-color: #f5f9fa;
     }
+
     &&& .ant-table-tbody > tr > .ant-table-cell {
         border-right: none;
     }
@@ -65,40 +64,52 @@ const TableContainer = styled.div<{ isSearchActive: boolean; hasRowWithDepth: bo
         padding-bottom: 0px;
     }
 
-   
-    &&& .selected-row{
-        background: ${REDESIGN_COLORS.BACKGROUND_PURPLE} !important;
-        transition: background 2s;
-    }
-
     &&& .selected-row * {
         color: white !important;
-        transition: color 0.3s;
+
+        .ant-typography mark {
+            background-color: ${REDESIGN_COLORS.HEADING_COLOR} !important;
+        }
+
         .field-type {
             border-color: white !important;
         }
+
         .depth-container {
             background: ${REDESIGN_COLORS.WHITE} !important;
         }
+
         .depth-text {
             background: transparent !important;
             color: ${REDESIGN_COLORS.BACKGROUND_PURPLE} !important;
         }
+
         .usage-bars {
             background: ${REDESIGN_COLORS.WHITE} !important;
         }
+
         .row-icon-tooltip .ant-tooltip-inner {
             background: #e5eff1 !important;
             color: ${REDESIGN_COLORS.DARK_GREY} !important;
         }
+
         .row-icon-container svg {
             stroke: white !important;
         }
+
+        .ant-badge-count {
+            background-color: ${REDESIGN_COLORS.BACKGROUND_PURPLE};
+        }
+    }
+
+    &&& .selected-row {
+        background: ${REDESIGN_COLORS.BACKGROUND_PURPLE} !important;
     }
 
     &&& .level-0 td .row-icon-container .row-icon {
         ${(props) => (props.isSearchActive && props.hasRowWithDepth ? '' : `display: none;`)}
     }
+
     &&& .level-1 td .row-icon-container .row-icon {
         ${(props) => (props.isSearchActive && props.hasRowWithDepth ? '' : `display: none;`)}
     }
@@ -107,14 +118,17 @@ const TableContainer = styled.div<{ isSearchActive: boolean; hasRowWithDepth: bo
         border-left: ${(props) =>
             props.isSearchActive ? '4px solid #ffffff00' : `4px solid ${REDESIGN_COLORS.BACKGROUND_PURPLE}`};
     }
+
     &&& .expanded-child > td {
         .depth-container {
             background: ${REDESIGN_COLORS.PRIMARY_PURPLE};
         }
+
         .depth-text {
             background: transparent;
         }
     }
+
     &&& .description-column {
         overflow: hidden;
         text-overflow: ellipsis;
@@ -133,8 +147,6 @@ export type Props = {
     inputFields?: SchemaField[];
     expandedDrawerFieldPath: string | null;
     setExpandedDrawerFieldPath: (path: string | null) => void;
-    shouldScrollToSelectedRow?: boolean;
-    setShouldScrollToSelectedRow?: (val: boolean) => void;
     openTimelineDrawer?: boolean;
     setOpenTimelineDrawer?: any;
     showTypeAsIcons?: boolean;
@@ -146,6 +158,7 @@ export type Props = {
 
 const EMPTY_SET: Set<string> = new Set();
 const TABLE_HEADER_HEIGHT = 52;
+const KEYBOARD_CONTROL_DEBOUNCE_MS = 50;
 
 export default function SchemaTable({
     rows,
@@ -157,14 +170,11 @@ export default function SchemaTable({
     inputFields,
     expandedDrawerFieldPath,
     setExpandedDrawerFieldPath,
-    shouldScrollToSelectedRow,
-    setShouldScrollToSelectedRow,
     openTimelineDrawer = false,
     setOpenTimelineDrawer,
     showTypeAsIcons = true,
     matches,
 }: Props): JSX.Element {
-    // const hasUsageStats = useMemo(() => (usageStats?.aggregations?.fields?.length || 0) > 0, [usageStats]);
     const [tableHeight, setTableHeight] = useState(0);
     const [overflowHoverFieldPath, setOverflowHoverFieldPath] = useState<string | null>(null);
     const [selectedFkFieldPath, setSelectedFkFieldPath] = useState<null | {
@@ -218,15 +228,7 @@ export default function SchemaTable({
         render: schemaTitleRenderer,
         filtered: true,
         onCell: () => ({
-            style: {
-                whiteSpace: 'pre' as any,
-                // WebkitMask: 'linear-gradient(-270deg, #736BA4 0%, rgba(115, 107, 164, 0.00) 100%)',
-
-                // WebkitMask:
-                //     expandedDrawerFieldPath === record.fieldPath
-                //         ? 'linear-gradient(-90deg, rgb(60, 180, 122, 0.8), rgb(60, 180, 122, 1) 10%)'
-                //         : 'linear-gradient(-90deg, rgba(0,0,0,0.8) 0%, rgba(0,0,0,1) 10%)',
-            },
+            style: { whiteSpace: 'pre' },
             onMouseEnter: (e) => {
                 const element = e.nativeEvent.relatedTarget as any;
                 if (element) {
@@ -255,7 +257,7 @@ export default function SchemaTable({
     };
     const descriptionColumn = {
         ellipsis: true,
-        className: "description-column",
+        className: 'description-column',
         title: 'Description',
         dataIndex: 'description',
         key: 'description',
@@ -327,9 +329,8 @@ export default function SchemaTable({
     useEffect(() => {
         if (filterText === '') {
             setIsSearchActive(false);
-            setShouldScrollToSelectedRow?.(true);
         } else setIsSearchActive(true);
-    }, [filterText, setShouldScrollToSelectedRow]);
+    }, [filterText]);
 
     useEffect(() => {
         const flattenedRows = rows.flatMap(flattenRows);
@@ -353,32 +354,25 @@ export default function SchemaTable({
         });
     }, [expandedRowsFromFilter]);
 
-    const [VT, setVT, ref] = useVT(
-        () => ({
-            // onScroll: () => {
-            //     // setOverflowHoverFieldPath(null);
-            // },
-            scroll: { y: tableHeight },
-        }),
-        [tableHeight],
+    const [VT, setVT, vtRef] = useVT(() => ({ scroll: { y: tableHeight } }), [tableHeight]);
+    const tableRef = useRef<HTMLDivElement>(null);
+
+    useDebounce(
+        () => {
+            if (!expandedDrawerFieldPath) return;
+
+            if (tableRef.current) {
+                const tableBody = tableRef.current.querySelector('.ant-table-body');
+                const row = tableBody?.querySelector(`[data-row-key="${expandedDrawerFieldPath}"]`);
+                if (row) {
+                    row.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                }
+            }
+            // only scroll to new row on arrow key, navigate from header click or initial load
+        },
+        KEYBOARD_CONTROL_DEBOUNCE_MS,
+        [expandedDrawerFieldPath, tableRef, filterText, schemaSorter],
     );
-
-    useEffect(() => {
-        if (!expandedDrawerFieldPath || !shouldScrollToSelectedRow) return;
-
-        const indexToScrollTo = findIndexOfFieldPathExcludingCollapsedFields(
-            expandedDrawerFieldPath,
-            expandedRows,
-            rows,
-            schemaSorter,
-            allColumns.find((column) => column.key === schemaSorter?.columnKey)?.sorter as any,
-        );
-        if (indexToScrollTo >= 0) {
-            setShouldScrollToSelectedRow?.(false);
-            ref?.current.scrollToIndex(indexToScrollTo);
-        }
-        /* eslint-disable-next-line react-hooks/exhaustive-deps */
-    }, [expandedRows, shouldScrollToSelectedRow]);
 
     useMemo(() => setVT({ body: { row: SchemaRow } }), [setVT]);
 
@@ -408,25 +402,40 @@ export default function SchemaTable({
 
     const hasSomeRowsWithDepthGreaterThanZero = useMemo(() => rows.some((row) => row.depth || 0 > 1), [rows]);
 
+    const [schemaFieldDrawerFieldPath, setSchemaFieldDrawerFieldPath] = useState(expandedDrawerFieldPath);
+    useDebounce(() => setSchemaFieldDrawerFieldPath(expandedDrawerFieldPath), KEYBOARD_CONTROL_DEBOUNCE_MS, [
+        expandedDrawerFieldPath,
+    ]);
+
+    const dataSource = filterText ? filteredRows : rows;
+    const [displayedRows, setDisplayedRows] = useState(dataSource);
+
+    const { selectPreviousField, selectNextField } = useKeyboardControls(
+        displayedRows,
+        expandedDrawerFieldPath,
+        setExpandedDrawerFieldPath,
+        vtRef?.current,
+    );
+
     return (
         <FkContext.Provider value={selectedFkFieldPath}>
-            <TableContainer isSearchActive={isSearchActive} hasRowWithDepth={hasSomeRowsWithDepthGreaterThanZero}>
+            <TableContainer
+                ref={tableRef}
+                isSearchActive={isSearchActive}
+                hasRowWithDepth={hasSomeRowsWithDepthGreaterThanZero}
+            >
                 <ResizeObserver onResize={(dimensions) => setTableHeight(dimensions.height - TABLE_HEADER_HEIGHT)}>
                     <StyledTable
-                        onChange={(_, __, sorter) => {
-                            const selectedSorter = sorter as SorterResult<any> | undefined;
-                            // const selectedColumn = allColumns.find(
-                            //     (column) => column.key === selectedSorter?.columnKey,
-                            // );
-
-                            setSchemaSorter(selectedSorter);
+                        onChange={(_, __, sorter, { currentDataSource }) => {
+                            setSchemaSorter(sorter as SorterResult<ExtendedSchemaFields>);
+                            setDisplayedRows(currentDataSource);
                         }}
                         rowClassName={rowClassName}
                         columns={allColumns}
-                        dataSource={filterText ? filteredRows : rows}
+                        dataSource={dataSource}
                         // rowKey={(record) => `column-${record.fieldPath}`}
                         rowKey="fieldPath"
-                        scroll={{ x: 'max-content', y: tableHeight}}
+                        scroll={{ x: 'max-content', y: tableHeight }}
                         components={VT}
                         expandable={{
                             expandedRowKeys: [...Array.from(expandedRows)],
@@ -462,14 +471,13 @@ export default function SchemaTable({
             {!!schemaFields && (
                 <SchemaFieldDrawer
                     schemaFields={schemaFields}
-                    expandedDrawerFieldPath={expandedDrawerFieldPath}
+                    expandedDrawerFieldPath={schemaFieldDrawerFieldPath}
                     editableSchemaMetadata={editableSchemaMetadata}
-                    setExpandedDrawerFieldPath={(newPath) => {
-                        setExpandedDrawerFieldPath(newPath);
-                        setShouldScrollToSelectedRow?.(true);
-                    }}
+                    setExpandedDrawerFieldPath={setExpandedDrawerFieldPath}
                     openTimelineDrawer={openTimelineDrawer}
                     setOpenTimelineDrawer={setOpenTimelineDrawer}
+                    selectPreviousField={selectPreviousField}
+                    selectNextField={selectNextField}
                     usageStats={usageStats}
                 />
             )}

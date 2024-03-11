@@ -25,13 +25,16 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchService;
-import com.linkedin.metadata.utils.GenericRecordUtils;
-import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.policy.DataHubPolicyInfo;
 import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.util.Collections;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Optional;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
 import java.util.function.Function;
 import lombok.extern.slf4j.Slf4j;
 import org.jetbrains.annotations.NotNull;
@@ -144,9 +147,10 @@ public class BackfillPolicyFieldsStep implements UpgradeStep {
       return null;
     }
 
+    List<Future<?>> futures = new LinkedList<>();
     for (SearchEntity searchEntity : scrollResult.getEntities()) {
       try {
-        ingestPolicyFields(searchEntity.getEntity(), auditStamp);
+        ingestPolicyFields(searchEntity.getEntity(), auditStamp).ifPresent(futures::add);
       } catch (Exception e) {
         // don't stop the whole step because of one bad urn or one bad ingestion
         log.error(
@@ -156,6 +160,15 @@ public class BackfillPolicyFieldsStep implements UpgradeStep {
             e);
       }
     }
+
+    futures.forEach(
+        f -> {
+          try {
+            f.get();
+          } catch (InterruptedException | ExecutionException e) {
+            throw new RuntimeException(e);
+          }
+        });
 
     return scrollResult.getScrollId();
   }
@@ -174,7 +187,7 @@ public class BackfillPolicyFieldsStep implements UpgradeStep {
     return filter;
   }
 
-  private void ingestPolicyFields(Urn urn, AuditStamp auditStamp) {
+  private Optional<Future<?>> ingestPolicyFields(Urn urn, AuditStamp auditStamp) {
     EntityResponse entityResponse = null;
     try {
       entityResponse =
@@ -193,19 +206,30 @@ public class BackfillPolicyFieldsStep implements UpgradeStep {
       final DataMap dataMap =
           entityResponse.getAspects().get(DATAHUB_POLICY_INFO_ASPECT_NAME).getValue().data();
       final DataHubPolicyInfo infoAspect = new DataHubPolicyInfo(dataMap);
+
       log.debug("Restating policy information for urn {} with value {}", urn, infoAspect);
-      MetadataChangeProposal proposal = new MetadataChangeProposal();
-      proposal.setEntityUrn(urn);
-      proposal.setEntityType(urn.getEntityType());
-      proposal.setAspectName(DATAHUB_POLICY_INFO_ASPECT_NAME);
-      proposal.setChangeType(ChangeType.RESTATE);
-      proposal.setSystemMetadata(
-          new SystemMetadata()
-              .setRunId(DEFAULT_RUN_ID)
-              .setLastObserved(System.currentTimeMillis()));
-      proposal.setAspect(GenericRecordUtils.serializeAspect(infoAspect));
-      entityService.ingestProposal(proposal, auditStamp, true);
+      return Optional.of(
+          entityService
+              .alwaysProduceMCLAsync(
+                  urn,
+                  urn.getEntityType(),
+                  DATAHUB_POLICY_INFO_ASPECT_NAME,
+                  entityService
+                      .getEntityRegistry()
+                      .getAspectSpecs()
+                      .get(DATAHUB_POLICY_INFO_ASPECT_NAME),
+                  null,
+                  infoAspect,
+                  null,
+                  new SystemMetadata()
+                      .setRunId(DEFAULT_RUN_ID)
+                      .setLastObserved(System.currentTimeMillis()),
+                  auditStamp,
+                  ChangeType.RESTATE)
+              .getFirst());
     }
+
+    return Optional.empty();
   }
 
   @NotNull
