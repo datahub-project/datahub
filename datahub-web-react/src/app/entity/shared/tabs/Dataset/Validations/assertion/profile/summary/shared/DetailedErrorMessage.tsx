@@ -3,7 +3,7 @@ import React from 'react';
 import styled from 'styled-components';
 
 import { AssertionRunEvent } from '../../../../../../../../../../types.generated';
-import { getDetailedErrorMessage } from './resultUtils';
+import { getDetailedErrorMessage } from './resultMessageUtils';
 import { ANTD_GRAY } from '../../../../../../../constants';
 
 const Container = styled.div`
