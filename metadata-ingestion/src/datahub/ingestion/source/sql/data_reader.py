@@ -1,4 +1,4 @@
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 from collections import defaultdict
 from typing import Any, Dict, List, Union
 
@@ -7,8 +7,10 @@ from sqlalchemy.engine import Connection, Engine
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.engine.row import LegacyRow
 
+from datahub.ingestion.api.closeable import Closeable
 
-class DataReader(ABC):
+
+class DataReader(Closeable):
     @abstractmethod
     def get_sample_data_for_column(
         self, table_id: List[str], column_name: str, sample_size: int = 100
@@ -16,20 +18,16 @@ class DataReader(ABC):
         pass
 
     @abstractmethod
-    def get_data_for_table(
+    def get_sample_data_for_table(
         self, table_id: List[str], sample_size: int = 100
     ) -> Dict[str, list]:
         pass
 
-    @abstractmethod
-    def close(self) -> None:
-        pass
 
-
-class GenericSqlTableDataReader(DataReader):
+class SqlAlchemyTableDataReader(DataReader):
     @staticmethod
-    def create(inspector: Inspector) -> "GenericSqlTableDataReader":
-        return GenericSqlTableDataReader(conn=inspector.bind)
+    def create(inspector: Inspector) -> "SqlAlchemyTableDataReader":
+        return SqlAlchemyTableDataReader(conn=inspector.bind)
 
     def __init__(
         self,
@@ -39,9 +37,13 @@ class GenericSqlTableDataReader(DataReader):
         self.engine = conn.engine.connect()
 
     def _table(self, table_id: List[str]) -> sa.Table:
-        return sa.Table(table_id[-1], sa.MetaData(), schema=table_id[-2])
+        return sa.Table(
+            table_id[-1],
+            sa.MetaData(),
+            schema=table_id[-2] if len(table_id) > 1 else None,
+        )
 
-    def get_data_for_column(
+    def get_sample_data_for_column(
         self, table_id: List[str], column_name: str, sample_size: int = 100
     ) -> list:
         """
@@ -82,7 +84,7 @@ class GenericSqlTableDataReader(DataReader):
 
         return [x[column_name] for x in query_results.fetchall()]
 
-    def get_data_for_table(
+    def get_sample_data_for_table(
         self, table_id: List[str], sample_size: int = 100
     ) -> Dict[str, list]:
         """
@@ -124,9 +126,7 @@ class GenericSqlTableDataReader(DataReader):
                 for col, col_value in row.items():
                     column_values[col].append(col_value)
             else:
-                import pdb
-
-                pdb.set_trace()
+                breakpoint()
 
         return column_values
 

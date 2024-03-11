@@ -249,11 +249,11 @@ USE `northwind`;
 # Dumping data for table 'customers'
 #
 
-INSERT INTO `customers` (`id`, `company`, `last_name`, `first_name`, `email_address`, `priority`) VALUES (1, 'Company A', 'Bedecs', 'Anna', 'Bedecs@gmail.com', 4);
-INSERT INTO `customers` (`id`, `company`, `last_name`, `first_name`, `email_address`, `priority`) VALUES (2, 'Company B', 'Gratacos Solsona', 'Antonio', 'Gratacos@gmail.com', 4.9);
-INSERT INTO `customers` (`id`, `company`, `last_name`, `first_name`, `email_address`, `priority`) VALUES (3, 'Company C', 'Axen', 'Thomas', 'Axen@gmail.com', 4);
-INSERT INTO `customers` (`id`, `company`, `last_name`, `first_name`, `email_address`, `priority`) VALUES (4, 'Company D', 'Lee', 'Christina', 'Lee@gmail.com', 3.8);
-INSERT INTO `customers` (`id`, `company`, `last_name`, `first_name`, `email_address`, `priority`) VALUES (5, 'Company E', 'Donnell', 'Martin', 'Donnell@gmail.com', NULL);
+INSERT INTO `customers` (`id`, `company`, `last_name`, `first_name`, `email_address`, `priority`) VALUES (1, 'Company A', 'Bedecs', 'Anna', 'Bedecs@xyz.com', 4);
+INSERT INTO `customers` (`id`, `company`, `last_name`, `first_name`, `email_address`, `priority`) VALUES (2, 'Company B', 'Gratacos Solsona', 'Antonio', 'Gratacos@xyz.com', 4.9);
+INSERT INTO `customers` (`id`, `company`, `last_name`, `first_name`, `email_address`, `priority`) VALUES (3, 'Company C', 'Axen', 'Thomas', 'Axen@xyz.com', 4);
+INSERT INTO `customers` (`id`, `company`, `last_name`, `first_name`, `email_address`, `priority`) VALUES (4, 'Company D', 'Lee', 'Christina', 'Lee@xyz.com', 3.8);
+INSERT INTO `customers` (`id`, `company`, `last_name`, `first_name`, `email_address`, `priority`) VALUES (5, 'Company E', 'Donnell', 'Martin', 'Donnell@xyz.com', NULL);
 # 5 records
 
 -- -----------------------------------------------------
