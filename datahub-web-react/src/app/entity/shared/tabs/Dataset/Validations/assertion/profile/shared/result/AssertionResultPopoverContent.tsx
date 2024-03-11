@@ -121,9 +121,7 @@ export const AssertionResultPopoverContent = ({
     return (
         <>
             <HeaderRow>
-                <Title>
-                    <AssertionDescription assertion={assertion} />
-                </Title>
+                {/* NOTE: we don't show the assertion title in the header because the assertion's current title may not accurately represent the assertion that actually ran at this point in time. */}
                 <Actions>
                     <AssertionResultPill result={result} type={resultStatusType} />
                     {(showProfileButton && onClickProfileButton && (
