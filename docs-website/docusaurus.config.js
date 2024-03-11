@@ -25,6 +25,27 @@ module.exports = {
     isSaas: isSaas,
     markpromptProjectKey: process.env.DOCUSAURUS_MARKPROMPT_PROJECT_KEY || "IeF3CUFCUQWuouZ8MP5Np9nES52QAtaA",
   },
+
+  // See https://github.com/facebook/docusaurus/issues/4765
+  // and https://github.com/langchain-ai/langchainjs/pull/1568
+  webpack: {
+    jsLoader: (isServer) => ({
+      loader: require.resolve("swc-loader"),
+      options: {
+        jsc: {
+          parser: {
+            syntax: "typescript",
+            tsx: true,
+          },
+          target: "es2017",
+        },
+        module: {
+          type: isServer ? "commonjs" : "es6",
+        },
+      },
+    }),
+  },
+
   themeConfig: {
     ...(!isSaas && {
       announcementBar: {
