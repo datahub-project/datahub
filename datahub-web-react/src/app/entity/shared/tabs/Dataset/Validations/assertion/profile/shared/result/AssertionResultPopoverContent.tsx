@@ -102,13 +102,13 @@ export const AssertionResultPopoverContent = ({
     const timestamp = run && new Date(run?.timestampMillis);
 
     // Reason
-    const result = run?.result as AssertionResult;
-    const reasonText = (run && getFormattedReasonText(assertion, run)) || undefined;
+    const result = run?.result ? run.result! : undefined;
+    const reasonText = run ? getFormattedReasonText(assertion, run) : undefined;
     const hasReason = !!reasonText;
 
     // Context
-    const hasContext = false;
     const expectedText = undefined; // TODO For us.
+    const hasContext = !!expectedText;
 
     // Error
     const errorMessage = (run && getDetailedErrorMessage(run)) || undefined;
