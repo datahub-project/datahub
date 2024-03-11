@@ -10,7 +10,7 @@ from sqlalchemy.engine.row import LegacyRow
 
 class DataReader(ABC):
     @abstractmethod
-    def get_data_for_column(
+    def get_sample_data_for_column(
         self, table_id: List[str], column_name: str, sample_size: int = 100
     ) -> list:
         pass
