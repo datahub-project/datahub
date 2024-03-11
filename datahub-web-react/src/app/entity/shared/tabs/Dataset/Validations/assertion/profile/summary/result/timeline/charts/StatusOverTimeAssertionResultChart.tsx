@@ -103,7 +103,7 @@ export const StatusOverTimeAssertionResultChart = ({ data, timeRange, chartDimen
                         y={chartDimensions.height / 3}
                         stroke={ACCENT_COLOR_HEX}
                         strokeWidth={lineThickness}
-                        markerStart='url(#marker-arrow)'
+                        markerStart={data.dataPoints.length > 1 ? 'url(#marker-arrow)' : undefined}
                     />
 
                     {/* Circular data points */}
