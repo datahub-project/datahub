@@ -57,8 +57,7 @@ public class TestUtils {
         TestOperationContexts.userContextNoSearchAuthorization(
             mock(EntityRegistry.class), mockAuthorizer, authentication);
     Mockito.when(mockContext.getOperationContext()).thenReturn(operationContext);
-    Mockito.when(mockContext.getOperationContext())
-        .thenReturn(Mockito.mock(OperationContext.class));
+
     return mockContext;
   }
 

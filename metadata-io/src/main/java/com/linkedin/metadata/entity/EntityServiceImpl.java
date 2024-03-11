@@ -625,16 +625,10 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
   @Override
   public List<UpdateAspectResult> ingestAspects(
       @Nonnull final AspectsBatch aspectsBatch, boolean emitMCL, boolean overwrite) {
-    Set<BatchItem> items = new HashSet<>(aspectsBatch.getItems());
-
-    // Generate additional items as needed
-    items.addAll(DefaultAspectsUtil.getAdditionalChanges(aspectsBatch, this, enableBrowseV2));
-    AspectsBatch withDefaults =
-        AspectsBatchImpl.builder().aspectRetriever(this).items(items).build();
 
     Timer.Context ingestToLocalDBTimer =
         MetricUtils.timer(this.getClass(), "ingestAspectsToLocalDB").time();
-    List<UpdateAspectResult> ingestResults = ingestAspectsToLocalDB(withDefaults, overwrite);
+    List<UpdateAspectResult> ingestResults = ingestAspectsToLocalDB(aspectsBatch, overwrite);
     List<UpdateAspectResult> mclResults = emitMCL(ingestResults, emitMCL);
     ingestToLocalDBTimer.stop();
 
@@ -646,24 +640,28 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
    * an update, push the new version into the local DB. Otherwise, do not push the new version, but
    * just update the system metadata.
    *
-   * @param aspectsBatch Collection of the following: an urn associated with the new aspect, name of
+   * @param inputBatch Collection of the following: an urn associated with the new aspect, name of
    *     the aspect being inserted, and a function to apply to the latest version of the aspect to
    *     get the updated version
    * @return Details about the new and old version of the aspect
    */
   @Nonnull
   private List<UpdateAspectResult> ingestAspectsToLocalDB(
-      @Nonnull final AspectsBatch aspectsBatch, boolean overwrite) {
+      @Nonnull final AspectsBatch inputBatch, boolean overwrite) {
 
-    if (aspectsBatch.containsDuplicateAspects()) {
-      log.warn(String.format("Batch contains duplicates: %s", aspectsBatch));
+    if (inputBatch.containsDuplicateAspects()) {
+      log.warn(String.format("Batch contains duplicates: %s", inputBatch));
     }
 
     return aspectDao
         .runInTransactionWithRetry(
             (tx) -> {
+              // Generate default aspects within the transaction (they are re-calculated on retry)
+              AspectsBatch batchWithDefaults =
+                  DefaultAspectsUtil.withAdditionalChanges(inputBatch, this, enableBrowseV2);
+
               // Read before write is unfortunate, however batch it
-              final Map<String, Set<String>> urnAspects = aspectsBatch.getUrnAspectsMap();
+              final Map<String, Set<String>> urnAspects = batchWithDefaults.getUrnAspectsMap();
               // read #1
               final Map<String, Map<String, SystemAspect>> latestAspects =
                   EntityUtils.toSystemAspects(aspectDao.getLatestAspects(urnAspects), this);
@@ -674,7 +672,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
               // 1. Convert patches to full upserts
               // 2. Run any entity/aspect level hooks
               Pair<Map<String, Set<String>>, List<ChangeMCP>> updatedItems =
-                  aspectsBatch.toUpsertBatchItems(latestAspects);
+                  batchWithDefaults.toUpsertBatchItems(latestAspects);
 
               // Fetch additional information if needed
               final Map<String, Map<String, SystemAspect>> updatedLatestAspects;
@@ -816,7 +814,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
               return upsertResults;
             },
-            aspectsBatch,
+            inputBatch,
             DEFAULT_MAX_TRANSACTION_RETRY)
         .stream()
         .flatMap(List::stream)
@@ -978,13 +976,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
               .filter(item -> item.getAspectSpec().isTimeseries())
               .collect(Collectors.toList());
 
-      List<MCPItem> defaultAspects =
-          DefaultAspectsUtil.getAdditionalChanges(
-              AspectsBatchImpl.builder().aspectRetriever(this).items(timeseriesItems).build(),
-              this,
-              enableBrowseV2);
       ingestProposalSync(
-          AspectsBatchImpl.builder().aspectRetriever(this).items(defaultAspects).build());
+          AspectsBatchImpl.builder().aspectRetriever(this).items(timeseriesItems).build());
     }
 
     // Emit timeseries MCLs
@@ -1087,10 +1080,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
     List<? extends MCPItem> unsupported =
         nonTimeseries.getMCPItems().stream()
-            .filter(
-                item ->
-                    item.getMetadataChangeProposal().getChangeType() != ChangeType.PATCH
-                        && item.getMetadataChangeProposal().getChangeType() != ChangeType.UPSERT)
+            .filter(item -> !MCPItem.isValidChangeType(item.getChangeType(), item.getAspectSpec()))
             .collect(Collectors.toList());
     if (!unsupported.isEmpty()) {
       throw new UnsupportedOperationException(
@@ -1554,13 +1544,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     final List<Pair<String, RecordTemplate>> aspectRecordsToIngest =
         NewModelUtils.getAspectsFromSnapshot(snapshotRecord);
 
-    log.info("INGEST urn {} with system metadata {}", urn.toString(), systemMetadata.toString());
-    aspectRecordsToIngest.addAll(
-        DefaultAspectsUtil.generateDefaultAspects(
-            this,
-            urn,
-            aspectRecordsToIngest.stream().map(Pair::getFirst).collect(Collectors.toSet()),
-            enableBrowseV2));
+    log.info("INGEST urn {} with system metadata {}", urn, systemMetadata.toString());
 
     AspectsBatchImpl aspectsBatch =
         AspectsBatchImpl.builder()

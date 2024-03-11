@@ -1,7 +1,10 @@
 package com.linkedin.metadata.service;
 
+import static org.mockito.Mockito.mock;
+
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.secret.SecretService;
 import org.mockito.Mockito;
 import org.testng.Assert;
@@ -17,20 +20,22 @@ public class RestrictedServiceTest {
 
   @Test
   private void testEncryptRestrictedUrn() throws Exception {
-    SecretService mockSecretService = Mockito.mock(SecretService.class);
+    SecretService mockSecretService = mock(SecretService.class);
     Mockito.when(mockSecretService.encrypt(TEST_DATASET_URN.toString()))
         .thenReturn(ENCRYPED_DATASET_URN);
-    final RestrictedService service = new RestrictedService(mockSecretService);
+    final RestrictedService service =
+        new RestrictedService(mockSecretService, mock(EntityRegistry.class));
 
     Assert.assertEquals(service.encryptRestrictedUrn(TEST_DATASET_URN), TEST_RESTRICTED_URN);
   }
 
   @Test
   private void testDecryptRestrictedUrn() throws Exception {
-    SecretService mockSecretService = Mockito.mock(SecretService.class);
+    SecretService mockSecretService = mock(SecretService.class);
     Mockito.when(mockSecretService.decrypt(ENCRYPED_DATASET_URN))
         .thenReturn(TEST_DATASET_URN.toString());
-    final RestrictedService service = new RestrictedService(mockSecretService);
+    final RestrictedService service =
+        new RestrictedService(mockSecretService, mock(EntityRegistry.class));
 
     Assert.assertEquals(service.decryptRestrictedUrn(TEST_RESTRICTED_URN), TEST_DATASET_URN);
   }

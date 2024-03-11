@@ -1,18 +1,31 @@
 package com.datahub.authorization;
 
+import static com.linkedin.metadata.authorization.ApiGroup.ENTITY;
+import static com.linkedin.metadata.authorization.ApiOperation.READ;
+
 import com.datahub.authentication.Authentication;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
+import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.authorization.PoliciesConfig;
+import com.linkedin.policy.DataHubActorFilter;
 import com.linkedin.policy.DataHubPolicyInfo;
+import com.linkedin.policy.DataHubResourceFilter;
+import com.linkedin.policy.PolicyMatchCondition;
+import com.linkedin.policy.PolicyMatchCriterion;
+import com.linkedin.policy.PolicyMatchCriterionArray;
+import com.linkedin.policy.PolicyMatchFilter;
 import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -107,7 +120,8 @@ public class DataHubAuthorizer implements Authorizer {
 
     // 1. Fetch the policies relevant to the requested privilege.
     final List<DataHubPolicyInfo> policiesToEvaluate =
-        getOrDefault(request.getPrivilege(), new ArrayList<>());
+        new LinkedList<>(getOrDefault(request.getPrivilege(), new ArrayList<>()));
+    policiesToEvaluate.addAll(getDefaultPolicies(UrnUtils.getUrn(request.getActorUrn())));
 
     // 2. Evaluate each policy.
     for (DataHubPolicyInfo policy : policiesToEvaluate) {
@@ -124,10 +138,14 @@ public class DataHubAuthorizer implements Authorizer {
 
   public List<String> getGrantedPrivileges(
       final String actor, final Optional<EntitySpec> resourceSpec) {
-    // 1. Fetch all policies
-    final List<DataHubPolicyInfo> policiesToEvaluate = getOrDefault(ALL, new ArrayList<>());
 
     Urn actorUrn = UrnUtils.getUrn(actor);
+
+    // 1. Fetch all policies
+    final List<DataHubPolicyInfo> policiesToEvaluate =
+        new LinkedList<>(getOrDefault(ALL, new ArrayList<>()));
+    policiesToEvaluate.addAll(getDefaultPolicies(actorUrn));
+
     final ResolvedEntitySpec resolvedActorSpec =
         _entitySpecResolver.resolve(new EntitySpec(actorUrn.getEntityType(), actor));
 
@@ -141,7 +159,9 @@ public class DataHubAuthorizer implements Authorizer {
   @Override
   public Set<DataHubPolicyInfo> getActorPolicies(@Nonnull Urn actorUrn) {
     // 1. Fetch all policies
-    final List<DataHubPolicyInfo> policiesToEvaluate = getOrDefault(ALL, new ArrayList<>());
+    final List<DataHubPolicyInfo> policiesToEvaluate =
+        new LinkedList<>(getOrDefault(ALL, new ArrayList<>()));
+    policiesToEvaluate.addAll(getDefaultPolicies(actorUrn));
 
     // 2. Actor identity
     final ResolvedEntitySpec resolvedActorSpec =
@@ -151,7 +171,7 @@ public class DataHubAuthorizer implements Authorizer {
         .filter(policy -> PoliciesConfig.ACTIVE_POLICY_STATE.equals(policy.getState()))
         .filter(
             policy ->
-                policy.getActors().isResourceOwners()
+                (policy.getActors() != null && policy.getActors().isResourceOwners())
                     || _policyEngine.isActorMatch(
                         resolvedActorSpec,
                         policy.getActors(),
@@ -291,6 +311,37 @@ public class DataHubAuthorizer implements Authorizer {
       // To unlock the acquired read thread
       readLock.unlock();
     }
+  }
+
+  private List<DataHubPolicyInfo> getDefaultPolicies(Urn actorUrn) {
+    return ImmutableList.<DataHubPolicyInfo>builder()
+        .add(
+            new DataHubPolicyInfo()
+                .setDisplayName("View Self")
+                .setDescription("View self entity page.")
+                .setActors(new DataHubActorFilter().setUsers(new UrnArray(actorUrn)))
+                .setPrivileges(
+                    PoliciesConfig.lookupAPIPrivilege(ENTITY, READ).stream()
+                        .flatMap(Collection::stream)
+                        .map(PoliciesConfig.Privilege::getType)
+                        .collect(Collectors.toCollection(StringArray::new)))
+                .setType(PoliciesConfig.METADATA_POLICY_TYPE)
+                .setState(PoliciesConfig.ACTIVE_POLICY_STATE)
+                .setEditable(false)
+                .setResources(
+                    new DataHubResourceFilter()
+                        .setFilter(
+                            new PolicyMatchFilter()
+                                .setCriteria(
+                                    new PolicyMatchCriterionArray(
+                                        List.of(
+                                            new PolicyMatchCriterion()
+                                                .setField("URN")
+                                                .setCondition(PolicyMatchCondition.EQUALS)
+                                                .setValues(
+                                                    new StringArray(
+                                                        List.of(actorUrn.toString())))))))))
+        .build();
   }
 
   /**

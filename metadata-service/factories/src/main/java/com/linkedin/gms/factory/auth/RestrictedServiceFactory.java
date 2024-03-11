@@ -1,5 +1,6 @@
 package com.linkedin.gms.factory.auth;
 
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.secret.SecretService;
 import com.linkedin.metadata.service.RestrictedService;
 import com.linkedin.metadata.spring.YamlPropertySourceFactory;
@@ -22,7 +23,7 @@ public class RestrictedServiceFactory {
   @Bean(name = "restrictedService")
   @Scope("singleton")
   @Nonnull
-  protected RestrictedService getInstance() throws Exception {
-    return new RestrictedService(_secretService);
+  protected RestrictedService getInstance(final EntityRegistry entityRegistry) throws Exception {
+    return new RestrictedService(_secretService, entityRegistry);
   }
 }

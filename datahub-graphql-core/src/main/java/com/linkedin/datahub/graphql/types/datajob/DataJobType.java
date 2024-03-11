@@ -112,6 +112,16 @@ public class DataJobType
       final List<String> urnStrs, @Nonnull final QueryContext context) throws Exception {
     final List<Urn> urns = urnStrs.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
     try {
+
+      // if search authorization is disabled, skip the view permission check
+      if (context
+          .getOperationContext()
+          .getOperationContextConfig()
+          .getSearchAuthorizationConfiguration()
+          .isEnabled()) {
+        AuthorizationUtils.checkViewPermissions(urns, context);
+      }
+
       final Map<Urn, EntityResponse> dataJobMap =
           _entityClient.batchGetV2(
               Constants.DATA_JOB_ENTITY_NAME,

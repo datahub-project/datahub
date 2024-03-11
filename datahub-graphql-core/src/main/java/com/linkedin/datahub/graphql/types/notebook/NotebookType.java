@@ -171,6 +171,15 @@ public class NotebookType
       @Nonnull List<String> urnStrs, @Nonnull QueryContext context) throws Exception {
     final List<Urn> urns = urnStrs.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
     try {
+      // if search authorization is disabled, skip the view permission check
+      if (context
+          .getOperationContext()
+          .getOperationContextConfig()
+          .getSearchAuthorizationConfiguration()
+          .isEnabled()) {
+        AuthorizationUtils.checkViewPermissions(urns, context);
+      }
+
       final Map<Urn, EntityResponse> notebookMap =
           _entityClient.batchGetV2(
               NOTEBOOK_ENTITY_NAME,

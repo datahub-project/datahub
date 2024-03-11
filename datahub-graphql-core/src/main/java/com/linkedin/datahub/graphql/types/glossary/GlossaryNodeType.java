@@ -11,6 +11,7 @@ import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.GlossaryNode;
@@ -65,6 +66,16 @@ public class GlossaryNodeType
         urns.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
 
     try {
+
+      // if search authorization is disabled, skip the view permission check
+      if (context
+          .getOperationContext()
+          .getOperationContextConfig()
+          .getSearchAuthorizationConfiguration()
+          .isEnabled()) {
+        AuthorizationUtils.checkViewPermissions(glossaryNodeUrns, context);
+      }
+
       final Map<Urn, EntityResponse> glossaryNodeMap =
           _entityClient.batchGetV2(
               GLOSSARY_NODE_ENTITY_NAME,

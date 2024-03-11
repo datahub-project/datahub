@@ -14,6 +14,7 @@ import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
 import com.linkedin.datahub.graphql.generated.DataProduct;
 import com.linkedin.datahub.graphql.generated.Entity;
@@ -78,6 +79,16 @@ public class DataProductType
         urns.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
 
     try {
+
+      // if search authorization is disabled, skip the view permission check
+      if (context
+          .getOperationContext()
+          .getOperationContextConfig()
+          .getSearchAuthorizationConfiguration()
+          .isEnabled()) {
+        AuthorizationUtils.checkViewPermissions(dataProductUrns, context);
+      }
+
       final Map<Urn, EntityResponse> entities =
           _entityClient.batchGetV2(
               DATA_PRODUCT_ENTITY_NAME,

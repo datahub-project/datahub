@@ -1,14 +1,13 @@
 package com.linkedin.metadata.search.utils;
 
-import static com.linkedin.metadata.authorization.PoliciesConfig.VIEW_ENTITY_PRIVILEGES;
+import static com.linkedin.metadata.authorization.ApiGroup.ENTITY;
+import static com.linkedin.metadata.authorization.ApiOperation.READ;
 import static com.linkedin.metadata.utils.SearchUtil.ES_INDEX_FIELD;
 import static com.linkedin.metadata.utils.SearchUtil.KEYWORD_SUFFIX;
 
+import com.datahub.authentication.Authentication;
 import com.datahub.authorization.AuthUtil;
-import com.datahub.authorization.ConjunctivePrivilegeGroup;
-import com.datahub.authorization.DisjunctivePrivilegeGroup;
-import com.datahub.authorization.EntitySpec;
-import com.google.common.collect.ImmutableList;
+import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.aspect.hooks.OwnerTypeMap;
@@ -97,21 +96,17 @@ public class ESAccessControlUtil {
     if (opContext.getOperationContextConfig().getSearchAuthorizationConfiguration().isEnabled()
         && opContext.getSearchContext().isRestrictedSearch()) {
       final EntityRegistry entityRegistry = opContext.getEntityRegistry();
-      final String actorUrnStr =
-          opContext.getSessionActorContext().getAuthentication().getActor().toUrnStr();
-      final DisjunctivePrivilegeGroup orGroup =
-          new DisjunctivePrivilegeGroup(
-              ImmutableList.of(new ConjunctivePrivilegeGroup(VIEW_ENTITY_PRIVILEGES)));
+      final Authentication auth = opContext.getSessionActorContext().getAuthentication();
+      final Authorizer authorizer = opContext.getAuthorizerContext().getAuthorizer();
 
       for (SearchEntity searchEntity : searchEntities) {
         final String entityType = searchEntity.getEntity().getEntityType();
-        final Optional<EntitySpec> resourceSpec =
-            Optional.of(new EntitySpec(entityType, searchEntity.getEntity().toString()));
-        if (!AuthUtil.isAuthorized(
-            opContext.getAuthorizerContext().getAuthorizer(), actorUrnStr, resourceSpec, orGroup)) {
-          final String keyAspectName =
-              entityRegistry.getEntitySpecs().get(entityType.toLowerCase()).getKeyAspectName();
-          searchEntity.setRestrictedAspects(new StringArray(List.of(keyAspectName)));
+        final com.linkedin.metadata.models.EntitySpec entitySpec =
+            entityRegistry.getEntitySpec(entityType);
+
+        if (!AuthUtil.canViewEntity(auth, authorizer, searchEntity.getEntity())) {
+          searchEntity.setRestrictedAspects(
+              new StringArray(List.of(entitySpec.getKeyAspectName())));
         }
       }
     }
@@ -123,8 +118,9 @@ public class ESAccessControlUtil {
           policy.getPrivileges() != null
               && PoliciesConfig.ACTIVE_POLICY_STATE.equals(policy.getState())
               && PoliciesConfig.METADATA_POLICY_TYPE.equals(policy.getType())
-              && VIEW_ENTITY_PRIVILEGES.stream()
-                  .anyMatch(priv -> policy.getPrivileges().contains(priv));
+              && PoliciesConfig.lookupAPIPrivilege(ENTITY, READ).stream()
+                  .flatMap(Collection::stream)
+                  .anyMatch(priv -> policy.getPrivileges().contains(priv.getType()));
 
   private static Stream<QueryBuilder> streamViewQueries(OperationContext opContext) {
     return opContext.getSessionActorContext().getPolicyInfoSet().stream()
@@ -132,23 +128,21 @@ public class ESAccessControlUtil {
         .map(
             policy -> {
               // Build actor query
-              QueryBuilder actorQuery = buildActorQuery(opContext, policy);
+              QueryBuilder actorQuery = buildActorResourceQuery(opContext, policy);
 
-              if (!policy.hasResources()) {
+              if (!policy.hasResources()
+                  || !policy.getResources().hasFilter()
+                  || !policy.getResources().getFilter().hasCriteria()
+                  || policy.getResources().getFilter().getCriteria().isEmpty()) {
                 // no resource restrictions
                 return actorQuery;
               } else {
-
-                // No filters or criteria
-                if (!policy.getResources().hasFilter()
-                    || !policy.getResources().getFilter().hasCriteria()) {
-                  return null;
-                }
 
                 PolicyMatchCriterionArray criteriaArray =
                     policy.getResources().getFilter().getCriteria();
                 // Cannot apply policy if we can't map every field
                 if (!criteriaArray.stream().allMatch(criteria -> toESField(criteria).isPresent())) {
+                  log.error("Returning deny all due to unknown policy filter field.");
                   return null;
                 }
 
@@ -172,28 +166,26 @@ public class ESAccessControlUtil {
    * @param policy policy
    * @return filter query
    */
-  private static QueryBuilder buildActorQuery(
+  private static QueryBuilder buildActorResourceQuery(
       OperationContext opContext, DataHubPolicyInfo policy) {
+
     DataHubActorFilter actorFilter = policy.getActors();
 
-    if (!policy.hasActors()
-        || !(actorFilter.isResourceOwners() || actorFilter.hasResourceOwnersTypes())) {
+    if (!policy.hasActors() || !actorFilter.isResourceOwners()) {
       // no owner restriction
       return MATCH_ALL;
     }
 
     ActorContext actorContext = opContext.getSessionActorContext();
-
     // policy might apply to the actor via user or group
     List<String> actorAndGroupUrns =
         Stream.concat(
                 Stream.of(actorContext.getAuthentication().getActor().toUrnStr()),
                 actorContext.getGroupMembership().stream().map(Urn::toString))
-            .map(String::toLowerCase)
             .distinct()
             .collect(Collectors.toList());
 
-    if (!actorFilter.hasResourceOwnersTypes()) {
+    if (!hasResourceOwnersType(actorFilter)) {
       // owners without owner type restrictions
       return QueryBuilders.termsQuery(
           ESUtils.toKeywordField(MappingsBuilder.OWNERS_FIELD, false), actorAndGroupUrns);
@@ -218,6 +210,12 @@ public class ESAccessControlUtil {
 
       return orQuery;
     }
+  }
+
+  private static boolean hasResourceOwnersType(DataHubActorFilter actorFilter) {
+    return actorFilter.hasResourceOwnersTypes()
+        || (actorFilter.getResourceOwnersTypes() != null
+            && !actorFilter.getResourceOwnersTypes().isEmpty());
   }
 
   private static Stream<TermsQueryBuilder> buildResourceQuery(

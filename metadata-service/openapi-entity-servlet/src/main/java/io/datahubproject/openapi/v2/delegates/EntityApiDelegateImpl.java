@@ -1,15 +1,15 @@
 package io.datahubproject.openapi.v2.delegates;
 
+import static com.linkedin.metadata.authorization.ApiGroup.ENTITY;
+import static com.linkedin.metadata.authorization.ApiOperation.EXISTS;
+import static com.linkedin.metadata.authorization.ApiOperation.READ;
+import static com.linkedin.metadata.authorization.ApiOperation.SEARCH;
 import static io.datahubproject.openapi.util.ReflectionCache.toLowerFirst;
 
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.AuthorizerChain;
-import com.datahub.authorization.ConjunctivePrivilegeGroup;
-import com.datahub.authorization.DisjunctivePrivilegeGroup;
-import com.datahub.authorization.EntitySpec;
-import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
@@ -78,8 +78,6 @@ public class EntityApiDelegateImpl<I, O, S> {
   private final SearchService _searchService;
   private final EntitiesController _v1Controller;
   private final AuthorizerChain _authorizationChain;
-
-  private final boolean _restApiAuthorizationEnabled;
   private final Class<I> _reqClazz;
   private final Class<O> _respClazz;
   private final Class<S> _scrollRespClazz;
@@ -91,7 +89,6 @@ public class EntityApiDelegateImpl<I, O, S> {
       EntityService<?> entityService,
       SearchService searchService,
       EntitiesController entitiesController,
-      boolean restApiAuthorizationEnabled,
       AuthorizerChain authorizationChain,
       Class<I> reqClazz,
       Class<O> respClazz,
@@ -102,7 +99,6 @@ public class EntityApiDelegateImpl<I, O, S> {
     this._entityRegistry = entityService.getEntityRegistry();
     this._v1Controller = entitiesController;
     this._authorizationChain = authorizationChain;
-    this._restApiAuthorizationEnabled = restApiAuthorizationEnabled;
     this._reqClazz = reqClazz;
     this._respClazz = respClazz;
     this._scrollRespClazz = scrollRespClazz;
@@ -146,6 +142,17 @@ public class EntityApiDelegateImpl<I, O, S> {
   public ResponseEntity<Void> head(String urn) {
     try {
       Urn entityUrn = Urn.createFromString(urn);
+
+      final Authentication auth = AuthenticationContext.getAuthentication();
+      if (!AuthUtil.isAPIAuthorizedUrns(
+          auth,
+          _authorizationChain,
+          PoliciesConfig.lookupAPIPrivilege(ENTITY, EXISTS),
+          List.of(entityUrn))) {
+        throw new UnauthorizedException(
+            auth.getActor().toUrnStr() + " is unauthorized to check existence of entities.");
+      }
+
       if (_entityService.exists(entityUrn, true)) {
         return new ResponseEntity<>(HttpStatus.NO_CONTENT);
       } else {
@@ -183,6 +190,17 @@ public class EntityApiDelegateImpl<I, O, S> {
   public ResponseEntity<Void> headAspect(String urn, String aspect) {
     try {
       Urn entityUrn = Urn.createFromString(urn);
+
+      final Authentication auth = AuthenticationContext.getAuthentication();
+      if (!AuthUtil.isAPIAuthorizedUrns(
+          auth,
+          _authorizationChain,
+          PoliciesConfig.lookupAPIPrivilege(ENTITY, EXISTS),
+          List.of(entityUrn))) {
+        throw new UnauthorizedException(
+            auth.getActor().toUrnStr() + " is unauthorized to check existence of entities.");
+      }
+
       if (_entityService.exists(entityUrn, aspect, true)) {
         return new ResponseEntity<>(HttpStatus.NO_CONTENT);
       } else {
@@ -466,12 +484,19 @@ public class EntityApiDelegateImpl<I, O, S> {
         new SearchFlags().setFulltext(false).setSkipAggregates(true).setSkipHighlighting(true);
 
     Authentication authentication = AuthenticationContext.getAuthentication();
+
+    if (!AuthUtil.isAPIAuthorized(
+        authentication, _authorizationChain, PoliciesConfig.lookupAPIPrivilege(ENTITY, SEARCH))) {
+      throw new UnauthorizedException(
+          authentication.getActor().toUrnStr() + " is unauthorized to search entities.");
+    }
+
     OperationContext opContext =
         OperationContext.asSession(
             systemOperationContext, _authorizationChain, authentication, true);
+
     com.linkedin.metadata.models.EntitySpec entitySpec =
         OpenApiEntitiesUtil.responseClassToEntitySpec(_entityRegistry, _respClazz);
-    checkScrollAuthorized(authentication, entitySpec);
 
     // TODO multi-field sort
     SortCriterion sortCriterion = new SortCriterion();
@@ -490,6 +515,15 @@ public class EntityApiDelegateImpl<I, O, S> {
             scrollId,
             null,
             count);
+
+    if (!AuthUtil.isAPIAuthorizedResult(
+        authentication,
+        _authorizationChain,
+        PoliciesConfig.lookupAPIPrivilege(ENTITY, READ),
+        result)) {
+      throw new UnauthorizedException(
+          authentication.getActor().toUrnStr() + " is unauthorized to " + READ + " entities.");
+    }
 
     String[] urns =
         result.getEntities().stream()
@@ -510,24 +544,6 @@ public class EntityApiDelegateImpl<I, O, S> {
     return ResponseEntity.of(
         OpenApiEntitiesUtil.convertToScrollResponse(
             _scrollRespClazz, result.getScrollId(), entities));
-  }
-
-  private void checkScrollAuthorized(
-      Authentication authentication, com.linkedin.metadata.models.EntitySpec entitySpec) {
-    String actorUrnStr = authentication.getActor().toUrnStr();
-    DisjunctivePrivilegeGroup orGroup =
-        new DisjunctivePrivilegeGroup(
-            ImmutableList.of(
-                new ConjunctivePrivilegeGroup(
-                    ImmutableList.of(PoliciesConfig.GET_ENTITY_PRIVILEGE.getType()))));
-
-    List<Optional<EntitySpec>> resourceSpecs =
-        List.of(Optional.of(new EntitySpec(entitySpec.getName(), "")));
-    if (_restApiAuthorizationEnabled
-        && !AuthUtil.isAuthorizedForResources(
-            _authorizationChain, actorUrnStr, resourceSpecs, orGroup)) {
-      throw new UnauthorizedException(actorUrnStr + " is unauthorized to get entities.");
-    }
   }
 
   public ResponseEntity<DatasetPropertiesAspectResponseV2> createDatasetProperties(

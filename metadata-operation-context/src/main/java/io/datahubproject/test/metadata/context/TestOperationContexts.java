@@ -43,6 +43,11 @@ public class TestOperationContexts {
   }
 
   public static OperationContext userContextNoSearchAuthorization(
+      @Nonnull EntityRegistry entityRegistry) {
+    return userContextNoSearchAuthorization(entityRegistry, Authorizer.EMPTY, TEST_USER_AUTH);
+  }
+
+  public static OperationContext userContextNoSearchAuthorization(
       @Nonnull EntityRegistry entityRegistry, @Nonnull Urn userUrn) {
     return userContextNoSearchAuthorization(entityRegistry, Authorizer.EMPTY, userUrn);
   }

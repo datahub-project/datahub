@@ -10,18 +10,18 @@ import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
+import com.linkedin.metadata.authorization.Disjunctive;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.test.TestDefinition;
 import com.linkedin.test.TestDefinitionType;
 import java.util.Map;
-import java.util.Optional;
 import javax.annotation.Nonnull;
 
 public class TestUtils {
 
   /** Returns true if the authenticated user is able to manage tests. */
   public static boolean canManageTests(@Nonnull QueryContext context) {
-    return isAuthorized(context, Optional.empty(), PoliciesConfig.MANAGE_TESTS_PRIVILEGE);
+    return isAuthorized(context, null, Disjunctive.disjoint(PoliciesConfig.MANAGE_TESTS_PRIVILEGE));
   }
 
   public static TestDefinition mapDefinition(final TestDefinitionInput testDefInput) {

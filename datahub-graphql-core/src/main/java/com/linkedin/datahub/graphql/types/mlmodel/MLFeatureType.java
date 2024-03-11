@@ -6,6 +6,7 @@ import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityType;
@@ -63,6 +64,15 @@ public class MLFeatureType implements SearchableEntityType<MLFeature, String> {
         urns.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
 
     try {
+      // if search authorization is disabled, skip the view permission check
+      if (context
+          .getOperationContext()
+          .getOperationContextConfig()
+          .getSearchAuthorizationConfiguration()
+          .isEnabled()) {
+        AuthorizationUtils.checkViewPermissions(mlFeatureUrns, context);
+      }
+
       final Map<Urn, EntityResponse> mlFeatureMap =
           _entityClient.batchGetV2(
               ML_FEATURE_ENTITY_NAME,

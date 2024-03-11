@@ -116,6 +116,16 @@ public class DashboardType
       @Nonnull List<String> urnStrs, @Nonnull QueryContext context) throws Exception {
     final List<Urn> urns = urnStrs.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
     try {
+
+      // if search authorization is disabled, skip the view permission check
+      if (context
+          .getOperationContext()
+          .getOperationContextConfig()
+          .getSearchAuthorizationConfiguration()
+          .isEnabled()) {
+        AuthorizationUtils.checkViewPermissions(urns, context);
+      }
+
       final Map<Urn, EntityResponse> dashboardMap =
           _entityClient.batchGetV2(
               Constants.DASHBOARD_ENTITY_NAME,

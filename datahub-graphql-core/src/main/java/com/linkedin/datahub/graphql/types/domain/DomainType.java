@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.types.domain;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
 import com.linkedin.datahub.graphql.generated.Domain;
 import com.linkedin.datahub.graphql.generated.Entity;
@@ -68,6 +69,16 @@ public class DomainType
     final List<Urn> domainUrns = urns.stream().map(this::getUrn).collect(Collectors.toList());
 
     try {
+
+      // if search authorization is disabled, skip the view permission check
+      if (context
+          .getOperationContext()
+          .getOperationContextConfig()
+          .getSearchAuthorizationConfiguration()
+          .isEnabled()) {
+        AuthorizationUtils.checkViewPermissions(domainUrns, context);
+      }
+
       final Map<Urn, EntityResponse> entities =
           _entityClient.batchGetV2(
               Constants.DOMAIN_ENTITY_NAME,

@@ -7,6 +7,7 @@ import com.linkedin.common.VersionedUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.VersionedDataset;
@@ -77,6 +78,16 @@ public class VersionedDatasetType
   public List<DataFetcherResult<VersionedDataset>> batchLoad(
       @Nonnull final List<VersionedUrn> versionedUrns, @Nonnull final QueryContext context) {
     try {
+      // if search authorization is disabled, skip the view permission check
+      if (context
+          .getOperationContext()
+          .getOperationContextConfig()
+          .getSearchAuthorizationConfiguration()
+          .isEnabled()) {
+        AuthorizationUtils.checkViewPermissions(
+            versionedUrns.stream().map(VersionedUrn::getUrn).collect(Collectors.toList()), context);
+      }
+
       final Map<Urn, EntityResponse> datasetMap =
           _entityClient.batchGetVersionedV2(
               Constants.DATASET_ENTITY_NAME,

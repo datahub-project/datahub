@@ -1,10 +1,11 @@
 package com.linkedin.datahub.graphql.resolvers.lineage;
 
+import static com.datahub.authorization.AuthUtil.buildDisjunctivePrivilegeGroup;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
+import static com.linkedin.metadata.authorization.ApiGroup.LINEAGE;
+import static com.linkedin.metadata.authorization.ApiOperation.UPDATE;
 
-import com.datahub.authorization.ConjunctivePrivilegeGroup;
 import com.datahub.authorization.DisjunctivePrivilegeGroup;
-import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -19,7 +20,6 @@ import com.linkedin.metadata.service.LineageService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -244,15 +244,9 @@ public class UpdateLineageResolver implements DataFetcher<CompletableFuture<Bool
       @Nonnull final QueryContext context,
       @Nonnull final List<LineageEdge> edgesToAdd,
       @Nonnull final List<LineageEdge> edgesToRemove) {
-    final ConjunctivePrivilegeGroup allPrivilegesGroup =
-        new ConjunctivePrivilegeGroup(
-            ImmutableList.of(PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType()));
+
     DisjunctivePrivilegeGroup editLineagePrivileges =
-        new DisjunctivePrivilegeGroup(
-            ImmutableList.of(
-                allPrivilegesGroup,
-                new ConjunctivePrivilegeGroup(
-                    Collections.singletonList(PoliciesConfig.EDIT_LINEAGE_PRIVILEGE.getType()))));
+        buildDisjunctivePrivilegeGroup(PoliciesConfig.lookupAPIPrivilege(LINEAGE, UPDATE));
 
     for (LineageEdge edgeToAdd : edgesToAdd) {
       checkLineageEdgePrivileges(context, edgeToAdd, editLineagePrivileges);

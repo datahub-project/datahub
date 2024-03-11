@@ -2,8 +2,10 @@ package com.linkedin.datahub.graphql.types.aspect;
 
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.VersionedAspectKey;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.generated.Aspect;
 import com.linkedin.datahub.graphql.types.LoadableType;
 import com.linkedin.entity.EntityResponse;
@@ -46,6 +48,18 @@ public class AspectType implements LoadableType<Aspect, VersionedAspectKey> {
       @Nonnull List<VersionedAspectKey> keys, @Nonnull QueryContext context) throws Exception {
 
     try {
+
+      // if search authorization is disabled, skip the view permission check
+      if (context
+          .getOperationContext()
+          .getOperationContextConfig()
+          .getSearchAuthorizationConfiguration()
+          .isEnabled()) {
+        AuthorizationUtils.checkViewPermissions(
+            keys.stream().map(vkey -> UrnUtils.getUrn(vkey.getUrn())).collect(Collectors.toList()),
+            context);
+      }
+
       return keys.stream()
           .map(
               key -> {

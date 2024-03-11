@@ -1,10 +1,11 @@
 package com.linkedin.datahub.graphql.resolvers.policy;
 
-import static com.linkedin.datahub.graphql.resolvers.AuthUtils.*;
+import static com.datahub.authorization.AuthUtil.isAuthorized;
 
 import com.datahub.plugins.auth.authorization.Authorizer;
-import com.google.common.collect.ImmutableList;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.authorization.ApiOperation;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import javax.annotation.Nonnull;
 
@@ -14,9 +15,9 @@ public class PolicyAuthUtils {
     final Authorizer authorizer = context.getAuthorizer();
     final String principal = context.getActorUrn();
     return isAuthorized(
+        authorizer,
         principal,
-        ImmutableList.of(PoliciesConfig.MANAGE_POLICIES_PRIVILEGE.getType()),
-        authorizer);
+        PoliciesConfig.lookupEntityAPIPrivilege(Constants.POLICY_ENTITY_NAME, ApiOperation.MANAGE));
   }
 
   private PolicyAuthUtils() {}

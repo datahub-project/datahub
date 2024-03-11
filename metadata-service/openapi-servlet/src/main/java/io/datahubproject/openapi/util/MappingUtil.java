@@ -423,7 +423,7 @@ public class MappingUtil {
       Authorizer authorizer,
       String actorUrnStr,
       DisjunctivePrivilegeGroup orGroup) {
-    List<Optional<EntitySpec>> resourceSpecs =
+    List<EntitySpec> resourceSpecs =
         proposals.stream()
             .map(
                 proposal -> {
@@ -431,11 +431,10 @@ public class MappingUtil {
                       entityService.getEntityRegistry().getEntitySpec(proposal.getEntityType());
                   Urn entityUrn =
                       EntityKeyUtils.getUrnFromProposal(proposal, entitySpec.getKeyAspectSpec());
-                  return Optional.of(
-                      new EntitySpec(proposal.getEntityType(), entityUrn.toString()));
+                  return new EntitySpec(proposal.getEntityType(), entityUrn.toString());
                 })
             .collect(Collectors.toList());
-    return AuthUtil.isAuthorizedForResources(authorizer, actorUrnStr, resourceSpecs, orGroup);
+    return AuthUtil.isAuthorized(authorizer, actorUrnStr, orGroup, resourceSpecs);
   }
 
   public static Pair<String, Boolean> ingestProposal(

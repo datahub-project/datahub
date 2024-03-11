@@ -2,11 +2,11 @@ package com.linkedin.datahub.graphql.resolvers.load;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
+import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.AuthorizationConfiguration;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityLineageResult;
 import com.linkedin.datahub.graphql.generated.EntityType;
@@ -91,7 +91,10 @@ public class EntityLineageResultResolver
                 .forEach(
                     rel -> {
                       if (_authorizationConfiguration.getSearch().isEnabled()
-                          && !AuthorizationUtils.canViewEntity(rel.getEntity(), context)) {
+                          && !AuthUtil.canViewEntity(
+                              context.getAuthentication(),
+                              context.getAuthorizer(),
+                              rel.getEntity())) {
                         restrictedUrns.add(rel.getEntity());
                       }
                     });

@@ -87,8 +87,7 @@ public class OperationsController {
                 new ConjunctivePrivilegeGroup(
                     ImmutableList.of(PoliciesConfig.GET_ES_TASK_STATUS_PRIVILEGE.getType()))));
     if (restApiAuthorizationEnabled
-        && !AuthUtil.isAuthorizedForResources(
-            authorizerChain, actorUrnStr, List.of(java.util.Optional.empty()), orGroup)) {
+        && !AuthUtil.isAuthorized(authorizerChain, actorUrnStr, orGroup, List.of())) {
       return ResponseEntity.status(HttpStatus.FORBIDDEN)
           .body(String.format(actorUrnStr + " is not authorized to get ElasticSearch task status"));
     }
@@ -129,8 +128,7 @@ public class OperationsController {
                     ImmutableList.of(
                         PoliciesConfig.GET_TIMESERIES_INDEX_SIZES_PRIVILEGE.getType()))));
     if (restApiAuthorizationEnabled
-        && !AuthUtil.isAuthorizedForResources(
-            authorizerChain, actorUrnStr, List.of(java.util.Optional.empty()), orGroup)) {
+        && !AuthUtil.isAuthorized(authorizerChain, actorUrnStr, orGroup, List.of())) {
       return ResponseEntity.status(HttpStatus.FORBIDDEN)
           .body(String.format(actorUrnStr + " is not authorized to get timeseries index sizes"));
     }
@@ -229,8 +227,7 @@ public class OperationsController {
                 new ConjunctivePrivilegeGroup(
                     ImmutableList.of(PoliciesConfig.ES_EXPLAIN_QUERY_PRIVILEGE.getType()))));
     if (restApiAuthorizationEnabled
-        && !AuthUtil.isAuthorizedForResources(
-            authorizerChain, actorUrnStr, List.of(java.util.Optional.empty()), orGroup)) {
+        && !AuthUtil.isAuthorized(authorizerChain, actorUrnStr, orGroup, List.of())) {
       log.error("{} is not authorized to get timeseries index sizes", actorUrnStr);
       return ResponseEntity.status(HttpStatus.FORBIDDEN).body(null);
     }

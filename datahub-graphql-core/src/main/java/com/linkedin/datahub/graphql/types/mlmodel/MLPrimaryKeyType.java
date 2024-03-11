@@ -6,6 +6,7 @@ import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityType;
@@ -59,10 +60,20 @@ public class MLPrimaryKeyType implements SearchableEntityType<MLPrimaryKey, Stri
   @Override
   public List<DataFetcherResult<MLPrimaryKey>> batchLoad(
       final List<String> urns, @Nonnull final QueryContext context) throws Exception {
+
     final List<Urn> mlPrimaryKeyUrns =
         urns.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
 
     try {
+      // if search authorization is disabled, skip the view permission check
+      if (context
+          .getOperationContext()
+          .getOperationContextConfig()
+          .getSearchAuthorizationConfiguration()
+          .isEnabled()) {
+        AuthorizationUtils.checkViewPermissions(mlPrimaryKeyUrns, context);
+      }
+
       final Map<Urn, EntityResponse> mlPrimaryKeyMap =
           _entityClient.batchGetV2(
               ML_PRIMARY_KEY_ENTITY_NAME,

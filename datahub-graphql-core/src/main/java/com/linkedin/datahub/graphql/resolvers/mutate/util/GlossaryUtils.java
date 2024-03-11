@@ -12,11 +12,11 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.glossary.GlossaryNodeInfo;
 import com.linkedin.glossary.GlossaryTermInfo;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.authorization.Disjunctive;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.authorization.PoliciesConfig.Privilege;
 import com.linkedin.r2.RemoteInvocationException;
 import java.net.URISyntaxException;
-import java.util.Optional;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
@@ -33,7 +33,7 @@ public class GlossaryUtils {
    */
   public static boolean canManageGlossaries(@Nonnull QueryContext context) {
     return AuthorizationUtils.isAuthorized(
-        context, Optional.empty(), PoliciesConfig.MANAGE_GLOSSARIES_PRIVILEGE);
+        context, null, Disjunctive.disjoint(PoliciesConfig.MANAGE_GLOSSARIES_PRIVILEGE));
   }
 
   /**

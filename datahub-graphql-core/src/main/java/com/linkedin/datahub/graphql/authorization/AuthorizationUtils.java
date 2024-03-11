@@ -1,8 +1,10 @@
 package com.linkedin.datahub.graphql.authorization;
 
-import static com.linkedin.datahub.graphql.resolvers.AuthUtils.*;
+import static com.datahub.authorization.AuthUtil.canViewEntity;
 import static com.linkedin.metadata.Constants.*;
-import static com.linkedin.metadata.authorization.PoliciesConfig.VIEW_ENTITY_PRIVILEGES;
+import static com.linkedin.metadata.authorization.ApiGroup.ENTITY;
+import static com.linkedin.metadata.authorization.ApiOperation.DELETE;
+import static com.linkedin.metadata.authorization.ApiOperation.MANAGE;
 
 import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.ConjunctivePrivilegeGroup;
@@ -10,42 +12,44 @@ import com.datahub.authorization.DisjunctivePrivilegeGroup;
 import com.datahub.authorization.EntitySpec;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.google.common.collect.ImmutableList;
-import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.exception.AuthorizationException;
+import com.linkedin.metadata.authorization.Conjunctive;
+import com.linkedin.metadata.authorization.Disjunctive;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import java.time.Clock;
 import java.util.List;
-import java.util.Optional;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 public class AuthorizationUtils {
 
   private static final Clock CLOCK = Clock.systemUTC();
 
-  public static AuditStamp createAuditStamp(@Nonnull QueryContext context) {
-    return new AuditStamp()
-        .setTime(CLOCK.millis())
-        .setActor(UrnUtils.getUrn(context.getActorUrn()));
-  }
+  public static final ConjunctivePrivilegeGroup ALL_PRIVILEGES_GROUP =
+      new ConjunctivePrivilegeGroup(
+          ImmutableList.of(PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType()));
 
   public static boolean canManageUsersAndGroups(@Nonnull QueryContext context) {
     return isAuthorized(
-        context, Optional.empty(), PoliciesConfig.MANAGE_USERS_AND_GROUPS_PRIVILEGE);
+        context, null, Disjunctive.disjoint(PoliciesConfig.MANAGE_USERS_AND_GROUPS_PRIVILEGE));
   }
 
   public static boolean canManagePolicies(@Nonnull QueryContext context) {
-    return isAuthorized(context, Optional.empty(), PoliciesConfig.MANAGE_POLICIES_PRIVILEGE);
+    return isAuthorized(
+        context, null, PoliciesConfig.lookupEntityAPIPrivilege(POLICY_ENTITY_NAME, MANAGE));
   }
 
   public static boolean canGeneratePersonalAccessToken(@Nonnull QueryContext context) {
     return isAuthorized(
-        context, Optional.empty(), PoliciesConfig.GENERATE_PERSONAL_ACCESS_TOKENS_PRIVILEGE);
+        context,
+        null,
+        Disjunctive.disjoint(PoliciesConfig.GENERATE_PERSONAL_ACCESS_TOKENS_PRIVILEGE));
   }
 
   public static boolean canManageTokens(@Nonnull QueryContext context) {
-    return isAuthorized(context, Optional.empty(), PoliciesConfig.MANAGE_ACCESS_TOKENS);
+    return isAuthorized(context, null, Disjunctive.disjoint(PoliciesConfig.MANAGE_ACCESS_TOKENS));
   }
 
   /**
@@ -61,12 +65,12 @@ public class AuthorizationUtils {
                 new ConjunctivePrivilegeGroup(
                     ImmutableList.of(PoliciesConfig.MANAGE_DOMAINS_PRIVILEGE.getType()))));
 
-    return AuthorizationUtils.isAuthorized(
-        context.getAuthorizer(), context.getActorUrn(), orPrivilegeGroups);
+    return isAuthorized(context.getAuthorizer(), context.getActorUrn(), orPrivilegeGroups);
   }
 
   public static boolean canManageDomains(@Nonnull QueryContext context) {
-    return isAuthorized(context, Optional.empty(), PoliciesConfig.MANAGE_DOMAINS_PRIVILEGE);
+    return isAuthorized(
+        context, null, Disjunctive.disjoint(PoliciesConfig.MANAGE_DOMAINS_PRIVILEGE));
   }
 
   /**
@@ -82,24 +86,24 @@ public class AuthorizationUtils {
                 new ConjunctivePrivilegeGroup(
                     ImmutableList.of(PoliciesConfig.MANAGE_TAGS_PRIVILEGE.getType()))));
 
-    return AuthorizationUtils.isAuthorized(
-        context.getAuthorizer(), context.getActorUrn(), orPrivilegeGroups);
+    return isAuthorized(context.getAuthorizer(), context.getActorUrn(), orPrivilegeGroups);
   }
 
   public static boolean canManageTags(@Nonnull QueryContext context) {
-    return isAuthorized(context, Optional.empty(), PoliciesConfig.MANAGE_TAGS_PRIVILEGE);
+    return isAuthorized(context, null, Disjunctive.disjoint(PoliciesConfig.MANAGE_TAGS_PRIVILEGE));
   }
 
   public static boolean canDeleteEntity(@Nonnull Urn entityUrn, @Nonnull QueryContext context) {
-    return isAuthorized(
-        context,
-        Optional.of(new EntitySpec(entityUrn.getEntityType(), entityUrn.toString())),
-        PoliciesConfig.DELETE_ENTITY_PRIVILEGE);
+    return AuthUtil.isAuthorized(
+        context.getAuthorizer(),
+        context.getActorUrn(),
+        PoliciesConfig.lookupAPIPrivilege(ENTITY, DELETE),
+        new EntitySpec(entityUrn.getEntityType(), entityUrn.toString()));
   }
 
   public static boolean canManageUserCredentials(@Nonnull QueryContext context) {
     return isAuthorized(
-        context, Optional.empty(), PoliciesConfig.MANAGE_USER_CREDENTIALS_PRIVILEGE);
+        context, null, Disjunctive.disjoint(PoliciesConfig.MANAGE_USER_CREDENTIALS_PRIVILEGE));
   }
 
   public static boolean canEditGroupMembers(
@@ -111,7 +115,7 @@ public class AuthorizationUtils {
                 new ConjunctivePrivilegeGroup(
                     ImmutableList.of(PoliciesConfig.EDIT_GROUP_MEMBERS_PRIVILEGE.getType()))));
 
-    return AuthorizationUtils.isAuthorized(
+    return isAuthorized(
         context.getAuthorizer(),
         context.getActorUrn(),
         CORP_GROUP_ENTITY_NAME,
@@ -130,8 +134,7 @@ public class AuthorizationUtils {
                     ImmutableList.of(
                         PoliciesConfig.MANAGE_GLOBAL_ANNOUNCEMENTS_PRIVILEGE.getType()))));
 
-    return AuthorizationUtils.isAuthorized(
-        context.getAuthorizer(), context.getActorUrn(), orPrivilegeGroups);
+    return isAuthorized(context.getAuthorizer(), context.getActorUrn(), orPrivilegeGroups);
   }
 
   public static boolean canManageGlobalAnnouncements(@Nonnull QueryContext context) {
@@ -142,16 +145,16 @@ public class AuthorizationUtils {
                     ImmutableList.of(
                         PoliciesConfig.MANAGE_GLOBAL_ANNOUNCEMENTS_PRIVILEGE.getType()))));
 
-    return AuthorizationUtils.isAuthorized(
-        context.getAuthorizer(), context.getActorUrn(), orPrivilegeGroups);
+    return isAuthorized(context.getAuthorizer(), context.getActorUrn(), orPrivilegeGroups);
   }
 
   public static boolean canManageGlobalViews(@Nonnull QueryContext context) {
-    return isAuthorized(context, Optional.empty(), PoliciesConfig.MANAGE_GLOBAL_VIEWS);
+    return isAuthorized(context, null, Disjunctive.disjoint(PoliciesConfig.MANAGE_GLOBAL_VIEWS));
   }
 
   public static boolean canManageOwnershipTypes(@Nonnull QueryContext context) {
-    return isAuthorized(context, Optional.empty(), PoliciesConfig.MANAGE_GLOBAL_OWNERSHIP_TYPES);
+    return isAuthorized(
+        context, null, Disjunctive.disjoint(PoliciesConfig.MANAGE_GLOBAL_OWNERSHIP_TYPES));
   }
 
   public static boolean canEditEntityQueries(
@@ -191,37 +194,32 @@ public class AuthorizationUtils {
     return canEditEntityQueries(subjectUrns, context);
   }
 
-  public static boolean canViewEntity(@Nonnull Urn entityUrn, @Nonnull QueryContext context) {
-    final DisjunctivePrivilegeGroup orGroup =
-        new DisjunctivePrivilegeGroup(
-            ImmutableList.of(new ConjunctivePrivilegeGroup(VIEW_ENTITY_PRIVILEGES)));
+  /*
+   * Optionally check view permissions against a list of urns if the config option is enabled
+   */
+  public static void checkViewPermissions(@Nonnull List<Urn> urns, @Nonnull QueryContext context) {
 
-    final Authorizer authorizer = context.getAuthorizer();
-    final String actor = context.getActorUrn();
-    final String entityType = entityUrn.getEntityType();
-    final Optional<EntitySpec> resourceSpec =
-        Optional.of(new EntitySpec(entityType, entityUrn.toString()));
-
-    return AuthUtil.isAuthorized(authorizer, actor, resourceSpec, orGroup);
+    if (!canViewEntity(context.getAuthentication(), context.getAuthorizer(), urns)) {
+      throw new AuthorizationException("Unauthorized to view this entity");
+    }
   }
 
   public static boolean isAuthorized(
       @Nonnull QueryContext context,
-      @Nonnull Optional<EntitySpec> resourceSpec,
-      @Nonnull PoliciesConfig.Privilege privilege) {
+      @Nullable EntitySpec resourceSpec,
+      @Nonnull final Disjunctive<Conjunctive<PoliciesConfig.Privilege>> privileges) {
     final Authorizer authorizer = context.getAuthorizer();
     final String actor = context.getActorUrn();
-    final ConjunctivePrivilegeGroup andGroup =
-        new ConjunctivePrivilegeGroup(ImmutableList.of(privilege.getType()));
+
     return AuthUtil.isAuthorized(
-        authorizer, actor, resourceSpec, new DisjunctivePrivilegeGroup(ImmutableList.of(andGroup)));
+        authorizer, actor, AuthUtil.buildDisjunctivePrivilegeGroup(privileges), resourceSpec);
   }
 
   public static boolean isAuthorized(
       @Nonnull Authorizer authorizer,
       @Nonnull String actor,
       @Nonnull DisjunctivePrivilegeGroup privilegeGroup) {
-    return AuthUtil.isAuthorized(authorizer, actor, Optional.empty(), privilegeGroup);
+    return AuthUtil.isAuthorized(authorizer, actor, privilegeGroup, (EntitySpec) null);
   }
 
   public static boolean isAuthorized(
@@ -231,15 +229,15 @@ public class AuthorizationUtils {
       @Nonnull String resource,
       @Nonnull DisjunctivePrivilegeGroup privilegeGroup) {
     final EntitySpec resourceSpec = new EntitySpec(resourceType, resource);
-    return AuthUtil.isAuthorized(authorizer, actor, Optional.of(resourceSpec), privilegeGroup);
+    return AuthUtil.isAuthorized(authorizer, actor, privilegeGroup, resourceSpec);
   }
 
   public static boolean isViewDatasetUsageAuthorized(
       final Urn resourceUrn, final QueryContext context) {
     return isAuthorized(
         context,
-        Optional.of(new EntitySpec(resourceUrn.getEntityType(), resourceUrn.toString())),
-        PoliciesConfig.VIEW_DATASET_USAGE_PRIVILEGE);
+        new EntitySpec(resourceUrn.getEntityType(), resourceUrn.toString()),
+        Disjunctive.disjoint(PoliciesConfig.VIEW_DATASET_USAGE_PRIVILEGE));
   }
 
   private AuthorizationUtils() {}

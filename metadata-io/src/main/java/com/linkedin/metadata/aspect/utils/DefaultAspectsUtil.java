@@ -22,6 +22,7 @@ import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityUtils;
+import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.DataPlatformInstanceUtils;
@@ -48,6 +49,19 @@ public class DefaultAspectsUtil {
 
   public static final Set<ChangeType> SUPPORTED_TYPES =
       Set.of(ChangeType.UPSERT, ChangeType.CREATE, ChangeType.PATCH);
+
+  public static AspectsBatch withAdditionalChanges(
+      @Nonnull final AspectsBatch inputBatch,
+      @Nonnull EntityService<?> entityService,
+      boolean enableBrowseV2) {
+    List<BatchItem> itemsWithDefaults = new LinkedList<>(inputBatch.getItems());
+    itemsWithDefaults.addAll(
+        DefaultAspectsUtil.getAdditionalChanges(inputBatch, entityService, enableBrowseV2));
+    return AspectsBatchImpl.builder()
+        .aspectRetriever(inputBatch.getAspectRetriever())
+        .items(itemsWithDefaults)
+        .build();
+  }
 
   public static List<MCPItem> getAdditionalChanges(
       @Nonnull AspectsBatch batch, @Nonnull EntityService<?> entityService, boolean browsePathV2) {
@@ -86,7 +100,7 @@ public class DefaultAspectsUtil {
                   .map(
                       entry ->
                           ChangeItemImpl.ChangeItemImplBuilder.build(
-                              getProposalFromAspect(
+                              getProposalFromAspectForDefault(
                                   entry.getKey(), entry.getValue(), entityKeyAspect, templateItem),
                               templateItem.getAuditStamp(),
                               entityService))
@@ -102,7 +116,7 @@ public class DefaultAspectsUtil {
    * @param urn entity urn
    * @return a list of aspect name/aspect pairs to be written
    */
-  public static List<Pair<String, RecordTemplate>> generateDefaultAspects(
+  private static List<Pair<String, RecordTemplate>> generateDefaultAspects(
       @Nonnull EntityService<?> entityService,
       @Nonnull final Urn urn,
       @Nonnull Set<String> currentBatchAspectNames,
@@ -276,7 +290,7 @@ public class DefaultAspectsUtil {
     return null;
   }
 
-  private static MetadataChangeProposal getProposalFromAspect(
+  private static MetadataChangeProposal getProposalFromAspectForDefault(
       String aspectName,
       RecordTemplate aspect,
       RecordTemplate entityKeyAspect,
@@ -287,15 +301,10 @@ public class DefaultAspectsUtil {
     // Set net new fields
     proposal.setAspect(genericAspect);
     proposal.setAspectName(aspectName);
+    // already checked existence, default aspects should be changeType CREATE
+    proposal.setChangeType(ChangeType.CREATE);
 
     // Set fields determined from original
-    // Additional changes should never be set as PATCH, if a PATCH is coming across it should be an
-    // UPSERT
-    proposal.setChangeType(templateItem.getChangeType());
-    if (ChangeType.PATCH.equals(proposal.getChangeType())) {
-      proposal.setChangeType(ChangeType.UPSERT);
-    }
-
     if (templateItem.getSystemMetadata() != null) {
       proposal.setSystemMetadata(templateItem.getSystemMetadata());
     }

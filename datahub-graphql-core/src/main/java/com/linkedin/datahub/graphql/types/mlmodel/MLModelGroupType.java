@@ -8,6 +8,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
 import com.linkedin.datahub.graphql.generated.BrowsePath;
 import com.linkedin.datahub.graphql.generated.BrowseResults;
@@ -73,6 +74,15 @@ public class MLModelGroupType
         urns.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
 
     try {
+      // if search authorization is disabled, skip the view permission check
+      if (context
+          .getOperationContext()
+          .getOperationContextConfig()
+          .getSearchAuthorizationConfiguration()
+          .isEnabled()) {
+        AuthorizationUtils.checkViewPermissions(mlModelGroupUrns, context);
+      }
+
       final Map<Urn, EntityResponse> mlModelMap =
           _entityClient.batchGetV2(
               ML_MODEL_GROUP_ENTITY_NAME,

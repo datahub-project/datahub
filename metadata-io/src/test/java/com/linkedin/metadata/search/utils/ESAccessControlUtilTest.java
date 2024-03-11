@@ -39,8 +39,10 @@ public class ESAccessControlUtilTest {
   private static final Urn TEST_GROUP_A = UrnUtils.getUrn("urn:li:corpGroup:a");
   private static final Urn TEST_GROUP_B = UrnUtils.getUrn("urn:li:corpGroup:b");
   private static final Urn TEST_GROUP_C = UrnUtils.getUrn("urn:li:corpGroup:c");
-  private static final Urn TEST_USER_A = UrnUtils.getUrn("urn:li:corpUser:a");
-  private static final Urn TEST_USER_B = UrnUtils.getUrn("urn:li:corpUser:b");
+
+  // User A belongs to Groups A and C
+  private static final Urn TEST_USER_A = UrnUtils.getUrn("urn:li:corpuser:a");
+  private static final Urn TEST_USER_B = UrnUtils.getUrn("urn:li:corpuser:b");
   private static final Urn TECH_OWNER =
       UrnUtils.getUrn("urn:li:ownershipType:__system__technical_owner");
   private static final Urn BUS_OWNER =
@@ -58,6 +60,8 @@ public class ESAccessControlUtilTest {
           SYSTEM_AUTH,
           IndexConventionImpl.NO_PREFIX);
 
+  private static final String VIEW_ENTITY_PRIVILEGE = "VIEW_ENTITY";
+
   @Test
   public void testAllUserAllGroup() {
     OperationContext allUsers =
@@ -67,8 +71,7 @@ public class ESAccessControlUtilTest {
                     .setState(PoliciesConfig.ACTIVE_POLICY_STATE)
                     .setType(PoliciesConfig.METADATA_POLICY_TYPE)
                     .setActors(new DataHubActorFilter().setAllUsers(true))
-                    .setPrivileges(
-                        new StringArray(List.of(PoliciesConfig.VIEW_ENTITY_PRIVILEGE.getType())))));
+                    .setPrivileges(new StringArray(List.of(VIEW_ENTITY_PRIVILEGE)))));
     OperationContext allGroups =
         sessionWithPolicy(
             Set.of(
@@ -76,8 +79,7 @@ public class ESAccessControlUtilTest {
                     .setState(PoliciesConfig.ACTIVE_POLICY_STATE)
                     .setType(PoliciesConfig.METADATA_POLICY_TYPE)
                     .setActors(new DataHubActorFilter().setAllGroups(true))
-                    .setPrivileges(
-                        new StringArray(List.of(PoliciesConfig.VIEW_ENTITY_PRIVILEGE.getType())))));
+                    .setPrivileges(new StringArray(List.of(VIEW_ENTITY_PRIVILEGE)))));
 
     assertEquals(
         ESAccessControlUtil.buildAccessControlFilters(allUsers),
@@ -108,8 +110,7 @@ public class ESAccessControlUtilTest {
                                                 .setField("TYPE")
                                                 .setCondition(PolicyMatchCondition.EQUALS)
                                                 .setValues(new StringArray("dataset", "chart"))))))
-                    .setPrivileges(
-                        new StringArray(List.of(PoliciesConfig.VIEW_ENTITY_PRIVILEGE.getType())))));
+                    .setPrivileges(new StringArray(List.of(VIEW_ENTITY_PRIVILEGE)))));
     OperationContext resourceAllGroupsPolicy =
         sessionWithPolicy(
             Set.of(
@@ -127,8 +128,7 @@ public class ESAccessControlUtilTest {
                                                 .setField("TYPE")
                                                 .setCondition(PolicyMatchCondition.EQUALS)
                                                 .setValues(new StringArray("dataset", "chart"))))))
-                    .setPrivileges(
-                        new StringArray(List.of(PoliciesConfig.VIEW_ENTITY_PRIVILEGE.getType())))));
+                    .setPrivileges(new StringArray(List.of(VIEW_ENTITY_PRIVILEGE)))));
 
     assertEquals(
         ESAccessControlUtil.buildAccessControlFilters(resourceAllUsersPolicy),
@@ -177,8 +177,7 @@ public class ESAccessControlUtilTest {
                                                     new StringArray(
                                                         "urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.analytics.ShelterDogs,PROD)",
                                                         "urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.ecommerce.account,PROD)"))))))
-                    .setPrivileges(
-                        new StringArray(List.of(PoliciesConfig.VIEW_ENTITY_PRIVILEGE.getType())))));
+                    .setPrivileges(new StringArray(List.of(VIEW_ENTITY_PRIVILEGE)))));
     OperationContext resourceAllGroupsPolicy =
         sessionWithPolicy(
             Set.of(
@@ -199,8 +198,7 @@ public class ESAccessControlUtilTest {
                                                     new StringArray(
                                                         "urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.analytics.ShelterDogs,PROD)",
                                                         "urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.ecommerce.account,PROD)"))))))
-                    .setPrivileges(
-                        new StringArray(List.of(PoliciesConfig.VIEW_ENTITY_PRIVILEGE.getType())))));
+                    .setPrivileges(new StringArray(List.of(VIEW_ENTITY_PRIVILEGE)))));
 
     assertEquals(
         ESAccessControlUtil.buildAccessControlFilters(resourceAllUsersPolicy),
@@ -254,8 +252,7 @@ public class ESAccessControlUtilTest {
                                                 .setValues(
                                                     new StringArray(
                                                         "urn:li:tag:pii", "urn:li:tag:prod"))))))
-                    .setPrivileges(
-                        new StringArray(List.of(PoliciesConfig.VIEW_ENTITY_PRIVILEGE.getType())))));
+                    .setPrivileges(new StringArray(List.of(VIEW_ENTITY_PRIVILEGE)))));
     OperationContext resourceAllGroupsPolicy =
         sessionWithPolicy(
             Set.of(
@@ -275,8 +272,7 @@ public class ESAccessControlUtilTest {
                                                 .setValues(
                                                     new StringArray(
                                                         "urn:li:tag:pii", "urn:li:tag:prod"))))))
-                    .setPrivileges(
-                        new StringArray(List.of(PoliciesConfig.VIEW_ENTITY_PRIVILEGE.getType())))));
+                    .setPrivileges(new StringArray(List.of(VIEW_ENTITY_PRIVILEGE)))));
 
     assertEquals(
         ESAccessControlUtil.buildAccessControlFilters(resourceAllUsersPolicy),
@@ -325,8 +321,7 @@ public class ESAccessControlUtilTest {
                                                     new StringArray(
                                                         "urn:li:domain:f9229a0b-c5ad-47e7-9ff3-f4248c5cb634",
                                                         "urn:li:domain:7d64d0fa-66c3-445c-83db-3a324723daf8"))))))
-                    .setPrivileges(
-                        new StringArray(List.of(PoliciesConfig.VIEW_ENTITY_PRIVILEGE.getType())))));
+                    .setPrivileges(new StringArray(List.of(VIEW_ENTITY_PRIVILEGE)))));
     OperationContext resourceAllGroupsPolicy =
         sessionWithPolicy(
             Set.of(
@@ -347,8 +342,7 @@ public class ESAccessControlUtilTest {
                                                     new StringArray(
                                                         "urn:li:domain:f9229a0b-c5ad-47e7-9ff3-f4248c5cb634",
                                                         "urn:li:domain:7d64d0fa-66c3-445c-83db-3a324723daf8"))))))
-                    .setPrivileges(
-                        new StringArray(List.of(PoliciesConfig.VIEW_ENTITY_PRIVILEGE.getType())))));
+                    .setPrivileges(new StringArray(List.of(VIEW_ENTITY_PRIVILEGE)))));
 
     assertEquals(
         ESAccessControlUtil.buildAccessControlFilters(resourceAllUsersPolicy),
@@ -400,8 +394,7 @@ public class ESAccessControlUtilTest {
                                                 .setField("UNKNOWN FIELD")
                                                 .setCondition(PolicyMatchCondition.EQUALS)
                                                 .setValues(new StringArray("dataset", "chart"))))))
-                    .setPrivileges(
-                        new StringArray(List.of(PoliciesConfig.VIEW_ENTITY_PRIVILEGE.getType())))));
+                    .setPrivileges(new StringArray(List.of(VIEW_ENTITY_PRIVILEGE)))));
     OperationContext resourceAllGroupsPolicy =
         sessionWithPolicy(
             Set.of(
@@ -419,8 +412,7 @@ public class ESAccessControlUtilTest {
                                                 .setField("UNKNOWN FIELD")
                                                 .setCondition(PolicyMatchCondition.EQUALS)
                                                 .setValues(new StringArray("dataset", "chart"))))))
-                    .setPrivileges(
-                        new StringArray(List.of(PoliciesConfig.VIEW_ENTITY_PRIVILEGE.getType())))));
+                    .setPrivileges(new StringArray(List.of(VIEW_ENTITY_PRIVILEGE)))));
 
     assertEquals(
         ESAccessControlUtil.buildAccessControlFilters(resourceAllUsersPolicy),
@@ -442,8 +434,7 @@ public class ESAccessControlUtilTest {
                     .setState(PoliciesConfig.ACTIVE_POLICY_STATE)
                     .setType(PoliciesConfig.METADATA_POLICY_TYPE)
                     .setActors(new DataHubActorFilter().setResourceOwners(true))
-                    .setPrivileges(
-                        new StringArray(List.of(PoliciesConfig.VIEW_ENTITY_PRIVILEGE.getType())))));
+                    .setPrivileges(new StringArray(List.of(VIEW_ENTITY_PRIVILEGE)))));
     assertEquals(
         ESAccessControlUtil.buildAccessControlFilters(ownerNoGroupsNoType),
         Optional.of(
@@ -452,9 +443,9 @@ public class ESAccessControlUtilTest {
                     QueryBuilders.termsQuery(
                         "owners.keyword",
                         List.of(
-                            TEST_USER_A.toString().toLowerCase(),
-                            TEST_GROUP_A.toString().toLowerCase(),
-                            TEST_GROUP_C.toString().toLowerCase())))
+                            TEST_USER_A.toString(),
+                            TEST_GROUP_A.toString(),
+                            TEST_GROUP_C.toString())))
                 .minimumShouldMatch(1)),
         "Expected user filter for owners without group filter");
 
@@ -468,8 +459,7 @@ public class ESAccessControlUtilTest {
                         new DataHubActorFilter()
                             .setResourceOwners(true)
                             .setGroups(new UrnArray(TEST_GROUP_A)))
-                    .setPrivileges(
-                        new StringArray(List.of(PoliciesConfig.VIEW_ENTITY_PRIVILEGE.getType())))));
+                    .setPrivileges(new StringArray(List.of(VIEW_ENTITY_PRIVILEGE)))));
     assertEquals(
         ESAccessControlUtil.buildAccessControlFilters(ownerWithGroupsNoType),
         Optional.of(
@@ -478,9 +468,9 @@ public class ESAccessControlUtilTest {
                     QueryBuilders.termsQuery(
                         "owners.keyword",
                         List.of(
-                            TEST_USER_A.toString().toLowerCase(),
-                            TEST_GROUP_A.toString().toLowerCase(),
-                            TEST_GROUP_C.toString().toLowerCase())))
+                            TEST_USER_A.toString(),
+                            TEST_GROUP_A.toString(),
+                            TEST_GROUP_C.toString())))
                 .minimumShouldMatch(1)),
         "Expected user AND group filter for owners");
   }
@@ -494,9 +484,10 @@ public class ESAccessControlUtilTest {
                     .setState(PoliciesConfig.ACTIVE_POLICY_STATE)
                     .setType(PoliciesConfig.METADATA_POLICY_TYPE)
                     .setActors(
-                        new DataHubActorFilter().setResourceOwnersTypes(new UrnArray(BUS_OWNER)))
-                    .setPrivileges(
-                        new StringArray(List.of(PoliciesConfig.VIEW_ENTITY_PRIVILEGE.getType())))));
+                        new DataHubActorFilter()
+                            .setResourceOwners(true)
+                            .setResourceOwnersTypes(new UrnArray(BUS_OWNER)))
+                    .setPrivileges(new StringArray(List.of(VIEW_ENTITY_PRIVILEGE)))));
     assertEquals(
         ESAccessControlUtil.buildAccessControlFilters(ownerTypeBusinessNoUserNoGroup),
         Optional.of(
@@ -509,9 +500,9 @@ public class ESAccessControlUtilTest {
                                     + OwnerTypeMap.encodeFieldName(BUS_OWNER.toString())
                                     + ".keyword",
                                 List.of(
-                                    TEST_USER_A.toString().toLowerCase(),
-                                    TEST_GROUP_A.toString().toLowerCase(),
-                                    TEST_GROUP_C.toString().toLowerCase())))
+                                    TEST_USER_A.toString(),
+                                    TEST_GROUP_A.toString(),
+                                    TEST_GROUP_C.toString())))
                         .minimumShouldMatch(1))
                 .minimumShouldMatch(1)),
         "Expected user filter for business owner via user or group urn");
@@ -524,10 +515,10 @@ public class ESAccessControlUtilTest {
                     .setType(PoliciesConfig.METADATA_POLICY_TYPE)
                     .setActors(
                         new DataHubActorFilter()
+                            .setResourceOwners(true)
                             .setResourceOwnersTypes(new UrnArray(BUS_OWNER))
                             .setUsers(new UrnArray(List.of(TEST_USER_A, TEST_USER_B))))
-                    .setPrivileges(
-                        new StringArray(List.of(PoliciesConfig.VIEW_ENTITY_PRIVILEGE.getType())))));
+                    .setPrivileges(new StringArray(List.of(VIEW_ENTITY_PRIVILEGE)))));
     assertEquals(
         ESAccessControlUtil.buildAccessControlFilters(ownerTypeBusinessMultiUserNoGroup),
         Optional.of(
@@ -540,9 +531,9 @@ public class ESAccessControlUtilTest {
                                     + OwnerTypeMap.encodeFieldName(BUS_OWNER.toString())
                                     + ".keyword",
                                 List.of(
-                                    TEST_USER_A.toString().toLowerCase(),
-                                    TEST_GROUP_A.toString().toLowerCase(),
-                                    TEST_GROUP_C.toString().toLowerCase())))
+                                    TEST_USER_A.toString(),
+                                    TEST_GROUP_A.toString(),
+                                    TEST_GROUP_C.toString())))
                         .minimumShouldMatch(1))
                 .minimumShouldMatch(1)),
         "Expected user filter for `business owner` by owner user/group A urn (excluding other user/group B)");
@@ -555,10 +546,10 @@ public class ESAccessControlUtilTest {
                     .setType(PoliciesConfig.METADATA_POLICY_TYPE)
                     .setActors(
                         new DataHubActorFilter()
+                            .setResourceOwners(true)
                             .setResourceOwnersTypes(new UrnArray(BUS_OWNER, TECH_OWNER))
                             .setGroups(new UrnArray(TEST_GROUP_A, TEST_GROUP_B)))
-                    .setPrivileges(
-                        new StringArray(List.of(PoliciesConfig.VIEW_ENTITY_PRIVILEGE.getType())))));
+                    .setPrivileges(new StringArray(List.of(VIEW_ENTITY_PRIVILEGE)))));
     assertEquals(
         ESAccessControlUtil.buildAccessControlFilters(ownerWithGroupsBusTechMultiGroup),
         Optional.of(
@@ -571,18 +562,18 @@ public class ESAccessControlUtilTest {
                                     + OwnerTypeMap.encodeFieldName(BUS_OWNER.toString())
                                     + ".keyword",
                                 List.of(
-                                    TEST_USER_A.toString().toLowerCase(),
-                                    TEST_GROUP_A.toString().toLowerCase(),
-                                    TEST_GROUP_C.toString().toLowerCase())))
+                                    TEST_USER_A.toString(),
+                                    TEST_GROUP_A.toString(),
+                                    TEST_GROUP_C.toString())))
                         .should(
                             QueryBuilders.termsQuery(
                                 "ownerTypes."
                                     + OwnerTypeMap.encodeFieldName(TECH_OWNER.toString())
                                     + ".keyword",
                                 List.of(
-                                    TEST_USER_A.toString().toLowerCase(),
-                                    TEST_GROUP_A.toString().toLowerCase(),
-                                    TEST_GROUP_C.toString().toLowerCase())))
+                                    TEST_USER_A.toString(),
+                                    TEST_GROUP_A.toString(),
+                                    TEST_GROUP_C.toString())))
                         .minimumShouldMatch(1))
                 .minimumShouldMatch(1)),
         "Expected filter for business owner or technical owner by group A (excluding other group B and owner privilege)");
@@ -595,11 +586,11 @@ public class ESAccessControlUtilTest {
                     .setType(PoliciesConfig.METADATA_POLICY_TYPE)
                     .setActors(
                         new DataHubActorFilter()
+                            .setResourceOwners(true)
                             .setResourceOwnersTypes(new UrnArray(BUS_OWNER, TECH_OWNER))
                             .setUsers(new UrnArray(List.of(TEST_USER_A, TEST_USER_B)))
                             .setGroups(new UrnArray(TEST_GROUP_A, TEST_GROUP_B)))
-                    .setPrivileges(
-                        new StringArray(List.of(PoliciesConfig.VIEW_ENTITY_PRIVILEGE.getType())))));
+                    .setPrivileges(new StringArray(List.of(VIEW_ENTITY_PRIVILEGE)))));
     assertEquals(
         ESAccessControlUtil.buildAccessControlFilters(ownerWithMultiUserMultiGroupsBusTech),
         Optional.of(
@@ -612,18 +603,18 @@ public class ESAccessControlUtilTest {
                                     + OwnerTypeMap.encodeFieldName(BUS_OWNER.toString())
                                     + ".keyword",
                                 List.of(
-                                    TEST_USER_A.toString().toLowerCase(),
-                                    TEST_GROUP_A.toString().toLowerCase(),
-                                    TEST_GROUP_C.toString().toLowerCase())))
+                                    TEST_USER_A.toString(),
+                                    TEST_GROUP_A.toString(),
+                                    TEST_GROUP_C.toString())))
                         .should(
                             QueryBuilders.termsQuery(
                                 "ownerTypes."
                                     + OwnerTypeMap.encodeFieldName(TECH_OWNER.toString())
                                     + ".keyword",
                                 List.of(
-                                    TEST_USER_A.toString().toLowerCase(),
-                                    TEST_GROUP_A.toString().toLowerCase(),
-                                    TEST_GROUP_C.toString().toLowerCase())))
+                                    TEST_USER_A.toString(),
+                                    TEST_GROUP_A.toString(),
+                                    TEST_GROUP_C.toString())))
                         .minimumShouldMatch(1))
                 .minimumShouldMatch(1)),
         "Expected filter for business owner or technical owner by user A and group A (excluding other group B and owner privilege)");

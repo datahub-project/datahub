@@ -1,14 +1,20 @@
 package io.datahubproject.openapi.v2.controller;
 
-import static io.datahubproject.openapi.v2.utils.ControllerUtil.checkAuthorized;
+import static com.linkedin.metadata.authorization.ApiGroup.ENTITY;
+import static com.linkedin.metadata.authorization.ApiOperation.CREATE;
+import static com.linkedin.metadata.authorization.ApiOperation.DELETE;
+import static com.linkedin.metadata.authorization.ApiOperation.EXISTS;
+import static com.linkedin.metadata.authorization.ApiOperation.READ;
+import static com.linkedin.metadata.authorization.ApiOperation.SEARCH;
+import static com.linkedin.metadata.authorization.ApiOperation.UPDATE;
 
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
+import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.AuthorizerChain;
 import com.datahub.util.RecordUtils;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.ByteString;
@@ -38,6 +44,7 @@ import com.linkedin.metadata.utils.SearchUtil;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.openapi.exception.UnauthorizedException;
 import io.datahubproject.openapi.v2.models.GenericEntity;
 import io.datahubproject.openapi.v2.models.GenericScrollResult;
 import io.swagger.v3.oas.annotations.Operation;
@@ -81,7 +88,6 @@ public class EntityController {
   @Autowired private SearchService searchService;
   @Autowired private EntityService<?> entityService;
   @Autowired private AuthorizerChain authorizationChain;
-  @Autowired private boolean restApiAuthorizationEnabled;
   @Autowired private ObjectMapper objectMapper;
 
   @Qualifier("systemOperationContext")
@@ -105,15 +111,14 @@ public class EntityController {
       throws URISyntaxException {
 
     EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
-
     Authentication authentication = AuthenticationContext.getAuthentication();
-    if (restApiAuthorizationEnabled) {
-      checkAuthorized(
-          authorizationChain,
-          authentication.getActor(),
-          entitySpec,
-          ImmutableList.of(PoliciesConfig.GET_ENTITY_PRIVILEGE.getType()));
+
+    if (!AuthUtil.isAPIAuthorized(
+        authentication, authorizationChain, PoliciesConfig.lookupAPIPrivilege(ENTITY, SEARCH))) {
+      throw new UnauthorizedException(
+          authentication.getActor().toUrnStr() + " is unauthorized to " + SEARCH + "  entities.");
     }
+
     OperationContext opContext =
         OperationContext.asSession(
             systemOperationContext, authorizationChain, authentication, true);
@@ -131,6 +136,15 @@ public class EntityController {
             scrollId,
             null,
             count);
+
+    if (!AuthUtil.isAPIAuthorizedResult(
+        authentication,
+        authorizationChain,
+        PoliciesConfig.lookupAPIPrivilege(ENTITY, READ),
+        result)) {
+      throw new UnauthorizedException(
+          authentication.getActor().toUrnStr() + " is unauthorized to " + READ + " entities.");
+    }
 
     return ResponseEntity.ok(
         GenericScrollResult.<GenericEntity>builder()
@@ -150,15 +164,11 @@ public class EntityController {
           Boolean withSystemMetadata)
       throws URISyntaxException {
 
-    if (restApiAuthorizationEnabled) {
-      Authentication authentication = AuthenticationContext.getAuthentication();
-      EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
-      checkAuthorized(
-          authorizationChain,
-          authentication.getActor(),
-          entitySpec,
-          entityUrn,
-          ImmutableList.of(PoliciesConfig.GET_ENTITY_PRIVILEGE.getType()));
+    Authentication authentication = AuthenticationContext.getAuthentication();
+    if (!AuthUtil.isAPIAuthorized(
+        authentication, authorizationChain, PoliciesConfig.lookupAPIPrivilege(ENTITY, READ))) {
+      throw new UnauthorizedException(
+          authentication.getActor().toUrnStr() + " is unauthorized to " + READ + " entities.");
     }
 
     return ResponseEntity.of(
@@ -175,15 +185,11 @@ public class EntityController {
   public ResponseEntity<Object> headEntity(
       @PathVariable("entityName") String entityName, @PathVariable("entityUrn") String entityUrn) {
 
-    if (restApiAuthorizationEnabled) {
-      Authentication authentication = AuthenticationContext.getAuthentication();
-      EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
-      checkAuthorized(
-          authorizationChain,
-          authentication.getActor(),
-          entitySpec,
-          entityUrn,
-          ImmutableList.of(PoliciesConfig.GET_ENTITY_PRIVILEGE.getType()));
+    Authentication authentication = AuthenticationContext.getAuthentication();
+    if (!AuthUtil.isAPIAuthorized(
+        authentication, authorizationChain, PoliciesConfig.lookupAPIPrivilege(ENTITY, EXISTS))) {
+      throw new UnauthorizedException(
+          authentication.getActor().toUrnStr() + " is unauthorized to " + EXISTS + " entities.");
     }
 
     return exists(UrnUtils.getUrn(entityUrn), null)
@@ -202,15 +208,11 @@ public class EntityController {
       @PathVariable("aspectName") String aspectName)
       throws URISyntaxException {
 
-    if (restApiAuthorizationEnabled) {
-      Authentication authentication = AuthenticationContext.getAuthentication();
-      EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
-      checkAuthorized(
-          authorizationChain,
-          authentication.getActor(),
-          entitySpec,
-          entityUrn,
-          ImmutableList.of(PoliciesConfig.GET_ENTITY_PRIVILEGE.getType()));
+    Authentication authentication = AuthenticationContext.getAuthentication();
+    if (!AuthUtil.isAPIAuthorized(
+        authentication, authorizationChain, PoliciesConfig.lookupAPIPrivilege(ENTITY, READ))) {
+      throw new UnauthorizedException(
+          authentication.getActor().toUrnStr() + " is unauthorized to " + READ + " entities.");
     }
 
     return ResponseEntity.of(
@@ -229,15 +231,11 @@ public class EntityController {
       @PathVariable("entityUrn") String entityUrn,
       @PathVariable("aspectName") String aspectName) {
 
-    if (restApiAuthorizationEnabled) {
-      Authentication authentication = AuthenticationContext.getAuthentication();
-      EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
-      checkAuthorized(
-          authorizationChain,
-          authentication.getActor(),
-          entitySpec,
-          entityUrn,
-          ImmutableList.of(PoliciesConfig.GET_ENTITY_PRIVILEGE.getType()));
+    Authentication authentication = AuthenticationContext.getAuthentication();
+    if (!AuthUtil.isAPIAuthorized(
+        authentication, authorizationChain, PoliciesConfig.lookupAPIPrivilege(ENTITY, EXISTS))) {
+      throw new UnauthorizedException(
+          authentication.getActor().toUrnStr() + " is unauthorized to " + EXISTS + " entities.");
     }
 
     return exists(UrnUtils.getUrn(entityUrn), aspectName)
@@ -253,14 +251,11 @@ public class EntityController {
 
     EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
 
-    if (restApiAuthorizationEnabled) {
-      Authentication authentication = AuthenticationContext.getAuthentication();
-      checkAuthorized(
-          authorizationChain,
-          authentication.getActor(),
-          entitySpec,
-          entityUrn,
-          ImmutableList.of(PoliciesConfig.DELETE_ENTITY_PRIVILEGE.getType()));
+    Authentication authentication = AuthenticationContext.getAuthentication();
+    if (!AuthUtil.isAPIAuthorized(
+        authentication, authorizationChain, PoliciesConfig.lookupAPIPrivilege(ENTITY, DELETE))) {
+      throw new UnauthorizedException(
+          authentication.getActor().toUrnStr() + " is unauthorized to " + DELETE + " entities.");
     }
 
     entityService.deleteAspect(entityUrn, entitySpec.getKeyAspectName(), Map.of(), true);
@@ -274,15 +269,11 @@ public class EntityController {
       @PathVariable("entityUrn") String entityUrn,
       @PathVariable("aspectName") String aspectName) {
 
-    if (restApiAuthorizationEnabled) {
-      Authentication authentication = AuthenticationContext.getAuthentication();
-      EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
-      checkAuthorized(
-          authorizationChain,
-          authentication.getActor(),
-          entitySpec,
-          entityUrn,
-          ImmutableList.of(PoliciesConfig.DELETE_ENTITY_PRIVILEGE.getType()));
+    Authentication authentication = AuthenticationContext.getAuthentication();
+    if (!AuthUtil.isAPIAuthorized(
+        authentication, authorizationChain, PoliciesConfig.lookupAPIPrivilege(ENTITY, DELETE))) {
+      throw new UnauthorizedException(
+          authentication.getActor().toUrnStr() + " is unauthorized to " + DELETE + " entities.");
     }
 
     entityService.deleteAspect(entityUrn, aspectName, Map.of(), true);
@@ -305,13 +296,10 @@ public class EntityController {
     EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
     Authentication authentication = AuthenticationContext.getAuthentication();
 
-    if (restApiAuthorizationEnabled) {
-      checkAuthorized(
-          authorizationChain,
-          authentication.getActor(),
-          entitySpec,
-          entityUrn,
-          ImmutableList.of(PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType()));
+    if (!AuthUtil.isAPIAuthorized(
+        authentication, authorizationChain, PoliciesConfig.lookupAPIPrivilege(ENTITY, CREATE))) {
+      throw new UnauthorizedException(
+          authentication.getActor().toUrnStr() + " is unauthorized to " + CREATE + " entities.");
     }
 
     AspectSpec aspectSpec = entitySpec.getAspectSpec(aspectName);
@@ -364,14 +352,10 @@ public class EntityController {
 
     EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
     Authentication authentication = AuthenticationContext.getAuthentication();
-
-    if (restApiAuthorizationEnabled) {
-      checkAuthorized(
-          authorizationChain,
-          authentication.getActor(),
-          entitySpec,
-          entityUrn,
-          ImmutableList.of(PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType()));
+    if (!AuthUtil.isAPIAuthorized(
+        authentication, authorizationChain, PoliciesConfig.lookupAPIPrivilege(ENTITY, UPDATE))) {
+      throw new UnauthorizedException(
+          authentication.getActor().toUrnStr() + " is unauthorized to " + UPDATE + " entities.");
     }
 
     RecordTemplate currentValue =
