@@ -51,6 +51,13 @@ from datahub.metadata.schema_classes import (
     OwnershipTypeClass,
 )
 
+from datahub.ingestion.source.datahub_reporting.datahub_form_reporting import (
+    QuestionStatus,
+    FormStatus,
+    FormData,
+    FormReportingRow,
+)
+
 # Some urn generation functions
 
 
@@ -313,51 +320,6 @@ class FakeAssetData(FakeDataModel):
                 yield mcp
 
 
-class FormStatus(str, Enum):
-    NOT_STARTED = "not_started"
-    IN_PROGRESS = "in_progress"
-    COMPLETED = "complete"
-
-
-class QuestionStatus(str, Enum):
-    Assigned = "not_started"
-    Completed = "complete"
-    In_Progress = "in_progress"
-
-
-class FormType(str, Enum):
-    DOCUMENTATION = "documentation"
-    VERIFICATION = "verification"
-
-
-class FormReportingRow(BaseModel):
-    form_id: str
-    form_assigned_date: date
-    form_completed_date: Optional[date]
-    form_status: FormStatus
-    form_type: FormType
-    assignee_urn: str
-    asset_urn: str
-    platform: str
-    platform_instance: str
-    domain: str
-    subdomain: str
-    asset_verified: Optional[bool]
-    question_id: int
-    question_status: QuestionStatus
-    question_completed_date: Optional[date]
-    snapshot_date: date
-
-
-class FormData:
-
-    def get_data(self) -> Iterable[FormReportingRow]:
-        yield from []
-
-    def to_mcps(self) -> Iterable[MetadataChangeProposalWrapper]:
-        yield from []
-
-
 class FakeFormData(FakeDataModel, FormData):
 
     num_forms: int = 1  # just doing one form for now
@@ -393,7 +355,7 @@ class FakeFormData(FakeDataModel, FormData):
             self.fake_asset_data._initialize_random_generators()
             self.random_generator_initialized = True
 
-    def get_data(self) -> Iterable[Dict[str, Any]]:
+    def get_data(self) -> Iterable[FormReportingRow]:
         """
         Generate data in the form of
         Form    Question            Entity  Platform    Domain  Subdomain
@@ -405,7 +367,7 @@ class FakeFormData(FakeDataModel, FormData):
         else:
             yield from self._generate_from_previous_data()
 
-    def _generate_from_previous_data(self) -> Iterable[Dict[str, Any]]:
+    def _generate_from_previous_data(self) -> Iterable[FormReportingRow]:
         # TODO: add logic to use previous form data to generate new data
         # For now, just generate new data
         yield from self._generate_new_data()
@@ -439,7 +401,7 @@ class FakeFormData(FakeDataModel, FormData):
 
         return random_date.date()
 
-    def _generate_new_data(self) -> Iterable[Dict[str, Any]]:
+    def _generate_new_data(self) -> Iterable[FormReportingRow]:
         fake_asset_data = self.fake_asset_data
 
         for asset in fake_asset_data.get_data():
@@ -495,22 +457,21 @@ class FakeFormData(FakeDataModel, FormData):
 
                     # assignment start date is 1st of the month, but a
                     # random month before today
-                    row = {
-                        "form_urn": make_form_urn(form_id),
-                        "form_type": form_type,
-                        "form_created_date": form_creation_date,
-                        "form_assigned_date": assignment_start_date,
-                        "form_completed_date": None,
-                        "form_status": form_status,
-                        "form_type": form_type,
+                    row = FormReportingRow(
+                        form_urn=make_form_urn(form_id),
+                        form_type=form_type,
+                        form_assigned_date=assignment_start_date,
+                        form_completed_date=None,
+                        form_status=form_status,
+                        form_type=form_type,
                         # question-level details
-                        "question_id": question_id,
-                        "question_status": (
+                        question_id=str(question_id),
+                        question_status=(
                             QuestionStatus.Completed
                             if question_id < num_questions_filled
                             else None
                         ),
-                        "question_completed_date": (
+                        question_completed_date=(
                             assignment_start_date
                             + timedelta(
                                 days=random.randint(
@@ -520,65 +481,56 @@ class FakeFormData(FakeDataModel, FormData):
                             if question_id < num_questions_filled
                             else None
                         ),
-                        "assignee_urn": None,
-                        "asset_urn": dataset_urn,
-                        "platform_urn": make_platform_urn(platform),
-                        "platform_instance_urn": (
+                        assignee_urn=None,
+                        asset_urn=dataset_urn,
+                        platform_urn=make_platform_urn(platform),
+                        platform_instance_urn=(
                             make_dataplatform_instance_urn(
                                 platform=platform, instance=instance
                             )
                             if instance
                             else None
                         ),
-                        "domain_urn": make_domain_urn(domain) if domain else None,
-                        "parent_domain_urn": (
+                        domain_urn=make_domain_urn(domain) if domain else None,
+                        parent_domain_urn=(
                             make_domain_urn(parent_domain) if parent_domain else None
                         ),
-                        "snapshot_date": self.today_date,
-                        "asset_verified": asset_verified,
-                    }
+                        snapshot_date=self.today_date,
+                        asset_verified=asset_verified,
+                    )
                     if num_questions_filled >= self.num_questions:
-                        row.update(
-                            {
-                                "form_completed_date": assignment_start_date
+                        row.form_completed_date = assignment_start_date
                                 + timedelta(
                                     days=random.randint(
                                         0,
                                         (self.today_date - assignment_start_date).days,
                                     )
                                 )
-                            }
-                        )
                     for owner in asset["owners"]:
-                        row.update({"assignee_urn": owner})
+                        row.assignee_urn = owner
                         yield row
 
     def get_question_id_and_status(
-        self, row: Dict[str, Any]
+        self, row: FormReportingRow
     ) -> Tuple[int, QuestionStatus]:
-        question_id = row["question_id"]
-        question_status = row["question_status"]
-        question_completed_date = row["question_completed_date"]
+        question_id = row.question_id
+        question_status = row.question_status
+        question_completed_date = row.question_completed_date
         if question_status == QuestionStatus.Completed:
             return (question_id, QuestionStatus.Completed, question_completed_date)
         else:
             return (question_id, QuestionStatus.In_Progress, question_completed_date)
 
     def update_current_asset(
-        self, current_asset: Tuple[str, Dict[str, _Aspect]], row: Dict[str, Any]
+        self, current_asset: Tuple[str, Dict[str, _Aspect]], row: FormReportingRow
     ):
         # update current asset information with the latest row
-        (form_id, form_status) = (row["form_urn"], row["form_status"])
+        (form_id, form_status) = (row.form_urn, row.form_status)
         form_urn = make_form_urn(form_id)
         midnight = time(0, 0)
         form_created_auditstamp = AuditStampClass(
             actor="urn:li:corpuser:datahub",
-            time=int(
-                datetime.combine(
-                    date=row["form_created_date"], time=midnight
-                ).timestamp()
-                * 1000
-            ),
+            time=1609459200000,   # A dummy value representing 01-01-2021
         )
         forms_aspect: FormsClass = current_asset[1]["forms"]
         structured_properties_aspect: StructuredPropertiesClass = current_asset[1][
