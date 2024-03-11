@@ -442,11 +442,9 @@ function tryGetExpectedRangeFromFieldAssertion(fieldAssertionInfo: FieldAssertio
 }
 
 function tryGetExpectedRangeFromSQLAssertion(sqlAssertionInfo: SqlAssertionInfo, maybePreviousResult?: number): AssertionExpectedRange {
-    if (!sqlAssertionInfo.changeType) {
-        return tryGetExpectedRangeFromAssertionAgainstTotals(sqlAssertionInfo)
-    }
-
-    return tryGetExpectedRangeFromAssertionAgainstChanges(sqlAssertionInfo, sqlAssertionInfo.changeType, maybePreviousResult)
+    return sqlAssertionInfo.changeType
+        ? tryGetExpectedRangeFromAssertionAgainstChanges(sqlAssertionInfo, sqlAssertionInfo.changeType, maybePreviousResult)
+        : tryGetExpectedRangeFromAssertionAgainstTotals(sqlAssertionInfo)
 }
 
 function tryGetExpectedRangeFromVolumeAssertion(volumeAssertionInfo: VolumeAssertionInfo, maybePreviousRowCount?: number): AssertionExpectedRange {
@@ -457,16 +455,20 @@ function tryGetExpectedRangeFromVolumeAssertion(volumeAssertionInfo: VolumeAsser
             result = tryGetExpectedRangeFromAssertionAgainstTotals(volumeAssertionInfo.rowCountTotal)
             break;
         }
+        case VolumeAssertionType.RowCountChange:
+            result = tryGetExpectedRangeFromAssertionAgainstChanges(volumeAssertionInfo.rowCountChange, volumeAssertionInfo.rowCountChange?.type, maybePreviousRowCount)
+            break;
+
+        /*
+        NOTE: the incrementing cases are no longer officially supported
         case VolumeAssertionType.IncrementingSegmentRowCountTotal: {
             result = tryGetExpectedRangeFromAssertionAgainstTotals(volumeAssertionInfo.incrementingSegmentRowCountTotal)
             break;
         }
-        case VolumeAssertionType.RowCountChange:
-            result = tryGetExpectedRangeFromAssertionAgainstChanges(volumeAssertionInfo.rowCountChange, volumeAssertionInfo.rowCountChange?.type, maybePreviousRowCount)
-            break;
         case VolumeAssertionType.IncrementingSegmentRowCountChange:
             result = tryGetExpectedRangeFromAssertionAgainstChanges(volumeAssertionInfo.incrementingSegmentRowCountChange, volumeAssertionInfo.incrementingSegmentRowCountChange?.type, maybePreviousRowCount)
             break;
+        */
         default:
             break;
     }
