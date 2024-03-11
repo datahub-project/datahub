@@ -16,7 +16,12 @@ from datahub.configuration.common import (
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.ingestion.api.common import RecordEnvelope, WorkUnit
-from datahub.ingestion.api.sink import Sink, SinkReport, WriteCallback
+from datahub.ingestion.api.sink import (
+    NoopWriteCallback,
+    Sink,
+    SinkReport,
+    WriteCallback,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DatahubClientConfig
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
@@ -203,6 +208,17 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
                 write_callback.on_success(record_envelope, success_metadata={})
             except Exception as e:
                 write_callback.on_failure(record_envelope, e, failure_metadata={})
+
+    def emit_async(
+        self,
+        item: Union[
+            MetadataChangeEvent, MetadataChangeProposal, MetadataChangeProposalWrapper
+        ],
+    ) -> None:
+        return self.write_record_async(
+            RecordEnvelope(item, metadata={}),
+            NoopWriteCallback(),
+        )
 
     def close(self):
         self.executor.shutdown()

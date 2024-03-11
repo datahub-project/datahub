@@ -1,3 +1,4 @@
+import contextlib
 import enum
 import functools
 import json
@@ -12,6 +13,7 @@ from typing import (
     Any,
     Dict,
     Iterable,
+    Iterator,
     List,
     Optional,
     Tuple,
@@ -61,6 +63,7 @@ from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.urns.urn import Urn, guess_entity_type
 
 if TYPE_CHECKING:
+    from datahub.ingestion.sink.datahub_rest import DatahubRestSink
     from datahub.ingestion.source.state.entity_removal_state import (
         GenericCheckpointState,
     )
@@ -72,6 +75,7 @@ if TYPE_CHECKING:
 
 
 logger = logging.getLogger(__name__)
+_MISSING_SERVER_ID = "missing"
 _GRAPH_DUMMY_RUN_ID = "__datahub-graph-client"
 
 
@@ -138,7 +142,7 @@ class DataHubGraph(DatahubRestEmitter):
             disable_ssl_verification=self.config.disable_ssl_verification,
         )
 
-        self.server_id = "missing"
+        self.server_id = _MISSING_SERVER_ID
 
     def test_connection(self) -> None:
         super().test_connection()
@@ -147,15 +151,15 @@ class DataHubGraph(DatahubRestEmitter):
         from datahub.telemetry.telemetry import telemetry_instance
 
         if not telemetry_instance.enabled:
-            self.server_id = "missing"
+            self.server_id = _MISSING_SERVER_ID
             return
         try:
             client_id: Optional[TelemetryClientIdClass] = self.get_aspect(
                 "urn:li:telemetry:clientId", TelemetryClientIdClass
             )
-            self.server_id = client_id.clientId if client_id else "missing"
+            self.server_id = client_id.clientId if client_id else _MISSING_SERVER_ID
         except Exception as e:
-            self.server_id = "missing"
+            self.server_id = _MISSING_SERVER_ID
             logger.debug(f"Failed to get server id due to {e}")
 
     @classmethod
@@ -198,6 +202,34 @@ class DataHubGraph(DatahubRestEmitter):
     def _post_generic(self, url: str, payload_dict: Dict) -> Dict:
         return self._send_restli_request("POST", url, json=payload_dict)
 
+    @contextlib.contextmanager
+    def make_rest_sink(
+        self, run_id: str = _GRAPH_DUMMY_RUN_ID
+    ) -> Iterator["DatahubRestSink"]:
+        from datahub.ingestion.api.common import PipelineContext
+        from datahub.ingestion.sink.datahub_rest import (
+            DatahubRestSink,
+            DatahubRestSinkConfig,
+            SyncOrAsync,
+        )
+
+        # This is a bit convoluted - this DataHubGraph class is a subclass of DatahubRestEmitter,
+        # but initializing the rest sink creates another rest emitter.
+        # TODO: We should refactor out the multithreading functionality of the sink
+        # into a separate class that can be used by both the sink and the graph client
+        # e.g. a DatahubBulkRestEmitter that both the sink and the graph client use.
+        sink_config = DatahubRestSinkConfig(
+            **self.config.dict(), mode=SyncOrAsync.ASYNC
+        )
+
+        with DatahubRestSink(PipelineContext(run_id=run_id), sink_config) as sink:
+            yield sink
+        if sink.report.failures:
+            raise OperationalError(
+                f"Failed to emit {len(sink.report.failures)} records",
+                info=sink.report.as_obj(),
+            )
+
     def emit_all(
         self,
         items: Iterable[
@@ -211,35 +243,9 @@ class DataHubGraph(DatahubRestEmitter):
     ) -> None:
         """Emit all items in the iterable using multiple threads."""
 
-        from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
-        from datahub.ingestion.api.workunit import MetadataWorkUnit
-        from datahub.ingestion.run.pipeline import LoggingCallback
-        from datahub.ingestion.sink.datahub_rest import (
-            DatahubRestSink,
-            DatahubRestSinkConfig,
-            SyncOrAsync,
-        )
-
-        # This is a bit convoluted - this DataHubGraph class is a subclass of DatahubRestEmitter,
-        # but initializing the rest sink creates another rest emitter.
-        # TODO: We should refactor out the multithreading functionality of the sink
-        # into a separate class that can be used by both the sink and the graph client.
-        sink_config = DatahubRestSinkConfig(
-            **self.config.dict(), mode=SyncOrAsync.ASYNC
-        )
-
-        write_callback = LoggingCallback(f"{self.__class__.__name__}.emit_all")
-        with DatahubRestSink(PipelineContext(run_id=run_id), sink_config) as sink:
+        with self.make_rest_sink(run_id=run_id) as sink:
             for item in items:
-                sink.write_record_async(
-                    RecordEnvelope(
-                        item,
-                        metadata={
-                            "workunit_id": MetadataWorkUnit.generate_workunit_id(item)
-                        },
-                    ),
-                    write_callback,
-                )
+                sink.emit_async(item)
         if sink.report.failures:
             raise OperationalError(
                 f"Failed to emit {len(sink.report.failures)} records",
