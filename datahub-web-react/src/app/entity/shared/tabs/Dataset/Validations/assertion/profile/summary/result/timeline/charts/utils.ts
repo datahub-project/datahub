@@ -1,6 +1,6 @@
 import { AssertionInfo, AssertionResultType, AssertionRunEvent, AssertionType, Maybe } from "../../../../../../../../../../../../types.generated";
 import { VALUES_OVER_TIME_ASSERTION_TYPES } from "../../../shared/constants";
-import { tryGetExpectedRangeFromAssertionRunEvent } from "../../../shared/resultUtils";
+import { tryGetExpectedRangeFromAssertionRunEvent } from "../../../shared/resultExtractionUtils";
 import { AssertionChartType } from "./types";
 
 export const ACCENT_COLOR_HEX = '#4050E7'

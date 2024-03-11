@@ -9,12 +9,12 @@ import { toLocalDateTimeString, toRelativeTimeString } from '../../../../../../.
 import { getFormattedTimeString } from '../timeline/utils';
 import {
     ResultStatusType,
-    applyOpacityToHexColor,
     getFormattedReasonText,
     getFormattedResultText,
-} from '../../shared/resultUtils';
+} from '../../shared/resultMessageUtils';
 import { getResultColor } from '../../../../../assertionUtils';
 import { AssertionResultPopover } from '../../../shared/result/AssertionResultPopover';
+import { applyOpacityToHexColor } from '../../../../../../../../../../shared/styleUtils';
 
 const Container = styled.div<{ highlightColor?: string }>`
     display: flex;
