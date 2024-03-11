@@ -6,18 +6,16 @@ import { ClockCircleOutlined } from '@ant-design/icons';
 
 import {
     Assertion,
-    AssertionResult,
     AssertionResultType,
     AssertionRunEvent,
 } from '../../../../../../../../../../types.generated';
-import { AssertionDescription } from '../../summary/AssertionDescription';
 import { AssertionResultPill } from '../../summary/shared/AssertionResultPill';
 import { PrimaryButton } from '../../../builder/details/PrimaryButton';
 import { isExternalAssertion } from '../isExternalAssertion';
 import { ProviderSummarySection } from '../../summary/schedule/ProviderSummarySection';
 import { ANTD_GRAY } from '../../../../../../../constants';
 import { toReadableLocalDateTimeString } from '../timeUtils';
-import { ResultStatusType, getDetailedErrorMessage, getFormattedReasonText } from '../../summary/shared/resultMessageUtils';
+import { ResultStatusType, getDetailedErrorMessage, getFormattedExpectedResultText, getFormattedReasonText } from '../../summary/shared/resultMessageUtils';
 
 const HeaderRow = styled.div`
     display: flex;
@@ -26,18 +24,19 @@ const HeaderRow = styled.div`
     margin-bottom: 4px;
 `;
 
-const Title = styled.div`
-    flex: 1;
-    font-size: 16px;
-    font-weight: 600;
-    overflow: hidden;
-    > div {
-        overflow: hidden;
-        white-space: nowrap;
-        text-overflow: ellipsis;
-    }
-    margin-right: 20px;
-`;
+// NOTE: removed the title for now as the assertion's current title may not accurately describe the assertion that ran at this point in history
+// const Title = styled.div`
+//     flex: 1;
+//     font-size: 16px;
+//     font-weight: 600;
+//     overflow: hidden;
+//     > div {
+//         overflow: hidden;
+//         white-space: nowrap;
+//         text-overflow: ellipsis;
+//     }
+//     margin-right: 20px;
+// `;
 
 const Actions = styled.div`
     display: flex;
@@ -107,7 +106,7 @@ export const AssertionResultPopoverContent = ({
     const hasReason = !!reasonText;
 
     // Context
-    const expectedText = undefined; // TODO For us.
+    const expectedText = run ? getFormattedExpectedResultText(run) : undefined;
     const hasContext = !!expectedText;
 
     // Error

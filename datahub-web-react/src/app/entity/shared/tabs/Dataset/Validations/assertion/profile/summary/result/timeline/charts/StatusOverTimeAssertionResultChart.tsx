@@ -27,7 +27,7 @@ type Props = {
 };
 
 
-const CHART_HORIZ_MARGIN = 16;
+const CHART_HORIZ_MARGIN = 36;
 const CHART_AXIS_BOTTOM_HEIGHT = 40;
 
 /**
@@ -63,7 +63,7 @@ export const StatusOverTimeAssertionResultChart = ({ data, timeRange, chartDimen
                         markerWidth='6'
                         markerHeight='6'
                     >
-                        <path d="M0,0 L0,6 L6,3 z" fill={ACCENT_COLOR_HEX} />
+                        <path d="M0,0 L0,6 L5,3 z" fill={ACCENT_COLOR_HEX} />
                     </marker>
                 </defs>
                 <Group left={CHART_HORIZ_MARGIN / 2}>
@@ -131,7 +131,7 @@ export const StatusOverTimeAssertionResultChart = ({ data, timeRange, chartDimen
                                         top={yOffset}
                                         fill={fillColor}
                                         stroke='white'
-                                        strokeWidth={4}
+                                        strokeWidth={2}
                                         size={80}
                                         filter='drop-shadow(0px 1px 2.5px rgb(0 0 0 / 0.1))'
                                     />

@@ -1,9 +1,10 @@
-import { Assertion, AssertionResultType, AssertionRunEvent, AssertionType, FieldAssertionType, SqlAssertionType } from "../../../../../../../../../../types.generated";
+import { Assertion, AssertionResultType, AssertionRunEvent, AssertionType, FieldAssertionType, FreshnessAssertionScheduleType, SqlAssertionType } from "../../../../../../../../../../types.generated";
 import { formatNumberWithoutAbbreviation } from "../../../../../../../../../shared/formatNumber";
 import { toLocalDateString, toLocalTimeString } from "../../../../../../../../../shared/time/timeUtils";
 import { getResultErrorMessage } from "../../../../assertionUtils";
 import { getFieldMetricLabel } from "../../../builder/steps/field/utils";
 import { tryGetAbsoluteVolumeAssertionNumericalResult, tryGetActualUpdatedTimestampFromAssertionResult, tryGetFieldMetricAssertionNumericalResult, tryGetFieldValueAssertionNumericalResult, tryGetPreviousSqlAssertionNumericalResult, tryGetPreviousVolumeAssertionNumericalResult, tryGetSqlAssertionNumericalResult } from "./resultExtractionUtils";
+import { getCronAsText } from '../../../../acrylUtils';
 
 export const getFormattedResultText = (result?: AssertionResultType) => {
     if (result === undefined) {
@@ -114,11 +115,11 @@ const getFormattedReasonTextForFreshnessAssertion = (_: Assertion, run: Assertio
     const formattedDate = (actualTimestamp && toLocalDateString(actualTimestamp)) || undefined;
     if (result === AssertionResultType.Success) {
         if (formattedTime) {
-            return `Table was updated within the expected timeframe at ${formattedTime} on ${formattedDate}.`;
+            return `Dataset was updated at ${formattedTime} on ${formattedDate}.`;
         }
-        return `The table was updated within the expected timeframe.`;
+        return `The dataset was updated within the expected timeframe.`;
     }
-    return `No table updates occurred within the expected timeframe.`;
+    return `No dataset updates occurred within the expected timeframe.`;
 };
 
 const getFormattedReasonTextForAbsoluteVolumeAssertion = (_: Assertion, run: AssertionRunEvent) => {
@@ -201,6 +202,60 @@ export const getFormattedReasonText = (assertion: Assertion, run: AssertionRunEv
             return getFormattedReasonTextForDefaultAssertion(assertion, run);
         default:
             return 'No reason provided';
+    }
+};
+
+
+const getFormattedExpectedTextForFreshnessAssertion = (run: AssertionRunEvent): string | undefined => {
+    const info = run.result?.assertion?.freshnessAssertion
+    if (!info) return undefined;
+    switch (info.schedule.type) {
+        case FreshnessAssertionScheduleType.Cron: {
+            if (!info.schedule.cron) return undefined;
+            const humanReadableCronStr = getCronAsText(info.schedule.cron.cron).text
+            const maybeTimeZoneStr = info.schedule.cron.timezone ? ` (${info.schedule.cron.timezone})` : ``;
+            const maybeWindowOffsetStr = info.schedule.cron.windowStartOffsetMs ? ` with a window offset of ${info.schedule.cron.windowStartOffsetMs} millis` : ``;
+            return `Expected dataset to update before the assertion ran ${humanReadableCronStr}${maybeTimeZoneStr}${maybeWindowOffsetStr}`;
+        }
+        case FreshnessAssertionScheduleType.FixedInterval: {
+            if (!info.schedule.fixedInterval) return undefined;
+            return `Expected dataset to update within the last ${info.schedule.fixedInterval.multiple} ${info.schedule.fixedInterval.unit.valueOf().toLowerCase()}${info.schedule.fixedInterval.multiple === 1 ? '' : 's'}`;
+        }
+        default:
+            return undefined;
+    }
+}
+
+const getFormattedExpectedTextForVolumeAssertion = (_: AssertionRunEvent): string | undefined => {
+    return undefined;
+}
+
+const getFormattedExpectedTextForFieldAssertion = (_: AssertionRunEvent): string | undefined => {
+    return undefined;
+}
+
+const getFormattedExpectedTextForSqlAssertion = (_: AssertionRunEvent): string | undefined => {
+    return undefined;
+}
+
+const getFormattedExpectedTextForDefaultAssertion = (_: AssertionRunEvent): string | undefined => {
+    return undefined;
+}
+
+export const getFormattedExpectedResultText = (_: AssertionRunEvent): string | undefined => {
+    switch (run.result?.assertion?.type) {
+        case AssertionType.Freshness:
+            return getFormattedExpectedTextForFreshnessAssertion(run);
+        case AssertionType.Volume:
+            return getFormattedExpectedTextForVolumeAssertion(run);
+        case AssertionType.Field:
+            return getFormattedExpectedTextForFieldAssertion(run);
+        case AssertionType.Sql:
+            return getFormattedExpectedTextForSqlAssertion(run);
+        case AssertionType.Dataset:
+            return getFormattedExpectedTextForDefaultAssertion(run);
+        default:
+            return undefined;
     }
 };
 
