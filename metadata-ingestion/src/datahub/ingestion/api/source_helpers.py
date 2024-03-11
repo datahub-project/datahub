@@ -25,12 +25,14 @@ from datahub.metadata.schema_classes import (
     BrowsePathsV2Class,
     ChangeTypeClass,
     ContainerClass,
+    DatasetPropertiesClass,
     DatasetUsageStatisticsClass,
     MetadataChangeEventClass,
     MetadataChangeProposalClass,
     StatusClass,
     TimeWindowSizeClass,
 )
+from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.telemetry import telemetry
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 from datahub.utilities.urns.tag_urn import TagUrn
@@ -56,6 +58,22 @@ def auto_workunit(
             yield MetadataWorkUnit(id=f"{item.proposedSnapshot.urn}/mce", mce=item)
         else:
             yield item.as_workunit()
+
+
+def create_dataset_props_patch_builder(
+    dataset_urn: str,
+    dataset_properties: DatasetPropertiesClass,
+) -> DatasetPatchBuilder:
+    """Creates a patch builder with a table's or view's attributes and dataset properties"""
+    patch_builder = DatasetPatchBuilder(dataset_urn)
+    patch_builder.set_display_name(dataset_properties.name)
+    patch_builder.set_description(dataset_properties.description)
+    patch_builder.set_created(dataset_properties.created)
+    patch_builder.set_last_modified(dataset_properties.lastModified)
+    patch_builder.set_qualified_name(dataset_properties.qualifiedName)
+    patch_builder.add_custom_properties(dataset_properties.customProperties)
+
+    return patch_builder
 
 
 def auto_status_aspect(
@@ -356,9 +374,9 @@ def auto_empty_dataset_usage_statistics(
                     userCounts=[],
                     fieldCounts=[],
                 ),
-                changeType=ChangeTypeClass.CREATE
-                if all_buckets
-                else ChangeTypeClass.UPSERT,
+                changeType=(
+                    ChangeTypeClass.CREATE if all_buckets else ChangeTypeClass.UPSERT
+                ),
             ).as_workunit()
 
 
