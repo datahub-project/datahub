@@ -27,7 +27,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import javax.annotation.Nonnull;
-import javax.inject.Singleton;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -44,7 +43,6 @@ import org.springframework.stereotype.Component;
  */
 @Slf4j
 @Component
-@Singleton
 @Import({
   EntityRegistryFactory.class,
   IncidentServiceFactory.class,
