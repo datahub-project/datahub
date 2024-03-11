@@ -58,6 +58,14 @@ def parse_statement(
     return statement
 
 
+def _expression_to_string(
+    expression: sqlglot.exp.ExpOrStr, dialect: DialectOrStr
+) -> str:
+    if isinstance(expression, str):
+        return expression
+    return expression.sql(dialect=get_dialect(dialect))
+
+
 def generalize_query(expression: sqlglot.exp.ExpOrStr, dialect: DialectOrStr) -> str:
     """
     Generalize/normalize a SQL query.
@@ -134,7 +142,9 @@ def get_query_fingerprint_debug(
         expression_sql = None
 
     fingerprint = generate_hash(
-        expression_sql if expression_sql is not None else expression
+        expression_sql
+        if expression_sql is not None
+        else _expression_to_string(expression, dialect=dialect)
     )
     return fingerprint, expression_sql
 
@@ -184,7 +194,7 @@ def try_format_query(expression: sqlglot.exp.ExpOrStr, dialect: DialectOrStr) ->
         return expression.sql(dialect=dialect, pretty=True)
     except Exception as e:
         logger.debug("Failed to format query: %s", e)
-        return expression
+        return _expression_to_string(expression, dialect=dialect)
 
 
 def detach_ctes(
