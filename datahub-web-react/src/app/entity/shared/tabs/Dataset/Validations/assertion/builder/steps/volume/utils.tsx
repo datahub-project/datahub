@@ -370,30 +370,31 @@ export const getDefaultVolumeParameters = (operator: AssertionStdOperator) => {
     }
 };
 
-export const getVolumeSourceTypeOptions = (platformUrn: string, connectionForEntityExists: boolean) => {
+export const getVolumeSourceTypeOptions = (platformUrn: string, connectionForEntityExists: boolean): DatasetVolumeSourceType[] => {
     return connectionForEntityExists
-        ? PLATFORM_ASSERTION_CONFIGS[platformUrn].sourceTypes
+        ? (PLATFORM_ASSERTION_CONFIGS[platformUrn]?.sourceTypes ?? [DatasetVolumeSourceType.DatahubDatasetProfile])
         : [DatasetVolumeSourceType.DatahubDatasetProfile];
 };
 
-export const getVolumeSourceTypeDetails = (platformUrn: string, sourceType: DatasetVolumeSourceType) => {
+export const getVolumeSourceTypeDetails = (platformUrn: string, sourceType: DatasetVolumeSourceType): { description: string } | undefined => {
+    // TODO: type 'sourceTypeDetails', for now this function's type just returns {description} to fix a bug and get things rolling
     return PLATFORM_ASSERTION_CONFIGS[platformUrn]?.sourceTypeDetails[sourceType];
 };
 
 export const getDefaultVolumeSourceType = (platformUrn: string, connectionForEntityExists: boolean) => {
     return connectionForEntityExists
-        ? PLATFORM_ASSERTION_CONFIGS[platformUrn].defaultSourceType
+        ? (PLATFORM_ASSERTION_CONFIGS[platformUrn]?.defaultSourceType ?? DatasetVolumeSourceType.DatahubDatasetProfile)
         : DatasetVolumeSourceType.DatahubDatasetProfile;
 };
 
 export const getDefaultDatasetVolumeAssertionParametersState = (
     platformUrn: string,
-    connectionForEntityExists: boolean,
+    monitorsConnectionForEntityExists: boolean,
 ) => {
     return {
         type: AssertionEvaluationParametersType.DatasetVolume,
         datasetVolumeParameters: {
-            sourceType: getDefaultVolumeSourceType(platformUrn, connectionForEntityExists),
+            sourceType: getDefaultVolumeSourceType(platformUrn, monitorsConnectionForEntityExists),
         },
     };
 };

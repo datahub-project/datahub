@@ -142,7 +142,7 @@ export const ASSERTION_INFO = [
         entityTypes: [EntityType.Dataset],
         enabled: true,
         visible: true,
-        requiresConnection: false,
+        requiresConnectionSupportedByMonitors: false,
     },
     {
         name: 'Custom',
@@ -152,7 +152,7 @@ export const ASSERTION_INFO = [
         entityTypes: [EntityType.Dataset],
         enabled: true,
         visible: true,
-        requiresConnection: true,
+        requiresConnectionSupportedByMonitors: true,
     },
     {
         name: 'Other',
@@ -321,10 +321,10 @@ export const getNextScheduleEvaluationTimeMs = (schedule: CronSchedule) => {
     }
 };
 
-export const getAssertionTypesForEntityType = (entityType: EntityType, connectionForEntityExists: boolean) => {
+export const getAssertionTypesForEntityType = (entityType: EntityType, monitorsConnectionForEntityExists: boolean) => {
     return ASSERTION_INFO.filter((type) => type.entityTypes.includes(entityType)).map((type) => ({
         ...type,
-        enabled: type.enabled && (!type.requiresConnection || connectionForEntityExists),
+        enabled: type.enabled && (!type.requiresConnectionSupportedByMonitors || monitorsConnectionForEntityExists),
     }));
 };
 
