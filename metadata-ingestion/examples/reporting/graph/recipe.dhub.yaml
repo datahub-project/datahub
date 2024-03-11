@@ -1,0 +1,15 @@
+source:
+  type: datahub-reporting-extract-graph
+  config:
+    server:
+      server: http://localhost:8080
+      token: ""
+    search_index:
+      host: "http://localhost"
+      port: 9002
+    extract_graph_store:
+      dataset_name: "graph_raw"
+      dataset_urn: "urn:li:dataset:(urn:li:dataPlatform:acryl,reporting.extract.graph_raw,PROD)"
+      bucket_prefix: "s3://reporting-experiments/graph_raw"
+      dataset_registration_spec:
+        soft_delete: false
