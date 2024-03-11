@@ -29,6 +29,11 @@ from datahub.ingestion.source.snowflake.snowflake_config import (
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
 from tests.integration.snowflake.common import FROZEN_TIME, default_query_results
 from tests.test_helpers import mce_helpers
+from datahub.ingestion.glossary.classifier import (
+    ClassificationConfig,
+    DynamicTypedClassifierConfig,
+)
+from datahub.ingestion.glossary.datahub_classifier import DataHubClassifierConfig
 
 pytestmark = pytest.mark.integration_batch_2
 
@@ -134,9 +139,6 @@ def test_snowflake_basic(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
                         ),
                         classification=ClassificationConfig(
                             enabled=True,
-                            column_pattern=AllowDenyPattern(
-                                allow=[".*col_1$", ".*col_2$", ".*col_3$"]
-                            ),
                             classifiers=[
                                 DynamicTypedClassifierConfig(
                                     type="datahub", config=datahub_classifier_config

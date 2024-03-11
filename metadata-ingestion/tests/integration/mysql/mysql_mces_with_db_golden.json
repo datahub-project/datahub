@@ -215,17 +215,6 @@
                                 },
                                 "nativeDataType": "VARCHAR(length=50)",
                                 "recursive": false,
-                                "glossaryTerms": {
-                                    "terms": [
-                                        {
-                                            "urn": "urn:li:glossaryTerm:Email_Address"
-                                        }
-                                    ],
-                                    "auditStamp": {
-                                        "time": 1586847600000,
-                                        "actor": "urn:li:corpuser:datahub"
-                                    }
-                                },
                                 "isPartOfKey": false
                             },
                             {

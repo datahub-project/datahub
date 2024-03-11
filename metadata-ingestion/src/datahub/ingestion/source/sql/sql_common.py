@@ -830,7 +830,6 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                     ),
                 )
         except Exception as e:
-            breakpoint()
             logger.debug(
                 f"Failed to classify table columns for {dataset_name} due to error -> {e}",
                 exc_info=e,

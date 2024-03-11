@@ -1,5 +1,6 @@
 from abc import abstractmethod
 from collections import defaultdict
+import logging
 from typing import Any, Dict, List, Union
 
 import sqlalchemy as sa
@@ -8,6 +9,8 @@ from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.engine.row import LegacyRow
 
 from datahub.ingestion.api.closeable import Closeable
+
+logger: logging.Logger = logging.getLogger(__name__)
 
 
 class DataReader(Closeable):
@@ -120,13 +123,12 @@ class SqlAlchemyTableDataReader(DataReader):
         else:
             query = sa.select([sa.text("*")]).select_from(table).limit(sample_size)
         query_results = self.engine.execute(query)
-        # Not ideal - creates a parallel structure. Can we use pandas here ?
+
+        # Not ideal - creates a parallel structure in column_values. Can we use pandas here ?
         for row in query_results.fetchall():
             if isinstance(row, LegacyRow):
                 for col, col_value in row.items():
                     column_values[col].append(col_value)
-            else:
-                breakpoint()
 
         return column_values
 
