@@ -242,7 +242,7 @@ const getFormattedExpectedTextForDefaultAssertion = (_: AssertionRunEvent): stri
     return undefined;
 }
 
-export const getFormattedExpectedResultText = (_: AssertionRunEvent): string | undefined => {
+export const getFormattedExpectedResultText = (run: AssertionRunEvent): string | undefined => {
     switch (run.result?.assertion?.type) {
         case AssertionType.Freshness:
             return getFormattedExpectedTextForFreshnessAssertion(run);
