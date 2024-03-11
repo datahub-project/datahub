@@ -10,8 +10,8 @@ import {
     GlobalOutlined,
 } from '@ant-design/icons';
 import { Link } from 'react-router-dom';
-import { Button, Dropdown, Menu, Tooltip } from 'antd';
-import { useAppConfig, useBusinessAttributesFlag } from '../../useAppConfig';
+import { Button, Dropdown, Tooltip } from 'antd';
+import { useAppConfig } from '../../useAppConfig';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import { HOME_PAGE_INGESTION_ID } from '../../onboarding/config/HomePageOnboardingConfig';
 import { useToggleEducationStepIdsAllowList } from '../../onboarding/useToggleEducationStepIdsAllowList';

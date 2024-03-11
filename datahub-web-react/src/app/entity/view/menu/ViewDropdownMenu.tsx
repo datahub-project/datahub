@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import styled from 'styled-components';
 import { useApolloClient } from '@apollo/client';
 import { MoreOutlined } from '@ant-design/icons';
-import { Dropdown, Menu, message, Modal } from 'antd';
+import { Dropdown, message, Modal } from 'antd';
 import { DataHubView, DataHubViewType } from '../../../../types.generated';
 import { useUserContext } from '../../../context/useUserContext';
 import { useUpdateCorpUserViewsSettingsMutation } from '../../../../graphql/user.generated';

@@ -1,6 +1,7 @@
 import React from 'react';
 import { UserDefaultViewIcon } from '../../shared/UserDefaultViewIcon';
 import { IconItemTitle } from './IconItemTitle';
+import { MenuItemStyle } from './styledComponent';
 
 type Props = {
     key: string;
@@ -12,12 +13,12 @@ type Props = {
  */
 export const SetUserDefaultItem = ({ key, onClick }: Props) => {
     return (
-        <div key={key} onClick={onClick} data-testid="view-dropdown-set-user-default">
+        <MenuItemStyle key={key} onClick={onClick} data-testid="view-dropdown-set-user-default">
             <IconItemTitle
                 tip="Make this View your personal default. You will have this View applied automatically."
                 title="Make my default"
                 icon={<UserDefaultViewIcon />}
             />
-        </div>
+        </MenuItemStyle>
     );
 };
