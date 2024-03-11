@@ -121,15 +121,23 @@ module.exports = {
                 },
                 {
                 type: 'html',
-                value: '<div style="font-size:0.875rem; padding: 0.25rem 0.5rem;"><b>Archived versions</b></div>',
+                value: '<div class="dropdown__link"><b>Archived versions</b></div>',
                 },
                 {
-                href: "https://docs-website-irpoe2osc-acryldata.vercel.app/docs/features",
-                label: "0.11.0",
+                value: `
+                   <a class="dropdown__link" href="https://docs-website-irpoe2osc-acryldata.vercel.app/docs/features">0.11.0
+                   <svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg>
+                   </a>
+                   `,
+                type: "html",
                 },
                 {
-                href: "https://docs-website-1gv2yzn9d-acryldata.vercel.app/docs/features",
-                label: "0.10.5",
+                value: `
+                   <a class="dropdown__link" href="https://docs-website-1gv2yzn9d-acryldata.vercel.app/docs/features">0.10.5
+                   <svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg>
+                   </a>
+                   `,
+                type: "html",
                 },
             ],
         },
