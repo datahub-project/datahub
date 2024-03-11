@@ -1,6 +1,7 @@
 import React from 'react';
 import { GlobalDefaultViewIcon } from '../../shared/GlobalDefaultViewIcon';
 import { IconItemTitle } from './IconItemTitle';
+import { MenuItemStyle } from './styledComponent';
 
 type Props = {
     key: string;
@@ -12,12 +13,12 @@ type Props = {
  */
 export const SetGlobalDefaultItem = ({ key, onClick }: Props) => {
     return (
-        <div key={key} onClick={onClick} data-testid="view-dropdown-set-global-default">
+        <MenuItemStyle key={key} onClick={onClick} data-testid="view-dropdown-set-global-default">
             <IconItemTitle
                 tip="Make this View your organization's default. All new users will have this View applied automatically."
                 title="Make organization default"
                 icon={<GlobalDefaultViewIcon />}
             />
-        </div>
+        </MenuItemStyle>
     );
 };

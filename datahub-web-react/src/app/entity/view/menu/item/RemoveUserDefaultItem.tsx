@@ -1,6 +1,7 @@
 import React from 'react';
 import { StopOutlined } from '@ant-design/icons';
 import { IconItemTitle } from './IconItemTitle';
+import { MenuItemStyle } from './styledComponent';
 
 type Props = {
     key: string;
@@ -12,12 +13,12 @@ type Props = {
  */
 export const RemoveUserDefaultItem = ({ key, onClick }: Props) => {
     return (
-        <div key={key} onClick={onClick} data-testid="view-dropdown-remove-user-default">
+        <MenuItemStyle key={key} onClick={onClick} data-testid="view-dropdown-remove-user-default">
             <IconItemTitle
                 tip="Remove this View as your personal default."
                 title="Remove as default"
                 icon={<StopOutlined />}
             />
-        </div>
+        </MenuItemStyle>
     );
 };

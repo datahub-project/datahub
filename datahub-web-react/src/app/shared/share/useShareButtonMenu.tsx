@@ -1,8 +1,6 @@
 import React from 'react';
-import styled from 'styled-components';
-import { Menu, MenuProps } from 'antd';
+import { MenuProps } from 'antd';
 import { EntityType } from '../../../types.generated';
-import { ANTD_GRAY } from '../../entity/shared/constants';
 import CopyLinkMenuItem from './items/CopyLinkMenuItem';
 import CopyUrnMenuItem from './items/CopyUrnMenuItem';
 import EmailMenuItem from './items/EmailMenuItem';
@@ -15,7 +13,7 @@ interface ShareButtonMenuProps {
     name?: string | null;
 }
 
-export default function shareButtonMenu({ urn, entityType, subType, name }: ShareButtonMenuProps): MenuProps {
+export default function useShareButtonMenu({ urn, entityType, subType, name }: ShareButtonMenuProps): MenuProps {
     const entityRegistry = useEntityRegistry();
     const displayName = name || urn;
     const displayType = subType || entityRegistry.getEntityName(entityType) || entityType;

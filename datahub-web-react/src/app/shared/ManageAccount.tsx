@@ -12,6 +12,7 @@ import analytics, { EventType } from '../analytics';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { useAppConfig } from '../useAppConfig';
 import { useUserContext } from '../context/useUserContext';
+import { MenuItemStyle } from '../entity/view/menu/item/styledComponent';
 
 const MenuItem = styled(Menu.Item)`
     display: flex;
@@ -63,55 +64,81 @@ export const ManageAccount = ({ urn: _urn, pictureLink: _pictureLink, name }: Pr
         userContext.updateLocalState({ selectedViewUrn: undefined });
     };
     const version = config?.appVersion;
-    const menu = (
-        <Menu style={{ width: '120px' }}>
-            {version && (
-                <MenuItem key="version" disabled style={{ color: '#8C8C8C' }}>
-                    {version}
+
+    const themeConfigItems = themeConfig.content.menu.items.map((value) => {
+        return {
+            key: value.label,
+            label: (
+                <MenuItem key={value.label}>
+                    <a
+                        href={value.path || ''}
+                        target={value.shouldOpenInNewTab ? '_blank' : ''}
+                        rel="noopener noreferrer"
+                        tabIndex={0}
+                    >
+                        {value.label}
+                    </a>
                 </MenuItem>
-            )}
-            <Menu.Divider />
-            <MenuItem key="profile">
-                <a
-                    href={`/${entityRegistry.getPathName(EntityType.CorpUser)}/${_urn}`}
-                    rel="noopener noreferrer"
-                    tabIndex={0}
-                >
-                    Your Profile
-                </a>
-            </MenuItem>
-            <Menu.Divider />
-            {themeConfig.content.menu.items.map((value) => {
-                return (
-                    <MenuItem key={value.label}>
-                        <a
-                            href={value.path || ''}
-                            target={value.shouldOpenInNewTab ? '_blank' : ''}
-                            rel="noopener noreferrer"
-                            tabIndex={0}
-                        >
-                            {value.label}
-                        </a>
-                    </MenuItem>
-                );
-            })}
-            <MenuItem key="graphiQLLink">
-                <a href="/api/graphiql">GraphiQL</a>
-            </MenuItem>
-            <MenuItem key="openapiLink">
-                <a href="/openapi/swagger-ui/index.html">OpenAPI</a>
-            </MenuItem>
-            <Menu.Divider />
-            <MenuItem danger key="logout" tabIndex={0}>
-                <a href="/logOut" onClick={handleLogout} data-testid="log-out-menu-item">
-                    Sign Out
-                </a>
-            </MenuItem>
-        </Menu>
-    );
+            ),
+        };
+    });
+
+    const items = [
+        version
+            ? {
+                  key: 'version',
+                  label: (
+                      <MenuItemStyle key="version" disabled style={{ color: '#8C8C8C' }}>
+                          {version}
+                      </MenuItemStyle>
+                  ),
+              }
+            : null,
+        {
+            key: 'profile',
+            label: (
+                <MenuItemStyle key="profile">
+                    <a
+                        href={`/${entityRegistry.getPathName(EntityType.CorpUser)}/${_urn}`}
+                        rel="noopener noreferrer"
+                        tabIndex={0}
+                    >
+                        Your Profile
+                    </a>
+                </MenuItemStyle>
+            ),
+        },
+        ...themeConfigItems,
+        {
+            key: 'graphiQLLink',
+            label: (
+                <MenuItemStyle key="graphiQLLink">
+                    <a href="/api/graphiql">GraphiQL</a>
+                </MenuItemStyle>
+            ),
+        },
+        {
+            key: 'openapiLink',
+            label: (
+                <MenuItemStyle key="openapiLink">
+                    <a href="/openapi/swagger-ui/index.html">OpenAPI</a>
+                </MenuItemStyle>
+            ),
+        },
+        {
+            key: 'logout',
+            label: (
+                <MenuItemStyle danger key="logout" tabIndex={0}>
+                    <a href="/logOut" onClick={handleLogout} data-testid="log-out-menu-item">
+                        Sign Out
+                    </a>
+                </MenuItemStyle>
+            ),
+        },
+    ];
 
     return (
-        <Dropdown overlay={menu} trigger={['click']}>
+        <Dropdown menu={{ items }} trigger={['click']}>
             <DropdownWrapper data-testid="manage-account-menu">
                 <CustomAvatar photoUrl={_pictureLink} style={{ marginRight: 4 }} name={name} />
                 <DownArrow />
