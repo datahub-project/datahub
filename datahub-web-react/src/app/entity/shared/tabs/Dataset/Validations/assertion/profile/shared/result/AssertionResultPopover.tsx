@@ -5,7 +5,7 @@ import { TooltipPlacement } from 'antd/lib/tooltip';
 
 import { Assertion, AssertionRunEvent } from '../../../../../../../../../../types.generated';
 import { AssertionResultPopoverContent } from './AssertionResultPopoverContent';
-import { ResultStatusType } from '../../summary/shared/resultUtils';
+import { ResultStatusType } from '../../summary/shared/resultMessageUtils';
 
 type Props = {
     assertion: Assertion;

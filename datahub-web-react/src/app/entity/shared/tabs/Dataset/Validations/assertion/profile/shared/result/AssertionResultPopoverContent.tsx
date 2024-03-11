@@ -17,7 +17,7 @@ import { isExternalAssertion } from '../isExternalAssertion';
 import { ProviderSummarySection } from '../../summary/schedule/ProviderSummarySection';
 import { ANTD_GRAY } from '../../../../../../../constants';
 import { toReadableLocalDateTimeString } from '../timeUtils';
-import { ResultStatusType, getDetailedErrorMessage, getFormattedReasonText } from '../../summary/shared/resultUtils';
+import { ResultStatusType, getDetailedErrorMessage, getFormattedReasonText } from '../../summary/shared/resultMessageUtils';
 
 const HeaderRow = styled.div`
     display: flex;

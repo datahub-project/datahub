@@ -2,7 +2,7 @@ import { Maybe } from "graphql/jsutils/Maybe";
 import { Assertion, AssertionInfo, AssertionRunEvent, AssertionType, FieldAssertionInfo, FieldAssertionType } from "../../../../../../../../../../../types.generated";
 import { AssertionDataPoint, AssertionResultChartData } from "./charts/types";
 import { getFieldMetricTypeReadableLabel } from "../../../../../fieldDescriptionUtils";
-import { tryGetPrimaryMetricValueFromAssertionRunEvent } from "../../shared/resultUtils";
+import { tryGetPrimaryMetricValueFromAssertionRunEvent } from "../../shared/resultExtractionUtils";
 
 
 /**
