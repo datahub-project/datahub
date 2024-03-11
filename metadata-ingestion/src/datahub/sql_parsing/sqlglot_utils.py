@@ -59,11 +59,11 @@ def parse_statement(
 
 
 def _expression_to_string(
-    expression: sqlglot.exp.ExpOrStr, dialect: DialectOrStr
+    expression: sqlglot.exp.ExpOrStr, platform: DialectOrStr
 ) -> str:
     if isinstance(expression, str):
         return expression
-    return expression.sql(dialect=get_dialect(dialect))
+    return expression.sql(dialect=get_dialect(platform))
 
 
 def generalize_query(expression: sqlglot.exp.ExpOrStr, dialect: DialectOrStr) -> str:
@@ -129,10 +129,10 @@ def generate_hash(text: str) -> str:
 
 
 def get_query_fingerprint_debug(
-    expression: sqlglot.exp.ExpOrStr, dialect: DialectOrStr
+    expression: sqlglot.exp.ExpOrStr, platform: DialectOrStr
 ) -> Tuple[str, Optional[str]]:
     try:
-        dialect = get_dialect(dialect)
+        dialect = get_dialect(platform)
         expression_sql = generalize_query(expression, dialect=dialect)
     except (ValueError, sqlglot.errors.SqlglotError) as e:
         if not isinstance(expression, str):
@@ -144,13 +144,13 @@ def get_query_fingerprint_debug(
     fingerprint = generate_hash(
         expression_sql
         if expression_sql is not None
-        else _expression_to_string(expression, dialect=dialect)
+        else _expression_to_string(expression, platform=platform)
     )
     return fingerprint, expression_sql
 
 
 def get_query_fingerprint(
-    expression: sqlglot.exp.ExpOrStr, dialect: DialectOrStr
+    expression: sqlglot.exp.ExpOrStr, platform: DialectOrStr
 ) -> str:
     """Get a fingerprint for a SQL query.
 
@@ -166,35 +166,35 @@ def get_query_fingerprint(
 
     Args:
         expression: The SQL query to fingerprint.
-        dialect: The SQL dialect to use.
+        platform: The SQL dialect to use.
 
     Returns:
         The fingerprint for the SQL query.
     """
 
-    return get_query_fingerprint_debug(expression, dialect)[0]
+    return get_query_fingerprint_debug(expression, platform)[0]
 
 
-def try_format_query(expression: sqlglot.exp.ExpOrStr, dialect: DialectOrStr) -> str:
+def try_format_query(expression: sqlglot.exp.ExpOrStr, platform: DialectOrStr) -> str:
     """Format a SQL query.
 
     If the query cannot be formatted, the original query is returned unchanged.
 
     Args:
         expression: The SQL query to format.
-        dialect: The SQL dialect to use.
+        platform: The SQL dialect to use.
 
     Returns:
         The formatted SQL query.
     """
 
     try:
-        dialect = get_dialect(dialect)
+        dialect = get_dialect(platform)
         expression = parse_statement(expression, dialect=dialect)
         return expression.sql(dialect=dialect, pretty=True)
     except Exception as e:
         logger.debug("Failed to format query: %s", e)
-        return _expression_to_string(expression, dialect=dialect)
+        return _expression_to_string(expression, platform=platform)
 
 
 def detach_ctes(

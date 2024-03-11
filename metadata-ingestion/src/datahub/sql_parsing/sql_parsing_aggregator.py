@@ -361,7 +361,7 @@ class SqlParsingAggregator:
 
         # Generate a fingerprint for the query.
         query_fingerprint = get_query_fingerprint(
-            known_query_lineage.query_text, self.platform.platform_name
+            known_query_lineage.query_text, platform=self.platform.platform_name
         )
         formatted_query = self._maybe_format_query(known_query_lineage.query_text)
 
