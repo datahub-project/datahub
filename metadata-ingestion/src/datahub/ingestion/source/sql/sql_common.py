@@ -652,7 +652,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
             fk_dict["name"], foreign_fields, source_fields, foreign_dataset
         )
 
-    def init_data_reader(self, inspector: Inspector) -> Optional[DataReader]:
+    def make_data_reader(self, inspector: Inspector) -> Optional[DataReader]:
         """
         Subclasses can override this with source-specific data reader
         if source provides clause to pick random sample instead of current
