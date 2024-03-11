@@ -236,5 +236,12 @@
         "displayName": "Other",
         "docsUrl": "https://datahubproject.io/docs/metadata-ingestion/",
         "recipe": "source:\n  type: <source-type>\n  config:\n    # Source-type specifics config\n    <source-configs>"
+    },
+    {
+        "urn": "urn:li:dataPlatform:qlik-sense",
+        "name": "qlik-sense",
+        "displayName": "Qlik Sense",
+        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/qlik-sense/",
+        "recipe": "source:\n    type: qlik-sense\n    config:\n        # Coordinates\n        tenant_hostname: https://xyz12xz.us.qlikcloud.com\n        # Coordinates\n        api_key: QLIK_API_KEY\n\n        # Optional - filter for certain space names instead of ingesting everything.\n        # space_pattern:\n\n        #   allow:\n        #     - space_name\n        ingest_owner: true"
     }
 ]

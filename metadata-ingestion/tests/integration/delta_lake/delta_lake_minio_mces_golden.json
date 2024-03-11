@@ -45,79 +45,21 @@
                         },
                         "fields": [
                             {
-                                "fieldPath": "customer",
+                                "fieldPath": "[version=2.0].[type=float].total_cost",
                                 "nullable": true,
-                                "description": "{}",
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.StringType": {}
-                                    }
-                                },
-                                "nativeDataType": "string",
-                                "recursive": false,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": false
-                            },
-                            {
-                                "fieldPath": "day",
-                                "nullable": true,
-                                "description": "{}",
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
-                                    }
-                                },
-                                "nativeDataType": "integer",
-                                "recursive": false,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": false
-                            },
-                            {
-                                "fieldPath": "month",
-                                "nullable": true,
-                                "description": "{}",
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
-                                    }
-                                },
-                                "nativeDataType": "integer",
-                                "recursive": false,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": false
-                            },
-                            {
-                                "fieldPath": "sale_id",
-                                "nullable": true,
-                                "description": "{}",
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.StringType": {}
-                                    }
-                                },
-                                "nativeDataType": "string",
-                                "recursive": false,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": false
-                            },
-                            {
-                                "fieldPath": "total_cost",
-                                "nullable": true,
-                                "description": "{}",
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
                                     }
                                 },
                                 "nativeDataType": "float",
                                 "recursive": false,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": false
+                                "jsonProps": "{\"native_data_type\": \"float\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "year",
+                                "fieldPath": "[version=2.0].[type=int].day",
                                 "nullable": true,
-                                "description": "{}",
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -126,7 +68,59 @@
                                 "nativeDataType": "integer",
                                 "recursive": false,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": false
+                                "jsonProps": "{\"native_data_type\": \"integer\", \"_nullable\": true}"
+                            },
+                            {
+                                "fieldPath": "[version=2.0].[type=int].month",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "integer",
+                                "recursive": false,
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"integer\", \"_nullable\": true}"
+                            },
+                            {
+                                "fieldPath": "[version=2.0].[type=int].year",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "integer",
+                                "recursive": false,
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"integer\", \"_nullable\": true}"
+                            },
+                            {
+                                "fieldPath": "[version=2.0].[type=string].customer",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "string",
+                                "recursive": false,
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                            },
+                            {
+                                "fieldPath": "[version=2.0].[type=string].sale_id",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "string",
+                                "recursive": false,
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
                             }
                         ]
                     }
@@ -372,6 +366,68 @@
                 "version": "0"
             },
             "lastUpdatedTimestamp": 1655664815399
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1672531200000,
+        "runId": "delta-lake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-test-bucket/delta_tables/sales,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:34fc0473e206bb1f4307aadf4177b2fd",
+                    "urn": "urn:li:container:34fc0473e206bb1f4307aadf4177b2fd"
+                },
+                {
+                    "id": "urn:li:container:acebf8bcf966274632d3d2b710ef4947",
+                    "urn": "urn:li:container:acebf8bcf966274632d3d2b710ef4947"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1672531200000,
+        "runId": "delta-lake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:34fc0473e206bb1f4307aadf4177b2fd",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1672531200000,
+        "runId": "delta-lake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:acebf8bcf966274632d3d2b710ef4947",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:34fc0473e206bb1f4307aadf4177b2fd",
+                    "urn": "urn:li:container:34fc0473e206bb1f4307aadf4177b2fd"
+                }
+            ]
         }
     },
     "systemMetadata": {

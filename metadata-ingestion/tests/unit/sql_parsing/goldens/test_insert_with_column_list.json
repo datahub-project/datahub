@@ -37,5 +37,9 @@
                 }
             ]
         }
-    ]
+    ],
+    "debug_info": {
+        "confidence": 0.2,
+        "generalized_statement": "INSERT INTO downstream (a, c) SELECT a, c FROM upstream2"
+    }
 }

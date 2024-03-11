@@ -133,8 +133,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     TimeType,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.tag import TagProperties
-from datahub.sql_parsing.schema_resolver import SchemaResolver
-from datahub.utilities.file_backed_collections import FileBackedDict
+from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.registries.domain_registry import DomainRegistry
 
@@ -236,9 +235,20 @@ class SnowflakeV2Source(
 
         # For database, schema, tables, views, etc
         self.data_dictionary = SnowflakeDataDictionary()
-
         self.lineage_extractor: Optional[SnowflakeLineageExtractor] = None
+        self.aggregator: Optional[SqlParsingAggregator] = None
+
         if self.config.include_table_lineage:
+            self.aggregator = SqlParsingAggregator(
+                platform=self.platform,
+                platform_instance=self.config.platform_instance,
+                env=self.config.env,
+                graph=self.ctx.graph,
+                generate_usage_statistics=False,
+                generate_operations=False,
+            )
+            self.report.sql_aggregator = self.aggregator.report
+
             redundant_lineage_run_skip_handler: Optional[
                 RedundantLineageRunSkipHandler
             ] = None
@@ -254,6 +264,7 @@ class SnowflakeV2Source(
                 self.report,
                 dataset_urn_builder=self.gen_dataset_urn,
                 redundant_run_skip_handler=redundant_lineage_run_skip_handler,
+                sql_aggregator=self.aggregator,
             )
 
         self.usage_extractor: Optional[SnowflakeUsageExtractor] = None
@@ -301,11 +312,7 @@ class SnowflakeV2Source(
 
         # Caches tables for a single database. Consider moving to disk or S3 when possible.
         self.db_tables: Dict[str, List[SnowflakeTable]] = {}
-
-        self.view_definitions: FileBackedDict[str] = FileBackedDict()
         self.add_config_to_report()
-
-        self.sql_parser_schema_resolver = self._init_schema_resolver()
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "Source":
@@ -491,24 +498,6 @@ class SnowflakeV2Source(
 
         return _report
 
-    def _init_schema_resolver(self) -> SchemaResolver:
-        if not self.config.include_technical_schema and self.config.parse_view_ddl:
-            if self.ctx.graph:
-                return self.ctx.graph.initialize_schema_resolver_from_datahub(
-                    platform=self.platform,
-                    platform_instance=self.config.platform_instance,
-                    env=self.config.env,
-                )
-            else:
-                logger.warning(
-                    "Failed to load schema info from DataHub as DataHubGraph is missing.",
-                )
-        return SchemaResolver(
-            platform=self.platform,
-            platform_instance=self.config.platform_instance,
-            env=self.config.env,
-        )
-
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         return [
             *super().get_workunit_processors(),
@@ -600,8 +589,6 @@ class SnowflakeV2Source(
             yield from self.lineage_extractor.get_workunits(
                 discovered_tables=discovered_tables,
                 discovered_views=discovered_views,
-                schema_resolver=self.sql_parser_schema_resolver,
-                view_definitions=self.view_definitions,
             )
 
         if (
@@ -609,7 +596,7 @@ class SnowflakeV2Source(
         ) and self.usage_extractor:
             yield from self.usage_extractor.get_usage_workunits(discovered_datasets)
 
-    def report_cache_info(self):
+    def report_cache_info(self) -> None:
         lru_cache_functions: List[Callable] = [
             self.data_dictionary.get_tables_for_database,
             self.data_dictionary.get_views_for_database,
@@ -620,7 +607,7 @@ class SnowflakeV2Source(
         for func in lru_cache_functions:
             self.report.lru_cache_info[func.__name__] = func.cache_info()._asdict()  # type: ignore
 
-    def report_warehouse_failure(self):
+    def report_warehouse_failure(self) -> None:
         if self.config.warehouse is not None:
             self.report_error(
                 GENERIC_PERMISSION_ERROR_KEY,
@@ -656,7 +643,9 @@ class SnowflakeV2Source(
                 )
             return ischema_databases
 
-    def get_databases_from_ischema(self, databases):
+    def get_databases_from_ischema(
+        self, databases: List[SnowflakeDatabase]
+    ) -> List[SnowflakeDatabase]:
         ischema_databases: List[SnowflakeDatabase] = []
         for database in databases:
             try:
@@ -791,11 +780,22 @@ class SnowflakeV2Source(
 
         if self.config.include_views:
             views = self.fetch_views_for_schema(snowflake_schema, db_name, schema_name)
-            if self.config.parse_view_ddl:
+            if (
+                self.aggregator
+                and self.config.include_view_lineage
+                and self.config.parse_view_ddl
+            ):
                 for view in views:
-                    key = self.get_dataset_identifier(view.name, schema_name, db_name)
+                    view_identifier = self.get_dataset_identifier(
+                        view.name, schema_name, db_name
+                    )
                     if view.view_definition:
-                        self.view_definitions[key] = view.view_definition
+                        self.aggregator.add_view_definition(
+                            view_urn=self.gen_dataset_urn(view_identifier),
+                            view_definition=view.view_definition,
+                            default_db=db_name,
+                            default_schema=schema_name,
+                        )
 
             if self.config.include_technical_schema:
                 for view in views:
@@ -945,8 +945,12 @@ class SnowflakeV2Source(
                     )
 
     def fetch_foreign_keys_for_table(
-        self, table, schema_name, db_name, table_identifier
-    ):
+        self,
+        table: SnowflakeTable,
+        schema_name: str,
+        db_name: str,
+        table_identifier: str,
+    ) -> None:
         try:
             table.foreign_keys = self.get_fk_constraints_for_table(
                 table.name, schema_name, db_name
@@ -958,7 +962,13 @@ class SnowflakeV2Source(
             )
             self.report_warning("Failed to get foreign key for table", table_identifier)
 
-    def fetch_pk_for_table(self, table, schema_name, db_name, table_identifier):
+    def fetch_pk_for_table(
+        self,
+        table: SnowflakeTable,
+        schema_name: str,
+        db_name: str,
+        table_identifier: str,
+    ) -> None:
         try:
             table.pk = self.get_pk_constraints_for_table(
                 table.name, schema_name, db_name
@@ -970,7 +980,13 @@ class SnowflakeV2Source(
             )
             self.report_warning("Failed to get primary key for table", table_identifier)
 
-    def fetch_columns_for_table(self, table, schema_name, db_name, table_identifier):
+    def fetch_columns_for_table(
+        self,
+        table: SnowflakeTable,
+        schema_name: str,
+        db_name: str,
+        table_identifier: str,
+    ) -> None:
         try:
             table.columns = self.get_columns_for_table(table.name, schema_name, db_name)
             table.column_count = len(table.columns)
@@ -1240,10 +1256,8 @@ class SnowflakeV2Source(
             foreignKeys=foreign_keys,
         )
 
-        if self.config.parse_view_ddl:
-            self.sql_parser_schema_resolver.add_schema_metadata(
-                urn=dataset_urn, schema_metadata=schema_metadata
-            )
+        if self.aggregator and self.config.parse_view_ddl:
+            self.aggregator.register_schema(urn=dataset_urn, schema=schema_metadata)
 
         return schema_metadata
 
@@ -1688,8 +1702,6 @@ class SnowflakeV2Source(
     def close(self) -> None:
         super().close()
         StatefulIngestionSourceBase.close(self)
-        self.view_definitions.close()
-        self.sql_parser_schema_resolver.close()
         if self.lineage_extractor:
             self.lineage_extractor.close()
         if self.usage_extractor:

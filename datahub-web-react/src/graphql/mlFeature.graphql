@@ -12,5 +12,8 @@ query getMLFeature($urn: String!) {
                 ...structuredPropertiesFields
             }
         }
+        forms {
+            ...formsFields
+        }
     }
 }

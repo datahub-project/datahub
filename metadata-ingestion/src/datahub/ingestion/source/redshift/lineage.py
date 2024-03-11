@@ -253,8 +253,8 @@ class RedshiftLineageExtractor:
             return self.config.start_time, self.config.end_time
 
     def warn(self, log: logging.Logger, key: str, reason: str) -> None:
-        self.report.report_warning(key, reason)
-        log.warning(f"{key} => {reason}")
+        # TODO: Remove this method.
+        self.report.warning(key, reason)
 
     def _get_s3_path(self, path: str) -> str:
         if self.config.s3_lineage_config:
@@ -766,7 +766,7 @@ class RedshiftLineageExtractor:
         table: Union[RedshiftTable, RedshiftView],
         dataset_urn: str,
         schema: RedshiftSchema,
-    ) -> Optional[Tuple[UpstreamLineageClass, Dict[str, str]]]:
+    ) -> Optional[UpstreamLineageClass]:
         upstream_lineage: List[UpstreamClass] = []
 
         cll_lineage: List[FineGrainedLineage] = []
@@ -811,11 +811,9 @@ class RedshiftLineageExtractor:
         else:
             return None
 
-        return (
-            UpstreamLineage(
-                upstreams=upstream_lineage, fineGrainedLineages=cll_lineage or None
-            ),
-            {},
+        return UpstreamLineage(
+            upstreams=upstream_lineage,
+            fineGrainedLineages=cll_lineage or None,
         )
 
     def report_status(self, step: str, status: bool) -> None:
