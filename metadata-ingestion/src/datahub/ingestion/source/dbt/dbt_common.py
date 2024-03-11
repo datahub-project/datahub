@@ -115,7 +115,7 @@ from datahub.sql_parsing.sqlglot_lineage import (
     infer_output_schema,
     sqlglot_lineage,
 )
-from datahub.sql_parsing.sqlglot_utils import detach_ctes
+from datahub.sql_parsing.sqlglot_utils import detach_ctes, try_format_query
 from datahub.utilities.mapping import Constants, OperationProcessor
 from datahub.utilities.time import datetime_to_ts_millis
 from datahub.utilities.topological_sort import topological_sort
@@ -318,6 +318,13 @@ class DBTCommonConfig(
     )
 
     _remove_use_compiled_code = pydantic_removed_field("use_compiled_code")
+
+    include_compiled_code: bool = Field(
+        # TODO: Once the formattedViewLogic field model change is included in a server
+        # release, probably 0.13.1, we can flip the default to True.
+        default=False,
+        description="When enabled, includes the compiled code in the emitted metadata.",
+    )
 
     @validator("target_platform")
     def validate_target_platform_value(cls, target_platform: str) -> str:
@@ -1271,12 +1278,18 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         if node.language != "sql" or not node.raw_code:
             return None
 
+        compiled_code = None
+        if self.config.include_compiled_code and node.compiled_code:
+            compiled_code = try_format_query(
+                node.compiled_code, platform=self.config.target_platform
+            )
+
         materialized = node.materialization in {"table", "incremental", "snapshot"}
         view_properties = ViewPropertiesClass(
             materialized=materialized,
             viewLanguage="SQL",
             viewLogic=node.raw_code,
-            formattedViewLogic=node.compiled_code,  # TODO format this?
+            formattedViewLogic=compiled_code,
         )
         return view_properties
 

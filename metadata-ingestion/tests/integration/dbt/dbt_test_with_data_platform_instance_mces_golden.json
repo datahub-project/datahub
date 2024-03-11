@@ -63,6 +63,7 @@
                                 "type": "DATAOWNER"
                             }
                         ],
+                        "ownerTypes": {},
                         "lastModified": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown"
@@ -299,7 +300,7 @@
                     "com.linkedin.pegasus2avro.dataset.ViewProperties": {
                         "materialized": false,
                         "viewLogic": "{{ config(\n    materialized = \"ephemeral\",\n) }}\n\nSELECT\n    c.customer_id,\n    c.first_name || ' ' || c.last_name as \"full_name\",\n    c.email,\n    a.address,\n    m.city,\n    a.postal_code,\n    a.phone\nFROM\n    {{ source('pagila', 'customer')}} c\n    left outer join {{ source('pagila', 'address')}} a on c.address_id = a.address_id\n    left outer join {{ source('pagila', 'city') }} m on a.city_id = m.city_id",
-                        "formattedViewLogic": "\n\nSELECT\n    c.customer_id,\n    c.first_name || ' ' || c.last_name as \"full_name\",\n    c.email,\n    a.address,\n    m.city,\n    a.postal_code,\n    a.phone\nFROM\n    \"pagila\".\"public\".\"customer\" c\n    left outer join \"pagila\".\"public\".\"address\" a on c.address_id = a.address_id\n    left outer join \"pagila\".\"public\".\"city\" m on a.city_id = m.city_id",
+                        "formattedViewLogic": "SELECT\n  c.customer_id,\n  c.first_name || ' ' || c.last_name AS \"full_name\",\n  c.email,\n  a.address,\n  m.city,\n  a.postal_code,\n  a.phone\nFROM \"pagila\".\"public\".\"customer\" AS c\nLEFT OUTER JOIN \"pagila\".\"public\".\"address\" AS a\n  ON c.address_id = a.address_id\nLEFT OUTER JOIN \"pagila\".\"public\".\"city\" AS m\n  ON a.city_id = m.city_id",
                         "viewLanguage": "SQL"
                     }
                 }
@@ -499,7 +500,7 @@
                     "com.linkedin.pegasus2avro.dataset.ViewProperties": {
                         "materialized": true,
                         "viewLogic": "{{ config(\n    materialized = \"table\",\n    alias='an-aliased-view-for-monthly-billing'\n) }}\n\nSELECT \n    pbc.billing_month,\n    pbc.customer_id,\n    pbc.amount,\n    cust.email\nFROM\n    {{ ref('payments_by_customer_by_month')}} pbc\n    left outer join {{ ref('customer_details')}} cust on pbc.customer_id = cust.customer_id\nORDER BY\n    pbc.billing_month",
-                        "formattedViewLogic": "\n\nwith __dbt__CTE__customer_details as (\n\n\nSELECT\n    c.customer_id,\n    c.first_name || ' ' || c.last_name as \"full_name\",\n    c.email,\n    a.address,\n    m.city,\n    a.postal_code,\n    a.phone\nFROM\n    \"pagila\".\"public\".\"customer\" c\n    left outer join \"pagila\".\"public\".\"address\" a on c.address_id = a.address_id\n    left outer join \"pagila\".\"public\".\"city\" m on a.city_id = m.city_id\n)SELECT \n    pbc.billing_month,\n    pbc.customer_id,\n    pbc.amount,\n    cust.email\nFROM\n    \"pagila\".\"dbt_postgres\".\"payments_by_customer_by_month\" pbc\n    left outer join __dbt__CTE__customer_details cust on pbc.customer_id = cust.customer_id\nORDER BY\n    pbc.billing_month",
+                        "formattedViewLogic": "WITH __dbt__CTE__customer_details AS (\n  SELECT\n    c.customer_id,\n    c.first_name || ' ' || c.last_name AS \"full_name\",\n    c.email,\n    a.address,\n    m.city,\n    a.postal_code,\n    a.phone\n  FROM \"pagila\".\"public\".\"customer\" AS c\n  LEFT OUTER JOIN \"pagila\".\"public\".\"address\" AS a\n    ON c.address_id = a.address_id\n  LEFT OUTER JOIN \"pagila\".\"public\".\"city\" AS m\n    ON a.city_id = m.city_id\n)\nSELECT\n  pbc.billing_month,\n  pbc.customer_id,\n  pbc.amount,\n  cust.email\nFROM \"pagila\".\"dbt_postgres\".\"payments_by_customer_by_month\" AS pbc\nLEFT OUTER JOIN __dbt__CTE__customer_details AS cust\n  ON pbc.customer_id = cust.customer_id\nORDER BY\n  pbc.billing_month",
                         "viewLanguage": "SQL"
                     }
                 }
@@ -820,7 +821,7 @@
                     "com.linkedin.pegasus2avro.dataset.ViewProperties": {
                         "materialized": false,
                         "viewLogic": "{{ config(\n    materialized=\"view\",\n    alias='an-aliased-view-for-payments'\n) }}\n\nwith payments as (\n\n    select \n        *\n    from \n        {{ source('pagila', 'payment_p2020_01')}}\n    UNION ALL\n    select \n        *\n    from \n        {{ source('pagila', 'payment_p2020_02')}}\n    UNION ALL\n    select \n        *\n    from \n        {{ source('pagila', 'payment_p2020_02')}}\n    UNION ALL\n    select \n        *\n    from \n        {{ source('pagila', 'payment_p2020_03')}}\n    UNION ALL\n    select \n        *\n    from \n        {{ source('pagila', 'payment_p2020_04')}}\n    UNION ALL\n    select \n        *\n    from \n        {{ source('pagila', 'payment_p2020_05')}}\n    UNION ALL\n    select \n        *\n    from \n        {{ source('pagila', 'payment_p2020_06')}}\n)\n\nselect *\nfrom payments",
-                        "formattedViewLogic": "\n\nwith payments as (\n\n    select \n        *\n    from \n        \"pagila\".\"public\".\"payment_p2020_01\"\n    UNION ALL\n    select \n        *\n    from \n        \"pagila\".\"public\".\"payment_p2020_02\"\n    UNION ALL\n    select \n        *\n    from \n        \"pagila\".\"public\".\"payment_p2020_02\"\n    UNION ALL\n    select \n        *\n    from \n        \"pagila\".\"public\".\"payment_p2020_03\"\n    UNION ALL\n    select \n        *\n    from \n        \"pagila\".\"public\".\"payment_p2020_04\"\n    UNION ALL\n    select \n        *\n    from \n        \"pagila\".\"public\".\"payment_p2020_05\"\n    UNION ALL\n    select \n        *\n    from \n        \"pagila\".\"public\".\"payment_p2020_06\"\n)\n\nselect *\nfrom payments",
+                        "formattedViewLogic": "WITH payments AS (\n  SELECT\n    *\n  FROM \"pagila\".\"public\".\"payment_p2020_01\"\n  UNION ALL\n  SELECT\n    *\n  FROM \"pagila\".\"public\".\"payment_p2020_02\"\n  UNION ALL\n  SELECT\n    *\n  FROM \"pagila\".\"public\".\"payment_p2020_02\"\n  UNION ALL\n  SELECT\n    *\n  FROM \"pagila\".\"public\".\"payment_p2020_03\"\n  UNION ALL\n  SELECT\n    *\n  FROM \"pagila\".\"public\".\"payment_p2020_04\"\n  UNION ALL\n  SELECT\n    *\n  FROM \"pagila\".\"public\".\"payment_p2020_05\"\n  UNION ALL\n  SELECT\n    *\n  FROM \"pagila\".\"public\".\"payment_p2020_06\"\n)\nSELECT\n  *\nFROM payments",
                         "viewLanguage": "SQL"
                     }
                 }
@@ -995,7 +996,7 @@
                     "com.linkedin.pegasus2avro.dataset.ViewProperties": {
                         "materialized": true,
                         "viewLogic": "{{ config(\n    materialized = \"table\",\n) }}\n\nSELECT\n    date_trunc('month', payment_date) as \"billing_month\",\n    customer_id,\n    sum(amount) as \"amount\"\nFROM\n    {{ ref('payments_base')}}\nGROUP BY\n    billing_month,\n    customer_id",
-                        "formattedViewLogic": "\n\nSELECT\n    date_trunc('month', payment_date) as \"billing_month\",\n    customer_id,\n    sum(amount) as \"amount\"\nFROM\n    \"pagila\".\"dbt_postgres\".\"an-aliased-view-for-payments\"\nGROUP BY\n    billing_month,\n    customer_id",
+                        "formattedViewLogic": "SELECT\n  DATE_TRUNC('MONTH', payment_date) AS \"billing_month\",\n  customer_id,\n  SUM(amount) AS \"amount\"\nFROM \"pagila\".\"dbt_postgres\".\"an-aliased-view-for-payments\"\nGROUP BY\n  billing_month,\n  customer_id",
                         "viewLanguage": "SQL"
                     }
                 }
@@ -1067,6 +1068,7 @@
                                 "type": "DATAOWNER"
                             }
                         ],
+                        "ownerTypes": {},
                         "lastModified": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown"
@@ -1915,6 +1917,7 @@
                                 "type": "DATAOWNER"
                             }
                         ],
+                        "ownerTypes": {},
                         "lastModified": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown"
@@ -2658,6 +2661,7 @@
                                 "type": "DATAOWNER"
                             }
                         ],
+                        "ownerTypes": {},
                         "lastModified": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown"

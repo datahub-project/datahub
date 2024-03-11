@@ -928,7 +928,7 @@ def _sqlglot_lineage_inner(
         original_statement, dialect=dialect
     )
     query_fingerprint, debug_info.generalized_statement = get_query_fingerprint_debug(
-        original_statement, platform=dialect
+        original_statement, dialect
     )
     return SqlParsingResult(
         query_type=query_type,

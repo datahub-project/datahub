@@ -23,9 +23,17 @@ FROZEN_TIME = "2022-02-03 07:00:00"
 GMS_PORT = 8080
 GMS_SERVER = f"http://localhost:{GMS_PORT}"
 
+_default_dbt_source_args = {
+    # Needed to avoid needing to access datahub server.
+    "write_semantics": "OVERRIDE",
+    # Needed until this is made the default.
+    "include_compiled_code": True,
+}
+
 
 @pytest.fixture(scope="module")
 def test_resources_dir(pytestconfig):
+    # TODO: Move this into a constant based on __file__.
     return pytestconfig.rootpath / "tests/integration/dbt"
 
 
@@ -61,7 +69,7 @@ class DbtTestConfig:
                 "sources_path": self.sources_path,
                 "target_platform": self.target_platform,
                 "enable_meta_mapping": False,
-                "write_semantics": "OVERRIDE",
+                **_default_dbt_source_args,
                 "meta_mapping": {
                     "owner": {
                         "match": "^@(.*)",
@@ -296,6 +304,7 @@ def test_dbt_tests(test_resources_dir, pytestconfig, tmp_path, mock_time, **kwar
             source=SourceConfig(
                 type="dbt",
                 config=DBTCoreConfig(
+                    **_default_dbt_source_args,
                     manifest_path=str(
                         (test_resources_dir / "jaffle_shop_manifest.json").resolve()
                     ),
@@ -306,8 +315,6 @@ def test_dbt_tests(test_resources_dir, pytestconfig, tmp_path, mock_time, **kwar
                     test_results_path=str(
                         (test_resources_dir / "jaffle_shop_test_results.json").resolve()
                     ),
-                    # this is just here to avoid needing to access datahub server
-                    write_semantics="OVERRIDE",
                 ),
             ),
             sink=DynamicTypedConfig(type="file", config={"filename": str(output_file)}),
@@ -400,6 +407,7 @@ def test_dbt_tests_only_assertions(
             source=SourceConfig(
                 type="dbt",
                 config=DBTCoreConfig(
+                    **_default_dbt_source_args,
                     manifest_path=str(
                         (test_resources_dir / "jaffle_shop_manifest.json").resolve()
                     ),
@@ -413,8 +421,6 @@ def test_dbt_tests_only_assertions(
                     entities_enabled=DBTEntitiesEnabled(
                         test_results=EmitDirective.ONLY
                     ),
-                    # this is just here to avoid needing to access datahub server
-                    write_semantics="OVERRIDE",
                 ),
             ),
             sink=DynamicTypedConfig(type="file", config={"filename": str(output_file)}),
@@ -477,6 +483,7 @@ def test_dbt_only_test_definitions_and_results(
             source=SourceConfig(
                 type="dbt",
                 config=DBTCoreConfig(
+                    **_default_dbt_source_args,
                     manifest_path=str(
                         (test_resources_dir / "jaffle_shop_manifest.json").resolve()
                     ),
@@ -492,8 +499,6 @@ def test_dbt_only_test_definitions_and_results(
                         seeds=EmitDirective.NO,
                         models=EmitDirective.NO,
                     ),
-                    # this is just here to avoid needing to access datahub server
-                    write_semantics="OVERRIDE",
                 ),
             ),
             sink=DynamicTypedConfig(type="file", config={"filename": str(output_file)}),
