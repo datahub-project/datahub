@@ -12,8 +12,8 @@ import { scaleLinear } from 'd3-scale';
 
 import { ANTD_GRAY } from '../../../../../../../../../constants';
 import { LinkWrapper } from '../../../../../../../../../../../shared/LinkWrapper';
-import { ACCENT_COLOR_HEX, generateTimeScaleTickValues, getCustomTimeScaleTickValue, getFillColor } from './utils';
-import { AssertionResultChartData, TimeRange } from './types';
+import { ACCENT_COLOR_HEX, generateTimeScaleTickValues, getCustomTimeScaleTickValue, getFillColor, tryGetUpperAndLowerYRangeFromAssertionRunEvent } from './utils';
+import { AssertionDataPoint, AssertionResultChartData, TimeRange } from './types';
 import { AssertionResultPopoverContent } from '../../../../shared/result/AssertionResultPopoverContent';
 import { truncateNumberForDisplay } from '../../../../../../../../../../../dataviz/utils';
 import { getTimeRangeDisplay } from '../utils';
@@ -40,6 +40,14 @@ export const ValuesOverTimeAssertionResultChart = ({ data, timeRange, chartDimen
     const chartInnerWidth = chartDimensions.width - CHART_AXIS_LEFT_WIDTH - CHART_RIGHT_MARGIN
     const chartInnerHeight = chartDimensions.height - CHART_AXIS_BOTTOM_HEIGHT - CHART_TOP_MARGIN
 
+    // Results line extractors
+    const getY = (point: AssertionDataPoint, options: { fallback: number } = { fallback: 0 }): number => point.result.yValue ?? options.fallback;
+    const getX = (point: AssertionDataPoint): number => point.time
+
+    // Expected line extractors
+    const getExpectedYs = (point: AssertionDataPoint): { high?: number, low?: number } => tryGetUpperAndLowerYRangeFromAssertionRunEvent(point.relatedRunEvent)
+
+    // Define scales
     const xScale = useMemo(
         () =>
             scaleUtc({
@@ -49,17 +57,27 @@ export const ValuesOverTimeAssertionResultChart = ({ data, timeRange, chartDimen
         [timeRange, chartInnerWidth],
     );
 
-    const { yScale, extent } = useMemo(
+    const { yScale, actualResultsExtent } = useMemo(
         () => {
-            const yValues = rawDataPoints.filter(point => typeof point.result.yValue === 'number').map(point => point.result.yValue!)
-            const realMin = (Math.min(...yValues) || 0)
-            const realMax = (Math.max(...yValues) || 0)
-            const averageValue = (realMax + realMin) / 2
-            let min = realMin;
-            let max = realMax;
+            const actualYValues = rawDataPoints.filter(point => typeof point.result.yValue === 'number').map(p => getY(p))
+            const expectedYValues: number[] = rawDataPoints.flatMap(point => [
+                getExpectedYs(point).high,
+                getExpectedYs(point).low,
+            ].filter(maybeNumber => typeof maybeNumber === 'number') as number[])
 
+            const actualMin = (Math.min(...actualYValues) || 0)
+            const actualMax = (Math.max(...actualYValues) || 0)
+            const actualAverageValue = (actualMax + actualMin) / 2
+
+            const expectedMin = (Math.min(...expectedYValues) || 0)
+            const expectedMax = (Math.max(...expectedYValues) || 0)
+
+            const allYValues = actualYValues.concat(expectedYValues);
+            let min = (Math.min(...allYValues) || 0)
+            let max = (Math.max(...allYValues) || 0)
             // Add some extra range above and below if the min and the max are the same so things are nicely centered
-            if (realMin === realMax) {
+            if (min === max || max === actualMax || max === expectedMax || min === actualMin || min === expectedMin) {
+                const averageValue = (min + max) / 2
                 const averageValueBase = Math.floor(averageValue).toString().length
                 const differentiator = 10 ** (averageValueBase - 1)
                 min -= differentiator;
@@ -71,25 +89,32 @@ export const ValuesOverTimeAssertionResultChart = ({ data, timeRange, chartDimen
                     [min, max],
                     [chartInnerHeight, 0],
                 ),
-                extent: {
-                    min: realMin,
-                    max: realMax,
-                    average: averageValue,
+                actualResultsExtent: {
+                    min: actualMin,
+                    max: actualMax,
+                    average: actualAverageValue,
                 },
+                expectedResultsExtent: expectedYValues.length ? {
+                    min: expectedMin,
+                    max: expectedMax,
+                } : undefined,
             }
         },
         [rawDataPoints, chartInnerHeight]
     );
 
-    // Coalesce the nullish yValues in the data points with defaults
-    const defaultYValue = extent.average
+    // Coalesce the nullish yValues in the data points with defaults (ie. when the event maps to an 'initializing' state)
+    const defaultYValue = actualResultsExtent.average
     const dataPoints = rawDataPoints.map(dataPoint => {
         // Doing a semi-shallow 2-level clone because the result data can have a lot of nesting
         const point = _.clone(dataPoint)
         point.result = _.clone(point.result)
-        point.result.yValue = point.result.yValue ?? defaultYValue;
+        point.result.yValue = getY(dataPoint, {
+            fallback: defaultYValue,
+        });
         return point
     })
+
 
     /* NOTE: the nodes in an svg that are first will have a lower z-index at paint-time */
     return <>
@@ -102,7 +127,7 @@ export const ValuesOverTimeAssertionResultChart = ({ data, timeRange, chartDimen
                     stroke={ANTD_GRAY[4]}
                     tickStroke={ANTD_GRAY[9]}
                     tickLength={4}
-                    numTicks={2}
+                    numTicks={3}
                     tickFormat={v => truncateNumberForDisplay(v.valueOf())}
                     tickLabelProps={{
                         fill: ANTD_GRAY[9],
@@ -120,21 +145,45 @@ export const ValuesOverTimeAssertionResultChart = ({ data, timeRange, chartDimen
                     tickFormat={(v) => getCustomTimeScaleTickValue(v, timeRange)}
                 />
 
-                {/* ----- Line with gradient ----- */}
+                {/* ----- Expected Results Lines ----- */}
+                {/* Min */}
+                <LinePath
+                    data={dataPoints}
+                    x={(d) => xScale(getX(d))}
+                    // NOTE nullish 'low's should never show because the `defined` prop below removes them
+                    y={(d) => yScale(getExpectedYs(d).low ?? 0)}
+                    defined={d => typeof getExpectedYs(d).low === 'number'}
+                    stroke={ACCENT_COLOR_HEX}
+                    strokeDasharray='2 4'
+                    strokeWidth={1}
+                />
+                {/* Max */}
+                <LinePath
+                    data={dataPoints}
+                    x={(d) => xScale(getX(d)) ?? 0}
+                    // NOTE nullish 'high's should never show because the `defined` prop below removes them
+                    y={(d) => yScale(getExpectedYs(d).high ?? 0)}
+                    defined={d => typeof getExpectedYs(d).high === 'number'}
+                    stroke={ACCENT_COLOR_HEX}
+                    strokeDasharray='2 4'
+                    strokeWidth={1}
+                />
+
+
+                {/* ----- Actual Results Line with gradient ----- */}
                 <LinearGradient id="area-gradient" from={ACCENT_COLOR_HEX} to={ACCENT_COLOR_HEX} fromOpacity={0.25} toOpacity={0} />
                 <AreaClosed
                     data={dataPoints}
-                    x={(d) => xScale(d.time) ?? 0}
-                    y={(d) => yScale(d.result.yValue ?? 0) ?? 0}
+                    x={(d) => xScale(getX(d))}
+                    y={(d) => yScale(getY(d))}
                     yScale={yScale}
                     strokeWidth={1}
                     fill="url(#area-gradient)"
                 />
-
                 <LinePath
                     data={dataPoints}
-                    x={(d) => xScale(d.time) ?? 0}
-                    y={(d) => yScale(d.result.yValue ?? 0) ?? 0}
+                    x={(d) => xScale(getX(d))}
+                    y={(d) => yScale(getY(d))}
                     stroke={ACCENT_COLOR_HEX}
                     strokeWidth={4}
                 />
@@ -142,7 +191,7 @@ export const ValuesOverTimeAssertionResultChart = ({ data, timeRange, chartDimen
                 {/* ----- Circular datapoints ----- */}
                 {dataPoints.map(dataPoint => {
                     const xOffset = xScale(new Date(dataPoint.time));
-                    const yOffset = yScale(dataPoint.result.yValue ?? defaultYValue);
+                    const yOffset = yScale(getY(dataPoint, { fallback: defaultYValue }));
                     const fillColor = getFillColor(dataPoint.result.type);
                     return (
                         <LinkWrapper key={dataPoint.time} to={dataPoint.result.resultUrl} target="_blank">
@@ -166,7 +215,7 @@ export const ValuesOverTimeAssertionResultChart = ({ data, timeRange, chartDimen
                                     fill={fillColor}
                                     stroke='white'
                                     strokeWidth={2}
-                                    size={80}
+                                    size={60}
                                     filter='drop-shadow(0px 1px 2px rgb(0 0 0 / 0.1))'
                                 />
                             </Popover>

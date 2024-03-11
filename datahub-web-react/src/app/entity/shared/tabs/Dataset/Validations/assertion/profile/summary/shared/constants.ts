@@ -21,4 +21,7 @@ export const ASSERTION_NATIVE_RESULTS_KEYS_BY_ASSERTION_TYPE = {
         Y_VALUE_KEY_NAME: 'Value',
         PREVIOUS_Y_VALUE_KEY_NAME: 'Previous Value',
     },
+    VOLUME_ASSERTIONS: {
+        PREVIOUS_Y_VALUE_KEY_NAME: 'Previous Row Count'
+    },
 }

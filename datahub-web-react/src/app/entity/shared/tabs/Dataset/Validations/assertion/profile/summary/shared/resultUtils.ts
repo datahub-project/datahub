@@ -4,10 +4,24 @@ import {
     AssertionResult,
     AssertionResultType,
     AssertionRunEvent,
+    AssertionStdOperator,
+    AssertionStdParameter,
+    AssertionStdParameterType,
     AssertionType,
+    AssertionValueChangeType,
+    FieldAssertionInfo,
     FieldAssertionType,
+    FieldMetricAssertion,
+    FieldValuesAssertion,
+    IncrementingSegmentRowCountChange,
+    IncrementingSegmentRowCountTotal,
+    RowCountChange,
+    RowCountTotal,
+    SqlAssertionInfo,
     SqlAssertionType,
     StringMapEntry,
+    VolumeAssertionInfo,
+    VolumeAssertionType,
 } from '../../../../../../../../../../types.generated';
 import { formatNumberWithoutAbbreviation } from '../../../../../../../../../shared/formatNumber';
 import { toLocalDateString, toLocalTimeString } from '../../../../../../../../../shared/time/timeUtils';
@@ -39,6 +53,33 @@ const calculateMetricChangePercentage = (previous: number, actual: number) => {
 };
 
 /**
+ * Calculates expected value of an assertion given previous value and change modifier details
+ * ie. { previous row count = 1000, changeType=%, modifier=100 } | expectedOutput=2000
+ * @param previousValue 
+ * @param changeType 
+ * @param expectedChangeModifier 
+ * @returns {number | undefined}
+ */
+const calculateExpectedNumericalValueWithPreviousNumericalValue = (
+    previousValue: number,
+    changeType: AssertionValueChangeType,
+    expectedChangeModifier: number,
+): number | undefined => {
+    let expectedRowCount: undefined | number;
+    switch (changeType) {
+        case AssertionValueChangeType.Absolute:
+            expectedRowCount = previousValue + expectedChangeModifier
+            break;
+        case AssertionValueChangeType.Percentage:
+            expectedRowCount = previousValue * (1 + (expectedChangeModifier / 100))
+            break;
+        default:
+            break;
+    }
+    return expectedRowCount
+}
+
+/**
  * Attempts to extract a numerical value from native results with a given key
  * @param nativeResults 
  * @param key 
@@ -48,6 +89,15 @@ export function tryExtractNumericalValueFromNativeResults(nativeResults: Maybe<S
     const maybeValue = nativeResults?.find(result => result.key === key)?.value
     const parsedValue = typeof maybeValue === 'string' ? parseFloat(maybeValue) : maybeValue
     return typeof parsedValue === 'number' && !Number.isNaN(parsedValue) ? parsedValue : undefined;
+}
+
+export function tryExtractNumericalValueFromAssertionStdParameter(param?: Maybe<AssertionStdParameter>): number | undefined {
+    let maybeNumber: undefined | number
+    if (param?.type === AssertionStdParameterType.Number) {
+        maybeNumber = parseFloat(param.value)
+        maybeNumber = !Number.isNaN(maybeNumber) ? maybeNumber : undefined;
+    }
+    return maybeNumber;
 }
 
 const tryGetFieldMetricAssertionNumericalResult = (result?: Maybe<AssertionResult>): number | undefined => {
@@ -72,7 +122,7 @@ const tryGetAbsoluteVolumeAssertionNumericalResult = (result?: Maybe<AssertionRe
 };
 
 const tryGetPreviousVolumeAssertionNumericalResult = (result?: Maybe<AssertionResult>) => {
-    return tryExtractNumericalValueFromNativeResults(result?.nativeResults, 'Previous Row Count');
+    return tryExtractNumericalValueFromNativeResults(result?.nativeResults, ASSERTION_NATIVE_RESULTS_KEYS_BY_ASSERTION_TYPE.VOLUME_ASSERTIONS.PREVIOUS_Y_VALUE_KEY_NAME);
 };
 const tryGetActualUpdatedTimestampFromAssertionResult = (result?: Maybe<AssertionResult>) => {
     const eventsArrString = result?.nativeResults?.find((pair) => pair.key === 'events')?.value;
@@ -313,7 +363,6 @@ export const tryGetPrimaryMetricValueFromAssertionRunEvent = (runEvent: Assertio
         case AssertionType.Sql:
             return tryGetSqlAssertionNumericalResult(runEvent.result);
         case AssertionType.Volume:
-            // Row count
             return (runEvent.result.rowCount?.valueOf());
         case AssertionType.Field:
             return tryGetPrimaryMetricValueFromFieldAssertionRunEvent(runEvent.result)
@@ -339,4 +388,196 @@ function tryGetPrimaryMetricValueFromFieldAssertionRunEvent(runEventResult?: May
         default:
             return undefined;
     }
+}
+
+
+
+export type AssertionExpectedRange = {
+    high?: number
+    low?: number
+}
+
+
+/**
+ * Tries to get the 'high' and 'low' end of the range for an assertion
+ * If both are defined we have a BETWEEN range
+ * If either or are defined we only have a lt/lte/gt/gte range
+ * If neither are defined, we cannot extract an expected range for this assertion run event
+ * @param runEvent 
+ * @returns {AssertionExpectedRange}
+ */
+export const tryGetExpectedRangeFromAssertionRunEvent = (runEvent: AssertionRunEvent): AssertionExpectedRange => {
+    let result: AssertionExpectedRange = {}
+
+    const info = runEvent.result?.assertion;
+    switch (info?.type) {
+        case AssertionType.Volume:
+            result = info.volumeAssertion ? tryGetExpectedRangeFromVolumeAssertion(info.volumeAssertion, tryGetPreviousVolumeAssertionNumericalResult(runEvent.result)) : result;
+            break;
+        case AssertionType.Field:
+            result = info.fieldAssertion ? tryGetExpectedRangeFromFieldAssertion(info.fieldAssertion) : result;
+            break;
+        case AssertionType.Sql:
+            result = info.sqlAssertion ? tryGetExpectedRangeFromSQLAssertion(info.sqlAssertion, tryGetPreviousSqlAssertionNumericalResult(runEvent.result)) : result;
+            break;
+        default:
+            break;
+    }
+    return result;
+}
+
+function tryGetExpectedRangeFromFieldAssertion(fieldAssertionInfo: FieldAssertionInfo): AssertionExpectedRange {
+    let result: AssertionExpectedRange = {}
+    switch (fieldAssertionInfo.type) {
+        case FieldAssertionType.FieldValues:
+            result = tryGetExpectedRangeFromAssertionAgainstTotals(fieldAssertionInfo.fieldValuesAssertion)
+            break;
+        case FieldAssertionType.FieldMetric:
+            result = tryGetExpectedRangeFromAssertionAgainstTotals(fieldAssertionInfo.fieldMetricAssertion)
+            break;
+        default:
+            break;
+    }
+    return result;
+}
+
+function tryGetExpectedRangeFromSQLAssertion(sqlAssertionInfo: SqlAssertionInfo, maybePreviousResult?: number): AssertionExpectedRange {
+    if (!sqlAssertionInfo.changeType) {
+        return tryGetExpectedRangeFromAssertionAgainstTotals(sqlAssertionInfo)
+    }
+
+    return tryGetExpectedRangeFromAssertionAgainstChanges(sqlAssertionInfo, sqlAssertionInfo.changeType, maybePreviousResult)
+}
+
+function tryGetExpectedRangeFromVolumeAssertion(volumeAssertionInfo: VolumeAssertionInfo, maybePreviousRowCount?: number): AssertionExpectedRange {
+    let result: AssertionExpectedRange = {}
+
+    switch (volumeAssertionInfo?.type) {
+        case VolumeAssertionType.RowCountTotal: {
+            result = tryGetExpectedRangeFromAssertionAgainstTotals(volumeAssertionInfo.rowCountTotal)
+            break;
+        }
+        case VolumeAssertionType.IncrementingSegmentRowCountTotal: {
+            result = tryGetExpectedRangeFromAssertionAgainstTotals(volumeAssertionInfo.incrementingSegmentRowCountTotal)
+            break;
+        }
+        case VolumeAssertionType.RowCountChange:
+            result = tryGetExpectedRangeFromAssertionAgainstChanges(volumeAssertionInfo.rowCountChange, volumeAssertionInfo.rowCountChange?.type, maybePreviousRowCount)
+            break;
+        case VolumeAssertionType.IncrementingSegmentRowCountChange:
+            result = tryGetExpectedRangeFromAssertionAgainstChanges(volumeAssertionInfo.incrementingSegmentRowCountChange, volumeAssertionInfo.incrementingSegmentRowCountChange?.type, maybePreviousRowCount)
+            break;
+        default:
+            break;
+    }
+    return result
+}
+
+/**
+ * Tries to calculate expected result ranges for assertions that have fixed numerical expectations
+ * ie. handles 'RowCount should be between 10k and 50k'
+ * @param totals 
+ * @returns 
+ */
+function tryGetExpectedRangeFromAssertionAgainstTotals(totals?: Maybe<IncrementingSegmentRowCountTotal> | Maybe<RowCountTotal> | Maybe<SqlAssertionInfo> | Maybe<FieldValuesAssertion> | Maybe<FieldMetricAssertion>): AssertionExpectedRange {
+    let high: undefined | number;
+    let low: undefined | number;
+    if (!totals?.parameters) {
+        return { high, low };
+    }
+    switch (totals?.operator) {
+        case AssertionStdOperator.Between:
+            high = tryExtractNumericalValueFromAssertionStdParameter(totals.parameters.maxValue)
+            low = tryExtractNumericalValueFromAssertionStdParameter(totals.parameters.minValue)
+            break;
+        case AssertionStdOperator.GreaterThan:
+            low = tryExtractNumericalValueFromAssertionStdParameter(totals.parameters.value)
+            break;
+        case AssertionStdOperator.GreaterThanOrEqualTo:
+            low = tryExtractNumericalValueFromAssertionStdParameter(totals.parameters.value)
+            break;
+        case AssertionStdOperator.LessThan:
+            high = tryExtractNumericalValueFromAssertionStdParameter(totals.parameters.value)
+            break;
+        case AssertionStdOperator.LessThanOrEqualTo:
+            high = tryExtractNumericalValueFromAssertionStdParameter(totals.parameters.value)
+            break;
+        default:
+            break;
+    }
+    return { high, low };
+}
+/**
+ * Tries to calculate expected result ranges for assertions that have expectations defined relative to previous runs
+ * ie. handles 'RowCount should not grow by more than 50%'
+ * @param changingInfo 
+ * @param changeType 
+ * @param previousCount 
+ * @returns {AssertionExpectedRange}
+ */
+function tryGetExpectedRangeFromAssertionAgainstChanges(changingInfo?: Maybe<RowCountChange | IncrementingSegmentRowCountChange | SqlAssertionInfo>, changeType?: Maybe<AssertionValueChangeType>, previousCount?: Maybe<number>): AssertionExpectedRange {
+    let high: undefined | number;
+    let low: undefined | number;
+
+    if (!changingInfo?.parameters || typeof previousCount !== 'number' || typeof changeType === 'undefined' || changeType === null) {
+        return { high, low };
+    }
+
+
+    switch (changingInfo?.operator) {
+        case AssertionStdOperator.Between: {
+            const modifierHigh = tryExtractNumericalValueFromAssertionStdParameter(changingInfo.parameters.maxValue)
+            const modifierLow = tryExtractNumericalValueFromAssertionStdParameter(changingInfo.parameters.minValue)
+            high = typeof modifierHigh === 'number' ? calculateExpectedNumericalValueWithPreviousNumericalValue(
+                previousCount,
+                changeType,
+                modifierHigh
+            ) : undefined
+            low = typeof modifierLow === 'number' ? calculateExpectedNumericalValueWithPreviousNumericalValue(
+                previousCount,
+                changeType,
+                modifierLow
+            ) : undefined;
+            break;
+        }
+        case AssertionStdOperator.GreaterThan: {
+            const modifierLow = tryExtractNumericalValueFromAssertionStdParameter(changingInfo.parameters.value)
+            low = typeof modifierLow === 'number' ? calculateExpectedNumericalValueWithPreviousNumericalValue(
+                previousCount,
+                changeType,
+                modifierLow
+            ) : undefined;
+            break;
+        }
+        case AssertionStdOperator.GreaterThanOrEqualTo: {
+            const modifierLow = tryExtractNumericalValueFromAssertionStdParameter(changingInfo.parameters.value)
+            low = typeof modifierLow === 'number' ? calculateExpectedNumericalValueWithPreviousNumericalValue(
+                previousCount,
+                changeType,
+                modifierLow
+            ) : undefined;
+            break;
+        }
+        case AssertionStdOperator.LessThan: {
+            const modifierHigh = tryExtractNumericalValueFromAssertionStdParameter(changingInfo.parameters.value)
+            high = typeof modifierHigh === 'number' ? calculateExpectedNumericalValueWithPreviousNumericalValue(
+                previousCount,
+                changeType,
+                modifierHigh
+            ) : undefined;
+            break;
+        }
+        case AssertionStdOperator.LessThanOrEqualTo: {
+            const modifierHigh = tryExtractNumericalValueFromAssertionStdParameter(changingInfo.parameters.value)
+            high = typeof modifierHigh === 'number' ? calculateExpectedNumericalValueWithPreviousNumericalValue(
+                previousCount,
+                changeType,
+                modifierHigh
+            ) : undefined;
+            break;
+        }
+        default:
+            break;
+    }
+    return { high, low };
 }
