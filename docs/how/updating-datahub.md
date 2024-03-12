@@ -22,6 +22,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 - #9934 - Stateful ingestion is now enabled by default if datahub-rest sink is used or if a `datahub_api` is specified. It will still be disabled by default when any other sink type is used.
 - #10002 - The `DataHubGraph` client no longer makes a request to the backend during initialization. If you want to preserve the old behavior, call `graph.test_connection()` after constructing the client.
+- #10026 - The dbt `use_compiled_code` option has been removed, because we now support capturing both source and compiled dbt SQL. This can be configured using `include_compiled_code`, which will be default enabled in 0.13.1.
 
 ### Potential Downtime
 
