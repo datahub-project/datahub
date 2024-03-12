@@ -21,7 +21,7 @@ public class MappingsBuilderTest {
     Map<String, Object> result = MappingsBuilder.getMappings(TestEntitySpecBuilder.getSpec());
     assertEquals(result.size(), 1);
     Map<String, Object> properties = (Map<String, Object>) result.get("properties");
-    assertEquals(properties.size(), 21);
+    assertEquals(properties.size(), 22);
     assertEquals(
         properties.get("urn"),
         ImmutableMap.of(
@@ -50,6 +50,7 @@ public class MappingsBuilderTest {
                     "analyzer",
                     "partial_urn_component"))));
     assertEquals(properties.get("runId"), ImmutableMap.of("type", "keyword"));
+    assertEquals(properties.get("systemCreated"), ImmutableMap.of("type", "date"));
     assertTrue(properties.containsKey("browsePaths"));
     assertTrue(properties.containsKey("browsePathV2"));
     assertTrue(properties.containsKey("removed"));
