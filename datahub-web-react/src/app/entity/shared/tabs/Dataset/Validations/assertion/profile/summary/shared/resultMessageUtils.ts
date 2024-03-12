@@ -230,21 +230,26 @@ const getFormattedExpectedTextForFreshnessAssertion = (run: AssertionRunEvent): 
 
 
 const getFormattedExpectedTextForAbsoluteAssertion = (
-    assertedOnDescription: 'row count',
+    assertedOnDescription: 'row count' | 'SQL query result' | 'values' | 'metric',
     totals?: Maybe<IncrementingSegmentRowCountTotal> | Maybe<RowCountTotal> | Maybe<SqlAssertionInfo> | Maybe<FieldValuesAssertion> | Maybe<FieldMetricAssertion>,
 ): string | undefined => {
     const range = tryGetExpectedRangeFromAssertionAgainstTotals(totals);
     if (range.high && range.low) {
-        return `Expected dataset ${assertedOnDescription} to be between ${range.high} and ${range.low}.`
+        return `Expected ${assertedOnDescription} to be between ${range.high} and ${range.low}.`
     } else if (range.high) {
         const rangeDefinition = range.context?.highType == 'inclusive' ? 'less than or equal to' : 'less than'
-        return `Expected dataset ${assertedOnDescription} to be ${rangeDefinition} ${range.high}`;
+        return `Expected ${assertedOnDescription} to be ${rangeDefinition} ${range.high}`;
     } else if (range.low) {
         const rangeDefinition = range.context?.lowType == 'inclusive' ? 'greater than or equal to' : 'greater than'
-        return `Expected dataset ${assertedOnDescription} to be ${rangeDefinition} ${range.low}`;
+        return `Expected ${assertedOnDescription} to be ${rangeDefinition} ${range.low}`;
     }
 }
-const getFormattedExpectedTextForRelativeVolumeAssertion = (assertedOnDescription: 'row count', changingInfo?: Maybe<RowCountChange | IncrementingSegmentRowCountChange | SqlAssertionInfo>, changeType?: Maybe<AssertionValueChangeType>, previousCount?: Maybe<number>): string | undefined => {
+const getFormattedExpectedTextForRelativeAssertion = (
+    assertedOnDescription: 'row count' | 'SQL query result',
+    changingInfo?: Maybe<RowCountChange | IncrementingSegmentRowCountChange | SqlAssertionInfo>,
+    changeType?: Maybe<AssertionValueChangeType>,
+    previousCount?: Maybe<number>
+): string | undefined => {
     if (!changingInfo?.parameters || typeof previousCount !== 'number' || typeof changeType === 'undefined' || changeType === null) {
         return;
     }
@@ -282,7 +287,7 @@ const getFormattedExpectedTextForVolumeAssertion = (run: AssertionRunEvent): str
     const volumeAssertion = run.result?.assertion?.volumeAssertion
     switch (volumeAssertion?.type) {
         case VolumeAssertionType.RowCountChange:
-            return getFormattedExpectedTextForRelativeVolumeAssertion('row count', volumeAssertion.rowCountChange, volumeAssertion.rowCountChange?.type, tryGetPreviousVolumeAssertionNumericalResult(run.result));
+            return getFormattedExpectedTextForRelativeAssertion('row count', volumeAssertion.rowCountChange, volumeAssertion.rowCountChange?.type, tryGetPreviousVolumeAssertionNumericalResult(run.result));
         case VolumeAssertionType.RowCountTotal:
             return getFormattedExpectedTextForAbsoluteAssertion('row count', volumeAssertion.rowCountTotal);
         default:
@@ -290,12 +295,26 @@ const getFormattedExpectedTextForVolumeAssertion = (run: AssertionRunEvent): str
     }
 }
 
-const getFormattedExpectedTextForFieldAssertion = (_: AssertionRunEvent): string | undefined => {
-    return undefined;
+const getFormattedExpectedTextForFieldAssertion = (run: AssertionRunEvent): string | undefined => {
+    const fieldAssertionInfo = run.result?.assertion?.fieldAssertion
+    if (!fieldAssertionInfo) return;
+    switch (fieldAssertionInfo.type) {
+        case FieldAssertionType.FieldValues:
+            return getFormattedExpectedTextForAbsoluteAssertion('values', fieldAssertionInfo.fieldValuesAssertion)
+        case FieldAssertionType.FieldMetric:
+            return getFormattedExpectedTextForAbsoluteAssertion('metric', fieldAssertionInfo.fieldMetricAssertion)
+        default:
+            return
+    }
 }
 
-const getFormattedExpectedTextForSqlAssertion = (_: AssertionRunEvent): string | undefined => {
-    return undefined;
+const getFormattedExpectedTextForSqlAssertion = (run: AssertionRunEvent): string | undefined => {
+    const sqlAssertionInfo = run.result?.assertion?.sqlAssertion
+    if (!sqlAssertionInfo) return;
+
+    return sqlAssertionInfo.changeType
+        ? getFormattedExpectedTextForRelativeAssertion('SQL query result', sqlAssertionInfo, sqlAssertionInfo.changeType, tryGetPreviousSqlAssertionNumericalResult(run.result))
+        : getFormattedExpectedTextForAbsoluteAssertion('SQL query result', sqlAssertionInfo)
 }
 
 const getFormattedExpectedTextForDefaultAssertion = (_: AssertionRunEvent): string | undefined => {
