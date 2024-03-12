@@ -455,49 +455,70 @@ class RedshiftProvisionedQuery(RedshiftCommonQuery):
         db_name: str, start_time: datetime, end_time: datetime
     ) -> str:
         return """
-                select
-                    distinct cluster,
-                    target_schema,
-                    target_table,
-                    username,
-                    query as query_id,
-                    LISTAGG(CASE WHEN LEN(RTRIM(querytxt)) = 0 THEN querytxt ELSE RTRIM(querytxt) END) WITHIN GROUP (ORDER BY sequence) as ddl,
-                    ANY_VALUE(pid) as session_id,
-                    starttime as timestamp
-                from
-                        (
+            with query_txt as
+                (
                     select
-                        distinct tbl as target_table_id,
-                        sti.schema as target_schema,
-                        sti.table as target_table,
-                        sti.database as cluster,
-                        usename as username,
-                        text as querytxt,
-                        sq.query,
-                        sequence,
-                        si.starttime as starttime,
-                        pid
+                        query,
+                        pid,
+                        LISTAGG(case
+                            when LEN(RTRIM(text)) = 0 then text
+                            else RTRIM(text)
+                        end) within group (
+                    order by
+                        sequence) as ddl
                     from
-                        stl_insert as si
-                    join SVV_TABLE_INFO sti on
-                        sti.table_id = tbl
-                    left join svl_user_info sui on
-                        si.userid = sui.usesysid
-                    left join STL_QUERYTEXT sq on
-                        si.query = sq.query
-                    left join stl_load_commits slc on
-                        slc.query = si.query
-                    where
+                        (
+                        select
+                            query,
+                            pid,
+                            text,
+                            sequence
+                        from
+                            STL_QUERYTEXT
+                        where
+                            sequence < 320
+                        order by
+                            sequence
+                    )
+                    group by
+                        query,
+                        pid
+                )
+                        select
+                    distinct tbl as target_table_id,
+                    sti.schema as target_schema,
+                    sti.table as target_table,
+                    sti.database as cluster,
+                    usename as username,
+                    ddl,
+                    sq.query as query_id,
+                    min(si.starttime) as starttime,
+                    ANY_VALUE(pid) as session_id
+                from
+                    stl_insert as si
+                left join SVV_TABLE_INFO sti on
+                    sti.table_id = tbl
+                left join svl_user_info sui on
+                    si.userid = sui.usesysid
+                left join query_txt sq on
+                    si.query = sq.query
+                left join stl_load_commits slc on
+                    slc.query = si.query
+                where
                         sui.usename <> 'rdsdb'
-                        and slc.query IS NULL
                         and cluster = '{db_name}'
+                        and slc.query IS NULL
                         and si.starttime >= '{start_time}'
                         and si.starttime < '{end_time}'
-                        and sequence < 320
-                    ) as target_tables
-                    group by cluster, query_id, target_schema, target_table, username, starttime
-                    order by cluster, query_id, target_schema, target_table, starttime asc
-                """.format(
+                group by
+                    target_table_id,
+                    target_schema,
+                    target_table,
+                    cluster,
+                    username,
+                    ddl,
+                    sq.query
+        """.format(
             # We need the original database name for filtering
             db_name=db_name,
             start_time=start_time.strftime(redshift_datetime_format),
@@ -615,7 +636,7 @@ class RedshiftProvisionedQuery(RedshiftCommonQuery):
 
             )
             where
-                rn = 1;
+                rn = 1
             """
 
     # Add this join to the sql query for more metrics on completed queries
