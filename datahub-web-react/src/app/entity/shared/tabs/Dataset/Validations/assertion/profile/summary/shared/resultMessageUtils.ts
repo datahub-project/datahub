@@ -117,11 +117,11 @@ const getFormattedReasonTextForFreshnessAssertion = (run: AssertionRunEvent) => 
     const formattedDate = (actualTimestamp && toLocalDateString(actualTimestamp)) || undefined;
     if (result === AssertionResultType.Success) {
         if (formattedTime) {
-            return `Dataset was updated at ${formattedTime} on ${formattedDate}.`;
+            return `Table was updated at ${formattedTime} on ${formattedDate}.`;
         }
-        return `The dataset was updated within the expected timeframe.`;
+        return `The table was updated within the expected timeframe.`;
     }
-    return `No dataset updates occurred within the expected timeframe.`;
+    return `No table updates occurred within the expected timeframe.`;
 };
 
 const getFormattedReasonTextForAbsoluteVolumeAssertion = (run: AssertionRunEvent) => {
@@ -129,18 +129,18 @@ const getFormattedReasonTextForAbsoluteVolumeAssertion = (run: AssertionRunEvent
     const actualRowCount = tryGetAbsoluteVolumeAssertionNumericalResult(run.result);
     if (result === AssertionResultType.Success) {
         if (actualRowCount !== undefined) {
-            return `The actual Row count (${formatNumberWithoutAbbreviation(
+            return `The actual row count (${formatNumberWithoutAbbreviation(
                 actualRowCount,
             )}) met the expected conditions.`;
         }
-        return `The actual Row count met the expected conditions.`;
+        return `The actual row count met the expected conditions.`;
     }
     if (actualRowCount !== undefined) {
-        return `The actual Row count (${formatNumberWithoutAbbreviation(
+        return `The actual row count (${formatNumberWithoutAbbreviation(
             actualRowCount,
         )}) did not meet the expected conditions.`;
     }
-    return `The actual Row count did not meet the expected conditions.`;
+    return `The actual row count did not meet the expected conditions.`;
 };
 
 const getFormattedReasonTextForRelativeVolumeAssertion = (run: AssertionRunEvent) => {
@@ -156,14 +156,14 @@ const getFormattedReasonTextForRelativeVolumeAssertion = (run: AssertionRunEvent
 
     if (result === AssertionResultType.Success) {
         if (actualRowCount !== undefined && previousRowCount !== undefined) {
-            return `The change in Row count of ${rowCountChangeText} met the expected conditions.`;
+            return `The change in row count of ${rowCountChangeText} met the expected conditions.`;
         }
-        return `The change in Row count met the expected conditions.`;
+        return `The change in row count met the expected conditions.`;
     }
     if (actualRowCount !== undefined && previousRowCount !== undefined) {
-        return `The change in Row count of ${rowCountChangeText} did not meet the expected conditions.`;
+        return `The change in row count of ${rowCountChangeText} did not meet the expected conditions.`;
     }
-    return `The change in Row count did not meet the expected conditions.`;
+    return `The change in row count did not meet the expected conditions.`;
 };
 
 const getFormattedReasonTextForVolumeAssertion = (run: AssertionRunEvent) => {
@@ -315,11 +315,11 @@ const getFormattedExpectedTextForFreshnessAssertion = (run: AssertionRunEvent): 
             const humanReadableCronStr = getCronAsText(info.schedule.cron.cron, { verbose: true }).text
             const maybeTimeZoneStr = info.schedule.cron.timezone ? ` (${info.schedule.cron.timezone})` : ``;
             const maybeWindowOffsetStr = info.schedule.cron.windowStartOffsetMs ? ` with a window offset of ${info.schedule.cron.windowStartOffsetMs} millis` : ``;
-            return `Dataset should update before this check ${humanReadableCronStr}${maybeTimeZoneStr}${maybeWindowOffsetStr}`;
+            return `Table should update before this check ${humanReadableCronStr}${maybeTimeZoneStr}${maybeWindowOffsetStr}`;
         }
         case FreshnessAssertionScheduleType.FixedInterval: {
             if (!info.schedule.fixedInterval) return undefined;
-            return `Dataset should update within the last ${info.schedule.fixedInterval.multiple} ${info.schedule.fixedInterval.unit.valueOf().toLowerCase()}${info.schedule.fixedInterval.multiple === 1 ? '' : 's'}`;
+            return `Table should update within the last ${info.schedule.fixedInterval.multiple} ${info.schedule.fixedInterval.unit.valueOf().toLowerCase()}${info.schedule.fixedInterval.multiple === 1 ? '' : 's'}`;
         }
         default:
             return undefined;
