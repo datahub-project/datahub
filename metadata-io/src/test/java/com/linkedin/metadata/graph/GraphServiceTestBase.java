@@ -505,15 +505,16 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
     assertTrue(
         viaNodeResult.getRelationships().get(0).getPaths().get(0).contains(lifeCycleOwnerOne));
     EntityLineageResult viaNodeResultNoMulti =
-        getGraphService(false).getLineage(
-            schemaFieldUrnOne,
-            LineageDirection.UPSTREAM,
-            new GraphFilters(List.of("schemaField")),
-            0,
-            1000,
-            100,
-            null,
-            null);
+        getGraphService(false)
+            .getLineage(
+                schemaFieldUrnOne,
+                LineageDirection.UPSTREAM,
+                new GraphFilters(List.of("schemaField")),
+                0,
+                1000,
+                100,
+                null,
+                null);
 
     // Multi-path disabled, still has two because via flow creates both edges in response
     assertEquals(viaNodeResultNoMulti.getRelationships().size(), 2);
