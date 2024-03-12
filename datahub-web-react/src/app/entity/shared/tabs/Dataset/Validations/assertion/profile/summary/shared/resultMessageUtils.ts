@@ -1,4 +1,4 @@
-import { Assertion, AssertionResultType, AssertionRunEvent, AssertionType, AssertionValueChangeType, FieldAssertionType, FieldMetricAssertion, FieldValuesAssertion, FreshnessAssertionScheduleType, IncrementingSegmentRowCountChange, IncrementingSegmentRowCountTotal, Maybe, RowCountChange, RowCountTotal, SqlAssertionInfo, SqlAssertionType, VolumeAssertionType } from "../../../../../../../../../../types.generated";
+import { Assertion, AssertionResult, AssertionResultType, AssertionRunEvent, AssertionType, AssertionValueChangeType, FieldAssertionType, FieldMetricAssertion, FieldValuesAssertion, FreshnessAssertionScheduleType, IncrementingSegmentRowCountChange, IncrementingSegmentRowCountTotal, Maybe, RowCountChange, RowCountTotal, SqlAssertionInfo, SqlAssertionType, VolumeAssertionType } from "../../../../../../../../../../types.generated";
 import { formatNumberWithoutAbbreviation } from "../../../../../../../../../shared/formatNumber";
 import { toLocalDateString, toLocalTimeString } from "../../../../../../../../../shared/time/timeUtils";
 import { getResultErrorMessage } from "../../../../assertionUtils";
@@ -8,6 +8,7 @@ import { getCronAsText } from '../../../../acrylUtils';
 import { ASSERTION_OPERATOR_DESCRIPTIONS_REQUIRING_SUFFIX, ASSERTION_OPERATOR_TO_DESCRIPTION } from "./constants";
 import { lowerFirstLetter } from "../../../../../../../../../shared/textUtil";
 import { getFieldMetricTypeReadableLabel } from "../../../../fieldDescriptionUtils";
+import { toReadableLocalDateTimeString } from "../../shared/timeUtils";
 
 export const getFormattedResultText = (result?: AssertionResultType) => {
     if (result === undefined) {
@@ -194,17 +195,27 @@ export const getFormattedReasonText = (assertion: Assertion, run: AssertionRunEv
         return `${formattedError}`;
     }
 
+    // Some historical assertion results may not have asseriton info...
+    // so we coalesce the current info onto there to avoid blanks
+    const coalescedResult: AssertionResult | undefined | null = run.result && {
+        ...run.result,
+        assertion: run.result?.assertion ?? assertion.info,
+    }
+    const coalescedRun: AssertionRunEvent = {
+        ...run,
+        result: coalescedResult,
+    }
     switch (assertion.info?.type) {
         case AssertionType.Freshness:
-            return getFormattedReasonTextForFreshnessAssertion(run);
+            return getFormattedReasonTextForFreshnessAssertion(coalescedRun);
         case AssertionType.Volume:
-            return getFormattedReasonTextForVolumeAssertion(run);
+            return getFormattedReasonTextForVolumeAssertion(coalescedRun);
         case AssertionType.Field:
-            return getFormattedReasonTextForFieldAssertion(run);
+            return getFormattedReasonTextForFieldAssertion(coalescedRun);
         case AssertionType.Sql:
-            return getFormattedReasonTextForSqlAssertion(run);
+            return getFormattedReasonTextForSqlAssertion(coalescedRun);
         case AssertionType.Dataset:
-            return getFormattedReasonTextForDefaultAssertion(run);
+            return getFormattedReasonTextForDefaultAssertion(coalescedRun);
         default:
             return 'No reason provided';
     }
@@ -318,7 +329,7 @@ const getFormattedExpectedTextForFieldAssertion = (run: AssertionRunEvent): stri
     switch (fieldAssertionInfo.type) {
         case FieldAssertionType.FieldValues: {
             const maybeColumnPath = fieldAssertionInfo.fieldValuesAssertion?.field.path
-            const fieldDescription = maybeColumnPath ? `Every value on ${maybeColumnPath}` : `Every column value`
+            const fieldDescription = maybeColumnPath ? `${maybeColumnPath}` : `Column value`
             return getFormattedExpectedTextForAbsoluteAssertion(fieldDescription, fieldAssertionInfo.fieldValuesAssertion)
         }
         case FieldAssertionType.FieldMetric: {
@@ -363,7 +374,7 @@ const getFormattedExpectedTextForFreshnessAssertion = (run: AssertionRunEvent): 
         }
         case FreshnessAssertionScheduleType.FixedInterval: {
             if (!info.schedule.fixedInterval) return undefined;
-            return `Table should update within the last ${info.schedule.fixedInterval.multiple} ${info.schedule.fixedInterval.unit.valueOf().toLowerCase()}${info.schedule.fixedInterval.multiple === 1 ? '' : 's'}`;
+            return `Table should update within the last ${info.schedule.fixedInterval.multiple} ${info.schedule.fixedInterval.unit.valueOf().toLowerCase()}${info.schedule.fixedInterval.multiple === 1 ? '' : 's'} as of ${toReadableLocalDateTimeString(run.timestampMillis)}.`;
         }
         default:
             return undefined;
@@ -374,18 +385,28 @@ const getFormattedExpectedTextForDefaultAssertion = (_: AssertionRunEvent): stri
     return undefined;
 }
 
-export const getFormattedExpectedResultText = (run: AssertionRunEvent): string | undefined => {
-    switch (run.result?.assertion?.type) {
+export const getFormattedExpectedResultText = (assertion: Assertion, run: AssertionRunEvent): string | undefined => {
+    // Some historical assertion results may not have asseriton info...
+    // so we coalesce the current info onto there to avoid blanks
+    const coalescedResult: AssertionResult | undefined | null = run.result && {
+        ...run.result,
+        assertion: run.result?.assertion ?? assertion.info,
+    }
+    const coalescedRun: AssertionRunEvent = {
+        ...run,
+        result: coalescedResult,
+    }
+    switch (coalescedRun.result?.assertion?.type) {
         case AssertionType.Freshness:
-            return getFormattedExpectedTextForFreshnessAssertion(run);
+            return getFormattedExpectedTextForFreshnessAssertion(coalescedRun);
         case AssertionType.Volume:
-            return getFormattedExpectedTextForVolumeAssertion(run);
+            return getFormattedExpectedTextForVolumeAssertion(coalescedRun);
         case AssertionType.Field:
-            return getFormattedExpectedTextForFieldAssertion(run);
+            return getFormattedExpectedTextForFieldAssertion(coalescedRun);
         case AssertionType.Sql:
-            return getFormattedExpectedTextForSqlAssertion(run);
+            return getFormattedExpectedTextForSqlAssertion(coalescedRun);
         case AssertionType.Dataset:
-            return getFormattedExpectedTextForDefaultAssertion(run);
+            return getFormattedExpectedTextForDefaultAssertion(coalescedRun);
         default:
             return undefined;
     }

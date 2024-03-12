@@ -20,7 +20,7 @@ import { ResultStatusType, getDetailedErrorMessage, getFormattedExpectedResultTe
 const HeaderRow = styled.div`
     display: flex;
     justify-content: space-between;
-    align-items: start;
+    align-items: center;
     margin-bottom: 4px;
 `;
 
@@ -46,9 +46,10 @@ const Actions = styled.div`
 `;
 
 const LastResultsRow = styled.div`
-    color: ${ANTD_GRAY[7]};
+    font-size: 14px;
     display: flex;
     align-items: center;
+    font-weight: 500;
 `;
 
 const ReasonRow = styled.div``;
@@ -106,7 +107,7 @@ export const AssertionResultPopoverContent = ({
     const hasReason = !!reasonText;
 
     // Context
-    const expectedText = run ? getFormattedExpectedResultText(run) : undefined;
+    const expectedText = run ? getFormattedExpectedResultText(assertion, run) : undefined;
     const hasContext = !!expectedText;
 
     // Error
@@ -121,6 +122,13 @@ export const AssertionResultPopoverContent = ({
         <>
             <HeaderRow>
                 {/* NOTE: we don't show the assertion title in the header because the assertion's current title may not accurately represent the assertion that actually ran at this point in time. */}
+                <LastResultsRow>
+                    {(timestamp && (
+                        <>
+                            <StyledClockCircleOutlined /> {toReadableLocalDateTimeString(run?.timestampMillis)}{' '}
+                        </>
+                    )) || <>No results yet</>}
+                </LastResultsRow>
                 <Actions>
                     <AssertionResultPill result={result} type={resultStatusType} />
                     {(showProfileButton && onClickProfileButton && (
@@ -129,13 +137,6 @@ export const AssertionResultPopoverContent = ({
                         undefined}
                 </Actions>
             </HeaderRow>
-            <LastResultsRow>
-                {(timestamp && (
-                    <>
-                        <StyledClockCircleOutlined /> Evaluated {toReadableLocalDateTimeString(run?.timestampMillis)}{' '}
-                    </>
-                )) || <>No results yet</>}
-            </LastResultsRow>
             {hasReason && (
                 <>
                     <ThinDivider />
