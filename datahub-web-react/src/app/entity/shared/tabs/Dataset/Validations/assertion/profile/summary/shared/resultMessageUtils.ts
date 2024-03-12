@@ -215,15 +215,15 @@ const getFormattedExpectedTextForAbsoluteAssertion = (
 ): string | undefined => {
     const range = tryGetExpectedRangeFromAssertionAgainstTotals(totals);
     if (range.high && range.low) {
-        return `Expected ${assertedOnDescription} to be between ${range.high} and ${range.low}.`
+        return `${assertedOnDescription} should be between ${range.high} and ${range.low}.`
     }
     if (range.high) {
         const rangeDefinition = range.context?.highType === 'inclusive' ? 'less than or equal to' : 'less than'
-        return `Expected ${assertedOnDescription} to be ${rangeDefinition} ${range.high}`;
+        return `${assertedOnDescription} should be ${rangeDefinition} ${range.high}`;
     }
     if (range.low) {
         const rangeDefinition = range.context?.lowType === 'inclusive' ? 'greater than or equal to' : 'greater than'
-        return `Expected ${assertedOnDescription} to be ${rangeDefinition} ${range.low}`;
+        return `${assertedOnDescription} should be ${rangeDefinition} ${range.low}`;
     }
     return undefined;
 }
@@ -254,17 +254,17 @@ const getFormattedExpectedTextForRelativeAssertion = (
 
     if (high && low) {
         const minuteDetails = maybeRangeHighLabel && maybeRangeLowLabel ? ` (${maybeRangeLowLabel} to ${maybeRangeHighLabel})` : ''
-        return `Expected ${assertedOnDescription} to be between ${low} and ${high}${minuteDetails}.`
+        return `${assertedOnDescription} should be between ${low} and ${high}${minuteDetails}.`
     }
     if (high) {
         const minuteDetails = maybeRangeHighLabel ? ` (${maybeRangeHighLabel})` : ''
         const rangeDefinition = range.context?.highType === 'inclusive' ? 'less than or equal to' : 'less than'
-        return `Expected ${assertedOnDescription} to be ${rangeDefinition} ${high}${minuteDetails}.`;
+        return `${assertedOnDescription} should be ${rangeDefinition} ${high}${minuteDetails}.`;
     }
     if (low) {
         const minuteDetails = maybeRangeLowLabel ? ` (${maybeRangeLowLabel})` : ''
         const rangeDefinition = range.context?.lowType === 'inclusive' ? 'greater than or equal to' : 'greater than'
-        return `Expected ${assertedOnDescription} to be ${rangeDefinition} ${low}${minuteDetails}.`;
+        return `${assertedOnDescription} should be ${rangeDefinition} ${low}${minuteDetails}.`;
     }
     return undefined;
 }
@@ -309,14 +309,14 @@ const getFormattedExpectedTextForFreshnessAssertion = (run: AssertionRunEvent): 
     switch (info.schedule.type) {
         case FreshnessAssertionScheduleType.Cron: {
             if (!info.schedule.cron) return undefined;
-            const humanReadableCronStr = getCronAsText(info.schedule.cron.cron).text
+            const humanReadableCronStr = getCronAsText(info.schedule.cron.cron, { verbose: true }).text
             const maybeTimeZoneStr = info.schedule.cron.timezone ? ` (${info.schedule.cron.timezone})` : ``;
             const maybeWindowOffsetStr = info.schedule.cron.windowStartOffsetMs ? ` with a window offset of ${info.schedule.cron.windowStartOffsetMs} millis` : ``;
-            return `Expected dataset to update before the assertion ran ${humanReadableCronStr}${maybeTimeZoneStr}${maybeWindowOffsetStr}`;
+            return `Dataset should update before this check ${humanReadableCronStr}${maybeTimeZoneStr}${maybeWindowOffsetStr}`;
         }
         case FreshnessAssertionScheduleType.FixedInterval: {
             if (!info.schedule.fixedInterval) return undefined;
-            return `Expected dataset to update within the last ${info.schedule.fixedInterval.multiple} ${info.schedule.fixedInterval.unit.valueOf().toLowerCase()}${info.schedule.fixedInterval.multiple === 1 ? '' : 's'}`;
+            return `Dataset should update within the last ${info.schedule.fixedInterval.multiple} ${info.schedule.fixedInterval.unit.valueOf().toLowerCase()}${info.schedule.fixedInterval.multiple === 1 ? '' : 's'}`;
         }
         default:
             return undefined;

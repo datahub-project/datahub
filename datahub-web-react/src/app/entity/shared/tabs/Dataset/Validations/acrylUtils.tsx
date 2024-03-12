@@ -332,11 +332,12 @@ export const isMonitorActive = (monitor: Monitor) => {
     return monitor.info?.status?.mode === MonitorMode.Active;
 };
 
-export const getCronAsText = (interval: string) => {
+export const getCronAsText = (interval: string, options: { verbose: boolean } = { verbose: false }) => {
+    const { verbose } = options;
     if (interval) {
         try {
             return {
-                text: `${lowerFirstLetter(cronstrue.toString(interval, { verbose: false }))}.`,
+                text: `${lowerFirstLetter(cronstrue.toString(interval, { verbose }))}.`,
                 error: false,
             };
         } catch (e) {
