@@ -100,8 +100,8 @@ public class ESGraphQueryDAOTest {
     Long startTime = 0L;
     Long endTime = 1L;
 
-    ESGraphQueryDAO graphQueryDAO = new ESGraphQueryDAO(null, null, null,
-        new GraphQueryConfiguration());
+    ESGraphQueryDAO graphQueryDAO =
+        new ESGraphQueryDAO(null, null, null, new GraphQueryConfiguration());
     QueryBuilder limitedBuilder =
         graphQueryDAO.getLineageQueryForEntityType(urns, edgeInfos, graphFilters);
 

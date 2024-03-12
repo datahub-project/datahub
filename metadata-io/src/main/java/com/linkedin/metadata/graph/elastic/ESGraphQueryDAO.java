@@ -63,7 +63,6 @@ import org.opensearch.search.SearchHit;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.search.rescore.QueryRescorerBuilder;
 
-
 /** A search DAO for Elasticsearch backend. */
 @Slf4j
 @RequiredArgsConstructor
@@ -527,16 +526,21 @@ public class ESGraphQueryDAO {
   }
 
   /**
-   * Replaces score from initial lineage query against the graph index with score from whether a via edge exists or not.
-   * We don't currently sort the results for the graph query for anything else, we just do a straight filter,
-   * but this will need to be re-evaluated if we do.
+   * Replaces score from initial lineage query against the graph index with score from whether a via
+   * edge exists or not. We don't currently sort the results for the graph query for anything else,
+   * we just do a straight filter, but this will need to be re-evaluated if we do.
+   *
    * @param sourceBuilder source builder for the lineage query
    */
   private void addViaNodeBoostQuery(final SearchSourceBuilder sourceBuilder) {
-    QueryBuilders.functionScoreQuery(QueryBuilders.existsQuery(EDGE_FIELD_VIA)).boostMode(CombineFunction.REPLACE);
-    QueryRescorerBuilder queryRescorerBuilder = new QueryRescorerBuilder(
-        QueryBuilders.functionScoreQuery(QueryBuilders.existsQuery(EDGE_FIELD_VIA)).boostMode(CombineFunction.REPLACE));
-    queryRescorerBuilder.windowSize(graphQueryConfiguration.getMaxResult()); // Will rescore all results
+    QueryBuilders.functionScoreQuery(QueryBuilders.existsQuery(EDGE_FIELD_VIA))
+        .boostMode(CombineFunction.REPLACE);
+    QueryRescorerBuilder queryRescorerBuilder =
+        new QueryRescorerBuilder(
+            QueryBuilders.functionScoreQuery(QueryBuilders.existsQuery(EDGE_FIELD_VIA))
+                .boostMode(CombineFunction.REPLACE));
+    queryRescorerBuilder.windowSize(
+        graphQueryConfiguration.getMaxResult()); // Will rescore all results
     sourceBuilder.addRescorer(queryRescorerBuilder);
   }
 

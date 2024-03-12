@@ -127,14 +127,15 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
   private String toDocId(@Nonnull final Edge edge) {
 
     StringBuilder rawDocId = new StringBuilder();
-    rawDocId.append(edge.getSource().toString())
+    rawDocId
+        .append(edge.getSource().toString())
         .append(DOC_DELIMETER)
         .append(edge.getRelationshipType())
         .append(DOC_DELIMETER)
         .append(edge.getDestination().toString());
-    if (edge.getLifecycleOwner() != null && StringUtils.isNotBlank(edge.getLifecycleOwner().toString())) {
-      rawDocId.append(DOC_DELIMETER)
-          .append(edge.getLifecycleOwner().toString());
+    if (edge.getLifecycleOwner() != null
+        && StringUtils.isNotBlank(edge.getLifecycleOwner().toString())) {
+      rawDocId.append(DOC_DELIMETER).append(edge.getLifecycleOwner().toString());
     }
 
     try {
