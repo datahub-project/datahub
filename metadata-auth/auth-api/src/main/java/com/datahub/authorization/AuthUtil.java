@@ -225,12 +225,26 @@ public class AuthUtil {
     return isAPIAuthorized(authentication, authorizer, privileges, List.of());
   }
 
-  public static boolean isAPIAuthorized(
+  public static boolean isAPIAuthorizedEntityType(
       @Nonnull Authentication authentication,
       @Nonnull Authorizer authorizer,
       @Nonnull final Disjunctive<Conjunctive<PoliciesConfig.Privilege>> privileges,
       @Nonnull final String entityType) {
-    return isAPIAuthorized(authentication, authorizer, privileges, new EntitySpec(entityType, ""));
+    return isAPIAuthorizedEntityType(authentication, authorizer, privileges, List.of(entityType));
+  }
+
+  public static boolean isAPIAuthorizedEntityType(
+      @Nonnull Authentication authentication,
+      @Nonnull Authorizer authorizer,
+      @Nonnull final Disjunctive<Conjunctive<PoliciesConfig.Privilege>> privileges,
+      @Nonnull final Collection<String> entityTypes) {
+    return isAPIAuthorized(
+        authentication,
+        authorizer,
+        privileges,
+        entityTypes.stream()
+            .map(entityType -> new EntitySpec(entityType, ""))
+            .collect(Collectors.toList()));
   }
 
   public static boolean isAPIAuthorized(

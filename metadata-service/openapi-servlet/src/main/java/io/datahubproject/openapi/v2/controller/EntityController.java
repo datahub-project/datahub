@@ -5,7 +5,6 @@ import static com.linkedin.metadata.authorization.ApiOperation.CREATE;
 import static com.linkedin.metadata.authorization.ApiOperation.DELETE;
 import static com.linkedin.metadata.authorization.ApiOperation.EXISTS;
 import static com.linkedin.metadata.authorization.ApiOperation.READ;
-import static com.linkedin.metadata.authorization.ApiOperation.SEARCH;
 import static com.linkedin.metadata.authorization.ApiOperation.UPDATE;
 
 import com.datahub.authentication.Actor;
@@ -113,10 +112,13 @@ public class EntityController {
     EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
     Authentication authentication = AuthenticationContext.getAuthentication();
 
-    if (!AuthUtil.isAPIAuthorized(
-        authentication, authorizationChain, PoliciesConfig.lookupAPIPrivilege(ENTITY, SEARCH))) {
+    if (!AuthUtil.isAPIAuthorizedEntityType(
+        authentication,
+        authorizationChain,
+        PoliciesConfig.lookupAPIPrivilege(ENTITY, READ),
+        entityName)) {
       throw new UnauthorizedException(
-          authentication.getActor().toUrnStr() + " is unauthorized to " + SEARCH + "  entities.");
+          authentication.getActor().toUrnStr() + " is unauthorized to " + READ + "  entities.");
     }
 
     OperationContext opContext =

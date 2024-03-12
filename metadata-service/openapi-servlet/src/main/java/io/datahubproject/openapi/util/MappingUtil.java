@@ -480,7 +480,8 @@ public class MappingUtil {
     }
   }
 
-  public static MetadataChangeProposal mapToProposal(UpsertAspectRequest aspectRequest) {
+  public static MetadataChangeProposal mapToProposal(
+      UpsertAspectRequest aspectRequest, @Nullable Boolean createEntityIfNotExists) {
     MetadataChangeProposal.MetadataChangeProposalBuilder metadataChangeProposal =
         MetadataChangeProposal.builder();
     io.datahubproject.openapi.generated.GenericAspect genericAspect =
@@ -498,7 +499,10 @@ public class MappingUtil {
     }
     metadataChangeProposal
         .aspect(genericAspect)
-        .changeType(io.datahubproject.openapi.generated.ChangeType.UPSERT)
+        .changeType(
+            Boolean.TRUE.equals(createEntityIfNotExists)
+                ? io.datahubproject.openapi.generated.ChangeType.CREATE
+                : io.datahubproject.openapi.generated.ChangeType.UPSERT)
         .aspectName(ASPECT_NAME_MAP.get(aspectRequest.getAspect().getClass()))
         .entityKeyAspect(keyAspect)
         .entityUrn(aspectRequest.getEntityUrn())

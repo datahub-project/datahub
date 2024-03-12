@@ -5,7 +5,6 @@ import static com.datahub.authorization.AuthUtil.isAPIAuthorized;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.EntitySpec;
 import com.datahub.plugins.auth.authorization.Authorizer;
-import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.authorization.Disjunctive;

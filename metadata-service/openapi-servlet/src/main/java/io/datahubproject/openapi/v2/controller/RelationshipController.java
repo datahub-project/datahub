@@ -2,7 +2,6 @@ package io.datahubproject.openapi.v2.controller;
 
 import static com.linkedin.metadata.authorization.ApiGroup.RELATIONSHIP;
 import static com.linkedin.metadata.authorization.ApiOperation.READ;
-import static com.linkedin.metadata.authorization.ApiOperation.SEARCH;
 
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
@@ -86,11 +85,11 @@ public class RelationshipController {
     if (!AuthUtil.isAPIAuthorized(
         authentication,
         authorizationChain,
-        PoliciesConfig.lookupAPIPrivilege(RELATIONSHIP, SEARCH))) {
+        PoliciesConfig.lookupAPIPrivilege(RELATIONSHIP, READ))) {
       throw new UnauthorizedException(
           authentication.getActor().toUrnStr()
               + " is unauthorized to "
-              + SEARCH
+              + READ
               + " "
               + RELATIONSHIP);
     }
@@ -161,11 +160,11 @@ public class RelationshipController {
     if (!AuthUtil.isAPIAuthorized(
         authentication,
         authorizationChain,
-        PoliciesConfig.lookupAPIPrivilege(RELATIONSHIP, SEARCH))) {
+        PoliciesConfig.lookupAPIPrivilege(RELATIONSHIP, READ))) {
       throw new UnauthorizedException(
           authentication.getActor().toUrnStr()
               + " is unauthorized to "
-              + SEARCH
+              + READ
               + " "
               + RELATIONSHIP);
     }

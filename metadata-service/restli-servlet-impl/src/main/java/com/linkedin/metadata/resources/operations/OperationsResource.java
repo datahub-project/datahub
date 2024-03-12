@@ -7,7 +7,6 @@ import com.codahale.metrics.MetricRegistry;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableList;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.authorization.Disjunctive;
 import com.linkedin.metadata.authorization.PoliciesConfig;

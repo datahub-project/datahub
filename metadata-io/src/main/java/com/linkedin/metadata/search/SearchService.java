@@ -205,7 +205,7 @@ public class SearchService {
    * @param inputEntities the requested entities
    * @return some entities to search
    */
-  private List<String> getEntitiesToSearch(
+  public List<String> getEntitiesToSearch(
       @Nonnull OperationContext opContext, @Nonnull List<String> inputEntities) {
     List<String> nonEmptyEntities;
     List<String> lowercaseEntities =

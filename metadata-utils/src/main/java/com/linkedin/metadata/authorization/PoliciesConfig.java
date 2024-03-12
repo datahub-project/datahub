@@ -652,7 +652,6 @@ public class PoliciesConfig {
                               GET_ENTITY_PRIVILEGE,
                               EDIT_ENTITY_PRIVILEGE,
                               DELETE_ENTITY_PRIVILEGE))
-                      .put(ApiOperation.SEARCH, Disjunctive.disjoint(SEARCH_PRIVILEGE))
                       .put(ApiOperation.UPDATE, Disjunctive.disjoint(EDIT_ENTITY_PRIVILEGE))
                       .put(ApiOperation.DELETE, Disjunctive.disjoint(DELETE_ENTITY_PRIVILEGE))
                       .put(
@@ -680,7 +679,6 @@ public class PoliciesConfig {
                               EDIT_ENTITY_PRIVILEGE,
                               EDIT_LINEAGE_PRIVILEGE,
                               DELETE_ENTITY_PRIVILEGE))
-                      .put(ApiOperation.SEARCH, Disjunctive.disjoint(SEARCH_PRIVILEGE))
                       .put(
                           ApiOperation.UPDATE,
                           Disjunctive.disjoint(EDIT_ENTITY_PRIVILEGE, EDIT_LINEAGE_PRIVILEGE))
@@ -713,7 +711,6 @@ public class PoliciesConfig {
                               VIEW_ENTITY_PRIVILEGE,
                               GET_ENTITY_PRIVILEGE,
                               EDIT_ENTITY_PRIVILEGE))
-                      .put(ApiOperation.SEARCH, Disjunctive.disjoint(SEARCH_PRIVILEGE))
                       .put(ApiOperation.UPDATE, Disjunctive.disjoint(EDIT_ENTITY_PRIVILEGE))
                       .put(
                           ApiOperation.DELETE,
@@ -736,7 +733,6 @@ public class PoliciesConfig {
                       .put(
                           ApiOperation.READ,
                           Disjunctive.disjoint(VIEW_ANALYTICS_PRIVILEGE, GET_ANALYTICS_PRIVILEGE))
-                      .put(ApiOperation.SEARCH, Disjunctive.disjoint(SEARCH_PRIVILEGE))
                       .put(ApiOperation.UPDATE, DENY_ACCESS)
                       .put(ApiOperation.DELETE, DENY_ACCESS)
                       .put(
@@ -754,7 +750,6 @@ public class PoliciesConfig {
                               GET_TIMESERIES_ASPECT_PRIVILEGE,
                               EDIT_ENTITY_PRIVILEGE,
                               DELETE_ENTITY_PRIVILEGE))
-                      .put(ApiOperation.SEARCH, Disjunctive.disjoint(SEARCH_PRIVILEGE))
                       .put(ApiOperation.UPDATE, Disjunctive.disjoint(EDIT_ENTITY_PRIVILEGE))
                       .put(ApiOperation.DELETE, Disjunctive.disjoint(DELETE_ENTITY_PRIVILEGE))
                       .put(
@@ -773,7 +768,6 @@ public class PoliciesConfig {
                   ImmutableMap.<ApiOperation, Disjunctive<Conjunctive<Privilege>>>builder()
                       .put(ApiOperation.CREATE, DENY_ACCESS)
                       .put(ApiOperation.READ, Disjunctive.disjoint(GET_COUNTS_PRIVILEGE))
-                      .put(ApiOperation.SEARCH, DENY_ACCESS)
                       .put(ApiOperation.UPDATE, DENY_ACCESS)
                       .put(ApiOperation.DELETE, DENY_ACCESS)
                       .put(ApiOperation.EXISTS, DENY_ACCESS)
@@ -789,7 +783,6 @@ public class PoliciesConfig {
                   ImmutableMap.<ApiOperation, Disjunctive<Conjunctive<Privilege>>>builder()
                       .put(ApiOperation.CREATE, Disjunctive.disjoint(MANAGE_POLICIES_PRIVILEGE))
                       .put(ApiOperation.READ, Disjunctive.disjoint(MANAGE_POLICIES_PRIVILEGE))
-                      .put(ApiOperation.SEARCH, Disjunctive.disjoint(SEARCH_PRIVILEGE))
                       .put(ApiOperation.UPDATE, Disjunctive.disjoint(MANAGE_POLICIES_PRIVILEGE))
                       .put(ApiOperation.DELETE, Disjunctive.disjoint(MANAGE_POLICIES_PRIVILEGE))
                       .put(ApiOperation.EXISTS, Disjunctive.disjoint(EXISTS_ENTITY_PRIVILEGE))

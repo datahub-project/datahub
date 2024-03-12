@@ -151,7 +151,9 @@ public class EntitiesController {
   @PostMapping(value = "/", produces = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<List<String>> postEntities(
       @RequestBody @Nonnull List<UpsertAspectRequest> aspectRequests,
-      @RequestParam(required = false, name = "async") Boolean async) {
+      @RequestParam(required = false, name = "async") Boolean async,
+      @RequestParam(required = false, name = "createEntityIfNotExists")
+          Boolean createEntityIfNotExists) {
     log.info("INGEST PROPOSAL proposal: {}", aspectRequests);
 
     Authentication authentication = AuthenticationContext.getAuthentication();
@@ -159,7 +161,7 @@ public class EntitiesController {
 
     List<com.linkedin.mxe.MetadataChangeProposal> proposals =
         aspectRequests.stream()
-            .map(MappingUtil::mapToProposal)
+            .map(req -> MappingUtil.mapToProposal(req, createEntityIfNotExists))
             .map(proposal -> MappingUtil.mapToServiceProposal(proposal, _objectMapper))
             .collect(Collectors.toList());
 
@@ -274,7 +276,7 @@ public class EntitiesController {
                 RollbackRunResultDto.builder()
                     .rowsRolledBack(
                         deleteRequests.stream()
-                            .map(MappingUtil::mapToProposal)
+                            .map(req -> MappingUtil.mapToProposal(req, null))
                             .map(
                                 proposal ->
                                     MappingUtil.mapToServiceProposal(proposal, _objectMapper))

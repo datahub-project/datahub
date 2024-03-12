@@ -976,8 +976,13 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
               .filter(item -> item.getAspectSpec().isTimeseries())
               .collect(Collectors.toList());
 
+      List<MCPItem> defaultAspects =
+          DefaultAspectsUtil.getAdditionalChanges(
+              AspectsBatchImpl.builder().aspectRetriever(this).items(timeseriesItems).build(),
+              this,
+              enableBrowseV2);
       ingestProposalSync(
-          AspectsBatchImpl.builder().aspectRetriever(this).items(timeseriesItems).build());
+          AspectsBatchImpl.builder().aspectRetriever(this).items(defaultAspects).build());
     }
 
     // Emit timeseries MCLs

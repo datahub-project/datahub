@@ -1,6 +1,7 @@
 package com.linkedin.metadata.resources.analytics;
 
 import com.datahub.authentication.AuthenticationContext;
+import com.datahub.authorization.AuthUtil;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.analytics.GetTimeseriesAggregatedStatsResponse;
 import com.linkedin.metadata.authorization.PoliciesConfig;
@@ -60,7 +61,7 @@ public class Analytics extends SimpleResourceTemplate<GetTimeseriesAggregatedSta
       @ActionParam(PARAM_BUCKETS) @Optional @Nullable GroupingBucket[] groupingBuckets) {
     return RestliUtils.toTask(
         () -> {
-            if (!isAPIAuthorized(
+            if (!AuthUtil.isAPIAuthorizedEntityType(
                     AuthenticationContext.getAuthentication(),
                     authorizer,
                     PoliciesConfig.lookupAPIPrivilege(TIMESERIES, READ),

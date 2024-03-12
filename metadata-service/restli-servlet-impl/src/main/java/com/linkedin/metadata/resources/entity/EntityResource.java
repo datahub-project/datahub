@@ -9,7 +9,6 @@ import static com.linkedin.metadata.authorization.ApiOperation.CREATE;
 import static com.linkedin.metadata.authorization.ApiOperation.DELETE;
 import static com.linkedin.metadata.authorization.ApiOperation.EXISTS;
 import static com.linkedin.metadata.authorization.ApiOperation.READ;
-import static com.linkedin.metadata.authorization.ApiOperation.SEARCH;
 import static com.linkedin.metadata.entity.validation.ValidationUtils.*;
 import static com.linkedin.metadata.resources.restli.RestliConstants.*;
 import static com.linkedin.metadata.search.utils.SearchUtils.*;
@@ -375,10 +374,11 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       @Optional @Nullable @ActionParam(PARAM_SEARCH_FLAGS) SearchFlags searchFlags) {
 
     final Authentication auth = AuthenticationContext.getAuthentication();
-    if (!isAPIAuthorized(
+    if (!AuthUtil.isAPIAuthorizedEntityType(
             auth,
             authorizer,
-            PoliciesConfig.lookupAPIPrivilege(ENTITY, SEARCH))) {
+            PoliciesConfig.lookupAPIPrivilege(ENTITY, READ),
+            entityName)) {
       throw new RestLiServiceException(
           HttpStatus.S_403_FORBIDDEN, "User is unauthorized to search.");
     }
@@ -423,18 +423,20 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       @ActionParam(PARAM_SEARCH_FLAGS) @Optional SearchFlags searchFlags) {
 
     final Authentication auth = AuthenticationContext.getAuthentication();
-    if (!isAPIAuthorized(
-            auth,
-            authorizer,
-            PoliciesConfig.lookupAPIPrivilege(ENTITY, SEARCH))) {
-      throw new RestLiServiceException(
-          HttpStatus.S_403_FORBIDDEN, "User is unauthorized to search.");
-    }
     OperationContext opContext = OperationContext.asSession(
             systemOperationContext, authorizer, auth, true)
             .withSearchFlags(flags -> searchFlags != null ? searchFlags : new SearchFlags().setFulltext(true));
 
-    List<String> entityList = entities == null ? Collections.emptyList() : Arrays.asList(entities);
+    List<String> entityList = searchService.getEntitiesToSearch(opContext, entities == null ? Collections.emptyList() : Arrays.asList(entities));
+    if (!isAPIAuthorizedEntityType(
+            auth,
+            authorizer,
+            PoliciesConfig.lookupAPIPrivilege(ENTITY, READ),
+            entityList)) {
+      throw new RestLiServiceException(
+              HttpStatus.S_403_FORBIDDEN, "User is unauthorized to search.");
+    }
+
     log.info("GET SEARCH RESULTS ACROSS ENTITIES for {} with query {}", entityList, input);
     return RestliUtil.toTask(
         () -> {
@@ -466,19 +468,19 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       @ActionParam(PARAM_SEARCH_FLAGS) @Optional SearchFlags searchFlags) {
 
     final Authentication auth = AuthenticationContext.getAuthentication();
-    if (!isAPIAuthorized(
+    OperationContext opContext = OperationContext.asSession(
+                    systemOperationContext, authorizer, auth, true)
+            .withSearchFlags(flags -> searchFlags != null ? searchFlags : new SearchFlags().setFulltext(true));
+
+    List<String> entityList = searchService.getEntitiesToSearch(opContext, entities == null ? Collections.emptyList() : Arrays.asList(entities));
+    if (!isAPIAuthorizedEntityType(
             auth,
             authorizer,
-            PoliciesConfig.lookupAPIPrivilege(ENTITY, SEARCH))) {
+            PoliciesConfig.lookupAPIPrivilege(ENTITY, READ), entityList)) {
       throw new RestLiServiceException(
               HttpStatus.S_403_FORBIDDEN, "User is unauthorized to search.");
     }
 
-    OperationContext opContext = OperationContext.asSession(
-            systemOperationContext, authorizer, auth, true)
-            .withSearchFlags(flags -> searchFlags != null ? searchFlags : new SearchFlags().setFulltext(true));
-
-    List<String> entityList = entities == null ? Collections.emptyList() : Arrays.asList(entities);
     log.info(
         "GET SCROLL RESULTS ACROSS ENTITIES for {} with query {} and scroll ID: {}",
         entityList,
@@ -532,7 +534,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     if (!isAPIAuthorized(
             auth,
             authorizer,
-            PoliciesConfig.lookupAPIPrivilege(LINEAGE, SEARCH))) {
+            PoliciesConfig.lookupAPIPrivilege(LINEAGE, READ))) {
       throw new RestLiServiceException(
               HttpStatus.S_403_FORBIDDEN, "User is unauthorized to search.");
     }
@@ -600,7 +602,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     if (!isAPIAuthorized(
             auth,
             authorizer,
-            PoliciesConfig.lookupAPIPrivilege(LINEAGE, SEARCH))) {
+            PoliciesConfig.lookupAPIPrivilege(LINEAGE, READ))) {
       throw new RestLiServiceException(
               HttpStatus.S_403_FORBIDDEN, "User is unauthorized to search.");
     }
@@ -658,10 +660,10 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       @ActionParam(PARAM_COUNT) int count) {
 
     final Authentication auth = AuthenticationContext.getAuthentication();
-    if (!isAPIAuthorized(
+    if (!AuthUtil.isAPIAuthorizedEntityType(
             auth,
             authorizer,
-            PoliciesConfig.lookupAPIPrivilege(ENTITY, SEARCH))) {
+            PoliciesConfig.lookupAPIPrivilege(ENTITY, READ), entityName)) {
       throw new RestLiServiceException(
               HttpStatus.S_403_FORBIDDEN, "User is unauthorized to search.");
     }
@@ -700,10 +702,10 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       @ActionParam(PARAM_SEARCH_FLAGS) @Optional @Nullable SearchFlags searchFlags) {
 
     final Authentication auth = AuthenticationContext.getAuthentication();
-    if (!isAPIAuthorized(
+    if (!AuthUtil.isAPIAuthorizedEntityType(
             auth,
             authorizer,
-            PoliciesConfig.lookupAPIPrivilege(ENTITY, SEARCH))) {
+            PoliciesConfig.lookupAPIPrivilege(ENTITY, READ), entityName)) {
       throw new RestLiServiceException(
               HttpStatus.S_403_FORBIDDEN, "User is unauthorized to search.");
     }
@@ -739,10 +741,10 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       @ActionParam(PARAM_SEARCH_FLAGS) @Optional @Nullable SearchFlags searchFlags) {
 
     final Authentication auth = AuthenticationContext.getAuthentication();
-    if (!isAPIAuthorized(
+    if (!AuthUtil.isAPIAuthorizedEntityType(
             auth,
             authorizer,
-            PoliciesConfig.lookupAPIPrivilege(ENTITY, SEARCH))) {
+            PoliciesConfig.lookupAPIPrivilege(ENTITY, READ), entityName)) {
       throw new RestLiServiceException(
               HttpStatus.S_403_FORBIDDEN, "User is unauthorized to search.");
     }
@@ -1090,10 +1092,10 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       throws URISyntaxException {
 
     final Authentication auth = AuthenticationContext.getAuthentication();
-    if (!isAPIAuthorized(
+    if (!AuthUtil.isAPIAuthorizedEntityType(
             auth,
             authorizer,
-            PoliciesConfig.lookupAPIPrivilege(ENTITY, SEARCH))) {
+            PoliciesConfig.lookupAPIPrivilege(ENTITY, READ), entityName)) {
       throw new RestLiServiceException(
           HttpStatus.S_403_FORBIDDEN, "User is unauthorized to search.");
     }
@@ -1150,10 +1152,10 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       @ActionParam(PARAM_COUNT) int count) {
 
     final Authentication auth = AuthenticationContext.getAuthentication();
-    if (!isAPIAuthorized(
+    if (!AuthUtil.isAPIAuthorizedEntityType(
             auth,
             authorizer,
-            PoliciesConfig.lookupAPIPrivilege(ENTITY, SEARCH))) {
+            PoliciesConfig.lookupAPIPrivilege(ENTITY, READ), entityName)) {
       throw new RestLiServiceException(
           HttpStatus.S_403_FORBIDDEN, "User is unauthorized to search.");
     }

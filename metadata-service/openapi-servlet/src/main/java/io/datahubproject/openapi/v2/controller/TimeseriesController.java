@@ -2,7 +2,6 @@ package io.datahubproject.openapi.v2.controller;
 
 import static com.linkedin.metadata.authorization.ApiGroup.TIMESERIES;
 import static com.linkedin.metadata.authorization.ApiOperation.READ;
-import static com.linkedin.metadata.authorization.ApiOperation.SEARCH;
 
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
@@ -64,16 +63,13 @@ public class TimeseriesController {
       throws URISyntaxException {
 
     Authentication authentication = AuthenticationContext.getAuthentication();
-    if (!AuthUtil.isAPIAuthorized(
+    if (!AuthUtil.isAPIAuthorizedEntityType(
         authentication,
         authorizationChain,
-        PoliciesConfig.lookupAPIPrivilege(TIMESERIES, SEARCH))) {
+        PoliciesConfig.lookupAPIPrivilege(TIMESERIES, READ),
+        entityName)) {
       throw new UnauthorizedException(
-          authentication.getActor().toUrnStr()
-              + " is unauthorized to "
-              + SEARCH
-              + " "
-              + TIMESERIES);
+          authentication.getActor().toUrnStr() + " is unauthorized to " + READ + " " + TIMESERIES);
     }
 
     AspectSpec aspectSpec = entityRegistry.getEntitySpec(entityName).getAspectSpec(aspectName);

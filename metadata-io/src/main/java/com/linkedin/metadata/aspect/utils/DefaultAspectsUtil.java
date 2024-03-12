@@ -71,6 +71,11 @@ public class DefaultAspectsUtil {
             .filter(item -> SUPPORTED_TYPES.contains(item.getChangeType()))
             .collect(Collectors.groupingBy(BatchItem::getUrn));
 
+    Set<MCPItem> batchIncludedKeys =
+        batch.getMCPItems().stream()
+            .filter(item -> item.getAspectName().equals(item.getEntitySpec().getKeyAspectName()))
+            .collect(Collectors.toSet());
+
     Set<Urn> urnsWithExistingKeyAspects = entityService.exists(itemsByUrn.keySet());
 
     // create default aspects when key aspect is missing
@@ -106,6 +111,7 @@ public class DefaultAspectsUtil {
                               entityService))
                   .filter(Objects::nonNull);
             })
+        .filter(item -> !batchIncludedKeys.contains(item))
         .collect(Collectors.toList());
   }
 

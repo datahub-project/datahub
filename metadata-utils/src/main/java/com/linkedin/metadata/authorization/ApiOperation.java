@@ -10,8 +10,5 @@ public enum ApiOperation {
    * Manage is a composite of all privileges which can be reduced to UPDATE (CREATE, READ, EXISTS)
    * and DELETE in the case where there is not an explicit MANAGE privilege
    */
-  MANAGE,
-  /** SEARCH should be dropped as an Operation (use READ) */
-  @Deprecated
-  SEARCH
+  MANAGE
 }
