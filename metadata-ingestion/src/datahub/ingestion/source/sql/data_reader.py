@@ -1,6 +1,6 @@
+import logging
 from abc import abstractmethod
 from collections import defaultdict
-import logging
 from typing import Any, Dict, List, Union
 
 import sqlalchemy as sa
@@ -133,5 +133,4 @@ class SqlAlchemyTableDataReader(DataReader):
         return column_values
 
     def close(self) -> None:
-        if hasattr(self, "engine"):
-            self.engine.close()
+        self.engine.close()

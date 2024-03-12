@@ -1,15 +1,15 @@
 import subprocess
-from datahub.ingestion.glossary.classifier import (
-    ClassificationConfig,
-    DynamicTypedClassifierConfig,
-)
-from datahub.ingestion.glossary.datahub_classifier import DataHubClassifierConfig
 
 import pytest
 import requests
 from freezegun import freeze_time
 
 from datahub.configuration.common import AllowDenyPattern
+from datahub.ingestion.glossary.classifier import (
+    ClassificationConfig,
+    DynamicTypedClassifierConfig,
+)
+from datahub.ingestion.glossary.datahub_classifier import DataHubClassifierConfig
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.sink.file import FileSinkConfig
 from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
