@@ -82,6 +82,8 @@ export const SqlParametersBuilder = ({ value, onChange, disabled }: Props) => {
             initialValue={selectedValue}
             name="sqlParameters.value"
             rules={[{ required: true, message: 'Required' }]}
+            // Override width if 'isPercentage' as we introduce an `addonAfter` in that case
+            style={isPercentage ? { width: 220 } : undefined}
         >
             <InputNumber
                 value={selectedValue}
