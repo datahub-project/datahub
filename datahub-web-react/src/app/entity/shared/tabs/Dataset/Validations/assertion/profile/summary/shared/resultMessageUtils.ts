@@ -208,12 +208,16 @@ export const getFormattedReasonText = (assertion: Assertion, run: AssertionRunEv
 };
 
 
-
+/**
+ * Gets formatted text describing assertion expectations for absolute assertions
+ * @param assertedOnDescription: for formatting the output
+ * @param totalsInfo: TODO just point out the specific info we need (ie min/max/value/operator), let the parent extract that and pass it in 
+ */
 const getFormattedExpectedTextForAbsoluteAssertion = (
     assertedOnDescription: 'Row count' | 'SQL result' | 'Values' | 'Metric',
-    totals?: Maybe<IncrementingSegmentRowCountTotal> | Maybe<RowCountTotal> | Maybe<SqlAssertionInfo> | Maybe<FieldValuesAssertion> | Maybe<FieldMetricAssertion>,
+    totalsInfo?: Maybe<IncrementingSegmentRowCountTotal> | Maybe<RowCountTotal> | Maybe<SqlAssertionInfo> | Maybe<FieldValuesAssertion> | Maybe<FieldMetricAssertion>,
 ): string | undefined => {
-    const range = tryGetExpectedRangeFromAssertionAgainstTotals(totals);
+    const range = tryGetExpectedRangeFromAssertionAgainstTotals(totalsInfo);
     let { low, high } = range
     low = low && formatNumberWithoutAbbreviation(Math.floor(low))
     high = high && formatNumberWithoutAbbreviation(Math.floor(high))
@@ -230,6 +234,7 @@ const getFormattedExpectedTextForAbsoluteAssertion = (
     }
     return undefined;
 }
+
 const getFormattedExpectedTextForRelativeAssertion = (
     assertedOnDescription: 'Row count' | 'SQL result',
     changingInfo?: Maybe<RowCountChange | IncrementingSegmentRowCountChange | SqlAssertionInfo>,
@@ -315,7 +320,7 @@ const getFormattedExpectedTextForFreshnessAssertion = (run: AssertionRunEvent): 
             const humanReadableCronStr = getCronAsText(info.schedule.cron.cron, { verbose: true }).text
             const maybeTimeZoneStr = info.schedule.cron.timezone ? ` (${info.schedule.cron.timezone})` : ``;
             const maybeWindowOffsetStr = info.schedule.cron.windowStartOffsetMs ? ` with a window offset of ${info.schedule.cron.windowStartOffsetMs} millis` : ``;
-            return `Table should update before this check ${humanReadableCronStr}${maybeTimeZoneStr}${maybeWindowOffsetStr}`;
+            return `Table should have updated since the previous check. This check was set to run ${humanReadableCronStr}${maybeTimeZoneStr}${maybeWindowOffsetStr}`;
         }
         case FreshnessAssertionScheduleType.FixedInterval: {
             if (!info.schedule.fixedInterval) return undefined;

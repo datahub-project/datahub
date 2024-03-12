@@ -145,17 +145,21 @@ function tryGetPrimaryMetricValueFromFieldAssertionRunEvent(runEventResult?: May
 
 
 
+// This captures context around the expected range of values
 export type AssertionRangeEndType = 'inclusive' | 'exclusive'
 export type AssertionExpectedRange = {
+    // These are the actual values we expect (ie. actual row count)
     high?: number
     low?: number
+    // This contains extra context about this range
     context?: {
         highType?: AssertionRangeEndType
         lowType?: AssertionRangeEndType
+        // This contains context for relative assertions (ie. grows by max 10%, min 5%)
         relativeModifiers?: {
+            type: AssertionValueChangeType // percent vs absolute
             high?: number
             low?: number
-            type: AssertionValueChangeType
         }
     }
 }
