@@ -3,6 +3,7 @@ import enum
 import itertools
 import json
 import logging
+import os
 import pathlib
 import tempfile
 import uuid
@@ -53,14 +54,28 @@ logger = logging.getLogger(__name__)
 QueryId = str
 UrnStr = str
 
-_DEFAULT_USER_URN = CorpUserUrn("_ingestion")
-_MISSING_SESSION_ID = "__MISSING_SESSION_ID"
-
 
 class QueryLogSetting(enum.Enum):
     DISABLED = "DISABLED"
     STORE_ALL = "STORE_ALL"
     STORE_FAILED = "STORE_FAILED"
+
+
+_DEFAULT_USER_URN = CorpUserUrn("_ingestion")
+_MISSING_SESSION_ID = "__MISSING_SESSION_ID"
+_DEFAULT_QUERY_LOG_SETTING = QueryLogSetting[
+    os.getenv("DATAHUB_SQL_AGG_QUERY_LOG") or QueryLogSetting.DISABLED.name
+]
+
+
+@dataclasses.dataclass
+class LoggedQuery:
+    query: str
+    session_id: str
+    timestamp: Optional[datetime]
+    user: Optional[UrnStr]
+    default_db: Optional[str]
+    default_schema: Optional[str]
 
 
 @dataclasses.dataclass
@@ -185,7 +200,7 @@ class SqlParsingAggregator:
         usage_config: Optional[BaseUsageConfig] = None,
         is_temp_table: Optional[Callable[[UrnStr], bool]] = None,
         format_queries: bool = True,
-        query_log: QueryLogSetting = QueryLogSetting.DISABLED,
+        query_log: QueryLogSetting = _DEFAULT_QUERY_LOG_SETTING,
     ) -> None:
         self.platform = DataPlatformUrn(platform)
         self.platform_instance = platform_instance
@@ -238,7 +253,7 @@ class SqlParsingAggregator:
             self._shared_connection = ConnectionWrapper(filename=query_log_path)
 
         # Stores the logged queries.
-        self._logged_queries = FileBackedList[str](
+        self._logged_queries = FileBackedList[LoggedQuery](
             shared_connection=self._shared_connection, tablename="stored_queries"
         )
 
@@ -499,6 +514,9 @@ class SqlParsingAggregator:
             default_db=default_db,
             default_schema=default_schema,
             schema_resolver=schema_resolver,
+            session_id=session_id,
+            timestamp=query_timestamp,
+            user=user,
         )
         if parsed.debug_info.error:
             self.report.observed_query_parse_failures.append(
@@ -700,6 +718,9 @@ class SqlParsingAggregator:
         default_db: Optional[str],
         default_schema: Optional[str],
         schema_resolver: SchemaResolverInterface,
+        session_id: str = _MISSING_SESSION_ID,
+        timestamp: Optional[datetime] = None,
+        user: Optional[CorpUserUrn] = None,
     ) -> SqlParsingResult:
         parsed = sqlglot_lineage(
             query,
@@ -712,7 +733,15 @@ class SqlParsingAggregator:
         if self.query_log == QueryLogSetting.STORE_ALL or (
             self.query_log == QueryLogSetting.STORE_FAILED and parsed.debug_info.error
         ):
-            self._logged_queries.append(query)
+            query_log_entry = LoggedQuery(
+                query=query,
+                session_id=session_id,
+                timestamp=timestamp,
+                user=user.urn() if user else None,
+                default_db=default_db,
+                default_schema=default_schema,
+            )
+            self._logged_queries.append(query_log_entry)
 
         # Also add some extra logging.
         if parsed.debug_info.error:

@@ -29,6 +29,7 @@ def test_basic_lineage(pytestconfig: pytest.Config) -> None:
         generate_lineage=True,
         generate_usage_statistics=False,
         generate_operations=False,
+        query_log=QueryLogSetting.STORE_ALL,
     )
 
     aggregator.add_observed_query(
