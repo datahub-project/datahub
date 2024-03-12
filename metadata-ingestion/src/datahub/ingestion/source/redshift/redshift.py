@@ -33,6 +33,7 @@ from datahub.ingestion.api.source import (
     TestableSource,
     TestConnectionReport,
 )
+from datahub.ingestion.api.source_helpers import create_dataset_props_patch_builder
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
@@ -78,6 +79,7 @@ from datahub.ingestion.source_report.ingestion_stage import (
     LINEAGE_EXTRACTION,
     METADATA_EXTRACTION,
     PROFILING,
+    USAGE_EXTRACTION_INGESTION,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import SubTypes, TimeStamp
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
@@ -429,12 +431,13 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             )
 
             self.report.report_ingestion_stage_start(LINEAGE_EXTRACTION)
-            yield from self.extract_lineage_usage_v2(
+            yield from self.extract_lineage_v2(
                 connection=connection,
                 database=database,
                 lineage_extractor=lineage_extractor,
             )
 
+            all_tables = self.get_all_tables()
         else:
             yield from self.process_schemas(connection, database)
 
@@ -450,10 +453,11 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                     connection=connection, all_tables=all_tables, database=database
                 )
 
-            if self.config.include_usage_statistics:
-                yield from self.extract_usage(
-                    connection=connection, all_tables=all_tables, database=database
-                )
+        self.report.report_ingestion_stage_start(USAGE_EXTRACTION_INGESTION)
+        if self.config.include_usage_statistics:
+            yield from self.extract_usage(
+                connection=connection, all_tables=all_tables, database=database
+            )
 
         if self.config.is_profiling_enabled():
             self.report.report_ingestion_stage_start(PROFILING)
@@ -756,24 +760,36 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
 
         dataset_properties = DatasetProperties(
             name=table.name,
-            created=TimeStamp(time=int(table.created.timestamp() * 1000))
-            if table.created
-            else None,
-            lastModified=TimeStamp(time=int(table.last_altered.timestamp() * 1000))
-            if table.last_altered
-            else TimeStamp(time=int(table.created.timestamp() * 1000))
-            if table.created
-            else None,
+            created=(
+                TimeStamp(time=int(table.created.timestamp() * 1000))
+                if table.created
+                else None
+            ),
+            lastModified=(
+                TimeStamp(time=int(table.last_altered.timestamp() * 1000))
+                if table.last_altered
+                else (
+                    TimeStamp(time=int(table.created.timestamp() * 1000))
+                    if table.created
+                    else None
+                )
+            ),
             description=table.comment,
             qualifiedName=str(datahub_dataset_name),
+            customProperties=custom_properties,
         )
-
-        if custom_properties:
-            dataset_properties.customProperties = custom_properties
-
-        yield MetadataChangeProposalWrapper(
-            entityUrn=dataset_urn, aspect=dataset_properties
-        ).as_workunit()
+        if self.config.patch_custom_properties:
+            patch_builder = create_dataset_props_patch_builder(
+                dataset_urn, dataset_properties
+            )
+            for patch_mcp in patch_builder.build():
+                yield MetadataWorkUnit(
+                    id=f"{dataset_urn}-{patch_mcp.aspectName}", mcp_raw=patch_mcp
+                )
+        else:
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn, aspect=dataset_properties
+            ).as_workunit()
 
         # TODO: Check if needed
         # if tags_to_add:
@@ -951,7 +967,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                     self.config.start_time, self.config.end_time
                 )
 
-    def extract_lineage_usage_v2(
+    def extract_lineage_v2(
         self,
         connection: redshift_connector.Connection,
         database: str,

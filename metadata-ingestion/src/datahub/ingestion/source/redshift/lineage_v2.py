@@ -56,9 +56,9 @@ class RedshiftSqlLineageV2:
             platform_instance=self.config.platform_instance,
             env=self.config.env,
             generate_lineage=True,
-            generate_queries=True,
-            generate_usage_statistics=True,
-            generate_operations=True,
+            generate_queries=self.config.lineage_v2_generate_queries,
+            generate_usage_statistics=False,
+            generate_operations=False,
             usage_config=self.config,
             graph=self.context.graph,
         )
