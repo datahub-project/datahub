@@ -24,7 +24,7 @@ const SUPPORTED_OPERATORS_FOR_FIELD_DESCRIPTION = [
     AssertionStdOperator.Contain,
     AssertionStdOperator.IsTrue,
     AssertionStdOperator.IsFalse,
-]
+];
 const getAssertionStdOperator = (operator: AssertionStdOperator) => {
     if (!ASSERTION_OPERATOR_TO_DESCRIPTION[operator] || !SUPPORTED_OPERATORS_FOR_FIELD_DESCRIPTION.includes(operator)) {
         throw new Error(`Unknown operator ${operator}`);
