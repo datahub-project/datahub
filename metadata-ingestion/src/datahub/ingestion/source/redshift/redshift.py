@@ -33,6 +33,7 @@ from datahub.ingestion.api.source import (
     TestableSource,
     TestConnectionReport,
 )
+from datahub.ingestion.api.source_helpers import create_dataset_props_patch_builder
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
@@ -759,24 +760,36 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
 
         dataset_properties = DatasetProperties(
             name=table.name,
-            created=TimeStamp(time=int(table.created.timestamp() * 1000))
-            if table.created
-            else None,
-            lastModified=TimeStamp(time=int(table.last_altered.timestamp() * 1000))
-            if table.last_altered
-            else TimeStamp(time=int(table.created.timestamp() * 1000))
-            if table.created
-            else None,
+            created=(
+                TimeStamp(time=int(table.created.timestamp() * 1000))
+                if table.created
+                else None
+            ),
+            lastModified=(
+                TimeStamp(time=int(table.last_altered.timestamp() * 1000))
+                if table.last_altered
+                else (
+                    TimeStamp(time=int(table.created.timestamp() * 1000))
+                    if table.created
+                    else None
+                )
+            ),
             description=table.comment,
             qualifiedName=str(datahub_dataset_name),
+            customProperties=custom_properties,
         )
-
-        if custom_properties:
-            dataset_properties.customProperties = custom_properties
-
-        yield MetadataChangeProposalWrapper(
-            entityUrn=dataset_urn, aspect=dataset_properties
-        ).as_workunit()
+        if self.config.patch_custom_properties:
+            patch_builder = create_dataset_props_patch_builder(
+                dataset_urn, dataset_properties
+            )
+            for patch_mcp in patch_builder.build():
+                yield MetadataWorkUnit(
+                    id=f"{dataset_urn}-{patch_mcp.aspectName}", mcp_raw=patch_mcp
+                )
+        else:
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn, aspect=dataset_properties
+            ).as_workunit()
 
         # TODO: Check if needed
         # if tags_to_add:

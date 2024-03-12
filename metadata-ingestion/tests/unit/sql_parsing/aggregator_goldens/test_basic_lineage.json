@@ -58,7 +58,7 @@
     "aspect": {
         "json": {
             "statement": {
-                "value": "create table foo as select a, b from bar",
+                "value": "CREATE TABLE foo AS\nSELECT\n  a,\n  b\nFROM bar",
                 "language": "SQL"
             },
             "source": "SYSTEM",
