@@ -99,6 +99,7 @@ x-datahub-gms-service: &datahub-gms-service
     - ${DATAHUB_LOCAL_GMS_ENV:-datahub-gms/env/docker.env}
   environment: &datahub-gms-env
     <<: [*primary-datastore-mysql-env, *graph-datastore-search-env, *search-datastore-env, *datahub-quickstart-telemetry-env, *kafka-env]
+    SEARCH_AUTHORIZATION_ENABLED: ${SEARCH_AUTHORIZATION_ENABLED:-false}
   healthcheck:
     test: curl -sS --fail http://datahub-gms:${DATAHUB_GMS_PORT:-8080}/health
     start_period: 90s
@@ -125,7 +126,6 @@ x-datahub-gms-service-dev: &datahub-gms-service-dev
     SEARCH_SERVICE_ENABLE_CACHE: false
     LINEAGE_SEARCH_CACHE_ENABLED: false
     SHOW_BROWSE_V2: true
-    SEARCH_AUTHORIZATION_ENABLED: true
   volumes:
     - ./datahub-gms/start.sh:/datahub/datahub-gms/scripts/start.sh
     - ./datahub-gms/jetty.xml:/datahub/datahub-gms/scripts/jetty.xml

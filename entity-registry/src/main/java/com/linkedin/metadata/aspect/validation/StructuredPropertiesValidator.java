@@ -46,7 +46,8 @@ import lombok.extern.slf4j.Slf4j;
 /** A Validator for StructuredProperties Aspect that is attached to entities like Datasets, etc. */
 @Slf4j
 public class StructuredPropertiesValidator extends AspectPayloadValidator {
-  private static final Set<ChangeType> CHANGE_TYPES = Set.of(ChangeType.CREATE, ChangeType.UPDATE);
+  private static final Set<ChangeType> CHANGE_TYPES =
+      ImmutableSet.of(ChangeType.CREATE, ChangeType.UPSERT);
 
   private static final Set<LogicalValueType> VALID_VALUE_STORED_AS_STRING =
       new HashSet<>(

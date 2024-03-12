@@ -95,7 +95,7 @@ public class UpdateIndicesService implements SearchIndicesService {
   private boolean _structuredPropertiesWriteEnabled;
 
   private static final Set<ChangeType> UPDATE_CHANGE_TYPES =
-      ImmutableSet.of(ChangeType.UPSERT, ChangeType.RESTATE, ChangeType.PATCH);
+      ImmutableSet.of(ChangeType.CREATE, ChangeType.UPSERT, ChangeType.RESTATE, ChangeType.PATCH);
 
   @VisibleForTesting
   public void setGraphDiffMode(boolean graphDiffMode) {
