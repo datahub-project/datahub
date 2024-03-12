@@ -55,7 +55,7 @@ export const CreateERModelRelationModal = ({
         editERModelRelation?.editableProperties?.name || editERModelRelation?.properties?.name || editERModelRelation?.ermodelrelationId || '',
     );
     const [tableData, setTableData] = useState<ERModelRelationDataType[]>(
-        editERModelRelation?.properties?.ermodelrelationFieldMapping?.fieldMappings?.map((item, index) => {
+        editERModelRelation?.properties?.relationshipFieldMappings?.map((item, index) => {
             return {
                 key: index,
                 field1Name: item.sourceField,
@@ -66,7 +66,7 @@ export const CreateERModelRelationModal = ({
             { key: '1', field1Name: '', field2Name: '' },
         ],
     );
-    const [count, setCount] = useState(editERModelRelation?.properties?.ermodelrelationFieldMapping?.fieldMappings?.length || 2);
+    const [count, setCount] = useState(editERModelRelation?.properties?.relationshipFieldMappings?.length || 2);
     const [createMutation] = useCreateErModelRelationshipMutation();
     const [updateMutation] = useUpdateErModelRelationshipMutation();
     const [addOwnerMutation] = useAddOwnerMutation();
@@ -87,7 +87,7 @@ export const CreateERModelRelationModal = ({
                 setERModelRelationName(editERModelRelation?.properties?.name || '');
                 setDetails(editERModelRelation?.editableProperties?.description || '');
                 setTableData(
-                    editERModelRelation?.properties?.ermodelrelationFieldMapping?.fieldMappings?.map((item, index) => {
+                    editERModelRelation?.properties?.relationshipFieldMappings?.map((item, index) => {
                         return {
                             key: index,
                             field1Name: item.sourceField,
@@ -98,7 +98,7 @@ export const CreateERModelRelationModal = ({
                         { key: '1', field1Name: '', field2Name: '' },
                     ],
                 );
-                setCount(editERModelRelation?.properties?.ermodelrelationFieldMapping?.fieldMappings?.length || 2);
+                setCount(editERModelRelation?.properties?.relationshipFieldMappings?.length || 2);
                 onCancel?.();
             },
             onCancel() {},
@@ -115,14 +115,12 @@ export const CreateERModelRelationModal = ({
                         source: table1Dataset?.urn || '',
                         destination: table2Dataset?.urn || '',
                         name: ermodelrelationName,
-                        ermodelrelationFieldmapping: {
-                            fieldMappings: tableData.map((r) => {
+                        relationshipFieldmappings: tableData.map((r) => {
                                 return {
                                     sourceField: r.field1Name,
                                     destinationField: r.field2Name,
                                 };
                             }),
-                        },
                         created: true,
                     },
                     editableProperties: {
@@ -172,15 +170,13 @@ export const CreateERModelRelationModal = ({
                         name: originalERModelRelationName || '',
                         createdBy: editERModelRelation?.properties?.createdActor?.urn || user?.urn,
                         createdAt: editERModelRelation?.properties?.createdTime || 0,
-                        ermodelrelationFieldmapping: {
-                            fieldMappings: tableData.map((r) => {
+                        relationshipFieldmappings: tableData.map((r) => {
                                 return {
                                     sourceField: r.field1Name,
                                     destinationField: r.field2Name,
                                 };
                             }),
                         },
-                    },
                     editableProperties: {
                         name: ermodelrelationName,
                         description: details,

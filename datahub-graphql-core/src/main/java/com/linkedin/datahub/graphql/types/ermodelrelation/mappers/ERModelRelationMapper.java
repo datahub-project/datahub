@@ -13,6 +13,7 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.ERModelRelation;
 import com.linkedin.datahub.graphql.generated.EntityType;
+import com.linkedin.datahub.graphql.generated.RelationshipFieldMapping;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
@@ -26,7 +27,8 @@ import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.ermodelrelation.ERModelRelationProperties;
 import com.linkedin.ermodelrelation.EditableERModelRelationProperties;
 import com.linkedin.metadata.key.ERModelRelationKey;
-import java.util.stream.Collectors;
+import java.util.ArrayList;
+import java.util.List;
 import javax.annotation.Nonnull;
 
 /**
@@ -42,6 +44,7 @@ public class ERModelRelationMapper implements ModelMapper<EntityResponse, ERMode
     return INSTANCE.apply(entityResponse);
   }
 
+  @Override
   public ERModelRelation apply(final EntityResponse entityResponse) {
     final ERModelRelation result = new ERModelRelation();
     final Urn entityUrn = entityResponse.getUrn();
@@ -117,14 +120,20 @@ public class ERModelRelationMapper implements ModelMapper<EntityResponse, ERMode
             .setName(ermodelrelationProperties.getName())
             .setSource(createPartialDataset(ermodelrelationProperties.getSource()))
             .setDestination(createPartialDataset(ermodelrelationProperties.getDestination()))
-            .setErmodelrelationFieldMapping(
-                mapERModelRelationFieldMappings(ermodelrelationProperties))
             .setCreatedTime(
                 ermodelrelationProperties.hasCreated()
                         && ermodelrelationProperties.getCreated().getTime() > 0
                     ? ermodelrelationProperties.getCreated().getTime()
                     : 0)
             .build());
+
+    if (ermodelrelationProperties.hasRelationshipfieldMappings()) {
+      ermodelrelation
+          .getProperties()
+          .setRelationshipFieldMappings(
+              this.mapERModelRelationFieldMappings(ermodelrelationProperties));
+    }
+
     if (ermodelrelationProperties.hasCreated()
         && ermodelrelationProperties.getCreated().hasActor()) {
       ermodelrelation
@@ -143,21 +152,26 @@ public class ERModelRelationMapper implements ModelMapper<EntityResponse, ERMode
     return partialDataset;
   }
 
-  private com.linkedin.datahub.graphql.generated.ERModelRelationFieldMapping
-      mapERModelRelationFieldMappings(ERModelRelationProperties ermodelrelationProperties) {
-    return com.linkedin.datahub.graphql.generated.ERModelRelationFieldMapping.builder()
-        .setFieldMappings(
-            ermodelrelationProperties.getErmodelrelationFieldMapping().getFieldMappings().stream()
-                .map(this::mapFieldMap)
-                .collect(Collectors.toList()))
-        .build();
+  private List<RelationshipFieldMapping> mapERModelRelationFieldMappings(
+      ERModelRelationProperties ermodelrelationProperties) {
+    final List<RelationshipFieldMapping> relationshipFieldMappingList = new ArrayList<>();
+
+    ermodelrelationProperties
+        .getRelationshipfieldMappings()
+        .forEach(
+            relationshipFieldMapping ->
+                relationshipFieldMappingList.add(
+                    this.mapRelationshipFieldMappings(relationshipFieldMapping)));
+
+    return relationshipFieldMappingList;
   }
 
-  private com.linkedin.datahub.graphql.generated.FieldMap mapFieldMap(
-      com.linkedin.ermodelrelation.FieldMap fieldMap) {
-    return com.linkedin.datahub.graphql.generated.FieldMap.builder()
-        .setSourceField(fieldMap.getSourceField())
-        .setDestinationField(fieldMap.getDestinationField())
+  private com.linkedin.datahub.graphql.generated.RelationshipFieldMapping
+      mapRelationshipFieldMappings(
+          com.linkedin.ermodelrelation.RelationshipFieldMapping relationFieldMapping) {
+    return com.linkedin.datahub.graphql.generated.RelationshipFieldMapping.builder()
+        .setDestinationField(relationFieldMapping.getDestinationField())
+        .setSourceField(relationFieldMapping.getSourceField())
         .build();
   }
 

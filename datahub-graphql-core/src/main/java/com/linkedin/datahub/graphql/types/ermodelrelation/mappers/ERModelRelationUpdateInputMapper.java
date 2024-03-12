@@ -7,20 +7,19 @@ import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.generated.ERModelRelationEditablePropertiesUpdate;
-import com.linkedin.datahub.graphql.generated.ERModelRelationFieldMappingInput;
 import com.linkedin.datahub.graphql.generated.ERModelRelationPropertiesInput;
 import com.linkedin.datahub.graphql.generated.ERModelRelationUpdateInput;
+import com.linkedin.datahub.graphql.generated.RelationshipFieldMappingInput;
 import com.linkedin.datahub.graphql.types.common.mappers.util.UpdateMappingHelper;
 import com.linkedin.datahub.graphql.types.mappers.InputModelMapper;
-import com.linkedin.ermodelrelation.ERModelRelationFieldMapping;
 import com.linkedin.ermodelrelation.ERModelRelationProperties;
 import com.linkedin.ermodelrelation.EditableERModelRelationProperties;
-import com.linkedin.ermodelrelation.FieldMap;
-import com.linkedin.ermodelrelation.FieldMapArray;
+import com.linkedin.ermodelrelation.RelationshipFieldMappingArray;
 import com.linkedin.mxe.MetadataChangeProposal;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 import javax.annotation.Nonnull;
 
 public class ERModelRelationUpdateInputMapper
@@ -81,15 +80,14 @@ public class ERModelRelationUpdateInputMapper
       e.printStackTrace();
     }
 
-    if (inputProperties.getErmodelrelationFieldmapping() != null) {
-      ERModelRelationFieldMappingInput ermodelrelationFieldMapping =
-          inputProperties.getErmodelrelationFieldmapping();
-      if ((ermodelrelationFieldMapping.getFieldMappings() != null
-          && ermodelrelationFieldMapping.getFieldMappings().size() > 0)) {
-        ERModelRelationFieldMapping ermodelrelationFieldMappingUnit =
-            ermodelrelationFieldMappingSettings(ermodelrelationFieldMapping);
-        ermodelrelationProperties.setErmodelrelationFieldMapping(ermodelrelationFieldMappingUnit);
+    if (inputProperties.getRelationshipFieldmappings() != null) {
+      if (inputProperties.getRelationshipFieldmappings().size() > 0) {
+        com.linkedin.ermodelrelation.RelationshipFieldMappingArray relationshipFieldMappingsArray =
+            ermodelrelationFieldMappingSettings(inputProperties.getRelationshipFieldmappings());
+
+        ermodelrelationProperties.setRelationshipfieldMappings(relationshipFieldMappingsArray);
       }
+
       if (inputProperties.getCreated() != null && inputProperties.getCreated()) {
         ermodelrelationProperties.setCreated(auditstamp);
       } else {
@@ -109,29 +107,35 @@ public class ERModelRelationUpdateInputMapper
     return ermodelrelationProperties;
   }
 
-  private static ERModelRelationFieldMapping ermodelrelationFieldMappingSettings(
-      ERModelRelationFieldMappingInput ermodelrelationFieldMapping) {
-    ERModelRelationFieldMapping ermodelrelationFieldMappingUnit = new ERModelRelationFieldMapping();
+  private com.linkedin.ermodelrelation.RelationshipFieldMappingArray
+      ermodelrelationFieldMappingSettings(
+          List<RelationshipFieldMappingInput> ermodelrelationFieldMapping) {
 
-    if (ermodelrelationFieldMapping.getFieldMappings() != null
-        && ermodelrelationFieldMapping.getFieldMappings().size() > 0) {
-      com.linkedin.ermodelrelation.FieldMapArray fieldMapArray = new FieldMapArray();
-      ermodelrelationFieldMapping
-          .getFieldMappings()
-          .forEach(
-              fieldMappingInput -> {
-                FieldMap fieldMap = new FieldMap();
-                if (fieldMappingInput.getSourceField() != null) {
-                  fieldMap.setSourceField(fieldMappingInput.getSourceField());
-                }
-                if (fieldMappingInput.getDestinationField() != null) {
-                  fieldMap.setDestinationField(fieldMappingInput.getDestinationField());
-                }
-                fieldMapArray.add(fieldMap);
-              });
-      ermodelrelationFieldMappingUnit.setFieldMappings(fieldMapArray);
-    }
-    return ermodelrelationFieldMappingUnit;
+    List<com.linkedin.ermodelrelation.RelationshipFieldMapping> relationshipFieldMappingList =
+        this.mapRelationshipFieldMapping(ermodelrelationFieldMapping);
+    com.linkedin.ermodelrelation.RelationshipFieldMappingArray relationshipFieldMappingArray =
+        new RelationshipFieldMappingArray(relationshipFieldMappingList);
+
+    return relationshipFieldMappingArray;
+  }
+
+  private List<com.linkedin.ermodelrelation.RelationshipFieldMapping> mapRelationshipFieldMapping(
+      List<RelationshipFieldMappingInput> ermodelrelationFieldMapping) {
+
+    List<com.linkedin.ermodelrelation.RelationshipFieldMapping> relationshipFieldMappingList =
+        new ArrayList<>();
+
+    ermodelrelationFieldMapping.forEach(
+        relationshipFieldMappingInput -> {
+          com.linkedin.ermodelrelation.RelationshipFieldMapping relationshipFieldMapping =
+              new com.linkedin.ermodelrelation.RelationshipFieldMapping();
+          relationshipFieldMapping.setSourceField(relationshipFieldMappingInput.getSourceField());
+          relationshipFieldMapping.setDestinationField(
+              relationshipFieldMappingInput.getDestinationField());
+          relationshipFieldMappingList.add(relationshipFieldMapping);
+        });
+
+    return relationshipFieldMappingList;
   }
 
   private static EditableERModelRelationProperties ermodelrelationEditablePropsSettings(

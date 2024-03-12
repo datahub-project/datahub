@@ -1194,8 +1194,8 @@ fragment ermodelrelationPropertiesFields on ERModelRelationProperties {
     destination {
         ...datasetERModelRelationFields
     }
-    ermodelrelationFieldMapping {
-        ...ermodelrelationFieldMappingFields
+    relationshipFieldMappings {
+        ...relationshipFieldMapping
     }
     createdTime
     createdActor {
@@ -1203,11 +1203,9 @@ fragment ermodelrelationPropertiesFields on ERModelRelationProperties {
     }
 }
 
-fragment ermodelrelationFieldMappingFields on ERModelRelationFieldMapping {
-    fieldMappings {
-        sourceField
-        destinationField
-    }
+fragment relationshipFieldMapping on RelationshipFieldMapping {
+    sourceField
+    destinationField
 }
 
 fragment ermodelrelationEditablePropertiesFields on ERModelRelationEditableProperties {

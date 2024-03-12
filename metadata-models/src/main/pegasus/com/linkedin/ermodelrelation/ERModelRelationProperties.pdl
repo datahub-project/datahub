@@ -54,7 +54,7 @@ record ERModelRelationProperties includes CustomProperties {
   /**
    * ERModelRelationFieldMapping (in future we can make it an array)
    */
-  ermodelrelationFieldMapping: ERModelRelationFieldMapping
+  relationshipfieldMappings: array [RelationshipFieldMapping]
 
   /**
    * A timestamp documenting when the asset was created in the source Data Platform (not on DataHub)
@@ -77,4 +77,14 @@ record ERModelRelationProperties includes CustomProperties {
     }
   }
   lastModified: optional AuditStamp
+
+  /**
+   * Cardinality of the relationship
+   */
+  cardinality: enum ERModelRelationshipCardinality {
+   ONE_ONE
+   ONE_N
+   N_ONE
+   N_N
+  } = "N_N"
 }

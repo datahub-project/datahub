@@ -345,7 +345,7 @@ type ERModelRelationProperties {
     """
     The ermodelrelationFieldMappings
     """
-    ermodelrelationFieldMapping: ERModelRelationFieldMapping!
+    relationshipFieldMappings: [RelationshipFieldMapping!]
 
     """
     Created timestamp millis associated with the ERModelRelation
@@ -359,19 +359,9 @@ type ERModelRelationProperties {
 }
 
 """
-ERModelRelation Field Mapping
-"""
-type ERModelRelationFieldMapping {
-    """
-    The Array of FieldMap
-    """
-    fieldMappings: [FieldMap!]
-}
-
-"""
 ERModelRelation FieldMap
 """
-type FieldMap {
+type RelationshipFieldMapping {
     """
     left field
     """
@@ -4882,7 +4872,7 @@ input ERModelRelationPropertiesInput {
     """
     Details about the ERModelRelation
     """
-    ermodelrelationFieldmapping: ERModelRelationFieldMappingInput!
+    relationshipFieldmappings: [RelationshipFieldMappingInput!]
     """
     optional flag about the ERModelRelation is getting create
     """
@@ -4900,16 +4890,7 @@ input ERModelRelationPropertiesInput {
 """
 Details about the ERModelRelation
 """
-input ERModelRelationFieldMappingInput {
-    """
-    Details about the ERModelRelation
-    """
-    fieldMappings: [FieldMappingInput]
-}
-"""
-Details about the ERModelRelation
-"""
-input FieldMappingInput {
+input RelationshipFieldMappingInput {
     """
     Details about the ERModelRelation
     """

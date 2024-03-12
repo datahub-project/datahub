@@ -55,14 +55,14 @@ export const ERModelRelationPreview = ({ ermodelrelationData, baseEntityUrn, pre
     function getFieldMap(): ERModelRelationRecord[] {
         const newData = [] as ERModelRelationRecord[];
         if (shuffleFlag && prePageType !== 'ERModelRelation') {
-            ermodelrelationData?.properties?.ermodelrelationFieldMapping?.fieldMappings?.map((item) => {
+            ermodelrelationData?.properties?.relationshipFieldMappings?.map((item) => {
                 return newData.push({
                     sourceField: item.destinationField,
                     destinationField: item.sourceField,
                 });
             });
         } else {
-            ermodelrelationData?.properties?.ermodelrelationFieldMapping?.fieldMappings?.map((item) => {
+            ermodelrelationData?.properties?.relationshipFieldMappings?.map((item) => {
                 return newData.push({
                     sourceField: item.sourceField,
                     destinationField: item.destinationField,
@@ -129,7 +129,7 @@ export const ERModelRelationPreview = ({ ermodelrelationData, baseEntityUrn, pre
 
     return (
         <div className="ERModelRelationPreview">
-            {ermodelrelationData?.properties?.ermodelrelationFieldMapping !== undefined && (
+            {ermodelrelationData?.properties?.relationshipFieldMappings !== undefined && (
                 <CreateERModelRelationModal
                     visible={modalVisible}
                     setModalVisible={setModalVisible}
