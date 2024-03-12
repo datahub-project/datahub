@@ -1021,10 +1021,15 @@ type FeatureFlagsConfig {
   documentationAiEnabled: Boolean!
 
   """
-  Globally enables the V2 Acryl theme, which includes improvements in home page, search, and entity profiles.
-  Note that this would override any personal settings. Only available as part of Acryl.
+  Allows the V2 Acryl theme to be turned on, which includes improvements in home page, search, and entity profiles.
+  Only available as part of Acryl.
   """
-  themeV2: Boolean!
+  themeV2Enabled: Boolean!
+
+  """
+  Globally sets the theme to V2. If false, determined by per-user settings.
+  """
+  themeV2Default: Boolean!
 
   """
   Whether the metadata sharing feature between instances is enabled
@@ -1093,4 +1098,3 @@ input UpdateHelpLinkInput {
   """
   link: String
 }
-

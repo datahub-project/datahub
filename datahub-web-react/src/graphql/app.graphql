@@ -77,7 +77,8 @@ query appConfig {
             platformBrowseV2
             dataContractsEnabled
             documentationAiEnabled
-            themeV2
+            themeV2Enabled
+            themeV2Default
             lineageGraphV2
             metadataShareEnabled
             documentationFormsEnabled
