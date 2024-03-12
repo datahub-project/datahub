@@ -207,6 +207,16 @@ public class AuthorizationUtils {
   public static boolean isAuthorized(
       @Nonnull QueryContext context,
       @Nullable EntitySpec resourceSpec,
+      @Nonnull final PoliciesConfig.Privilege privilege) {
+    final Authorizer authorizer = context.getAuthorizer();
+    final String actor = context.getActorUrn();
+
+    return AuthUtil.isAuthorized(authorizer, actor, privilege, resourceSpec);
+  }
+
+  public static boolean isAuthorized(
+      @Nonnull QueryContext context,
+      @Nullable EntitySpec resourceSpec,
       @Nonnull final Disjunctive<Conjunctive<PoliciesConfig.Privilege>> privileges) {
     final Authorizer authorizer = context.getAuthorizer();
     final String actor = context.getActorUrn();

@@ -11,7 +11,6 @@ import com.linkedin.datahub.graphql.generated.TimeSeriesAspect;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
-import com.linkedin.metadata.authorization.Disjunctive;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
@@ -77,9 +76,7 @@ public class TimeSeriesAspectResolver
     if (_entityName.equals(Constants.DATASET_ENTITY_NAME)
         && _aspectName.equals(Constants.DATASET_PROFILE_ASPECT_NAME)) {
       return AuthorizationUtils.isAuthorized(
-          context,
-          new EntitySpec(_entityName, urn),
-          Disjunctive.disjoint(PoliciesConfig.VIEW_DATASET_PROFILE_PRIVILEGE));
+          context, new EntitySpec(_entityName, urn), PoliciesConfig.VIEW_DATASET_PROFILE_PRIVILEGE);
     }
     return true;
   }

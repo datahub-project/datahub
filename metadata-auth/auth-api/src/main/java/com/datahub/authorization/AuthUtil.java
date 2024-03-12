@@ -303,6 +303,14 @@ public class AuthUtil {
   public static boolean isAuthorized(
       @Nonnull Authorizer authorizer,
       @Nonnull String actor,
+      @Nonnull final PoliciesConfig.Privilege privilege,
+      @Nullable EntitySpec maybeResourceSpec) {
+    return isAuthorized(authorizer, actor, Disjunctive.disjoint(privilege), maybeResourceSpec);
+  }
+
+  public static boolean isAuthorized(
+      @Nonnull Authorizer authorizer,
+      @Nonnull String actor,
       @Nonnull final Disjunctive<Conjunctive<PoliciesConfig.Privilege>> privileges,
       @Nullable EntitySpec maybeResourceSpec) {
     return isAuthorized(
