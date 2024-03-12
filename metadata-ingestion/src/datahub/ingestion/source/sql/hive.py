@@ -36,9 +36,14 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     SchemaField,
     TimeTypeClass,
 )
-from datahub.metadata.schema_classes import ViewPropertiesClass
+from datahub.metadata.schema_classes import (
+    DatasetPropertiesClass,
+    SubTypesClass,
+    ViewPropertiesClass,
+)
 from datahub.utilities import config_clean
 from datahub.utilities.hive_schema_to_avro import get_avro_schema_for_hive_column
+from sqlalchemy.engine import reflection
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +55,6 @@ try:
     from databricks_dbapi.sqlalchemy_dialects.hive import DatabricksPyhiveDialect
     from pyhive.sqlalchemy_hive import _type_map
     from sqlalchemy import types, util
-    from sqlalchemy.engine import reflection
 
     @reflection.cache  # type: ignore
     def dbapi_get_columns_patched(self, connection, table_name, schema=None, **kw):
@@ -112,8 +116,9 @@ def get_view_definition_patched(self, connection, view_name, schema=None, **kw):
             self.identifier_preparer.quote_identifier(schema),
             self.identifier_preparer.quote_identifier(view_name),
         )
-    row = connection.execute("SHOW CREATE TABLE {}".format(full_table)).fetchone()
-    return row[0]
+    # get all rows from the table
+    row = connection.execute("SHOW CREATE TABLE {}".format(full_table)).fetchall()
+    return "\n".join([r[0] for r in row])
 
 
 HiveDialect.get_view_names = get_view_names_patched
@@ -213,7 +218,102 @@ class HiveSource(TwoTierSQLAlchemySource):
             self.config.platform_instance,
             self.config.env,
         )
+        """
+        Override the method to enable: schema, container, properties, view definition and lineage
+        """
+        yield self._process_view_schema(
+            dataset_name, inspector, schema, view, dataset_urn
+        )
+        yield from self._process_view_container(
+            dataset_name, inspector, schema, view, dataset_urn
+        )
+        yield self._process_view_properties(
+            dataset_name, inspector, schema, view, dataset_urn
+        )
+        yield from self._process_view_definition(
+            dataset_name, inspector, schema, view, dataset_urn
+        )
 
+    def _process_view_schema(
+        self,
+        dataset_name: str,
+        inspector: Inspector,
+        schema: str,
+        view: str,
+        dataset_urn: str,
+    ) -> MetadataWorkUnit:
+        """
+        Extract the schema for a view and create a schema metadata aspect.
+        """
+        try:
+            columns = inspector.get_columns(view, schema)
+        except KeyError:
+            # For certain types of views, we are unable to fetch the list of columns.
+            self.warn(logger, dataset_name, "unable to get schema for this view")
+            schema_metadata = None
+        else:
+            schema_fields = self.get_schema_fields(dataset_name, columns)
+            schema_metadata = get_schema_metadata(
+                self.report,
+                dataset_name,
+                self.platform,
+                columns,
+                canonical_schema=schema_fields,
+            )
+            if self.config.include_view_lineage:
+                self.schema_resolver.add_schema_metadata(dataset_urn, schema_metadata)
+        return MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn, aspect=schema_metadata
+        ).as_workunit()
+
+    def _process_view_container(
+        self,
+        dataset_name: str,
+        inspector: Inspector,
+        schema: str,
+        view: str,
+        dataset_urn: str,
+    ) -> MetadataWorkUnit:
+        """
+        Extract the container aspect for a view.
+        """
+        db_name = self.get_db_name(inspector)
+        return self.add_table_to_schema_container(
+            dataset_urn=dataset_urn, db_name=db_name, schema=schema
+        )
+
+    def _process_view_properties(
+        self,
+        dataset_name: str,
+        inspector: Inspector,
+        schema: str,
+        view: str,
+        dataset_urn: str,
+    ) -> MetadataWorkUnit:
+        """
+        Extract the properties for a view and create a dataset properties aspect.
+        """
+        description, properties, _ = self.get_table_properties(inspector, schema, view)
+        return MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            aspect=DatasetPropertiesClass(
+                name=view,
+                description=description,
+                customProperties=properties,
+            ),
+        ).as_workunit()
+
+    def _process_view_definition(
+        self,
+        dataset_name: str,
+        inspector: Inspector,
+        schema: str,
+        view: str,
+        dataset_urn: str,
+    ) -> MetadataWorkUnit:
+        """
+        Extract the view definition and create a view properties aspect.
+        """
         try:
             view_definition = inspector.get_view_definition(view, schema)
             if view_definition is None:
@@ -226,10 +326,19 @@ class HiveSource(TwoTierSQLAlchemySource):
             view_definition = ""
 
         if view_definition:
+            if self.config.include_view_lineage:
+                self._view_definition_cache[dataset_name] = view_definition
             view_properties_aspect = ViewPropertiesClass(
                 materialized=False, viewLanguage="SQL", viewLogic=view_definition
             )
-            yield MetadataChangeProposalWrapper(
-                entityUrn=dataset_urn,
-                aspect=view_properties_aspect,
-            ).as_workunit()
+            return [
+                MetadataChangeProposalWrapper(
+                    entityUrn=dataset_urn,
+                    aspect=view_properties_aspect,
+                ).as_workunit(),
+                MetadataChangeProposalWrapper(
+                    entityUrn=dataset_urn,
+                    aspect=SubTypesClass(typeNames=[DatasetSubTypes.VIEW]),
+                ).as_workunit(),
+            ]
+        return []
