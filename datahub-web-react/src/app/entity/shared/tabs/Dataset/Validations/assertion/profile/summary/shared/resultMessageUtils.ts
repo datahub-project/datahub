@@ -5,6 +5,9 @@ import { getResultErrorMessage } from "../../../../assertionUtils";
 import { getFieldMetricLabel } from "../../../builder/steps/field/utils";
 import { tryGetAbsoluteVolumeAssertionNumericalResult, tryGetActualUpdatedTimestampFromAssertionResult, tryGetExpectedRangeFromAssertionAgainstChanges, tryGetExpectedRangeFromAssertionAgainstTotals, tryGetFieldMetricAssertionNumericalResult, tryGetFieldValueAssertionNumericalResult, tryGetPreviousSqlAssertionNumericalResult, tryGetPreviousVolumeAssertionNumericalResult, tryGetSqlAssertionNumericalResult } from "./resultExtractionUtils";
 import { getCronAsText } from '../../../../acrylUtils';
+import { ASSERTION_OPERATOR_DESCRIPTIONS_REQUIRING_SUFFIX, ASSERTION_OPERATOR_TO_DESCRIPTION } from "./constants";
+import { lowerFirstLetter } from "../../../../../../../../../shared/textUtil";
+import { getFieldMetricTypeReadableLabel } from "../../../../fieldDescriptionUtils";
 
 export const getFormattedResultText = (result?: AssertionResultType) => {
     if (result === undefined) {
@@ -210,13 +213,14 @@ export const getFormattedReasonText = (assertion: Assertion, run: AssertionRunEv
 
 /**
  * Gets formatted text describing assertion expectations for absolute assertions
- * @param assertedOnDescription: for formatting the output
+ * @param assertedOnDescription: for prefixing the output
  * @param totalsInfo: TODO just point out the specific info we need (ie min/max/value/operator), let the parent extract that and pass it in 
  */
 const getFormattedExpectedTextForAbsoluteAssertion = (
-    assertedOnDescription: 'Row count' | 'SQL result' | 'Values' | 'Metric',
+    assertedOnDescription: string,
     totalsInfo?: Maybe<IncrementingSegmentRowCountTotal> | Maybe<RowCountTotal> | Maybe<SqlAssertionInfo> | Maybe<FieldValuesAssertion> | Maybe<FieldMetricAssertion>,
 ): string | undefined => {
+    // 1. Handle cases where there is a range (ie. between, less than, etc.)
     const range = tryGetExpectedRangeFromAssertionAgainstTotals(totalsInfo);
     let { low, high } = range
     low = low && formatNumberWithoutAbbreviation(Math.floor(low))
@@ -232,11 +236,30 @@ const getFormattedExpectedTextForAbsoluteAssertion = (
         const rangeDefinition = range.context?.lowType === 'inclusive' ? 'greater than or equal to' : 'greater than'
         return `${assertedOnDescription} should be ${rangeDefinition} ${low}`;
     }
+
+    // 2. Handle cases where there is a more explicit expectation (ie. 'contains XYZ', 'is equal to 5')
+    if (totalsInfo?.operator && ASSERTION_OPERATOR_TO_DESCRIPTION[totalsInfo.operator]) {
+        const operatorDescription = ASSERTION_OPERATOR_TO_DESCRIPTION[totalsInfo.operator]
+        // ie. 'in [red, blue, green]'
+        if (ASSERTION_OPERATOR_DESCRIPTIONS_REQUIRING_SUFFIX.includes(totalsInfo.operator)) {
+            const value = totalsInfo.parameters?.value?.value ?? '[configured value]' // Should never happen but a graceful fallback on the UX
+            return `${assertedOnDescription} ${lowerFirstLetter(operatorDescription)} ${value}`;
+        }
+        // ie. 'is not null'
+        return `${assertedOnDescription} ${lowerFirstLetter(operatorDescription)}`;
+    }
     return undefined;
 }
 
+
+/**
+ * Gets formatted text describing assertion expectations for relative assertions
+ * @param assertedOnDescription: for prefixing the output
+ * @param changingInfo: TODO just point out the specific info we need (ie min/max/value/operator), let the parent extract that and pass it in 
+ * @param changeType: NOTE: we don't extract this from changingInfo because {@link SqlAssertionInfo} calls it 'changeType' instead of 'type'
+ */
 const getFormattedExpectedTextForRelativeAssertion = (
-    assertedOnDescription: 'Row count' | 'SQL result',
+    assertedOnDescription: string,
     changingInfo?: Maybe<RowCountChange | IncrementingSegmentRowCountChange | SqlAssertionInfo>,
     changeType?: Maybe<AssertionValueChangeType>,
     previousCount?: Maybe<number>
@@ -293,10 +316,26 @@ const getFormattedExpectedTextForFieldAssertion = (run: AssertionRunEvent): stri
     const fieldAssertionInfo = run.result?.assertion?.fieldAssertion
     if (!fieldAssertionInfo) return undefined;
     switch (fieldAssertionInfo.type) {
-        case FieldAssertionType.FieldValues:
-            return getFormattedExpectedTextForAbsoluteAssertion('Values', fieldAssertionInfo.fieldValuesAssertion)
-        case FieldAssertionType.FieldMetric:
-            return getFormattedExpectedTextForAbsoluteAssertion('Metric', fieldAssertionInfo.fieldMetricAssertion)
+        case FieldAssertionType.FieldValues: {
+            const maybeColumnPath = fieldAssertionInfo.fieldValuesAssertion?.field.path
+            const fieldDescription = maybeColumnPath ? `Every value on ${maybeColumnPath}` : `Every column value`
+            return getFormattedExpectedTextForAbsoluteAssertion(fieldDescription, fieldAssertionInfo.fieldValuesAssertion)
+        }
+        case FieldAssertionType.FieldMetric: {
+            const maybeColumnPath = fieldAssertionInfo.fieldMetricAssertion?.field.path
+            let metricDescription: string = maybeColumnPath ? `Metric of ${maybeColumnPath}` : 'Column metric';
+
+            if (fieldAssertionInfo.fieldMetricAssertion?.metric) {
+                try {
+                    const maybeMetricDescription = getFieldMetricTypeReadableLabel(fieldAssertionInfo.fieldMetricAssertion.metric)
+                    // ie. 'Null percentage of age_m'
+                    metricDescription = maybeMetricDescription ? `${maybeMetricDescription} of ${maybeColumnPath ?? 'column'}` : metricDescription
+                } catch (e) {
+                    // best attempt
+                }
+            }
+            return getFormattedExpectedTextForAbsoluteAssertion(metricDescription, fieldAssertionInfo.fieldMetricAssertion)
+        }
         default:
             return undefined;
     }

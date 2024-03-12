@@ -1,4 +1,4 @@
-import { AssertionType } from "../../../../../../../../../../types.generated";
+import { AssertionStdOperator, AssertionType } from "../../../../../../../../../../types.generated";
 
 export const VALUES_OVER_TIME_ASSERTION_TYPES: AssertionType[] = [AssertionType.Field, AssertionType.Sql, AssertionType.Volume];
 
@@ -25,3 +25,33 @@ export const ASSERTION_NATIVE_RESULTS_KEYS_BY_ASSERTION_TYPE = {
         PREVIOUS_Y_VALUE_KEY_NAME: 'Previous Row Count'
     },
 }
+
+export const ASSERTION_OPERATOR_DESCRIPTIONS_REQUIRING_SUFFIX = [
+    AssertionStdOperator.EqualTo, AssertionStdOperator.NotEqualTo,
+    AssertionStdOperator.Contain, AssertionStdOperator.RegexMatch,
+    AssertionStdOperator.StartWith, AssertionStdOperator.EndWith,
+    AssertionStdOperator.In, AssertionStdOperator.NotIn,
+]
+export const ASSERTION_OPERATOR_TO_DESCRIPTION: Record<AssertionStdOperator, string | undefined> = {
+    [AssertionStdOperator.EqualTo]: 'Is equal to',
+    [AssertionStdOperator.NotEqualTo]: 'Is not equal to',
+    [AssertionStdOperator.Contain]: 'Contains',
+    [AssertionStdOperator.RegexMatch]: 'Matches',
+    [AssertionStdOperator.StartWith]: 'Starts with',
+    [AssertionStdOperator.EndWith]: 'Ends with',
+    [AssertionStdOperator.In]: 'Is in',
+    [AssertionStdOperator.NotIn]: 'Is not in',
+
+    [AssertionStdOperator.IsFalse]: 'Is False',
+    [AssertionStdOperator.IsTrue]: 'Is True',
+    [AssertionStdOperator.Null]: 'Is NULL',
+    [AssertionStdOperator.NotNull]: 'Is not NULL',
+
+    [AssertionStdOperator.GreaterThan]: 'Is greater than',
+    [AssertionStdOperator.GreaterThanOrEqualTo]: 'Is greater than or equal to',
+    [AssertionStdOperator.LessThan]: 'Is less than',
+    [AssertionStdOperator.LessThanOrEqualTo]: 'Is less than or equal to',
+    [AssertionStdOperator.Between]: 'Is within a range',
+
+    [AssertionStdOperator.Native]: undefined,
+};
