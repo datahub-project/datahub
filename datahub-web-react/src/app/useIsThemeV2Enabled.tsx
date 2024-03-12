@@ -27,19 +27,31 @@ export function useIsThemeV2Enabled() {
 }
 
 /**
- * Returns [isThemeV2EnabledForUser, isUserLoaded]
+ * Returns [isThemeV2Enabled, isAppConfigLoaded]: whether the V2 theme can be turned on at all.
  */
-export function useIsThemeV2EnabledForUser(): [boolean, boolean] {
-    const { user } = useUserContext();
-    return [!!user?.settings?.appearance?.showThemeV2, !!user];
+export function useIsThemeV2Accessible() {
+    const appConfig = useAppConfig();
+    return [appConfig.config.featureFlags.themeV2Enabled, appConfig.loaded];
 }
 
 /**
- * Returns [isThemeV2EnabledGlobally, isAppConfigLoaded]
+ * Returns [isThemeV2EnabledForUser, isUserLoaded]: whether the V2 theme is turned on for the user.
+ */
+export function useIsThemeV2EnabledForUser(): [boolean, boolean] {
+    const appConfig = useAppConfig();
+    const { user } = useUserContext();
+    return [appConfig.config.featureFlags.themeV2Enabled && !!user?.settings?.appearance?.showThemeV2, !!user];
+}
+
+/**
+ * Returns [isThemeV2EnabledGlobally, isAppConfigLoaded]: whether the V2 theme is turned on globally.
  */
 export function useIsThemeV2EnabledGlobally(): [boolean, boolean] {
     const appConfig = useAppConfig();
-    return [appConfig.config.featureFlags.themeV2, appConfig.loaded];
+    return [
+        appConfig.config.featureFlags.themeV2Enabled && appConfig.config.featureFlags.themeV2Default,
+        appConfig.loaded,
+    ];
 }
 
 export function useSetThemeIsV2() {
@@ -57,7 +69,7 @@ export function useSetThemeIsV2() {
 }
 
 function setThemeV2LocalStorage(isThemeV2: boolean) {
-    if (loadFromLocalStorage()) {
+    if (loadFromLocalStorage() !== isThemeV2) {
         saveToLocalStorage(isThemeV2);
     }
 }

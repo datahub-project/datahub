@@ -1,18 +1,22 @@
 import { Col, Row } from 'antd';
-import React from 'react';
+import React, { useContext, useState } from 'react';
+import { ReadOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
-import { useGetUserQuery } from '../../../graphql/user.generated';
+import { useGetUserOwnedAssetsQuery, useGetUserQuery } from '../../../graphql/user.generated';
 import { EntityRelationship, EntityType } from '../../../types.generated';
 import UserGroups from './UserGroups';
 import { RoutedTabs } from '../../shared/RoutedTabs';
 import { UserAssets } from './UserAssets';
-import UserInfoSideBar from './UserInfoSideBar';
+import UserSideBar from './UserSidebar';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { ErrorSection } from '../../shared/error/ErrorSection';
 import { UserSubscriptions } from './UserSubscriptions';
 import { StyledEntitySidebarContainer, StyledSidebar } from '../shared/containers/profile/sidebar/EntityProfileSidebar';
 import CompactContext from '../../shared/CompactContext';
-import EntityProfileSidebarSearchHeader from '../shared/containers/profile/sidebar/EntityProfileSidebarSearchHeader';
+import { EntitySidebarTabs } from '../shared/containers/profile/sidebar/EntitySidebarTabs';
+import EntitySidebarSectionsTab from '../shared/containers/profile/sidebar/EntitySidebarSectionsTab';
+import EntitySidebarContext from '../../shared/EntitySidebarContext';
+import SidebarCollapsibleHeader from '../shared/containers/profile/sidebar/SidebarCollapsibleHeader';
 
 export interface Props {
     urn: string;
@@ -26,6 +30,11 @@ export enum TabType {
 const ENABLED_TAB_TYPES = [TabType.Assets, TabType.Groups, TabType.Subscription];
 
 const GROUP_PAGE_SIZE = 20;
+
+const defaultTabDisplayConfig = {
+    visible: (_, _1) => true,
+    enabled: (_, _1) => true,
+};
 
 /**
  * Styled Components
@@ -55,6 +64,15 @@ export const EmptyValue = styled.div`
         font-weight: 100;
     }
 `;
+const ContentContainer = styled.div<{ isVisible: boolean }>`
+    flex: 1;
+    ${(props) => props.isVisible && 'border-right: 1px solid #e8e8e8;'}
+    overflow: inherit;
+`;
+
+const TabsContainer = styled.div``;
+
+const Tabs = styled.div``;
 
 /**
  * Responsible for reading & writing users.
@@ -72,6 +90,7 @@ export default function UserProfile({ urn }: Props) {
     const userRoles: Array<EntityRelationship> =
         castedCorpUser?.roles?.relationships.map((relationship) => relationship as EntityRelationship) || [];
 
+    const { data: userOwnedAsset } = useGetUserOwnedAssetsQuery({ variables: { urn } });
     // Routed Tabs Constants
     const getTabs = () => {
         return [
@@ -105,7 +124,7 @@ export default function UserProfile({ urn }: Props) {
     const onTabChange = () => null;
 
     // Side bar data
-    const sideBarData = {
+    const sidebarData = {
         photoUrl: data?.corpUser?.editableProperties?.pictureLink || undefined,
         avatarName:
             data?.corpUser?.editableProperties?.displayName ||
@@ -124,15 +143,42 @@ export default function UserProfile({ urn }: Props) {
         aboutText: data?.corpUser?.editableProperties?.aboutMe || undefined,
         groupsDetails: userGroups,
         dataHubRoles: userRoles,
+        ownerships: userOwnedAsset?.searchAcrossEntities?.searchResults || undefined,
         urn,
     };
 
+    const finalTabs = [
+        {
+            name: 'About',
+            icon: ReadOutlined,
+            component: EntitySidebarSectionsTab,
+            display: {
+                ...defaultTabDisplayConfig,
+            },
+        },
+    ];
+
+    const [selectedTabName, setSelectedTabName] = useState(finalTabs[0].name);
+    const selectedTab = finalTabs.find((tab) => tab.name === selectedTabName);
+    const { width, isClosed } = useContext(EntitySidebarContext);
+
     if (isCompact) {
         return (
-            <StyledEntitySidebarContainer isCollapsed={false} isCard={false} $width={window.innerWidth * 0.25}>
+            <StyledEntitySidebarContainer isCollapsed={isClosed} isCard $width={width}>
                 <StyledSidebar isInSearch isCard={false}>
-                    <EntityProfileSidebarSearchHeader />
-                    <UserInfoSideBar sideBarData={sideBarData} refetch={refetch} />
+                    <ContentContainer isVisible={!isClosed}>
+                        <SidebarCollapsibleHeader currentTab={selectedTab} />
+                        {!isClosed && <UserSideBar sidebarData={sidebarData} refetch={refetch} />}
+                    </ContentContainer>
+                    <TabsContainer>
+                        <Tabs>
+                            <EntitySidebarTabs
+                                tabs={finalTabs}
+                                selectedTab={selectedTab}
+                                onSelectTab={(name) => setSelectedTabName(name)}
+                            />
+                        </Tabs>
+                    </TabsContainer>
                 </StyledSidebar>
             </StyledEntitySidebarContainer>
         );
@@ -143,10 +189,10 @@ export default function UserProfile({ urn }: Props) {
             {error && <ErrorSection />}
             <UserProfileWrapper>
                 <Row>
-                    <Col xl={5} lg={5} md={5} sm={24} xs={24}>
-                        <UserInfoSideBar sideBarData={sideBarData} refetch={refetch} />
+                    <Col xl={7} lg={7} md={7} sm={24} xs={24}>
+                        <UserSideBar sidebarData={sidebarData} refetch={refetch} />
                     </Col>
-                    <Col xl={19} lg={19} md={19} sm={24} xs={24} style={{ borderLeft: '1px solid #E9E9E9' }}>
+                    <Col xl={17} lg={17} md={17} sm={24} xs={24} style={{ borderLeft: '1px solid #E9E9E9' }}>
                         <Content>
                             <RoutedTabs defaultPath={defaultTabPath} tabs={getTabs()} onTabChange={onTabChange} />
                         </Content>

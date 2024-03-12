@@ -11,13 +11,13 @@ const ActionButton = styled.div<{ privilege: boolean }>`
             ? `1px solid ${REDESIGN_COLORS.TITLE_PURPLE}`
             : `1px solid ${REDESIGN_COLORS.SECONDARY_LIGHT_GREY}`};
     ${(props) => !props.privilege && 'pointer-events: none;'}
-    height: 22px;
-    width: 22px;
+    height: 20px;
+    width: 20px;
     border-radius: 50%;
     text-align: center;
     svg {
-        width: 20px;
-        height: 20px;
+        width: 18px;
+        height: 18px;
         padding: 3px;
     }
     :hover {

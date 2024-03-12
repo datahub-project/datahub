@@ -24,7 +24,8 @@ public class FeatureFlags {
   private boolean schemaFieldEntityFetchEnabled = false;
   private boolean dataContractsEnabled = false;
   private boolean documentationAiEnabled = false;
-  private boolean themeV2 = false;
+  private boolean themeV2Enabled = false;
+  private boolean themeV2Default = false;
   private boolean metadataShareEnabled = false;
   private boolean documentationFormsEnabled = false;
 }

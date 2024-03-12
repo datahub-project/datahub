@@ -6,7 +6,6 @@ import { REDESIGN_COLORS } from '../entityV2/shared/constants';
 import GlossarySearch from './GlossarySearch';
 import GlossaryBrowser from './GlossaryBrowser/GlossaryBrowser';
 import { SidebarWrapper } from '../sharedV2/sidebar/components';
-import { useGlossaryEntityData } from '../entityV2/shared/GlossaryEntityContext';
 import CreateGlossaryEntityModal from '../entityV2/shared/EntityDropdown/CreateGlossaryEntityModal';
 import { EntityType } from '../../types.generated';
 import { useUserContext } from '../context/useUserContext';
@@ -41,9 +40,7 @@ const StyledPlusCircleOutlined = styled(PlusCircleOutlined)`
 
 export default function GlossarySidebar() {
     const [browserWidth, setBrowserWidth] = useState(window.innerWidth * 0.2);
-    const [previousBrowserWidth] = useState(window.innerWidth * 0.2);
     const [isCreateNodeModalVisible, setIsCreateNodeModalVisible] = useState(false);
-    const { isSidebarOpen } = useGlossaryEntityData();
 
     const { refetch: refetchForNodes } = useGetRootGlossaryNodesQuery();
 
@@ -51,12 +48,16 @@ export default function GlossarySidebar() {
     const canManageGlossaries = user?.platformPrivileges?.manageGlossaries;
 
     useEffect(() => {
-        if (isSidebarOpen) {
-            setBrowserWidth(previousBrowserWidth);
-        } else {
-            setBrowserWidth(0);
-        }
-    }, [isSidebarOpen, previousBrowserWidth]);
+        const handleResize = () => {
+            setBrowserWidth(window.innerWidth * 0.2);
+        };
+
+        window.addEventListener('resize', handleResize);
+
+        return () => {
+            window.removeEventListener('resize', handleResize);
+        };
+    }, []);
 
     return (
         <>

@@ -1,19 +1,30 @@
 import { message, Typography } from 'antd';
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
 import { useUpdateNameMutation } from '../../../../../../graphql/mutations.generated';
 import { getParentNodeToUpdate, updateGlossarySidebar } from '../../../../../glossary/utils';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import { useEntityData, useRefetch } from '../../../EntityContext';
 import { useGlossaryEntityData } from '../../../GlossaryEntityContext';
+import { REDESIGN_COLORS } from '../../../constants';
+import CompactContext from '../../../../../shared/CompactContext';
+import { EntityType } from '../../../../../../types.generated';
 
-const EntityTitle = styled(Typography.Text)`
+const EntityTitle = styled(Typography.Text)<{ showEntityLink?: boolean }>`
     font-size: 16px;
-    font-weight: 600;
-    color: #533fd1;
+    font-weight: 700;
+    color: ${REDESIGN_COLORS.TITLE_PURPLE};
     line-height: normal;
     margin-right: 10px;
 
+    ${(props) =>
+        props.showEntityLink &&
+        `
+    :hover {
+        color: ${REDESIGN_COLORS.HOVER_PURPLE};
+    }
+    `}
     &&& {
         margin-bottom: 0;
         word-break: break-all;
@@ -44,6 +55,9 @@ function EntityName(props: Props) {
     const entityName = entityData ? entityRegistry.getDisplayName(entityType, entityData) : '';
     const [updatedName, setUpdatedName] = useState(entityName);
     const [isEditing, setIsEditing] = useState(false);
+
+    const isCompact = React.useContext(CompactContext);
+    const showEntityLink = isCompact && entityType !== EntityType.Query;
 
     useEffect(() => {
         setUpdatedName(entityName);
@@ -79,24 +93,23 @@ function EntityName(props: Props) {
             });
     };
 
-    return (
-        <>
-            {isNameEditable ? (
-                <EntityTitle
-                    disabled={isMutatingName}
-                    editable={{
-                        editing: isEditing,
-                        onChange: handleChangeName,
-                        onStart: handleStartEditing,
-                    }}
-                >
-                    {updatedName}
-                </EntityTitle>
-            ) : (
-                <EntityTitle>{entityName}</EntityTitle>
-            )}
-        </>
+    const Title = isNameEditable ? (
+        <EntityTitle
+            disabled={isMutatingName}
+            editable={{
+                editing: isEditing,
+                onChange: handleChangeName,
+                onStart: handleStartEditing,
+            }}
+            showEntityLink={showEntityLink}
+        >
+            {updatedName}
+        </EntityTitle>
+    ) : (
+        <EntityTitle showEntityLink={showEntityLink}>{entityName}</EntityTitle>
     );
+
+    return showEntityLink ? <Link to={entityRegistry.getEntityUrl(entityType, urn)}>{Title}</Link> : Title;
 }
 
 export default EntityName;

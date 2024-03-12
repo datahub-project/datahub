@@ -1,12 +1,13 @@
-import React from 'react';
+import React, { useContext, useState } from 'react';
 import { Col, Row } from 'antd';
 import styled from 'styled-components/macro';
+import { ReadOutlined } from '@ant-design/icons';
 import { useGetGroupQuery } from '../../../graphql/group.generated';
 import { OriginType, EntityRelationshipsResult, Ownership, EntityType } from '../../../types.generated';
 import { Message } from '../../shared/Message';
 import GroupMembers from './GroupMembers';
 import { RoutedTabs } from '../../shared/RoutedTabs';
-import GroupInfoSidebar from './GroupInfoSideBar';
+import GroupSidebar from './GroupSidebar';
 import { GroupAssets } from './GroupAssets';
 import { ErrorSection } from '../../shared/error/ErrorSection';
 import { ManageActorNotifications } from '../../settings/personal/notifications/ManageActorNotifications';
@@ -15,7 +16,11 @@ import { useEntityRegistry } from '../../useEntityRegistry';
 import NonExistentEntityPage from '../shared/entity/NonExistentEntityPage';
 import CompactContext from '../../shared/CompactContext';
 import { StyledEntitySidebarContainer, StyledSidebar } from '../shared/containers/profile/sidebar/EntityProfileSidebar';
-import EntityProfileSidebarSearchHeader from '../shared/containers/profile/sidebar/EntityProfileSidebarSearchHeader';
+import EntitySidebarSectionsTab from '../shared/containers/profile/sidebar/EntitySidebarSectionsTab';
+import EntitySidebarContext from '../../shared/EntitySidebarContext';
+import SidebarCollapsibleHeader from '../shared/containers/profile/sidebar/SidebarCollapsibleHeader';
+import { EntitySidebarTabs } from '../shared/containers/profile/sidebar/EntitySidebarTabs';
+import { ANTD_GRAY, REDESIGN_COLORS } from '../shared/constants';
 
 const messageStyle = { marginTop: '10%' };
 
@@ -37,7 +42,7 @@ const GroupProfileWrapper = styled.div`
     &&& .ant-tabs-nav {
         margin: 0;
     }
-    background-color: #fff;
+    background-color: ${REDESIGN_COLORS.WHITE};
     border-radius: 8px;
 `;
 
@@ -50,8 +55,23 @@ const Content = styled.div`
     }
 `;
 
+const ContentContainer = styled.div<{ isVisible: boolean }>`
+    flex: 1;
+    ${(props) => props.isVisible && `border-right: 1px solid ${REDESIGN_COLORS.SIDE_BAR_BORDER_RIGHT};`}
+    overflow: inherit;
+`;
+
+const TabsContainer = styled.div``;
+
+const Tabs = styled.div``;
+
 type Props = {
     urn: string;
+};
+
+const defaultTabDisplayConfig = {
+    visible: (_, _1) => true,
+    enabled: (_, _1) => true,
 };
 
 /**
@@ -66,6 +86,21 @@ export default function GroupProfile({ urn }: Props) {
     const isExternalGroup: boolean = data?.corpGroup?.origin?.type === OriginType.External;
     const externalGroupType: string = data?.corpGroup?.origin?.externalType || 'outside DataHub';
     const groupName = data?.corpGroup ? entityRegistry.getDisplayName(EntityType.CorpGroup, data.corpGroup) : undefined;
+
+    const finalTabs = [
+        {
+            name: 'About',
+            icon: ReadOutlined,
+            component: EntitySidebarSectionsTab,
+            display: {
+                ...defaultTabDisplayConfig,
+            },
+        },
+    ];
+
+    const [selectedTabName, setSelectedTabName] = useState(finalTabs[0].name);
+    const selectedTab = finalTabs.find((tab) => tab.name === selectedTabName);
+    const { width, isClosed } = useContext(EntitySidebarContext);
 
     const getTabs = () => {
         return [
@@ -117,7 +152,7 @@ export default function GroupProfile({ urn }: Props) {
     const onTabChange = () => null;
 
     // Side bar data
-    const sideBarData = {
+    const sidebarData = {
         photoUrl: undefined,
         avatarName:
             data?.corpGroup?.properties?.displayName ||
@@ -130,7 +165,7 @@ export default function GroupProfile({ urn }: Props) {
         aboutText:
             data?.corpGroup?.editableProperties?.description || data?.corpGroup?.properties?.description || undefined,
         groupMemberRelationships: groupMemberRelationships as EntityRelationshipsResult,
-        groupOwnerShip: data?.corpGroup?.ownership as Ownership,
+        groupOwnership: data?.corpGroup?.ownership as Ownership,
         isExternalGroup,
         externalGroupType,
         urn,
@@ -142,10 +177,21 @@ export default function GroupProfile({ urn }: Props) {
 
     if (isCompact) {
         return (
-            <StyledEntitySidebarContainer isCollapsed={false} isCard={false} $width={window.innerWidth * 0.25}>
+            <StyledEntitySidebarContainer isCollapsed={isClosed} isCard $width={width}>
                 <StyledSidebar isInSearch isCard={false}>
-                    <EntityProfileSidebarSearchHeader />
-                    <GroupInfoSidebar sideBarData={sideBarData} refetch={refetch} />
+                    <ContentContainer isVisible={!isClosed}>
+                        <SidebarCollapsibleHeader currentTab={selectedTab} />
+                        {!isClosed && <GroupSidebar sidebarData={sidebarData} refetch={refetch} />}
+                    </ContentContainer>
+                    <TabsContainer>
+                        <Tabs>
+                            <EntitySidebarTabs
+                                tabs={finalTabs}
+                                selectedTab={selectedTab}
+                                onSelectTab={(name) => setSelectedTabName(name)}
+                            />
+                        </Tabs>
+                    </TabsContainer>
                 </StyledSidebar>
             </StyledEntitySidebarContainer>
         );
@@ -158,10 +204,17 @@ export default function GroupProfile({ urn }: Props) {
             {data && data?.corpGroup && (
                 <GroupProfileWrapper>
                     <Row>
-                        <Col xl={5} lg={5} md={5} sm={24} xs={24}>
-                            <GroupInfoSidebar sideBarData={sideBarData} refetch={refetch} />
+                        <Col xl={7} lg={7} md={7} sm={24} xs={24}>
+                            <GroupSidebar sidebarData={sidebarData} refetch={refetch} />
                         </Col>
-                        <Col xl={19} lg={19} md={19} sm={24} xs={24} style={{ borderLeft: '1px solid #E9E9E9' }}>
+                        <Col
+                            xl={17}
+                            lg={17}
+                            md={17}
+                            sm={24}
+                            xs={24}
+                            style={{ borderLeft: `1px solid ${ANTD_GRAY['4.5']}` }}
+                        >
                             <Content>
                                 <RoutedTabs defaultPath={defaultTabPath} tabs={getTabs()} onTabChange={onTabChange} />
                             </Content>

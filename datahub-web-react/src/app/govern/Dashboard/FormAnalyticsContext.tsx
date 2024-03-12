@@ -210,7 +210,7 @@ export const FormAnalyticsProvider = ({ children }: Props) => {
 	const integrationServiceOffline = !snapshotLoading && snapshot?.formAnalytics?.errors !== null;
 
 	// Define sql queries
-	const snapshotDate = !integrationServiceOffline && snapshot?.formAnalytics?.table![0]?.row[0] as string || undefined;
+	const snapshotDate = !integrationServiceOffline && snapshot?.formAnalytics?.table![0]?.row[0]?.value as string || undefined;
 	const sql = sqlQueries(daysSinceDate, selectedForm, selectedAssignee, selectedDomain, snapshotDate, tab, series);
 
 	// Fetch all the forms available 
@@ -240,7 +240,7 @@ export const FormAnalyticsProvider = ({ children }: Props) => {
 	useEffect(() => {
 		if (forms && forms.length > 0 && !selectedForm) {
 			const row = forms[0].row as any;
-			if (row) setSelectedForm(row[0]); // form_id
+			if (row) setSelectedForm(row[0].value as string); // form_id
 		}
 	}, [forms, selectedForm]);
 
@@ -248,7 +248,7 @@ export const FormAnalyticsProvider = ({ children }: Props) => {
 	useEffect(() => {
 		if (assignees && assignees.length > 0 && !selectedAssignee) {
 			const row = assignees[0].row as any;
-			if (row) setSelectedAssignee(row[0]); // assignee_urn
+			if (row) setSelectedAssignee(row[0].value as string); // assignee_urn
 		}
 	}, [assignees, selectedAssignee]);
 
@@ -256,7 +256,7 @@ export const FormAnalyticsProvider = ({ children }: Props) => {
 	useEffect(() => {
 		if (domains && domains.length > 0 && !selectedDomain) {
 			const row = domains[0].row as any;
-			if (row) setSelectedDomain(row[0]); // domain
+			if (row) setSelectedDomain(row[0].value as string); // domain
 		}
 	}, [domains, selectedDomain]);
 

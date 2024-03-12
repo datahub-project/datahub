@@ -26,8 +26,7 @@ query FormAnalytics($input: FormAnalyticsInput!){
   formAnalytics(input:$input) {
     header
     table {
-      row
-      richRow {
+      row {
         value
         entity {
             urn

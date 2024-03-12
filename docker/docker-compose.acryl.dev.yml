@@ -22,7 +22,7 @@ services:
     image: 795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-executor:debug
     build:
       context: ../
-      dockerfile: datahub-executor/Dockerfile
+      dockerfile: docker/datahub-executor/Dockerfile
       args:
         APP_ENV: dev
     volumes:

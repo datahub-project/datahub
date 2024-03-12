@@ -39,6 +39,8 @@ public class ESAccessControlUtilTest {
   private static final Urn TEST_GROUP_A = UrnUtils.getUrn("urn:li:corpGroup:a");
   private static final Urn TEST_GROUP_B = UrnUtils.getUrn("urn:li:corpGroup:b");
   private static final Urn TEST_GROUP_C = UrnUtils.getUrn("urn:li:corpGroup:c");
+
+  // User A belongs to Groups A and C
   private static final Urn TEST_USER_A = UrnUtils.getUrn("urn:li:corpuser:a");
   private static final Urn TEST_USER_B = UrnUtils.getUrn("urn:li:corpuser:b");
   private static final Urn TECH_OWNER =
@@ -486,6 +488,63 @@ public class ESAccessControlUtilTest {
   }
 
   @Test
+  public void testUserGroupOwnerEmptyResource() {
+    OperationContext ownerNoGroupsNoType =
+        sessionWithPolicy(
+            Set.of(
+                new DataHubPolicyInfo()
+                    .setState(PoliciesConfig.ACTIVE_POLICY_STATE)
+                    .setType(PoliciesConfig.METADATA_POLICY_TYPE)
+                    .setResources(
+                        new DataHubResourceFilter()
+                            .setFilter(
+                                new PolicyMatchFilter()
+                                    .setCriteria(new PolicyMatchCriterionArray())))
+                    .setActors(new DataHubActorFilter().setResourceOwners(true))
+                    .setPrivileges(
+                        new StringArray(List.of(PoliciesConfig.VIEW_ENTITY_PRIVILEGE.getType())))));
+    assertEquals(
+        ESAccessControlUtil.buildAccessControlFilters(ownerNoGroupsNoType),
+        Optional.of(
+            QueryBuilders.boolQuery()
+                .should(
+                    QueryBuilders.termsQuery(
+                        "owners.keyword",
+                        List.of(
+                            TEST_USER_A.toString(),
+                            TEST_GROUP_A.toString(),
+                            TEST_GROUP_C.toString())))
+                .minimumShouldMatch(1)),
+        "Expected user filter for owners without group filter");
+
+    OperationContext ownerWithGroupsNoType =
+        sessionWithPolicy(
+            Set.of(
+                new DataHubPolicyInfo()
+                    .setState(PoliciesConfig.ACTIVE_POLICY_STATE)
+                    .setType(PoliciesConfig.METADATA_POLICY_TYPE)
+                    .setActors(
+                        new DataHubActorFilter()
+                            .setResourceOwners(true)
+                            .setGroups(new UrnArray(TEST_GROUP_A)))
+                    .setPrivileges(
+                        new StringArray(List.of(PoliciesConfig.VIEW_ENTITY_PRIVILEGE.getType())))));
+    assertEquals(
+        ESAccessControlUtil.buildAccessControlFilters(ownerWithGroupsNoType),
+        Optional.of(
+            QueryBuilders.boolQuery()
+                .should(
+                    QueryBuilders.termsQuery(
+                        "owners.keyword",
+                        List.of(
+                            TEST_USER_A.toString(),
+                            TEST_GROUP_A.toString(),
+                            TEST_GROUP_C.toString())))
+                .minimumShouldMatch(1)),
+        "Expected user AND group filter for owners");
+  }
+
+  @Test
   public void testUserGroupOwnerTypes() {
     OperationContext ownerTypeBusinessNoUserNoGroup =
         sessionWithPolicy(
@@ -494,7 +553,9 @@ public class ESAccessControlUtilTest {
                     .setState(PoliciesConfig.ACTIVE_POLICY_STATE)
                     .setType(PoliciesConfig.METADATA_POLICY_TYPE)
                     .setActors(
-                        new DataHubActorFilter().setResourceOwnersTypes(new UrnArray(BUS_OWNER)))
+                        new DataHubActorFilter()
+                            .setResourceOwnersTypes(new UrnArray(BUS_OWNER))
+                            .setResourceOwners(true))
                     .setPrivileges(
                         new StringArray(List.of(PoliciesConfig.VIEW_ENTITY_PRIVILEGE.getType())))));
     assertEquals(
@@ -524,6 +585,7 @@ public class ESAccessControlUtilTest {
                     .setType(PoliciesConfig.METADATA_POLICY_TYPE)
                     .setActors(
                         new DataHubActorFilter()
+                            .setResourceOwners(true)
                             .setResourceOwnersTypes(new UrnArray(BUS_OWNER))
                             .setUsers(new UrnArray(List.of(TEST_USER_A, TEST_USER_B))))
                     .setPrivileges(
@@ -555,6 +617,7 @@ public class ESAccessControlUtilTest {
                     .setType(PoliciesConfig.METADATA_POLICY_TYPE)
                     .setActors(
                         new DataHubActorFilter()
+                            .setResourceOwners(true)
                             .setResourceOwnersTypes(new UrnArray(BUS_OWNER, TECH_OWNER))
                             .setGroups(new UrnArray(TEST_GROUP_A, TEST_GROUP_B)))
                     .setPrivileges(
@@ -595,6 +658,7 @@ public class ESAccessControlUtilTest {
                     .setType(PoliciesConfig.METADATA_POLICY_TYPE)
                     .setActors(
                         new DataHubActorFilter()
+                            .setResourceOwners(true)
                             .setResourceOwnersTypes(new UrnArray(BUS_OWNER, TECH_OWNER))
                             .setUsers(new UrnArray(List.of(TEST_USER_A, TEST_USER_B)))
                             .setGroups(new UrnArray(TEST_GROUP_A, TEST_GROUP_B)))

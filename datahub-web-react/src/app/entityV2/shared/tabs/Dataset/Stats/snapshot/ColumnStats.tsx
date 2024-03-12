@@ -13,7 +13,6 @@ type Props = {
 
 const StatSection = styled.div`
     padding: 20px 20px;
-    overflow: auto;
 `;
 
 const NameText = styled(Typography.Text)`
@@ -142,6 +141,7 @@ export default function ColumnStats({ columnStats }: Props) {
                 title: 'Name',
                 dataIndex: 'name',
                 render: (value) => <NameText>{value}</NameText>,
+                ellipsis: true,
             },
         ];
 

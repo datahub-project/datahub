@@ -6,7 +6,12 @@ import { UserSetting } from '../../types.generated';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import analytics, { EventType } from '../analytics';
 import { useUserContext } from '../context/useUserContext';
-import { useIsThemeV2EnabledForUser, useIsThemeV2EnabledGlobally } from '../useIsThemeV2Enabled';
+import {
+    useIsThemeV2Accessible,
+    useIsThemeV2EnabledForUser,
+    useIsThemeV2EnabledGlobally,
+    useIsThemeV2Enabled,
+} from '../useIsThemeV2Enabled';
 
 const Page = styled.div`
     width: 100%;
@@ -54,11 +59,16 @@ const SettingText = styled(Typography.Text)`
 export const Preferences = () => {
     // Current User Urn
     const { user, refetchUser } = useUserContext();
+    const isThemeV2 = useIsThemeV2Enabled();
+    const [isThemeV2Accessible] = useIsThemeV2Accessible();
     const [isThemeV2EnabledGlobally] = useIsThemeV2EnabledGlobally();
     const [isThemeV2EnabledForUser] = useIsThemeV2EnabledForUser();
     const showSimplifiedHomepage = !!user?.settings?.appearance?.showSimplifiedHomepage;
 
     const [updateUserSettingMutation] = useUpdateUserSettingMutation();
+
+    const showSimplifiedHomepageSetting = !isThemeV2;
+    const showV2ThemeSetting = isThemeV2Accessible && !isThemeV2EnabledGlobally;
 
     return (
         <Page>
@@ -70,43 +80,43 @@ export const Preferences = () => {
                     </TokensHeaderContainer>
                 </TokensContainer>
                 <Divider />
-                {(!isThemeV2EnabledGlobally && (
+                {showSimplifiedHomepageSetting && (
+                    <Card>
+                        <UserSettingRow>
+                            <span>
+                                <SettingText>Show simplified homepage </SettingText>
+                                <div>
+                                    <DescriptionText>
+                                        Limits entity browse cards on homepage to Domains, Charts, Datasets, Dashboards
+                                        and Glossary Terms
+                                    </DescriptionText>
+                                </div>
+                            </span>
+                            <Switch
+                                checked={showSimplifiedHomepage}
+                                onChange={async () => {
+                                    await updateUserSettingMutation({
+                                        variables: {
+                                            input: {
+                                                name: UserSetting.ShowSimplifiedHomepage,
+                                                value: !showSimplifiedHomepage,
+                                            },
+                                        },
+                                    });
+                                    analytics.event({
+                                        type: showSimplifiedHomepage
+                                            ? EventType.ShowStandardHomepageEvent
+                                            : EventType.ShowSimplifiedHomepageEvent,
+                                    });
+                                    message.success({ content: 'Setting updated!', duration: 2 });
+                                    refetchUser?.();
+                                }}
+                            />
+                        </UserSettingRow>
+                    </Card>
+                )}
+                {showV2ThemeSetting && (
                     <>
-                        {!isThemeV2EnabledForUser && (
-                            <Card>
-                                <UserSettingRow>
-                                    <span>
-                                        <SettingText>Show simplified homepage </SettingText>
-                                        <div>
-                                            <DescriptionText>
-                                                Limits entity browse cards on homepage to Domains, Charts, Datasets,
-                                                Dashboards and Glossary Terms
-                                            </DescriptionText>
-                                        </div>
-                                    </span>
-                                    <Switch
-                                        checked={showSimplifiedHomepage}
-                                        onChange={async () => {
-                                            await updateUserSettingMutation({
-                                                variables: {
-                                                    input: {
-                                                        name: UserSetting.ShowSimplifiedHomepage,
-                                                        value: !showSimplifiedHomepage,
-                                                    },
-                                                },
-                                            });
-                                            analytics.event({
-                                                type: showSimplifiedHomepage
-                                                    ? EventType.ShowStandardHomepageEvent
-                                                    : EventType.ShowSimplifiedHomepageEvent,
-                                            });
-                                            message.success({ content: 'Setting updated!', duration: 2 });
-                                            refetchUser?.();
-                                        }}
-                                    />
-                                </UserSettingRow>
-                            </Card>
-                        )}
                         <Card style={{ marginTop: 20 }}>
                             <UserSettingRow>
                                 <span>
@@ -142,7 +152,10 @@ export const Preferences = () => {
                             </UserSettingRow>
                         </Card>
                     </>
-                )) || <div style={{ color: ANTD_GRAY[7] }}>No appearance settings found.</div>}
+                )}
+                {!showSimplifiedHomepageSetting && !showV2ThemeSetting && (
+                    <div style={{ color: ANTD_GRAY[7] }}>No appearance settings found.</div>
+                )}
             </SourceContainer>
         </Page>
     );

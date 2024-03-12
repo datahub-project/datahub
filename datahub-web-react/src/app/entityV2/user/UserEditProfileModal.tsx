@@ -3,7 +3,6 @@ import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { message, Button, Input, Modal, Typography, Form, Tooltip } from 'antd';
 import { useUpdateCorpUserPropertiesMutation } from '../../../graphql/user.generated';
-import { useEnterKeyListener } from '../../shared/useEnterKeyListener';
 import { useAppConfig } from '../../useAppConfig';
 
 const StyledInput = styled(Input)`
@@ -93,15 +92,10 @@ export default function UserEditProfileModal({ visible, onClose, onSave, editMod
         onClose();
     };
 
-    // Handle the Enter press
-    useEnterKeyListener({
-        querySelectorToExecuteClick: '#editUserButton',
-    });
-
     return (
         <Modal
             title="Edit Profile"
-            visible={visible}
+            open={visible}
             onCancel={onClose}
             footer={
                 <>
@@ -122,6 +116,12 @@ export default function UserEditProfileModal({ visible, onClose, onSave, editMod
                 onFieldsChange={() =>
                     setSaveButtonEnabled(form.getFieldsError().some((field) => field.errors.length > 0))
                 }
+                onKeyPress={(event) => {
+                    if (event.key === 'Enter') {
+                        event.preventDefault();
+                        onSaveChanges();
+                    }
+                }}
             >
                 <Form.Item
                     name="name"
