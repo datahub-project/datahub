@@ -146,6 +146,11 @@ class RedshiftConfig(
         description="When enabled, emits lineage as incremental to existing lineage already in DataHub. When disabled, re-states lineage on each run.  This config works with rest-sink only.",
     )
 
+    patch_custom_properties: bool = Field(
+        default=True,
+        description="Whether to patch custom properties on existing datasets rather than replace.",
+    )
+
     resolve_temp_table_in_lineage: bool = Field(
         default=True,
         description="Whether to resolve temp table appear in lineage to upstream permanent tables.",

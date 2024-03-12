@@ -3864,7 +3864,7 @@
     "aspect": {
         "json": {
             "statement": {
-                "value": "create view view_1 as select * from table_1",
+                "value": "CREATE VIEW view_1 AS\nSELECT\n  *\nFROM table_1",
                 "language": "SQL"
             },
             "source": "SYSTEM",
@@ -4067,7 +4067,7 @@
     "aspect": {
         "json": {
             "statement": {
-                "value": "create view view_2 as select * from table_2",
+                "value": "CREATE VIEW view_2 AS\nSELECT\n  *\nFROM table_2",
                 "language": "SQL"
             },
             "source": "SYSTEM",

@@ -1,6 +1,7 @@
 from typing import Dict, Generic, List, Optional, Tuple, TypeVar, Union
 
 from datahub.emitter.mcp_patch_builder import MetadataPatchProposal
+from datahub.metadata.com.linkedin.pegasus2avro.common import TimeStamp
 from datahub.metadata.schema_classes import (
     DatasetPropertiesClass as DatasetProperties,
     EditableDatasetPropertiesClass as EditableDatasetProperties,
@@ -258,16 +259,19 @@ class DatasetPatchBuilder(MetadataPatchProposal):
         )
 
     def set_description(
-        self, description: str, editable: bool = False
+        self, description: Optional[str] = None, editable: bool = False
     ) -> "DatasetPatchBuilder":
-        self._add_patch(
-            DatasetProperties.ASPECT_NAME
-            if not editable
-            else EditableDatasetProperties.ASPECT_NAME,
-            "add",
-            path="/description",
-            value=description,
-        )
+        if description is not None:
+            self._add_patch(
+                (
+                    DatasetProperties.ASPECT_NAME
+                    if not editable
+                    else EditableDatasetProperties.ASPECT_NAME
+                ),
+                "add",
+                path="/description",
+                value=description,
+            )
         return self
 
     def set_custom_properties(
@@ -285,17 +289,63 @@ class DatasetPatchBuilder(MetadataPatchProposal):
         self.custom_properties_patch_helper.add_property(key, value)
         return self
 
+    def add_custom_properties(
+        self, custom_properties: Optional[Dict[str, str]] = None
+    ) -> "DatasetPatchBuilder":
+        if custom_properties is not None:
+            for key, value in custom_properties.items():
+                self.custom_properties_patch_helper.add_property(key, value)
+        return self
+
     def remove_custom_property(self, key: str) -> "DatasetPatchBuilder":
         self.custom_properties_patch_helper.remove_property(key)
         return self
 
-    def set_display_name(self, display_name: str) -> "DatasetPatchBuilder":
+    def set_display_name(
+        self, display_name: Optional[str] = None
+    ) -> "DatasetPatchBuilder":
         if display_name is not None:
             self._add_patch(
                 DatasetProperties.ASPECT_NAME,
                 "add",
                 path="/name",
                 value=display_name,
+            )
+        return self
+
+    def set_qualified_name(
+        self, qualified_name: Optional[str] = None
+    ) -> "DatasetPatchBuilder":
+        if qualified_name is not None:
+            self._add_patch(
+                DatasetProperties.ASPECT_NAME,
+                "add",
+                path="/qualifiedName",
+                value=qualified_name,
+            )
+        return self
+
+    def set_created(
+        self, timestamp: Optional[TimeStamp] = None
+    ) -> "DatasetPatchBuilder":
+        if timestamp is not None:
+            self._add_patch(
+                DatasetProperties.ASPECT_NAME,
+                "add",
+                path="/created",
+                value=timestamp,
+            )
+        return self
+
+    def set_last_modified(
+        self, timestamp: Optional[TimeStamp] = None
+    ) -> "DatasetPatchBuilder":
+        if timestamp is not None:
+            self._add_patch(
+                DatasetProperties.ASPECT_NAME,
+                "add",
+                path="/lastModified",
+                value=timestamp,
             )
         return self
 

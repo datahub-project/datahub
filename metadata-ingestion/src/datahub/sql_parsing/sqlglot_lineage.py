@@ -131,7 +131,7 @@ def get_query_type_of_sql(
         sqlglot.exp.Update: QueryType.UPDATE,
         sqlglot.exp.Delete: QueryType.DELETE,
         sqlglot.exp.Merge: QueryType.MERGE,
-        sqlglot.exp.Subqueryable: QueryType.SELECT,  # unions, etc. are also selects
+        sqlglot.exp.Query: QueryType.SELECT,  # unions, etc. are also selects
     }
 
     for cls, query_type in mapping.items():
@@ -296,12 +296,12 @@ def _table_level_lineage(
 # TODO: Once PEP 604 is supported (Python 3.10), we can unify these into a
 # single type. See https://peps.python.org/pep-0604/#isinstance-and-issubclass.
 _SupportedColumnLineageTypes = Union[
-    # Note that Select and Union inherit from Subqueryable.
-    sqlglot.exp.Subqueryable,
+    # Note that Select and Union inherit from Query.
+    sqlglot.exp.Query,
     # For actual subqueries, the statement type might also be DerivedTable.
     sqlglot.exp.DerivedTable,
 ]
-_SupportedColumnLineageTypesTuple = (sqlglot.exp.Subqueryable, sqlglot.exp.DerivedTable)
+_SupportedColumnLineageTypesTuple = (sqlglot.exp.Query, sqlglot.exp.DerivedTable)
 
 
 class UnsupportedStatementTypeError(TypeError):
@@ -928,7 +928,7 @@ def _sqlglot_lineage_inner(
         original_statement, dialect=dialect
     )
     query_fingerprint, debug_info.generalized_statement = get_query_fingerprint_debug(
-        original_statement, dialect=dialect
+        original_statement, platform=dialect
     )
     return SqlParsingResult(
         query_type=query_type,
