@@ -157,8 +157,8 @@ public class UpdateIndicesHookTest {
             null,
             lifeCycleOwner,
             null);
-    Mockito.verify(_mockGraphService, Mockito.times(1)).addEdge(Mockito.eq(edge));
-    Mockito.verify(_mockGraphService, Mockito.times(1))
+    Mockito.verify(mockGraphService, Mockito.times(1)).addEdge(Mockito.eq(edge));
+    Mockito.verify(mockGraphService, Mockito.times(1))
         .removeEdgesFromNode(
             Mockito.eq(downstreamUrn),
             Mockito.eq(new ArrayList<>(Collections.singleton(DOWNSTREAM_OF))),
@@ -195,8 +195,8 @@ public class UpdateIndicesHookTest {
             null,
             lifeCycleOwner,
             null);
-    Mockito.verify(_mockGraphService, Mockito.times(1)).addEdge(Mockito.eq(edge));
-    Mockito.verify(_mockGraphService, Mockito.times(1))
+    Mockito.verify(mockGraphService, Mockito.times(1)).addEdge(Mockito.eq(edge));
+    Mockito.verify(mockGraphService, Mockito.times(1))
         .removeEdgesFromNode(
             Mockito.eq(downstreamUrn),
             Mockito.eq(new ArrayList<>(Collections.singleton(DOWNSTREAM_OF))),
