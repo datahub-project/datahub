@@ -1,9 +1,9 @@
-import { Assertion, AssertionResultType, AssertionRunEvent, AssertionType, FieldAssertionType, FreshnessAssertionScheduleType, SqlAssertionType } from "../../../../../../../../../../types.generated";
+import { Assertion, AssertionResult, AssertionResultType, AssertionRunEvent, AssertionType, AssertionValueChangeType, FieldAssertionType, FieldMetricAssertion, FieldValuesAssertion, FreshnessAssertionScheduleType, IncrementingSegmentRowCountChange, IncrementingSegmentRowCountTotal, Maybe, RowCountChange, RowCountTotal, SqlAssertionInfo, SqlAssertionType, VolumeAssertionType } from "../../../../../../../../../../types.generated";
 import { formatNumberWithoutAbbreviation } from "../../../../../../../../../shared/formatNumber";
 import { toLocalDateString, toLocalTimeString } from "../../../../../../../../../shared/time/timeUtils";
 import { getResultErrorMessage } from "../../../../assertionUtils";
 import { getFieldMetricLabel } from "../../../builder/steps/field/utils";
-import { tryGetAbsoluteVolumeAssertionNumericalResult, tryGetActualUpdatedTimestampFromAssertionResult, tryGetFieldMetricAssertionNumericalResult, tryGetFieldValueAssertionNumericalResult, tryGetPreviousSqlAssertionNumericalResult, tryGetPreviousVolumeAssertionNumericalResult, tryGetSqlAssertionNumericalResult } from "./resultExtractionUtils";
+import { tryGetAbsoluteVolumeAssertionNumericalResult, tryGetActualUpdatedTimestampFromAssertionResult, tryGetExpectedRangeFromAssertionAgainstChanges, tryGetExpectedRangeFromAssertionAgainstTotals, tryGetFieldMetricAssertionNumericalResult, tryGetFieldValueAssertionNumericalResult, tryGetPreviousSqlAssertionNumericalResult, tryGetPreviousVolumeAssertionNumericalResult, tryGetSqlAssertionNumericalResult } from "./resultExtractionUtils";
 import { getCronAsText } from '../../../../acrylUtils';
 
 export const getFormattedResultText = (result?: AssertionResultType) => {
@@ -26,9 +26,10 @@ export const getFormattedResultText = (result?: AssertionResultType) => {
 };
 
 // TODO: Consider supporting relative field metric assertions.
-const getFormattedReasonTextForFieldMetricAssertion = (assertion: Assertion, run: AssertionRunEvent) => {
-    const field = assertion.info?.fieldAssertion?.fieldMetricAssertion?.field?.path || 'column';
-    const metricType = assertion.info?.fieldAssertion?.fieldMetricAssertion?.metric;
+const getFormattedReasonTextForFieldMetricAssertion = (run: AssertionRunEvent) => {
+    const assertionInfo = run.result?.assertion
+    const field = assertionInfo?.fieldAssertion?.fieldMetricAssertion?.field?.path || 'column';
+    const metricType = assertionInfo?.fieldAssertion?.fieldMetricAssertion?.metric;
     const metricText = (metricType && getFieldMetricLabel(metricType)) || 'Aggregation';
     const actual = tryGetFieldMetricAssertionNumericalResult(run.result);
     const result = run.result?.type;
@@ -44,8 +45,9 @@ const getFormattedReasonTextForFieldMetricAssertion = (assertion: Assertion, run
     return `${metricText} of ${field} did not meet the expected conditions.`;
 };
 
-const getFormattedReasonTextForFieldValuesAssertion = (assertion: Assertion, run: AssertionRunEvent) => {
-    const field = assertion.info?.fieldAssertion?.fieldValuesAssertion?.field?.path || 'column';
+const getFormattedReasonTextForFieldValuesAssertion = (run: AssertionRunEvent) => {
+    const assertionInfo = run.result?.assertion
+    const field = assertionInfo?.fieldAssertion?.fieldValuesAssertion?.field?.path || 'column';
     const invalidRowsCount = tryGetFieldValueAssertionNumericalResult(run.result);
     const result = run.result?.type;
     if (result === AssertionResultType.Success) {
@@ -57,15 +59,15 @@ const getFormattedReasonTextForFieldValuesAssertion = (assertion: Assertion, run
     return `Some rows did not meet the expected conditions for column ${field}.`;
 };
 
-const getFormattedReasonTextForFieldAssertion = (assertion: Assertion, run: AssertionRunEvent) => {
-    const field = assertion.info?.fieldAssertion;
+const getFormattedReasonTextForFieldAssertion = (run: AssertionRunEvent) => {
+    const field = run.result?.assertion?.fieldAssertion;
     if (field?.type === FieldAssertionType.FieldMetric) {
-        return getFormattedReasonTextForFieldMetricAssertion(assertion, run);
+        return getFormattedReasonTextForFieldMetricAssertion(run);
     }
-    return getFormattedReasonTextForFieldValuesAssertion(assertion, run);
+    return getFormattedReasonTextForFieldValuesAssertion(run);
 };
 
-const getFormattedReasonTextForAbsoluteSqlAssertion = (_: Assertion, run: AssertionRunEvent) => {
+const getFormattedReasonTextForAbsoluteSqlAssertion = (run: AssertionRunEvent) => {
     // Be careful about showing the actual result that was returned, since it may contain sensitive information.
     const result = run.result?.type;
     if (result === AssertionResultType.Success) {
@@ -77,7 +79,7 @@ const getFormattedReasonTextForAbsoluteSqlAssertion = (_: Assertion, run: Assert
 const calculateMetricChangePercentage = (previous: number, actual: number) => {
     return previous ? ((actual - previous) / previous) * 100 : undefined;
 };
-const getFormattedReasonTextForRelativeSqlAssertion = (_: Assertion, run: AssertionRunEvent) => {
+const getFormattedReasonTextForRelativeSqlAssertion = (run: AssertionRunEvent) => {
     const result = run.result?.type;
     const actualRowCount = tryGetSqlAssertionNumericalResult(run.result);
     const previousRowCount = tryGetPreviousSqlAssertionNumericalResult(run.result);
@@ -100,14 +102,14 @@ const getFormattedReasonTextForRelativeSqlAssertion = (_: Assertion, run: Assert
     return `The change in the SQL query result did not meet the expected conditions.`;
 };
 
-const getFormattedReasonTextForSqlAssertion = (assertion: Assertion, run: AssertionRunEvent) => {
-    const isAbsolute = assertion?.info?.sqlAssertion?.type === SqlAssertionType.Metric;
+const getFormattedReasonTextForSqlAssertion = (run: AssertionRunEvent) => {
+    const isAbsolute = run.result?.assertion?.sqlAssertion?.type === SqlAssertionType.Metric;
     return isAbsolute
-        ? getFormattedReasonTextForAbsoluteSqlAssertion(assertion, run)
-        : getFormattedReasonTextForRelativeSqlAssertion(assertion, run);
+        ? getFormattedReasonTextForAbsoluteSqlAssertion(run)
+        : getFormattedReasonTextForRelativeSqlAssertion(run);
 };
 
-const getFormattedReasonTextForFreshnessAssertion = (_: Assertion, run: AssertionRunEvent) => {
+const getFormattedReasonTextForFreshnessAssertion = (run: AssertionRunEvent) => {
     // Be careful about showing the actual result that was returned, since it may contain sensitive information.
     const result = run.result?.type;
     const actualTimestamp = tryGetActualUpdatedTimestampFromAssertionResult(run.result);
@@ -122,7 +124,7 @@ const getFormattedReasonTextForFreshnessAssertion = (_: Assertion, run: Assertio
     return `No dataset updates occurred within the expected timeframe.`;
 };
 
-const getFormattedReasonTextForAbsoluteVolumeAssertion = (_: Assertion, run: AssertionRunEvent) => {
+const getFormattedReasonTextForAbsoluteVolumeAssertion = (run: AssertionRunEvent) => {
     const result = run.result?.type;
     const actualRowCount = tryGetAbsoluteVolumeAssertionNumericalResult(run.result);
     if (result === AssertionResultType.Success) {
@@ -141,7 +143,7 @@ const getFormattedReasonTextForAbsoluteVolumeAssertion = (_: Assertion, run: Ass
     return `The actual row count did not meet the expected conditions.`;
 };
 
-const getFormattedReasonTextForRelativeVolumeAssertion = (_: Assertion, run: AssertionRunEvent) => {
+const getFormattedReasonTextForRelativeVolumeAssertion = (run: AssertionRunEvent) => {
     const result = run.result?.type;
     const actualRowCount = tryGetAbsoluteVolumeAssertionNumericalResult(run.result);
     const previousRowCount = tryGetPreviousVolumeAssertionNumericalResult(run.result);
@@ -164,15 +166,15 @@ const getFormattedReasonTextForRelativeVolumeAssertion = (_: Assertion, run: Ass
     return `The change in row count did not meet the expected conditions.`;
 };
 
-const getFormattedReasonTextForVolumeAssertion = (assertion: Assertion, run: AssertionRunEvent) => {
-    // TODO: Since we are allowing edits, this will need to be baked into the run itself.
-    const isAbsolute = !!assertion?.info?.volumeAssertion?.rowCountTotal;
+const getFormattedReasonTextForVolumeAssertion = (run: AssertionRunEvent) => {
+    const assertionInfo = run.result?.assertion
+    const isAbsolute = !!assertionInfo?.volumeAssertion?.rowCountTotal;
     return isAbsolute
-        ? getFormattedReasonTextForAbsoluteVolumeAssertion(assertion, run)
-        : getFormattedReasonTextForRelativeVolumeAssertion(assertion, run);
+        ? getFormattedReasonTextForAbsoluteVolumeAssertion(run)
+        : getFormattedReasonTextForRelativeVolumeAssertion(run);
 };
 
-const getFormattedReasonTextForDefaultAssertion = (_: Assertion, run: AssertionRunEvent) => {
+const getFormattedReasonTextForDefaultAssertion = (run: AssertionRunEvent) => {
     const result = run.result?.type;
     if (result === AssertionResultType.Success) {
         return `The expected conditions were met`;
@@ -191,15 +193,15 @@ export const getFormattedReasonText = (assertion: Assertion, run: AssertionRunEv
 
     switch (assertion.info?.type) {
         case AssertionType.Freshness:
-            return getFormattedReasonTextForFreshnessAssertion(assertion, run);
+            return getFormattedReasonTextForFreshnessAssertion(run);
         case AssertionType.Volume:
-            return getFormattedReasonTextForVolumeAssertion(assertion, run);
+            return getFormattedReasonTextForVolumeAssertion(run);
         case AssertionType.Field:
-            return getFormattedReasonTextForFieldAssertion(assertion, run);
+            return getFormattedReasonTextForFieldAssertion(run);
         case AssertionType.Sql:
-            return getFormattedReasonTextForSqlAssertion(assertion, run);
+            return getFormattedReasonTextForSqlAssertion(run);
         case AssertionType.Dataset:
-            return getFormattedReasonTextForDefaultAssertion(assertion, run);
+            return getFormattedReasonTextForDefaultAssertion(run);
         default:
             return 'No reason provided';
     }
@@ -226,8 +228,66 @@ const getFormattedExpectedTextForFreshnessAssertion = (run: AssertionRunEvent): 
     }
 }
 
-const getFormattedExpectedTextForVolumeAssertion = (_: AssertionRunEvent): string | undefined => {
-    return undefined;
+
+const getFormattedExpectedTextForAbsoluteAssertion = (
+    assertedOnDescription: 'row count',
+    totals?: Maybe<IncrementingSegmentRowCountTotal> | Maybe<RowCountTotal> | Maybe<SqlAssertionInfo> | Maybe<FieldValuesAssertion> | Maybe<FieldMetricAssertion>,
+): string | undefined => {
+    const range = tryGetExpectedRangeFromAssertionAgainstTotals(totals);
+    if (range.high && range.low) {
+        return `Expected dataset ${assertedOnDescription} to be between ${range.high} and ${range.low}.`
+    } else if (range.high) {
+        const rangeDefinition = range.context?.highType == 'inclusive' ? 'less than or equal to' : 'less than'
+        return `Expected dataset ${assertedOnDescription} to be ${rangeDefinition} ${range.high}`;
+    } else if (range.low) {
+        const rangeDefinition = range.context?.lowType == 'inclusive' ? 'greater than or equal to' : 'greater than'
+        return `Expected dataset ${assertedOnDescription} to be ${rangeDefinition} ${range.low}`;
+    }
+}
+const getFormattedExpectedTextForRelativeVolumeAssertion = (assertedOnDescription: 'row count', changingInfo?: Maybe<RowCountChange | IncrementingSegmentRowCountChange | SqlAssertionInfo>, changeType?: Maybe<AssertionValueChangeType>, previousCount?: Maybe<number>): string | undefined => {
+    if (!changingInfo?.parameters || typeof previousCount !== 'number' || typeof changeType === 'undefined' || changeType === null) {
+        return;
+    }
+
+    const range = tryGetExpectedRangeFromAssertionAgainstChanges(changingInfo, changeType, previousCount);
+    const { relativeModifiers } = range.context ?? {};
+
+    const rangeSuffix = changeType == AssertionValueChangeType.Percentage ? '%' : ''
+    const rangeHighLabelSign = (relativeModifiers?.high ?? 0) >= 0 ? '+' : '-'
+    const maybeRangeHighLabel = typeof relativeModifiers?.high == 'number' ? `${rangeHighLabelSign}${relativeModifiers.high}${rangeSuffix}` : undefined
+
+    const rangeLowLabelSign = (relativeModifiers?.low ?? 0) >= 0 ? '+' : '-'
+    const maybeRangeLowLabel = typeof relativeModifiers?.low == 'number' ? `${rangeLowLabelSign}${relativeModifiers.low}${rangeSuffix}` : undefined
+
+
+    let { low, high } = range
+    low = low && Math.floor(low)
+    high = high && Math.floor(high)
+
+    if (high && low) {
+        const minuteDetails = maybeRangeHighLabel && maybeRangeLowLabel ? ` (${maybeRangeLowLabel} to ${maybeRangeHighLabel})` : ''
+        return `Expected dataset ${assertedOnDescription} to be between ${low} and ${high}${minuteDetails}.`
+    } else if (high) {
+        const minuteDetails = maybeRangeHighLabel ? ` (${maybeRangeHighLabel})` : ''
+        const rangeDefinition = range.context?.highType == 'inclusive' ? 'less than or equal to' : 'less than'
+        return `Expected dataset ${assertedOnDescription} to be ${rangeDefinition} ${high}${minuteDetails}.`;
+    } else if (low) {
+        const minuteDetails = maybeRangeLowLabel ? ` (${maybeRangeLowLabel})` : ''
+        const rangeDefinition = range.context?.lowType == 'inclusive' ? 'greater than or equal to' : 'greater than'
+        return `Expected dataset ${assertedOnDescription} to be ${rangeDefinition} ${low}${minuteDetails}.`;
+    }
+}
+
+const getFormattedExpectedTextForVolumeAssertion = (run: AssertionRunEvent): string | undefined => {
+    const volumeAssertion = run.result?.assertion?.volumeAssertion
+    switch (volumeAssertion?.type) {
+        case VolumeAssertionType.RowCountChange:
+            return getFormattedExpectedTextForRelativeVolumeAssertion('row count', volumeAssertion.rowCountChange, volumeAssertion.rowCountChange?.type, tryGetPreviousVolumeAssertionNumericalResult(run.result));
+        case VolumeAssertionType.RowCountTotal:
+            return getFormattedExpectedTextForAbsoluteAssertion('row count', volumeAssertion.rowCountTotal);
+        default:
+            return undefined;
+    }
 }
 
 const getFormattedExpectedTextForFieldAssertion = (_: AssertionRunEvent): string | undefined => {

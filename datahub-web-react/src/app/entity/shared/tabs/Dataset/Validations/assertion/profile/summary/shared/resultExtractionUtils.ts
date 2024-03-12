@@ -48,7 +48,7 @@ const calculateExpectedNumericalValueWithPreviousNumericalValue = (
         default:
             break;
     }
-    return expectedRowCount
+    return expectedRowCount;
 }
 
 /**
@@ -145,9 +145,19 @@ function tryGetPrimaryMetricValueFromFieldAssertionRunEvent(runEventResult?: May
 
 
 
+export type AssertionRangeEndType = 'inclusive' | 'exclusive'
 export type AssertionExpectedRange = {
     high?: number
     low?: number
+    context?: {
+        highType?: AssertionRangeEndType
+        lowType?: AssertionRangeEndType
+        relativeModifiers?: {
+            high?: number
+            low?: number
+            type: AssertionValueChangeType
+        }
+    }
 }
 
 
@@ -234,33 +244,46 @@ function tryGetExpectedRangeFromVolumeAssertion(volumeAssertionInfo: VolumeAsser
  * @param totals 
  * @returns 
  */
-function tryGetExpectedRangeFromAssertionAgainstTotals(totals?: Maybe<IncrementingSegmentRowCountTotal> | Maybe<RowCountTotal> | Maybe<SqlAssertionInfo> | Maybe<FieldValuesAssertion> | Maybe<FieldMetricAssertion>): AssertionExpectedRange {
+export function tryGetExpectedRangeFromAssertionAgainstTotals(totals?: Maybe<IncrementingSegmentRowCountTotal> | Maybe<RowCountTotal> | Maybe<SqlAssertionInfo> | Maybe<FieldValuesAssertion> | Maybe<FieldMetricAssertion>): AssertionExpectedRange {
+    if (!totals?.parameters) {
+        return {};
+    }
     let high: undefined | number;
     let low: undefined | number;
-    if (!totals?.parameters) {
-        return { high, low };
-    }
+    let highType: undefined | AssertionRangeEndType;
+    let lowType: undefined | AssertionRangeEndType;
     switch (totals?.operator) {
         case AssertionStdOperator.Between:
             high = tryExtractNumericalValueFromAssertionStdParameter(totals.parameters.maxValue)
             low = tryExtractNumericalValueFromAssertionStdParameter(totals.parameters.minValue)
+            highType = 'inclusive'
+            lowType = 'inclusive'
             break;
         case AssertionStdOperator.GreaterThan:
             low = tryExtractNumericalValueFromAssertionStdParameter(totals.parameters.value)
+            lowType = 'exclusive'
             break;
         case AssertionStdOperator.GreaterThanOrEqualTo:
             low = tryExtractNumericalValueFromAssertionStdParameter(totals.parameters.value)
+            lowType = 'inclusive'
             break;
         case AssertionStdOperator.LessThan:
             high = tryExtractNumericalValueFromAssertionStdParameter(totals.parameters.value)
+            highType = 'exclusive'
             break;
         case AssertionStdOperator.LessThanOrEqualTo:
             high = tryExtractNumericalValueFromAssertionStdParameter(totals.parameters.value)
+            highType = 'inclusive'
             break;
         default:
             break;
     }
-    return { high, low };
+    return {
+        high, low, context: {
+            highType,
+            lowType,
+        }
+    };
 }
 /**
  * Tries to calculate expected result ranges for assertions that have expectations defined relative to previous runs
@@ -270,19 +293,22 @@ function tryGetExpectedRangeFromAssertionAgainstTotals(totals?: Maybe<Incrementi
  * @param previousCount 
  * @returns {AssertionExpectedRange}
  */
-function tryGetExpectedRangeFromAssertionAgainstChanges(changingInfo?: Maybe<RowCountChange | IncrementingSegmentRowCountChange | SqlAssertionInfo>, changeType?: Maybe<AssertionValueChangeType>, previousCount?: Maybe<number>): AssertionExpectedRange {
-    let high: undefined | number;
-    let low: undefined | number;
-
+export function tryGetExpectedRangeFromAssertionAgainstChanges(changingInfo?: Maybe<RowCountChange | IncrementingSegmentRowCountChange | SqlAssertionInfo>, changeType?: Maybe<AssertionValueChangeType>, previousCount?: Maybe<number>): AssertionExpectedRange {
     if (!changingInfo?.parameters || typeof previousCount !== 'number' || typeof changeType === 'undefined' || changeType === null) {
-        return { high, low };
+        return {};
     }
 
+    let high: undefined | number;
+    let low: undefined | number;
+    let highType: undefined | AssertionRangeEndType;
+    let lowType: undefined | AssertionRangeEndType;
+    let modifierHigh: undefined | number;
+    let modifierLow: undefined | number;
 
     switch (changingInfo?.operator) {
         case AssertionStdOperator.Between: {
-            const modifierHigh = tryExtractNumericalValueFromAssertionStdParameter(changingInfo.parameters.maxValue)
-            const modifierLow = tryExtractNumericalValueFromAssertionStdParameter(changingInfo.parameters.minValue)
+            modifierHigh = tryExtractNumericalValueFromAssertionStdParameter(changingInfo.parameters.maxValue)
+            modifierLow = tryExtractNumericalValueFromAssertionStdParameter(changingInfo.parameters.minValue)
             high = typeof modifierHigh === 'number' ? calculateExpectedNumericalValueWithPreviousNumericalValue(
                 previousCount,
                 changeType,
@@ -293,46 +319,63 @@ function tryGetExpectedRangeFromAssertionAgainstChanges(changingInfo?: Maybe<Row
                 changeType,
                 modifierLow
             ) : undefined;
+
+            highType = 'inclusive'
+            lowType = 'inclusive'
             break;
         }
         case AssertionStdOperator.GreaterThan: {
-            const modifierLow = tryExtractNumericalValueFromAssertionStdParameter(changingInfo.parameters.value)
+            modifierLow = tryExtractNumericalValueFromAssertionStdParameter(changingInfo.parameters.value)
             low = typeof modifierLow === 'number' ? calculateExpectedNumericalValueWithPreviousNumericalValue(
                 previousCount,
                 changeType,
                 modifierLow
             ) : undefined;
+            lowType = 'exclusive'
             break;
         }
         case AssertionStdOperator.GreaterThanOrEqualTo: {
-            const modifierLow = tryExtractNumericalValueFromAssertionStdParameter(changingInfo.parameters.value)
+            modifierLow = tryExtractNumericalValueFromAssertionStdParameter(changingInfo.parameters.value)
             low = typeof modifierLow === 'number' ? calculateExpectedNumericalValueWithPreviousNumericalValue(
                 previousCount,
                 changeType,
                 modifierLow
             ) : undefined;
+            lowType = 'inclusive'
             break;
         }
         case AssertionStdOperator.LessThan: {
-            const modifierHigh = tryExtractNumericalValueFromAssertionStdParameter(changingInfo.parameters.value)
+            modifierHigh = tryExtractNumericalValueFromAssertionStdParameter(changingInfo.parameters.value)
             high = typeof modifierHigh === 'number' ? calculateExpectedNumericalValueWithPreviousNumericalValue(
                 previousCount,
                 changeType,
                 modifierHigh
             ) : undefined;
+            highType = 'exclusive'
             break;
         }
         case AssertionStdOperator.LessThanOrEqualTo: {
-            const modifierHigh = tryExtractNumericalValueFromAssertionStdParameter(changingInfo.parameters.value)
+            modifierHigh = tryExtractNumericalValueFromAssertionStdParameter(changingInfo.parameters.value)
             high = typeof modifierHigh === 'number' ? calculateExpectedNumericalValueWithPreviousNumericalValue(
                 previousCount,
                 changeType,
                 modifierHigh
             ) : undefined;
+            highType = 'inclusive'
             break;
         }
         default:
             break;
     }
-    return { high, low };
+    return {
+        high, low, context: {
+            highType,
+            lowType,
+            relativeModifiers: {
+                type: changeType,
+                high: modifierHigh,
+                low: modifierLow,
+            }
+        }
+    };
 }
