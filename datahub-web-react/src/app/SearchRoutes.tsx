@@ -73,22 +73,18 @@ export const SearchRoutes = (): JSX.Element => {
                 />
                 <Route path={PageRoutes.PERMISSIONS} render={() => <Redirect to="/settings/permissions" />} />
                 <Route path={PageRoutes.IDENTITIES} render={() => <Redirect to="/settings/identities" />} />
-                {
-                    isNestedDomainsEnabled && (
-                        <Route
-                            path={`${PageRoutes.DOMAIN}*`}
-                            render={() => (isThemeV2 ? <DomainRoutesV2 /> : <DomainRoutes />)}
-                        />
-                    )
-                }
-                {
-                    !isNestedDomainsEnabled && (
-                        <Route
-                            path={PageRoutes.DOMAINS}
-                            render={() => (isThemeV2 ? <ManageDomainsPageV2 /> : <ManageDomainsPage />)}
-                        />
-                    )
-                }
+                {isNestedDomainsEnabled && (
+                    <Route
+                        path={`${PageRoutes.DOMAIN}*`}
+                        render={() => (isThemeV2 ? <DomainRoutesV2 /> : <DomainRoutes />)}
+                    />
+                )}
+                {!isNestedDomainsEnabled && (
+                    <Route
+                        path={PageRoutes.DOMAINS}
+                        render={() => (isThemeV2 ? <ManageDomainsPageV2 /> : <ManageDomainsPage />)}
+                    />
+                )}
                 {includeGovernDashboard && (
                     <Route path={PageRoutes.GOVERN_DASHBOARD} render={() => <GovernDashboard />} />
                 )}
@@ -106,7 +102,7 @@ export const SearchRoutes = (): JSX.Element => {
                 />
 
                 <Route component={NoPageFound} />
-            </Switch >
-        </FinalSearchablePage >
+            </Switch>
+        </FinalSearchablePage>
     );
 };

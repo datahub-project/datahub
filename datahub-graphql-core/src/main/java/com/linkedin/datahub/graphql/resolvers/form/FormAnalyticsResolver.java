@@ -79,8 +79,7 @@ public class FormAnalyticsResolver
                 response::setHeader,
                 row -> {
                   lines.add(
-                      new FormAnalyticsRow(
-                          row, mapRowResults(row, context.getAuthentication(), flags)));
+                      new FormAnalyticsRow(mapRowResults(row, context.getAuthentication(), flags)));
                 },
                 error_messages -> {
                   for (String error : error_messages) {

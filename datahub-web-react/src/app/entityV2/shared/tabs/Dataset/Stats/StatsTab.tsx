@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import styled from 'styled-components';
 import { GetDatasetQuery, useGetLastMonthUsageAggregationsQuery } from '../../../../../../graphql/dataset.generated';
 import { DatasetProfile, Operation, UsageQueryResult } from '../../../../../../types.generated';
 import { useBaseEntity } from '../../../EntityContext';
@@ -9,6 +10,10 @@ import ColumnStats from './snapshot/ColumnStats';
 import TableStats from './snapshot/TableStats';
 import StatsHeader from './StatsHeader';
 import { ViewType } from './viewType';
+
+const SectionWrapper = styled.div`
+    overflow-y: auto;
+`;
 
 export default function StatsTab() {
     const baseEntity = useBaseEntity<GetDatasetQuery>();
@@ -65,7 +70,7 @@ export default function StatsTab() {
     );
 
     const latestStats = (
-        <>
+        <SectionWrapper>
             <TableStats
                 rowCount={latestProfile?.rowCount || undefined}
                 columnCount={latestProfile?.columnCount || undefined}
@@ -77,7 +82,7 @@ export default function StatsTab() {
             {latestProfile?.fieldProfiles && latestProfile?.fieldProfiles?.length > 0 && (
                 <ColumnStats columnStats={(latestProfile && latestProfile.fieldProfiles) || []} />
             )}
-        </>
+        </SectionWrapper>
     );
 
     const historicalStats = <HistoricalStats urn={urn || ''} lookbackWindow={lookbackWindow} />;

@@ -10,11 +10,12 @@ interface Props {
     entityType: EntityType;
     entityData?: any;
     refetch?: () => void;
+    size?: number;
 }
 
-export default function MoreOptionsMenuAction({ menuItems, urn, entityType, entityData, refetch }: Props) {
+export default function MoreOptionsMenuAction({ menuItems, urn, entityType, entityData, refetch, size }: Props) {
     return (
-        <ActionMenuItem key="view-more">
+        <ActionMenuItem key="view-more" fontSize={size}>
             <EntityDropdown
                 urn={urn}
                 entityType={entityType}

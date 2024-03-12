@@ -15,7 +15,7 @@ export const statusOrdinalScale = scaleOrdinal({
 export const mergeRowAndHeaderData = (header, table) => {
 	return table.map((d) => {
 		const row = {};
-		d.row.forEach((r, i) => { row[`${header[i]}`] = r });
+		d.row.forEach((res, i) => { row[`${header[i]}`] = res.value });
 		return row;
 	});
 }
@@ -25,11 +25,11 @@ export const getEntityInfo = (data, urn) => {
 	const rows = data?.formAnalytics?.table || data?.table || data;
 	if (typeof rows !== 'object') return null;
 
-	const row = rows.find((r) => r.row.includes(urn));
+	const row = rows?.find((r) => r.row.find(res => res.value === urn));
 	if (!row) return null;
 
-	const richRow = row.richRow.find((rich) => rich.value === urn);
-	return richRow ? richRow.entity : null;
+	const rowResult = row.row.find((res) => res.value === urn);
+	return rowResult ? rowResult.entity : null;
 }
 
 // Percentage Util for Top/Least Perfoming Records

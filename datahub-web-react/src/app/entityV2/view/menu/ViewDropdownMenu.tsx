@@ -242,6 +242,10 @@ export const ViewDropdownMenu = ({
     const showRemoveGlobalDefaultView = canManageGlobalViews && isGlobalView && isGlobalDefault;
     const showSetGlobalDefaultView = canManageGlobalViews && isGlobalView && !isGlobalDefault;
 
+    const handleDropdownClick = (e) => {
+        e.stopPropagation();
+    };
+
     return (
         <>
             <Dropdown
@@ -264,7 +268,11 @@ export const ViewDropdownMenu = ({
                 }
                 trigger={[trigger]}
             >
-                <MenuButton data-testid="views-table-dropdown" style={{ display: visible ? undefined : 'none' }} />
+                <MenuButton
+                    data-testid="views-table-dropdown"
+                    style={{ display: visible ? undefined : 'none' }}
+                    onClick={handleDropdownClick}
+                />
             </Dropdown>
             {viewBuilderState.visible && (
                 <ViewBuilder

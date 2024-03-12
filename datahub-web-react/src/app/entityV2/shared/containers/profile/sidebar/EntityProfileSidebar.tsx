@@ -6,6 +6,7 @@ import { SEARCH_COLORS } from '../../../constants';
 import { EntitySidebarTab, TabContextType, TabRenderType } from '../../../types';
 import { EntitySidebarTabs } from './EntitySidebarTabs';
 import SidebarCollapsibleHeader from './SidebarCollapsibleHeader';
+import { EntityMenuItems } from '../../../EntityDropdown/EntityMenuActions';
 
 export const StyledEntitySidebarContainer = styled.div<{
     isCollapsed: boolean;
@@ -74,6 +75,7 @@ interface Props {
     contextType?: TabContextType;
     hideCollapse?: boolean;
     width?: number;
+    headerDropdownItems?: Set<EntityMenuItems>;
 }
 
 export default function EntityProfileSidebar({
@@ -84,6 +86,7 @@ export default function EntityProfileSidebar({
     contextType = TabContextType.PROFILE_SIDEBAR,
     hideCollapse = false,
     width,
+    headerDropdownItems,
 }: Props) {
     const { isClosed, setSidebarClosed } = useContext(EntitySidebarContext);
 
@@ -109,19 +112,9 @@ export default function EntityProfileSidebar({
         >
             <StyledSidebar isCard={isCardLayout} isFocused={focused}>
                 <ContentContainer isVisible={!isClosed}>
-                    {!hideCollapse && <SidebarCollapsibleHeader currentTab={selectedTab} />}
-
-                    {/* {!hideHeader && (
-                            <Header>
-                                <EntityHeader
-                                    headerDropdownItems={headerDropdownItems}
-                                    headerActionItems={headerActionItems}
-                                    subHeader={subHeader}
-                                    isCompact
-                                />
-                                <HeaderDivider />
-                            </Header>
-                        )} */}
+                    {!hideCollapse && (
+                        <SidebarCollapsibleHeader currentTab={selectedTab} headerDropdownItems={headerDropdownItems} />
+                    )}
                     <Body>
                         {selectedTab && (
                             <Content>

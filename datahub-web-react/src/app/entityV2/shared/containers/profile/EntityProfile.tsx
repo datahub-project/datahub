@@ -338,6 +338,7 @@ export const EntityProfile = <T, U>({
                             // TODO: Hide collapse for chrome extension
                             contextType={isInSearch ? TabContextType.SEARCH_SIDEBAR : TabContextType.LINEAGE_SIDEBAR}
                             width={width}
+                            headerDropdownItems={headerDropdownItems}
                         />
                     )}
                 </>
@@ -427,6 +428,7 @@ export const EntityProfile = <T, U>({
                                                     : window.innerWidth * 0.25)
                                             }
                                             contextType={TabContextType.PROFILE_SIDEBAR}
+                                            headerDropdownItems={headerDropdownItems}
                                         />
                                     </SidebarWrapper>
                                 )}

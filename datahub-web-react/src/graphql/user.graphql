@@ -219,3 +219,8 @@ mutation createNativeUserResetToken($input: CreateNativeUserResetTokenInput!) {
 mutation updateCorpUserViewsSettings($input: UpdateCorpUserViewsSettingsInput!) {
     updateCorpUserViewsSettings(input: $input)
 }
+
+query getUserOwnedAssets($urn: String!) {
+    searchAcrossEntities(input: { query: "", filters: [{ field: "owners", values: [$urn] }] }) {
+    ...searchResults
+}}

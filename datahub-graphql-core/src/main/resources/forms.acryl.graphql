@@ -182,14 +182,9 @@ input FormAnalyticsFlags {
 type FormAnalyticsRow {
 
     """
-    The row of data for the form analytics. This is a list of nullable strings
-    """
-    row: [String]!
-
-    """
     The row of data for the form analytics
     """
-    richRow: [RowResult!]!
+    row: [RowResult!]!
 
 }
 
