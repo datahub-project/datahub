@@ -98,4 +98,4 @@ metrics, and also deploy Jaeger, Prometheus, and Grafana. We will soon support t
 
 ## Health check endpoint
 
-For monitoring healthiness of your datahub app, `/admin` endpoint can be used.
+For monitoring healthiness of your Datahub service, `/admin` endpoint can be used.
