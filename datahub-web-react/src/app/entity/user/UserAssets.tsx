@@ -23,6 +23,7 @@ export const UserAssets = ({ urn }: Props) => {
                 }}
                 emptySearchQuery="*"
                 placeholderText="Filter entities..."
+                includeSorting
             />
         </UserAssetsWrapper>
     );

@@ -48,6 +48,7 @@ export default function GlossaryRelatedEntity() {
             placeholderText="Filter entities..."
             skipCache
             applyView
+            includeSorting
         />
     );
 }

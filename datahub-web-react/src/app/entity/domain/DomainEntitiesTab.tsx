@@ -26,6 +26,7 @@ export const DomainEntitiesTab = () => {
             placeholderText="Filter domain entities..."
             skipCache
             applyView
+            includeSorting
         />
     );
 };

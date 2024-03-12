@@ -28,6 +28,7 @@ import { useEntityContext } from '../../../EntityContext';
 import { EntityActionProps } from './EntitySearchResults';
 import { useUserContext } from '../../../../../context/useUserContext';
 import analytics, { EventType } from '../../../../../analytics';
+import useGetSearchQueryInputs from '../../../../../search/useGetSearchQueryInputs';
 
 const Container = styled.div`
     display: flex;
@@ -106,6 +107,7 @@ type Props = {
     shouldRefetch?: boolean;
     resetShouldRefetch?: () => void;
     applyView?: boolean;
+    includeSorting?: boolean;
 };
 
 export const EmbeddedListSearch = ({
@@ -134,8 +136,10 @@ export const EmbeddedListSearch = ({
     shouldRefetch,
     resetShouldRefetch,
     applyView = false,
+    includeSorting = false,
 }: Props) => {
     const { shouldRefetchEmbeddedListSearch, setShouldRefetchEmbeddedListSearch } = useEntityContext();
+    const { sortInput } = useGetSearchQueryInputs();
     // Adjust query based on props
     const finalQuery: string = addFixedQuery(query as string, fixedQuery as string, emptySearchQuery as string);
 
@@ -179,6 +183,7 @@ export const EmbeddedListSearch = ({
         count: numResultsPerPage,
         orFilters: finalFilters,
         viewUrn: applyView ? selectedViewUrn : undefined,
+        sortInput: includeSorting ? sortInput : undefined,
     };
     if (skipCache) {
         searchInput = { ...searchInput, searchFlags: { skipCache: true } };
@@ -300,6 +305,7 @@ export const EmbeddedListSearch = ({
                 refetch={() => refetch({ input: searchInput })}
                 searchBarStyle={searchBarStyle}
                 searchBarInputStyle={searchBarInputStyle}
+                includeSorting={includeSorting}
             />
             <EmbeddedListSearchResults
                 unionType={unionType}

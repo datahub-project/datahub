@@ -10,6 +10,7 @@ import SearchExtendedMenu from './SearchExtendedMenu';
 import { SearchSelectBar } from './SearchSelectBar';
 import { EntityAndType } from '../../../types';
 import { DownloadSearchResultsInput, DownloadSearchResults } from '../../../../../search/utils/types';
+import SearchSortSelect from '../../../../../search/sorting/SearchSortSelect';
 
 const HeaderContainer = styled.div`
     display: flex;
@@ -43,6 +44,7 @@ type Props = {
     refetch?: () => void;
     searchBarStyle?: any;
     searchBarInputStyle?: any;
+    includeSorting?: boolean;
 };
 
 export default function EmbeddedListSearchHeader({
@@ -60,6 +62,7 @@ export default function EmbeddedListSearchHeader({
     refetch,
     searchBarStyle,
     searchBarInputStyle,
+    includeSorting,
 }: Props) {
     const entityRegistry = useEntityRegistry();
 
@@ -72,6 +75,7 @@ export default function EmbeddedListSearchHeader({
                         <Typography.Text>Filters</Typography.Text>
                     </Button>
                     <SearchAndDownloadContainer>
+                        {includeSorting && <SearchSortSelect />}
                         <SearchBar
                             data-testid="embedded-search-bar"
                             initialQuery=""

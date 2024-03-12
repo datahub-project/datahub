@@ -52,6 +52,7 @@ type Props = {
     shouldRefetch?: boolean;
     resetShouldRefetch?: () => void;
     applyView?: boolean;
+    includeSorting?: boolean;
 };
 
 export const EmbeddedListSearchSection = ({
@@ -69,6 +70,7 @@ export const EmbeddedListSearchSection = ({
     shouldRefetch,
     resetShouldRefetch,
     applyView,
+    includeSorting,
 }: Props) => {
     const history = useHistory();
     const location = useLocation();
@@ -155,6 +157,7 @@ export const EmbeddedListSearchSection = ({
             shouldRefetch={shouldRefetch}
             resetShouldRefetch={resetShouldRefetch}
             applyView={applyView}
+            includeSorting={includeSorting}
         />
     );
 };
