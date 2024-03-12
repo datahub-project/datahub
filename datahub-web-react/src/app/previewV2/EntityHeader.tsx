@@ -5,7 +5,7 @@ import styled from 'styled-components';
 import SearchTextHighlighter from '../searchV2/matches/SearchTextHighlighter';
 import { PreviewType } from '../entityV2/Entity';
 import { Maybe } from '../../types.generated';
-import { SEARCH_COLORS } from '../entityV2/shared/constants';
+import { REDESIGN_COLORS, SEARCH_COLORS } from '../entityV2/shared/constants';
 
 const EntityTitleContainer = styled.div`
     display: flex;
@@ -26,7 +26,7 @@ const EntityTitle = styled(Typography.Text)<{ $titleSizePx?: number }>`
         line-height: 16px;
         vertical-align: middle;
         :hover {
-            font-weight: bold;
+            color: ${REDESIGN_COLORS.HOVER_PURPLE};
         }
     }
     white-space: nowrap;

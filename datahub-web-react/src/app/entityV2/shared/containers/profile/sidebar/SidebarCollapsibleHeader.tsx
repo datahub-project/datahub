@@ -5,6 +5,10 @@ import EntitySidebarContext from '../../../../../shared/EntitySidebarContext';
 import { REDESIGN_COLORS } from '../../../constants';
 import { EntitySidebarTab } from '../../../types';
 import { TitleAction } from './TitleAction';
+import MoreOptionsMenuAction from '../../../EntityDropdown/MoreOptionsMenuAction';
+import { EntityMenuItems } from '../../../EntityDropdown/EntityMenuActions';
+import { useEntityData, useRefetch } from '../../../EntityContext';
+import useIsLineageMode from '../../../../../lineage/utils/useIsLineageMode';
 
 const Controls = styled.div<{ isCollapsed: boolean }>`
     display: flex;
@@ -44,11 +48,18 @@ const Top = styled.div`
     width: 100%;
 `;
 
+const RightActions = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 3px;
+`;
+
 interface Props {
     currentTab?: EntitySidebarTab;
+    headerDropdownItems?: Set<EntityMenuItems>;
 }
 
-export default function SidebarCollapsibleHeader({ currentTab }: Props) {
+export default function SidebarCollapsibleHeader({ currentTab, headerDropdownItems }: Props) {
     const { isClosed } = useContext(EntitySidebarContext);
 
     const currentTabName = currentTab?.name === 'About' ? 'Summary' : currentTab?.name;
@@ -56,13 +67,29 @@ export default function SidebarCollapsibleHeader({ currentTab }: Props) {
     const actionType = currentTab?.properties?.actionType;
     const icon = currentTab?.icon;
 
+    const { urn, entityType, entityData } = useEntityData();
+    const refetch = useRefetch();
+    const isLineageMode = useIsLineageMode();
+
     return (
         <Controls isCollapsed={isClosed}>
             {!isClosed && currentTab && (
                 <Title>
                     <Top>
                         <TabTitle>{currentTabName}</TabTitle>
-                        {actionType && <TitleAction actionType={actionType} icon={icon} />}
+                        <RightActions>
+                            {actionType && <TitleAction actionType={actionType} icon={icon} />}
+                            {isLineageMode && headerDropdownItems && (
+                                <MoreOptionsMenuAction
+                                    menuItems={headerDropdownItems}
+                                    urn={urn}
+                                    entityType={entityType}
+                                    entityData={entityData}
+                                    refetch={refetch}
+                                    size={22}
+                                />
+                            )}
+                        </RightActions>
                     </Top>
 
                     {currentTabDescription && <TitleDescription> {currentTabDescription}</TitleDescription>}
