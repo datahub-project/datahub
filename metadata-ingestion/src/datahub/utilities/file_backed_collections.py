@@ -126,6 +126,7 @@ class ConnectionWrapper:
     def close(self) -> None:
         for obj in self._dependent_objects:
             obj.close()
+        self._dependent_objects.clear()
         with self.conn_lock:
             self.conn.close()
         if self._temp_directory:
@@ -466,6 +467,9 @@ class FileBackedList(Generic[_VT], Closeable):
             cache_eviction_batch_size=cache_eviction_batch_size
             or _DEFAULT_MEMORY_CACHE_EVICTION_BATCH_SIZE,
         )
+
+        if shared_connection:
+            shared_connection._dependent_objects.append(self)
 
         # In case we're reusing an existing list, we need to run a query to get the length.
         self._len = len(self._dict)

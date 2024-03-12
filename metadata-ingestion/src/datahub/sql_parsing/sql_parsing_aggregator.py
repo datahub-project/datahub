@@ -262,56 +262,49 @@ class SqlParsingAggregator(Closeable):
             )
 
         # Stores the logged queries.
-        self._logged_queries = self._exit_stack.enter_context(
-            FileBackedList[LoggedQuery](
-                shared_connection=self._shared_connection, tablename="stored_queries"
-            )
+        self._logged_queries = FileBackedList[LoggedQuery](
+            shared_connection=self._shared_connection, tablename="stored_queries"
         )
+        self._exit_stack.push(self._logged_queries)
 
         # Map of query_id -> QueryMetadata
-        self._query_map = self._exit_stack.enter_context(
-            FileBackedDict[QueryMetadata](
-                shared_connection=self._shared_connection, tablename="query_map"
-            )
+        self._query_map = FileBackedDict[QueryMetadata](
+            shared_connection=self._shared_connection, tablename="query_map"
         )
+        self._exit_stack.push(self._query_map)
 
         # Map of downstream urn -> { query ids }
-        self._lineage_map = self._exit_stack.enter_context(
-            FileBackedDict[OrderedSet[QueryId]](
-                shared_connection=self._shared_connection, tablename="lineage_map"
-            )
+        self._lineage_map = FileBackedDict[OrderedSet[QueryId]](
+            shared_connection=self._shared_connection, tablename="lineage_map"
         )
+        self._exit_stack.push(self._lineage_map)
 
         # Map of view urn -> view definition
-        self._view_definitions = self._exit_stack.enter_context(
-            FileBackedDict[ViewDefinition](
-                shared_connection=self._shared_connection, tablename="view_definitions"
-            )
+        self._view_definitions = FileBackedDict[ViewDefinition](
+            shared_connection=self._shared_connection, tablename="view_definitions"
         )
+        self._exit_stack.push(self._view_definitions)
 
         # Map of session ID -> {temp table name -> query id}
         # Needs to use the query_map to find the info about the query.
         # This assumes that a temp table is created at most once per session.
-        self._temp_lineage_map = self._exit_stack.enter_context(
-            FileBackedDict[Dict[UrnStr, QueryId]](
-                shared_connection=self._shared_connection, tablename="temp_lineage_map"
-            )
+        self._temp_lineage_map = FileBackedDict[Dict[UrnStr, QueryId]](
+            shared_connection=self._shared_connection, tablename="temp_lineage_map"
         )
+        self._exit_stack.push(self._temp_lineage_map)
 
         # Map of query ID -> schema fields, only for query IDs that generate temp tables.
-        self._inferred_temp_schemas = self._exit_stack.enter_context(
-            FileBackedDict[List[models.SchemaFieldClass]](
-                shared_connection=self._shared_connection,
-                tablename="inferred_temp_schemas",
-            )
+        self._inferred_temp_schemas = FileBackedDict[List[models.SchemaFieldClass]](
+            shared_connection=self._shared_connection,
+            tablename="inferred_temp_schemas",
         )
+        self._exit_stack.push(self._inferred_temp_schemas)
 
         # Map of table renames, from original UrnStr to new UrnStr.
-        self._table_renames = self._exit_stack.enter_context(
-            FileBackedDict[UrnStr](
-                shared_connection=self._shared_connection, tablename="table_renames"
-            )
+        self._table_renames = FileBackedDict[UrnStr](
+            shared_connection=self._shared_connection, tablename="table_renames"
         )
+        self._exit_stack.push(self._table_renames)
 
         # Usage aggregator. This will only be initialized if usage statistics are enabled.
         # TODO: Replace with FileBackedDict.
