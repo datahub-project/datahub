@@ -94,7 +94,7 @@ query_vs_cursor_mocker = {
         "TABLE volt_tt_'\n                    -- We need to filter out our query and it was not possible "
         "earlier when we did not have any comment in the query\n                    and query_text not ilike "
         "'%https://stackoverflow.com/questions/72770890/redshift-result-size-exceeds-listagg-limit-on-svl"
-        "-statementtext%'\n\n            )\n            where\n                rn = 1;\n            "
+        "-statementtext%'\n\n            )\n            where\n                rn = 1\n            "
     ): mock_temp_table_cursor,
     "select * from test_collapse_temp_lineage": mock_stl_insert_table_cursor,
 }

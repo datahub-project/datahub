@@ -16,11 +16,7 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import (
-    SourceReport,
-    TestableSource,
-    TestConnectionReport,
-)
+from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.schema_classes import (
     CorpUserEditableInfoClass,
@@ -89,10 +85,10 @@ class SlackSourceReport(SourceReport):
 PLATFORM_NAME = "slack"
 
 
-@platform_name(PLATFORM_NAME)
+@platform_name("Slack")
 @config_class(SlackSourceConfig)
 @support_status(SupportStatus.TESTING)
-class SlackSource(TestableSource):
+class SlackSource(Source):
     def __init__(self, ctx: PipelineContext, config: SlackSourceConfig):
         self.ctx = ctx
         self.config = config
@@ -106,10 +102,6 @@ class SlackSource(TestableSource):
     def create(cls, config_dict, ctx):
         config = SlackSourceConfig.parse_obj(config_dict)
         return cls(ctx, config)
-
-    @staticmethod
-    def test_connection(config_dict: dict) -> TestConnectionReport:
-        raise NotImplementedError("This class does not implement this method")
 
     def get_slack_client(self) -> WebClient:
         return WebClient(token=self.config.bot_token.get_secret_value())

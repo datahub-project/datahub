@@ -35,7 +35,11 @@ from datahub.sql_parsing.sqlglot_lineage import (
     infer_output_schema,
     sqlglot_lineage,
 )
-from datahub.sql_parsing.sqlglot_utils import generate_hash, get_query_fingerprint
+from datahub.sql_parsing.sqlglot_utils import (
+    generate_hash,
+    get_query_fingerprint,
+    try_format_query,
+)
 from datahub.utilities.cooperative_timeout import CooperativeTimeoutError
 from datahub.utilities.file_backed_collections import (
     ConnectionWrapper,
@@ -180,6 +184,7 @@ class SqlParsingAggregator:
         generate_operations: bool = False,
         usage_config: Optional[BaseUsageConfig] = None,
         is_temp_table: Optional[Callable[[UrnStr], bool]] = None,
+        format_queries: bool = True,
         query_log: QueryLogSetting = QueryLogSetting.DISABLED,
     ) -> None:
         self.platform = DataPlatformUrn(platform)
@@ -202,6 +207,7 @@ class SqlParsingAggregator:
         # can be used by BQ where we have a "temp_table_dataset_prefix"
         self.is_temp_table = is_temp_table
 
+        self.format_queries = format_queries
         self.query_log = query_log
 
         # Set up the schema resolver.
@@ -328,6 +334,11 @@ class SqlParsingAggregator:
             env=self.env,
         )
 
+    def _maybe_format_query(self, query: str) -> str:
+        if self.format_queries:
+            return try_format_query(query, self.platform.platform_name)
+        return query
+
     def add_known_query_lineage(
         self, known_query_lineage: KnownQueryLineageInfo, merge_lineage: bool = False
     ) -> None:
@@ -342,21 +353,23 @@ class SqlParsingAggregator:
 
         Args:
             known_query_lineage: The known query lineage information.
+            merge_lineage: Whether to merge the lineage with any existing lineage
+                for the query ID.
         """
 
         self.report.num_known_query_lineage += 1
 
         # Generate a fingerprint for the query.
         query_fingerprint = get_query_fingerprint(
-            known_query_lineage.query_text, self.platform.platform_name
+            known_query_lineage.query_text, platform=self.platform.platform_name
         )
-        # TODO format the query text?
+        formatted_query = self._maybe_format_query(known_query_lineage.query_text)
 
         # Register the query.
         self._add_to_query_map(
             QueryMetadata(
                 query_id=query_fingerprint,
-                formatted_query_string=known_query_lineage.query_text,
+                formatted_query_string=formatted_query,
                 session_id=known_query_lineage.session_id or _MISSING_SESSION_ID,
                 query_type=known_query_lineage.query_type,
                 lineage_type=models.DatasetLineageTypeClass.TRANSFORMED,
@@ -425,7 +438,7 @@ class SqlParsingAggregator:
 
     def add_view_definition(
         self,
-        view_urn: DatasetUrn,
+        view_urn: Union[DatasetUrn, UrnStr],
         view_definition: str,
         default_db: Optional[str] = None,
         default_schema: Optional[str] = None,
@@ -499,6 +512,9 @@ class SqlParsingAggregator:
         elif parsed.debug_info.column_error:
             self.report.num_observed_queries_column_failed += 1
 
+        # Format the query.
+        formatted_query = self._maybe_format_query(query)
+
         # Register the query's usage.
         if not self._usage_aggregator:
             pass  # usage is not enabled
@@ -518,7 +534,7 @@ class SqlParsingAggregator:
                 self._usage_aggregator.aggregate_event(
                     resource=upstream_urn,
                     start_time=query_timestamp,
-                    query=query,
+                    query=formatted_query,
                     user=user.urn() if user else None,
                     fields=sorted(upstream_fields.get(upstream_urn, [])),
                     count=usage_multiplier,
@@ -540,7 +556,7 @@ class SqlParsingAggregator:
         self._add_to_query_map(
             QueryMetadata(
                 query_id=query_fingerprint,
-                formatted_query_string=query,  # TODO replace with formatted query string
+                formatted_query_string=formatted_query,
                 session_id=session_id,
                 query_type=parsed.query_type,
                 lineage_type=models.DatasetLineageTypeClass.TRANSFORMED,
@@ -655,12 +671,15 @@ class SqlParsingAggregator:
             self.report.num_views_column_failed += 1
 
         query_fingerprint = self._view_query_id(view_urn)
+        formatted_view_definition = self._maybe_format_query(
+            view_definition.view_definition
+        )
 
         # Register the query.
         self._add_to_query_map(
             QueryMetadata(
                 query_id=query_fingerprint,
-                formatted_query_string=view_definition.view_definition,
+                formatted_query_string=formatted_view_definition,
                 session_id=_MISSING_SESSION_ID,
                 query_type=QueryType.CREATE_VIEW,
                 lineage_type=models.DatasetLineageTypeClass.VIEW,
@@ -1047,9 +1066,12 @@ class SqlParsingAggregator:
         # - Update the query text to combine the queries
 
         composite_query_id = self._composite_query_id(composed_of_queries)
-        self.report.queries_with_temp_upstreams.setdefault(
-            composite_query_id, LossyList()
-        ).extend(composed_of_queries)
+        composed_of_queries_truncated: LossyList[str] = LossyList()
+        for query_id in composed_of_queries:
+            composed_of_queries_truncated.append(query_id)
+        self.report.queries_with_temp_upstreams[
+            composite_query_id
+        ] = composed_of_queries_truncated
 
         merged_query_text = ";\n\n".join(
             [

@@ -25,6 +25,27 @@ module.exports = {
     isSaas: isSaas,
     markpromptProjectKey: process.env.DOCUSAURUS_MARKPROMPT_PROJECT_KEY || "IeF3CUFCUQWuouZ8MP5Np9nES52QAtaA",
   },
+
+  // See https://github.com/facebook/docusaurus/issues/4765
+  // and https://github.com/langchain-ai/langchainjs/pull/1568
+  webpack: {
+    jsLoader: (isServer) => ({
+      loader: require.resolve("swc-loader"),
+      options: {
+        jsc: {
+          parser: {
+            syntax: "typescript",
+            tsx: true,
+          },
+          target: "es2017",
+        },
+        module: {
+          type: isServer ? "commonjs" : "es6",
+        },
+      },
+    }),
+  },
+
   themeConfig: {
     ...(!isSaas && {
       announcementBar: {
@@ -114,6 +135,16 @@ module.exports = {
           type: "docsVersionDropdown",
           position: "left",
           dropdownActiveClassDisabled: true,
+            dropdownItemsAfter: [
+                {
+                href: "https://docs-website-irpoe2osc-acryldata.vercel.app/docs/",
+                label: "0.11.0",
+                },
+                {
+                href: "https://docs-website-1gv2yzn9d-acryldata.vercel.app/docs/",
+                label: "0.10.5",
+                },
+            ],
         },
       ],
     },
@@ -217,8 +248,8 @@ module.exports = {
           }),
           numberPrefixParser: false,
           // TODO: make these work correctly with the doc generation
-          showLastUpdateAuthor: true,
-          showLastUpdateTime: true,
+          showLastUpdateAuthor: false,
+          showLastUpdateTime: false,
         },
         blog: false,
         theme: {

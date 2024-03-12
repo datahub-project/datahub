@@ -129,6 +129,60 @@ def test_temp_table(pytestconfig: pytest.Config) -> None:
 
 
 @freeze_time(FROZEN_TIME)
+def test_multistep_temp_table(pytestconfig: pytest.Config) -> None:
+    aggregator = SqlParsingAggregator(
+        platform="redshift",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+    )
+
+    aggregator.add_observed_query(
+        query="create table #temp1 as select a, 2*b as b from upstream1",
+        default_db="dev",
+        default_schema="public",
+        session_id="session1",
+    )
+    aggregator.add_observed_query(
+        query="create table #temp2 as select b, c from upstream2",
+        default_db="dev",
+        default_schema="public",
+        session_id="session1",
+    )
+    aggregator.add_observed_query(
+        query="create temp table staging_foo as select up1.a, up1.b, up2.c from #temp1 up1 left join #temp2 up2 on up1.b = up2.b where up1.b > 0",
+        default_db="dev",
+        default_schema="public",
+        session_id="session1",
+    )
+    aggregator.add_observed_query(
+        query="insert into table prod_foo\nselect * from staging_foo",
+        default_db="dev",
+        default_schema="public",
+        session_id="session1",
+    )
+
+    mcps = list(aggregator.gen_metadata())
+
+    report = aggregator.report
+    assert len(report.queries_with_temp_upstreams) == 1
+    assert (
+        len(
+            report.queries_with_temp_upstreams[
+                "composite_c89ee7c127c64a5d3a42ee875305087991891c80f42a25012910524bd2c77c45"
+            ]
+        )
+        == 4
+    )
+
+    mce_helpers.check_goldens_stream(
+        pytestconfig,
+        outputs=mcps,
+        golden_path=RESOURCE_DIR / "test_multistep_temp_table.json",
+    )
+
+
+@freeze_time(FROZEN_TIME)
 def test_aggregate_operations(pytestconfig: pytest.Config) -> None:
     aggregator = SqlParsingAggregator(
         platform="redshift",
