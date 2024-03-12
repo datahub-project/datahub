@@ -1,0 +1,36 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "container"
+  },
+  "name": "Container",
+  "namespace": "com.linkedin.pegasus2avro.container",
+  "fields": [
+    {
+      "Relationship": {
+        "entityTypes": [
+          "container"
+        ],
+        "name": "IsPartOf"
+      },
+      "Searchable": {
+        "addToFilters": true,
+        "fieldName": "container",
+        "fieldType": "URN",
+        "filterNameOverride": "Container",
+        "hasValuesFieldName": "hasContainer"
+      },
+      "java": {
+        "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+      },
+      "type": "string",
+      "name": "container",
+      "doc": "The parent container of an asset",
+      "Urn": "Urn",
+      "entityTypes": [
+        "container"
+      ]
+    }
+  ],
+  "doc": "Link from an asset to its parent container"
+}

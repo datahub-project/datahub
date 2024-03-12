@@ -1,0 +1,33 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "corpGroupKey",
+    "keyForEntity": "corpGroup",
+    "entityCategory": "_unset_",
+    "entityAspects": [
+      "corpGroupInfo",
+      "corpGroupEditableInfo",
+      "globalTags",
+      "ownership",
+      "status",
+      "origin"
+    ],
+    "entityDoc": "CorpGroup represents an identity of a group of users in the enterprise."
+  },
+  "name": "CorpGroupKey",
+  "namespace": "com.linkedin.pegasus2avro.metadata.key",
+  "fields": [
+    {
+      "Searchable": {
+        "boostScore": 10.0,
+        "enableAutocomplete": true,
+        "fieldType": "WORD_GRAM",
+        "queryByDefault": true
+      },
+      "type": "string",
+      "name": "name",
+      "doc": "The URL-encoded name of the AD/LDAP group. Serves as a globally unique identifier within DataHub."
+    }
+  ],
+  "doc": "Key for a CorpGroup"
+}

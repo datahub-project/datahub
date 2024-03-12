@@ -5,11 +5,16 @@ from pydantic.fields import Field
 
 from datahub.configuration import ConfigModel
 from datahub.configuration.common import AllowDenyPattern
+from datahub.ingestion.source_config.operation_config import OperationConfig
 
 
 class DataLakeProfilerConfig(ConfigModel):
     enabled: bool = Field(
         default=False, description="Whether profiling should be done."
+    )
+    operation_config: OperationConfig = Field(
+        default_factory=OperationConfig,
+        description="Experimental feature. To specify operation configs.",
     )
 
     # These settings will override the ones below.
@@ -67,7 +72,7 @@ class DataLakeProfilerConfig(ConfigModel):
         description="Whether to profile for the sample values for all columns.",
     )
 
-    @pydantic.root_validator()
+    @pydantic.root_validator(skip_on_failure=True)
     def ensure_field_level_settings_are_normalized(
         cls: "DataLakeProfilerConfig", values: Dict[str, Any]
     ) -> Dict[str, Any]:

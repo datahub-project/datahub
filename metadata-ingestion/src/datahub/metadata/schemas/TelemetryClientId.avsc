@@ -1,0 +1,16 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "telemetryClientId"
+  },
+  "name": "TelemetryClientId",
+  "namespace": "com.linkedin.pegasus2avro.telemetry",
+  "fields": [
+    {
+      "type": "string",
+      "name": "clientId",
+      "doc": "A string representing the telemetry client ID"
+    }
+  ],
+  "doc": "A simple wrapper around a String to persist the client ID for telemetry in DataHub's backend DB"
+}

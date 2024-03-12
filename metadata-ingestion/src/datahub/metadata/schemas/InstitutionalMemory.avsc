@@ -1,0 +1,88 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "institutionalMemory"
+  },
+  "name": "InstitutionalMemory",
+  "namespace": "com.linkedin.pegasus2avro.common",
+  "fields": [
+    {
+      "type": {
+        "type": "array",
+        "items": {
+          "type": "record",
+          "name": "InstitutionalMemoryMetadata",
+          "namespace": "com.linkedin.pegasus2avro.common",
+          "fields": [
+            {
+              "java": {
+                "class": "com.linkedin.pegasus2avro.common.url.Url",
+                "coercerClass": "com.linkedin.pegasus2avro.common.url.UrlCoercer"
+              },
+              "type": "string",
+              "name": "url",
+              "doc": "Link to an engineering design document or a wiki page."
+            },
+            {
+              "type": "string",
+              "name": "description",
+              "doc": "Description of the link."
+            },
+            {
+              "type": {
+                "type": "record",
+                "name": "AuditStamp",
+                "namespace": "com.linkedin.pegasus2avro.common",
+                "fields": [
+                  {
+                    "type": "long",
+                    "name": "time",
+                    "doc": "When did the resource/association/sub-resource move into the specific lifecycle stage represented by this AuditEvent."
+                  },
+                  {
+                    "java": {
+                      "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+                    },
+                    "type": "string",
+                    "name": "actor",
+                    "doc": "The entity (e.g. a member URN) which will be credited for moving the resource/association/sub-resource into the specific lifecycle stage. It is also the one used to authorize the change.",
+                    "Urn": "Urn"
+                  },
+                  {
+                    "java": {
+                      "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+                    },
+                    "type": [
+                      "null",
+                      "string"
+                    ],
+                    "name": "impersonator",
+                    "default": null,
+                    "doc": "The entity (e.g. a service URN) which performs the change on behalf of the Actor and must be authorized to act as the Actor.",
+                    "Urn": "Urn"
+                  },
+                  {
+                    "type": [
+                      "null",
+                      "string"
+                    ],
+                    "name": "message",
+                    "default": null,
+                    "doc": "Additional context around how DataHub was informed of the particular change. For example: was the change created by an automated process, or manually."
+                  }
+                ],
+                "doc": "Data captured on a resource/association/sub-resource level giving insight into when that resource/association/sub-resource moved into a particular lifecycle stage, and who acted to move it into that specific lifecycle stage."
+              },
+              "name": "createStamp",
+              "doc": "Audit stamp associated with creation of this record"
+            }
+          ],
+          "doc": "Metadata corresponding to a record of institutional memory."
+        }
+      },
+      "name": "elements",
+      "doc": "List of records that represent institutional memory of an entity. Each record consists of a link, description, creator and timestamps associated with that record."
+    }
+  ],
+  "doc": "Institutional memory of an entity. This is a way to link to relevant documentation and provide description of the documentation. Institutional or tribal knowledge is very important for users to leverage the entity."
+}

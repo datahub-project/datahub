@@ -17,6 +17,7 @@ export type Props = {
     suffix?: JSX.Element;
     limit?: number;
     shouldWrap?: boolean;
+    customRender?: (text: string) => JSX.Element;
 };
 
 export const removeMarkdown = (text: string) => {
@@ -29,7 +30,7 @@ export const removeMarkdown = (text: string) => {
         .replace(/^•/, ''); // remove first •
 };
 
-export default function NoMarkdownViewer({ children, readMore, suffix, limit, shouldWrap }: Props) {
+export default function NoMarkdownViewer({ children, customRender, readMore, suffix, limit, shouldWrap }: Props) {
     let plainText = removeMarkdown(children || '');
 
     if (limit) {
@@ -44,7 +45,8 @@ export default function NoMarkdownViewer({ children, readMore, suffix, limit, sh
 
     return (
         <RemoveMarkdownContainer shouldWrap={!!shouldWrap}>
-            {plainText} {showReadMore && <>{readMore}</>} {suffix}
+            {customRender ? customRender(plainText) : plainText}
+            {showReadMore && <>{readMore}</>} {suffix}
         </RemoveMarkdownContainer>
     );
 }

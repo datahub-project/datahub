@@ -1,0 +1,74 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "dataHubAccessTokenInfo"
+  },
+  "name": "DataHubAccessTokenInfo",
+  "namespace": "com.linkedin.pegasus2avro.access.token",
+  "fields": [
+    {
+      "Searchable": {
+        "fieldType": "TEXT_PARTIAL"
+      },
+      "type": "string",
+      "name": "name",
+      "doc": "User defined name for the access token if defined."
+    },
+    {
+      "Searchable": {
+        "fieldType": "URN"
+      },
+      "java": {
+        "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+      },
+      "type": "string",
+      "name": "actorUrn",
+      "doc": "Urn of the actor to which this access token belongs to.",
+      "Urn": "Urn"
+    },
+    {
+      "Searchable": {
+        "fieldType": "URN"
+      },
+      "java": {
+        "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+      },
+      "type": "string",
+      "name": "ownerUrn",
+      "doc": "Urn of the actor which created this access token.",
+      "Urn": "Urn"
+    },
+    {
+      "Searchable": {
+        "fieldType": "COUNT",
+        "queryByDefault": false
+      },
+      "type": "long",
+      "name": "createdAt",
+      "doc": "When the token was created."
+    },
+    {
+      "Searchable": {
+        "fieldType": "COUNT",
+        "queryByDefault": false
+      },
+      "type": [
+        "null",
+        "long"
+      ],
+      "name": "expiresAt",
+      "default": null,
+      "doc": "When the token expires."
+    },
+    {
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "description",
+      "default": null,
+      "doc": "Description of the token if defined."
+    }
+  ],
+  "doc": "Information about a DataHub Access Token"
+}

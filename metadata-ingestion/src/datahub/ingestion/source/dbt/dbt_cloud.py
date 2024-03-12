@@ -20,9 +20,8 @@ from datahub.ingestion.source.dbt.dbt_common import (
     DBTCommonConfig,
     DBTNode,
     DBTSourceBase,
-    DBTTest,
-    DBTTestResult,
 )
+from datahub.ingestion.source.dbt.dbt_tests import DBTTest, DBTTestResult
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +46,7 @@ class DBTCloudConfig(DBTCommonConfig):
         description="The ID of the job to ingest metadata from.",
     )
     run_id: Optional[int] = Field(
+        None,
         description="The ID of the run to ingest metadata from. If not specified, we'll default to the latest run.",
     )
 
@@ -162,9 +162,11 @@ _DBT_FIELDS_BY_TYPE = {
 }
 
 _DBT_GRAPHQL_QUERY = """
-query DatahubMetadataQuery_{type}($jobId: Int!, $runId: Int) {{
-  {type}(jobId: $jobId, runId: $runId) {{
+query DatahubMetadataQuery_{type}($jobId: BigInt!, $runId: BigInt) {{
+  job(id: $jobId, runId: $runId) {{
+    {type} {{
 {fields}
+    }}
   }}
 }}
 """
@@ -218,7 +220,7 @@ class DBTCloudSource(DBTSourceBase):
                 },
             )
 
-            raw_nodes.extend(data[node_type])
+            raw_nodes.extend(data["job"][node_type])
 
         nodes = [self._parse_into_dbt_node(node) for node in raw_nodes]
 

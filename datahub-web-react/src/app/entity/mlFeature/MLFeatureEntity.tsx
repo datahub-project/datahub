@@ -145,6 +145,8 @@ export class MLFeatureEntity implements Entity<MlFeature> {
                 dataProduct={getDataProduct(genericProperties?.dataProduct)}
                 platform={platform}
                 platformInstanceId={data.dataPlatformInstance?.instanceId}
+                degree={(result as any).degree}
+                paths={(result as any).paths}
             />
         );
     };

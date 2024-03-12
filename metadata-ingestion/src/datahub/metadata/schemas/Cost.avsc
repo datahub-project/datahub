@@ -1,0 +1,64 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "cost"
+  },
+  "name": "Cost",
+  "namespace": "com.linkedin.pegasus2avro.common",
+  "fields": [
+    {
+      "type": {
+        "type": "enum",
+        "symbolDocs": {
+          "ORG_COST_TYPE": "Org Cost Type to which the Cost of this entity should be attributed to"
+        },
+        "name": "CostType",
+        "namespace": "com.linkedin.pegasus2avro.common",
+        "symbols": [
+          "ORG_COST_TYPE"
+        ],
+        "doc": "Type of Cost Code"
+      },
+      "name": "costType"
+    },
+    {
+      "type": {
+        "type": "record",
+        "name": "CostCost",
+        "namespace": "com.linkedin.pegasus2avro.common",
+        "fields": [
+          {
+            "type": [
+              "null",
+              "double"
+            ],
+            "name": "costId",
+            "default": null
+          },
+          {
+            "type": [
+              "null",
+              "string"
+            ],
+            "name": "costCode",
+            "default": null
+          },
+          {
+            "type": {
+              "type": "enum",
+              "name": "CostCostDiscriminator",
+              "namespace": "com.linkedin.pegasus2avro.common",
+              "symbols": [
+                "costId",
+                "costCode"
+              ]
+            },
+            "name": "fieldDiscriminator",
+            "doc": "Contains the name of the field that has its value set."
+          }
+        ]
+      },
+      "name": "cost"
+    }
+  ]
+}

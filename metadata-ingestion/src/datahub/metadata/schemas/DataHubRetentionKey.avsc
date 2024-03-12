@@ -1,0 +1,26 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "dataHubRetentionKey",
+    "keyForEntity": "dataHubRetention",
+    "entityCategory": "internal",
+    "entityAspects": [
+      "dataHubRetentionConfig"
+    ]
+  },
+  "name": "DataHubRetentionKey",
+  "namespace": "com.linkedin.pegasus2avro.metadata.key",
+  "fields": [
+    {
+      "type": "string",
+      "name": "entityName",
+      "doc": "Entity name to apply retention to. * (or empty) for applying defaults."
+    },
+    {
+      "type": "string",
+      "name": "aspectName",
+      "doc": "Aspect name to apply retention to. * (or empty) for applying defaults."
+    }
+  ],
+  "doc": "Key for a DataHub Retention"
+}

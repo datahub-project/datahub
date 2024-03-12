@@ -1,13 +1,13 @@
 apply plugin: 'java'
 
 dependencies {
-  compile project(":entity-registry")
-  compile spec.product.pegasus.data
-  compile spec.product.pegasus.generator
+  implementation project(":entity-registry")
+  implementation spec.product.pegasus.data
+  implementation spec.product.pegasus.generator
 
-  compile externalDependency.commonsIo
-  compile externalDependency.findbugsAnnotations
-  compile externalDependency.guava
+  implementation externalDependency.commonsIo
+  implementation externalDependency.findbugsAnnotations
+  implementation externalDependency.guava
 
   implementation externalDependency.slf4jApi
   runtimeOnly externalDependency.logbackClassic

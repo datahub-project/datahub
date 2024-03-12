@@ -36,6 +36,9 @@ fragment lineageNodeProperties on EntityWithRelationships {
         dataPlatformInstance {
             ...dataPlatformInstanceFields
         }
+        subTypes {
+            typeNames
+        }
         editableProperties {
             description
         }
@@ -165,6 +168,9 @@ fragment lineageNodeProperties on EntityWithRelationships {
         status {
             removed
         }
+        subTypes {
+            typeNames
+        }
     }
     ... on Dataset {
         name
@@ -197,6 +203,12 @@ fragment lineageNodeProperties on EntityWithRelationships {
                 urn
                 path
             }
+        }
+        health {
+            type
+            status
+            message
+            causes
         }
     }
     ... on MLModelGroup {
@@ -251,6 +263,9 @@ fragment lineageFields on EntityWithRelationships {
             siblings {
                 urn
                 type
+                ... on Dataset {
+                    exists
+                }
                 ...lineageNodeProperties
             }
         }
@@ -369,6 +384,9 @@ query getEntityLineage(
                 siblings {
                     urn
                     type
+                    ... on Dataset {
+                        exists
+                    }
                     ...lineageNodeProperties
                 }
             }

@@ -183,7 +183,10 @@
                       {
                         "Searchable": {
                           "enableAutocomplete": true,
-                          "fieldType": "TEXT_PARTIAL"
+                          "fieldNameAliases": [
+                            "_entityName"
+                          ],
+                          "fieldType": "WORD_GRAM"
                         },
                         "type": "string",
                         "name": "title",
@@ -616,7 +619,11 @@
                                 "type": "string",
                                 "name": "owner",
                                 "doc": "Owner URN, e.g. urn:li:corpuser:ldap, urn:li:corpGroup:group_name, and urn:li:multiProduct:mp_name\n(Caveat: only corpuser is currently supported in the frontend.)",
-                                "Urn": "Urn"
+                                "Urn": "Urn",
+                                "entityTypes": [
+                                  "corpuser",
+                                  "corpGroup"
+                                ]
                               },
                               {
                                 "deprecated": true,
@@ -680,7 +687,10 @@
                                 "name": "typeUrn",
                                 "default": null,
                                 "doc": "The type of the ownership\nUrn of type O",
-                                "Urn": "Urn"
+                                "Urn": "Urn",
+                                "entityTypes": [
+                                  "ownershipType"
+                                ]
                               },
                               {
                                 "type": [
@@ -901,7 +911,10 @@
                                 "type": "string",
                                 "name": "urn",
                                 "doc": "Urn of the applied glossary term",
-                                "Urn": "GlossaryTermUrn"
+                                "Urn": "GlossaryTermUrn",
+                                "entityTypes": [
+                                  "glossaryTerm"
+                                ]
                               },
                               {
                                 "type": [
@@ -1108,7 +1121,7 @@
                         "Searchable": {
                           "boostScore": 10.0,
                           "enableAutocomplete": true,
-                          "fieldType": "TEXT_PARTIAL",
+                          "fieldType": "WORD_GRAM",
                           "queryByDefault": true
                         },
                         "type": "string",
@@ -1133,6 +1146,9 @@
                         "Searchable": {
                           "boostScore": 10.0,
                           "enableAutocomplete": true,
+                          "fieldNameAliases": [
+                            "_entityName"
+                          ],
                           "fieldType": "TEXT_PARTIAL",
                           "queryByDefault": true
                         },
@@ -1294,7 +1310,7 @@
                           "boostScore": 2.0,
                           "enableAutocomplete": true,
                           "fieldName": "ldap",
-                          "fieldType": "TEXT_PARTIAL"
+                          "fieldType": "WORD_GRAM"
                         },
                         "type": "string",
                         "name": "username",
@@ -1343,7 +1359,10 @@
                         "Searchable": {
                           "boostScore": 10.0,
                           "enableAutocomplete": true,
-                          "fieldType": "TEXT_PARTIAL",
+                          "fieldNameAliases": [
+                            "_entityName"
+                          ],
+                          "fieldType": "WORD_GRAM",
                           "queryByDefault": true
                         },
                         "type": [
@@ -1402,7 +1421,10 @@
                         "name": "managerUrn",
                         "default": null,
                         "doc": "direct manager of this user",
-                        "Urn": "CorpuserUrn"
+                        "Urn": "CorpuserUrn",
+                        "entityTypes": [
+                          "corpuser"
+                        ]
                       },
                       {
                         "type": [
@@ -1444,7 +1466,7 @@
                         "Searchable": {
                           "boostScore": 10.0,
                           "enableAutocomplete": true,
-                          "fieldType": "TEXT_PARTIAL",
+                          "fieldType": "WORD_GRAM",
                           "queryByDefault": true
                         },
                         "type": [
@@ -1528,7 +1550,7 @@
                       {
                         "Searchable": {
                           "boostScore": 10.0,
-                          "fieldType": "TEXT_PARTIAL",
+                          "fieldType": "WORD_GRAM",
                           "queryByDefault": true
                         },
                         "type": [
@@ -1730,7 +1752,10 @@
                         "Searchable": {
                           "boostScore": 10.0,
                           "enableAutocomplete": true,
-                          "fieldType": "TEXT_PARTIAL"
+                          "fieldNameAliases": [
+                            "_entityName"
+                          ],
+                          "fieldType": "WORD_GRAM"
                         },
                         "type": "string",
                         "name": "title",
@@ -1998,7 +2023,7 @@
                       {
                         "Searchable": {
                           "enableAutocomplete": true,
-                          "fieldType": "TEXT_PARTIAL"
+                          "fieldType": "WORD_GRAM"
                         },
                         "type": "string",
                         "name": "flowId",
@@ -2057,7 +2082,10 @@
                         "Searchable": {
                           "boostScore": 10.0,
                           "enableAutocomplete": true,
-                          "fieldType": "TEXT_PARTIAL"
+                          "fieldNameAliases": [
+                            "_entityName"
+                          ],
+                          "fieldType": "WORD_GRAM"
                         },
                         "type": "string",
                         "name": "name",
@@ -2266,12 +2294,15 @@
                         "type": "string",
                         "name": "flow",
                         "doc": "Standardized data processing flow urn representing the flow for the job",
-                        "Urn": "Urn"
+                        "Urn": "Urn",
+                        "entityTypes": [
+                          "dataFlow"
+                        ]
                       },
                       {
                         "Searchable": {
                           "enableAutocomplete": true,
-                          "fieldType": "TEXT_PARTIAL"
+                          "fieldType": "WORD_GRAM"
                         },
                         "type": "string",
                         "name": "jobId",
@@ -2322,7 +2353,10 @@
                         "Searchable": {
                           "boostScore": 10.0,
                           "enableAutocomplete": true,
-                          "fieldType": "TEXT_PARTIAL"
+                          "fieldNameAliases": [
+                            "_entityName"
+                          ],
+                          "fieldType": "WORD_GRAM"
                         },
                         "type": "string",
                         "name": "name",
@@ -2919,7 +2953,7 @@
                           "boostScore": 10.0,
                           "enableAutocomplete": true,
                           "fieldName": "id",
-                          "fieldType": "TEXT_PARTIAL"
+                          "fieldType": "WORD_GRAM"
                         },
                         "type": "string",
                         "name": "name",
@@ -3010,7 +3044,10 @@
                         "Searchable": {
                           "boostScore": 10.0,
                           "enableAutocomplete": true,
-                          "fieldType": "TEXT_PARTIAL"
+                          "fieldNameAliases": [
+                            "_entityName"
+                          ],
+                          "fieldType": "WORD_GRAM"
                         },
                         "type": [
                           "null",
@@ -3025,7 +3062,7 @@
                           "addToFilters": false,
                           "boostScore": 10.0,
                           "enableAutocomplete": true,
-                          "fieldType": "TEXT"
+                          "fieldType": "WORD_GRAM"
                         },
                         "type": [
                           "null",
@@ -3355,7 +3392,10 @@
                                 "type": "string",
                                 "name": "dataset",
                                 "doc": "The upstream dataset the lineage points to",
-                                "Urn": "DatasetUrn"
+                                "Urn": "DatasetUrn",
+                                "entityTypes": [
+                                  "dataset"
+                                ]
                               },
                               {
                                 "type": {
@@ -4143,7 +4183,10 @@
                                   "type": "string",
                                   "name": "foreignDataset",
                                   "doc": "Reference to the foreign dataset for ease of lookup",
-                                  "Urn": "Urn"
+                                  "Urn": "Urn",
+                                  "entityTypes": [
+                                    "dataset"
+                                  ]
                                 }
                               ],
                               "doc": "Description of a foreign key constraint in a schema."
@@ -4361,7 +4404,7 @@
                         "Searchable": {
                           "boostScore": 4.0,
                           "enableAutocomplete": true,
-                          "fieldType": "TEXT_PARTIAL"
+                          "fieldType": "WORD_GRAM"
                         },
                         "type": "string",
                         "name": "name",
@@ -4521,7 +4564,10 @@
                         "Searchable": {
                           "boostScore": 10.0,
                           "enableAutocomplete": false,
-                          "fieldType": "TEXT_PARTIAL"
+                          "fieldNameAliases": [
+                            "_entityName"
+                          ],
+                          "fieldType": "WORD_GRAM"
                         },
                         "validate": {
                           "strlen": {
@@ -4536,7 +4582,7 @@
                         "Searchable": {
                           "boostScore": 10.0,
                           "enableAutocomplete": true,
-                          "fieldType": "TEXT_PARTIAL"
+                          "fieldType": "WORD_GRAM"
                         },
                         "type": [
                           "null",
@@ -4650,7 +4696,10 @@
                         "Searchable": {
                           "boostScore": 10.0,
                           "enableAutocomplete": true,
-                          "fieldType": "TEXT_PARTIAL"
+                          "fieldNameAliases": [
+                            "_entityName"
+                          ],
+                          "fieldType": "WORD_GRAM"
                         },
                         "type": "string",
                         "name": "name",
@@ -5669,7 +5718,10 @@
                         "Searchable": {
                           "boostScore": 8.0,
                           "enableAutocomplete": true,
-                          "fieldType": "TEXT_PARTIAL"
+                          "fieldNameAliases": [
+                            "_entityName"
+                          ],
+                          "fieldType": "WORD_GRAM"
                         },
                         "type": "string",
                         "name": "name",
@@ -5833,7 +5885,10 @@
                         "Searchable": {
                           "boostScore": 8.0,
                           "enableAutocomplete": true,
-                          "fieldType": "TEXT_PARTIAL"
+                          "fieldNameAliases": [
+                            "_entityName"
+                          ],
+                          "fieldType": "WORD_GRAM"
                         },
                         "type": "string",
                         "name": "name",
@@ -5965,13 +6020,19 @@
                         "type": "string",
                         "name": "platform",
                         "doc": "Data platform urn associated with the feature table",
-                        "Urn": "Urn"
+                        "Urn": "Urn",
+                        "entityTypes": [
+                          "dataPlatform"
+                        ]
                       },
                       {
                         "Searchable": {
                           "boostScore": 8.0,
                           "enableAutocomplete": true,
-                          "fieldType": "TEXT_PARTIAL"
+                          "fieldNameAliases": [
+                            "_entityName"
+                          ],
+                          "fieldType": "WORD_GRAM"
                         },
                         "type": "string",
                         "name": "name",
@@ -6132,7 +6193,10 @@
                         "Searchable": {
                           "boostScore": 10.0,
                           "enableAutocomplete": true,
-                          "fieldType": "TEXT_PARTIAL"
+                          "fieldNameAliases": [
+                            "_entityName"
+                          ],
+                          "fieldType": "WORD_GRAM"
                         },
                         "type": "string",
                         "name": "name",
@@ -6313,7 +6377,10 @@
                         "Searchable": {
                           "boostScore": 10.0,
                           "enableAutocomplete": true,
-                          "fieldType": "TEXT_PARTIAL"
+                          "fieldNameAliases": [
+                            "_entityName"
+                          ],
+                          "fieldType": "WORD_GRAM"
                         },
                         "type": "string",
                         "name": "name",
@@ -6436,7 +6503,7 @@
                           "boostScore": 10.0,
                           "enableAutocomplete": true,
                           "fieldName": "id",
-                          "fieldType": "TEXT_PARTIAL"
+                          "fieldType": "WORD_GRAM"
                         },
                         "type": "string",
                         "name": "name",
@@ -6458,7 +6525,10 @@
                         "Searchable": {
                           "boostScore": 10.0,
                           "enableAutocomplete": true,
-                          "fieldType": "TEXT_PARTIAL"
+                          "fieldNameAliases": [
+                            "_entityName"
+                          ],
+                          "fieldType": "WORD_GRAM"
                         },
                         "type": "string",
                         "name": "name",
@@ -6529,7 +6599,7 @@
                         "Searchable": {
                           "enableAutocomplete": true,
                           "fieldName": "id",
-                          "fieldType": "TEXT_PARTIAL"
+                          "fieldType": "WORD_GRAM"
                         },
                         "type": "string",
                         "name": "name",
@@ -6576,7 +6646,10 @@
                         "Searchable": {
                           "boostScore": 10.0,
                           "enableAutocomplete": true,
-                          "fieldType": "TEXT_PARTIAL"
+                          "fieldNameAliases": [
+                            "_entityName"
+                          ],
+                          "fieldType": "WORD_GRAM"
                         },
                         "type": [
                           "null",
@@ -6614,7 +6687,10 @@
                         "name": "parentNode",
                         "default": null,
                         "doc": "Parent node of the glossary term",
-                        "Urn": "GlossaryNodeUrn"
+                        "Urn": "GlossaryNodeUrn",
+                        "entityTypes": [
+                          "glossaryNode"
+                        ]
                       },
                       {
                         "Searchable": {
@@ -6831,7 +6907,7 @@
                       {
                         "Searchable": {
                           "enableAutocomplete": true,
-                          "fieldType": "TEXT_PARTIAL"
+                          "fieldType": "WORD_GRAM"
                         },
                         "type": "string",
                         "name": "name"
@@ -6875,14 +6951,20 @@
                         "name": "parentNode",
                         "default": null,
                         "doc": "Parent node of the glossary term",
-                        "Urn": "GlossaryNodeUrn"
+                        "Urn": "GlossaryNodeUrn",
+                        "entityTypes": [
+                          "glossaryNode"
+                        ]
                       },
                       {
                         "Searchable": {
                           "boostScore": 10.0,
                           "enableAutocomplete": true,
                           "fieldName": "displayName",
-                          "fieldType": "TEXT_PARTIAL"
+                          "fieldNameAliases": [
+                            "_entityName"
+                          ],
+                          "fieldType": "WORD_GRAM"
                         },
                         "type": [
                           "null",
@@ -7434,7 +7516,25 @@
               ],
               "name": "runId",
               "default": "no-run-id-provided",
-              "doc": "The run id that produced the metadata. Populated in case of batch-ingestion."
+              "doc": "The original run id that produced the metadata. Populated in case of batch-ingestion."
+            },
+            {
+              "type": [
+                "string",
+                "null"
+              ],
+              "name": "lastRunId",
+              "default": "no-run-id-provided",
+              "doc": "The last run id that produced the metadata. Populated in case of batch-ingestion."
+            },
+            {
+              "type": [
+                "null",
+                "string"
+              ],
+              "name": "pipelineName",
+              "default": null,
+              "doc": "The ingestion pipeline id that produced the metadata. Populated in case of batch ingestion."
             },
             {
               "type": [

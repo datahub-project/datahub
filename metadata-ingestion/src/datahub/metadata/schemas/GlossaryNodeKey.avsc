@@ -1,0 +1,27 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "glossaryNodeKey",
+    "keyForEntity": "glossaryNode",
+    "entityCategory": "core",
+    "entityAspects": [
+      "glossaryNodeInfo",
+      "institutionalMemory",
+      "ownership",
+      "status"
+    ]
+  },
+  "name": "GlossaryNodeKey",
+  "namespace": "com.linkedin.pegasus2avro.metadata.key",
+  "fields": [
+    {
+      "Searchable": {
+        "enableAutocomplete": true,
+        "fieldType": "WORD_GRAM"
+      },
+      "type": "string",
+      "name": "name"
+    }
+  ],
+  "doc": "Key for a GlossaryNode"
+}

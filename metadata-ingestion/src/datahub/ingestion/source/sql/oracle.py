@@ -88,8 +88,6 @@ class OracleConfig(BasicSQLAlchemyConfig):
     def get_identifier(self, schema: str, table: str) -> str:
         regular = f"{schema}.{table}"
         if self.add_database_name_to_urn:
-            if self.database_alias:
-                return f"{self.database_alias}.{regular}"
             if self.database:
                 return f"{self.database}.{regular}"
             return regular
@@ -159,7 +157,7 @@ class OracleInspectorObjectWrapper:
 
 @platform_name("Oracle")
 @config_class(OracleConfig)
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.INCUBATING)
 @capability(SourceCapability.DOMAINS, "Enabled by default")
 class OracleSource(SQLAlchemySource):
     """

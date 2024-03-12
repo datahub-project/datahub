@@ -1,0 +1,52 @@
+{
+  "type": "record",
+  "name": "PlatformEvent",
+  "namespace": "com.linkedin.pegasus2avro.mxe",
+  "fields": [
+    {
+      "type": {
+        "type": "record",
+        "name": "PlatformEventHeader",
+        "namespace": "com.linkedin.pegasus2avro.mxe",
+        "fields": [
+          {
+            "type": "long",
+            "name": "timestampMillis",
+            "doc": "The event timestamp field as epoch at UTC in milli seconds."
+          }
+        ],
+        "doc": "A header included with each DataHub platform event."
+      },
+      "name": "header",
+      "doc": "Header information stored with the event."
+    },
+    {
+      "type": "string",
+      "name": "name",
+      "doc": "The name of the event, e.g. the type of event. For example, 'notificationRequestEvent', 'entityChangeEvent'"
+    },
+    {
+      "type": {
+        "type": "record",
+        "name": "GenericPayload",
+        "namespace": "com.linkedin.pegasus2avro.mxe",
+        "fields": [
+          {
+            "type": "bytes",
+            "name": "value",
+            "doc": "The value of the event, serialized as bytes."
+          },
+          {
+            "type": "string",
+            "name": "contentType",
+            "doc": "The content type, which represents the fashion in which the event was serialized.\nThe only type currently supported is application/json."
+          }
+        ],
+        "doc": "Generic payload record structure for serializing a Platform Event."
+      },
+      "name": "payload",
+      "doc": "The event payload."
+    }
+  ],
+  "doc": "A DataHub Platform Event."
+}

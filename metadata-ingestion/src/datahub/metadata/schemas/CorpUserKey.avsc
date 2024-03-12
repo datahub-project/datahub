@@ -1,0 +1,38 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "corpUserKey",
+    "keyForEntity": "corpuser",
+    "entityCategory": "_unset_",
+    "entityAspects": [
+      "corpUserInfo",
+      "corpUserEditableInfo",
+      "corpUserStatus",
+      "groupMembership",
+      "globalTags",
+      "status",
+      "corpUserCredentials",
+      "nativeGroupMembership",
+      "corpUserSettings",
+      "origin",
+      "roleMembership"
+    ],
+    "entityDoc": "CorpUser represents an identity of a person (or an account) in the enterprise."
+  },
+  "name": "CorpUserKey",
+  "namespace": "com.linkedin.pegasus2avro.metadata.key",
+  "fields": [
+    {
+      "Searchable": {
+        "boostScore": 2.0,
+        "enableAutocomplete": true,
+        "fieldName": "ldap",
+        "fieldType": "WORD_GRAM"
+      },
+      "type": "string",
+      "name": "username",
+      "doc": "The name of the AD/LDAP user."
+    }
+  ],
+  "doc": "Key for a CorpUser"
+}

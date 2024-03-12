@@ -19,13 +19,14 @@ import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
 import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
 import { ChartStatsSummarySubHeader } from './profile/stats/ChartStatsSummarySubHeader';
 import { InputFieldsTab } from '../shared/tabs/Entity/InputFieldsTab';
-import { ChartSnippet } from './ChartSnippet';
 import { EmbedTab } from '../shared/tabs/Embed/EmbedTab';
 import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
 import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
 import { getDataProduct } from '../shared/utils';
 import EmbeddedProfile from '../shared/embed/EmbeddedProfile';
 import { LOOKER_URN } from '../../ingest/source/builder/constants';
+import { MatchedFieldList } from '../../search/matches/MatchedFieldList';
+import { matchedInputFieldRenderer } from '../../search/matches/matchedInputFieldRenderer';
 
 /**
  * Definition of the DataHub Chart entity.
@@ -153,10 +154,12 @@ export class ChartEntity implements Entity<Chart> {
     getOverridePropertiesFromEntity = (chart?: Chart | null): GenericEntityProperties => {
         // TODO: Get rid of this once we have correctly formed platform coming back.
         const name = chart?.properties?.name;
+        const subTypes = chart?.subTypes;
         const externalUrl = chart?.properties?.externalUrl;
         return {
             name,
             externalUrl,
+            entityTypeOverride: subTypes ? capitalizeFirstLetterOnly(subTypes.typeNames?.[0]) : '',
         };
     };
 
@@ -165,6 +168,7 @@ export class ChartEntity implements Entity<Chart> {
         return (
             <ChartPreview
                 urn={data.urn}
+                subType={data.subTypes?.typeNames?.[0]}
                 platform={data?.platform?.properties?.displayName || capitalizeFirstLetterOnly(data?.platform?.name)}
                 name={data.properties?.name}
                 description={data.editableProperties?.description || data.properties?.description}
@@ -186,6 +190,7 @@ export class ChartEntity implements Entity<Chart> {
         return (
             <ChartPreview
                 urn={data.urn}
+                subType={data.subTypes?.typeNames?.[0]}
                 platform={data?.platform?.properties?.displayName || capitalizeFirstLetterOnly(data?.platform?.name)}
                 platformInstanceId={data.dataPlatformInstance?.instanceId}
                 name={data.properties?.name}
@@ -203,7 +208,13 @@ export class ChartEntity implements Entity<Chart> {
                 lastUpdatedMs={data.properties?.lastModified?.time}
                 createdMs={data.properties?.created?.time}
                 externalUrl={data.properties?.externalUrl}
-                snippet={<ChartSnippet matchedFields={result.matchedFields} inputFields={data.inputFields} />}
+                snippet={
+                    <MatchedFieldList
+                        customFieldRenderer={(matchedField) => matchedInputFieldRenderer(matchedField, data)}
+                    />
+                }
+                degree={(result as any).degree}
+                paths={(result as any).paths}
             />
         );
     };
@@ -215,6 +226,7 @@ export class ChartEntity implements Entity<Chart> {
             type: EntityType.Chart,
             icon: entity?.platform?.properties?.logoUrl || undefined,
             platform: entity?.platform,
+            subtype: entity?.subTypes?.typeNames?.[0] || undefined,
         };
     };
 

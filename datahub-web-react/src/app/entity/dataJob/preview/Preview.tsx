@@ -7,6 +7,7 @@ import {
     DataProduct,
     Deprecation,
     Domain,
+    EntityPath,
     EntityType,
     GlobalTags,
     Owner,
@@ -25,6 +26,7 @@ const StatText = styled(Typography.Text)`
 export const Preview = ({
     urn,
     name,
+    subType,
     description,
     platformName,
     platformLogo,
@@ -38,9 +40,12 @@ export const Preview = ({
     insights,
     lastRunTimeMs,
     externalUrl,
+    degree,
+    paths,
 }: {
     urn: string;
     name: string;
+    subType?: string | null;
     description?: string | null;
     platformName: string;
     platformLogo?: string | null;
@@ -54,6 +59,8 @@ export const Preview = ({
     insights?: Array<SearchInsight> | null;
     lastRunTimeMs?: number | null;
     externalUrl?: string | null;
+    degree?: number;
+    paths?: EntityPath[];
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     return (
@@ -62,7 +69,7 @@ export const Preview = ({
             name={name}
             urn={urn}
             description={description || ''}
-            type="Data Task"
+            type={subType || "Data Task"}
             typeIcon={entityRegistry.getIcon(EntityType.DataJob, 14, IconStyleType.ACCENT)}
             platform={platformName}
             logoUrl={platformLogo || ''}
@@ -85,6 +92,8 @@ export const Preview = ({
                 ]) ||
                 undefined
             }
+            degree={degree}
+            paths={paths}
         />
     );
 };

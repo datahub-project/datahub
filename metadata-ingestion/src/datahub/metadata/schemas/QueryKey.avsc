@@ -1,0 +1,23 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "queryKey",
+    "keyForEntity": "query",
+    "entityCategory": "core",
+    "entityAspects": [
+      "queryProperties",
+      "querySubjects",
+      "status"
+    ]
+  },
+  "name": "QueryKey",
+  "namespace": "com.linkedin.pegasus2avro.metadata.key",
+  "fields": [
+    {
+      "type": "string",
+      "name": "id",
+      "doc": "A unique id for the Query."
+    }
+  ],
+  "doc": "Key for a Query"
+}

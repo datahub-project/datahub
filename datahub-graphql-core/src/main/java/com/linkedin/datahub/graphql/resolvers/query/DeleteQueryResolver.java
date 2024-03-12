@@ -18,7 +18,6 @@ import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-
 @Slf4j
 @RequiredArgsConstructor
 public class DeleteQueryResolver implements DataFetcher<CompletableFuture<Boolean>> {
@@ -26,29 +25,34 @@ public class DeleteQueryResolver implements DataFetcher<CompletableFuture<Boolea
   private final QueryService _queryService;
 
   @Override
-  public CompletableFuture<Boolean> get(final DataFetchingEnvironment environment) throws Exception {
+  public CompletableFuture<Boolean> get(final DataFetchingEnvironment environment)
+      throws Exception {
     final QueryContext context = environment.getContext();
     final Urn queryUrn = UrnUtils.getUrn(environment.getArgument("urn"));
     final Authentication authentication = context.getAuthentication();
 
-    return CompletableFuture.supplyAsync(() -> {
+    return CompletableFuture.supplyAsync(
+        () -> {
+          final QuerySubjects existingSubjects =
+              _queryService.getQuerySubjects(queryUrn, authentication);
+          final List<Urn> subjectUrns =
+              existingSubjects != null
+                  ? existingSubjects.getSubjects().stream()
+                      .map(QuerySubject::getEntity)
+                      .collect(Collectors.toList())
+                  : Collections.emptyList();
 
-      final QuerySubjects existingSubjects = _queryService.getQuerySubjects(queryUrn, authentication);
-      final List<Urn> subjectUrns = existingSubjects != null
-          ? existingSubjects.getSubjects().stream().map(QuerySubject::getEntity).collect(Collectors.toList())
-          : Collections.emptyList();
+          if (!AuthorizationUtils.canDeleteQuery(queryUrn, subjectUrns, context)) {
+            throw new AuthorizationException(
+                "Unauthorized to delete Query. Please contact your DataHub administrator if this needs corrective action.");
+          }
 
-      if (!AuthorizationUtils.canDeleteQuery(queryUrn, subjectUrns, context)) {
-        throw new AuthorizationException(
-            "Unauthorized to delete Query. Please contact your DataHub administrator if this needs corrective action.");
-      }
-
-      try {
-        _queryService.deleteQuery(queryUrn, authentication);
-        return true;
-      } catch (Exception e) {
-        throw new RuntimeException("Failed to delete Query", e);
-      }
-    });
+          try {
+            _queryService.deleteQuery(queryUrn, authentication);
+            return true;
+          } catch (Exception e) {
+            throw new RuntimeException("Failed to delete Query", e);
+          }
+        });
   }
 }

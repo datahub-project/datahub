@@ -1,5 +1,8 @@
 package com.linkedin.metadata.graph.elastic;
 
+import static com.linkedin.metadata.graph.elastic.ESGraphQueryDAO.buildQuery;
+import static com.linkedin.metadata.graph.elastic.ElasticSearchGraphService.INDEX_NAME;
+
 import com.google.common.collect.ImmutableList;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipFilter;
@@ -10,15 +13,11 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.elasticsearch.action.delete.DeleteRequest;
-import org.elasticsearch.action.update.UpdateRequest;
-import org.elasticsearch.common.xcontent.XContentType;
-import org.elasticsearch.index.query.BoolQueryBuilder;
-import org.elasticsearch.index.reindex.BulkByScrollResponse;
-
-import static com.linkedin.metadata.graph.elastic.ESGraphQueryDAO.buildQuery;
-import static com.linkedin.metadata.graph.elastic.ElasticSearchGraphService.INDEX_NAME;
-
+import org.opensearch.action.delete.DeleteRequest;
+import org.opensearch.action.update.UpdateRequest;
+import org.opensearch.common.xcontent.XContentType;
+import org.opensearch.index.query.BoolQueryBuilder;
+import org.opensearch.index.reindex.BulkByScrollResponse;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -36,8 +35,8 @@ public class ESGraphWriteDAO {
    * @param docId the ID of the document
    */
   public void upsertDocument(@Nonnull String docId, @Nonnull String document) {
-    final UpdateRequest updateRequest = new UpdateRequest(
-            indexConvention.getIndexName(INDEX_NAME), docId)
+    final UpdateRequest updateRequest =
+        new UpdateRequest(indexConvention.getIndexName(INDEX_NAME), docId)
             .detectNoop(false)
             .docAsUpsert(true)
             .doc(document, XContentType.JSON)
@@ -56,15 +55,24 @@ public class ESGraphWriteDAO {
     bulkProcessor.add(deleteRequest);
   }
 
-  public BulkByScrollResponse deleteByQuery(@Nullable final String sourceType, @Nonnull final Filter sourceEntityFilter,
-      @Nullable final String destinationType, @Nonnull final Filter destinationEntityFilter,
-      @Nonnull final List<String> relationshipTypes, @Nonnull final RelationshipFilter relationshipFilter) {
+  public BulkByScrollResponse deleteByQuery(
+      @Nullable final String sourceType,
+      @Nonnull final Filter sourceEntityFilter,
+      @Nullable final String destinationType,
+      @Nonnull final Filter destinationEntityFilter,
+      @Nonnull final List<String> relationshipTypes,
+      @Nonnull final RelationshipFilter relationshipFilter) {
     BoolQueryBuilder finalQuery =
-        buildQuery(sourceType == null ? ImmutableList.of() : ImmutableList.of(sourceType), sourceEntityFilter,
-            destinationType == null ? ImmutableList.of() : ImmutableList.of(destinationType), destinationEntityFilter,
-            relationshipTypes, relationshipFilter);
+        buildQuery(
+            sourceType == null ? ImmutableList.of() : ImmutableList.of(sourceType),
+            sourceEntityFilter,
+            destinationType == null ? ImmutableList.of() : ImmutableList.of(destinationType),
+            destinationEntityFilter,
+            relationshipTypes,
+            relationshipFilter);
 
-    return bulkProcessor.deleteByQuery(finalQuery, indexConvention.getIndexName(INDEX_NAME))
-            .orElse(null);
+    return bulkProcessor
+        .deleteByQuery(finalQuery, indexConvention.getIndexName(INDEX_NAME))
+        .orElse(null);
   }
 }

@@ -6,7 +6,7 @@ import json
 import logging
 import pickle
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Callable, Generic, Optional, Type, TypeVar
 
 import pydantic
@@ -144,7 +144,7 @@ class Checkpoint(Generic[StateType]):
                 )
                 logger.info(
                     f"Successfully constructed last checkpoint state for job {job_name} "
-                    f"with timestamp {datetime.utcfromtimestamp(checkpoint_aspect.timestampMillis/1000)}"
+                    f"with timestamp {datetime.fromtimestamp(checkpoint_aspect.timestampMillis/1000, tz=timezone.utc)}"
                 )
                 return checkpoint
         return None
@@ -213,7 +213,7 @@ class Checkpoint(Generic[StateType]):
                 ),
             )
             checkpoint_aspect = DatahubIngestionCheckpointClass(
-                timestampMillis=int(datetime.utcnow().timestamp() * 1000),
+                timestampMillis=int(datetime.now(tz=timezone.utc).timestamp() * 1000),
                 pipelineName=self.pipeline_name,
                 platformInstanceId="",
                 runId=self.run_id,

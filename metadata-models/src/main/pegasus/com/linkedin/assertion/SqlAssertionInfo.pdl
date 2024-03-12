@@ -1,0 +1,67 @@
+namespace com.linkedin.assertion
+
+import com.linkedin.common.Urn
+import com.linkedin.dataset.DatasetFilter
+
+/**
+* Attributes defining a SQL Assertion
+*/
+record SqlAssertionInfo {
+    /**
+     * The type of the SQL assertion being monitored.
+     */
+    @Searchable = {}
+    type: enum SqlAssertionType {
+      /**
+       * A SQL Metric Assertion, e.g. one based on a numeric value returned by an arbitrary SQL query.
+       */
+       METRIC
+       /**
+       * A SQL assertion that is evaluated against the CHANGE in a metric assertion
+       * over time.
+       */
+       METRIC_CHANGE
+    }
+
+    /**
+    * The entity targeted by this SQL check.
+    */
+    @Searchable = {
+      "fieldType": "URN"
+    }
+    @Relationship = {
+      "name": "Asserts",
+      "entityTypes": [ "dataset" ]
+    }
+    entity: Urn
+
+    /**
+    * The SQL statement to be executed when evaluating the assertion (or computing the metric).
+    * This should be a valid and complete statement, executable by itself.
+    *
+    * Usually this should be a SELECT query statement.
+    */
+    statement: string
+
+    /**
+    * The type of the value used to evaluate the assertion: a fixed absolute value or a relative percentage.
+    * This value is required if the type is METRIC_CHANGE.
+    */
+    changeType: optional AssertionValueChangeType
+
+    /**
+    * The operator you'd like to apply to the result of the SQL query.
+    *
+    * Note that at this time, only numeric operators are valid inputs:
+    * GREATER_THAN, GREATER_THAN_OR_EQUAL_TO, EQUAL_TO, LESS_THAN, LESS_THAN_OR_EQUAL_TO,
+    * BETWEEN.
+    */
+    operator: AssertionStdOperator
+
+    /**
+    * The parameters you'd like to provide as input to the operator.
+    *
+    * Note that only numeric parameter types are valid inputs: NUMBER.
+    */
+    parameters: AssertionStdParameters
+}

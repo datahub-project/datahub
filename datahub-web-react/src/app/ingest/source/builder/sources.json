@@ -126,6 +126,13 @@
         "recipe": "source:\n    type: mongodb\n    config:\n        # Coordinates\n        connect_uri: # Your MongoDB connect URI, e.g. \"mongodb://localhost\"\n\n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        username: \"${MONGO_USERNAME}\" # Your MongoDB username, e.g. admin\n        password: \"${MONGO_PASSWORD}\" # Your MongoDB password, e.g. password_01\n\n        # Options (recommended)\n        enableSchemaInference: True\n        useRandomSampling: True\n        maxSchemaSize: 300"
     },
     {
+        "urn": "urn:li:dataPlatform:dynamodb",
+        "name": "dynamodb",
+        "displayName": "DynamoDB",
+        "docsUrl": "https://datahubproject.io/docs/metadata-ingestion/",
+        "recipe": "source:\n    type: dynamodb\n    config:\n        platform_instance: \"AWS_ACCOUNT_ID\"\n        aws_access_key_id : '${AWS_ACCESS_KEY_ID}'\n        aws_secret_access_key : '${AWS_SECRET_ACCESS_KEY}'\n        # If there are items that have most representative fields of the table, users could use the\n        # `include_table_item` option to provide a list of primary keys of the table in dynamodb format.\n        # For each `region.table`, the list of primary keys can be at most 100.\n        # We include these items in addition to the first 100 items in the table when we scan it.\n        # include_table_item:\n        #   region.table_name:\n        #     [\n        #       {\n        #         'partition_key_name': { 'attribute_type': 'attribute_value' },\n        #         'sort_key_name': { 'attribute_type': 'attribute_value' },\n        #       },\n        #     ]"
+    },
+    {
         "urn": "urn:li:dataPlatform:glue",
         "name": "glue",
         "displayName": "Glue",
@@ -175,6 +182,13 @@
         "recipe": "source:\n  type: metabase\n  config:\n    # Coordinates\n    connect_uri:\n\n    # Credentials\n    username: root\n    password: example"
     },
     {
+        "urn": "urn:li:dataPlatform:mlflow",
+        "name": "mlflow",
+        "displayName": "MLflow",
+        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/mlflow/",
+        "recipe": "source:\n  type: mlflow\n  config:\n    tracking_uri: tracking_uri"
+    },
+    {
         "urn": "urn:li:dataPlatform:mode",
         "name": "mode",
         "displayName": "Mode",
@@ -201,6 +215,20 @@
         "displayName": "Vertica",
         "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/vertica/",
         "recipe": "source:\n    type: vertica\n    config:\n        # Coordinates\n        host_port: localhost:5433\n        # The name of the vertica database\n        database: Database_Name\n        # Credentials\n        username: Vertica_User\n        password: Vertica_Password\n\n        include_tables: true\n        include_views: true\n        include_projections: true\n        include_models: true\n        include_view_lineage: true\n        include_projection_lineage: true\n        profiling:\n            enabled: false\n        stateful_ingestion:\n            enabled: true  "
+    },
+    {
+        "urn": "urn:li:dataPlatform:fivetran",
+        "name": "fivetran",
+        "displayName": "Fivetran",
+        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/fivetran/",
+        "recipe": "source:\n    type: fivetran\n    config:\n        # Fivetran log connector destination server configurations\n        fivetran_log_config:\n            destination_platform: snowflake\n            destination_config:\n                # Coordinates\n                account_id: snowflake_account_id\n                warehouse: warehouse_name\n                database: snowflake_db\n                log_schema: fivetran_log_schema\n\n                # Credentials\n                username: ${SNOWFLAKE_USER}\n                password: ${SNOWFLAKE_PASS}\n                role: snowflake_role\n\n        # Optional - filter for certain connector names instead of ingesting everything.\n        # connector_patterns:\n        #     allow:\n        #         - connector_name\n\n        # Optional -- This mapping is optional and only required to configure platform-instance for source\n        # A mapping of Fivetran connector id to data platform instance\n        # sources_to_platform_instance:\n        #     calendar_elected:\n        #         platform_instance: cloud_postgres_instance\n        #         env: DEV\n\n        # Optional -- This mapping is optional and only required to configure platform-instance for destination.\n        # A mapping of Fivetran destination id to data platform instance\n        # destination_to_platform_instance:\n        #     calendar_elected:\n        #         platform_instance: cloud_postgres_instance\n        #         env: DEV"
+    },
+    {
+        "urn": "urn:li:dataPlatform:csv-enricher",
+        "name": "csv-enricher",
+        "displayName": "CSV",
+        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/csv'",
+        "recipe": "source: \n    type: csv-enricher \n    config: \n        # URL of your csv file to ingest \n        filename: \n        array_delimiter: '|' \n        delimiter: ',' \n        write_semantics: PATCH"
     },
     {
         "urn": "urn:li:dataPlatform:custom",

@@ -1,0 +1,186 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "datahubIngestionCheckpoint",
+    "type": "timeseries"
+  },
+  "name": "DatahubIngestionCheckpoint",
+  "namespace": "com.linkedin.pegasus2avro.datajob.datahub",
+  "fields": [
+    {
+      "type": "long",
+      "name": "timestampMillis",
+      "doc": "The event timestamp field as epoch at UTC in milli seconds."
+    },
+    {
+      "type": [
+        "null",
+        {
+          "type": "record",
+          "name": "TimeWindowSize",
+          "namespace": "com.linkedin.pegasus2avro.timeseries",
+          "fields": [
+            {
+              "type": {
+                "type": "enum",
+                "name": "CalendarInterval",
+                "namespace": "com.linkedin.pegasus2avro.timeseries",
+                "symbols": [
+                  "SECOND",
+                  "MINUTE",
+                  "HOUR",
+                  "DAY",
+                  "WEEK",
+                  "MONTH",
+                  "QUARTER",
+                  "YEAR"
+                ]
+              },
+              "name": "unit",
+              "doc": "Interval unit such as minute/hour/day etc."
+            },
+            {
+              "type": "int",
+              "name": "multiple",
+              "default": 1,
+              "doc": "How many units. Defaults to 1."
+            }
+          ],
+          "doc": "Defines the size of a time window."
+        }
+      ],
+      "name": "eventGranularity",
+      "default": null,
+      "doc": "Granularity of the event if applicable"
+    },
+    {
+      "type": [
+        {
+          "type": "record",
+          "name": "PartitionSpec",
+          "namespace": "com.linkedin.pegasus2avro.timeseries",
+          "fields": [
+            {
+              "type": {
+                "type": "enum",
+                "name": "PartitionType",
+                "namespace": "com.linkedin.pegasus2avro.timeseries",
+                "symbols": [
+                  "FULL_TABLE",
+                  "QUERY",
+                  "PARTITION"
+                ]
+              },
+              "name": "type",
+              "default": "PARTITION"
+            },
+            {
+              "TimeseriesField": {},
+              "type": "string",
+              "name": "partition",
+              "doc": "String representation of the partition"
+            },
+            {
+              "type": [
+                "null",
+                {
+                  "type": "record",
+                  "name": "TimeWindow",
+                  "namespace": "com.linkedin.pegasus2avro.timeseries",
+                  "fields": [
+                    {
+                      "type": "long",
+                      "name": "startTimeMillis",
+                      "doc": "Start time as epoch at UTC."
+                    },
+                    {
+                      "type": "com.linkedin.pegasus2avro.timeseries.TimeWindowSize",
+                      "name": "length",
+                      "doc": "The length of the window."
+                    }
+                  ]
+                }
+              ],
+              "name": "timePartition",
+              "default": null,
+              "doc": "Time window of the partition if applicable"
+            }
+          ],
+          "doc": "Defines how the data is partitioned"
+        },
+        "null"
+      ],
+      "name": "partitionSpec",
+      "default": {
+        "partition": "FULL_TABLE_SNAPSHOT",
+        "type": "FULL_TABLE",
+        "timePartition": null
+      },
+      "doc": "The optional partition specification."
+    },
+    {
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "messageId",
+      "default": null,
+      "doc": "The optional messageId, if provided serves as a custom user-defined unique identifier for an aspect value."
+    },
+    {
+      "TimeseriesField": {},
+      "type": "string",
+      "name": "pipelineName",
+      "doc": "The name of the pipeline that ran ingestion, a stable unique user provided identifier.\n e.g. my_snowflake1-to-datahub."
+    },
+    {
+      "TimeseriesField": {},
+      "type": "string",
+      "name": "platformInstanceId",
+      "doc": "The id of the instance against which the ingestion pipeline ran.\ne.g.: Bigquery project ids, MySQL hostnames etc."
+    },
+    {
+      "type": "string",
+      "name": "config",
+      "doc": "Json-encoded string representation of the non-secret members of the config ."
+    },
+    {
+      "type": {
+        "type": "record",
+        "name": "IngestionCheckpointState",
+        "namespace": "com.linkedin.pegasus2avro.datajob.datahub",
+        "fields": [
+          {
+            "type": "string",
+            "name": "formatVersion",
+            "doc": "The version of the state format."
+          },
+          {
+            "type": "string",
+            "name": "serde",
+            "doc": "The serialization/deserialization protocol."
+          },
+          {
+            "type": [
+              "null",
+              "bytes"
+            ],
+            "name": "payload",
+            "default": null,
+            "doc": "Opaque blob of the state representation."
+          }
+        ],
+        "doc": "The checkpoint state object of a datahub ingestion run for a given job."
+      },
+      "name": "state",
+      "doc": "Opaque blob of the state representation."
+    },
+    {
+      "TimeseriesField": {},
+      "type": "string",
+      "name": "runId",
+      "doc": "The run identifier of this job."
+    }
+  ],
+  "doc": "Checkpoint of a datahub ingestion run for a given job."
+}

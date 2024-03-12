@@ -20,7 +20,7 @@ from datahub.ingestion.run.pipeline import Pipeline, PipelineContext
 from datahub.ingestion.source.tableau import TableauConfig, TableauSource
 from datahub.ingestion.source.tableau_common import (
     TableauLineageOverrides,
-    make_table_urn,
+    TableauUpstreamReference,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     DatasetLineageType,
@@ -67,8 +67,8 @@ config_source_default = {
             "config": {"datahub_api": {"server": GMS_SERVER}},
         },
     },
-    "ignore_upstream_lineage_platforms": '',
-    "upstream_postgres_database_whitelist": 'dvdrental',
+    "ignore_upstream_lineage_platforms": "",
+    "upstream_postgres_database_whitelist": "dvdrental",
 }
 
 
@@ -522,8 +522,8 @@ def test_tableau_ingest_with_platform_instance(
                 "config": {"datahub_api": {"server": GMS_SERVER}},
             },
         },
-        "ignore_upstream_lineage_platforms": '',
-        "upstream_postgres_database_whitelist": 'dvdrental',
+        "ignore_upstream_lineage_platforms": "",
+        "upstream_postgres_database_whitelist": "dvdrental",
     }
 
     tableau_ingest_common(
@@ -550,13 +550,13 @@ def test_lineage_overrides():
     enable_logging()
     # Simple - specify platform instance to presto table
     assert (
-        make_table_urn(
-            DEFAULT_ENV,
+        TableauUpstreamReference(
             "presto_catalog",
-            "presto",
             "test-schema",
-            "presto_catalog.test-schema.test-table",
-            platform_instance_map={"presto": "my_presto_instance"},
+            "test-table",
+            "presto",
+        ).make_dataset_urn(
+            env=DEFAULT_ENV, platform_instance_map={"presto": "my_presto_instance"}
         )
         == "urn:li:dataset:(urn:li:dataPlatform:presto,my_presto_instance.presto_catalog.test-schema.test-table,PROD)"
     )
@@ -564,12 +564,13 @@ def test_lineage_overrides():
     # Transform presto urn to hive urn
     # resulting platform instance for hive = mapped platform instance + presto_catalog
     assert (
-        make_table_urn(
-            DEFAULT_ENV,
+        TableauUpstreamReference(
             "presto_catalog",
-            "presto",
             "test-schema",
-            "presto_catalog.test-schema.test-table",
+            "test-table",
+            "presto",
+        ).make_dataset_urn(
+            env=DEFAULT_ENV,
             platform_instance_map={"presto": "my_instance"},
             lineage_overrides=TableauLineageOverrides(
                 platform_override_map={"presto": "hive"},
@@ -578,14 +579,15 @@ def test_lineage_overrides():
         == "urn:li:dataset:(urn:li:dataPlatform:hive,my_instance.presto_catalog.test-schema.test-table,PROD)"
     )
 
-    # tranform hive urn to presto urn
+    # transform hive urn to presto urn
     assert (
-        make_table_urn(
-            DEFAULT_ENV,
-            "",
-            "hive",
+        TableauUpstreamReference(
+            None,
             "test-schema",
-            "test-schema.test-table",
+            "test-table",
+            "hive",
+        ).make_dataset_urn(
+            env=DEFAULT_ENV,
             platform_instance_map={"hive": "my_presto_instance.presto_catalog"},
             lineage_overrides=TableauLineageOverrides(
                 platform_override_map={"hive": "presto"},
@@ -761,7 +763,7 @@ def test_tableau_no_verify():
 
 
 @freeze_time(FROZEN_TIME)
-@pytest.mark.slow_unit
+@pytest.mark.integration_batch_2
 def test_tableau_signout_timeout(pytestconfig, tmp_path, mock_datahub_graph):
     enable_logging()
     output_file_name: str = "tableau_signout_timeout_mces.json"
@@ -795,11 +797,9 @@ def test_tableau_unsupported_csql(mock_datahub_graph):
         database_override_map={"production database": "prod"}
     )
 
-    with mock.patch(
-        "datahub.ingestion.source.tableau.sqlglot_lineage"
-    ) as sqlglot_lineage:
+    with mock.patch("datahub.ingestion.source.tableau.sqlglot_l") as sqlglot_lineage:
 
-        sqlglot_lineage.return_value = SqlParsingResult(  # type:ignore
+        sqlglot_lineage.create_lineage_sql_parsed_result.return_value = SqlParsingResult(  # type:ignore
             in_tables=[
                 "urn:li:dataset:(urn:li:dataPlatform:bigquery,my_bigquery_project.invent_dw.userdetail,PROD)"
             ],

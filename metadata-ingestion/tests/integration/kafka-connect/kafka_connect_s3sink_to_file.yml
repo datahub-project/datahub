@@ -1,0 +1,21 @@
+---
+run_id: kafka-connect-run
+
+# see https://datahubproject.io/docs/generated/ingestion/sources/kafka-connect for complete documentation
+source:
+  type: "kafka-connect"
+  config:
+    connect_uri: "http://localhost:28083"
+    connector_patterns:
+      allow:
+        - confluent_s3_sink_connector
+    provided_configs:
+      - provider: env
+        path_key: S3_ENDPOINT_URL
+        value: http://s3mock:9090
+
+# see https://datahubproject.io/docs/metadata-ingestion/sink_docs/datahub for complete documentation
+sink:
+  type: file
+  config:
+    filename: "./kafka_connect_mces.json"

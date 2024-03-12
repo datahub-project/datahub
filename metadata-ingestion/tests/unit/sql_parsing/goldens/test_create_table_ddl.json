@@ -1,0 +1,61 @@
+{
+    "query_type": "CREATE",
+    "in_tables": [],
+    "out_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:sqlite,costs,PROD)"
+    ],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:sqlite,costs,PROD)",
+                "column": "id",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                },
+                "native_column_type": "INTEGER"
+            },
+            "upstreams": []
+        },
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:sqlite,costs,PROD)",
+                "column": "month",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                },
+                "native_column_type": "TEXT"
+            },
+            "upstreams": []
+        },
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:sqlite,costs,PROD)",
+                "column": "total_cost",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                },
+                "native_column_type": "REAL"
+            },
+            "upstreams": []
+        },
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:sqlite,costs,PROD)",
+                "column": "area",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                },
+                "native_column_type": "REAL"
+            },
+            "upstreams": []
+        }
+    ]
+}

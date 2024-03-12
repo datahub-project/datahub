@@ -1,0 +1,129 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "datasetUpstreamLineage"
+  },
+  "deprecated": "use UpstreamLineage.fineGrainedLineages instead",
+  "name": "DatasetUpstreamLineage",
+  "namespace": "com.linkedin.pegasus2avro.dataset",
+  "fields": [
+    {
+      "type": {
+        "type": "array",
+        "items": {
+          "type": "record",
+          "deprecated": "use FineGrainedLineage instead",
+          "name": "DatasetFieldMapping",
+          "namespace": "com.linkedin.pegasus2avro.dataset",
+          "fields": [
+            {
+              "type": {
+                "type": "record",
+                "name": "AuditStamp",
+                "namespace": "com.linkedin.pegasus2avro.common",
+                "fields": [
+                  {
+                    "type": "long",
+                    "name": "time",
+                    "doc": "When did the resource/association/sub-resource move into the specific lifecycle stage represented by this AuditEvent."
+                  },
+                  {
+                    "java": {
+                      "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+                    },
+                    "type": "string",
+                    "name": "actor",
+                    "doc": "The entity (e.g. a member URN) which will be credited for moving the resource/association/sub-resource into the specific lifecycle stage. It is also the one used to authorize the change.",
+                    "Urn": "Urn"
+                  },
+                  {
+                    "java": {
+                      "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+                    },
+                    "type": [
+                      "null",
+                      "string"
+                    ],
+                    "name": "impersonator",
+                    "default": null,
+                    "doc": "The entity (e.g. a service URN) which performs the change on behalf of the Actor and must be authorized to act as the Actor.",
+                    "Urn": "Urn"
+                  },
+                  {
+                    "type": [
+                      "null",
+                      "string"
+                    ],
+                    "name": "message",
+                    "default": null,
+                    "doc": "Additional context around how DataHub was informed of the particular change. For example: was the change created by an automated process, or manually."
+                  }
+                ],
+                "doc": "Data captured on a resource/association/sub-resource level giving insight into when that resource/association/sub-resource moved into a particular lifecycle stage, and who acted to move it into that specific lifecycle stage."
+              },
+              "name": "created",
+              "doc": "Audit stamp containing who reported the field mapping and when"
+            },
+            {
+              "type": [
+                {
+                  "type": "enum",
+                  "symbolDocs": {
+                    "BLACKBOX": "Field transformation expressed as unknown black box function.",
+                    "IDENTITY": "Field transformation expressed as Identity function."
+                  },
+                  "name": "TransformationType",
+                  "namespace": "com.linkedin.pegasus2avro.common.fieldtransformer",
+                  "symbols": [
+                    "BLACKBOX",
+                    "IDENTITY"
+                  ],
+                  "doc": "Type of the transformation involved in generating destination fields from source fields."
+                },
+                {
+                  "type": "record",
+                  "name": "UDFTransformer",
+                  "namespace": "com.linkedin.pegasus2avro.common.fieldtransformer",
+                  "fields": [
+                    {
+                      "type": "string",
+                      "name": "udf",
+                      "doc": "A UDF mentioning how the source fields got transformed to destination field. This is the FQCN(Fully Qualified Class Name) of the udf."
+                    }
+                  ],
+                  "doc": "Field transformation expressed in UDF"
+                }
+              ],
+              "name": "transformation",
+              "doc": "Transfomration function between the fields involved"
+            },
+            {
+              "type": {
+                "type": "array",
+                "items": [
+                  "string"
+                ]
+              },
+              "name": "sourceFields",
+              "doc": "Source fields from which the fine grained lineage is derived"
+            },
+            {
+              "deprecated": "use SchemaFieldPath and represent as generic Urn instead",
+              "java": {
+                "class": "com.linkedin.pegasus2avro.common.urn.DatasetFieldUrn"
+              },
+              "type": "string",
+              "name": "destinationField",
+              "doc": "Destination field which is derived from source fields",
+              "Urn": "DatasetFieldUrn"
+            }
+          ],
+          "doc": "Representation of mapping between fields in source dataset to the field in destination dataset"
+        }
+      },
+      "name": "fieldMappings",
+      "doc": "Upstream to downstream field level lineage mappings"
+    }
+  ],
+  "doc": "Fine Grained upstream lineage for fields in a dataset"
+}

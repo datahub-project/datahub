@@ -154,6 +154,8 @@ export class ContainerEntity implements Entity<Container> {
                 externalUrl={data.properties?.externalUrl}
                 tags={data.tags}
                 glossaryTerms={data.glossaryTerms}
+                degree={(result as any).degree}
+                paths={(result as any).paths}
             />
         );
     };
@@ -165,6 +167,7 @@ export class ContainerEntity implements Entity<Container> {
     getOverridePropertiesFromEntity = (data: Container) => {
         return {
             name: this.displayName(data),
+            externalUrl: data.properties?.externalUrl,
             entityCount: data.entities?.total,
         };
     };

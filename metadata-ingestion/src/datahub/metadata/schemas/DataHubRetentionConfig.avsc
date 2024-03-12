@@ -1,0 +1,59 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "dataHubRetentionConfig"
+  },
+  "name": "DataHubRetentionConfig",
+  "namespace": "com.linkedin.pegasus2avro.retention",
+  "fields": [
+    {
+      "type": {
+        "type": "record",
+        "name": "Retention",
+        "namespace": "com.linkedin.pegasus2avro.retention",
+        "fields": [
+          {
+            "type": [
+              "null",
+              {
+                "type": "record",
+                "name": "VersionBasedRetention",
+                "namespace": "com.linkedin.pegasus2avro.retention",
+                "fields": [
+                  {
+                    "type": "int",
+                    "name": "maxVersions"
+                  }
+                ],
+                "doc": "Keep max N latest records"
+              }
+            ],
+            "name": "version",
+            "default": null
+          },
+          {
+            "type": [
+              "null",
+              {
+                "type": "record",
+                "name": "TimeBasedRetention",
+                "namespace": "com.linkedin.pegasus2avro.retention",
+                "fields": [
+                  {
+                    "type": "int",
+                    "name": "maxAgeInSeconds"
+                  }
+                ],
+                "doc": "Keep records that are less than X seconds old"
+              }
+            ],
+            "name": "time",
+            "default": null
+          }
+        ],
+        "doc": "Base class that encapsulates different retention policies.\nOnly one of the fields should be set"
+      },
+      "name": "retention"
+    }
+  ]
+}

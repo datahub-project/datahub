@@ -285,6 +285,7 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
                     users.
                 </Typography.Paragraph>
                 <Select
+                    data-testid="users"
                     value={usersSelectValue}
                     mode="multiple"
                     filterOption={false}
@@ -306,6 +307,7 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
                     all groups.
                 </Typography.Paragraph>
                 <Select
+                    data-testid="groups"
                     value={groupsSelectValue}
                     mode="multiple"
                     placeholder="Search for groups..."

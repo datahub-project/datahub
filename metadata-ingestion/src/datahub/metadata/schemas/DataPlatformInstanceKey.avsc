@@ -1,0 +1,35 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "dataPlatformInstanceKey",
+    "keyForEntity": "dataPlatformInstance",
+    "entityCategory": "internal",
+    "entityAspects": [
+      "dataPlatformInstanceProperties",
+      "ownership",
+      "globalTags",
+      "institutionalMemory",
+      "deprecation",
+      "status"
+    ]
+  },
+  "name": "DataPlatformInstanceKey",
+  "namespace": "com.linkedin.pegasus2avro.metadata.key",
+  "fields": [
+    {
+      "java": {
+        "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+      },
+      "type": "string",
+      "name": "platform",
+      "doc": "Data platform urn associated with the instance",
+      "Urn": "Urn"
+    },
+    {
+      "type": "string",
+      "name": "instance",
+      "doc": "Unique instance id"
+    }
+  ],
+  "doc": "Key for a Dataset"
+}

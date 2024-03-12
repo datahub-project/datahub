@@ -29,6 +29,13 @@ For detailed steps, please refer to [Datahub Quickstart Guide](/docs/quickstart.
 > Please check out [API feature comparison table](/docs/api/datahub-apis.md#datahub-api-comparison) for more information.
 
 </TabItem>
+<TabItem value="java" label="Java">
+
+```java
+{{ inline /metadata-integration/java/examples/src/main/java/io/datahubproject/examples/DatasetAdd.java show_path_as_comment }}
+```
+
+</TabItem>
 <TabItem value="python" label="Python" default>
 
 ```python
@@ -42,7 +49,11 @@ For detailed steps, please refer to [Datahub Quickstart Guide](/docs/quickstart.
 
 You can now see `realestate_db.sales` dataset has been created.
 
-![dataset-created](../../imgs/apis/tutorials/dataset-created.png)
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/dataset-created.png"/>
+</p>
+
 
 ## Delete Dataset
 
@@ -110,4 +121,8 @@ Expected Response:
 
 The dataset `fct_users_deleted` has now been deleted, so if you search for a hive dataset named `fct_users_delete`, you will no longer be able to see it.
 
-![dataset-deleted](../../imgs/apis/tutorials/dataset-deleted.png)
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/dataset-deleted.png"/>
+</p>
+

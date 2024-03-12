@@ -1,0 +1,55 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "access"
+  },
+  "name": "Access",
+  "namespace": "com.linkedin.pegasus2avro.common",
+  "fields": [
+    {
+      "type": [
+        "null",
+        {
+          "type": "array",
+          "items": {
+            "type": "record",
+            "name": "RoleAssociation",
+            "namespace": "com.linkedin.pegasus2avro.common",
+            "fields": [
+              {
+                "Relationship": {
+                  "entityTypes": [
+                    "role"
+                  ],
+                  "name": "AssociatedWith"
+                },
+                "Searchable": {
+                  "addToFilters": true,
+                  "fieldName": "roles",
+                  "fieldType": "URN",
+                  "filterNameOverride": "Role",
+                  "hasValuesFieldName": "hasRoles"
+                },
+                "java": {
+                  "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+                },
+                "type": "string",
+                "name": "urn",
+                "doc": "Urn of the External Role",
+                "Urn": "Urn",
+                "entityTypes": [
+                  "role"
+                ]
+              }
+            ],
+            "doc": "Properties of an applied Role. For now, just an Urn"
+          }
+        }
+      ],
+      "name": "roles",
+      "default": null,
+      "doc": "List of Roles which needs to be associated"
+    }
+  ],
+  "doc": "Aspect used for associating roles to a dataset or any asset"
+}

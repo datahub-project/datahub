@@ -1,0 +1,64 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "dataJobKey",
+    "keyForEntity": "dataJob",
+    "entityCategory": "_unset_",
+    "entityAspects": [
+      "datahubIngestionRunSummary",
+      "datahubIngestionCheckpoint",
+      "domains",
+      "deprecation",
+      "versionInfo",
+      "dataJobInfo",
+      "dataJobInputOutput",
+      "editableDataJobProperties",
+      "ownership",
+      "status",
+      "globalTags",
+      "browsePaths",
+      "glossaryTerms",
+      "institutionalMemory",
+      "dataPlatformInstance",
+      "browsePathsV2",
+      "subTypes"
+    ]
+  },
+  "name": "DataJobKey",
+  "namespace": "com.linkedin.pegasus2avro.metadata.key",
+  "fields": [
+    {
+      "Relationship": {
+        "entityTypes": [
+          "dataFlow"
+        ],
+        "name": "IsPartOf"
+      },
+      "Searchable": {
+        "fieldName": "dataFlow",
+        "fieldType": "URN_PARTIAL",
+        "queryByDefault": false
+      },
+      "java": {
+        "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+      },
+      "type": "string",
+      "name": "flow",
+      "doc": "Standardized data processing flow urn representing the flow for the job",
+      "Urn": "Urn",
+      "entityTypes": [
+        "dataFlow"
+      ]
+    },
+    {
+      "Searchable": {
+        "enableAutocomplete": true,
+        "fieldType": "WORD_GRAM"
+      },
+      "type": "string",
+      "name": "jobId",
+      "doc": "Unique Identifier of the data job"
+    }
+  ],
+  "doc": "Key for a Data Job"
+}

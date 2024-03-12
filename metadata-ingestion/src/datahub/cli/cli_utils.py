@@ -47,7 +47,7 @@ config_override: Dict = {}
 
 class GmsConfig(BaseModel):
     server: str
-    token: Optional[str]
+    token: Optional[str] = None
 
 
 class DatahubConfig(BaseModel):

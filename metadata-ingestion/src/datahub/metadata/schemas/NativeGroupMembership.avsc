@@ -1,0 +1,28 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "nativeGroupMembership"
+  },
+  "name": "NativeGroupMembership",
+  "namespace": "com.linkedin.pegasus2avro.identity",
+  "fields": [
+    {
+      "Relationship": {
+        "/*": {
+          "entityTypes": [
+            "corpGroup"
+          ],
+          "name": "IsMemberOfNativeGroup"
+        }
+      },
+      "type": {
+        "type": "array",
+        "items": "string"
+      },
+      "name": "nativeGroups",
+      "Urn": "Urn",
+      "urn_is_array": true
+    }
+  ],
+  "doc": "Carries information about the native CorpGroups a user is in."
+}

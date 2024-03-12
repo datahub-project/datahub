@@ -144,6 +144,8 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
                 platformName={data.platform?.properties?.displayName || capitalizeFirstLetterOnly(data.platform?.name)}
                 platformInstanceId={data.dataPlatformInstance?.instanceId}
                 dataProduct={getDataProduct(genericProperties?.dataProduct)}
+                degree={(result as any).degree}
+                paths={(result as any).paths}
             />
         );
     };

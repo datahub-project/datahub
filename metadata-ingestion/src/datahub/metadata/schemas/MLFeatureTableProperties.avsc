@@ -1,0 +1,94 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "mlFeatureTableProperties"
+  },
+  "name": "MLFeatureTableProperties",
+  "namespace": "com.linkedin.pegasus2avro.ml.metadata",
+  "fields": [
+    {
+      "Searchable": {
+        "/*": {
+          "queryByDefault": true
+        }
+      },
+      "type": {
+        "type": "map",
+        "values": "string"
+      },
+      "name": "customProperties",
+      "default": {},
+      "doc": "Custom property bag."
+    },
+    {
+      "Searchable": {
+        "fieldType": "TEXT",
+        "hasValuesFieldName": "hasDescription"
+      },
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "description",
+      "default": null,
+      "doc": "Documentation of the MLFeatureTable"
+    },
+    {
+      "Relationship": {
+        "/*": {
+          "entityTypes": [
+            "mlFeature"
+          ],
+          "name": "Contains"
+        }
+      },
+      "Searchable": {
+        "/*": {
+          "fieldName": "features",
+          "fieldType": "URN"
+        }
+      },
+      "type": [
+        "null",
+        {
+          "type": "array",
+          "items": "string"
+        }
+      ],
+      "name": "mlFeatures",
+      "default": null,
+      "doc": "List of features contained in the feature table",
+      "Urn": "Urn",
+      "urn_is_array": true
+    },
+    {
+      "Relationship": {
+        "/*": {
+          "entityTypes": [
+            "mlPrimaryKey"
+          ],
+          "name": "KeyedBy"
+        }
+      },
+      "Searchable": {
+        "/*": {
+          "fieldName": "primaryKeys",
+          "fieldType": "URN"
+        }
+      },
+      "type": [
+        "null",
+        {
+          "type": "array",
+          "items": "string"
+        }
+      ],
+      "name": "mlPrimaryKeys",
+      "default": null,
+      "doc": "List of primary keys in the feature table (if multiple, assumed to act as a composite key)",
+      "Urn": "Urn",
+      "urn_is_array": true
+    }
+  ],
+  "doc": "Properties associated with a MLFeatureTable"
+}

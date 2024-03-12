@@ -1,5 +1,8 @@
 package com.datahub.authentication.token;
 
+import static com.datahub.authentication.token.TokenClaims.*;
+import static org.testng.Assert.*;
+
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.authenticator.DataHubTokenAuthenticatorTest;
@@ -16,10 +19,6 @@ import java.util.Map;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
-import static com.datahub.authentication.token.TokenClaims.*;
-import static org.testng.Assert.*;
-
-
 public class StatefulTokenServiceTest {
 
   private static final String TEST_SIGNING_KEY = "WnEdIeTG/VVCLQqGwC/BAkqyY0k+H8NEAtWGejrBI94=";
@@ -31,7 +30,8 @@ public class StatefulTokenServiceTest {
   public void testConstructor() {
     assertThrows(() -> new StatefulTokenService(null, null, null, null, null));
     assertThrows(() -> new StatefulTokenService(TEST_SIGNING_KEY, null, null, null, null));
-    assertThrows(() -> new StatefulTokenService(TEST_SIGNING_KEY, "UNSUPPORTED_ALG", null, null, null));
+    assertThrows(
+        () -> new StatefulTokenService(TEST_SIGNING_KEY, "UNSUPPORTED_ALG", null, null, null));
 
     // Succeeds:
     new StatefulTokenService(TEST_SIGNING_KEY, "HS256", null, mockService, TEST_SALTING_KEY);
@@ -39,11 +39,12 @@ public class StatefulTokenServiceTest {
 
   @Test
   public void testGenerateAccessTokenPersonalToken() throws Exception {
-    StatefulTokenService tokenService = new StatefulTokenService(TEST_SIGNING_KEY, "HS256", null, mockService, TEST_SALTING_KEY);
+    StatefulTokenService tokenService =
+        new StatefulTokenService(TEST_SIGNING_KEY, "HS256", null, mockService, TEST_SALTING_KEY);
     Actor datahub = new Actor(ActorType.USER, "datahub");
-    String token = tokenService.generateAccessToken(TokenType.PERSONAL, datahub, "some token",
-            "A token description",
-            datahub.toUrnStr());
+    String token =
+        tokenService.generateAccessToken(
+            TokenType.PERSONAL, datahub, "some token", "A token description", datahub.toUrnStr());
     assertNotNull(token);
 
     // Verify token claims
@@ -64,10 +65,15 @@ public class StatefulTokenServiceTest {
 
   @Test
   public void testGenerateAccessTokenPersonalTokenEternal() throws Exception {
-    StatefulTokenService tokenService = new StatefulTokenService(TEST_SIGNING_KEY, "HS256", null, mockService, TEST_SALTING_KEY);
+    StatefulTokenService tokenService =
+        new StatefulTokenService(TEST_SIGNING_KEY, "HS256", null, mockService, TEST_SALTING_KEY);
     Actor datahub = new Actor(ActorType.USER, "datahub");
-    String token = tokenService.generateAccessToken(TokenType.PERSONAL, datahub,
-            null, System.currentTimeMillis(),
+    String token =
+        tokenService.generateAccessToken(
+            TokenType.PERSONAL,
+            datahub,
+            null,
+            System.currentTimeMillis(),
             "some token",
             "A token description",
             datahub.toUrnStr());
@@ -91,11 +97,12 @@ public class StatefulTokenServiceTest {
 
   @Test
   public void testGenerateAccessTokenSessionToken() throws Exception {
-    StatefulTokenService tokenService = new StatefulTokenService(TEST_SIGNING_KEY, "HS256", null, mockService, TEST_SALTING_KEY);
+    StatefulTokenService tokenService =
+        new StatefulTokenService(TEST_SIGNING_KEY, "HS256", null, mockService, TEST_SALTING_KEY);
     Actor datahub = new Actor(ActorType.USER, "datahub");
-    String token = tokenService.generateAccessToken(TokenType.SESSION, datahub, "some token",
-            "A token description",
-            datahub.toUrnStr());
+    String token =
+        tokenService.generateAccessToken(
+            TokenType.SESSION, datahub, "some token", "A token description", datahub.toUrnStr());
 
     assertNotNull(token);
 
@@ -117,14 +124,21 @@ public class StatefulTokenServiceTest {
 
   @Test
   public void testValidateAccessTokenFailsDueToExpiration() {
-    StatefulTokenService
-        tokenService = new StatefulTokenService(TEST_SIGNING_KEY, "HS256", null, mockService, TEST_SALTING_KEY);
+    StatefulTokenService tokenService =
+        new StatefulTokenService(TEST_SIGNING_KEY, "HS256", null, mockService, TEST_SALTING_KEY);
     // Generate token that expires immediately.
     Date date = new Date();
-    //This method returns the time in millis
+    // This method returns the time in millis
     long createdAtInMs = date.getTime();
-    String token = tokenService.generateAccessToken(TokenType.PERSONAL, new Actor(ActorType.USER, "datahub"), 0L,
-        createdAtInMs, "token", "", "urn:li:corpuser:datahub");
+    String token =
+        tokenService.generateAccessToken(
+            TokenType.PERSONAL,
+            new Actor(ActorType.USER, "datahub"),
+            0L,
+            createdAtInMs,
+            "token",
+            "",
+            "urn:li:corpuser:datahub");
     assertNotNull(token);
 
     // Validation should fail.
@@ -133,12 +147,13 @@ public class StatefulTokenServiceTest {
 
   @Test
   public void testValidateAccessTokenFailsDueToManipulation() {
-    StatefulTokenService tokenService = new StatefulTokenService(TEST_SIGNING_KEY, "HS256", null, mockService, TEST_SALTING_KEY);
+    StatefulTokenService tokenService =
+        new StatefulTokenService(TEST_SIGNING_KEY, "HS256", null, mockService, TEST_SALTING_KEY);
 
     Actor datahub = new Actor(ActorType.USER, "datahub");
-    String token = tokenService.generateAccessToken(TokenType.PERSONAL, datahub, "some token",
-            "A token description",
-            datahub.toUrnStr());
+    String token =
+        tokenService.generateAccessToken(
+            TokenType.PERSONAL, datahub, "some token", "A token description", datahub.toUrnStr());
     assertNotNull(token);
 
     // Change single character
@@ -151,22 +166,30 @@ public class StatefulTokenServiceTest {
   @Test
   public void generateRevokeToken() throws TokenException {
 
-    PathSpecBasedSchemaAnnotationVisitor.class.getClassLoader()
-            .setClassAssertionStatus(PathSpecBasedSchemaAnnotationVisitor.class.getName(), false);
-    final ConfigEntityRegistry configEntityRegistry = new ConfigEntityRegistry(
-            DataHubTokenAuthenticatorTest.class.getClassLoader().getResourceAsStream("test-entity-registry.yaml"));
-    final AspectSpec keyAspectSpec = configEntityRegistry.getEntitySpec(Constants.ACCESS_TOKEN_ENTITY_NAME).getKeyAspectSpec();
+    PathSpecBasedSchemaAnnotationVisitor.class
+        .getClassLoader()
+        .setClassAssertionStatus(PathSpecBasedSchemaAnnotationVisitor.class.getName(), false);
+    final ConfigEntityRegistry configEntityRegistry =
+        new ConfigEntityRegistry(
+            DataHubTokenAuthenticatorTest.class
+                .getClassLoader()
+                .getResourceAsStream("test-entity-registry.yaml"));
+    final AspectSpec keyAspectSpec =
+        configEntityRegistry.getEntitySpec(Constants.ACCESS_TOKEN_ENTITY_NAME).getKeyAspectSpec();
 
-    Mockito.when(mockService.getKeyAspectSpec(Mockito.eq(Constants.ACCESS_TOKEN_ENTITY_NAME))).thenReturn(keyAspectSpec);
+    Mockito.when(mockService.getEntityRegistry()).thenReturn(configEntityRegistry);
+    Mockito.when(mockService.getKeyAspectSpec(Mockito.eq(Constants.ACCESS_TOKEN_ENTITY_NAME)))
+        .thenReturn(keyAspectSpec);
     Mockito.when(mockService.exists(Mockito.any(Urn.class))).thenReturn(true);
     final RollbackRunResult result = new RollbackRunResult(ImmutableList.of(), 0);
     Mockito.when(mockService.deleteUrn(Mockito.any(Urn.class))).thenReturn(result);
 
-    StatefulTokenService tokenService = new StatefulTokenService(TEST_SIGNING_KEY, "HS256", null, mockService, TEST_SALTING_KEY);
+    StatefulTokenService tokenService =
+        new StatefulTokenService(TEST_SIGNING_KEY, "HS256", null, mockService, TEST_SALTING_KEY);
     Actor datahub = new Actor(ActorType.USER, "datahub");
-    String token = tokenService.generateAccessToken(TokenType.PERSONAL, datahub, "some token",
-            "A token description",
-            datahub.toUrnStr());
+    String token =
+        tokenService.generateAccessToken(
+            TokenType.PERSONAL, datahub, "some token", "A token description", datahub.toUrnStr());
 
     // Revoke token
     tokenService.revokeAccessToken(tokenService.hash(token));
@@ -174,4 +197,6 @@ public class StatefulTokenServiceTest {
     // Validation should fail.
     assertThrows(TokenException.class, () -> tokenService.validateAccessToken(token));
   }
+
+  private void mockStateful() {}
 }

@@ -1,0 +1,43 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "mlHyperParam"
+  },
+  "name": "MLHyperParam",
+  "namespace": "com.linkedin.pegasus2avro.ml.metadata",
+  "fields": [
+    {
+      "type": "string",
+      "name": "name",
+      "doc": "Name of the MLHyperParam"
+    },
+    {
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "description",
+      "default": null,
+      "doc": "Documentation of the MLHyperParam"
+    },
+    {
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "value",
+      "default": null,
+      "doc": "The value of the MLHyperParam"
+    },
+    {
+      "type": [
+        "null",
+        "long"
+      ],
+      "name": "createdAt",
+      "default": null,
+      "doc": "Date when the MLHyperParam was developed"
+    }
+  ],
+  "doc": "Properties associated with an ML Hyper Param"
+}

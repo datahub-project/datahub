@@ -1,0 +1,215 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "dataProcessInstanceRunEvent",
+    "type": "timeseries"
+  },
+  "name": "DataProcessInstanceRunEvent",
+  "namespace": "com.linkedin.pegasus2avro.dataprocess",
+  "fields": [
+    {
+      "type": "long",
+      "name": "timestampMillis",
+      "doc": "The event timestamp field as epoch at UTC in milli seconds."
+    },
+    {
+      "type": [
+        "null",
+        {
+          "type": "record",
+          "name": "TimeWindowSize",
+          "namespace": "com.linkedin.pegasus2avro.timeseries",
+          "fields": [
+            {
+              "type": {
+                "type": "enum",
+                "name": "CalendarInterval",
+                "namespace": "com.linkedin.pegasus2avro.timeseries",
+                "symbols": [
+                  "SECOND",
+                  "MINUTE",
+                  "HOUR",
+                  "DAY",
+                  "WEEK",
+                  "MONTH",
+                  "QUARTER",
+                  "YEAR"
+                ]
+              },
+              "name": "unit",
+              "doc": "Interval unit such as minute/hour/day etc."
+            },
+            {
+              "type": "int",
+              "name": "multiple",
+              "default": 1,
+              "doc": "How many units. Defaults to 1."
+            }
+          ],
+          "doc": "Defines the size of a time window."
+        }
+      ],
+      "name": "eventGranularity",
+      "default": null,
+      "doc": "Granularity of the event if applicable"
+    },
+    {
+      "type": [
+        {
+          "type": "record",
+          "name": "PartitionSpec",
+          "namespace": "com.linkedin.pegasus2avro.timeseries",
+          "fields": [
+            {
+              "type": {
+                "type": "enum",
+                "name": "PartitionType",
+                "namespace": "com.linkedin.pegasus2avro.timeseries",
+                "symbols": [
+                  "FULL_TABLE",
+                  "QUERY",
+                  "PARTITION"
+                ]
+              },
+              "name": "type",
+              "default": "PARTITION"
+            },
+            {
+              "TimeseriesField": {},
+              "type": "string",
+              "name": "partition",
+              "doc": "String representation of the partition"
+            },
+            {
+              "type": [
+                "null",
+                {
+                  "type": "record",
+                  "name": "TimeWindow",
+                  "namespace": "com.linkedin.pegasus2avro.timeseries",
+                  "fields": [
+                    {
+                      "type": "long",
+                      "name": "startTimeMillis",
+                      "doc": "Start time as epoch at UTC."
+                    },
+                    {
+                      "type": "com.linkedin.pegasus2avro.timeseries.TimeWindowSize",
+                      "name": "length",
+                      "doc": "The length of the window."
+                    }
+                  ]
+                }
+              ],
+              "name": "timePartition",
+              "default": null,
+              "doc": "Time window of the partition if applicable"
+            }
+          ],
+          "doc": "Defines how the data is partitioned"
+        },
+        "null"
+      ],
+      "name": "partitionSpec",
+      "default": {
+        "partition": "FULL_TABLE_SNAPSHOT",
+        "type": "FULL_TABLE",
+        "timePartition": null
+      },
+      "doc": "The optional partition specification."
+    },
+    {
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "messageId",
+      "default": null,
+      "doc": "The optional messageId, if provided serves as a custom user-defined unique identifier for an aspect value."
+    },
+    {
+      "Searchable": {
+        "fieldType": "KEYWORD"
+      },
+      "java": {
+        "class": "com.linkedin.pegasus2avro.common.url.Url",
+        "coercerClass": "com.linkedin.pegasus2avro.common.url.UrlCoercer"
+      },
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "externalUrl",
+      "default": null,
+      "doc": "URL where the reference exist"
+    },
+    {
+      "TimeseriesField": {},
+      "type": {
+        "type": "enum",
+        "symbolDocs": {
+          "STARTED": "The status where the Data processing run is in."
+        },
+        "name": "DataProcessRunStatus",
+        "namespace": "com.linkedin.pegasus2avro.dataprocess",
+        "symbols": [
+          "STARTED",
+          "COMPLETE"
+        ]
+      },
+      "name": "status"
+    },
+    {
+      "type": [
+        "null",
+        "int"
+      ],
+      "name": "attempt",
+      "default": null,
+      "doc": "Return the try number that this Instance Run is in"
+    },
+    {
+      "TimeseriesField": {},
+      "type": [
+        "null",
+        {
+          "type": "record",
+          "name": "DataProcessInstanceRunResult",
+          "namespace": "com.linkedin.pegasus2avro.dataprocess",
+          "fields": [
+            {
+              "type": {
+                "type": "enum",
+                "symbolDocs": {
+                  "FAILURE": " The Run Failed",
+                  "SKIPPED": " The Run Skipped",
+                  "SUCCESS": " The Run Succeeded",
+                  "UP_FOR_RETRY": " The Run Failed and will Retry"
+                },
+                "name": "RunResultType",
+                "namespace": "com.linkedin.pegasus2avro.dataprocess",
+                "symbols": [
+                  "SUCCESS",
+                  "FAILURE",
+                  "SKIPPED",
+                  "UP_FOR_RETRY"
+                ]
+              },
+              "name": "type",
+              "doc": " The final result, e.g. SUCCESS, FAILURE, SKIPPED, or UP_FOR_RETRY."
+            },
+            {
+              "type": "string",
+              "name": "nativeResultType",
+              "doc": "It identifies the system where the native result comes from like Airflow, Azkaban, etc.."
+            }
+          ]
+        }
+      ],
+      "name": "result",
+      "default": null,
+      "doc": "The final result of the Data Processing run."
+    }
+  ],
+  "doc": "An event representing the current status of data process run.\nDataProcessRunEvent should be used for reporting the status of a dataProcess' run."
+}

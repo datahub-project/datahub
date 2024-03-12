@@ -1,26 +1,16 @@
 import React, { MouseEventHandler, ReactNode } from 'react';
 import styled from 'styled-components';
 import { VscTriangleRight } from 'react-icons/vsc';
-import { Button, Typography } from 'antd';
+import { Typography } from 'antd';
 import { UpCircleOutlined } from '@ant-design/icons';
 import { ANTD_GRAY } from '../../entity/shared/constants';
+import { BaseButton, BodyContainer, BodyGridExpander, RotatingButton } from '../../shared/components';
 
 const Layout = styled.div`
     margin-left: 8px;
 `;
 
 const HeaderContainer = styled.div``;
-
-const BodyGridExpander = styled.div<{ isOpen: boolean }>`
-    display: grid;
-    grid-template-rows: ${(props) => (props.isOpen ? '1fr' : '0fr')};
-    transition: grid-template-rows 250ms;
-    overflow: hidden;
-`;
-
-const BodyContainer = styled.div`
-    min-height: 0;
-`;
 
 type ExpandableNodeProps = {
     isOpen: boolean;
@@ -66,22 +56,6 @@ ExpandableNode.SelectableHeader = styled(ExpandableNode.Header)<{ isSelected: bo
 ExpandableNode.HeaderLeft = styled.div`
     display: flex;
     align-items: center;
-`;
-
-const BaseButton = styled(Button)`
-    &&& {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border: none;
-        box-shadow: none;
-        border-radius: 50%;
-    }
-`;
-
-const RotatingButton = styled(BaseButton)<{ deg: number }>`
-    transform: rotate(${(props) => props.deg}deg);
-    transition: transform 250ms;
 `;
 
 ExpandableNode.StaticButton = ({ icon, onClick }: { icon: JSX.Element; onClick?: () => void }) => {

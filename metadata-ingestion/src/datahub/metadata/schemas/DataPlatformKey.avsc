@@ -1,0 +1,21 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "dataPlatformKey",
+    "keyForEntity": "dataPlatform",
+    "entityCategory": "core",
+    "entityAspects": [
+      "dataPlatformInfo"
+    ]
+  },
+  "name": "DataPlatformKey",
+  "namespace": "com.linkedin.pegasus2avro.metadata.key",
+  "fields": [
+    {
+      "type": "string",
+      "name": "platformName",
+      "doc": "Data platform name i.e. hdfs, oracle, espresso"
+    }
+  ],
+  "doc": "Key for a Data Platform"
+}

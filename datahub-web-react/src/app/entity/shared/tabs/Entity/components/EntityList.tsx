@@ -8,7 +8,6 @@ import { EntityType } from '../../../../../../types.generated';
 const StyledList = styled(List)`
     padding-left: 40px;
     padding-right: 40px;
-    margin-top: -1px;
     .ant-list-items > .ant-list-item {
         padding-right: 0px;
         padding-left: 0px;

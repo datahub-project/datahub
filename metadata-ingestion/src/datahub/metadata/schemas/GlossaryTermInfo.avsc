@@ -1,0 +1,130 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "glossaryTermInfo"
+  },
+  "name": "GlossaryTermInfo",
+  "namespace": "com.linkedin.pegasus2avro.glossary",
+  "fields": [
+    {
+      "Searchable": {
+        "/*": {
+          "queryByDefault": true
+        }
+      },
+      "type": {
+        "type": "map",
+        "values": "string"
+      },
+      "name": "customProperties",
+      "default": {},
+      "doc": "Custom property bag."
+    },
+    {
+      "Searchable": {
+        "fieldType": "TEXT_PARTIAL"
+      },
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "id",
+      "default": null,
+      "doc": "Optional id for the term"
+    },
+    {
+      "Searchable": {
+        "boostScore": 10.0,
+        "enableAutocomplete": true,
+        "fieldNameAliases": [
+          "_entityName"
+        ],
+        "fieldType": "WORD_GRAM"
+      },
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "name",
+      "default": null,
+      "doc": "Display name of the term"
+    },
+    {
+      "Searchable": {},
+      "type": "string",
+      "name": "definition",
+      "doc": "Definition of business term."
+    },
+    {
+      "Relationship": {
+        "entityTypes": [
+          "glossaryNode"
+        ],
+        "name": "IsPartOf"
+      },
+      "Searchable": {
+        "fieldName": "parentNode",
+        "fieldType": "URN",
+        "hasValuesFieldName": "hasParentNode"
+      },
+      "java": {
+        "class": "com.linkedin.pegasus2avro.common.urn.GlossaryNodeUrn"
+      },
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "parentNode",
+      "default": null,
+      "doc": "Parent node of the glossary term",
+      "Urn": "GlossaryNodeUrn",
+      "entityTypes": [
+        "glossaryNode"
+      ]
+    },
+    {
+      "Searchable": {
+        "fieldType": "KEYWORD"
+      },
+      "type": "string",
+      "name": "termSource",
+      "doc": "Source of the Business Term (INTERNAL or EXTERNAL) with default value as INTERNAL"
+    },
+    {
+      "Searchable": {
+        "fieldType": "KEYWORD"
+      },
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "sourceRef",
+      "default": null,
+      "doc": "External Reference to the business-term"
+    },
+    {
+      "java": {
+        "class": "com.linkedin.pegasus2avro.common.url.Url",
+        "coercerClass": "com.linkedin.pegasus2avro.common.url.UrlCoercer"
+      },
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "sourceUrl",
+      "default": null,
+      "doc": "The abstracted URL such as https://spec.edmcouncil.org/fibo/ontology/FBC/FinancialInstruments/FinancialInstruments/CashInstrument."
+    },
+    {
+      "deprecated": true,
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "rawSchema",
+      "default": null,
+      "doc": "Schema definition of the glossary term"
+    }
+  ],
+  "doc": "Properties associated with a GlossaryTerm"
+}

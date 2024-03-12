@@ -133,15 +133,12 @@ TrinoDialect._get_columns = _get_columns
 
 class TrinoConfig(BasicSQLAlchemyConfig):
     # defaults
-    scheme = Field(default="trino", description="", hidden_from_docs=True)
+    scheme: str = Field(default="trino", description="", hidden_from_docs=True)
 
     def get_identifier(self: BasicSQLAlchemyConfig, schema: str, table: str) -> str:
-        regular = f"{schema}.{table}"
-        identifier = regular
-        if self.database_alias:
-            identifier = f"{self.database_alias}.{regular}"
-        elif self.database:
-            identifier = f"{self.database}.{regular}"
+        identifier = f"{schema}.{table}"
+        if self.database:  # TODO: this should be required field
+            identifier = f"{self.database}.{identifier}"
         return (
             f"{self.platform_instance}.{identifier}"
             if self.platform_instance
@@ -173,8 +170,6 @@ class TrinoSource(SQLAlchemySource):
         super().__init__(config, ctx, platform)
 
     def get_db_name(self, inspector: Inspector) -> str:
-        if self.config.database_alias:
-            return f"{self.config.database_alias}"
         if self.config.database:
             return f"{self.config.database}"
         else:

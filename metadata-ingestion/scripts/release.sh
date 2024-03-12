@@ -11,7 +11,7 @@ fi
 python -c 'import setuptools; where="./src"; assert setuptools.find_packages(where) == setuptools.find_namespace_packages(where), "you seem to be missing or have extra __init__.py files"'
 if [[ ${RELEASE_VERSION:-} ]]; then
     # Replace version with RELEASE_VERSION env variable
-    sed -i.bak "s/__version__ = \"0.0.0.dev0\"/__version__ = \"$RELEASE_VERSION\"/" src/datahub/__init__.py
+    sed -i.bak "s/__version__ = \"1!0.0.0.dev0\"/__version__ = \"$RELEASE_VERSION\"/" src/datahub/__init__.py
 else
     vim src/datahub/__init__.py
 fi

@@ -19,6 +19,7 @@ from datahub.ingestion.source.sql.sql_common import (
     make_sqlalchemy_type,
     register_custom_type,
 )
+from datahub.ingestion.source.sql.sql_config import SQLAlchemyConnectionConfig
 from datahub.ingestion.source.sql.two_tier_sql_source import (
     TwoTierSQLAlchemyConfig,
     TwoTierSQLAlchemySource,
@@ -45,17 +46,15 @@ base.ischema_names["polygon"] = POLYGON
 base.ischema_names["decimal128"] = DECIMAL128
 
 
-class MySQLConfig(TwoTierSQLAlchemyConfig):
+class MySQLConnectionConfig(SQLAlchemyConnectionConfig):
     # defaults
-    host_port = Field(default="localhost:3306", description="MySQL host URL.")
-    scheme = "mysql+pymysql"
+    host_port: str = Field(default="localhost:3306", description="MySQL host URL.")
+    scheme: str = "mysql+pymysql"
 
+
+class MySQLConfig(MySQLConnectionConfig, TwoTierSQLAlchemyConfig):
     def get_identifier(self, *, schema: str, table: str) -> str:
-        regular = f"{schema}.{table}"
-        if self.database_alias:
-            return f"{self.database_alias}.{table}"
-        else:
-            return regular
+        return f"{schema}.{table}"
 
 
 @platform_name("MySQL")
@@ -86,7 +85,7 @@ class MySQLSource(TwoTierSQLAlchemySource):
         return cls(config, ctx)
 
     def add_profile_metadata(self, inspector: Inspector) -> None:
-        if not self.config.profiling.enabled:
+        if not self.config.is_profiling_enabled():
             return
         with inspector.engine.connect() as conn:
             for row in conn.execute(

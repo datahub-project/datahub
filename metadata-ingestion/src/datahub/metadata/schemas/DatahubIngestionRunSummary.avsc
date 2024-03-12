@@ -1,0 +1,363 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "datahubIngestionRunSummary",
+    "type": "timeseries"
+  },
+  "name": "DatahubIngestionRunSummary",
+  "namespace": "com.linkedin.pegasus2avro.datajob.datahub",
+  "fields": [
+    {
+      "type": "long",
+      "name": "timestampMillis",
+      "doc": "The event timestamp field as epoch at UTC in milli seconds."
+    },
+    {
+      "type": [
+        "null",
+        {
+          "type": "record",
+          "name": "TimeWindowSize",
+          "namespace": "com.linkedin.pegasus2avro.timeseries",
+          "fields": [
+            {
+              "type": {
+                "type": "enum",
+                "name": "CalendarInterval",
+                "namespace": "com.linkedin.pegasus2avro.timeseries",
+                "symbols": [
+                  "SECOND",
+                  "MINUTE",
+                  "HOUR",
+                  "DAY",
+                  "WEEK",
+                  "MONTH",
+                  "QUARTER",
+                  "YEAR"
+                ]
+              },
+              "name": "unit",
+              "doc": "Interval unit such as minute/hour/day etc."
+            },
+            {
+              "type": "int",
+              "name": "multiple",
+              "default": 1,
+              "doc": "How many units. Defaults to 1."
+            }
+          ],
+          "doc": "Defines the size of a time window."
+        }
+      ],
+      "name": "eventGranularity",
+      "default": null,
+      "doc": "Granularity of the event if applicable"
+    },
+    {
+      "type": [
+        {
+          "type": "record",
+          "name": "PartitionSpec",
+          "namespace": "com.linkedin.pegasus2avro.timeseries",
+          "fields": [
+            {
+              "type": {
+                "type": "enum",
+                "name": "PartitionType",
+                "namespace": "com.linkedin.pegasus2avro.timeseries",
+                "symbols": [
+                  "FULL_TABLE",
+                  "QUERY",
+                  "PARTITION"
+                ]
+              },
+              "name": "type",
+              "default": "PARTITION"
+            },
+            {
+              "TimeseriesField": {},
+              "type": "string",
+              "name": "partition",
+              "doc": "String representation of the partition"
+            },
+            {
+              "type": [
+                "null",
+                {
+                  "type": "record",
+                  "name": "TimeWindow",
+                  "namespace": "com.linkedin.pegasus2avro.timeseries",
+                  "fields": [
+                    {
+                      "type": "long",
+                      "name": "startTimeMillis",
+                      "doc": "Start time as epoch at UTC."
+                    },
+                    {
+                      "type": "com.linkedin.pegasus2avro.timeseries.TimeWindowSize",
+                      "name": "length",
+                      "doc": "The length of the window."
+                    }
+                  ]
+                }
+              ],
+              "name": "timePartition",
+              "default": null,
+              "doc": "Time window of the partition if applicable"
+            }
+          ],
+          "doc": "Defines how the data is partitioned"
+        },
+        "null"
+      ],
+      "name": "partitionSpec",
+      "default": {
+        "partition": "FULL_TABLE_SNAPSHOT",
+        "type": "FULL_TABLE",
+        "timePartition": null
+      },
+      "doc": "The optional partition specification."
+    },
+    {
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "messageId",
+      "default": null,
+      "doc": "The optional messageId, if provided serves as a custom user-defined unique identifier for an aspect value."
+    },
+    {
+      "TimeseriesField": {},
+      "type": "string",
+      "name": "pipelineName",
+      "doc": "The name of the pipeline that ran ingestion, a stable unique user provided identifier.\n e.g. my_snowflake1-to-datahub."
+    },
+    {
+      "TimeseriesField": {},
+      "type": "string",
+      "name": "platformInstanceId",
+      "doc": "The id of the instance against which the ingestion pipeline ran.\ne.g.: Bigquery project ids, MySQL hostnames etc."
+    },
+    {
+      "TimeseriesField": {},
+      "type": "string",
+      "name": "runId",
+      "doc": "The runId for this pipeline instance."
+    },
+    {
+      "TimeseriesField": {},
+      "type": {
+        "type": "enum",
+        "symbolDocs": {
+          "COMPLETED": "Jobs with successful completion.",
+          "FAILED": "Jobs that have failed.",
+          "IN_PROGRESS": "Jobs currently running.",
+          "SKIPPED": "Jobs that have been skipped.",
+          "STARTING": "Jobs being initialized.",
+          "STOPPED": "Jobs that have stopped.",
+          "STOPPING": "Jobs being stopped.",
+          "UNKNOWN": "Jobs with unknown status (either unmappable or unavailable)"
+        },
+        "name": "JobStatus",
+        "namespace": "com.linkedin.pegasus2avro.datajob",
+        "symbols": [
+          "STARTING",
+          "IN_PROGRESS",
+          "STOPPING",
+          "STOPPED",
+          "COMPLETED",
+          "FAILED",
+          "UNKNOWN",
+          "SKIPPED"
+        ],
+        "doc": "Job statuses"
+      },
+      "name": "runStatus",
+      "doc": "Run Status - Succeeded/Skipped/Failed etc."
+    },
+    {
+      "type": [
+        "null",
+        "long"
+      ],
+      "name": "numWorkUnitsCommitted",
+      "default": null,
+      "doc": "The number of workunits written to sink."
+    },
+    {
+      "type": [
+        "null",
+        "long"
+      ],
+      "name": "numWorkUnitsCreated",
+      "default": null,
+      "doc": "The number of workunits that are produced."
+    },
+    {
+      "type": [
+        "null",
+        "long"
+      ],
+      "name": "numEvents",
+      "default": null,
+      "doc": "The number of events produced (MCE + MCP)."
+    },
+    {
+      "type": [
+        "null",
+        "long"
+      ],
+      "name": "numEntities",
+      "default": null,
+      "doc": "The total number of entities produced (unique entity urns)."
+    },
+    {
+      "type": [
+        "null",
+        "long"
+      ],
+      "name": "numAspects",
+      "default": null,
+      "doc": "The total number of aspects produced across all entities."
+    },
+    {
+      "type": [
+        "null",
+        "long"
+      ],
+      "name": "numSourceAPICalls",
+      "default": null,
+      "doc": "Total number of source API calls."
+    },
+    {
+      "type": [
+        "null",
+        "long"
+      ],
+      "name": "totalLatencySourceAPICalls",
+      "default": null,
+      "doc": "Total latency across all source API calls."
+    },
+    {
+      "type": [
+        "null",
+        "long"
+      ],
+      "name": "numSinkAPICalls",
+      "default": null,
+      "doc": "Total number of sink API calls."
+    },
+    {
+      "type": [
+        "null",
+        "long"
+      ],
+      "name": "totalLatencySinkAPICalls",
+      "default": null,
+      "doc": "Total latency across all sink API calls."
+    },
+    {
+      "type": [
+        "null",
+        "long"
+      ],
+      "name": "numWarnings",
+      "default": null,
+      "doc": "Number of warnings generated."
+    },
+    {
+      "type": [
+        "null",
+        "long"
+      ],
+      "name": "numErrors",
+      "default": null,
+      "doc": "Number of errors generated."
+    },
+    {
+      "type": [
+        "null",
+        "long"
+      ],
+      "name": "numEntitiesSkipped",
+      "default": null,
+      "doc": "Number of entities skipped."
+    },
+    {
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "config",
+      "default": null,
+      "doc": "The non-sensitive key-value pairs of the yaml config used as json string."
+    },
+    {
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "custom_summary",
+      "default": null,
+      "doc": "Custom value."
+    },
+    {
+      "TimeseriesField": {},
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "softwareVersion",
+      "default": null,
+      "doc": "The software version of this ingestion."
+    },
+    {
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "systemHostName",
+      "default": null,
+      "doc": "The hostname the ingestion pipeline ran on."
+    },
+    {
+      "TimeseriesField": {},
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "operatingSystemName",
+      "default": null,
+      "doc": "The os the ingestion pipeline ran on."
+    },
+    {
+      "type": [
+        "null",
+        "int"
+      ],
+      "name": "numProcessors",
+      "default": null,
+      "doc": "The number of processors on the host the ingestion pipeline ran on."
+    },
+    {
+      "type": [
+        "null",
+        "long"
+      ],
+      "name": "totalMemory",
+      "default": null,
+      "doc": "The total amount of memory on the host the ingestion pipeline ran on."
+    },
+    {
+      "type": [
+        "null",
+        "long"
+      ],
+      "name": "availableMemory",
+      "default": null,
+      "doc": "The available memory on the host the ingestion pipeline ran on."
+    }
+  ],
+  "doc": "Summary of a datahub ingestion run for a given platform."
+}

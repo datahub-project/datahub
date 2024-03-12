@@ -261,6 +261,7 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin):
         for table in cur:
             if table["TABLE_SCHEMA"] not in tables:
                 tables[table["TABLE_SCHEMA"]] = []
+
             tables[table["TABLE_SCHEMA"]].append(
                 SnowflakeTable(
                     name=table["TABLE_NAME"],

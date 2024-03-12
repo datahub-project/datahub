@@ -1,0 +1,38 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "origin"
+  },
+  "name": "Origin",
+  "namespace": "com.linkedin.pegasus2avro.common",
+  "fields": [
+    {
+      "type": {
+        "type": "enum",
+        "symbolDocs": {
+          "EXTERNAL": "The entity is external to DataHub.",
+          "NATIVE": "The entity is native to DataHub."
+        },
+        "name": "OriginType",
+        "namespace": "com.linkedin.pegasus2avro.common",
+        "symbols": [
+          "NATIVE",
+          "EXTERNAL"
+        ],
+        "doc": "Enum to define where an entity originated from."
+      },
+      "name": "type",
+      "doc": "Where an entity originated from. Either NATIVE or EXTERNAL."
+    },
+    {
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "externalType",
+      "default": null,
+      "doc": "Only populated if type is EXTERNAL. The externalType of the entity, such as the name of the identity provider."
+    }
+  ],
+  "doc": "Carries information about where an entity originated from."
+}

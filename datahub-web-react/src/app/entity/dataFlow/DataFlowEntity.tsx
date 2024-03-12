@@ -158,6 +158,8 @@ export class DataFlowEntity implements Entity<DataFlow> {
                 externalUrl={data.properties?.externalUrl}
                 jobCount={(data as any).childJobs?.total}
                 deprecation={data.deprecation}
+                degree={(result as any).degree}
+                paths={(result as any).paths}
             />
         );
     };

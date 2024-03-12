@@ -1,0 +1,22 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "testKey",
+    "keyForEntity": "test",
+    "entityCategory": "core",
+    "entityAspects": [
+      "testInfo"
+    ],
+    "entityDoc": "A DataHub test"
+  },
+  "name": "TestKey",
+  "namespace": "com.linkedin.pegasus2avro.metadata.key",
+  "fields": [
+    {
+      "type": "string",
+      "name": "id",
+      "doc": "Unique id for the test"
+    }
+  ],
+  "doc": "Key for a Test"
+}

@@ -11,7 +11,11 @@ As part of the `v0.8.24+` releases, we are unlocking the first phase of supporti
 - The `dataPlatformInstance` aspect that has been added to Datasets which allows datasets to be associated to an instance of a platform
 - Enhancements to all ingestion sources that allow them to attach a platform instance to the recipe that changes the generated urns to go from `urn:li:dataset:(urn:li:dataPlatform:<platform>,<name>,ENV)` format to `urn:li:dataset:(urn:li:dataPlatform:<platform>,<instance.name>,ENV)` format. Sources that produce lineage to datasets in other platforms (e.g. Looker, Superset etc) also have specific configuration additions that allow the recipe author to specify the mapping between a platform and the instance name that it should be mapped to. 
 
-![./imgs/platform-instances-for-ingestion.png](./imgs/platform-instances-for-ingestion.png)
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/platform-instances-for-ingestion.png"/>
+</p>
+
 
 ## Naming Platform Instances
 

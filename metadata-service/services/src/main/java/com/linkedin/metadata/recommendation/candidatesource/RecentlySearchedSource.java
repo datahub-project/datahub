@@ -20,19 +20,18 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.elasticsearch.action.search.SearchRequest;
-import org.elasticsearch.action.search.SearchResponse;
-import org.elasticsearch.client.RequestOptions;
-import org.elasticsearch.client.RestHighLevelClient;
-import org.elasticsearch.client.indices.GetIndexRequest;
-import org.elasticsearch.index.query.BoolQueryBuilder;
-import org.elasticsearch.index.query.QueryBuilders;
-import org.elasticsearch.search.aggregations.AggregationBuilder;
-import org.elasticsearch.search.aggregations.AggregationBuilders;
-import org.elasticsearch.search.aggregations.BucketOrder;
-import org.elasticsearch.search.aggregations.bucket.terms.ParsedTerms;
-import org.elasticsearch.search.builder.SearchSourceBuilder;
-
+import org.opensearch.action.search.SearchRequest;
+import org.opensearch.action.search.SearchResponse;
+import org.opensearch.client.RequestOptions;
+import org.opensearch.client.RestHighLevelClient;
+import org.opensearch.client.indices.GetIndexRequest;
+import org.opensearch.index.query.BoolQueryBuilder;
+import org.opensearch.index.query.QueryBuilders;
+import org.opensearch.search.aggregations.AggregationBuilder;
+import org.opensearch.search.aggregations.AggregationBuilders;
+import org.opensearch.search.aggregations.BucketOrder;
+import org.opensearch.search.aggregations.bucket.terms.ParsedTerms;
+import org.opensearch.search.builder.SearchSourceBuilder;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -60,11 +59,16 @@ public class RecentlySearchedSource implements RecommendationSource {
   }
 
   @Override
-  public boolean isEligible(@Nonnull Urn userUrn, @Nonnull RecommendationRequestContext requestContext) {
+  public boolean isEligible(
+      @Nonnull Urn userUrn, @Nonnull RecommendationRequestContext requestContext) {
     boolean analyticsEnabled = false;
     try {
-      analyticsEnabled = _searchClient.indices()
-          .exists(new GetIndexRequest(_indexConvention.getIndexName(DATAHUB_USAGE_INDEX)), RequestOptions.DEFAULT);
+      analyticsEnabled =
+          _searchClient
+              .indices()
+              .exists(
+                  new GetIndexRequest(_indexConvention.getIndexName(DATAHUB_USAGE_INDEX)),
+                  RequestOptions.DEFAULT);
     } catch (IOException e) {
       log.error("Failed to check whether DataHub usage index exists");
     }
@@ -72,15 +76,15 @@ public class RecentlySearchedSource implements RecommendationSource {
   }
 
   @Override
-  public List<RecommendationContent> getRecommendations(@Nonnull Urn userUrn,
-      @Nonnull RecommendationRequestContext requestContext) {
+  public List<RecommendationContent> getRecommendations(
+      @Nonnull Urn userUrn, @Nonnull RecommendationRequestContext requestContext) {
     SearchRequest searchRequest = buildSearchRequest(userUrn);
     try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "getRecentlySearched").time()) {
-      final SearchResponse searchResponse = _searchClient.search(searchRequest, RequestOptions.DEFAULT);
+      final SearchResponse searchResponse =
+          _searchClient.search(searchRequest, RequestOptions.DEFAULT);
       // extract results
       ParsedTerms parsedTerms = searchResponse.getAggregations().get(ENTITY_AGG_NAME);
-      return parsedTerms.getBuckets()
-          .stream()
+      return parsedTerms.getBuckets().stream()
           .map(bucket -> buildContent(bucket.getKeyAsString()))
           .filter(Optional::isPresent)
           .map(Optional::get)
@@ -97,20 +101,26 @@ public class RecentlySearchedSource implements RecommendationSource {
     SearchSourceBuilder source = new SearchSourceBuilder();
     BoolQueryBuilder query = QueryBuilders.boolQuery();
     // Filter for the entity view events of the user requesting recommendation
-    query.must(QueryBuilders.termQuery(DataHubUsageEventConstants.ACTOR_URN + ".keyword", userUrn.toString()));
-    query.must(QueryBuilders.termQuery(DataHubUsageEventConstants.TYPE,
-        DataHubUsageEventType.SEARCH_RESULTS_VIEW_EVENT.getType()));
+    query.must(
+        QueryBuilders.termQuery(
+            DataHubUsageEventConstants.ACTOR_URN + ".keyword", userUrn.toString()));
+    query.must(
+        QueryBuilders.termQuery(
+            DataHubUsageEventConstants.TYPE,
+            DataHubUsageEventType.SEARCH_RESULTS_VIEW_EVENT.getType()));
     query.must(QueryBuilders.rangeQuery("total").gt(0));
     query.must(QueryBuilders.existsQuery(DataHubUsageEventConstants.QUERY));
     source.query(query);
 
     // Find the entity with the largest last viewed timestamp
     String lastSearched = "last_searched";
-    AggregationBuilder aggregation = AggregationBuilders.terms(ENTITY_AGG_NAME)
-        .field(DataHubUsageEventConstants.QUERY + ".keyword")
-        .size(MAX_CONTENT * 2) // Fetch more than max to account for post-filtering
-        .order(BucketOrder.aggregation(lastSearched, false))
-        .subAggregation(AggregationBuilders.max(lastSearched).field(DataHubUsageEventConstants.TIMESTAMP));
+    AggregationBuilder aggregation =
+        AggregationBuilders.terms(ENTITY_AGG_NAME)
+            .field(DataHubUsageEventConstants.QUERY + ".keyword")
+            .size(MAX_CONTENT * 2) // Fetch more than max to account for post-filtering
+            .order(BucketOrder.aggregation(lastSearched, false))
+            .subAggregation(
+                AggregationBuilders.max(lastSearched).field(DataHubUsageEventConstants.TIMESTAMP));
     source.aggregation(aggregation);
     source.size(0);
 
@@ -127,7 +137,10 @@ public class RecentlySearchedSource implements RecommendationSource {
     if (isQueryInvalid(query)) {
       return Optional.empty();
     }
-    return Optional.of(new RecommendationContent().setValue(query)
-        .setParams(new RecommendationParams().setSearchParams(new SearchParams().setQuery(query))));
+    return Optional.of(
+        new RecommendationContent()
+            .setValue(query)
+            .setParams(
+                new RecommendationParams().setSearchParams(new SearchParams().setQuery(query))));
   }
 }

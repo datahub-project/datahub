@@ -1,0 +1,252 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "notebookContent"
+  },
+  "name": "NotebookContent",
+  "namespace": "com.linkedin.pegasus2avro.notebook",
+  "fields": [
+    {
+      "type": {
+        "type": "array",
+        "items": {
+          "type": "record",
+          "name": "NotebookCell",
+          "namespace": "com.linkedin.pegasus2avro.notebook",
+          "fields": [
+            {
+              "type": [
+                "null",
+                {
+                  "type": "record",
+                  "name": "TextCell",
+                  "namespace": "com.linkedin.pegasus2avro.notebook",
+                  "fields": [
+                    {
+                      "type": [
+                        "null",
+                        "string"
+                      ],
+                      "name": "cellTitle",
+                      "default": null,
+                      "doc": "Title of the cell"
+                    },
+                    {
+                      "type": "string",
+                      "name": "cellId",
+                      "doc": "Unique id for the cell. This id should be globally unique for a Notebook tool even when there are multiple deployments of it. As an example, Notebook URL could be used here for QueryBook such as 'querybook.com/notebook/773/?cellId=1234'"
+                    },
+                    {
+                      "type": {
+                        "type": "record",
+                        "name": "ChangeAuditStamps",
+                        "namespace": "com.linkedin.pegasus2avro.common",
+                        "fields": [
+                          {
+                            "type": {
+                              "type": "record",
+                              "name": "AuditStamp",
+                              "namespace": "com.linkedin.pegasus2avro.common",
+                              "fields": [
+                                {
+                                  "type": "long",
+                                  "name": "time",
+                                  "doc": "When did the resource/association/sub-resource move into the specific lifecycle stage represented by this AuditEvent."
+                                },
+                                {
+                                  "java": {
+                                    "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+                                  },
+                                  "type": "string",
+                                  "name": "actor",
+                                  "doc": "The entity (e.g. a member URN) which will be credited for moving the resource/association/sub-resource into the specific lifecycle stage. It is also the one used to authorize the change.",
+                                  "Urn": "Urn"
+                                },
+                                {
+                                  "java": {
+                                    "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+                                  },
+                                  "type": [
+                                    "null",
+                                    "string"
+                                  ],
+                                  "name": "impersonator",
+                                  "default": null,
+                                  "doc": "The entity (e.g. a service URN) which performs the change on behalf of the Actor and must be authorized to act as the Actor.",
+                                  "Urn": "Urn"
+                                },
+                                {
+                                  "type": [
+                                    "null",
+                                    "string"
+                                  ],
+                                  "name": "message",
+                                  "default": null,
+                                  "doc": "Additional context around how DataHub was informed of the particular change. For example: was the change created by an automated process, or manually."
+                                }
+                              ],
+                              "doc": "Data captured on a resource/association/sub-resource level giving insight into when that resource/association/sub-resource moved into a particular lifecycle stage, and who acted to move it into that specific lifecycle stage."
+                            },
+                            "name": "created",
+                            "default": {
+                              "actor": "urn:li:corpuser:unknown",
+                              "impersonator": null,
+                              "time": 0,
+                              "message": null
+                            },
+                            "doc": "An AuditStamp corresponding to the creation of this resource/association/sub-resource. A value of 0 for time indicates missing data."
+                          },
+                          {
+                            "type": "com.linkedin.pegasus2avro.common.AuditStamp",
+                            "name": "lastModified",
+                            "default": {
+                              "actor": "urn:li:corpuser:unknown",
+                              "impersonator": null,
+                              "time": 0,
+                              "message": null
+                            },
+                            "doc": "An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created. A value of 0 for time indicates missing data."
+                          },
+                          {
+                            "type": [
+                              "null",
+                              "com.linkedin.pegasus2avro.common.AuditStamp"
+                            ],
+                            "name": "deleted",
+                            "default": null,
+                            "doc": "An AuditStamp corresponding to the deletion of this resource/association/sub-resource. Logically, deleted MUST have a later timestamp than creation. It may or may not have the same time as lastModified depending upon the resource/association/sub-resource semantics."
+                          }
+                        ],
+                        "doc": "Data captured on a resource/association/sub-resource level giving insight into when that resource/association/sub-resource moved into various lifecycle stages, and who acted to move it into those lifecycle stages. The recommended best practice is to include this record in your record schema, and annotate its fields as @readOnly in your resource. See https://github.com/linkedin/rest.li/wiki/Validation-in-Rest.li#restli-validation-annotations"
+                      },
+                      "name": "changeAuditStamps",
+                      "doc": "Captures information about who created/last modified/deleted this Notebook cell and when"
+                    },
+                    {
+                      "type": "string",
+                      "name": "text",
+                      "doc": "The actual text in a TextCell in a Notebook"
+                    }
+                  ],
+                  "doc": "Text cell in a Notebook, which will present content in text format"
+                }
+              ],
+              "name": "textCell",
+              "default": null,
+              "doc": "The text cell content. The will be non-null only when all other cell field is null."
+            },
+            {
+              "type": [
+                "null",
+                {
+                  "type": "record",
+                  "name": "QueryCell",
+                  "namespace": "com.linkedin.pegasus2avro.notebook",
+                  "fields": [
+                    {
+                      "type": [
+                        "null",
+                        "string"
+                      ],
+                      "name": "cellTitle",
+                      "default": null,
+                      "doc": "Title of the cell"
+                    },
+                    {
+                      "type": "string",
+                      "name": "cellId",
+                      "doc": "Unique id for the cell. This id should be globally unique for a Notebook tool even when there are multiple deployments of it. As an example, Notebook URL could be used here for QueryBook such as 'querybook.com/notebook/773/?cellId=1234'"
+                    },
+                    {
+                      "type": "com.linkedin.pegasus2avro.common.ChangeAuditStamps",
+                      "name": "changeAuditStamps",
+                      "doc": "Captures information about who created/last modified/deleted this Notebook cell and when"
+                    },
+                    {
+                      "type": "string",
+                      "name": "rawQuery",
+                      "doc": "Raw query to explain some specific logic in a Notebook"
+                    },
+                    {
+                      "type": [
+                        "null",
+                        "com.linkedin.pegasus2avro.common.AuditStamp"
+                      ],
+                      "name": "lastExecuted",
+                      "default": null,
+                      "doc": "Captures information about who last executed this query cell and when"
+                    }
+                  ],
+                  "doc": "Query cell in a Notebook, which will present content in query format"
+                }
+              ],
+              "name": "queryCell",
+              "default": null,
+              "doc": "The query cell content. The will be non-null only when all other cell field is null."
+            },
+            {
+              "type": [
+                "null",
+                {
+                  "type": "record",
+                  "name": "ChartCell",
+                  "namespace": "com.linkedin.pegasus2avro.notebook",
+                  "fields": [
+                    {
+                      "type": [
+                        "null",
+                        "string"
+                      ],
+                      "name": "cellTitle",
+                      "default": null,
+                      "doc": "Title of the cell"
+                    },
+                    {
+                      "type": "string",
+                      "name": "cellId",
+                      "doc": "Unique id for the cell. This id should be globally unique for a Notebook tool even when there are multiple deployments of it. As an example, Notebook URL could be used here for QueryBook such as 'querybook.com/notebook/773/?cellId=1234'"
+                    },
+                    {
+                      "type": "com.linkedin.pegasus2avro.common.ChangeAuditStamps",
+                      "name": "changeAuditStamps",
+                      "doc": "Captures information about who created/last modified/deleted this Notebook cell and when"
+                    }
+                  ],
+                  "doc": "Chart cell in a notebook, which will present content in chart format"
+                }
+              ],
+              "name": "chartCell",
+              "default": null,
+              "doc": "The chart cell content. The will be non-null only when all other cell field is null."
+            },
+            {
+              "type": {
+                "type": "enum",
+                "symbolDocs": {
+                  "CHART_CELL": "CHART Notebook cell type. The cell content is chart only.",
+                  "QUERY_CELL": "QUERY Notebook cell type. The cell context is query only.",
+                  "TEXT_CELL": "TEXT Notebook cell type. The cell context is text only."
+                },
+                "name": "NotebookCellType",
+                "namespace": "com.linkedin.pegasus2avro.notebook",
+                "symbols": [
+                  "TEXT_CELL",
+                  "QUERY_CELL",
+                  "CHART_CELL"
+                ],
+                "doc": "Type of Notebook Cell"
+              },
+              "name": "type",
+              "doc": "The type of this Notebook cell"
+            }
+          ],
+          "doc": "A record of all supported cells for a Notebook. Only one type of cell will be non-null."
+        }
+      },
+      "name": "cells",
+      "default": [],
+      "doc": "The content of a Notebook which is composed by a list of NotebookCell"
+    }
+  ],
+  "doc": "Content in a Notebook\nNote: This is IN BETA version"
+}

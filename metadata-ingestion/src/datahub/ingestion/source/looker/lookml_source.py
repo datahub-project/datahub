@@ -6,7 +6,7 @@ import pathlib
 import re
 import tempfile
 from dataclasses import dataclass, field as dataclass_field, replace
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import (
     Any,
     ClassVar,
@@ -50,6 +50,7 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.git.git_import import GitClone
 from datahub.ingestion.source.looker.looker_common import (
+    CORPUSER_DATAHUB,
     LookerCommonConfig,
     LookerExplore,
     LookerUtil,
@@ -57,6 +58,7 @@ from datahub.ingestion.source.looker.looker_common import (
     ProjectInclude,
     ViewField,
     ViewFieldType,
+    ViewFieldValue,
 )
 from datahub.ingestion.source.looker.looker_lib_wrapper import (
     LookerAPI,
@@ -83,6 +85,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
+    AuditStampClass,
     DatasetPropertiesClass,
     FineGrainedLineageClass,
     FineGrainedLineageUpstreamTypeClass,
@@ -272,7 +275,7 @@ class LookMLSourceConfig(
                     )
         return conn_map
 
-    @root_validator()
+    @root_validator(skip_on_failure=True)
     def check_either_connection_map_or_connection_provided(cls, values):
         """Validate that we must either have a connection map or an api credential"""
         if not values.get("connection_to_platform_map", {}) and not values.get(
@@ -283,7 +286,7 @@ class LookMLSourceConfig(
             )
         return values
 
-    @root_validator()
+    @root_validator(skip_on_failure=True)
     def check_either_project_name_or_api_provided(cls, values):
         """Validate that we must either have a project name or an api credential to fetch project names"""
         if not values.get("project_name") and not values.get("api"):
@@ -298,13 +301,13 @@ class LookMLSourceConfig(
     ) -> Optional[pydantic.DirectoryPath]:
         if v is None:
             git_info: Optional[GitInfo] = values.get("git_info")
-            if git_info and git_info.deploy_key:
-                # We have git_info populated correctly, base folder is not needed
-                pass
+            if git_info:
+                if not git_info.deploy_key:
+                    logger.warning(
+                        "git_info is provided, but no SSH key is present. If the repo is not public, we'll fail to clone it."
+                    )
             else:
-                raise ValueError(
-                    "base_folder is not provided. Neither has a github deploy_key or deploy_key_file been provided"
-                )
+                raise ValueError("Neither base_folder nor git_info has been provided.")
         return v
 
 
@@ -547,7 +550,7 @@ class LookerModel:
 @dataclass
 class LookerViewFile:
     absolute_file_path: str
-    connection: Optional[str]
+    connection: Optional[LookerConnectionDefinition]
     includes: List[str]
     resolved_includes: List[ProjectInclude]
     views: List[Dict]
@@ -1064,9 +1067,28 @@ class LookerView:
         return fields
 
     @classmethod
+    def determine_view_file_path(
+        cls, base_folder_path: str, absolute_file_path: str
+    ) -> str:
+        splits: List[str] = absolute_file_path.split(base_folder_path, 1)
+        if len(splits) != 2:
+            logger.debug(
+                f"base_folder_path({base_folder_path}) and absolute_file_path({absolute_file_path}) not matching"
+            )
+            return ViewFieldValue.NOT_AVAILABLE.value
+
+        file_path: str = splits[1]
+        logger.debug(f"file_path={file_path}")
+
+        return file_path.strip(
+            "/"
+        )  # strip / from path to make it equivalent to source_file attribute of LookerModelExplore API
+
+    @classmethod
     def from_looker_dict(
         cls,
         project_name: str,
+        base_folder_path: str,
         model_name: str,
         looker_view: dict,
         connection: LookerConnectionDefinition,
@@ -1204,9 +1226,16 @@ class LookerView:
                 viewLanguage=VIEW_LANGUAGE_LOOKML,
             )
 
+        file_path = LookerView.determine_view_file_path(
+            base_folder_path, looker_viewfile.absolute_file_path
+        )
+
         return LookerView(
             id=LookerViewId(
-                project_name=project_name, model_name=model_name, view_name=view_name
+                project_name=project_name,
+                model_name=model_name,
+                view_name=view_name,
+                file_path=file_path,
             ),
             absolute_file_path=looker_viewfile.absolute_file_path,
             connection=connection,
@@ -1426,7 +1455,7 @@ class LookerManifest:
 @support_status(SupportStatus.CERTIFIED)
 @capability(
     SourceCapability.PLATFORM_INSTANCE,
-    "Supported using the `connection_to_platform_map`",
+    "Use the `platform_instance` and `connection_to_platform_map` fields",
 )
 @capability(SourceCapability.LINEAGE_COARSE, "Supported by default")
 @capability(
@@ -1542,6 +1571,7 @@ class LookMLSource(StatefulIngestionSourceBase):
                 project_name=looker_view.id.project_name,
                 model_name=looker_view.id.model_name,
                 view_name=sql_table_name,
+                file_path=looker_view.id.file_path,
             )
             return view_id.get_urn(self.source_config)
 
@@ -1615,11 +1645,16 @@ class LookMLSource(StatefulIngestionSourceBase):
 
         # Generate the upstream + fine grained lineage objects.
         upstreams = []
+        observed_lineage_ts = datetime.now(tz=timezone.utc)
         fine_grained_lineages: List[FineGrainedLineageClass] = []
         for upstream_dataset_urn in upstream_dataset_urns:
             upstream = UpstreamClass(
                 dataset=upstream_dataset_urn,
                 type=DatasetLineageTypeClass.VIEW,
+                auditStamp=AuditStampClass(
+                    time=int(observed_lineage_ts.timestamp() * 1000),
+                    actor=CORPUSER_DATAHUB,
+                ),
             )
             upstreams.append(upstream)
 
@@ -1796,14 +1831,8 @@ class LookMLSource(StatefulIngestionSourceBase):
                 assert self.source_config.git_info
                 # we don't have a base_folder, so we need to clone the repo and process it locally
                 start_time = datetime.now()
-                git_clone = GitClone(tmp_dir)
-                # Github info deploy key is always populated
-                assert self.source_config.git_info.deploy_key
-                assert self.source_config.git_info.repo_ssh_locator
-                checkout_dir = git_clone.clone(
-                    ssh_key=self.source_config.git_info.deploy_key,
-                    repo_url=self.source_config.git_info.repo_ssh_locator,
-                    branch=self.source_config.git_info.branch_for_clone,
+                checkout_dir = self.source_config.git_info.clone(
+                    tmp_path=tmp_dir,
                 )
                 self.reporter.git_clone_latency = datetime.now() - start_time
                 self.source_config.base_folder = checkout_dir.resolve()
@@ -1818,29 +1847,20 @@ class LookMLSource(StatefulIngestionSourceBase):
             for project, p_ref in self.source_config.project_dependencies.items():
                 # If we were given GitHub info, we need to clone the project.
                 if isinstance(p_ref, GitInfo):
-                    assert p_ref.repo_ssh_locator
-
-                    p_cloner = GitClone(f"{tmp_dir}/_included_/{project}")
                     try:
-                        p_checkout_dir = p_cloner.clone(
-                            ssh_key=(
-                                # If a deploy key was provided, use it. Otherwise, fall back
-                                # to the main project deploy key.
-                                p_ref.deploy_key
-                                or (
-                                    self.source_config.git_info.deploy_key
-                                    if self.source_config.git_info
-                                    else None
-                                )
-                            ),
-                            repo_url=p_ref.repo_ssh_locator,
-                            branch=p_ref.branch_for_clone,
+                        p_checkout_dir = p_ref.clone(
+                            tmp_path=f"{tmp_dir}/_included_/{project}",
+                            # If a deploy key was provided, use it. Otherwise, fall back
+                            # to the main project deploy key, if present.
+                            fallback_deploy_key=self.source_config.git_info.deploy_key
+                            if self.source_config.git_info
+                            else None,
                         )
 
                         p_ref = p_checkout_dir.resolve()
                     except Exception as e:
                         logger.warning(
-                            f"Failed to clone remote project {project}. This can lead to failures in parsing lookml files later on: {e}",
+                            f"Failed to clone project dependency {project}. This can lead to failures in parsing lookml files later on: {e}",
                         )
                         visited_projects.add(project)
                         continue
@@ -1875,68 +1895,73 @@ class LookMLSource(StatefulIngestionSourceBase):
             return
 
         manifest = self.get_manifest_if_present(project_path)
-        if manifest:
-            # Special case handling if the root project has a name in the manifest file.
-            if project_name == _BASE_PROJECT_NAME and manifest.project_name:
-                if (
-                    self.source_config.project_name is not None
-                    and manifest.project_name != self.source_config.project_name
-                ):
-                    logger.warning(
-                        f"The project name in the manifest file '{manifest.project_name}'"
-                        f"does not match the configured project name '{self.source_config.project_name}'. "
-                        "This can lead to failures in LookML include resolution and lineage generation."
-                    )
-                elif self.source_config.project_name is None:
-                    self.source_config.project_name = manifest.project_name
+        if not manifest:
+            return
 
-            # Clone the remote project dependencies.
-            for remote_project in manifest.remote_dependencies:
-                if remote_project.name in project_visited:
-                    continue
+        # Special case handling if the root project has a name in the manifest file.
+        if project_name == _BASE_PROJECT_NAME and manifest.project_name:
+            if (
+                self.source_config.project_name is not None
+                and manifest.project_name != self.source_config.project_name
+            ):
+                logger.warning(
+                    f"The project name in the manifest file '{manifest.project_name}'"
+                    f"does not match the configured project name '{self.source_config.project_name}'. "
+                    "This can lead to failures in LookML include resolution and lineage generation."
+                )
+            elif self.source_config.project_name is None:
+                self.source_config.project_name = manifest.project_name
 
-                p_cloner = GitClone(f"{tmp_dir}/_remote_/{project_name}")
-                try:
-                    # TODO: For 100% correctness, we should be consulting
-                    # the manifest lock file for the exact ref to use.
+        # Clone the remote project dependencies.
+        for remote_project in manifest.remote_dependencies:
+            if remote_project.name in project_visited:
+                continue
+            if remote_project.name in self.base_projects_folder:
+                # In case a remote_dependency is specified in the project_dependencies config,
+                # we don't need to clone it again.
+                continue
 
-                    p_checkout_dir = p_cloner.clone(
-                        ssh_key=(
-                            self.source_config.git_info.deploy_key
-                            if self.source_config.git_info
-                            else None
-                        ),
-                        repo_url=remote_project.url,
-                    )
+            p_cloner = GitClone(f"{tmp_dir}/_remote_/{remote_project.name}")
+            try:
+                # TODO: For 100% correctness, we should be consulting
+                # the manifest lock file for the exact ref to use.
 
-                    self.base_projects_folder[
-                        remote_project.name
-                    ] = p_checkout_dir.resolve()
-                    repo = p_cloner.get_last_repo_cloned()
-                    assert repo
-                    remote_git_info = GitInfo(
-                        url_template=remote_project.url,
-                        repo="dummy/dummy",  # set to dummy values to bypass validation
-                        branch=repo.active_branch.name,
-                    )
-                    remote_git_info.repo = (
-                        ""  # set to empty because url already contains the full path
-                    )
-                    self.remote_projects_git_info[remote_project.name] = remote_git_info
+                p_checkout_dir = p_cloner.clone(
+                    ssh_key=(
+                        self.source_config.git_info.deploy_key
+                        if self.source_config.git_info
+                        else None
+                    ),
+                    repo_url=remote_project.url,
+                )
 
-                except Exception as e:
-                    logger.warning(
-                        f"Failed to clone remote project {project_name}. This can lead to failures in parsing lookml files later on",
-                        e,
-                    )
-                    project_visited.add(project_name)
-                else:
-                    self._recursively_check_manifests(
-                        tmp_dir, remote_project.name, project_visited
-                    )
+                self.base_projects_folder[
+                    remote_project.name
+                ] = p_checkout_dir.resolve()
+                repo = p_cloner.get_last_repo_cloned()
+                assert repo
+                remote_git_info = GitInfo(
+                    url_template=remote_project.url,
+                    repo="dummy/dummy",  # set to dummy values to bypass validation
+                    branch=repo.active_branch.name,
+                )
+                remote_git_info.repo = (
+                    ""  # set to empty because url already contains the full path
+                )
+                self.remote_projects_git_info[remote_project.name] = remote_git_info
 
-            for project in manifest.local_dependencies:
-                self._recursively_check_manifests(tmp_dir, project, project_visited)
+            except Exception as e:
+                logger.warning(
+                    f"Failed to clone remote project {project_name}. This can lead to failures in parsing lookml files later on: {e}",
+                )
+                project_visited.add(project_name)
+            else:
+                self._recursively_check_manifests(
+                    tmp_dir, remote_project.name, project_visited
+                )
+
+        for project in manifest.local_dependencies:
+            self._recursively_check_manifests(tmp_dir, project, project_visited)
 
     def get_internal_workunits(self) -> Iterable[MetadataWorkUnit]:  # noqa: C901
         assert self.source_config.base_folder
@@ -1947,9 +1972,16 @@ class LookMLSource(StatefulIngestionSourceBase):
             self.reporter,
         )
 
-        # some views can be mentioned by multiple 'include' statements and can be included via different connections.
-        # So this set is used to prevent creating duplicate events
+        # Some views can be mentioned by multiple 'include' statements and can be included via different connections.
+
+        # This map is used to keep track of which views files have already been processed
+        # for a connection in order to prevent creating duplicate events.
+        # Key: connection name, Value: view file paths
         processed_view_map: Dict[str, Set[str]] = {}
+
+        # This map is used to keep track of the connection that a view is processed with.
+        # Key: view unique identifier - determined by variables present in config `view_naming_pattern`
+        # Value: Tuple(model file name, connection name)
         view_connection_map: Dict[str, Tuple[str, str]] = {}
 
         # The ** means "this directory and all subdirectories", and hence should
@@ -2070,22 +2102,36 @@ class LookMLSource(StatefulIngestionSourceBase):
                             raw_view = looker_refinement_resolver.apply_view_refinement(
                                 raw_view=raw_view,
                             )
-                            maybe_looker_view = LookerView.from_looker_dict(
+
+                            current_project_name: str = (
                                 include.project
                                 if include.project != _BASE_PROJECT_NAME
-                                else project_name,
-                                model_name,
-                                raw_view,
-                                connectionDefinition,
-                                looker_viewfile,
-                                viewfile_loader,
-                                looker_refinement_resolver,
-                                self.reporter,
-                                self.source_config.max_file_snippet_length,
-                                self.source_config.parse_table_names_from_sql,
-                                self.source_config.sql_parser,
-                                self.source_config.extract_column_level_lineage,
-                                self.source_config.populate_sql_logic_for_missing_descriptions,
+                                else project_name
+                            )
+
+                            # if project is base project then it is available as self.base_projects_folder[_BASE_PROJECT_NAME]
+                            base_folder_path: str = str(
+                                self.base_projects_folder.get(
+                                    current_project_name,
+                                    self.base_projects_folder[_BASE_PROJECT_NAME],
+                                )
+                            )
+
+                            maybe_looker_view = LookerView.from_looker_dict(
+                                project_name=current_project_name,
+                                base_folder_path=base_folder_path,
+                                model_name=model_name,
+                                looker_view=raw_view,
+                                connection=connectionDefinition,
+                                looker_viewfile=looker_viewfile,
+                                looker_viewfile_loader=viewfile_loader,
+                                looker_refinement_resolver=looker_refinement_resolver,
+                                reporter=self.reporter,
+                                max_file_snippet_length=self.source_config.max_file_snippet_length,
+                                parse_table_names_from_sql=self.source_config.parse_table_names_from_sql,
+                                sql_parser_path=self.source_config.sql_parser,
+                                extract_col_level_lineage=self.source_config.extract_column_level_lineage,
+                                populate_sql_logic_in_descriptions=self.source_config.populate_sql_logic_for_missing_descriptions,
                                 process_isolation_for_sql_parsing=self.source_config.process_isolation_for_sql_parsing,
                             )
                         except Exception as e:
@@ -2099,13 +2145,17 @@ class LookMLSource(StatefulIngestionSourceBase):
                             if self.source_config.view_pattern.allowed(
                                 maybe_looker_view.id.view_name
                             ):
+                                view_urn = maybe_looker_view.id.get_urn(
+                                    self.source_config
+                                )
                                 view_connection_mapping = view_connection_map.get(
-                                    maybe_looker_view.id.view_name
+                                    view_urn
                                 )
                                 if not view_connection_mapping:
-                                    view_connection_map[
-                                        maybe_looker_view.id.view_name
-                                    ] = (model_name, model.connection)
+                                    view_connection_map[view_urn] = (
+                                        model_name,
+                                        model.connection,
+                                    )
                                     # first time we are discovering this view
                                     logger.debug(
                                         f"Generating MCP for view {raw_view['name']}"
@@ -2119,10 +2169,7 @@ class LookMLSource(StatefulIngestionSourceBase):
                                     for mcp in self._build_dataset_mcps(
                                         maybe_looker_view
                                     ):
-                                        # We want to treat mcp aspects as optional, so allowing failures in this aspect to be treated as warnings rather than failures
-                                        yield mcp.as_workunit(
-                                            treat_errors_as_warnings=True
-                                        )
+                                        yield mcp.as_workunit()
                                 else:
                                     (
                                         prev_model_name,

@@ -8,8 +8,7 @@ import java.util.Map;
 import java.util.Optional;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import org.elasticsearch.client.tasks.GetTaskResponse;
-
+import org.opensearch.client.tasks.GetTaskResponse;
 
 public interface SystemMetadataService {
   /**
@@ -32,11 +31,14 @@ public interface SystemMetadataService {
 
   List<AspectRowSummary> findByUrn(String urn, boolean includeSoftDeleted, int from, int size);
 
-  List<AspectRowSummary> findByParams(Map<String, String> systemMetaParams, boolean includeSoftDeleted, int from, int size);
+  List<AspectRowSummary> findByParams(
+      Map<String, String> systemMetaParams, boolean includeSoftDeleted, int from, int size);
 
-  List<AspectRowSummary> findByRegistry(String registryName, String registryVersion, boolean includeSoftDeleted, int from, int size);
+  List<AspectRowSummary> findByRegistry(
+      String registryName, String registryVersion, boolean includeSoftDeleted, int from, int size);
 
-  List<IngestionRunSummary> listRuns(Integer pageOffset, Integer pageSize, boolean includeSoftDeleted);
+  List<IngestionRunSummary> listRuns(
+      Integer pageOffset, Integer pageSize, boolean includeSoftDeleted);
 
   void configure();
 

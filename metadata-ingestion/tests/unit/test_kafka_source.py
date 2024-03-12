@@ -1,3 +1,4 @@
+import json
 from itertools import chain
 from typing import Dict, Optional, Tuple
 from unittest.mock import MagicMock, patch
@@ -7,12 +8,16 @@ from confluent_kafka.schema_registry.schema_registry_client import (
     RegisteredSchema,
     Schema,
 )
+from freezegun import freeze_time
 
 from datahub.emitter.mce_builder import (
+    OwnerType,
     make_dataplatform_instance_urn,
     make_dataset_urn,
     make_dataset_urn_with_platform_instance,
+    make_global_tag_aspect_with_tag_list,
     make_glossary_terms_aspect_from_urn_list,
+    make_owner_urn,
     make_ownership_aspect_from_urn_list,
 )
 from datahub.ingestion.api.common import PipelineContext
@@ -22,8 +27,10 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
     BrowsePathsClass,
     DataPlatformInstanceClass,
-    DatasetPropertiesClass,
+    GlobalTagsClass,
+    GlossaryTermsClass,
     KafkaSchemaClass,
+    OwnershipClass,
     SchemaMetadataClass,
 )
 
@@ -336,13 +343,9 @@ def test_kafka_source_workunits_schema_registry_subject_name_strategies(
         i += 1
 
         if i < len(topic_subject_schema_map.keys()):
-
             # First 3 workunits (topics) must have schemaMetadata aspect
-            schemaMetadataAspect = [
-                asp
-                for asp in mce.proposedSnapshot.aspects
-                if isinstance(asp, SchemaMetadataClass)
-            ][0]
+            assert isinstance(mce.proposedSnapshot.aspects[1], SchemaMetadataClass)
+            schemaMetadataAspect: SchemaMetadataClass = mce.proposedSnapshot.aspects[1]
             assert isinstance(schemaMetadataAspect.platformSchema, KafkaSchemaClass)
             # Make sure the schema name is present in topic_subject_schema_map.
             assert schemaMetadataAspect.schemaName in topic_subject_schema_map
@@ -381,8 +384,6 @@ def test_kafka_source_workunits_schema_registry_subject_name_strategies(
             # The schemaMetadata aspect should not be present for this.
             for aspect in mce.proposedSnapshot.aspects:
                 assert not isinstance(aspect, SchemaMetadataClass)
-
-        assert mce.proposedSnapshot.aspects[1]
 
 
 @pytest.mark.parametrize(
@@ -532,50 +533,146 @@ def test_kafka_source_succeeds_with_describe_configs_error(
     assert len(workunits) == 2
 
 
-@patch("datahub.ingestion.source.kafka.KafkaSource.create_schema_registry")
+@freeze_time("2023-09-20 10:00:00")
+@patch(
+    "datahub.ingestion.source.confluent_schema_registry.SchemaRegistryClient",
+    autospec=True,
+)
 @patch("datahub.ingestion.source.kafka.confluent_kafka.Consumer", autospec=True)
-def test_kafka_source_uses_aspects_from_schema(mock_kafka, mock_create_schema_registry):
-    mock_kafka_instance = mock_kafka.return_value
+def test_kafka_source_topic_meta_mappings(
+    mock_kafka_consumer, mock_schema_registry_client, mock_admin_client
+):
+    # Setup the topic to key/value schema mappings for all types of schema registry subject name strategies.
+    # <key=topic_name, value=(<key_schema>,<value_schema>)
+    topic_subject_schema_map: Dict[str, Tuple[RegisteredSchema, RegisteredSchema]] = {
+        "topic1": (
+            RegisteredSchema(
+                schema_id="schema_id_2",
+                schema=Schema(
+                    schema_str='{"type":"record", "name":"Topic1Key", "namespace": "test.acryl", "fields": [{"name":"t1key", "type": "string"}]}',
+                    schema_type="AVRO",
+                ),
+                subject="topic1-key",
+                version=1,
+            ),
+            RegisteredSchema(
+                schema_id="schema_id_1",
+                schema=Schema(
+                    schema_str=json.dumps(
+                        {
+                            "type": "record",
+                            "name": "Topic1Value",
+                            "namespace": "test.acryl",
+                            "fields": [{"name": "t1value", "type": "string"}],
+                            "owner": "@charles",
+                            "business_owner": "jdoe.last@gmail.com",
+                            "data_governance.team_owner": "Finance",
+                            "has_pii": True,
+                            "int_property": 1,
+                            "double_property": 2.5,
+                        }
+                    ),
+                    schema_type="AVRO",
+                ),
+                subject="topic1-value",
+                version=1,
+            ),
+        )
+    }
+
+    # Mock the kafka consumer
+    mock_kafka_instance = mock_kafka_consumer.return_value
     mock_cluster_metadata = MagicMock()
-    mock_cluster_metadata.topics = {"test": None, "foobar": None, "bazbaz": None}
+    mock_cluster_metadata.topics = {k: None for k in topic_subject_schema_map.keys()}
     mock_kafka_instance.list_topics.return_value = mock_cluster_metadata
+
+    # Mock the schema registry client
+    # - mock get_subjects: all subjects in topic_subject_schema_map
+    mock_schema_registry_client.return_value.get_subjects.return_value = [
+        v.subject for v in chain(*topic_subject_schema_map.values())
+    ]
+
+    # - mock get_latest_version
+    def mock_get_latest_version(subject_name: str) -> Optional[RegisteredSchema]:
+        for registered_schema in chain(*topic_subject_schema_map.values()):
+            if registered_schema.subject == subject_name:
+                return registered_schema
+        return None
+
+    mock_schema_registry_client.return_value.get_latest_version = (
+        mock_get_latest_version
+    )
 
     ctx = PipelineContext(run_id="test1")
     kafka_source = KafkaSource.create(
         {
-            "topic_patterns": {"allow": ["test"]},
             "connection": {"bootstrap": "localhost:9092"},
+            "meta_mapping": {
+                "owner": {
+                    "match": "^@(.*)",
+                    "operation": "add_owner",
+                    "config": {"owner_type": "user"},
+                },
+                "business_owner": {
+                    "match": ".*",
+                    "operation": "add_owner",
+                    "config": {"owner_type": "user"},
+                },
+                "has_pii": {
+                    "match": True,
+                    "operation": "add_tag",
+                    "config": {"tag": "has_pii_test"},
+                },
+                "int_property": {
+                    "match": 1,
+                    "operation": "add_tag",
+                    "config": {"tag": "int_meta_property"},
+                },
+                "double_property": {
+                    "match": 2.5,
+                    "operation": "add_term",
+                    "config": {"term": "double_meta_property"},
+                },
+                "data_governance.team_owner": {
+                    "match": "Finance",
+                    "operation": "add_term",
+                    "config": {"term": "Finance_test"},
+                },
+            },
         },
         ctx,
     )
-
-    meta_aspects = [
-        make_ownership_aspect_from_urn_list(["urn:li:corpuser:test_user"], "AUDIT"),
-        make_glossary_terms_aspect_from_urn_list(["urn:li:glossaryTerm:testt"]),
-    ]
-
-    mock_create_schema_registry.return_value.get_aspects_from_schema.return_value = [
-        DatasetPropertiesClass(
-            description="test description",
-        ),
-        *meta_aspects,
-    ]
-
     workunits = [w for w in kafka_source.get_workunits()]
-    assert len(workunits) == 2
-
-    assert isinstance(workunits[0].metadata, MetadataChangeEvent)
+    assert len(workunits) == 4
     mce = workunits[0].metadata
+    assert isinstance(mce, MetadataChangeEvent)
 
-    # Assert the DatasetProperties aspect is present and contains proprties from from the topic and the schema
-    dataset_properties = [
+    ownership_aspect = [
+        asp for asp in mce.proposedSnapshot.aspects if isinstance(asp, OwnershipClass)
+    ][0]
+    assert ownership_aspect == make_ownership_aspect_from_urn_list(
+        [
+            make_owner_urn("charles", OwnerType.USER),
+            make_owner_urn("jdoe.last@gmail.com", OwnerType.USER),
+        ],
+        "SERVICE",
+    )
+
+    tags_aspect = [
+        asp for asp in mce.proposedSnapshot.aspects if isinstance(asp, GlobalTagsClass)
+    ][0]
+    assert tags_aspect == make_global_tag_aspect_with_tag_list(
+        ["has_pii_test", "int_meta_property"]
+    )
+
+    terms_aspect = [
         asp
         for asp in mce.proposedSnapshot.aspects
-        if isinstance(asp, DatasetPropertiesClass)
+        if isinstance(asp, GlossaryTermsClass)
     ][0]
-    assert dataset_properties.name == "test"
-    assert dataset_properties.description == "test description"
-
-    # Assert the other aspects from the schema are present
-    for aspect in meta_aspects:
-        assert aspect in mce.proposedSnapshot.aspects
+    assert terms_aspect == make_glossary_terms_aspect_from_urn_list(
+        [
+            "urn:li:glossaryTerm:Finance_test",
+            "urn:li:glossaryTerm:double_meta_property",
+        ]
+    )

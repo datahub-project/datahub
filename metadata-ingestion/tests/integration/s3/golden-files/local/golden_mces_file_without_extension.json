@@ -3,6 +3,22 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,test-platform-instance.tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/no_extension/small,DEV)",
     "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:file",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "file_without_extension.json"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,test-platform-instance.tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/no_extension/small,DEV)",
+    "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
         "json": {

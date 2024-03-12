@@ -1,0 +1,41 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "siblings"
+  },
+  "name": "Siblings",
+  "namespace": "com.linkedin.pegasus2avro.common",
+  "fields": [
+    {
+      "Relationship": {
+        "/*": {
+          "entityTypes": [
+            "dataset"
+          ],
+          "name": "SiblingOf"
+        }
+      },
+      "Searchable": {
+        "/*": {
+          "fieldName": "siblings",
+          "fieldType": "URN",
+          "queryByDefault": false
+        }
+      },
+      "type": {
+        "type": "array",
+        "items": "string"
+      },
+      "name": "siblings",
+      "doc": "List of sibling entities",
+      "Urn": "Urn",
+      "urn_is_array": true
+    },
+    {
+      "type": "boolean",
+      "name": "primary",
+      "doc": "If this is the leader entity of the set of siblings"
+    }
+  ],
+  "doc": "Siblings information of an entity."
+}

@@ -1,11 +1,19 @@
 import React from 'react';
-import { EntityType, MlModelGroup } from '../../../../types.generated';
+import { EntityPath, EntityType, MlModelGroup } from '../../../../types.generated';
 import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
 import { capitalizeFirstLetterOnly } from '../../../shared/textUtil';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { getDataProduct } from '../../shared/utils';
 
-export const Preview = ({ group }: { group: MlModelGroup }): JSX.Element => {
+export const Preview = ({
+    group,
+    degree,
+    paths,
+}: {
+    group: MlModelGroup;
+    degree?: number;
+    paths?: EntityPath[];
+}): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     const genericProperties = entityRegistry.getGenericEntityProperties(EntityType.MlmodelGroup, group);
     return (
@@ -21,6 +29,8 @@ export const Preview = ({ group }: { group: MlModelGroup }): JSX.Element => {
             qualifier={group?.origin}
             owners={group?.ownership?.owners}
             dataProduct={getDataProduct(genericProperties?.dataProduct)}
+            degree={degree}
+            paths={paths}
         />
     );
 };

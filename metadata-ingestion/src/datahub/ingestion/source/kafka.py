@@ -3,8 +3,9 @@ import json
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, Iterable, List, Optional, Type
+from typing import Any, Dict, Iterable, List, Optional, Type, cast
 
+import avro.schema
 import confluent_kafka
 import confluent_kafka.admin
 import pydantic
@@ -17,7 +18,11 @@ from confluent_kafka.admin import (
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.kafka import KafkaConsumerConnectionConfig
-from datahub.configuration.source_common import DatasetSourceConfigMixin
+from datahub.configuration.source_common import (
+    DatasetSourceConfigMixin,
+    LowerCaseDatasetUrnConfigMixin,
+)
+from datahub.emitter import mce_builder
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataplatform_instance_urn,
@@ -52,13 +57,16 @@ from datahub.metadata.com.linkedin.pegasus2avro.common import Status
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
-    BrowsePathsClass,
     BrowsePathEntryClass,
+    BrowsePathsClass,
     BrowsePathsV2Class,
     DataPlatformInstanceClass,
     DatasetPropertiesClass,
+    KafkaSchemaClass,
+    OwnershipSourceTypeClass,
     SubTypesClass,
 )
+from datahub.utilities.mapping import Constants, OperationProcessor
 from datahub.utilities.registries.domain_registry import DomainRegistry
 
 logger = logging.getLogger(__name__)
@@ -73,7 +81,11 @@ class KafkaTopicConfigKeys(str, Enum):
     UNCLEAN_LEADER_ELECTION_CONFIG = "unclean.leader.election.enable"
 
 
-class KafkaSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
+class KafkaSourceConfig(
+    StatefulIngestionConfigBase,
+    DatasetSourceConfigMixin,
+    LowerCaseDatasetUrnConfigMixin,
+):
     connection: KafkaConsumerConnectionConfig = KafkaConsumerConnectionConfig()
 
     topic_patterns: AllowDenyPattern = AllowDenyPattern(allow=[".*"], deny=["^_.*"])
@@ -90,11 +102,11 @@ class KafkaSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
         default="datahub.ingestion.source.confluent_schema_registry.ConfluentSchemaRegistry",
         description="The fully qualified implementation class(custom) that implements the KafkaSchemaRegistryBase interface.",
     )
-    schema_tags_field = pydantic.Field(
+    schema_tags_field: str = pydantic.Field(
         default="tags",
         description="The field name in the schema metadata that contains the tags to be added to the dataset.",
     )
-    enable_meta_mapping = pydantic.Field(
+    enable_meta_mapping: bool = pydantic.Field(
         default=True,
         description="When enabled, applies the mappings that are defined through the meta_mapping directives.",
     )
@@ -111,7 +123,7 @@ class KafkaSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
         description="Whether or not to strip email id while adding owners using meta mappings.",
     )
     tag_prefix: str = pydantic.Field(
-        default="kafka:", description="Prefix added to tags during ingestion."
+        default="", description="Prefix added to tags during ingestion."
     )
     ignore_warnings_on_schema_type: bool = pydantic.Field(
         default=False,
@@ -191,6 +203,13 @@ class KafkaSource(StatefulIngestionSourceBase):
                 graph=self.ctx.graph,
             )
 
+        self.meta_processor = OperationProcessor(
+            self.source_config.meta_mapping,
+            self.source_config.tag_prefix,
+            OwnershipSourceTypeClass.SERVICE,
+            self.source_config.strip_user_ids_from_email,
+        )
+
     def init_kafka_admin_client(self) -> None:
         try:
             # TODO: Do we require separate config than existing consumer_config ?
@@ -250,6 +269,8 @@ class KafkaSource(StatefulIngestionSourceBase):
     ) -> Iterable[MetadataWorkUnit]:
         logger.debug(f"topic = {topic}")
 
+        AVRO = "AVRO"
+
         # 1. Create the default dataset snapshot for the topic.
         dataset_name = topic
         platform_urn = make_data_platform_urn(self.platform)
@@ -264,25 +285,12 @@ class KafkaSource(StatefulIngestionSourceBase):
             aspects=[Status(removed=False)],  # we append to this list later on
         )
 
-        # 2. Get aspects from Schema
-        aspects_from_schema = self.schema_registry_client.get_aspects_from_schema(
+        # 2. Attach schemaMetadata aspect (pass control to SchemaRegistry)
+        schema_metadata = self.schema_registry_client.get_schema_metadata(
             topic, platform_urn
         )
-
-        # Create an empty aspect incase we don't get any aspect from schema
-        dataset_properties = DatasetPropertiesClass()
-        for aspect in aspects_from_schema:
-            if isinstance(aspect, DatasetPropertiesClass):
-                dataset_properties = aspect
-            else:
-                dataset_snapshot.aspects.append(aspect)
-
-        # Add extra info to DatasetProperties
-        dataset_properties.name = topic
-        dataset_properties.customProperties = self.build_custom_properties(
-            topic, topic_detail, extra_topic_config
-        )
-        dataset_snapshot.aspects.append(dataset_properties)
+        if schema_metadata is not None:
+            dataset_snapshot.aspects.append(schema_metadata)
 
         # 3. Attach browsePaths and browsePathsV2 aspects
         browse_path_str = f"/{self.source_config.env.lower()}/{self.platform}"
@@ -303,7 +311,69 @@ class KafkaSource(StatefulIngestionSourceBase):
             )
         dataset_snapshot.aspects.append(BrowsePathsV2Class(path=browse_paths_v2_path))
 
-        # 4. Attach dataPlatformInstance aspect.
+        custom_props = self.build_custom_properties(
+            topic, topic_detail, extra_topic_config
+        )
+
+        # 4. Set dataset's description, tags, ownership, etc, if topic schema type is avro
+        description: Optional[str] = None
+        if (
+            schema_metadata is not None
+            and isinstance(schema_metadata.platformSchema, KafkaSchemaClass)
+            and schema_metadata.platformSchema.documentSchemaType == AVRO
+        ):
+            # Point to note:
+            # In Kafka documentSchema and keySchema both contains "doc" field.
+            # DataHub Dataset "description" field is mapped to documentSchema's "doc" field.
+
+            avro_schema = avro.schema.parse(
+                schema_metadata.platformSchema.documentSchema
+            )
+            description = getattr(avro_schema, "doc", None)
+            # set the tags
+            all_tags: List[str] = []
+            try:
+                schema_tags = cast(
+                    Iterable[str],
+                    avro_schema.other_props.get(
+                        self.source_config.schema_tags_field, []
+                    ),
+                )
+                for tag in schema_tags:
+                    all_tags.append(self.source_config.tag_prefix + tag)
+            except TypeError:
+                pass
+
+            if self.source_config.enable_meta_mapping:
+                meta_aspects = self.meta_processor.process(avro_schema.other_props)
+
+                meta_owners_aspects = meta_aspects.get(Constants.ADD_OWNER_OPERATION)
+                if meta_owners_aspects:
+                    dataset_snapshot.aspects.append(meta_owners_aspects)
+
+                meta_terms_aspect = meta_aspects.get(Constants.ADD_TERM_OPERATION)
+                if meta_terms_aspect:
+                    dataset_snapshot.aspects.append(meta_terms_aspect)
+
+                # Create the tags aspect
+                meta_tags_aspect = meta_aspects.get(Constants.ADD_TAG_OPERATION)
+                if meta_tags_aspect:
+                    all_tags += [
+                        tag_association.tag[len("urn:li:tag:") :]
+                        for tag_association in meta_tags_aspect.tags
+                    ]
+
+            if all_tags:
+                dataset_snapshot.aspects.append(
+                    mce_builder.make_global_tag_aspect_with_tag_list(all_tags)
+                )
+
+        dataset_properties = DatasetPropertiesClass(
+            name=topic, customProperties=custom_props, description=description
+        )
+        dataset_snapshot.aspects.append(dataset_properties)
+
+        # 5. Attach dataPlatformInstance aspect.
         if self.source_config.platform_instance:
             dataset_snapshot.aspects.append(
                 DataPlatformInstanceClass(
@@ -314,11 +384,11 @@ class KafkaSource(StatefulIngestionSourceBase):
                 )
             )
 
-        # 5. Emit the datasetSnapshot MCE
+        # 6. Emit the datasetSnapshot MCE
         mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
         yield MetadataWorkUnit(id=f"kafka-{topic}", mce=mce)
 
-        # 6. Add the subtype aspect marking this as a "topic"
+        # 7. Add the subtype aspect marking this as a "topic"
         yield MetadataChangeProposalWrapper(
             entityUrn=dataset_urn,
             aspect=SubTypesClass(typeNames=[DatasetSubTypes.TOPIC]),
@@ -326,7 +396,7 @@ class KafkaSource(StatefulIngestionSourceBase):
 
         domain_urn: Optional[str] = None
 
-        # 7. Emit domains aspect MCPW
+        # 8. Emit domains aspect MCPW
         for domain, pattern in self.source_config.domain.items():
             if pattern.allowed(dataset_name):
                 domain_urn = make_domain_urn(

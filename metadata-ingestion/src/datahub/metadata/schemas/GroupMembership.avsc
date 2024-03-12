@@ -1,0 +1,28 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "groupMembership"
+  },
+  "name": "GroupMembership",
+  "namespace": "com.linkedin.pegasus2avro.identity",
+  "fields": [
+    {
+      "Relationship": {
+        "/*": {
+          "entityTypes": [
+            "corpGroup"
+          ],
+          "name": "IsMemberOfGroup"
+        }
+      },
+      "type": {
+        "type": "array",
+        "items": "string"
+      },
+      "name": "groups",
+      "Urn": "Urn",
+      "urn_is_array": true
+    }
+  ],
+  "doc": "Carries information about the CorpGroups a user is in."
+}

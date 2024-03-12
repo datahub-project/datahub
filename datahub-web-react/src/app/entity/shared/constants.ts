@@ -20,6 +20,15 @@ export const ANTD_GRAY = {
     9: '#434343',
 };
 
+export const ANTD_GRAY_V2 = {
+    1: '#F8F9Fa',
+    2: '#F3F5F6',
+    5: '#DDE0E4',
+    6: '#B2B8BD',
+    8: '#5E666E',
+    10: '#1B1E22',
+};
+
 export const EMPTY_MESSAGES = {
     documentation: {
         title: 'No documentation yet',

@@ -1,5 +1,7 @@
 package com.linkedin.metadata.search.elasticsearch.query.request;
 
+import static com.linkedin.metadata.utils.SearchUtil.*;
+
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import com.linkedin.metadata.search.utils.ESUtils;
@@ -11,11 +13,8 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
-import org.elasticsearch.search.aggregations.AggregationBuilder;
-import org.elasticsearch.search.aggregations.AggregationBuilders;
-
-import static com.linkedin.metadata.utils.SearchUtil.*;
-
+import org.opensearch.search.aggregations.AggregationBuilder;
+import org.opensearch.search.aggregations.AggregationBuilders;
 
 @Slf4j
 public class AggregationQueryBuilder {
@@ -32,43 +31,51 @@ public class AggregationQueryBuilder {
     this._allFacetFields = getAllFacetFields(annotations);
   }
 
-  /**
-   * Get the set of default aggregations, across all facets.
-   */
+  /** Get the set of default aggregations, across all facets. */
   public List<AggregationBuilder> getAggregations() {
     return getAggregations(null);
   }
 
   /**
-   * Get aggregations for a search request for the given facets provided, and if none are provided, then get aggregations for all.
+   * Get aggregations for a search request for the given facets provided, and if none are provided,
+   * then get aggregations for all.
    */
   public List<AggregationBuilder> getAggregations(@Nullable List<String> facets) {
     final Set<String> facetsToAggregate;
     if (facets != null) {
-      facets.stream().filter(f -> !isValidAggregate(f)).forEach(facet -> {
-        log.warn(String.format("Requested facet for search filter aggregations that isn't part of the default filters. Provided: %s; Available: %s", facet,
-            _defaultFacetFields));
-      });
-      facetsToAggregate = facets.stream().filter(this::isValidAggregate).collect(Collectors.toSet());
+      facets.stream()
+          .filter(f -> !isValidAggregate(f))
+          .forEach(
+              facet -> {
+                log.warn(
+                    String.format(
+                        "Requested facet for search filter aggregations that isn't part of the default filters. Provided: %s; Available: %s",
+                        facet, _defaultFacetFields));
+              });
+      facetsToAggregate =
+          facets.stream().filter(this::isValidAggregate).collect(Collectors.toSet());
     } else {
       facetsToAggregate = _defaultFacetFields;
     }
-    return facetsToAggregate.stream().map(this::facetToAggregationBuilder).collect(Collectors.toList());
+    return facetsToAggregate.stream()
+        .map(this::facetToAggregationBuilder)
+        .collect(Collectors.toList());
   }
 
-
   private Set<String> getDefaultFacetFields(final List<SearchableAnnotation> annotations) {
-    Set<String> facets = annotations.stream()
-        .flatMap(annotation -> getDefaultFacetFieldsFromAnnotation(annotation).stream())
-        .collect(Collectors.toSet());
+    Set<String> facets =
+        annotations.stream()
+            .flatMap(annotation -> getDefaultFacetFieldsFromAnnotation(annotation).stream())
+            .collect(Collectors.toSet());
     facets.add(INDEX_VIRTUAL_FIELD);
     return facets;
   }
 
   private Set<String> getAllFacetFields(final List<SearchableAnnotation> annotations) {
-    Set<String> facets = annotations.stream()
-        .flatMap(annotation -> getAllFacetFieldsFromAnnotation(annotation).stream())
-        .collect(Collectors.toSet());
+    Set<String> facets =
+        annotations.stream()
+            .flatMap(annotation -> getAllFacetFieldsFromAnnotation(annotation).stream())
+            .collect(Collectors.toSet());
     facets.add(INDEX_VIRTUAL_FIELD);
     return facets;
   }
@@ -83,13 +90,15 @@ public class AggregationQueryBuilder {
     AggregationBuilder lastAggBuilder = null;
     for (int i = facets.size() - 1; i >= 0; i--) {
       String facet = facets.get(i);
-      if (facet.equalsIgnoreCase(INDEX_VIRTUAL_FIELD)) {
-        facet = "_index";
-      }
       AggregationBuilder aggBuilder =
-          AggregationBuilders.terms(inputFacet)
-              .field(getAggregationField(facet))
-              .size(_configs.getMaxTermBucketSize());
+          facet.equalsIgnoreCase(INDEX_VIRTUAL_FIELD)
+              ? AggregationBuilders.terms(inputFacet)
+                  .field(getAggregationField("_index"))
+                  .size(_configs.getMaxTermBucketSize())
+                  .minDocCount(0)
+              : AggregationBuilders.terms(inputFacet)
+                  .field(getAggregationField(facet))
+                  .size(_configs.getMaxTermBucketSize());
       if (lastAggBuilder != null) {
         aggBuilder = aggBuilder.subAggregation(lastAggBuilder);
       }

@@ -1,0 +1,116 @@
+{
+  "type": "record",
+  "name": "Filter",
+  "namespace": "com.linkedin.pegasus2avro.metadata.query.filter",
+  "fields": [
+    {
+      "type": [
+        "null",
+        {
+          "type": "array",
+          "items": {
+            "type": "record",
+            "name": "ConjunctiveCriterion",
+            "namespace": "com.linkedin.pegasus2avro.metadata.query.filter",
+            "fields": [
+              {
+                "type": {
+                  "type": "array",
+                  "items": {
+                    "type": "record",
+                    "name": "Criterion",
+                    "namespace": "com.linkedin.pegasus2avro.metadata.query.filter",
+                    "fields": [
+                      {
+                        "type": "string",
+                        "name": "field",
+                        "doc": "The name of the field that the criterion refers to"
+                      },
+                      {
+                        "type": "string",
+                        "name": "value",
+                        "doc": "The value of the intended field"
+                      },
+                      {
+                        "type": {
+                          "type": "array",
+                          "items": "string"
+                        },
+                        "name": "values",
+                        "default": [],
+                        "doc": "Values. one of which the intended field should match\nNote, if values is set, the above \"value\" field will be ignored"
+                      },
+                      {
+                        "type": {
+                          "type": "enum",
+                          "symbolDocs": {
+                            "CONTAIN": "Represent the relation: String field contains value, e.g. name contains Profile",
+                            "END_WITH": "Represent the relation: String field ends with value, e.g. name ends with Event",
+                            "EQUAL": "Represent the relation: field = value, e.g. platform = hdfs",
+                            "EXISTS": "Represents the relation: field exists and is non-empty, e.g. owners is not null and != [] (empty)",
+                            "GREATER_THAN": "Represent the relation greater than, e.g. ownerCount > 5",
+                            "GREATER_THAN_OR_EQUAL_TO": "Represent the relation greater than or equal to, e.g. ownerCount >= 5",
+                            "IN": "Represent the relation: String field is one of the array values to, e.g. name in [\"Profile\", \"Event\"]",
+                            "IS_NULL": "Represent the relation: field is null, e.g. platform is null",
+                            "LESS_THAN": "Represent the relation less than, e.g. ownerCount < 3",
+                            "LESS_THAN_OR_EQUAL_TO": "Represent the relation less than or equal to, e.g. ownerCount <= 3",
+                            "START_WITH": "Represent the relation: String field starts with value, e.g. name starts with PageView"
+                          },
+                          "name": "Condition",
+                          "namespace": "com.linkedin.pegasus2avro.metadata.query.filter",
+                          "symbols": [
+                            "CONTAIN",
+                            "END_WITH",
+                            "EQUAL",
+                            "IS_NULL",
+                            "EXISTS",
+                            "GREATER_THAN",
+                            "GREATER_THAN_OR_EQUAL_TO",
+                            "IN",
+                            "LESS_THAN",
+                            "LESS_THAN_OR_EQUAL_TO",
+                            "START_WITH"
+                          ],
+                          "doc": "The matching condition in a filter criterion"
+                        },
+                        "name": "condition",
+                        "default": "EQUAL",
+                        "doc": "The condition for the criterion, e.g. EQUAL, START_WITH"
+                      },
+                      {
+                        "type": "boolean",
+                        "name": "negated",
+                        "default": false,
+                        "doc": "Whether the condition should be negated"
+                      }
+                    ],
+                    "doc": "A criterion for matching a field with given value"
+                  }
+                },
+                "name": "and",
+                "doc": "A list of and criteria the filter applies to the query"
+              }
+            ],
+            "doc": "A list of criterion and'd together."
+          }
+        }
+      ],
+      "name": "or",
+      "default": null,
+      "doc": "A list of disjunctive criterion for the filter. (or operation to combine filters)"
+    },
+    {
+      "type": [
+        "null",
+        {
+          "type": "array",
+          "items": "com.linkedin.pegasus2avro.metadata.query.filter.Criterion"
+        }
+      ],
+      "name": "criteria",
+      "default": null,
+      "doc": "Deprecated! A list of conjunctive criterion for the filter. If \"or\" field is provided, then this field is ignored."
+    }
+  ],
+  "doc": "The filter for finding a record or a collection of records"
+}

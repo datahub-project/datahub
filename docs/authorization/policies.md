@@ -137,7 +137,7 @@ We currently support the following:
 #### Resources
 
 Resource filter defines the set of resources that the policy applies to is defined using a list of criteria. Each
-criterion defines a field type (like resource_type, resource_urn, domain), a list of field values to compare, and a
+criterion defines a field type (like type, urn, domain), a list of field values to compare, and a
 condition (like EQUALS). It essentially checks whether the field of a certain resource matches any of the input values.
 Note, that if there are no criteria or resource is not set, policy is applied to ALL resources.
 
@@ -145,35 +145,38 @@ For example, the following resource filter will apply the policy to datasets, ch
 
 ```json
 {
-  "resource": {
-    "criteria": [
-      {
-        "field": "resource_type",
-        "values": [
-          "dataset",
-          "chart",
-          "dashboard"
-        ],
-        "condition": "EQUALS"
-      },
-      {
-        "field": "domain",
-        "values": [
-          "urn:li:domain:domain1"
-        ],
-        "condition": "EQUALS"
+    "resources": {
+      "filter": {
+        "criteria": [
+          {
+            "field": "TYPE",
+            "condition": "EQUALS",
+            "values": [
+              "dataset",
+              "chart",
+              "dashboard"
+            ]
+          },
+          {
+            "field": "DOMAIN",
+            "values": [
+              "urn:li:domain:domain1"
+            ],
+            "condition": "EQUALS"
+          }
+        ]
       }
-    ]
-  }
+    }
 }
 ```
+Where `resources` is inside the `info` aspect of a Policy.
 
 Supported fields are as follows
 
 | Field Type    | Description            | Example                 |
 |---------------|------------------------|-------------------------|
-| resource_type | Type of the resource   | dataset, chart, dataJob |
-| resource_urn  | Urn of the resource    | urn:li:dataset:...      |
+| type | Type of the resource   | dataset, chart, dataJob |
+| urn  | Urn of the resource    | urn:li:dataset:...      |
 | domain        | Domain of the resource | urn:li:domain:domainX   |
 
 ## Managing Policies

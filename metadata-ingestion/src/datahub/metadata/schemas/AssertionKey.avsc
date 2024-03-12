@@ -1,0 +1,26 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "assertionKey",
+    "keyForEntity": "assertion",
+    "entityCategory": "core",
+    "entityAspects": [
+      "assertionInfo",
+      "dataPlatformInstance",
+      "assertionRunEvent",
+      "assertionActions",
+      "status"
+    ],
+    "entityDoc": "Assertion represents a data quality rule applied on one or more dataset."
+  },
+  "name": "AssertionKey",
+  "namespace": "com.linkedin.pegasus2avro.metadata.key",
+  "fields": [
+    {
+      "type": "string",
+      "name": "assertionId",
+      "doc": "Unique id for the assertion."
+    }
+  ],
+  "doc": "Key for a Assertion"
+}

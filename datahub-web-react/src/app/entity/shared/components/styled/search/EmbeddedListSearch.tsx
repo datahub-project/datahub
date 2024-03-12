@@ -7,7 +7,7 @@ import {
     FacetMetadata,
     SearchAcrossEntitiesInput,
 } from '../../../../../../types.generated';
-import { UnionType } from '../../../../../search/utils/constants';
+import { DEGREE_FILTER_NAME, UnionType } from '../../../../../search/utils/constants';
 import { SearchCfg } from '../../../../../../conf';
 import { EmbeddedListSearchResults } from './EmbeddedListSearchResults';
 import EmbeddedListSearchHeader from './EmbeddedListSearchHeader';
@@ -16,7 +16,6 @@ import { FilterSet, GetSearchResultsParams, SearchResultsInterface } from './typ
 import { isListSubset } from '../../../utils';
 import { EntityAndType } from '../../../types';
 import { Message } from '../../../../../shared/Message';
-import { EntityActionProps } from '../../../../../recommendations/renderer/component/EntityNameList';
 import { generateOrFilters } from '../../../../../search/utils/generateOrFilters';
 import { mergeFilterSets } from '../../../../../search/utils/filterUtils';
 import { useDownloadScrollAcrossEntitiesSearchResults } from '../../../../../search/utils/useDownloadScrollAcrossEntitiesSearchResults';
@@ -26,6 +25,9 @@ import {
     DownloadSearchResults,
 } from '../../../../../search/utils/types';
 import { useEntityContext } from '../../../EntityContext';
+import { EntityActionProps } from './EntitySearchResults';
+import { useUserContext } from '../../../../../context/useUserContext';
+import analytics, { EventType } from '../../../../../analytics';
 
 const Container = styled.div`
     display: flex;
@@ -103,6 +105,7 @@ type Props = {
     };
     shouldRefetch?: boolean;
     resetShouldRefetch?: () => void;
+    applyView?: boolean;
 };
 
 export const EmbeddedListSearch = ({
@@ -130,6 +133,7 @@ export const EmbeddedListSearch = ({
     useGetDownloadSearchResults = useDownloadScrollAcrossEntitiesSearchResults,
     shouldRefetch,
     resetShouldRefetch,
+    applyView = false,
 }: Props) => {
     const { shouldRefetchEmbeddedListSearch, setShouldRefetchEmbeddedListSearch } = useEntityContext();
     // Adjust query based on props
@@ -165,12 +169,16 @@ export const EmbeddedListSearch = ({
         skip: true,
     });
 
+    const userContext = useUserContext();
+    const selectedViewUrn = userContext.localState?.selectedViewUrn;
+
     let searchInput: SearchAcrossEntitiesInput = {
         types: entityTypes || [],
         query: finalQuery,
         start: (page - 1) * numResultsPerPage,
         count: numResultsPerPage,
         orFilters: finalFilters,
+        viewUrn: applyView ? selectedViewUrn : undefined,
     };
     if (skipCache) {
         searchInput = { ...searchInput, searchFlags: { skipCache: true } };
@@ -180,6 +188,7 @@ export const EmbeddedListSearch = ({
         variables: {
             input: searchInput,
         },
+        fetchPolicy: 'cache-first',
     });
 
     useEffect(() => {
@@ -244,7 +253,7 @@ export const EmbeddedListSearch = ({
     }, [isSelectMode]);
 
     useEffect(() => {
-        if (defaultFilters) {
+        if (defaultFilters && filters.length === 0) {
             onChangeFilters(defaultFilters);
         }
         // only want to run once on page load
@@ -258,6 +267,20 @@ export const EmbeddedListSearch = ({
      */
     const finalFacets =
         (fixedFilters && removeFixedFiltersFromFacets(fixedFilters, data?.facets || [])) || data?.facets;
+
+    // used for logging impact anlaysis events
+    const degreeFilter = filters.find((filter) => filter.field === DEGREE_FILTER_NAME);
+
+    // we already have some lineage logging through Tab events, but this adds additional context, particularly degree
+    if (!loading && (degreeFilter?.values?.length || 0) > 0) {
+        analytics.event({
+            type: EventType.SearchAcrossLineageResultsViewEvent,
+            query,
+            page,
+            total: data?.total || 0,
+            maxDegree: degreeFilter?.values?.sort()?.reverse()[0] || '1',
+        });
+    }
 
     return (
         <Container>
@@ -295,6 +318,7 @@ export const EmbeddedListSearch = ({
                 selectedEntities={selectedEntities}
                 setSelectedEntities={setSelectedEntities}
                 entityAction={entityAction}
+                applyView={applyView}
             />
         </Container>
     );

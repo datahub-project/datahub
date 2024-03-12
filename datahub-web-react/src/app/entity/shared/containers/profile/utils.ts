@@ -60,7 +60,7 @@ export function getDataForEntityType<T>({
         };
     }
 
-    if (anyEntityData?.siblings?.siblings?.length > 0 && !isHideSiblingMode) {
+    if (anyEntityData?.siblings?.siblings?.filter((sibling) => sibling.exists).length > 0 && !isHideSiblingMode) {
         const genericSiblingProperties: GenericEntityProperties[] = anyEntityData?.siblings?.siblings?.map((sibling) =>
             getDataForEntityType({ data: sibling, getOverrideProperties: () => ({}) }),
         );

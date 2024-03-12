@@ -1,0 +1,21 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "telemetryKey",
+    "keyForEntity": "telemetry",
+    "entityCategory": "internal",
+    "entityAspects": [
+      "telemetryClientId"
+    ]
+  },
+  "name": "TelemetryKey",
+  "namespace": "com.linkedin.pegasus2avro.metadata.key",
+  "fields": [
+    {
+      "type": "string",
+      "name": "name",
+      "doc": "The telemetry entity name, which serves as a unique id"
+    }
+  ],
+  "doc": "Key for the telemetry client ID, only one should ever exist"
+}

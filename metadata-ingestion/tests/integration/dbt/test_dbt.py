@@ -354,11 +354,11 @@ def test_dbt_tests_only_assertions(pytestconfig, tmp_path, mock_time, **kwargs):
                     test_results_path=str(
                         (test_resources_dir / "jaffle_shop_test_results.json").resolve()
                     ),
-                    # this is just here to avoid needing to access datahub server
-                    write_semantics="OVERRIDE",
                     entities_enabled=DBTEntitiesEnabled(
                         test_results=EmitDirective.ONLY
                     ),
+                    # this is just here to avoid needing to access datahub server
+                    write_semantics="OVERRIDE",
                 ),
             ),
             sink=DynamicTypedConfig(type="file", config={"filename": str(output_file)}),
@@ -433,13 +433,13 @@ def test_dbt_only_test_definitions_and_results(
                     test_results_path=str(
                         (test_resources_dir / "jaffle_shop_test_results.json").resolve()
                     ),
-                    # this is just here to avoid needing to access datahub server
-                    write_semantics="OVERRIDE",
                     entities_enabled=DBTEntitiesEnabled(
                         sources=EmitDirective.NO,
                         seeds=EmitDirective.NO,
                         models=EmitDirective.NO,
                     ),
+                    # this is just here to avoid needing to access datahub server
+                    write_semantics="OVERRIDE",
                 ),
             ),
             sink=DynamicTypedConfig(type="file", config={"filename": str(output_file)}),

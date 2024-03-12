@@ -4,7 +4,7 @@ import com.datahub.authorization.AuthorizationRequest;
 import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.AuthorizedActors;
 import com.datahub.authorization.AuthorizerContext;
-import com.datahub.authorization.ResourceSpec;
+import com.datahub.authorization.EntitySpec;
 import com.datahub.plugins.PluginConstant;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import java.io.BufferedReader;
@@ -20,7 +20,6 @@ import java.util.Map;
 import java.util.Optional;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
-
 
 @Slf4j
 public class TestAuthorizer implements Authorizer {
@@ -45,9 +44,12 @@ public class TestAuthorizer implements Authorizer {
     URL url = this.getClass().getClassLoader().getResource("foo_bar.json");
     assert url != null;
 
-    // Try to create a file on PLUGIN_DIRECTORY to test plugin should have permission to read/write on plugin directory
+    // Try to create a file on PLUGIN_DIRECTORY to test plugin should have permission to read/write
+    // on plugin directory
     Path pluginDirectory =
-        Paths.get((String) this._authorizerContext.data().get(PluginConstant.PLUGIN_HOME), "tmp_file1.txt");
+        Paths.get(
+            (String) this._authorizerContext.data().get(PluginConstant.PLUGIN_HOME),
+            "tmp_file1.txt");
     try {
 
       try (BufferedWriter writer = new BufferedWriter(new FileWriter(pluginDirectory.toString()))) {
@@ -62,7 +64,8 @@ public class TestAuthorizer implements Authorizer {
     }
 
     // Test resource as stream is working
-    try (InputStream inputStream = this.getClass().getClassLoader().getResourceAsStream("foo_bar.json")) {
+    try (InputStream inputStream =
+        this.getClass().getClassLoader().getResourceAsStream("foo_bar.json")) {
       assert inputStream != null;
       BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
       assert reader.readLine() != null;
@@ -74,8 +77,7 @@ public class TestAuthorizer implements Authorizer {
   }
 
   @Override
-  public AuthorizedActors authorizedActors(String privilege, Optional<ResourceSpec> resourceSpec) {
-    return new AuthorizedActors("ALL", null, null, true, true);
+  public AuthorizedActors authorizedActors(String privilege, Optional<EntitySpec> resourceSpec) {
+    return new AuthorizedActors("ALL", null, null, null, true, true);
   }
 }
-

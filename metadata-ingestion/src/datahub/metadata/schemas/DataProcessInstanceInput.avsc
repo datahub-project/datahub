@@ -1,0 +1,38 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "dataProcessInstanceInput"
+  },
+  "name": "DataProcessInstanceInput",
+  "namespace": "com.linkedin.pegasus2avro.dataprocess",
+  "fields": [
+    {
+      "Relationship": {
+        "/*": {
+          "entityTypes": [
+            "dataset"
+          ],
+          "name": "Consumes"
+        }
+      },
+      "Searchable": {
+        "/*": {
+          "addToFilters": true,
+          "fieldName": "inputs",
+          "fieldType": "URN",
+          "numValuesFieldName": "numInputs",
+          "queryByDefault": false
+        }
+      },
+      "type": {
+        "type": "array",
+        "items": "string"
+      },
+      "name": "inputs",
+      "doc": "Input datasets to be consumed",
+      "Urn": "Urn",
+      "urn_is_array": true
+    }
+  ],
+  "doc": "Information about the inputs datasets of a Data process"
+}

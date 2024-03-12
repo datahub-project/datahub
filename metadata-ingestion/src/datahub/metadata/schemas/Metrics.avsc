@@ -1,0 +1,35 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "mlModelMetrics"
+  },
+  "name": "Metrics",
+  "namespace": "com.linkedin.pegasus2avro.ml.metadata",
+  "fields": [
+    {
+      "type": [
+        "null",
+        {
+          "type": "array",
+          "items": "string"
+        }
+      ],
+      "name": "performanceMeasures",
+      "default": null,
+      "doc": "Measures of MLModel performance"
+    },
+    {
+      "type": [
+        "null",
+        {
+          "type": "array",
+          "items": "string"
+        }
+      ],
+      "name": "decisionThreshold",
+      "default": null,
+      "doc": "Decision Thresholds used (if any)?"
+    }
+  ],
+  "doc": "Metrics to be featured for the MLModel."
+}

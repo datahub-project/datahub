@@ -5,6 +5,7 @@ import concurrent.futures
 import contextlib
 import dataclasses
 import functools
+import json
 import logging
 import threading
 import traceback
@@ -26,8 +27,9 @@ from typing import (
 
 import sqlalchemy as sa
 import sqlalchemy.sql.compiler
+from great_expectations.core.profiler_types_mapping import ProfilerTypeMapping
 from great_expectations.core.util import convert_to_json_serializable
-from great_expectations.data_context import BaseDataContext
+from great_expectations.data_context import AbstractDataContext, BaseDataContext
 from great_expectations.data_context.types.base import (
     DataContextConfig,
     DatasourceConfig,
@@ -55,6 +57,7 @@ from datahub.metadata.schema_classes import (
     DatasetProfileClass,
     HistogramClass,
     PartitionSpecClass,
+    PartitionTypeClass,
     QuantileClass,
     ValueFrequencyClass,
 )
@@ -70,6 +73,30 @@ assert MARKUPSAFE_PATCHED
 logger: logging.Logger = logging.getLogger(__name__)
 
 P = ParamSpec("P")
+POSTGRESQL = "postgresql"
+MYSQL = "mysql"
+SNOWFLAKE = "snowflake"
+BIGQUERY = "bigquery"
+REDSHIFT = "redshift"
+DATABRICKS = "databricks"
+TRINO = "trino"
+
+# Type names for Databricks, to match Title Case types in sqlalchemy
+ProfilerTypeMapping.INT_TYPE_NAMES.append("Integer")
+ProfilerTypeMapping.INT_TYPE_NAMES.append("SmallInteger")
+ProfilerTypeMapping.INT_TYPE_NAMES.append("BigInteger")
+ProfilerTypeMapping.FLOAT_TYPE_NAMES.append("Float")
+ProfilerTypeMapping.FLOAT_TYPE_NAMES.append("Numeric")
+ProfilerTypeMapping.STRING_TYPE_NAMES.append("String")
+ProfilerTypeMapping.STRING_TYPE_NAMES.append("Text")
+ProfilerTypeMapping.STRING_TYPE_NAMES.append("Unicode")
+ProfilerTypeMapping.STRING_TYPE_NAMES.append("UnicodeText")
+ProfilerTypeMapping.BOOLEAN_TYPE_NAMES.append("Boolean")
+ProfilerTypeMapping.DATETIME_TYPE_NAMES.append("Date")
+ProfilerTypeMapping.DATETIME_TYPE_NAMES.append("DateTime")
+ProfilerTypeMapping.DATETIME_TYPE_NAMES.append("Time")
+ProfilerTypeMapping.DATETIME_TYPE_NAMES.append("Interval")
+ProfilerTypeMapping.BINARY_TYPE_NAMES.append("LargeBinary")
 
 # The reason for this wacky structure is quite fun. GE basically assumes that
 # the config structures were generated directly from YML and further assumes that
@@ -113,14 +140,14 @@ class GEProfilerRequest:
 
 
 def get_column_unique_count_patch(self: SqlAlchemyDataset, column: str) -> int:
-    if self.engine.dialect.name.lower() == "redshift":
+    if self.engine.dialect.name.lower() == REDSHIFT:
         element_values = self.engine.execute(
             sa.select(
                 [sa.text(f'APPROXIMATE count(distinct "{column}")')]  # type:ignore
             ).select_from(self._table)
         )
         return convert_to_json_serializable(element_values.fetchone()[0])
-    elif self.engine.dialect.name.lower() == "bigquery":
+    elif self.engine.dialect.name.lower() == BIGQUERY:
         element_values = self.engine.execute(
             sa.select(
                 [
@@ -131,7 +158,7 @@ def get_column_unique_count_patch(self: SqlAlchemyDataset, column: str) -> int:
             ).select_from(self._table)
         )
         return convert_to_json_serializable(element_values.fetchone()[0])
-    elif self.engine.dialect.name.lower() == "snowflake":
+    elif self.engine.dialect.name.lower() == SNOWFLAKE:
         element_values = self.engine.execute(
             sa.select(sa.func.APPROX_COUNT_DISTINCT(sa.column(column))).select_from(
                 self._table
@@ -265,6 +292,7 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
     partition: Optional[str]
     config: GEProfilingConfig
     report: SQLSourceReport
+    custom_sql: Optional[str]
 
     query_combiner: SQLAlchemyQueryCombiner
 
@@ -361,7 +389,7 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
     def _get_dataset_rows(self, dataset_profile: DatasetProfileClass) -> None:
         if self.config.profile_table_row_count_estimate_only:
             dialect_name = self.dataset.engine.dialect.name.lower()
-            if dialect_name == "postgresql":
+            if dialect_name == POSTGRESQL:
                 schema_name = self.dataset_name.split(".")[1]
                 table_name = self.dataset_name.split(".")[2]
                 logger.debug(
@@ -370,7 +398,7 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                 get_estimate_script = sa.text(
                     f"SELECT c.reltuples AS estimate FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE  c.relname = '{table_name}' AND n.nspname = '{schema_name}'"
                 )
-            elif dialect_name == "mysql":
+            elif dialect_name == MYSQL:
                 schema_name = self.dataset_name.split(".")[0]
                 table_name = self.dataset_name.split(".")[1]
                 logger.debug(
@@ -397,22 +425,52 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
     def _get_dataset_column_min(
         self, column_profile: DatasetFieldProfileClass, column: str
     ) -> None:
-        if self.config.include_field_min_value:
+        if not self.config.include_field_min_value:
+            return
+        try:
             column_profile.min = str(self.dataset.get_column_min(column))
+        except Exception as e:
+            logger.debug(
+                f"Caught exception while attempting to get column min for column {column}. {e}"
+            )
+            self.report.report_warning(
+                "Profiling - Unable to get column min",
+                f"{self.dataset_name}.{column}",
+            )
 
     @_run_with_query_combiner
     def _get_dataset_column_max(
         self, column_profile: DatasetFieldProfileClass, column: str
     ) -> None:
-        if self.config.include_field_max_value:
+        if not self.config.include_field_max_value:
+            return
+        try:
             column_profile.max = str(self.dataset.get_column_max(column))
+        except Exception as e:
+            logger.debug(
+                f"Caught exception while attempting to get column max for column {column}. {e}"
+            )
+            self.report.report_warning(
+                "Profiling - Unable to get column max",
+                f"{self.dataset_name}.{column}",
+            )
 
     @_run_with_query_combiner
     def _get_dataset_column_mean(
         self, column_profile: DatasetFieldProfileClass, column: str
     ) -> None:
-        if self.config.include_field_mean_value:
+        if not self.config.include_field_mean_value:
+            return
+        try:
             column_profile.mean = str(self.dataset.get_column_mean(column))
+        except Exception as e:
+            logger.debug(
+                f"Caught exception while attempting to get column mean for column {column}. {e}"
+            )
+            self.report.report_warning(
+                "Profiling - Unable to get column mean",
+                f"{self.dataset_name}.{column}",
+            )
 
     @_run_with_query_combiner
     def _get_dataset_column_median(
@@ -421,12 +479,20 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
         if not self.config.include_field_median_value:
             return
         try:
-            if self.dataset.engine.dialect.name.lower() == "snowflake":
+            if self.dataset.engine.dialect.name.lower() == SNOWFLAKE:
                 column_profile.median = str(
                     self.dataset.engine.execute(
                         sa.select([sa.func.median(sa.column(column))]).select_from(
                             self.dataset._table
                         )
+                    ).scalar()
+                )
+            elif self.dataset.engine.dialect.name.lower() == BIGQUERY:
+                column_profile.median = str(
+                    self.dataset.engine.execute(
+                        sa.select(
+                            sa.text(f"approx_quantiles(`{column}`, 2) [OFFSET (1)]")
+                        ).select_from(self.dataset._table)
                     ).scalar()
                 )
             else:
@@ -580,9 +646,8 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
             "catch_exceptions", self.config.catch_exceptions
         )
 
-        profile = DatasetProfileClass(timestampMillis=get_sys_time())
-        if self.partition:
-            profile.partitionSpec = PartitionSpecClass(partition=self.partition)
+        profile = self.init_profile()
+
         profile.fieldProfiles = []
         self._get_dataset_rows(profile)
 
@@ -592,6 +657,9 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
 
         logger.debug(f"profiling {self.dataset_name}: flushing stage 1 queries")
         self.query_combiner.flush()
+
+        if self.config.use_sampling and not self.config.limit:
+            self.update_dataset_batch_use_sampling(profile)
 
         columns_profiling_queue: List[_SingleColumnSpec] = []
         if columns_to_profile:
@@ -610,7 +678,16 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
         self.query_combiner.flush()
 
         assert profile.rowCount is not None
-        row_count: int = profile.rowCount
+        row_count: int  # used for null counts calculation
+        if profile.partitionSpec and "SAMPLE" in profile.partitionSpec.partition:
+            # We can alternatively use `self._get_dataset_rows(profile)` to get
+            # exact count of rows in sample, as actual rows involved in sample
+            # may be slightly different (more or less) than configured `sample_size`.
+            # However not doing so to start with, as that adds another query overhead
+            # plus approximate metrics should work for sampling based profiling.
+            row_count = self.config.sample_size
+        else:
+            row_count = profile.rowCount
 
         for column_spec in columns_profiling_queue:
             column = column_spec.column
@@ -638,6 +715,9 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                         column_profile.uniqueProportion = min(
                             1, unique_count / non_null_count
                         )
+
+            if not profile.rowCount:
+                continue
 
             self._get_dataset_column_sample_values(column_profile, column)
 
@@ -714,10 +794,83 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
         self.query_combiner.flush()
         return profile
 
+    def init_profile(self):
+        profile = DatasetProfileClass(timestampMillis=get_sys_time())
+        if self.partition:
+            profile.partitionSpec = PartitionSpecClass(partition=self.partition)
+        elif self.config.limit:
+            profile.partitionSpec = PartitionSpecClass(
+                type=PartitionTypeClass.QUERY,
+                partition=json.dumps(
+                    dict(limit=self.config.limit, offset=self.config.offset)
+                ),
+            )
+        elif self.custom_sql:
+            profile.partitionSpec = PartitionSpecClass(
+                type=PartitionTypeClass.QUERY, partition="SAMPLE"
+            )
+
+        return profile
+
+    def update_dataset_batch_use_sampling(self, profile: DatasetProfileClass) -> None:
+        if (
+            self.dataset.engine.dialect.name.lower() == BIGQUERY
+            and profile.rowCount
+            and profile.rowCount > self.config.sample_size
+        ):
+            """
+            According to BigQuery Sampling Docs(https://cloud.google.com/bigquery/docs/table-sampling),
+            BigQuery does not cache the results of a query that includes a TABLESAMPLE clause and the
+            query may return different results every time. Calculating different column level metrics
+            on different sampling results is possible however each query execution would incur the cost
+            of reading data from storage. Also, using different table samples may create non-coherent
+            representation of column level metrics, for example, minimum value of a column in one sample
+            can be greater than maximum value of the column in another sample.
+
+            It is observed that for a simple select * query with TABLESAMPLE, results are cached and
+            stored in temporary table. This can be (ab)used and all column level profiling calculations
+            can be performed against it.
+
+            Risks:
+                1. All the risks mentioned in notes of `create_bigquery_temp_table` are also
+                applicable here.
+                2. TABLESAMPLE query may read entire table for small tables that are written
+                as single data block. This may incorrectly label datasetProfile's partition as
+                "SAMPLE", although profile is for entire table.
+                3. Table Sampling in BigQuery is a Pre-GA (Preview) feature.
+            """
+            sample_pc = 100 * self.config.sample_size / profile.rowCount
+            sql = (
+                f"SELECT * FROM {str(self.dataset._table)} "
+                + f"TABLESAMPLE SYSTEM ({sample_pc:.8f} percent)"
+            )
+            temp_table_name = create_bigquery_temp_table(
+                self,
+                sql,
+                self.dataset_name,
+                self.dataset.engine.engine.raw_connection(),
+            )
+            if temp_table_name:
+                self.dataset._table = sa.text(temp_table_name)
+                logger.debug(f"Setting table name to be {self.dataset._table}")
+
+                if (
+                    profile.partitionSpec
+                    and profile.partitionSpec.type == PartitionTypeClass.FULL_TABLE
+                ):
+                    profile.partitionSpec = PartitionSpecClass(
+                        type=PartitionTypeClass.QUERY, partition="SAMPLE"
+                    )
+                elif (
+                    profile.partitionSpec
+                    and profile.partitionSpec.type == PartitionTypeClass.PARTITION
+                ):
+                    profile.partitionSpec.partition += " SAMPLE"
+
 
 @dataclasses.dataclass
 class GEContext:
-    data_context: BaseDataContext
+    data_context: AbstractDataContext
     datasource_name: str
 
 
@@ -935,87 +1088,23 @@ class DatahubGEProfiler:
         }
 
         bigquery_temp_table: Optional[str] = None
-        if platform == "bigquery" and (
+        if platform == BIGQUERY and (
             custom_sql or self.config.limit or self.config.offset
         ):
-            # On BigQuery, we need to bypass GE's mechanism for creating temporary tables because
-            # it requires create/delete table permissions.
-            import google.cloud.bigquery.job.query
-            from google.cloud.bigquery.dbapi.cursor import Cursor as BigQueryCursor
+            if custom_sql is not None:
+                # Note that limit and offset are not supported for custom SQL.
+                bq_sql = custom_sql
+            else:
+                bq_sql = f"SELECT * FROM `{table}`"
+                if self.config.limit:
+                    bq_sql += f" LIMIT {self.config.limit}"
+                if self.config.offset:
+                    bq_sql += f" OFFSET {self.config.offset}"
+            bigquery_temp_table = create_bigquery_temp_table(
+                self, bq_sql, pretty_name, self.base_engine.raw_connection()
+            )
 
-            raw_connection = self.base_engine.raw_connection()
-            try:
-                cursor: "BigQueryCursor" = cast(
-                    "BigQueryCursor", raw_connection.cursor()
-                )
-                if custom_sql is not None:
-                    # Note that limit and offset are not supported for custom SQL.
-                    bq_sql = custom_sql
-                else:
-                    bq_sql = f"SELECT * FROM `{table}`"
-                    if self.config.limit:
-                        bq_sql += f" LIMIT {self.config.limit}"
-                    if self.config.offset:
-                        bq_sql += f" OFFSET {self.config.offset}"
-                try:
-                    cursor.execute(bq_sql)
-                except Exception as e:
-                    if not self.config.catch_exceptions:
-                        raise e
-                    logger.exception(
-                        f"Encountered exception while profiling {pretty_name}"
-                    )
-                    self.report.report_warning(
-                        pretty_name,
-                        f"Profiling exception {e} when running custom sql {bq_sql}",
-                    )
-                    return None
-
-                # Great Expectations batch v2 API, which is the one we're using, requires
-                # a concrete table name against which profiling is executed. Normally, GE
-                # creates a table with an expiry time of 24 hours. However, we don't want the
-                # temporary tables to stick around that long, so we'd also have to delete them
-                # ourselves. As such, the profiler required create and delete table permissions
-                # on BigQuery.
-                #
-                # It turns out that we can (ab)use the BigQuery cached results feature
-                # to avoid creating temporary tables ourselves. For almost all queries, BigQuery
-                # will store the results in a temporary, cached results table when an explicit
-                # destination table is not provided. These tables are pretty easy to identify
-                # because they live in "anonymous datasets" and have a name that looks like
-                # "project-id._d60e97aec7f471046a960419adb6d44e98300db7.anon10774d0ea85fd20fe9671456c5c53d5f1b85e1b17bedb232dfce91661a219ee3"
-                # These tables are per-user and per-project, so there's no risk of permissions escalation.
-                # As per the docs, the cached results tables typically have a lifetime of 24 hours,
-                # which should be plenty for our purposes.
-                # See https://cloud.google.com/bigquery/docs/cached-results for more details.
-                #
-                # The code below extracts the name of the cached results table from the query job
-                # and points GE to that table for profiling.
-                #
-                # Risks:
-                # 1. If the query results are larger than the maximum response size, BigQuery will
-                #    not cache the results. According to the docs https://cloud.google.com/bigquery/quotas,
-                #    the maximum response size is 10 GB compressed.
-                # 2. The cache lifetime of 24 hours is "best-effort" and hence not guaranteed.
-                # 3. Tables with column-level security may not be cached, and tables with row-level
-                #    security will not be cached.
-                # 4. BigQuery "discourages" using cached results directly, but notes that
-                #    the current semantics do allow it.
-                #
-                # The better long-term solution would be to use a subquery avoid this whole
-                # temporary table dance. However, that would require either a) upgrading to
-                # use GE's batch v3 API or b) bypassing GE altogether.
-
-                query_job: Optional[
-                    "google.cloud.bigquery.job.query.QueryJob"
-                ] = cursor._query_job
-                assert query_job
-                temp_destination_table = query_job.destination
-                bigquery_temp_table = f"{temp_destination_table.project}.{temp_destination_table.dataset_id}.{temp_destination_table.table_id}"
-            finally:
-                raw_connection.close()
-
-        if platform == "bigquery":
+        if platform == BIGQUERY:
             if bigquery_temp_table:
                 ge_config["table"] = bigquery_temp_table
                 ge_config["schema"] = None
@@ -1047,6 +1136,7 @@ class DatahubGEProfiler:
                     partition,
                     self.config,
                     self.report,
+                    custom_sql,
                     query_combiner,
                 ).generate_dataset_profile()
 
@@ -1066,7 +1156,7 @@ class DatahubGEProfiler:
                 self.report.report_warning(pretty_name, f"Profiling exception {e}")
                 return None
             finally:
-                if self.base_engine.engine.name == "trino":
+                if self.base_engine.engine.name == TRINO:
                     self._drop_trino_temp_table(batch)
 
     def _get_ge_dataset(
@@ -1103,7 +1193,8 @@ class DatahubGEProfiler:
                 **batch_kwargs,
             },
         )
-        if platform is not None and platform == "bigquery":
+
+        if platform == BIGQUERY or platform == DATABRICKS:
             # This is done as GE makes the name as DATASET.TABLE
             # but we want it to be PROJECT.DATASET.TABLE instead for multi-project setups
             name_parts = pretty_name.split(".")
@@ -1124,7 +1215,80 @@ class DatahubGEProfiler:
 # Stringified types are used to avoid dialect specific import errors
 @lru_cache(maxsize=1)
 def _get_column_types_to_ignore(dialect_name: str) -> List[str]:
-    if dialect_name.lower() == "postgresql":
+    if dialect_name.lower() == POSTGRESQL:
         return ["JSON"]
 
     return []
+
+
+def create_bigquery_temp_table(
+    instance: Union[DatahubGEProfiler, _SingleDatasetProfiler],
+    bq_sql: str,
+    table_pretty_name: str,
+    raw_connection: Any,
+) -> Optional[str]:
+    # On BigQuery, we need to bypass GE's mechanism for creating temporary tables because
+    # it requires create/delete table permissions.
+    import google.cloud.bigquery.job.query
+    from google.cloud.bigquery.dbapi.cursor import Cursor as BigQueryCursor
+
+    try:
+        cursor: "BigQueryCursor" = cast("BigQueryCursor", raw_connection.cursor())
+        try:
+            cursor.execute(bq_sql)
+        except Exception as e:
+            if not instance.config.catch_exceptions:
+                raise e
+            logger.exception(
+                f"Encountered exception while profiling {table_pretty_name}"
+            )
+            instance.report.report_warning(
+                table_pretty_name,
+                f"Profiling exception {e} when running custom sql {bq_sql}",
+            )
+            return None
+
+        # Great Expectations batch v2 API, which is the one we're using, requires
+        # a concrete table name against which profiling is executed. Normally, GE
+        # creates a table with an expiry time of 24 hours. However, we don't want the
+        # temporary tables to stick around that long, so we'd also have to delete them
+        # ourselves. As such, the profiler required create and delete table permissions
+        # on BigQuery.
+        #
+        # It turns out that we can (ab)use the BigQuery cached results feature
+        # to avoid creating temporary tables ourselves. For almost all queries, BigQuery
+        # will store the results in a temporary, cached results table when an explicit
+        # destination table is not provided. These tables are pretty easy to identify
+        # because they live in "anonymous datasets" and have a name that looks like
+        # "project-id._d60e97aec7f471046a960419adb6d44e98300db7.anon10774d0ea85fd20fe9671456c5c53d5f1b85e1b17bedb232dfce91661a219ee3"
+        # These tables are per-user and per-project, so there's no risk of permissions escalation.
+        # As per the docs, the cached results tables typically have a lifetime of 24 hours,
+        # which should be plenty for our purposes.
+        # See https://cloud.google.com/bigquery/docs/cached-results for more details.
+        #
+        # The code below extracts the name of the cached results table from the query job
+        # and points GE to that table for profiling.
+        #
+        # Risks:
+        # 1. If the query results are larger than the maximum response size, BigQuery will
+        #    not cache the results. According to the docs https://cloud.google.com/bigquery/quotas,
+        #    the maximum response size is 10 GB compressed.
+        # 2. The cache lifetime of 24 hours is "best-effort" and hence not guaranteed.
+        # 3. Tables with column-level security may not be cached, and tables with row-level
+        #    security will not be cached.
+        # 4. BigQuery "discourages" using cached results directly, but notes that
+        #    the current semantics do allow it.
+        #
+        # The better long-term solution would be to use a subquery avoid this whole
+        # temporary table dance. However, that would require either a) upgrading to
+        # use GE's batch v3 API or b) bypassing GE altogether.
+
+        query_job: Optional[
+            "google.cloud.bigquery.job.query.QueryJob"
+        ] = cursor._query_job
+        assert query_job
+        temp_destination_table = query_job.destination
+        bigquery_temp_table = f"{temp_destination_table.project}.{temp_destination_table.dataset_id}.{temp_destination_table.table_id}"
+        return bigquery_temp_table
+    finally:
+        raw_connection.close()

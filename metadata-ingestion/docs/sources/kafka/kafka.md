@@ -75,17 +75,17 @@ The Kafka Source uses the schema registry to figure out the schema associated wi
 By default it uses the [Confluent's Kafka Schema registry](https://docs.confluent.io/platform/current/schema-registry/index.html)
 and supports the `AVRO` and `PROTOBUF` schema types.
 
-If you're using a custom schema registry, or you are using schema type other than `AVRO` or `PROTOBUF`, then you can provide your own
-custom implementation of the `KafkaSchemaRegistryBase` class, and implement the `get_aspects_from_schema(topic, platform_urn)` method that
-given a topic name would return a list of Aspects, including (at least) the `SchemaMetadata` for that topic. Other aspects can also be returned, for example if meta-mapping is supported.
 
-Please refer
+If you're using a custom schema registry, or you are using schema type other than `AVRO` or `PROTOBUF`, then you can provide your own
+custom implementation of the `KafkaSchemaRegistryBase` class, and implement the `get_schema_metadata(topic, platform_urn)` method that
+given a topic name would return object of `SchemaMetadata` containing schema for that topic. Please refer
 `datahub.ingestion.source.confluent_schema_registry::ConfluentSchemaRegistry` for sample implementation of this class.
 ```python
 class KafkaSchemaRegistryBase(ABC):
     @abstractmethod
-    def get_aspects_from_schema(self, topic: str, platform_urn: str) -> List[Any]:
-        """Returns a list of aspects that can be attached to a dataset"""
+    def get_schema_metadata(
+        self, topic: str, platform_urn: str
+    ) -> Optional[SchemaMetadata]:
         pass
 ```
 
@@ -131,16 +131,13 @@ message MessageWithMap {
 }
 ```
 
-### Embedding DataHub metadata in schemas with meta mapping
+### Enriching DataHub metadata with automated meta mapping
 
 :::note
 Meta mapping is currently only available for Avro schemas
 :::
 
-Avro schemas are permitted to have additional attributes not defined by the
-specification as arbitrary metadata. A common pattern is to utilize this for
-business metadata. The Kafka source has the ability to transform this directly
-into DataHub Owners, Tags and Terms.
+Avro schemas are permitted to have additional attributes not defined by the specification as arbitrary metadata. A common pattern is to utilize this for business metadata. The Kafka source has the ability to transform this directly into DataHub Owners, Tags and Terms.
 
 #### Simple tags
 
@@ -214,4 +211,5 @@ config:
         tag: "pii"
 ```
 
-The underlying implementation is similar to [dbt meta mapping](../dbt/dbt.md#dbt-meta-automated-mappings), which has more detailed examples that can be used for reference.
+The underlying implementation is similar to [dbt meta mapping](https://datahubproject.io/docs/generated/ingestion/sources/dbt#dbt-meta-automated-mappings), which has more detailed examples that can be used for reference.
+

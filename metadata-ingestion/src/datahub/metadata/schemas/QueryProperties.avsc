@@ -1,0 +1,156 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "queryProperties"
+  },
+  "name": "QueryProperties",
+  "namespace": "com.linkedin.pegasus2avro.query",
+  "fields": [
+    {
+      "type": {
+        "type": "record",
+        "name": "QueryStatement",
+        "namespace": "com.linkedin.pegasus2avro.query",
+        "fields": [
+          {
+            "type": "string",
+            "name": "value",
+            "doc": "The query text"
+          },
+          {
+            "type": {
+              "type": "enum",
+              "symbolDocs": {
+                "SQL": "A SQL Query"
+              },
+              "name": "QueryLanguage",
+              "namespace": "com.linkedin.pegasus2avro.query",
+              "symbols": [
+                "SQL"
+              ]
+            },
+            "name": "language",
+            "default": "SQL",
+            "doc": "The language of the Query, e.g. SQL."
+          }
+        ],
+        "doc": "A query statement against one or more data assets."
+      },
+      "name": "statement",
+      "doc": "The Query Statement."
+    },
+    {
+      "Searchable": {},
+      "type": {
+        "type": "enum",
+        "symbolDocs": {
+          "MANUAL": "The query was entered manually by a user (via the UI)."
+        },
+        "name": "QuerySource",
+        "namespace": "com.linkedin.pegasus2avro.query",
+        "symbols": [
+          "MANUAL"
+        ]
+      },
+      "name": "source",
+      "doc": "The source of the Query"
+    },
+    {
+      "Searchable": {
+        "boostScore": 10.0,
+        "enableAutocomplete": true,
+        "fieldType": "WORD_GRAM"
+      },
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "name",
+      "default": null,
+      "doc": "Optional display name to identify the query."
+    },
+    {
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "description",
+      "default": null,
+      "doc": "The Query description."
+    },
+    {
+      "Searchable": {
+        "/actor": {
+          "fieldName": "createdBy",
+          "fieldType": "URN"
+        },
+        "/time": {
+          "fieldName": "createdAt",
+          "fieldType": "DATETIME"
+        }
+      },
+      "type": {
+        "type": "record",
+        "name": "AuditStamp",
+        "namespace": "com.linkedin.pegasus2avro.common",
+        "fields": [
+          {
+            "type": "long",
+            "name": "time",
+            "doc": "When did the resource/association/sub-resource move into the specific lifecycle stage represented by this AuditEvent."
+          },
+          {
+            "java": {
+              "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+            },
+            "type": "string",
+            "name": "actor",
+            "doc": "The entity (e.g. a member URN) which will be credited for moving the resource/association/sub-resource into the specific lifecycle stage. It is also the one used to authorize the change.",
+            "Urn": "Urn"
+          },
+          {
+            "java": {
+              "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+            },
+            "type": [
+              "null",
+              "string"
+            ],
+            "name": "impersonator",
+            "default": null,
+            "doc": "The entity (e.g. a service URN) which performs the change on behalf of the Actor and must be authorized to act as the Actor.",
+            "Urn": "Urn"
+          },
+          {
+            "type": [
+              "null",
+              "string"
+            ],
+            "name": "message",
+            "default": null,
+            "doc": "Additional context around how DataHub was informed of the particular change. For example: was the change created by an automated process, or manually."
+          }
+        ],
+        "doc": "Data captured on a resource/association/sub-resource level giving insight into when that resource/association/sub-resource moved into a particular lifecycle stage, and who acted to move it into that specific lifecycle stage."
+      },
+      "name": "created",
+      "doc": "Audit stamp capturing the time and actor who created the Query."
+    },
+    {
+      "Searchable": {
+        "/actor": {
+          "fieldName": "lastModifiedBy",
+          "fieldType": "URN"
+        },
+        "/time": {
+          "fieldName": "lastModifiedAt",
+          "fieldType": "DATETIME"
+        }
+      },
+      "type": "com.linkedin.pegasus2avro.common.AuditStamp",
+      "name": "lastModified",
+      "doc": "Audit stamp capturing the time and actor who last modified the Query."
+    }
+  ],
+  "doc": "Information about a Query against one or more data assets (e.g. Tables or Views)."
+}
