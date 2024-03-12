@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import styled from 'styled-components';
+import styled, { CSSObject } from 'styled-components';
 
 import { Entity, EntityType } from '../../../../types.generated';
 import { GenericEntityProperties } from '../../../entityV2/shared/types';
@@ -21,6 +21,8 @@ const LinkButton = styled(Link)`
     padding: 0px;
     height: auto;
     margin: 4px 0px 4px 0px;
+    max-width: 100%; /* Ensure the grid container does not exceed its parent's width */
+    overflow-x: hidden;
     &&& {
         display: flex;
         align-items: center;
@@ -39,10 +41,12 @@ const DisplayNameText = styled.span`
 
 type Props = {
     entity: GenericEntityProperties;
+    styles?: CSSObject;
+    displayTextStyle?: CSSObject;
     render?: (entity: GenericEntityProperties) => React.ReactNode;
 };
 
-export const EntityLink = ({ entity, render }: Props) => {
+export const EntityLink = ({ entity, styles, render, displayTextStyle }: Props) => {
     const entityRegistry = useEntityRegistry();
 
     if (!entity.urn || !entity.type) return null;
@@ -62,9 +66,10 @@ export const EntityLink = ({ entity, render }: Props) => {
                         size={17}
                         styles={{
                             padding: '4px',
+                            ...styles,
                         }}
                     />
-                    <DisplayNameText>{displayName}</DisplayNameText>
+                    <DisplayNameText style={{ ...displayTextStyle }}>{displayName}</DisplayNameText>
                 </LinkButton>
             </HoverEntityTooltip>
         );

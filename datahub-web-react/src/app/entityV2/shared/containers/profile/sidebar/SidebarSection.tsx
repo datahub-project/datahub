@@ -4,6 +4,7 @@ import { Collapse } from 'antd';
 import { KeyboardArrowDown, KeyboardArrowRight } from '@mui/icons-material';
 
 import { REDESIGN_COLORS } from '../../../constants';
+import { CountStyle } from '../../../SidebarStyledComponents';
 
 const Container = styled.div`
     display: flex;
@@ -25,6 +26,7 @@ const StyledCollapse = styled(Collapse)`
     }
     .ant-collapse-arrow {
         margin-right: 5px !important;
+        line-height: 32px;
     }
     .ant-collapse-expand-icon {
         height: 22px;
@@ -54,9 +56,10 @@ type Props = {
     title: string;
     content: React.ReactNode;
     extra?: React.ReactNode;
+    count?: number;
 };
 
-export const SidebarSection = ({ title, content, extra }: Props) => {
+export const SidebarSection = ({ title, content, extra, count = 0 }: Props) => {
     return (
         <StyledCollapse
             ghost
@@ -65,7 +68,15 @@ export const SidebarSection = ({ title, content, extra }: Props) => {
             )}
             defaultActiveKey={title}
         >
-            <Collapse.Panel header={<SectionHeader>{title}</SectionHeader>} key={title} extra={extra}>
+            <Collapse.Panel
+                header={
+                    <SectionHeader>
+                        {title} {count > 0 && <CountStyle> {count > 10 ? '10+' : count}</CountStyle>}
+                    </SectionHeader>
+                }
+                key={title}
+                extra={extra}
+            >
                 <Container>
                     <Content>{content}</Content>
                 </Container>

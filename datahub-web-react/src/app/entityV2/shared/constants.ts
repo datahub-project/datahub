@@ -28,8 +28,13 @@ export const REDESIGN_COLORS = {
     BORDER_1: '#4b4b54',
     BORDER_2: '#E6E6E6',
     BORDER_3: '#EFEFEF',
+    BORDER_4: '#533FD1',
     SECONDARY_LIGHT_GREY: '#9DA7C0',
     ACTION_ICON_GREY: '#676b75',
+    AVATAR_STYLE_WHITE_BACKGROUND: '#ffffff66',
+    GROUP_AVATAR_STYLE_GRADIENT: 'linear-gradient(0deg, #CB427B 0%, #CB427B 100%), #65B5C0',
+    PROFILE_AVATAR_STYLE_GRADIENT: 'linear-gradient(93deg, #23c5b1 5.11%, #30d572 112.87%), #65b5c0',
+    SIDE_BAR_BORDER_RIGHT: '#e8e8e8',
     DARK_PURPLE: '#6C6B88',
     LINK_GREY: '#586287',
     TEXT_GREY: '#8D95B1',
@@ -80,6 +85,10 @@ export const ANTD_GRAY_V2 = {
     6: '#B2B8BD',
     8: '#5E666E',
     10: '#1B1E22',
+    11: '#6C6B88',
+    12: '#52596c',
+    13: '#ababab',
+    14: '#f7f7f7'
 };
 
 export const EMPTY_MESSAGES = {

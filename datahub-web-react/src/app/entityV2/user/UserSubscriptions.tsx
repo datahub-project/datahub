@@ -6,11 +6,12 @@ import { scrollToTop } from '../../shared/searchUtils';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { ListItem, StyledList, ThinDivider } from '../../recommendations/renderer/component/EntityNameList';
 import { PreviewType } from '../Entity';
+import { CompactUserSubscriptions } from './CompactUserSubscriptions';
+import { SidebarSection } from '../shared/containers/profile/sidebar/SidebarSection';
 
 const UserSubscriptionsWrapper = styled.div`
     height: calc(100vh - 114px);
     overflow: auto;
-    padding-left: 10px;
 `;
 
 const PaginationContainer = styled.div`
@@ -24,7 +25,11 @@ const StyledPagination = styled(Pagination)`
 
 const PAGE_SIZE = 10;
 
-export const UserSubscriptions = () => {
+type Props = {
+    isCompact?: boolean;
+};
+
+export const UserSubscriptions = ({ isCompact }: Props) => {
     const [page, setPage] = useState(1);
     const entityRegistry = useEntityRegistry();
     const start = (page - 1) * PAGE_SIZE;
@@ -40,7 +45,13 @@ export const UserSubscriptions = () => {
         setPage(newPage);
     };
 
-    return (
+    return isCompact ? (
+        <SidebarSection
+            title="Subscribed to"
+            content={<CompactUserSubscriptions subscriptions={subscriptions} />}
+            count={subscriptions?.length}
+        />
+    ) : (
         <UserSubscriptionsWrapper>
             <StyledList
                 dataSource={subscriptions}
