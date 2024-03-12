@@ -1,3 +1,4 @@
+import contextlib
 import dataclasses
 import enum
 import itertools
@@ -16,6 +17,7 @@ import datahub.metadata.schema_classes as models
 from datahub.emitter.mce_builder import get_sys_time, make_ts_millis
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.sql_parsing_builder import compute_upstream_fields
+from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.api.report import Report
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
@@ -71,7 +73,7 @@ _DEFAULT_QUERY_LOG_SETTING = QueryLogSetting[
 @dataclasses.dataclass
 class LoggedQuery:
     query: str
-    session_id: str
+    session_id: Optional[str]
     timestamp: Optional[datetime]
     user: Optional[UrnStr]
     default_db: Optional[str]
@@ -185,7 +187,7 @@ class SqlAggregatorReport(Report):
         return super().compute_stats()
 
 
-class SqlParsingAggregator:
+class SqlParsingAggregator(Closeable):
     def __init__(
         self,
         *,
@@ -225,13 +227,18 @@ class SqlParsingAggregator:
         self.format_queries = format_queries
         self.query_log = query_log
 
+        # The exit stack helps ensure that we close all the resources we open.
+        self._exit_stack = contextlib.ExitStack()
+
         # Set up the schema resolver.
         self._schema_resolver: SchemaResolver
         if graph is None:
-            self._schema_resolver = SchemaResolver(
-                platform=self.platform.platform_name,
-                platform_instance=self.platform_instance,
-                env=self.env,
+            self._schema_resolver = self._exit_stack.enter_context(
+                SchemaResolver(
+                    platform=self.platform.platform_name,
+                    platform_instance=self.platform_instance,
+                    env=self.env,
+                )
             )
         else:
             self._schema_resolver = None  # type: ignore
@@ -250,43 +257,60 @@ class SqlParsingAggregator:
 
             # By providing a filename explicitly here, we also ensure that the file
             # is not automatically deleted on exit.
-            self._shared_connection = ConnectionWrapper(filename=query_log_path)
+            self._shared_connection = self._exit_stack.enter_context(
+                ConnectionWrapper(filename=query_log_path)
+            )
 
         # Stores the logged queries.
-        self._logged_queries = FileBackedList[LoggedQuery](
-            shared_connection=self._shared_connection, tablename="stored_queries"
+        self._logged_queries = self._exit_stack.enter_context(
+            FileBackedList[LoggedQuery](
+                shared_connection=self._shared_connection, tablename="stored_queries"
+            )
         )
 
         # Map of query_id -> QueryMetadata
-        self._query_map = FileBackedDict[QueryMetadata](
-            shared_connection=self._shared_connection, tablename="query_map"
+        self._query_map = self._exit_stack.enter_context(
+            FileBackedDict[QueryMetadata](
+                shared_connection=self._shared_connection, tablename="query_map"
+            )
         )
 
         # Map of downstream urn -> { query ids }
-        self._lineage_map = FileBackedDict[OrderedSet[QueryId]](
-            shared_connection=self._shared_connection, tablename="lineage_map"
+        self._lineage_map = self._exit_stack.enter_context(
+            FileBackedDict[OrderedSet[QueryId]](
+                shared_connection=self._shared_connection, tablename="lineage_map"
+            )
         )
 
         # Map of view urn -> view definition
-        self._view_definitions = FileBackedDict[ViewDefinition](
-            shared_connection=self._shared_connection, tablename="view_definitions"
+        self._view_definitions = self._exit_stack.enter_context(
+            FileBackedDict[ViewDefinition](
+                shared_connection=self._shared_connection, tablename="view_definitions"
+            )
         )
 
         # Map of session ID -> {temp table name -> query id}
         # Needs to use the query_map to find the info about the query.
         # This assumes that a temp table is created at most once per session.
-        self._temp_lineage_map = FileBackedDict[Dict[UrnStr, QueryId]](
-            shared_connection=self._shared_connection, tablename="temp_lineage_map"
+        self._temp_lineage_map = self._exit_stack.enter_context(
+            FileBackedDict[Dict[UrnStr, QueryId]](
+                shared_connection=self._shared_connection, tablename="temp_lineage_map"
+            )
         )
 
         # Map of query ID -> schema fields, only for query IDs that generate temp tables.
-        self._inferred_temp_schemas = FileBackedDict[List[models.SchemaFieldClass]](
-            shared_connection=self._shared_connection, tablename="inferred_temp_schemas"
+        self._inferred_temp_schemas = self._exit_stack.enter_context(
+            FileBackedDict[List[models.SchemaFieldClass]](
+                shared_connection=self._shared_connection,
+                tablename="inferred_temp_schemas",
+            )
         )
 
         # Map of table renames, from original UrnStr to new UrnStr.
-        self._table_renames = FileBackedDict[UrnStr](
-            shared_connection=self._shared_connection, tablename="table_renames"
+        self._table_renames = self._exit_stack.enter_context(
+            FileBackedDict[UrnStr](
+                shared_connection=self._shared_connection, tablename="table_renames"
+            )
         )
 
         # Usage aggregator. This will only be initialized if usage statistics are enabled.
@@ -295,6 +319,9 @@ class SqlParsingAggregator:
         if self.generate_usage_statistics:
             assert self.usage_config is not None
             self._usage_aggregator = UsageAggregator(config=self.usage_config)
+
+    def close(self) -> None:
+        self._exit_stack.close()
 
     @property
     def _need_schemas(self) -> bool:
@@ -735,7 +762,7 @@ class SqlParsingAggregator:
         ):
             query_log_entry = LoggedQuery(
                 query=query,
-                session_id=session_id,
+                session_id=session_id if session_id != _MISSING_SESSION_ID else None,
                 timestamp=timestamp,
                 user=user.urn() if user else None,
                 default_db=default_db,
