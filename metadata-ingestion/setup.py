@@ -102,6 +102,10 @@ sqlglot_lib = {
     "acryl-sqlglot==22.3.1.dev3",
 }
 
+classification_lib = {
+    "acryl-datahub-classify==0.0.9",
+}
+
 sql_common = (
     {
         # Required for all SQL sources.
@@ -121,6 +125,7 @@ sql_common = (
     }
     | usage_common
     | sqlglot_lib
+    | classification_lib
 )
 
 sqllineage_lib = {
@@ -190,8 +195,7 @@ snowflake_common = {
     "pandas",
     "cryptography",
     "msal",
-    "acryl-datahub-classify==0.0.9",
-}
+} | classification_lib
 
 trino = {
     "trino[sqlalchemy]>=0.308",
