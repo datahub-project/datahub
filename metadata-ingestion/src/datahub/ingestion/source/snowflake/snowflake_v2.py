@@ -7,7 +7,6 @@ from dataclasses import dataclass
 from functools import partial
 from typing import Callable, Dict, Iterable, List, Optional, Union
 
-import pandas as pd
 from snowflake.connector import SnowflakeConnection
 
 from datahub.configuration.pattern_utils import is_schema_allowed
@@ -37,7 +36,10 @@ from datahub.ingestion.api.source import (
     TestConnectionReport,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.glossary.classification_mixin import ClassificationHandler
+from datahub.ingestion.glossary.classification_mixin import (
+    ClassificationHandler,
+    classification_workunit_processor,
+)
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
@@ -52,6 +54,7 @@ from datahub.ingestion.source.snowflake.snowflake_config import (
     SnowflakeV2Config,
     TagOption,
 )
+from datahub.ingestion.source.snowflake.snowflake_data_reader import SnowflakeDataReader
 from datahub.ingestion.source.snowflake.snowflake_lineage_v2 import (
     SnowflakeLineageExtractor,
 )
@@ -134,7 +137,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 )
 from datahub.metadata.com.linkedin.pegasus2avro.tag import TagProperties
 from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
-from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.registries.domain_registry import DomainRegistry
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -210,6 +212,11 @@ SNOWFLAKE_FIELD_TYPE_MAPPINGS = {
 @capability(
     SourceCapability.TAGS,
     "Optionally enabled via `extract_tags`",
+    supported=True,
+)
+@capability(
+    SourceCapability.CLASSIFICATION,
+    "Optionally enabled via `classification.enabled`",
     supported=True,
 )
 class SnowflakeV2Source(
@@ -305,10 +312,7 @@ class SnowflakeV2Source(
                 config, self.report, self.profiling_state_handler
             )
 
-        if self.config.classification.enabled:
-            self.classification_handler = ClassificationHandler(
-                self.config, self.report
-            )
+        self.classification_handler = ClassificationHandler(self.config, self.report)
 
         # Caches tables for a single database. Consider moving to disk or S3 when possible.
         self.db_tables: Dict[str, List[SnowflakeTable]] = {}
@@ -775,8 +779,17 @@ class SnowflakeV2Source(
             self.db_tables[schema_name] = tables
 
             if self.config.include_technical_schema:
+                data_reader = self.make_data_reader()
                 for table in tables:
-                    yield from self._process_table(table, schema_name, db_name)
+                    table_wu_generator = self._process_table(
+                        table, schema_name, db_name
+                    )
+                    yield from classification_workunit_processor(
+                        table_wu_generator,
+                        self.classification_handler,
+                        data_reader,
+                        [db_name, schema_name, table.name],
+                    )
 
         if self.config.include_views:
             views = self.fetch_views_for_schema(snowflake_schema, db_name, schema_name)
@@ -876,6 +889,14 @@ class SnowflakeV2Source(
                 )
                 return []
 
+    def make_data_reader(self) -> Optional[SnowflakeDataReader]:
+        if self.classification_handler.is_classification_enabled() and self.connection:
+            return SnowflakeDataReader.create(
+                self.connection, self.snowflake_identifier
+            )
+
+        return None
+
     def _process_table(
         self,
         table: SnowflakeTable,
@@ -889,12 +910,6 @@ class SnowflakeV2Source(
         self.fetch_pk_for_table(table, schema_name, db_name, table_identifier)
 
         self.fetch_foreign_keys_for_table(table, schema_name, db_name, table_identifier)
-
-        dataset_name = self.get_dataset_identifier(table.name, schema_name, db_name)
-
-        self.fetch_sample_data_for_classification(
-            table, schema_name, db_name, dataset_name
-        )
 
         if self.config.extract_tags != TagOption.skip:
             table.tags = self.tag_extractor.get_tags_on_object(
@@ -913,36 +928,6 @@ class SnowflakeV2Source(
                     yield from self._process_tag(tag)
 
             yield from self.gen_dataset_workunits(table, schema_name, db_name)
-
-    def fetch_sample_data_for_classification(
-        self, table: SnowflakeTable, schema_name: str, db_name: str, dataset_name: str
-    ) -> None:
-        if (
-            table.columns
-            and self.config.classification.enabled
-            and self.classification_handler.is_classification_enabled_for_table(
-                dataset_name
-            )
-        ):
-            try:
-                table.sample_data = self.get_sample_values_for_table(
-                    table.name, schema_name, db_name
-                )
-            except Exception as e:
-                logger.debug(
-                    f"Failed to get sample values for dataset {dataset_name} due to error {e}",
-                    exc_info=e,
-                )
-                if isinstance(e, SnowflakePermissionError):
-                    self.report_warning(
-                        "Failed to get sample values for dataset. Please grant SELECT permissions on dataset.",
-                        dataset_name,
-                    )
-                else:
-                    self.report_warning(
-                        "Failed to get sample values for dataset",
-                        dataset_name,
-                    )
 
     def fetch_foreign_keys_for_table(
         self,
@@ -1073,9 +1058,7 @@ class SnowflakeV2Source(
         ).as_workunit()
 
         schema_metadata = self.gen_schema_metadata(table, schema_name, db_name)
-        # TODO: classification is only run for snowflake tables.
-        # Should we run classification for snowflake views as well?
-        self.classify_snowflake_table(table, dataset_name, schema_metadata)
+
         yield MetadataChangeProposalWrapper(
             entityUrn=dataset_urn, aspect=schema_metadata
         ).as_workunit()
@@ -1296,47 +1279,6 @@ class SnowflakeV2Source(
             )
         return foreign_keys
 
-    def classify_snowflake_table(
-        self,
-        table: Union[SnowflakeTable, SnowflakeView],
-        dataset_name: str,
-        schema_metadata: SchemaMetadata,
-    ) -> None:
-        if (
-            isinstance(table, SnowflakeTable)
-            and self.config.classification.enabled
-            and self.classification_handler.is_classification_enabled_for_table(
-                dataset_name
-            )
-        ):
-            if table.sample_data is not None:
-                table.sample_data.columns = [
-                    self.snowflake_identifier(col) for col in table.sample_data.columns
-                ]
-
-            try:
-                self.classification_handler.classify_schema_fields(
-                    dataset_name,
-                    schema_metadata,
-                    (
-                        table.sample_data.to_dict(orient="list")
-                        if table.sample_data is not None
-                        else {}
-                    ),
-                )
-            except Exception as e:
-                logger.debug(
-                    f"Failed to classify table columns for {dataset_name} due to error -> {e}",
-                    exc_info=e,
-                )
-                self.report_warning(
-                    "Failed to classify table columns",
-                    dataset_name,
-                )
-            finally:
-                # Cleaning up sample_data fetched for classification
-                table.sample_data = None
-
     def get_report(self) -> SourceReport:
         return self.report
 
@@ -1550,37 +1492,6 @@ class SnowflakeV2Source(
                 self.report.edition = SnowflakeEdition.ENTERPRISE
         except Exception:
             self.report.edition = None
-
-    # Ideally we do not want null values in sample data for a column.
-    # However that would require separate query per column and
-    # that would be expensive, hence not done. To compensale for possibility
-    # of some null values in collected sample, we fetch extra (20% more)
-    # rows than configured sample_size.
-    def get_sample_values_for_table(
-        self, table_name: str, schema_name: str, db_name: str
-    ) -> pd.DataFrame:
-        # Create a cursor object.
-        logger.debug(
-            f"Collecting sample values for table {db_name}.{schema_name}.{table_name}"
-        )
-
-        actual_sample_size = self.config.classification.sample_size * 1.2
-        with PerfTimer() as timer:
-            cur = self.get_connection().cursor()
-            # Execute a statement that will generate a result set.
-            sql = f'select * from "{db_name}"."{schema_name}"."{table_name}" sample ({actual_sample_size} rows);'
-
-            cur.execute(sql)
-            # Fetch the result set from the cursor and deliver it as the Pandas DataFrame.
-
-            dat = cur.fetchall()
-            df = pd.DataFrame(dat, columns=[col.name for col in cur.description])
-            time_taken = timer.elapsed_seconds()
-            logger.debug(
-                f"Finished collecting sample values for table {db_name}.{schema_name}.{table_name};{df.shape[0]} rows; took {time_taken:.3f} seconds"
-            )
-
-        return df
 
     # domain is either "view" or "table"
     def get_external_url_for_table(

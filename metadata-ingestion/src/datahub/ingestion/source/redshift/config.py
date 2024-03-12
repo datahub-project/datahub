@@ -9,6 +9,9 @@ from datahub.configuration import ConfigModel
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import DatasetLineageProviderConfigBase
 from datahub.configuration.validate_field_removal import pydantic_removed_field
+from datahub.ingestion.glossary.classification_mixin import (
+    ClassificationSourceConfigMixin,
+)
 from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
 from datahub.ingestion.source.sql.sql_config import BasicSQLAlchemyConfig
 from datahub.ingestion.source.state.stateful_ingestion_base import (
@@ -70,6 +73,7 @@ class RedshiftConfig(
     RedshiftUsageConfig,
     StatefulLineageConfigMixin,
     StatefulProfilingConfigMixin,
+    ClassificationSourceConfigMixin,
 ):
     database: str = Field(default="dev", description="database")
 

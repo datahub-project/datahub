@@ -35,6 +35,10 @@ from datahub.ingestion.api.source import (
 )
 from datahub.ingestion.api.source_helpers import create_dataset_props_patch_builder
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.glossary.classification_mixin import (
+    ClassificationHandler,
+    classification_workunit_processor,
+)
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
@@ -43,6 +47,7 @@ from datahub.ingestion.source.redshift.config import RedshiftConfig
 from datahub.ingestion.source.redshift.lineage import RedshiftLineageExtractor
 from datahub.ingestion.source.redshift.lineage_v2 import RedshiftSqlLineageV2
 from datahub.ingestion.source.redshift.profile import RedshiftProfiler
+from datahub.ingestion.source.redshift.redshift_data_reader import RedshiftDataReader
 from datahub.ingestion.source.redshift.redshift_schema import (
     RedshiftColumn,
     RedshiftDataDictionary,
@@ -52,6 +57,7 @@ from datahub.ingestion.source.redshift.redshift_schema import (
 )
 from datahub.ingestion.source.redshift.report import RedshiftReport
 from datahub.ingestion.source.redshift.usage import RedshiftUsageExtractor
+from datahub.ingestion.source.sql.data_reader import DataReader
 from datahub.ingestion.source.sql.sql_common import SqlWorkUnit
 from datahub.ingestion.source.sql.sql_types import resolve_postgres_modified_type
 from datahub.ingestion.source.sql.sql_utils import (
@@ -127,6 +133,11 @@ logger: logging.Logger = logging.getLogger(__name__)
     "Enabled by default, can be disabled via configuration `include_usage_statistics`",
 )
 @capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
+@capability(
+    SourceCapability.CLASSIFICATION,
+    "Optionally enabled via `classification.enabled`",
+    supported=True,
+)
 class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
     """
     This plugin extracts the following:
@@ -313,6 +324,8 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         self.catalog_metadata: Dict = {}
         self.config: RedshiftConfig = config
         self.report: RedshiftReport = RedshiftReport()
+        self.classification_handler = ClassificationHandler(self.config, self.report)
+        # TODO: support classification for Redshift
         self.platform = "redshift"
         self.domain_registry = None
         if self.config.domain:
@@ -490,6 +503,20 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             self.db_schemas[database][schema.name] = schema
             yield from self.process_schema(connection, database, schema)
 
+    def make_data_reader(
+        self,
+        connection: redshift_connector.Connection,
+    ) -> Optional[DataReader]:
+        """
+        Subclasses can override this with source-specific data reader
+        if source provides clause to pick random sample instead of current
+        limit-based sample
+        """
+        if self.classification_handler.is_classification_enabled():
+            return RedshiftDataReader.create(connection)
+
+        return None
+
     def process_schema(
         self,
         connection: redshift_connector.Connection,
@@ -529,6 +556,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             )
 
             if self.config.include_tables:
+                data_reader = self.make_data_reader(connection)
                 logger.info(f"Process tables in schema {database}.{schema.name}")
                 if (
                     self.db_tables[schema.database]
@@ -536,7 +564,15 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                 ):
                     for table in self.db_tables[schema.database][schema.name]:
                         table.columns = schema_columns[schema.name].get(table.name, [])
-                        yield from self._process_table(table, database=database)
+                        table_wu_generator = self._process_table(
+                            table, database=database
+                        )
+                        yield from classification_workunit_processor(
+                            table_wu_generator,
+                            self.classification_handler,
+                            data_reader,
+                            [schema.database, schema.name, table.name],
+                        )
                         self.report.table_processed[report_key] = (
                             self.report.table_processed.get(
                                 f"{database}.{schema.name}", 0

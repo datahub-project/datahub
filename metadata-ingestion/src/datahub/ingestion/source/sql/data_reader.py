@@ -1,12 +1,11 @@
 import logging
 from abc import abstractmethod
 from collections import defaultdict
-from typing import Any, Dict, List, Union
+from typing import Any, Dict, List, Optional, Union
 
 import sqlalchemy as sa
 from sqlalchemy.engine import Connection, Engine
 from sqlalchemy.engine.reflection import Inspector
-from sqlalchemy.engine.row import LegacyRow
 
 from datahub.ingestion.api.closeable import Closeable
 
@@ -14,16 +13,49 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 
 class DataReader(Closeable):
-    @abstractmethod
     def get_sample_data_for_column(
-        self, table_id: List[str], column_name: str, sample_size: int = 100
+        self, table_id: List[str], column_name: str, sample_size: int
     ) -> list:
-        pass
+        raise NotImplementedError()
 
     @abstractmethod
     def get_sample_data_for_table(
-        self, table_id: List[str], sample_size: int = 100
+        self,
+        table_id: List[str],
+        sample_size: int,
+        *,
+        sample_size_percent: Optional[float] = None,
+        filter: Optional[str] = None,
     ) -> Dict[str, list]:
+        """
+        Fetches table values , approx sample_size rows
+
+        Args:
+            table_id (List[str]): Table name identifier. One of
+                        - [<db_name>, <schema_name>, <table_name>] or
+                        - [<schema_name>, <table_name>] or
+                        - [<table_name>]
+            sample_size (int): sample size
+
+        Keyword Args:
+            sample_size_percent(float, between 0 and 1): For bigquery-like data platforms that provide only
+                    percentage based sampling methods. If present, actual sample_size
+                    may be ignored.
+
+            filter (string): For bigquery-like data platforms that need mandatory filter on partition
+                    column for some cases
+
+
+        Returns:
+            Dict[str, list]: dictionary of (column name -> list of column values)
+        """
+
+        # Ideally we do not want null values in sample data for a column.
+        # However that would require separate query per column and
+        # that would be expensive, hence not done. To compensate for possibility
+        # of some null values in collected sample, its usually recommended to
+        # fetch extra (20% more) rows than configured sample_size.
+
         pass
 
 
@@ -36,8 +68,7 @@ class SqlAlchemyTableDataReader(DataReader):
         self,
         conn: Union[Engine, Connection],
     ) -> None:
-        # TODO: How can this use a connection pool instead ?
-        self.engine = conn.engine.connect()
+        self.connection = conn.engine.connect()
 
     def _table(self, table_id: List[str]) -> sa.Table:
         return sa.Table(
@@ -46,91 +77,37 @@ class SqlAlchemyTableDataReader(DataReader):
             schema=table_id[-2] if len(table_id) > 1 else None,
         )
 
-    def get_sample_data_for_column(
-        self, table_id: List[str], column_name: str, sample_size: int = 100
-    ) -> list:
-        """
-        Fetches non-null column values, upto <sample_size> count
-        Args:
-            table_id: Table name identifier. One of
-                        - [<db_name>, <schema_name>, <table_name>] or
-                        - [<schema_name>, <table_name>] or
-                        - [<table_name>]
-            column: Column name
-        Returns:
-            list of column values
-        """
-
-        table = self._table(table_id)
-        query: Any
-        ignore_null_condition = sa.column(column_name).is_(None)
-        # limit doesn't compile properly for oracle so we will append rownum to query string later
-        if self.engine.dialect.name.lower() == "oracle":
-            raw_query = (
-                sa.select([sa.column(column_name)])
-                .select_from(table)
-                .where(sa.not_(ignore_null_condition))
-            )
-
-            query = str(
-                raw_query.compile(self.engine, compile_kwargs={"literal_binds": True})
-            )
-            query += "\nAND ROWNUM <= %d" % sample_size
-        else:
-            query = (
-                sa.select([sa.column(column_name)])
-                .select_from(table)
-                .where(sa.not_(ignore_null_condition))
-                .limit(sample_size)
-            )
-        query_results = self.engine.execute(query)
-
-        return [x[column_name] for x in query_results.fetchall()]
-
     def get_sample_data_for_table(
-        self, table_id: List[str], sample_size: int = 100
+        self, table_id: List[str], sample_size: int, **kwargs: Any
     ) -> Dict[str, list]:
-        """
-        Fetches table values, upto <sample_size>*1.2 count
-        Args:
-            table_id: Table name identifier. One of
-                        - [<db_name>, <schema_name>, <table_name>] or
-                        - [<schema_name>, <table_name>] or
-                        - [<table_name>]
-        Returns:
-            dictionary of (column name -> list of column values)
-        """
+
+        logger.debug(f"Collecting sample values for table {'.'.join(table_id)}")
+
         column_values: Dict[str, list] = defaultdict(list)
         table = self._table(table_id)
 
-        # Ideally we do not want null values in sample data for a column.
-        # However that would require separate query per column and
-        # that would be expensiv. To compensate for possibility
-        # of some null values in collected sample, we fetch extra (20% more)
-        # rows than configured sample_size.
-        sample_size = int(sample_size * 1.2)
-
         query: Any
 
         # limit doesn't compile properly for oracle so we will append rownum to query string later
-        if self.engine.dialect.name.lower() == "oracle":
+        if self.connection.dialect.name.lower() == "oracle":
             raw_query = sa.select([sa.text("*")]).select_from(table)
 
             query = str(
-                raw_query.compile(self.engine, compile_kwargs={"literal_binds": True})
+                raw_query.compile(
+                    self.connection, compile_kwargs={"literal_binds": True}
+                )
             )
             query += "\nAND ROWNUM <= %d" % sample_size
         else:
             query = sa.select([sa.text("*")]).select_from(table).limit(sample_size)
-        query_results = self.engine.execute(query)
+        query_results = self.connection.execute(query)
 
         # Not ideal - creates a parallel structure in column_values. Can we use pandas here ?
         for row in query_results.fetchall():
-            if isinstance(row, LegacyRow):
-                for col, col_value in row.items():
-                    column_values[col].append(col_value)
+            for col, col_value in row._mapping.items():
+                column_values[col].append(col_value)
 
         return column_values
 
     def close(self) -> None:
-        self.engine.close()
+        self.connection.close()
