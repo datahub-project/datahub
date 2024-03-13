@@ -133,7 +133,7 @@ export const tryGetUpperAndLowerYRangeFromAssertionRunEvent = (runEvent: Asserti
  * Ie. if it's a cron then it'll give the dates of the last run
  * @param mountedDataPoint 
  * @param allDataPoints 
- * @returns 
+ * @returns {tuple:[Date, Date]} start and end date
  */
 export const getWindowStartAndEndDatesForFreshnessAssertionRun = (mountedDataPoint: AssertionDataPoint | undefined, allDataPoints: AssertionDataPoint[]): [Date, Date] | undefined => {
 

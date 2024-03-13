@@ -161,13 +161,7 @@ export const FreshnessResultChart = ({ data, timeRange, chartDimensions, renderH
                                         run={dataPoint.relatedRunEvent}
                                     />}
                                     showArrow={false}
-                                    onOpenChange={(visible) => {
-                                        if (!visible) {
-                                            setMountedDataPoint(undefined)
-                                        } else {
-                                            setMountedDataPoint(dataPoint)
-                                        }
-                                    }}
+                                    onOpenChange={visible => setMountedDataPoint(visible ? dataPoint : undefined)}
                                 >
                                     <GlyphCircle
                                         left={xOffset}
