@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
-import { Button } from 'antd';
-import { ApolloError, ServerError } from '@apollo/client';
+import { ApolloError } from '@apollo/client';
 import {
     EntityType,
     FacetFilterInput,
@@ -107,6 +106,7 @@ type Props = {
     shouldRefetch?: boolean;
     resetShouldRefetch?: () => void;
     applyView?: boolean;
+    onLineageClick?: () => void;
 };
 
 export const EmbeddedListSearch = ({
@@ -135,6 +135,7 @@ export const EmbeddedListSearch = ({
     shouldRefetch,
     resetShouldRefetch,
     applyView = false,
+    onLineageClick,
 }: Props) => {
     const { shouldRefetchEmbeddedListSearch, setShouldRefetchEmbeddedListSearch } = useEntityContext();
     // Adjust query based on props
@@ -192,10 +193,10 @@ export const EmbeddedListSearch = ({
         fetchPolicy: 'cache-first',
     });
 
-    const [isError, setIsError] = useState<any>(undefined);
+    const [serverError, setServerError] = useState<any>(undefined);
 
     useEffect(() => {
-        setIsError(error);
+        setServerError(error);
     }, [error]);
 
     useEffect(() => {
@@ -289,37 +290,18 @@ export const EmbeddedListSearch = ({
         });
     }
 
-    const serverError = isError?.networkError as ServerError;
-    const serviceUnavailableError = serverError?.response?.status;
+    const isServerOverloadError = [503, 500, 504].includes(serverError?.networkError?.response?.status);
+
+    const onClickLessHops = () => {
+        setServerError(undefined);
+        onChangeFilters(defaultFilters);
+    };
 
     return (
         <Container>
-            {isError && (
-                <Message
-                    type={serviceUnavailableError === 503 ? 'info' : 'error'}
-                    content={
-                        serviceUnavailableError === 503 ? (
-                            <span>
-                                Data is too large. Please use lineage visualization to see lineage or see less hops by
-                                clicking{' '}
-                                <Button
-                                    style={{ marginLeft: '-14px' }}
-                                    onClick={() => {
-                                        setIsError(undefined);
-                                        onChangeFilters(defaultFilters);
-                                    }}
-                                    type="link"
-                                >
-                                    here
-                                </Button>
-                            </span>
-                        ) : (
-                            'Failed to load results! An unexpected error occurred.'
-                        )
-                    }
-                />
+            {serverError && !isServerOverloadError && (
+                <Message type="error" content="Failed to load results! An unexpected error occurred." />
             )}
-
             <EmbeddedListSearchHeader
                 onSearch={(q) => onChangeQuery(addFixedQuery(q, fixedQuery as string, emptySearchQuery as string))}
                 placeholderText={placeholderText}
@@ -338,6 +320,9 @@ export const EmbeddedListSearch = ({
             />
             <EmbeddedListSearchResults
                 unionType={unionType}
+                isServerOverloadError={isServerOverloadError}
+                onClickLessHops={onClickLessHops}
+                onLineageClick={onLineageClick}
                 loading={loading}
                 searchResponse={data}
                 filters={finalFacets}
