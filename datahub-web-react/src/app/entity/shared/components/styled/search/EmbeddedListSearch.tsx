@@ -192,6 +192,12 @@ export const EmbeddedListSearch = ({
         fetchPolicy: 'cache-first',
     });
 
+    const [isError, setIsError] = useState<any>(undefined);
+
+    useEffect(() => {
+        setIsError(error);
+    }, [error]);
+
     useEffect(() => {
         if (shouldRefetch && resetShouldRefetch) {
             refetch({
@@ -283,12 +289,12 @@ export const EmbeddedListSearch = ({
         });
     }
 
-    const serverError = error?.networkError as ServerError;
+    const serverError = isError?.networkError as ServerError;
     const serviceUnavailableError = serverError?.response?.status;
 
     return (
         <Container>
-            {error && (
+            {isError && (
                 <Message
                     type={serviceUnavailableError === 503 ? 'info' : 'error'}
                     content={
@@ -299,8 +305,8 @@ export const EmbeddedListSearch = ({
                                 <Button
                                     style={{ marginLeft: '-14px' }}
                                     onClick={() => {
+                                        setIsError(undefined);
                                         onChangeFilters(defaultFilters);
-                                        window.location.reload();
                                     }}
                                     type="link"
                                 >
