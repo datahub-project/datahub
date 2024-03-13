@@ -13,6 +13,7 @@ from datahub.sql_parsing.sql_parsing_aggregator import (
 from datahub.sql_parsing.sql_parsing_common import QueryType
 from datahub.sql_parsing.sqlglot_lineage import ColumnLineageInfo, ColumnRef
 from tests.test_helpers import mce_helpers
+from tests.test_helpers.click_helpers import run_datahub_cmd
 
 RESOURCE_DIR = pathlib.Path(__file__).parent / "aggregator_goldens"
 FROZEN_TIME = "2024-02-06 01:23:45"
@@ -23,12 +24,13 @@ def _ts(ts: int) -> datetime:
 
 
 @freeze_time(FROZEN_TIME)
-def test_basic_lineage(pytestconfig: pytest.Config) -> None:
+def test_basic_lineage(pytestconfig: pytest.Config, tmp_path: pathlib.Path) -> None:
     aggregator = SqlParsingAggregator(
         platform="redshift",
         generate_lineage=True,
         generate_usage_statistics=False,
         generate_operations=False,
+        query_log=QueryLogSetting.STORE_ALL,
     )
 
     aggregator.add_observed_query(
@@ -43,6 +45,23 @@ def test_basic_lineage(pytestconfig: pytest.Config) -> None:
         pytestconfig,
         outputs=mcps,
         golden_path=RESOURCE_DIR / "test_basic_lineage.json",
+    )
+
+    # This test also validates the query log storage functionality.
+    aggregator.close()
+    query_log_db = aggregator.report.query_log_path
+    query_log_json = tmp_path / "query_log.json"
+    run_datahub_cmd(
+        [
+            "check",
+            "extract-sql-agg-log",
+            str(query_log_db),
+            "--output",
+            str(query_log_json),
+        ]
+    )
+    mce_helpers.check_golden_file(
+        pytestconfig, query_log_json, RESOURCE_DIR / "test_basic_lineage_query_log.json"
     )
 
 
