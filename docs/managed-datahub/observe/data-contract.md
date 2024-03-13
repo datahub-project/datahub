@@ -61,11 +61,8 @@ schema:
 ### UI
 
 1. Navigate to the Dataset Profile for the dataset you wish to create a contract for
-
 2. Under the **Validations** > **Data Contracts** tab, click **Create**.![](https://lh7-us.googleusercontent.com/aOIfU9hAnJA4j_ii1F_qKBezbAxUJil8Y8mq7cr3Le0l5MjNPkt6VXkhJSEtVRU83zBa8fR9lmhPoilhCDjU7x7OZ7vEpP4BUyS3OUWz2M9HG9cv1ROzAjhktbltvz5gLaISvcf2q0DKWsiOnjcEukM)
-
 3. Select the assertions you wish to be included in the Data Contract. (_Note that when creating a Data Contract via the UI, the Freshness, Schema, and Data Quality assertions are expected to have been created already)_![](https://lh7-us.googleusercontent.com/UpHZ20vpUJAPgS6Jos1zviSu1nLkZl7a1s40Zd3HE3GeN2lNbom37sJCK4K_q4O-BUmwdUk2sS35PRu_ZnmKgjwDlUTdIh3aXFIXv1mydZm9BRVOeMwnfsFWDfFOovQzizgv6M3ZMa-IfjEyS8sGdXc)
-
 4. See it in the UI![](https://lh7-us.googleusercontent.com/hoDoFEuHmTC8M1LhgbwvE6FWn9F0s3N-JZFlmDouALVlsOjHBcwLnCAPHD2gtLAb5n83-FRA0oqw1FIoWyLmOx7RyejukGJPqdqHwmzUPhnisYC8NXqdeVyP8SqdwtUYTBDMsw2C0N_PO-w908geWZQ)**
 
 ### API

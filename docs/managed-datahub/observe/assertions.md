@@ -7,18 +7,15 @@ _Note: currently we support Snowflake, Databricks, Redshift, and BigQuery for ou
 
 An assertion is a data quality test that finds data that violate one or more specified rules. These serve as the backbone of Data Contracts – this is how we verify the contract is met. 
 
-
 ## How to Create and Run Assertions
 
 Data quality tests (a.k.a. assertions) can be run by either Acryl or ingested from a 3rd party tool. 
-
 
 ### 3rd Party Runners
 
 You can integrate 3rd party tools as follows:
 
 - [DBT Test](https://datahubproject.io/docs/generated/ingestion/sources/dbt#integrating-with-dbt-test)
-
 - [Great Expectations](https://datahubproject.io/docs/metadata-ingestion/integration_docs/great-expectations/)
 
 ****
@@ -31,11 +28,8 @@ If you opt for a 3rd party tool, it will be your responsibility to ensure the as
 For Acryl-provided assertion runners, we can deploy an agent in your environment to hit your sources and DataHub. Acryl Observe offers out-of-the-box evaluation of the following kinds of assertions:
 
 - [Freshness](https://datahubproject.io/docs/managed-datahub/observe/freshness-assertions) (SLAs)
-
 - [Volume](https://datahubproject.io/docs/managed-datahub/observe/volume-assertions)
-
 - [Custom SQL](https://datahubproject.io/docs/managed-datahub/observe/custom-sql-assertions)
-
 - [Column](https://datahubproject.io/docs/managed-datahub/observe/column-assertions)
 
 ****
