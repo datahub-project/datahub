@@ -1,5 +1,6 @@
 import json
 import logging
+from functools import partial
 import re
 from typing import Any, Dict, Iterable, List, Optional, Union
 
@@ -23,7 +24,12 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.extractor import schema_util
-from datahub.ingestion.source.sql.sql_common import SqlWorkUnit, register_custom_type
+from datahub.ingestion.source.common.subtypes import DatasetSubTypes
+from datahub.ingestion.source.sql.sql_common import (
+    SqlWorkUnit,
+    register_custom_type,
+    get_schema_metadata,
+)
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.ingestion.source.sql.two_tier_sql_source import (
     TwoTierSQLAlchemyConfig,
@@ -134,6 +140,22 @@ class HiveConfig(TwoTierSQLAlchemyConfig):
         return config_clean.remove_protocol(v)
 
 
+def schema_resolver_get_urn_for_table(self, table, lower: bool = False):
+    if len(table.table.split(".")) > 1:
+        table_name = table.table
+    else:
+        table_name = ".".join([table.db_schema, table.table])
+
+    return make_dataset_urn_with_platform_instance(
+        platform=self.platform,
+        platform_instance=(
+            self.platform_instance.lower() if self.platform_instance and lower else None
+        ),
+        env=self.env,
+        name=table_name.lower() if lower else table_name,
+    )
+
+
 @platform_name("Hive")
 @config_class(HiveConfig)
 @support_status(SupportStatus.CERTIFIED)
@@ -154,6 +176,10 @@ class HiveSource(TwoTierSQLAlchemySource):
 
     def __init__(self, config, ctx):
         super().__init__(config, ctx, "hive")
+        # Schema resolver is not working properly when table name contains the schema. We need to override the method
+        self.schema_resolver.get_urn_for_table = partial(
+            schema_resolver_get_urn_for_table, self.schema_resolver
+        )
 
     @classmethod
     def create(cls, config_dict, ctx):
