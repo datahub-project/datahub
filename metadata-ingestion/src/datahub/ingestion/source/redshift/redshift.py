@@ -833,7 +833,10 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             )
 
     def cache_tables_and_views(self, connection, database):
-        tables, views = self.data_dictionary.get_tables_and_views(conn=connection)
+        tables, views = self.data_dictionary.get_tables_and_views(
+            conn=connection,
+            skip_external_tables=self.config.skip_external_tables,
+        )
         for schema in tables:
             if not is_schema_allowed(
                 self.config.schema_pattern,
