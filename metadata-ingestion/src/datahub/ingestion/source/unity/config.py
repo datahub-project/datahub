@@ -62,7 +62,7 @@ class UnityCatalogProfilerConfig(ConfigModel):
 
 class DeltaLakeDetails(ConfigModel):
     platform_instance_name: Optional[str] = Field(default=None, description="")
-    env: Optional[str] = Field(default="Prod", description="")
+    env: str = Field(default="Prod", description="")
 
 
 class UnityCatalogAnalyzeProfilerConfig(UnityCatalogProfilerConfig):

@@ -521,7 +521,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                     "delta-lake",
                     browse_path,
                     self.config.delta_lake_options.platform_instance_name,
-                    self.config.delta_lake_options.env
+                    self.config.delta_lake_options.env,
                 )
 
                 yield from self.gen_siblings_workunit(dataset_urn, source_dataset_urn)
