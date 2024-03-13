@@ -64,12 +64,11 @@ def assert_metadata_files_equal(
         with tempfile.NamedTemporaryFile() as temp:
             try:
                 golden_metadata = read_metadata_file(pathlib.Path(golden_path))
+                write_metadata_file(pathlib.Path(temp.name), golden_metadata)
+                golden = load_json_file(temp.name)
             except (ValueError, AssertionError) as e:
                 logger.info(f"Error reformatting golden file as MCP/MCEs: {e}")
                 golden = load_json_file(golden_path)
-            else:
-                write_metadata_file(pathlib.Path(temp.name), golden_metadata)
-                golden = load_json_file(temp.name)
 
     diff = diff_metadata_json(output, golden, ignore_paths, ignore_order=ignore_order)
     if diff and update_golden:
