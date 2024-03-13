@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
-import { ApolloError } from '@apollo/client';
+import { Button } from 'antd';
+import { ApolloError, ServerError } from '@apollo/client';
 import {
     EntityType,
     FacetFilterInput,
@@ -282,9 +283,37 @@ export const EmbeddedListSearch = ({
         });
     }
 
+    const serverError = error?.networkError as ServerError;
+    const serviceUnavailableError = serverError?.response?.status;
+
     return (
         <Container>
-            {error && <Message type="error" content="Failed to load results! An unexpected error occurred." />}
+            {error && (
+                <Message
+                    type={serviceUnavailableError === 503 ? 'info' : 'error'}
+                    content={
+                        serviceUnavailableError === 503 ? (
+                            <span>
+                                Data is too large. Please use lineage visualization to see lineage or see less hops by
+                                clicking{' '}
+                                <Button
+                                    style={{ marginLeft: '-14px' }}
+                                    onClick={() => {
+                                        onChangeFilters(defaultFilters);
+                                        window.location.reload();
+                                    }}
+                                    type="link"
+                                >
+                                    here
+                                </Button>
+                            </span>
+                        ) : (
+                            'Failed to load results! An unexpected error occurred.'
+                        )
+                    }
+                />
+            )}
+
             <EmbeddedListSearchHeader
                 onSearch={(q) => onChangeQuery(addFixedQuery(q, fixedQuery as string, emptySearchQuery as string))}
                 placeholderText={placeholderText}
