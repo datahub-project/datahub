@@ -1,8 +1,8 @@
 import React from 'react';
 import styled from 'styled-components';
-import { HorizontalList } from '../../../../../../entityV2/shared/summary/ListComponents';
 import { Section } from '../Section';
 import { useInsightStatusContext } from './InsightStatusProvider';
+import { Carousel } from '../../../../../../shared/carousel/Carousel';
 
 const Container = styled.div<{ hide: boolean }>`
     ${(props) => props.hide && 'display: none;'}
@@ -18,7 +18,7 @@ export const InsightsSection = ({ children }: Props) => {
     return (
         <Container hide={!hasInsights}>
             <Section title="For you">
-                <HorizontalList>{children}</HorizontalList>
+                <Carousel>{children}</Carousel>
             </Section>
         </Container>
     );
