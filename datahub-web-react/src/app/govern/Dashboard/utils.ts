@@ -3,8 +3,6 @@ import { scaleOrdinal } from "@visx/scale";
 import dayjs from 'dayjs';
 import { COMPLETED_COLOR, NOT_STARTED_COLOR, IN_PROGRESS_COLOR } from '../../dataviz/constants';
 
-
-
 // Status Ordinal Scale 
 export const statusOrdinalScale = scaleOrdinal({
 	domain: ['Not Started', 'In Progress', 'Completed'],
@@ -83,8 +81,19 @@ export const columnSorterFunction = (a, b, key) => {
 	if (typeof a[key] === 'string' && typeof b[key] === 'string') {
 		// Case-insensitive string comparison
 		return a[key].localeCompare(b[key]);
-	} 
-		// Numeric comparison
-		return a[key] - b[key];
-	
+	}
+	// Numeric comparison
+	return a[key] - b[key];
+};
+
+// Handle url params
+export const setUrlParams = (param, router, clearFilter = false) => {
+	const { history, location } = router;
+	const searchParams = new URLSearchParams(location.search);
+
+	searchParams.set(param.key, param.value);
+	if (clearFilter) searchParams.delete('filter');
+
+	const newSearch = searchParams.toString();
+	history.push(`${location.pathname}${newSearch ? `?${newSearch}` : ''}`);
 };

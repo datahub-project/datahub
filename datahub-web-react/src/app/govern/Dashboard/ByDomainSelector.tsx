@@ -10,10 +10,7 @@ import { NO_DOMAIN } from '../../../conf/Global';
 import { StyledSelect } from './components';
 
 export const ByDomainSelector = () => {
-	const {
-		byDomain: { domains, hasDomains, selectedDomain, setSelectedDomain },
-		sectionLoadStates: { resetLoadStates }
-	} = useFormAnalyticsContext();
+	const { byDomain: { domains, hasDomains, selectedDomain, setSelectedDomain } } = useFormAnalyticsContext();
 
 	// If theres no forms, return null
 	if (!hasDomains) return (
@@ -44,12 +41,6 @@ export const ByDomainSelector = () => {
 		}
 	});
 
-	// Reset load states when form is changed
-	const handleSetDomain = (value) => {
-		setSelectedDomain(value);
-		resetLoadStates();
-	};
-
 	// Handle figuring out the default value
 	const getDefaultValue = () => {
 		if (selectedDomain) return selectedDomain;
@@ -63,7 +54,7 @@ export const ByDomainSelector = () => {
 			filterOption
 			placeholder="Select a domain"
 			optionFilterProp="label"
-			onChange={handleSetDomain}
+			onChange={(value: any) => setSelectedDomain(value)}
 			options={options}
 			defaultValue={getDefaultValue()}
 			size="large"

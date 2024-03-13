@@ -8,10 +8,7 @@ import { useFormAnalyticsContext } from './FormAnalyticsContext';
 import { StyledSelect } from './components';
 
 export const ByAssigneeSelector = () => {
-	const {
-		byAssignee: { assignees, hasAssignees, selectedAssignee, setSelectedAssignee },
-		sectionLoadStates: { resetLoadStates }
-	} = useFormAnalyticsContext();
+	const { byAssignee: { assignees, hasAssignees, selectedAssignee, setSelectedAssignee } } = useFormAnalyticsContext();
 
 	// If theres no forms, return null
 	if (!hasAssignees) return (
@@ -36,12 +33,6 @@ export const ByAssigneeSelector = () => {
 		});
 	});
 
-	// Reset load states when form is changed
-	const handleSetAssignee = (value) => {
-		setSelectedAssignee(value)
-		resetLoadStates();
-	};
-
 	// Handle figuring out the default value
 	const getDefaultValue = () => {
 		if (selectedAssignee) return selectedAssignee;
@@ -55,7 +46,7 @@ export const ByAssigneeSelector = () => {
 			filterOption
 			placeholder="Select an assignee"
 			optionFilterProp="label"
-			onChange={handleSetAssignee}
+			onChange={(value: any) => setSelectedAssignee(value)}
 			options={options}
 			defaultValue={getDefaultValue()}
 			size="large"

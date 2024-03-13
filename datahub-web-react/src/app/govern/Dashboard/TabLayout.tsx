@@ -39,7 +39,6 @@ interface Tab {
 	charts: Array<React.ReactElement>,
 }
 
-
 export const TabLayout = () => {
 	const {
 		sql,
@@ -162,7 +161,7 @@ export const TabLayout = () => {
 				<PrimaryHeading>Your Documentation Initiatives</PrimaryHeading>
 			</Header>
 			<TabsContainer>
-				<Tabs defaultActiveKey={selectedTab} items={tabs} onChange={handleSetTab} />
+				<Tabs activeKey={selectedTab} items={tabs} onChange={handleSetTab} />
 				<DataFreshness>
 					<span>
 						<HistoryOutlinedIcon style={{ height: '1.25rem', color: freshnessColor(snapshot) }} /> as of {dayjs(snapshot).format('MMM D, YYYY')}
