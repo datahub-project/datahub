@@ -67,6 +67,11 @@ export const ManageAccount = ({ urn: _urn, pictureLink: _pictureLink, name }: Pr
         };
     });
 
+    const divider = {
+        key: 'divider',
+        type: 'divider',
+    };
+
     const items = [
         version
             ? {
@@ -78,6 +83,7 @@ export const ManageAccount = ({ urn: _urn, pictureLink: _pictureLink, name }: Pr
                   ),
               }
             : null,
+        divider,
         {
             key: 'profile',
             label: (
@@ -109,6 +115,7 @@ export const ManageAccount = ({ urn: _urn, pictureLink: _pictureLink, name }: Pr
                 </MenuItemStyle>
             ),
         },
+        divider,
         {
             key: 'logout',
             label: (

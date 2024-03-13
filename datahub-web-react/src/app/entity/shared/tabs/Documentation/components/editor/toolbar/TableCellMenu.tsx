@@ -25,6 +25,11 @@ export const TableCellMenu = () => {
     const active = useActive();
     const commands = useCommands();
 
+    const divider = {
+        key: 'divider',
+        type: 'divider',
+    };
+
     const items = [
         {
             key: 0,
@@ -62,6 +67,7 @@ export const TableCellMenu = () => {
                 </MenuItemStyle>
             ),
         },
+        divider,
         {
             key: 4,
             label: (
