@@ -34,6 +34,8 @@ const CHART_AXIS_BOTTOM_HEIGHT = 40;
 const CHART_RIGHT_MARGIN = 2;
 const CHART_TOP_MARGIN = 8;
 
+const NUM_TICKS_AXIS_LEFT = 3;
+
 export const ValuesOverTimeAssertionResultChart = ({ data, timeRange, chartDimensions, renderHeader }: Props) => {
     const rawDataPoints = data.dataPoints
 
@@ -75,11 +77,13 @@ export const ValuesOverTimeAssertionResultChart = ({ data, timeRange, chartDimen
             const allYValues = actualYValues.concat(expectedYValues);
             let min = (Math.min(...allYValues) || 0)
             let max = (Math.max(...allYValues) || 0)
+
             // Add some extra range above and below if the min and the max are the same so things are nicely centered
             if (min === max || max === actualMax || max === expectedMax || min === actualMin || min === expectedMin) {
                 const averageValue = (min + max) / 2
                 const averageValueBase = Math.floor(averageValue).toString().length
-                const differentiator = 10 ** (averageValueBase - 1)
+                let differentiator = 10 ** (averageValueBase - 1)
+                differentiator /= (NUM_TICKS_AXIS_LEFT - 1)
                 min -= differentiator;
                 max += differentiator;
             }
@@ -127,7 +131,7 @@ export const ValuesOverTimeAssertionResultChart = ({ data, timeRange, chartDimen
                     stroke={ANTD_GRAY[4]}
                     tickStroke={ANTD_GRAY[9]}
                     tickLength={4}
-                    numTicks={3}
+                    numTicks={NUM_TICKS_AXIS_LEFT}
                     tickFormat={v => truncateNumberForDisplay(v.valueOf())}
                     tickLabelProps={{
                         fill: ANTD_GRAY[9],
@@ -154,7 +158,8 @@ export const ValuesOverTimeAssertionResultChart = ({ data, timeRange, chartDimen
                     y={(d) => yScale(getExpectedYs(d).low ?? 0)}
                     defined={d => typeof getExpectedYs(d).low === 'number'}
                     stroke={ACCENT_COLOR_HEX}
-                    strokeDasharray='2 4'
+                    strokeOpacity={0.5}
+                    strokeDasharray='1 2'
                     strokeWidth={1}
                 />
                 {/* Max */}
@@ -165,20 +170,33 @@ export const ValuesOverTimeAssertionResultChart = ({ data, timeRange, chartDimen
                     y={(d) => yScale(getExpectedYs(d).high ?? 0)}
                     defined={d => typeof getExpectedYs(d).high === 'number'}
                     stroke={ACCENT_COLOR_HEX}
-                    strokeDasharray='2 4'
+                    strokeOpacity={0.5}
+                    strokeDasharray='1 2'
                     strokeWidth={1}
+                />
+                {/* Fill */}
+                <LinearGradient id="expected-area-gradient" from={ACCENT_COLOR_HEX} to={ACCENT_COLOR_HEX} fromOpacity={0.15} toOpacity={0.05} />
+                <AreaClosed
+                    data={dataPoints}
+                    x={(d) => xScale(getX(d))}
+                    y0={(d) => yScale(getExpectedYs(d).low ?? yScale.domain()[0])} // first element of domain is the extent low
+                    y1={(d) => yScale(getExpectedYs(d).high ?? yScale.domain()[1])} // second element of the domain is the extent high
+                    defined={d => typeof (getExpectedYs(d).high ?? getExpectedYs(d).low) === 'number'}
+                    yScale={yScale}
+                    strokeWidth={1}
+                    fill="url(#expected-area-gradient)"
                 />
 
 
                 {/* ----- Actual Results Line with gradient ----- */}
-                <LinearGradient id="area-gradient" from={ACCENT_COLOR_HEX} to={ACCENT_COLOR_HEX} fromOpacity={0.25} toOpacity={0} />
+                <LinearGradient id="results-area-gradient" from={ACCENT_COLOR_HEX} to={ACCENT_COLOR_HEX} fromOpacity={0.1} toOpacity={0} />
                 <AreaClosed
                     data={dataPoints}
                     x={(d) => xScale(getX(d))}
                     y={(d) => yScale(getY(d))}
                     yScale={yScale}
                     strokeWidth={1}
-                    fill="url(#area-gradient)"
+                    fill="url(#results-area-gradient)"
                 />
                 <LinePath
                     data={dataPoints}
