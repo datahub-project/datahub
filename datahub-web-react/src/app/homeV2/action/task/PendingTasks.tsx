@@ -1,11 +1,11 @@
+import { FileDoneOutlined } from '@ant-design/icons';
 import React from 'react';
 import styled from 'styled-components';
-import { FileDoneOutlined } from '@ant-design/icons';
 import { ANTD_GRAY } from '../../../entity/shared/constants';
-import { useGetPendingDocumentationRequests } from './useGetPendingDocumentationRequests';
-import { useGetPendingDocumentationProposals } from './useGetPendingDocumentationProposals';
 import { PendingProposals } from './PendingProposals';
-import { PendingRequests } from './PendingRequests';
+// import { PendingRequests } from './PendingRequests';
+import { useGetPendingDocumentationProposals } from './useGetPendingDocumentationProposals';
+import { useGetPendingDocumentationRequests } from './useGetPendingDocumentationRequests';
 
 const Card = styled.div`
     border: 1px solid ${ANTD_GRAY[4]};
@@ -46,7 +46,7 @@ const Section = styled.div`
 `;
 
 export const PendingTasks = () => {
-    const { count: documentationRequestCount, loading: documentationRequestsLoading } =
+    const { count: documentationRequestCount /* loading: documentationRequestsLoading */ } =
         useGetPendingDocumentationRequests();
     const { count: documentationProposalCount, loading: documentationProposalsLoading } =
         useGetPendingDocumentationProposals();
@@ -68,10 +68,10 @@ export const PendingTasks = () => {
                     <PendingProposals count={documentationProposalCount} loading={documentationProposalsLoading} />
                 )) ||
                     null}
-                {(documentationRequestCount && (
+                {/* {(documentationRequestCount && (
                     <PendingRequests count={documentationRequestCount} loading={documentationRequestsLoading} />
                 )) ||
-                    null}
+                    null} */}
             </Section>
         </Card>
     );
