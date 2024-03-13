@@ -1,9 +1,9 @@
 import React from 'react';
-import { Button, Dropdown, Menu, Tooltip } from 'antd';
+import { Button, Dropdown, Tooltip } from 'antd';
 import { CaretDownOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
-import MenuItem from 'antd/lib/menu/MenuItem';
 import { ANTD_GRAY } from '../../../../constants';
+import { MenuItemStyle } from '../../../../../view/menu/item/styledComponent';
 
 const DownArrow = styled(CaretDownOutlined)`
     && {
@@ -12,12 +12,6 @@ const DownArrow = styled(CaretDownOutlined)`
         margin-left: 2px;
         margin-top: 2px;
         color: ${ANTD_GRAY[7]};
-    }
-`;
-
-const StyledMenuItem = styled(MenuItem)`
-    && {
-        padding: 0px;
     }
 `;
 
@@ -47,23 +41,20 @@ type Props = {
 };
 
 export default function ActionDropdown({ name, actions, disabled }: Props) {
+    const items = actions.map((action, i) => ({
+        key: i,
+        label: (
+            <MenuItemStyle>
+                <ActionButton type="text" onClick={action.onClick}>
+                    {action.title}
+                </ActionButton>
+            </MenuItemStyle>
+        ),
+    }));
+
     return (
         <Tooltip title={disabled ? 'This action is not supported for the selected types.' : ''}>
-            <Dropdown
-                disabled={disabled}
-                trigger={['click']}
-                overlay={
-                    <Menu>
-                        {actions.map((action) => (
-                            <StyledMenuItem>
-                                <ActionButton type="text" onClick={action.onClick}>
-                                    {action.title}
-                                </ActionButton>
-                            </StyledMenuItem>
-                        ))}
-                    </Menu>
-                }
-            >
+            <Dropdown disabled={disabled} trigger={['click']} menu={{ items }}>
                 <DropdownWrapper disabled={!!disabled}>
                     {name}
                     <DownArrow />

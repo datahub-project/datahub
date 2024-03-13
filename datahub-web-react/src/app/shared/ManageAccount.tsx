@@ -1,6 +1,6 @@
 import React from 'react';
 import Cookies from 'js-cookie';
-import { Menu, Dropdown } from 'antd';
+import { Dropdown } from 'antd';
 import { CaretDownOutlined } from '@ant-design/icons';
 import styled, { useTheme } from 'styled-components';
 import { EntityType } from '../../types.generated';
@@ -13,22 +13,6 @@ import { ANTD_GRAY } from '../entity/shared/constants';
 import { useAppConfig } from '../useAppConfig';
 import { useUserContext } from '../context/useUserContext';
 import { MenuItemStyle } from '../entity/view/menu/item/styledComponent';
-
-const MenuItem = styled(Menu.Item)`
-    display: flex;
-    justify-content: start;
-    align-items: center;
-    && {
-        margin-top: 2px;
-    }
-    & > a:visited,
-    & > a:active,
-    & > a:focus {
-        clear: both;
-        border: none;
-        outline: 0;
-    }
-`;
 
 const DownArrow = styled(CaretDownOutlined)`
     vertical-align: -1px;
@@ -69,7 +53,7 @@ export const ManageAccount = ({ urn: _urn, pictureLink: _pictureLink, name }: Pr
         return {
             key: value.label,
             label: (
-                <MenuItem key={value.label}>
+                <MenuItemStyle key={value.label}>
                     <a
                         href={value.path || ''}
                         target={value.shouldOpenInNewTab ? '_blank' : ''}
@@ -78,7 +62,7 @@ export const ManageAccount = ({ urn: _urn, pictureLink: _pictureLink, name }: Pr
                     >
                         {value.label}
                     </a>
-                </MenuItem>
+                </MenuItemStyle>
             ),
         };
     });

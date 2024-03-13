@@ -4,5 +4,8 @@ import styled from "styled-components";
 export const MenuItemStyle =styled(MenuItem)`
     &&&& {
         background-color: transparent;
+        a{
+            color: inherit;
+        }
     }
 `;

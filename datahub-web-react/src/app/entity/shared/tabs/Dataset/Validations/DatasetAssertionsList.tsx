@@ -9,7 +9,7 @@ import { Assertion, AssertionRunStatus } from '../../../../../../types.generated
 import { getResultColor, getResultIcon, getResultText } from './assertionUtils';
 import { useDeleteAssertionMutation } from '../../../../../../graphql/assertion.generated';
 import { capitalizeFirstLetterOnly } from '../../../../../shared/textUtil';
-import AssertionMenu from './AssertionMenu';
+import useAssertionMenu from './useAssertionMenu';
 
 const ResultContainer = styled.div`
     display: flex;
@@ -125,37 +125,41 @@ export const DatasetAssertionsList = ({ assertions, onDelete }: Props) => {
             title: '',
             dataIndex: '',
             key: '',
-            render: (_, record: any) => (
-                <ActionButtonContainer>
-                    <Tooltip
-                        title={
-                            record.platform.properties?.displayName || capitalizeFirstLetterOnly(record.platform.name)
-                        }
-                    >
-                        <PlatformContainer>
-                            {(record.platform.properties?.logoUrl && (
-                                <Image
-                                    preview={false}
-                                    height={20}
-                                    width={20}
-                                    src={record.platform.properties?.logoUrl}
-                                />
-                            )) || (
-                                <Typography.Text>
-                                    {record.platform.properties?.displayName ||
-                                        capitalizeFirstLetterOnly(record.platform.name)}
-                                </Typography.Text>
-                            )}
-                        </PlatformContainer>
-                    </Tooltip>
-                    <Button onClick={() => onDeleteAssertion(record.urn)} type="text" shape="circle" danger>
-                        <DeleteOutlined />
-                    </Button>
-                    <Dropdown overlay={<AssertionMenu urn={record.urn} />} trigger={['click']}>
-                        <StyledMoreOutlined />
-                    </Dropdown>
-                </ActionButtonContainer>
-            ),
+            render: (_, record: any) => {
+                const items = useAssertionMenu(record.urn);
+                return (
+                    <ActionButtonContainer>
+                        <Tooltip
+                            title={
+                                record.platform.properties?.displayName ||
+                                capitalizeFirstLetterOnly(record.platform.name)
+                            }
+                        >
+                            <PlatformContainer>
+                                {(record.platform.properties?.logoUrl && (
+                                    <Image
+                                        preview={false}
+                                        height={20}
+                                        width={20}
+                                        src={record.platform.properties?.logoUrl}
+                                    />
+                                )) || (
+                                    <Typography.Text>
+                                        {record.platform.properties?.displayName ||
+                                            capitalizeFirstLetterOnly(record.platform.name)}
+                                    </Typography.Text>
+                                )}
+                            </PlatformContainer>
+                        </Tooltip>
+                        <Button onClick={() => onDeleteAssertion(record.urn)} type="text" shape="circle" danger>
+                            <DeleteOutlined />
+                        </Button>
+                        <Dropdown menu={items} trigger={['click']}>
+                            <StyledMoreOutlined />
+                        </Dropdown>
+                    </ActionButtonContainer>
+                );
+            },
         },
     ];
 
