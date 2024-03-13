@@ -1302,7 +1302,6 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
         unique_custom_sql = get_unique_custom_sql(custom_sql_connection)
 
         for csql in unique_custom_sql:
-            csql[c.QUERY] = clean_query(csql[c.QUERY])
             csql_id: str = csql[c.ID]
             csql_urn = builder.make_dataset_urn_with_platform_instance(
                 platform=self.platform,
@@ -1605,6 +1604,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                 f"raw sql query is not available for datasource {datasource_urn}"
             )
             return None
+        query = clean_query(query)
 
         logger.debug(f"Parsing sql={query}")
 
@@ -1822,13 +1822,15 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
             # from CUSTOM SQLs when Tableu doesn't provide upstream tables
             # With this approach, we also join lingering CustomSQL entities to Embedded Data Sources
             table_id_to_urn = {
-                column["table"][
-                    "id"
-                ]: f"urn:li:dataset:(urn:li:dataPlatform:tableau,{column['table']['id']},{self.config.env})"
-                for field in datasource.get("fields", [])
-                for column in field.get("upstreamColumns", [])
-                if column.get("table", {}).get("__typename") == "CustomSQLTable"
-                and column.get("table", {}).get("id")
+                column[c.TABLE][
+                    c.ID
+                ]:  builder.make_dataset_urn_with_platform_instance(
+                    self.platform, column[c.TABLE][c.ID], self.config.platform_instance, self.config.env
+                )
+                for field in datasource.get(c.FIELDS, [])
+                for column in field.get(c.UPSTREAM_COLUMNS, [])
+                if column.get(c.TABLE, {}).get(c.TYPE_NAME) == c.CUSTOM_SQL_TABLE
+                and column.get(c.TABLE, {}).get(c.ID)
             }
             fine_grained_lineages = self.get_upstream_columns_of_fields_in_datasource(
                 datasource, datasource_urn, table_id_to_urn
