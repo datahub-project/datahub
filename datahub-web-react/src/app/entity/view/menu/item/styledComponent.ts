@@ -1,10 +1,10 @@
-import MenuItem from "antd/lib/menu/MenuItem";
-import styled from "styled-components";
+import MenuItem from 'antd/lib/menu/MenuItem';
+import styled from 'styled-components';
 
-export const MenuItemStyle =styled(MenuItem)`
+export const MenuItemStyle = styled(MenuItem)`
     &&&& {
         background-color: transparent;
-        a{
+        a {
             color: inherit;
         }
     }

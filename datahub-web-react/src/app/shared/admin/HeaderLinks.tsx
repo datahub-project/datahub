@@ -11,7 +11,7 @@ import {
 } from '@ant-design/icons';
 import { Link } from 'react-router-dom';
 import { Button, Dropdown, Tooltip } from 'antd';
-import { useAppConfig } from '../../useAppConfig';
+import { useAppConfig, useBusinessAttributesFlag } from '../../useAppConfig';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import { HOME_PAGE_INGESTION_ID } from '../../onboarding/config/HomePageOnboardingConfig';
 import { useToggleEducationStepIdsAllowList } from '../../onboarding/useToggleEducationStepIdsAllowList';
@@ -104,23 +104,27 @@ export function HeaderLinks(props: Props) {
                 </Link>
             ),
         },
-        {
-            key: 2,
-            label: (
-                <Link to="/business-attribute">
-                <NavTitleContainer>
-                    <GlobalOutlined
-                        style={{
-                            fontSize: 14,
-                            fontWeight: 'bold',
-                        }}
-                    />
-                    <NavTitleText>Business Attribute</NavTitleText>
-                </NavTitleContainer>
-                <NavTitleDescription>Universal field for data consistency</NavTitleDescription>
-            </Link>
-            ),
-        },
+        ...(businessAttributesFlag
+            ? [
+                  {
+                      key: 2,
+                      label: (
+                          <Link to="/business-attribute">
+                              <NavTitleContainer>
+                                  <GlobalOutlined
+                                      style={{
+                                          fontSize: 14,
+                                          fontWeight: 'bold',
+                                      }}
+                                  />
+                                  <NavTitleText>Business Attribute</NavTitleText>
+                              </NavTitleContainer>
+                              <NavTitleDescription>Universal field for data consistency</NavTitleDescription>
+                          </Link>
+                      ),
+                  },
+              ]
+            : []),
     ];
 
     return (

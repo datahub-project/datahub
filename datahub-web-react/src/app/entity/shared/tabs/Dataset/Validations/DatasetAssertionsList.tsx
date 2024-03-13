@@ -17,7 +17,11 @@ import { Assertion, AssertionRunStatus, DataContract, EntityType } from '../../.
 import { getResultColor, getResultIcon, getResultText } from './assertionUtils';
 import { useDeleteAssertionMutation } from '../../../../../../graphql/assertion.generated';
 import { capitalizeFirstLetterOnly } from '../../../../../shared/textUtil';
-import useAssertionMenu from './useAssertionMenu';
+import { REDESIGN_COLORS } from '../../../constants';
+import { useEntityRegistry } from '../../../../../useEntityRegistry';
+import { isAssertionPartOfContract } from './contract/utils';
+import { useEntityData } from '../../../EntityContext';
+import CopyUrnMenuItem from '../../../../../shared/share/items/CopyUrnMenuItem';
 
 const ResultContainer = styled.div`
     display: flex;
@@ -132,6 +136,15 @@ export const DatasetAssertionsList = ({
             assertion.runEvents.runEvents[0].result?.type,
     }));
 
+    const assertionMenuItems = (urn: string) => {
+        return [
+            {
+                key: 1,
+                label: <CopyUrnMenuItem key="1" urn={urn} type="Assertion" />,
+            },
+        ];
+    };
+
     const assertionsTableCols = [
         {
             title: '',
@@ -212,38 +225,39 @@ export const DatasetAssertionsList = ({
             dataIndex: '',
             key: '',
             render: (_, record: any) => {
-                const items = useAssertionMenu(record.urn);
                 return (
-                    <ActionButtonContainer>
-                        <Tooltip
-                            title={
-                                record.platform.properties?.displayName ||
-                                capitalizeFirstLetterOnly(record.platform.name)
-                            }
-                        >
-                            <PlatformContainer>
-                                {(record.platform.properties?.logoUrl && (
-                                    <Image
-                                        preview={false}
-                                        height={20}
-                                        width={20}
-                                        src={record.platform.properties?.logoUrl}
-                                    />
-                                )) || (
-                                    <Typography.Text>
-                                        {record.platform.properties?.displayName ||
-                                            capitalizeFirstLetterOnly(record.platform.name)}
-                                    </Typography.Text>
-                                )}
-                            </PlatformContainer>
-                        </Tooltip>
-                        <Button onClick={() => onDeleteAssertion(record.urn)} type="text" shape="circle" danger>
-                            <DeleteOutlined />
-                        </Button>
-                        <Dropdown menu={items} trigger={['click']}>
-                            <StyledMoreOutlined />
-                        </Dropdown>
-                    </ActionButtonContainer>
+                    showMenu && (
+                        <ActionButtonContainer>
+                            <Tooltip
+                                title={
+                                    record.platform.properties?.displayName ||
+                                    capitalizeFirstLetterOnly(record.platform.name)
+                                }
+                            >
+                                <PlatformContainer>
+                                    {(record.platform.properties?.logoUrl && (
+                                        <Image
+                                            preview={false}
+                                            height={20}
+                                            width={20}
+                                            src={record.platform.properties?.logoUrl}
+                                        />
+                                    )) || (
+                                        <Typography.Text>
+                                            {record.platform.properties?.displayName ||
+                                                capitalizeFirstLetterOnly(record.platform.name)}
+                                        </Typography.Text>
+                                    )}
+                                </PlatformContainer>
+                            </Tooltip>
+                            <Button onClick={() => onDeleteAssertion(record.urn)} type="text" shape="circle" danger>
+                                <DeleteOutlined />
+                            </Button>
+                            <Dropdown menu={{ items: assertionMenuItems(record.urn) }} trigger={['click']}>
+                                <StyledMoreOutlined />
+                            </Dropdown>
+                        </ActionButtonContainer>
+                    )
                 );
             },
         },
