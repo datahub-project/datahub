@@ -154,7 +154,7 @@ export const FreshnessResultChart = ({ data, timeRange, chartDimensions, renderH
                     {maybeMountedDataPointDatasetUpdateDate ? <GlyphTriangle
                         left={xScale(maybeMountedDataPointDatasetUpdateDate)}
                         top={yOffset}
-                        fill='#29ba1a'
+                        fill='#1aa90b'
                         stroke='white'
                         strokeWidth={1}
                         size={80}
