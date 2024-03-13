@@ -4,7 +4,7 @@ import { Popover } from 'antd';
 import { Group } from '@visx/group';
 import { AxisBottom } from '@visx/axis';
 import { scaleUtc } from '@visx/scale';
-import { GlyphCircle } from '@visx/glyph'
+import { GlyphCircle, GlyphTriangle } from '@visx/glyph'
 import { AreaClosed, LinePath } from '@visx/shape';
 import { GridColumns } from '@visx/grid'
 import { LinearGradient } from '@visx/gradient';
@@ -15,6 +15,7 @@ import { LinkWrapper } from '../../../../../../../../../../../shared/LinkWrapper
 import { ACCENT_COLOR_HEX, generateTimeScaleTickValues, getCustomTimeScaleTickValue, getFillColor, getWindowStartAndEndDatesForFreshnessAssertionRun } from './utils';
 import { AssertionDataPoint, AssertionResultChartData, TimeRange } from './types';
 import { AssertionResultPopoverContent } from '../../../../shared/result/AssertionResultPopoverContent';
+import { tryGetActualUpdatedTimestampFromAssertionResult } from '../../../shared/resultExtractionUtils';
 
 type Props = {
     data: AssertionResultChartData;
@@ -43,6 +44,12 @@ export const FreshnessResultChart = ({ data, timeRange, chartDimensions, renderH
         getWindowStartAndEndDatesForFreshnessAssertionRun(mountedDataPoint, dataPoints),
         [mountedDataPoint, dataPoints]
     )
+    const maybeMountedDataPointDatasetUpdateDate: number | undefined = useMemo(() => {
+        const result = mountedDataPoint?.relatedRunEvent.result;
+        if (!result) return undefined;
+        const maybeUpdatedTs = tryGetActualUpdatedTimestampFromAssertionResult(result);
+        return maybeUpdatedTs;
+    }, [mountedDataPoint])
 
     const timeScaleTicks: Date[] = generateTimeScaleTickValues(timeRange.startMs, timeRange.endMs)
 
@@ -60,6 +67,7 @@ export const FreshnessResultChart = ({ data, timeRange, chartDimensions, renderH
     );
 
     const lineThickness = 3
+    const yOffset = chartDimensions.height / 3;
     return (
         <>
             {renderHeader?.(`Freshness checks over time`)}
@@ -129,7 +137,7 @@ export const FreshnessResultChart = ({ data, timeRange, chartDimensions, renderH
                             )}
                             strokeWidth={1}
                             fill="url(#area-gradient)"
-                        />
+                        />,
                     ] : null}
 
                     {/* Line */}
@@ -142,10 +150,20 @@ export const FreshnessResultChart = ({ data, timeRange, chartDimensions, renderH
                         markerStart={dataPoints.length > 1 ? 'url(#marker-arrow)' : undefined}
                     />
 
+                    {/* Dataset updated TS market (shows when you hover over a data point) */}
+                    {maybeMountedDataPointDatasetUpdateDate ? <GlyphTriangle
+                        left={xScale(maybeMountedDataPointDatasetUpdateDate)}
+                        top={yOffset}
+                        fill='#29ba1a'
+                        stroke='white'
+                        strokeWidth={1}
+                        size={80}
+                        filter='drop-shadow(0px 1px 2.5px rgb(0 0 0 / 0.1))'
+                    /> : null}
+
                     {/* Circular data points */}
                     {dataPoints.map(dataPoint => {
                         const xOffset = xScale(new Date(dataPoint.time));
-                        const yOffset = chartDimensions.height / 3;
                         const fillColor = getFillColor(dataPoint.result.type);
                         return (
                             <LinkWrapper key={dataPoint.time} to={dataPoint.result.resultUrl} target="_blank">
@@ -169,6 +187,7 @@ export const FreshnessResultChart = ({ data, timeRange, chartDimensions, renderH
                                         fill={fillColor}
                                         stroke='white'
                                         strokeWidth={2}
+                                        opacity={(mountedDataPoint && (mountedDataPoint.time === dataPoint.time ? 1 : 0.2)) || 1}
                                         size={80}
                                         filter='drop-shadow(0px 1px 2.5px rgb(0 0 0 / 0.1))'
                                     />
