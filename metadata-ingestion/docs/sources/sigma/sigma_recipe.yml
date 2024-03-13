@@ -1,0 +1,18 @@
+source:
+  type: sigma
+  config:
+    # Coordinates
+    api_url: "https://aws-api.sigmacomputing.com/v2"
+    # Credentials
+    client_id: "CLIENTID"
+    client_secret: "CLIENT_SECRET"
+    
+    # Optional - filter for certain workspace names instead of ingesting everything.
+    # workspace_pattern:
+    #   allow:
+    #     - workspace_name
+
+    ingest_owner: true
+
+sink:
+  # sink configs
