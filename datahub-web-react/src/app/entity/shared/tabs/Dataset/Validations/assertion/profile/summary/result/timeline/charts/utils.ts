@@ -8,6 +8,7 @@ export const SUCCESS_COLOR_HEX = ACCENT_COLOR_HEX;// '#52C41A';
 export const FAILURE_COLOR_HEX = '#F5222D';
 export const ERROR_COLOR_HEX = '#FAAD14';
 export const INIT_COLOR_HEX = '#8C8C8C';
+export const EXPECTED_RANGE_SHADE_COLOR = '#11d469';
 
 export const getFillColor = (type: AssertionResultType) => {
     switch (type) {

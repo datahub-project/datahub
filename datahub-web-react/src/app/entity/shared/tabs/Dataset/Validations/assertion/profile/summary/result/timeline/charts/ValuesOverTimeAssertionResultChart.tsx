@@ -12,7 +12,7 @@ import { scaleLinear } from 'd3-scale';
 
 import { ANTD_GRAY } from '../../../../../../../../../constants';
 import { LinkWrapper } from '../../../../../../../../../../../shared/LinkWrapper';
-import { ACCENT_COLOR_HEX, generateTimeScaleTickValues, getCustomTimeScaleTickValue, getFillColor, tryGetUpperAndLowerYRangeFromAssertionRunEvent } from './utils';
+import { ACCENT_COLOR_HEX, EXPECTED_RANGE_SHADE_COLOR, generateTimeScaleTickValues, getCustomTimeScaleTickValue, getFillColor, tryGetUpperAndLowerYRangeFromAssertionRunEvent } from './utils';
 import { AssertionDataPoint, AssertionResultChartData, TimeRange } from './types';
 import { AssertionResultPopoverContent } from '../../../../shared/result/AssertionResultPopoverContent';
 import { truncateNumberForDisplay } from '../../../../../../../../../../../dataviz/utils';
@@ -157,9 +157,8 @@ export const ValuesOverTimeAssertionResultChart = ({ data, timeRange, chartDimen
                     // NOTE nullish 'low's should never show because the `defined` prop below removes them
                     y={(d) => yScale(getExpectedYs(d).low ?? 0)}
                     defined={d => typeof getExpectedYs(d).low === 'number'}
-                    stroke={ACCENT_COLOR_HEX}
-                    strokeOpacity={0.5}
-                    strokeDasharray='1 2'
+                    stroke={EXPECTED_RANGE_SHADE_COLOR}
+                    strokeDasharray='4 4'
                     strokeWidth={1}
                 />
                 {/* Max */}
@@ -169,13 +168,12 @@ export const ValuesOverTimeAssertionResultChart = ({ data, timeRange, chartDimen
                     // NOTE nullish 'high's should never show because the `defined` prop below removes them
                     y={(d) => yScale(getExpectedYs(d).high ?? 0)}
                     defined={d => typeof getExpectedYs(d).high === 'number'}
-                    stroke={ACCENT_COLOR_HEX}
-                    strokeOpacity={0.5}
-                    strokeDasharray='1 2'
+                    stroke={EXPECTED_RANGE_SHADE_COLOR}
+                    strokeDasharray='4 4'
                     strokeWidth={1}
                 />
-                {/* Fill */}
-                <LinearGradient id="expected-area-gradient" from={ACCENT_COLOR_HEX} to={ACCENT_COLOR_HEX} fromOpacity={0.15} toOpacity={0.05} />
+                {/* Shade expected range */}
+                <LinearGradient id="expected-area-gradient" from={EXPECTED_RANGE_SHADE_COLOR} to={EXPECTED_RANGE_SHADE_COLOR} fromOpacity={0.15} toOpacity={0.1} />
                 <AreaClosed
                     data={dataPoints}
                     x={(d) => xScale(getX(d))}
@@ -203,7 +201,7 @@ export const ValuesOverTimeAssertionResultChart = ({ data, timeRange, chartDimen
                     x={(d) => xScale(getX(d))}
                     y={(d) => yScale(getY(d))}
                     stroke={ACCENT_COLOR_HEX}
-                    strokeWidth={4}
+                    strokeWidth={2}
                 />
 
                 {/* ----- Circular datapoints ----- */}
