@@ -91,6 +91,10 @@ export enum EventType {
     EmbedProfileViewEvent,
     EmbedProfileViewInDataHubEvent,
     EmbedLookupNotFoundEvent,
+    ClickDocRequestCTA,
+    CompleteDocRequestPrompt,
+    CompleteVerification,
+    OpenTaskCenter,
     // SaaS only events
     CreateTestEvent,
     UpdateTestEvent,
@@ -747,6 +751,40 @@ export interface EmbedLookupNotFoundEvent extends BaseEvent {
     reason: EmbedLookupNotFoundReason;
 }
 
+export enum DocRequestCTASource {
+    TaskCenter = 'TaskCenter',
+    AssetPage = 'AssetPage',
+}
+
+export interface ClickDocRequestCTA extends BaseEvent {
+    type: EventType.ClickDocRequestCTA;
+    source: DocRequestCTASource;
+}
+
+export enum DocRequestView {
+    ByQuestion = 'ByQuestion',
+    ByAsset = 'ByAsset',
+    BulkVerify = 'BulkVerify',
+}
+
+export interface CompleteDocRequestPrompt extends BaseEvent {
+    type: EventType.CompleteDocRequestPrompt;
+    source: DocRequestView;
+    promptId: string;
+    required: boolean;
+    numAssets: number;
+}
+
+export interface CompleteVerification extends BaseEvent {
+    type: EventType.CompleteVerification;
+    source: DocRequestView;
+    numAssets: number;
+}
+
+export interface OpenTaskCenter extends BaseEvent {
+    type: EventType.OpenTaskCenter;
+}
+
 export interface SlackIntegrationSuccessEvent extends BaseEvent {
     type: EventType.SlackIntegrationSuccessEvent;
     configType: string;
@@ -921,6 +959,10 @@ export type Event =
     | EmbedProfileViewEvent
     | EmbedProfileViewInDataHubEvent
     | EmbedLookupNotFoundEvent
+    | ClickDocRequestCTA
+    | CompleteDocRequestPrompt
+    | CompleteVerification
+    | OpenTaskCenter
     | CreateAssertionMonitorEvent
     | UpdateAssertionMonitorEvent
     | StartAssertionMonitorEvent

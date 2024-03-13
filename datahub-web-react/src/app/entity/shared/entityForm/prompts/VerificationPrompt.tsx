@@ -6,6 +6,7 @@ import { useEntityContext, useMutationUrn } from '../../EntityContext';
 import { PromptWrapper } from './Prompt';
 import { useUpdateEducationStepsAllowList } from '../../../../onboarding/useUpdateEducationStepsAllowList';
 import { FORM_ASSET_COMPLETION } from '../../../../onboarding/config/FormOnboardingConfig';
+import analytics, { DocRequestView, EventType } from '../../../../analytics';
 
 const ContentWrapper = styled.div`
     display: flex;
@@ -42,6 +43,11 @@ export default function VerificationPrompt({ formUrn, associatedUrn, shouldShowV
             .then(() => {
                 refetch();
                 addIdToAllowList(FORM_ASSET_COMPLETION);
+                analytics.event({
+                    type: EventType.CompleteVerification,
+                    source: DocRequestView.ByAsset,
+                    numAssets: 1,
+                });
             })
             .catch(() => {
                 message.error('Error when verifying responses on form');

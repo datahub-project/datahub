@@ -11,6 +11,7 @@ import { useBatchSubmitFormPromptMutation } from '../../../../../graphql/form.ge
 import VerificationCTA from './VerificationCTA';
 import { FORM_ANSWER_IN_BULK_ID } from '../../../../onboarding/config/FormOnboardingConfig';
 import { pluralize } from '../../../../shared/textUtil';
+import analytics, { EventType, DocRequestView } from '../../../../analytics';
 
 const FormPromptsWrapper = styled(BulkNavigationWrapper)`
     justify-content: space-between;
@@ -27,17 +28,8 @@ export default function PromptNavigation() {
     const {
         form: { isVerificationType },
         submission: { handlePromptSubmission, handleUndoPromptSubmission },
-        prompt: {
-            prompts,
-            prompt,
-            promptIndex,
-            setSelectedPromptId,
-        },
-        entity: {
-            selectedEntities,
-            setSelectedEntities,
-            setNumSubmittedEntities,
-        }
+        prompt: { prompts, prompt, promptIndex, setSelectedPromptId },
+        entity: { selectedEntities, setSelectedEntities, setNumSubmittedEntities },
     } = useEntityFormContext();
 
     const [batchSubmitFormPromptResponse] = useBatchSubmitFormPromptMutation();
@@ -71,11 +63,21 @@ export default function PromptNavigation() {
             variables: { input: { assetUrns: selectedEntityUrns, input: promptInput } },
         })
             .then(() => {
+                analytics.event({
+                    type: EventType.CompleteDocRequestPrompt,
+                    source: DocRequestView.ByAsset,
+                    required: prompt?.required as boolean,
+                    promptId: promptInput.promptId,
+                    numAssets: selectedEntities.length,
+                });
                 handlePromptSubmission(promptInput.promptId, selectedEntityUrns);
                 message.destroy();
                 notification.success({
                     message: 'Success',
-                    description: `You have successfully submitted a response for ${selectedEntities.length} ${pluralize(selectedEntities.length, 'asset')}.`,
+                    description: `You have successfully submitted a response for ${selectedEntities.length} ${pluralize(
+                        selectedEntities.length,
+                        'asset',
+                    )}.`,
                     placement: 'bottomLeft',
                     duration: 3,
                     icon: <CheckCircleFilled style={{ color: '#078781' }} />,

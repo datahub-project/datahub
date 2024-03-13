@@ -5,6 +5,7 @@ import { List, Typography, Button } from 'antd';
 import EntityFormModal from '../../entity/shared/entityForm/EntityFormModal';
 import { FormType } from '../../../types.generated';
 import { pluralize } from '../../shared/textUtil';
+import analytics, { DocRequestCTASource, EventType } from '../../analytics';
 
 type Props = {
 	request: any;
@@ -35,6 +36,14 @@ export const RequestItem = ({ request, refetch }: Props) => {
 		setModalOpen(false);
 	}
 
+    const openModal = () => {
+        setModalOpen(true);
+        analytics.event({
+            type: EventType.ClickDocRequestCTA,
+            source: DocRequestCTASource.TaskCenter,
+        });
+    };
+
 	return (
 		<>
 			<List.Item key={form.urn}>
@@ -42,9 +51,7 @@ export const RequestItem = ({ request, refetch }: Props) => {
 					<strong>{message}</strong> <br />
                     Please complete {name} for {numEntitiesToComplete} {pluralize(numEntitiesToComplete, 'asset')}
 				</Typography.Text>
-				<Button onClick={() => setModalOpen(true)}>
-					Open in Documentation Center
-				</Button>
+                <Button onClick={openModal}>Open in Documentation Center</Button>
 			</List.Item>
 			<EntityFormModal
 				selectedFormUrn={form.urn}
