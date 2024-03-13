@@ -1,6 +1,4 @@
-import { AssertionStdOperator, AssertionType } from "../../../../../../../../../../types.generated";
-
-export const VALUES_OVER_TIME_ASSERTION_TYPES: AssertionType[] = [AssertionType.Field, AssertionType.Sql, AssertionType.Volume];
+import { AssertionStdOperator } from "../../../../../../../../../../types.generated";
 
 // We hard code this here because there's no set schema NativeResults on the AssertionResult document
 // - it's a generic map.

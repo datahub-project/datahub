@@ -14,6 +14,7 @@ import { getBestChartTypeForAssertion } from './charts/utils';
 import { StatusOverTimeAssertionResultChart } from './charts/StatusOverTimeAssertionResultChart';
 import { ANTD_GRAY } from '../../../../../../../../constants';
 import { getTimeRangeDisplay } from './utils';
+import { FreshnessResultChart } from './charts/FreshnessResultChart';
 
 const VIZ_CONTAINER_HEIGHT = 200;
 const VIZ_CONTAINER_TITLE_HEIGHT = 36;
@@ -71,19 +72,32 @@ export const AssertionResultsTimelineViz = ({ assertion, results, timeRange, par
         <VizHeaderTitle strong>{title || getTimeRangeDisplay(timeRange)}</VizHeaderTitle>
     </VizHeader>
 
+    const renderChart = (): JSX.Element | undefined => {
+        switch (getBestChartTypeForAssertion(assertion.info)) {
+            case AssertionChartType.ValuesOverTime:
+                return <ValuesOverTimeAssertionResultChart
+                    chartDimensions={chartDimensions}
+                    data={assertionResultChartData}
+                    timeRange={timeRange}
+                    renderHeader={renderChartTitle}
+                />;
+            case AssertionChartType.Freshness:
+                return <FreshnessResultChart
+                    chartDimensions={chartDimensions}
+                    data={assertionResultChartData}
+                    timeRange={timeRange}
+                    renderHeader={renderChartTitle}
+                />;
+            default:
+                return <StatusOverTimeAssertionResultChart
+                    chartDimensions={chartDimensions}
+                    data={assertionResultChartData}
+                    timeRange={timeRange}
+                    renderHeader={renderChartTitle}
+                />;
+        }
+    }
     return <VisualizationContainer>
-        {getBestChartTypeForAssertion(assertion.info) === AssertionChartType.ValuesOverTime
-            ? <ValuesOverTimeAssertionResultChart
-                chartDimensions={chartDimensions}
-                data={assertionResultChartData}
-                timeRange={timeRange}
-                renderHeader={renderChartTitle}
-            />
-            : <StatusOverTimeAssertionResultChart
-                chartDimensions={chartDimensions}
-                data={assertionResultChartData}
-                timeRange={timeRange}
-                renderHeader={renderChartTitle}
-            />}
+        {renderChart()}
     </VisualizationContainer>
 };

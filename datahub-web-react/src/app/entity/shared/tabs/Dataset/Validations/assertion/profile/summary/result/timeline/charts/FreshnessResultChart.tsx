@@ -1,19 +1,20 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 
 import { Popover } from 'antd';
 import { Group } from '@visx/group';
 import { AxisBottom } from '@visx/axis';
 import { scaleUtc } from '@visx/scale';
 import { GlyphCircle } from '@visx/glyph'
-import { LinePath } from '@visx/shape';
+import { AreaClosed, LinePath } from '@visx/shape';
 import { GridColumns } from '@visx/grid'
+import { LinearGradient } from '@visx/gradient';
+import { scaleLinear } from 'd3-scale';
 
 import { ANTD_GRAY } from '../../../../../../../../../constants';
 import { LinkWrapper } from '../../../../../../../../../../../shared/LinkWrapper';
-import { ACCENT_COLOR_HEX, generateTimeScaleTickValues, getCustomTimeScaleTickValue, getFillColor } from './utils';
-import { AssertionResultChartData, TimeRange } from './types';
+import { ACCENT_COLOR_HEX, generateTimeScaleTickValues, getCustomTimeScaleTickValue, getFillColor, getWindowStartAndEndDatesForFreshnessAssertionRun } from './utils';
+import { AssertionDataPoint, AssertionResultChartData, TimeRange } from './types';
 import { AssertionResultPopoverContent } from '../../../../shared/result/AssertionResultPopoverContent';
-import { getTimeRangeDisplay } from '../utils';
 
 type Props = {
     data: AssertionResultChartData;
@@ -30,11 +31,22 @@ const CHART_HORIZ_MARGIN = 36;
 const CHART_AXIS_BOTTOM_HEIGHT = 40;
 
 /**
- * Assertion run result status displayed on a horizontal timeline.
- * TODO(jayacryl) refactor to a pretty timeline line-view
+ * Specifically for freshness assertions.
  */
-export const StatusOverTimeAssertionResultChart = ({ data, timeRange, chartDimensions, renderHeader }: Props) => {
+export const FreshnessResultChart = ({ data, timeRange, chartDimensions, renderHeader }: Props) => {
+    const { dataPoints } = data;
 
+    // ----------------- States and data calculations ----------------- //
+    // Handle special visuals when user hovers over a data point
+    const [mountedDataPoint, setMountedDataPoint] = useState<AssertionDataPoint>()
+    const maybeMounteDataPointWindowRangeTicks: Date[] | undefined = useMemo(() =>
+        getWindowStartAndEndDatesForFreshnessAssertionRun(mountedDataPoint, dataPoints),
+        [mountedDataPoint, dataPoints]
+    )
+
+    const timeScaleTicks: Date[] = generateTimeScaleTickValues(timeRange.startMs, timeRange.endMs)
+
+    // ----------------- Visual calculations ----------------- //
     const chartInnerHeight = chartDimensions.height - CHART_AXIS_BOTTOM_HEIGHT
     const chartInnerWidth = chartDimensions.width - CHART_HORIZ_MARGIN
 
@@ -47,12 +59,10 @@ export const StatusOverTimeAssertionResultChart = ({ data, timeRange, chartDimen
         [timeRange, chartInnerWidth],
     );
 
-
-    const timeScaleTicks = generateTimeScaleTickValues(timeRange.startMs, timeRange.endMs)
     const lineThickness = 3
     return (
         <>
-            {renderHeader?.(getTimeRangeDisplay(timeRange))}
+            {renderHeader?.(`Freshness checks over time`)}
             <svg width={chartDimensions.width} height={chartDimensions.height}>
                 <defs>
                     <marker
@@ -95,18 +105,45 @@ export const StatusOverTimeAssertionResultChart = ({ data, timeRange, chartDimen
                         }}
                     />
 
+                    {/* Expected window of mounted data point (currently being hovered) */}
+                    {maybeMounteDataPointWindowRangeTicks ? [
+                        <GridColumns
+                            scale={xScale}
+                            tickValues={maybeMounteDataPointWindowRangeTicks}
+                            height={chartInnerHeight}
+                            lineStyle={{
+                                stroke: ACCENT_COLOR_HEX,
+                                strokeLinecap: "round",
+                                strokeWidth: 1,
+                                strokeDasharray: '1 4'
+                            }}
+                        />,
+                        <LinearGradient id="area-gradient" from={ACCENT_COLOR_HEX} to={ACCENT_COLOR_HEX} fromOpacity={0.25} toOpacity={0.1} />,
+                        <AreaClosed
+                            data={maybeMounteDataPointWindowRangeTicks}
+                            x={xScale}
+                            y={1}
+                            yScale={scaleLinear(
+                                [0, 1],
+                                [chartInnerHeight, 0]
+                            )}
+                            strokeWidth={1}
+                            fill="url(#area-gradient)"
+                        />
+                    ] : null}
+
                     {/* Line */}
                     <LinePath
-                        data={data.dataPoints}
+                        data={dataPoints}
                         x={(d) => xScale(d.time) ?? 0}
                         y={chartDimensions.height / 3}
                         stroke={ACCENT_COLOR_HEX}
                         strokeWidth={lineThickness}
-                        markerStart={data.dataPoints.length > 1 ? 'url(#marker-arrow)' : undefined}
+                        markerStart={dataPoints.length > 1 ? 'url(#marker-arrow)' : undefined}
                     />
 
                     {/* Circular data points */}
-                    {data.dataPoints.map(dataPoint => {
+                    {dataPoints.map(dataPoint => {
                         const xOffset = xScale(new Date(dataPoint.time));
                         const yOffset = chartDimensions.height / 3;
                         const fillColor = getFillColor(dataPoint.result.type);
@@ -124,6 +161,13 @@ export const StatusOverTimeAssertionResultChart = ({ data, timeRange, chartDimen
                                         run={dataPoint.relatedRunEvent}
                                     />}
                                     showArrow={false}
+                                    onOpenChange={(visible) => {
+                                        if (!visible) {
+                                            setMountedDataPoint(undefined)
+                                        } else {
+                                            setMountedDataPoint(dataPoint)
+                                        }
+                                    }}
                                 >
                                     <GlyphCircle
                                         left={xOffset}
