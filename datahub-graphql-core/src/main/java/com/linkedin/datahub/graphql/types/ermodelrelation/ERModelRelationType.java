@@ -66,7 +66,7 @@ public class ERModelRelationType
           GLOSSARY_TERMS_ASPECT_NAME);
 
   private static final Set<String> FACET_FIELDS = ImmutableSet.of("name");
-  private static final String ENTITY_NAME = "ermodelrelation";
+  private static final String ENTITY_NAME = "erModelRelationship";
 
   private final EntityClient _entityClient;
   private final FeatureFlags _featureFlags;
@@ -121,7 +121,7 @@ public class ERModelRelationType
                           .build())
           .collect(Collectors.toList());
     } catch (Exception e) {
-      throw new RuntimeException("Failed to load ermodelrelation entity", e);
+      throw new RuntimeException("Failed to load erModelRelationship entity", e);
     }
   }
 
@@ -140,7 +140,7 @@ public class ERModelRelationType
     final BrowseResult result =
         _entityClient.browse(
             context.getOperationContext().withSearchFlags(flags -> flags.setFulltext(false)),
-            "ermodelrelation",
+            "erModelRelationship",
             pathStr,
             facetFilters,
             start,

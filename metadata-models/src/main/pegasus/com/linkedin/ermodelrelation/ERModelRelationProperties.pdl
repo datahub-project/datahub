@@ -23,7 +23,7 @@ record ERModelRelationProperties includes CustomProperties {
   name: string
 
   /**
-  * First dataset in the ermodelrelation (no directionality)
+  * First dataset in the erModelRelationship (no directionality)
   */
    @Relationship = {
      "name": "ermodelrelationA",
@@ -37,7 +37,7 @@ record ERModelRelationProperties includes CustomProperties {
   source: Urn
 
   /**
-  * Second dataset in the ermodelrelation (no directionality)
+  * Second dataset in the erModelRelationship (no directionality)
   */
    @Relationship = {
      "name": "ermodelrelationB",

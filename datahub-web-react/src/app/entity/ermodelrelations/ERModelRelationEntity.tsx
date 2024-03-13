@@ -49,7 +49,7 @@ export class ERModelRelationEntity implements Entity<ErModelRelation> {
 
     getAutoCompleteFieldName = () => 'name';
 
-    getPathName = () => 'ermodelrelation';
+    getPathName = () => 'erModelRelationship';
 
     getCollectionName = () => '';
 

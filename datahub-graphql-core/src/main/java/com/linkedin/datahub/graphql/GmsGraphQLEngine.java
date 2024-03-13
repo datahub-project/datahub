@@ -951,7 +951,7 @@ public class GmsGraphQLEngine {
                 .dataFetcher("glossaryTerm", getResolver(glossaryTermType))
                 .dataFetcher("glossaryNode", getResolver(glossaryNodeType))
                 .dataFetcher("domain", getResolver((domainType)))
-                .dataFetcher("ermodelrelation", getResolver(ermodelrelationType))
+                .dataFetcher("erModelRelationship", getResolver(ermodelrelationType))
                 .dataFetcher("dataPlatform", getResolver(dataPlatformType))
                 .dataFetcher("dataPlatformInstance", getResolver(dataPlatformInstanceType))
                 .dataFetcher("mlFeatureTable", getResolver(mlFeatureTableType))

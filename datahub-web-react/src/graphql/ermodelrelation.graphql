@@ -1,5 +1,5 @@
 query getERModelRelation($urn: String!) {
-    ermodelrelation(urn: $urn) {
+    erModelRelationship(urn: $urn) {
         urn
         type
         ermodelrelationId

@@ -6,7 +6,7 @@ import com.linkedin.data.template.TemplateOutputCastException;
 import java.net.URISyntaxException;
 
 public class ERModelRelationUrn extends Urn {
-  public static final String ENTITY_TYPE = "ermodelrelation";
+  public static final String ENTITY_TYPE = "erModelRelationship";
 
   private final String _ermodelrelationId;
 
@@ -27,7 +27,8 @@ public class ERModelRelationUrn extends Urn {
     if (!"li".equals(urn.getNamespace())) {
       throw new URISyntaxException(urn.toString(), "Urn namespace type should be 'li'.");
     } else if (!ENTITY_TYPE.equals(urn.getEntityType())) {
-      throw new URISyntaxException(urn.toString(), "Urn entity type should be 'ermodelrelation'.");
+      throw new URISyntaxException(
+          urn.toString(), "Urn entity type should be 'erModelRelationship'.");
     } else {
       TupleKey key = urn.getEntityKey();
       if (key.size() != 1) {

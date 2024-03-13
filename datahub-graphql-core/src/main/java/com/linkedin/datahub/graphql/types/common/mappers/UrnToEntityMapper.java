@@ -156,7 +156,7 @@ public class UrnToEntityMapper implements ModelMapper<com.linkedin.common.urn.Ur
       ((Domain) partialEntity).setUrn(input.toString());
       ((Domain) partialEntity).setType(EntityType.DOMAIN);
     }
-    if (input.getEntityType().equals("ermodelrelation")) {
+    if (input.getEntityType().equals("erModelRelationship")) {
       partialEntity = new ERModelRelation();
       ((ERModelRelation) partialEntity).setUrn(input.toString());
       ((ERModelRelation) partialEntity).setType(EntityType.ERMODELRELATION);

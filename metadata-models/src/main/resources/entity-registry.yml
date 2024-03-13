@@ -482,8 +482,8 @@ entities:
     keyAspect: dataHubViewKey
     aspects:
       - dataHubViewInfo
-  - name: ermodelrelation
-    doc: ER Model Relation of  Dataset Fields
+  - name: erModelRelationship
+    doc: ER Model Relationship of  Dataset Fields
     keyAspect: ermodelrelationKey
     aspects:
       - eRModelRelationProperties

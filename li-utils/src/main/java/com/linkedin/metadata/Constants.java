@@ -62,7 +62,7 @@ public class Constants {
   public static final String TAG_ENTITY_NAME = "tag";
   public static final String CONTAINER_ENTITY_NAME = "container";
   public static final String DOMAIN_ENTITY_NAME = "domain";
-  public static final String ERMODELRELATION_ENTITY_NAME = "ermodelrelation";
+  public static final String ERMODELRELATION_ENTITY_NAME = "erModelRelationship";
   public static final String ASSERTION_ENTITY_NAME = "assertion";
   public static final String INCIDENT_ENTITY_NAME = "incident";
   public static final String INGESTION_SOURCE_ENTITY_NAME = "dataHubIngestionSource";

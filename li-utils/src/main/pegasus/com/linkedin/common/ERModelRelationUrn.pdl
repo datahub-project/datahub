@@ -1,13 +1,13 @@
 namespace com.linkedin.common
 
 /**
- * Standardized ermodelrelation identifier.
+ * Standardized erModelRelationship identifier.
  */
 @java.class = "com.linkedin.common.urn.ERModelRelationUrn"
 @validate.`com.linkedin.common.validator.TypedUrnValidator` = {
   "accessible" : true,
   "owningTeam" : "urn:li:internalTeam:datahub",
-  "entityType" : "ermodelrelation",
+  "entityType" : "erModelRelationship",
   "constructable" : true,
   "namespace" : "li",
   "name" : "ERModelRelation",

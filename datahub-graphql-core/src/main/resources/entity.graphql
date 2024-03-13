@@ -74,9 +74,9 @@ type Query {
     role(urn: String!): Role
 
     """
-    Fetch a ERModelRelation by primary key (urn)
+    Fetch a ERModelRelationship by primary key (urn)
     """
-    ermodelrelation(urn: String!): ERModelRelation
+    erModelRelationship(urn: String!): ERModelRelation
 
     """
     Fetch a Glossary Term by primary key (urn)
@@ -253,7 +253,7 @@ type ERModelRelation implements EntityWithRelationships & Entity {
     type: EntityType!
 
     """
-    Unique id for the ermodelrelation
+    Unique id for the erModelRelationship
     """
     ermodelrelationId: String!
 

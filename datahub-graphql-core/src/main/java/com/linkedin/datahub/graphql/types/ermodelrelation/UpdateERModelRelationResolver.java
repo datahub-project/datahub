@@ -48,16 +48,17 @@ public class UpdateERModelRelationResolver implements DataFetcher<CompletableFut
               _entityClient.batchIngestProposals(proposals, context.getAuthentication(), false);
             } catch (RemoteInvocationException e) {
               throw new RuntimeException(
-                  String.format("Failed to update ermodelrelation entity"), e);
+                  String.format("Failed to update erModelRelationship entity"), e);
             }
             return true;
           } catch (Exception e) {
             log.error(
-                "Failed to update ERModelRelation to resource with input {}, {}",
+                "Failed to update erModelRelationship to resource with input {}, {}",
                 input,
                 e.getMessage());
             throw new RuntimeException(
-                String.format("Failed to update ermodelrelation to resource with input %s", input),
+                String.format(
+                    "Failed to update erModelRelationship to resource with input %s", input),
                 e);
           }
         });

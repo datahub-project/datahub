@@ -82,7 +82,7 @@ export const CreateERModelRelationModal = ({
         Modal.confirm({
             title: `Exit`,
             className: 'cancel-modal',
-            content: `Are you sure you want to exit?  The changes made to the ermodelrelation will not be applied.`,
+            content: `Are you sure you want to exit?  The changes made to the erModelRelationship will not be applied.`,
             onOk() {
                 setERModelRelationName(editERModelRelation?.properties?.name || '');
                 setDetails(editERModelRelation?.editableProperties?.description || '');
@@ -155,7 +155,7 @@ export const CreateERModelRelationModal = ({
             })
             .catch((e) => {
                 message.destroy();
-                message.error({ content: `Failed to create ermodelrelation: ${e.message || ''}`, duration: 3 });
+                message.error({ content: `Failed to create erModelRelationship: ${e.message || ''}`, duration: 3 });
             });
     };
     const originalERModelRelationName = editERModelRelation?.properties?.name;
@@ -199,7 +199,7 @@ export const CreateERModelRelationModal = ({
             })
             .catch((e) => {
                 message.destroy();
-                message.error({ content: `Failed to update ermodelrelation: ${e.message || ''}`, duration: 3 });
+                message.error({ content: `Failed to update erModelRelationship: ${e.message || ''}`, duration: 3 });
             });
     };
     const onSubmit = async () => {
@@ -320,7 +320,7 @@ export const CreateERModelRelationModal = ({
         <Modal
             title={
                 <div className="footer-parent-div">
-                    <p className="ermodelrelation-title">ER-Model-Relation Parameters</p>
+                    <p className="ermodelrelation-title">ER-Model-Relationship Parameters</p>
                     <div>
                         <Button onClick={onCancelSelect} className="cancel-btn" size="large">
                             Cancel

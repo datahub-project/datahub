@@ -80,7 +80,7 @@ public class CreateERModelRelationResolver
         Urn.createFromString(input.getProperties().getSource()),
         Urn.createFromString(input.getProperties().getDestination()))) {
       throw new AuthorizationException(
-          "Unauthorized to create ermodelrelation. Please contact your DataHub administrator.");
+          "Unauthorized to create erModelRelationship. Please contact your DataHub administrator.");
     }
     return CompletableFuture.supplyAsync(
         () -> {
@@ -92,7 +92,7 @@ public class CreateERModelRelationResolver
             try {
               _entityClient.batchIngestProposals(proposals, context.getAuthentication(), false);
             } catch (RemoteInvocationException e) {
-              throw new RuntimeException("Failed to create ermodelrelation entity", e);
+              throw new RuntimeException("Failed to create erModelRelationship entity", e);
             }
             return ERModelRelationMapper.map(
                 _eRModelRelationService.getERModelRelationResponse(
@@ -103,7 +103,8 @@ public class CreateERModelRelationResolver
                 input,
                 e.getMessage());
             throw new RuntimeException(
-                String.format("Failed to create ermodelrelation to resource with input %s", input),
+                String.format(
+                    "Failed to create erModelRelationship to resource with input %s", input),
                 e);
           }
         });

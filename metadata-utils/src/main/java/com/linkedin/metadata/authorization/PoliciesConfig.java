@@ -245,8 +245,8 @@ public class PoliciesConfig {
   public static final Privilege CREATE_ERMODELRELATION_PRIVILEGE =
       Privilege.of(
           "CREATE_ENTITY_ERMODELRELATION",
-          "Create ermodelrelation",
-          "The ability to add ermodelrelation on a dataset.");
+          "Create erModelRelationship",
+          "The ability to add erModelRelationship on a dataset.");
 
   public static final List<Privilege> COMMON_ENTITY_PRIVILEGES =
       ImmutableList.of(
@@ -600,7 +600,7 @@ public class PoliciesConfig {
   // ERModelRelation Privileges
   public static final ResourcePrivileges ERMODELRELATION_PRIVILEGES =
       ResourcePrivileges.of(
-          "ermodelrelation",
+          "erModelRelationship",
           "ERModelRelation",
           "update privileges for ermodelrelations",
           COMMON_ENTITY_PRIVILEGES);

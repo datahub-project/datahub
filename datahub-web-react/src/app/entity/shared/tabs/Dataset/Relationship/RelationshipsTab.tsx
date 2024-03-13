@@ -234,7 +234,7 @@ export const RelationshipsTab = () => {
                 <div className="search-header-div">
                     <StyledInput
                         defaultValue={filterText}
-                        placeholder="Find ermodelrelation..."
+                        placeholder="Find erModelRelationship..."
                         onChange={(e) => setFilterText(e.target.value)}
                         allowClear
                         autoFocus
