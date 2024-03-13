@@ -9,7 +9,7 @@ import { StyledSelect } from './components';
 
 export const ByAssigneeSelector = () => {
 	const {
-		byAssignee: { assignees, hasAssignees, setSelectedAssignee },
+		byAssignee: { assignees, hasAssignees, selectedAssignee, setSelectedAssignee },
 		sectionLoadStates: { resetLoadStates }
 	} = useFormAnalyticsContext();
 
@@ -42,6 +42,13 @@ export const ByAssigneeSelector = () => {
 		resetLoadStates();
 	};
 
+	// Handle figuring out the default value
+	const getDefaultValue = () => {
+		if (selectedAssignee) return selectedAssignee;
+		if (options.length > 0) return options[0].value;
+		return undefined;
+	}
+
 	return (
 		<StyledSelect
 			showSearch
@@ -50,7 +57,7 @@ export const ByAssigneeSelector = () => {
 			optionFilterProp="label"
 			onChange={handleSetAssignee}
 			options={options}
-			defaultValue={options[0].value}
+			defaultValue={getDefaultValue()}
 			size="large"
 			style={{ width: 300 }}
 		/>

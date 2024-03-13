@@ -11,7 +11,7 @@ import { StyledSelect } from './components';
 
 export const ByDomainSelector = () => {
 	const {
-		byDomain: { domains, hasDomains, setSelectedDomain },
+		byDomain: { domains, hasDomains, selectedDomain, setSelectedDomain },
 		sectionLoadStates: { resetLoadStates }
 	} = useFormAnalyticsContext();
 
@@ -50,6 +50,13 @@ export const ByDomainSelector = () => {
 		resetLoadStates();
 	};
 
+	// Handle figuring out the default value
+	const getDefaultValue = () => {
+		if (selectedDomain) return selectedDomain;
+		if (options.length > 0) return options[0].value;
+		return undefined;
+	}
+
 	return (
 		<StyledSelect
 			showSearch
@@ -58,7 +65,7 @@ export const ByDomainSelector = () => {
 			optionFilterProp="label"
 			onChange={handleSetDomain}
 			options={options}
-			defaultValue={options[0].value}
+			defaultValue={getDefaultValue()}
 			size="large"
 			style={{ width: 300 }}
 		/>
