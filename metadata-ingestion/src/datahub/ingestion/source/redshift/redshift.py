@@ -325,7 +325,6 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         self.config: RedshiftConfig = config
         self.report: RedshiftReport = RedshiftReport()
         self.classification_handler = ClassificationHandler(self.config, self.report)
-        # TODO: support classification for Redshift
         self.platform = "redshift"
         self.domain_registry = None
         if self.config.domain:
@@ -507,11 +506,6 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         self,
         connection: redshift_connector.Connection,
     ) -> Optional[DataReader]:
-        """
-        Subclasses can override this with source-specific data reader
-        if source provides clause to pick random sample instead of current
-        limit-based sample
-        """
         if self.classification_handler.is_classification_enabled():
             return RedshiftDataReader.create(connection)
 

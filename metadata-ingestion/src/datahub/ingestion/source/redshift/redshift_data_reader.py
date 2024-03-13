@@ -24,18 +24,15 @@ class RedshiftDataReader(DataReader):
         """
         For redshift, table_id should be in form (db_name, schema_name, table_name)
         """
-
         assert len(table_id) == 3
-
         db_name = table_id[0]
         schema_name = table_id[1]
         table_name = table_id[2]
+
         logger.debug(
             f"Collecting sample values for table {db_name}.{schema_name}.{table_name}"
         )
-
         with PerfTimer() as timer, self.conn.cursor() as cursor:
-
             sql = f"select * from {db_name}.{schema_name}.{table_name} limit {sample_size};"
             cursor.execute(sql)
             df = cursor.fetch_dataframe()

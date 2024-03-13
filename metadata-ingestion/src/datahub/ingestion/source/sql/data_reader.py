@@ -8,6 +8,7 @@ from sqlalchemy.engine import Connection, Engine
 from sqlalchemy.engine.reflection import Inspector
 
 from datahub.ingestion.api.closeable import Closeable
+from datahub.utilities.perf_timer import PerfTimer
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -83,30 +84,35 @@ class SqlAlchemyTableDataReader(DataReader):
 
         logger.debug(f"Collecting sample values for table {'.'.join(table_id)}")
 
-        column_values: Dict[str, list] = defaultdict(list)
-        table = self._table(table_id)
+        with PerfTimer() as timer:
+            column_values: Dict[str, list] = defaultdict(list)
+            table = self._table(table_id)
 
-        query: Any
+            query: Any
 
-        # limit doesn't compile properly for oracle so we will append rownum to query string later
-        if self.connection.dialect.name.lower() == "oracle":
-            raw_query = sa.select([sa.text("*")]).select_from(table)
+            # limit doesn't compile properly for oracle so we will append rownum to query string later
+            if self.connection.dialect.name.lower() == "oracle":
+                raw_query = sa.select([sa.text("*")]).select_from(table)
 
-            query = str(
-                raw_query.compile(
-                    self.connection, compile_kwargs={"literal_binds": True}
+                query = str(
+                    raw_query.compile(
+                        self.connection, compile_kwargs={"literal_binds": True}
+                    )
                 )
+                query += "\nAND ROWNUM <= %d" % sample_size
+            else:
+                query = sa.select([sa.text("*")]).select_from(table).limit(sample_size)
+            query_results = self.connection.execute(query)
+
+            # Not ideal - creates a parallel structure in column_values. Can we use pandas here ?
+            for row in query_results.fetchall():
+                for col, col_value in row._mapping.items():
+                    column_values[col].append(col_value)
+            time_taken = timer.elapsed_seconds()
+            logger.debug(
+                f"Finished collecting sample values for table {'.'.join(table_id)};"
+                f"took {time_taken:.3f} seconds"
             )
-            query += "\nAND ROWNUM <= %d" % sample_size
-        else:
-            query = sa.select([sa.text("*")]).select_from(table).limit(sample_size)
-        query_results = self.connection.execute(query)
-
-        # Not ideal - creates a parallel structure in column_values. Can we use pandas here ?
-        for row in query_results.fetchall():
-            for col, col_value in row._mapping.items():
-                column_values[col].append(col_value)
-
         return column_values
 
     def close(self) -> None:

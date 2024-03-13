@@ -426,6 +426,9 @@ class SnowflakeV2Source(
                     _report[SourceCapability.DATA_PROFILING] = CapabilityReport(
                         capable=True
                     )
+                    _report[SourceCapability.CLASSIFICATION] = CapabilityReport(
+                        capable=True
+                    )
 
                     if privilege.object_name.startswith("SNOWFLAKE.ACCOUNT_USAGE."):
                         # if access to "snowflake" shared database, access to all account_usage views is automatically granted
@@ -463,6 +466,7 @@ class SnowflakeV2Source(
             SourceCapability.SCHEMA_METADATA: "Either no tables exist or current role does not have permissions to access them",
             SourceCapability.DESCRIPTIONS: "Either no tables exist or current role does not have permissions to access them",
             SourceCapability.DATA_PROFILING: "Either no tables exist or current role does not have permissions to access them",
+            SourceCapability.CLASSIFICATION: "Either no tables exist or current role does not have permissions to access them",
             SourceCapability.CONTAINERS: "Current role does not have permissions to use any database",
             SourceCapability.LINEAGE_COARSE: "Current role does not have permissions to snowflake account usage views",
             SourceCapability.LINEAGE_FINE: "Current role does not have permissions to snowflake account usage views",
@@ -476,6 +480,7 @@ class SnowflakeV2Source(
                 SourceCapability.SCHEMA_METADATA,
                 SourceCapability.DESCRIPTIONS,
                 SourceCapability.DATA_PROFILING,
+                SourceCapability.CLASSIFICATION,
                 SourceCapability.LINEAGE_COARSE,
                 SourceCapability.LINEAGE_FINE,
                 SourceCapability.USAGE_STATS,
