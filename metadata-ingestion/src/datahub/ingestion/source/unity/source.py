@@ -508,14 +508,11 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             if table.view_definition:
                 self.view_definitions[dataset_urn] = (table.ref, table.view_definition)
 
-        print(f"TABLE TYPE = {table_props.customProperties.get('table_type')}")
-        print(f"FORMAT = {table_props.customProperties.get('data_source_format')}")
-        print(f"EMIT SIBLINGS = {self.emit_siblings}")
         # generate sibling and lineage aspects in case of EXTERNAL DELTA TABLE
         if (
             table_props.customProperties.get("table_type") == "EXTERNAL"
             and table_props.customProperties.get("data_source_format") == "DELTA"
-            and self.emit_siblings
+            and self.config.emit_siblings
         ):
             storage_location = str(table_props.customProperties.get("storage_location"))
             if storage_location.startswith("s3://"):
@@ -523,8 +520,8 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 source_dataset_urn = make_dataset_urn_with_platform_instance(
                     "delta-lake",
                     browse_path,
-                    self.platform_instance_name,
-                    self.config.env,
+                    self.config.delta_lake_options.platform_instance_name,
+                    self.config.delta_lake_options.env
                 )
 
                 yield from self.gen_siblings_workunit(dataset_urn, source_dataset_urn)
@@ -993,16 +990,16 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         source_dataset_urn: str,
     ) -> Iterable[MetadataWorkUnit]:
         """
-        Generate sibling workunit for both trino dataset and its connector source dataset
+        Generate sibling workunit for both unity-catalog dataset and its connector source dataset
         """
         yield MetadataChangeProposalWrapper(
             entityUrn=dataset_urn,
-            aspect=Siblings(primary=True, siblings=[source_dataset_urn]),
+            aspect=Siblings(primary=False, siblings=[source_dataset_urn]),
         ).as_workunit()
 
         yield MetadataChangeProposalWrapper(
             entityUrn=source_dataset_urn,
-            aspect=Siblings(primary=False, siblings=[dataset_urn]),
+            aspect=Siblings(primary=True, siblings=[dataset_urn]),
         ).as_workunit()
 
     def gen_lineage_workunit(
@@ -1020,4 +1017,4 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                     Upstream(dataset=source_dataset_urn, type=DatasetLineageType.VIEW)
                 ]
             ),
-        ).as_workunit()
+        ).as_workunit(is_primary_source=False)

@@ -17,8 +17,8 @@ source:
 
 #    emit_siblings: true
 #    delta_lake_options:
-#      platform_instance_name: 'None'
-#      env: 'Prod'
+#      platform_instance_name: null
+#      env: 'PROD'
 
 #    profiling:
 #      method: "analyze"
