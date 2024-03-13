@@ -8,7 +8,7 @@ import HistoryOutlinedIcon from '@mui/icons-material/HistoryOutlined';
 
 import { SeriesSelect } from './SeriesSelect';
 import { Assignees, Domains, Forms, Stats, OverallProgress, Questions } from './charts';
-import { IntegrationServiceOffline } from './charts/AuxViews';
+import { IntegrationServiceOffline, MissingPermissions } from './charts/AuxViews';
 
 import { ByFormSelector } from './ByFormSelector';
 import { ByAssigneeSelector } from './ByAssigneeSelector';
@@ -18,6 +18,8 @@ import { mergeRowAndHeaderData, freshnessColor } from './utils';
 
 import { useFormAnalyticsContext } from './FormAnalyticsContext';
 import { useFormAnalyticsQuery } from '../../../graphql/analytics.generated';
+
+import { useUserContext } from '../../context/useUserContext';
 
 import {
 	Layout,
@@ -49,6 +51,8 @@ export const TabLayout = () => {
 		byAssignee: { hasAssignees },
 		byDomain: { hasDomains },
 	} = useFormAnalyticsContext();
+
+	const { platformPrivileges } = useUserContext();
 
 	const [isDownloadingCSV, setIsDownloadingCSV] = useState(false);
 
@@ -145,10 +149,11 @@ export const TabLayout = () => {
 		if (error && isDownloadingCSV) {
 			setIsDownloadingCSV(false);
 		}
-	}, [error, isDownloadingCSV])
+	}, [error, isDownloadingCSV]);
 
 	// Don't crash the app if Integration Service is not available
 	if (integrationServiceOffline) return <IntegrationServiceOffline />;
+	if (!platformPrivileges?.manageDocumentationForms) return <MissingPermissions />;
 
 	// Render the dashboard
 	return (
