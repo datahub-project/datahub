@@ -233,6 +233,10 @@ class ClassificationHandler:
                     f"Skipping column {dataset_name}.{schema_field.fieldPath} from classification"
                 )
                 continue
+
+            # TODO: Let's auto-skip passing sample_data for complex(array/struct) columns
+            # for initial rollout
+
             column_infos.append(
                 ColumnInfo(
                     metadata=Metadata(
@@ -243,9 +247,11 @@ class ClassificationHandler:
                             "Dataset_Name": dataset_name,
                         }
                     ),
-                    values=sample_data[schema_field.fieldPath]
-                    if schema_field.fieldPath in sample_data.keys()
-                    else [],
+                    values=(
+                        sample_data[schema_field.fieldPath]
+                        if schema_field.fieldPath in sample_data.keys()
+                        else []
+                    ),
                 )
             )
 

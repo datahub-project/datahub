@@ -13,6 +13,7 @@ from datahub.sql_parsing.sql_parsing_aggregator import (
 from datahub.sql_parsing.sql_parsing_common import QueryType
 from datahub.sql_parsing.sqlglot_lineage import ColumnLineageInfo, ColumnRef
 from tests.test_helpers import mce_helpers
+from tests.test_helpers.click_helpers import run_datahub_cmd
 
 RESOURCE_DIR = pathlib.Path(__file__).parent / "aggregator_goldens"
 FROZEN_TIME = "2024-02-06 01:23:45"
@@ -23,12 +24,13 @@ def _ts(ts: int) -> datetime:
 
 
 @freeze_time(FROZEN_TIME)
-def test_basic_lineage(pytestconfig: pytest.Config) -> None:
+def test_basic_lineage(pytestconfig: pytest.Config, tmp_path: pathlib.Path) -> None:
     aggregator = SqlParsingAggregator(
         platform="redshift",
         generate_lineage=True,
         generate_usage_statistics=False,
         generate_operations=False,
+        query_log=QueryLogSetting.STORE_ALL,
     )
 
     aggregator.add_observed_query(
@@ -43,6 +45,23 @@ def test_basic_lineage(pytestconfig: pytest.Config) -> None:
         pytestconfig,
         outputs=mcps,
         golden_path=RESOURCE_DIR / "test_basic_lineage.json",
+    )
+
+    # This test also validates the query log storage functionality.
+    aggregator.close()
+    query_log_db = aggregator.report.query_log_path
+    query_log_json = tmp_path / "query_log.json"
+    run_datahub_cmd(
+        [
+            "check",
+            "extract-sql-agg-log",
+            str(query_log_db),
+            "--output",
+            str(query_log_json),
+        ]
+    )
+    mce_helpers.check_golden_file(
+        pytestconfig, query_log_json, RESOURCE_DIR / "test_basic_lineage_query_log.json"
     )
 
 
@@ -125,6 +144,60 @@ def test_temp_table(pytestconfig: pytest.Config) -> None:
         pytestconfig,
         outputs=mcps,
         golden_path=RESOURCE_DIR / "test_temp_table.json",
+    )
+
+
+@freeze_time(FROZEN_TIME)
+def test_multistep_temp_table(pytestconfig: pytest.Config) -> None:
+    aggregator = SqlParsingAggregator(
+        platform="redshift",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+    )
+
+    aggregator.add_observed_query(
+        query="create table #temp1 as select a, 2*b as b from upstream1",
+        default_db="dev",
+        default_schema="public",
+        session_id="session1",
+    )
+    aggregator.add_observed_query(
+        query="create table #temp2 as select b, c from upstream2",
+        default_db="dev",
+        default_schema="public",
+        session_id="session1",
+    )
+    aggregator.add_observed_query(
+        query="create temp table staging_foo as select up1.a, up1.b, up2.c from #temp1 up1 left join #temp2 up2 on up1.b = up2.b where up1.b > 0",
+        default_db="dev",
+        default_schema="public",
+        session_id="session1",
+    )
+    aggregator.add_observed_query(
+        query="insert into table prod_foo\nselect * from staging_foo",
+        default_db="dev",
+        default_schema="public",
+        session_id="session1",
+    )
+
+    mcps = list(aggregator.gen_metadata())
+
+    report = aggregator.report
+    assert len(report.queries_with_temp_upstreams) == 1
+    assert (
+        len(
+            report.queries_with_temp_upstreams[
+                "composite_c89ee7c127c64a5d3a42ee875305087991891c80f42a25012910524bd2c77c45"
+            ]
+        )
+        == 4
+    )
+
+    mce_helpers.check_goldens_stream(
+        pytestconfig,
+        outputs=mcps,
+        golden_path=RESOURCE_DIR / "test_multistep_temp_table.json",
     )
 
 

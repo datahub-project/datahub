@@ -213,6 +213,7 @@ class Pipeline:
         with _add_init_error_context("connect to DataHub"):
             if self.config.datahub_api:
                 self.graph = DataHubGraph(self.config.datahub_api)
+                self.graph.test_connection()
 
             telemetry.telemetry_instance.update_capture_exception_context(
                 server=self.graph

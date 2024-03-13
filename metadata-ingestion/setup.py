@@ -99,7 +99,11 @@ usage_common = {
 sqlglot_lib = {
     # Using an Acryl fork of sqlglot.
     # https://github.com/tobymao/sqlglot/compare/main...hsheth2:sqlglot:hsheth?expand=1
-    "acryl-sqlglot==21.1.2.dev10",
+    "acryl-sqlglot==22.4.1.dev4",
+}
+
+classification_lib = {
+    "acryl-datahub-classify==0.0.9",
 }
 
 sql_common = (
@@ -121,6 +125,7 @@ sql_common = (
     }
     | usage_common
     | sqlglot_lib
+    | classification_lib
 )
 
 sqllineage_lib = {
@@ -175,7 +180,7 @@ redshift_common = {
     # Clickhouse 0.8.3 adds support for SQLAlchemy 1.4.x
     "sqlalchemy-redshift>=0.8.3",
     "GeoAlchemy2",
-    "redshift-connector",
+    "redshift-connector>=2.1.0",
     *sqllineage_lib,
     *path_spec_common,
 }
@@ -190,8 +195,7 @@ snowflake_common = {
     "pandas",
     "cryptography",
     "msal",
-    "acryl-datahub-classify==0.0.9",
-}
+} | classification_lib
 
 trino = {
     "trino[sqlalchemy]>=0.308",
