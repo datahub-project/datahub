@@ -51,7 +51,7 @@ export const PendingTasks = () => {
     const { count: documentationProposalCount, loading: documentationProposalsLoading } =
         useGetPendingDocumentationProposals();
 
-    if (!documentationRequestCount && !documentationProposalCount) {
+    if (!documentationRequestCount /* && !documentationProposalCount */) {
         // Confirm that we want to hide the module when you don't have pending tasks.
         return null;
     }
