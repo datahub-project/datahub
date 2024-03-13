@@ -25,6 +25,7 @@ const RightColumn = styled.div`
 
 export default function PromptNavigation() {
     const {
+        form: { isVerificationType },
         submission: { handlePromptSubmission, handleUndoPromptSubmission },
         prompt: {
             prompts,
@@ -108,7 +109,7 @@ export default function PromptNavigation() {
                     &nbsp;Questions
                     <ArrowRight onClick={navigateRight} />
                 </NavigationWrapper>
-                <VerificationCTA />
+                {isVerificationType && <VerificationCTA />}
             </RightColumn>
         </FormPromptsWrapper>
     );
