@@ -107,6 +107,7 @@ type Props = {
     resetShouldRefetch?: () => void;
     applyView?: boolean;
     onLineageClick?: () => void;
+    isLineageTab?: boolean;
 };
 
 export const EmbeddedListSearch = ({
@@ -136,6 +137,7 @@ export const EmbeddedListSearch = ({
     resetShouldRefetch,
     applyView = false,
     onLineageClick,
+    isLineageTab = false,
 }: Props) => {
     const { shouldRefetchEmbeddedListSearch, setShouldRefetchEmbeddedListSearch } = useEntityContext();
     // Adjust query based on props
@@ -145,7 +147,6 @@ export const EmbeddedListSearch = ({
         unionType,
         filters,
     };
-
     const finalFilters =
         (fixedFilters && mergeFilterSets(fixedFilters, baseFilters)) || generateOrFilters(unionType, filters);
 
@@ -297,11 +298,11 @@ export const EmbeddedListSearch = ({
         onChangeFilters(defaultFilters);
     };
 
+    const ErrorMessage = () => <Message type="error" content="Failed to load results! An unexpected error occurred." />;
+
     return (
         <Container>
-            {serverError && !isServerOverloadError && (
-                <Message type="error" content="Failed to load results! An unexpected error occurred." />
-            )}
+            {!isLineageTab ? error && <ErrorMessage /> : serverError && !isServerOverloadError && <ErrorMessage />}
             <EmbeddedListSearchHeader
                 onSearch={(q) => onChangeQuery(addFixedQuery(q, fixedQuery as string, emptySearchQuery as string))}
                 placeholderText={placeholderText}
@@ -323,6 +324,7 @@ export const EmbeddedListSearch = ({
                 isServerOverloadError={isServerOverloadError}
                 onClickLessHops={onClickLessHops}
                 onLineageClick={onLineageClick}
+                isLineageTab={isLineageTab}
                 loading={loading}
                 searchResponse={data}
                 filters={finalFacets}

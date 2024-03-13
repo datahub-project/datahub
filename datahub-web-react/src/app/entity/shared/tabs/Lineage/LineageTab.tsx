@@ -182,6 +182,7 @@ export const LineageTab = ({
                 <ImpactAnalysis
                     urn={impactAnalysisUrn}
                     onLineageClick={routeToLineage}
+                    isLineageTab
                     direction={lineageDirection as LineageDirection}
                     startTimeMillis={startTimeMillis}
                     endTimeMillis={endTimeMillis}

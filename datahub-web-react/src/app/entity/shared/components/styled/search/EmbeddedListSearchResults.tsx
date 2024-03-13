@@ -101,6 +101,7 @@ interface Props {
     isServerOverloadError?: any;
     onClickLessHops?: () => void;
     onLineageClick?: () => void;
+    isLineageTab?: boolean;
 }
 
 export const EmbeddedListSearchResults = ({
@@ -124,6 +125,7 @@ export const EmbeddedListSearchResults = ({
     isServerOverloadError,
     onClickLessHops,
     onLineageClick,
+    isLineageTab = false,
 }: Props) => {
     const pageStart = searchResponse?.start || 0;
     const pageSize = searchResponse?.count || 0;
@@ -151,7 +153,7 @@ export const EmbeddedListSearchResults = ({
                             <Spin indicator={<StyledLoading />} />
                         </LoadingContainer>
                     )}
-                    {!loading && isServerOverloadError && (
+                    {isLineageTab && !loading && isServerOverloadError && (
                         <ErrorMessage>
                             Data is too large. Please use
                             <StyledLinkButton onClick={onLineageClick} type="link">
