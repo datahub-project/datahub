@@ -60,6 +60,7 @@ export const AcrylAssertions = () => {
                             type="text"
                             onClick={() => canCreateAssertion && setShowAssertionBuilder(true)}
                             disabled={!canCreateAssertion}
+                            id="create-assertion-btn-main"
                         >
                             <PlusOutlined /> Create
                         </Button>
