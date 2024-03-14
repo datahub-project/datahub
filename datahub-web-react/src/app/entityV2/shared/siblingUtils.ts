@@ -2,7 +2,7 @@ import merge from 'deepmerge';
 import { keyBy, unionBy, values } from 'lodash';
 import * as QueryString from 'query-string';
 import { useLocation } from 'react-router-dom';
-import { Dataset, Entity, Maybe, SiblingProperties } from '../../../types.generated';
+import { Dataset, Entity, Health, HealthStatus, HealthStatusType, Maybe, SiblingProperties } from '../../../types.generated';
 import { GenericEntityProperties } from './types';
 
 export function stripSiblingsFromEntity(entity: any) {
@@ -25,6 +25,7 @@ function cleanHelper(obj, visited) {
             if (Array.isArray(object)) {
                 object.splice(Number(k), 1);
             } else {
+                // console.log('siblings1 deleting key', k, 'from object', object);
                 try {
                     delete object[k];
                 } catch (e) {
@@ -96,6 +97,83 @@ const mergeFields = (destinationArray, sourceArray, _options) => {
     return mergeArrayOfObjectsByKey(destinationArray, sourceArray, 'fieldPath');
 };
 
+const mergeHealthStatus = (destStatus?: HealthStatus, sourceStatus?: HealthStatus): HealthStatus => {
+    if (destStatus === HealthStatus.Fail || sourceStatus === HealthStatus.Fail) {
+        return HealthStatus.Fail;
+    }
+    if (destStatus === HealthStatus.Warn || sourceStatus === HealthStatus.Warn) {
+        return HealthStatus.Warn;
+    }
+    return HealthStatus.Pass; 
+}
+
+const mergeHealthMessage = (type: HealthStatusType, mergedStatus: HealthStatus): string => {
+    if (mergedStatus === HealthStatus.Fail) {
+        switch (type) {
+            case HealthStatusType.Assertions: 
+                return "Some failing assertions";
+            case HealthStatusType.Incidents:
+                return "Some active incidents";
+            case HealthStatusType.Tests:
+                return "Some failing governance tests";
+            default: 
+                return "Some checks failed";
+        }
+    }
+    if (mergedStatus === HealthStatus.Warn) {
+        switch (type) {
+            case HealthStatusType.Assertions: 
+                return "Some assertions have problems failed";
+            default: 
+                return "Some checks have problems."; 
+        }
+    }
+    if (mergedStatus === HealthStatus.Pass) {
+        switch (type) {
+            case HealthStatusType.Assertions: 
+                return "All assertions are passing";
+            case HealthStatusType.Incidents:
+                return "No active incidents";
+            case HealthStatusType.Tests:
+                return "No failing governance tests";
+            default:
+                return "All checks are passing"; 
+        }
+    }
+    return "All checks are passing"; 
+}
+
+// Merge entity health across siblings.
+const mergeHealth = (destinationArray: Maybe<Health[]> | undefined, sourceArray: Maybe<Health[]> | undefined, _options) => {
+    const viewedHealthType = new Set();
+    return [...(sourceArray || []), ...(destinationArray || [])].map(source => {
+
+            if (viewedHealthType.has(source.type)) {
+                return null; 
+            }
+
+            viewedHealthType.add(source.type)
+
+            const { type, status, causes } = source; 
+
+            const destHealth = destinationArray?.find(dest => dest.type === type);
+            const destStatus = destHealth?.status; 
+            const destCauses = destHealth?.causes; 
+
+            const finalStatus = mergeHealthStatus(destStatus, status);
+            const finalMessage = mergeHealthMessage(type, finalStatus);
+            const finalCauses = [...(causes || []), ...(destCauses || [])];
+
+            return {
+                type, 
+                status: finalStatus, 
+                message: finalMessage, 
+                causes: finalCauses
+            }
+        }
+    ).filter(health => health !== null); 
+};
+
 function getArrayMergeFunction(key) {
     switch (key) {
         case 'tags':
@@ -114,6 +192,8 @@ function getArrayMergeFunction(key) {
             return mergeFields;
         case 'editableSchemaFieldInfo':
             return mergeFields;
+        case 'health':
+            return mergeHealth;
         default:
             return undefined;
     }
@@ -133,6 +213,9 @@ const customMerge = (isPrimary, key) => {
     if (key === 'activeIncidents') {
         return (secondary, primary) => ({ ...primary, total: primary.total + secondary.total });
     }
+    if (key === 'forms') {
+        return (_secondary, primary) => primary;
+    }
     if (
         key === 'tags' ||
         key === 'terms' ||
@@ -141,7 +224,8 @@ const customMerge = (isPrimary, key) => {
         key === 'owners' ||
         key === 'incidents' ||
         key === 'fields' ||
-        key === 'editableSchemaFieldInfo'
+        key === 'editableSchemaFieldInfo' ||
+        key === 'health'
     ) {
         return (secondary, primary) => {
             return merge(secondary, primary, {

@@ -13,6 +13,11 @@ import com.linkedin.assertion.AssertionSource;
 import com.linkedin.assertion.AssertionSourceType;
 import com.linkedin.assertion.AssertionType;
 import com.linkedin.assertion.DatasetAssertionInfo;
+import com.linkedin.assertion.FixedIntervalSchedule;
+import com.linkedin.assertion.FreshnessAssertionInfo;
+import com.linkedin.assertion.FreshnessAssertionSchedule;
+import com.linkedin.assertion.FreshnessAssertionScheduleType;
+import com.linkedin.assertion.FreshnessAssertionType;
 import com.linkedin.common.AssertionSummaryDetails;
 import com.linkedin.common.AssertionSummaryDetailsArray;
 import com.linkedin.common.AssertionsSummary;
@@ -31,6 +36,7 @@ import com.linkedin.monitor.MonitorMode;
 import com.linkedin.monitor.MonitorStatus;
 import com.linkedin.monitor.MonitorType;
 import com.linkedin.mxe.MetadataChangeLog;
+import com.linkedin.timeseries.CalendarInterval;
 import java.util.List;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -45,6 +51,9 @@ public class AssertionsSummaryHookTest {
 
   private static final Urn TEST_DATASET_URN =
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,name,PROD)");
+
+  private static final Urn TEST_DATASET_URN_2 =
+      UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,name-2,PROD)");
 
   private static final Urn TEST_MONITOR_URN =
       UrnUtils.getUrn(String.format("urn:li:monitor:(%s,test)", TEST_DATASET_URN));
@@ -325,6 +334,44 @@ public class AssertionsSummaryHookTest {
   }
 
   @Test(dataProvider = "assertionsSummaryProvider")
+  public void testInvokeAssertionEntityUpdate(AssertionsSummary summary) throws Exception {
+
+    // Ensure that the previous summary is removed.
+
+    AssertionService service = mockAssertionService(summary);
+    AssertionsSummaryHook hook = new AssertionsSummaryHook(ENTITY_REGISTRY, service, true);
+    final MetadataChangeLog event =
+        buildMetadataChangeLogWithPrevious(
+            TEST_ASSERTION_URN,
+            ASSERTION_INFO_ASPECT_NAME,
+            ChangeType.UPSERT,
+            mockFreshnessAssertion(TEST_DATASET_URN_2),
+            mockFreshnessAssertion(TEST_DATASET_URN));
+    hook.invoke(event);
+
+    Mockito.verify(service, Mockito.times(1)).getAssertionsSummary(Mockito.eq(TEST_DATASET_URN));
+
+    if (summary == null) {
+      summary = new AssertionsSummary();
+    }
+
+    AssertionsSummary expectedSummary = new AssertionsSummary(summary.data());
+    expectedSummary.setPassingAssertionDetails(
+        new AssertionSummaryDetailsArray(
+            expectedSummary.getPassingAssertionDetails().stream()
+                .filter(details -> !details.getUrn().equals(TEST_ASSERTION_URN))
+                .collect(Collectors.toList())));
+    expectedSummary.setFailingAssertionDetails(
+        new AssertionSummaryDetailsArray(
+            expectedSummary.getFailingAssertionDetails().stream()
+                .filter(details -> !details.getUrn().equals(TEST_ASSERTION_URN))
+                .collect(Collectors.toList())));
+    // Ensure we ingested a new aspect.
+    Mockito.verify(service, Mockito.times(1))
+        .updateAssertionsSummary(Mockito.eq(TEST_DATASET_URN), Mockito.eq(expectedSummary));
+  }
+
+  @Test(dataProvider = "assertionsSummaryProvider")
   public void testInvokeMonitorDisabled(AssertionsSummary summary) throws Exception {
     AssertionService service = mockAssertionService(summary);
     AssertionsSummaryHook hook = new AssertionsSummaryHook(ENTITY_REGISTRY, service, true);
@@ -382,6 +429,23 @@ public class AssertionsSummaryHookTest {
     return status;
   }
 
+  private AssertionInfo mockFreshnessAssertion(final Urn entityUrn) {
+    AssertionInfo testInfo = new AssertionInfo();
+    testInfo.setType(AssertionType.FRESHNESS);
+    testInfo.setFreshnessAssertion(
+        new FreshnessAssertionInfo()
+            .setEntity(entityUrn)
+            .setType(FreshnessAssertionType.DATASET_CHANGE)
+            .setSchedule(
+                new FreshnessAssertionSchedule()
+                    .setType(FreshnessAssertionScheduleType.FIXED_INTERVAL)
+                    .setFixedInterval(
+                        new FixedIntervalSchedule()
+                            .setMultiple(2)
+                            .setUnit(CalendarInterval.HOUR))));
+    return testInfo;
+  }
+
   private MonitorInfo mockMonitorInfoEvent(MonitorMode mode, List<Urn> assertionUrns) {
     MonitorInfo monitorInfo = new MonitorInfo();
     monitorInfo.setType(MonitorType.ASSERTION);
@@ -435,13 +499,25 @@ public class AssertionsSummaryHookTest {
   }
 
   private MetadataChangeLog buildMetadataChangeLog(
-      Urn urn, String aspectName, ChangeType changeType, RecordTemplate aspect) throws Exception {
+      Urn urn, String aspectName, ChangeType changeType, RecordTemplate aspect) {
+    return buildMetadataChangeLogWithPrevious(urn, aspectName, changeType, aspect, null);
+  }
+
+  private MetadataChangeLog buildMetadataChangeLogWithPrevious(
+      Urn urn,
+      String aspectName,
+      ChangeType changeType,
+      RecordTemplate aspect,
+      RecordTemplate prevAspect) {
     MetadataChangeLog event = new MetadataChangeLog();
     event.setEntityUrn(urn);
     event.setEntityType(urn.getEntityType());
     event.setAspectName(aspectName);
     event.setChangeType(changeType);
     event.setAspect(GenericRecordUtils.serializeAspect(aspect));
+    if (prevAspect != null) {
+      event.setPreviousAspectValue(GenericRecordUtils.serializeAspect(prevAspect));
+    }
     return event;
   }
 }

@@ -13,6 +13,7 @@ import { AssertionSourceType } from '../../../../../../types.generated';
 import { AcrylAssertions } from './AcrylAssertions';
 import { useAppConfig } from '../../../../../useAppConfig';
 import { DataContractTab } from './contract/DataContractTab';
+import { SEPARATE_SIBLINGS_URL_PARAM, useIsSeparateSiblingsMode } from '../../../siblingUtils';
 
 const TabTitle = styled.span`
     margin-left: 4px;
@@ -38,6 +39,7 @@ export const AcrylValidationsTab = () => {
     const history = useHistory();
     const { pathname } = useLocation();
     const { urn, entityData } = useEntityData();
+    const isHideSiblingMode = useIsSeparateSiblingsMode();
     const appConfig = useAppConfig();
 
     const { data: assertionsData } = useGetDatasetAssertionsQuery({ variables: { urn }, fetchPolicy: 'cache-first' });
@@ -57,9 +59,9 @@ export const AcrylValidationsTab = () => {
     useEffect(() => {
         if (!selectedTab) {
             // Route to the default tab.
-            history.replace(`${basePath}/${DEFAULT_TAB}`);
+            history.replace(`${basePath}/${DEFAULT_TAB}?${SEPARATE_SIBLINGS_URL_PARAM}=${isHideSiblingMode}`);
         }
-    }, [selectedTab, basePath, history]);
+    }, [selectedTab, basePath, history, isHideSiblingMode]);
 
     /**
      * The top-level Toolbar tabs to display.
