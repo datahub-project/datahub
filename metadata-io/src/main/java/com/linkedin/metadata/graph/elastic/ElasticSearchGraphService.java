@@ -68,8 +68,6 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
   private final ESGraphWriteDAO _graphWriteDAO;
   private final ESGraphQueryDAO _graphReadDAO;
   private final ESIndexBuilder _indexBuilder;
-
-  private static final String DOC_DELIMETER = "--";
   public static final String INDEX_NAME = "graph_service_v1";
   private static final Map<String, Object> EMPTY_HASH = new HashMap<>();
 
@@ -124,31 +122,6 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
     return searchDocument.toString();
   }
 
-  private String toDocId(@Nonnull final Edge edge) {
-
-    StringBuilder rawDocId = new StringBuilder();
-    rawDocId
-        .append(edge.getSource().toString())
-        .append(DOC_DELIMETER)
-        .append(edge.getRelationshipType())
-        .append(DOC_DELIMETER)
-        .append(edge.getDestination().toString());
-    if (edge.getLifecycleOwner() != null
-        && StringUtils.isNotBlank(edge.getLifecycleOwner().toString())) {
-      rawDocId.append(DOC_DELIMETER).append(edge.getLifecycleOwner().toString());
-    }
-
-    try {
-      byte[] bytesOfRawDocID = rawDocId.toString().getBytes(StandardCharsets.UTF_8);
-      MessageDigest md = MessageDigest.getInstance("MD5");
-      byte[] thedigest = md.digest(bytesOfRawDocID);
-      return Base64.getEncoder().encodeToString(thedigest);
-    } catch (NoSuchAlgorithmException e) {
-      log.error("Unable to hash document ID, returning unhashed id: " + rawDocId);
-      return rawDocId.toString();
-    }
-  }
-
   @Override
   public LineageRegistry getLineageRegistry() {
     return _lineageRegistry;
@@ -156,7 +129,7 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
 
   @Override
   public void addEdge(@Nonnull final Edge edge) {
-    String docId = toDocId(edge);
+    String docId = edge.toDocId();
     String edgeDocument = toDocument(edge);
     _graphWriteDAO.upsertDocument(docId, edgeDocument);
   }
@@ -168,7 +141,7 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
 
   @Override
   public void removeEdge(@Nonnull final Edge edge) {
-    String docId = toDocId(edge);
+    String docId = edge.toDocId();
     _graphWriteDAO.deleteDocument(docId);
   }
 
