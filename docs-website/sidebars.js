@@ -101,7 +101,6 @@ module.exports = {
             {
               type: "doc",
               id: "docs/managed-datahub/observe/data-contract",
-              className: "saasOnly",
             },
           ],
         },
