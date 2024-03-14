@@ -35,7 +35,7 @@ const AutoCompleteContainer = styled.div`
     padding: 0 30px;
 `;
 
-const StyledSearchBar = styled(Input)<{ textColor?: string; placeholderColor?: string }>`
+const StyledSearchBar = styled(Input)<{ $textColor?: string; $placeholderColor?: string }>`
     &&& {
         border-radius: 8px;
         height: 40px;
@@ -44,16 +44,20 @@ const StyledSearchBar = styled(Input)<{ textColor?: string; placeholderColor?: s
         background-color: ${ANTD_GRAY_V2[2]};
         border: 2px solid transparent;
         padding-right: 2.5px;
+
         &:focus-within {
             border: 2px solid ${(props) => props.theme.styles['primary-color']};
         }
     }
+
     > .ant-input::placeholder {
-        color: ${(props) => props.placeholderColor || '#dcdcdc'};
+        color: ${(props) => props.$placeholderColor || '#dcdcdc'};
     }
+
     > .ant-input {
-        color: ${(props) => props.textColor || '#fff'};
+        color: ${(props) => props.$textColor || '#fff'};
     }
+
     .ant-input-clear-icon {
         height: 15px;
         width: 15px;
@@ -69,6 +73,7 @@ const ClearIcon = styled(CloseCircleFilled)`
 
 const ViewSelectContainer = styled.div`
     color: #fff;
+
     &&& {
         border-left: 0px solid ${ANTD_GRAY_V2[5]};
     }
@@ -429,8 +434,8 @@ export const SearchBar = ({
                             )}
                         </>
                     }
-                    textColor={textColor}
-                    placeholderColor={placeholderColor}
+                    $textColor={textColor}
+                    $placeholderColor={placeholderColor}
                 />
             </StyledAutoComplete>
         </AutoCompleteContainer>
