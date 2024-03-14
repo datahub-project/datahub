@@ -572,7 +572,7 @@ class RedshiftProvisionedQuery(RedshiftCommonQuery):
                     REGEXP_REPLACE(REGEXP_SUBSTR(REGEXP_REPLACE(query_text,'\\\\n','\\n'), '(CREATE(?:[\\n\\s\\t]+(?:temp|temporary))?(?:[\\n\\s\\t]+)table(?:[\\n\\s\\t]+)[^\\n\\s\\t()-]+)', 0, 1, 'ipe'),'[\\n\\s\\t]+',' ',1,'p') as create_command,
                     query_text,
                     row_number() over (
-                        partition by TRIM(query_text)
+                        partition by session_id, TRIM(query_text)
                         order by start_time desc
                     ) rn
                 from

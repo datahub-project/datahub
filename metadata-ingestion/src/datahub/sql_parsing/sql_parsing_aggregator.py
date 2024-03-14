@@ -104,7 +104,7 @@ class QueryMetadata:
     column_lineage: List[ColumnLineageInfo]
     confidence_score: float
 
-    used_temp_tables: bool
+    used_temp_tables: bool = True
 
     def make_created_audit_stamp(self) -> models.AuditStampClass:
         return models.AuditStampClass(
