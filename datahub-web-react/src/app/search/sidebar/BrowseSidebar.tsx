@@ -62,11 +62,13 @@ const BrowseSidebar = ({ visible }: Props) => {
                 </SidebarHeader>
                 <SidebarBody visible={visible}>
                     {entityAggregations && !entityAggregations.length && <div>No results found</div>}
-                    {entityAggregations?.map((entityAggregation) => (
-                        <BrowseProvider key={entityAggregation.value} entityAggregation={entityAggregation}>
-                            <EntityNode />
-                        </BrowseProvider>
-                    ))}
+                    {entityAggregations
+                        ?.filter((entityAggregation) => entityAggregation?.value !== 'DATA_PRODUCT')
+                        ?.map((entityAggregation) => (
+                            <BrowseProvider key={entityAggregation?.value} entityAggregation={entityAggregation}>
+                                <EntityNode />
+                            </BrowseProvider>
+                        ))}
                     {error && <SidebarLoadingError onClickRetry={retry} />}
                 </SidebarBody>
             </SidebarWrapper>

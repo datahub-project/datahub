@@ -302,6 +302,7 @@ public class ESGraphQueryDAO {
               exploreMultiplePaths);
       for (LineageRelationship oneHopRelnship : oneHopRelationships) {
         if (result.containsKey(oneHopRelnship.getEntity())) {
+          log.debug("Urn encountered again during graph walk {}", oneHopRelnship.getEntity());
           result.put(
               oneHopRelnship.getEntity(),
               mergeLineageRelationships(result.get(oneHopRelnship.getEntity()), oneHopRelnship));
@@ -553,26 +554,6 @@ public class ESGraphQueryDAO {
     addEdgeToPaths(existingPaths, parentUrn, null, childUrn);
   }
 
-  /**
-   * Utility method to log paths to the debug log.
-   *
-   * @param paths
-   * @param message
-   */
-  private static void logPaths(UrnArrayArray paths, String message) {
-    if (log.isDebugEnabled()) {
-      log.debug("xxxxxxxxxx");
-      log.debug(message);
-      log.debug("---------");
-      if (paths != null) {
-        paths.forEach(path -> log.debug("{}", path));
-      } else {
-        log.debug("EMPTY");
-      }
-      log.debug("xxxxxxxxxx");
-    }
-  }
-
   private static boolean containsCycle(final UrnArray path) {
     Set<Urn> urnSet = path.stream().collect(Collectors.toUnmodifiableSet());
     // path contains a cycle if any urn is repeated twice
@@ -587,8 +568,6 @@ public class ESGraphQueryDAO {
     boolean edgeAdded = false;
     // Collect all full-paths to this child node. This is what will be returned.
     UrnArrayArray pathsToParent = existingPaths.get(parentUrn);
-    logPaths(pathsToParent, String.format("Paths to Parent: %s, Child: %s", parentUrn, childUrn));
-    logPaths(existingPaths.get(childUrn), String.format("Existing Paths to Child: %s", childUrn));
     if (pathsToParent != null && !pathsToParent.isEmpty()) {
       // If there are existing paths to this parent node, then we attempt
       // to append the child to each of the existing paths (lengthen it).
@@ -630,7 +609,6 @@ public class ESGraphQueryDAO {
       existingPaths.get(childUrn).add(pathToChild);
       edgeAdded = true;
     }
-    logPaths(existingPaths.get(childUrn), String.format("New paths to Child: %s", childUrn));
     return edgeAdded;
   }
 
@@ -655,7 +633,6 @@ public class ESGraphQueryDAO {
       for (SearchHit hit : hits) {
         index++;
         final Map<String, Object> document = hit.getSourceAsMap();
-        log.debug("{}: hit: {}", index, document);
         final Urn sourceUrn =
             UrnUtils.getUrn(((Map<String, Object>) document.get(SOURCE)).get("urn").toString());
         final Urn destinationUrn =
@@ -808,7 +785,6 @@ public class ESGraphQueryDAO {
       }
       List<LineageRelationship> result = new ArrayList<>(lineageRelationshipMap.values());
       log.debug("Number of lineage relationships in list: {}", result.size());
-      log.debug("Result: {}", result);
       return result;
     } catch (Exception e) {
       // This exception handler merely exists to log the exception at an appropriate point and

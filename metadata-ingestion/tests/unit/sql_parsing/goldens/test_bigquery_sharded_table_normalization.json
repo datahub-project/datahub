@@ -1,7 +1,7 @@
 {
     "query_type": "SELECT",
     "query_type_props": {},
-    "query_fingerprint": "68b038ff09626bbe2c4bc79be39ce51b50937457008e08461cdd6ed3b6ae3f2e",
+    "query_fingerprint": "9fd825981276bd1604efd2f277e6990b5415079d24adb8ac8f566a3fb350a091",
     "in_tables": [
         "urn:li:dataset:(urn:li:dataPlatform:bigquery,bq-proj.dataset.table_yyyymmdd,PROD)"
     ],
@@ -43,5 +43,9 @@
                 }
             ]
         }
-    ]
+    ],
+    "debug_info": {
+        "confidence": 0.9,
+        "generalized_statement": "SELECT * FROM `bq-proj.dataset.table_20230101`"
+    }
 }

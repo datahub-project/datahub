@@ -17,7 +17,7 @@ buildscript {
 
   ext.javaClassVersion = { p ->
     // If Spring 6 is present, hard dependency on jdk17
-    if (p.configurations.any { it.getDependencies().any{
+    if (p.configurations.any { it.getDependencies().any {
       (it.getGroup().equals("org.springframework") && it.getVersion().startsWith("6."))
               || (it.getGroup().equals("org.springframework.boot") && it.getVersion().startsWith("3.") && !it.getName().equals("spring-boot-starter-test"))
     }}) {
@@ -30,28 +30,30 @@ buildscript {
 
   ext.junitJupiterVersion = '5.6.1'
   // Releases: https://github.com/linkedin/rest.li/blob/master/CHANGELOG.md
-  ext.pegasusVersion = '29.51.0'
+  ext.pegasusVersion = '29.51.6'
   ext.mavenVersion = '3.6.3'
-  ext.springVersion = '6.1.2'
-  ext.springBootVersion = '3.2.1'
-  ext.springKafkaVersion = '3.1.1'
+  ext.springVersion = '6.1.4'
+  ext.springBootVersion = '3.2.3'
+  ext.springKafkaVersion = '3.1.2'
   ext.openTelemetryVersion = '1.18.0'
   ext.neo4jVersion = '5.14.0'
   ext.neo4jTestVersion = '5.14.0'
   ext.neo4jApocVersion = '5.14.0'
   ext.testContainersVersion = '1.17.4'
-  ext.elasticsearchVersion = '2.9.0' // ES 7.10, Opensearch 1.x, 2.x
+  ext.elasticsearchVersion = '2.11.1' // ES 7.10, Opensearch 1.x, 2.x
   ext.jacksonVersion = '2.15.3'
   ext.jettyVersion = '11.0.19'
-  ext.playVersion = '2.8.18'
+  ext.playVersion = '2.8.21'
   ext.log4jVersion = '2.19.0'
   ext.slf4jVersion = '1.7.36'
   ext.logbackClassic = '1.4.14'
   ext.hadoop3Version = '3.3.5'
-  ext.kafkaVersion = '2.3.0'
+  ext.kafkaVersion = '5.5.15'
   ext.hazelcastVersion = '5.3.6'
   ext.ebeanVersion = '12.16.1'
   ext.googleJavaFormatVersion = '1.18.1'
+  ext.openLineageVersion = '1.5.0'
+  ext.logbackClassicJava8 = '1.2.12'
 
   ext.docker_registry = 'linkedin'
 
@@ -73,7 +75,7 @@ plugins {
   id 'com.gorylenko.gradle-git-properties' version '2.4.1'
   id 'com.github.johnrengelman.shadow' version '8.1.1' apply false
   id 'com.palantir.docker' version '0.35.0' apply false
-  id 'com.avast.gradle.docker-compose' version '0.17.5'
+  id 'com.avast.gradle.docker-compose' version '0.17.6'
   id "com.diffplug.spotless" version "6.23.3"
   // https://blog.ltgt.net/javax-jakarta-mess-and-gradle-solution/
   // TODO id "org.gradlex.java-ecosystem-capabilities" version "1.0"
@@ -132,8 +134,8 @@ project.ext.externalDependency = [
     'graphqlJavaScalars': 'com.graphql-java:graphql-java-extended-scalars:21.0',
     'gson': 'com.google.code.gson:gson:2.8.9',
     'guice': 'com.google.inject:guice:7.0.0',
-    'guice4': 'com.google.inject:guice:4.2.3', // Used for frontend while still on old Play version
-    'guava': 'com.google.guava:guava:32.1.2-jre',
+    'guicePlay': 'com.google.inject:guice:5.0.1', // Used for frontend while still on old Play version
+    'guava': 'com.google.guava:guava:32.1.3-jre',
     'h2': 'com.h2database:h2:2.2.224',
     'hadoopCommon':'org.apache.hadoop:hadoop-common:2.7.2',
     'hadoopMapreduceClient':'org.apache.hadoop:hadoop-mapreduce-client-core:2.7.2',
@@ -155,7 +157,7 @@ project.ext.externalDependency = [
     'javatuples': 'org.javatuples:javatuples:1.2',
     'javaxInject' : 'javax.inject:javax.inject:1',
     'javaxValidation' : 'javax.validation:validation-api:2.0.1.Final',
-    'jerseyCore': 'org.glassfish.jersey.core:jersey-client:2.25.1',
+    'jerseyCore': 'org.glassfish.jersey.core:jersey-client:2.41',
     'jerseyGuava': 'org.glassfish.jersey.bundles.repackaged:jersey-guava:2.25.1',
     'jettyJaas': "org.eclipse.jetty:jetty-jaas:$jettyVersion",
     'jettyClient': "org.eclipse.jetty:jetty-client:$jettyVersion",
@@ -171,11 +173,12 @@ project.ext.externalDependency = [
     'junitJupiterParams': "org.junit.jupiter:junit-jupiter-params:$junitJupiterVersion",
     'junitJupiterEngine': "org.junit.jupiter:junit-jupiter-engine:$junitJupiterVersion",
     // avro-serde includes dependencies for `kafka-avro-serializer` `kafka-schema-registry-client` and `avro`
-    'kafkaAvroSerde': 'io.confluent:kafka-streams-avro-serde:5.5.1',
+    'kafkaAvroSerde': "io.confluent:kafka-streams-avro-serde:$kafkaVersion",
     'kafkaAvroSerializer': 'io.confluent:kafka-avro-serializer:5.1.4',
-    'kafkaClients': "org.apache.kafka:kafka-clients:$kafkaVersion",
+    'kafkaClients': "org.apache.kafka:kafka-clients:$kafkaVersion-ccs",
     'snappy': 'org.xerial.snappy:snappy-java:1.1.10.4',
     'logbackClassic': "ch.qos.logback:logback-classic:$logbackClassic",
+    'logbackClassicJava8' : "ch.qos.logback:logback-classic:$logbackClassicJava8",
     'slf4jApi': "org.slf4j:slf4j-api:$slf4jVersion",
     'log4jCore': "org.apache.logging.log4j:log4j-core:$log4jVersion",
     'log4jApi': "org.apache.logging.log4j:log4j-api:$log4jVersion",
@@ -189,7 +192,7 @@ project.ext.externalDependency = [
     'mockitoInline': 'org.mockito:mockito-inline:4.11.0',
     'mockServer': 'org.mock-server:mockserver-netty:5.11.2',
     'mockServerClient': 'org.mock-server:mockserver-client-java:5.11.2',
-    'mysqlConnector': 'mysql:mysql-connector-java:8.0.20',
+    'mysqlConnector': 'mysql:mysql-connector-java:8.0.28',
     'neo4jHarness': 'org.neo4j.test:neo4j-harness:' + neo4jTestVersion,
     'neo4jJavaDriver': 'org.neo4j.driver:neo4j-java-driver:' + neo4jVersion,
     'neo4jTestJavaDriver': 'org.neo4j.driver:neo4j-java-driver:' + neo4jTestVersion,
@@ -213,7 +216,7 @@ project.ext.externalDependency = [
     'playFilters': "com.typesafe.play:filters-helpers_2.12:$playVersion",
     'pac4j': 'org.pac4j:pac4j-oidc:4.5.7',
     'playPac4j': 'org.pac4j:play-pac4j_2.12:9.0.2',
-    'postgresql': 'org.postgresql:postgresql:42.3.8',
+    'postgresql': 'org.postgresql:postgresql:42.3.9',
     'protobuf': 'com.google.protobuf:protobuf-java:3.19.6',
     'grpcProtobuf': 'io.grpc:grpc-protobuf:1.53.0',
     'rangerCommons': 'org.apache.ranger:ranger-plugins-common:2.3.0',
@@ -375,7 +378,7 @@ subprojects {
       constraints {
         implementation("com.google.googlejavaformat:google-java-format:$googleJavaFormatVersion")
         implementation('io.netty:netty-all:4.1.100.Final')
-        implementation('org.apache.commons:commons-compress:1.21')
+        implementation('org.apache.commons:commons-compress:1.26.0')
         implementation('org.apache.velocity:velocity-engine-core:2.3')
         implementation('org.hibernate:hibernate-validator:6.0.20.Final')
         implementation("com.fasterxml.jackson.core:jackson-databind:$jacksonVersion")

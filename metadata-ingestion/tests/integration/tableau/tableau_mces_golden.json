@@ -33506,7 +33506,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/Customer Payment Query"
+                            "/prod/tableau/default/Dvdrental Workbook/Customer Payment Query"
                         ]
                     }
                 },
@@ -33569,6 +33569,22 @@
                     "urn": "urn:li:container:fad3de4b86519c3edeb685215fe0bab1"
                 }
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:tableau,4fb670d5-3e19-9656-e684-74aa9729cf18,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:5ec314b9630974ec084f5dfd3849f87b"
         }
     },
     "systemMetadata": {
@@ -33793,10 +33809,8 @@
         "json": {
             "path": [
                 {
-                    "id": "default"
-                },
-                {
-                    "id": "test publish datasource"
+                    "id": "urn:li:container:5ec314b9630974ec084f5dfd3849f87b",
+                    "urn": "urn:li:container:5ec314b9630974ec084f5dfd3849f87b"
                 }
             ]
         }
@@ -44964,10 +44978,8 @@
         "json": {
             "path": [
                 {
-                    "id": "default"
-                },
-                {
-                    "id": "test publish datasource"
+                    "id": "urn:li:container:5ec314b9630974ec084f5dfd3849f87b",
+                    "urn": "urn:li:container:5ec314b9630974ec084f5dfd3849f87b"
                 }
             ]
         }

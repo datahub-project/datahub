@@ -16,7 +16,6 @@ import com.linkedin.datahub.graphql.generated.SearchAcrossLineageResults;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.search.AggregationMetadataArray;
 import com.linkedin.metadata.search.LineageSearchEntity;
 import com.linkedin.metadata.search.LineageSearchEntityArray;
@@ -106,6 +105,7 @@ public class SearchAcrossLineageResolverTest {
     lineageSearchResult.setEntities(new LineageSearchEntityArray(lineageSearchEntity));
 
     when(_entityClient.searchAcrossLineage(
+            any(),
             eq(UrnUtils.getUrn(SOURCE_URN_STRING)),
             eq(com.linkedin.metadata.graph.LineageDirection.DOWNSTREAM),
             anyList(),
@@ -116,9 +116,7 @@ public class SearchAcrossLineageResolverTest {
             eq(START),
             eq(COUNT),
             eq(START_TIMESTAMP_MILLIS),
-            eq(END_TIMESTAMP_MILLIS),
-            eq(new SearchFlags().setFulltext(true).setSkipHighlighting(true)),
-            eq(_authentication)))
+            eq(END_TIMESTAMP_MILLIS)))
         .thenReturn(lineageSearchResult);
 
     final SearchAcrossLineageResults results = _resolver.get(_dataFetchingEnvironment).join();

@@ -9,6 +9,9 @@ from datahub.configuration import ConfigModel
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import DatasetLineageProviderConfigBase
 from datahub.configuration.validate_field_removal import pydantic_removed_field
+from datahub.ingestion.glossary.classification_mixin import (
+    ClassificationSourceConfigMixin,
+)
 from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
 from datahub.ingestion.source.sql.sql_config import BasicSQLAlchemyConfig
 from datahub.ingestion.source.state.stateful_ingestion_base import (
@@ -70,6 +73,7 @@ class RedshiftConfig(
     RedshiftUsageConfig,
     StatefulLineageConfigMixin,
     StatefulProfilingConfigMixin,
+    ClassificationSourceConfigMixin,
 ):
     database: str = Field(default="dev", description="database")
 
@@ -84,7 +88,7 @@ class RedshiftConfig(
     scheme: str = Field(
         default="redshift+redshift_connector",
         description="",
-        hidden_from_schema=True,
+        hidden_from_docs=True,
     )
 
     _database_alias_removed = pydantic_removed_field("database_alias")
@@ -92,6 +96,20 @@ class RedshiftConfig(
     default_schema: str = Field(
         default="public",
         description="The default schema to use if the sql parser fails to parse the schema with `sql_based` lineage collector",
+    )
+
+    is_serverless: bool = Field(
+        default=False,
+        description="Whether target Redshift instance is serverless (alternative is provisioned cluster)",
+    )
+
+    use_lineage_v2: bool = Field(
+        default=False,
+        description="Whether to use the new SQL-based lineage collector.",
+    )
+    lineage_v2_generate_queries: bool = Field(
+        default=True,
+        description="Whether to generate queries entities for the new SQL-based lineage collector.",
     )
 
     include_table_lineage: bool = Field(
@@ -113,11 +131,11 @@ class RedshiftConfig(
     )
 
     include_table_rename_lineage: bool = Field(
-        default=False,
+        default=True,
         description="Whether we should follow `alter table ... rename to` statements when computing lineage. ",
     )
-    table_lineage_mode: Optional[LineageMode] = Field(
-        default=LineageMode.STL_SCAN_BASED,
+    table_lineage_mode: LineageMode = Field(
+        default=LineageMode.MIXED,
         description="Which table lineage collector mode to use. Available modes are: [stl_scan_based, sql_based, mixed]",
     )
     extra_client_options: Dict[str, Any] = {}
@@ -137,8 +155,13 @@ class RedshiftConfig(
         description="When enabled, emits lineage as incremental to existing lineage already in DataHub. When disabled, re-states lineage on each run.  This config works with rest-sink only.",
     )
 
+    patch_custom_properties: bool = Field(
+        default=True,
+        description="Whether to patch custom properties on existing datasets rather than replace.",
+    )
+
     resolve_temp_table_in_lineage: bool = Field(
-        default=False,
+        default=True,
         description="Whether to resolve temp table appear in lineage to upstream permanent tables.",
     )
 

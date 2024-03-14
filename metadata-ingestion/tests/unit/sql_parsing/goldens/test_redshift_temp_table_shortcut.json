@@ -4,7 +4,7 @@
         "kind": "TABLE",
         "temporary": true
     },
-    "query_fingerprint": "252f5a0232a14a4533919960412ad2681c14b14b8045c046b23ac3d2411c4c5e",
+    "query_fingerprint": "55195d697586ac4fdf8a6df745cb158a38878c2d2bb3ab3950b13fa618f02491",
     "in_tables": [
         "urn:li:dataset:(urn:li:dataPlatform:redshift,my_db.other_schema.table1,PROD)"
     ],
@@ -48,5 +48,9 @@
                 }
             ]
         }
-    ]
+    ],
+    "debug_info": {
+        "confidence": 0.35,
+        "generalized_statement": "CREATE TABLE #my_custom_name DISTKEY(\"1\") SORTKEY(\"1\", \"2\") AS WITH cte AS (SELECT * FROM other_schema.table1) SELECT * FROM cte"
+    }
 }

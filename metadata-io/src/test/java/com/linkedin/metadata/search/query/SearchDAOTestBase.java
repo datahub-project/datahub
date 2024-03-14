@@ -2,19 +2,23 @@ package com.linkedin.metadata.search.query;
 
 import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.utils.SearchUtil.AGGREGATION_SEPARATOR_CHAR;
-import static org.junit.Assert.*;
+import static com.linkedin.metadata.utils.SearchUtil.ES_INDEX_FIELD;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
-import com.datahub.test.Snapshot;
+import com.datahub.plugins.auth.authorization.Authorizer;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.data.template.LongMap;
 import com.linkedin.data.template.StringArray;
+import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
@@ -27,16 +31,24 @@ import com.linkedin.metadata.search.FilterValueArray;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchResultMetadata;
+import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
+import com.linkedin.metadata.search.opensearch.SearchDAOOpenSearchTest;
 import com.linkedin.metadata.utils.SearchUtil;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
+import com.linkedin.r2.RemoteInvocationException;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import lombok.Getter;
 import org.opensearch.action.explain.ExplainResponse;
 import org.opensearch.client.RestHighLevelClient;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 public abstract class SearchDAOTestBase extends AbstractTestNGSpringContextTests {
@@ -47,9 +59,23 @@ public abstract class SearchDAOTestBase extends AbstractTestNGSpringContextTests
 
   protected abstract IndexConvention getIndexConvention();
 
-  protected abstract EntityRegistry getInjectedRegistry();
+  protected abstract EntityRegistry getEntityRegistry();
 
-  EntityRegistry entityRegistry = new SnapshotEntityRegistry(new Snapshot());
+  protected AspectRetriever aspectRetriever;
+
+  @Getter protected OperationContext operationContext;
+
+  @BeforeClass
+  public void setup() throws RemoteInvocationException, URISyntaxException {
+    aspectRetriever = mock(AspectRetriever.class);
+    when(aspectRetriever.getEntityRegistry()).thenReturn(getEntityRegistry());
+    when(aspectRetriever.getLatestAspectObjects(any(), any())).thenReturn(Map.of());
+    operationContext =
+        TestOperationContexts.userContextNoSearchAuthorization(
+            aspectRetriever.getEntityRegistry(),
+            Authorizer.EMPTY,
+            TestOperationContexts.TEST_USER_AUTH);
+  }
 
   @Test
   public void testTransformFilterForEntitiesNoChange() {
@@ -111,7 +137,7 @@ public abstract class SearchDAOTestBase extends AbstractTestNGSpringContextTests
             .setValues(new StringArray(ImmutableList.of("smpldat_datasetindex_v2")))
             .setNegated(false)
             .setCondition(Condition.EQUAL)
-            .setField("_index");
+            .setField(ES_INDEX_FIELD);
 
     Filter expectedNewFilter =
         new Filter()
@@ -155,7 +181,7 @@ public abstract class SearchDAOTestBase extends AbstractTestNGSpringContextTests
             .setValues(new StringArray(ImmutableList.of("smpldat_datajobindex_v2")))
             .setNegated(false)
             .setCondition(Condition.EQUAL)
-            .setField("_index");
+            .setField(ES_INDEX_FIELD);
 
     Filter expectedNewFilter =
         new Filter()
@@ -207,7 +233,7 @@ public abstract class SearchDAOTestBase extends AbstractTestNGSpringContextTests
             .setValues(new StringArray(ImmutableList.of("smpldat_datasetindex_v2")))
             .setNegated(false)
             .setCondition(Condition.EQUAL)
-            .setField("_index");
+            .setField(ES_INDEX_FIELD);
 
     Filter expectedNewFilter =
         new Filter()
@@ -223,13 +249,13 @@ public abstract class SearchDAOTestBase extends AbstractTestNGSpringContextTests
   public void testTransformIndexIntoEntityNameSingle() {
     ESSearchDAO searchDAO =
         new ESSearchDAO(
-            entityRegistry,
-            getSearchClient(),
-            getIndexConvention(),
-            false,
-            ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH,
-            getSearchConfiguration(),
-            null);
+                getSearchClient(),
+                getIndexConvention(),
+                false,
+                ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH,
+                getSearchConfiguration(),
+                null)
+            .setAspectRetriever(aspectRetriever);
     // Empty aggregations
     final SearchResultMetadata searchResultMetadata =
         new SearchResultMetadata().setAggregations(new AggregationMetadataArray());
@@ -306,13 +332,13 @@ public abstract class SearchDAOTestBase extends AbstractTestNGSpringContextTests
   public void testTransformIndexIntoEntityNameNested() {
     ESSearchDAO searchDAO =
         new ESSearchDAO(
-            entityRegistry,
-            getSearchClient(),
-            getIndexConvention(),
-            false,
-            ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH,
-            getSearchConfiguration(),
-            null);
+                getSearchClient(),
+                getIndexConvention(),
+                false,
+                ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH,
+                getSearchConfiguration(),
+                null)
+            .setAspectRetriever(aspectRetriever);
     // One nested facet
     Map<String, Long> entityTypeMap =
         Map.of(
@@ -438,20 +464,23 @@ public abstract class SearchDAOTestBase extends AbstractTestNGSpringContextTests
   public void testExplain() {
     ESSearchDAO searchDAO =
         new ESSearchDAO(
-            getInjectedRegistry(),
-            getSearchClient(),
-            getIndexConvention(),
-            false,
-            ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH,
-            getSearchConfiguration(),
-            null);
+                getSearchClient(),
+                getIndexConvention(),
+                false,
+                this instanceof SearchDAOOpenSearchTest
+                    ? ELASTICSEARCH_IMPLEMENTATION_OPENSEARCH
+                    : ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH,
+                getSearchConfiguration(),
+                null)
+            .setAspectRetriever(aspectRetriever);
     ExplainResponse explainResponse =
         searchDAO.explain(
+            getOperationContext()
+                .withSearchFlags(flags -> ElasticSearchService.DEFAULT_SERVICE_SEARCH_FLAGS),
             "*",
             "urn:li:dataset:(urn:li:dataPlatform:bigquery,bigquery-public-data.covid19_geotab_mobility_impact."
                 + "ca_border_wait_times,PROD)",
             DATASET_ENTITY_NAME,
-            null,
             null,
             null,
             null,

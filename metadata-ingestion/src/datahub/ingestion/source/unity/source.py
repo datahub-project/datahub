@@ -9,6 +9,7 @@ from datahub.emitter.mce_builder import (
     make_dataplatform_instance_urn,
     make_dataset_urn_with_platform_instance,
     make_domain_urn,
+    make_group_urn,
     make_schema_field_urn,
     make_user_urn,
 )
@@ -184,6 +185,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
         # Global map of service principal application id -> ServicePrincipal
         self.service_principals: Dict[str, ServicePrincipal] = {}
+        self.groups: List[str] = []
         # Global set of table refs
         self.table_refs: Set[TableReference] = set()
         self.view_refs: Set[TableReference] = set()
@@ -256,6 +258,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         if self.config.include_ownership:
             self.report.report_ingestion_stage_start("Ingest service principals")
             self.build_service_principal_map()
+            self.build_groups_map()
         if self.config.include_notebooks:
             self.report.report_ingestion_stage_start("Ingest notebooks")
             yield from self.process_notebooks()
@@ -314,6 +317,12 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             self.report.report_warning(
                 "service-principals", f"Unable to fetch service principals: {e}"
             )
+
+    def build_groups_map(self) -> None:
+        try:
+            self.groups += self.unity_catalog_api_proxy.groups()
+        except Exception as e:
+            self.report.report_warning("groups", f"Unable to fetch groups: {e}")
 
     def process_notebooks(self) -> Iterable[MetadataWorkUnit]:
         for notebook in self.unity_catalog_api_proxy.workspace_notebooks():
@@ -600,6 +609,8 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
     def get_owner_urn(self, user: Optional[str]) -> Optional[str]:
         if self.config.include_ownership and user is not None:
+            if user in self.groups:
+                return make_group_urn(user)
             return self.gen_user_urn(user)
         return None
 

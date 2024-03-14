@@ -95,21 +95,31 @@ const DEFAULT_PAGE_SIZE = 10;
 
 export enum StatusType {
     ALL,
-    ACTIVE,
-    INACTIVE,
+    EXPIRED,
 }
 
 export const AccessTokens = () => {
     const [isCreatingToken, setIsCreatingToken] = useState(false);
     const [removedTokens, setRemovedTokens] = useState<string[]>([]);
-    const [statusFilter, setStatusFilter] = useState(StatusType.ACTIVE);
+    const [statusFilter, setStatusFilter] = useState(StatusType.ALL);
     const [owner, setOwner] = useState('All');
-    const [filters, setFilters] = useState([]);
+    const [filters, setFilters] = useState<Array<FacetFilterInput> | null>(null);
     const [query, setQuery] = useState<undefined | string>(undefined);
     // Current User Urn
     const authenticatedUser = useUserContext();
     const entityRegistry = useEntityRegistry();
     const currentUserUrn = authenticatedUser?.user?.urn || '';
+
+    useEffect(() => {
+        if (currentUserUrn) {
+            setFilters([
+                {
+                    field: 'ownerUrn',
+                    values: [currentUserUrn],
+                },
+            ]);
+        }
+    }, [currentUserUrn]);
 
     const isTokenAuthEnabled = useAppConfig().config?.authConfig?.tokenAuthEnabled;
     const canGeneratePersonalAccessTokens =
@@ -122,14 +132,6 @@ export const AccessTokens = () => {
     const pageSize = DEFAULT_PAGE_SIZE;
     const start = (page - 1) * pageSize;
 
-    // Filters for Access Tokens list
-    const filtersCurrentUser: Array<FacetFilterInput> = [
-        {
-            field: 'ownerUrn',
-            values: [currentUserUrn],
-        },
-    ];
-
     // Call list Access Token Mutation
     const {
         loading: tokensLoading,
@@ -137,12 +139,12 @@ export const AccessTokens = () => {
         data: tokensData,
         refetch: tokensRefetch,
     } = useListAccessTokensQuery({
-        skip: !canGeneratePersonalAccessTokens,
+        skip: !canGeneratePersonalAccessTokens || !filters,
         variables: {
             input: {
                 start,
                 count: pageSize,
-                filters: canManageToken ? filters : filtersCurrentUser,
+                filters,
             },
         },
     });
@@ -160,19 +162,24 @@ export const AccessTokens = () => {
     });
 
     useEffect(() => {
+        const timestamp = Date.now();
+        const lessThanStatus = { field: 'expiresAt', values: [`${timestamp}`], condition: 'LESS_THAN' };
         if (canManageToken) {
-            if (owner && owner !== 'All') {
-                const filterData = {
-                    field: 'ownerUrn',
-                    values: [owner],
-                };
-                setFilters(filterData as any);
-            } else {
-                setFilters([]);
+            const newFilters: any = owner && owner !== 'All' ? [{ field: 'ownerUrn', values: [owner] }] : [];
+            if (statusFilter === StatusType.EXPIRED) {
+                newFilters.push(lessThanStatus);
             }
+            setFilters(newFilters);
+        } else if (filters && statusFilter === StatusType.EXPIRED) {
+            const currentUserFilters: any = [...filters];
+            currentUserFilters.push(lessThanStatus);
+            setFilters(currentUserFilters);
+        } else if (filters) {
+            setFilters(filters.filter((filter) => filter?.field !== 'expiresAt'));
         }
-    }, [canManageToken, owner]);
-    
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [canManageToken, owner, statusFilter]);
+
     const renderSearchResult = (entity: any) => {
         const { editableProperties } = entity;
         const displayNameSearchResult = entityRegistry.getDisplayName(EntityType.CorpUser, entity);
@@ -193,20 +200,6 @@ export const AccessTokens = () => {
     const tokens = useMemo(() => tokensData?.listAccessTokens.tokens || [], [tokensData]);
     const filteredTokens = tokens.filter((token) => !removedTokens.includes(token.id));
 
-    const filteredTokenStatus = useMemo(() => {
-        switch (statusFilter) {
-            case StatusType.ACTIVE:
-                return filteredTokens.filter(
-                    (token) => !token.expiresAt || (token.expiresAt && new Date(token.expiresAt) > new Date()),
-                );
-            case StatusType.INACTIVE:
-                return filteredTokens.filter((token) => token.expiresAt && new Date(token.expiresAt) <= new Date());
-            default:
-                return filteredTokens;
-        }
-    }, [filteredTokens, statusFilter]);
-
-    // Any time a access token  is removed or created, refetch the list.
     const [revokeAccessToken, { error: revokeTokenError }] = useRevokeAccessTokenMutation();
 
     // Revoke token Handler
@@ -242,7 +235,7 @@ export const AccessTokens = () => {
         });
     };
 
-    const tableData = filteredTokenStatus?.map((token) => ({
+    const tableData = filteredTokens?.map((token) => ({
         urn: token.urn,
         type: token.type,
         id: token.id,
@@ -394,14 +387,11 @@ export const AccessTokens = () => {
                             onChange={(selection) => setStatusFilter(selection as StatusType)}
                             style={{ width: 100 }}
                         >
-                            <Select.Option value={StatusType.ALL} key={StatusType.ALL}>
-                                All Tokens
+                            <Select.Option value={StatusType.ALL} key="ALL">
+                                All
                             </Select.Option>
-                            <Select.Option value={StatusType.ACTIVE} key={StatusType.ACTIVE}>
-                                Active
-                            </Select.Option>
-                            <Select.Option value={StatusType.INACTIVE} key={StatusType.INACTIVE}>
-                                Inactive
+                            <Select.Option value={StatusType.EXPIRED} key="EXPIRED">
+                                Expired
                             </Select.Option>
                         </StyledSelect>
                     )}

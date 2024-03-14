@@ -2,6 +2,7 @@ package com.linkedin.metadata.kafka.hook.siblings;
 
 import static com.linkedin.metadata.Constants.*;
 import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -26,7 +27,6 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.key.DatasetKey;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
@@ -34,6 +34,8 @@ import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataChangeProposal;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.net.URISyntaxException;
 import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
@@ -43,6 +45,7 @@ public class SiblingAssociationHookTest {
   private SiblingAssociationHook _siblingAssociationHook;
   SystemEntityClient _mockEntityClient;
   EntitySearchService _mockSearchService;
+  OperationContext opContext;
 
   @BeforeMethod
   public void setupTest() {
@@ -53,8 +56,9 @@ public class SiblingAssociationHookTest {
                 .getResourceAsStream("test-entity-registry-siblings.yml"));
     _mockEntityClient = Mockito.mock(SystemEntityClient.class);
     _mockSearchService = Mockito.mock(EntitySearchService.class);
+    opContext = TestOperationContexts.systemContextNoSearchAuthorization(registry);
     _siblingAssociationHook =
-        new SiblingAssociationHook(registry, _mockEntityClient, _mockSearchService, true);
+        new SiblingAssociationHook(opContext, _mockEntityClient, _mockSearchService, true);
     _siblingAssociationHook.setEnabled(true);
   }
 
@@ -69,13 +73,12 @@ public class SiblingAssociationHookTest {
     EntityResponse mockResponse = new EntityResponse();
     mockResponse.setAspects(mockResponseMap);
 
-    Mockito.when(_mockEntityClient.exists(Mockito.any())).thenReturn(true);
+    when(_mockEntityClient.exists(Mockito.any())).thenReturn(true);
 
-    Mockito.when(
-            _mockEntityClient.getV2(
-                Urn.createFromString(
-                    "urn:li:dataset:(urn:li:dataPlatform:dbt,my-proj.jaffle_shop.customers,PROD)"),
-                ImmutableSet.of(SUB_TYPES_ASPECT_NAME)))
+    when(_mockEntityClient.getV2(
+            Urn.createFromString(
+                "urn:li:dataset:(urn:li:dataPlatform:dbt,my-proj.jaffle_shop.customers,PROD)"),
+            ImmutableSet.of(SUB_TYPES_ASPECT_NAME)))
         .thenReturn(mockResponse);
 
     MetadataChangeLog event =
@@ -145,7 +148,7 @@ public class SiblingAssociationHookTest {
     SubTypes mockSourceSubtypesAspect = new SubTypes();
     mockSourceSubtypesAspect.setTypeNames(new StringArray(ImmutableList.of("model")));
 
-    Mockito.when(_mockEntityClient.exists(Mockito.any())).thenReturn(true);
+    when(_mockEntityClient.exists(Mockito.any())).thenReturn(true);
 
     EnvelopedAspectMap mockResponseMap = new EnvelopedAspectMap();
     mockResponseMap.put(
@@ -154,13 +157,12 @@ public class SiblingAssociationHookTest {
     EntityResponse mockResponse = new EntityResponse();
     mockResponse.setAspects(mockResponseMap);
 
-    Mockito.when(_mockEntityClient.exists(Mockito.any())).thenReturn(true);
+    when(_mockEntityClient.exists(Mockito.any())).thenReturn(true);
 
-    Mockito.when(
-            _mockEntityClient.getV2(
-                Urn.createFromString(
-                    "urn:li:dataset:(urn:li:dataPlatform:dbt,my-proj.jaffle_shop.customers,PROD)"),
-                ImmutableSet.of(SUB_TYPES_ASPECT_NAME)))
+    when(_mockEntityClient.getV2(
+            Urn.createFromString(
+                "urn:li:dataset:(urn:li:dataPlatform:dbt,my-proj.jaffle_shop.customers,PROD)"),
+            ImmutableSet.of(SUB_TYPES_ASPECT_NAME)))
         .thenReturn(mockResponse);
 
     MetadataChangeLog event =
@@ -206,7 +208,7 @@ public class SiblingAssociationHookTest {
 
   @Test
   public void testInvokeWhenThereIsAPairWithBigqueryDownstreamNode() throws Exception {
-    Mockito.when(_mockEntityClient.exists(Mockito.any())).thenReturn(true);
+    when(_mockEntityClient.exists(Mockito.any())).thenReturn(true);
 
     MetadataChangeLog event =
         createEvent(DATASET_ENTITY_NAME, UPSTREAM_LINEAGE_ASPECT_NAME, ChangeType.UPSERT);
@@ -271,7 +273,7 @@ public class SiblingAssociationHookTest {
 
   @Test
   public void testInvokeWhenThereIsAKeyBeingReingested() throws Exception {
-    Mockito.when(_mockEntityClient.exists(Mockito.any())).thenReturn(true);
+    when(_mockEntityClient.exists(Mockito.any())).thenReturn(true);
 
     SearchResult returnSearchResult = new SearchResult();
     SearchEntityArray returnEntityArray = new SearchEntityArray();
@@ -283,19 +285,8 @@ public class SiblingAssociationHookTest {
 
     returnSearchResult.setEntities(returnEntityArray);
 
-    Mockito.when(
-            _mockSearchService.search(
-                any(),
-                anyString(),
-                any(),
-                any(),
-                anyInt(),
-                anyInt(),
-                eq(
-                    new SearchFlags()
-                        .setFulltext(false)
-                        .setSkipAggregates(true)
-                        .setSkipHighlighting(true))))
+    when(_mockSearchService.search(
+            any(OperationContext.class), any(), anyString(), any(), any(), anyInt(), anyInt()))
         .thenReturn(returnSearchResult);
 
     MetadataChangeLog event =

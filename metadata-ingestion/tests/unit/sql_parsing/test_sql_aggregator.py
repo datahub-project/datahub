@@ -4,13 +4,16 @@ from datetime import datetime, timezone
 import pytest
 from freezegun import freeze_time
 
-import datahub.emitter.mce_builder as builder
 from datahub.metadata.urns import CorpUserUrn, DatasetUrn
-from datahub.sql_parsing.sql_parsing_aggregator_v2 import (
+from datahub.sql_parsing.sql_parsing_aggregator import (
+    KnownQueryLineageInfo,
     QueryLogSetting,
     SqlParsingAggregator,
 )
+from datahub.sql_parsing.sql_parsing_common import QueryType
+from datahub.sql_parsing.sqlglot_lineage import ColumnLineageInfo, ColumnRef
 from tests.test_helpers import mce_helpers
+from tests.test_helpers.click_helpers import run_datahub_cmd
 
 RESOURCE_DIR = pathlib.Path(__file__).parent / "aggregator_goldens"
 FROZEN_TIME = "2024-02-06 01:23:45"
@@ -21,14 +24,13 @@ def _ts(ts: int) -> datetime:
 
 
 @freeze_time(FROZEN_TIME)
-def test_basic_lineage(pytestconfig: pytest.Config) -> None:
+def test_basic_lineage(pytestconfig: pytest.Config, tmp_path: pathlib.Path) -> None:
     aggregator = SqlParsingAggregator(
         platform="redshift",
-        platform_instance=None,
-        env=builder.DEFAULT_ENV,
         generate_lineage=True,
         generate_usage_statistics=False,
         generate_operations=False,
+        query_log=QueryLogSetting.STORE_ALL,
     )
 
     aggregator.add_observed_query(
@@ -45,13 +47,28 @@ def test_basic_lineage(pytestconfig: pytest.Config) -> None:
         golden_path=RESOURCE_DIR / "test_basic_lineage.json",
     )
 
+    # This test also validates the query log storage functionality.
+    aggregator.close()
+    query_log_db = aggregator.report.query_log_path
+    query_log_json = tmp_path / "query_log.json"
+    run_datahub_cmd(
+        [
+            "check",
+            "extract-sql-agg-log",
+            str(query_log_db),
+            "--output",
+            str(query_log_json),
+        ]
+    )
+    mce_helpers.check_golden_file(
+        pytestconfig, query_log_json, RESOURCE_DIR / "test_basic_lineage_query_log.json"
+    )
+
 
 @freeze_time(FROZEN_TIME)
 def test_overlapping_inserts(pytestconfig: pytest.Config) -> None:
     aggregator = SqlParsingAggregator(
         platform="redshift",
-        platform_instance=None,
-        env=builder.DEFAULT_ENV,
         generate_lineage=True,
         generate_usage_statistics=False,
         generate_operations=False,
@@ -83,8 +100,6 @@ def test_overlapping_inserts(pytestconfig: pytest.Config) -> None:
 def test_temp_table(pytestconfig: pytest.Config) -> None:
     aggregator = SqlParsingAggregator(
         platform="redshift",
-        platform_instance=None,
-        env=builder.DEFAULT_ENV,
         generate_lineage=True,
         generate_usage_statistics=False,
         generate_operations=False,
@@ -133,11 +148,63 @@ def test_temp_table(pytestconfig: pytest.Config) -> None:
 
 
 @freeze_time(FROZEN_TIME)
+def test_multistep_temp_table(pytestconfig: pytest.Config) -> None:
+    aggregator = SqlParsingAggregator(
+        platform="redshift",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+    )
+
+    aggregator.add_observed_query(
+        query="create table #temp1 as select a, 2*b as b from upstream1",
+        default_db="dev",
+        default_schema="public",
+        session_id="session1",
+    )
+    aggregator.add_observed_query(
+        query="create table #temp2 as select b, c from upstream2",
+        default_db="dev",
+        default_schema="public",
+        session_id="session1",
+    )
+    aggregator.add_observed_query(
+        query="create temp table staging_foo as select up1.a, up1.b, up2.c from #temp1 up1 left join #temp2 up2 on up1.b = up2.b where up1.b > 0",
+        default_db="dev",
+        default_schema="public",
+        session_id="session1",
+    )
+    aggregator.add_observed_query(
+        query="insert into table prod_foo\nselect * from staging_foo",
+        default_db="dev",
+        default_schema="public",
+        session_id="session1",
+    )
+
+    mcps = list(aggregator.gen_metadata())
+
+    report = aggregator.report
+    assert len(report.queries_with_temp_upstreams) == 1
+    assert (
+        len(
+            report.queries_with_temp_upstreams[
+                "composite_c89ee7c127c64a5d3a42ee875305087991891c80f42a25012910524bd2c77c45"
+            ]
+        )
+        == 4
+    )
+
+    mce_helpers.check_goldens_stream(
+        pytestconfig,
+        outputs=mcps,
+        golden_path=RESOURCE_DIR / "test_multistep_temp_table.json",
+    )
+
+
+@freeze_time(FROZEN_TIME)
 def test_aggregate_operations(pytestconfig: pytest.Config) -> None:
     aggregator = SqlParsingAggregator(
         platform="redshift",
-        platform_instance=None,
-        env=builder.DEFAULT_ENV,
         generate_lineage=False,
         generate_queries=False,
         generate_usage_statistics=False,
@@ -181,8 +248,6 @@ def test_aggregate_operations(pytestconfig: pytest.Config) -> None:
 def test_view_lineage(pytestconfig: pytest.Config) -> None:
     aggregator = SqlParsingAggregator(
         platform="redshift",
-        platform_instance=None,
-        env=builder.DEFAULT_ENV,
         generate_lineage=True,
         generate_usage_statistics=False,
         generate_operations=False,
@@ -214,4 +279,152 @@ def test_view_lineage(pytestconfig: pytest.Config) -> None:
         pytestconfig,
         outputs=mcps,
         golden_path=RESOURCE_DIR / "test_view_lineage.json",
+    )
+
+
+@freeze_time(FROZEN_TIME)
+def test_known_lineage_mapping(pytestconfig: pytest.Config) -> None:
+    aggregator = SqlParsingAggregator(
+        platform="redshift",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+    )
+
+    aggregator.add_known_lineage_mapping(
+        upstream_urn=DatasetUrn("redshift", "dev.public.bar").urn(),
+        downstream_urn=DatasetUrn("redshift", "dev.public.foo").urn(),
+    )
+    aggregator.add_known_lineage_mapping(
+        upstream_urn=DatasetUrn("s3", "bucket1/key1").urn(),
+        downstream_urn=DatasetUrn("redshift", "dev.public.bar").urn(),
+    )
+    aggregator.add_known_lineage_mapping(
+        upstream_urn=DatasetUrn("redshift", "dev.public.foo").urn(),
+        downstream_urn=DatasetUrn("s3", "bucket2/key2").urn(),
+    )
+
+    mcps = list(aggregator.gen_metadata())
+
+    mce_helpers.check_goldens_stream(
+        pytestconfig,
+        outputs=mcps,
+        golden_path=RESOURCE_DIR / "test_known_lineage_mapping.json",
+    )
+
+
+@freeze_time(FROZEN_TIME)
+def test_column_lineage_deduplication(pytestconfig: pytest.Config) -> None:
+    aggregator = SqlParsingAggregator(
+        platform="redshift",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+    )
+
+    aggregator.add_observed_query(
+        query="/* query 1 */ insert into foo (a, b, c) select a, b, c from bar",
+        default_db="dev",
+        default_schema="public",
+    )
+    aggregator.add_observed_query(
+        query="/* query 2 */ insert into foo (a, b) select a, b from bar",
+        default_db="dev",
+        default_schema="public",
+    )
+
+    mcps = list(aggregator.gen_metadata())
+
+    # In this case, the lineage for a and b is attributed to query 2, and
+    # the lineage for c is attributed to query 1. Note that query 1 does
+    # not get any credit for a and b, as they are already covered by query 2,
+    # which came later and hence has higher precedence.
+
+    mce_helpers.check_goldens_stream(
+        pytestconfig,
+        outputs=mcps,
+        golden_path=RESOURCE_DIR / "test_column_lineage_deduplication.json",
+    )
+
+
+@freeze_time(FROZEN_TIME)
+def test_add_known_query_lineage(pytestconfig: pytest.Config) -> None:
+    aggregator = SqlParsingAggregator(
+        platform="redshift",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=True,
+    )
+
+    downstream_urn = DatasetUrn("redshift", "dev.public.foo").urn()
+    upstream_urn = DatasetUrn("redshift", "dev.public.bar").urn()
+
+    known_query_lineage = KnownQueryLineageInfo(
+        query_text="insert into foo (a, b, c) select a, b, c from bar",
+        downstream=downstream_urn,
+        upstreams=[upstream_urn],
+        column_lineage=[
+            ColumnLineageInfo(
+                downstream=ColumnRef(table=downstream_urn, column="a"),
+                upstreams=[ColumnRef(table=upstream_urn, column="a")],
+            ),
+            ColumnLineageInfo(
+                downstream=ColumnRef(table=downstream_urn, column="b"),
+                upstreams=[ColumnRef(table=upstream_urn, column="b")],
+            ),
+            ColumnLineageInfo(
+                downstream=ColumnRef(table=downstream_urn, column="c"),
+                upstreams=[ColumnRef(table=upstream_urn, column="c")],
+            ),
+        ],
+        timestamp=_ts(20),
+        query_type=QueryType.INSERT,
+    )
+
+    aggregator.add_known_query_lineage(known_query_lineage)
+
+    mcps = list(aggregator.gen_metadata())
+
+    mce_helpers.check_goldens_stream(
+        pytestconfig,
+        outputs=mcps,
+        golden_path=RESOURCE_DIR / "test_add_known_query_lineage.json",
+    )
+
+
+@freeze_time(FROZEN_TIME)
+def test_table_rename(pytestconfig: pytest.Config) -> None:
+    aggregator = SqlParsingAggregator(
+        platform="redshift",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+    )
+
+    # Register that foo_staging is renamed to foo.
+    aggregator.add_table_rename(
+        original_urn=DatasetUrn("redshift", "dev.public.foo_staging").urn(),
+        new_urn=DatasetUrn("redshift", "dev.public.foo").urn(),
+    )
+
+    # Add an unrelated query.
+    aggregator.add_observed_query(
+        query="create table bar as select a, b from baz",
+        default_db="dev",
+        default_schema="public",
+    )
+
+    # Add the query that created the staging table.
+    aggregator.add_observed_query(
+        query="create table foo_staging as select a, b from foo_dep",
+        default_db="dev",
+        default_schema="public",
+    )
+
+    mcps = list(aggregator.gen_metadata())
+
+    mce_helpers.check_goldens_stream(
+        pytestconfig,
+        outputs=mcps,
+        golden_path=RESOURCE_DIR / "test_table_rename.json",
     )

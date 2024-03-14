@@ -1,8 +1,35 @@
 # Updating DataHub
 
+<!--
+
+## <version number>
+
+### Breaking Changes
+
+### Potential Downtime
+
+### Deprecations
+
+### Other Notable Changes
+
+-->
+
 This file documents any backwards-incompatible changes in DataHub and assists people when migrating to a new version.
 
 ## Next
+
+### Breaking Changes
+
+- #9934 - Stateful ingestion is now enabled by default if datahub-rest sink is used or if a `datahub_api` is specified. It will still be disabled by default when any other sink type is used.
+- #10002 - The `DataHubGraph` client no longer makes a request to the backend during initialization. If you want to preserve the old behavior, call `graph.test_connection()` after constructing the client.
+
+### Potential Downtime
+
+### Deprecations
+
+### Other Notable Changes
+
+## 0.13.0
 
 ### Breaking Changes
 
@@ -35,6 +62,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
   `datahub delete --platform databricks --soft` and then reingesting with latest cli version.
 
 - #9601 - The Unity Catalog(UC) ingestion source config `include_hive_metastore` is now enabled by default. This requires config `warehouse_id` to be set. You can disable `include_hive_metastore` by setting it to `False` to avoid ingesting legacy hive metastore catalog in Databricks.
+- #9904 - The default Redshift `table_lineage_mode` is now MIXED, instead of `STL_SCAN_BASED`. Improved lineage generation is also available by enabling `use_lineaege_v2`. This v2 implementation will become the default in a future release.
 
 ### Potential Downtime
 

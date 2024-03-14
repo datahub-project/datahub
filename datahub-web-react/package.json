@@ -88,8 +88,10 @@
         "build": "yarn run generate && NODE_OPTIONS='--max-old-space-size=3072 --openssl-legacy-provider' CI=false vite build",
         "test": "vitest",
         "generate": "graphql-codegen --config codegen.yml",
-        "lint": "eslint . --ext .ts,.tsx --quiet",
-        "lint-fix": "eslint '*/**/*.{ts,tsx}' --quiet --fix"
+        "lint": "eslint . --ext .ts,.tsx --quiet && yarn type-check",
+        "lint-fix": "eslint '*/**/*.{ts,tsx}' --quiet --fix",
+        "type-check": "tsc --noEmit",
+        "type-watch": "tsc -w --noEmit"
     },
     "browserslist": {
         "production": [
