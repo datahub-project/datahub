@@ -1042,6 +1042,8 @@ class GlueSource(StatefulIngestionSourceBase):
     def _extract_record(
         self, dataset_urn: str, table: Dict, table_name: str
     ) -> MetadataChangeEvent:
+        logger.debug(f"extract record from table={table_name} for dataset={dataset_urn}")
+
         def get_owner() -> Optional[OwnershipClass]:
             owner = table.get("Owner")
             if owner:
@@ -1161,9 +1163,12 @@ class GlueSource(StatefulIngestionSourceBase):
 
             partition_keys = table.get("PartitionKeys", [])
             for partition_key in partition_keys:
+                if "Type" not in partition_key:
+                    self.report_warning(dataset_urn, f"No Type found for the PartitionKey={partition_key} on the "
+                                                     f"table={table_name}")
                 schema_fields = get_schema_fields_for_hive_column(
                     hive_column_name=partition_key["Name"],
-                    hive_column_type=partition_key["Type"],
+                    hive_column_type=partition_key.get("Type"),
                     default_nullable=False,
                 )
                 assert schema_fields
