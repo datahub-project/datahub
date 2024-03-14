@@ -260,7 +260,7 @@ class UnityCatalogSourceConfig(
 
     emit_siblings: bool = pydantic.Field(
         default=True,
-        description="Flag to emit sibling.",
+        description="Whether to emit siblings relation with corresponding delta-lake platform's table. If enabled, this will also ingest the corresponding delta-lake table.",
     )
 
     delta_lake_options: DeltaLakeDetails = Field(

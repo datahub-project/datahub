@@ -204,16 +204,6 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         # Global map of tables, for profiling
         self.tables: FileBackedDict[Table] = FileBackedDict()
 
-        self.emit_siblings = (
-            self.config.emit_siblings if self.config.emit_siblings else False
-        )
-
-        if self.config.delta_lake_options:
-            self.delta_lake_platform_instance_name = (
-                self.config.delta_lake_options.platform_instance_name
-            )
-            self.delta_lake_env = self.config.delta_lake_options.env
-
     def init_hive_metastore_proxy(self):
         self.hive_metastore_proxy: Optional[HiveMetastoreProxy] = None
         if self.config.include_hive_metastore:
@@ -1000,7 +990,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         yield MetadataChangeProposalWrapper(
             entityUrn=source_dataset_urn,
             aspect=Siblings(primary=True, siblings=[dataset_urn]),
-        ).as_workunit()
+        ).as_workunit(is_primary_source=False)
 
     def gen_lineage_workunit(
         self,
@@ -1017,4 +1007,4 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                     Upstream(dataset=source_dataset_urn, type=DatasetLineageType.VIEW)
                 ]
             ),
-        ).as_workunit(is_primary_source=False)
+        ).as_workunit()
