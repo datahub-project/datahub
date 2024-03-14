@@ -166,17 +166,32 @@ The below example set as global tag the query tag `tag` key's value.
 
 ### Integrating with dbt test
 
-To integrate with dbt tests, the `dbt` source needs access to the `run_results.json` file generated after a `dbt test` execution. Typically, this is written to the `target` directory. A common pattern you can follow is:
+To integrate with dbt tests, the `dbt` source needs access to the `run_results.json` file generated after a `dbt test` or `dbt build` execution. Typically, this is written to the `target` directory. A common pattern you can follow is:
 
-1. Run `dbt docs generate` and upload `manifest.json` and `catalog.json` to a location accessible to the `dbt` source (e.g. s3 or local file system)
-2. Run `dbt test` and upload `run_results.json` to a location accessible to the `dbt` source (e.g. s3 or local file system)
-3. Run `datahub ingest -c dbt_recipe.dhub.yaml` with the following config parameters specified
-   - test_results_path: pointing to the run_results.json file that you just created
+1. Run `dbt build`
+2. Copy the `target/run_results.json` file to a separate location. This is important, because otherwise subsequent `dbt` commands will overwrite the run results.
+3. Run `dbt docs generate` to generate the `manifest.json` and `catalog.json` files
+4. The dbt source makes use of the manifest, catalog, and run results file, and hence will need to be moved to a location accessible to the `dbt` source (e.g. s3 or local file system). In the ingestion recipe, the `test_results_path` config must be set to the location of the `run_results.json` file from the `dbt build` or `dbt test` run.
 
 The connector will produce the following things:
 
 - Assertion definitions that are attached to the dataset (or datasets)
 - Results from running the tests attached to the timeline of the dataset
+
+:::note Missing test results?
+
+The most common reason for missing test results is that the `run_results.json` with the test result information is getting overwritten by a subsequent `dbt` command. We recommend copying the `run_results.json` file before running other `dbt` commands.
+
+```sh
+dbt source snapshot-freshness
+dbt build
+cp target/run_results.json target/run_results_backup.json
+dbt docs generate
+
+# Reference target/run_results_backup.json in the dbt source config.
+```
+
+:::
 
 #### View of dbt tests for a dataset
 
