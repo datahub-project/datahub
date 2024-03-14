@@ -12,7 +12,6 @@ import lombok.EqualsAndHashCode;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 
-
 @Data
 @AllArgsConstructor
 @Slf4j
@@ -61,8 +60,7 @@ public class Edge {
         .append(getRelationshipType())
         .append(DOC_DELIMETER)
         .append(getDestination().toString());
-    if (getLifecycleOwner() != null
-        && StringUtils.isNotBlank(getLifecycleOwner().toString())) {
+    if (getLifecycleOwner() != null && StringUtils.isNotBlank(getLifecycleOwner().toString())) {
       rawDocId.append(DOC_DELIMETER).append(getLifecycleOwner().toString());
     }
 
@@ -77,6 +75,8 @@ public class Edge {
     }
   }
 
-  public static final String[] KEY_FIELDS = {"source.urn", "destination.urn", "relationshipType", "lifeCycleOwner"};
+  public static final String[] KEY_FIELDS = {
+    "source.urn", "destination.urn", "relationshipType", "lifeCycleOwner"
+  };
   private static final String DOC_DELIMETER = "--";
 }
