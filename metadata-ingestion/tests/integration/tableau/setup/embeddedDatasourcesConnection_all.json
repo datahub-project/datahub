@@ -12951,10 +12951,10 @@
                     ],
                     "upstreamDatasources": [],
                     "workbook": {
-                        "id": "bdb7bdb9-bd4f-4074-9204-4ee10e409c7e",
-                        "name": "Email Performance by Campaign",
+                        "id": "bd040833-8f66-22c0-1b51-bd4ccf5eef7c",
+                        "name": "Workbook published ds",
                         "projectName": "default",
-                        "luid": "c608227f-d92f-4c99-a9d3-0aa329166c2e",
+                        "luid": "a059a443-7634-4abf-9e46-d147b99168be",
                         "owner": {
                             "username": "jawadqu@gmail.com"
                         }
