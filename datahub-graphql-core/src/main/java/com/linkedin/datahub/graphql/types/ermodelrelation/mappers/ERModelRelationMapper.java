@@ -11,7 +11,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.datahub.graphql.generated.Dataset;
-import com.linkedin.datahub.graphql.generated.ERModelRelation;
+import com.linkedin.datahub.graphql.generated.ERModelRelationship;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.RelationshipFieldMapping;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
@@ -24,9 +24,9 @@ import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
-import com.linkedin.ermodelrelation.ERModelRelationProperties;
-import com.linkedin.ermodelrelation.EditableERModelRelationProperties;
-import com.linkedin.metadata.key.ERModelRelationKey;
+import com.linkedin.ermodelrelation.ERModelRelationshipProperties;
+import com.linkedin.ermodelrelation.EditableERModelRelationshipProperties;
+import com.linkedin.metadata.key.ERModelRelationshipKey;
 import java.util.ArrayList;
 import java.util.List;
 import javax.annotation.Nonnull;
@@ -36,30 +36,30 @@ import javax.annotation.Nonnull;
  *
  * <p>To be replaced by auto-generated mappers implementations
  */
-public class ERModelRelationMapper implements ModelMapper<EntityResponse, ERModelRelation> {
+public class ERModelRelationMapper implements ModelMapper<EntityResponse, ERModelRelationship> {
 
   public static final ERModelRelationMapper INSTANCE = new ERModelRelationMapper();
 
-  public static ERModelRelation map(@Nonnull final EntityResponse entityResponse) {
+  public static ERModelRelationship map(@Nonnull final EntityResponse entityResponse) {
     return INSTANCE.apply(entityResponse);
   }
 
   @Override
-  public ERModelRelation apply(final EntityResponse entityResponse) {
-    final ERModelRelation result = new ERModelRelation();
+  public ERModelRelationship apply(final EntityResponse entityResponse) {
+    final ERModelRelationship result = new ERModelRelationship();
     final Urn entityUrn = entityResponse.getUrn();
 
     result.setUrn(entityUrn.toString());
-    result.setType(EntityType.ERMODELRELATION);
+    result.setType(EntityType.ER_MODEL_RELATIONSHIP);
 
     final EnvelopedAspectMap aspectMap = entityResponse.getAspects();
-    MappingHelper<ERModelRelation> mappingHelper = new MappingHelper<>(aspectMap, result);
-    mappingHelper.mapToResult(ERMODELRELATION_KEY_ASPECT_NAME, this::mapERModelRelationKey);
-    mappingHelper.mapToResult(ERMODELRELATION_PROPERTIES_ASPECT_NAME, this::mapProperties);
+    MappingHelper<ERModelRelationship> mappingHelper = new MappingHelper<>(aspectMap, result);
+    mappingHelper.mapToResult(ER_MODEL_RELATIONSHIP_KEY_ASPECT_NAME, this::mapERModelRelationKey);
+    mappingHelper.mapToResult(ER_MODEL_RELATIONSHIP_PROPERTIES_ASPECT_NAME, this::mapProperties);
     if (aspectMap != null
-        && aspectMap.containsKey(EDITABLE_ERMODELRELATION_PROPERTIES_ASPECT_NAME)) {
+        && aspectMap.containsKey(EDITABLE_ER_MODEL_RELATIONSHIP_PROPERTIES_ASPECT_NAME)) {
       mappingHelper.mapToResult(
-          EDITABLE_ERMODELRELATION_PROPERTIES_ASPECT_NAME, this::mapEditableProperties);
+          EDITABLE_ER_MODEL_RELATIONSHIP_PROPERTIES_ASPECT_NAME, this::mapEditableProperties);
     }
     if (aspectMap != null && aspectMap.containsKey(INSTITUTIONAL_MEMORY_ASPECT_NAME)) {
       mappingHelper.mapToResult(
@@ -96,27 +96,28 @@ public class ERModelRelationMapper implements ModelMapper<EntityResponse, ERMode
   }
 
   private void mapEditableProperties(
-      @Nonnull ERModelRelation ermodelrelation, @Nonnull DataMap dataMap) {
-    final EditableERModelRelationProperties editableERModelRelationProperties =
-        new EditableERModelRelationProperties(dataMap);
+      @Nonnull ERModelRelationship ermodelrelation, @Nonnull DataMap dataMap) {
+    final EditableERModelRelationshipProperties editableERModelRelationProperties =
+        new EditableERModelRelationshipProperties(dataMap);
     ermodelrelation.setEditableProperties(
-        com.linkedin.datahub.graphql.generated.ERModelRelationEditableProperties.builder()
+        com.linkedin.datahub.graphql.generated.ERModelRelationshipEditableProperties.builder()
             .setDescription(editableERModelRelationProperties.getDescription())
             .setName(editableERModelRelationProperties.getName())
             .build());
   }
 
   private void mapERModelRelationKey(
-      @Nonnull ERModelRelation ermodelrelation, @Nonnull DataMap datamap) {
-    ERModelRelationKey ermodelrelationKey = new ERModelRelationKey(datamap);
+      @Nonnull ERModelRelationship ermodelrelation, @Nonnull DataMap datamap) {
+    ERModelRelationshipKey ermodelrelationKey = new ERModelRelationshipKey(datamap);
     ermodelrelation.setId(ermodelrelationKey.getId());
   }
 
-  private void mapProperties(@Nonnull ERModelRelation ermodelrelation, @Nonnull DataMap dataMap) {
-    final ERModelRelationProperties ermodelrelationProperties =
-        new ERModelRelationProperties(dataMap);
+  private void mapProperties(
+      @Nonnull ERModelRelationship ermodelrelation, @Nonnull DataMap dataMap) {
+    final ERModelRelationshipProperties ermodelrelationProperties =
+        new ERModelRelationshipProperties(dataMap);
     ermodelrelation.setProperties(
-        com.linkedin.datahub.graphql.generated.ERModelRelationProperties.builder()
+        com.linkedin.datahub.graphql.generated.ERModelRelationshipProperties.builder()
             .setName(ermodelrelationProperties.getName())
             .setSource(createPartialDataset(ermodelrelationProperties.getSource()))
             .setDestination(createPartialDataset(ermodelrelationProperties.getDestination()))
@@ -153,7 +154,7 @@ public class ERModelRelationMapper implements ModelMapper<EntityResponse, ERMode
   }
 
   private List<RelationshipFieldMapping> mapERModelRelationFieldMappings(
-      ERModelRelationProperties ermodelrelationProperties) {
+      ERModelRelationshipProperties ermodelrelationProperties) {
     final List<RelationshipFieldMapping> relationshipFieldMappingList = new ArrayList<>();
 
     ermodelrelationProperties
@@ -176,7 +177,7 @@ public class ERModelRelationMapper implements ModelMapper<EntityResponse, ERMode
   }
 
   private void mapGlobalTags(
-      @Nonnull ERModelRelation ermodelrelation,
+      @Nonnull ERModelRelationship ermodelrelation,
       @Nonnull DataMap dataMap,
       @Nonnull final Urn entityUrn) {
     com.linkedin.datahub.graphql.generated.GlobalTags globalTags =

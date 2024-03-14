@@ -53,8 +53,7 @@ import com.linkedin.datahub.graphql.generated.DataPlatformInstance;
 import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.DatasetStatsSummary;
 import com.linkedin.datahub.graphql.generated.Domain;
-import com.linkedin.datahub.graphql.generated.ERModelRelation;
-import com.linkedin.datahub.graphql.generated.ERModelRelationProperties;
+import com.linkedin.datahub.graphql.generated.ERModelRelationshipProperties;
 import com.linkedin.datahub.graphql.generated.EntityPath;
 import com.linkedin.datahub.graphql.generated.EntityRelationship;
 import com.linkedin.datahub.graphql.generated.EntityRelationshipLegacy;
@@ -310,9 +309,9 @@ import com.linkedin.datahub.graphql.types.dataset.mappers.DatasetProfileMapper;
 import com.linkedin.datahub.graphql.types.datatype.DataTypeType;
 import com.linkedin.datahub.graphql.types.domain.DomainType;
 import com.linkedin.datahub.graphql.types.entitytype.EntityTypeType;
-import com.linkedin.datahub.graphql.types.ermodelrelation.CreateERModelRelationResolver;
-import com.linkedin.datahub.graphql.types.ermodelrelation.ERModelRelationType;
-import com.linkedin.datahub.graphql.types.ermodelrelation.UpdateERModelRelationResolver;
+import com.linkedin.datahub.graphql.types.ermodelrelation.CreateERModelRelationshipResolver;
+import com.linkedin.datahub.graphql.types.ermodelrelation.ERModelRelationshipType;
+import com.linkedin.datahub.graphql.types.ermodelrelation.UpdateERModelRelationshipResolver;
 import com.linkedin.datahub.graphql.types.form.FormType;
 import com.linkedin.datahub.graphql.types.glossary.GlossaryNodeType;
 import com.linkedin.datahub.graphql.types.glossary.GlossaryTermType;
@@ -351,7 +350,7 @@ import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.recommendation.RecommendationsService;
 import com.linkedin.metadata.secret.SecretService;
 import com.linkedin.metadata.service.DataProductService;
-import com.linkedin.metadata.service.ERModelRelationService;
+import com.linkedin.metadata.service.ERModelRelationshipService;
 import com.linkedin.metadata.service.FormService;
 import com.linkedin.metadata.service.LineageService;
 import com.linkedin.metadata.service.OwnershipTypeService;
@@ -423,7 +422,7 @@ public class GmsGraphQLEngine {
   private final LineageService lineageService;
   private final QueryService queryService;
   private final DataProductService dataProductService;
-  private final ERModelRelationService eRModelRelationService;
+  private final ERModelRelationshipService erModelRelationshipService;
   private final FormService formService;
   private final RestrictedService restrictedService;
 
@@ -469,7 +468,7 @@ public class GmsGraphQLEngine {
   private final DataHubPolicyType dataHubPolicyType;
   private final DataHubRoleType dataHubRoleType;
   private final SchemaFieldType schemaFieldType;
-  private final ERModelRelationType ermodelrelationType;
+  private final ERModelRelationshipType ermodelrelationType;
   private final DataHubViewType dataHubViewType;
   private final QueryType queryType;
   private final DataProductType dataProductType;
@@ -537,7 +536,7 @@ public class GmsGraphQLEngine {
     this.settingsService = args.settingsService;
     this.lineageService = args.lineageService;
     this.queryService = args.queryService;
-    this.eRModelRelationService = args.eRModelRelationService;
+    this.erModelRelationshipService = args.erModelRelationshipService;
     this.dataProductService = args.dataProductService;
     this.formService = args.formService;
     this.restrictedService = args.restrictedService;
@@ -581,7 +580,7 @@ public class GmsGraphQLEngine {
     this.dataHubPolicyType = new DataHubPolicyType(entityClient);
     this.dataHubRoleType = new DataHubRoleType(entityClient);
     this.schemaFieldType = new SchemaFieldType(entityClient, featureFlags);
-    this.ermodelrelationType = new ERModelRelationType(entityClient, featureFlags);
+    this.ermodelrelationType = new ERModelRelationshipType(entityClient, featureFlags);
     this.dataHubViewType = new DataHubViewType(entityClient);
     this.queryType = new QueryType(entityClient);
     this.dataProductType = new DataProductType(entityClient);
@@ -718,7 +717,7 @@ public class GmsGraphQLEngine {
     configureTestResultResolvers(builder);
     configureRoleResolvers(builder);
     configureSchemaFieldResolvers(builder);
-    configureERModelRelationResolvers(builder);
+    configureERModelRelationshipResolvers(builder);
     configureEntityPathResolvers(builder);
     configureResolvedAuditStampResolvers(builder);
     configureViewResolvers(builder);
@@ -1084,11 +1083,11 @@ public class GmsGraphQLEngine {
                 .dataFetcher("updateCorpGroupProperties", new MutableTypeResolver<>(corpGroupType))
                 .dataFetcher(
                     "updateERModelRelationship",
-                    new UpdateERModelRelationResolver(this.entityClient))
+                    new UpdateERModelRelationshipResolver(this.entityClient))
                 .dataFetcher(
                     "createERModelRelationship",
-                    new CreateERModelRelationResolver(
-                        this.entityClient, this.eRModelRelationService))
+                    new CreateERModelRelationshipResolver(
+                        this.entityClient, this.erModelRelationshipService))
                 .dataFetcher("addTag", new AddTagResolver(entityService))
                 .dataFetcher("addTags", new AddTagsResolver(entityService))
                 .dataFetcher("batchAddTags", new BatchAddTagsResolver(entityService))
@@ -2098,18 +2097,18 @@ public class GmsGraphQLEngine {
     builder.scalar(GraphQLLong);
   }
 
-  /** Configures resolvers responsible for resolving the {@link ERModelRelation} type. */
-  private void configureERModelRelationResolvers(final RuntimeWiring.Builder builder) {
+  /** Configures resolvers responsible for resolving the {@link ERModelRelationship} type. */
+  private void configureERModelRelationshipResolvers(final RuntimeWiring.Builder builder) {
     builder
         .type(
-            "ERModelRelation",
+            "ERModelRelationship",
             typeWiring ->
                 typeWiring
                     .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
                     .dataFetcher(
                         "relationships", new EntityRelationshipsResultResolver(graphClient)))
         .type(
-            "ERModelRelationProperties",
+            "ERModelRelationshipProperties",
             typeWiring ->
                 typeWiring
                     .dataFetcher(
@@ -2117,7 +2116,7 @@ public class GmsGraphQLEngine {
                         new LoadableTypeResolver<>(
                             datasetType,
                             (env) -> {
-                              final ERModelRelationProperties ermodelrelationProperties =
+                              final ERModelRelationshipProperties ermodelrelationProperties =
                                   env.getSource();
                               return ermodelrelationProperties.getSource() != null
                                   ? ermodelrelationProperties.getSource().getUrn()
@@ -2128,7 +2127,7 @@ public class GmsGraphQLEngine {
                         new LoadableTypeResolver<>(
                             datasetType,
                             (env) -> {
-                              final ERModelRelationProperties ermodelrelationProperties =
+                              final ERModelRelationshipProperties ermodelrelationProperties =
                                   env.getSource();
                               return ermodelrelationProperties.getDestination() != null
                                   ? ermodelrelationProperties.getDestination().getUrn()

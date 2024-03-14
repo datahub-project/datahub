@@ -4,15 +4,15 @@ import './ERModelRelationTab.less';
 import { ERModelRelationPreview } from '../../components/styled/ERModelRelation/ERModelRelationPreview';
 import { useEntityData, useRefetch } from '../../EntityContext';
 
-export const ERModelRelationTab = () => {
+export const ERModelRelationshipTab = () => {
     const { entityData } = useEntityData();
     const refetch = useRefetch();
     const ermodelrelationView = (ermodelrelationData?: any): JSX.Element => {
-        return <ERModelRelationPreview ermodelrelationData={ermodelrelationData} prePageType="ERModelRelation" refetch={refetch} />;
+        return <ERModelRelationPreview ermodelrelationData={ermodelrelationData} prePageType="ERModelRelationship" refetch={refetch} />;
     };
     return (
         <>
-            <div className="ERModelRelationTab">
+            <div className="ERModelRelationshipTab">
                 <div className="ermodelrelation-preview-div">{ermodelrelationView(entityData)}</div>
                 <Divider className="thin-divider" />
             </div>

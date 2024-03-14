@@ -7,7 +7,7 @@ import com.datahub.authorization.ConjunctivePrivilegeGroup;
 import com.datahub.authorization.DisjunctivePrivilegeGroup;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.linkedin.common.urn.ERModelRelationUrn;
+import com.linkedin.common.urn.ERModelRelationshipUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.StringArray;
@@ -17,8 +17,8 @@ import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
 import com.linkedin.datahub.graphql.generated.BrowsePath;
 import com.linkedin.datahub.graphql.generated.BrowseResults;
-import com.linkedin.datahub.graphql.generated.ERModelRelation;
-import com.linkedin.datahub.graphql.generated.ERModelRelationUpdateInput;
+import com.linkedin.datahub.graphql.generated.ERModelRelationship;
+import com.linkedin.datahub.graphql.generated.ERModelRelationshipUpdateInput;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
@@ -49,16 +49,16 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
-public class ERModelRelationType
-    implements com.linkedin.datahub.graphql.types.EntityType<ERModelRelation, String>,
-        BrowsableEntityType<ERModelRelation, String>,
-        SearchableEntityType<ERModelRelation, String> {
+public class ERModelRelationshipType
+    implements com.linkedin.datahub.graphql.types.EntityType<ERModelRelationship, String>,
+        BrowsableEntityType<ERModelRelationship, String>,
+        SearchableEntityType<ERModelRelationship, String> {
 
   static final Set<String> ASPECTS_TO_RESOLVE =
       ImmutableSet.of(
-          ERMODELRELATION_KEY_ASPECT_NAME,
-          ERMODELRELATION_PROPERTIES_ASPECT_NAME,
-          EDITABLE_ERMODELRELATION_PROPERTIES_ASPECT_NAME,
+          ER_MODEL_RELATIONSHIP_KEY_ASPECT_NAME,
+          ER_MODEL_RELATIONSHIP_PROPERTIES_ASPECT_NAME,
+          EDITABLE_ER_MODEL_RELATIONSHIP_PROPERTIES_ASPECT_NAME,
           INSTITUTIONAL_MEMORY_ASPECT_NAME,
           OWNERSHIP_ASPECT_NAME,
           STATUS_ASPECT_NAME,
@@ -71,7 +71,7 @@ public class ERModelRelationType
   private final EntityClient _entityClient;
   private final FeatureFlags _featureFlags;
 
-  public ERModelRelationType(final EntityClient entityClient, final FeatureFlags featureFlags) {
+  public ERModelRelationshipType(final EntityClient entityClient, final FeatureFlags featureFlags) {
     _entityClient = entityClient;
     _featureFlags =
         featureFlags; // TODO: check if ERModelRelation Feture is Enabled and throw error when
@@ -79,13 +79,13 @@ public class ERModelRelationType
   }
 
   @Override
-  public Class<ERModelRelation> objectClass() {
-    return ERModelRelation.class;
+  public Class<ERModelRelationship> objectClass() {
+    return ERModelRelationship.class;
   }
 
   @Override
   public EntityType type() {
-    return EntityType.ERMODELRELATION;
+    return EntityType.ER_MODEL_RELATIONSHIP;
   }
 
   @Override
@@ -94,7 +94,7 @@ public class ERModelRelationType
   }
 
   @Override
-  public List<DataFetcherResult<ERModelRelation>> batchLoad(
+  public List<DataFetcherResult<ERModelRelationship>> batchLoad(
       @Nonnull final List<String> urns, @Nonnull final QueryContext context) throws Exception {
     final List<Urn> ermodelrelationUrns =
         urns.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
@@ -102,7 +102,7 @@ public class ERModelRelationType
     try {
       final Map<Urn, EntityResponse> entities =
           _entityClient.batchGetV2(
-              ERMODELRELATION_ENTITY_NAME,
+              ER_MODEL_RELATIONSHIP_ENTITY_NAME,
               new HashSet<>(ermodelrelationUrns),
               ASPECTS_TO_RESOLVE,
               context.getAuthentication());
@@ -116,7 +116,7 @@ public class ERModelRelationType
               gmsResult ->
                   gmsResult == null
                       ? null
-                      : DataFetcherResult.<ERModelRelation>newResult()
+                      : DataFetcherResult.<ERModelRelationship>newResult()
                           .data(ERModelRelationMapper.map(gmsResult))
                           .build())
           .collect(Collectors.toList());
@@ -193,8 +193,8 @@ public class ERModelRelationType
 
   public static boolean canUpdateERModelRelation(
       @Nonnull QueryContext context,
-      ERModelRelationUrn resourceUrn,
-      ERModelRelationUpdateInput updateInput) {
+      ERModelRelationshipUrn resourceUrn,
+      ERModelRelationshipUpdateInput updateInput) {
     final ConjunctivePrivilegeGroup editPrivilegesGroup =
         new ConjunctivePrivilegeGroup(
             ImmutableList.of(PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType()));
@@ -225,7 +225,7 @@ public class ERModelRelationType
             ImmutableList.of(PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType()));
     final ConjunctivePrivilegeGroup createPrivilegesGroup =
         new ConjunctivePrivilegeGroup(
-            ImmutableList.of(PoliciesConfig.CREATE_ERMODELRELATION_PRIVILEGE.getType()));
+            ImmutableList.of(PoliciesConfig.CREATE_ER_MODEL_RELATIONSHIP_PRIVILEGE.getType()));
     // If you either have all entity privileges, or have the specific privileges required, you are
     // authorized.
     DisjunctivePrivilegeGroup orPrivilegeGroups =

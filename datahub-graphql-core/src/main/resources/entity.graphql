@@ -76,7 +76,7 @@ type Query {
     """
     Fetch a ERModelRelationship by primary key (urn)
     """
-    erModelRelationship(urn: String!): ERModelRelation
+    erModelRelationship(urn: String!): ERModelRelationship
 
     """
     Fetch a Glossary Term by primary key (urn)
@@ -239,9 +239,9 @@ type Query {
 }
 
 """
-A ERModelRelation is a high-level abstraction that dictates what datasets fields are ermodelrelationed.
+An ERModelRelationship is a high-level abstraction that dictates what datasets fields are ermodelrelationed.
 """
-type ERModelRelation implements EntityWithRelationships & Entity {
+type ERModelRelationship implements EntityWithRelationships & Entity {
     """
     The primary key of the role
     """
@@ -260,12 +260,12 @@ type ERModelRelation implements EntityWithRelationships & Entity {
     """
     An additional set of read only properties
     """
-    properties: ERModelRelationProperties
+    properties: ERModelRelationshipProperties
 
     """
     An additional set of of read write properties
     """
-    editableProperties: ERModelRelationEditableProperties
+    editableProperties: ERModelRelationshipEditableProperties
 
     """
     References to internal resources related to the dataset
@@ -309,27 +309,27 @@ type ERModelRelation implements EntityWithRelationships & Entity {
 }
 
 """
-Additional properties about a ERModelRelation
+Additional properties about a ERModelRelationship
 """
-type ERModelRelationEditableProperties {
+type ERModelRelationshipEditableProperties {
 
     """
-    Documentation of the ERModelRelation
+    Documentation of the ERModelRelationship
     """
     description: String
     """
-    Display name of the ERModelRelation
+    Display name of the ERModelRelationship
     """
     name: String
 }
 
 """
-Additional properties about a ERModelRelation
+Additional properties about a ERModelRelationship
 """
-type ERModelRelationProperties {
+type ERModelRelationshipProperties {
 
     """
-    The name of the ERModelRelation used in display
+    The name of the ERModelRelationship used in display
     """
     name: String!
     """
@@ -348,18 +348,18 @@ type ERModelRelationProperties {
     relationshipFieldMappings: [RelationshipFieldMapping!]
 
     """
-    Created timestamp millis associated with the ERModelRelation
+    Created timestamp millis associated with the ERModelRelationship
     """
     createdTime: Long
 
     """
-    Created actor urn associated with the ERModelRelation
+    Created actor urn associated with the ERModelRelationship
     """
     createdActor: Entity
 }
 
 """
-ERModelRelation FieldMap
+ERModelRelationship FieldMap
 """
 type RelationshipFieldMapping {
     """
@@ -607,26 +607,26 @@ type Mutation {
     unsetDomain(entityUrn: String!): Boolean
 
     """
-    Create a ERModelRelation
+    Create a ERModelRelationship
     """
     createERModelRelationship(
-        "Input required to create a new ERModelRelation"
-        input: ERModelRelationUpdateInput!): ERModelRelation
+        "Input required to create a new ERModelRelationship"
+        input: ERModelRelationshipUpdateInput!): ERModelRelationship
 
     """
-    Update a ERModelRelation
+    Update a ERModelRelationship
     """
     updateERModelRelationship(
-        "The urn of the ERModelRelation to update"
+        "The urn of the ERModelRelationship to update"
         urn: String!,
         "Input required to updat an existing DataHub View"
-        input: ERModelRelationUpdateInput!): Boolean
+        input: ERModelRelationshipUpdateInput!): Boolean
 
     """
-    Delete a ERModelRelation
+    Delete a ERModelRelationship
     """
     deleteERModelRelationship(
-        "The urn of the ERModelRelation to delete"
+        "The urn of the ERModelRelationship to delete"
         urn: String!): Boolean
 
 
@@ -951,9 +951,9 @@ enum EntityType {
     DATA_PLATFORM
 
     """
-    The ERModelRelation Entity
+    The ERModelRelationship Entity
     """
-    ERMODELRELATION
+    ER_MODEL_RELATIONSHIP
 
     """
     The Dashboard Entity
@@ -4842,7 +4842,7 @@ input CreateTagInput {
 """
 Input required to create/update a new ERModelRelation
 """
-input ERModelRelationUpdateInput {
+input ERModelRelationshipUpdateInput {
     """
     Details about the ERModelRelation
     """

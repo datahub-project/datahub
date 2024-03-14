@@ -5,12 +5,12 @@ import com.linkedin.common.Urn
 import com.linkedin.common.CustomProperties
 
 /**
- * Properties associated with a ERModelRelation
+ * Properties associated with a ERModelRelationship
  */
 @Aspect = {
   "name": "erModelRelationshipProperties"
 }
-record ERModelRelationProperties includes CustomProperties {
+record ERModelRelationshipProperties includes CustomProperties {
 
   /**
    * Name of the ERModelRelation

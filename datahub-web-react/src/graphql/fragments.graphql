@@ -1186,13 +1186,13 @@ fragment entityDisplayNameFields on Entity {
     }
 }
 
-fragment ermodelrelationPropertiesFields on ERModelRelationProperties {
+fragment ermodelrelationPropertiesFields on ERModelRelationshipProperties {
     name
     source {
-        ...datasetERModelRelationFields
+        ...datasetERModelRelationshipFields
     }
     destination {
-        ...datasetERModelRelationFields
+        ...datasetERModelRelationshipFields
     }
     relationshipFieldMappings {
         ...relationshipFieldMapping
@@ -1208,12 +1208,12 @@ fragment relationshipFieldMapping on RelationshipFieldMapping {
     destinationField
 }
 
-fragment ermodelrelationEditablePropertiesFields on ERModelRelationEditableProperties {
+fragment ermodelrelationEditablePropertiesFields on ERModelRelationshipEditableProperties {
     description
     name
 }
 
-fragment datasetERModelRelationFields on Dataset {
+fragment datasetERModelRelationshipFields on Dataset {
     urn
     name
     properties {

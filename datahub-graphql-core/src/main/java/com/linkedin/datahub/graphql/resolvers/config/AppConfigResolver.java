@@ -264,10 +264,10 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
         .getResourceType()
         .equals(resourceType)) {
       return EntityType.CORP_USER;
-    } else if (com.linkedin.metadata.authorization.PoliciesConfig.ERMODELRELATION_PRIVILEGES
+    } else if (com.linkedin.metadata.authorization.PoliciesConfig.ER_MODEL_RELATIONSHIP_PRIVILEGES
         .getResourceType()
         .equals(resourceType)) {
-      return EntityType.ERMODELRELATION;
+      return EntityType.ER_MODEL_RELATIONSHIP;
     } else {
       return null;
     }

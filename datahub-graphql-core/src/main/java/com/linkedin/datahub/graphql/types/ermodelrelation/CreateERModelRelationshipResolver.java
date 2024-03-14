@@ -4,17 +4,17 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 
 import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.CorpuserUrn;
-import com.linkedin.common.urn.ERModelRelationUrn;
+import com.linkedin.common.urn.ERModelRelationshipUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
-import com.linkedin.datahub.graphql.generated.ERModelRelation;
 import com.linkedin.datahub.graphql.generated.ERModelRelationPropertiesInput;
-import com.linkedin.datahub.graphql.generated.ERModelRelationUpdateInput;
+import com.linkedin.datahub.graphql.generated.ERModelRelationship;
+import com.linkedin.datahub.graphql.generated.ERModelRelationshipUpdateInput;
 import com.linkedin.datahub.graphql.types.ermodelrelation.mappers.ERModelRelationMapper;
-import com.linkedin.datahub.graphql.types.ermodelrelation.mappers.ERModelRelationUpdateInputMapper;
+import com.linkedin.datahub.graphql.types.ermodelrelation.mappers.ERModelRelationshipUpdateInputMapper;
 import com.linkedin.entity.client.EntityClient;
-import com.linkedin.metadata.service.ERModelRelationService;
+import com.linkedin.metadata.service.ERModelRelationshipService;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetcher;
@@ -28,17 +28,17 @@ import org.apache.commons.codec.digest.DigestUtils;
 
 @Slf4j
 @RequiredArgsConstructor
-public class CreateERModelRelationResolver
-    implements DataFetcher<CompletableFuture<ERModelRelation>> {
+public class CreateERModelRelationshipResolver
+    implements DataFetcher<CompletableFuture<ERModelRelationship>> {
 
   private final EntityClient _entityClient;
-  private final ERModelRelationService _eRModelRelationService;
+  private final ERModelRelationshipService _erModelRelationshipService;
 
   @Override
-  public CompletableFuture<ERModelRelation> get(DataFetchingEnvironment environment)
+  public CompletableFuture<ERModelRelationship> get(DataFetchingEnvironment environment)
       throws Exception {
-    final ERModelRelationUpdateInput input =
-        bindArgument(environment.getArgument("input"), ERModelRelationUpdateInput.class);
+    final ERModelRelationshipUpdateInput input =
+        bindArgument(environment.getArgument("input"), ERModelRelationshipUpdateInput.class);
 
     final ERModelRelationPropertiesInput ermodelrelationPropertiesInput = input.getProperties();
     String ermodelrelationName = ermodelrelationPropertiesInput.getName();
@@ -71,11 +71,11 @@ public class CreateERModelRelationResolver
         ermodelrelationKeyEncoded,
         ermodelrelationGuid);
 
-    ERModelRelationUrn inputUrn = new ERModelRelationUrn(ermodelrelationGuid);
+    ERModelRelationshipUrn inputUrn = new ERModelRelationshipUrn(ermodelrelationGuid);
     QueryContext context = environment.getContext();
     final Authentication authentication = context.getAuthentication();
     final CorpuserUrn actor = CorpuserUrn.createFromString(context.getActorUrn());
-    if (!ERModelRelationType.canCreateERModelRelation(
+    if (!ERModelRelationshipType.canCreateERModelRelation(
         context,
         Urn.createFromString(input.getProperties().getSource()),
         Urn.createFromString(input.getProperties().getDestination()))) {
@@ -87,7 +87,7 @@ public class CreateERModelRelationResolver
           try {
             log.debug("Create ERModelRelation input: {}", input);
             final Collection<MetadataChangeProposal> proposals =
-                ERModelRelationUpdateInputMapper.map(input, actor);
+                ERModelRelationshipUpdateInputMapper.map(input, actor);
             proposals.forEach(proposal -> proposal.setEntityUrn(inputUrn));
             try {
               _entityClient.batchIngestProposals(proposals, context.getAuthentication(), false);
@@ -95,7 +95,7 @@ public class CreateERModelRelationResolver
               throw new RuntimeException("Failed to create erModelRelationship entity", e);
             }
             return ERModelRelationMapper.map(
-                _eRModelRelationService.getERModelRelationResponse(
+                _erModelRelationshipService.getERModelRelationshipResponse(
                     Urn.createFromString(inputUrn.toString()), authentication));
           } catch (Exception e) {
             log.error(

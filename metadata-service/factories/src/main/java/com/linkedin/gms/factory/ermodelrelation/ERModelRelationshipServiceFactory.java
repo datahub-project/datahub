@@ -2,7 +2,7 @@ package com.linkedin.gms.factory.ermodelrelation;
 
 import com.datahub.authentication.Authentication;
 import com.linkedin.entity.client.EntityClient;
-import com.linkedin.metadata.service.ERModelRelationService;
+import com.linkedin.metadata.service.ERModelRelationshipService;
 import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,17 +14,17 @@ import org.springframework.context.annotation.Scope;
 
 @Configuration
 @PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
-public class ERModelRelationServiceFactory {
+public class ERModelRelationshipServiceFactory {
 
   @Autowired
   @Qualifier("systemAuthentication")
   private Authentication _authentication;
 
-  @Bean(name = "eRModelRelationService")
+  @Bean(name = "erModelRelationshipService")
   @Scope("singleton")
   @Nonnull
-  protected ERModelRelationService getInstance(
+  protected ERModelRelationshipService getInstance(
       @Qualifier("entityClient") final EntityClient entityClient) throws Exception {
-    return new ERModelRelationService(entityClient, _authentication);
+    return new ERModelRelationshipService(entityClient, _authentication);
   }
 }

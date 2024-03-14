@@ -5,12 +5,12 @@ import com.linkedin.data.template.DirectCoercer;
 import com.linkedin.data.template.TemplateOutputCastException;
 import java.net.URISyntaxException;
 
-public class ERModelRelationUrn extends Urn {
+public class ERModelRelationshipUrn extends Urn {
   public static final String ENTITY_TYPE = "erModelRelationship";
 
   private final String _ermodelrelationId;
 
-  public ERModelRelationUrn(String ermodelrelationId) {
+  public ERModelRelationshipUrn(String ermodelrelationId) {
     super(ENTITY_TYPE, TupleKey.create(ermodelrelationId));
     this._ermodelrelationId = ermodelrelationId;
   }
@@ -19,11 +19,11 @@ public class ERModelRelationUrn extends Urn {
     return _ermodelrelationId;
   }
 
-  public static ERModelRelationUrn createFromString(String rawUrn) throws URISyntaxException {
+  public static ERModelRelationshipUrn createFromString(String rawUrn) throws URISyntaxException {
     return createFromUrn(Urn.createFromString(rawUrn));
   }
 
-  public static ERModelRelationUrn createFromUrn(Urn urn) throws URISyntaxException {
+  public static ERModelRelationshipUrn createFromUrn(Urn urn) throws URISyntaxException {
     if (!"li".equals(urn.getNamespace())) {
       throw new URISyntaxException(urn.toString(), "Urn namespace type should be 'li'.");
     } else if (!ENTITY_TYPE.equals(urn.getEntityType())) {
@@ -35,7 +35,7 @@ public class ERModelRelationUrn extends Urn {
         throw new URISyntaxException(urn.toString(), "Invalid number of keys.");
       } else {
         try {
-          return new ERModelRelationUrn((String) key.getAs(0, String.class));
+          return new ERModelRelationshipUrn((String) key.getAs(0, String.class));
         } catch (Exception var3) {
           throw new URISyntaxException(
               urn.toString(), "Invalid URN Parameter: '" + var3.getMessage());
@@ -44,26 +44,28 @@ public class ERModelRelationUrn extends Urn {
     }
   }
 
-  public static ERModelRelationUrn deserialize(String rawUrn) throws URISyntaxException {
+  public static ERModelRelationshipUrn deserialize(String rawUrn) throws URISyntaxException {
     return createFromString(rawUrn);
   }
 
   static {
-    Custom.initializeCustomClass(ERModelRelationUrn.class);
+    Custom.initializeCustomClass(ERModelRelationshipUrn.class);
     Custom.registerCoercer(
-        new DirectCoercer<ERModelRelationUrn>() {
-          public Object coerceInput(ERModelRelationUrn object) throws ClassCastException {
+        new DirectCoercer<ERModelRelationshipUrn>() {
+          public Object coerceInput(ERModelRelationshipUrn object) throws ClassCastException {
             return object.toString();
           }
 
-          public ERModelRelationUrn coerceOutput(Object object) throws TemplateOutputCastException {
+          public ERModelRelationshipUrn coerceOutput(Object object)
+              throws TemplateOutputCastException {
             try {
-              return ERModelRelationUrn.createFromString((String) object);
+              return com.linkedin.common.urn.ERModelRelationshipUrn.createFromString(
+                  (String) object);
             } catch (URISyntaxException e) {
               throw new TemplateOutputCastException("Invalid URN syntax: " + e.getMessage(), e);
             }
           }
         },
-        ERModelRelationUrn.class);
+        ERModelRelationshipUrn.class);
   }
 }

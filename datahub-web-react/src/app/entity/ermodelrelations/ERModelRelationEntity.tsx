@@ -1,13 +1,13 @@
 import * as React from 'react';
 import { DatabaseOutlined, DatabaseFilled } from '@ant-design/icons';
-import { EntityType, ErModelRelation, OwnershipType, SearchResult } from '../../../types.generated';
+import { EntityType, ErModelRelationship, OwnershipType, SearchResult } from '../../../types.generated';
 import { Entity, IconStyleType, PreviewType } from '../Entity';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
 import { GenericEntityProperties } from '../shared/types';
 import { ERModelRelationPreviewCard } from './preview/ERModelRelationPreviewCard';
 import ermodelrelationIcon from '../../../images/ermodelrelationIcon.svg';
-import { ERModelRelationTab } from '../shared/tabs/ERModelRelation/ERModelRelationTab';
-import { useGetErModelRelationQuery, useUpdateErModelRelationshipMutation } from '../../../graphql/ermodelrelation.generated';
+import { ERModelRelationshipTab } from '../shared/tabs/ERModelRelation/ERModelRelationTab';
+import { useGetErModelRelationshipQuery,  useUpdateErModelRelationshipMutation } from '../../../graphql/ermodelrelation.generated';
 import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
 import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
@@ -17,11 +17,11 @@ import './preview/ERModelRelationAction.less';
 import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
 
 /**
- * Definition of the DataHub ERModelRelation entity.
+ * Definition of the DataHub ErModelRelationship entity.
  */
 
-export class ERModelRelationEntity implements Entity<ErModelRelation> {
-    type: EntityType = EntityType.Ermodelrelation;
+export class ERModelRelationEntity implements Entity<ErModelRelationship> {
+    type: EntityType = EntityType.ErModelRelationship;
 
     icon = (fontSize: number, styleType: IconStyleType) => {
         if (styleType === IconStyleType.TAB_VIEW) {
@@ -58,14 +58,14 @@ export class ERModelRelationEntity implements Entity<ErModelRelation> {
     renderProfile = (urn: string) => (
         <EntityProfile
             urn={urn}
-            entityType={EntityType.Ermodelrelation}
-            useEntityQuery={useGetErModelRelationQuery}
+            entityType={EntityType.ErModelRelationship}
+            useEntityQuery={useGetErModelRelationshipQuery}
             useUpdateQuery={useUpdateErModelRelationshipMutation}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
             tabs={[
                 {
                     name: 'ER-Model-Relation',
-                    component: ERModelRelationTab,
+                    component: ERModelRelationshipTab,
                 },
                 {
                     name: 'Documentation',
@@ -98,11 +98,11 @@ export class ERModelRelationEntity implements Entity<ErModelRelation> {
         />
     );
 
-    getOverridePropertiesFromEntity = (_ermodelrelation?: ErModelRelation | null): GenericEntityProperties => {
+    getOverridePropertiesFromEntity = (_ermodelrelation?: ErModelRelationship | null): GenericEntityProperties => {
         return {};
     };
 
-    renderPreview = (_: PreviewType, data: ErModelRelation) => {
+    renderPreview = (_: PreviewType, data: ErModelRelationship) => {
         return (
             <>
                 <ERModelRelationPreviewCard
@@ -120,14 +120,14 @@ export class ERModelRelationEntity implements Entity<ErModelRelation> {
     };
 
     renderSearch = (result: SearchResult) => {
-        return this.renderPreview(PreviewType.SEARCH, result.entity as ErModelRelation);
+        return this.renderPreview(PreviewType.SEARCH, result.entity as ErModelRelationship);
     };
 
-    displayName = (data: ErModelRelation) => {
+    displayName = (data: ErModelRelationship) => {
         return data.properties?.name || data.editableProperties?.name || data.urn;
     };
 
-    getGenericEntityProperties = (data: ErModelRelation) => {
+    getGenericEntityProperties = (data: ErModelRelationship) => {
         return getDataForEntityType({
             data,
             entityType: this.type,

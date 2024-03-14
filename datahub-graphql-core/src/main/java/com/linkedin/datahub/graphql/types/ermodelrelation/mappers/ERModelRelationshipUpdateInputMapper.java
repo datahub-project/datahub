@@ -8,12 +8,12 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.generated.ERModelRelationEditablePropertiesUpdate;
 import com.linkedin.datahub.graphql.generated.ERModelRelationPropertiesInput;
-import com.linkedin.datahub.graphql.generated.ERModelRelationUpdateInput;
+import com.linkedin.datahub.graphql.generated.ERModelRelationshipUpdateInput;
 import com.linkedin.datahub.graphql.generated.RelationshipFieldMappingInput;
 import com.linkedin.datahub.graphql.types.common.mappers.util.UpdateMappingHelper;
 import com.linkedin.datahub.graphql.types.mappers.InputModelMapper;
-import com.linkedin.ermodelrelation.ERModelRelationProperties;
-import com.linkedin.ermodelrelation.EditableERModelRelationProperties;
+import com.linkedin.ermodelrelation.ERModelRelationshipProperties;
+import com.linkedin.ermodelrelation.EditableERModelRelationshipProperties;
 import com.linkedin.ermodelrelation.RelationshipFieldMappingArray;
 import com.linkedin.mxe.MetadataChangeProposal;
 import java.net.URISyntaxException;
@@ -22,48 +22,49 @@ import java.util.Collection;
 import java.util.List;
 import javax.annotation.Nonnull;
 
-public class ERModelRelationUpdateInputMapper
+public class ERModelRelationshipUpdateInputMapper
     implements InputModelMapper<
-        ERModelRelationUpdateInput, Collection<MetadataChangeProposal>, Urn> {
-  public static final ERModelRelationUpdateInputMapper INSTANCE =
-      new ERModelRelationUpdateInputMapper();
+        ERModelRelationshipUpdateInput, Collection<MetadataChangeProposal>, Urn> {
+  public static final ERModelRelationshipUpdateInputMapper INSTANCE =
+      new ERModelRelationshipUpdateInputMapper();
 
   public static Collection<MetadataChangeProposal> map(
-      @Nonnull final ERModelRelationUpdateInput ermodelrelationUpdateInput,
+      @Nonnull final ERModelRelationshipUpdateInput ermodelrelationUpdateInput,
       @Nonnull final Urn actor) {
     return INSTANCE.apply(ermodelrelationUpdateInput, actor);
   }
 
   @Override
-  public Collection<MetadataChangeProposal> apply(ERModelRelationUpdateInput input, Urn actor) {
+  public Collection<MetadataChangeProposal> apply(ERModelRelationshipUpdateInput input, Urn actor) {
     final Collection<MetadataChangeProposal> proposals = new ArrayList<>(8);
     final UpdateMappingHelper updateMappingHelper =
-        new UpdateMappingHelper(ERMODELRELATION_ENTITY_NAME);
+        new UpdateMappingHelper(ER_MODEL_RELATIONSHIP_ENTITY_NAME);
     final long currentTime = System.currentTimeMillis();
     final AuditStamp auditstamp = new AuditStamp();
     auditstamp.setActor(actor, SetMode.IGNORE_NULL);
     auditstamp.setTime(currentTime);
     if (input.getProperties() != null) {
-      com.linkedin.ermodelrelation.ERModelRelationProperties ermodelrelationProperties =
+      com.linkedin.ermodelrelation.ERModelRelationshipProperties ermodelrelationProperties =
           createERModelRelationProperties(input.getProperties(), auditstamp);
       proposals.add(
           updateMappingHelper.aspectToProposal(
-              ermodelrelationProperties, ERMODELRELATION_PROPERTIES_ASPECT_NAME));
+              ermodelrelationProperties, ER_MODEL_RELATIONSHIP_PROPERTIES_ASPECT_NAME));
     }
     if (input.getEditableProperties() != null) {
-      final EditableERModelRelationProperties editableERModelRelationProperties =
+      final EditableERModelRelationshipProperties editableERModelRelationProperties =
           ermodelrelationEditablePropsSettings(input.getEditableProperties());
       proposals.add(
           updateMappingHelper.aspectToProposal(
-              editableERModelRelationProperties, EDITABLE_ERMODELRELATION_PROPERTIES_ASPECT_NAME));
+              editableERModelRelationProperties,
+              EDITABLE_ER_MODEL_RELATIONSHIP_PROPERTIES_ASPECT_NAME));
     }
     return proposals;
   }
 
-  private ERModelRelationProperties createERModelRelationProperties(
+  private ERModelRelationshipProperties createERModelRelationProperties(
       ERModelRelationPropertiesInput inputProperties, AuditStamp auditstamp) {
-    com.linkedin.ermodelrelation.ERModelRelationProperties ermodelrelationProperties =
-        new com.linkedin.ermodelrelation.ERModelRelationProperties();
+    com.linkedin.ermodelrelation.ERModelRelationshipProperties ermodelrelationProperties =
+        new com.linkedin.ermodelrelation.ERModelRelationshipProperties();
     if (inputProperties.getName() != null) {
       ermodelrelationProperties.setName(inputProperties.getName());
     }
@@ -138,10 +139,10 @@ public class ERModelRelationUpdateInputMapper
     return relationshipFieldMappingList;
   }
 
-  private static EditableERModelRelationProperties ermodelrelationEditablePropsSettings(
+  private static EditableERModelRelationshipProperties ermodelrelationEditablePropsSettings(
       ERModelRelationEditablePropertiesUpdate editPropsInput) {
-    final EditableERModelRelationProperties editableERModelRelationProperties =
-        new EditableERModelRelationProperties();
+    final EditableERModelRelationshipProperties editableERModelRelationProperties =
+        new EditableERModelRelationshipProperties();
     if (editPropsInput.getName() != null && editPropsInput.getName().trim().length() > 0) {
       editableERModelRelationProperties.setName(editPropsInput.getName());
     }

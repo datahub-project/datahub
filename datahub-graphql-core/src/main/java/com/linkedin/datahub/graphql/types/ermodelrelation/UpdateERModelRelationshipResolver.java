@@ -3,11 +3,11 @@ package com.linkedin.datahub.graphql.types.ermodelrelation;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 
 import com.linkedin.common.urn.CorpuserUrn;
-import com.linkedin.common.urn.ERModelRelationUrn;
+import com.linkedin.common.urn.ERModelRelationshipUrn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
-import com.linkedin.datahub.graphql.generated.ERModelRelationUpdateInput;
-import com.linkedin.datahub.graphql.types.ermodelrelation.mappers.ERModelRelationUpdateInputMapper;
+import com.linkedin.datahub.graphql.generated.ERModelRelationshipUpdateInput;
+import com.linkedin.datahub.graphql.types.ermodelrelation.mappers.ERModelRelationshipUpdateInputMapper;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
@@ -20,19 +20,19 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @RequiredArgsConstructor
-public class UpdateERModelRelationResolver implements DataFetcher<CompletableFuture<Boolean>> {
+public class UpdateERModelRelationshipResolver implements DataFetcher<CompletableFuture<Boolean>> {
 
   private final EntityClient _entityClient;
 
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
-    final ERModelRelationUpdateInput input =
-        bindArgument(environment.getArgument("input"), ERModelRelationUpdateInput.class);
+    final ERModelRelationshipUpdateInput input =
+        bindArgument(environment.getArgument("input"), ERModelRelationshipUpdateInput.class);
     final String urn = bindArgument(environment.getArgument("urn"), String.class);
-    ERModelRelationUrn inputUrn = ERModelRelationUrn.createFromString(urn);
+    ERModelRelationshipUrn inputUrn = ERModelRelationshipUrn.createFromString(urn);
     QueryContext context = environment.getContext();
     final CorpuserUrn actor = CorpuserUrn.createFromString(context.getActorUrn());
-    if (!ERModelRelationType.canUpdateERModelRelation(context, inputUrn, input)) {
+    if (!ERModelRelationshipType.canUpdateERModelRelation(context, inputUrn, input)) {
       throw new AuthorizationException(
           "Unauthorized to perform this action. Please contact your DataHub administrator.");
     }
@@ -41,7 +41,7 @@ public class UpdateERModelRelationResolver implements DataFetcher<CompletableFut
           try {
             log.debug("Create ERModelRelation input: {}", input);
             final Collection<MetadataChangeProposal> proposals =
-                ERModelRelationUpdateInputMapper.map(input, actor);
+                ERModelRelationshipUpdateInputMapper.map(input, actor);
             proposals.forEach(proposal -> proposal.setEntityUrn(inputUrn));
 
             try {

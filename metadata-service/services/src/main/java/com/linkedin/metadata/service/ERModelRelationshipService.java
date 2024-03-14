@@ -22,18 +22,18 @@ import lombok.extern.slf4j.Slf4j;
  * has already verified the permissions of the active Actor.
  */
 @Slf4j
-public class ERModelRelationService extends BaseService {
+public class ERModelRelationshipService extends BaseService {
 
-  public ERModelRelationService(
+  public ERModelRelationshipService(
       @Nonnull EntityClient entityClient, @Nonnull Authentication systemAuthentication) {
     super(entityClient, systemAuthentication);
   }
 
   static final Set<String> ASPECTS_TO_RESOLVE =
       ImmutableSet.of(
-          ERMODELRELATION_KEY_ASPECT_NAME,
-          ERMODELRELATION_PROPERTIES_ASPECT_NAME,
-          EDITABLE_ERMODELRELATION_PROPERTIES_ASPECT_NAME,
+          ER_MODEL_RELATIONSHIP_KEY_ASPECT_NAME,
+          ER_MODEL_RELATIONSHIP_PROPERTIES_ASPECT_NAME,
+          EDITABLE_ER_MODEL_RELATIONSHIP_PROPERTIES_ASPECT_NAME,
           INSTITUTIONAL_MEMORY_ASPECT_NAME,
           OWNERSHIP_ASPECT_NAME,
           STATUS_ASPECT_NAME,
@@ -41,22 +41,22 @@ public class ERModelRelationService extends BaseService {
           GLOSSARY_TERMS_ASPECT_NAME);
 
   /**
-   * Returns an instance of {@link EntityResponse} for the specified ERModelRelation urn, or null if
-   * one cannot be found.
+   * Returns an instance of {@link EntityResponse} for the specified ERModelRelationship urn, or
+   * null if one cannot be found.
    *
    * @param ermodelrelationUrn the urn of the Query
    * @param authentication the authentication to use
-   * @return an instance of {@link EntityResponse} for the ERModelRelation, null if it does not
+   * @return an instance of {@link EntityResponse} for the ERModelRelationship, null if it does not
    *     exist.
    */
   @Nullable
-  public EntityResponse getERModelRelationResponse(
+  public EntityResponse getERModelRelationshipResponse(
       @Nonnull final Urn ermodelrelationUrn, @Nonnull final Authentication authentication) {
     Objects.requireNonNull(ermodelrelationUrn, "ermodelrelationUrn must not be null");
     Objects.requireNonNull(authentication, "authentication must not be null");
     try {
       return this.entityClient.getV2(
-          Constants.ERMODELRELATION_ENTITY_NAME,
+          Constants.ER_MODEL_RELATIONSHIP_ENTITY_NAME,
           ermodelrelationUrn,
           ASPECTS_TO_RESOLVE,
           authentication);

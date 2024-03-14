@@ -3,22 +3,22 @@ namespace com.linkedin.common
 /**
  * Standardized erModelRelationship identifier.
  */
-@java.class = "com.linkedin.common.urn.ERModelRelationUrn"
+@java.class = "com.linkedin.common.urn.ERModelRelationshipUrn"
 @validate.`com.linkedin.common.validator.TypedUrnValidator` = {
   "accessible" : true,
   "owningTeam" : "urn:li:internalTeam:datahub",
   "entityType" : "erModelRelationship",
   "constructable" : true,
   "namespace" : "li",
-  "name" : "ERModelRelation",
-  "doc" : "Standardized ERModelRelation identifier.",
+  "name" : "ERModelRelationship",
+  "doc" : "Standardized ERModelRelationship identifier.",
   "owners" : [ "urn:li:corpuser:fbar", "urn:li:corpuser:bfoo" ],
   "fields" : [ {
     "name" : "id",
-    "doc" : "ERModelRelation native name e.g. <db>.<table>, /dir/subdir/<name>, or <name>",
+    "doc" : "ERModelRelationship native name e.g. <db>.<table>, /dir/subdir/<name>, or <name>",
     "type" : "string",
     "maxLength" : 284
   }],
   "maxLength" : 284
 }
-typeref ERModelRelationUrn = string
+typeref ERModelRelationshipUrn = string

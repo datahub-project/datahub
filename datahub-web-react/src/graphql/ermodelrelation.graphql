@@ -1,4 +1,4 @@
-query getERModelRelation($urn: String!) {
+query getERModelRelationship($urn: String!) {
     erModelRelationship(urn: $urn) {
         urn
         type
@@ -34,7 +34,7 @@ query getERModelRelation($urn: String!) {
                 type
                 direction
                 entity {
-                    ... on ERModelRelation {
+                    ... on ERModelRelationship {
                         urn
                     }
 
@@ -44,11 +44,11 @@ query getERModelRelation($urn: String!) {
     }
 }
 
-mutation updateERModelRelationship($urn: String!, $input: ERModelRelationUpdateInput!) {
+mutation updateERModelRelationship($urn: String!, $input: ERModelRelationshipUpdateInput!) {
     updateERModelRelationship(urn: $urn, input: $input)
 }
 
-mutation createERModelRelationship($input: ERModelRelationUpdateInput!) {
+mutation createERModelRelationship($input: ERModelRelationshipUpdateInput!) {
     createERModelRelationship(input: $input) {
         urn
         type
