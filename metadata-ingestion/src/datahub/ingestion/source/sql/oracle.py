@@ -560,6 +560,11 @@ class OracleInspectorObjectWrapper:
 @config_class(OracleConfig)
 @support_status(SupportStatus.INCUBATING)
 @capability(SourceCapability.DOMAINS, "Enabled by default")
+@capability(
+    SourceCapability.CLASSIFICATION,
+    "Optionally enabled via `classification.enabled`",
+    supported=True,
+)
 class OracleSource(SQLAlchemySource):
     """
     This plugin extracts the following:

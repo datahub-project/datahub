@@ -7,6 +7,7 @@ from typing import Counter, Dict, List, Optional
 import pydantic
 
 from datahub.ingestion.api.report import Report
+from datahub.ingestion.glossary.classification_mixin import ClassificationReportMixin
 from datahub.ingestion.source.sql.sql_generic_profiler import ProfilingSqlReport
 from datahub.ingestion.source_report.ingestion_stage import IngestionStageReport
 from datahub.ingestion.source_report.time_window import BaseTimeWindowReport
@@ -42,7 +43,12 @@ class BigQueryProcessingPerfReport(Report):
 
 
 @dataclass
-class BigQueryV2Report(ProfilingSqlReport, IngestionStageReport, BaseTimeWindowReport):
+class BigQueryV2Report(
+    ProfilingSqlReport,
+    IngestionStageReport,
+    BaseTimeWindowReport,
+    ClassificationReportMixin,
+):
     num_total_lineage_entries: TopKDict[str, int] = field(default_factory=TopKDict)
     num_skipped_lineage_entries_missing_data: TopKDict[str, int] = field(
         default_factory=int_top_k_dict

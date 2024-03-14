@@ -820,13 +820,15 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                     dataset_name
                 )
                 and data_reader
+                and schema_metadata.fields
             ):
                 self.classification_handler.classify_schema_fields(
                     dataset_name,
                     schema_metadata,
-                    data_reader.get_sample_data_for_table(
-                        table_id=[schema, table],
-                        sample_size=self.config.classification.sample_size,
+                    partial(
+                        data_reader.get_sample_data_for_table,
+                        [schema, table],
+                        int(self.config.classification.sample_size * 1.2),
                     ),
                 )
         except Exception as e:
