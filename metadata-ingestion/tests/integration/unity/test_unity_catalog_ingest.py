@@ -371,6 +371,10 @@ def mock_hive_sql(query):
                 "CREATE VIEW `hive_metastore`.`bronze_kambi`.`view1` AS SELECT * FROM `hive_metastore`.`bronze_kambi`.`bet`",
             )
         ]
+    elif query == "SHOW TABLES FROM `bronze_kambi`":
+        return [("bet",), ("view1",)]
+    elif query == "SHOW VIEWS FROM `bronze_kambi`":
+        return [("view1",)]
 
     return []
 
@@ -392,8 +396,6 @@ def test_ingestion(pytestconfig, tmp_path, requests_mock):
 
         inspector = mock.MagicMock()
         inspector.get_schema_names.return_value = ["bronze_kambi"]
-        inspector.get_view_names.return_value = ["view1"]
-        inspector.get_table_names.return_value = ["bet", "view1"]
         get_inspector.return_value = inspector
 
         execute_sql.side_effect = mock_hive_sql

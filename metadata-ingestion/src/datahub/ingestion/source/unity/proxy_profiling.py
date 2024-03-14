@@ -111,6 +111,12 @@ class UnityCatalogProxyProfilingMixin:
                 )
             else:
                 return None
+        except Exception as e:
+            logger.debug(f"Failed to get table stats due to {e}", exc_info=True)
+            self.report.profile_table_errors.setdefault(
+                "miscellaneous errors", LossyList()
+            ).append((str(ref), str(e)))
+            return None
 
     def _should_retry_unsupported_column(
         self, ref: TableReference, e: DatabricksError
@@ -185,12 +191,14 @@ class UnityCatalogProxyProfilingMixin:
             num_rows=self._get_int(table_info, "spark.sql.statistics.numRows"),
             total_size=self._get_int(table_info, "spark.sql.statistics.totalSize"),
             num_columns=len(columns_names),
-            column_profiles=[
-                self._create_column_profile(column, table_info)
-                for column in columns_names
-            ]
-            if include_columns
-            else [],
+            column_profiles=(
+                [
+                    self._create_column_profile(column, table_info)
+                    for column in columns_names
+                ]
+                if include_columns
+                else []
+            ),
         )
 
     def _create_column_profile(
@@ -237,12 +245,16 @@ class UnityCatalogProxyProfilingMixin:
             StatementState.CLOSED,
         ]:
             raise DatabricksError(
-                response.status.error.message
-                if response.status.error and response.status.error.message
-                else "Unknown Error",
-                error_code=response.status.error.error_code.value
-                if response.status.error and response.status.error.error_code
-                else "Unknown Error Code",
+                (
+                    response.status.error.message
+                    if response.status.error and response.status.error.message
+                    else "Unknown Error"
+                ),
+                error_code=(
+                    response.status.error.error_code.value
+                    if response.status.error and response.status.error.error_code
+                    else "Unknown Error Code"
+                ),
                 status=response.status.state.value,
                 context=key,
             )

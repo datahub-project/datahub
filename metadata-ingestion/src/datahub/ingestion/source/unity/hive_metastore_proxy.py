@@ -100,14 +100,47 @@ class HiveMetastoreProxy(Closeable):
             )
 
     def hive_metastore_tables(self, schema: Schema) -> Iterable[Table]:
-        views = self.inspector.get_view_names(schema.name)
+        views = self.get_view_names(schema.name)
         for table_name in views:
-            yield self._get_table(schema, table_name, True)
+            try:
+                yield self._get_table(schema, table_name, True)
+            except Exception as e:
+                logger.debug(
+                    f"Failed to get table {schema.name}.{table_name} due to {e}",
+                    exc_info=True,
+                )
 
-        for table_name in self.inspector.get_table_names(schema.name):
+        for table_name in self.get_table_names(schema.name):
             if table_name in views:
                 continue
-            yield self._get_table(schema, table_name, False)
+            try:
+                yield self._get_table(schema, table_name, False)
+            except Exception as e:
+                logger.debug(
+                    f"Failed to get table {schema.name}.{table_name} due to {e}",
+                    exc_info=True,
+                )
+
+    def get_table_names(self, schema_name: str) -> List[str]:
+        try:
+            rows = self._execute_sql(f"SHOW TABLES FROM `{schema_name}`")
+            # 3 columns - database, tableName, isTemporary
+            return [row["tableName"] for row in rows]
+        except Exception as e:
+            logger.debug(
+                f"Failed to get tables {schema_name} due to {e}", exc_info=True
+            )
+        return []
+
+    def get_view_names(self, schema_name: str) -> List[str]:
+        try:
+
+            rows = self._execute_sql(f"SHOW VIEWS FROM `{schema_name}`")
+            # 3 columns - database, tableName, isTemporary
+            return [row["tableName"] for row in rows]
+        except Exception as e:
+            logger.debug(f"Failed to get views {schema_name} due to {e}", exc_info=True)
+        return []
 
     def _get_table(
         self,
@@ -134,9 +167,9 @@ class HiveMetastoreProxy(Closeable):
             columns=columns,
             storage_location=storage_location,
             data_source_format=datasource_format,
-            view_definition=self._get_view_definition(schema.name, table_name)
-            if is_view
-            else None,
+            view_definition=(
+                self._get_view_definition(schema.name, table_name) if is_view else None
+            ),
             properties=detailed_info,
             owner=None,
             generation=None,
@@ -170,41 +203,53 @@ class HiveMetastoreProxy(Closeable):
             else {}
         )
 
+        column_profiles: List[ColumnProfile] = []
+        if include_column_stats:
+            for column in columns:
+                column_profile = self._get_column_profile(column.name, ref)
+                if column_profile:
+                    column_profiles.append(column_profile)
+
         return TableProfile(
-            num_rows=int(table_stats[ROWS])
-            if table_stats.get(ROWS) is not None
-            else None,
-            total_size=int(table_stats[BYTES])
-            if table_stats.get(BYTES) is not None
-            else None,
+            num_rows=(
+                int(table_stats[ROWS]) if table_stats.get(ROWS) is not None else None
+            ),
+            total_size=(
+                int(table_stats[BYTES]) if table_stats.get(BYTES) is not None else None
+            ),
             num_columns=len(columns),
-            column_profiles=[
-                self._get_column_profile(column.name, ref) for column in columns
-            ]
-            if include_column_stats
-            else [],
+            column_profiles=column_profiles,
         )
 
-    def _get_column_profile(self, column: str, ref: TableReference) -> ColumnProfile:
-
-        props = self._column_describe_extended(ref.schema, ref.table, column)
-        col_stats = {}
-        for prop in props:
-            col_stats[prop[0]] = prop[1]
-        return ColumnProfile(
-            name=column,
-            null_count=int(col_stats[NUM_NULLS])
-            if col_stats.get(NUM_NULLS) is not None
-            else None,
-            distinct_count=int(col_stats[DISTINCT_COUNT])
-            if col_stats.get(DISTINCT_COUNT) is not None
-            else None,
-            min=col_stats.get(MIN),
-            max=col_stats.get(MAX),
-            avg_len=col_stats.get(AVG_COL_LEN),
-            max_len=col_stats.get(MAX_COL_LEN),
-            version=col_stats.get(VERSION),
-        )
+    def _get_column_profile(
+        self, column: str, ref: TableReference
+    ) -> Optional[ColumnProfile]:
+        try:
+            props = self._column_describe_extended(ref.schema, ref.table, column)
+            col_stats = {}
+            for prop in props:
+                col_stats[prop[0]] = prop[1]
+            return ColumnProfile(
+                name=column,
+                null_count=(
+                    int(col_stats[NUM_NULLS])
+                    if col_stats.get(NUM_NULLS) is not None
+                    else None
+                ),
+                distinct_count=(
+                    int(col_stats[DISTINCT_COUNT])
+                    if col_stats.get(DISTINCT_COUNT) is not None
+                    else None
+                ),
+                min=col_stats.get(MIN),
+                max=col_stats.get(MAX),
+                avg_len=col_stats.get(AVG_COL_LEN),
+                max_len=col_stats.get(MAX_COL_LEN),
+                version=col_stats.get(VERSION),
+            )
+        except Exception as e:
+            logger.debug(f"Failed to get column profile for {ref}.{column} due to {e}")
+            return None
 
     def _get_cached_table_statistics(self, statistics: str) -> dict:
         # statistics is in format "xx bytes" OR "1382 bytes, 2 rows"
@@ -242,9 +287,10 @@ class HiveMetastoreProxy(Closeable):
             )
             for row in rows:
                 return row[0]
-        except Exception:
+        except Exception as e:
             logger.debug(
-                f"Failed to get view definition for {schema_name}.{table_name}"
+                f"Failed to get view definition for {schema_name}.{table_name} due to {e}",
+                exc_info=True,
             )
         return None
 
