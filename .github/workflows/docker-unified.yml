@@ -1137,6 +1137,8 @@ jobs:
           severity: "CRITICAL,HIGH"
           ignore-unfixed: true
           vuln-type: "os,library"
+          # Added to prevent timeout, seems to really struggle with this image
+          scanners: "vuln"
       - name: Upload Trivy scan results to GitHub Security tab
         uses: github/codeql-action/upload-sarif@v2
         if: ${{ false }}
