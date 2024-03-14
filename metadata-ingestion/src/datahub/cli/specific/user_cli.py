@@ -42,12 +42,14 @@ def upsert(file: Path, override_editable: bool) -> None:
         for user_config in user_configs:
             try:
                 datahub_user: CorpUser = CorpUser.parse_obj(user_config)
-                for mcp in datahub_user.generate_mcp(
-                    generation_config=CorpUserGenerationConfig(
-                        override_editable=override_editable
+
+                emitter.emit_all(
+                    datahub_user.generate_mcp(
+                        generation_config=CorpUserGenerationConfig(
+                            override_editable=override_editable
+                        )
                     )
-                ):
-                    emitter.emit(mcp)
+                )
                 click.secho(f"Update succeeded for urn {datahub_user.urn}.", fg="green")
             except Exception as e:
                 click.secho(

@@ -95,7 +95,7 @@
     "aspect": {
         "json": {
             "statement": {
-                "value": "insert into downstream (a, c) select a, c from upstream2",
+                "value": "INSERT INTO downstream (\n  a,\n  c\n)\nSELECT\n  a,\n  c\nFROM upstream2",
                 "language": "SQL"
             },
             "source": "SYSTEM",
@@ -136,7 +136,7 @@
     "aspect": {
         "json": {
             "statement": {
-                "value": "insert into downstream (a, b) select a, b from upstream1",
+                "value": "INSERT INTO downstream (\n  a,\n  b\n)\nSELECT\n  a,\n  b\nFROM upstream1",
                 "language": "SQL"
             },
             "source": "SYSTEM",
