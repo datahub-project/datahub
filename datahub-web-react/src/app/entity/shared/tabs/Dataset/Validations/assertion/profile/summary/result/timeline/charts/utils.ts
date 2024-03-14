@@ -144,6 +144,9 @@ export const getWindowStartAndEndDatesForFreshnessAssertionRun = (mountedDataPoi
     if (!mountedDataPoint?.time || assertionInfo?.type !== AssertionType.Freshness || !assertionInfo.freshnessAssertion) {
         return undefined;
     }
+    if (mountedDataPoint.result.type === AssertionResultType.Error) {
+        return undefined;
+    }
 
     // 2. Get the start of the window
     let windowStartDate: Date | undefined;
