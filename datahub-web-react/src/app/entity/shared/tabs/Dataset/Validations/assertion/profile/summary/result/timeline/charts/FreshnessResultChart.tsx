@@ -5,7 +5,7 @@ import { Group } from '@visx/group';
 import { AxisBottom } from '@visx/axis';
 import { scaleUtc } from '@visx/scale';
 import { GlyphCircle, GlyphDiamond } from '@visx/glyph'
-import { AreaClosed, Bar, LinePath } from '@visx/shape';
+import { AreaClosed, Bar } from '@visx/shape';
 import { GridColumns } from '@visx/grid'
 import { LinearGradient } from '@visx/gradient';
 import { scaleLinear } from 'd3-scale';
