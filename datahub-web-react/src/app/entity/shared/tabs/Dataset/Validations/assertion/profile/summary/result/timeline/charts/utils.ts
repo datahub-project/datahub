@@ -127,6 +127,8 @@ export const tryGetUpperAndLowerYRangeFromAssertionRunEvent = (runEvent: Asserti
     return tryGetExpectedRangeFromAssertionRunEvent(runEvent)
 }
 
+const DATA_POINTS_TEMPORAL_ORDER_BY_KEY: keyof AssertionDataPoint = 'time'
+
 /**
  * Gets start and end dates of a freshness asseriton's evaluation window
  * Ie. if it's a fixed interval then it'll give the {current run's date - interval} and {current run date}
@@ -147,33 +149,20 @@ export const getWindowStartAndEndDatesForFreshnessAssertionRun = (mountedDataPoi
     let windowStartDate: Date | undefined;
     switch (assertionInfo.freshnessAssertion.schedule.type) {
         case FreshnessAssertionScheduleType.Cron: {
-            // Order data points
-            const orderByKey: keyof AssertionDataPoint = 'time'
-            const allDataPointsOrderedAsc = _.sortBy(allDataPoints, orderByKey)
-
-            // Get the data point before this one
-            const thisDataPointIndex = allDataPointsOrderedAsc.findIndex(point => point.time === mountedDataPoint.time)
-            const lastDataPointIndex = thisDataPointIndex - 1;
-            const lastDataPoint: AssertionDataPoint | undefined = allDataPointsOrderedAsc[lastDataPointIndex];
-            if (!lastDataPoint?.time) {
-                break;
-            }
-            windowStartDate = new Date(lastDataPoint.time)
+            // Get the ts of the data point before this one
+            const orderedDataPoints = _.sortBy(allDataPoints, DATA_POINTS_TEMPORAL_ORDER_BY_KEY)
+            const thisDataPointIndex = orderedDataPoints.findIndex(point => point.time === mountedDataPoint.time)
+            const lastDataPoint: AssertionDataPoint | undefined = orderedDataPoints[thisDataPointIndex - 1];
+            windowStartDate = lastDataPoint?.time ? new Date(lastDataPoint.time) : undefined
             break;
         }
         case FreshnessAssertionScheduleType.FixedInterval: {
-            // Get the interval in millis
+            // Get the current run time minus interval
             const interval = assertionInfo.freshnessAssertion.schedule.fixedInterval
-            if (!interval || !mountedDataPoint.time) {
-                break;
-            }
+            if (!interval) break;
             const intervalInMS = INTERVAL_TO_MS[interval.unit] * interval.multiple;
-            // Subtract the interval from the current data point's ts
             const windowStartMillis = mountedDataPoint.time - intervalInMS
-            if (windowStartMillis <= 0) {
-                break;
-            }
-            windowStartDate = new Date(windowStartMillis);
+            windowStartDate = windowStartMillis > 0 ? new Date(windowStartMillis) : undefined;
             break;
         }
         default:

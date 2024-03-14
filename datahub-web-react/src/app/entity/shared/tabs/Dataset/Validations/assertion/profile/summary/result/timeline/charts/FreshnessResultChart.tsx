@@ -4,7 +4,7 @@ import { Popover } from 'antd';
 import { Group } from '@visx/group';
 import { AxisBottom } from '@visx/axis';
 import { scaleUtc } from '@visx/scale';
-import { GlyphCircle, GlyphTriangle } from '@visx/glyph'
+import { GlyphCircle, GlyphDiamond } from '@visx/glyph'
 import { AreaClosed, LinePath } from '@visx/shape';
 import { GridColumns } from '@visx/grid'
 import { LinearGradient } from '@visx/gradient';
@@ -66,23 +66,12 @@ export const FreshnessResultChart = ({ data, timeRange, chartDimensions, renderH
         [timeRange, chartInnerWidth],
     );
 
-    const lineThickness = 3
+    const lineThickness = 2
     const yOffset = chartDimensions.height / 3;
     return (
         <>
             {renderHeader?.(`Freshness checks over time`)}
             <svg width={chartDimensions.width} height={chartDimensions.height}>
-                <defs>
-                    <marker
-                        id="marker-arrow"
-                        refX={-1} refY={3}
-                        orient='auto-start-reverse'
-                        markerWidth='6'
-                        markerHeight='6'
-                    >
-                        <path d="M0,0 L0,6 L5,3 z" fill={ACCENT_COLOR_HEX} />
-                    </marker>
-                </defs>
                 <Group left={CHART_HORIZ_MARGIN / 2}>
                     {/* Axis */}
                     <AxisBottom
@@ -142,19 +131,19 @@ export const FreshnessResultChart = ({ data, timeRange, chartDimensions, renderH
 
                     {/* Line */}
                     <LinePath
-                        data={dataPoints}
-                        x={(d) => xScale(d.time) ?? 0}
+                        // Full across the entire timeline
+                        data={[0, chartInnerWidth]}
+                        x={x => x}
                         y={chartDimensions.height / 3}
                         stroke={ACCENT_COLOR_HEX}
                         strokeWidth={lineThickness}
-                        markerStart={dataPoints.length > 1 ? 'url(#marker-arrow)' : undefined}
                     />
 
                     {/* Dataset updated TS market (shows when you hover over a data point) */}
-                    {maybeMountedDataPointDatasetUpdateDate ? <GlyphTriangle
+                    {maybeMountedDataPointDatasetUpdateDate ? <GlyphDiamond
                         left={xScale(maybeMountedDataPointDatasetUpdateDate)}
                         top={yOffset}
-                        fill='#1aa90b'
+                        fill={ACCENT_COLOR_HEX}
                         stroke='white'
                         strokeWidth={1}
                         size={80}
@@ -187,7 +176,7 @@ export const FreshnessResultChart = ({ data, timeRange, chartDimensions, renderH
                                         fill={fillColor}
                                         stroke='white'
                                         strokeWidth={2}
-                                        opacity={(mountedDataPoint && (mountedDataPoint.time === dataPoint.time ? 1 : 0.2)) || 1}
+                                        opacity={(mountedDataPoint && (mountedDataPoint.time === dataPoint.time ? 1 : 0.1)) || 1}
                                         size={80}
                                         filter='drop-shadow(0px 1px 2.5px rgb(0 0 0 / 0.1))'
                                     />
