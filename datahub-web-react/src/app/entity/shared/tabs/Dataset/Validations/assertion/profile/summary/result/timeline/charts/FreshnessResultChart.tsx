@@ -5,7 +5,7 @@ import { Group } from '@visx/group';
 import { AxisBottom } from '@visx/axis';
 import { scaleUtc } from '@visx/scale';
 import { GlyphCircle, GlyphDiamond } from '@visx/glyph'
-import { AreaClosed, LinePath } from '@visx/shape';
+import { AreaClosed, Bar, LinePath } from '@visx/shape';
 import { GridColumns } from '@visx/grid'
 import { LinearGradient } from '@visx/gradient';
 import { scaleLinear } from 'd3-scale';
@@ -16,6 +16,7 @@ import { ACCENT_COLOR_HEX, generateTimeScaleTickValues, getCustomTimeScaleTickVa
 import { AssertionDataPoint, AssertionResultChartData, TimeRange } from './types';
 import { AssertionResultPopoverContent } from '../../../../shared/result/AssertionResultPopoverContent';
 import { tryGetActualUpdatedTimestampFromAssertionResult } from '../../../shared/resultExtractionUtils';
+import { AssertionResultType } from '../../../../../../../../../../../../types.generated';
 
 type Props = {
     data: AssertionResultChartData;
@@ -30,6 +31,7 @@ type Props = {
 
 const CHART_HORIZ_MARGIN = 36;
 const CHART_AXIS_BOTTOM_HEIGHT = 40;
+const CHART_AXIS_TOP_MARGIN = 24;
 
 /**
  * Specifically for freshness assertions.
@@ -46,7 +48,7 @@ export const FreshnessResultChart = ({ data, timeRange, chartDimensions, renderH
     )
     const maybeMountedDataPointDatasetUpdateDate: number | undefined = useMemo(() => {
         const result = mountedDataPoint?.relatedRunEvent.result;
-        if (!result) return undefined;
+        if (!result || result.type === AssertionResultType.Error) return undefined;
         const maybeUpdatedTs = tryGetActualUpdatedTimestampFromAssertionResult(result);
         return maybeUpdatedTs;
     }, [mountedDataPoint])
@@ -54,7 +56,7 @@ export const FreshnessResultChart = ({ data, timeRange, chartDimensions, renderH
     const timeScaleTicks: Date[] = generateTimeScaleTickValues(timeRange.startMs, timeRange.endMs)
 
     // ----------------- Visual calculations ----------------- //
-    const chartInnerHeight = chartDimensions.height - CHART_AXIS_BOTTOM_HEIGHT
+    const chartInnerHeight = chartDimensions.height - CHART_AXIS_BOTTOM_HEIGHT - CHART_AXIS_TOP_MARGIN
     const chartInnerWidth = chartDimensions.width - CHART_HORIZ_MARGIN
 
     const xScale = useMemo(
@@ -66,13 +68,12 @@ export const FreshnessResultChart = ({ data, timeRange, chartDimensions, renderH
         [timeRange, chartInnerWidth],
     );
 
-    const lineThickness = 2
-    const yOffset = chartDimensions.height / 3;
+    const yOffset = 0;
     return (
         <>
             {renderHeader?.(`Freshness checks over time`)}
             <svg width={chartDimensions.width} height={chartDimensions.height}>
-                <Group left={CHART_HORIZ_MARGIN / 2}>
+                <Group left={CHART_HORIZ_MARGIN / 2} top={CHART_AXIS_TOP_MARGIN}>
                     {/* Axis */}
                     <AxisBottom
                         top={chartInnerHeight}
@@ -129,26 +130,29 @@ export const FreshnessResultChart = ({ data, timeRange, chartDimensions, renderH
                         />,
                     ] : null}
 
-                    {/* Line */}
-                    <LinePath
-                        // Full across the entire timeline
-                        data={[0, chartInnerWidth]}
-                        x={x => x}
-                        y={chartDimensions.height / 3}
-                        stroke={ACCENT_COLOR_HEX}
-                        strokeWidth={lineThickness}
-                    />
-
                     {/* Dataset updated TS market (shows when you hover over a data point) */}
-                    {maybeMountedDataPointDatasetUpdateDate ? <GlyphDiamond
-                        left={xScale(maybeMountedDataPointDatasetUpdateDate)}
-                        top={yOffset}
-                        fill={ACCENT_COLOR_HEX}
-                        stroke='white'
-                        strokeWidth={1}
-                        size={80}
-                        filter='drop-shadow(0px 1px 2.5px rgb(0 0 0 / 0.1))'
-                    /> : null}
+                    {maybeMountedDataPointDatasetUpdateDate ?
+                        <Group>
+                            <Bar
+                                height={chartInnerHeight - yOffset}
+                                width={2}
+                                fill={ACCENT_COLOR_HEX}
+                                x={xScale(maybeMountedDataPointDatasetUpdateDate) - 1}
+                                y={yOffset}
+                                stroke='white'
+                                strokeWidth={1}
+                            />
+                            <GlyphDiamond
+                                left={xScale(maybeMountedDataPointDatasetUpdateDate)}
+                                top={yOffset}
+                                fill={ACCENT_COLOR_HEX}
+                                stroke='white'
+                                strokeWidth={1}
+                                size={80}
+                                filter='drop-shadow(0px 1px 2.5px rgb(0 0 0 / 0.1))'
+                            />
+                        </Group>
+                        : null}
 
                     {/* Circular data points */}
                     {dataPoints.map(dataPoint => {
@@ -170,16 +174,26 @@ export const FreshnessResultChart = ({ data, timeRange, chartDimensions, renderH
                                     showArrow={false}
                                     onOpenChange={visible => setMountedDataPoint(visible ? dataPoint : undefined)}
                                 >
-                                    <GlyphCircle
-                                        left={xOffset}
-                                        top={yOffset}
-                                        fill={fillColor}
-                                        stroke='white'
-                                        strokeWidth={2}
-                                        opacity={(mountedDataPoint && (mountedDataPoint.time === dataPoint.time ? 1 : 0.1)) || 1}
-                                        size={80}
-                                        filter='drop-shadow(0px 1px 2.5px rgb(0 0 0 / 0.1))'
-                                    />
+                                    <Group opacity={(mountedDataPoint && (mountedDataPoint.time === dataPoint.time ? 1 : 0.1)) || 1}>
+                                        <Bar
+                                            height={chartInnerHeight - yOffset}
+                                            width={4}
+                                            fill={fillColor}
+                                            x={xOffset - 2}
+                                            y={yOffset}
+                                            stroke='white'
+                                            strokeWidth={1}
+                                        />
+                                        <GlyphCircle
+                                            left={xOffset}
+                                            top={yOffset}
+                                            fill={fillColor}
+                                            stroke='white'
+                                            strokeWidth={2}
+                                            size={120}
+                                            filter='drop-shadow(0px 1px 2.5px rgb(0 0 0 / 0.1))'
+                                        />
+                                    </Group>
                                 </Popover>
                             </LinkWrapper>
                         );
