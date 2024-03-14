@@ -13,7 +13,6 @@ import { LinkWrapper } from '../../../../../../../../../../../shared/LinkWrapper
 import { ACCENT_COLOR_HEX, generateTimeScaleTickValues, getCustomTimeScaleTickValue, getFillColor } from './utils';
 import { AssertionResultChartData, TimeRange } from './types';
 import { AssertionResultPopoverContent } from '../../../../shared/result/AssertionResultPopoverContent';
-import { AssertionType } from '../../../../../../../../../../../../types.generated';
 import { getTimeRangeDisplay } from '../utils';
 
 type Props = {
@@ -50,22 +49,10 @@ export const StatusOverTimeAssertionResultChart = ({ data, timeRange, chartDimen
 
 
     const timeScaleTicks = generateTimeScaleTickValues(timeRange.startMs, timeRange.endMs)
-    const lineThickness = 3
     return (
         <>
-            {renderHeader?.(data.context.assertion.info?.type === AssertionType.Freshness ? `Freshness checks over time` : getTimeRangeDisplay(timeRange))}
+            {renderHeader?.(getTimeRangeDisplay(timeRange))}
             <svg width={chartDimensions.width} height={chartDimensions.height}>
-                <defs>
-                    <marker
-                        id="marker-arrow"
-                        refX={-1} refY={3}
-                        orient='auto-start-reverse'
-                        markerWidth='6'
-                        markerHeight='6'
-                    >
-                        <path d="M0,0 L0,6 L5,3 z" fill={ACCENT_COLOR_HEX} />
-                    </marker>
-                </defs>
                 <Group left={CHART_HORIZ_MARGIN / 2}>
                     {/* Axis */}
                     <AxisBottom
@@ -98,12 +85,12 @@ export const StatusOverTimeAssertionResultChart = ({ data, timeRange, chartDimen
 
                     {/* Line */}
                     <LinePath
-                        data={data.dataPoints}
-                        x={(d) => xScale(d.time) ?? 0}
+                        // Full across the entire timeline
+                        data={[0, chartInnerWidth]}
+                        x={x => x}
                         y={chartDimensions.height / 3}
                         stroke={ACCENT_COLOR_HEX}
-                        strokeWidth={lineThickness}
-                        markerStart={data.dataPoints.length > 1 ? 'url(#marker-arrow)' : undefined}
+                        strokeWidth={2}
                     />
 
                     {/* Circular data points */}

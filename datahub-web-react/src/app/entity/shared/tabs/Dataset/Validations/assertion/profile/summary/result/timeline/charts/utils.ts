@@ -1,7 +1,9 @@
-import { AssertionInfo, AssertionResultType, AssertionRunEvent, AssertionType, Maybe } from "../../../../../../../../../../../../types.generated";
-import { VALUES_OVER_TIME_ASSERTION_TYPES } from "../../../shared/constants";
+import _ from 'lodash'
+
+import { AssertionInfo, AssertionResultType, AssertionRunEvent, AssertionType, FreshnessAssertionScheduleType, Maybe } from "../../../../../../../../../../../../types.generated";
+import { INTERVAL_TO_MS } from "../../../../../../../../../../../shared/time/timeUtils";
 import { tryGetExpectedRangeFromAssertionRunEvent } from "../../../shared/resultExtractionUtils";
-import { AssertionChartType } from "./types";
+import { AssertionChartType, AssertionDataPoint } from "./types";
 
 export const ACCENT_COLOR_HEX = '#4050E7'
 export const SUCCESS_COLOR_HEX = ACCENT_COLOR_HEX;// '#52C41A';
@@ -106,17 +108,17 @@ export function getCustomTimeScaleTickValue(v, timeRange) {
 
 
 export const getBestChartTypeForAssertion = (assertionInfo?: AssertionInfo | Maybe<AssertionInfo>): AssertionChartType => {
-    if (assertionInfo && VALUES_OVER_TIME_ASSERTION_TYPES.includes(assertionInfo.type)) {
-        switch (assertionInfo.type) {
-            case AssertionType.Field:
-                return AssertionChartType.ValuesOverTime;
-            case AssertionType.Sql:
-                return AssertionChartType.ValuesOverTime;
-            case AssertionType.Volume:
-                return AssertionChartType.ValuesOverTime;
-            default:
-                break;
-        }
+    switch (assertionInfo?.type) {
+        case AssertionType.Freshness:
+            return AssertionChartType.Freshness;
+        case AssertionType.Field:
+            return AssertionChartType.ValuesOverTime;
+        case AssertionType.Sql:
+            return AssertionChartType.ValuesOverTime;
+        case AssertionType.Volume:
+            return AssertionChartType.ValuesOverTime;
+        default:
+            break;
     }
     return AssertionChartType.StatusOverTime; // safest catch-all fallback
 }
@@ -126,3 +128,57 @@ export const tryGetUpperAndLowerYRangeFromAssertionRunEvent = (runEvent: Asserti
     return tryGetExpectedRangeFromAssertionRunEvent(runEvent)
 }
 
+const DATA_POINTS_TEMPORAL_ORDER_BY_KEY: keyof AssertionDataPoint = 'time'
+
+/**
+ * Gets start and end dates of a freshness asseriton's evaluation window
+ * Ie. if it's a fixed interval then it'll give the {current run's date - interval} and {current run date}
+ * Ie. if it's a cron then it'll give the dates of the last run
+ * @param mountedDataPoint 
+ * @param allDataPoints 
+ * @returns {tuple:[Date, Date]} start and end date
+ */
+export const getWindowStartAndEndDatesForFreshnessAssertionRun = (mountedDataPoint: AssertionDataPoint | undefined, allDataPoints: AssertionDataPoint[]): [Date, Date] | undefined => {
+
+    // 1. ensure data point is valid
+    const assertionInfo = mountedDataPoint?.relatedRunEvent.result?.assertion
+    if (!mountedDataPoint?.time || assertionInfo?.type !== AssertionType.Freshness || !assertionInfo.freshnessAssertion) {
+        return undefined;
+    }
+    if (mountedDataPoint.result.type === AssertionResultType.Error) {
+        return undefined;
+    }
+
+    // 2. Get the start of the window
+    let windowStartDate: Date | undefined;
+    switch (assertionInfo.freshnessAssertion.schedule.type) {
+        case FreshnessAssertionScheduleType.Cron: {
+            // Get the ts of the data point before this one
+            const orderedDataPoints = _.sortBy(allDataPoints, DATA_POINTS_TEMPORAL_ORDER_BY_KEY)
+            const thisDataPointIndex = orderedDataPoints.findIndex(point => point.time === mountedDataPoint.time)
+            const lastDataPoint: AssertionDataPoint | undefined = orderedDataPoints[thisDataPointIndex - 1];
+            windowStartDate = lastDataPoint?.time ? new Date(lastDataPoint.time) : undefined
+            break;
+        }
+        case FreshnessAssertionScheduleType.FixedInterval: {
+            // Get the current run time minus interval
+            const interval = assertionInfo.freshnessAssertion.schedule.fixedInterval
+            if (!interval) break;
+            const intervalInMS = INTERVAL_TO_MS[interval.unit] * interval.multiple;
+            const windowStartMillis = mountedDataPoint.time - intervalInMS
+            windowStartDate = windowStartMillis > 0 ? new Date(windowStartMillis) : undefined;
+            break;
+        }
+        default:
+            break;
+    }
+    if (!windowStartDate) {
+        return undefined;
+    }
+
+    // 3. Get the end of the window
+    const windowEndDate = new Date(mountedDataPoint.time); // assert run time is the end of the window
+
+    // 4. Return the values
+    return [windowStartDate, windowEndDate]
+}
