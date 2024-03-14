@@ -270,10 +270,11 @@ public class Constants {
   public static final String DOMAIN_CREATED_TIME_INDEX_FIELD_NAME = "createdTime";
 
   // ERModelRelation
-  public static final String ERMODELRELATION_KEY_ASPECT_NAME = "ermodelrelationKey";
-  public static final String ERMODELRELATION_PROPERTIES_ASPECT_NAME = "eRModelRelationProperties";
+  public static final String ERMODELRELATION_KEY_ASPECT_NAME = "erModelRelationshipKey";
+  public static final String ERMODELRELATION_PROPERTIES_ASPECT_NAME =
+      "erModelRelationshipProperties";
   public static final String EDITABLE_ERMODELRELATION_PROPERTIES_ASPECT_NAME =
-      "editableERModelRelationProperties";
+      "editableERModelRelationshipProperties";
 
   // Assertion
   public static final String ASSERTION_KEY_ASPECT_NAME = "assertionKey";
