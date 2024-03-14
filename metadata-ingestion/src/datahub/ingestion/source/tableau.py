@@ -1822,7 +1822,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
             # from CUSTOM SQLs when Tableu doesn't provide upstream tables
             # With this approach, we also join lingering CustomSQL entities to Embedded Data Sources
             table_id_to_urn = {
-                column[c.TABLE][c.ID]:  builder.make_dataset_urn_with_platform_instance(
+                column[c.TABLE][c.ID]: builder.make_dataset_urn_with_platform_instance(
                     self.platform,
                     column[c.TABLE][c.ID],
                     self.config.platform_instance,
