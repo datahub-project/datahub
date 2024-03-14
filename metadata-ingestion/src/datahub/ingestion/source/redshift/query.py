@@ -1011,6 +1011,7 @@ class RedshiftServerlessQuery(RedshiftCommonQuery):
                     )
                     WHERE
                             rn = 1
+                    ORDER BY start_time ASC
                     ;
             """
 
