@@ -1066,6 +1066,11 @@ fragment browsePathV2Fields on BrowsePathV2 {
                 }
                 instanceId
             }
+            ... on Dataset {
+                properties {
+                    name
+                }
+            }
         }
     }
 }
