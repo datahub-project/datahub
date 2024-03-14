@@ -22,6 +22,15 @@ from datahub.ingestion.source_config.usage.bigquery_usage import BigQueryCredent
 
 logger = logging.getLogger(__name__)
 
+DEFAULT_OWNER_LABEL_CHAR_MAPPING = {
+    "_": ".",
+    "-": "@",
+    "__": "_",
+    "--": "-",
+    "_-": "#",
+    "-_": " ",
+}
+
 
 class BigQueryUsageConfig(BaseUsageConfig):
     _query_log_delay_removed = pydantic_removed_field("query_log_delay")
@@ -287,6 +296,17 @@ class BigQueryV2Config(
         description="Option to exclude empty projects from being ingested.",
     )
 
+    owner_lable_character_mapping: Dict[str, str] = Field(
+        default={},
+        description="A mapping of bigquery owner label character to datahub owner character."
+        "Provided mapping will get added to default mapping.",
+    )
+
+    owner_key_pattern: str = Field(
+        default="_owner_email",
+        description="A pattern which defines what identifies an owner label.",
+    )
+
     @root_validator(skip_on_failure=True)
     def profile_default_settings(cls, values: Dict) -> Dict:
         # Extra default SQLAlchemy option for better connection pooling and threading.
@@ -368,6 +388,12 @@ class BigQueryV2Config(
                     " of the form `<project_id>.<dataset_name>`."
                 )
 
+        return values
+
+    @root_validator(pre=False)
+    def update_owner_lable_character_mapping(cls, values: Dict) -> Dict:
+        DEFAULT_OWNER_LABEL_CHAR_MAPPING.update(values["owner_lable_character_mapping"])
+        values["owner_lable_character_mapping"] = DEFAULT_OWNER_LABEL_CHAR_MAPPING
         return values
 
     def get_table_pattern(self, pattern: List[str]) -> str:

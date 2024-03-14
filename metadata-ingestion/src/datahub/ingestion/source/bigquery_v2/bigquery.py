@@ -15,7 +15,9 @@ from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataplatform_instance_urn,
     make_dataset_urn,
+    make_ownership_type_urn,
     make_tag_urn,
+    make_user_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import BigQueryDatasetKey, ContainerKey, ProjectIdKey
@@ -111,6 +113,9 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 from datahub.metadata.schema_classes import (
     DataPlatformInstanceClass,
     GlobalTagsClass,
+    OwnerClass,
+    OwnershipClass,
+    OwnershipTypeClass,
     TagAssociationClass,
 )
 from datahub.sql_parsing.schema_resolver import SchemaResolver
@@ -976,12 +981,19 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             custom_properties["is_sharded"] = str(True)
             sub_types = ["sharded table"] + sub_types
 
-        tags_to_add = None
-        if table.labels and self.config.capture_table_label_as_tag:
-            tags_to_add = []
-            tags_to_add.extend(
-                [make_tag_urn(f"""{k}:{v}""") for k, v in table.labels.items()]
-            )
+        tags_to_add = []
+        owners_to_add = {}
+        if table.labels:
+            if self.config.capture_table_label_as_tag:
+                tags_to_add.extend(
+                    [make_tag_urn(f"""{k}:{v}""") for k, v in table.labels.items()]
+                )
+            # Capture ownership from table lables if present
+            for k, v in table.labels.items():
+                if self.config.owner_key_pattern in k:
+                    owners_to_add[self.convert_owner_label_value(v)] = k.split(
+                        self.config.owner_key_pattern
+                    )[0]
 
         yield from self.gen_dataset_workunits(
             table=table,
@@ -990,6 +1002,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             dataset_name=dataset_name,
             sub_types=sub_types,
             tags_to_add=tags_to_add,
+            owners_to_add=owners_to_add,
             custom_properties=custom_properties,
         )
 
@@ -1055,6 +1068,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         dataset_name: str,
         sub_types: List[str],
         tags_to_add: Optional[List[str]] = None,
+        owners_to_add: Optional[Dict[str, str]] = None,
         custom_properties: Optional[Dict[str, str]] = None,
     ) -> Iterable[MetadataWorkUnit]:
         dataset_urn = self.gen_dataset_urn(
@@ -1133,6 +1147,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 domain_config=self.config.domain,
             )
 
+        if owners_to_add:
+            yield self.gen_owners_aspect_aspect(dataset_urn, owners_to_add)
+
     def gen_tags_aspect_workunit(
         self, dataset_urn: str, tags_to_add: List[str]
     ) -> MetadataWorkUnit:
@@ -1141,6 +1158,24 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         )
         return MetadataChangeProposalWrapper(
             entityUrn=dataset_urn, aspect=tags
+        ).as_workunit()
+
+    def gen_owners_aspect_aspect(
+        self, dataset_urn: str, owners_to_add: Dict[str, str]
+    ) -> MetadataWorkUnit:
+        owners = OwnershipClass(
+            owners=[
+                OwnerClass(
+                    owner=make_user_urn(owner),
+                    type=OwnershipTypeClass.CUSTOM,
+                    typeUrn=make_ownership_type_urn(type),
+                )
+                for owner, type in owners_to_add.items()
+            ]
+        )
+        return MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            aspect=owners,
         ).as_workunit()
 
     def gen_dataset_urn(self, project_id: str, dataset_name: str, table: str) -> str:
@@ -1386,3 +1421,12 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             self.config.start_time,
             self.config.end_time,
         )
+
+    def convert_owner_label_value(self, label_value: str) -> str:
+        for key in sorted(
+            self.config.owner_lable_character_mapping.keys(), key=len, reverse=True
+        ):
+            label_value = label_value.replace(
+                key, self.config.owner_lable_character_mapping[key]
+            )
+        return label_value

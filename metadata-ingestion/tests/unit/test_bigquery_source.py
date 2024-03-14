@@ -28,6 +28,7 @@ from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
     BigqueryDataset,
     BigqueryProject,
     BigQuerySchemaApi,
+    BigqueryTable,
     BigqueryTableSnapshot,
     BigqueryView,
 )
@@ -35,10 +36,18 @@ from datahub.ingestion.source.bigquery_v2.lineage import (
     LineageEdge,
     LineageEdgeColumnMapping,
 )
+from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import ViewProperties
 from datahub.metadata.schema_classes import (
+    ContainerClass,
+    DataPlatformInstanceClass,
     DatasetPropertiesClass,
     MetadataChangeProposalClass,
+    OwnershipClass,
+    SchemaMetadataClass,
+    StatusClass,
+    SubTypesClass,
+    TimeStampClass,
 )
 
 
@@ -350,6 +359,104 @@ def test_get_projects_list_fully_filtered(get_projects_mock, get_bq_client_mock)
     projects = source._get_projects()
     assert len(source.report.failures) == 0
     assert projects == []
+
+
+@pytest.fixture
+def bigquery_table() -> BigqueryTable:
+    now = datetime.now(tz=timezone.utc)
+    return BigqueryTable(
+        name="table1",
+        comment="comment1",
+        created=now,
+        last_altered=now,
+        size_in_bytes=2400,
+        rows_count=2,
+        expires=now - timedelta(days=10),
+        labels={"data_producer_owner_email": "games_team-nytimes_com"},
+        num_partitions=1,
+        max_partition_id="1",
+        max_shard_id="1",
+        active_billable_bytes=2400,
+        long_term_billable_bytes=2400,
+    )
+
+
+@patch.object(BigQueryV2Config, "get_bigquery_client")
+def test_gen_table_dataset_workunits(get_bq_client_mock, bigquery_table):
+    project_id = "test-project"
+    dataset_name = "test-dataset"
+    config = BigQueryV2Config.parse_obj(
+        {
+            "project_id": project_id,
+        }
+    )
+    source: BigqueryV2Source = BigqueryV2Source(
+        config=config, ctx=PipelineContext(run_id="test")
+    )
+
+    gen = source.gen_table_dataset_workunits(
+        bigquery_table, [], project_id, dataset_name
+    )
+    mcp = cast(MetadataChangeProposalClass, next(iter(gen)).metadata)
+    assert mcp.aspect == StatusClass(removed=False)
+
+    mcp = cast(MetadataChangeProposalClass, next(iter(gen)).metadata)
+    assert isinstance(mcp.aspect, SchemaMetadataClass)
+    assert mcp.aspect.schemaName == f"{project_id}.{dataset_name}.{bigquery_table.name}"
+    assert mcp.aspect.fields == []
+
+    mcp = cast(MetadataChangeProposalClass, next(iter(gen)).metadata)
+    dataset_properties = cast(DatasetPropertiesClass, mcp.aspect)
+    assert dataset_properties.name == bigquery_table.name
+    assert (
+        dataset_properties.qualifiedName
+        == f"{project_id}.{dataset_name}.{bigquery_table.name}"
+    )
+    assert dataset_properties.description == bigquery_table.comment
+    assert dataset_properties.created == TimeStampClass(
+        time=int(bigquery_table.created.timestamp() * 1000)
+    )
+    assert dataset_properties.lastModified == TimeStampClass(
+        time=int(bigquery_table.last_altered.timestamp() * 1000)
+    )
+    assert dataset_properties.tags == []
+    assert dataset_properties.customProperties["expiration_date"] == str(
+        bigquery_table.expires
+    )
+    assert dataset_properties.customProperties["size_in_bytes"] == str(
+        bigquery_table.size_in_bytes
+    )
+    assert dataset_properties.customProperties["billable_bytes_active"] == str(
+        bigquery_table.active_billable_bytes
+    )
+    assert dataset_properties.customProperties["billable_bytes_long_term"] == str(
+        bigquery_table.long_term_billable_bytes
+    )
+    assert dataset_properties.customProperties["number_of_partitions"] == str(
+        bigquery_table.num_partitions
+    )
+    assert dataset_properties.customProperties["max_partition_id"] == str(
+        bigquery_table.max_partition_id
+    )
+    assert dataset_properties.customProperties["max_shard_id"] == str(
+        bigquery_table.max_shard_id
+    )
+
+    mcp = cast(MetadataChangeProposalClass, next(iter(gen)).metadata)
+    assert isinstance(mcp.aspect, ContainerClass)
+
+    mcp = cast(MetadataChangeProposalClass, next(iter(gen)).metadata)
+    assert isinstance(mcp.aspect, DataPlatformInstanceClass)
+
+    mcp = cast(MetadataChangeProposalClass, next(iter(gen)).metadata)
+    assert isinstance(mcp.aspect, SubTypesClass)
+    assert mcp.aspect.typeNames[1] == DatasetSubTypes.TABLE
+
+    mcp = cast(MetadataChangeProposalClass, next(iter(gen)).metadata)
+    assert isinstance(mcp.aspect, OwnershipClass)
+    assert mcp.aspect.owners[0].owner == "urn:li:corpuser:games.team@nytimes.com"
+    assert mcp.aspect.owners[0].type == "CUSTOM"
+    assert mcp.aspect.owners[0].typeUrn == "urn:li:ownershipType:data_producer"
 
 
 @patch.object(BigQueryV2Config, "get_bigquery_client")
