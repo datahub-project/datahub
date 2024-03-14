@@ -109,7 +109,7 @@ public class ERModelRelationMapper implements ModelMapper<EntityResponse, ERMode
   private void mapERModelRelationKey(
       @Nonnull ERModelRelation ermodelrelation, @Nonnull DataMap datamap) {
     ERModelRelationKey ermodelrelationKey = new ERModelRelationKey(datamap);
-    ermodelrelation.setErmodelrelationId(ermodelrelationKey.getErmodelrelationId());
+    ermodelrelation.setId(ermodelrelationKey.getId());
   }
 
   private void mapProperties(@Nonnull ERModelRelation ermodelrelation, @Nonnull DataMap dataMap) {

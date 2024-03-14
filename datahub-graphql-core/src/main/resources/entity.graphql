@@ -255,7 +255,7 @@ type ERModelRelation implements EntityWithRelationships & Entity {
     """
     Unique id for the erModelRelationship
     """
-    ermodelrelationId: String!
+    id: String!
 
     """
     An additional set of read only properties

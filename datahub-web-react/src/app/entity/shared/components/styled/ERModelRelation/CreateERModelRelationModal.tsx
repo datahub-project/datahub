@@ -52,7 +52,7 @@ export const CreateERModelRelationModal = ({
 
     const [details, setDetails] = useState<string>(editERModelRelation?.editableProperties?.description || '');
     const [ermodelrelationName, setERModelRelationName] = useState<string>(
-        editERModelRelation?.editableProperties?.name || editERModelRelation?.properties?.name || editERModelRelation?.ermodelrelationId || '',
+        editERModelRelation?.editableProperties?.name || editERModelRelation?.properties?.name || editERModelRelation?.id || '',
     );
     const [tableData, setTableData] = useState<ERModelRelationDataType[]>(
         editERModelRelation?.properties?.relationshipFieldMappings?.map((item, index) => {

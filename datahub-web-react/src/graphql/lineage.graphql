@@ -272,7 +272,7 @@ fragment lineageNodeProperties on EntityWithRelationships {
     ... on ERModelRelation {
         urn
         type
-        ermodelrelationId
+        id
         properties {
             ...ermodelrelationPropertiesFields
         }

@@ -2,7 +2,7 @@ query getERModelRelation($urn: String!) {
     erModelRelationship(urn: $urn) {
         urn
         type
-        ermodelrelationId
+        id
         properties {
             ...ermodelrelationPropertiesFields
         }
@@ -52,6 +52,6 @@ mutation createERModelRelationship($input: ERModelRelationUpdateInput!) {
     createERModelRelationship(input: $input) {
         urn
         type
-        ermodelrelationId
+        id
     }
 }

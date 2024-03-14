@@ -828,7 +828,7 @@ fragment searchResultFields on Entity {
     ... on ERModelRelation {
         urn
         type
-        ermodelrelationId
+        id
         properties {
             ...ermodelrelationPropertiesFields
         }

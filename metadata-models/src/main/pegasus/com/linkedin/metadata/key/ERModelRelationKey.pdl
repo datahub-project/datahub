@@ -10,5 +10,5 @@ record ERModelRelationKey {
   /*
   * Unique guid for ERModelRelation
   */
-  ermodelrelationId: string
+  id: string
 }
