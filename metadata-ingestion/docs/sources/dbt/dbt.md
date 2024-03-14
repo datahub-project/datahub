@@ -235,3 +235,37 @@ source:
     entities_enabled:
       test_results: No
 ```
+
+### Multiple dbt projects
+
+In more complex dbt setups, you may have multiple dbt projects, where models from one project are used as sources in another project.
+DataHub supports this setup natively.
+
+Each dbt project should have its own dbt ingestion recipe, and the `platform_instance` field in the recipe should be set to the dbt project name.
+
+For example, if you have two dbt projects `analytics` and `data_mart`, you would have two ingestion recipes.
+If you have models in the `data_mart` project that are used as sources in the `analytics` project, the lineage will be automatically captured.
+
+```yaml
+# Analytics dbt project
+source:
+  type: dbt
+  config:
+    platform_instance: analytics
+    target_platform: postgres
+    manifest_path: analytics/target/manifest.json
+    catalog_path: analytics/target/catalog.json
+    # ... other configs
+```
+
+```yaml
+# Data Mart dbt project
+source:
+  type: dbt
+  config:
+    platform_instance: data_mart
+    target_platform: postgres
+    manifest_path: data_mart/target/manifest.json
+    catalog_path: data_mart/target/catalog.json
+    # ... other configs
+```
