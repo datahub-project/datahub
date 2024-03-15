@@ -64,8 +64,8 @@ KAFKA_SETUP_QUICKSTART_COMPOSE_FILE = (
 )
 
 
-_QUICKSTART_MAX_WAIT_TIME = datetime.timedelta(minutes=10)
-_QUICKSTART_UP_TIMEOUT = datetime.timedelta(seconds=100)
+_QUICKSTART_MAX_WAIT_TIME = datetime.timedelta(minutes=15)
+_QUICKSTART_UP_TIMEOUT = datetime.timedelta(seconds=200)
 _QUICKSTART_STATUS_CHECK_INTERVAL = datetime.timedelta(seconds=2)
 
 
