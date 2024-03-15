@@ -261,7 +261,7 @@ def get_avro_schema_for_hive_column(
 
 def get_schema_fields_for_hive_column(
     hive_column_name: str,
-    hive_column_type: Optional[str] = None,
+    hive_column_type: str = None,
     description: Optional[str] = None,
     default_nullable: bool = False,
     is_part_of_key: bool = False,
