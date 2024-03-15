@@ -18,6 +18,7 @@ import com.linkedin.metadata.graph.RelatedEntitiesResult;
 import com.linkedin.metadata.graph.RelatedEntitiesScrollResult;
 import com.linkedin.metadata.graph.RelatedEntity;
 import com.linkedin.metadata.models.registry.LineageRegistry;
+import com.linkedin.metadata.query.LineageFlags;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
@@ -184,6 +185,7 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
   @Nonnull
   @WithSpan
   @Override
+  @Deprecated
   public EntityLineageResult getLineage(
       @Nonnull Urn entityUrn,
       @Nonnull LineageDirection direction,
@@ -192,8 +194,7 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
       int count,
       int maxHops) {
     ESGraphQueryDAO.LineageResponse lineageResponse =
-        _graphReadDAO.getLineage(
-            entityUrn, direction, graphFilters, offset, count, maxHops, null, null);
+        _graphReadDAO.getLineage(entityUrn, direction, graphFilters, offset, count, maxHops, null);
     return new EntityLineageResult()
         .setRelationships(new LineageRelationshipArray(lineageResponse.getLineageRelationships()))
         .setStart(offset)
@@ -211,18 +212,10 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
       int offset,
       int count,
       int maxHops,
-      @Nullable Long startTimeMillis,
-      @Nullable Long endTimeMillis) {
+      @Nullable LineageFlags lineageFlags) {
     ESGraphQueryDAO.LineageResponse lineageResponse =
         _graphReadDAO.getLineage(
-            entityUrn,
-            direction,
-            graphFilters,
-            offset,
-            count,
-            maxHops,
-            startTimeMillis,
-            endTimeMillis);
+            entityUrn, direction, graphFilters, offset, count, maxHops, lineageFlags);
     return new EntityLineageResult()
         .setRelationships(new LineageRelationshipArray(lineageResponse.getLineageRelationships()))
         .setStart(offset)

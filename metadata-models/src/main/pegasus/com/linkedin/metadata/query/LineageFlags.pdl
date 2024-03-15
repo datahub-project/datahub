@@ -1,0 +1,29 @@
+namespace com.linkedin.metadata.query
+
+import com.linkedin.common.Urn
+
+/**
+ * Set of flags to control lineage search behavior
+ */
+record LineageFlags {
+   /**
+    * Limits number of entities explored per hop
+    */
+    entitiesExploredPerHopLimit: optional int
+
+    /**
+     * Start time for lineage edges to filter
+     */
+     startTimeMillis: optional long
+
+    /**
+     * End time for lineage edges to filter
+     */
+     endTimeMillis: optional long
+
+     /**
+      * Map of entity type to list of platform urns to ignore as hops during graph walk. Note: this can potentially cause
+      * a large amount of additional hops to occur and should be used with caution.
+      */
+      ignoreAsHops: optional map[string, array[Urn]]
+}
