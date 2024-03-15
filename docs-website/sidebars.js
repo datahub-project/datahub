@@ -96,108 +96,6 @@ module.exports = {
       ],
     },
     {
-      label: "Managed DataHub",
-      type: "category",
-      collapsed: true,
-      link: {
-        type: "doc",
-        id: "docs/managed-datahub/managed-datahub-overview",
-      },
-      items: [
-        "docs/managed-datahub/welcome-acryl",
-        {
-          type: "doc",
-          id: "docs/managed-datahub/saas-slack-setup",
-          className: "saasOnly",
-        },
-        {
-          type: "doc",
-          id: "docs/managed-datahub/approval-workflows",
-          className: "saasOnly",
-        },
-        {
-          "Metadata Ingestion With Acryl": [
-            "docs/managed-datahub/metadata-ingestion-with-acryl/ingestion",
-          ],
-        },
-        {
-          "DataHub API": [
-            {
-              type: "doc",
-              id: "docs/managed-datahub/datahub-api/entity-events-api",
-              className: "saasOnly",
-            },
-            {
-              "GraphQL API": [
-                "docs/managed-datahub/datahub-api/graphql-api/getting-started",
-              ],
-            },
-          ],
-        },
-        {
-          Integrations: [
-            {
-              type: "doc",
-              id: "docs/managed-datahub/integrations/aws-privatelink",
-              className: "saasOnly",
-            },
-            {
-              type: "doc",
-              id: "docs/managed-datahub/integrations/oidc-sso-integration",
-              className: "saasOnly",
-            },
-          ],
-        },
-        {
-          "Operator Guide": [
-            {
-              type: "doc",
-              id: "docs/managed-datahub/operator-guide/setting-up-remote-ingestion-executor-on-aws",
-              className: "saasOnly",
-            },
-            {
-              type: "doc",
-              id: "docs/managed-datahub/operator-guide/setting-up-events-api-on-aws-eventbridge",
-              className: "saasOnly",
-            },
-          ],
-        },
-        {
-          type: "doc",
-          id: "docs/managed-datahub/chrome-extension",
-        },
-        {
-          type: "doc",
-          id: "docs/managed-datahub/subscription-and-notification",
-          className: "saasOnly",
-        },
-        {
-          "Managed DataHub Release History": [
-            "docs/managed-datahub/release-notes/v_0_2_15",
-            "docs/managed-datahub/release-notes/v_0_2_14",
-            "docs/managed-datahub/release-notes/v_0_2_13",
-            "docs/managed-datahub/release-notes/v_0_2_12",
-            "docs/managed-datahub/release-notes/v_0_2_11",
-            "docs/managed-datahub/release-notes/v_0_2_10",
-            "docs/managed-datahub/release-notes/v_0_2_9",
-            "docs/managed-datahub/release-notes/v_0_2_8",
-            "docs/managed-datahub/release-notes/v_0_2_7",
-            "docs/managed-datahub/release-notes/v_0_2_6",
-            "docs/managed-datahub/release-notes/v_0_2_5",
-            "docs/managed-datahub/release-notes/v_0_2_4",
-            "docs/managed-datahub/release-notes/v_0_2_3",
-            "docs/managed-datahub/release-notes/v_0_2_2",
-            "docs/managed-datahub/release-notes/v_0_2_1",
-            "docs/managed-datahub/release-notes/v_0_2_0",
-            "docs/managed-datahub/release-notes/v_0_1_73",
-            "docs/managed-datahub/release-notes/v_0_1_72",
-            "docs/managed-datahub/release-notes/v_0_1_70",
-            "docs/managed-datahub/release-notes/v_0_1_69",
-          ],
-        },
-      ],
-    },
-    {
       type: "html",
       value: "<div>Integrations</div>",
       defaultStyle: true,
@@ -328,7 +226,113 @@ module.exports = {
     },
     {
       type: "html",
-      value: "<div>Deployment</div>",
+      value: "<div>Managed DataHub</div>",
+      defaultStyle: true,
+    },
+    {
+      type: "doc",
+      id: "docs/managed-datahub/welcome-acryl",
+      label: "Getting Started",
+    },
+    {
+      type: "category",
+      label: "Features",
+      link: {
+        type: "doc",
+        id: "docs/managed-datahub/managed-datahub-overview",
+      },
+      items: [
+        {
+          type: "doc",
+          id: "docs/managed-datahub/approval-workflows",
+          className: "saasOnly",
+        },
+        {
+          type: "doc",
+          id: "docs/managed-datahub/metadata-ingestion-with-acryl/ingestion",
+          label: "Acryl Metadata Ingestion",
+          className: "saasOnly",
+        },
+        {
+          type: "doc",
+          id: "docs/managed-datahub/datahub-api/entity-events-api",
+          className: "saasOnly",
+        },
+        {
+          type: "doc",
+          id: "docs/managed-datahub/datahub-api/graphql-api/getting-started",
+          label: "GraphQL API",
+          className: "saasOnly",
+        },
+        {
+          type: "doc",
+          id: "docs/managed-datahub/integrations/aws-privatelink",
+          className: "saasOnly",
+        },
+        {
+          type: "doc",
+          id: "docs/managed-datahub/integrations/oidc-sso-integration",
+          className: "saasOnly",
+        },
+        {
+          type: "doc",
+          id: "docs/managed-datahub/subscription-and-notification",
+          className: "saasOnly",
+        },
+        {
+          type: "doc",
+          id: "docs/managed-datahub/chrome-extension",
+        },
+      ],
+    },
+    {
+      type: "category",
+      label: "Operator Guides",
+      items: [
+        {
+          type: "doc",
+          id: "docs/managed-datahub/saas-slack-setup",
+          className: "saasOnly",
+        },
+        {
+          type: "doc",
+          id: "docs/managed-datahub/operator-guide/setting-up-remote-ingestion-executor-on-aws",
+          className: "saasOnly",
+        },
+        {
+          type: "doc",
+          id: "docs/managed-datahub/operator-guide/setting-up-events-api-on-aws-eventbridge",
+          className: "saasOnly",
+        },
+      ],
+    },
+    {
+      "Release History": [
+        "docs/managed-datahub/release-notes/v_0_2_15",
+        "docs/managed-datahub/release-notes/v_0_2_14",
+        "docs/managed-datahub/release-notes/v_0_2_13",
+        "docs/managed-datahub/release-notes/v_0_2_12",
+        "docs/managed-datahub/release-notes/v_0_2_11",
+        "docs/managed-datahub/release-notes/v_0_2_10",
+        "docs/managed-datahub/release-notes/v_0_2_9",
+        "docs/managed-datahub/release-notes/v_0_2_8",
+        "docs/managed-datahub/release-notes/v_0_2_7",
+        "docs/managed-datahub/release-notes/v_0_2_6",
+        "docs/managed-datahub/release-notes/v_0_2_5",
+        "docs/managed-datahub/release-notes/v_0_2_4",
+        "docs/managed-datahub/release-notes/v_0_2_3",
+        "docs/managed-datahub/release-notes/v_0_2_2",
+        "docs/managed-datahub/release-notes/v_0_2_1",
+        "docs/managed-datahub/release-notes/v_0_2_0",
+        "docs/managed-datahub/release-notes/v_0_1_73",
+        "docs/managed-datahub/release-notes/v_0_1_72",
+        "docs/managed-datahub/release-notes/v_0_1_70",
+        "docs/managed-datahub/release-notes/v_0_1_69",
+      ],
+    },
+    {
+      type: "html",
+      value: "<div>Self-hosting</div>",
       defaultStyle: true,
     },
     {
@@ -347,20 +351,6 @@ module.exports = {
         "docker/README",
         "docs/deploy/kubernetes",
       ],
-    },
-    {
-      type: "category",
-      label: "Advanced Guides",
-      items: [
-        "docs/deploy/confluent-cloud",
-        "docs/deploy/environment-vars",
-        "docs/how/extract-container-logs",
-      ],
-    },
-    {
-      type: "html",
-      value: "<div>Admin</div>",
-      defaultStyle: true,
     },
     {
       Authentication: [
@@ -399,6 +389,48 @@ module.exports = {
         "docs/how/kafka-config",
         "docs/advanced/no-code-upgrade",
         "docs/how/jattach-guide",
+        "docs/deploy/confluent-cloud",
+        "docs/deploy/environment-vars",
+        "docs/how/extract-container-logs",
+        {
+          "Rest.li API": [
+            {
+              type: "doc",
+              label: "Rest.li API Guide",
+              id: "docs/api/restli/restli-overview",
+            },
+            {
+              type: "doc",
+              label: "Restore Indices",
+              id: "docs/api/restli/restore-indices",
+            },
+            {
+              type: "doc",
+              label: "Get Index Sizes",
+              id: "docs/api/restli/get-index-sizes",
+            },
+            {
+              type: "doc",
+              label: "Truncate Timeseries Aspect",
+              id: "docs/api/restli/truncate-time-series-aspect",
+            },
+            {
+              type: "doc",
+              label: "Get ElasticSearch Task Status Endpoint",
+              id: "docs/api/restli/get-elastic-task-status",
+            },
+            {
+              type: "doc",
+              label: "Evaluate Tests",
+              id: "docs/api/restli/evaluate-tests",
+            },
+            {
+              type: "doc",
+              label: "Aspect Versioning and Rest.li Modeling",
+              id: "docs/advanced/aspect-versioning",
+            },
+          ],
+        },
       ],
     },
     {
@@ -573,45 +605,6 @@ module.exports = {
           ],
         },
         "docs/dev-guides/timeline",
-        {
-          "Rest.li API": [
-            {
-              type: "doc",
-              label: "Rest.li API Guide",
-              id: "docs/api/restli/restli-overview",
-            },
-            {
-              type: "doc",
-              label: "Restore Indices",
-              id: "docs/api/restli/restore-indices",
-            },
-            {
-              type: "doc",
-              label: "Get Index Sizes",
-              id: "docs/api/restli/get-index-sizes",
-            },
-            {
-              type: "doc",
-              label: "Truncate Timeseries Aspect",
-              id: "docs/api/restli/truncate-time-series-aspect",
-            },
-            {
-              type: "doc",
-              label: "Get ElasticSearch Task Status Endpoint",
-              id: "docs/api/restli/get-elastic-task-status",
-            },
-            {
-              type: "doc",
-              label: "Evaluate Tests",
-              id: "docs/api/restli/evaluate-tests",
-            },
-            {
-              type: "doc",
-              label: "Aspect Versioning and Rest.li Modeling",
-              id: "docs/advanced/aspect-versioning",
-            },
-          ],
-        },
       ],
     },
     {
