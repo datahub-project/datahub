@@ -125,7 +125,7 @@ class HiveMetastoreProxy(Closeable):
         try:
             rows = self._execute_sql(f"SHOW TABLES FROM `{schema_name}`")
             # 3 columns - database, tableName, isTemporary
-            return [row["tableName"] for row in rows]
+            return [row.tableName for row in rows]
         except Exception as e:
             logger.debug(
                 f"Failed to get tables {schema_name} due to {e}", exc_info=True
@@ -137,7 +137,7 @@ class HiveMetastoreProxy(Closeable):
 
             rows = self._execute_sql(f"SHOW VIEWS FROM `{schema_name}`")
             # 3 columns - database, tableName, isTemporary
-            return [row["tableName"] for row in rows]
+            return [row.tableName for row in rows]
         except Exception as e:
             logger.debug(f"Failed to get views {schema_name} due to {e}", exc_info=True)
         return []

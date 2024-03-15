@@ -147,6 +147,7 @@ class UnityCatalogUsageExtractor:
                 self.config.start_time, self.config.end_time
             )
         except Exception as e:
+            breakpoint()
             logger.warning("Error getting queries", exc_info=True)
             self.report.report_warning("get-queries", str(e))
 

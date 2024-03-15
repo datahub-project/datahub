@@ -1,4 +1,5 @@
 import uuid
+from collections import namedtuple
 from unittest import mock
 from unittest.mock import patch
 
@@ -272,6 +273,9 @@ def register_mock_data(workspace_client):
     ]
 
 
+TableEntry = namedtuple("TableEntry", ["database", "tableName", "isTemporary"])
+
+
 def mock_hive_sql(query):
 
     if query == "DESCRIBE EXTENDED `bronze_kambi`.`bet` betStatusId":
@@ -372,9 +376,12 @@ def mock_hive_sql(query):
             )
         ]
     elif query == "SHOW TABLES FROM `bronze_kambi`":
-        return [("bet",), ("view1",)]
+        return [
+            TableEntry("bronze_kambi", "bet", False),
+            TableEntry("bronze_kambi", "view1", False),
+        ]
     elif query == "SHOW VIEWS FROM `bronze_kambi`":
-        return [("view1",)]
+        return [TableEntry("bronze_kambi", "view1", False)]
 
     return []
 
