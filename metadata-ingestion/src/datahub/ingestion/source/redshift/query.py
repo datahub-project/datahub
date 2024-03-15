@@ -957,6 +957,8 @@ class RedshiftServerlessQuery(RedshiftCommonQuery):
     # also similar happens if for example table name contains special characters quoted with " i.e. "test-table1"
     # it is also worth noting that "query_type" field from SYS_QUERY_HISTORY could be probably used to improve many
     # of complicated queries in this file
+    # However, note that we can't really use this query fully everywhere, despite it being simpler, because
+    # the SYS_QUERY_TEXT.text field is truncated to 4000 characters and strips out linebreaks.
     @staticmethod
     def temp_table_ddl_query(start_time: datetime, end_time: datetime) -> str:
         start_time_str: str = start_time.strftime(redshift_datetime_format)
