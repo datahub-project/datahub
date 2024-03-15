@@ -3,9 +3,7 @@ import React from 'react';
 import styled from 'styled-components';
 import { ANTD_GRAY } from '../../../entity/shared/constants';
 import { PendingProposals } from './PendingProposals';
-// import { PendingRequests } from './PendingRequests';
 import { useGetPendingDocumentationProposals } from './useGetPendingDocumentationProposals';
-// import { useGetPendingDocumentationRequests } from './useGetPendingDocumentationRequests';
 
 const Card = styled.div`
     border: 1px solid ${ANTD_GRAY[4]};
@@ -46,6 +44,7 @@ const Section = styled.div`
 `;
 
 export const PendingTasks = () => {
+    // Todo: Uncomment when we are able to populate the documentation request count and have a page to link to.
     // const { count: documentationRequestCount /* loading: documentationRequestsLoading */ } =
     //     useGetPendingDocumentationRequests();
     const { count: documentationProposalCount, loading: documentationProposalsLoading } =
