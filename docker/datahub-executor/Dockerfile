@@ -22,8 +22,8 @@ RUN chmod a+x /health_status.py
 WORKDIR /datahub-executor
 
 ARG RELEASE_VERSION
-RUN sed -i.bak "s/__version__ = \"1!0.0.0.dev0\"/__version__ = \"$RELEASE_VERSION\"/" src/datahub_executor/__init__.py && \
-    sed -i.bak "s/version = \"1!0.0.0.dev0\"/version = \"$RELEASE_VERSION\"/" pyproject.toml && \
+RUN sed -i.bak "s/__version__ = \"1!0.0.0.dev0\"/__version__ = \"$(echo $RELEASE_VERSION|sed '1 s/-/+/')\"/" src/datahub_executor/__init__.py && \
+    sed -i.bak "s/version = \"1!0.0.0.dev0\"/version = \"$(echo $RELEASE_VERSION|sed '1 s/-/+/')\"/" pyproject.toml && \
     cat src/datahub_executor/__init__.py && \
     chown -R datahub /metadata-ingestion /datahub-executor
 
