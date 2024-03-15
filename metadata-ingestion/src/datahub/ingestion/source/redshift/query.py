@@ -976,7 +976,7 @@ class RedshiftServerlessQuery(RedshiftCommonQuery):
                                     query_text,
                                     REGEXP_REPLACE(REGEXP_SUBSTR(REGEXP_REPLACE(query_text,'\\\\n','\\n'), '(CREATE(?:[\\n\\s\\t]+(?:temp|temporary))?(?:[\\n\\s\\t]+)table(?:[\\n\\s\\t]+)[^\\n\\s\\t()-]+)', 0, 1, 'ipe'),'[\\n\\s\\t]+',' ',1,'p') AS create_command,
                                     ROW_NUMBER() OVER (
-                                    PARTITION BY query_text
+                                    PARTITION BY session_id, query_text
                                     ORDER BY start_time DESC
                                     ) rn
                             FROM
