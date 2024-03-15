@@ -42,11 +42,13 @@ from datahub.metadata.schema_classes import (
     ContainerClass,
     DataPlatformInstanceClass,
     DatasetPropertiesClass,
+    GlobalTagsClass,
     MetadataChangeProposalClass,
     OwnershipClass,
     SchemaMetadataClass,
     StatusClass,
     SubTypesClass,
+    TagAssociationClass,
     TimeStampClass,
 )
 
@@ -388,6 +390,10 @@ def test_gen_table_dataset_workunits(get_bq_client_mock, bigquery_table):
     config = BigQueryV2Config.parse_obj(
         {
             "project_id": project_id,
+            "capture_table_label_as_tag": True,
+            "capture_table_owner_label_as_owner": {
+                "enabled": True,
+            },
         }
     )
     source: BigqueryV2Source = BigqueryV2Source(
@@ -441,6 +447,14 @@ def test_gen_table_dataset_workunits(get_bq_client_mock, bigquery_table):
     assert dataset_properties.customProperties["max_shard_id"] == str(
         bigquery_table.max_shard_id
     )
+
+    mcp = cast(MetadataChangeProposalClass, next(iter(gen)).metadata)
+    assert isinstance(mcp.aspect, GlobalTagsClass)
+    assert mcp.aspect.tags == [
+        TagAssociationClass(
+            "urn:li:tag:data_producer_owner_email:games_team-nytimes_com"
+        )
+    ]
 
     mcp = cast(MetadataChangeProposalClass, next(iter(gen)).metadata)
     assert isinstance(mcp.aspect, ContainerClass)

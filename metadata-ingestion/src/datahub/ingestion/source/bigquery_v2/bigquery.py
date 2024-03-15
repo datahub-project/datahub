@@ -988,12 +988,15 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 tags_to_add.extend(
                     [make_tag_urn(f"""{k}:{v}""") for k, v in table.labels.items()]
                 )
-            # Capture ownership from table lables if present
-            for k, v in table.labels.items():
-                if self.config.owner_key_pattern in k:
-                    owners_to_add[self.convert_owner_label_value(v)] = k.split(
-                        self.config.owner_key_pattern
-                    )[0]
+            if self.config.capture_table_owner_label_as_owner.enabled:
+                for k, v in table.labels.items():
+                    if (
+                        self.config.capture_table_owner_label_as_owner.owner_key_pattern
+                        in k
+                    ):
+                        owners_to_add[self.convert_owner_label_value(v)] = k.split(
+                            self.config.capture_table_owner_label_as_owner.owner_key_pattern
+                        )[0]
 
         yield from self.gen_dataset_workunits(
             table=table,
@@ -1424,9 +1427,14 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
     def convert_owner_label_value(self, label_value: str) -> str:
         for key in sorted(
-            self.config.owner_lable_character_mapping.keys(), key=len, reverse=True
+            self.config.capture_table_owner_label_as_owner.owner_lable_character_mapping.keys(),
+            key=len,
+            reverse=True,
         ):
             label_value = label_value.replace(
-                key, self.config.owner_lable_character_mapping[key]
+                key,
+                self.config.capture_table_owner_label_as_owner.owner_lable_character_mapping[
+                    key
+                ],
             )
         return label_value
