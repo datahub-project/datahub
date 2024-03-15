@@ -2,7 +2,10 @@
 
 ## What Is a Data Contract
 
-The definition of a Data Contract is consisted of the following:
+A Data Contract is **an agreement between a data asset's producer and consumer**, serving as a promise about the quality of the data.
+It often includes [assertions](assertions.md) about the data’s schema, freshness, and data quality.
+
+Some of the key characteristics of a Data Contract are:
 
 - **Verifiable** : based on the actual physical data asset, not its metadata (e.g., schema checks, column-level data checks, and operational SLA-s but not documentation, ownership, and tags).
 - **A set of assertions** : The actual checks against the physical asset to determine a contract’s status (schema, freshness, volume, custom, and column)
@@ -13,6 +16,8 @@ The definition of a Data Contract is consisted of the following:
 <summary>Consumer Oriented Data contracts</summary>
 We’ve gone with producer-oriented contracts to keep the number of contracts manageable and because we expect consumers to desire a lot of overlap in a given physical asset’s contract. Although, we've heard feedback that consumer-oriented data contracts meet certain needs that producer-oriented contracts do not. For example, having one contract per consumer all on the same physical data asset would allow each consumer to get alerts only when the assertions they care about are violated.We welcome feedback on this in slack!
 </details>
+
+Below is a screenshot of the Data Contracts UI in DataHub.
 
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/data_contracts/validated-data-contracts-ui.png"/>
@@ -26,7 +31,7 @@ These can be all the assertions on an asset or only the subset you want publicly
 See docs on [assertions](/docs/managed-datahub/observe/assertions.md) for more details on the types of assertions and how to create and run them.
 
 :::note Ownership 
-the owner of the physical data asset is also the owner of the contract and can accept proposed changes and make changes themselves to the contract.
+The owner of the physical data asset is also the owner of the contract and can accept proposed changes and make changes themselves to the contract.
 :::
 
 
@@ -39,48 +44,11 @@ Data Contracts can be created via DataHub CLI (YAML), API, or UI.
 For creation via CLI, it’s a simple CLI upsert command that you can integrate into your CI/CD system to publish your Data Contracts and any change to them.
 
 1. Define your data contract.
-```yaml
-# id: sample_data_contract # Optional: if not provided, an id will be generated
-entity: urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)
-version: 1
-freshness:
-  type: cron
-  cron: "4 8 * * 1-5"
-data_quality:
-  - type: unique
-    column: field_foo
-## here's an example of how you'd define the schema 
-# schema:
-#   type: json-schema
-#   json-schema:
-#     type: object
-#     properties:
-#       field_foo:
-#         type: string
-#         native_type: VARCHAR(100)
-#       field_bar:
-#         type: boolean
-#         native_type: boolean
-#       field_documents:
-#         type: array
-#         items:
-#           type: object
-#           properties:
-#             docId:
-#               type: object
-#               properties:
-#                 docPolicy:
-#                   type: object 
-#                   properties:
-#                     policyId:
-#                       type: integer
-#                     fileId:
-#                       type: integer
-#     required:
-#       - field_bar
-#       - field_documents
 
+```yaml
+{{ inline /metadata-ingestion/examples/library/create_data_contract.yml show_path_as_comment }}
 ```
+
 2. Use the CLI to create the contract by running the below command.
 
 ```shell
@@ -112,7 +80,7 @@ datahub datacontract upsert -f contract_definition.yml
 
 
 :::note Create Data Contracts via UI
-Please note that when creating a Data Contract via UI, the Freshness, Schema, and Data Quality assertions are expected to have been created already.
+When creating a Data Contract via UI, the Freshness, Schema, and Data Quality assertions must be created first.
 :::
 4. Now you can see it in the UI.
 
@@ -123,9 +91,8 @@ Please note that when creating a Data Contract via UI, the Freshness, Schema, an
 
 ### API
 
-:::note
-API guide on creating data contract is coming soon!
-:::
+_API guide on creating data contract is coming soon!_
+
 
 ## How to Run Data Contracts
 
