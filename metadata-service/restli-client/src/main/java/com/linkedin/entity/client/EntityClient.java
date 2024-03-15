@@ -90,7 +90,7 @@ public interface EntityClient {
    * @param field field of the dataset
    * @param requestFilters autocomplete filters
    * @param limit max number of autocomplete results
-   * @throws RemoteInvocationException
+   * @throws RemoteInvocationException when unable to execute request
    */
   @Nonnull
   AutoCompleteResult autoComplete(
@@ -98,7 +98,7 @@ public interface EntityClient {
       @Nonnull String entityType,
       @Nonnull String query,
       @Nullable Filter requestFilters,
-      @Nonnull int limit,
+      int limit,
       @Nullable String field)
       throws RemoteInvocationException;
 
@@ -108,7 +108,7 @@ public interface EntityClient {
    * @param query search query
    * @param requestFilters autocomplete filters
    * @param limit max number of autocomplete results
-   * @throws RemoteInvocationException
+   * @throws RemoteInvocationException when unable to execute request
    */
   @Nonnull
   AutoCompleteResult autoComplete(
@@ -116,7 +116,7 @@ public interface EntityClient {
       @Nonnull String entityType,
       @Nonnull String query,
       @Nullable Filter requestFilters,
-      @Nonnull int limit)
+      int limit)
       throws RemoteInvocationException;
 
   /**
@@ -127,9 +127,8 @@ public interface EntityClient {
    * @param requestFilters browse filters
    * @param start start offset of first dataset
    * @param limit max number of datasets
-   * @throws RemoteInvocationException
+   * @throws RemoteInvocationException when unable to execute request
    */
-  @Nonnull
   BrowseResult browse(
       @Nonnull OperationContext opContext,
       @Nonnull String entityType,
@@ -148,7 +147,7 @@ public interface EntityClient {
    * @param input search query
    * @param start start offset of first group
    * @param count max number of results requested
-   * @throws RemoteInvocationException
+   * @throws RemoteInvocationException when unable to execute request
    */
   @Nonnull
   BrowseResultV2 browseV2(
@@ -170,7 +169,7 @@ public interface EntityClient {
    * @param input search query
    * @param start start offset of first group
    * @param count max number of results requested
-   * @throws RemoteInvocationException
+   * @throws RemoteInvocationException when unable to execute request
    */
   @Nonnull
   BrowseResultV2 browseV2(
@@ -207,9 +206,8 @@ public interface EntityClient {
    * @param start start offset for search results
    * @param count max number of search results requested
    * @return a set of search results
-   * @throws RemoteInvocationException
+   * @throws RemoteInvocationException when unable to execute request
    */
-  @Nonnull
   SearchResult search(
       @Nonnull OperationContext opContext,
       @Nonnull String entity,
@@ -228,9 +226,8 @@ public interface EntityClient {
    * @param start start offset for search results
    * @param count max number of search results requested
    * @return a set of list results
-   * @throws RemoteInvocationException
+   * @throws RemoteInvocationException when unable to execute request
    */
-  @Nonnull
   ListResult list(
       @Nonnull OperationContext opContext,
       @Nonnull String entity,
@@ -248,9 +245,8 @@ public interface EntityClient {
    * @param start start offset for search results
    * @param count max number of search results requested
    * @return Snapshot key
-   * @throws RemoteInvocationException
+   * @throws RemoteInvocationException when unable to execute request
    */
-  @Nonnull
   SearchResult search(
       @Nonnull OperationContext opContext,
       @Nonnull String entity,
@@ -270,7 +266,7 @@ public interface EntityClient {
    * @param start start offset for search results
    * @param count max number of search results requested
    * @return Snapshot key
-   * @throws RemoteInvocationException
+   * @throws RemoteInvocationException when unable to execute request
    */
   @Nonnull
   SearchResult searchAcrossEntities(
@@ -293,9 +289,8 @@ public interface EntityClient {
    * @param count max number of search results requested
    * @param facets list of facets we want aggregations for
    * @return Snapshot key
-   * @throws RemoteInvocationException
+   * @throws RemoteInvocationException when unable to execute request
    */
-  @Nonnull
   SearchResult searchAcrossEntities(
       @Nonnull OperationContext opContext,
       @Nonnull List<String> entities,
@@ -317,7 +312,7 @@ public interface EntityClient {
    * @param keepAlive string representation of time to keep point in time alive, ex: 5m
    * @param count max number of search results requested
    * @return Snapshot key
-   * @throws RemoteInvocationException
+   * @throws RemoteInvocationException when unable to execute request
    */
   @Nonnull
   ScrollResult scrollAcrossEntities(
@@ -345,7 +340,6 @@ public interface EntityClient {
    * @return a {@link SearchResult} that contains a list of matched documents and related search
    *     result metadata
    */
-  @Nonnull
   LineageSearchResult searchAcrossLineage(
       @Nonnull OperationContext opContext,
       @Nonnull Urn sourceUrn,
@@ -369,44 +363,9 @@ public interface EntityClient {
    * @param maxHops the max number of hops away to search for. If null, searches all hops.
    * @param filter the request map with fields and values as filters to be applied to search hits
    * @param sortCriterion {@link SortCriterion} to be applied to search results
-   * @param start index to start the search from
-   * @param count the number of search hits to return
-   * @param endTimeMillis end time to filter to
-   * @param startTimeMillis start time to filter from
-   * @return a {@link SearchResult} that contains a list of matched documents and related search
-   *     result metadata
-   */
-  @Nonnull
-  LineageSearchResult searchAcrossLineage(
-      @Nonnull OperationContext opContext,
-      @Nonnull Urn sourceUrn,
-      @Nonnull LineageDirection direction,
-      @Nonnull List<String> entities,
-      @Nonnull String input,
-      @Nullable Integer maxHops,
-      @Nullable Filter filter,
-      @Nullable SortCriterion sortCriterion,
-      int start,
-      int count,
-      @Nullable final Long startTimeMillis,
-      @Nullable final Long endTimeMillis)
-      throws RemoteInvocationException;
-
-  /**
-   * Gets a list of documents that match given search request that is related to the input entity
-   *
-   * @param sourceUrn Urn of the source entity
-   * @param direction Direction of the relationship
-   * @param entities list of entities to search (If empty, searches across all entities)
-   * @param input the search input text
-   * @param maxHops the max number of hops away to search for. If null, searches all hops.
-   * @param filter the request map with fields and values as filters to be applied to search hits
-   * @param sortCriterion {@link SortCriterion} to be applied to search results
    * @param scrollId opaque scroll ID indicating offset
    * @param keepAlive string representation of time to keep point in time alive, ex: 5m
-   * @param endTimeMillis end time to filter to
-   * @param startTimeMillis start time to filter from
-   * @param count the number of search hits to return
+   * @param count the number of search hits to return of roundtrips for UI visualizations.
    * @return a {@link SearchResult} that contains a list of matched documents and related search
    *     result metadata
    */
@@ -422,9 +381,7 @@ public interface EntityClient {
       @Nullable SortCriterion sortCriterion,
       @Nullable String scrollId,
       @Nonnull String keepAlive,
-      int count,
-      @Nullable final Long startTimeMillis,
-      @Nullable final Long endTimeMillis)
+      int count)
       throws RemoteInvocationException;
 
   /**
@@ -432,7 +389,7 @@ public interface EntityClient {
    *
    * @param urn urn for the entity
    * @return list of paths given urn
-   * @throws RemoteInvocationException
+   * @throws RemoteInvocationException when unable to execute request
    */
   @Nonnull
   StringArray getBrowsePaths(@Nonnull Urn urn, @Nonnull Authentication authentication)
@@ -471,9 +428,8 @@ public interface EntityClient {
    * @param start start offset for search results
    * @param count max number of search results requested
    * @return a set of {@link SearchResult}s
-   * @throws RemoteInvocationException
+   * @throws RemoteInvocationException when unable to execute request
    */
-  @Nonnull
   SearchResult filter(
       @Nonnull OperationContext opContext,
       @Nonnull String entity,
@@ -489,9 +445,8 @@ public interface EntityClient {
    * @param urn the urn of the entity
    * @return true if an entity exists, i.e. there are > 0 aspects in the DB for the entity. This
    *     means that the entity has not been hard-deleted.
-   * @throws RemoteInvocationException
+   * @throws RemoteInvocationException when unable to execute request
    */
-  @Nonnull
   boolean exists(@Nonnull Urn urn, @Nonnull Authentication authentication)
       throws RemoteInvocationException;
 
@@ -589,7 +544,6 @@ public interface EntityClient {
         .collect(Collectors.toList());
   }
 
-  @Nonnull
   @Deprecated
   <T extends RecordTemplate> Optional<T> getVersionedAspect(
       @Nonnull String urn,

@@ -3,20 +3,18 @@ package com.linkedin.metadata.graph;
 import static com.linkedin.metadata.search.utils.QueryUtils.EMPTY_FILTER;
 import static com.linkedin.metadata.search.utils.QueryUtils.newFilter;
 import static com.linkedin.metadata.search.utils.QueryUtils.newRelationshipFilter;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotEquals;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
+import static org.testng.Assert.*;
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.DataFlowUrn;
 import com.linkedin.common.urn.DataJobUrn;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
 import com.linkedin.metadata.config.search.GraphQueryConfiguration;
 import com.linkedin.metadata.graph.dgraph.DgraphGraphService;
 import com.linkedin.metadata.graph.neo4j.Neo4jGraphService;
+import com.linkedin.metadata.query.LineageFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.query.filter.RelationshipFilter;
@@ -31,12 +29,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
+import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -60,7 +61,7 @@ import org.testng.annotations.Test;
  */
 public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTests {
 
-  private static class RelatedEntityComparator implements Comparator<RelatedEntity> {
+  protected static class RelatedEntityComparator implements Comparator<RelatedEntity> {
     @Override
     public int compare(RelatedEntity left, RelatedEntity right) {
       int cmp = left.relationshipType.compareTo(right.relationshipType);
@@ -207,9 +208,10 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
    * Graph services that support multi-path search should override this method to provide a
    * multi-path search enabled GraphService instance.
    *
-   * @param enableMultiPathSearch
-   * @return
-   * @throws Exception
+   * @param enableMultiPathSearch sets multipath search as enabled for the graph service, defaults
+   *     to doing nothing unless overridden
+   * @return the configured graph service
+   * @throws Exception on failure
    */
   @Nonnull
   protected GraphService getGraphService(boolean enableMultiPathSearch) throws Exception {
@@ -322,12 +324,12 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
   @DataProvider(name = "AddEdgeTests")
   public Object[][] getAddEdgeTests() {
     return new Object[][] {
-      new Object[] {Arrays.asList(), Arrays.asList(), Arrays.asList()},
+      new Object[] {Collections.emptyList(), Collections.emptyList(), Collections.emptyList()},
       new Object[] {
-        Arrays.asList(
+        Collections.singletonList(
             new Edge(datasetOneUrn, datasetTwoUrn, downstreamOf, null, null, null, null, null)),
-        Arrays.asList(downstreamOfDatasetTwoRelatedEntity),
-        Arrays.asList(downstreamOfDatasetOneRelatedEntity)
+        Collections.singletonList(downstreamOfDatasetTwoRelatedEntity),
+        Collections.singletonList(downstreamOfDatasetOneRelatedEntity)
       },
       new Object[] {
         Arrays.asList(
@@ -358,8 +360,8 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
             new Edge(userOneUrn, userOneUrn, knowsUser, null, null, null, null, null),
             new Edge(userOneUrn, userOneUrn, knowsUser, null, null, null, null, null),
             new Edge(userOneUrn, userOneUrn, knowsUser, null, null, null, null, null)),
-        Arrays.asList(knowsUserOneRelatedEntity),
-        Arrays.asList(knowsUserOneRelatedEntity)
+        Collections.singletonList(knowsUserOneRelatedEntity),
+        Collections.singletonList(knowsUserOneRelatedEntity)
       }
     };
   }
@@ -511,19 +513,19 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
     return new Object[][] {
       new Object[] {
         newFilter("urn", datasetTwoUrnString),
-        Arrays.asList(downstreamOf),
+        Collections.singletonList(downstreamOf),
         outgoingRelationships,
-        Arrays.asList(downstreamOfDatasetOneRelatedEntity)
+        Collections.singletonList(downstreamOfDatasetOneRelatedEntity)
       },
       new Object[] {
         newFilter("urn", datasetTwoUrnString),
-        Arrays.asList(downstreamOf),
+        Collections.singletonList(downstreamOf),
         incomingRelationships,
         Arrays.asList(downstreamOfDatasetThreeRelatedEntity, downstreamOfDatasetFourRelatedEntity)
       },
       new Object[] {
         newFilter("urn", datasetTwoUrnString),
-        Arrays.asList(downstreamOf),
+        Collections.singletonList(downstreamOf),
         undirectedRelationships,
         Arrays.asList(
             downstreamOfDatasetOneRelatedEntity,
@@ -532,37 +534,37 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
       },
       new Object[] {
         newFilter("urn", datasetTwoUrnString),
-        Arrays.asList(hasOwner),
+        Collections.singletonList(hasOwner),
         outgoingRelationships,
-        Arrays.asList(hasOwnerUserOneRelatedEntity)
+        Collections.singletonList(hasOwnerUserOneRelatedEntity)
       },
       new Object[] {
         newFilter("urn", datasetTwoUrnString),
-        Arrays.asList(hasOwner),
+        Collections.singletonList(hasOwner),
         incomingRelationships,
-        Arrays.asList()
+        Collections.emptyList()
       },
       new Object[] {
         newFilter("urn", datasetTwoUrnString),
-        Arrays.asList(hasOwner),
+        Collections.singletonList(hasOwner),
         undirectedRelationships,
-        Arrays.asList(hasOwnerUserOneRelatedEntity)
+        Collections.singletonList(hasOwnerUserOneRelatedEntity)
       },
       new Object[] {
         newFilter("urn", userOneUrnString),
-        Arrays.asList(hasOwner),
+        Collections.singletonList(hasOwner),
         outgoingRelationships,
-        Arrays.asList()
+        Collections.emptyList()
       },
       new Object[] {
         newFilter("urn", userOneUrnString),
-        Arrays.asList(hasOwner),
+        Collections.singletonList(hasOwner),
         incomingRelationships,
         Arrays.asList(hasOwnerDatasetOneRelatedEntity, hasOwnerDatasetTwoRelatedEntity)
       },
       new Object[] {
         newFilter("urn", userOneUrnString),
-        Arrays.asList(hasOwner),
+        Collections.singletonList(hasOwner),
         undirectedRelationships,
         Arrays.asList(hasOwnerDatasetOneRelatedEntity, hasOwnerDatasetTwoRelatedEntity)
       }
@@ -589,57 +591,57 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
     return new Object[][] {
       new Object[] {
         newFilter("urn", datasetTwoUrnString),
-        Arrays.asList(downstreamOf),
+        Collections.singletonList(downstreamOf),
         outgoingRelationships,
-        Arrays.asList(downstreamOfDatasetTwoRelatedEntity)
+        Collections.singletonList(downstreamOfDatasetTwoRelatedEntity)
       },
       new Object[] {
         newFilter("urn", datasetTwoUrnString),
-        Arrays.asList(downstreamOf),
+        Collections.singletonList(downstreamOf),
         incomingRelationships,
-        Arrays.asList(downstreamOfDatasetTwoRelatedEntity)
+        Collections.singletonList(downstreamOfDatasetTwoRelatedEntity)
       },
       new Object[] {
         newFilter("urn", datasetTwoUrnString),
-        Arrays.asList(downstreamOf),
+        Collections.singletonList(downstreamOf),
         undirectedRelationships,
-        Arrays.asList(downstreamOfDatasetTwoRelatedEntity)
+        Collections.singletonList(downstreamOfDatasetTwoRelatedEntity)
       },
       new Object[] {
         newFilter("urn", userOneUrnString),
-        Arrays.asList(downstreamOf),
+        Collections.singletonList(downstreamOf),
         outgoingRelationships,
-        Arrays.asList()
+        Collections.emptyList()
       },
       new Object[] {
         newFilter("urn", userOneUrnString),
-        Arrays.asList(downstreamOf),
+        Collections.singletonList(downstreamOf),
         incomingRelationships,
-        Arrays.asList()
+        Collections.emptyList()
       },
       new Object[] {
         newFilter("urn", userOneUrnString),
-        Arrays.asList(downstreamOf),
+        Collections.singletonList(downstreamOf),
         undirectedRelationships,
-        Arrays.asList()
+        Collections.emptyList()
       },
       new Object[] {
         newFilter("urn", userOneUrnString),
-        Arrays.asList(hasOwner),
+        Collections.singletonList(hasOwner),
         outgoingRelationships,
-        Arrays.asList(hasOwnerUserOneRelatedEntity)
+        Collections.singletonList(hasOwnerUserOneRelatedEntity)
       },
       new Object[] {
         newFilter("urn", userOneUrnString),
-        Arrays.asList(hasOwner),
+        Collections.singletonList(hasOwner),
         incomingRelationships,
-        Arrays.asList()
+        Collections.emptyList()
       },
       new Object[] {
         newFilter("urn", userOneUrnString),
-        Arrays.asList(hasOwner),
+        Collections.singletonList(hasOwner),
         undirectedRelationships,
-        Arrays.asList(hasOwnerUserOneRelatedEntity)
+        Collections.singletonList(hasOwnerUserOneRelatedEntity)
       }
     };
   }
@@ -687,13 +689,13 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
     return new Object[][] {
       new Object[] {
         null,
-        Arrays.asList(downstreamOf),
+        Collections.singletonList(downstreamOf),
         outgoingRelationships,
         Arrays.asList(downstreamOfDatasetOneRelatedEntity, downstreamOfDatasetTwoRelatedEntity)
       },
       new Object[] {
         null,
-        Arrays.asList(downstreamOf),
+        Collections.singletonList(downstreamOf),
         incomingRelationships,
         Arrays.asList(
             downstreamOfDatasetTwoRelatedEntity,
@@ -702,7 +704,7 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
       },
       new Object[] {
         null,
-        Arrays.asList(downstreamOf),
+        Collections.singletonList(downstreamOf),
         undirectedRelationships,
         Arrays.asList(
             downstreamOfDatasetOneRelatedEntity, downstreamOfDatasetTwoRelatedEntity,
@@ -711,23 +713,26 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
 
       // "" used to be any type before v0.9.0, which is now encoded by null
       new Object[] {
-        "", Arrays.asList(downstreamOf), outgoingRelationships, Collections.emptyList()
+        "", Collections.singletonList(downstreamOf), outgoingRelationships, Collections.emptyList()
       },
       new Object[] {
-        "", Arrays.asList(downstreamOf), incomingRelationships, Collections.emptyList()
+        "", Collections.singletonList(downstreamOf), incomingRelationships, Collections.emptyList()
       },
       new Object[] {
-        "", Arrays.asList(downstreamOf), undirectedRelationships, Collections.emptyList()
+        "",
+        Collections.singletonList(downstreamOf),
+        undirectedRelationships,
+        Collections.emptyList()
       },
       new Object[] {
         datasetType,
-        Arrays.asList(downstreamOf),
+        Collections.singletonList(downstreamOf),
         outgoingRelationships,
         Arrays.asList(downstreamOfDatasetOneRelatedEntity, downstreamOfDatasetTwoRelatedEntity)
       },
       new Object[] {
         datasetType,
-        Arrays.asList(downstreamOf),
+        Collections.singletonList(downstreamOf),
         incomingRelationships,
         Arrays.asList(
             downstreamOfDatasetTwoRelatedEntity,
@@ -736,21 +741,39 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
       },
       new Object[] {
         datasetType,
-        Arrays.asList(downstreamOf),
+        Collections.singletonList(downstreamOf),
         undirectedRelationships,
         Arrays.asList(
             downstreamOfDatasetOneRelatedEntity, downstreamOfDatasetTwoRelatedEntity,
             downstreamOfDatasetThreeRelatedEntity, downstreamOfDatasetFourRelatedEntity)
       },
-      new Object[] {userType, Arrays.asList(downstreamOf), outgoingRelationships, Arrays.asList()},
-      new Object[] {userType, Arrays.asList(downstreamOf), incomingRelationships, Arrays.asList()},
-      new Object[] {
-        userType, Arrays.asList(downstreamOf), undirectedRelationships, Arrays.asList()
-      },
-      new Object[] {userType, Arrays.asList(hasOwner), outgoingRelationships, Arrays.asList()},
       new Object[] {
         userType,
-        Arrays.asList(hasOwner),
+        Collections.singletonList(downstreamOf),
+        outgoingRelationships,
+        Collections.emptyList()
+      },
+      new Object[] {
+        userType,
+        Collections.singletonList(downstreamOf),
+        incomingRelationships,
+        Collections.emptyList()
+      },
+      new Object[] {
+        userType,
+        Collections.singletonList(downstreamOf),
+        undirectedRelationships,
+        Collections.emptyList()
+      },
+      new Object[] {
+        userType,
+        Collections.singletonList(hasOwner),
+        outgoingRelationships,
+        Collections.emptyList()
+      },
+      new Object[] {
+        userType,
+        Collections.singletonList(hasOwner),
         incomingRelationships,
         Arrays.asList(
             hasOwnerDatasetOneRelatedEntity, hasOwnerDatasetTwoRelatedEntity,
@@ -758,7 +781,7 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
       },
       new Object[] {
         userType,
-        Arrays.asList(hasOwner),
+        Collections.singletonList(hasOwner),
         undirectedRelationships,
         Arrays.asList(
             hasOwnerDatasetOneRelatedEntity, hasOwnerDatasetTwoRelatedEntity,
@@ -787,13 +810,13 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
     return new Object[][] {
       new Object[] {
         null,
-        Arrays.asList(downstreamOf),
+        Collections.singletonList(downstreamOf),
         outgoingRelationships,
         Arrays.asList(downstreamOfDatasetOneRelatedEntity, downstreamOfDatasetTwoRelatedEntity)
       },
       new Object[] {
         null,
-        Arrays.asList(downstreamOf),
+        Collections.singletonList(downstreamOf),
         incomingRelationships,
         Arrays.asList(
             downstreamOfDatasetTwoRelatedEntity,
@@ -802,30 +825,33 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
       },
       new Object[] {
         null,
-        Arrays.asList(downstreamOf),
+        Collections.singletonList(downstreamOf),
         undirectedRelationships,
         Arrays.asList(
             downstreamOfDatasetOneRelatedEntity, downstreamOfDatasetTwoRelatedEntity,
             downstreamOfDatasetThreeRelatedEntity, downstreamOfDatasetFourRelatedEntity)
       },
       new Object[] {
-        "", Arrays.asList(downstreamOf), outgoingRelationships, Collections.emptyList()
+        "", Collections.singletonList(downstreamOf), outgoingRelationships, Collections.emptyList()
       },
       new Object[] {
-        "", Arrays.asList(downstreamOf), incomingRelationships, Collections.emptyList()
+        "", Collections.singletonList(downstreamOf), incomingRelationships, Collections.emptyList()
       },
       new Object[] {
-        "", Arrays.asList(downstreamOf), undirectedRelationships, Collections.emptyList()
+        "",
+        Collections.singletonList(downstreamOf),
+        undirectedRelationships,
+        Collections.emptyList()
       },
       new Object[] {
         datasetType,
-        Arrays.asList(downstreamOf),
+        Collections.singletonList(downstreamOf),
         outgoingRelationships,
         Arrays.asList(downstreamOfDatasetOneRelatedEntity, downstreamOfDatasetTwoRelatedEntity)
       },
       new Object[] {
         datasetType,
-        Arrays.asList(downstreamOf),
+        Collections.singletonList(downstreamOf),
         incomingRelationships,
         Arrays.asList(
             downstreamOfDatasetTwoRelatedEntity,
@@ -834,16 +860,21 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
       },
       new Object[] {
         datasetType,
-        Arrays.asList(downstreamOf),
+        Collections.singletonList(downstreamOf),
         undirectedRelationships,
         Arrays.asList(
             downstreamOfDatasetOneRelatedEntity, downstreamOfDatasetTwoRelatedEntity,
             downstreamOfDatasetThreeRelatedEntity, downstreamOfDatasetFourRelatedEntity)
       },
-      new Object[] {datasetType, Arrays.asList(hasOwner), outgoingRelationships, Arrays.asList()},
       new Object[] {
         datasetType,
-        Arrays.asList(hasOwner),
+        Collections.singletonList(hasOwner),
+        outgoingRelationships,
+        Collections.emptyList()
+      },
+      new Object[] {
+        datasetType,
+        Collections.singletonList(hasOwner),
         incomingRelationships,
         Arrays.asList(
             hasOwnerDatasetOneRelatedEntity, hasOwnerDatasetTwoRelatedEntity,
@@ -851,7 +882,7 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
       },
       new Object[] {
         datasetType,
-        Arrays.asList(hasOwner),
+        Collections.singletonList(hasOwner),
         undirectedRelationships,
         Arrays.asList(
             hasOwnerDatasetOneRelatedEntity, hasOwnerDatasetTwoRelatedEntity,
@@ -859,14 +890,19 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
       },
       new Object[] {
         userType,
-        Arrays.asList(hasOwner),
+        Collections.singletonList(hasOwner),
         outgoingRelationships,
         Arrays.asList(hasOwnerUserOneRelatedEntity, hasOwnerUserTwoRelatedEntity)
       },
-      new Object[] {userType, Arrays.asList(hasOwner), incomingRelationships, Arrays.asList()},
       new Object[] {
         userType,
-        Arrays.asList(hasOwner),
+        Collections.singletonList(hasOwner),
+        incomingRelationships,
+        Collections.emptyList()
+      },
+      new Object[] {
+        userType,
+        Collections.singletonList(hasOwner),
         undirectedRelationships,
         Arrays.asList(hasOwnerUserOneRelatedEntity, hasOwnerUserTwoRelatedEntity)
       }
@@ -924,7 +960,7 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
             EMPTY_FILTER,
             destinationType,
             EMPTY_FILTER,
-            Arrays.asList(relationshipType),
+            Collections.singletonList(relationshipType),
             relationshipFilter,
             0,
             100);
@@ -1135,12 +1171,12 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
             newFilter("urn", datasetOneUrnString),
             ImmutableList.of(userType),
             newFilter("urn", userOneUrnString),
-            Arrays.asList(hasOwner),
+            Collections.singletonList(hasOwner),
             outgoingRelationships,
             0,
             10);
 
-    assertEquals(relatedEntities.entities, Arrays.asList(hasOwnerUserOneRelatedEntity));
+    assertEquals(relatedEntities.entities, Collections.singletonList(hasOwnerUserOneRelatedEntity));
 
     relatedEntities =
         service.findRelatedEntities(
@@ -1148,7 +1184,7 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
             newFilter("urn", datasetOneUrnString),
             ImmutableList.of(userType),
             newFilter("urn", userTwoUrnString),
-            Arrays.asList(hasOwner),
+            Collections.singletonList(hasOwner),
             incomingRelationships,
             0,
             10);
@@ -1166,12 +1202,12 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
             newFilter("urn", datasetOneUrnString),
             ImmutableList.of(datasetType, userType),
             newFilter("urn", userOneUrnString),
-            Arrays.asList(hasOwner),
+            Collections.singletonList(hasOwner),
             outgoingRelationships,
             0,
             10);
 
-    assertEquals(relatedEntities.entities, Arrays.asList(hasOwnerUserOneRelatedEntity));
+    assertEquals(relatedEntities.entities, Collections.singletonList(hasOwnerUserOneRelatedEntity));
 
     relatedEntities =
         service.findRelatedEntities(
@@ -1179,7 +1215,7 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
             newFilter("urn", datasetOneUrnString),
             ImmutableList.of(datasetType, userType),
             newFilter("urn", userTwoUrnString),
-            Arrays.asList(hasOwner),
+            Collections.singletonList(hasOwner),
             incomingRelationships,
             0,
             10);
@@ -1226,41 +1262,41 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
     return new Object[][] {
       new Object[] {
         datasetTwoUrn,
-        Arrays.asList(downstreamOf),
+        Collections.singletonList(downstreamOf),
         outgoingRelationships,
-        Arrays.asList(downstreamOfDatasetOneRelatedEntity),
+        Collections.singletonList(downstreamOfDatasetOneRelatedEntity),
         Arrays.asList(downstreamOfDatasetThreeRelatedEntity, downstreamOfDatasetFourRelatedEntity),
-        Arrays.asList(),
+        Collections.emptyList(),
         Arrays.asList(downstreamOfDatasetThreeRelatedEntity, downstreamOfDatasetFourRelatedEntity)
       },
       new Object[] {
         datasetTwoUrn,
-        Arrays.asList(downstreamOf),
+        Collections.singletonList(downstreamOf),
         incomingRelationships,
-        Arrays.asList(downstreamOfDatasetOneRelatedEntity),
+        Collections.singletonList(downstreamOfDatasetOneRelatedEntity),
         Arrays.asList(downstreamOfDatasetThreeRelatedEntity, downstreamOfDatasetFourRelatedEntity),
-        Arrays.asList(downstreamOfDatasetOneRelatedEntity),
-        Arrays.asList(),
+        Collections.singletonList(downstreamOfDatasetOneRelatedEntity),
+        Collections.emptyList(),
       },
       new Object[] {
         datasetTwoUrn,
-        Arrays.asList(downstreamOf),
+        Collections.singletonList(downstreamOf),
         undirectedRelationships,
-        Arrays.asList(downstreamOfDatasetOneRelatedEntity),
+        Collections.singletonList(downstreamOfDatasetOneRelatedEntity),
         Arrays.asList(downstreamOfDatasetThreeRelatedEntity, downstreamOfDatasetFourRelatedEntity),
-        Arrays.asList(),
-        Arrays.asList()
+        Collections.emptyList(),
+        Collections.emptyList()
       },
       new Object[] {
         userOneUrn,
         Arrays.asList(hasOwner, knowsUser),
         outgoingRelationships,
-        Arrays.asList(knowsUserTwoRelatedEntity),
+        Collections.singletonList(knowsUserTwoRelatedEntity),
         Arrays.asList(
             hasOwnerDatasetOneRelatedEntity,
             hasOwnerDatasetTwoRelatedEntity,
             knowsUserTwoRelatedEntity),
-        Arrays.asList(),
+        Collections.emptyList(),
         Arrays.asList(
             hasOwnerDatasetOneRelatedEntity,
             hasOwnerDatasetTwoRelatedEntity,
@@ -1270,25 +1306,25 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
         userOneUrn,
         Arrays.asList(hasOwner, knowsUser),
         incomingRelationships,
-        Arrays.asList(knowsUserTwoRelatedEntity),
+        Collections.singletonList(knowsUserTwoRelatedEntity),
         Arrays.asList(
             hasOwnerDatasetOneRelatedEntity,
             hasOwnerDatasetTwoRelatedEntity,
             knowsUserTwoRelatedEntity),
-        Arrays.asList(knowsUserTwoRelatedEntity),
-        Arrays.asList()
+        Collections.singletonList(knowsUserTwoRelatedEntity),
+        Collections.emptyList()
       },
       new Object[] {
         userOneUrn,
         Arrays.asList(hasOwner, knowsUser),
         undirectedRelationships,
-        Arrays.asList(knowsUserTwoRelatedEntity),
+        Collections.singletonList(knowsUserTwoRelatedEntity),
         Arrays.asList(
             hasOwnerDatasetOneRelatedEntity,
             hasOwnerDatasetTwoRelatedEntity,
             knowsUserTwoRelatedEntity),
-        Arrays.asList(),
-        Arrays.asList()
+        Collections.emptyList(),
+        Collections.emptyList()
       }
     };
   }
@@ -1309,7 +1345,7 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
         allRelationshipTypes.stream()
             .filter(relation -> !relationTypes.contains(relation))
             .collect(Collectors.toList());
-    assertTrue(allOtherRelationTypes.size() > 0);
+    assertFalse(allOtherRelationTypes.isEmpty());
 
     RelatedEntitiesResult actualOutgoingRelatedUrnsBeforeRemove =
         service.findRelatedEntities(
@@ -1581,7 +1617,7 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
             EMPTY_FILTER,
             anyType,
             EMPTY_FILTER,
-            Arrays.asList(downstreamOf),
+            Collections.singletonList(downstreamOf),
             outgoingRelationships,
             0,
             100),
@@ -1592,7 +1628,7 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
             EMPTY_FILTER,
             anyType,
             EMPTY_FILTER,
-            Arrays.asList(hasOwner),
+            Collections.singletonList(hasOwner),
             outgoingRelationships,
             0,
             100),
@@ -1603,26 +1639,33 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
             EMPTY_FILTER,
             ImmutableList.of(userType),
             EMPTY_FILTER,
-            Arrays.asList(knowsUser),
+            Collections.singletonList(knowsUser),
             outgoingRelationships,
             0,
             100),
         Collections.emptyList());
   }
 
-  private List<Edge> getFullyConnectedGraph(int nodes, List<String> relationshipTypes) {
+  private List<Edge> getFullyConnectedGraph(
+      int nodes, List<String> relationshipTypes, @Nullable List<String> entityTypes) {
     List<Edge> edges = new ArrayList<>();
 
     for (int sourceNode = 1; sourceNode <= nodes; sourceNode++) {
       for (int destinationNode = 1; destinationNode <= nodes; destinationNode++) {
         for (String relationship : relationshipTypes) {
-          int sourceType = sourceNode % 3;
+          String typeString;
+          if (entityTypes != null) {
+            typeString = entityTypes.get(sourceNode % entityTypes.size());
+          } else {
+            typeString = "type" + sourceNode % 3;
+          }
           Urn source =
-              createFromString("urn:li:type" + sourceType + ":(urn:li:node" + sourceNode + ")");
-          int destinationType = destinationNode % 3;
+              createFromString("urn:li:" + typeString + ":(urn:li:node" + sourceNode + ")");
+          if (entityTypes == null) {
+            typeString = "type" + destinationNode % 3;
+          }
           Urn destination =
-              createFromString(
-                  "urn:li:type" + destinationType + ":(urn:li:node" + destinationNode + ")");
+              createFromString("urn:li:" + typeString + ":(urn:li:node" + destinationNode + ")");
 
           edges.add(new Edge(source, destination, relationship, null, null, null, null, null));
         }
@@ -1636,6 +1679,7 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
   public void testConcurrentAddEdge() throws Exception {
     final GraphService service = getGraphService();
 
+    // TODO: Refactor to use executor pool rather than raw runnables to avoid thread overload
     // too many edges may cause too many threads throwing
     // java.util.concurrent.RejectedExecutionException: Thread limit exceeded replacing blocked
     // worker
@@ -1645,19 +1689,9 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
         IntStream.range(1, relationshipTypes + 1)
             .mapToObj(id -> "relationship" + id)
             .collect(Collectors.toList());
-    List<Edge> edges = getFullyConnectedGraph(nodes, allRelationships);
+    List<Edge> edges = getFullyConnectedGraph(nodes, allRelationships, null);
 
-    List<Runnable> operations =
-        edges.stream()
-            .map(
-                edge ->
-                    new Runnable() {
-                      @Override
-                      public void run() {
-                        service.addEdge(edge);
-                      }
-                    })
-            .collect(Collectors.toList());
+    Stream<Runnable> operations = edges.stream().map(edge -> () -> service.addEdge(edge));
 
     doTestConcurrentOp(operations);
     syncAfterWrite();
@@ -1692,7 +1726,7 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
         IntStream.range(1, relationshipTypes + 1)
             .mapToObj(id -> "relationship" + id)
             .collect(Collectors.toList());
-    List<Edge> edges = getFullyConnectedGraph(nodes, allRelationships);
+    List<Edge> edges = getFullyConnectedGraph(nodes, allRelationships, null);
 
     // add fully connected graph
     edges.forEach(service::addEdge);
@@ -1712,20 +1746,15 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
     assertEquals(relatedEntities.entities.size(), nodes * relationshipTypes);
 
     // delete all edges concurrently
-    List<Runnable> operations =
+    Stream<Runnable> operations =
         edges.stream()
             .map(
                 edge ->
-                    new Runnable() {
-                      @Override
-                      public void run() {
+                    () ->
                         service.removeEdgesFromNode(
                             edge.getSource(),
-                            Arrays.asList(edge.getRelationshipType()),
-                            outgoingRelationships);
-                      }
-                    })
-            .collect(Collectors.toList());
+                            Collections.singletonList(edge.getRelationshipType()),
+                            outgoingRelationships));
     doTestConcurrentOp(operations);
     syncAfterWrite();
 
@@ -1756,7 +1785,7 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
         IntStream.range(1, relationshipTypes + 1)
             .mapToObj(id -> "relationship" + id)
             .collect(Collectors.toList());
-    List<Edge> edges = getFullyConnectedGraph(nodes, allRelationships);
+    List<Edge> edges = getFullyConnectedGraph(nodes, allRelationships, null);
 
     // add fully connected graph
     edges.forEach(service::addEdge);
@@ -1777,17 +1806,8 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
 
     // remove all nodes concurrently
     // nodes will be removed multiple times
-    List<Runnable> operations =
-        edges.stream()
-            .map(
-                edge ->
-                    new Runnable() {
-                      @Override
-                      public void run() {
-                        service.removeNode(edge.getSource());
-                      }
-                    })
-            .collect(Collectors.toList());
+    Stream<Runnable> operations =
+        edges.stream().map(edge -> () -> service.removeNode(edge.getSource()));
     doTestConcurrentOp(operations);
     syncAfterWrite();
 
@@ -1805,43 +1825,40 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
     assertEquals(relatedEntitiesAfterDeletion.entities.size(), 0);
   }
 
-  private void doTestConcurrentOp(List<Runnable> operations) throws Exception {
+  private void doTestConcurrentOp(Stream<Runnable> operations) throws Exception {
     final Queue<Throwable> throwables = new ConcurrentLinkedQueue<>();
-    final CountDownLatch started = new CountDownLatch(operations.size());
-    final CountDownLatch finished = new CountDownLatch(operations.size());
-    operations.forEach(
-        operation ->
-            new Thread(
-                    new Runnable() {
-                      @Override
-                      public void run() {
-                        try {
-                          started.countDown();
+    ExecutorService executorPool =
+        Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors() + 1);
 
+    List<Callable<Void>> callables =
+        operations
+            .map(
+                operation ->
+                    (Callable<Void>)
+                        () -> {
                           try {
-                            if (!started.await(10, TimeUnit.SECONDS)) {
-                              fail("Timed out waiting for all threads to start");
-                            }
-                          } catch (InterruptedException e) {
-                            fail("Got interrupted waiting for all threads to start");
+                            operation.run();
+                          } catch (Throwable t) {
+                            throwables.add(t);
+                            t.printStackTrace();
                           }
-
-                          operation.run();
-                        } catch (Throwable t) {
-                          t.printStackTrace();
-                          throwables.add(t);
-                        }
-                        finished.countDown();
-                      }
-                    })
-                .start());
-
-    assertTrue(finished.await(getTestConcurrentOpTimeout().toMillis(), TimeUnit.MILLISECONDS));
+                          return null;
+                        })
+            .collect(Collectors.toList());
+    try {
+      executorPool.invokeAll(
+          callables, getTestConcurrentOpTimeout().toMillis(), TimeUnit.MILLISECONDS);
+    } catch (InterruptedException e) {
+      System.err.println(
+          System.currentTimeMillis()
+              + ": unable to complete execution of concurrent operations in time");
+      throw e;
+    }
     throwables.forEach(
         throwable ->
             System.err.printf(
                 System.currentTimeMillis() + ": exception occurred: %s%n", throwable));
-    assertEquals(throwables.size(), 0);
+    assertTrue(throwables.isEmpty());
   }
 
   @ParameterizedTest
@@ -1903,5 +1920,92 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
         service.getLineage(datasetThreeUrn, LineageDirection.DOWNSTREAM, 0, 1000, 2);
     assertEquals(downstreamLineage.getTotal().intValue(), 0);
     assertEquals(downstreamLineage.getRelationships().size(), 0);
+  }
+
+  @Test
+  public void testHighlyConnectedGraphWalk() throws Exception {
+    final GraphService service = getGraphService();
+
+    int nodes = 25;
+    List<String> allRelationships = Arrays.asList(downstreamOf, consumes, hasOwner);
+    List<Edge> edges =
+        getFullyConnectedGraph(nodes, allRelationships, Collections.singletonList(datasetType));
+
+    Stream<Runnable> operations = edges.stream().map(edge -> () -> service.addEdge(edge));
+
+    doTestConcurrentOp(operations);
+    syncAfterWrite();
+
+    RelatedEntitiesResult relatedEntities =
+        service.findRelatedEntities(
+            null,
+            EMPTY_FILTER,
+            null,
+            EMPTY_FILTER,
+            allRelationships,
+            outgoingRelationships,
+            0,
+            nodes * 3 * 2);
+
+    Set<RelatedEntity> expectedRelatedEntities =
+        edges.stream()
+            .map(
+                edge ->
+                    new RelatedEntity(edge.getRelationshipType(), edge.getDestination().toString()))
+            .collect(Collectors.toSet());
+    assertEquals(new HashSet<>(relatedEntities.getEntities()), expectedRelatedEntities);
+
+    Urn root = UrnUtils.getUrn(relatedEntities.getEntities().get(0).getUrn());
+    EntityLineageResult lineageResult =
+        getGraphService(false)
+            .getLineage(
+                root,
+                LineageDirection.UPSTREAM,
+                new GraphFilters(
+                    relatedEntities.getEntities().stream()
+                        .map(RelatedEntity::getUrn)
+                        .map(UrnUtils::getUrn)
+                        .map(Urn::getEntityType)
+                        .distinct()
+                        .collect(Collectors.toList())),
+                0,
+                1000,
+                100,
+                new LineageFlags().setEntitiesExploredPerHopLimit(5));
+    assertEquals(lineageResult.getRelationships().size(), 24);
+    LineageRelationshipArray relationships = lineageResult.getRelationships();
+    int maxDegree =
+        relationships.stream()
+            .flatMap(relationship -> relationship.getDegrees().stream())
+            .reduce(0, Math::max);
+    assertEquals(maxDegree, 1);
+
+    EntityLineageResult lineageResultMulti =
+        getGraphService(true)
+            .getLineage(
+                root,
+                LineageDirection.UPSTREAM,
+                new GraphFilters(
+                    relatedEntities.getEntities().stream()
+                        .map(RelatedEntity::getUrn)
+                        .map(UrnUtils::getUrn)
+                        .map(Urn::getEntityType)
+                        .distinct()
+                        .collect(Collectors.toList())),
+                0,
+                1000,
+                100,
+                new LineageFlags().setEntitiesExploredPerHopLimit(5));
+
+    assertEquals(lineageResultMulti.getRelationships().size(), 25);
+    relationships = lineageResultMulti.getRelationships();
+    maxDegree =
+        relationships.stream()
+            .flatMap(relationship -> relationship.getDegrees().stream())
+            .reduce(0, Math::max);
+    assertTrue(maxDegree > 6);
+
+    // Reset graph service
+    getGraphService();
   }
 }
