@@ -230,6 +230,8 @@ class HiveColumnToAvroConverter:
     def get_avro_schema_for_hive_column(
         cls, hive_column_name: str, hive_column_type: str
     ) -> Union[object, Dict[str, object]]:
+        if hive_column_type is None:
+            return {"type": "null"}
         converter = cls()
         # Below Record structure represents the dataset level
         # Inner fields represent the complex field (struct/array/map/union)
@@ -286,7 +288,9 @@ def get_schema_fields_for_hive_column(
         ]
 
     assert schema_fields
-    if HiveColumnToAvroConverter.is_primitive_hive_type(hive_column_type):
+    if hive_column_type is None or HiveColumnToAvroConverter.is_primitive_hive_type(
+        hive_column_type
+    ):
         # Primitive avro schema does not have any field names. Append it to fieldPath.
         schema_fields[0].fieldPath += f".{hive_column_name}"
     if description:
