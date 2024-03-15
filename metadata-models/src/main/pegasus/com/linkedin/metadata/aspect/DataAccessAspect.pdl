@@ -1,0 +1,16 @@
+namespace com.linkedin.metadata.aspect
+
+import com.linkedin.metadata.key.DataAccessKey
+import com.linkedin.dataaccess.DataAccessStatusInfo
+import com.linkedin.dataaccess.DataAccessProperties
+import com.linkedin.dataaccess.DataAccessParties
+
+/**
+ * A union of all supported metadata aspects for a source data access request
+ */
+typeref DataAccessAspect = union[
+  DataAccessKey,
+  DataAccessStatusInfo,
+  DataAccessProperties,
+  DataAccessParties
+]

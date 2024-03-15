@@ -1,0 +1,24 @@
+namespace com.linkedin.metadata.snapshot
+
+import com.linkedin.common.DataAccessUrn
+import com.linkedin.metadata.aspect.DataAccessAspect
+
+/**
+ * A metadata snapshot for a specific data access request entity.
+ */
+@Entity = {
+  "name": "dataAccess",
+  "keyAspect": "dataAccessKey"
+}
+record DataAccessSnapshot {
+
+  /**
+   * URN for the entity the metadata snapshot is associated with.
+   */
+  urn: DataAccessUrn
+
+  /**
+   * The list of metadata aspects associated with the data access. Depending on the use case, this can either be all, or a selection, of supported aspects.
+   */
+  aspects: array[DataAccessAspect]
+}

@@ -1,0 +1,13 @@
+namespace com.linkedin.dataaccess
+
+import com.linkedin.common.Time
+
+/**
+ * Life cycle properties of data access
+ */
+@Aspect = {
+  "name": "dataAccessLifeCycle"
+}
+record DataAccessLifeCycle {
+  requestTime: Time
+}

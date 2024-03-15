@@ -1,0 +1,27 @@
+namespace com.linkedin.common
+
+/**
+ * Standardized data access identifier.
+ */
+@java.class = "com.linkedin.common.urn.DataAccessUrn"
+@validate.`com.linkedin.common.validator.TypedUrnValidator` = {
+  "accessible" : true,
+  "owningTeam" : "urn:li:internalTeam:datahub",
+  "entityType" : "dataAccess",
+  "constructable" : true,
+  "namespace" : "li",
+  "name" : "DataAccess",
+  "doc" : "Identifier for data access",
+  "owners" : [ "urn:li:corpuser:fbar", "urn:li:corpuser:bfoo" ],
+  "fields" : [ {
+    "type" : "com.linkedin.common.urn.DatasetUrn",
+    "name" : "dataset",
+    "doc" : "Dataset to be accessed"
+  }, {
+    "type" : "com.linkedin.common.urn.DataPlatformPrincipalUrn",
+    "name" : "principal",
+    "doc" : "Principal which will get access to data"
+  } ],
+  "maxLength" : 2048
+}
+typeref DataAccessUrn = string

@@ -1,0 +1,18 @@
+namespace com.linkedin.metadata.snapshot
+
+import com.linkedin.common.DataPlatformPrincipalUrn
+import com.linkedin.metadata.aspect.DataPlatformPrincipalAspect
+
+/**
+ * A metadata snapshot for a principal in specific platform.
+ */
+@Entity = {
+  "name": "dataPlatformPrincipal",
+  "keyAspect": "dataPlatformPrincipalKey"
+}
+record DataPlatformPrincipalSnapshot {
+
+  urn: DataPlatformPrincipalUrn
+
+  aspects: array[DataPlatformPrincipalAspect]
+}

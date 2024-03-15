@@ -1,0 +1,63 @@
+namespace com.linkedin.dataaccess
+
+/**
+ * Job statuses
+ */
+enum DataAccessStatus {
+
+  /**
+   * Data access pending for approval.
+   */
+  PENDING
+
+  /**
+   * Approver requires requester to change requested data access.
+   */
+  CHANGE_REQUIRED
+
+  /**
+   * Request canceled.
+   */
+  CANCELED
+
+  /**
+   * Data access approved.
+   */
+  APPROVED
+
+  /**
+   * Data access provisioned.
+   */
+  PROVISIONED
+
+  /**
+   * Data access provisioning failed.
+   */
+  PROVISIONING_FAILED
+
+  /**
+   * Data access rejected
+   */
+  REJECTED
+
+  /**
+   * Data access revoked
+   */
+  REVOKED
+
+  /**
+   * Data access deprovisioning failed.
+   */
+  DEPROVISIONING_FAILED
+
+  /**
+   * Data access expired
+   */
+  EXPIRED
+
+  /**
+   * Unknown
+   */  
+  UNKNOWN
+
+}

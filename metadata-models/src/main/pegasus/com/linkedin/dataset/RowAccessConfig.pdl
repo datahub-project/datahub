@@ -1,0 +1,16 @@
+namespace com.linkedin.dataset
+
+import com.linkedin.schema.SchemaFieldDataType
+
+record RowAccessConfig {
+  /**
+   * Possible candidate values in field. Can be populated through custom ingestion processes
+   */
+  values: optional array[string]
+
+  /**
+   * Owner pre-selected values (e.g. as suggested/recommended values to access requesters)
+   */
+  preselectedValues: optional array[string]
+
+}

@@ -1,0 +1,11 @@
+namespace com.linkedin.dataset
+
+record ApprovalConfiguration {
+
+  /**
+   * Specifies whether auto-approval is required
+   */
+  autoApprove: boolean = false
+
+  rules: array[AutoApprovalRule]
+}

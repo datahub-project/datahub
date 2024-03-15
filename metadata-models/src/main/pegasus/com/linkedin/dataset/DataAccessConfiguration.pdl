@@ -1,0 +1,49 @@
+namespace com.linkedin.dataset
+
+import com.linkedin.common.DatasetUrn
+
+@Aspect = {
+  "name": "dataAccessConfiguration"
+}
+record DataAccessConfiguration {
+
+  /**
+   * Specifies if the dataset is open for being requested for access
+   */
+  openForAccessRequest: boolean = true
+
+  /**
+   * Specifies if a purpose has to be provided for requesting access to data
+   */
+  purposeRequired: boolean = true
+
+  /**
+   * Configs of access to each individual field
+   */
+  fieldAccessConfig: optional array[SchemaFieldAccessConfig]
+
+  /**
+   * Configs for approval behaviour
+   */
+  approvalConfiguration: optional ApprovalConfiguration
+
+  /*
+   * Required approval to grant data access: mapping from ownership type URN to number
+   * meaning how many owners of specified ownership need to approve to effectively grant access
+   * (default means one approval from any owner suffices for granting access)
+   */
+  requiredApprovals: optional array[record RequiredApproval {
+    ownershipType: string
+    count: int
+  }]
+
+
+  /*
+   * List of ownership types of which who will receive notifications, with message overrides
+   * (default means sending default notification to all)
+   */
+  notificationToOwnershipTypes: optional array[record NotificationToOwnershipType {
+    ownershipType: string
+    contentTemplate: string
+  }]
+}
