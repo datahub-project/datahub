@@ -182,7 +182,7 @@ export const AssertionResultPopoverContent = ({
                     {result?.nativeResults?.length ? [
                         <ThinDivider />,
                         <PlatformRow>
-                            {result.nativeResults.map(result => <div><Typography.Text strong>{result.key}</Typography.Text>: {result.value}</div>)}
+                            {result.nativeResults.map(entry => <div><Typography.Text strong>{entry.key}</Typography.Text>: {entry.value}</div>)}
                         </PlatformRow>
                     ] : null}
                     {/* Show the external platform details */}
