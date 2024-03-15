@@ -2,47 +2,48 @@ import { aliasQuery, hasOperationName } from "../utils";
 const datasetUrn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,climate.daily_temperature,PROD)";
 const datasetName = "daily_temperature";
 
-const enableButtonWithText = (text) => {
-  cy.contains('button', text).should('be.enabled')
+const enableButtonWithId = (id) => {
+   cy.get(id).should('be.enabled')
 }
 
 describe("create and manage volume assertion", () => {
-    beforeEach(() => {
+   beforeEach(() => {
       cy.intercept("POST", "/api/v2/graphql", (req) => {
-        aliasQuery(req, "appConfig");
+         aliasQuery(req, "appConfig");
       });
-    });
-    
-    const setAssertionMonitorsFlag = (isOn) => {
-      cy.intercept("POST", "/api/v2/graphql", (req) => {
-        if (hasOperationName(req, "appConfig")) {
-          req.reply((res) => {
-            // Modify the response body directly
-            res.body.data.appConfig.featureFlags.assertionMonitorsEnabled = isOn;
-          });
-        }
-      });
-    };
+   });
 
-    it("create volume assertion, stop and restart monitor, manage and remove assertion", () => {
+   const setAssertionMonitorsFlag = (isOn) => {
+      cy.intercept("POST", "/api/v2/graphql", (req) => {
+         if (hasOperationName(req, "appConfig")) {
+            req.reply((res) => {
+               // Modify the response body directly
+               res.body.data.appConfig.featureFlags.assertionMonitorsEnabled = isOn;
+            });
+         }
+      });
+   };
+
+   it("create volume assertion, stop and restart monitor, manage and remove assertion", () => {
       //create volume assertion, submit, verify assertion on ui
       setAssertionMonitorsFlag(true);
       cy.loginWithCredentials();
       cy.goToDataset(datasetUrn, datasetName);
       cy.openEntityTab("Validation");
       cy.waitTextVisible("No assertions have run");
-      enableButtonWithText('Create Assertion')
-      cy.clickOptionWithText("Create Assertion");
+      enableButtonWithId('#create-assertion-btn-main')
+      cy.get('#create-assertion-btn-main').click();
       cy.waitTextVisible("New Assertion Monitor");
       cy.clickOptionWithText("Volume");
       cy.waitTextVisible("Check table volume");
       cy.get("button").contains("Next").click();
       cy.waitTextVisible("Please select an option");
       cy.get("#volume-type").click();
-      cy.clickOptionWithText("Table has too many rows");
-      cy.get("button").contains("Next").click();
+      cy.clickOptionWithText("Is less than or equal to");
       cy.waitTextVisible("If this assertion fails...");
       cy.waitTextVisible("If this assertion passes...");
+      cy.get("button").contains("Next").click();
+      cy.waitTextVisible("If not specified, a name will be generated from the assertion settings.");
       cy.get("button").contains("Save").click();
       cy.waitTextVisible("Created new Assertion Monitor!");
       cy.waitTextVisible("Assertions (1)");
@@ -109,5 +110,5 @@ describe("create and manage volume assertion", () => {
       cy.waitTextVisible("Assertions (0)");
       cy.ensureTextNotPresent("Freshness");
       cy.waitTextVisible("No Assertions Found");
-    });
+   });
 });
