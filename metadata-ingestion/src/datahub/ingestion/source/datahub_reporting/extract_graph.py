@@ -1,10 +1,12 @@
 import logging
 import os
 from dataclasses import dataclass
+from datetime import datetime
 from typing import List, Optional
 
 import boto3
 from opensearchpy import OpenSearch
+from pydantic import validator
 
 from datahub.configuration.common import ConfigModel
 from datahub.ingestion.api.common import PipelineContext
@@ -15,38 +17,51 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source import Source, SourceReport
-from datahub.ingestion.graph.client import DatahubClientConfig
+from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
 from datahub.ingestion.source.datahub_reporting.datahub_dataset import (
     BaseModelRow,
     DataHubBasedS3Dataset,
     DatasetMetadata,
+    DatasetRegistrationSpec,
     FileStoreBackedDatasetConfig,
 )
+from datahub.metadata.schema_classes import DatasetPropertiesClass
 
 logger = logging.getLogger(__name__)
 
 
 class ElasticSearchClientConfig(ConfigModel):
-    host: str
-    port: Optional[int] = None
-    use_ssl: bool = False
+    host: str = os.getenv("ELASTICSEARCH_HOST", "localhost")
+    port: int = int(os.getenv("ELASTICSEARCH_PORT", "9200"))
+    use_ssl: bool = bool(os.getenv("ELASTICSEARCH_USE_SSL", "False"))
     verify_certs: bool = False
     ca_certs: Optional[str] = None
     client_cert: Optional[str] = None
     client_key: Optional[str] = None
-    username: Optional[str] = None
-    password: Optional[str] = None
-    cluster_name: Optional[str] = None
+    username: Optional[str] = os.getenv("ELASTICSEARCH_USERNAME", "admin")
+    password: Optional[str] = os.getenv("ELASTICSEARCH_PASSWORD", "admin")
+    index_prefix: str = os.getenv("INDEX_PREFIX", "")
 
 
 class DataHubReportingExtractGraphSourceConfig(ConfigModel):
     server: Optional[DatahubClientConfig] = None
-    search_index: Optional[ElasticSearchClientConfig] = None
+    search_index: ElasticSearchClientConfig = ElasticSearchClientConfig()
     extract_graph_store: FileStoreBackedDatasetConfig
     relationships_include: Optional[List[str]] = None
     relationships_exclude: Optional[List[str]] = None
     entity_types_include: Optional[List[str]] = None
     entity_types_exclude: Optional[List[str]] = None
+
+    @validator("extract_graph_store", pre=True, always=True)
+    def set_default_extract_soft_delete_flag(cls, v, values):
+        if v is not None:
+            if "dataset_registration_spec" not in v:
+                v["dataset_registration_spec"] = DatasetRegistrationSpec(
+                    soft_deleted=False
+                )
+            elif "soft_deleted" not in v["dataset_registration_spec"]:
+                v["dataset_registration_spec"]["soft_deleted"] = False
+        return v
 
 
 @dataclass
@@ -72,10 +87,10 @@ class ElasticGraphRow(BaseModelRow):
     destination_urn: str
     destination_entity_type: str
     relationship_type: str
-    created_on: int
-    created_by: str
-    updated_on: int
-    updated_by: str
+    created_on: Optional[float]
+    created_by: Optional[str]
+    updated_on: Optional[float]
+    updated_by: Optional[str]
 
     @classmethod
     def from_elastic_doc(cls, doc):
@@ -85,10 +100,10 @@ class ElasticGraphRow(BaseModelRow):
             destination_urn=doc["destination"]["urn"],
             destination_entity_type=doc["destination"]["entityType"],
             relationship_type=doc["relationshipType"],
-            created_on=doc["createdOn"],
-            created_by=doc["createdActor"],
-            updated_on=doc["updatedOn"],
-            updated_by=doc["updatedActor"],
+            created_on=doc.get("createdOn"),
+            created_by=doc.get("createdActor"),
+            updated_on=doc.get("updatedOn"),
+            updated_by=doc.get("updatedActor"),
         )
 
 
@@ -120,62 +135,109 @@ class DataHubReportingExtractGraphSource(Source):
             self.report.increment_edges_scanned()
             self.datahub_based_s3_dataset.append(row)
 
+    def should_skip_graph_extract(
+        self, dataset_properties: Optional[DatasetPropertiesClass]
+    ) -> bool:
+        """Skip graph extraction if the dataset has already been pushed to DataHub today"""
+
+        skip_extract = False
+        # If present check if the updated timestamp is for the current day
+        if dataset_properties and dataset_properties.lastModified:
+            # datetime function requires timestamp in seconds
+            ts = datetime.fromtimestamp(dataset_properties.lastModified.time / 1000)
+            skip_extract = ts.day is datetime.today().day
+
+        if skip_extract:
+            logger.info(
+                f"Skipping graph extract as dataset has been updated today {ts}"
+            )
+        return skip_extract
+
     def get_workunits(self):
 
-        endpoint = ""
-        if self.config.search_index:
-            if self.config.search_index.host and not self.config.search_index.port:
-                endpoint = f"{self.config.search_index.host}"
-            elif self.config.search_index.host and self.config.search_index.port:
-                endpoint = (
-                    f"{self.config.search_index.host}:{self.config.search_index.port}"
-                )
-
-        deployment = (
-            self.config.search_index.cluster_name if self.config.search_index else ""
+        self.graph = (
+            self.ctx.require_graph("Loading default graph coordinates.")
+            if self.config.server is None
+            else DataHubGraph(config=self.config.server)
         )
-        user = ""
-        password = ""
-        server = OpenSearch([endpoint], http_auth=(user, password))
-        # [
-        #     "https://vpc-use1-saas-prod-etsy-es-01-2oxpbdaulqke65nu24urq3lgoy.us-east-1.es.amazonaws.com"
-        # ],
-        # http_auth=("<user>", "<password>"),
 
-        query = {"query": {"match_all": {}}, "sort": [{"createdOn": {"order": "asc"}}]}
+        dataset_properties: Optional[DatasetPropertiesClass] = self.graph.get_aspect(
+            self.datahub_based_s3_dataset.get_dataset_urn(), DatasetPropertiesClass
+        )
 
-        index_prefix = f"{deployment}_" if deployment else ""
-
-        index = f"{index_prefix}graph_service_v1"
-        response = server.create_pit(index, keep_alive="10m")
-
-        # TODO: Save PIT, we can resume processing based on <pit, search_after> tuple
-        pit = response.get("pit_id")
-        query.update({"pit": {"id": pit, "keep_alive": "10m"}})
-
-        # TODO: Using slicing we can parallelize the ES calls below:
-        # https://opensearch.org/docs/latest/search-plugins/searching-data/point-in-time/#search-slicing
-        while True:
-            results = server.search(body=query, size=10000)  # batch of data
-            self.process_batch(results["hits"]["hits"])
-            if len(results["hits"]["hits"]) < 10000:
-                break
-            query.update({"search_after": results["hits"]["hits"][-1]["sort"]})
-
-        response = server.delete_pit(body={"pit_id": pit})
-
-        self.datahub_based_s3_dataset.commit()
-
-        # If form analytics config is not present, use the default reporting dataset name
-        # dataset_urn = make_dataset_urn("acryl", self.config)
-
-        for mcp in self.datahub_based_s3_dataset.commit():
-            self.report.file_store_uri = self.datahub_based_s3_dataset.get_file_uri()
-            logger.info(f"Reporting file created at {self.report.file_store_uri}")
-            logger.info(
-                f"Reporting dataset registered at {self.datahub_based_s3_dataset.get_dataset_urn()}"
+        if (
+            self.should_skip_graph_extract(dataset_properties)
+            and self.datahub_based_s3_dataset.config.generate_presigned_url
+        ):
+            mcps = self.datahub_based_s3_dataset.update_presigned_url(
+                dataset_properties=dataset_properties
             )
-            yield mcp.as_workunit()
+            for mcp in mcps:
+                yield mcp.as_workunit()
+        else:
+            endpoint = ""
+            if self.config.search_index:
+                if self.config.search_index.host and not self.config.search_index.port:
+                    endpoint = f"{self.config.search_index.host}"
+                elif self.config.search_index.host and self.config.search_index.port:
+                    endpoint = f"{self.config.search_index.host}:{self.config.search_index.port}"
+
+            index_prefix = (
+                self.config.search_index.index_prefix
+                if self.config.search_index
+                else ""
+            )
+            user = self.config.search_index.username
+            password = self.config.search_index.password
+            server = OpenSearch(
+                [endpoint],
+                http_auth=(user, password),
+                use_ssl=(
+                    True
+                    if self.config.search_index and self.config.search_index.use_ssl
+                    else False
+                ),
+            )
+
+            query = {
+                "query": {"match_all": {}},
+                "sort": [
+                    {"source.urn": {"order": "desc"}},
+                    {"destination.urn": {"order": "desc"}},
+                    {"relationshipType": {"order": "desc"}},
+                    {"lifecycleOwner": {"order": "desc"}},
+                ],
+            }
+
+            index = f"{index_prefix}_graph_service_v1"
+            response = server.create_pit(index, keep_alive="10m")
+
+            # TODO: Save PIT, we can resume processing based on <pit, search_after> tuple
+            pit = response.get("pit_id")
+            query.update({"pit": {"id": pit, "keep_alive": "10m"}})
+
+            # TODO: Using slicing we can parallelize the ES calls below:
+            # https://opensearch.org/docs/latest/search-plugins/searching-data/point-in-time/#search-slicing
+            while True:
+                results = server.search(body=query, size=10000)  # batch of data
+                self.process_batch(results["hits"]["hits"])
+                if len(results["hits"]["hits"]) < 10000:
+                    break
+                query.update({"search_after": results["hits"]["hits"][-1]["sort"]})
+
+            response = server.delete_pit(body={"pit_id": pit})
+
+            self.datahub_based_s3_dataset.commit()
+
+            for mcp in self.datahub_based_s3_dataset.commit():
+                self.report.file_store_uri = (
+                    self.datahub_based_s3_dataset.get_file_uri()
+                )
+                logger.info(f"Reporting file created at {self.report.file_store_uri}")
+                logger.info(
+                    f"Reporting dataset registered at {self.datahub_based_s3_dataset.get_dataset_urn()}"
+                )
+                yield mcp.as_workunit()
 
     def get_report(self) -> SourceReport:
         return self.report
