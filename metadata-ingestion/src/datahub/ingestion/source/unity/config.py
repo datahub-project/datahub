@@ -61,7 +61,9 @@ class UnityCatalogProfilerConfig(ConfigModel):
 
 
 class DeltaLakeDetails(ConfigModel):
-    platform_instance_name: Optional[str] = Field(default=None, description="Delta-lake paltform instance name")
+    platform_instance_name: Optional[str] = Field(
+        default=None, description="Delta-lake paltform instance name"
+    )
     env: str = Field(default="PROD", description="Delta-lake environment")
 
 
