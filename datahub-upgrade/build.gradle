@@ -76,9 +76,7 @@ dependencies {
   runtimeOnly externalDependency.mysqlConnector
   runtimeOnly externalDependency.postgresql
 
-  implementation(externalDependency.awsMskIamAuth) {
-    exclude group: 'software.amazon.awssdk', module: 'third-party-jackson-core'
-  }
+  implementation externalDependency.awsMskIamAuth
 
   annotationProcessor externalDependency.lombok
   annotationProcessor externalDependency.picocli
