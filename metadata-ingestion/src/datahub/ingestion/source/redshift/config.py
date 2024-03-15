@@ -9,6 +9,9 @@ from datahub.configuration import ConfigModel
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import DatasetLineageProviderConfigBase
 from datahub.configuration.validate_field_removal import pydantic_removed_field
+from datahub.ingestion.glossary.classification_mixin import (
+    ClassificationSourceConfigMixin,
+)
 from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
 from datahub.ingestion.source.sql.sql_config import BasicSQLAlchemyConfig
 from datahub.ingestion.source.state.stateful_ingestion_base import (
@@ -70,6 +73,7 @@ class RedshiftConfig(
     RedshiftUsageConfig,
     StatefulLineageConfigMixin,
     StatefulProfilingConfigMixin,
+    ClassificationSourceConfigMixin,
 ):
     database: str = Field(default="dev", description="database")
 
@@ -92,6 +96,11 @@ class RedshiftConfig(
     default_schema: str = Field(
         default="public",
         description="The default schema to use if the sql parser fails to parse the schema with `sql_based` lineage collector",
+    )
+
+    is_serverless: bool = Field(
+        default=False,
+        description="Whether target Redshift instance is serverless (alternative is provisioned cluster)",
     )
 
     use_lineage_v2: bool = Field(
@@ -144,6 +153,11 @@ class RedshiftConfig(
     incremental_lineage: bool = Field(
         default=False,
         description="When enabled, emits lineage as incremental to existing lineage already in DataHub. When disabled, re-states lineage on each run.  This config works with rest-sink only.",
+    )
+
+    patch_custom_properties: bool = Field(
+        default=True,
+        description="Whether to patch custom properties on existing datasets rather than replace.",
     )
 
     resolve_temp_table_in_lineage: bool = Field(
