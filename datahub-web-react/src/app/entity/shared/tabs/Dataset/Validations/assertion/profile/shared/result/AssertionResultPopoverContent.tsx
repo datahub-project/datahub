@@ -125,7 +125,7 @@ export const AssertionResultPopoverContent = ({
                 <LastResultsRow>
                     {(timestamp && (
                         <>
-                            <StyledClockCircleOutlined /> {toReadableLocalDateTimeString(run?.timestampMillis)}{' '}
+                            <StyledClockCircleOutlined /> Ran {toReadableLocalDateTimeString(run?.timestampMillis)}{' '}
                         </>
                     )) || <>No results yet</>}
                 </LastResultsRow>
