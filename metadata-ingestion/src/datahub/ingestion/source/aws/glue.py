@@ -1173,7 +1173,7 @@ class GlueSource(StatefulIngestionSourceBase):
                     )
                 schema_fields = get_schema_fields_for_hive_column(
                     hive_column_name=partition_key["Name"],
-                    hive_column_type=partition_key.get("Type"),
+                    hive_column_type=partition_key.get("Type", "unknown"),
                     default_nullable=False,
                 )
                 assert schema_fields
