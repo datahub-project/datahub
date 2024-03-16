@@ -50,7 +50,7 @@ import org.springframework.web.bind.annotation.RestController;
     name = "Generic Relationships",
     description = "APIs for ingesting and accessing entity relationships.")
 public class RelationshipController {
-  private static final String[] SORT_ORDERS = {"ASCENDING", "ASCENDING", "ASCENDING"};
+  private static final String[] SORT_ORDERS = {"ASCENDING", "ASCENDING", "ASCENDING", "ASCENDING"};
   private static final List<SortCriterion> EDGE_SORT_CRITERION;
 
   static {
