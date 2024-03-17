@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useContext, useMemo } from 'react';
 import styled from 'styled-components/macro';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { Button, Modal } from 'antd';
@@ -6,9 +6,9 @@ import { Button, Modal } from 'antd';
 import { useBaseEntity } from '../../../../EntityContext';
 import { SidebarSection } from '../SidebarSection';
 import { QueryEntity } from '../../../../../../../types.generated';
+import EntitySidebarContext from '../../../../../../shared/EntitySidebarContext';
 
 const PreviewSyntax = styled(SyntaxHighlighter)`
-    margin-top: -10px !important;
     max-width: 300px !important;
     max-height: 150px !important;
     overflow: hidden !important;
@@ -19,9 +19,39 @@ const ModalSyntaxContainer = styled.div`
     margin: 20px;
 `;
 
+// Function to find the line number of a target substring in a given string
+// This is a temporary implementation and will be removed once line number is included in operation(extra)
+const findLineNumberToHighlight = (inputString: string, targetSubstring: string): number => {
+    if (!targetSubstring) {
+        return -1;
+    }
+
+    const lines: string[] = inputString.split('\n');
+
+    for (let lineNumber = 0; lineNumber < lines.length; lineNumber++) {
+        if (lines[lineNumber].includes(targetSubstring)) {
+            // Adding 1 because line numbers are 1-based, not 0-based
+            return lineNumber + 1;
+        }
+    }
+
+    // Return -1 if the target substring is not found in any line
+    return -1;
+};
+
 export default function SidebarQueryLogicSection() {
     const baseEntity = useBaseEntity<{ entity: QueryEntity }>();
     const [showFullContentModal, setShowFullContentModal] = React.useState(false);
+
+    const { extra } = useContext(EntitySidebarContext);
+    const stringToHighlight = extra?.transformOperation;
+
+    const lineNumberToHighlight = useMemo(() => {
+        return findLineNumberToHighlight(
+            baseEntity?.entity?.properties?.statement?.value || '',
+            stringToHighlight || '',
+        );
+    }, [baseEntity?.entity?.properties?.statement?.value, stringToHighlight]);
 
     return (
         <SidebarSection
@@ -40,7 +70,19 @@ export default function SidebarQueryLogicSection() {
                         onCancel={() => setShowFullContentModal(false)}
                     >
                         <ModalSyntaxContainer>
-                            <SyntaxHighlighter language="sql" wrapLongLines>
+                            <SyntaxHighlighter
+                                language="sql"
+                                wrapLongLines
+                                showLineNumbers
+                                lineProps={(lineNumber: number): React.HTMLProps<HTMLElement> => {
+                                    const style: React.CSSProperties = { display: 'block', width: 'fit-content' };
+                                    if (lineNumberToHighlight === lineNumber) {
+                                        style.backgroundColor = 'rgba(134, 169, 244, 0.41)';
+                                        style.fontWeight = 'bold';
+                                    }
+                                    return { style };
+                                }}
+                            >
                                 {baseEntity?.entity?.properties?.statement?.value || ''}
                             </SyntaxHighlighter>
                         </ModalSyntaxContainer>
