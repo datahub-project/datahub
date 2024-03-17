@@ -87,6 +87,9 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 from datahub.utilities.urns.urn import Urn
+from src.datahub.ingestion.transformer.pattern_cleanup_ownership import (
+    PatternCleanUpOwnership,
+)
 
 
 def make_generic_dataset(
@@ -2841,3 +2844,188 @@ def test_add_dataset_data_product_transformation():
     assert [item["value"]["destinationUrn"] for item in first_data_product_aspect] == [
         builder.make_dataset_urn("bigquery", "example1")
     ]
+
+
+def _test_clean_owner_urns(
+    in_pipeline_context: Any,
+    in_owners: List[str],
+    config: List[Union[re.Pattern, str]],
+    cleaned_owner_urn: List[str],
+) -> None:
+    # Return fake aspect to simulate server behaviour
+    def fake_ownership_class(entity_urn: str) -> models.OwnershipClass:
+        return models.OwnershipClass(
+            owners=[
+                models.OwnerClass(owner=owner, type=models.OwnershipTypeClass.DATAOWNER)
+                for owner in in_owners
+            ]
+        )
+
+    in_pipeline_context.graph.get_ownership = fake_ownership_class  # type: ignore
+
+    output = run_dataset_transformer_pipeline(
+        transformer_type=PatternCleanUpOwnership,
+        aspect=models.OwnershipClass(
+            owners=[
+                models.OwnerClass(owner=owner, type=models.OwnershipTypeClass.DATAOWNER)
+                for owner in in_owners
+            ]
+        ),
+        config={"pattern_for_cleanup": config},
+        pipeline_context=in_pipeline_context,
+    )
+
+    assert len(output) == 2
+    ownership_aspect = output[0].record.aspect
+    assert isinstance(ownership_aspect, OwnershipClass)
+    assert len(ownership_aspect.owners) == len(in_owners)
+
+    out_owners = [owner.owner for owner in ownership_aspect.owners]
+    assert set(out_owners) == set(cleaned_owner_urn)
+
+
+def test_clean_owner_urn_transformation(mock_datahub_graph):
+    pipeline_context = PipelineContext(run_id="transformer_pipe_line")
+    pipeline_context.graph = mock_datahub_graph(DatahubClientConfig())
+
+    user_emails = [
+        "ABCDEF:email_id@example.com",
+        "ABCDEF:123email_id@example.com",
+        "email_id@example.co.in",
+        "email_id@example.co.uk",
+        "email_test:XYZ@example.com",
+        "email_id:id1@example.com",
+        "email_id:id2@example.com",
+    ]
+
+    in_owner_urns: List[str] = []
+    for user in user_emails:
+        in_owner_urns.append(
+            builder.make_owner_urn(user, owner_type=builder.OwnerType.USER)
+        )
+
+    # remove ':ABCDEF'
+    config: List[Union[re.Pattern, str]] = [":ABCDEF"]
+    expected_user_emails: List[str] = [
+        "email_id@example.com",
+        "123email_id@example.com",
+        "email_id@example.co.in",
+        "email_id@example.co.uk",
+        "email_test:XYZ@example.com",
+        "email_id:id1@example.com",
+        "email_id:id2@example.com",
+    ]
+    expected_owner_urns: List[str] = []
+    for user in expected_user_emails:
+        expected_owner_urns.append(
+            builder.make_owner_urn(user, owner_type=builder.OwnerType.USER)
+        )
+    _test_clean_owner_urns(pipeline_context, in_owner_urns, config, expected_owner_urns)
+
+    # remove multiple values
+    config = [":ABCDEF", "email"]
+    expected_user_emails = [
+        "_id@example.com",
+        "123_id@example.com",
+        "_id@example.co.in",
+        "_id@example.co.uk",
+        "_test:XYZ@example.com",
+        "_id:id1@example.com",
+        "_id:id2@example.com",
+    ]
+    expected_owner_urns = []
+    for user in expected_user_emails:
+        expected_owner_urns.append(
+            builder.make_owner_urn(user, owner_type=builder.OwnerType.USER)
+        )
+    _test_clean_owner_urns(pipeline_context, in_owner_urns, config, expected_owner_urns)
+
+    # remove values using RegEx
+    config = [r"(?<=_)(\w+)"]
+    expected_user_emails = [
+        "ABCDEF:email_@example.com",
+        "ABCDEF:123email_@example.com",
+        "email_@example.co.in",
+        "email_@example.co.uk",
+        "email_:XYZ@example.com",
+        "email_:id1@example.com",
+        "email_:id2@example.com",
+    ]
+    expected_owner_urns = []
+    for user in expected_user_emails:
+        expected_owner_urns.append(
+            builder.make_owner_urn(user, owner_type=builder.OwnerType.USER)
+        )
+    _test_clean_owner_urns(pipeline_context, in_owner_urns, config, expected_owner_urns)
+
+    # remove number from URN
+    config = [r"\d+"]
+    expected_user_emails = [
+        "ABCDEF:email_id@example.com",
+        "ABCDEF:email_id@example.com",
+        "email_id@example.co.in",
+        "email_id@example.co.uk",
+        "email_test:XYZ@example.com",
+        "email_id:id@example.com",
+        "email_id:id@example.com",
+    ]
+    expected_owner_urns = []
+    for user in expected_user_emails:
+        expected_owner_urns.append(
+            builder.make_owner_urn(user, owner_type=builder.OwnerType.USER)
+        )
+    _test_clean_owner_urns(pipeline_context, in_owner_urns, config, expected_owner_urns)
+
+    # remove 'example.*
+    config = [r"@example\.\S*"]
+    expected_user_emails = [
+        "ABCDEF:email_id",
+        "ABCDEF:123email_id",
+        "email_id",
+        "email_id",
+        "email_test:XYZ",
+        "email_id:id1",
+        "email_id:id2",
+    ]
+    expected_owner_urns = []
+    for user in expected_user_emails:
+        expected_owner_urns.append(
+            builder.make_owner_urn(user, owner_type=builder.OwnerType.USER)
+        )
+    _test_clean_owner_urns(pipeline_context, in_owner_urns, config, expected_owner_urns)
+
+    # remove XYZ
+    config = ["(?<=:)[A-Z]+(?=@)"]
+    expected_user_emails = [
+        "ABCDEF:email_id@example.com",
+        "ABCDEF:123email_id@example.com",
+        "email_id@example.co.in",
+        "email_id@example.co.uk",
+        "email_test:@example.com",
+        "email_id:id1@example.com",
+        "email_id:id2@example.com",
+    ]
+    expected_owner_urns = []
+    for user in expected_user_emails:
+        expected_owner_urns.append(
+            builder.make_owner_urn(user, owner_type=builder.OwnerType.USER)
+        )
+    _test_clean_owner_urns(pipeline_context, in_owner_urns, config, expected_owner_urns)
+
+    # remove 'id(number)'
+    config = [r"id\d+"]
+    expected_user_emails = [
+        "ABCDEF:email_id@example.com",
+        "ABCDEF:123email_id@example.com",
+        "email_id@example.co.in",
+        "email_id@example.co.uk",
+        "email_test:XYZ@example.com",
+        "email_id:@example.com",
+        "email_id:@example.com",
+    ]
+    expected_owner_urns = []
+    for user in expected_user_emails:
+        expected_owner_urns.append(
+            builder.make_owner_urn(user, owner_type=builder.OwnerType.USER)
+        )
+    _test_clean_owner_urns(pipeline_context, in_owner_urns, config, expected_owner_urns)
