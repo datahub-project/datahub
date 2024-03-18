@@ -10,7 +10,6 @@ import { REDESIGN_COLORS } from '../../../../../constants';
 import { extractChartValuesFromFieldProfiles } from '../../../Stats/historical/HistoricalStats';
 import SampleValueTag from '../../../Stats/snapshot/SampleValueTag';
 import { decimalToPercentStr } from '../../utils/statsUtil';
-import StatsSummaryRow from './StatsSummaryRow';
 import { SectionHeader, StyledDivider } from './components';
 
 const maxLabelWidth = 150;
@@ -96,10 +95,6 @@ interface Props {
 
 export function StatsSidebarContent({ properties }: Props) {
     const { expandedField, fieldProfile, profiles } = properties;
-
-    const historicFieldProfiles = profiles.filter((profile) =>
-        profile.fieldProfiles?.some((fieldProf) => fieldProf.fieldPath === expandedField.fieldPath),
-    );
 
     const getFieldStatTrendComponent = (statName: string) => {
         const statValues = extractChartValuesFromFieldProfiles(profiles, expandedField.fieldPath, statName);
@@ -189,11 +184,6 @@ export function StatsSidebarContent({ properties }: Props) {
             <Header>
                 <SectionHeader>Stats</SectionHeader>
             </Header>
-            <StatsSummaryRow
-                expandedField={expandedField}
-                fieldProfile={fieldProfile}
-                profiles={historicFieldProfiles}
-            />
             <StyledDivider dashed />
 
             {fieldProfile && (
