@@ -13,8 +13,8 @@ import {
 } from '../../../../../../graphql/dataset.generated';
 import { useGetEntityWithSchema } from '../Schema/useGetEntitySchema';
 import closeIcon from '../../../../../../images/close_dark.svg';
-import { CreateERModelRelationModal } from '../../../components/styled/ERModelRelation/CreateERModelRelationModal';
-import { ERModelRelationPreview } from '../../../components/styled/ERModelRelation/ERModelRelationPreview';
+import { CreateERModelRelationModal } from '../../../components/styled/ERModelRelationship/CreateERModelRelationModal';
+import { ERModelRelationPreview } from '../../../components/styled/ERModelRelationship/ERModelRelationPreview';
 import { SearchSelectModal } from '../../../components/styled/search/SearchSelectModal';
 import { ANTD_GRAY } from '../../../constants';
 

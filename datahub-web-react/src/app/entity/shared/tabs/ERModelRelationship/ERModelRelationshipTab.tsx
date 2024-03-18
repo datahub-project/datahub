@@ -1,7 +1,7 @@
 import React from 'react';
 import { Divider } from 'antd';
-import './ERModelRelationTab.less';
-import { ERModelRelationPreview } from '../../components/styled/ERModelRelation/ERModelRelationPreview';
+import './ERModelRelationshipTab.less';
+import { ERModelRelationPreview } from '../../components/styled/ERModelRelationship/ERModelRelationPreview';
 import { useEntityData, useRefetch } from '../../EntityContext';
 
 export const ERModelRelationshipTab = () => {
