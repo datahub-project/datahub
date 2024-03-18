@@ -146,6 +146,9 @@ class DataHubGraph(DatahubRestEmitter):
         This url can be used to construct links to the frontend. The url will not include a trailing slash.
         """
 
+        if not self.server_config:
+            self.test_connection()
+
         base_url = self.server_config.get("baseUrl")
         if not base_url:
             raise ValueError("baseUrl not found in server config")
