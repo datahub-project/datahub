@@ -766,7 +766,7 @@ def make_fine_grained_lineage_class(
     dataset_urn: str,
     out_columns: List[Dict[Any, Any]],
 ) -> List[FineGrainedLineage]:
-    # 1) fine grane linage links seems like case sensitive
+    # 1) fine grained lineage links are case sensitive
     # 2) parsed out columns are always lower cased
     # 3) corresponding Custom SQL output columns can be in any case lower/upper/mix
     #

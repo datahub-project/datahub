@@ -1408,17 +1408,17 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
 
                 project = self._get_project_browse_path_name(datasource)
 
-                # if condition is needed as graphQL return "cloumns": None
+                # if condition is needed as graphQL return "columns": None
                 columns: List[Dict[Any, Any]] = (
                     cast(List[Dict[Any, Any]], csql.get(c.COLUMNS))
                     if c.COLUMNS in csql and csql.get(c.COLUMNS) is not None
                     else []
                 )
 
-                # Tableau SQL parser much worse than sqlglot based parser,
-                # so sometimes relying on metadata parsed by Tableau from SQL
-                # queries is not a good idea, the option allows to re-parse Custom SQL queries
-                # (supported and unsupported by Tableau)
+                # The Tableau SQL parser much worse than our sqlglot based parser,
+                # so relying on metadata parsed by Tableau from SQL queries can be
+                # less accurate. This option allows us to ignore Tableau's parser and
+                # only use our own.
                 if self.config.force_extraction_of_lineage_from_custom_sql_queries:
                     logger.debug("Extracting TLL & CLL from custom sql (forced)")
                     yield from self._create_lineage_from_unsupported_csql(
