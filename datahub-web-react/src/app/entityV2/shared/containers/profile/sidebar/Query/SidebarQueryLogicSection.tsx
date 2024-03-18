@@ -8,11 +8,18 @@ import { SidebarSection } from '../SidebarSection';
 import { QueryEntity } from '../../../../../../../types.generated';
 import EntitySidebarContext from '../../../../../../shared/EntitySidebarContext';
 
+/**
+ * NOTE: To ensure consistent font-family for pre and code tags within as the parent wrapper was overriding it,
+ * we explicitly apply 'Roboto Mono', monospace as the font-family for code children using span.
+ */
 const PreviewSyntax = styled(SyntaxHighlighter)`
     max-width: 300px !important;
     max-height: 150px !important;
     overflow: hidden !important;
     mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 1) 80%, rgba(255, 0, 0, 0.5) 85%, rgba(255, 0, 0, 0) 90%);
+    span {
+        font-family: 'Roboto Mono', monospace !important;
+    }
 `;
 
 const ModalSyntaxContainer = styled.div`

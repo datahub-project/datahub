@@ -23,9 +23,16 @@ const InfoItemContent = styled.div`
     padding-top: 8px;
 `;
 
+/**
+ * NOTE: To ensure consistent font-family for pre and code tags within as the parent wrapper was overriding it,
+ * we explicitly apply 'Roboto Mono', monospace as the font-family for code children using span.
+ */
 const QueryText = styled(Typography.Paragraph)`
     margin-top: 20px;
     background-color: ${ANTD_GRAY[2]};
+    span {
+        font-family: 'Roboto Mono', monospace !important;
+    }
 `;
 
 // NOTE: Yes, using `!important` is a shame. However, the SyntaxHighlighter is applying styles directly
