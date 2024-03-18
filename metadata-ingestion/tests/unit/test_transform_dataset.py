@@ -2884,7 +2884,7 @@ def _test_clean_owner_urns(
     assert set(out_owners) == set(cleaned_owner_urn)
 
 
-def test_clean_owner_urn_transformation(mock_datahub_graph):
+def test_clean_owner_urn_transformation_remove_fixed_string(mock_datahub_graph):
     pipeline_context = PipelineContext(run_id="transformer_pipe_line")
     pipeline_context.graph = mock_datahub_graph(DatahubClientConfig())
 
@@ -2922,9 +2922,30 @@ def test_clean_owner_urn_transformation(mock_datahub_graph):
         )
     _test_clean_owner_urns(pipeline_context, in_owner_urns, config, expected_owner_urns)
 
+
+def test_clean_owner_urn_transformation_remove_multiple_values(mock_datahub_graph):
+    pipeline_context = PipelineContext(run_id="transformer_pipe_line")
+    pipeline_context.graph = mock_datahub_graph(DatahubClientConfig())
+
+    user_emails = [
+        "ABCDEF:email_id@example.com",
+        "ABCDEF:123email_id@example.com",
+        "email_id@example.co.in",
+        "email_id@example.co.uk",
+        "email_test:XYZ@example.com",
+        "email_id:id1@example.com",
+        "email_id:id2@example.com",
+    ]
+
+    in_owner_urns: List[str] = []
+    for user in user_emails:
+        in_owner_urns.append(
+            builder.make_owner_urn(user, owner_type=builder.OwnerType.USER)
+        )
+
     # remove multiple values
-    config = [":ABCDEF", "email"]
-    expected_user_emails = [
+    config: List[Union[re.Pattern, str]] = [":ABCDEF", "email"]
+    expected_user_emails: List[str] = [
         "_id@example.com",
         "123_id@example.com",
         "_id@example.co.in",
@@ -2933,16 +2954,37 @@ def test_clean_owner_urn_transformation(mock_datahub_graph):
         "_id:id1@example.com",
         "_id:id2@example.com",
     ]
-    expected_owner_urns = []
+    expected_owner_urns: List[str] = []
     for user in expected_user_emails:
         expected_owner_urns.append(
             builder.make_owner_urn(user, owner_type=builder.OwnerType.USER)
         )
     _test_clean_owner_urns(pipeline_context, in_owner_urns, config, expected_owner_urns)
 
-    # remove values using RegEx
-    config = [r"(?<=_)(\w+)"]
-    expected_user_emails = [
+
+def test_clean_owner_urn_transformation_remove_values_using_regex(mock_datahub_graph):
+    pipeline_context = PipelineContext(run_id="transformer_pipe_line")
+    pipeline_context.graph = mock_datahub_graph(DatahubClientConfig())
+
+    user_emails = [
+        "ABCDEF:email_id@example.com",
+        "ABCDEF:123email_id@example.com",
+        "email_id@example.co.in",
+        "email_id@example.co.uk",
+        "email_test:XYZ@example.com",
+        "email_id:id1@example.com",
+        "email_id:id2@example.com",
+    ]
+
+    in_owner_urns: List[str] = []
+    for user in user_emails:
+        in_owner_urns.append(
+            builder.make_owner_urn(user, owner_type=builder.OwnerType.USER)
+        )
+
+    # remove words after `_` using RegEx i.e. `id`, `test`
+    config: List[Union[re.Pattern, str]] = [r"(?<=_)(\w+)"]
+    expected_user_emails: List[str] = [
         "ABCDEF:email_@example.com",
         "ABCDEF:123email_@example.com",
         "email_@example.co.in",
@@ -2951,16 +2993,37 @@ def test_clean_owner_urn_transformation(mock_datahub_graph):
         "email_:id1@example.com",
         "email_:id2@example.com",
     ]
-    expected_owner_urns = []
+    expected_owner_urns: List[str] = []
     for user in expected_user_emails:
         expected_owner_urns.append(
             builder.make_owner_urn(user, owner_type=builder.OwnerType.USER)
         )
     _test_clean_owner_urns(pipeline_context, in_owner_urns, config, expected_owner_urns)
 
-    # remove number from URN
-    config = [r"\d+"]
-    expected_user_emails = [
+
+def test_clean_owner_urn_transformation_remove_digits(mock_datahub_graph):
+    pipeline_context = PipelineContext(run_id="transformer_pipe_line")
+    pipeline_context.graph = mock_datahub_graph(DatahubClientConfig())
+
+    user_emails = [
+        "ABCDEF:email_id@example.com",
+        "ABCDEF:123email_id@example.com",
+        "email_id@example.co.in",
+        "email_id@example.co.uk",
+        "email_test:XYZ@example.com",
+        "email_id:id1@example.com",
+        "email_id:id2@example.com",
+    ]
+
+    in_owner_urns: List[str] = []
+    for user in user_emails:
+        in_owner_urns.append(
+            builder.make_owner_urn(user, owner_type=builder.OwnerType.USER)
+        )
+
+    # remove digits
+    config: List[Union[re.Pattern, str]] = [r"\d+"]
+    expected_user_emails: List[str] = [
         "ABCDEF:email_id@example.com",
         "ABCDEF:email_id@example.com",
         "email_id@example.co.in",
@@ -2969,16 +3032,37 @@ def test_clean_owner_urn_transformation(mock_datahub_graph):
         "email_id:id@example.com",
         "email_id:id@example.com",
     ]
-    expected_owner_urns = []
+    expected_owner_urns: List[str] = []
     for user in expected_user_emails:
         expected_owner_urns.append(
             builder.make_owner_urn(user, owner_type=builder.OwnerType.USER)
         )
     _test_clean_owner_urns(pipeline_context, in_owner_urns, config, expected_owner_urns)
 
-    # remove 'example.*
-    config = [r"@example\.\S*"]
-    expected_user_emails = [
+
+def test_clean_owner_urn_transformation_remove_pattern(mock_datahub_graph):
+    pipeline_context = PipelineContext(run_id="transformer_pipe_line")
+    pipeline_context.graph = mock_datahub_graph(DatahubClientConfig())
+
+    user_emails = [
+        "ABCDEF:email_id@example.com",
+        "ABCDEF:123email_id@example.com",
+        "email_id@example.co.in",
+        "email_id@example.co.uk",
+        "email_test:XYZ@example.com",
+        "email_id:id1@example.com",
+        "email_id:id2@example.com",
+    ]
+
+    in_owner_urns: List[str] = []
+    for user in user_emails:
+        in_owner_urns.append(
+            builder.make_owner_urn(user, owner_type=builder.OwnerType.USER)
+        )
+
+    # remove `example.*`
+    config: List[Union[re.Pattern, str]] = [r"@example\.\S*"]
+    expected_user_emails: List[str] = [
         "ABCDEF:email_id",
         "ABCDEF:123email_id",
         "email_id",
@@ -2987,16 +3071,37 @@ def test_clean_owner_urn_transformation(mock_datahub_graph):
         "email_id:id1",
         "email_id:id2",
     ]
-    expected_owner_urns = []
+    expected_owner_urns: List[str] = []
     for user in expected_user_emails:
         expected_owner_urns.append(
             builder.make_owner_urn(user, owner_type=builder.OwnerType.USER)
         )
     _test_clean_owner_urns(pipeline_context, in_owner_urns, config, expected_owner_urns)
 
-    # remove XYZ
-    config = ["(?<=:)[A-Z]+(?=@)"]
-    expected_user_emails = [
+
+def test_clean_owner_urn_transformation_remove_capital_letters(mock_datahub_graph):
+    pipeline_context = PipelineContext(run_id="transformer_pipe_line")
+    pipeline_context.graph = mock_datahub_graph(DatahubClientConfig())
+
+    user_emails = [
+        "ABCDEF:email_id@example.com",
+        "ABCDEF:123email_id@example.com",
+        "email_id@example.co.in",
+        "email_id@example.co.uk",
+        "email_test:XYZ@example.com",
+        "email_id:id1@example.com",
+        "email_id:id2@example.com",
+    ]
+
+    in_owner_urns: List[str] = []
+    for user in user_emails:
+        in_owner_urns.append(
+            builder.make_owner_urn(user, owner_type=builder.OwnerType.USER)
+        )
+
+    # remove any CAPITAL chars between `:` and `@`
+    config: List[Union[re.Pattern, str]] = ["(?<=:)[A-Z]+(?=@)"]
+    expected_user_emails: List[str] = [
         "ABCDEF:email_id@example.com",
         "ABCDEF:123email_id@example.com",
         "email_id@example.co.in",
@@ -3005,16 +3110,39 @@ def test_clean_owner_urn_transformation(mock_datahub_graph):
         "email_id:id1@example.com",
         "email_id:id2@example.com",
     ]
-    expected_owner_urns = []
+    expected_owner_urns: List[str] = []
     for user in expected_user_emails:
         expected_owner_urns.append(
             builder.make_owner_urn(user, owner_type=builder.OwnerType.USER)
         )
     _test_clean_owner_urns(pipeline_context, in_owner_urns, config, expected_owner_urns)
 
-    # remove 'id(number)'
-    config = [r"id\d+"]
-    expected_user_emails = [
+
+def test_clean_owner_urn_transformation_remove_pattern_with_alphanumeric_value(
+    mock_datahub_graph,
+):
+    pipeline_context = PipelineContext(run_id="transformer_pipe_line")
+    pipeline_context.graph = mock_datahub_graph(DatahubClientConfig())
+
+    user_emails = [
+        "ABCDEF:email_id@example.com",
+        "ABCDEF:123email_id@example.com",
+        "email_id@example.co.in",
+        "email_id@example.co.uk",
+        "email_test:XYZ@example.com",
+        "email_id:id1@example.com",
+        "email_id:id2@example.com",
+    ]
+
+    in_owner_urns: List[str] = []
+    for user in user_emails:
+        in_owner_urns.append(
+            builder.make_owner_urn(user, owner_type=builder.OwnerType.USER)
+        )
+
+    # remove any pattern having `id` followed by any digits
+    config: List[Union[re.Pattern, str]] = [r"id\d+"]
+    expected_user_emails: List[str] = [
         "ABCDEF:email_id@example.com",
         "ABCDEF:123email_id@example.com",
         "email_id@example.co.in",
@@ -3023,7 +3151,7 @@ def test_clean_owner_urn_transformation(mock_datahub_graph):
         "email_id:@example.com",
         "email_id:@example.com",
     ]
-    expected_owner_urns = []
+    expected_owner_urns: List[str] = []
     for user in expected_user_emails:
         expected_owner_urns.append(
             builder.make_owner_urn(user, owner_type=builder.OwnerType.USER)
