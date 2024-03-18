@@ -131,9 +131,7 @@ class DagsterGenerator:
         else:
             return DatasetUrn(platform="file", name=path)
 
-    def metadata_resolver(
-        self, metadata: Any
-    ) -> Optional[DatasetUrn]:
+    def metadata_resolver(self, metadata: Any) -> Optional[DatasetUrn]:
         """
         Resolve metadata to dataset urn
         """

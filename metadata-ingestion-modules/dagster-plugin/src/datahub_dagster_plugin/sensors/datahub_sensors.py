@@ -152,8 +152,11 @@ class DatahubSensors:
             module = code_pointer.module
 
             dagster_environment = DagsterEnvironment(
-                is_cloud=os.getenv("DAGSTER_CLOUD_IS_BRANCH_DEPLOYMENT", None) is not None,
-                is_branch_deployment=True if os.getenv("DAGSTER_CLOUD_IS_BRANCH_DEPLOYMENT", False) == 1 else True,
+                is_cloud=os.getenv("DAGSTER_CLOUD_IS_BRANCH_DEPLOYMENT", None)
+                is not None,
+                is_branch_deployment=True
+                if os.getenv("DAGSTER_CLOUD_IS_BRANCH_DEPLOYMENT", False) == 1
+                else True,
                 branch=os.getenv("DAGSTER_CLOUD_DEPLOYMENT_NAME", "prod"),
                 repository=repository,
                 module=module,
