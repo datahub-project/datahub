@@ -16,6 +16,7 @@ from datahub.api.entities.dataprocess.dataprocess_instance import (
 )
 from datahub.configuration.source_common import DEFAULT_ENV
 
+from datahub_dagster_plugin.client.dagster_generator import DagsterSourceConfig
 from datahub_dagster_plugin.sensors.datahub_sensors import (
     DatahubSensors,
     make_datahub_sensor,
