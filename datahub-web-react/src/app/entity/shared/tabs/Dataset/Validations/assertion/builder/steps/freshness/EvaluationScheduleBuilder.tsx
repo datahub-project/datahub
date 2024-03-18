@@ -93,10 +93,15 @@ export const EvaluationScheduleBuilder = ({
     const tooltipDescription = getEvaluationScheduleTooltipDescription(assertionType, platformName as string);
 
     const currentIntervalPeriodRef = useRef<PeriodType>()
+
+    const isInitialIntervalSettingRef = useRef(true)
     const updateInterval = (newInterval: string, extra: SetValueFunctionExtra) => {
         let cron = newInterval
+
         // If period has changed, reset to default
-        if (currentIntervalPeriodRef.current !== extra.selectedPeriod) {
+        if (isInitialIntervalSettingRef.current) {
+            isInitialIntervalSettingRef.current = false
+        } else if (currentIntervalPeriodRef.current !== extra.selectedPeriod) {
             currentIntervalPeriodRef.current = extra.selectedPeriod
             switch (extra.selectedPeriod) {
                 case 'month':
