@@ -12,6 +12,7 @@ import com.linkedin.datahub.graphql.generated.ERModelRelationshipUpdateInput;
 import com.linkedin.datahub.graphql.generated.RelationshipFieldMappingInput;
 import com.linkedin.datahub.graphql.types.common.mappers.util.UpdateMappingHelper;
 import com.linkedin.datahub.graphql.types.mappers.InputModelMapper;
+import com.linkedin.ermodelrelation.ERModelRelationshipCardinality;
 import com.linkedin.ermodelrelation.ERModelRelationshipProperties;
 import com.linkedin.ermodelrelation.EditableERModelRelationshipProperties;
 import com.linkedin.ermodelrelation.RelationshipFieldMappingArray;
@@ -19,7 +20,10 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nonnull;
 
 public class ERModelRelationshipUpdateInputMapper
@@ -85,7 +89,8 @@ public class ERModelRelationshipUpdateInputMapper
       if (inputProperties.getRelationshipFieldmappings().size() > 0) {
         com.linkedin.ermodelrelation.RelationshipFieldMappingArray relationshipFieldMappingsArray =
             ermodelrelationFieldMappingSettings(inputProperties.getRelationshipFieldmappings());
-
+        ermodelrelationProperties.setCardinality(
+            ermodelrelationCardinalitySettings(inputProperties.getRelationshipFieldmappings()));
         ermodelrelationProperties.setRelationshipfieldMappings(relationshipFieldMappingsArray);
       }
 
@@ -108,16 +113,46 @@ public class ERModelRelationshipUpdateInputMapper
     return ermodelrelationProperties;
   }
 
+  private com.linkedin.ermodelrelation.ERModelRelationshipCardinality
+      ermodelrelationCardinalitySettings(
+          List<RelationshipFieldMappingInput> ermodelrelationFieldMapping) {
+
+    Set<String> sourceFields = new HashSet<>();
+    Set<String> destFields = new HashSet<>();
+    AtomicInteger sourceCount = new AtomicInteger();
+    AtomicInteger destCount = new AtomicInteger();
+
+    ermodelrelationFieldMapping.forEach(
+        relationshipFieldMappingInput -> {
+          sourceFields.add(relationshipFieldMappingInput.getSourceField());
+          sourceCount.getAndIncrement();
+          destFields.add(relationshipFieldMappingInput.getDestinationField());
+          destCount.getAndIncrement();
+        });
+
+    if (sourceFields.size() == sourceCount.get()) {
+      if (destFields.size() == destCount.get()) {
+        return ERModelRelationshipCardinality.ONE_ONE;
+      } else {
+        return ERModelRelationshipCardinality.N_ONE;
+      }
+    } else {
+      if (destFields.size() == destCount.get()) {
+        return ERModelRelationshipCardinality.ONE_N;
+      } else {
+        return ERModelRelationshipCardinality.N_N;
+      }
+    }
+  }
+
   private com.linkedin.ermodelrelation.RelationshipFieldMappingArray
       ermodelrelationFieldMappingSettings(
           List<RelationshipFieldMappingInput> ermodelrelationFieldMapping) {
 
     List<com.linkedin.ermodelrelation.RelationshipFieldMapping> relationshipFieldMappingList =
         this.mapRelationshipFieldMapping(ermodelrelationFieldMapping);
-    com.linkedin.ermodelrelation.RelationshipFieldMappingArray relationshipFieldMappingArray =
-        new RelationshipFieldMappingArray(relationshipFieldMappingList);
 
-    return relationshipFieldMappingArray;
+    return new RelationshipFieldMappingArray(relationshipFieldMappingList);
   }
 
   private List<com.linkedin.ermodelrelation.RelationshipFieldMapping> mapRelationshipFieldMapping(

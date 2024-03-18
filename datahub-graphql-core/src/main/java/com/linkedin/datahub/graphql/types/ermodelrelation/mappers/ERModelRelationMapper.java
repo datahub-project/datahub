@@ -29,6 +29,7 @@ import com.linkedin.ermodelrelation.EditableERModelRelationshipProperties;
 import com.linkedin.metadata.key.ERModelRelationshipKey;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import javax.annotation.Nonnull;
 
 /**
@@ -126,17 +127,14 @@ public class ERModelRelationMapper implements ModelMapper<EntityResponse, ERMode
                         && ermodelrelationProperties.getCreated().getTime() > 0
                     ? ermodelrelationProperties.getCreated().getTime()
                     : 0)
+            .setRelationshipFieldMappings(
+                ermodelrelationProperties.hasRelationshipfieldMappings()
+                    ? this.mapERModelRelationFieldMappings(ermodelrelationProperties)
+                    : null)
             .build());
 
-    if (ermodelrelationProperties.hasRelationshipfieldMappings()) {
-      ermodelrelation
-          .getProperties()
-          .setRelationshipFieldMappings(
-              this.mapERModelRelationFieldMappings(ermodelrelationProperties));
-    }
-
     if (ermodelrelationProperties.hasCreated()
-        && ermodelrelationProperties.getCreated().hasActor()) {
+        && Objects.requireNonNull(ermodelrelationProperties.getCreated()).hasActor()) {
       ermodelrelation
           .getProperties()
           .setCreatedActor(
