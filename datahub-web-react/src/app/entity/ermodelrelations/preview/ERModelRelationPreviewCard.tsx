@@ -28,7 +28,7 @@ export const ERModelRelationPreviewCard = ({
         return (
             <div style={{ width: '100%', display: 'inline-block' }}>
                 <DefaultPreviewCard
-                    url={entityRegistry.getEntityUrl(EntityType.Ermodelrelation, urn)}
+                    url={entityRegistry.getEntityUrl(EntityType.ErModelRelationship, urn)}
                     name={name || ''}
                     urn={urn}
                     description={description || ''}
@@ -37,7 +37,7 @@ export const ERModelRelationPreviewCard = ({
                     glossaryTerms={glossaryTerms || undefined}
                     owners={owners}
                     type="ERModelRelation"
-                    typeIcon={entityRegistry.getIcon(EntityType.Ermodelrelation, 14, IconStyleType.ACCENT)}
+                    typeIcon={entityRegistry.getIcon(EntityType.ErModelRelationship, 14, IconStyleType.ACCENT)}
                     titleSizePx={18}
                 />
             </div>

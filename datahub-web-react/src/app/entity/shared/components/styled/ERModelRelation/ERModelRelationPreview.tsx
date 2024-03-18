@@ -5,7 +5,7 @@ import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import arrow from '../../../../../../images/Arrow.svg';
 import editIcon from '../../../../../../images/editIconBlack.svg';
 import './ERModelRelationPreview.less';
-import { EntityType, ErModelRelation } from '../../../../../../types.generated';
+import { EntityType, ErModelRelationship } from '../../../../../../types.generated';
 import { CreateERModelRelationModal } from './CreateERModelRelationModal';
 import { getDatasetName } from './ERModelRelationUtils';
 
@@ -14,7 +14,7 @@ type ERModelRelationRecord = {
     destinationField: string;
 };
 type Props = {
-    ermodelrelationData: ErModelRelation;
+    ermodelrelationData: ErModelRelationship;
     baseEntityUrn?: any;
     prePageType?: string;
     refetch: () => Promise<any>;
@@ -147,7 +147,7 @@ export const ERModelRelationPreview = ({ ermodelrelationData, baseEntityUrn, pre
                         <Row>
                             <p className="all-table-heading">{ermodelrelationHeader}</p>
                             {prePageType === 'Dataset' && (
-                                <Button type="link" onClick={() => handleViewEntity(EntityType.Ermodelrelation, ermodelrelationData?.urn)}>
+                                <Button type="link" onClick={() => handleViewEntity(EntityType.ErModelRelationship, ermodelrelationData?.urn)}>
                                     <div className="div-view">
                                         View ER-Model-Relation <RightOutlined />{' '}
                                     </div>

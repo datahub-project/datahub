@@ -4,7 +4,7 @@ import TextArea from 'antd/lib/input/TextArea';
 import { PlusOutlined } from '@ant-design/icons';
 import arrow from '../../../../../../images/Arrow.svg';
 import './CreateERModelRelationModal.less';
-import { EntityType, ErModelRelation, OwnerEntityType } from '../../../../../../types.generated';
+import { EntityType, ErModelRelationship, OwnerEntityType } from '../../../../../../types.generated';
 import { useCreateErModelRelationshipMutation, useUpdateErModelRelationshipMutation } from '../../../../../../graphql/ermodelrelation.generated';
 import { useUserContext } from '../../../../../context/useUserContext';
 import { EditableRow } from './EditableRow';
@@ -21,7 +21,7 @@ type Props = {
     visible: boolean;
     setModalVisible?: any;
     onCancel: () => void;
-    editERModelRelation?: ErModelRelation;
+    editERModelRelation?: ErModelRelationship;
     isEditing?: boolean;
     refetch: () => Promise<any>;
 };

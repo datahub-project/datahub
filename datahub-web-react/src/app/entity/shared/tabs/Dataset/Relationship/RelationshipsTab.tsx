@@ -4,7 +4,7 @@ import styled from 'styled-components';
 import { ExclamationCircleFilled, LoadingOutlined, PlusOutlined, SearchOutlined } from '@ant-design/icons';
 import { useBaseEntity } from '../../../EntityContext';
 import './RelationshipsTab.less';
-import { EntityType, ErModelRelation } from '../../../../../../types.generated';
+import { EntityType, ErModelRelationship } from '../../../../../../types.generated';
 import { useGetSearchResultsQuery } from '../../../../../../graphql/search.generated';
 import {
     GetDatasetQuery,
@@ -63,7 +63,7 @@ export const RelationshipsTab = () => {
     } = useGetSearchResultsQuery({
         variables: {
             input: {
-                type: EntityType.Ermodelrelation,
+                type: EntityType.ErModelRelationship,
                 query: `${filterText ? `${filterText}` : ''}`,
                 orFilters: [
                     {
@@ -89,13 +89,13 @@ export const RelationshipsTab = () => {
         },
     });
     const totalResults = ermodelrelations?.search?.total || 0;
-    let ermodelrelationData: ErModelRelation[] = [];
+    let ermodelrelationData: ErModelRelationship[] = [];
     if (loadingERModelRelation) {
-        ermodelrelationData = [{}] as ErModelRelation[];
+        ermodelrelationData = [{}] as ErModelRelationship[];
     }
 
     if (!loadingERModelRelation && ermodelrelations?.search && ermodelrelations?.search?.searchResults?.length > 0 && !errorERModelRelation) {
-        ermodelrelationData = ermodelrelations.search.searchResults.map((r) => r.entity as ErModelRelation);
+        ermodelrelationData = ermodelrelations.search.searchResults.map((r) => r.entity as ErModelRelationship);
     }
 
     const contentListNoTitle: Record<string, React.ReactNode> = {

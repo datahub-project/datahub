@@ -12,7 +12,7 @@ export interface ERModelRelationDataType {
 export const checkDuplicateERModelRelation = async (getSearchResultsERModelRelations, name): Promise<boolean> => {
     const { data: searchResults } = await getSearchResultsERModelRelations({
         input: {
-            type: EntityType.Ermodelrelation,
+            type: EntityType.ErModelRelationship,
             query: '',
             orFilters: [
                 {
