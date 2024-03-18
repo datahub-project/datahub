@@ -199,6 +199,7 @@ export function StatsSidebarContent({ properties }: Props) {
             {fieldProfile && (
                 <StatRow>
                     {statsData.stats.map((stat) => {
+                        if (stat.value === undefined || stat.value === null) return null;
                         return (
                             <StatLabel key={stat.name}>
                                 <LabelText>{stat.name}</LabelText>
