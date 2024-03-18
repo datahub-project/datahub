@@ -972,6 +972,11 @@ Input for the get entity counts endpoint
 """
 input EntityCountInput {
     types: [EntityType!]
+
+    """
+    Optional - A View to apply when generating results
+    """
+    viewUrn: String
 }
 
 """
