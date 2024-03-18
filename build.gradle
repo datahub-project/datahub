@@ -107,7 +107,7 @@ project.ext.externalDependency = [
     'avro': 'org.apache.avro:avro:1.11.3',
     'avroCompiler': 'org.apache.avro:avro-compiler:1.11.3',
     'awsGlueSchemaRegistrySerde': 'software.amazon.glue:schema-registry-serde:1.1.17',
-    'awsMskIamAuth': 'software.amazon.msk:aws-msk-iam-auth:1.1.9',
+    'awsMskIamAuth': 'software.amazon.msk:aws-msk-iam-auth:2.0.3',
     'awsSecretsManagerJdbc': 'com.amazonaws.secretsmanager:aws-secretsmanager-jdbc:1.0.13',
     'awsPostgresIamAuth': 'software.amazon.jdbc:aws-advanced-jdbc-wrapper:1.0.2',
     'awsRds':'software.amazon.awssdk:rds:2.18.24',
