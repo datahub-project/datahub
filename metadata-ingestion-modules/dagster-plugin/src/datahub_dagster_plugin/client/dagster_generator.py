@@ -1,22 +1,22 @@
-import os
-from typing import Dict, List, Optional
+from dataclasses import dataclass
+from logging import Logger
+from typing import Any, Dict, List, Optional, Set
+from urllib.parse import urlsplit
 
 import pydantic
+from dagster import DagsterRunStatus, PathMetadataValue
 from dagster._core.execution.stats import RunStepKeyStatsSnapshot, StepEventStatus
 from dagster._core.snap import JobSnapshot
 from dagster._core.snap.node import OpDefSnap
-from dagster._core.storage.dagster_run import (
-    DagsterRun,
-    DagsterRunStatsSnapshot,
-    DagsterRunStatus,
-)
+from dagster._core.storage.dagster_run import DagsterRun, DagsterRunStatsSnapshot
 from datahub.api.entities.datajob import DataFlow, DataJob
 from datahub.api.entities.dataprocess.dataprocess_instance import (
     DataProcessInstance,
     InstanceRunResult,
 )
-from datahub.configuration.source_common import DEFAULT_ENV, DatasetSourceConfigMixin
+from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.emitter.rest_emitter import DatahubRestEmitter
+from datahub.ingestion.sink.datahub_rest import DatahubRestSinkConfig
 from datahub.utilities.urns.data_flow_urn import DataFlowUrn
 from datahub.utilities.urns.data_job_urn import DataJobUrn
 from datahub.utilities.urns.dataset_urn import DatasetUrn
@@ -36,6 +36,7 @@ class Constant:
     DATAHUB_REST_URL = "DATAHUB_REST_URL"
     DATAHUB_ENV = "DATAHUB_ENV"
     DATAHUB_PLATFORM_INSTANCE = "DATAHUB_PLATFORM_INSTANCE"
+    DAGSTER_UI_URL = "DAGSTER_UI_URL"
 
     # Datahub inputs/outputs constant
     DATAHUB_INPUTS = "datahub.inputs"
@@ -63,28 +64,89 @@ class Constant:
 
 
 class DagsterSourceConfig(DatasetSourceConfigMixin):
-    datahub_rest_url: str = pydantic.Field(
-        default=Constant.DEFAULT_DATAHUB_REST_URL,
-        description="Datahub GMS Rest URL. Default to http://localhost:8080",
+    rest_sink_config: DatahubRestSinkConfig = pydantic.Field(
+        default=DatahubRestSinkConfig(),
+        description="Datahub rest sink config",
     )
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.datahub_rest_url: str = os.getenv(
-            Constant.DATAHUB_REST_URL, Constant.DEFAULT_DATAHUB_REST_URL
-        )
-        self.env = os.getenv(Constant.DATAHUB_ENV, DEFAULT_ENV)
-        self.platform_instance = os.getenv(Constant.DATAHUB_PLATFORM_INSTANCE)
+    dagster_url: Optional[str] = pydantic.Field(
+        default=None,
+        description="Dagster UI URL. Like: https://myDagsterCloudEnvironment.dagster.cloud/prod",
+    )
 
 
 def _str_urn_to_dataset_urn(urns: List[str]) -> List[DatasetUrn]:
     return [DatasetUrn.create_from_string(urn) for urn in urns]
 
 
+@dataclass
+class DagsterEnvironment:
+    repository: str
+    is_cloud: bool = True
+    is_branch_deployment: bool = False
+    branch: Optional[str] = "prod"
+    module: Optional[str] = None
+
+
+def job_url_generator(dagster_url: str, dagster_environment: DagsterEnvironment) -> str:
+    if dagster_environment.is_cloud:
+        base_url = f"{dagster_url}/{dagster_environment.branch}"
+    else:
+        base_url = dagster_url
+
+    location = (
+        f"{dagster_environment.repository}@{dagster_environment.module}"
+        if dagster_environment.module
+        else dagster_environment.repository
+    )
+
+    if dagster_environment.module:
+        base_url = f"{base_url}/locations/{location}"
+
+    return base_url
+
+
 class DagsterGenerator:
-    @staticmethod
+    def __init__(
+        self,
+        logger: Logger,
+        config: DagsterSourceConfig,
+        dagster_environment: DagsterEnvironment,
+    ):
+        self.logger = logger
+        self.config = config
+        self.dagster_environment = dagster_environment
+
+    def path_metadata_resolver(self, value: PathMetadataValue) -> Optional[DatasetUrn]:
+        """
+        Resolve path metadata to dataset urn
+        """
+        path = value.value
+        if not path:
+            return None
+
+        if "://" in path:
+            url = urlsplit(path)
+            return DatasetUrn(platform=url.scheme, name=url.path)
+        else:
+            return DatasetUrn(platform="file", name=path)
+
+    def metadata_resolver(
+        self, metadata: Any
+    ) -> Optional[DatasetUrn]:
+        """
+        Resolve metadata to dataset urn
+        """
+        if isinstance(metadata, PathMetadataValue):
+            return self.path_metadata_resolver(metadata)
+
+        return None
+
     def generate_dataflow(
-        job_snapshot: JobSnapshot, env: str, platform_instance: Optional[str] = None
+        self,
+        job_snapshot: JobSnapshot,
+        env: str,
+        platform_instance: Optional[str] = None,
     ) -> DataFlow:
         """
         Generates a Dataflow object from an Dagster Job Snapshot
@@ -93,28 +155,36 @@ class DagsterGenerator:
         :param platform_instance: Optional[str]
         :return: DataFlow - Data generated dataflow
         """
+        if self.dagster_environment.is_cloud:
+            id = f"{self.dagster_environment.branch}/{self.dagster_environment.repository}/{job_snapshot.name}"
+        else:
+            id = f"{self.dagster_environment.repository}/{job_snapshot.name}"
+
         dataflow = DataFlow(
             orchestrator=Constant.ORCHESTRATOR,
-            id=job_snapshot.name,
+            id=id,
             env=env,
             name=job_snapshot.name,
             platform_instance=platform_instance,
         )
         dataflow.description = job_snapshot.description
         dataflow.tags = set(job_snapshot.tags.keys())
+        if self.config.dagster_url:
+            dataflow.url = f"{job_url_generator(dagster_url=self.config.dagster_url, dagster_environment=self.dagster_environment)}/jobs/{job_snapshot.name}"
         flow_property_bag: Dict[str, str] = {}
         for key in job_snapshot.metadata.keys():
             flow_property_bag[key] = str(job_snapshot.metadata[key])
         dataflow.properties = flow_property_bag
-
         return dataflow
 
-    @staticmethod
     def generate_datajob(
+        self,
         job_snapshot: JobSnapshot,
         step_deps: Dict[str, List],
         op_def_snap: OpDefSnap,
         env: str,
+        input_datasets: Dict[str, Set[DatasetUrn]],
+        output_datasets: Dict[str, Set[DatasetUrn]],
         platform_instance: Optional[str] = None,
     ) -> DataJob:
         """
@@ -123,32 +193,60 @@ class DagsterGenerator:
         :param op_def_snap: OpDefSnap - Op def snapshot object
         :param env: str
         :param platform_instance: Optional[str]
+        :param output_datasets: dict[str, Set[DatasetUrn]] - output datasets for each op
         :return: DataJob - Data generated datajob
         """
+
+        if self.dagster_environment.is_cloud:
+            flow_id = f"{self.dagster_environment.branch}/{self.dagster_environment.repository}/{job_snapshot.name}"
+            job_id = f"{self.dagster_environment.branch}/{self.dagster_environment.repository}/{op_def_snap.name}"
+        else:
+            flow_id = f"{self.dagster_environment.repository}/{job_snapshot.name}"
+            job_id = f"{self.dagster_environment.repository}/{op_def_snap.name}"
+
         dataflow_urn = DataFlowUrn.create_from_ids(
             orchestrator=Constant.ORCHESTRATOR,
-            flow_id=job_snapshot.name,
+            flow_id=flow_id,
             env=env,
             platform_instance=platform_instance,
         )
         datajob = DataJob(
-            id=op_def_snap.name,
+            id=job_id,
             flow_urn=dataflow_urn,
             name=op_def_snap.name,
         )
+
+        if self.config.dagster_url:
+            datajob.url = f"{job_url_generator(dagster_url=self.config.dagster_url, dagster_environment=self.dagster_environment)}/jobs/{job_snapshot.name}/{op_def_snap.name}"
 
         datajob.description = op_def_snap.description
         datajob.tags = set(op_def_snap.tags.keys())
 
         # Add upstream dependencies for this op
         for upstream_op_name in step_deps[op_def_snap.name]:
+            if self.dagster_environment.is_cloud:
+                upstream_job_id = f"{self.dagster_environment.branch}/{self.dagster_environment.repository}/{op_def_snap.name}"
+            else:
+                upstream_job_id = (
+                    f"{self.dagster_environment.repository}/{op_def_snap.name}"
+                )
             upstream_op_urn = DataJobUrn.create_from_ids(
                 data_flow_urn=str(dataflow_urn),
-                job_id=upstream_op_name,
+                job_id=upstream_job_id,
             )
             datajob.upstream_urns.extend([upstream_op_urn])
-
         job_property_bag: Dict[str, str] = {}
+        if input_datasets:
+            self.logger.info(
+                f"Input datasets for {op_def_snap.name} are { list(input_datasets.get(op_def_snap.name, []))}"
+            )
+            datajob.inlets = list(input_datasets.get(op_def_snap.name, []))
+
+        if output_datasets:
+            self.logger.info(
+                f"Output datasets for {op_def_snap.name} are { list(output_datasets.get(op_def_snap.name, []))}"
+            )
+            datajob.outlets = list(output_datasets.get(op_def_snap.name, []))
 
         # For all op inputs/outputs:
         # Add input/output details like its type, description, metadata etc in datajob properties.
@@ -160,7 +258,7 @@ class DagsterGenerator:
             if Constant.DATAHUB_INPUTS in input_def_snap.metadata:
                 datajob.inlets.extend(
                     _str_urn_to_dataset_urn(
-                        input_def_snap.metadata[Constant.DATAHUB_INPUTS].value
+                        input_def_snap.metadata[Constant.DATAHUB_INPUTS].value  # type: ignore
                     )
                 )
 
@@ -171,7 +269,7 @@ class DagsterGenerator:
             if Constant.DATAHUB_OUTPUTS in output_def_snap.metadata:
                 datajob.outlets.extend(
                     _str_urn_to_dataset_urn(
-                        output_def_snap.metadata[Constant.DATAHUB_OUTPUTS].value
+                        output_def_snap.metadata[Constant.DATAHUB_OUTPUTS].value  # type: ignore
                     )
                 )
 
@@ -179,8 +277,8 @@ class DagsterGenerator:
 
         return datajob
 
-    @staticmethod
     def emit_job_run(
+        self,
         emitter: DatahubRestEmitter,
         dataflow: DataFlow,
         run: DagsterRun,
@@ -194,6 +292,11 @@ class DagsterGenerator:
         :param run_stats: DagsterRunStatsSnapshot - latest job run stats
         """
         dpi = DataProcessInstance.from_dataflow(dataflow=dataflow, id=run_stats.run_id)
+        if self.config.dagster_url:
+            if self.dagster_environment.is_cloud:
+                dpi.url = f"{self.config.dagster_url}/{self.dagster_environment.branch}/runs/{run.run_id}"
+            else:
+                dpi.url = f"{self.config.dagster_url}/runs/{run.run_id}"
 
         # Add below details in dpi properties
         dpi_property_bag: Dict[str, str] = {}
@@ -246,8 +349,8 @@ class DagsterGenerator:
                 result_type=Constant.ORCHESTRATOR,
             )
 
-    @staticmethod
     def emit_op_run(
+        self,
         emitter: DatahubRestEmitter,
         datajob: DataJob,
         run_step_stats: RunStepKeyStatsSnapshot,
@@ -264,6 +367,12 @@ class DagsterGenerator:
             clone_inlets=True,
             clone_outlets=True,
         )
+        if self.config.dagster_url:
+            dpi.url = f"{self.config.dagster_url}/runs/{run_step_stats.run_id}"
+            if self.dagster_environment.is_cloud:
+                dpi.url = f"{self.config.dagster_url}/{self.dagster_environment.branch}/runs/{run_step_stats.run_id}"
+            else:
+                dpi.url = f"{self.config.dagster_url}/runs/{run_step_stats.run_id}"
 
         # Add below details in dpi properties
         dpi_property_bag: Dict[str, str] = {}

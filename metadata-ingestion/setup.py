@@ -399,9 +399,6 @@ plugins: Dict[str, Set[str]] = {
     "databricks": databricks | sql_common | sqllineage_lib,
     "fivetran": snowflake_common | bigquery_common,
     "qlik-sense": sqlglot_lib | {"requests", "websocket-client"},
-    "dagster": {
-        f"acryl-datahub-dagster-plugin == {package_metadata['__version__']}",
-    },
 }
 
 # This is mainly used to exclude plugins from the Docker image.
@@ -537,7 +534,6 @@ base_dev_requirements = {
             "fivetran",
             "kafka-connect",
             "qlik-sense",
-            "dagster"
         ]
         if plugin
         for dependency in plugins[plugin]

@@ -7,9 +7,12 @@ from dagster import (
     define_asset_job,
     multi_asset,
 )
-from datahub.api.entities.dataset import Dataset
 
-from datahub_dagster_plugin.sensors.datahub_sensors import datahub_sensor
+from datahub_dagster_plugin.client.entities import Dataset
+from datahub_dagster_plugin.sensors.datahub_sensors import (
+    DagsterSourceConfig,
+    make_datahub_sensor,
+)
 
 
 @multi_asset(
@@ -42,6 +45,17 @@ def transform(extract):
 
 
 assets_job = define_asset_job(name="assets_job")
+
+config = DagsterSourceConfig.parse_obj(
+    {
+        "rest_sink_config": {
+            "server": "http://localhost:8080",
+        },
+        "dagster_url": "http://localhost:3000",
+    }
+)
+
+datahub_sensor = make_datahub_sensor(config=config)
 
 defs = Definitions(
     assets=[extract, transform], jobs=[assets_job], sensors=[datahub_sensor]

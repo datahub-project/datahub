@@ -1,7 +1,10 @@
 from dagster import Definitions, In, Out, PythonObjectDagsterType, job, op
-from datahub.api.entities.dataset import Dataset
 
-from datahub_dagster_plugin.sensors.datahub_sensors import datahub_sensor
+from datahub_dagster_plugin.client.entities import Dataset
+from datahub_dagster_plugin.sensors.datahub_sensors import (
+    DagsterSourceConfig,
+    make_datahub_sensor,
+)
 
 
 @op
@@ -35,4 +38,14 @@ def do_stuff():
     transform(extract())
 
 
+config = DagsterSourceConfig.parse_obj(
+    {
+        "rest_sink_config": {
+            "server": "http://localhost:8080",
+        },
+        "dagster_url": "http://localhost:3000",
+    }
+)
+
+datahub_sensor = make_datahub_sensor(config=config)
 defs = Definitions(jobs=[do_stuff], sensors=[datahub_sensor])

@@ -15,12 +15,18 @@ def get_long_description():
 
 rest_common = {"requests", "requests_file"}
 
+_version: str = package_metadata["__version__"]
+_self_pin = (
+    f"=={_version}" if not (_version.endswith("dev0") or "docker" in _version) else ""
+)
+
 base_requirements = {
     # Actual dependencies.
     "dagster >= 1.3.3",
     "dagit >= 1.3.3",
     *rest_common,
-    f"acryl-datahub == {package_metadata['__version__']}",
+    # f"acryl-datahub[datahub-rest]{_self_pin}",
+    "acryl-datahub[datahub-rest]",
 }
 
 
