@@ -6,6 +6,7 @@ import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
 import { ANTD_GRAY } from '../../../constants';
 import { useBaseEntity } from '../../../EntityContext';
 import { InfoItem } from '../../../components/styled/InfoItem';
+import { DBT_URN } from '../../../../../ingest/source/builder/constants';
 
 const InfoSection = styled.div`
     border-bottom: 1px solid ${ANTD_GRAY[4.5]};
@@ -47,10 +48,11 @@ export default function ViewDefinitionTab() {
     const materialized = (baseEntity?.dataset?.viewProperties?.materialized && true) || false;
     const language = baseEntity?.dataset?.viewProperties?.language || 'UNKNOWN';
 
-    const isDbt = baseEntity?.dataset?.platform?.name?.toLowerCase() === 'dbt';
-    const canShowFormatted = formattedLogic && true;
-    const [showFormatted, setShowFormatted] = useState(false);
+    const isDbt = baseEntity?.dataset?.platform?.urn === DBT_URN;
     const formatOptions = isDbt ? ['Source', 'Compiled'] : ['Raw', 'Formatted'];
+
+    const canShowFormatted = !!formattedLogic;
+    const [showFormatted, setShowFormatted] = useState(false);
 
     return (
         <>
