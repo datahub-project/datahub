@@ -3,7 +3,7 @@
 import pymysql  # noqa: F401
 from pydantic.fields import Field
 from sqlalchemy import util
-from sqlalchemy.dialects.mysql import base
+from sqlalchemy.dialects.mysql import BIT, base
 from sqlalchemy.dialects.mysql.enumerated import SET
 from sqlalchemy.engine.reflection import Inspector
 
@@ -24,6 +24,7 @@ from datahub.ingestion.source.sql.two_tier_sql_source import (
     TwoTierSQLAlchemyConfig,
     TwoTierSQLAlchemySource,
 )
+from datahub.metadata._schema_classes import BytesTypeClass
 
 SET.__repr__ = util.generic_repr  # type:ignore
 
@@ -38,6 +39,7 @@ register_custom_type(POINT)
 register_custom_type(LINESTRING)
 register_custom_type(POLYGON)
 register_custom_type(DECIMAL128)
+register_custom_type(BIT, BytesTypeClass)
 
 base.ischema_names["geometry"] = GEOMETRY
 base.ischema_names["point"] = POINT
@@ -64,6 +66,11 @@ class MySQLConfig(MySQLConnectionConfig, TwoTierSQLAlchemyConfig):
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
 @capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
+@capability(
+    SourceCapability.CLASSIFICATION,
+    "Optionally enabled via `classification.enabled`",
+    supported=True,
+)
 class MySQLSource(TwoTierSQLAlchemySource):
     """
     This plugin extracts the following:
@@ -92,5 +99,5 @@ class MySQLSource(TwoTierSQLAlchemySource):
                 "SELECT table_schema, table_name, data_length from information_schema.tables"
             ):
                 self.profile_metadata_info.dataset_name_to_storage_bytes[
-                    f"{row.table_schema}.{row.table_name}"
-                ] = row.data_length
+                    f"{row.TABLE_SCHEMA}.{row.TABLE_NAME}"
+                ] = row.DATA_LENGTH

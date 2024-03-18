@@ -57,7 +57,7 @@ export type FetchedEntity = {
     schemaMetadata?: SchemaMetadata;
     inputFields?: InputFields;
     canEditLineage?: boolean;
-    health?: Health[];
+    health?: Maybe<Health[]>;
 };
 
 export type NodeData = {
@@ -81,7 +81,7 @@ export type NodeData = {
     canEditLineage?: boolean;
     upstreamRelationships?: Array<LineageRelationship>;
     downstreamRelationships?: Array<LineageRelationship>;
-    health?: Health[];
+    health?: Maybe<Health[]>;
 };
 
 export type VizNode = {

@@ -1,26 +1,43 @@
 package com.linkedin.metadata.search.query.request;
 
 import static com.linkedin.metadata.utils.SearchUtil.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.query.request.AggregationQueryBuilder;
+import com.linkedin.r2.RemoteInvocationException;
+import java.net.URISyntaxException;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.opensearch.search.aggregations.AggregationBuilder;
 import org.opensearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
 import org.testng.Assert;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 public class AggregationQueryBuilderTest {
+
+  private static AspectRetriever aspectRetriever;
+
+  @BeforeClass
+  public static void setup() throws RemoteInvocationException, URISyntaxException {
+    aspectRetriever = mock(AspectRetriever.class);
+    when(aspectRetriever.getEntityRegistry()).thenReturn(mock(EntityRegistry.class));
+    when(aspectRetriever.getLatestAspectObjects(any(), any())).thenReturn(Map.of());
+  }
 
   @Test
   public void testGetDefaultAggregationsHasFields() {
@@ -46,7 +63,9 @@ public class AggregationQueryBuilderTest {
 
     AggregationQueryBuilder builder =
         new AggregationQueryBuilder(
-            config, ImmutableMap.of(mock(EntitySpec.class), ImmutableList.of(annotation)));
+            config,
+            ImmutableMap.of(mock(EntitySpec.class), ImmutableList.of(annotation)),
+            aspectRetriever);
 
     List<AggregationBuilder> aggs = builder.getAggregations();
 
@@ -78,7 +97,9 @@ public class AggregationQueryBuilderTest {
 
     AggregationQueryBuilder builder =
         new AggregationQueryBuilder(
-            config, ImmutableMap.of(mock(EntitySpec.class), ImmutableList.of(annotation)));
+            config,
+            ImmutableMap.of(mock(EntitySpec.class), ImmutableList.of(annotation)),
+            aspectRetriever);
 
     List<AggregationBuilder> aggs = builder.getAggregations();
 
@@ -127,7 +148,8 @@ public class AggregationQueryBuilderTest {
     AggregationQueryBuilder builder =
         new AggregationQueryBuilder(
             config,
-            ImmutableMap.of(mock(EntitySpec.class), ImmutableList.of(annotation1, annotation2)));
+            ImmutableMap.of(mock(EntitySpec.class), ImmutableList.of(annotation1, annotation2)),
+            aspectRetriever);
 
     // Case 1: Ask for fields that should exist.
     List<AggregationBuilder> aggs =
@@ -148,7 +170,7 @@ public class AggregationQueryBuilderTest {
 
     AggregationQueryBuilder builder =
         new AggregationQueryBuilder(
-            config, ImmutableMap.of(mock(EntitySpec.class), ImmutableList.of()));
+            config, ImmutableMap.of(mock(EntitySpec.class), ImmutableList.of()), aspectRetriever);
 
     List<AggregationBuilder> aggs =
         builder.getAggregations(List.of("structuredProperties.ab.fgh.ten"));
@@ -213,7 +235,8 @@ public class AggregationQueryBuilderTest {
     AggregationQueryBuilder builder =
         new AggregationQueryBuilder(
             config,
-            ImmutableMap.of(mock(EntitySpec.class), ImmutableList.of(annotation1, annotation2)));
+            ImmutableMap.of(mock(EntitySpec.class), ImmutableList.of(annotation1, annotation2)),
+            aspectRetriever);
 
     // Aggregate over fields and structured properties
     List<AggregationBuilder> aggs =
@@ -264,7 +287,9 @@ public class AggregationQueryBuilderTest {
 
     AggregationQueryBuilder builder =
         new AggregationQueryBuilder(
-            config, ImmutableMap.of(mock(EntitySpec.class), ImmutableList.of(annotation)));
+            config,
+            ImmutableMap.of(mock(EntitySpec.class), ImmutableList.of(annotation)),
+            aspectRetriever);
 
     List<AggregationBuilder> aggs = builder.getAggregations();
 

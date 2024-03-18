@@ -30,7 +30,7 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.entity.RollbackRunResult;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
-import com.linkedin.metadata.entity.ebean.batch.MCPUpsertBatchItem;
+import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
@@ -441,7 +441,7 @@ public class MappingUtil {
   public static Pair<String, Boolean> ingestProposal(
       com.linkedin.mxe.MetadataChangeProposal serviceProposal,
       String actorUrn,
-      EntityService<MCPUpsertBatchItem> entityService,
+      EntityService<ChangeItemImpl> entityService,
       boolean async) {
 
     // TODO: Use the actor present in the IC.

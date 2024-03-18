@@ -40,5 +40,9 @@
                 }
             ]
         }
-    ]
+    ],
+    "debug_info": {
+        "confidence": 0.9,
+        "generalized_statement": "CREATE TABLE demo_user.test_lineage2 AS (SELECT ppd.PatientId, ppf.bmi FROM demo_user.pima_patient_features AS ppf JOIN demo_user.pima_patient_diagnoses AS ppd ON ppd.PatientId = ppf.PatientId) WITH DATA"
+    }
 }

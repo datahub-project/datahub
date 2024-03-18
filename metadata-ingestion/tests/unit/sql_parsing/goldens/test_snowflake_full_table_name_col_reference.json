@@ -53,5 +53,9 @@
                 }
             ]
         }
-    ]
+    ],
+    "debug_info": {
+        "confidence": 0.2,
+        "generalized_statement": "SELECT my_db.my_schema.my_table.id, CASE WHEN my_db.my_schema.my_table.id > ? THEN ? ELSE ? END AS id_gt_100, my_db.my_schema.my_table.struct_field.field1 AS struct_field1 FROM my_db.my_schema.my_table"
+    }
 }

@@ -20,7 +20,6 @@ import com.linkedin.datahub.graphql.types.mlmodel.mappers.MLPrimaryKeyMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.query.AutoCompleteResult;
-import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchResult;
 import graphql.execution.DataFetcherResult;
@@ -101,13 +100,12 @@ public class MLPrimaryKeyType implements SearchableEntityType<MLPrimaryKey, Stri
     final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
     final SearchResult searchResult =
         _entityClient.search(
+            context.getOperationContext().withSearchFlags(flags -> flags.setFulltext(true)),
             "mlPrimaryKey",
             query,
             facetFilters,
             start,
-            count,
-            context.getAuthentication(),
-            new SearchFlags().setFulltext(true));
+            count);
     return UrnSearchResultsMapper.map(searchResult);
   }
 
@@ -121,7 +119,7 @@ public class MLPrimaryKeyType implements SearchableEntityType<MLPrimaryKey, Stri
       throws Exception {
     final AutoCompleteResult result =
         _entityClient.autoComplete(
-            "mlPrimaryKey", query, filters, limit, context.getAuthentication());
+            context.getOperationContext(), "mlPrimaryKey", query, filters, limit);
     return AutoCompleteResultsMapper.map(result);
   }
 }

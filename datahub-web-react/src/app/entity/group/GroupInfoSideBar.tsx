@@ -216,6 +216,7 @@ export default function GroupInfoSidebar({ sideBarData, refetch }: Props) {
         urn,
         email,
         slack,
+        photoUrl
     };
 
     // About Text save

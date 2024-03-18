@@ -2,20 +2,20 @@ from typing import Generic, TypeVar
 
 from datahub.emitter.mcp_patch_builder import MetadataPatchProposal
 
-T = TypeVar("T", bound=MetadataPatchProposal)
+_Parent = TypeVar("_Parent", bound=MetadataPatchProposal)
 
 
-class CustomPropertiesPatchHelper(Generic[T]):
+class CustomPropertiesPatchHelper(Generic[_Parent]):
     def __init__(
         self,
-        parent: T,
+        parent: _Parent,
         aspect_name: str,
     ) -> None:
         self.aspect_name = aspect_name
         self._parent = parent
         self.aspect_field = "customProperties"
 
-    def parent(self) -> T:
+    def parent(self) -> _Parent:
         return self._parent
 
     def add_property(self, key: str, value: str) -> "CustomPropertiesPatchHelper":

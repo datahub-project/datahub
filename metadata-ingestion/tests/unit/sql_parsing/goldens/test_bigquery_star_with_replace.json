@@ -3,7 +3,7 @@
     "query_type_props": {
         "kind": "VIEW"
     },
-    "query_fingerprint": "4b2d3a58d47ddc4c1beeaddf5d296ff460a85ad5142009950aa072bb97fe771d",
+    "query_fingerprint": "53c10f64d18f777d45e6d13b9eab03957db1ac3a353db30c672965180035de8d",
     "in_tables": [
         "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-project2.my-dataset2.test_physical_table,PROD)"
     ],
@@ -65,5 +65,9 @@
                 }
             ]
         }
-    ]
+    ],
+    "debug_info": {
+        "confidence": 0.35,
+        "generalized_statement": "CREATE VIEW `my-project.my-dataset.test_table` AS SELECT * REPLACE (LOWER(something) AS something) FROM `my-project2.my-dataset2.test_physical_table`"
+    }
 }

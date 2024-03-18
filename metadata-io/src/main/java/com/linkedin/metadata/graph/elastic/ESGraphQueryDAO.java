@@ -55,11 +55,13 @@ import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.client.RestHighLevelClient;
+import org.opensearch.common.lucene.search.function.CombineFunction;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.builder.SearchSourceBuilder;
+import org.opensearch.search.rescore.QueryRescorerBuilder;
 
 /** A search DAO for Elasticsearch backend. */
 @Slf4j
@@ -116,6 +118,9 @@ public class ESGraphQueryDAO {
     searchSourceBuilder.size(count);
 
     searchSourceBuilder.query(query);
+    if (graphQueryConfiguration.isBoostViaNodes()) {
+      addViaNodeBoostQuery(searchSourceBuilder);
+    }
 
     searchRequest.source(searchSourceBuilder);
 
@@ -302,6 +307,7 @@ public class ESGraphQueryDAO {
               exploreMultiplePaths);
       for (LineageRelationship oneHopRelnship : oneHopRelationships) {
         if (result.containsKey(oneHopRelnship.getEntity())) {
+          log.debug("Urn encountered again during graph walk {}", oneHopRelnship.getEntity());
           result.put(
               oneHopRelnship.getEntity(),
               mergeLineageRelationships(result.get(oneHopRelnship.getEntity()), oneHopRelnship));
@@ -456,7 +462,7 @@ public class ESGraphQueryDAO {
   }
 
   @VisibleForTesting
-  public static QueryBuilder getLineageQuery(
+  public QueryBuilder getLineageQuery(
       @Nonnull Map<String, List<Urn>> urnsPerEntityType,
       @Nonnull Map<String, List<EdgeInfo>> edgesPerEntityType,
       @Nonnull GraphFilters graphFilters,
@@ -496,7 +502,7 @@ public class ESGraphQueryDAO {
   }
 
   @VisibleForTesting
-  public static QueryBuilder getLineageQueryForEntityType(
+  public QueryBuilder getLineageQueryForEntityType(
       @Nonnull List<Urn> urns,
       @Nonnull List<EdgeInfo> lineageEdges,
       @Nonnull GraphFilters graphFilters) {
@@ -517,6 +523,25 @@ public class ESGraphQueryDAO {
     }
 
     return query;
+  }
+
+  /**
+   * Replaces score from initial lineage query against the graph index with score from whether a via
+   * edge exists or not. We don't currently sort the results for the graph query for anything else,
+   * we just do a straight filter, but this will need to be re-evaluated if we do.
+   *
+   * @param sourceBuilder source builder for the lineage query
+   */
+  private void addViaNodeBoostQuery(final SearchSourceBuilder sourceBuilder) {
+    QueryBuilders.functionScoreQuery(QueryBuilders.existsQuery(EDGE_FIELD_VIA))
+        .boostMode(CombineFunction.REPLACE);
+    QueryRescorerBuilder queryRescorerBuilder =
+        new QueryRescorerBuilder(
+            QueryBuilders.functionScoreQuery(QueryBuilders.existsQuery(EDGE_FIELD_VIA))
+                .boostMode(CombineFunction.REPLACE));
+    queryRescorerBuilder.windowSize(
+        graphQueryConfiguration.getMaxResult()); // Will rescore all results
+    sourceBuilder.addRescorer(queryRescorerBuilder);
   }
 
   /**
@@ -553,26 +578,6 @@ public class ESGraphQueryDAO {
     addEdgeToPaths(existingPaths, parentUrn, null, childUrn);
   }
 
-  /**
-   * Utility method to log paths to the debug log.
-   *
-   * @param paths
-   * @param message
-   */
-  private static void logPaths(UrnArrayArray paths, String message) {
-    if (log.isDebugEnabled()) {
-      log.debug("xxxxxxxxxx");
-      log.debug(message);
-      log.debug("---------");
-      if (paths != null) {
-        paths.forEach(path -> log.debug("{}", path));
-      } else {
-        log.debug("EMPTY");
-      }
-      log.debug("xxxxxxxxxx");
-    }
-  }
-
   private static boolean containsCycle(final UrnArray path) {
     Set<Urn> urnSet = path.stream().collect(Collectors.toUnmodifiableSet());
     // path contains a cycle if any urn is repeated twice
@@ -587,8 +592,6 @@ public class ESGraphQueryDAO {
     boolean edgeAdded = false;
     // Collect all full-paths to this child node. This is what will be returned.
     UrnArrayArray pathsToParent = existingPaths.get(parentUrn);
-    logPaths(pathsToParent, String.format("Paths to Parent: %s, Child: %s", parentUrn, childUrn));
-    logPaths(existingPaths.get(childUrn), String.format("Existing Paths to Child: %s", childUrn));
     if (pathsToParent != null && !pathsToParent.isEmpty()) {
       // If there are existing paths to this parent node, then we attempt
       // to append the child to each of the existing paths (lengthen it).
@@ -630,7 +633,6 @@ public class ESGraphQueryDAO {
       existingPaths.get(childUrn).add(pathToChild);
       edgeAdded = true;
     }
-    logPaths(existingPaths.get(childUrn), String.format("New paths to Child: %s", childUrn));
     return edgeAdded;
   }
 
@@ -655,7 +657,6 @@ public class ESGraphQueryDAO {
       for (SearchHit hit : hits) {
         index++;
         final Map<String, Object> document = hit.getSourceAsMap();
-        log.debug("{}: hit: {}", index, document);
         final Urn sourceUrn =
             UrnUtils.getUrn(((Map<String, Object>) document.get(SOURCE)).get("urn").toString());
         final Urn destinationUrn =
@@ -808,7 +809,6 @@ public class ESGraphQueryDAO {
       }
       List<LineageRelationship> result = new ArrayList<>(lineageRelationshipMap.values());
       log.debug("Number of lineage relationships in list: {}", result.size());
-      log.debug("Result: {}", result);
       return result;
     } catch (Exception e) {
       // This exception handler merely exists to log the exception at an appropriate point and
