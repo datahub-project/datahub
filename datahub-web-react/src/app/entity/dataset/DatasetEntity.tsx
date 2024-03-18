@@ -142,11 +142,7 @@ export class DatasetEntity implements Entity<Dataset> {
                     component: QueriesTab,
                     display: {
                         visible: (_, _1) => true,
-                        enabled: (_, dataset: GetDatasetQuery) => {
-                            const accessAspect = dataset?.dataset?.access;
-                            const rolesList = accessAspect?.roles;
-                            return !!accessAspect && !!rolesList && rolesList.length > 0;
-                        },
+                        enabled: (_, _2) => true,
                     },
                 },
                 {
@@ -193,7 +189,11 @@ export class DatasetEntity implements Entity<Dataset> {
                     component: AccessManagement,
                     display: {
                         visible: (_, _1) => this.appconfig().config.featureFlags.showAccessManagement,
-                        enabled: (_, dataset: GetDatasetQuery) => !!dataset?.dataset?.access,
+                        enabled: (_, dataset: GetDatasetQuery) => {
+                            const accessAspect = dataset?.dataset?.access;
+                            const rolesList = accessAspect?.roles;
+                            return !!accessAspect && !!rolesList && rolesList.length > 0;
+                        },
                     },
                 },
                 {
