@@ -364,7 +364,7 @@ def extract_sql_agg_log(query_log_file: str, output: Optional[str]) -> None:
 
     if output:
         with open(output, "w") as f:
-            json.dump(queries, f, indent=2)
+            json.dump(queries, f, indent=2, default=str)
         logger.info(f"Extracted {len(queries)} queries to {output}")
     else:
         click.echo(json.dumps(queries, indent=2))

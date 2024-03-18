@@ -104,6 +104,8 @@ class QueryMetadata:
     column_lineage: List[ColumnLineageInfo]
     confidence_score: float
 
+    used_temp_tables: bool = True
+
     def make_created_audit_stamp(self) -> models.AuditStampClass:
         return models.AuditStampClass(
             time=make_ts_millis(self.latest_timestamp) or 0,
@@ -165,6 +167,9 @@ class SqlAggregatorReport(Report):
     num_queries_with_temp_tables_in_session: int = 0
     queries_with_temp_upstreams: LossyDict[QueryId, LossyList] = dataclasses.field(
         default_factory=LossyDict
+    )
+    queries_with_non_authoritative_session: LossyList[QueryId] = dataclasses.field(
+        default_factory=LossyList
     )
 
     # Lineage-related.
@@ -527,6 +532,7 @@ class SqlParsingAggregator(Closeable):
         schema_resolver: SchemaResolverInterface = (
             self._make_schema_resolver_for_session(session_id)
         )
+        session_has_temp_tables = schema_resolver.includes_temp_tables()
 
         # Run the SQL parser.
         parsed = self._run_sql_parser(
@@ -603,6 +609,7 @@ class SqlParsingAggregator(Closeable):
                 upstreams=parsed.in_tables,
                 column_lineage=parsed.column_lineage or [],
                 confidence_score=parsed.debug_info.confidence,
+                used_temp_tables=session_has_temp_tables,
             )
         )
 
@@ -783,9 +790,20 @@ class SqlParsingAggregator(Closeable):
             # This assumes that queries come in order of increasing timestamps,
             # so the current query is more authoritative than the previous one.
             current.formatted_query_string = new.formatted_query_string
-            current.session_id = new.session_id
             current.latest_timestamp = new.latest_timestamp or current.latest_timestamp
             current.actor = new.actor or current.actor
+
+            if current.used_temp_tables and not new.used_temp_tables:
+                # If we see the same query again, but in a different session,
+                # it's possible that we didn't capture the temp tables in the newer session,
+                # but did in the older one. If that happens, we treat the older session's
+                # lineage as more authoritative. This isn't technically correct, but it's
+                # better than using the newer session's lineage, which is likely incorrect.
+                self.report.queries_with_non_authoritative_session.append(
+                    query_fingerprint
+                )
+                return
+            current.session_id = new.session_id
 
             if not merge_lineage:
                 # An invariant of the fingerprinting is that if two queries have the
