@@ -142,14 +142,14 @@ class DatahubSensors:
             context.dagster_run.job_code_origin
             and context.dagster_run.job_code_origin.repository_origin
             and context.dagster_run.job_code_origin.repository_origin.code_pointer
-            and context.dagster_run.job_code_origin.repository_origin.code_pointer.attribute # type: ignore
+            and context.dagster_run.job_code_origin.repository_origin.code_pointer.attribute  # type: ignore
         ):
             code_pointer = (
                 context.dagster_run.job_code_origin.repository_origin.code_pointer
             )
             context.log.info(f"Code Origin: {context.dagster_run.job_code_origin}")
-            repository = code_pointer.attribute # type: ignore
-            module = code_pointer.module # type: ignore
+            repository = code_pointer.attribute  # type: ignore
+            module = code_pointer.module  # type: ignore
 
             dagster_environment = DagsterEnvironment(
                 is_cloud=os.getenv("DAGSTER_CLOUD_IS_BRANCH_DEPLOYMENT", None)
