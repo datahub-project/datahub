@@ -94,13 +94,14 @@ export const EvaluationScheduleBuilder = ({
 
     const currentIntervalPeriodRef = useRef<PeriodType>()
 
-    const isInitialIntervalSettingRef = useRef(true)
+    const isIntervalInitializingRef = useRef(true)
     const updateInterval = (newInterval: string, extra: SetValueFunctionExtra) => {
         let cron = newInterval
 
-        // If period has changed, reset to default
-        if (isInitialIntervalSettingRef.current) {
-            isInitialIntervalSettingRef.current = false
+        // If initial run, do nothing
+        // Else if granularity has changed, reset cron to a default for that granularity
+        if (isIntervalInitializingRef.current) {
+            isIntervalInitializingRef.current = false
         } else if (currentIntervalPeriodRef.current !== extra.selectedPeriod) {
             currentIntervalPeriodRef.current = extra.selectedPeriod
             switch (extra.selectedPeriod) {
