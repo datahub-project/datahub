@@ -27,7 +27,7 @@ RUN go install github.com/jwilder/dockerize@$DOCKERIZE_VERSION
 FROM alpine:3.18 AS base
 
 # Upgrade Alpine and base packages
-ENV JMX_VERSION=0.18.0
+ENV JMX_VERSION=0.20.1
 
 # Re-declaring args from above to make them available in this stage (will inherit default values)
 ARG ALPINE_REPO_URL
@@ -46,7 +46,7 @@ RUN apk --no-cache --update-cache --available upgrade \
     && curl -sS ${MAVEN_CENTRAL_REPO_URL}/org/eclipse/jetty/jetty-jmx/11.0.19/jetty-jmx-11.0.19.jar --output jetty-jmx.jar \
     && curl -sS ${MAVEN_CENTRAL_REPO_URL}/org/eclipse/jetty/jetty-util/11.0.19/jetty-util-11.0.19.jar --output jetty-util.jar \
     && wget --no-verbose ${GITHUB_REPO_URL}/open-telemetry/opentelemetry-java-instrumentation/releases/download/v1.24.0/opentelemetry-javaagent.jar \
-    && wget --no-verbose ${MAVEN_CENTRAL_REPO_URL}/io/prometheus/jmx/jmx_prometheus_javaagent/${JMX_VERSION}/jmx_prometheus_javaagent-${JMX_VERSION}.jar -O jmx_prometheus_javaagent.jar \
+    && wget --no-verbose ${MAVEN_CENTRAL_REPO_URL}/io/acryl/prometheus/jmx/jmx_prometheus_javaagent/${JMX_VERSION}/jmx_prometheus_javaagent-${JMX_VERSION}.jar -O jmx_prometheus_javaagent.jar \
     && cp /usr/lib/jvm/java-17-openjdk/jre/lib/security/cacerts /tmp/kafka.client.truststore.jks
 COPY --from=binary /go/bin/dockerize /usr/local/bin
 
