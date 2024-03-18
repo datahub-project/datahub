@@ -348,7 +348,7 @@ export const CreateERModelRelationModal = ({
                 <p className="all-content-heading">Table 2</p>
                 <p className="all-information">{table2NameBusiness}</p>
                 <div className="techNameDisplay">{table2NameTech !== table2NameBusiness && table2NameTech}</div>
-                <p className="all-content-heading">ER-Model-Relation name</p>
+                <p className="all-content-heading">ER-Model-Relationship name</p>
                 <Form
                     form={form}
                     layout="vertical"
@@ -364,7 +364,7 @@ export const CreateERModelRelationModal = ({
                         rules={[
                             {
                                 required: true,
-                                message: `ER-Model-Relation name is required.`,
+                                message: `ER-Model-Relationship name is required.`,
                             },
                             {
                                 validator: (_, value) =>
@@ -372,7 +372,7 @@ export const CreateERModelRelationModal = ({
                                         return result === true && !isEditing
                                             ? Promise.reject(
                                                   new Error(
-                                                      'This ER-Model-Relation name already exists. A unique name for each ER-Model-Relation is required.',
+                                                      'This ER-Model-Relationship name already exists. A unique name for each ER-Model-Relationship is required.',
                                                   ),
                                               )
                                             : Promise.resolve();
@@ -394,11 +394,11 @@ export const CreateERModelRelationModal = ({
                     <Button type="link" className="add-btn-link" onClick={handleAdd}>
                         <PlusOutlined /> Add Row
                     </Button>
-                    <p className="all-content-heading">ER-Model-Relation details</p>
+                    <p className="all-content-heading">ER-Model-Relationship details</p>
                     <Form.Item style={{ margin: 0 }} name="ermodelrelationDetails">
                         <TextArea
                             className="ermodelrelation-details-ta"
-                            placeholder="Please enter ER-Model-Relation details here"
+                            placeholder="Please enter ER-Model-Relationship details here"
                             onChange={(e) => setDetails(e.target.value)}
                         />
                     </Form.Item>

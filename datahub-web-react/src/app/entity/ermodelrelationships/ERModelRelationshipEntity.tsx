@@ -4,8 +4,8 @@ import { EntityType, ErModelRelationship, OwnershipType, SearchResult } from '..
 import { Entity, IconStyleType, PreviewType } from '../Entity';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
 import { GenericEntityProperties } from '../shared/types';
-import { ERModelRelationPreviewCard } from './preview/ERModelRelationPreviewCard';
-import ermodelrelationIcon from '../../../images/ermodelrelationIcon.svg';
+import { ERModelRelationshipPreviewCard } from './preview/ERModelRelationshipPreviewCard';
+import ermodelrelationshipIcon from '../../../images/ermodelrelationshipIcon.svg';
 import { ERModelRelationshipTab } from '../shared/tabs/ERModelRelation/ERModelRelationTab';
 import { useGetErModelRelationshipQuery,  useUpdateErModelRelationshipMutation } from '../../../graphql/ermodelrelation.generated';
 import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
@@ -13,14 +13,14 @@ import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
 import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
 import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
-import './preview/ERModelRelationAction.less';
+import './preview/ERModelRelationshipAction.less';
 import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
 
 /**
  * Definition of the DataHub ErModelRelationship entity.
  */
 
-export class ERModelRelationEntity implements Entity<ErModelRelationship> {
+export class ERModelRelationshipEntity implements Entity<ErModelRelationship> {
     type: EntityType = EntityType.ErModelRelationship;
 
     icon = (fontSize: number, styleType: IconStyleType) => {
@@ -38,7 +38,7 @@ export class ERModelRelationEntity implements Entity<ErModelRelationship> {
             );
         }
 
-        return <img src={ermodelrelationIcon} style={{ height: '16px', width: '16px' }} alt="" />;
+        return <img src={ermodelrelationshipIcon} style={{ height: '16px', width: '16px' }} alt="" />;
     };
 
     isSearchEnabled = () => true;
@@ -53,7 +53,7 @@ export class ERModelRelationEntity implements Entity<ErModelRelationship> {
 
     getCollectionName = () => '';
 
-    getEntityName = () => 'ER-Model-Relation';
+    getEntityName = () => 'ER-Model-Relationship';
 
     renderProfile = (urn: string) => (
         <EntityProfile
@@ -64,7 +64,7 @@ export class ERModelRelationEntity implements Entity<ErModelRelationship> {
             getOverrideProperties={this.getOverridePropertiesFromEntity}
             tabs={[
                 {
-                    name: 'ER-Model-Relation',
+                    name: 'ER-Model-Relationship',
                     component: ERModelRelationshipTab,
                 },
                 {
@@ -105,7 +105,7 @@ export class ERModelRelationEntity implements Entity<ErModelRelationship> {
     renderPreview = (_: PreviewType, data: ErModelRelationship) => {
         return (
             <>
-                <ERModelRelationPreviewCard
+                <ERModelRelationshipPreviewCard
                     urn={data.urn}
                     name={
                         <span className="ermodelrelationName">{data.properties?.name || data.editableProperties?.name || ''}</span>

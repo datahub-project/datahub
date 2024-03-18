@@ -41,14 +41,14 @@ export const validateERModelRelation = async (nameField: string, tableSchema: ER
     const errors: string[] = [];
     const bDuplicateName = await checkDuplicateERModelRelation(getSearchResultsERModelRelations, nameField?.trim()).then((result) => result);
     if (nameField === '') {
-        errors.push('ER-Model-Relation name is required');
+        errors.push('ER-Model-Relationship name is required');
     }
     if (bDuplicateName && !editFlag) {
-        errors.push('This ER-Model-Relation name already exists. A unique name for each ER-Model-Relation is required');
+        errors.push('This ER-Model-Relationship name already exists. A unique name for each ER-Model-Relationship is required');
     }
     const faultyRows = tableSchema.filter((item) => validateTableData(item) !== true);
     if (faultyRows.length > 0) {
-        errors.push('Please fill out or remove all empty ER-Model-Relation fields');
+        errors.push('Please fill out or remove all empty ER-Model-Relationship fields');
     }
     return errors;
 };

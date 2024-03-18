@@ -1,6 +1,6 @@
 import React from 'react';
 import { Card, Collapse } from 'antd';
-import ermodelrelationIcon from '../../../../images/ermodelrelationIcon.svg';
+import ermodelrelationshipIcon from '../../../../images/ermodelrelationshipIcon.svg';
 import { EntityType, Owner, GlobalTags, GlossaryTerms } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
@@ -8,7 +8,7 @@ import { IconStyleType } from '../../Entity';
 
 const { Panel } = Collapse;
 
-export const ERModelRelationPreviewCard = ({
+export const ERModelRelationshipPreviewCard = ({
     urn,
     name,
     owners,
@@ -32,7 +32,7 @@ export const ERModelRelationPreviewCard = ({
                     name={name || ''}
                     urn={urn}
                     description={description || ''}
-                    logoComponent={<img src={ermodelrelationIcon} alt="ERModelRelation" style={{ fontSize: '20px' }} />}
+                    logoComponent={<img src={ermodelrelationshipIcon} alt="ERModelRelation" style={{ fontSize: '20px' }} />}
                     tags={globalTags || undefined}
                     glossaryTerms={glossaryTerms || undefined}
                     owners={owners}
