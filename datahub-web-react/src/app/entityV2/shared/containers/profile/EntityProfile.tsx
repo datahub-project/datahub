@@ -86,12 +86,13 @@ type Props<T, U> = {
     isColorEditable?: boolean;
 };
 
-const ContentContainer = styled.div`
+const ContentContainer = styled.div<{ entityRemoved: boolean; showAlert: boolean }>`
     display: flex;
     min-height: 100%;
     flex: 1;
     min-width: 0;
     overflow: hidden;
+    margin-top: ${(props) => (props.entityRemoved && props.showAlert ? '2.5rem' : '0')};
 `;
 
 const SidebarWrapper = styled.div`
@@ -166,6 +167,16 @@ const TabContent = styled.div`
     overflow: auto;
 `;
 
+const AlertBox = styled.div`
+    position: fixed;
+    width: 100%;
+    z-index: 1000;
+`;
+
+const FullWidthContainer = styled.div`
+    width: 100%;
+`;
+
 export const defaultTabDisplayConfig = {
     visible: (_, _1) => true,
     enabled: (_, _1) => true,
@@ -203,6 +214,7 @@ export const EntityProfile = <T, U>({
     const history = useHistory();
     const location = useLocation();
     const isInSearch = matchPath(location.pathname, PageRoutes.SEARCH_RESULTS) !== null;
+    const [showAlert, setShowAlert] = useState(true);
 
     const { width } = React.useContext(EntitySidebarContext);
     const isCompact = React.useContext(CompactContext);
@@ -346,6 +358,10 @@ export const EntityProfile = <T, U>({
         );
     }
 
+    const showError = error;
+    const showFullScreen = !error && isLineageMode && isLineageV2;
+    const showExplorer = isLineageMode && !isLineageV2;
+
     return (
         <EntityContext.Provider
             value={{
@@ -366,76 +382,83 @@ export const EntityProfile = <T, U>({
             <>
                 <OnboardingTour stepIds={filteredStepIds} />
                 <EntityHead />
-                {entityData?.status?.removed === true && (
-                    <Alert
-                        message="This entity is not discoverable via search or lineage graph. Contact your DataHub admin for more information."
-                        banner
-                    />
-                )}
-                {error && <ErrorSection />}
-                {!error && isLineageMode && isLineageV2 && <LineageFullscreen urn={urn} type={entityType} />}
-                {!error && !(isLineageMode && isLineageV2) && (
-                    <ContentContainer>
-                        {isLineageMode && !isLineageV2 && <LineageExplorer type={entityType} urn={urn} />}
-                        {!isLineageMode && (
-                            <>
-                                <HeaderAndTabs>
-                                    <HeaderAndTabsFlex>
-                                        {!isTabFullsize && (
-                                            <Header>
-                                                <HeaderContent>
-                                                    <EntityHeader
-                                                        headerDropdownItems={headerDropdownItems}
-                                                        headerActionItems={headerActionItems}
-                                                        isNameEditable={isNameEditable}
-                                                        isIconEditable={isIconEditable}
-                                                        isColorEditable={isColorEditable}
-                                                        displayProperties={entityData?.displayProperties || undefined}
-                                                        subHeader={subHeader}
-                                                    />
-                                                </HeaderContent>
-                                            </Header>
-                                        )}
-                                        <Body>
-                                            <BodyContent>
-                                                {!isTabFullsize && (
-                                                    <TabsWrapper>
-                                                        <EntityTabs tabs={visibleTabs} selectedTab={routedTab} />
-                                                    </TabsWrapper>
-                                                )}
-                                                <TabContent>
-                                                    {routedTab && (
-                                                        <routedTab.component
-                                                            properties={routedTab.properties}
-                                                            contextType={TabContextType.PROFILE}
-                                                            renderType={TabRenderType.DEFAULT}
+                <FullWidthContainer>
+                    {entityData?.status?.removed && (
+                        <AlertBox>
+                            <Alert
+                                message="This entity is not discoverable via search or lineage graph. Contact your DataHub admin for more information."
+                                banner
+                                onClose={() => setShowAlert(false)}
+                            />
+                        </AlertBox>
+                    )}
+                    {showError && <ErrorSection />}
+                    {showFullScreen && <LineageFullscreen urn={urn} type={entityType} />}
+                    {!showFullScreen && (
+                        <ContentContainer entityRemoved={entityData?.status?.removed ?? false} showAlert={showAlert}>
+                            {showExplorer && <LineageExplorer type={entityType} urn={urn} />}
+                            {!isLineageMode && (
+                                <>
+                                    <HeaderAndTabs>
+                                        <HeaderAndTabsFlex>
+                                            {!isTabFullsize && (
+                                                <Header>
+                                                    <HeaderContent>
+                                                        <EntityHeader
+                                                            headerDropdownItems={headerDropdownItems}
+                                                            headerActionItems={headerActionItems}
+                                                            isNameEditable={isNameEditable}
+                                                            isIconEditable={isIconEditable}
+                                                            isColorEditable={isColorEditable}
+                                                            displayProperties={
+                                                                entityData?.displayProperties || undefined
+                                                            }
+                                                            subHeader={subHeader}
                                                         />
+                                                    </HeaderContent>
+                                                </Header>
+                                            )}
+                                            <Body>
+                                                <BodyContent>
+                                                    {!isTabFullsize && (
+                                                        <TabsWrapper>
+                                                            <EntityTabs tabs={visibleTabs} selectedTab={routedTab} />
+                                                        </TabsWrapper>
                                                     )}
-                                                </TabContent>
-                                            </BodyContent>
-                                        </Body>
-                                    </HeaderAndTabsFlex>
-                                </HeaderAndTabs>
-                                {!isTabFullsize && (
-                                    <SidebarWrapper>
-                                        <EntityProfileSidebar
-                                            tabs={finalTabs}
-                                            type="card"
-                                            width={
-                                                width ||
-                                                (finalTabs.length > 1
-                                                    ? window.innerWidth * 0.33
-                                                    : window.innerWidth * 0.25)
-                                            }
-                                            contextType={TabContextType.PROFILE_SIDEBAR}
-                                            headerDropdownItems={headerDropdownItems}
-                                        />
-                                    </SidebarWrapper>
-                                )}
-                            </>
-                        )}
-                    </ContentContainer>
-                )}
+                                                    <TabContent>
+                                                        {routedTab && (
+                                                            <routedTab.component
+                                                                properties={routedTab.properties}
+                                                                contextType={TabContextType.PROFILE}
+                                                                renderType={TabRenderType.DEFAULT}
+                                                            />
+                                                        )}
+                                                    </TabContent>
+                                                </BodyContent>
+                                            </Body>
+                                        </HeaderAndTabsFlex>
+                                    </HeaderAndTabs>
+                                    {!isTabFullsize && (
+                                        <SidebarWrapper>
+                                            <EntityProfileSidebar
+                                                tabs={finalTabs}
+                                                type="card"
+                                                width={
+                                                    width ||
+                                                    (finalTabs.length > 1
+                                                        ? window.innerWidth * 0.33
+                                                        : window.innerWidth * 0.25)
+                                                }
+                                                contextType={TabContextType.PROFILE_SIDEBAR}
+                                                headerDropdownItems={headerDropdownItems}
+                                            />
+                                        </SidebarWrapper>
+                                    )}
+                                </>
+                            )}
+                        </ContentContainer>
+                    )}
+                </FullWidthContainer>
             </>
         </EntityContext.Provider>
     );
