@@ -7,7 +7,7 @@ import { GenericEntityProperties } from '../shared/types';
 import { ERModelRelationshipPreviewCard } from './preview/ERModelRelationshipPreviewCard';
 import ermodelrelationshipIcon from '../../../images/ermodelrelationshipIcon.svg';
 import { ERModelRelationshipTab } from '../shared/tabs/ERModelRelation/ERModelRelationTab';
-import { useGetErModelRelationshipQuery,  useUpdateErModelRelationshipMutation } from '../../../graphql/ermodelrelation.generated';
+import { useGetErModelRelationshipQuery,  useUpdateErModelRelationshipMutation } from '../../../graphql/ermodelrelationship.generated';
 import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
 import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
