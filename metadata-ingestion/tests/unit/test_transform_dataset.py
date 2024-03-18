@@ -2904,8 +2904,8 @@ def test_clean_owner_urn_transformation_remove_fixed_string(mock_datahub_graph):
             builder.make_owner_urn(user, owner_type=builder.OwnerType.USER)
         )
 
-    # remove ':ABCDEF'
-    config: List[Union[re.Pattern, str]] = [":ABCDEF"]
+    # remove 'ABCDEF:'
+    config: List[Union[re.Pattern, str]] = ["ABCDEF:"]
     expected_user_emails: List[str] = [
         "email_id@example.com",
         "123email_id@example.com",
@@ -2944,7 +2944,7 @@ def test_clean_owner_urn_transformation_remove_multiple_values(mock_datahub_grap
         )
 
     # remove multiple values
-    config: List[Union[re.Pattern, str]] = [":ABCDEF", "email"]
+    config: List[Union[re.Pattern, str]] = ["ABCDEF:", "email"]
     expected_user_emails: List[str] = [
         "_id@example.com",
         "123_id@example.com",
@@ -3157,3 +3157,31 @@ def test_clean_owner_urn_transformation_remove_pattern_with_alphanumeric_value(
             builder.make_owner_urn(user, owner_type=builder.OwnerType.USER)
         )
     _test_clean_owner_urns(pipeline_context, in_owner_urns, config, expected_owner_urns)
+
+
+def test_clean_owner_urn_transformation_should_not_remove_system_identifier(
+    mock_datahub_graph,
+):
+    pipeline_context = PipelineContext(run_id="transformer_pipe_line")
+    pipeline_context.graph = mock_datahub_graph(DatahubClientConfig())
+
+    user_emails = [
+        "ABCDEF:email_id@example.com",
+        "ABCDEF:123email_id@example.com",
+        "email_id@example.co.in",
+        "email_id@example.co.uk",
+        "email_test:XYZ@example.com",
+        "email_id:id1@example.com",
+        "email_id:id2@example.com",
+    ]
+
+    in_owner_urns: List[str] = []
+    for user in user_emails:
+        in_owner_urns.append(
+            builder.make_owner_urn(user, owner_type=builder.OwnerType.USER)
+        )
+
+    # should not remove system identifier
+    config: List[Union[re.Pattern, str]] = ["urn:li:corpuser:"]
+
+    _test_clean_owner_urns(pipeline_context, in_owner_urns, config, in_owner_urns)

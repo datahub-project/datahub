@@ -4,8 +4,6 @@ from typing import List, Optional, Set, cast
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigModel
 from datahub.ingestion.api.common import PipelineContext
-
-# from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.transformer.dataset_transformer import (
     DatasetOwnershipTransformer,
 )
@@ -15,13 +13,15 @@ from datahub.metadata.schema_classes import (
     OwnershipTypeClass,
 )
 
+_USER_URN_PREFIX: str = "urn:li:corpuser:"
+
 
 class PatternCleanUpOwnershipConfig(ConfigModel):
     pattern_for_cleanup: List[str]
 
 
 class PatternCleanUpOwnership(DatasetOwnershipTransformer):
-    """Transformer that marks status of each dataset."""
+    """Transformer that clean the ownership URN."""
 
     ctx: PipelineContext
     config: PatternCleanUpOwnershipConfig
@@ -60,10 +60,11 @@ class PatternCleanUpOwnership(DatasetOwnershipTransformer):
         # clean all the owners based on the parameters received from config
         cleaned_owner_urns: List[str] = []
         for owner_urn in current_owner_urns:
+            user_id: str = owner_urn.split(_USER_URN_PREFIX)[1]
             for value in self.config.pattern_for_cleanup:
-                owner_urn = re.sub(value, "", owner_urn)
+                user_id = re.sub(value, "", user_id)
 
-            cleaned_owner_urns.append(owner_urn)
+            cleaned_owner_urns.append(_USER_URN_PREFIX + user_id)
 
         ownership_type, ownership_type_urn = builder.validate_ownership_type(
             OwnershipTypeClass.DATAOWNER
