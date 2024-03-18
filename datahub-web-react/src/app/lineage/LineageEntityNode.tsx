@@ -18,6 +18,7 @@ import { convertInputFieldsToSchemaFields } from './utils/columnLineageUtils';
 import ManageLineageMenu from './manage/ManageLineageMenu';
 import { useGetLineageTimeParams } from './utils/useGetLineageTimeParams';
 import { EntityHealth } from '../entity/shared/containers/profile/header/EntityHealth';
+import { EntityType } from '../../types.generated';
 
 const CLICK_DELAY_THRESHOLD = 1000;
 const DRAG_DISTANCE_THRESHOLD = 20;
@@ -71,6 +72,7 @@ export default function LineageEntityNode({
     const [getAsyncEntityLineage, { data: asyncLineageData, loading }] = useGetEntityLineageLazyQuery();
     const isHideSiblingMode = useIsSeparateSiblingsMode();
     const areColumnsCollapsed = !!collapsedColumnsNodes[node?.data?.urn || 'noop'];
+    const isRestricted = node.data.type === EntityType.Restricted;
 
     function fetchEntityLineage() {
         if (node.data.urn) {
@@ -91,6 +93,12 @@ export default function LineageEntityNode({
             }
         }
     }
+
+    const centerEntity = () => {
+        if (!isRestricted) {
+            onEntityCenter({ urn: node.data.urn, type: node.data.type });
+        }
+    };
 
     useEffect(() => {
         if (asyncLineageData && asyncLineageData.entity && !hasExpanded && !loading) {
@@ -231,7 +239,7 @@ export default function LineageEntityNode({
                     </g>
                 ))}
             <Group
-                onDoubleClick={() => onEntityCenter({ urn: node.data.urn, type: node.data.type })}
+                onDoubleClick={centerEntity}
                 onClick={(event) => {
                     if (
                         event.timeStamp < lastMouseDownCoordinates.ts + CLICK_DELAY_THRESHOLD &&
@@ -311,25 +319,27 @@ export default function LineageEntityNode({
                         {entityRegistry.getIcon(node.data.type, 16, IconStyleType.SVG)}
                     </svg>
                 )}
-                <foreignObject
-                    x={-centerX - 25}
-                    y={centerY + 20}
-                    width={20}
-                    height={20}
-                    onClick={(e) => e.stopPropagation()}
-                >
-                    <ManageLineageMenu
-                        entityUrn={node.data.urn || ''}
-                        refetchEntity={fetchEntityLineage}
-                        setUpdatedLineages={setUpdatedLineages}
-                        disableUpstream={!isCenterNode && direction === Direction.Downstream}
-                        disableDownstream={!isCenterNode && direction === Direction.Upstream}
-                        centerEntity={() => onEntityCenter({ urn: node.data.urn, type: node.data.type })}
-                        entityType={node.data.type}
-                        entityPlatform={node.data.platform?.name}
-                        canEditLineage={node.data.canEditLineage}
-                    />
-                </foreignObject>
+                {!isRestricted && (
+                    <foreignObject
+                        x={-centerX - 25}
+                        y={centerY + 20}
+                        width={20}
+                        height={20}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <ManageLineageMenu
+                            entityUrn={node.data.urn || ''}
+                            refetchEntity={fetchEntityLineage}
+                            setUpdatedLineages={setUpdatedLineages}
+                            disableUpstream={!isCenterNode && direction === Direction.Downstream}
+                            disableDownstream={!isCenterNode && direction === Direction.Upstream}
+                            centerEntity={() => onEntityCenter({ urn: node.data.urn, type: node.data.type })}
+                            entityType={node.data.type}
+                            entityPlatform={node.data.platform?.name}
+                            canEditLineage={node.data.canEditLineage}
+                        />
+                    </foreignObject>
+                )}
                 <Group>
                     <UnselectableText
                         dy="-1em"
@@ -340,11 +350,15 @@ export default function LineageEntityNode({
                         textAnchor="start"
                         fill="#8C8C8C"
                     >
-                        <tspan>{getShortenedTitle(platformDisplayText || '', width)}</tspan>
-                        <tspan dx=".25em" dy="2px" fill="#dadada" fontSize={12} fontWeight="normal">
-                            {' '}
-                            |{' '}
-                        </tspan>
+                        {platformDisplayText && (
+                            <>
+                                <tspan>{getShortenedTitle(platformDisplayText || '', width)}</tspan>
+                                <tspan dx=".25em" dy="2px" fill="#dadada" fontSize={12} fontWeight="normal">
+                                    {' '}
+                                    |{' '}
+                                </tspan>
+                            </>
+                        )}
                         <tspan dx=".25em" dy="-2px" data-testid={entityName}>
                             {entityName}
                         </tspan>

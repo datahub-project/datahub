@@ -58,7 +58,7 @@
     "aspect": {
         "json": {
             "statement": {
-                "value": "create table foo as select a, 2*b as b from bar",
+                "value": "CREATE TABLE foo AS\nSELECT\n  a,\n  2 * b AS b\nFROM bar",
                 "language": "SQL"
             },
             "source": "SYSTEM",
@@ -151,7 +151,7 @@
     "aspect": {
         "json": {
             "statement": {
-                "value": "create temp table foo as select a, b+c as c from bar;\n\ncreate table foo_session2 as select * from foo",
+                "value": "CREATE TEMPORARY TABLE foo AS\nSELECT\n  a,\n  b + c AS c\nFROM bar;\n\nCREATE TABLE foo_session2 AS\nSELECT\n  *\nFROM foo",
                 "language": "SQL"
             },
             "source": "SYSTEM",
@@ -205,8 +205,7 @@
                     "type": "TRANSFORMED",
                     "query": "urn:li:query:3e85e6f353c7fa33d6514cb090482852064d23df6491c9a8ae28be0d990a3c71"
                 }
-            ],
-            "fineGrainedLineages": []
+            ]
         }
     }
 },
@@ -218,7 +217,7 @@
     "aspect": {
         "json": {
             "statement": {
-                "value": "create table foo_session3 as select * from foo",
+                "value": "CREATE TABLE foo_session3 AS\nSELECT\n  *\nFROM foo",
                 "language": "SQL"
             },
             "source": "SYSTEM",

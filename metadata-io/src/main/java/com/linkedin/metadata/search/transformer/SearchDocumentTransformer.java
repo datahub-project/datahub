@@ -2,6 +2,7 @@ package com.linkedin.metadata.search.transformer;
 
 import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.models.StructuredPropertyUtils.sanitizeStructuredPropertyFQN;
+import static com.linkedin.metadata.models.annotation.SearchableAnnotation.OBJECT_FIELD_TYPES;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -26,6 +27,7 @@ import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.structured.StructuredPropertyValueAssignment;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -181,7 +183,7 @@ public class SearchDocumentTransformer {
       return;
     }
 
-    if (isArray || (valueType == DataSchema.Type.MAP && fieldType != FieldType.OBJECT)) {
+    if (isArray || (valueType == DataSchema.Type.MAP && !OBJECT_FIELD_TYPES.contains(fieldType))) {
       if (fieldType == FieldType.BROWSE_PATH_V2) {
         String browsePathV2Value = getBrowsePathV2Value(fieldValues);
         searchDocument.set(fieldName, JsonNodeFactory.instance.textNode(browsePathV2Value));
@@ -193,6 +195,25 @@ public class SearchDocumentTransformer {
                 value -> getNodeForValue(valueType, value, fieldType).ifPresent(arrayNode::add));
         searchDocument.set(fieldName, arrayNode);
       }
+    } else if (valueType == DataSchema.Type.MAP && FieldType.MAP_ARRAY.equals(fieldType)) {
+      ObjectNode dictDoc = JsonNodeFactory.instance.objectNode();
+      fieldValues
+          .subList(0, Math.min(fieldValues.size(), maxObjectKeys))
+          .forEach(
+              fieldValue -> {
+                String[] keyValues = fieldValue.toString().split("=");
+                String key = keyValues[0];
+                ArrayNode values = JsonNodeFactory.instance.arrayNode();
+                Arrays.stream(keyValues[1].substring(1, keyValues[1].length() - 1).split(", "))
+                    .forEach(
+                        v -> {
+                          if (!v.isEmpty()) {
+                            values.add(v);
+                          }
+                        });
+                dictDoc.set(key, values);
+              });
+      searchDocument.set(fieldName, dictDoc);
     } else if (valueType == DataSchema.Type.MAP) {
       ObjectNode dictDoc = JsonNodeFactory.instance.objectNode();
       fieldValues

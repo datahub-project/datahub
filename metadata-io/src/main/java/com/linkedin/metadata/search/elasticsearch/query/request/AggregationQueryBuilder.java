@@ -149,7 +149,8 @@ public class AggregationQueryBuilder {
           case MISSING_SPECIAL_TYPE:
             aggBuilder =
                 INDEX_VIRTUAL_FIELD.equalsIgnoreCase(specialTypeFields.get(1))
-                    ? AggregationBuilders.missing(inputFacet).field(getAggregationField("_index"))
+                    ? AggregationBuilders.missing(inputFacet)
+                        .field(getAggregationField(ES_INDEX_FIELD))
                     : AggregationBuilders.missing(inputFacet)
                         .field(getAggregationField(specialTypeFields.get(1)));
             break;
@@ -161,7 +162,7 @@ public class AggregationQueryBuilder {
         aggBuilder =
             facet.equalsIgnoreCase(INDEX_VIRTUAL_FIELD)
                 ? AggregationBuilders.terms(inputFacet)
-                    .field(getAggregationField("_index"))
+                    .field(getAggregationField(ES_INDEX_FIELD))
                     .size(configs.getMaxTermBucketSize())
                     .minDocCount(0)
                 : AggregationBuilders.terms(inputFacet)

@@ -132,7 +132,10 @@ class FivetranLogAPI:
                 # If no sync-end event log for this sync id that means sync is still in progress
                 continue
 
-            message_data = json.loads(sync_end_logs[sync_id][Constant.MESSAGE_DATA])
+            message_data = sync_end_logs[sync_id][Constant.MESSAGE_DATA]
+            if message_data is None:
+                continue
+            message_data = json.loads(message_data)
             if isinstance(message_data, str):
                 # Sometimes message_data contains json string inside string
                 # Ex: '"{\"status\":\"SUCCESSFUL\"}"'

@@ -90,8 +90,8 @@
         "generate": "graphql-codegen --config codegen.yml",
         "lint": "eslint . --ext .ts,.tsx --quiet && yarn type-check",
         "lint-fix": "eslint '*/**/*.{ts,tsx}' --quiet --fix",
-        "type-check": "tsc --noEmit -p tsconfig.test.json",
-        "type-watch": "tsc -w --noEmit -p tsconfig.test.json"
+        "type-check": "tsc --noEmit",
+        "type-watch": "tsc -w --noEmit"
     },
     "browserslist": {
         "production": [

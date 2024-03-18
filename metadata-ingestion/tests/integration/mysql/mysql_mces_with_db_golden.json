@@ -546,10 +546,17 @@
                 },
                 {
                     "fieldPath": "email_address",
-                    "uniqueCount": 0,
-                    "nullCount": 5,
-                    "nullProportion": 1,
-                    "sampleValues": []
+                    "uniqueCount": 5,
+                    "uniqueProportion": 1,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "sampleValues": [
+                        "Bedecs@xyz.com",
+                        "Gratacos@xyz.com",
+                        "Axen@xyz.com",
+                        "Lee@xyz.com",
+                        "Donnell@xyz.com"
+                    ]
                 },
                 {
                     "fieldPath": "priority",
@@ -583,7 +590,8 @@
                         "3.8"
                     ]
                 }
-            ]
+            ],
+            "sizeInBytes": 16384
         }
     },
     "systemMetadata": {
@@ -622,7 +630,8 @@
                     "uniqueCount": 0,
                     "nullCount": 0
                 }
-            ]
+            ],
+            "sizeInBytes": 16384
         }
     },
     "systemMetadata": {

@@ -4,7 +4,6 @@ package com.linkedin.datahub.graphql;
 public class Constants {
 
   private Constants() {}
-  ;
 
   public static final String URN_FIELD_NAME = "urn";
   public static final String URNS_FIELD_NAME = "urns";

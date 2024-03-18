@@ -47,6 +47,7 @@ from datahub.ingestion.api.source import (
 )
 from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.common.subtypes import BIAssetSubTypes
 from datahub.ingestion.source.looker import looker_usage
 from datahub.ingestion.source.looker.looker_common import (
     InputFieldElement,
@@ -89,6 +90,7 @@ from datahub.metadata.schema_classes import (
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
+    SubTypesClass,
 )
 from datahub.utilities.advanced_thread_executor import BackpressureAwareExecutor
 
@@ -624,7 +626,11 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         chart_mce = MetadataChangeEvent(proposedSnapshot=chart_snapshot)
 
         proposals: List[Union[MetadataChangeEvent, MetadataChangeProposalWrapper]] = [
-            chart_mce
+            chart_mce,
+            MetadataChangeProposalWrapper(
+                entityUrn=chart_urn,
+                aspect=SubTypesClass(typeNames=[BIAssetSubTypes.LOOKER_LOOK]),
+            ),
         ]
 
         # If extracting embeds is enabled, produce an MCP for embed URL.

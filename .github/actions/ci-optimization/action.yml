@@ -35,6 +35,9 @@ outputs:
   elasticsearch-setup-change:
     description: "Elasticsearch setup docker change"
     value: ${{ steps.filter.outputs.elasticsearch-setup == 'true' }}
+  smoke-test-change:
+    description: "Smoke test change"
+    value: ${{ steps.filter.outputs.smoke-test == 'true' }}
 runs:
   using: "composite"
   steps:
@@ -77,3 +80,5 @@ runs:
             - "docker/postgres-setup/**"
           elasticsearch-setup:
             - "docker/elasticsearch-setup/**"
+          smoke-test:
+            - "smoke-test/**"

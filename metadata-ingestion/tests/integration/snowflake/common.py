@@ -341,6 +341,7 @@ def default_query_results(  # noqa: C901
             include_column_lineage=True,
         ),
     ):
+
         return [
             {
                 "DOWNSTREAM_TABLE_NAME": "TEST_DB.TEST_SCHEMA.TABLE_{}".format(op_idx),
@@ -350,6 +351,7 @@ def default_query_results(  # noqa: C901
                         {
                             "upstream_object_name": "TEST_DB.TEST_SCHEMA.TABLE_2",
                             "upstream_object_domain": "TABLE",
+                            "query_id": f"01b2576e-0804-4957-0034-7d83066cd0ee{op_idx}",
                         }
                     ]
                     + (  # This additional upstream is only for TABLE_1
@@ -357,10 +359,12 @@ def default_query_results(  # noqa: C901
                             {
                                 "upstream_object_name": "TEST_DB.TEST_SCHEMA.VIEW_1",
                                 "upstream_object_domain": "VIEW",
+                                "query_id": f"01b2576e-0804-4957-0034-7d83066cd0ee{op_idx}",
                             },
                             {
                                 "upstream_object_name": "OTHER_DB.OTHER_SCHEMA.TABLE_1",
                                 "upstream_object_domain": "TABLE",
+                                "query_id": f"01b2576e-0804-4957-0034-7d83066cd0ee{op_idx}",
                             },
                         ]
                         if op_idx == 1
@@ -370,15 +374,18 @@ def default_query_results(  # noqa: C901
                 "UPSTREAM_COLUMNS": json.dumps(
                     [
                         {
-                            "column_name": "COL_{}".format(col_idx),
+                            "column_name": f"COL_{col_idx}",
                             "upstreams": [
-                                [
-                                    {
-                                        "object_name": "TEST_DB.TEST_SCHEMA.TABLE_2",
-                                        "object_domain": "Table",
-                                        "column_name": "COL_{}".format(col_idx),
-                                    }
-                                ]
+                                {
+                                    "query_id": f"01b2576e-0804-4957-0034-7d83066cd0ee{op_idx}",
+                                    "column_upstreams": [
+                                        {
+                                            "object_name": "TEST_DB.TEST_SCHEMA.TABLE_2",
+                                            "object_domain": "Table",
+                                            "column_name": f"COL_{col_idx}",
+                                        }
+                                    ],
+                                }
                             ],
                         }
                         for col_idx in range(1, num_cols + 1)
@@ -388,19 +395,31 @@ def default_query_results(  # noqa: C901
                             {
                                 "column_name": "COL_1",
                                 "upstreams": [
-                                    [
-                                        {
-                                            "object_name": "OTHER_DB.OTHER_SCHEMA.TABLE_1",
-                                            "object_domain": "Table",
-                                            "column_name": "COL_1",
-                                        }
-                                    ]
+                                    {
+                                        "query_id": f"01b2576e-0804-4957-0034-7d83066cd0ee{op_idx}",
+                                        "column_upstreams": [
+                                            {
+                                                "object_name": "OTHER_DB.OTHER_SCHEMA.TABLE_1",
+                                                "object_domain": "Table",
+                                                "column_name": "COL_1",
+                                            }
+                                        ],
+                                    }
                                 ],
                             }
                         ]
                         if op_idx == 1
                         else []
                     )
+                ),
+                "QUERIES": json.dumps(
+                    [
+                        {
+                            "query_text": f"INSERT INTO TEST_DB.TEST_SCHEMA.TABLE_{op_idx} SELECT * FROM TEST_DB.TEST_SCHEMA.TABLE_2",
+                            "query_id": f"01b2576e-0804-4957-0034-7d83066cd0ee{op_idx}",
+                            "start_time": "06-06-2022",
+                        }
+                    ]
                 ),
             }
             for op_idx in range(1, num_ops + 1)
@@ -422,6 +441,7 @@ def default_query_results(  # noqa: C901
                         {
                             "upstream_object_name": "TEST_DB.TEST_SCHEMA.TABLE_2",
                             "upstream_object_domain": "TABLE",
+                            "query_id": f"01b2576e-0804-4957-0034-7d83066cd0ee{op_idx}",
                         },
                     ]
                     + (  # This additional upstream is only for TABLE_1
@@ -429,11 +449,23 @@ def default_query_results(  # noqa: C901
                             {
                                 "upstream_object_name": "OTHER_DB.OTHER_SCHEMA.TABLE_1",
                                 "upstream_object_domain": "TABLE",
+                                "query_id": f"01b2576e-0804-4957-0034-7d83066cd0ee{op_idx}",
                             },
                         ]
                         if op_idx == 1
                         else []
                     )
+                ),
+                "QUERIES": json.dumps(
+                    [
+                        {
+                            "query_text": f"INSERT INTO TEST_DB.TEST_SCHEMA.TABLE_{op_idx} SELECT * FROM TEST_DB.TEST_SCHEMA.TABLE_2",
+                            "query_id": f"01b2576e-0804-4957-0034-7d83066cd0ee{op_idx}",
+                            "start_time": datetime(2022, 6, 6, 0, 0, 0, 0).replace(
+                                tzinfo=timezone.utc
+                            ),
+                        }
+                    ]
                 ),
             }
             for op_idx in range(1, num_ops + 1)
@@ -511,6 +543,10 @@ def default_query_results(  # noqa: C901
         snowflake_query.SnowflakeQuery.view_dependencies_v2(),
         snowflake_query.SnowflakeQuery.view_dependencies(),
         snowflake_query.SnowflakeQuery.show_external_tables(),
+        snowflake_query.SnowflakeQuery.copy_lineage_history(
+            1654473600000,
+            1654586220000,
+        ),
     ]:
         return []
 

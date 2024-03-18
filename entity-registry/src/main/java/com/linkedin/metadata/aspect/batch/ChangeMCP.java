@@ -1,6 +1,7 @@
 package com.linkedin.metadata.aspect.batch;
 
 import com.linkedin.data.DataMap;
+import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.aspect.SystemAspect;
 import java.lang.reflect.InvocationTargetException;
 import javax.annotation.Nonnull;
@@ -23,6 +24,14 @@ public interface ChangeMCP extends MCPItem {
 
   void setNextAspectVersion(long nextAspectVersion);
 
+  @Nullable
+  default RecordTemplate getPreviousRecordTemplate() {
+    if (getPreviousSystemAspect() != null) {
+      return getPreviousSystemAspect().getRecordTemplate();
+    }
+    return null;
+  }
+
   default <T> T getPreviousAspect(Class<T> clazz) {
     if (getPreviousSystemAspect() != null) {
       try {
@@ -35,8 +44,7 @@ public interface ChangeMCP extends MCPItem {
           | NoSuchMethodException e) {
         throw new RuntimeException(e);
       }
-    } else {
-      return null;
     }
+    return null;
   }
 }

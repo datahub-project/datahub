@@ -4,6 +4,7 @@ import React from 'react';
 import { mocks } from '../../../../../Mocks';
 import TestPageContainer from '../../../../../utils/test-utils/TestPageContainer';
 import { Preview } from '../Preview';
+import { PreviewType } from '../../../Entity';
 
 describe('Preview', () => {
     it('renders', () => {
@@ -15,6 +16,7 @@ describe('Preview', () => {
                         name="name"
                         description="definition"
                         owners={null}
+                        previewType={PreviewType.PREVIEW}
                     />
                 </TestPageContainer>
             </MockedProvider>,

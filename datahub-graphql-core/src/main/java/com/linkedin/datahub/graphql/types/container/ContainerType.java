@@ -18,7 +18,6 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.query.AutoCompleteResult;
-import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchResult;
 import graphql.execution.DataFetcherResult;
@@ -128,13 +127,12 @@ public class ContainerType
     final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
     final SearchResult searchResult =
         _entityClient.search(
+            context.getOperationContext().withSearchFlags(flags -> flags.setFulltext(true)),
             ENTITY_NAME,
             query,
             facetFilters,
             start,
-            count,
-            context.getAuthentication(),
-            new SearchFlags().setFulltext(true));
+            count);
     return UrnSearchResultsMapper.map(searchResult);
   }
 
@@ -147,7 +145,8 @@ public class ContainerType
       @Nonnull final QueryContext context)
       throws Exception {
     final AutoCompleteResult result =
-        _entityClient.autoComplete(ENTITY_NAME, query, filters, limit, context.getAuthentication());
+        _entityClient.autoComplete(
+            context.getOperationContext(), ENTITY_NAME, query, filters, limit);
     return AutoCompleteResultsMapper.map(result);
   }
 }

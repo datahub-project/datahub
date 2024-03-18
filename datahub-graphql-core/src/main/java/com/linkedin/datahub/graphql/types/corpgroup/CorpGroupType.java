@@ -7,6 +7,7 @@ import com.datahub.authorization.ConjunctivePrivilegeGroup;
 import com.datahub.authorization.DisjunctivePrivilegeGroup;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.linkedin.common.url.Url;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
@@ -30,7 +31,6 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.identity.CorpGroupEditableInfo;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.query.AutoCompleteResult;
-import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -116,13 +116,12 @@ public class CorpGroupType
       throws Exception {
     final SearchResult searchResult =
         _entityClient.search(
+            context.getOperationContext().withSearchFlags(flags -> flags.setFulltext(true)),
             "corpGroup",
             query,
             Collections.emptyMap(),
             start,
-            count,
-            context.getAuthentication(),
-            new SearchFlags().setFulltext(true));
+            count);
     return UrnSearchResultsMapper.map(searchResult);
   }
 
@@ -135,7 +134,8 @@ public class CorpGroupType
       @Nonnull final QueryContext context)
       throws Exception {
     final AutoCompleteResult result =
-        _entityClient.autoComplete("corpGroup", query, filters, limit, context.getAuthentication());
+        _entityClient.autoComplete(
+            context.getOperationContext(), "corpGroup", query, filters, limit);
     return AutoCompleteResultsMapper.map(result);
   }
 
@@ -231,6 +231,9 @@ public class CorpGroupType
     }
     if (input.getEmail() != null) {
       result.setEmail(input.getEmail());
+    }
+    if (input.getPictureLink() != null) {
+      result.setPictureLink(new Url(input.getPictureLink()));
     }
     return result;
   }

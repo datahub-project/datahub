@@ -1,6 +1,7 @@
 import React from 'react';
 import { Switch, Route, RouteProps } from 'react-router-dom';
 import { useReactiveVar } from '@apollo/client';
+import AppProviders from './AppProviders';
 import { LogIn } from './auth/LogIn';
 import { SignUp } from './auth/SignUp';
 import { ResetCredentials } from './auth/ResetCredentials';
@@ -36,7 +37,14 @@ export const Routes = (): JSX.Element => {
             <Route path={PageRoutes.LOG_IN} component={LogIn} />
             <Route path={PageRoutes.SIGN_UP} component={SignUp} />
             <Route path={PageRoutes.RESET_CREDENTIALS} component={ResetCredentials} />
-            <ProtectedRoute isLoggedIn={isLoggedIn} render={() => <ProtectedRoutes />} />
+            <ProtectedRoute
+                isLoggedIn={isLoggedIn}
+                render={() => (
+                    <AppProviders>
+                        <ProtectedRoutes />
+                    </AppProviders>
+                )}
+            />
             <Route path="/*" component={NoPageFound} />
         </Switch>
     );

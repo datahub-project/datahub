@@ -115,7 +115,7 @@ public class DomainType
       throws Exception {
     final AutoCompleteResult result =
         _entityClient.autoComplete(
-            Constants.DOMAIN_ENTITY_NAME, query, filters, limit, context.getAuthentication());
+            context.getOperationContext(), Constants.DOMAIN_ENTITY_NAME, query, filters, limit);
     return AutoCompleteResultsMapper.map(result);
   }
 

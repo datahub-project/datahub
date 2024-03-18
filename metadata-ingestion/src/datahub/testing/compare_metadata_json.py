@@ -62,9 +62,13 @@ def assert_metadata_files_equal(
         # We have to "normalize" the golden file by reading and writing it back out.
         # This will clean up nulls, double serialization, and other formatting issues.
         with tempfile.NamedTemporaryFile() as temp:
-            golden_metadata = read_metadata_file(pathlib.Path(golden_path))
-            write_metadata_file(pathlib.Path(temp.name), golden_metadata)
-            golden = load_json_file(temp.name)
+            try:
+                golden_metadata = read_metadata_file(pathlib.Path(golden_path))
+                write_metadata_file(pathlib.Path(temp.name), golden_metadata)
+                golden = load_json_file(temp.name)
+            except (ValueError, AssertionError) as e:
+                logger.info(f"Error reformatting golden file as MCP/MCEs: {e}")
+                golden = load_json_file(golden_path)
 
     diff = diff_metadata_json(output, golden, ignore_paths, ignore_order=ignore_order)
     if diff and update_golden:
@@ -107,7 +111,7 @@ def diff_metadata_json(
         # if ignore_order is False, always use DeepDiff
     except CannotCompareMCPs as e:
         logger.info(f"{e}, falling back to MCE diff")
-    except AssertionError as e:
+    except (AssertionError, ValueError) as e:
         logger.warning(f"Reverting to old diff method: {e}")
         logger.debug("Error with new diff method", exc_info=True)
 

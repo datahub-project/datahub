@@ -6,20 +6,20 @@ from datahub.utilities.urns.structured_properties_urn import (
     make_structured_property_urn,
 )
 
-T = TypeVar("T", bound=MetadataPatchProposal)
+_Parent = TypeVar("_Parent", bound=MetadataPatchProposal)
 
 
-class StructuredPropertiesPatchHelper(Generic[T]):
+class StructuredPropertiesPatchHelper(Generic[_Parent]):
     def __init__(
         self,
-        parent: T,
+        parent: _Parent,
         aspect_name: str = "structuredProperties",
     ) -> None:
         self.aspect_name = aspect_name
         self._parent = parent
         self.aspect_field = "properties"
 
-    def parent(self) -> T:
+    def parent(self) -> _Parent:
         return self._parent
 
     def set_property(
@@ -33,7 +33,7 @@ class StructuredPropertiesPatchHelper(Generic[T]):
         self._parent._add_patch(
             self.aspect_name,
             "remove",
-            path=f"/{self.aspect_field}/{make_structured_property_urn(key)}",
+            path=(self.aspect_field, make_structured_property_urn(key)),
             value={},
         )
         return self
@@ -44,7 +44,7 @@ class StructuredPropertiesPatchHelper(Generic[T]):
         self._parent._add_patch(
             self.aspect_name,
             "add",
-            path=f"/{self.aspect_field}/{make_structured_property_urn(key)}",
+            path=(self.aspect_field, make_structured_property_urn(key)),
             value=StructuredPropertyValueAssignmentClass(
                 propertyUrn=make_structured_property_urn(key),
                 values=value if isinstance(value, list) else [value],

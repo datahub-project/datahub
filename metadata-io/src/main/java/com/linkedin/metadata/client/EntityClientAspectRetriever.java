@@ -17,11 +17,12 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+@Getter
 @Builder
 @Component
 @RequiredArgsConstructor
 public class EntityClientAspectRetriever implements CachingAspectRetriever {
-  @Getter private final EntityRegistry entityRegistry;
+  private final EntityRegistry entityRegistry;
   private final SystemEntityClient entityClient;
 
   /**

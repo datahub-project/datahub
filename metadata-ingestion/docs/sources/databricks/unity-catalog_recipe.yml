@@ -15,6 +15,11 @@ source:
         deny:
           - ".*\\.unwanted_schema"
 
+#    emit_siblings: true
+#    delta_lake_options:
+#      platform_instance_name: null
+#      env: 'PROD'
+
 #    profiling:
 #      method: "analyze"
 #      enabled: true

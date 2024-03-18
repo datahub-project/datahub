@@ -8,6 +8,9 @@ from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
     BigQueryTableRef,
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
+from datahub.ingestion.source.bigquery_v2.bigquery_helper import (
+    unquote_and_decode_unicode_escape_seq,
+)
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
 from datahub.ingestion.source.bigquery_v2.usage import BigQueryUsageExtractor
 from datahub.sql_parsing.schema_resolver import SchemaResolver
@@ -176,3 +179,36 @@ def test_bigquery_table_sanitasitation():
     assert table_identifier.dataset == "dataset-4567"
     assert table_identifier.table == "foo_2016*"
     assert table_identifier.get_table_display_name() == "foo"
+
+
+def test_unquote_and_decode_unicode_escape_seq():
+
+    # Test with a string that starts and ends with quotes and has Unicode escape sequences
+    input_string = '"Hello \\u003cWorld\\u003e"'
+    expected_output = "Hello <World>"
+    result = unquote_and_decode_unicode_escape_seq(input_string)
+    assert result == expected_output
+
+    # Test with a string that does not start and end with quotes
+    input_string = "Hello \\u003cWorld\\u003e"
+    expected_output = "Hello <World>"
+    result = unquote_and_decode_unicode_escape_seq(input_string)
+    assert result == expected_output
+
+    # Test with an empty string
+    input_string = ""
+    expected_output = ""
+    result = unquote_and_decode_unicode_escape_seq(input_string)
+    assert result == expected_output
+
+    # Test with a string that does not have Unicode escape sequences
+    input_string = "No escape sequences here"
+    expected_output = "No escape sequences here"
+    result = unquote_and_decode_unicode_escape_seq(input_string)
+    assert result == expected_output
+
+    # Test with a string that starts and ends with quotes but does not have escape sequences
+    input_string = '"No escape sequences here"'
+    expected_output = "No escape sequences here"
+    result = unquote_and_decode_unicode_escape_seq(input_string)
+    assert result == expected_output

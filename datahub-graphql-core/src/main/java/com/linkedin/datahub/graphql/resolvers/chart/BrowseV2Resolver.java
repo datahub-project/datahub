@@ -76,6 +76,7 @@ public class BrowseV2Resolver implements DataFetcher<CompletableFuture<BrowseRes
 
             BrowseResultV2 browseResults =
                 _entityClient.browseV2(
+                    context.getOperationContext().withSearchFlags(flags -> searchFlags),
                     entityNames,
                     pathStr,
                     maybeResolvedView != null
@@ -84,9 +85,7 @@ public class BrowseV2Resolver implements DataFetcher<CompletableFuture<BrowseRes
                         : inputFilter,
                     sanitizedQuery,
                     start,
-                    count,
-                    context.getAuthentication(),
-                    searchFlags);
+                    count);
             return mapBrowseResults(browseResults);
           } catch (Exception e) {
             throw new RuntimeException("Failed to execute browse V2", e);

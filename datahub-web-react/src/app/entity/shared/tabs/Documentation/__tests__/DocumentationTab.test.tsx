@@ -25,6 +25,10 @@ describe('SchemaDescriptionField', () => {
                             baseEntity: {},
                             updateEntity: vi.fn(),
                             routeToTab: vi.fn(),
+                            loading: true,
+                            lineage: undefined,
+                            refetch: vi.fn(),
+                            dataNotCombinedWithSiblings: null,
                         }}
                     >
                         <DocumentationTab />
@@ -44,7 +48,9 @@ describe('SchemaDescriptionField', () => {
                             urn: 'urn:li:dataset:123',
                             entityType: EntityType.Dataset,
                             entityData: {
-                                description: 'This is a description',
+                                properties: {
+                                    description: 'This is a description',
+                                },
                                 editableProperties: {
                                     description: 'Edited description',
                                 },
@@ -52,6 +58,10 @@ describe('SchemaDescriptionField', () => {
                             baseEntity: {},
                             updateEntity: vi.fn(),
                             routeToTab: vi.fn(),
+                            loading: true,
+                            lineage: undefined,
+                            refetch: vi.fn(),
+                            dataNotCombinedWithSiblings: null,
                         }}
                     >
                         <DocumentationTab />

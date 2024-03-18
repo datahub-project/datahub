@@ -24,6 +24,7 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.sql.data_reader import DataReader
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemySource,
     SQLSourceReport,
@@ -117,6 +118,11 @@ class VerticaConfig(BasicSQLAlchemyConfig):
 @capability(
     SourceCapability.DELETION_DETECTION,
     "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
+    supported=True,
+)
+@capability(
+    SourceCapability.CLASSIFICATION,
+    "Optionally enabled via `classification.enabled`",
     supported=True,
 )
 class VerticaSource(SQLAlchemySource):
@@ -221,6 +227,7 @@ class VerticaSource(SQLAlchemySource):
         schema: str,
         table: str,
         sql_config: SQLCommonConfig,
+        data_reader: Optional[DataReader],
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
         dataset_urn = make_dataset_urn_with_platform_instance(
             self.platform,
@@ -235,7 +242,7 @@ class VerticaSource(SQLAlchemySource):
             owner_urn=f"urn:li:corpuser:{table_owner}",
         )
         yield from super()._process_table(
-            dataset_name, inspector, schema, table, sql_config
+            dataset_name, inspector, schema, table, sql_config, data_reader
         )
 
     def loop_views(

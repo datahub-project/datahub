@@ -1,17 +1,21 @@
 package com.linkedin.metadata.search.cache;
 
+import static org.mockito.Mockito.mock;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 import com.google.common.collect.Streams;
 import com.linkedin.common.urn.TestEntityUrn;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.search.AggregationMetadataArray;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchResultMetadata;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -26,42 +30,44 @@ public class CacheableSearcherTest {
 
   @Test
   public void testCacheableSearcherWhenEmpty() {
+    OperationContext opContext =
+        TestOperationContexts.systemContextNoSearchAuthorization(mock(EntityRegistry.class));
     CacheableSearcher<Integer> emptySearcher =
         new CacheableSearcher<>(
             cacheManager.getCache("emptySearcher"),
             10,
             this::getEmptySearchResult,
             CacheableSearcher.QueryPagination::getFrom,
-            null,
             true);
-    assertTrue(emptySearcher.getSearchResults(0, 0).getEntities().isEmpty());
-    assertTrue(emptySearcher.getSearchResults(0, 10).getEntities().isEmpty());
-    assertTrue(emptySearcher.getSearchResults(5, 10).getEntities().isEmpty());
+    assertTrue(emptySearcher.getSearchResults(opContext, 0, 0).getEntities().isEmpty());
+    assertTrue(emptySearcher.getSearchResults(opContext, 0, 10).getEntities().isEmpty());
+    assertTrue(emptySearcher.getSearchResults(opContext, 5, 10).getEntities().isEmpty());
   }
 
   @Test
   public void testCacheableSearcherWithFixedNumResults() {
+    OperationContext opContext =
+        TestOperationContexts.systemContextNoSearchAuthorization(mock(EntityRegistry.class));
     CacheableSearcher<Integer> fixedBatchSearcher =
         new CacheableSearcher<>(
             cacheManager.getCache("fixedBatchSearcher"),
             10,
             qs -> getSearchResult(qs, 10),
             CacheableSearcher.QueryPagination::getFrom,
-            null,
             true);
 
-    SearchResult result = fixedBatchSearcher.getSearchResults(0, 0);
+    SearchResult result = fixedBatchSearcher.getSearchResults(opContext, 0, 0);
     assertTrue(result.getEntities().isEmpty());
     assertEquals(result.getNumEntities().intValue(), 1000);
 
-    result = fixedBatchSearcher.getSearchResults(0, 10);
+    result = fixedBatchSearcher.getSearchResults(opContext, 0, 10);
     assertEquals(result.getNumEntities().intValue(), 1000);
     assertEquals(result.getEntities().size(), 10);
     assertEquals(
         result.getEntities().stream().map(SearchEntity::getEntity).collect(Collectors.toList()),
         getUrns(0, 10));
 
-    result = fixedBatchSearcher.getSearchResults(5, 10);
+    result = fixedBatchSearcher.getSearchResults(opContext, 5, 10);
     assertEquals(result.getNumEntities().intValue(), 1000);
     assertEquals(result.getEntities().size(), 10);
     assertEquals(
@@ -72,27 +78,28 @@ public class CacheableSearcherTest {
 
   @Test
   public void testCacheableSearcherWithVariableNumResults() {
+    OperationContext opContext =
+        TestOperationContexts.systemContextNoSearchAuthorization(mock(EntityRegistry.class));
     CacheableSearcher<Integer> variableBatchSearcher =
         new CacheableSearcher<>(
             cacheManager.getCache("variableBatchSearcher"),
             10,
             qs -> getSearchResult(qs, qs.getFrom() + qs.getSize()),
             CacheableSearcher.QueryPagination::getFrom,
-            null,
             true);
 
-    SearchResult result = variableBatchSearcher.getSearchResults(0, 0);
+    SearchResult result = variableBatchSearcher.getSearchResults(opContext, 0, 0);
     assertTrue(result.getEntities().isEmpty());
     assertEquals(result.getNumEntities().intValue(), 1000);
 
-    result = variableBatchSearcher.getSearchResults(0, 10);
+    result = variableBatchSearcher.getSearchResults(opContext, 0, 10);
     assertEquals(result.getNumEntities().intValue(), 1000);
     assertEquals(result.getEntities().size(), 10);
     assertEquals(
         result.getEntities().stream().map(SearchEntity::getEntity).collect(Collectors.toList()),
         getUrns(0, 10));
 
-    result = variableBatchSearcher.getSearchResults(5, 10);
+    result = variableBatchSearcher.getSearchResults(opContext, 5, 10);
     assertEquals(result.getNumEntities().intValue(), 1000);
     assertEquals(result.getEntities().size(), 10);
     assertEquals(
@@ -100,7 +107,7 @@ public class CacheableSearcherTest {
         Streams.concat(getUrns(5, 10).stream(), getUrns(0, 5).stream())
             .collect(Collectors.toList()));
 
-    result = variableBatchSearcher.getSearchResults(5, 100);
+    result = variableBatchSearcher.getSearchResults(opContext, 5, 100);
     assertEquals(result.getNumEntities().intValue(), 1000);
     assertEquals(result.getEntities().size(), 100);
     assertEquals(
@@ -116,17 +123,18 @@ public class CacheableSearcherTest {
 
   @Test
   public void testCacheableSearcherEnabled() {
+    OperationContext opContext =
+        TestOperationContexts.systemContextNoSearchAuthorization(mock(EntityRegistry.class));
     // Verify cache is not interacted with when cache disabled
-    Cache mockCache = Mockito.mock(Cache.class);
+    Cache mockCache = mock(Cache.class);
     CacheableSearcher<Integer> cacheDisabled =
         new CacheableSearcher<>(
             mockCache,
             10,
             qs -> getSearchResult(qs, qs.getFrom() + qs.getSize()),
             CacheableSearcher.QueryPagination::getFrom,
-            null,
             false);
-    SearchResult result = cacheDisabled.getSearchResults(0, 10);
+    SearchResult result = cacheDisabled.getSearchResults(opContext, 0, 10);
     assertEquals(result.getNumEntities().intValue(), 1000);
     assertEquals(result.getEntities().size(), 10);
     assertEquals(
@@ -142,9 +150,10 @@ public class CacheableSearcherTest {
             10,
             qs -> getSearchResult(qs, qs.getFrom() + qs.getSize()),
             CacheableSearcher.QueryPagination::getFrom,
-            new SearchFlags().setSkipCache(true),
             true);
-    result = skipCache.getSearchResults(0, 10);
+    result =
+        skipCache.getSearchResults(
+            opContext.withSearchFlags(flags -> flags.setSkipCache(true)), 0, 10);
     assertEquals(result.getNumEntities().intValue(), 1000);
     assertEquals(result.getEntities().size(), 10);
     assertEquals(
@@ -161,9 +170,9 @@ public class CacheableSearcherTest {
             10,
             qs -> getSearchResult(qs, qs.getFrom() + qs.getSize()),
             CacheableSearcher.QueryPagination::getFrom,
-            null,
             true);
-    result = nullFlags.getSearchResults(0, 10);
+    result =
+        nullFlags.getSearchResults(opContext.withSearchFlags(flags -> new SearchFlags()), 0, 10);
     assertEquals(result.getNumEntities().intValue(), 1000);
     assertEquals(result.getEntities().size(), 10);
     assertEquals(
@@ -180,9 +189,10 @@ public class CacheableSearcherTest {
             10,
             qs -> getSearchResult(qs, qs.getFrom() + qs.getSize()),
             CacheableSearcher.QueryPagination::getFrom,
-            new SearchFlags().setSkipCache(false),
             true);
-    result = useCache.getSearchResults(0, 10);
+    result =
+        useCache.getSearchResults(
+            opContext.withSearchFlags(flags -> flags.setSkipCache(false)), 0, 10);
     assertEquals(result.getNumEntities().intValue(), 1000);
     assertEquals(result.getEntities().size(), 10);
     assertEquals(

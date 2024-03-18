@@ -31,6 +31,7 @@ import mlflowLogo from '../../../../images/mlflowlogo.png';
 import dynamodbLogo from '../../../../images/dynamodblogo.png';
 import fivetranLogo from '../../../../images/fivetranlogo.png';
 import csvLogo from '../../../../images/csv-logo.png';
+import qlikLogo from '../../../../images/qliklogo.png';
 
 export const ATHENA = 'athena';
 export const ATHENA_URN = `urn:li:dataPlatform:${ATHENA}`;
@@ -113,6 +114,8 @@ export const FIVETRAN = 'fivetran';
 export const FIVETRAN_URN = `urn:li:dataPlatform:${FIVETRAN}`;
 export const CSV = 'csv-enricher';
 export const CSV_URN = `urn:li:dataPlatform:${CSV}`;
+export const QLIK_SENSE = 'qlik-sense';
+export const QLIK_SENSE_URN = `urn:li:dataPlatform:${QLIK_SENSE}`;
 
 export const PLATFORM_URN_TO_LOGO = {
     [ATHENA_URN]: athenaLogo,
@@ -149,6 +152,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [VERTICA_URN]: verticaLogo,
     [FIVETRAN_URN]: fivetranLogo,
     [CSV_URN]: csvLogo,
+    [QLIK_SENSE_URN]: qlikLogo,
 };
 
 export const SOURCE_TO_PLATFORM_URN = {

@@ -70,7 +70,7 @@
     "aspect": {
         "json": {
             "statement": {
-                "value": "insert into foo (a, b, c) select a, b, c from bar",
+                "value": "INSERT INTO foo (\n  a,\n  b,\n  c\n)\nSELECT\n  a,\n  b,\n  c\nFROM bar",
                 "language": "SQL"
             },
             "source": "SYSTEM",

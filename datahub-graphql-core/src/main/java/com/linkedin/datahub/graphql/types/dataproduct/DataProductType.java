@@ -113,7 +113,7 @@ public class DataProductType
       throws Exception {
     final AutoCompleteResult result =
         _entityClient.autoComplete(
-            DATA_PRODUCT_ENTITY_NAME, query, filters, limit, context.getAuthentication());
+            context.getOperationContext(), DATA_PRODUCT_ENTITY_NAME, query, filters, limit);
     return AutoCompleteResultsMapper.map(result);
   }
 

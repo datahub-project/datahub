@@ -34,7 +34,7 @@ def create_owners_list_from_urn_list(
 
 
 def create_mocked_dbt_source() -> DBTCoreSource:
-    ctx = PipelineContext("test-run-id")
+    ctx = PipelineContext(run_id="test-run-id", pipeline_name="dbt-source")
     graph = mock.MagicMock()
     graph.get_ownership.return_value = mce_builder.make_ownership_aspect_from_urn_list(
         ["urn:li:corpuser:test_user"], "AUDIT"

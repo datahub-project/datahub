@@ -29,6 +29,12 @@ describe('Form', () => {
                             urn: '',
                             entityType: EntityType.Dataset,
                             entityData: mockEntityDataWithFieldPrompts,
+                            baseEntity: {},
+                            routeToTab: vi.fn(),
+                            refetch: vi.fn(),
+                            loading: true,
+                            lineage: undefined,
+                            dataNotCombinedWithSiblings: null,
                         }}
                     >
                         <Form formUrn="urn:li:form:1" />
@@ -50,6 +56,12 @@ describe('Form', () => {
                             urn: '',
                             entityType: EntityType.Dataset,
                             entityData: mockEntityData,
+                            baseEntity: {},
+                            routeToTab: vi.fn(),
+                            refetch: vi.fn(),
+                            loading: true,
+                            lineage: undefined,
+                            dataNotCombinedWithSiblings: null,
                         }}
                     >
                         <Form formUrn="urn:li:form:3" />

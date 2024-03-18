@@ -3,9 +3,9 @@ package io.datahubproject.openapi.operations.elastic;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthUtil;
-import com.datahub.authorization.AuthorizerChain;
 import com.datahub.authorization.ConjunctivePrivilegeGroup;
 import com.datahub.authorization.DisjunctivePrivilegeGroup;
+import com.datahub.plugins.auth.authorization.Authorizer;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.query.SearchFlags;
@@ -15,6 +15,7 @@ import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.timeseries.TimeseriesIndexSizeResult;
+import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.openapi.util.ElasticsearchUtils;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -46,7 +47,8 @@ import org.springframework.web.bind.annotation.RestController;
     name = "ElasticSearchOperations",
     description = "An API for managing your elasticsearch instance")
 public class OperationsController {
-  private final AuthorizerChain authorizerChain;
+  private final Authorizer authorizerChain;
+  private final OperationContext systemOperationContext;
 
   @Value("${authorization.restApiAuthorization:false}")
   private boolean restApiAuthorizationEnabled;
@@ -57,11 +59,12 @@ public class OperationsController {
   private final EntitySearchService searchService;
 
   public OperationsController(
-      AuthorizerChain authorizerChain,
+      OperationContext systemOperationContext,
       SystemMetadataService systemMetadataService,
       TimeseriesAspectService timeseriesAspectService,
       EntitySearchService searchService) {
-    this.authorizerChain = authorizerChain;
+    this.systemOperationContext = systemOperationContext;
+    this.authorizerChain = systemOperationContext.getAuthorizerContext().getAuthorizer();
     this.systemMetadataService = systemMetadataService;
     this.timeseriesAspectService = timeseriesAspectService;
     this.searchService = searchService;
@@ -231,14 +234,19 @@ public class OperationsController {
       log.error("{} is not authorized to get timeseries index sizes", actorUrnStr);
       return ResponseEntity.status(HttpStatus.FORBIDDEN).body(null);
     }
+    OperationContext opContext =
+        systemOperationContext
+            .asSession(authorizerChain, authentication)
+            .withSearchFlags(flags -> searchFlags);
+
     ExplainResponse response =
         searchService.explain(
+            opContext,
             query,
             documentId,
             entityName,
             filters,
             sortCriterion,
-            searchFlags,
             scrollId,
             keepAlive,
             size,

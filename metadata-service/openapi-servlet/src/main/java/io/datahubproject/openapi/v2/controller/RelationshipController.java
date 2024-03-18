@@ -9,6 +9,7 @@ import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.authorization.PoliciesConfig;
+import com.linkedin.metadata.graph.Edge;
 import com.linkedin.metadata.graph.RelatedEntities;
 import com.linkedin.metadata.graph.RelatedEntitiesScrollResult;
 import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
@@ -49,16 +50,14 @@ import org.springframework.web.bind.annotation.RestController;
     name = "Generic Relationships",
     description = "APIs for ingesting and accessing entity relationships.")
 public class RelationshipController {
-
-  private static final String[] SORT_FIELDS = {"source.urn", "destination.urn", "relationshipType"};
-  private static final String[] SORT_ORDERS = {"ASCENDING", "ASCENDING", "ASCENDING"};
+  private static final String[] SORT_ORDERS = {"ASCENDING", "ASCENDING", "ASCENDING", "ASCENDING"};
   private static final List<SortCriterion> EDGE_SORT_CRITERION;
 
   static {
     EDGE_SORT_CRITERION =
-        IntStream.range(0, SORT_FIELDS.length)
+        IntStream.range(0, Edge.KEY_FIELDS.length)
             .mapToObj(
-                idx -> SearchUtil.sortBy(SORT_FIELDS[idx], SortOrder.valueOf(SORT_ORDERS[idx])))
+                idx -> SearchUtil.sortBy(Edge.KEY_FIELDS[idx], SortOrder.valueOf(SORT_ORDERS[idx])))
             .collect(Collectors.toList());
   }
 

@@ -3,6 +3,7 @@ package com.linkedin.metadata.search.elasticsearch.indexbuilder;
 import static com.linkedin.metadata.Constants.ENTITY_TYPE_URN_PREFIX;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_MAPPING_FIELD;
 import static com.linkedin.metadata.models.StructuredPropertyUtils.sanitizeStructuredPropertyFQN;
+import static com.linkedin.metadata.models.annotation.SearchableAnnotation.OBJECT_FIELD_TYPES;
 import static com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder.*;
 
 import com.google.common.collect.ImmutableMap;
@@ -53,6 +54,7 @@ public class MappingsBuilder {
   public static final String PATH = "path";
 
   public static final String PROPERTIES = "properties";
+  public static final String DYNAMIC_TEMPLATES = "dynamic_templates";
 
   private MappingsBuilder() {}
 
@@ -100,6 +102,7 @@ public class MappingsBuilder {
             return merged.isEmpty() ? null : merged;
           });
     }
+
     return mappings;
   }
 
@@ -221,7 +224,7 @@ public class MappingsBuilder {
       mappingForField.put(TYPE, ESUtils.LONG_FIELD_TYPE);
     } else if (fieldType == FieldType.DATETIME) {
       mappingForField.put(TYPE, ESUtils.DATE_FIELD_TYPE);
-    } else if (fieldType == FieldType.OBJECT) {
+    } else if (OBJECT_FIELD_TYPES.contains(fieldType)) {
       mappingForField.put(TYPE, ESUtils.OBJECT_FIELD_TYPE);
     } else if (fieldType == FieldType.DOUBLE) {
       mappingForField.put(TYPE, ESUtils.DOUBLE_FIELD_TYPE);

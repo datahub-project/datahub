@@ -51,7 +51,8 @@ public class SearchFieldConfig {
           SearchableAnnotation.FieldType.BOOLEAN,
           SearchableAnnotation.FieldType.COUNT,
           SearchableAnnotation.FieldType.DATETIME,
-          SearchableAnnotation.FieldType.OBJECT);
+          SearchableAnnotation.FieldType.OBJECT,
+          SearchableAnnotation.FieldType.MAP_ARRAY);
   // NOT true for `urn`
   public static final Set<SearchableAnnotation.FieldType> TYPES_WITH_URN_TEXT =
       Set.of(SearchableAnnotation.FieldType.URN, SearchableAnnotation.FieldType.URN_PARTIAL);

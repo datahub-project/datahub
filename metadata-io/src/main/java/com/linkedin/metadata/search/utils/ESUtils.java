@@ -1,6 +1,7 @@
 package com.linkedin.metadata.search.utils;
 
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.models.annotation.SearchableAnnotation.OBJECT_FIELD_TYPES;
 import static com.linkedin.metadata.search.elasticsearch.query.request.SearchFieldConfig.KEYWORD_FIELDS;
 import static com.linkedin.metadata.search.elasticsearch.query.request.SearchFieldConfig.PATH_HIERARCHY_FIELDS;
 import static com.linkedin.metadata.search.utils.SearchUtils.isUrn;
@@ -11,11 +12,13 @@ import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.StructuredPropertyUtils;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
+import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -54,6 +57,7 @@ public class ESUtils {
   public static final int MAX_RESULT_SIZE = 10000;
   public static final String OPAQUE_ID_HEADER = "X-Opaque-Id";
   public static final String HEADER_VALUE_DELIMITER = "|";
+  private static final String REMOVED = "removed";
 
   // Field types
   public static final String KEYWORD_FIELD_TYPE = "keyword";
@@ -149,6 +153,8 @@ public class ESUtils {
               or ->
                   finalQueryBuilder.should(
                       ESUtils.buildConjunctiveFilterQuery(or, isTimeseries, searchableFieldTypes)));
+      // The default is not always 1 (ensure consistent default)
+      finalQueryBuilder.minimumShouldMatch(1);
     } else if (filter.getCriteria() != null) {
       // Otherwise, build boolean query from the deprecated "criteria" field.
       log.warn("Received query Filter with a deprecated field 'criteria'. Use 'or' instead.");
@@ -165,6 +171,8 @@ public class ESUtils {
                 }
               });
       finalQueryBuilder.should(andQueryBuilder);
+      // The default is not always 1 (ensure consistent default)
+      finalQueryBuilder.minimumShouldMatch(1);
     }
     return finalQueryBuilder;
   }
@@ -263,7 +271,7 @@ public class ESUtils {
       return LONG_FIELD_TYPE;
     } else if (fieldType == SearchableAnnotation.FieldType.DATETIME) {
       return DATE_FIELD_TYPE;
-    } else if (fieldType == SearchableAnnotation.FieldType.OBJECT) {
+    } else if (OBJECT_FIELD_TYPES.contains(fieldType)) {
       return OBJECT_FIELD_TYPE;
     } else if (fieldType == SearchableAnnotation.FieldType.DOUBLE) {
       return DOUBLE_FIELD_TYPE;
@@ -665,5 +673,44 @@ public class ESUtils {
                         .queryName(fieldName)
                         .analyzer(KEYWORD_ANALYZER)));
     return filters;
+  }
+
+  @Nonnull
+  public static BoolQueryBuilder applyDefaultSearchFilters(
+      @Nonnull OperationContext opContext,
+      @Nullable Filter filter,
+      @Nonnull BoolQueryBuilder filterQuery) {
+    // filter soft deleted entities by default
+    filterSoftDeletedByDefault(filter, filterQuery, opContext.getSearchContext().getSearchFlags());
+    // filter based on access controls
+    ESAccessControlUtil.buildAccessControlFilters(opContext).ifPresent(filterQuery::filter);
+    return filterQuery;
+  }
+
+  /**
+   * Applies a default filter to remove entities that are soft deleted only if there isn't a filter
+   * for the REMOVED field already and soft delete entities are not being requested via search flags
+   */
+  private static void filterSoftDeletedByDefault(
+      @Nullable Filter filter,
+      @Nonnull BoolQueryBuilder filterQuery,
+      @Nonnull SearchFlags searchFlags) {
+    if (Boolean.FALSE.equals(searchFlags.isIncludeSoftDeleted())) {
+      boolean removedInOrFilter = false;
+      if (filter != null) {
+        removedInOrFilter =
+            filter.getOr().stream()
+                .anyMatch(
+                    or ->
+                        or.getAnd().stream()
+                            .anyMatch(
+                                criterion ->
+                                    criterion.getField().equals(REMOVED)
+                                        || criterion.getField().equals(REMOVED + KEYWORD_SUFFIX)));
+      }
+      if (!removedInOrFilter) {
+        filterQuery.mustNot(QueryBuilders.matchQuery(REMOVED, true));
+      }
+    }
   }
 }

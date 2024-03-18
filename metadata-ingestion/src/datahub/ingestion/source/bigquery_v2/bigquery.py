@@ -35,11 +35,19 @@ from datahub.ingestion.api.source import (
     TestConnectionReport,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.glossary.classification_mixin import (
+    ClassificationHandler,
+    classification_workunit_processor,
+)
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
     BigqueryTableIdentifier,
     BigQueryTableRef,
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
+from datahub.ingestion.source.bigquery_v2.bigquery_data_reader import BigQueryDataReader
+from datahub.ingestion.source.bigquery_v2.bigquery_helper import (
+    unquote_and_decode_unicode_escape_seq,
+)
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
 from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
     BigqueryColumn,
@@ -164,6 +172,11 @@ def cleanup(config: BigQueryV2Config) -> None:
     "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
     supported=True,
 )
+@capability(
+    SourceCapability.CLASSIFICATION,
+    "Optionally enabled via `classification.enabled`",
+    supported=True,
+)
 class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
     # https://cloud.google.com/bigquery/docs/reference/standard-sql/data-types
     BIGQUERY_FIELD_TYPE_MAPPINGS: Dict[
@@ -211,6 +224,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         super(BigqueryV2Source, self).__init__(config, ctx)
         self.config: BigQueryV2Config = config
         self.report: BigQueryV2Report = BigQueryV2Report()
+        self.classification_handler = ClassificationHandler(self.config, self.report)
         self.platform: str = "bigquery"
 
         BigqueryTableIdentifier._BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX = (
@@ -223,6 +237,12 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             self.report.schema_api_perf, self.config.get_bigquery_client()
         )
         self.sql_parser_schema_resolver = self._init_schema_resolver()
+
+        self.data_reader: Optional[BigQueryDataReader] = None
+        if self.classification_handler.is_classification_enabled():
+            self.data_reader = BigQueryDataReader.create(
+                self.config.get_bigquery_client()
+            )
 
         redundant_lineage_run_skip_handler: Optional[
             RedundantLineageRunSkipHandler
@@ -710,6 +730,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         )
 
         columns = None
+
         if (
             self.config.include_tables
             or self.config.include_views
@@ -729,11 +750,26 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
             for table in db_tables[dataset_name]:
                 table_columns = columns.get(table.name, []) if columns else []
-                yield from self._process_table(
+                table_wu_generator = self._process_table(
                     table=table,
                     columns=table_columns,
                     project_id=project_id,
                     dataset_name=dataset_name,
+                )
+                yield from classification_workunit_processor(
+                    table_wu_generator,
+                    self.classification_handler,
+                    self.data_reader,
+                    [project_id, dataset_name, table.name],
+                    data_reader_kwargs=dict(
+                        sample_size_percent=(
+                            self.config.classification.sample_size
+                            * 1.2
+                            / table.rows_count
+                            if table.rows_count
+                            else None
+                        )
+                    ),
                 )
         elif self.store_table_refs:
             # Need table_refs to calculate lineage and usage
@@ -1068,12 +1104,16 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         )
 
         yield self.gen_schema_metadata(
-            dataset_urn, table, columns, str(datahub_dataset_name)
+            dataset_urn, table, columns, datahub_dataset_name
         )
 
         dataset_properties = DatasetProperties(
             name=datahub_dataset_name.get_table_display_name(),
-            description=table.comment,
+            description=(
+                unquote_and_decode_unicode_escape_seq(table.comment)
+                if table.comment
+                else ""
+            ),
             qualifiedName=str(datahub_dataset_name),
             created=(
                 TimeStamp(time=int(table.created.timestamp() * 1000))
@@ -1233,10 +1273,10 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         dataset_urn: str,
         table: Union[BigqueryTable, BigqueryView, BigqueryTableSnapshot],
         columns: List[BigqueryColumn],
-        dataset_name: str,
+        dataset_name: BigqueryTableIdentifier,
     ) -> MetadataWorkUnit:
         schema_metadata = SchemaMetadata(
-            schemaName=dataset_name,
+            schemaName=str(dataset_name),
             platform=make_data_platform_urn(self.platform),
             version=0,
             hash="",

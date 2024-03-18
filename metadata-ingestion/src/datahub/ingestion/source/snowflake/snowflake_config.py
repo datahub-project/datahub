@@ -220,7 +220,7 @@ class SnowflakeV2Config(
             and values["stateful_ingestion"].remove_stale_metadata
         )
 
-        # TODO: Allow lineage extraction and profiling irrespective of basic schema extraction,
+        # TODO: Allow profiling irrespective of basic schema extraction,
         # as it seems possible with some refactor
         if not include_technical_schema and any(
             [include_profiles, delete_detection_enabled]

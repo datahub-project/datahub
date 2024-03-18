@@ -91,7 +91,8 @@ def test_snowflake_classification_perf(num_workers, num_cols_per_table, num_tabl
         source_report = pipeline.source.get_report()
         assert isinstance(source_report, SnowflakeV2Report)
         assert (
-            cast(SnowflakeV2Report, source_report).num_tables_classified == num_tables
+            cast(SnowflakeV2Report, source_report).num_tables_classification_found
+            == num_tables
         )
         assert (
             len(
