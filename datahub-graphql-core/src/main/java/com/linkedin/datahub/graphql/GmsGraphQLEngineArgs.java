@@ -25,7 +25,7 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.recommendation.RecommendationsService;
 import com.linkedin.metadata.secret.SecretService;
 import com.linkedin.metadata.service.DataProductService;
-import com.linkedin.metadata.service.ERModelRelationService;
+import com.linkedin.metadata.service.ERModelRelationshipService;
 import com.linkedin.metadata.service.FormService;
 import com.linkedin.metadata.service.LineageService;
 import com.linkedin.metadata.service.OwnershipTypeService;
@@ -76,7 +76,7 @@ public class GmsGraphQLEngineArgs {
   QueryService queryService;
   FeatureFlags featureFlags;
   DataProductService dataProductService;
-  ERModelRelationService eRModelRelationService;
+  ERModelRelationshipService erModelRelationshipService;
   FormService formService;
   RestrictedService restrictedService;
   int graphQLQueryComplexityLimit;

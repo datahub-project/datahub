@@ -269,10 +269,10 @@ fragment lineageNodeProperties on EntityWithRelationships {
     ... on MLPrimaryKey {
         ...nonRecursiveMLPrimaryKey
     }
-    ... on ERModelRelation {
+    ... on ERModelRelationship {
         urn
         type
-        ermodelrelationId
+        id
         properties {
             ...ermodelrelationPropertiesFields
         }

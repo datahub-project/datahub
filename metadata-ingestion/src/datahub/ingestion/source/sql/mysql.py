@@ -66,6 +66,11 @@ class MySQLConfig(MySQLConnectionConfig, TwoTierSQLAlchemyConfig):
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
 @capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
+@capability(
+    SourceCapability.CLASSIFICATION,
+    "Optionally enabled via `classification.enabled`",
+    supported=True,
+)
 class MySQLSource(TwoTierSQLAlchemySource):
     """
     This plugin extracts the following:

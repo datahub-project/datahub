@@ -825,10 +825,10 @@ fragment searchResultFields on Entity {
     ... on DataProduct {
         ...dataProductSearchFields
     }
-    ... on ERModelRelation {
+    ... on ERModelRelationship {
         urn
         type
-        ermodelrelationId
+        id
         properties {
             ...ermodelrelationPropertiesFields
         }

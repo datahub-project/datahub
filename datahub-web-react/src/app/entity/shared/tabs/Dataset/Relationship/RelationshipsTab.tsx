@@ -4,7 +4,7 @@ import styled from 'styled-components';
 import { ExclamationCircleFilled, LoadingOutlined, PlusOutlined, SearchOutlined } from '@ant-design/icons';
 import { useBaseEntity } from '../../../EntityContext';
 import './RelationshipsTab.less';
-import { EntityType, ErModelRelation } from '../../../../../../types.generated';
+import { EntityType, ErModelRelationship } from '../../../../../../types.generated';
 import { useGetSearchResultsQuery } from '../../../../../../graphql/search.generated';
 import {
     GetDatasetQuery,
@@ -13,8 +13,8 @@ import {
 } from '../../../../../../graphql/dataset.generated';
 import { useGetEntityWithSchema } from '../Schema/useGetEntitySchema';
 import closeIcon from '../../../../../../images/close_dark.svg';
-import { CreateERModelRelationModal } from '../../../components/styled/ERModelRelation/CreateERModelRelationModal';
-import { ERModelRelationPreview } from '../../../components/styled/ERModelRelation/ERModelRelationPreview';
+import { CreateERModelRelationModal } from '../../../components/styled/ERModelRelationship/CreateERModelRelationModal';
+import { ERModelRelationPreview } from '../../../components/styled/ERModelRelationship/ERModelRelationPreview';
 import { SearchSelectModal } from '../../../components/styled/search/SearchSelectModal';
 import { ANTD_GRAY } from '../../../constants';
 
@@ -52,7 +52,7 @@ export const RelationshipsTab = () => {
     const tabs = [
         {
             key: 'ermodelrelationsTab',
-            tab: 'ER-Model-Relations',
+            tab: 'ER-Model-Relationships',
         },
     ];
     const {
@@ -63,7 +63,7 @@ export const RelationshipsTab = () => {
     } = useGetSearchResultsQuery({
         variables: {
             input: {
-                type: EntityType.Ermodelrelation,
+                type: EntityType.ErModelRelationship,
                 query: `${filterText ? `${filterText}` : ''}`,
                 orFilters: [
                     {
@@ -89,13 +89,13 @@ export const RelationshipsTab = () => {
         },
     });
     const totalResults = ermodelrelations?.search?.total || 0;
-    let ermodelrelationData: ErModelRelation[] = [];
+    let ermodelrelationData: ErModelRelationship[] = [];
     if (loadingERModelRelation) {
-        ermodelrelationData = [{}] as ErModelRelation[];
+        ermodelrelationData = [{}] as ErModelRelationship[];
     }
 
     if (!loadingERModelRelation && ermodelrelations?.search && ermodelrelations?.search?.searchResults?.length > 0 && !errorERModelRelation) {
-        ermodelrelationData = ermodelrelations.search.searchResults.map((r) => r.entity as ErModelRelation);
+        ermodelrelationData = ermodelrelations.search.searchResults.map((r) => r.entity as ErModelRelationship);
     }
 
     const contentListNoTitle: Record<string, React.ReactNode> = {
@@ -125,7 +125,7 @@ export const RelationshipsTab = () => {
                     )}
                     {loadingERModelRelation && (
                         <div>
-                            ER-Model-Relations <LoadingOutlined />
+                            ER-Model-Relationships <LoadingOutlined />
                         </div>
                     )}
                 </>
@@ -234,7 +234,7 @@ export const RelationshipsTab = () => {
                 <div className="search-header-div">
                     <StyledInput
                         defaultValue={filterText}
-                        placeholder="Find ermodelrelation..."
+                        placeholder="Find erModelRelationship..."
                         onChange={(e) => setFilterText(e.target.value)}
                         allowClear
                         autoFocus
@@ -248,7 +248,7 @@ export const RelationshipsTab = () => {
                             setermodelrelationModalVisible(true);
                         }}
                     >
-                        <PlusOutlined /> Add ER-Model-Relation
+                        <PlusOutlined /> Add ER-Model-Relationship
                     </Button>
                 </div>{' '}
                 <br />

@@ -457,7 +457,7 @@ type FeatureFlagsConfig {
   """
   showAcrylInfo: Boolean!
   """
-  Whether ERModelRelation Tables Feature should be shown.
+  Whether ERModelRelationship Tables Feature should be shown.
   """
   erModelRelationshipFeatureEnabled: Boolean!
 
