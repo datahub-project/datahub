@@ -428,10 +428,10 @@ featureFlags:
   showBrowseV2: ${SHOW_BROWSE_V2:true} # Enables showing the browse v2 sidebar experience.
   platformBrowseV2: ${PLATFORM_BROWSE_V2:true} # Enables the platform browse experience, instead of the entity-oriented browse default.
   lineageGraphV2: ${LINEAGE_GRAPH_V2:true} # Enables the new lineage visualization.
-  assertionMonitorsEnabled: ${ASSERTION_MONITORS_ENABLED:true} # Enables the ability to create native assertions inside the UI.
-  subscriptionsEnabled: ${SUBSCRIPTIONS_ENABLED:true} # Enables the ability to subscribe to notifications
-  datasetHealthDashboardEnabled: ${DATASET_HEALTH_DASHBOARD_ENABLED:true} # Enables the Dataset Health dashboard in the application
-  dataContractsEnabled: ${DATA_CONTRACTS_ENABLED:true} # Enables the Data Contracts feature (Tab) in the UI
+  assertionMonitorsEnabled: ${ASSERTION_MONITORS_ENABLED:false} # Enables the ability to create native assertions inside the UI.
+  subscriptionsEnabled: ${SUBSCRIPTIONS_ENABLED:false} # Enables the ability to subscribe to notifications
+  datasetHealthDashboardEnabled: ${DATASET_HEALTH_DASHBOARD_ENABLED:false} # Enables the Dataset Health dashboard in the application
+  dataContractsEnabled: ${DATA_CONTRACTS_ENABLED:false} # Enables the Data Contracts feature (Tab) in the UI
   documentationAiEnabled: ${DOCUMENTATION_AI_ENABLED:false} # Enables the AI-powered documentation feature in the UI
   preProcessHooks:
     uiEnabled: ${PRE_PROCESS_HOOKS_UI_ENABLED:true} # Circumvents Kafka for processing index updates for UI changes sourced from GraphQL to avoid processing delays
