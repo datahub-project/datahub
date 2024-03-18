@@ -70,7 +70,7 @@
     "aspect": {
         "json": {
             "statement": {
-                "value": "/* query 2 */ insert into foo (a, b) select a, b from bar",
+                "value": "/* query 2 */\nINSERT INTO foo (\n  a,\n  b\n)\nSELECT\n  a,\n  b\nFROM bar",
                 "language": "SQL"
             },
             "source": "SYSTEM",
@@ -111,7 +111,7 @@
     "aspect": {
         "json": {
             "statement": {
-                "value": "/* query 1 */ insert into foo (a, b, c) select a, b, c from bar",
+                "value": "/* query 1 */\nINSERT INTO foo (\n  a,\n  b,\n  c\n)\nSELECT\n  a,\n  b,\n  c\nFROM bar",
                 "language": "SQL"
             },
             "source": "SYSTEM",

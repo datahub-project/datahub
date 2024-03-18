@@ -57,5 +57,6 @@ export const DEFAULT_APP_CONFIG = {
 
 export const AppConfigContext = React.createContext<{
     config: AppConfig;
+    loaded: boolean;
     refreshContext: () => void;
-}>({ config: DEFAULT_APP_CONFIG, refreshContext: () => null });
+}>({ config: DEFAULT_APP_CONFIG, loaded: false, refreshContext: () => null });

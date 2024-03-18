@@ -158,14 +158,14 @@ class DataHubRestEmitter(Closeable, Emitter):
             timeout=(self._connect_timeout_sec, self._read_timeout_sec),
         )
 
-    def test_connection(self) -> dict:
+    def test_connection(self) -> None:
         url = f"{self._gms_server}/config"
         response = self._session.get(url)
         if response.status_code == 200:
             config: dict = response.json()
             if config.get("noCode") == "true":
                 self.server_config = config
-                return config
+                return
 
             else:
                 # Looks like we either connected to an old GMS or to some other service. Let's see if we can determine which before raising an error
@@ -194,6 +194,10 @@ class DataHubRestEmitter(Closeable, Emitter):
                 message = f"Unable to connect to {url} with status_code: {response.status_code}."
             message += "\nPlease check your configuration and make sure you are talking to the DataHub GMS (usually <datahub-gms-host>:8080) or Frontend GMS API (usually <frontend>:9002/api/gms)."
             raise ConfigurationError(message)
+
+    def get_server_config(self) -> dict:
+        self.test_connection()
+        return self.server_config
 
     def to_graph(self) -> "DataHubGraph":
         from datahub.ingestion.graph.client import DataHubGraph
