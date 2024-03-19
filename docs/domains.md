@@ -202,7 +202,7 @@ mutation createDomain {
 
 This query will return an `urn` which you can use to fetch the Domain details. 
 
-**Creating a Nested Domain**
+## Create a Nested Domain
 
 ```graphql
 mutation createDomain {
