@@ -11,6 +11,3 @@ services:
       - 51433:1433
     volumes:
       - ./setup:/setup
-
-
-# docker exec -it 3a8a92484626 /opt/mssql-tools/bin/sqlcmd -S localhost:51433 -U sa -P 'test!Password'
