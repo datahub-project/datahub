@@ -1,5 +1,6 @@
 from unittest.mock import Mock, patch
 
+import pytest
 from dagster import (
     DagsterInstance,
     In,
@@ -45,6 +46,7 @@ def test_datahub_sensor(mock_emit):
 @patch(
     "datahub_dagster_plugin.sensors.datahub_sensors.DatahubRestEmitter", autospec=True
 )
+@pytest.mark.skip(reason="disabling this test unti it will use proper golden files")
 def test_emit_metadata(mock_emit):
     mock_emitter = Mock()
     mock_emit.return_value = mock_emitter
