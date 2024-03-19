@@ -1,6 +1,9 @@
 import copy
 from typing import Dict, Iterable, Optional
 
+from pydantic.fields import Field
+
+from datahub.configuration.common import ConfigModel
 from datahub.emitter.mce_builder import datahub_guid, set_aspect
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -143,3 +146,10 @@ def auto_incremental_lineage(
                 )
         else:
             yield wu
+
+
+class IncrementalLineageConfigMixin(ConfigModel):
+    incremental_lineage: bool = Field(
+        default=False,
+        description="When enabled, emits lineage as incremental to existing lineage already in DataHub. When disabled, re-states lineage on each run.",
+    )
