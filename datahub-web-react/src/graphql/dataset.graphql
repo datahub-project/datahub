@@ -230,6 +230,7 @@ fragment viewProperties on Dataset {
     viewProperties {
         materialized
         logic
+        formattedLogic
         language
     }
 }

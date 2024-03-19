@@ -63,7 +63,7 @@ public class ElasticSearchServiceFactory {
 
   @Bean(name = "elasticSearchService")
   @Nonnull
-  protected ElasticSearchService getInstance(ConfigurationProvider configurationProvider)
+  protected ElasticSearchService getInstance(final ConfigurationProvider configurationProvider)
       throws IOException {
     log.info("Search configuration: {}", configurationProvider.getElasticSearch().getSearch());
 
@@ -77,7 +77,6 @@ public class ElasticSearchServiceFactory {
 
     ESSearchDAO esSearchDAO =
         new ESSearchDAO(
-            entityRegistry,
             components.getSearchClient(),
             components.getIndexConvention(),
             configurationProvider.getFeatureFlags().isPointInTimeCreationEnabled(),
@@ -88,7 +87,6 @@ public class ElasticSearchServiceFactory {
         entityIndexBuilders,
         esSearchDAO,
         new ESBrowseDAO(
-            entityRegistry,
             components.getSearchClient(),
             components.getIndexConvention(),
             searchConfiguration,

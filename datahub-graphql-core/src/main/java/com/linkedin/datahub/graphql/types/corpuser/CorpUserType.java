@@ -32,7 +32,6 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.identity.CorpUserEditableInfo;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.query.AutoCompleteResult;
-import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -116,13 +115,12 @@ public class CorpUserType
       throws Exception {
     final SearchResult searchResult =
         _entityClient.search(
+            context.getOperationContext().withSearchFlags(flags -> flags.setFulltext(true)),
             "corpuser",
             query,
             Collections.emptyMap(),
             start,
-            count,
-            context.getAuthentication(),
-            new SearchFlags().setFulltext(true));
+            count);
     return UrnSearchResultsMapper.map(searchResult);
   }
 
@@ -135,7 +133,8 @@ public class CorpUserType
       @Nonnull final QueryContext context)
       throws Exception {
     final AutoCompleteResult result =
-        _entityClient.autoComplete("corpuser", query, filters, limit, context.getAuthentication());
+        _entityClient.autoComplete(
+            context.getOperationContext(), "corpuser", query, filters, limit);
     return AutoCompleteResultsMapper.map(result);
   }
 
