@@ -309,9 +309,9 @@ import com.linkedin.datahub.graphql.types.dataset.mappers.DatasetProfileMapper;
 import com.linkedin.datahub.graphql.types.datatype.DataTypeType;
 import com.linkedin.datahub.graphql.types.domain.DomainType;
 import com.linkedin.datahub.graphql.types.entitytype.EntityTypeType;
-import com.linkedin.datahub.graphql.types.ermodelrelation.CreateERModelRelationshipResolver;
-import com.linkedin.datahub.graphql.types.ermodelrelation.ERModelRelationshipType;
-import com.linkedin.datahub.graphql.types.ermodelrelation.UpdateERModelRelationshipResolver;
+import com.linkedin.datahub.graphql.types.ermodelrelationship.CreateERModelRelationshipResolver;
+import com.linkedin.datahub.graphql.types.ermodelrelationship.ERModelRelationshipType;
+import com.linkedin.datahub.graphql.types.ermodelrelationship.UpdateERModelRelationshipResolver;
 import com.linkedin.datahub.graphql.types.form.FormType;
 import com.linkedin.datahub.graphql.types.glossary.GlossaryNodeType;
 import com.linkedin.datahub.graphql.types.glossary.GlossaryTermType;
@@ -468,7 +468,7 @@ public class GmsGraphQLEngine {
   private final DataHubPolicyType dataHubPolicyType;
   private final DataHubRoleType dataHubRoleType;
   private final SchemaFieldType schemaFieldType;
-  private final ERModelRelationshipType ermodelrelationType;
+  private final ERModelRelationshipType erModelRelationshipType;
   private final DataHubViewType dataHubViewType;
   private final QueryType queryType;
   private final DataProductType dataProductType;
@@ -580,7 +580,7 @@ public class GmsGraphQLEngine {
     this.dataHubPolicyType = new DataHubPolicyType(entityClient);
     this.dataHubRoleType = new DataHubRoleType(entityClient);
     this.schemaFieldType = new SchemaFieldType(entityClient, featureFlags);
-    this.ermodelrelationType = new ERModelRelationshipType(entityClient, featureFlags);
+    this.erModelRelationshipType = new ERModelRelationshipType(entityClient, featureFlags);
     this.dataHubViewType = new DataHubViewType(entityClient);
     this.queryType = new QueryType(entityClient);
     this.dataProductType = new DataProductType(entityClient);
@@ -626,7 +626,7 @@ public class GmsGraphQLEngine {
             dataHubPolicyType,
             dataHubRoleType,
             schemaFieldType,
-            ermodelrelationType,
+            erModelRelationshipType,
             dataHubViewType,
             queryType,
             dataProductType,
@@ -950,7 +950,7 @@ public class GmsGraphQLEngine {
                 .dataFetcher("glossaryTerm", getResolver(glossaryTermType))
                 .dataFetcher("glossaryNode", getResolver(glossaryNodeType))
                 .dataFetcher("domain", getResolver((domainType)))
-                .dataFetcher("erModelRelationship", getResolver(ermodelrelationType))
+                .dataFetcher("erModelRelationship", getResolver(erModelRelationshipType))
                 .dataFetcher("dataPlatform", getResolver(dataPlatformType))
                 .dataFetcher("dataPlatformInstance", getResolver(dataPlatformInstanceType))
                 .dataFetcher("mlFeatureTable", getResolver(mlFeatureTableType))
@@ -2116,10 +2116,10 @@ public class GmsGraphQLEngine {
                         new LoadableTypeResolver<>(
                             datasetType,
                             (env) -> {
-                              final ERModelRelationshipProperties ermodelrelationProperties =
+                              final ERModelRelationshipProperties erModelRelationshipProperties =
                                   env.getSource();
-                              return ermodelrelationProperties.getSource() != null
-                                  ? ermodelrelationProperties.getSource().getUrn()
+                              return erModelRelationshipProperties.getSource() != null
+                                  ? erModelRelationshipProperties.getSource().getUrn()
                                   : null;
                             }))
                     .dataFetcher(
@@ -2127,10 +2127,10 @@ public class GmsGraphQLEngine {
                         new LoadableTypeResolver<>(
                             datasetType,
                             (env) -> {
-                              final ERModelRelationshipProperties ermodelrelationProperties =
+                              final ERModelRelationshipProperties erModelRelationshipProperties =
                                   env.getSource();
-                              return ermodelrelationProperties.getDestination() != null
-                                  ? ermodelrelationProperties.getDestination().getUrn()
+                              return erModelRelationshipProperties.getDestination() != null
+                                  ? erModelRelationshipProperties.getDestination().getUrn()
                                   : null;
                             })))
         .type(

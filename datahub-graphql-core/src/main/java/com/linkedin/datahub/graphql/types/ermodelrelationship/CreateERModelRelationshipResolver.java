@@ -1,4 +1,4 @@
-package com.linkedin.datahub.graphql.types.ermodelrelation;
+package com.linkedin.datahub.graphql.types.ermodelrelationship;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 
@@ -8,11 +8,11 @@ import com.linkedin.common.urn.ERModelRelationshipUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
-import com.linkedin.datahub.graphql.generated.ERModelRelationPropertiesInput;
 import com.linkedin.datahub.graphql.generated.ERModelRelationship;
+import com.linkedin.datahub.graphql.generated.ERModelRelationshipPropertiesInput;
 import com.linkedin.datahub.graphql.generated.ERModelRelationshipUpdateInput;
-import com.linkedin.datahub.graphql.types.ermodelrelation.mappers.ERModelRelationMapper;
-import com.linkedin.datahub.graphql.types.ermodelrelation.mappers.ERModelRelationshipUpdateInputMapper;
+import com.linkedin.datahub.graphql.types.ermodelrelationship.mappers.ERModelRelationMapper;
+import com.linkedin.datahub.graphql.types.ermodelrelationship.mappers.ERModelRelationshipUpdateInputMapper;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.service.ERModelRelationshipService;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -40,10 +40,11 @@ public class CreateERModelRelationshipResolver
     final ERModelRelationshipUpdateInput input =
         bindArgument(environment.getArgument("input"), ERModelRelationshipUpdateInput.class);
 
-    final ERModelRelationPropertiesInput ermodelrelationPropertiesInput = input.getProperties();
-    String ermodelrelationName = ermodelrelationPropertiesInput.getName();
-    String source = ermodelrelationPropertiesInput.getSource();
-    String destination = ermodelrelationPropertiesInput.getDestination();
+    final ERModelRelationshipPropertiesInput erModelRelationshipPropertiesInput =
+        input.getProperties();
+    String ermodelrelationName = erModelRelationshipPropertiesInput.getName();
+    String source = erModelRelationshipPropertiesInput.getSource();
+    String destination = erModelRelationshipPropertiesInput.getDestination();
 
     String lowDataset = source;
     String highDataset = destination;

@@ -1,4 +1,4 @@
-package com.linkedin.datahub.graphql.types.ermodelrelation.mappers;
+package com.linkedin.datahub.graphql.types.ermodelrelationship.mappers;
 
 import static com.linkedin.metadata.Constants.*;
 
@@ -128,7 +128,7 @@ public class ERModelRelationMapper implements ModelMapper<EntityResponse, ERMode
                     ? ermodelrelationProperties.getCreated().getTime()
                     : 0)
             .setRelationshipFieldMappings(
-                ermodelrelationProperties.hasRelationshipfieldMappings()
+                ermodelrelationProperties.hasRelationshipFieldMappings()
                     ? this.mapERModelRelationFieldMappings(ermodelrelationProperties)
                     : null)
             .build());
@@ -156,7 +156,7 @@ public class ERModelRelationMapper implements ModelMapper<EntityResponse, ERMode
     final List<RelationshipFieldMapping> relationshipFieldMappingList = new ArrayList<>();
 
     ermodelrelationProperties
-        .getRelationshipfieldMappings()
+        .getRelationshipFieldMappings()
         .forEach(
             relationshipFieldMapping ->
                 relationshipFieldMappingList.add(
