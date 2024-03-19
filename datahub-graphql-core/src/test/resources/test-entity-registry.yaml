@@ -308,4 +308,9 @@ entities:
     - dataContractProperties
     - dataContractStatus
     - status
+- name: schemaField
+  category: core
+  keyAspect: schemaFieldKey
+  aspects:
+    - businessAttributes
 events:

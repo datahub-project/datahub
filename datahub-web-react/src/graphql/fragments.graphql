@@ -731,6 +731,11 @@ fragment schemaFieldFields on SchemaField {
                 ...structuredPropertiesFields
             }
         }
+        businessAttributes {
+            businessAttribute {
+                ...businessAttribute
+            }
+        }
     }
 }
 

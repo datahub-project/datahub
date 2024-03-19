@@ -316,8 +316,6 @@ public class DatasetType
     if (updateInput.getEditableSchemaMetadata() != null) {
       specificPrivileges.add(PoliciesConfig.EDIT_DATASET_COL_TAGS_PRIVILEGE.getType());
       specificPrivileges.add(PoliciesConfig.EDIT_DATASET_COL_DESCRIPTION_PRIVILEGE.getType());
-      specificPrivileges.add(
-          PoliciesConfig.EDIT_DATASET_COL_BUSINESS_ATTRIBUTE_PRIVILEGE.getType());
     }
 
     final ConjunctivePrivilegeGroup specificPrivilegeGroup =

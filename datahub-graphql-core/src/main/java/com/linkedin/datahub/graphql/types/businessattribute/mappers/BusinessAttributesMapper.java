@@ -5,6 +5,7 @@ import com.linkedin.datahub.graphql.generated.BusinessAttribute;
 import com.linkedin.datahub.graphql.generated.BusinessAttributeAssociation;
 import com.linkedin.datahub.graphql.generated.BusinessAttributes;
 import com.linkedin.datahub.graphql.generated.EntityType;
+import java.util.Objects;
 import javax.annotation.Nonnull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -16,25 +17,33 @@ public class BusinessAttributesMapper {
   public static final BusinessAttributesMapper INSTANCE = new BusinessAttributesMapper();
 
   public static BusinessAttributes map(
-      @Nonnull final com.linkedin.businessattribute.BusinessAttributeAssociation businessAttribute,
+      @Nonnull final com.linkedin.businessattribute.BusinessAttributes businessAttributes,
       @Nonnull final Urn entityUrn) {
-    return INSTANCE.apply(businessAttribute, entityUrn);
+    return INSTANCE.apply(businessAttributes, entityUrn);
   }
 
   private BusinessAttributes apply(
-      @Nonnull com.linkedin.businessattribute.BusinessAttributeAssociation businessAttributes,
+      @Nonnull com.linkedin.businessattribute.BusinessAttributes businessAttributes,
       @Nonnull Urn entityUrn) {
-    final BusinessAttributeAssociation businessAttributeAssociation =
-        new BusinessAttributeAssociation();
     final BusinessAttributes result = new BusinessAttributes();
-    final BusinessAttribute businessAttribute = new BusinessAttribute();
-    businessAttribute.setUrn(businessAttributes.getDestinationUrn().toString());
-    businessAttribute.setType(EntityType.BUSINESS_ATTRIBUTE);
-
-    businessAttributeAssociation.setBusinessAttribute(businessAttribute);
-
-    businessAttributeAssociation.setAssociatedUrn(entityUrn.toString());
-    result.setBusinessAttribute(businessAttributeAssociation);
+    result.setBusinessAttribute(
+        mapBusinessAttributeAssociation(businessAttributes.getBusinessAttribute(), entityUrn));
     return result;
+  }
+
+  private BusinessAttributeAssociation mapBusinessAttributeAssociation(
+      com.linkedin.businessattribute.BusinessAttributeAssociation businessAttributeAssociation,
+      Urn entityUrn) {
+    if (Objects.isNull(businessAttributeAssociation)) {
+      return null;
+    }
+    final BusinessAttributeAssociation businessAttributeAssociationResult =
+        new BusinessAttributeAssociation();
+    final BusinessAttribute businessAttribute = new BusinessAttribute();
+    businessAttribute.setUrn(businessAttributeAssociation.getBusinessAttributeUrn().toString());
+    businessAttribute.setType(EntityType.BUSINESS_ATTRIBUTE);
+    businessAttributeAssociationResult.setBusinessAttribute(businessAttribute);
+    businessAttributeAssociationResult.setAssociatedUrn(entityUrn.toString());
+    return businessAttributeAssociationResult;
   }
 }

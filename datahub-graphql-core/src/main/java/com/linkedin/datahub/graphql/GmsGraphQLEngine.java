@@ -1263,11 +1263,10 @@ public class GmsGraphQLEngine {
                     "deleteBusinessAttribute",
                     new DeleteBusinessAttributeResolver(this.entityClient))
                 .dataFetcher(
-                    "addBusinessAttribute",
-                    new AddBusinessAttributeResolver(this.entityClient, this.entityService))
+                    "addBusinessAttribute", new AddBusinessAttributeResolver(this.entityService))
                 .dataFetcher(
                     "removeBusinessAttribute",
-                    new RemoveBusinessAttributeResolver(this.entityClient, this.entityService)));
+                    new RemoveBusinessAttributeResolver(this.entityService)));
   }
 
   private void configureGenericEntityResolvers(final RuntimeWiring.Builder builder) {

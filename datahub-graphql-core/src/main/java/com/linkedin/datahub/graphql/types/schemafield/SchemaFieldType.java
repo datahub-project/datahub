@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.types.schemafield;
 
+import static com.linkedin.metadata.Constants.BUSINESS_ATTRIBUTE_ASPECT;
 import static com.linkedin.metadata.Constants.SCHEMA_FIELD_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTIES_ASPECT_NAME;
 
@@ -31,7 +32,7 @@ public class SchemaFieldType
     implements com.linkedin.datahub.graphql.types.EntityType<SchemaFieldEntity, String> {
 
   public static final Set<String> ASPECTS_TO_FETCH =
-      ImmutableSet.of(STRUCTURED_PROPERTIES_ASPECT_NAME);
+      ImmutableSet.of(STRUCTURED_PROPERTIES_ASPECT_NAME, BUSINESS_ATTRIBUTE_ASPECT);
 
   private final EntityClient _entityClient;
   private final FeatureFlags _featureFlags;

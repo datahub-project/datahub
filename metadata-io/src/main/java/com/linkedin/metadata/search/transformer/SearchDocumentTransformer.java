@@ -109,7 +109,9 @@ public class SearchDocumentTransformer {
 
     Optional<String> result = Optional.empty();
 
-    if (!extractedSearchableFields.isEmpty() || !extractedSearchScoreFields.isEmpty()) {
+    if (!extractedSearchableFields.isEmpty()
+        || !extractedSearchScoreFields.isEmpty()
+        || !extractedSearchRefFields.isEmpty()) {
       final ObjectNode searchDocument = JsonNodeFactory.instance.objectNode();
       searchDocument.put("urn", urn.toString());
       extractedSearchableFields.forEach(
@@ -442,6 +444,8 @@ public class SearchDocumentTransformer {
       String finalFieldName = fieldName;
       getNodeForRef(depth, fieldValues.get(0), fieldType)
           .ifPresent(node -> searchDocument.set(finalFieldName, node));
+    } else {
+      searchDocument.set(fieldName, JsonNodeFactory.instance.nullNode());
     }
   }
 

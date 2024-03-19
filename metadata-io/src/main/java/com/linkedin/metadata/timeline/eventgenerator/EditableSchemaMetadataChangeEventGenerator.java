@@ -5,7 +5,6 @@ import static com.linkedin.metadata.timeline.eventgenerator.ChangeEventGenerator
 
 import com.datahub.util.RecordUtils;
 import com.github.fge.jsonpatch.JsonPatch;
-import com.linkedin.businessattribute.BusinessAttributeAssociation;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.GlossaryTerms;
@@ -76,11 +75,6 @@ public class EditableSchemaMetadataChangeEventGenerator
     if (changeCategory == ChangeCategory.GLOSSARY_TERM) {
       changeEvents.addAll(
           getGlossaryTermChangeEvents(baseFieldInfo, targetFieldInfo, datasetFieldUrn, auditStamp));
-    }
-    if (changeCategory == ChangeCategory.BUSINESS_ATTRIBUTE) {
-      changeEvents.addAll(
-          getBusinessAttributeAssociationChangeEvents(
-              baseFieldInfo, targetFieldInfo, datasetFieldUrn, auditStamp));
     }
     return changeEvents;
   }
@@ -264,28 +258,6 @@ public class EditableSchemaMetadataChangeEventGenerator
     }
 
     return Collections.emptyList();
-  }
-
-  private static List<ChangeEvent> getBusinessAttributeAssociationChangeEvents(
-      EditableSchemaFieldInfo baseFieldInfo,
-      EditableSchemaFieldInfo targetFieldInfo,
-      Urn datasetFieldUrn,
-      AuditStamp auditStamp) {
-    BusinessAttributeAssociation baseBusinessAttributeAssociation =
-        (baseFieldInfo != null) ? baseFieldInfo.getBusinessAttribute() : null;
-    BusinessAttributeAssociation targetBusinessAttributeAssociation =
-        (targetFieldInfo != null) ? targetFieldInfo.getBusinessAttribute() : null;
-
-    // 1. Get EntityBusinessAttributeAssociationChangeEvent, then rebind into a
-    // SchemaFieldBusinessAttributeAssociationChangeEvent.
-    List<ChangeEvent> entityBusinessAttributeAssociationChangeEvents =
-        BusinessAttributeAssociationChangeEventGenerator.computeDiffs(
-            baseBusinessAttributeAssociation,
-            targetBusinessAttributeAssociation,
-            datasetFieldUrn.toString(),
-            auditStamp);
-
-    return entityBusinessAttributeAssociationChangeEvents;
   }
 
   @Override

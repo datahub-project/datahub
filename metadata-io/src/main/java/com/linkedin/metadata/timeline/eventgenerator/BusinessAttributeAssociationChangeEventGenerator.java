@@ -57,13 +57,14 @@ public class BusinessAttributeAssociationChangeEventGenerator
       AuditStamp auditStamp) {
     return BusinessAttributeAssociationChangeEvent
         .entityBusinessAttributeAssociationChangeEventBuilder()
-        .modifier(association.getDestinationUrn().toString())
+        .modifier(association.getBusinessAttributeUrn().toString())
         .entityUrn(entityUrn)
         .category(ChangeCategory.BUSINESS_ATTRIBUTE)
         .operation(operation)
         .semVerChange(SemanticChangeType.MINOR)
-        .description(String.format(format, association.getDestinationUrn().getId(), entityUrn))
-        .businessAttributeUrn(association.getDestinationUrn())
+        .description(
+            String.format(format, association.getBusinessAttributeUrn().getId(), entityUrn))
+        .businessAttributeUrn(association.getBusinessAttributeUrn())
         .auditStamp(auditStamp)
         .build();
   }

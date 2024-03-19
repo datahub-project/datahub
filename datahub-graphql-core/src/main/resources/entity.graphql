@@ -3016,6 +3016,11 @@ type SchemaFieldEntity implements Entity {
     Granular API for querying edges extending from this entity
     """
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+    """
+    Business Attribute associated with the field
+    """
+    businessAttributes: BusinessAttributes
 }
 
 """
@@ -3149,10 +3154,6 @@ type EditableSchemaFieldInfo {
     """
     glossaryTerms: GlossaryTerms
 
-    """
-    Business Attribute associated with the field
-    """
-    businessAttributes: BusinessAttributes
 }
 
 """
@@ -12078,12 +12079,12 @@ input AddBusinessAttributeInput {
     """
     The urn of the business attribute to add
     """
-    businessAttributeUrn: String
+    businessAttributeUrn: String!
 
     """
     resource urns to add the business attribute to
     """
-    resourceUrn: ResourceRefInput!
+    resourceUrn: [ResourceRefInput!]!
 }
 
 """
@@ -12093,7 +12094,7 @@ type BusinessAttributes {
     """
     Business Attribute attached to the Metadata Entity
     """
-    businessAttribute: BusinessAttributeAssociation!
+    businessAttribute: BusinessAttributeAssociation
 }
 
 """
