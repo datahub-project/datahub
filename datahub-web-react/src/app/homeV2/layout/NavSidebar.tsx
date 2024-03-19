@@ -1,6 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
 import { Link } from 'react-router-dom';
+import { REDESIGN_COLORS } from '../../entityV2/shared/constants';
 import { NavLinks } from './NavLinks';
 import AcrylIcon from '../../../images/datahub-logo-light.svg?react';
 
@@ -15,7 +16,7 @@ const Content = styled.div`
     flex-direction: column;
     align-items: center;
     justify-content: space-between;
-    background-color: #5c3fd1;
+    background-color: ${REDESIGN_COLORS.TITLE_PURPLE};
     border-radius: 24px;
     height: 100%;
     width: 46px;
