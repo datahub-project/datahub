@@ -15,14 +15,7 @@ type Props = {
     width?: number;
 };
 
-export const HoverEntityTooltip = ({
-    entity,
-    canOpen = true,
-    children,
-    placement,
-    showArrow,
-    width = 360,
-}: Props) => {
+export const HoverEntityTooltip = ({ entity, canOpen = true, children, placement, showArrow, width = 360 }: Props) => {
     const entityRegistry = useEntityRegistry();
 
     if (!entity || !entity.type || !entity.urn) {
@@ -38,6 +31,7 @@ export const HoverEntityTooltip = ({
             placement={placement || 'bottom'}
             overlayInnerStyle={{ padding: 20, borderRadius: 20, width }}
             title={<a href={url}>{entityRegistry.renderPreview(entity.type, PreviewType.HOVER_CARD, entity)}</a>}
+            zIndex={12}
         >
             {children}
         </Tooltip>

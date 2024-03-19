@@ -1,25 +1,25 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
-import { useHistory } from 'react-router';
 import { Divider } from 'antd';
 import { Domain, EntityType } from '../../../../../../../types.generated';
 import { useEntityRegistry } from '../../../../../../useEntityRegistry';
 import { ANTD_GRAY } from '../../../../../../entity/shared/constants';
 import { formatNumber } from '../../../../../../shared/formatNumber';
-import { navigateToEntityProfile } from '../../../../../shared/navigateToEntityProfile';
 import { DomainColoredIcon } from '../../../../../../entityV2/shared/links/DomainColoredIcon';
 import { HoverEntityTooltip } from '../../../../../../recommendations/renderer/component/HoverEntityTooltip';
 import { SEARCH_COLORS } from '../../../../../../entityV2/shared/constants';
 
-const Card = styled.div`
+const Card = styled(Link)`
     border-radius: 10px;
     background-color: #ffffff;
     padding: 16px;
     border: 2px solid transparent;
+
     :hover {
         border: 2px solid ${SEARCH_COLORS.LINK_BLUE};
-        cursor: pointer;
     }
+
     display: flex;
     justify-content: start;
     align-items: center;
@@ -60,14 +60,13 @@ type Props = {
 };
 
 export const DomainCard = ({ domain }: Props) => {
-    const history = useHistory();
     const entityRegistry = useEntityRegistry();
     const name = entityRegistry.getDisplayName(EntityType.Domain, domain);
     const dataProductCount = (domain as any).dataProducts?.total || 0;
     const contentsCount = (domain as any).entities?.total || 0;
     return (
         <HoverEntityTooltip placement="bottom" showArrow={false} entity={domain}>
-            <Card key={domain.urn} onClick={() => navigateToEntityProfile(history, entityRegistry, domain)}>
+            <Card key={domain.urn} to={entityRegistry.getEntityUrl(domain.type, domain.urn)}>
                 <DomainColoredIcon domain={domain} size={46} />
                 <Text>
                     <Name>{name}</Name>

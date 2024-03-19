@@ -112,7 +112,7 @@ export default function StatsSummaryRow({ expandedField, fieldProfile, profiles 
         <StatsSummaryRowContent>
             <TrendDetailContainer>
                 <Tooltip title={`${nullCount} null ${pluralize(nullCount || 0, 'value')} found in last profile run`}>
-                    <Headline>Completeness</Headline>
+                    <Headline>Null Values</Headline>
                     <StatSummarySubtitle>
                         {nullProportionChange < 0 && TRENDING_DOWN_ICON}
                         {nullProportionChange > 0 && TRENDING_UP_ICON}
@@ -124,7 +124,7 @@ export default function StatsSummaryRow({ expandedField, fieldProfile, profiles 
                 <Tooltip
                     title={`${uniqueCount} distinct ${pluralize(uniqueCount || 0, 'value')} found in last profile run`}
                 >
-                    <Headline>Uniqueness</Headline>
+                    <Headline>Distinct Values</Headline>
                     <StatSummarySubtitle>
                         {uniqueProportionChange < 0 && TRENDING_DOWN_ICON}
                         {uniqueProportionChange > 0 && TRENDING_UP_ICON}

@@ -1,6 +1,7 @@
 import { useEffect, useMemo } from 'react';
 import { Edge, MarkerType, Node, useReactFlow } from 'reactflow';
 import { EntityType, LineageDirection } from '../../types.generated';
+import { LINEAGE_COLORS } from '../entityV2/shared/constants';
 import {
     COLUMN_QUERY_ID_PREFIX,
     ColumnHighlight,
@@ -14,12 +15,11 @@ import {
     parseColumnRef,
     setDefault,
 } from './common';
+import { LINEAGE_NODE_WIDTH } from './LineageEntityNode/useDisplayedColumns';
 import {
     LINEAGE_TRANSFORMATION_NODE_NAME,
     TRANSFORMATION_NODE_SIZE,
 } from './LineageTransformationNode/LineageTransformationNode';
-import { LINEAGE_NODE_WIDTH } from './LineageEntityNode/useDisplayedColumns';
-import { LINEAGE_COLORS } from '../entityV2/shared/constants';
 
 export default function useColumnHighlighting(
     selectedColumn: ColumnRef | null,
@@ -212,7 +212,8 @@ function createColumnQueryNode(
             id,
             urn,
             type: EntityType.Query,
-            paths: [],
+            parents: new Set(),
+            nonTransformationalParents: new Set(),
             fetchStatus: {
                 [LineageDirection.Upstream]: FetchStatus.UNNEEDED,
                 [LineageDirection.Downstream]: FetchStatus.UNNEEDED,

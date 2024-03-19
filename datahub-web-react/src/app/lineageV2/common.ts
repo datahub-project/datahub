@@ -21,11 +21,6 @@ export enum FetchStatus {
     COMPLETE = 'COMPLETE',
 }
 
-export interface Path {
-    urn: string;
-    type: EntityType;
-}
-
 export interface Filters {
     display?: boolean; // undefined == display
     limit?: number; // undefined == no limit
@@ -35,14 +30,15 @@ export interface Filters {
 export interface NodeBase {
     id: string;
     direction?: LineageDirection;
+    parents: Set<Urn>;
+    nonTransformationalParents: Set<Urn>;
 }
 
 export interface LineageEntity extends NodeBase {
     urn: Urn;
     type: EntityType;
-    paths: Path[][]; // TODO: Consider replacing or supplementing with set of children
-    fetchStatus: Record<LineageDirection, FetchStatus>;
     entity?: FetchedEntityV2;
+    fetchStatus: Record<LineageDirection, FetchStatus>;
     filters?: Record<LineageDirection, Filters>;
     backupEntity?: GenericEntityProperties; // TODO: Implement in a cleaner way
 }
@@ -53,8 +49,7 @@ export const LINEAGE_FILTER_ID_PREFIX = 'lf:';
 export interface LineageFilter extends NodeBase {
     type: typeof LINEAGE_FILTER_TYPE;
     direction: LineageDirection;
-    parent: Urn; // TODO: Consider removing in favor of parentNode
-    parentNode: LineageEntity;
+    parent: Urn; // TODO: Consider removing in favor of parents
     contents: Urn[];
     shown: Set<Urn>;
 }
@@ -126,6 +121,7 @@ export type FineGrainedLineageMap = Map<ColumnRef, ColumnRef[]>;
 export type FineGrainedLineage = { forward: FineGrainedLineageMap; backward: FineGrainedLineageMap };
 export type HighlightedColumns = Map<Urn, Map<string, ColumnHighlight>>;
 export type ChildMap = Map<Urn, Set<Urn>>;
+
 interface DisplayContext {
     // Params
     hoveredNode: Urn | null;
@@ -154,11 +150,30 @@ export const LineageDisplayContext = React.createContext<DisplayContext>({
     highlightedNodes: new Set(),
     highlightedColumns: new Map(),
     highlightedEdges: new Set(),
-    fineGrainedLineage: { forward: new Map(), backward: new Map() },
+    fineGrainedLineage: {
+        forward: new Map(),
+        backward: new Map(),
+    },
     columnQueryData: new Map(),
-    childMaps: { [LineageDirection.Upstream]: new Map(), [LineageDirection.Downstream]: new Map() },
+    childMaps: {
+        [LineageDirection.Upstream]: new Map(),
+        [LineageDirection.Downstream]: new Map(),
+    },
     numNodes: 0,
 });
+
+export function getNonTransformationalParents(
+    directParent: Urn,
+    nodes: NodeContext['nodes'],
+    rootUrn: NodeContext['rootUrn'],
+): Urn[] {
+    const node = nodes.get(directParent);
+
+    if (directParent === rootUrn || !node || !TRANSFORMATION_TYPES.includes(node.type)) {
+        return [directParent];
+    }
+    return [...node.nonTransformationalParents].map((p) => getNonTransformationalParents(p, nodes, rootUrn)).flat();
+}
 
 interface SetDefaultArguments {
     nodes: Map<string, LineageEntity>;
@@ -177,14 +192,18 @@ export function setNodeDefault({ nodes, urn, direction, maxDepth, ...rest }: Set
         urn,
         direction, // TODO: Handle a node that is both upstream and downstream?
         paths: [],
+        parents: new Set<Urn>(),
+        nonTransformationalParents: new Set<Urn>(),
         fetchStatus: {
             [direction]: maxDepth ? FetchStatus.COMPLETE : FetchStatus.UNFETCHED,
             [otherDirection]: FetchStatus.UNNEEDED,
         } as Record<LineageDirection, FetchStatus>,
-        filters: { [direction]: { limit: LINEAGE_FILTER_PAGINATION, facetFilters: new Map() } } as Record<
-            LineageDirection,
-            Filters
-        >,
+        filters: {
+            [direction]: {
+                limit: LINEAGE_FILTER_PAGINATION,
+                facetFilters: new Map(),
+            },
+        } as Record<LineageDirection, Filters>,
     };
     if (!nodes.has(urn)) {
         nodes.set(urn, value);

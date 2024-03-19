@@ -3,7 +3,8 @@ import React from 'react';
 import styled from 'styled-components';
 import { ANTD_GRAY } from '../../../entity/shared/constants';
 import { PendingProposals } from './PendingProposals';
-import { useGetPendingDocumentationProposals } from './useGetPendingDocumentationProposals';
+import { PendingRequests } from './PendingRequests';
+import { useUserContext } from '../../../context/useUserContext';
 
 const Card = styled.div`
     border: 1px solid ${ANTD_GRAY[4]};
@@ -44,16 +45,10 @@ const Section = styled.div`
 `;
 
 export const PendingTasks = () => {
-    // Todo: Uncomment when we are able to populate the documentation request count and have a page to link to.
-    // const { count: documentationRequestCount /* loading: documentationRequestsLoading */ } =
-    //     useGetPendingDocumentationRequests();
-    const { count: documentationProposalCount, loading: documentationProposalsLoading } =
-        useGetPendingDocumentationProposals();
+    const { state: { notificationsCount, proposalCount, unfinishedTaskCount } } = useUserContext();
 
-    if (!documentationProposalCount /* && !documentationRequestCount */) {
-        // Confirm that we want to hide the module when you don't have pending tasks.
-        return null;
-    }
+    // Don't show the card if there are no pending tasks
+    if (unfinishedTaskCount === 0 || !unfinishedTaskCount) return null;
 
     return (
         <Card>
@@ -63,14 +58,8 @@ export const PendingTasks = () => {
                 </Title>
             </Header>
             <Section>
-                {(documentationProposalCount && (
-                    <PendingProposals count={documentationProposalCount} loading={documentationProposalsLoading} />
-                )) ||
-                    null}
-                {/* {(documentationRequestCount && (
-                    <PendingRequests count={documentationRequestCount} loading={documentationRequestsLoading} />
-                )) ||
-                    null} */}
+                {proposalCount > 0 && <PendingProposals count={proposalCount} />}
+                {notificationsCount > 0 && <PendingRequests count={notificationsCount} />}
             </Section>
         </Card>
     );

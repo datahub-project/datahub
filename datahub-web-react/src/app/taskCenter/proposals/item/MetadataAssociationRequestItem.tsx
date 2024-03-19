@@ -32,7 +32,7 @@ const LeftContentContainer = styled.div`
 `;
 
 const LeftContentContainerItem = styled.div`
-    margin-left: 20px;
+    margin-left: 10px;
     margin-right: 20px;
 `;
 
@@ -48,10 +48,18 @@ const AuthorText = styled(Typography.Text)`
     margin-left: 2px;
 `;
 
+const DateText = styled(Typography.Text)`
+    white-space: nowrap;
+`;
+
 const RightContentContainer = styled.div`
     display: flex;
     justify-content: right;
     align-items: middle;
+`;
+
+const ResultStatusView = styled.div`
+    white-space: nowrap;
 `;
 
 /**
@@ -109,7 +117,7 @@ export default function MetadataAssociationRequestItem({
      * Build the date column view.
      */
     const createdDate = new Date(actionRequest.created.time).toLocaleDateString('en-US'); // Todo format this correctly.
-    const createdDateView = <Typography.Text>{createdDate}</Typography.Text>;
+    const createdDateView = <DateText>{createdDate}</DateText>;
 
     /**
      * Build the request type view.
@@ -159,11 +167,11 @@ export default function MetadataAssociationRequestItem({
             </AuthorView>
         );
         actionResultView = (
-            <div>
+            <ResultStatusView>
                 {resultStatusView}
                 <Typography.Text> by </Typography.Text>
                 {resultAuthorView}
-            </div>
+            </ResultStatusView>
         );
     } else {
         actionResultView = (

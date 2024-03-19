@@ -17,7 +17,7 @@ import { useGetQueryQuery } from '../../../graphql/query.generated';
 export const LINEAGE_TRANSFORMATION_NODE_NAME = 'lineage-transformation';
 export const TRANSFORMATION_NODE_SIZE = 30;
 
-const NO_FETCH_STATUSES = [FetchStatus.COMPLETE, FetchStatus.UNNEEDED];
+const NO_FETCH_STATUSES = [FetchStatus.COMPLETE, FetchStatus.UNNEEDED, FetchStatus.LOADING];
 
 // TODO: Share with LineageEntityNode
 const HomeNodeBubble = styled.div`
@@ -59,8 +59,8 @@ const CustomHandle = styled(Handle)<{ position: Position }>`
 `;
 
 const CustomIcon = styled.img`
-    height: 20px;
-    width: 20px;
+    height: 18px;
+    width: 18px;
 `;
 
 export default function LineageTransformationNode(props: NodeProps<LineageEntity>) {
@@ -73,7 +73,7 @@ export default function LineageTransformationNode(props: NodeProps<LineageEntity
 
     const entity = context.nodes.get(urn)?.entity;
 
-    // TODO: Don't set direction default
+    // Note: Direction default is to pass typing. Should not ever be queries.
     const { fetchLineage } = useSearchAcrossLineage(urn, context, direction || LineageDirection.Downstream, true);
     const backupLogoUrl = useFetchQuery(urn);
     const icon = entity?.icon || backupLogoUrl;

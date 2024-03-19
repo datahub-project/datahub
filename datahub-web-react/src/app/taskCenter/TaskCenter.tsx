@@ -8,8 +8,14 @@ import { useUserContext } from '../context/useUserContext';
 import { Requests } from './requests/Requests';
 import { Proposals } from './proposals/Proposals';
 
-const PageContainer = styled.div`
+import { useIsThemeV2Enabled } from '../useIsThemeV2Enabled';
+
+const PageContainer = styled.div<{ isV2: boolean }>`
     padding-top: 20px;
+    background-color: ${props => (props.isV2 ? '#fff' : 'inherit')};
+    margin-right: ${props => (props.isV2 ? '24px' : '0')};
+    margin-bottom: ${props => (props.isV2 ? '24px' : '0')};
+    border-radius: ${props => (props.isV2 ? '8px' : '0')};
 `;
 
 const PageHeaderContainer = styled.div`
@@ -73,9 +79,10 @@ const TabTitle = ({ title, count }: TabTitleProps) => (
 export const TaskCenter = () => {
     const { state: { notificationsCount, proposalCount } } = useUserContext();
     const [activeTab, setActiveTab] = useState('requests');
+    const isV2 = useIsThemeV2Enabled();
 
     return (
-        <PageContainer>
+        <PageContainer isV2={isV2}>
             <PageHeaderContainer>
                 <PageTitle level={3}>Task Center</PageTitle>
                 <Typography.Paragraph type="secondary">
