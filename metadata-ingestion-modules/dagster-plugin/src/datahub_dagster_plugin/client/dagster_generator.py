@@ -94,14 +94,8 @@ def job_url_generator(dagster_url: str, dagster_environment: DagsterEnvironment)
     else:
         base_url = dagster_url
 
-    location = (
-        f"{dagster_environment.repository}@{dagster_environment.module}"
-        if dagster_environment.module
-        else dagster_environment.repository
-    )
-
     if dagster_environment.module:
-        base_url = f"{base_url}/locations/{location}"
+        base_url = f"{base_url}/locations/{dagster_environment.module}"
 
     return base_url
 
@@ -127,7 +121,15 @@ class DagsterGenerator:
 
         if "://" in path:
             url = urlsplit(path)
-            return DatasetUrn(platform=url.scheme, name=url.path)
+            scheme = url.scheme
+
+            # Need to adjust some these schemes
+            if scheme in ['s3a', 's3n']:
+                scheme = 's3'
+            elif scheme in ['gs']:
+                scheme = 'gcs'
+
+            return DatasetUrn(platform=scheme, name=url.path)
         else:
             return DatasetUrn(platform="file", name=path)
 
@@ -137,7 +139,8 @@ class DagsterGenerator:
         """
         if isinstance(metadata, PathMetadataValue):
             return self.path_metadata_resolver(metadata)
-
+        else:
+            self.logger.info(f"Unknown Metadata: {metadata} of type {type(metadata)}")
         return None
 
     def generate_dataflow(
@@ -154,9 +157,9 @@ class DagsterGenerator:
         :return: DataFlow - Data generated dataflow
         """
         if self.dagster_environment.is_cloud:
-            id = f"{self.dagster_environment.branch}/{self.dagster_environment.repository}/{job_snapshot.name}"
+            id = f"{self.dagster_environment.branch}/{self.dagster_environment.module}/{job_snapshot.name}"
         else:
-            id = f"{self.dagster_environment.repository}/{job_snapshot.name}"
+            id = f"{self.dagster_environment.module}/{job_snapshot.name}"
 
         dataflow = DataFlow(
             orchestrator=Constant.ORCHESTRATOR,
@@ -196,11 +199,11 @@ class DagsterGenerator:
         """
 
         if self.dagster_environment.is_cloud:
-            flow_id = f"{self.dagster_environment.branch}/{self.dagster_environment.repository}/{job_snapshot.name}"
-            job_id = f"{self.dagster_environment.branch}/{self.dagster_environment.repository}/{op_def_snap.name}"
+            flow_id = f"{self.dagster_environment.branch}/{self.dagster_environment.module}/{job_snapshot.name}"
+            job_id = f"{self.dagster_environment.branch}/{self.dagster_environment.module}/{op_def_snap.name}"
         else:
-            flow_id = f"{self.dagster_environment.repository}/{job_snapshot.name}"
-            job_id = f"{self.dagster_environment.repository}/{op_def_snap.name}"
+            flow_id = f"{self.dagster_environment.module}/{job_snapshot.name}"
+            job_id = f"{self.dagster_environment.module}/{op_def_snap.name}"
 
         dataflow_urn = DataFlowUrn.create_from_ids(
             orchestrator=Constant.ORCHESTRATOR,
@@ -223,10 +226,10 @@ class DagsterGenerator:
         # Add upstream dependencies for this op
         for upstream_op_name in step_deps[op_def_snap.name]:
             if self.dagster_environment.is_cloud:
-                upstream_job_id = f"{self.dagster_environment.branch}/{self.dagster_environment.repository}/{op_def_snap.name}"
+                upstream_job_id = f"{self.dagster_environment.branch}/{self.dagster_environment.module}/{op_def_snap.name}"
             else:
                 upstream_job_id = (
-                    f"{self.dagster_environment.repository}/{op_def_snap.name}"
+                    f"{self.dagster_environment.module}/{op_def_snap.name}"
                 )
             upstream_op_urn = DataJobUrn.create_from_ids(
                 data_flow_urn=str(dataflow_urn),

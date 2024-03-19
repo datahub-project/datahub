@@ -21,7 +21,7 @@ Dagster sensors allow us to perform some action based on some state change. Data
 1. You need to install the required dependency.
 
 ```shell
-pip install acryl-datahub[dagster]
+pip install acryl_datahub_dagster_plugin
 ```
 
 2. You need to import DataHub dagster plugin provided sensor definition and add it in Dagster definition or dagster repository before starting dagster UI as show below: 
@@ -29,33 +29,31 @@ pip install acryl-datahub[dagster]
 
 ```python
 from dagster import Definitions
-from datahub_dagster_plugin.sensors.datahub_sensors import datahub_sensor
+from datahub_dagster_plugin.sensors.datahub_sensors import DagsterSourceConfig, make_datahub_sensor
+
+config = DagsterSourceConfig(
+    rest_sink_config={
+        "server": "https://your_datahub_url/gms",
+        "token": "your_datahub_token"
+    },
+    dagster_url = "https://my-dagster-cloud.dagster.cloud",
+)
+
+datahub_sensor = make_datahub_sensor(config=config)    
 
 defs = Definitions(
     sensors=[datahub_sensor],
 )
 ```
 
-**Using Repository decorator:**
-
-```python
-from dagster import repository
-from datahub_dagster_plugin.sensors.datahub_sensors import datahub_sensor
-
-@repository
-def my_repository():
-    return [datahub_sensor]
-```
-
 3. The DataHub dagster plugin provided sensor internally uses below configs. You can set these configs using environment variables. If not set, the sensor will take the default value.
 
    **Configuration options:**
 
-   | Environment variable           | Default value         | Description                                                                                   |
+   | Configuration Option           | Default value         | Description                                                                                   |
    | ------------------------------ | --------------------- | --------------------------------------------------------------------------------------------- |
-   | DATAHUB_REST_URL               | http://localhost:8080 | Datahub GMS Rest URL where datahub events get emitted.                                        |
-   | DATAHUB_ENV                    | PROD                  | The environment that all assets produced by this connector belong to.                         |
-   | DATAHUB_PLATFORM_INSTANCE      | None                  | The instance of the platform that all assets produced by this recipe belong to.               |
+   | rest_sink_config               |  | The rest sink config                                        |
+   | dagster_url                    |                   | The url to your Dagster Webserver.                         |
 
 4. Once Dagster UI is up, you need to turn on the provided sensor execution. To turn on the sensor, click on Overview tab and then on Sensors tab. You will see a toggle button in front of all defined sensors to turn it on/off.
 
