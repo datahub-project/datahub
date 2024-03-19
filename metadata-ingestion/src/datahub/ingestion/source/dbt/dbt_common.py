@@ -837,10 +837,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             if self.config.entities_enabled.can_emit_node_type("test"):
                 yield MetadataChangeProposalWrapper(
                     entityUrn=assertion_urn,
-                    aspect=DataPlatformInstanceClass(
-                        platform=mce_builder.make_data_platform_urn(DBT_PLATFORM),
-                        instance=self.config.platform_instance,
-                    ),
+                    aspect=self._make_data_platform_instance_aspect(),
                 ).as_workunit()
 
             upstream_urns = get_upstreams_for_test(
@@ -887,6 +884,17 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             *super().get_workunit_processors(),
             self.stale_entity_removal_handler.workunit_processor,
         ]
+
+    def _make_data_platform_instance_aspect(self) -> DataPlatformInstanceClass:
+        return DataPlatformInstanceClass(
+            platform=mce_builder.make_data_platform_urn(DBT_PLATFORM),
+            instance=mce_builder.make_dataplatform_instance_urn(
+                mce_builder.make_data_platform_urn(DBT_PLATFORM),
+                self.config.platform_instance,
+            )
+            if self.config.platform_instance
+            else None,
+        )
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         if self.config.write_semantics == "PATCH":
@@ -1213,10 +1221,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 # emit dataPlatformInstance aspect
                 yield MetadataChangeProposalWrapper(
                     entityUrn=node_datahub_urn,
-                    aspect=DataPlatformInstanceClass(
-                        platform=mce_builder.make_data_platform_urn(DBT_PLATFORM),
-                        instance=self.config.platform_instance,
-                    ),
+                    aspect=self._make_data_platform_instance_aspect(),
                 ).as_workunit()
 
                 if len(aspects) == 0:
