@@ -54,7 +54,7 @@ record ERModelRelationshipProperties includes CustomProperties {
   /**
    * ERModelRelationFieldMapping (in future we can make it an array)
    */
-  relationshipfieldMappings: array [RelationshipFieldMapping]
+  relationshipFieldMappings: array [RelationshipFieldMapping]
 
   /**
    * A timestamp documenting when the asset was created in the source Data Platform (not on DataHub)

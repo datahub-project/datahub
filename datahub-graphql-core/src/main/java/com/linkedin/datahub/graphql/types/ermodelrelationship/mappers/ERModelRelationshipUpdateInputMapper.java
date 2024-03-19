@@ -1,4 +1,4 @@
-package com.linkedin.datahub.graphql.types.ermodelrelation.mappers;
+package com.linkedin.datahub.graphql.types.ermodelrelationship.mappers;
 
 import static com.linkedin.metadata.Constants.*;
 
@@ -91,7 +91,7 @@ public class ERModelRelationshipUpdateInputMapper
             ermodelrelationFieldMappingSettings(inputProperties.getRelationshipFieldmappings());
         ermodelrelationProperties.setCardinality(
             ermodelrelationCardinalitySettings(inputProperties.getRelationshipFieldmappings()));
-        ermodelrelationProperties.setRelationshipfieldMappings(relationshipFieldMappingsArray);
+        ermodelrelationProperties.setRelationshipFieldMappings(relationshipFieldMappingsArray);
       }
 
       if (inputProperties.getCreated() != null && inputProperties.getCreated()) {

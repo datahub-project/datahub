@@ -1,4 +1,4 @@
-package com.linkedin.datahub.graphql.types.ermodelrelation;
+package com.linkedin.datahub.graphql.types.ermodelrelationship;
 
 import static com.linkedin.datahub.graphql.Constants.*;
 import static com.linkedin.metadata.Constants.*;
@@ -26,7 +26,7 @@ import com.linkedin.datahub.graphql.generated.SearchResults;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.BrowsableEntityType;
 import com.linkedin.datahub.graphql.types.SearchableEntityType;
-import com.linkedin.datahub.graphql.types.ermodelrelation.mappers.ERModelRelationMapper;
+import com.linkedin.datahub.graphql.types.ermodelrelationship.mappers.ERModelRelationMapper;
 import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
 import com.linkedin.datahub.graphql.types.mappers.BrowsePathsMapper;
 import com.linkedin.datahub.graphql.types.mappers.BrowseResultMapper;
