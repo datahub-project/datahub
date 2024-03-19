@@ -246,6 +246,12 @@ class DBTCommonConfig(
         DBTEntitiesEnabled(),
         description="Controls for enabling / disabling metadata emission for different dbt entities (models, test definitions, test results, etc.)",
     )
+    skip_sources_in_lineage: bool = Field(
+        default=False,
+        description="[Experimental] When enabled, dbt sources will not be included in the lineage graph. "
+        "Requires that `entities_enabled.sources` is set to `NO`. "
+        "This is mainly useful when you have multiple, interdependent dbt projects. ",
+    )
     tag_prefix: str = Field(
         default=f"{DBT_PLATFORM}:", description="Prefix added to tags during ingestion."
     )
@@ -397,6 +403,18 @@ class DBTCommonConfig(
 
         return include_column_lineage
 
+    @validator("skip_sources_in_lineage")
+    def validate_skip_sources_in_lineage(
+        cls, skip_sources_in_lineage: bool, values: Dict
+    ) -> bool:
+        entites_enabled: DBTEntitiesEnabled = values["entities_enabled"]
+        if skip_sources_in_lineage and entites_enabled.sources == EmitDirective.YES:
+            raise ValueError(
+                "When `skip_sources_in_lineage` is enabled, `entities_enabled.sources` must be set to NO."
+            )
+
+        return skip_sources_in_lineage
+
 
 @dataclass
 class DBTColumn:
@@ -510,11 +528,13 @@ class DBTNode:
         target_platform: str,
         target_platform_instance: Optional[str],
         env: str,
+        skip_sources_in_lineage: bool,
     ) -> str:
         """
         Get the urn to use when referencing this node in a dbt node's upstream lineage.
 
-        If the node is a source or an ephemeral dbt node, we should point at the dbt node.
+        If the node is an ephemeral dbt node, we should point at the dbt node.
+        If the node is a source node, and skip_sources_in_lineage is not enabled, we should also point at the dbt node.
         Otherwise, the node is materialized in the target platform, and so lineage should
         point there.
         """
@@ -523,14 +543,11 @@ class DBTNode:
         platform_value = DBT_PLATFORM
         platform_instance_value = dbt_platform_instance
 
-        materialized = self.materialization
-        if materialized in {
-            "view",
-            "materialized_view",
-            "table",
-            "incremental",
-            "snapshot",
-        }:
+        if self.is_ephemeral_model():
+            pass  # leave it pointing at dbt
+        elif self.node_type == "source" and not skip_sources_in_lineage:
+            pass  # leave it as dbt
+        else:
             # upstream urns point to the target platform
             platform_value = target_platform
             platform_instance_value = target_platform_instance
@@ -623,6 +640,7 @@ def get_upstreams(
     target_platform_instance: Optional[str],
     environment: str,
     platform_instance: Optional[str],
+    skip_sources_in_lineage: bool,
 ) -> List[str]:
     upstream_urns = []
 
@@ -642,6 +660,7 @@ def get_upstreams(
                 target_platform=target_platform,
                 target_platform_instance=target_platform_instance,
                 env=environment,
+                skip_sources_in_lineage=skip_sources_in_lineage,
             )
         )
     return upstream_urns
@@ -819,7 +838,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 yield MetadataChangeProposalWrapper(
                     entityUrn=assertion_urn,
                     aspect=DataPlatformInstanceClass(
-                        platform=mce_builder.make_data_platform_urn(DBT_PLATFORM)
+                        platform=mce_builder.make_data_platform_urn(DBT_PLATFORM),
+                        instance=self.config.platform_instance,
                     ),
                 ).as_workunit()
 
@@ -1190,6 +1210,15 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 if sub_type_wu:
                     yield sub_type_wu
 
+                # emit dataPlatformInstance aspect
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=node_datahub_urn,
+                    aspect=DataPlatformInstanceClass(
+                        platform=mce_builder.make_data_platform_urn(DBT_PLATFORM),
+                        instance=self.config.platform_instance,
+                    ),
+                ).as_workunit()
+
                 if len(aspects) == 0:
                     continue
                 dataset_snapshot = DatasetSnapshot(
@@ -1525,12 +1554,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             return None
 
         subtypes: List[str] = [node.node_type.capitalize()]
-        if node.node_type == "source":
-            # In the siblings association hook, we previously looked for an exact
-            # match of "source" to determine if a node was a source. While we now
-            # also check for a capitalized "Source" subtype, this maintains compatibility
-            # with older GMS versions.
-            subtypes.append("source")
         if node.materialization == "table":
             subtypes.append(DatasetSubTypes.TABLE)
 
@@ -1578,6 +1601,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 self.config.target_platform_instance,
                 self.config.env,
                 self.config.platform_instance,
+                skip_sources_in_lineage=self.config.skip_sources_in_lineage,
             )
 
             def _translate_dbt_name_to_upstream_urn(dbt_name: str) -> str:
@@ -1586,6 +1610,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     target_platform=self.config.target_platform,
                     target_platform_instance=self.config.target_platform_instance,
                     env=self.config.env,
+                    skip_sources_in_lineage=self.config.skip_sources_in_lineage,
                 )
 
             if node.cll_debug_info and node.cll_debug_info.error:
