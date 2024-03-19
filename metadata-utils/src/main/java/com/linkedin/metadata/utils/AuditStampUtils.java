@@ -32,5 +32,4 @@ public class AuditStampUtils {
     auditStamp.setActor(actor);
     return auditStamp;
   }
-
 }
