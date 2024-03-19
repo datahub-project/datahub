@@ -81,7 +81,7 @@ def _str_urn_to_dataset_urn(urns: List[str]) -> List[DatasetUrn]:
 
 @dataclass
 class DagsterEnvironment:
-    repository: str
+    repository: Optional[str]
     is_cloud: bool = True
     is_branch_deployment: bool = False
     branch: Optional[str] = "prod"
