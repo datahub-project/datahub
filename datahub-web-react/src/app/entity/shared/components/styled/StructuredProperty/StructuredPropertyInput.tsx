@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { PropertyCardinality, StdDataType, StructuredPropertyEntity } from '../../../../../../types.generated';
 import SingleSelectInput from './SingleSelectInput';
 import MultiSelectInput from './MultiSelectInput';

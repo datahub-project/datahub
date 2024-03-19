@@ -8,6 +8,7 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.PropertyValueInput;
 import com.linkedin.datahub.graphql.generated.UpsertStructuredPropertiesInput;
@@ -62,7 +63,7 @@ public class UpsertStructuredPropertiesResolver
         () -> {
           try {
             // check authorization first
-            if (!StructuredPropertyUtils.isAuthorizedToUpdateProperties(context, assetUrn)) {
+            if (!AuthorizationUtils.canEditProperties(assetUrn, context)) {
               throw new AuthorizationException(
                   String.format(
                       "Not authorized to update properties on the gives urn %s", assetUrn));

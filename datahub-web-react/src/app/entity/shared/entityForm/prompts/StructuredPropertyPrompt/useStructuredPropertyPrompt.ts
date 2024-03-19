@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useEntityContext } from '../../../EntityContext';
 import { FormPrompt, FormPromptType, SchemaField, SubmitFormPromptInput } from '../../../../../../types.generated';
 import { getInitialValues } from './utils';
@@ -39,7 +39,7 @@ export default function useStructuredPropertyPrompt({ prompt, submitResponse, fi
         if (entityData?.urn !== previousEntityUrn) {
             setSelectedValues(initialValues || []);
         }
-    }, [entityData?.urn, previousEntityUrn, initialValues]);
+    }, [entityData?.urn, previousEntityUrn, initialValues, setSelectedValues]);
 
     const previousSelectedPromptId = usePrevious(selectedPromptId);
     useEffect(() => {
@@ -47,7 +47,7 @@ export default function useStructuredPropertyPrompt({ prompt, submitResponse, fi
             setHasEdited(false);
             setSelectedValues(initialValues || []);
         }
-    }, [previousSelectedPromptId, selectedPromptId, initialValues]);
+    }, [previousSelectedPromptId, selectedPromptId, initialValues, setSelectedValues, setHasEdited]);
 
     // submit structured property prompt
     function submitStructuredPropertyResponse() {

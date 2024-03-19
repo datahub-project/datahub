@@ -35,12 +35,15 @@ export const PropertiesTab = () => {
             title: 'Value',
             render: (propertyRow: PropertyRow) => <ValuesColumn propertyRow={propertyRow} filterText={filterText} />,
         },
-        {
+    ];
+
+    if (entityData?.privileges?.canEditProperties) {
+        propertyTableColumns.push({
             title: '',
             width: '10%',
             render: (propertyRow: PropertyRow) => <EditColumn propertyRow={propertyRow} />,
-        },
-    ];
+        } as any);
+    }
 
     const { structuredPropertyRows, expandedRowsFromFilter } = useStructuredProperties(entityRegistry, filterText);
     const customProperties = getFilteredCustomProperties(filterText, entityData) || [];

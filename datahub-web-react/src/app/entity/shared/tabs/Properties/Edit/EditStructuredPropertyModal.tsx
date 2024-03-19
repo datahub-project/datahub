@@ -1,9 +1,9 @@
 import { Button, Modal, message } from 'antd';
 import React from 'react';
+import styled from 'styled-components';
 import { PropertyRow } from '../types';
 import StructuredPropertyInput from '../../../components/styled/StructuredProperty/StructuredPropertyInput';
 import { PropertyValueInput, StructuredPropertyEntity } from '../../../../../../types.generated';
-import styled from 'styled-components';
 import { useUpsertStructuredPropertiesMutation } from '../../../../../../graphql/structuredProperties.generated';
 import { useEditStructuredProperty } from '../../../components/styled/StructuredProperty/useEditStructuredProperty';
 import { useEntityContext, useMutationUrn } from '../../../EntityContext';
