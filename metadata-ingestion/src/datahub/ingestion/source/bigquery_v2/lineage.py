@@ -517,19 +517,23 @@ class BigqueryLineageExtractor:
                     ]
                 )
 
-            # Convert project tables to <project_id>.<dataset_id>.<table_id> format
-            project_table_names = list(
-                map(
-                    lambda table: "{}.{}.{}".format(
-                        table.project, table.dataset_id, table.table_id
-                    ),
-                    project_tables,
-                )
-            )
-
             lineage_map: Dict[str, Set[LineageEdge]] = {}
             curr_date = datetime.now()
-            for table in project_table_names:
+            for project_table in project_tables:
+
+                if not is_schema_allowed(
+                        self.config.dataset_pattern,
+                        schema_name=project_table.dataset_id,
+                        db_name=project_table.project,
+                        match_fully_qualified_schema_name=self.config.match_fully_qualified_names,
+                ) or not self.config.table_pattern.allowed(
+                    project_table.table_id
+                ):
+                    self.report.num_skipped_lineage_entries_not_allowed[project_table.project] += 1
+                    continue
+
+                # Convert project table to <project_id>.<dataset_id>.<table_id> format
+                table = "{}.{}.{}".format(project_table.project, project_table.dataset_id, project_table.table_id)
                 logger.info("Creating lineage map for table %s", table)
                 upstreams = set()
                 downstream_table = lineage_v1.EntityReference()
