@@ -8,7 +8,6 @@ import { TitleAction } from './TitleAction';
 import MoreOptionsMenuAction from '../../../EntityDropdown/MoreOptionsMenuAction';
 import { EntityMenuItems } from '../../../EntityDropdown/EntityMenuActions';
 import { useEntityData, useRefetch } from '../../../EntityContext';
-import useIsLineageMode from '../../../../../lineage/utils/useIsLineageMode';
 
 const Controls = styled.div<{ isCollapsed: boolean }>`
     display: flex;
@@ -60,7 +59,7 @@ interface Props {
 }
 
 export default function SidebarCollapsibleHeader({ currentTab, headerDropdownItems }: Props) {
-    const { isClosed } = useContext(EntitySidebarContext);
+    const { isClosed, forLineage } = useContext(EntitySidebarContext);
 
     const currentTabName = currentTab?.name === 'About' ? 'Summary' : currentTab?.name;
     const currentTabDescription = currentTab?.description;
@@ -69,7 +68,6 @@ export default function SidebarCollapsibleHeader({ currentTab, headerDropdownIte
 
     const { urn, entityType, entityData } = useEntityData();
     const refetch = useRefetch();
-    const isLineageMode = useIsLineageMode();
 
     return (
         <Controls isCollapsed={isClosed}>
@@ -79,7 +77,7 @@ export default function SidebarCollapsibleHeader({ currentTab, headerDropdownIte
                         <TabTitle>{currentTabName}</TabTitle>
                         <RightActions>
                             {actionType && <TitleAction actionType={actionType} icon={icon} />}
-                            {isLineageMode && headerDropdownItems && (
+                            {forLineage && headerDropdownItems && (
                                 <MoreOptionsMenuAction
                                     menuItems={headerDropdownItems}
                                     urn={urn}
