@@ -2,24 +2,12 @@ import json
 import logging
 from dataclasses import dataclass
 from datetime import datetime
-from typing import (
-    Any,
-    Callable,
-    Collection,
-    Iterable,
-    List,
-    Optional,
-    Sequence,
-    Set,
-    Tuple,
-    Type,
-)
+from typing import Any, Callable, Collection, Iterable, List, Optional, Set, Tuple, Type
 
 from pydantic import BaseModel, validator
 from snowflake.connector import SnowflakeConnection
 
 from datahub.configuration.datetimes import parse_absolute_time
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.s3_util import make_s3_urn_for_lineage
 from datahub.ingestion.source.snowflake.constants import (
@@ -37,10 +25,6 @@ from datahub.ingestion.source.snowflake.snowflake_utils import (
 )
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
     RedundantLineageRunSkipHandler,
-)
-from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
-    FineGrainedLineage,
-    UpstreamLineage,
 )
 from datahub.metadata.schema_classes import DatasetLineageTypeClass, UpstreamClass
 from datahub.sql_parsing.sql_parsing_aggregator import (
@@ -246,30 +230,6 @@ class SnowflakeLineageExtractor(
                     self.sql_aggregator.add_known_query_lineage(known_lineage, True)
                 else:
                     logger.debug(f"No lineage found for {dataset_name}")
-
-    def _create_upstream_lineage_workunit(
-        self,
-        dataset_name: str,
-        upstreams: Sequence[UpstreamClass],
-        fine_upstreams: Sequence[FineGrainedLineage],
-    ) -> MetadataWorkUnit:
-        logger.debug(
-            f"Upstream lineage of '{dataset_name}': {[u.dataset for u in upstreams]}"
-        )
-        if self.config.upstream_lineage_in_report:
-            self.report.upstream_lineage[dataset_name] = [u.dataset for u in upstreams]
-
-        upstream_lineage = UpstreamLineage(
-            upstreams=sorted(upstreams, key=lambda x: x.dataset),
-            fineGrainedLineages=sorted(
-                fine_upstreams,
-                key=lambda x: (x.downstreams, x.upstreams),
-            )
-            or None,
-        )
-        return MetadataChangeProposalWrapper(
-            entityUrn=self.dataset_urn_builder(dataset_name), aspect=upstream_lineage
-        ).as_workunit()
 
     def get_known_query_lineage(
         self, query: Query, dataset_name: str, db_row: UpstreamLineageEdge
