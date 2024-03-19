@@ -961,6 +961,11 @@ enum EntityType {
     """
     ENTITY_TYPE
 
+    """"
+    A type of entity that is restricted to the user
+    """
+    RESTRICTED
+
     """
     Another entity type - refer to a provided entity type urn.
     """
@@ -3182,6 +3187,12 @@ type ViewProperties {
   logic: String!
 
   """
+  A formatted version of the logic associated with the view.
+  For dbt, this contains the compiled SQL.
+  """
+  formattedLogic: String
+
+  """
   The language in which the view logic is written, for example SQL
   """
   language: String!
@@ -4072,6 +4083,11 @@ type CorpGroupEditableProperties {
   Email address for the group
   """
   email: String
+
+  """ 
+  A URL which points to a picture which user wants to set as a profile photo
+  """
+  pictureLink: String
 }
 
 """
@@ -4092,6 +4108,11 @@ input CorpGroupUpdateInput {
   Email address for the group
   """
   email: String
+
+  """
+  A URL which points to a picture which user wants to set as a profile photo
+  """
+  pictureLink: String
 }
 
 """
@@ -11833,4 +11854,30 @@ type EntityTypeInfo {
     The description of this type
     """
     description: String
+}
+
+"""
+A restricted entity that the user does not have full permissions to view.
+This entity type does not relate to an entity type in the database.
+"""
+type Restricted implements Entity & EntityWithRelationships {
+    """
+    The primary key of the restricted entity
+    """
+    urn: String!
+
+    """
+    The standard Entity Type
+    """
+    type: EntityType!
+
+    """
+    Edges extending from this entity
+    """
+    relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+    """
+    Edges extending from this entity grouped by direction in the lineage graph
+    """
+    lineage(input: LineageInput!): EntityLineageResult
 }

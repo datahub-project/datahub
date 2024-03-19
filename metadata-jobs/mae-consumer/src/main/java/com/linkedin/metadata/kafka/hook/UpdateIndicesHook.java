@@ -29,32 +29,37 @@ import org.springframework.stereotype.Component;
 })
 public class UpdateIndicesHook implements MetadataChangeLogHook {
 
-  protected final UpdateIndicesService _updateIndicesService;
-  private final boolean _isEnabled;
+  protected final UpdateIndicesService updateIndicesService;
+  private final boolean isEnabled;
+  private final boolean reprocessUIEvents;
 
   public UpdateIndicesHook(
       UpdateIndicesService updateIndicesService,
-      @Nonnull @Value("${updateIndices.enabled:true}") Boolean isEnabled) {
-    _updateIndicesService = updateIndicesService;
-    _isEnabled = isEnabled;
+      @Nonnull @Value("${updateIndices.enabled:true}") Boolean isEnabled,
+      @Nonnull @Value("${featureFlags.preProcessHooks.reprocessEnabled:false}")
+          Boolean reprocessUIEvents) {
+    this.updateIndicesService = updateIndicesService;
+    this.isEnabled = isEnabled;
+    this.reprocessUIEvents = reprocessUIEvents;
   }
 
   @Override
   public boolean isEnabled() {
-    return _isEnabled;
+    return isEnabled;
   }
 
   @Override
   public void invoke(@Nonnull final MetadataChangeLog event) {
     if (event.getSystemMetadata() != null) {
       if (event.getSystemMetadata().getProperties() != null) {
-        if (UI_SOURCE.equals(event.getSystemMetadata().getProperties().get(APP_SOURCE))) {
+        if (UI_SOURCE.equals(event.getSystemMetadata().getProperties().get(APP_SOURCE))
+            && !reprocessUIEvents) {
           // If coming from the UI, we pre-process the Update Indices hook as a fast path to avoid
           // Kafka lag
           return;
         }
       }
     }
-    _updateIndicesService.handleChangeEvent(event);
+    updateIndicesService.handleChangeEvent(event);
   }
 }

@@ -61,6 +61,11 @@ class DruidConfig(BasicSQLAlchemyConfig):
 @config_class(DruidConfig)
 @support_status(SupportStatus.INCUBATING)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
+@capability(
+    SourceCapability.CLASSIFICATION,
+    "Optionally enabled via `classification.enabled`",
+    supported=True,
+)
 class DruidSource(SQLAlchemySource):
     """
     This plugin extracts the following:

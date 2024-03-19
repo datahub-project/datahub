@@ -36,6 +36,9 @@ class SchemaResolverInterface(Protocol):
     def platform(self) -> str:
         ...
 
+    def includes_temp_tables(self) -> bool:
+        ...
+
     def resolve_table(self, table: _TableName) -> Tuple[str, Optional[SchemaInfo]]:
         ...
 
@@ -74,13 +77,16 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
     def platform(self) -> str:
         return self._platform
 
+    def includes_temp_tables(self) -> bool:
+        return False
+
     def get_urns(self) -> Set[str]:
         return set(k for k, v in self._schema_cache.items() if v is not None)
 
     def schema_count(self) -> int:
         return int(
             self._schema_cache.sql_query(
-                f"SELECT COUNT(*) FROM {self._schema_cache.tablename} WHERE is_missing"
+                f"SELECT COUNT(*) FROM {self._schema_cache.tablename} WHERE NOT is_missing"
             )[0][0]
         )
 
@@ -245,6 +251,9 @@ class _SchemaResolverWithExtras(SchemaResolverInterface):
     @property
     def platform(self) -> str:
         return self._base_resolver.platform
+
+    def includes_temp_tables(self) -> bool:
+        return True
 
     def resolve_table(self, table: _TableName) -> Tuple[str, Optional[SchemaInfo]]:
         urn = self._base_resolver.get_urn_for_table(

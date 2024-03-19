@@ -20,7 +20,10 @@ import com.linkedin.metadata.graph.RelatedEntity;
 import com.linkedin.metadata.graph.elastic.ESGraphQueryDAO;
 import com.linkedin.metadata.graph.elastic.ESGraphWriteDAO;
 import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
+import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
+import com.linkedin.metadata.models.registry.EntityRegistryException;
 import com.linkedin.metadata.models.registry.LineageRegistry;
+import com.linkedin.metadata.models.registry.MergedEntityRegistry;
 import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
@@ -30,6 +33,7 @@ import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import io.datahubproject.test.search.SearchTestUtils;
+import io.datahubproject.test.search.config.SearchCommonTestConfiguration;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
@@ -54,7 +58,7 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
   @Nonnull
   protected abstract ESIndexBuilder getIndexBuilder();
 
-  private final IndexConvention _indexConvention = new IndexConventionImpl(null);
+  private final IndexConvention _indexConvention = IndexConventionImpl.NO_PREFIX;
   private final String _indexName = _indexConvention.getIndexName(INDEX_NAME);
   private ElasticSearchGraphService _client;
   private boolean _enableMultiPathSearch =
@@ -76,7 +80,20 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
 
   @Nonnull
   private ElasticSearchGraphService buildService(boolean enableMultiPathSearch) {
-    LineageRegistry lineageRegistry = new LineageRegistry(SnapshotEntityRegistry.getInstance());
+    ConfigEntityRegistry configEntityRegistry =
+        new ConfigEntityRegistry(
+            SearchCommonTestConfiguration.class
+                .getClassLoader()
+                .getResourceAsStream("entity-registry.yml"));
+    SnapshotEntityRegistry snapshotEntityRegistry = SnapshotEntityRegistry.getInstance();
+    LineageRegistry lineageRegistry;
+    try {
+      MergedEntityRegistry mergedEntityRegistry =
+          new MergedEntityRegistry(snapshotEntityRegistry).apply(configEntityRegistry);
+      lineageRegistry = new LineageRegistry(mergedEntityRegistry);
+    } catch (EntityRegistryException e) {
+      throw new RuntimeException(e);
+    }
     GraphQueryConfiguration configuration = GraphQueryConfiguration.testDefaults;
     configuration.setEnableMultiPathSearch(enableMultiPathSearch);
     ESGraphQueryDAO readDAO =

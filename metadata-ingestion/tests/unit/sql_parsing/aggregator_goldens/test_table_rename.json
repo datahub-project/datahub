@@ -58,7 +58,7 @@
     "aspect": {
         "json": {
             "statement": {
-                "value": "create table bar as select a, b from baz",
+                "value": "CREATE TABLE bar AS\nSELECT\n  a,\n  b\nFROM baz",
                 "language": "SQL"
             },
             "source": "SYSTEM",
@@ -150,7 +150,7 @@
     "aspect": {
         "json": {
             "statement": {
-                "value": "create table foo_staging as select a, b from foo_dep",
+                "value": "CREATE TABLE foo_staging AS\nSELECT\n  a,\n  b\nFROM foo_dep",
                 "language": "SQL"
             },
             "source": "SYSTEM",
