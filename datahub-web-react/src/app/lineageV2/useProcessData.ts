@@ -1,7 +1,9 @@
+import { Maybe } from 'graphql/jsutils/Maybe';
 import { useContext, useMemo } from 'react';
 import { Edge } from 'reactflow';
-import { Maybe } from 'graphql/jsutils/Maybe';
 import { EntityType, LineageDirection } from '../../types.generated';
+import { PLATFORM_FILTER_NAME, TYPE_NAMES_FILTER_NAME } from '../searchV2/utils/constants';
+import { ColumnQueryData } from '../shared/EntitySidebarContext';
 import {
     ChildMap,
     ColumnRef,
@@ -21,8 +23,6 @@ import {
 } from './common';
 import { getFieldPathFromSchemaFieldUrn, getSourceUrnFromSchemaFieldUrn } from './lineageUtils';
 import NodeBuilder, { NodeWithMetadata } from './NodeBuilder';
-import { PLATFORM_FILTER_NAME, TYPE_NAMES_FILTER_NAME } from '../searchV2/utils/constants';
-import { ColumnQueryData } from '../shared/EntitySidebarContext';
 
 interface FineGrainedLineageData {
     direct: FineGrainedLineage;
@@ -52,14 +52,20 @@ export default function useProcessData(urn: string, type: EntityType): Processed
             const filteredNodes = filterNodes(urn, nodes, childMap);
             const nodeBuilder = new NodeBuilder(urn, type, filteredNodes);
             return [nodeBuilder.createNodes(), nodeBuilder.createEdges(), childMap];
-        },
-        // eslint-disable-next-line react-hooks/exhaustive-deps
+        }, // eslint-disable-next-line react-hooks/exhaustive-deps
         [nodes, nodeVersion, displayVersion],
     );
 
     return { flowNodes, flowEdges, fineGrainedLineage, childMaps };
 }
 
+/**
+ * Filters nodes based on per-node filters.
+ * @param urn The urn of the root node.
+ * @param nodes The list of urns fetched for the lineage visualization.
+ * @param childMaps Per direction, an association list of urns to their neighbors in that direction.
+ * @returns A list of nodes to display in topological order.
+ */
 function filterNodes(
     urn: string,
     nodes: Map<string, LineageEntity>,
@@ -74,9 +80,9 @@ function filterNodes(
 
     const displayedNodes: LineageNode[] = [rootNode];
     const seenNodes = new Set<string>([urn]);
-    const stack = [urn];
-    while (stack.length > 0) {
-        const current = stack.pop() as string; // Just checked length
+    const queue = [urn]; // Note: uses array for queue, slow for large graphs
+    while (queue.length > 0) {
+        const current = queue.shift() as string; // Just checked length
         const node = nodes.get(current);
         const directionsToSearch = node?.direction ? [node.direction] : Object.values(LineageDirection);
         const filteredChildren = directionsToSearch
@@ -88,7 +94,7 @@ function filterNodes(
             if (!seenNodes.has(child.id)) {
                 displayedNodes.push(child);
                 seenNodes.add(child.id);
-                stack.push(child.id);
+                queue.push(child.id);
             }
         });
     }
@@ -139,7 +145,8 @@ function applyFilters(
             id: `${LINEAGE_FILTER_ID_PREFIX}${dir}${urn}`,
             type: LINEAGE_FILTER_TYPE,
             parent: urn,
-            parentNode: node as LineageEntity, // Should not create LineageFilter nodes if node is undefined
+            parents: new Set([urn]),
+            nonTransformationalParents: new Set([urn]),
             direction,
             contents: Array.from(children),
             shown: new Set(shownNodes.map((n) => n.urn)),
@@ -154,16 +161,13 @@ function getChildMaps(nodes: Map<string, LineageEntity>): Record<LineageDirectio
     const upstreamChildren = new Map<string, Set<string>>();
     const downstreamChildren = new Map<string, Set<string>>();
     nodes.forEach((node) => {
-        node.paths.forEach((path) => {
-            const last = path[path.length - 1];
-            if (last !== undefined) {
-                if (node.direction === LineageDirection.Upstream) {
-                    setDefault(upstreamChildren, last.urn, new Set()).add(node.urn);
-                    setDefault(downstreamChildren, node.urn, new Set()).add(last.urn);
-                } else if (node.direction === LineageDirection.Downstream) {
-                    setDefault(downstreamChildren, last.urn, new Set()).add(node.urn);
-                    setDefault(upstreamChildren, node.urn, new Set()).add(last.urn);
-                }
+        node.parents.forEach((parent) => {
+            if (node.direction === LineageDirection.Upstream) {
+                setDefault(upstreamChildren, parent, new Set()).add(node.urn);
+                setDefault(downstreamChildren, node.urn, new Set()).add(parent);
+            } else if (node.direction === LineageDirection.Downstream) {
+                setDefault(downstreamChildren, parent, new Set()).add(node.urn);
+                setDefault(upstreamChildren, node.urn, new Set()).add(parent);
             }
         });
     });
