@@ -24,12 +24,13 @@ export const OKTA_API_TOKEN: RecipeField = {
 };
 
 export const POFILE_TO_USER: RecipeField = {
-    name: 'okta_profile_to_username_attr',
-    label: 'Okta Profile to Username attribute',
-    tooltip: 'Which Okta User Profile attribute to use as input to DataHub username mapping. Common values used are - login, email.',
+    name: 'email',
+    label: 'Okta Email',
+    tooltip:
+        'Which Okta User Profile attribute to use as input to DataHub username mapping. Common values used are - login, email.',
     type: FieldType.TEXT,
     fieldPath: 'source.config.okta_profile_to_username_attr',
-    placeholder: 'usename',
+    placeholder: 'email',
     rules: null,
 };
 
@@ -43,8 +44,7 @@ export const POFILE_TO_GROUP: RecipeField = {
     rules: null,
 };
 
-
-const schemaAllowFieldPath = 'source.config.okta_profile_to_username_attr_regex.allow';
+const schemaAllowFieldPath = 'source.config.okta_profile_to_username_regex.allow';
 export const POFILE_TO_USER_REGX_ALLOW: RecipeField = {
     name: 'user.allow',
     label: 'Allow Patterns',
@@ -55,13 +55,12 @@ export const POFILE_TO_USER_REGX_ALLOW: RecipeField = {
     buttonLabel: 'Add pattern',
     fieldPath: schemaAllowFieldPath,
     rules: null,
-    section: 'Profile To User Attribute',
+    section: 'Okta Profile To User Attribute Regex',
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
         setListValuesOnRecipe(recipe, values, schemaAllowFieldPath),
 };
 
-
-const schemaDenyFieldPath = 'source.config.okta_profile_to_username_attr_regex.deny';
+const schemaDenyFieldPath = 'source.config.okta_profile_to_username_regex.deny';
 export const POFILE_TO_USER_REGX_DENY: RecipeField = {
     name: 'user.deny',
     label: 'Deny Patterns',
@@ -72,11 +71,10 @@ export const POFILE_TO_USER_REGX_DENY: RecipeField = {
     buttonLabel: 'Add pattern',
     fieldPath: schemaDenyFieldPath,
     rules: null,
-    section: 'Profile To User Attribute',
+    section: 'Okta Profile To User Attribute Regex',
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
         setListValuesOnRecipe(recipe, values, schemaDenyFieldPath),
 };
-
 
 const schemaAllowFieldPathForGroup = 'source.config.okta_profile_to_group_name_regex.allow';
 export const POFILE_TO_GROUP_REGX_ALLOW: RecipeField = {
@@ -89,7 +87,7 @@ export const POFILE_TO_GROUP_REGX_ALLOW: RecipeField = {
     buttonLabel: 'Add pattern',
     fieldPath: schemaAllowFieldPathForGroup,
     rules: null,
-    section: 'Profile To Group Attribute',
+    section: 'Okta Profile To Group Attribute Regex',
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
         setListValuesOnRecipe(recipe, values, schemaAllowFieldPathForGroup),
 };
@@ -105,13 +103,10 @@ export const POFILE_TO_GROUP_REGX_DENY: RecipeField = {
     buttonLabel: 'Add pattern',
     fieldPath: schemaDenyFieldPathForGroup,
     rules: null,
-    section: 'Profile To Group Attribute',
+    section: 'Okta Profile To Group Attribute Regex',
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
         setListValuesOnRecipe(recipe, values, schemaDenyFieldPathForGroup),
 };
-
-
-
 export const INGEST_USERS: RecipeField = {
     name: 'ingest_users',
     label: 'Ingest Users',
@@ -130,7 +125,6 @@ export const INGEST_GROUPS: RecipeField = {
     rules: null,
 };
 
-
 export const INCLUDE_DEPROVISIONED_USERS: RecipeField = {
     name: 'include_deprovisioned_users',
     label: 'Include deprovisioned users',
@@ -145,6 +139,15 @@ export const INCLUDE_SUSPENDED_USERS: RecipeField = {
     tooltip: 'Whether to ingest users in the SUSPENDED state from Okta.',
     type: FieldType.BOOLEAN,
     fieldPath: 'source.config.include_suspended_users',
+    rules: null,
+};
+
+export const SKIP_USERS_WITHOUT_GROUP: RecipeField = {
+    name: 'skip_users_without_a_group',
+    label: 'Skip users without group',
+    tooltip: 'Whether to skip users without group from Okta.',
+    type: FieldType.BOOLEAN,
+    fieldPath: 'source.config.skip_users_without_a_group',
     rules: null,
 };
 
