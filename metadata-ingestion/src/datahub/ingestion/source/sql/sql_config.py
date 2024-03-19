@@ -6,12 +6,15 @@ import pydantic
 from pydantic import Field
 from sqlalchemy.engine import URL
 
-from datahub.configuration.common import AllowDenyPattern, ConfigModel, LineageConfig
+from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.source_common import (
     DatasetSourceConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
 )
 from datahub.configuration.validate_field_removal import pydantic_removed_field
+from datahub.ingestion.api.incremental_lineage_helper import (
+    IncrementalLineageConfigMixin,
+)
 from datahub.ingestion.glossary.classification_mixin import (
     ClassificationSourceConfigMixin,
 )
@@ -31,7 +34,7 @@ class SQLCommonConfig(
     StatefulIngestionConfigBase,
     DatasetSourceConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
-    LineageConfig,
+    IncrementalLineageConfigMixin,
     ClassificationSourceConfigMixin,
 ):
     options: dict = pydantic.Field(

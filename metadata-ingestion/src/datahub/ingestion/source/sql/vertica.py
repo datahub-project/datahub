@@ -120,6 +120,11 @@ class VerticaConfig(BasicSQLAlchemyConfig):
     "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
     supported=True,
 )
+@capability(
+    SourceCapability.CLASSIFICATION,
+    "Optionally enabled via `classification.enabled`",
+    supported=True,
+)
 class VerticaSource(SQLAlchemySource):
     def __init__(self, config: VerticaConfig, ctx: PipelineContext):
         # self.platform = platform
