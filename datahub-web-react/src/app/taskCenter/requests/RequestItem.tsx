@@ -36,22 +36,22 @@ export const RequestItem = ({ request, refetch }: Props) => {
 		setModalOpen(false);
 	}
 
-    const openModal = () => {
-        setModalOpen(true);
-        analytics.event({
-            type: EventType.ClickDocRequestCTA,
-            source: DocRequestCTASource.TaskCenter,
-        });
-    };
+	const openModal = () => {
+		setModalOpen(true);
+		analytics.event({
+			type: EventType.ClickDocRequestCTA,
+			source: DocRequestCTASource.TaskCenter,
+		});
+	};
 
 	return (
 		<>
 			<List.Item key={form.urn}>
 				<Typography.Text>
 					<strong>{message}</strong> <br />
-                    Please complete {name} for {numEntitiesToComplete} {pluralize(numEntitiesToComplete, 'asset')}
+					Please complete {name} for {numEntitiesToComplete} {pluralize(numEntitiesToComplete, 'asset')}
 				</Typography.Text>
-                <Button onClick={openModal}>Open in Documentation Center</Button>
+				<Button onClick={openModal}>Open in Documentation Center</Button>
 			</List.Item>
 			<EntityFormModal
 				selectedFormUrn={form.urn}

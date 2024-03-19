@@ -76,7 +76,7 @@ export const ProposalList = ({ title, status, assignee }: Props) => {
 
     return (
         <>
-            {!data && loading && <Message type="loading" content="Loading your requests..." />}
+            {!data && loading && <Message type="loading" content="Loading your requests…" />}
             {error && message.error('Failed to load your requests :(')}
             <ActionRequestsContainer>
                 {title && <ActionRequestsTitle level={2}>{title}</ActionRequestsTitle>}
