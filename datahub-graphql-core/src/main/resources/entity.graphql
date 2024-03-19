@@ -3187,6 +3187,12 @@ type ViewProperties {
   logic: String!
 
   """
+  A formatted version of the logic associated with the view.
+  For dbt, this contains the compiled SQL.
+  """
+  formattedLogic: String
+
+  """
   The language in which the view logic is written, for example SQL
   """
   language: String!
