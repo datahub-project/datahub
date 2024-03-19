@@ -175,7 +175,6 @@ export const AssertionResultPopoverContent = ({
                     </ContextRow>
                 </>
             )}
-
             {hasExternalPlatform ? (
                 <>
                     {/* Show the native results if it's an external platform, so the customers can see things like 'result' that they've emitted into DH */}
