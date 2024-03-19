@@ -176,6 +176,27 @@ def plugins(source: Optional[str], verbose: bool) -> None:
     required=True,
     help="The SQL dialect e.g. bigquery or snowflake",
 )
+def sql_format(sql: str, platform: str) -> None:
+    """Parse a SQL query into an abstract syntax tree (AST)."""
+
+    from datahub.sql_parsing.sqlglot_utils import try_format_query
+
+    click.echo(try_format_query(sql, platform, raises=True))
+
+
+@check.command()
+@click.option(
+    "--sql",
+    type=str,
+    required=True,
+    help="The SQL query to parse",
+)
+@click.option(
+    "--platform",
+    type=str,
+    required=True,
+    help="The SQL dialect e.g. bigquery or snowflake",
+)
 @click.option(
     "--platform-instance",
     type=str,

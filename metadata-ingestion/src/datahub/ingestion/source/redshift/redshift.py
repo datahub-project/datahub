@@ -1077,11 +1077,8 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                     self.db_schemas[database][schema],
                 )
                 if lineage_info:
-                    yield from gen_lineage(
-                        dataset_urn,
-                        (lineage_info, {}),
-                        incremental_lineage=False,  # incremental lineage generation is taken care by auto_incremental_lineage
-                    )
+                    # incremental lineage generation is taken care by auto_incremental_lineage
+                    yield from gen_lineage(dataset_urn, lineage_info)
 
     def add_config_to_report(self):
         self.report.stateful_lineage_ingestion_enabled = (

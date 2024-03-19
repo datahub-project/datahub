@@ -202,6 +202,16 @@ mutation createDomain {
 
 This query will return an `urn` which you can use to fetch the Domain details. 
 
+## Create a Nested Domain
+
+```graphql
+mutation createDomain {
+  createDomain(input: { name: "Verticals", description: "An optional description", parentDomain: "urn:li:domain:marketing" })
+}
+```
+
+This query will create a new domain, "Verticals", under the "Marketing" domain.
+
 **Fetching a Domain by Urn**
 
 ```graphql
