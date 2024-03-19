@@ -293,7 +293,7 @@ export default function SchemaTable({
     const usageColumn = {
         width: 100,
         title: 'Stats',
-        dataIndex: 'fieldPath',
+        dataIndex: 'usage',
         key: 'usage',
         render: usageStatsRenderer,
         sorter: (sourceA, sourceB) => getCount(sourceA.fieldPath) - getCount(sourceB.fieldPath),
@@ -408,14 +408,65 @@ export default function SchemaTable({
     ]);
 
     const dataSource = filterText ? filteredRows : rows;
+    const [sortedDataSource, setSortedDataSource] = useState(dataSource);
+
     const [displayedRows, setDisplayedRows] = useState(dataSource);
+    const [sortedDisplayedRows, setSortedDisplayedRows] = useState(displayedRows);
 
     const { selectPreviousField, selectNextField } = useKeyboardControls(
-        displayedRows,
+        schemaSorter ? sortedDisplayedRows : displayedRows,
         expandedDrawerFieldPath,
         setExpandedDrawerFieldPath,
+        expandedRows,
+        setExpandedRows,
         vtRef?.current,
     );
+
+    useEffect(() => {
+        const updateDisplayedRows = () => {
+            const visibleRows: ExtendedSchemaFields[] = [];
+
+            const getVisibleRows = (data) => {
+                data.forEach((record) => {
+                    visibleRows.push(record);
+                    if (expandedRows.has(record.fieldPath) && record.children) {
+                        getVisibleRows(record.children);
+                    }
+                });
+            };
+            if (schemaSorter) getVisibleRows(sortedDataSource);
+            else getVisibleRows(dataSource);
+
+            setDisplayedRows(visibleRows);
+            setSortedDisplayedRows(visibleRows);
+        };
+        updateDisplayedRows();
+    }, [expandedRows, dataSource, sortedDataSource, schemaSorter]);
+
+    const sortData = (data, sorter) => {
+        if (sorter.order) {
+            const { field, order } = sorter;
+
+            const column = allColumns.find((col) => col.key === field);
+
+            if (column && column.sorter) {
+                const sortedRows = data.slice().sort((a, b) => {
+                    const sorterFunction = typeof column.sorter === 'function' ? column.sorter : undefined;
+
+                    return sorterFunction ? sorterFunction(a, b) : 0;
+                });
+                return order === 'ascend' ? sortedRows : sortedRows.reverse();
+            }
+        }
+        return data;
+    };
+
+    const handleTableChange = (_, __, sorter, { currentDataSource }) => {
+        setSchemaSorter(sorter as SorterResult<ExtendedSchemaFields>);
+        setSortedDataSource(currentDataSource);
+        const sortedrows = sortData(displayedRows, sorter);
+        setSortedDisplayedRows(sortedrows);
+    };
 
     return (
         <FkContext.Provider value={selectedFkFieldPath}>
@@ -426,10 +477,7 @@ export default function SchemaTable({
             >
                 <ResizeObserver onResize={(dimensions) => setTableHeight(dimensions.height - TABLE_HEADER_HEIGHT)}>
                     <StyledTable
-                        onChange={(_, __, sorter, { currentDataSource }) => {
-                            setSchemaSorter(sorter as SorterResult<ExtendedSchemaFields>);
-                            setDisplayedRows(currentDataSource);
-                        }}
+                        onChange={handleTableChange}
                         rowClassName={rowClassName}
                         columns={allColumns}
                         dataSource={dataSource}
@@ -479,6 +527,7 @@ export default function SchemaTable({
                     selectPreviousField={selectPreviousField}
                     selectNextField={selectNextField}
                     usageStats={usageStats}
+                    displayedRows={schemaSorter ? sortedDisplayedRows : displayedRows}
                 />
             )}
         </FkContext.Provider>
