@@ -533,11 +533,8 @@ class BigqueryLineageExtractor:
                     continue
 
                 # Convert project table to <project_id>.<dataset_id>.<table_id> format
-                table = "{}.{}.{}".format(
-                    project_table.project,
-                    project_table.dataset_id,
-                    project_table.table_id,
-                )
+                table = f"{project_table.project}.{project_table.dataset_id}.{project_table.table_id}"
+
                 logger.info("Creating lineage map for table %s", table)
                 upstreams = set()
                 downstream_table = lineage_v1.EntityReference()
