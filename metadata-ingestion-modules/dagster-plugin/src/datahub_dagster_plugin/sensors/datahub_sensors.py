@@ -127,6 +127,46 @@ class DatahubSensors:
             )(self._emit_metadata)
         )
 
+    def get_dagster_environment(
+        self, context: RunStatusSensorContext
+    ) -> Optional[DagsterEnvironment]:
+        if (
+            context.dagster_run.job_code_origin
+            and context.dagster_run.job_code_origin.repository_origin
+            and context.dagster_run.job_code_origin.repository_origin.code_pointer
+        ):
+
+            code_pointer = (
+                context.dagster_run.job_code_origin.repository_origin.code_pointer
+            )
+            context.log.debug(f"code_pointer: {code_pointer}")
+
+            if hasattr(code_pointer, "attribute"):
+                repository = code_pointer.attribute
+            else:
+                repository = None
+
+            if hasattr(code_pointer, "module"):
+                module = code_pointer.module
+            else:
+                context.log.error("Unable to get Module")
+                return None
+
+            dagster_environment = DagsterEnvironment(
+                is_cloud=os.getenv("DAGSTER_CLOUD_IS_BRANCH_DEPLOYMENT", None)
+                is not None,
+                is_branch_deployment=True
+                if os.getenv("DAGSTER_CLOUD_IS_BRANCH_DEPLOYMENT", False) == 1
+                else False,
+                branch=os.getenv("DAGSTER_CLOUD_DEPLOYMENT_NAME", "prod"),
+                module=module,
+                repository=repository,
+            )
+            return dagster_environment
+        else:
+            context.log.error("Unable to get Dagster Environment...")
+            return None
+
     def _emit_metadata(
         self, context: RunStatusSensorContext
     ) -> RawSensorEvaluationFunctionReturn:
@@ -138,31 +178,9 @@ class DatahubSensors:
         assert context.dagster_run.job_snapshot_id
         assert context.dagster_run.execution_plan_snapshot_id
 
-        if (
-            context.dagster_run.job_code_origin
-            and context.dagster_run.job_code_origin.repository_origin
-            and context.dagster_run.job_code_origin.repository_origin.code_pointer
-            and context.dagster_run.job_code_origin.repository_origin.code_pointer.attribute  # type: ignore
-        ):
-            code_pointer = (
-                context.dagster_run.job_code_origin.repository_origin.code_pointer
-            )
-            context.log.info(f"Code Origin: {context.dagster_run.job_code_origin}")
-            repository = code_pointer.attribute  # type: ignore
-            module = code_pointer.module  # type: ignore
-
-            dagster_environment = DagsterEnvironment(
-                is_cloud=os.getenv("DAGSTER_CLOUD_IS_BRANCH_DEPLOYMENT", None)
-                is not None,
-                is_branch_deployment=True
-                if os.getenv("DAGSTER_CLOUD_IS_BRANCH_DEPLOYMENT", False) == 1
-                else True,
-                branch=os.getenv("DAGSTER_CLOUD_DEPLOYMENT_NAME", "prod"),
-                repository=repository,
-                module=module,
-            )
-        else:
-            context.log.error("Unable to get Dagster Environment...")
+        dagster_environment = self.get_dagster_environment(context)
+        context.log.debug(f"dagster enivronment: {dagster_environment}")
+        if not dagster_environment:
             return SkipReason("Unable to get Dagster Environment from DataHub Sensor")
 
         context.log.info(f"Dagster Environment: {dagster_environment}")
