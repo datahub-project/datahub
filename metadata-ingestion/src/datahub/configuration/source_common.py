@@ -54,6 +54,9 @@ class DatasetSourceConfigMixin(PlatformInstanceConfigMixin, EnvConfigMixin):
     Any source that is a primary producer of Dataset metadata should inherit this class
     """
 
+    # TODO: Deprecate this in favor of the more granular config mixins in order
+    # to flatten our config inheritance hierarchies.
+
 
 class LowerCaseDatasetUrnConfigMixin(ConfigModel):
     convert_urns_to_lowercase: bool = Field(
