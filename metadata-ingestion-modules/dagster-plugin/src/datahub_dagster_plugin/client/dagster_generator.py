@@ -124,10 +124,10 @@ class DagsterGenerator:
             scheme = url.scheme
 
             # Need to adjust some these schemes
-            if scheme in ['s3a', 's3n']:
-                scheme = 's3'
-            elif scheme in ['gs']:
-                scheme = 'gcs'
+            if scheme in ["s3a", "s3n"]:
+                scheme = "s3"
+            elif scheme in ["gs"]:
+                scheme = "gcs"
 
             return DatasetUrn(platform=scheme, name=url.path)
         else:
@@ -226,10 +226,10 @@ class DagsterGenerator:
         # Add upstream dependencies for this op
         for upstream_op_name in step_deps[op_def_snap.name]:
             if self.dagster_environment.is_cloud:
-                upstream_job_id = f"{self.dagster_environment.branch}/{self.dagster_environment.module}/{op_def_snap.name}"
+                upstream_job_id = f"{self.dagster_environment.branch}/{self.dagster_environment.module}/{upstream_op_name}"
             else:
                 upstream_job_id = (
-                    f"{self.dagster_environment.module}/{op_def_snap.name}"
+                    f"{self.dagster_environment.module}/{upstream_op_name}"
                 )
             upstream_op_urn = DataJobUrn.create_from_ids(
                 data_flow_urn=str(dataflow_urn),
