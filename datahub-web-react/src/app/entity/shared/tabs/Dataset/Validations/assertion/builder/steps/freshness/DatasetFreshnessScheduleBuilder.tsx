@@ -73,7 +73,7 @@ export const DatasetFreshnessScheduleBuilder = ({ value, onChange, disabled }: P
 
     return (
         <Form>
-            <Title level={5}>Fail if this table has not changed</Title>
+            <Title level={5}>Pass if this table has changed</Title>
             <RadioGroup
                 value={scheduleType}
                 onChange={(e: RadioChangeEvent) => handleScheduleTypeChange(e.target.value)}

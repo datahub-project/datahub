@@ -80,7 +80,7 @@ export const SqlParametersRangeBuilder = ({ value, onChange, updateMetricChange,
 
     return (
         <InputGroup>
-            <Typography.Text strong>if less than</Typography.Text>
+            <Typography.Text strong>is at least</Typography.Text>
             <StyledFormItem
                 initialValue={minValue}
                 name="sqlParameters.minValue"
@@ -115,7 +115,7 @@ export const SqlParametersRangeBuilder = ({ value, onChange, updateMetricChange,
                     }
                 />
             </StyledFormItem>
-            <Typography.Text strong>or more than</Typography.Text>
+            <Typography.Text strong>and at most</Typography.Text>
             <StyledFormItem
                 name="sqlParameters.maxValue"
                 initialValue={maxValue}
