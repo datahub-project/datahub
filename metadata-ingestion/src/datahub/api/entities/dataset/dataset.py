@@ -493,6 +493,19 @@ class Dataset(BaseModel):
         else:
             return None
 
+    def extract_owners_if_exists(owners: Optional[OwnershipClass]) -> Optional[List[Union[str, Ownership]]]:
+        yaml_owners: Optional[List[Union[str, Ownership]]] = None
+        if owners:
+            yaml_owners = []
+            for o in owners.owners:
+                if o.type == OwnershipTypeClass.TECHNICAL_OWNER:
+                    yaml_owners.append(o.owner)
+                elif o.type == OwnershipTypeClass.CUSTOM:
+                    yaml_owners.append(Ownership(id=o.owner, type=str(o.typeUrn)))
+                else:
+                    yaml_owners.append(Ownership(id=o.owner, type=str(o.type)))
+        return yaml_owners
+
     @classmethod
     def from_datahub(cls, graph: DataHubGraph, urn: str) -> "Dataset":
         dataset_properties: Optional[DatasetPropertiesClass] = graph.get_aspect(
@@ -504,16 +517,7 @@ class Dataset(BaseModel):
             urn, GlossaryTermsClass
         )
         owners: Optional[OwnershipClass] = graph.get_aspect(urn, OwnershipClass)
-        yaml_owners: Optional[List[Union[str, Ownership]]] = None
-        if owners:
-            yaml_owners = []
-            for o in owners.owners:
-                if o.type == OwnershipTypeClass.TECHNICAL_OWNER:
-                    yaml_owners.append(o.owner)
-                elif o.type == OwnershipTypeClass.CUSTOM:
-                    yaml_owners.append(Ownership(id=o.owner, type=str(o.typeUrn)))
-                else:
-                    yaml_owners.append(Ownership(id=o.owner, type=str(o.type)))
+        yaml_owners = Dataset.extract_owners_if_exists(owners)
         structured_properties: Optional[StructuredPropertiesClass] = graph.get_aspect(
             urn, StructuredPropertiesClass
         )
