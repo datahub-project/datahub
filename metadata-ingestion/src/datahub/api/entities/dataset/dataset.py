@@ -494,8 +494,8 @@ class Dataset(BaseModel):
             return None
 
     def extract_owners_if_exists(
-            owners: Optional[OwnershipClass]
-        ) -> Optional[List[Union[str, Ownership]]]:
+        owners: Optional[OwnershipClass]
+    ) -> Optional[List[Union[str, Ownership]]]:
         yaml_owners: Optional[List[Union[str, Ownership]]] = None
         if owners:
             yaml_owners = []
