@@ -145,12 +145,14 @@ public class SearchFieldConfig {
             aspectSpec.getSearchableRefFieldSpecs()) {
           String refFieldName = searchableRefFieldSpec.getSearchableRefAnnotation().getFieldName();
           refFieldName = fieldName + "." + refFieldName;
+          int newDepth =
+              Math.min(depth - 1, searchableRefFieldSpec.getSearchableRefAnnotation().getDepth());
           final float refBoost =
               (float) searchableRefFieldSpec.getSearchableRefAnnotation().getBoostScore()
                   * boostScore;
           fieldConfigs.addAll(
               detectSubFieldType(
-                  searchableRefFieldSpec, depth - 1, entityRegistry, refBoost, refFieldName));
+                  searchableRefFieldSpec, newDepth, entityRegistry, refBoost, refFieldName));
         }
       }
     }

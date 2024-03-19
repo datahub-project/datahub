@@ -332,7 +332,13 @@ public class MappingsBuilder {
         .forEach(
             entitySearchableRefFieldSpec ->
                 mappingForField.putAll(
-                    getMappingForSearchableRefField(entitySearchableRefFieldSpec, depth - 1)));
+                    getMappingForSearchableRefField(
+                        entitySearchableRefFieldSpec,
+                        Math.min(
+                            depth - 1,
+                            entitySearchableRefFieldSpec
+                                .getSearchableRefAnnotation()
+                                .getDepth()))));
     mappingForField.put("urn", getMappingsForUrn());
     mappingForProperty.put("properties", mappingForField);
     mappings.put(

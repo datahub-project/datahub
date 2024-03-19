@@ -502,6 +502,7 @@ public class SearchDocumentTransformer {
                 String fieldName = spec.getSearchableRefAnnotation().getFieldName();
                 boolean isArray = spec.isArray();
                 if (!value.isEmpty()) {
+                  int newDepth = Math.min(depth - 1, spec.getSearchableRefAnnotation().getDepth());
                   if (isArray) {
                     ArrayNode arrayNode = JsonNodeFactory.instance.arrayNode();
                     value
@@ -509,7 +510,7 @@ public class SearchDocumentTransformer {
                         .forEach(
                             val ->
                                 getNodeForRef(
-                                        depth - 1,
+                                        newDepth,
                                         val,
                                         spec.getSearchableRefAnnotation().getFieldType())
                                     .ifPresent(arrayNode::add));
@@ -517,7 +518,7 @@ public class SearchDocumentTransformer {
                   } else {
                     Optional<JsonNode> node =
                         getNodeForRef(
-                            depth - 1,
+                            newDepth,
                             value.get(0),
                             spec.getSearchableRefAnnotation().getFieldType());
                     if (node.isPresent()) {
