@@ -302,7 +302,8 @@ plugins: Dict[str, Set[str]] = {
     | {
         *sqlglot_lib,
         "google-cloud-datacatalog-lineage==0.2.2",
-    },
+    }
+    | classification_lib,
     "clickhouse": sql_common | clickhouse_common,
     "clickhouse-usage": sql_common | usage_common | clickhouse_common,
     "datahub-lineage-file": set(),
@@ -370,6 +371,8 @@ plugins: Dict[str, Set[str]] = {
     | redshift_common
     | usage_common
     | sqlglot_lib
+    | classification_lib
+    | {"db-dtypes"}  # Pandas extension data types
     | {"cachetools"},
     "s3": {*s3_base, *data_lake_profiling},
     "gcs": {*s3_base, *data_lake_profiling},
