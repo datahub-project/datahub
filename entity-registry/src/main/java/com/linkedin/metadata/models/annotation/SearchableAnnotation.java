@@ -20,6 +20,8 @@ public class SearchableAnnotation {
 
   public static final String FIELD_NAME_ALIASES = "fieldNameAliases";
   public static final String ANNOTATION_NAME = "Searchable";
+  public static final Set<FieldType> OBJECT_FIELD_TYPES =
+      ImmutableSet.of(FieldType.OBJECT, FieldType.MAP_ARRAY);
   private static final Set<FieldType> DEFAULT_QUERY_FIELD_TYPES =
       ImmutableSet.of(
           FieldType.TEXT,
@@ -71,7 +73,8 @@ public class SearchableAnnotation {
     OBJECT,
     BROWSE_PATH_V2,
     WORD_GRAM,
-    DOUBLE
+    DOUBLE,
+    MAP_ARRAY
   }
 
   @Nonnull

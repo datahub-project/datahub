@@ -55,6 +55,7 @@
       "privileges":[
         "EDIT_ENTITY",
         "VIEW_ENTITY_PAGE",
+        "VIEW_ENTITY",
         "EDIT_LINEAGE",
         "EDIT_ENTITY_ASSERTIONS",
         "SEARCH_PRIVILEGE",
@@ -106,6 +107,7 @@
       },
       "privileges":[
         "VIEW_ENTITY_PAGE",
+        "VIEW_ENTITY",
         "SEARCH_PRIVILEGE",
         "GET_COUNTS_PRIVILEGE",
         "GET_TIMESERIES_ASPECT_PRIVILEGE",
@@ -199,6 +201,7 @@
       },
       "privileges":[
         "VIEW_ENTITY_PAGE",
+        "VIEW_ENTITY",
         "EDIT_ENTITY_TAGS",
         "EDIT_ENTITY_GLOSSARY_TERMS",
         "EDIT_ENTITY_OWNERS",
@@ -282,6 +285,7 @@
       },
       "privileges":[
         "VIEW_ENTITY_PAGE",
+        "VIEW_ENTITY",
         "EDIT_ENTITY_TAGS",
         "EDIT_ENTITY_GLOSSARY_TERMS",
         "EDIT_ENTITY_DOCS",
@@ -401,6 +405,7 @@
       },
       "privileges":[
         "VIEW_ENTITY_PAGE",
+        "VIEW_ENTITY",
         "VIEW_DATASET_USAGE",
         "VIEW_DATASET_PROFILE",
         "SEARCH_PRIVILEGE",
@@ -429,6 +434,7 @@
       },
       "privileges":[
         "VIEW_ENTITY_PAGE",
+        "VIEW_ENTITY",
         "EDIT_ENTITY_TAGS",
         "EDIT_ENTITY_GLOSSARY_TERMS",
         "EDIT_ENTITY_OWNERS",

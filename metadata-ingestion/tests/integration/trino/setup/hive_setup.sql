@@ -57,3 +57,12 @@ CREATE TABLE db1.union_test(
 ) STORED AS ORC ;
 
 CREATE TABLE db1.map_test(KeyValue String, RecordId map<int,string>); 
+
+CREATE TABLE db1.classification_test(id STRING, name STRING, email STRING, gender STRING, age INT);
+
+INSERT INTO
+    db1.classification_test
+VALUES
+    ("1", "Foo Bar", "foo@bar.com", "M", 21),
+    ("2", "John Doe", "john.doe@example.com", "M", 30),
+    ("3", "Jane Doe", "jane.doe@abc.com", "F", 27);
