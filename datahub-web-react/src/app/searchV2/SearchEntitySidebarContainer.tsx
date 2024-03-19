@@ -6,7 +6,7 @@ import EntitySidebarContext from '../shared/EntitySidebarContext';
 import { useEntityRegistry } from '../useEntityRegistry';
 
 const SidebarContainer = styled.div`
-    height: calc(100vh - 60px - 40px - 20px - 10px);
+    height: calc(100vh - 125px - 40px - 20px - 10px);
     display: flex;
     flex-direction: column;
     position: sticky;

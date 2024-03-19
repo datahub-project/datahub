@@ -38,7 +38,7 @@ const Content = styled.div`
     flex: 1;
     display: flex;
     flex-direction: column;
-    max-height: calc(100vh - 60px);
+    max-height: calc(100vh - 72px);
     width: 100%;
     overflow: auto;
 `;
