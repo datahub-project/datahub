@@ -30,6 +30,7 @@ import com.linkedin.monitor.MonitorType;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.parseq.retry.backoff.BackoffPolicy;
 import com.linkedin.parseq.retry.backoff.ExponentialBackoff;
+import io.datahubproject.openapi.client.OpenApiClient;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -69,7 +70,8 @@ public class MonitorService extends BaseService {
       @Nonnull final Integer monitorServicePort,
       @Nonnull final Boolean useSsl,
       @Nonnull final EntityClient entityClient,
-      @Nonnull final Authentication systemAuthentication) {
+      @Nonnull final Authentication systemAuthentication,
+      @Nonnull final OpenApiClient openApiClient) {
     this(
         monitorServiceHost,
         monitorServicePort,
@@ -78,7 +80,8 @@ public class MonitorService extends BaseService {
         systemAuthentication,
         HttpClients.createDefault(),
         new ExponentialBackoff(DEFAULT_RETRY_INTERVAL),
-        3);
+        3,
+        openApiClient);
   }
 
   public MonitorService(
@@ -89,9 +92,10 @@ public class MonitorService extends BaseService {
       @Nonnull final Authentication systemAuthentication,
       @Nonnull final CloseableHttpClient httpClient,
       @Nonnull final BackoffPolicy backoffPolicy,
-      final int retryCount) {
+      final int retryCount,
+      @Nonnull final OpenApiClient openApiClient) {
 
-    super(entityClient, systemAuthentication);
+    super(entityClient, systemAuthentication, openApiClient);
 
     this.monitorServiceHost = Objects.requireNonNull(monitorServiceHost);
     this.monitorServicePort = Objects.requireNonNull(monitorServicePort);

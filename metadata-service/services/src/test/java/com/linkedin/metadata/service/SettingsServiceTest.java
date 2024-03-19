@@ -28,9 +28,11 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.settings.global.GlobalSettingsInfo;
 import com.linkedin.settings.global.GlobalViewsSettings;
+import io.datahubproject.openapi.client.OpenApiClient;
 import java.util.Collections;
 import java.util.List;
 import org.junit.Assert;
+import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -78,7 +80,7 @@ public class SettingsServiceTest {
   public void setupTest() {
     _entityClient = mock(EntityClient.class);
 
-    _settingsService = new SettingsService(_entityClient, SYSTEM_AUTHENTICATION);
+    _settingsService = new SettingsService(_entityClient, SYSTEM_AUTHENTICATION, Mockito.mock(OpenApiClient.class));
   }
 
   @Test

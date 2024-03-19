@@ -13,6 +13,7 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.resource.ResourceReference;
 import com.linkedin.mxe.MetadataChangeProposal;
+import io.datahubproject.openapi.client.OpenApiClient;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -27,8 +28,9 @@ import lombok.extern.slf4j.Slf4j;
 public class DomainService extends BaseService {
 
   public DomainService(
-      @Nonnull EntityClient entityClient, @Nonnull Authentication systemAuthentication) {
-    super(entityClient, systemAuthentication);
+      @Nonnull EntityClient entityClient, @Nonnull Authentication systemAuthentication,
+      @Nonnull final OpenApiClient openApiClient) {
+    super(entityClient, systemAuthentication, openApiClient);
   }
 
   /**

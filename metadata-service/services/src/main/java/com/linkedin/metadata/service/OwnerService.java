@@ -16,6 +16,7 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.resource.ResourceReference;
 import com.linkedin.mxe.MetadataChangeProposal;
+import io.datahubproject.openapi.client.OpenApiClient;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -30,8 +31,9 @@ public class OwnerService extends BaseService {
   public static final String SYSTEM_ID = "__system__";
 
   public OwnerService(
-      @Nonnull EntityClient entityClient, @Nonnull Authentication systemAuthentication) {
-    super(entityClient, systemAuthentication);
+      @Nonnull EntityClient entityClient, @Nonnull Authentication systemAuthentication,
+      @Nonnull final OpenApiClient openApiClient) {
+    super(entityClient, systemAuthentication, openApiClient);
   }
 
   /**

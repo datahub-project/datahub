@@ -26,6 +26,7 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
+import io.datahubproject.openapi.client.OpenApiClient;
 import java.util.Collections;
 import org.mockito.Mockito;
 import org.testcontainers.shaded.com.google.common.collect.ImmutableMap;
@@ -47,7 +48,7 @@ public class IncidentServiceTest {
   private void testGetIncidentInfo() throws Exception {
     final EntityClient mockClient = createMockEntityClient();
     final IncidentService service =
-        new IncidentService(mockClient, Mockito.mock(Authentication.class));
+        new IncidentService(mockClient, Mockito.mock(Authentication.class), Mockito.mock(OpenApiClient.class));
 
     // Case 1: Info exists
     IncidentInfo info = service.getIncidentInfo(TEST_INCIDENT_URN);
@@ -74,7 +75,7 @@ public class IncidentServiceTest {
   private void testGetIncidentsSummary() throws Exception {
     final EntityClient mockClient = createMockEntityClient();
     final IncidentService service =
-        new IncidentService(mockClient, Mockito.mock(Authentication.class));
+        new IncidentService(mockClient, Mockito.mock(Authentication.class), Mockito.mock(OpenApiClient.class));
 
     // Case 1: Summary exists
     IncidentsSummary summary = service.getIncidentsSummary(TEST_DATASET_URN);
@@ -101,7 +102,7 @@ public class IncidentServiceTest {
   private void testUpdateIncidentsSummary() throws Exception {
     final EntityClient mockClient = createMockEntityClient();
     final IncidentService service =
-        new IncidentService(mockClient, Mockito.mock(Authentication.class));
+        new IncidentService(mockClient, Mockito.mock(Authentication.class), Mockito.mock(OpenApiClient.class));
     service.updateIncidentsSummary(TEST_DATASET_URN, mockIncidentSummary());
     Mockito.verify(mockClient, Mockito.times(1))
         .ingestProposal(
@@ -114,7 +115,7 @@ public class IncidentServiceTest {
   private void testRaiseIncidentRequiredFields() throws Exception {
     final EntityClient mockClient = Mockito.mock(EntityClient.class);
     final IncidentService service =
-        new IncidentService(mockClient, Mockito.mock(Authentication.class));
+        new IncidentService(mockClient, Mockito.mock(Authentication.class), Mockito.mock(OpenApiClient.class));
     service.raiseIncident(
         IncidentType.FRESHNESS,
         null,
@@ -150,7 +151,7 @@ public class IncidentServiceTest {
   private void testRaiseIncidentAllFields() throws Exception {
     final EntityClient mockClient = Mockito.mock(EntityClient.class);
     final IncidentService service =
-        new IncidentService(mockClient, Mockito.mock(Authentication.class));
+        new IncidentService(mockClient, Mockito.mock(Authentication.class), Mockito.mock(OpenApiClient.class));
     service.raiseIncident(
         IncidentType.FRESHNESS,
         "custom type",
@@ -192,7 +193,7 @@ public class IncidentServiceTest {
   private void testUpdateIncidentStatus() throws Exception {
     final EntityClient mockClient = createMockEntityClient();
     final IncidentService service =
-        new IncidentService(mockClient, Mockito.mock(Authentication.class));
+        new IncidentService(mockClient, Mockito.mock(Authentication.class), Mockito.mock(OpenApiClient.class));
     service.updateIncidentStatus(
         TEST_INCIDENT_URN, IncidentState.RESOLVED, TEST_USER_URN, "message");
 
@@ -217,7 +218,7 @@ public class IncidentServiceTest {
   private void testDeleteIncident() throws Exception {
     final EntityClient mockClient = Mockito.mock(EntityClient.class);
     final IncidentService service =
-        new IncidentService(mockClient, Mockito.mock(Authentication.class));
+        new IncidentService(mockClient, Mockito.mock(Authentication.class), Mockito.mock(OpenApiClient.class));
     service.deleteIncident(TEST_INCIDENT_URN);
     Mockito.verify(mockClient, Mockito.times(1))
         .deleteEntity(Mockito.eq(TEST_INCIDENT_URN), Mockito.any(Authentication.class));

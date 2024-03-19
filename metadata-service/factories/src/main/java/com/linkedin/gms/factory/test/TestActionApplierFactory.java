@@ -20,6 +20,7 @@ import com.linkedin.metadata.test.action.tag.RemoveTagsAction;
 import com.linkedin.metadata.test.action.term.AddGlossaryTermsAction;
 import com.linkedin.metadata.test.action.term.RemoveGlossaryTermsAction;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.openapi.client.OpenApiClient;
 import java.util.ArrayList;
 import java.util.List;
 import javax.annotation.Nonnull;
@@ -40,17 +41,18 @@ public class TestActionApplierFactory {
   @Nonnull
   protected ActionApplier getInstance(
       @Qualifier("systemOperationContext") final OperationContext systemOpContext,
-      final SystemEntityClient systemEntityClient) {
+      final SystemEntityClient systemEntityClient,
+      @Qualifier("openApiClient") final OpenApiClient openApiClient) {
     List<Action> appliers = new ArrayList<>();
     TagService tagService =
-        new TagService(systemEntityClient, systemEntityClient.getSystemAuthentication());
+        new TagService(systemEntityClient, systemEntityClient.getSystemAuthentication(), openApiClient);
     GlossaryTermService termsService =
-        new GlossaryTermService(systemEntityClient, systemEntityClient.getSystemAuthentication());
+        new GlossaryTermService(systemEntityClient, systemEntityClient.getSystemAuthentication(), openApiClient);
     OwnerService ownerService =
-        new OwnerService(systemEntityClient, systemEntityClient.getSystemAuthentication());
+        new OwnerService(systemEntityClient, systemEntityClient.getSystemAuthentication(), openApiClient);
     DomainService domainService =
-        new DomainService(systemEntityClient, systemEntityClient.getSystemAuthentication());
-    FormService formService = new FormService(systemOpContext, systemEntityClient);
+        new DomainService(systemEntityClient, systemEntityClient.getSystemAuthentication(), openApiClient);
+    FormService formService = new FormService(systemOpContext, systemEntityClient, openApiClient);
     appliers.add(new AddTagsAction(tagService));
     appliers.add(new RemoveTagsAction(tagService));
     appliers.add(new AddGlossaryTermsAction(termsService));

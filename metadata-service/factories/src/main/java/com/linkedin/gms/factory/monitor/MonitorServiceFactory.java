@@ -6,6 +6,7 @@ import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.MonitorServiceConfiguration;
 import com.linkedin.metadata.service.MonitorService;
 import com.linkedin.metadata.spring.YamlPropertySourceFactory;
+import io.datahubproject.openapi.client.OpenApiClient;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -26,7 +27,8 @@ public class MonitorServiceFactory {
   @Bean(name = "monitorService")
   @Scope("singleton")
   @Nonnull
-  protected MonitorService getInstance(final SystemEntityClient systemEntityClient)
+  protected MonitorService getInstance(final SystemEntityClient systemEntityClient, @Qualifier("openApiClient")
+      OpenApiClient openApiClient)
       throws Exception {
     final MonitorServiceConfiguration config = _configProvider.getMonitorService();
     return new MonitorService(
@@ -34,6 +36,7 @@ public class MonitorServiceFactory {
         config.port,
         config.useSsl,
         systemEntityClient,
-        systemEntityClient.getSystemAuthentication());
+        systemEntityClient.getSystemAuthentication(),
+        openApiClient);
   }
 }

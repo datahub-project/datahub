@@ -38,6 +38,8 @@ import com.linkedin.metadata.utils.SearchUtil;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.openapi.v2.models.BatchGetUrnRequest;
+import io.datahubproject.openapi.v2.models.BatchGetUrnResponse;
 import io.datahubproject.openapi.v2.models.GenericEntity;
 import io.datahubproject.openapi.v2.models.GenericScrollResult;
 import io.swagger.v3.oas.annotations.Operation;
@@ -45,9 +47,11 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import java.lang.reflect.InvocationTargetException;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -165,6 +169,32 @@ public class EntityController {
         toRecordTemplates(List.of(UrnUtils.getUrn(entityUrn)), aspectNames, withSystemMetadata)
             .stream()
             .findFirst());
+  }
+
+  @Tag(name = "Generic Entities")
+  @GetMapping(value = "/{entityName}/batch", produces = MediaType.APPLICATION_JSON_VALUE)
+  @Operation(summary = "Get an entity")
+  public ResponseEntity<BatchGetUrnResponse> getEntityBatch(
+      @PathVariable("entityName") String entityName,
+      @RequestBody BatchGetUrnRequest request)
+      throws URISyntaxException {
+
+    if (restApiAuthorizationEnabled) {
+      Authentication authentication = AuthenticationContext.getAuthentication();
+      EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
+      request.getUrns().forEach(entityUrn ->
+      checkAuthorized(
+          authorizationChain,
+          authentication.getActor(),
+          entitySpec,
+          entityUrn,
+          ImmutableList.of(PoliciesConfig.GET_ENTITY_PRIVILEGE.getType())));
+    }
+
+    return ResponseEntity.of(Optional.of(
+        new BatchGetUrnResponse(new ArrayList<>(
+            toRecordTemplates(request.getUrns().stream().map(UrnUtils::getUrn).collect(Collectors.toList()),
+                new HashSet<>(request.getAspectNames()), request.isWithSystemMetadata())))));
   }
 
   @Tag(name = "Generic Entities")

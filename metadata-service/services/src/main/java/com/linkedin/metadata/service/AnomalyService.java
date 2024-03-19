@@ -18,6 +18,7 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.key.AnomalyKey;
 import com.linkedin.metadata.utils.EntityKeyUtils;
+import io.datahubproject.openapi.client.OpenApiClient;
 import java.util.Objects;
 import java.util.UUID;
 import javax.annotation.Nonnull;
@@ -29,8 +30,9 @@ public class AnomalyService extends BaseService {
 
   public AnomalyService(
       @Nonnull final EntityClient entityClient,
-      @Nonnull final Authentication systemAuthentication) {
-    super(entityClient, systemAuthentication);
+      @Nonnull final Authentication systemAuthentication,
+      @Nonnull final OpenApiClient openApiClient) {
+    super(entityClient, systemAuthentication, openApiClient);
   }
 
   /**

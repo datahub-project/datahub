@@ -18,6 +18,7 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.key.IncidentKey;
 import com.linkedin.metadata.utils.EntityKeyUtils;
+import io.datahubproject.openapi.client.OpenApiClient;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -30,8 +31,9 @@ public class IncidentService extends BaseService {
 
   public IncidentService(
       @Nonnull final EntityClient entityClient,
-      @Nonnull final Authentication systemAuthentication) {
-    super(entityClient, systemAuthentication);
+      @Nonnull final Authentication systemAuthentication,
+      @Nonnull final OpenApiClient openApiClient) {
+    super(entityClient, systemAuthentication, openApiClient);
   }
 
   /**

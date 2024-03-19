@@ -18,6 +18,7 @@ dependencies {
   api project(':metadata-service:configuration')
   api project(':metadata-service:services')
   api project(':metadata-operation-context')
+  implementation project(':metadata-service:openapi-servlet:models')
 
   implementation spec.product.pegasus.data
   implementation spec.product.pegasus.generator

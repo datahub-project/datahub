@@ -1,6 +1,7 @@
 package com.linkedin.metadata.service;
 
 import static com.linkedin.metadata.service.OwnerService.*;
+import static com.linkedin.metadata.service.util.ServiceTestUtils.*;
 
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
@@ -24,6 +25,7 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.resource.ResourceReference;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
+import io.datahubproject.openapi.client.OpenApiClient;
 import java.util.Collections;
 import java.util.List;
 import javax.annotation.Nullable;
@@ -47,9 +49,10 @@ public class OwnerServiceTest {
     existingOwnership.setOwners(
         new OwnerArray(
             ImmutableList.of(new Owner().setOwner(TEST_OWNER_URN_1).setType(OwnershipType.NONE))));
-    EntityClient mockClient = createMockOwnersClient(existingOwnership);
+    OpenApiClient mockClient = createMockOwnersClient(existingOwnership);
 
-    final OwnerService service = new OwnerService(mockClient, Mockito.mock(Authentication.class));
+    final OwnerService service = new OwnerService(Mockito.mock(EntityClient.class), Mockito.mock(Authentication.class),
+        mockClient);
 
     Urn newOwnerUrn = UrnUtils.getUrn("urn:li:corpuser:newTag");
     List<MetadataChangeProposal> events =
@@ -89,9 +92,10 @@ public class OwnerServiceTest {
 
   @Test
   private void testAddOwnersNoExistingOwners() throws Exception {
-    EntityClient mockClient = createMockOwnersClient(null);
+    OpenApiClient mockClient = createMockOwnersClient(null);
 
-    final OwnerService service = new OwnerService(mockClient, Mockito.mock(Authentication.class));
+    final OwnerService service = new OwnerService(Mockito.mock(EntityClient.class), Mockito.mock(Authentication.class),
+        mockClient);
 
     Urn newOwnerUrn = UrnUtils.getUrn("urn:li:corpuser:newOwner");
     List<MetadataChangeProposal> events =
@@ -136,9 +140,10 @@ public class OwnerServiceTest {
             ImmutableList.of(
                 new Owner().setOwner(TEST_OWNER_URN_1).setType(OwnershipType.TECHNICAL_OWNER),
                 new Owner().setOwner(TEST_OWNER_URN_2).setType(OwnershipType.DATA_STEWARD))));
-    EntityClient mockClient = createMockOwnersClient(existingOwnership);
+    OpenApiClient mockClient = createMockOwnersClient(existingOwnership);
 
-    final OwnerService service = new OwnerService(mockClient, Mockito.mock(Authentication.class));
+    final OwnerService service = new OwnerService(Mockito.mock(EntityClient.class), Mockito.mock(Authentication.class),
+       mockClient);
 
     List<MetadataChangeProposal> events =
         service.buildRemoveOwnersProposals(
@@ -176,9 +181,10 @@ public class OwnerServiceTest {
 
   @Test
   private void testRemoveOwnerNoExistingOwners() throws Exception {
-    EntityClient mockClient = createMockOwnersClient(null);
+    OpenApiClient mockClient = createMockOwnersClient(null);
 
-    final OwnerService service = new OwnerService(mockClient, Mockito.mock(Authentication.class));
+    final OwnerService service = new OwnerService(Mockito.mock(EntityClient.class), Mockito.mock(Authentication.class),
+        mockClient);
 
     Urn newTagUrn = UrnUtils.getUrn("urn:li:corpuser:newOwner");
     List<MetadataChangeProposal> events =
@@ -206,50 +212,5 @@ public class OwnerServiceTest {
         GenericRecordUtils.deserializeAspect(
             event2.getAspect().getValue(), event2.getAspect().getContentType(), Ownership.class);
     Assert.assertEquals(ownersAspect2.getOwners(), expected);
-  }
-
-  private static EntityClient createMockOwnersClient(@Nullable Ownership existingOwnership)
-      throws Exception {
-    return createMockEntityClient(existingOwnership, Constants.OWNERSHIP_ASPECT_NAME);
-  }
-
-  private static EntityClient createMockEntityClient(
-      @Nullable RecordTemplate aspect, String aspectName) throws Exception {
-    EntityClient mockClient = Mockito.mock(EntityClient.class);
-    Mockito.when(
-            mockClient.batchGetV2(
-                Mockito.eq(Constants.DATASET_ENTITY_NAME),
-                Mockito.eq(ImmutableSet.of(TEST_ENTITY_URN_1, TEST_ENTITY_URN_2)),
-                Mockito.eq(ImmutableSet.of(aspectName)),
-                Mockito.any(Authentication.class)))
-        .thenReturn(
-            aspect != null
-                ? ImmutableMap.of(
-                    TEST_ENTITY_URN_1,
-                    new EntityResponse()
-                        .setUrn(TEST_ENTITY_URN_1)
-                        .setEntityName(Constants.DATASET_ENTITY_NAME)
-                        .setAspects(
-                            new EnvelopedAspectMap(
-                                ImmutableMap.of(
-                                    aspectName,
-                                    new EnvelopedAspect().setValue(new Aspect(aspect.data()))))),
-                    TEST_ENTITY_URN_2,
-                    new EntityResponse()
-                        .setUrn(TEST_ENTITY_URN_2)
-                        .setEntityName(Constants.DATASET_ENTITY_NAME)
-                        .setAspects(
-                            new EnvelopedAspectMap(
-                                ImmutableMap.of(
-                                    aspectName,
-                                    new EnvelopedAspect().setValue(new Aspect(aspect.data()))))))
-                : Collections.emptyMap());
-    return mockClient;
-  }
-
-  private static Authentication mockAuthentication() {
-    Authentication mockAuth = Mockito.mock(Authentication.class);
-    Mockito.when(mockAuth.getActor()).thenReturn(new Actor(ActorType.USER, Constants.SYSTEM_ACTOR));
-    return mockAuth;
   }
 }

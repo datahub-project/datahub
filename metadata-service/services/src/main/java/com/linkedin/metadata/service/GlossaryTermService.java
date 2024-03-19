@@ -20,6 +20,7 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.schema.EditableSchemaFieldInfo;
 import com.linkedin.schema.EditableSchemaFieldInfoArray;
 import com.linkedin.schema.EditableSchemaMetadata;
+import io.datahubproject.openapi.client.OpenApiClient;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.List;
@@ -34,8 +35,9 @@ import lombok.extern.slf4j.Slf4j;
 public class GlossaryTermService extends BaseService {
 
   public GlossaryTermService(
-      @Nonnull EntityClient entityClient, @Nonnull Authentication systemAuthentication) {
-    super(entityClient, systemAuthentication);
+      @Nonnull EntityClient entityClient, @Nonnull Authentication systemAuthentication,
+      @Nonnull final OpenApiClient openApiClient) {
+    super(entityClient, systemAuthentication, openApiClient);
   }
 
   /**

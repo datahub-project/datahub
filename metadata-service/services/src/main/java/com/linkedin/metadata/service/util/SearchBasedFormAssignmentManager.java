@@ -10,6 +10,7 @@ import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.service.FormService;
 import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.openapi.client.OpenApiClient;
 import java.util.List;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
@@ -25,14 +26,15 @@ public class SearchBasedFormAssignmentManager {
       DynamicFormAssignment formFilters,
       Urn formUrn,
       int batchFormEntityCount,
-      EntityClient entityClient)
+      EntityClient entityClient,
+      OpenApiClient openApiClient)
       throws Exception {
 
     try {
       int totalResults = 0;
       int numResults = 0;
       String scrollId = null;
-      FormService formService = new FormService(opContext, entityClient);
+      FormService formService = new FormService(opContext, entityClient, openApiClient);
 
       do {
 

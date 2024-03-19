@@ -45,6 +45,7 @@ import com.linkedin.structured.StructuredPropertyValueAssignment;
 import com.linkedin.structured.StructuredPropertyValueAssignmentArray;
 import com.linkedin.test.TestInfo;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.openapi.client.OpenApiClient;
 import java.net.URISyntaxException;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -70,8 +71,9 @@ public class FormService extends BaseService {
   private final OperationContext systemOpContext;
 
   public FormService(
-      @Nonnull OperationContext systemOpContext, @Nonnull final EntityClient entityClient) {
-    super(entityClient, systemOpContext.getAuthentication());
+      @Nonnull OperationContext systemOpContext, @Nonnull final EntityClient entityClient,
+      @Nonnull final OpenApiClient openApiClient) {
+    super(entityClient, systemOpContext.getAuthentication(), openApiClient);
     this.systemOpContext = systemOpContext;
   }
 
@@ -195,7 +197,7 @@ public class FormService extends BaseService {
                   metadataTestUrn, TEST_INFO_ASPECT_NAME, testDefinition)),
           systemAuthentication);
       SearchBasedFormAssignmentRunner.assign(
-          systemOpContext, formFilters, formUrn, BATCH_FORM_ENTITY_COUNT, entityClient);
+          systemOpContext, formFilters, formUrn, BATCH_FORM_ENTITY_COUNT, entityClient, openApiClient);
     } catch (Exception e) {
       throw new RuntimeException(
           String.format("Failed to dynamically assign form with urn: %s", formUrn), e);

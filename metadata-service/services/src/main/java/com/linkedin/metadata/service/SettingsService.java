@@ -17,6 +17,7 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.settings.global.GlobalSettingsInfo;
+import io.datahubproject.openapi.client.OpenApiClient;
 import java.util.List;
 import java.util.Objects;
 import javax.annotation.Nonnull;
@@ -38,8 +39,9 @@ public class SettingsService extends BaseService {
 
   public SettingsService(
       @Nonnull final EntityClient entityClient,
-      @Nonnull final Authentication systemAuthentication) {
-    super(entityClient, systemAuthentication);
+      @Nonnull final Authentication systemAuthentication,
+      @Nonnull final OpenApiClient openApiClient) {
+    super(entityClient, systemAuthentication, openApiClient);
   }
 
   /**
