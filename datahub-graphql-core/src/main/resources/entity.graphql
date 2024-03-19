@@ -239,7 +239,7 @@ type Query {
 }
 
 """
-An ERModelRelationship is a high-level abstraction that dictates what datasets fields are ermodelrelationed.
+An ERModelRelationship is a high-level abstraction that dictates what datasets fields are erModelRelationshiped.
 """
 type ERModelRelationship implements EntityWithRelationships & Entity {
     """
@@ -343,7 +343,7 @@ type ERModelRelationshipProperties {
     destination: Dataset!
 
     """
-    The ermodelrelationFieldMappings
+    The relationFieldMappings
     """
     relationshipFieldMappings: [RelationshipFieldMapping!]
 
@@ -4715,14 +4715,14 @@ input DatasetEditablePropertiesUpdate {
 """
 Update to writable Dataset fields
 """
-input ERModelRelationEditablePropertiesUpdate {
+input ERModelRelationshipEditablePropertiesUpdate {
     """
-    Display name of the ERModelRelation
+    Display name of the ERModelRelationship
     """
     name: String
 
     """
-    Writable description for ERModelRelation
+    Writable description for ERModelRelationship
     """
     description: String!
 }
@@ -4846,63 +4846,63 @@ input CreateTagInput {
 }
 
 """
-Input required to create/update a new ERModelRelation
+Input required to create/update a new ERModelRelationship
 """
 input ERModelRelationshipUpdateInput {
     """
-    Details about the ERModelRelation
+    Details about the ERModelRelationship
     """
-    properties: ERModelRelationPropertiesInput
+    properties: ERModelRelationshipPropertiesInput
     """
     Update to editable properties
     """
-    editableProperties: ERModelRelationEditablePropertiesUpdate
+    editableProperties: ERModelRelationshipEditablePropertiesUpdate
 }
 
 """
-Details about the ERModelRelation
+Details about the ERModelRelationship
 """
-input ERModelRelationPropertiesInput {
+input ERModelRelationshipPropertiesInput {
     """
-    Details about the ERModelRelation
+    Details about the ERModelRelationship
     """
     name: String!
     """
-    Details about the ERModelRelation
+    Details about the ERModelRelationship
     """
     source: String!
     """
-    Details about the ERModelRelation
+    Details about the ERModelRelationship
     """
     destination: String!
     """
-    Details about the ERModelRelation
+    Details about the ERModelRelationship
     """
     relationshipFieldmappings: [RelationshipFieldMappingInput!]
     """
-    optional flag about the ERModelRelation is getting create
+    optional flag about the ERModelRelationship is getting create
     """
     created: Boolean
     """
-    optional field to prevent created time while the ERModelRelation is getting update
+    optional field to prevent created time while the ERModelRelationship is getting update
     """
     createdAt: Long
     """
-    optional field to prevent create actor while the ERModelRelation is getting update
+    optional field to prevent create actor while the ERModelRelationship is getting update
     """
     createdBy: String
 }
 
 """
-Details about the ERModelRelation
+Details about the ERModelRelationship
 """
 input RelationshipFieldMappingInput {
     """
-    Details about the ERModelRelation
+    Details about the ERModelRelationship
     """
     sourceField: String
     """
-    Details about the ERModelRelation
+    Details about the ERModelRelationship
     """
     destinationField: String
 }

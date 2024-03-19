@@ -6,8 +6,8 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.SetMode;
-import com.linkedin.datahub.graphql.generated.ERModelRelationEditablePropertiesUpdate;
-import com.linkedin.datahub.graphql.generated.ERModelRelationPropertiesInput;
+import com.linkedin.datahub.graphql.generated.ERModelRelationshipEditablePropertiesUpdate;
+import com.linkedin.datahub.graphql.generated.ERModelRelationshipPropertiesInput;
 import com.linkedin.datahub.graphql.generated.ERModelRelationshipUpdateInput;
 import com.linkedin.datahub.graphql.generated.RelationshipFieldMappingInput;
 import com.linkedin.datahub.graphql.types.common.mappers.util.UpdateMappingHelper;
@@ -56,7 +56,7 @@ public class ERModelRelationshipUpdateInputMapper
     }
     if (input.getEditableProperties() != null) {
       final EditableERModelRelationshipProperties editableERModelRelationProperties =
-          ermodelrelationEditablePropsSettings(input.getEditableProperties());
+          ermodelrelationshipEditablePropsSettings(input.getEditableProperties());
       proposals.add(
           updateMappingHelper.aspectToProposal(
               editableERModelRelationProperties,
@@ -66,7 +66,7 @@ public class ERModelRelationshipUpdateInputMapper
   }
 
   private ERModelRelationshipProperties createERModelRelationProperties(
-      ERModelRelationPropertiesInput inputProperties, AuditStamp auditstamp) {
+      ERModelRelationshipPropertiesInput inputProperties, AuditStamp auditstamp) {
     com.linkedin.ermodelrelation.ERModelRelationshipProperties ermodelrelationProperties =
         new com.linkedin.ermodelrelation.ERModelRelationshipProperties();
     if (inputProperties.getName() != null) {
@@ -174,8 +174,8 @@ public class ERModelRelationshipUpdateInputMapper
     return relationshipFieldMappingList;
   }
 
-  private static EditableERModelRelationshipProperties ermodelrelationEditablePropsSettings(
-      ERModelRelationEditablePropertiesUpdate editPropsInput) {
+  private static EditableERModelRelationshipProperties ermodelrelationshipEditablePropsSettings(
+      ERModelRelationshipEditablePropertiesUpdate editPropsInput) {
     final EditableERModelRelationshipProperties editableERModelRelationProperties =
         new EditableERModelRelationshipProperties();
     if (editPropsInput.getName() != null && editPropsInput.getName().trim().length() > 0) {

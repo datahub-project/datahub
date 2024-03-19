@@ -32,11 +32,11 @@ export const ERModelRelationshipPreviewCard = ({
                     name={name || ''}
                     urn={urn}
                     description={description || ''}
-                    logoComponent={<img src={ermodelrelationshipIcon} alt="ERModelRelation" style={{ fontSize: '20px' }} />}
+                    logoComponent={<img src={ermodelrelationshipIcon} alt="ERModelRelationship" style={{ fontSize: '20px' }} />}
                     tags={globalTags || undefined}
                     glossaryTerms={glossaryTerms || undefined}
                     owners={owners}
-                    type="ERModelRelation"
+                    type="ERModelRelationship"
                     typeIcon={entityRegistry.getIcon(EntityType.ErModelRelationship, 14, IconStyleType.ACCENT)}
                     titleSizePx={18}
                 />

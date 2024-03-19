@@ -36,25 +36,25 @@ export const ERModelRelationPreview = ({ ermodelrelationData, baseEntityUrn, pre
         ? getDatasetName(ermodelrelationData?.properties?.source)
         : getDatasetName(ermodelrelationData?.properties?.destination);
     const table1Name =
-        shuffleFlag && prePageType !== 'ERModelRelation'
+        shuffleFlag && prePageType !== 'ERModelRelationship'
             ? ermodelrelationData?.properties?.destination?.name
             : ermodelrelationData?.properties?.source?.name;
     const table2Name =
-        shuffleFlag && prePageType !== 'ERModelRelation'
+        shuffleFlag && prePageType !== 'ERModelRelationship'
             ? ermodelrelationData?.properties?.source?.name
             : ermodelrelationData?.properties?.destination?.name;
     const table1Urn =
-        shuffleFlag && prePageType !== 'ERModelRelation'
+        shuffleFlag && prePageType !== 'ERModelRelationship'
             ? ermodelrelationData?.properties?.destination?.urn
             : ermodelrelationData?.properties?.source?.urn;
     const table2Urn =
-        shuffleFlag && prePageType !== 'ERModelRelation'
+        shuffleFlag && prePageType !== 'ERModelRelationship'
             ? ermodelrelationData?.properties?.source?.urn
             : ermodelrelationData?.properties?.destination?.urn;
     const ermodelrelationHeader = ermodelrelationData?.editableProperties?.name || ermodelrelationData?.properties?.name || '';
     function getFieldMap(): ERModelRelationRecord[] {
         const newData = [] as ERModelRelationRecord[];
-        if (shuffleFlag && prePageType !== 'ERModelRelation') {
+        if (shuffleFlag && prePageType !== 'ERModelRelationship') {
             ermodelrelationData?.properties?.relationshipFieldMappings?.map((item) => {
                 return newData.push({
                     sourceField: item.destinationField,
@@ -78,7 +78,7 @@ export const ERModelRelationPreview = ({ ermodelrelationData, baseEntityUrn, pre
                     <div className="firstRow">
                         <div className="titleNameDisplay"> {table1EditableName || table1Name}</div>
                         <div>
-                            {prePageType === 'ERModelRelation' && (
+                            {prePageType === 'ERModelRelationship' && (
                                 <Button
                                     type="link"
                                     className="div-view-dataset"
@@ -166,7 +166,7 @@ export const ERModelRelationPreview = ({ ermodelrelationData, baseEntityUrn, pre
                     >
                         <div className="div-edit-img">
                             <img src={editIcon} alt="" /> <div className="div-edit">Edit ER-Model-Relationship</div>
-                            {prePageType === 'ERModelRelation' && <div className="extra-margin-rev" />}
+                            {prePageType === 'ERModelRelationship' && <div className="extra-margin-rev" />}
                         </div>
                     </Button>
                 </div>
