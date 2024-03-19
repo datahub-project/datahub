@@ -175,7 +175,9 @@ def get_query_fingerprint(
     return get_query_fingerprint_debug(expression, platform)[0]
 
 
-def try_format_query(expression: sqlglot.exp.ExpOrStr, platform: DialectOrStr) -> str:
+def try_format_query(
+    expression: sqlglot.exp.ExpOrStr, platform: DialectOrStr, raises: bool = False
+) -> str:
     """Format a SQL query.
 
     If the query cannot be formatted, the original query is returned unchanged.
@@ -183,6 +185,7 @@ def try_format_query(expression: sqlglot.exp.ExpOrStr, platform: DialectOrStr) -
     Args:
         expression: The SQL query to format.
         platform: The SQL dialect to use.
+        raises: If True, raise an error if the query cannot be formatted.
 
     Returns:
         The formatted SQL query.
@@ -193,6 +196,8 @@ def try_format_query(expression: sqlglot.exp.ExpOrStr, platform: DialectOrStr) -
         expression = parse_statement(expression, dialect=dialect)
         return expression.sql(dialect=dialect, pretty=True)
     except Exception as e:
+        if raises:
+            raise
         logger.debug("Failed to format query: %s", e)
         return _expression_to_string(expression, platform=platform)
 
