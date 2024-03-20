@@ -81,6 +81,7 @@ public class OpenApiClient {
         result.write(buffer, 0, length);
         length = contentStream.read(buffer);
       }
+      log.info("CONTENT STREAM OUTPUT: {}", result.toString(StandardCharsets.UTF_8)); // TODO: REMOVE
       serializedResponse =
           OBJECT_MAPPER.readValue(
               result.toString(StandardCharsets.UTF_8), BatchGetUrnResponse.class);
