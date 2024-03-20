@@ -56,7 +56,7 @@ export const CandleStick = ({ parentChartHeight, candleHeight, barWidth, shapeSi
 
     const candleGroup = (<Group opacity={opacity}>
         <Bar {...barProps} />
-        {shape.type == 'diamond' ? <GlyphDiamond
+        {shape.type === 'diamond' ? <GlyphDiamond
             {...shapeProps}
         /> : <GlyphCircle
             {...shapeProps}
