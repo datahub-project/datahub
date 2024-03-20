@@ -63,7 +63,6 @@ public class OpenApiClient {
     try {
       httpPost.setEntity(new StringEntity(OBJECT_MAPPER.writeValueAsString(request), ContentType.APPLICATION_JSON));
       httpPost.setHeader("Content-type", "application/json");
-      log.error("Executing post request: {}, {}", httpPost, httpPost.getEntity());
       return httpClient.execute(httpPost, OpenApiClient::mapResponse);
     } catch (IOException e) {
       log.error("Unable to execute Batch Get request for urn: " + request.getUrns(), e);
@@ -82,7 +81,6 @@ public class OpenApiClient {
         result.write(buffer, 0, length);
         length = contentStream.read(buffer);
       }
-      log.info("CONTENT STREAM OUTPUT: {}", result.toString(StandardCharsets.UTF_8)); // TODO: REMOVE
       serializedResponse =
           OBJECT_MAPPER.readValue(
               result.toString(StandardCharsets.UTF_8), BatchGetUrnResponse.class);

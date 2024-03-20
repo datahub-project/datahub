@@ -4,7 +4,6 @@ import com.datahub.util.RecordUtils;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
