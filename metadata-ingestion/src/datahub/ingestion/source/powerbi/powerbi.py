@@ -392,7 +392,7 @@ class Mapper:
                 env=self.__config.env,
             )
 
-            logger.debug(f"{Constant.Dataset_URN}={ds_urn}")
+            logger.debug(f"dataset_urn={ds_urn}")
             # Create datasetProperties mcp
             if table.expression:
                 view_properties = ViewPropertiesClass(
