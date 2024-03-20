@@ -2748,6 +2748,11 @@ type Container implements Entity {
     The forms associated with the Dataset
     """
     forms: Forms
+
+    """
+    Privileges given to a user relevant to this entity
+    """
+    privileges: EntityPrivileges
 }
 
 """
@@ -3792,6 +3797,11 @@ type CorpUser implements Entity {
     The forms associated with the Dataset
     """
     forms: Forms
+
+    """
+    Privileges given to a user relevant to this entity
+    """
+    privileges: EntityPrivileges
 }
 
 """
@@ -4168,6 +4178,11 @@ type CorpGroup implements Entity {
     The forms associated with the Dataset
     """
     forms: Forms
+
+    """
+    Privileges given to a user relevant to this entity
+    """
+    privileges: EntityPrivileges
 }
 
 """
@@ -6153,6 +6168,11 @@ type DataFlow implements EntityWithRelationships & Entity & BrowsableEntity {
     The forms associated with the Dataset
     """
     forms: Forms
+
+    """
+    Privileges given to a user relevant to this entity
+    """
+    privileges: EntityPrivileges
 }
 
 """
@@ -9340,6 +9360,11 @@ type MLModel implements EntityWithRelationships & Entity & BrowsableEntity {
     The forms associated with the Dataset
     """
     forms: Forms
+
+    """
+    Privileges given to a user relevant to this entity
+    """
+    privileges: EntityPrivileges
 }
 
 """
@@ -9467,6 +9492,11 @@ type MLModelGroup implements EntityWithRelationships & Entity & BrowsableEntity 
     The forms associated with the Dataset
     """
     forms: Forms
+
+    """
+    Privileges given to a user relevant to this entity
+    """
+    privileges: EntityPrivileges
 }
 
 type MLModelGroupProperties {
@@ -9607,6 +9637,11 @@ type MLFeature implements EntityWithRelationships & Entity {
     The forms associated with the Dataset
     """
     forms: Forms
+
+    """
+    Privileges given to a user relevant to this entity
+    """
+    privileges: EntityPrivileges
 }
 
 type MLHyperParam {
@@ -9792,6 +9827,11 @@ type MLPrimaryKey implements EntityWithRelationships & Entity {
     The forms associated with the Dataset
     """
     forms: Forms
+
+    """
+    Privileges given to a user relevant to this entity
+    """
+    privileges: EntityPrivileges
 }
 
 type MLPrimaryKeyProperties {
@@ -9935,6 +9975,11 @@ type MLFeatureTable implements EntityWithRelationships & Entity & BrowsableEntit
     The forms associated with the Dataset
     """
     forms: Forms
+
+    """
+    Privileges given to a user relevant to this entity
+    """
+    privileges: EntityPrivileges
 }
 
 type MLFeatureTableEditableProperties {
@@ -10342,6 +10387,11 @@ type Domain implements Entity {
     The forms associated with the Dataset
     """
     forms: Forms
+
+    """
+    Privileges given to a user relevant to this entity
+    """
+    privileges: EntityPrivileges
 }
 
 """
@@ -11755,6 +11805,11 @@ type DataProduct implements Entity {
     The forms associated with the Dataset
     """
     forms: Forms
+
+    """
+    Privileges given to a user relevant to this entity
+    """
+    privileges: EntityPrivileges
 }
 
 """

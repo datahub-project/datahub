@@ -257,6 +257,7 @@ import com.linkedin.datahub.graphql.resolvers.settings.view.GlobalViewsSettingsR
 import com.linkedin.datahub.graphql.resolvers.settings.view.UpdateGlobalViewsSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.step.BatchGetStepStatesResolver;
 import com.linkedin.datahub.graphql.resolvers.step.BatchUpdateStepStatesResolver;
+import com.linkedin.datahub.graphql.resolvers.structuredproperties.UpsertStructuredPropertiesResolver;
 import com.linkedin.datahub.graphql.resolvers.tag.CreateTagResolver;
 import com.linkedin.datahub.graphql.resolvers.tag.DeleteTagResolver;
 import com.linkedin.datahub.graphql.resolvers.tag.SetTagColorResolver;
@@ -844,6 +845,7 @@ public class GmsGraphQLEngine {
             typeWiring
                 .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
                 .dataFetcher("entities", new ContainerEntitiesResolver(entityClient))
+                .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
                 .dataFetcher(
                     "aspects", new WeaklyTypedAspectsResolver(entityClient, entityRegistry))
                 .dataFetcher("exists", new EntityExistsResolver(entityService))
@@ -1243,6 +1245,9 @@ public class GmsGraphQLEngine {
                 .dataFetcher(
                     "verifyForm", new VerifyFormResolver(this.formService, this.groupService))
                 .dataFetcher("batchRemoveForm", new BatchRemoveFormResolver(this.formService))
+                .dataFetcher(
+                    "upsertStructuredProperties",
+                    new UpsertStructuredPropertiesResolver(this.entityClient))
                 .dataFetcher("raiseIncident", new RaiseIncidentResolver(this.entityClient))
                 .dataFetcher(
                     "updateIncidentStatus",
@@ -1719,6 +1724,7 @@ public class GmsGraphQLEngine {
         typeWiring ->
             typeWiring
                 .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
+                .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
                 .dataFetcher(
                     "aspects", new WeaklyTypedAspectsResolver(entityClient, entityRegistry)));
     builder.type(
@@ -1741,6 +1747,7 @@ public class GmsGraphQLEngine {
         typeWiring ->
             typeWiring
                 .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
+                .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
                 .dataFetcher(
                     "aspects", new WeaklyTypedAspectsResolver(entityClient, entityRegistry))
                 .dataFetcher("exists", new EntityExistsResolver(entityService)));
@@ -2253,6 +2260,7 @@ public class GmsGraphQLEngine {
                         dataPlatformType,
                         (env) -> ((DataFlow) env.getSource()).getPlatform().getUrn()))
                 .dataFetcher("exists", new EntityExistsResolver(entityService))
+                .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
                 .dataFetcher(
                     "dataPlatformInstance",
                     new LoadableTypeResolver<>(
@@ -2300,6 +2308,7 @@ public class GmsGraphQLEngine {
                         new LoadableTypeResolver<>(
                             dataPlatformType,
                             (env) -> ((MLFeatureTable) env.getSource()).getPlatform().getUrn()))
+                    .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
                     .dataFetcher(
                         "dataPlatformInstance",
                         new LoadableTypeResolver<>(
@@ -2390,6 +2399,7 @@ public class GmsGraphQLEngine {
                         new LoadableTypeResolver<>(
                             dataPlatformType,
                             (env) -> ((MLModel) env.getSource()).getPlatform().getUrn()))
+                    .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
                     .dataFetcher(
                         "dataPlatformInstance",
                         new LoadableTypeResolver<>(
@@ -2438,6 +2448,7 @@ public class GmsGraphQLEngine {
                             dataPlatformType,
                             (env) -> ((MLModelGroup) env.getSource()).getPlatform().getUrn()))
                     .dataFetcher("exists", new EntityExistsResolver(entityService))
+                    .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
                     .dataFetcher(
                         "dataPlatformInstance",
                         new LoadableTypeResolver<>(
@@ -2463,6 +2474,7 @@ public class GmsGraphQLEngine {
                     .dataFetcher(
                         "aspects", new WeaklyTypedAspectsResolver(entityClient, entityRegistry))
                     .dataFetcher("exists", new EntityExistsResolver(entityService))
+                    .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
                     .dataFetcher(
                         "dataPlatformInstance",
                         new LoadableTypeResolver<>(
@@ -2479,6 +2491,7 @@ public class GmsGraphQLEngine {
                 typeWiring
                     .dataFetcher(
                         "relationships", new EntityRelationshipsResultResolver(graphClient))
+                    .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
                     .dataFetcher(
                         "lineage",
                         new EntityLineageResultResolver(
@@ -2521,6 +2534,7 @@ public class GmsGraphQLEngine {
             typeWiring
                 .dataFetcher("entities", new DomainEntitiesResolver(this.entityClient))
                 .dataFetcher("parentDomains", new ParentDomainsResolver(this.entityClient))
+                .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
                 .dataFetcher(
                     "aspects", new WeaklyTypedAspectsResolver(entityClient, entityRegistry))
                 .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient)));
@@ -2593,6 +2607,7 @@ public class GmsGraphQLEngine {
         typeWiring ->
             typeWiring
                 .dataFetcher("entities", new ListDataProductAssetsResolver(this.entityClient))
+                .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
                 .dataFetcher(
                     "aspects", new WeaklyTypedAspectsResolver(entityClient, entityRegistry))
                 .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient)));

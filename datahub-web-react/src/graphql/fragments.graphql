@@ -1393,3 +1393,12 @@ fragment formsFields on Forms {
         }
     }
 }
+
+fragment entityPrivileges on EntityPrivileges {
+    canEditLineage
+    canEditQueries
+    canEditEmbed
+    canManageEntity
+    canManageChildren
+    canEditProperties
+}
