@@ -61,7 +61,8 @@ public class OpenApiClient {
     HttpPost httpPost = new HttpPost(url);
     httpPost.setHeader(HttpHeaders.AUTHORIZATION, authCredentials);
     try {
-      httpPost.setEntity(new StringEntity(OBJECT_MAPPER.writeValueAsString(request)));
+      httpPost.setEntity(new StringEntity(OBJECT_MAPPER.writeValueAsString(request), ContentType.APPLICATION_JSON));
+      httpPost.setHeader("Content-type", "application/json");
       log.error("Executing post request: {}, {}", httpPost, httpPost.getEntity());
       return httpClient.execute(httpPost, OpenApiClient::mapResponse);
     } catch (IOException e) {
