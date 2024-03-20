@@ -10,7 +10,7 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.hc.client5.http.classic.methods.HttpGet;
+import org.apache.hc.client5.http.classic.methods.HttpPost;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.apache.hc.client5.http.impl.classic.HttpClientBuilder;
 import org.apache.hc.core5.http.ClassicHttpResponse;
@@ -56,11 +56,11 @@ public class OpenApiClient {
             + gmsPort
             + OPENAPI_PATH
             + entityName;
-    HttpGet httpGet = new HttpGet(url);
-    httpGet.setEntity(new SerializableEntity(request, ContentType.APPLICATION_JSON));
-    httpGet.setHeader(HttpHeaders.AUTHORIZATION, authCredentials);
+    HttpPost httpPost = new HttpPost(url);
+    httpPost.setEntity(new SerializableEntity(request, ContentType.APPLICATION_JSON));
+    httpPost.setHeader(HttpHeaders.AUTHORIZATION, authCredentials);
     try {
-      return httpClient.execute(httpGet, OpenApiClient::mapResponse);
+      return httpClient.execute(httpPost, OpenApiClient::mapResponse);
     } catch (IOException e) {
       log.error("Unable to execute Batch Get request for urn: " + request.getUrns(), e);
       throw new RuntimeException(e);
