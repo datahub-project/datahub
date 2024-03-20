@@ -21,7 +21,7 @@ export const StyledEntitySidebarContainer = styled.div<{
     &::-webkit-scrollbar {
         display: none;
     }
-    margin: 0px 0px 0px 0px;
+    margin: 12px 0px 12px 0px;
     transition: max-width 0.2s ease-in-out, min-width 0.2s ease-in-out;
 `;
 
@@ -34,7 +34,7 @@ export const StyledSidebar = styled.div`
     min-height: 100%;
     display: flex;
     flex-direction: column;
-    margin: 12px 0px 12px 12px;
+    margin: 0px 0px 0px 12px;
 `;
 
 const Controls = styled.div<{ isCollapsed: boolean }>`

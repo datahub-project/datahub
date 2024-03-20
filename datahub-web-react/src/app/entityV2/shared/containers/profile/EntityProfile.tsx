@@ -105,7 +105,7 @@ const ContentContainer = styled.div`
 const SidebarWrapper = styled.div`
     display: flex;
     flex-direction: column;
-    height: auto;
+    height: calc(100vh - 72px);
 `;
 
 const HeaderAndTabs = styled.div`

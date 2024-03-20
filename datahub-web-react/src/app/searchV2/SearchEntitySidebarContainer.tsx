@@ -6,18 +6,11 @@ import EntitySidebarContext from '../shared/EntitySidebarContext';
 import { useEntityRegistry } from '../useEntityRegistry';
 
 const SidebarContainer = styled.div`
-    height: calc(100vh - 125px - 40px - 20px - 10px);
+    height: calc(100vh - 125px - 20px - 10px);
     display: flex;
     flex-direction: column;
     position: sticky;
     top: 0;
-
-    // hide the scrollbar
-    ::-webkit-scrollbar {
-        display: none; /* for Chrome, Safari and Opera */
-    }
-    -ms-overflow-style: none; /* IE and Edge */
-    scrollbar-width: none; /* Firefox */
 `;
 
 interface Props {

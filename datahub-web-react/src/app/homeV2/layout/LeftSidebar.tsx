@@ -17,6 +17,7 @@ const Container = styled.div`
     max-width: 380px;
     overflow-y: auto;
     padding: 0px 12px 12px 0px;
+    height: calc(100vh - 72px);
     /* Hide scrollbar for Chrome, Safari, and Opera */
     &::-webkit-scrollbar {
         display: none;
@@ -31,7 +32,7 @@ const Content = styled.div`
 `;
 
 const Body = styled.div`
-    padding: 12px 20px 12px 20px;
+    padding: 12px 20px 0px 20px;
 `;
 
 type ReferenceSection = {

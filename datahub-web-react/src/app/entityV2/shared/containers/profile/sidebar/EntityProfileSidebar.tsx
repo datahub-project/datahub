@@ -36,7 +36,7 @@ export const StyledSidebar = styled.div<{ isCard: boolean; isFocused?: boolean; 
     border-radius: ${(props) => (props.isCard || props.isInSearch ? '8px' : 'none')};
     border: none;
     overflow: hidden;
-    min-height: 100%;
+    height: 100%;
     display: flex;
     border-top: ${(props) => (props.isFocused ? `1px solid ${SEARCH_COLORS.TITLE_PURPLE}` : 'inherit')};
     border-top-width: ${(props) => (props.isFocused ? 'medium' : 'inherit')};
@@ -46,7 +46,6 @@ const Body = styled.div`
     display: flex;
     align-items: space-between;
     justify-content: start;
-    min-height: 100%;
     flex: 1;
 `;
 
@@ -62,7 +61,15 @@ const Content = styled.div`
 const ContentContainer = styled.div<{ isVisible: boolean }>`
     flex: 1;
     ${(props) => props.isVisible && 'border-right: 1px solid #e8e8e8;'}
-    overflow: inherit;
+    overflow: auto;
+
+    /* hide the scrollbar */
+
+    ::-webkit-scrollbar {
+        display: none; /* for Chrome, Safari and Opera */
+    }
+    -ms-overflow-style: none; /* IE and Edge */
+    scrollbar-width: none; /* Firefox */
 `;
 
 const TabsContainer = styled.div``;
