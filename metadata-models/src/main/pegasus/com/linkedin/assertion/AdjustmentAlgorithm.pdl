@@ -1,0 +1,10 @@
+namespace com.linkedin.assertion
+
+/**
+ * The adjustment algorithm to use when determining the threshold for an assertion.
+ */
+enum AdjustmentAlgorithm {
+
+  CUSTOM
+
+}

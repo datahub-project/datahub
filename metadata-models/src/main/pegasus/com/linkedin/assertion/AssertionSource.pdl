@@ -24,4 +24,10 @@ record AssertionSource {
        */
       INFERRED
     }
+
+    /**
+      * The details of an assertion that was inferred.
+      * This field is only present if the sourceType is INFERRED.
+      */
+    assertionInferenceDetails: optional AssertionInferenceDetails
 }

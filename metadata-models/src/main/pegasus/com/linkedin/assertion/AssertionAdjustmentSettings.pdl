@@ -1,0 +1,24 @@
+namespace com.linkedin.assertion
+
+/**
+* A set of settings that can be used to adjust assertion values
+* This is mainly applied against inferred assertions
+**/
+record AssertionAdjustmentSettings  {
+
+  /**
+  * The algorithm to use to adjust assertion values to power the sensitivity control feature
+  **/
+  algorithm: AdjustmentAlgorithm
+
+  /**
+  * The name of the algorithm to use to adjust assertion values to power the sensitivity control feature
+  **/
+  algorithmName: string
+
+  /**
+  * The context to use to adjust assertion values
+  **/
+  context: optional map[string, string]
+
+}

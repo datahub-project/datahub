@@ -5,7 +5,7 @@ import com.linkedin.monitor.AssertionEvaluationParameters
 /**
  * The result of running an assertion
  */
-record AssertionResult includes AssertionWithoutAnnotations {
+record AssertionResult includes AssertionWithoutAnnotations, BaseAssertionWithoutAnnotations {
   /**
   *  The final result, e.g. either SUCCESS, FAILURE, or ERROR.
   */
@@ -52,4 +52,13 @@ record AssertionResult includes AssertionWithoutAnnotations {
    * Acryl Only! The parameters that were used for running the assertion.
    */
   parameters: optional AssertionEvaluationParameters
+
+  /**
+    * The optional AssertionInferenceDetails which contains the settings used for the inferred assertion.
+    * This field is used to store the settings used for the smart assertion.
+    * It is optional and may not always be present in the AssertionRunEvent record.
+    * When present, it provides additional context about the settings used for the smart assertion.
+    */
+  assertionInferenceDetails: optional AssertionInferenceDetails
+
 }

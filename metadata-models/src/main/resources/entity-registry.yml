@@ -339,6 +339,7 @@ entities:
       - assertionActions
       - status
       - assertionDryRunEvent # Acryl-Only (Observe)
+      - assertionInferenceDetails # Acryl-Only (Observe)
   - name: dataHubRetention
     category: internal
     keyAspect: dataHubRetentionKey
