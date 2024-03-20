@@ -493,6 +493,7 @@ class Dataset(BaseModel):
         else:
             return None
 
+    @staticmethod
     def extract_owners_if_exists(
         owners: Optional[OwnershipClass],
     ) -> Optional[List[Union[str, Ownership]]]:
