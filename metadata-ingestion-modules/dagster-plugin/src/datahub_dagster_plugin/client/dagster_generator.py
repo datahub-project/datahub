@@ -74,6 +74,16 @@ class DagsterSourceConfig(DatasetSourceConfigMixin):
         description="Dagster UI URL. Like: https://myDagsterCloudEnvironment.dagster.cloud/prod",
     )
 
+    capture_asset_materialization: bool = pydantic.Field(
+        default=True,
+        description="Whether to capture asset keys as Dataset on AssetMaterialization event",
+    )
+
+    capture_input_output: bool = pydantic.Field(
+        default=False,
+        description="Whether to capture and try to parse input and output from HANDLED_OUTPUT,.LOADED_INPUT event. (currently only filepathvalue metadata supported",
+    )
+
 
 def _str_urn_to_dataset_urn(urns: List[str]) -> List[DatasetUrn]:
     return [DatasetUrn.create_from_string(urn) for urn in urns]
