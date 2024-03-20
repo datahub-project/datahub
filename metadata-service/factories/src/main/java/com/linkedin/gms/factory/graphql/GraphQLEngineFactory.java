@@ -28,6 +28,7 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.recommendation.RecommendationsService;
 import com.linkedin.metadata.secret.SecretService;
 import com.linkedin.metadata.service.DataProductService;
+import com.linkedin.metadata.service.ERModelRelationshipService;
 import com.linkedin.metadata.service.FormService;
 import com.linkedin.metadata.service.LineageService;
 import com.linkedin.metadata.service.OwnershipTypeService;
@@ -161,6 +162,10 @@ public class GraphQLEngineFactory {
   private QueryService queryService;
 
   @Autowired
+  @Qualifier("erModelRelationshipService")
+  private ERModelRelationshipService erModelRelationshipService;
+
+  @Autowired
   @Qualifier("dataProductService")
   private DataProductService dataProductService;
 
@@ -216,6 +221,7 @@ public class GraphQLEngineFactory {
     args.setSettingsService(settingsService);
     args.setLineageService(lineageService);
     args.setQueryService(queryService);
+    args.setErModelRelationshipService(erModelRelationshipService);
     args.setFeatureFlags(configProvider.getFeatureFlags());
     args.setFormService(formService);
     args.setRestrictedService(restrictedService);
